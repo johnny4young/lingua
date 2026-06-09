@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react';
 import { CommandPalette } from './CommandPalette/CommandPalette';
 import { GoToSymbol } from './GoToSymbol/GoToSymbol';
 import { ProjectSearch } from './ProjectSearch/ProjectSearch';
@@ -18,20 +17,12 @@ import { WhatsNewSection } from './Settings/WhatsNewSection';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
 import { CHANGELOG_ENTRIES } from '../data/changelog';
 import { type DeveloperUtilityId } from '../data/developerUtilities';
-import {
-  openHttpWorkspaceTab,
-  openSqlWorkspaceTab,
-} from '../runtime/openWorkspaceTab';
+import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { useRecipeStore } from '../stores/recipeStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
 import type { AppOverlay } from '../hooks/useGlobalShortcuts';
-
-const DeveloperUtilitiesModal = lazy(async () => {
-  const module = await import('./DeveloperUtilities');
-  return { default: module.DeveloperUtilitiesModal };
-});
 
 /**
  * RL-039 Slice B — Recipes overlay mount. Visibility flag lives on
@@ -41,8 +32,8 @@ const DeveloperUtilitiesModal = lazy(async () => {
  * its binding).
  */
 function RecipesOverlayMount() {
-  const overlayOpen = useRecipeStore((s) => s.overlayOpen);
-  const closeOverlay = useRecipeStore((s) => s.closeOverlay);
+  const overlayOpen = useRecipeStore(s => s.overlayOpen);
+  const closeOverlay = useRecipeStore(s => s.closeOverlay);
   if (!overlayOpen) return null;
   return <RecipesOverlay onClose={closeOverlay} />;
 }
@@ -57,14 +48,10 @@ function RecipesOverlayMount() {
  */
 export interface AppOverlaysProps {
   overlay: AppOverlay;
-  openOverlay: (
-    overlay: Exclude<AppOverlay, 'none'>,
-    utilityId?: DeveloperUtilityId
-  ) => void;
+  openOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
   closeOverlay: () => void;
   onStartGuidedTour: () => void;
   onOpenDeveloperUtility: (utilityId?: DeveloperUtilityId) => void;
-  selectedUtilityId: DeveloperUtilityId;
   run: () => void | Promise<void>;
   isRunning: boolean;
   exportProjectBundle: () => void | Promise<void>;
@@ -76,7 +63,6 @@ export function AppOverlays({
   closeOverlay,
   onStartGuidedTour,
   onOpenDeveloperUtility,
-  selectedUtilityId,
   run,
   isRunning,
   exportProjectBundle,
@@ -109,10 +95,10 @@ export function AppOverlays({
             openSqlWorkspaceTab();
           }}
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
-          onOpenDeveloperUtility={(utilityId) => onOpenDeveloperUtility(utilityId)}
+          onOpenDeveloperUtility={utilityId => onOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
           onRerunLast={() => void run()}
-          onReplayEntry={(entry) => {
+          onReplayEntry={entry => {
             // Gate telemetry on the actual replay dispatch so a refused
             // call (already-running, no-snapshot, open-failed) does
             // not inflate adoption counts. Same pattern in the pill +
@@ -141,21 +127,11 @@ export function AppOverlays({
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}
-      {overlay === 'project-templates' && (
-        <ProjectTemplatesOverlay onClose={closeOverlay} />
-      )}
-      {overlay === 'capsule-import' && (
-        <CapsuleImportOverlay onClose={closeOverlay} />
-      )}
-      {overlay === 'capsule-list' && (
-        <CapsuleListOverlay onClose={closeOverlay} />
-      )}
-      {overlay === 'import-preview' && (
-        <ImportPreviewOverlay onClose={closeOverlay} />
-      )}
-      {overlay === 'project-bundle-import' && (
-        <ProjectBundleImportOverlay onClose={closeOverlay} />
-      )}
+      {overlay === 'project-templates' && <ProjectTemplatesOverlay onClose={closeOverlay} />}
+      {overlay === 'capsule-import' && <CapsuleImportOverlay onClose={closeOverlay} />}
+      {overlay === 'capsule-list' && <CapsuleListOverlay onClose={closeOverlay} />}
+      {overlay === 'import-preview' && <ImportPreviewOverlay onClose={closeOverlay} />}
+      {overlay === 'project-bundle-import' && <ProjectBundleImportOverlay onClose={closeOverlay} />}
       {/* RL-039 Slice B — Recipes overlay. Visibility flag lives on
           `useRecipeStore` (not the AppOverlay union) so the overlay
           can co-exist with a recipe-bound tab being active. */}
@@ -172,18 +148,7 @@ export function AppOverlays({
         <WhatsNewSection entries={CHANGELOG_ENTRIES} onClose={closeOverlay} />
       )}
       {overlay === 'snippets' && <SnippetsModal onClose={closeOverlay} />}
-      {overlay === 'utilities' && (
-        <Suspense fallback={null}>
-          <DeveloperUtilitiesModal
-            key={selectedUtilityId}
-            onClose={closeOverlay}
-            initialUtilityId={selectedUtilityId}
-          />
-        </Suspense>
-      )}
-      {overlay === 'keyboard-shortcuts' && (
-        <KeyboardShortcutsModal onClose={closeOverlay} />
-      )}
+      {overlay === 'keyboard-shortcuts' && <KeyboardShortcutsModal onClose={closeOverlay} />}
     </>
   );
 }

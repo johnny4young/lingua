@@ -16,16 +16,57 @@ import {
 } from '../../../src/renderer/stores/utilityPipelineStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
+import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { createBlankPipeline, createBlankStep } from '../../../src/shared/utilityPipeline';
+
+function setFreeTier() {
+  useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+}
+
+function setProTier() {
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'pipeline@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
+}
 
 beforeEach(() => {
   localStorage.clear();
   resetUtilityPipelineStoreForTests();
   useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'declined' });
   useUIStore.setState({ statusNotice: null });
+  setProTier();
 });
 
 describe('UtilityPipelinePanel', () => {
+  it('renders a locked workflow card on Free', async () => {
+    setFreeTier();
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+
+    expect(screen.getByTestId('utility-pipeline-locked')).toBeTruthy();
+    expect(screen.queryByTestId('utility-pipeline-panel')).toBeNull();
+
+    await user.click(screen.getByTestId('utility-pipeline-unlock'));
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+  });
+
   it('renders the empty state when no pipeline is selected', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('utility-pipeline-panel')).toBeTruthy();
@@ -61,7 +102,7 @@ describe('UtilityPipelinePanel', () => {
     });
     const outputs = screen
       .getAllByTestId('utility-pipeline-result-output')
-      .map((el) => el.textContent ?? '');
+      .map(el => el.textContent ?? '');
     expect(outputs[0]).toContain('{"a":1}');
     expect(outputs[1]).toContain('"a": 1');
   });

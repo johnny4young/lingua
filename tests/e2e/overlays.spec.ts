@@ -41,13 +41,14 @@ test.describe('Command palette', () => {
     await openCommandPalette(page);
     await paletteInput(page).fill('snippets');
     await expect(
-      page.locator('[data-result-index]').filter({ hasText: /Open Snippets/i }).first()
+      page
+        .locator('[data-result-index]')
+        .filter({ hasText: /Open Snippets/i })
+        .first()
     ).toBeVisible();
 
     await paletteInput(page).fill('layout');
-    await expect(
-      page.getByRole('button', { name: /Layout: Horizontal Split/i })
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /Layout: Horizontal Split/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Layout: Vertical Split/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Layout: Editor Only/i })).toBeVisible();
 
@@ -55,7 +56,7 @@ test.describe('Command palette', () => {
     await expect(paletteInput(page)).toBeHidden();
   });
 
-  test('What\'s New palette entry opens the release notes overlay', async ({ page }) => {
+  test("What's New palette entry opens the release notes overlay", async ({ page }) => {
     await openPaletteAction(page, 'whats new', /What's New/i);
     await expect(
       page.getByRole('heading', { name: 'Release notes and recent changes' })
@@ -66,9 +67,7 @@ test.describe('Command palette', () => {
   test('developer utility aliases open the matching utility action', async ({ page }) => {
     await openPaletteAction(page, 'b64', /Open Base64 Encoder/i);
 
-    await expect(
-      page.getByRole('heading', { name: 'Base64 Encoder', exact: true })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Base64 Encoder', exact: true })).toBeVisible();
     await closeDeveloperUtilities(page);
   });
 
@@ -122,12 +121,8 @@ test.describe('Snippets modal', () => {
     // Seeded snippets must be in the list (proves store rehydration). Scope
     // to the sidebar buttons so we don't collide with the detail heading
     // that repeats the label once a snippet is selected.
-    await expect(
-      page.getByRole('button', { name: 'Seed snippet 1 Seeded snippet' })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Seed snippet 2 Seeded snippet' })
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Seed snippet 1 Seeded snippet' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Seed snippet 2 Seeded snippet' })).toBeVisible();
 
     await closeSnippets(page);
     // The tab the user was editing must still be focused.
@@ -135,7 +130,7 @@ test.describe('Snippets modal', () => {
   });
 });
 
-test.describe('Developer utilities modal (Pro)', () => {
+test.describe('Developer utilities workspace (Pro)', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
@@ -144,25 +139,19 @@ test.describe('Developer utilities modal (Pro)', () => {
 
   test('opens from the global Mod+K shortcut', async ({ page }) => {
     await page.getByTestId('action-pill-utilities').hover();
-    await expect(
-      page.getByRole('tooltip', { name: /Developer utilities/u })
-    ).toBeVisible();
+    await expect(page.getByRole('tooltip', { name: /Developer utilities/u })).toBeVisible();
 
     await page.keyboard.press('Control+K');
-    await expect(page.getByTestId('developer-utilities-modal')).toBeVisible();
+    await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
     await expect(page.getByTestId('utilities-search-input')).toBeFocused();
 
     await page.keyboard.press('ArrowDown');
     await expect(page.getByTestId('utility-item-base64')).toBeFocused();
-    await expect(
-      page.getByRole('heading', { name: 'Base64 Encoder', exact: true })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Base64 Encoder', exact: true })).toBeVisible();
 
     await page.keyboard.press('ArrowDown');
     await expect(page.getByTestId('utility-item-url')).toBeFocused();
-    await expect(
-      page.getByRole('heading', { name: 'URL Encoder', exact: true })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'URL Encoder', exact: true })).toBeVisible();
 
     await expect(
       page.getByRole('heading', { name: 'Built-in utilities', exact: true })
@@ -183,9 +172,7 @@ test.describe('Developer utilities modal (Pro)', () => {
     await page.getByTestId('utilities-search-input').fill('b64');
     await expect(page.getByTestId('utility-item-base64')).toBeVisible();
     await page.getByTestId('utility-item-base64').click();
-    await expect(
-      page.getByRole('heading', { name: 'Base64 Encoder', exact: true })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Base64 Encoder', exact: true })).toBeVisible();
 
     const expectedOutput = 'TGluZ3VhIHV0aWxpdGllcw==';
 
@@ -198,8 +185,7 @@ test.describe('Developer utilities modal (Pro)', () => {
     ).toBeVisible();
 
     await page.evaluate(() => navigator.clipboard.writeText('old clipboard'));
-    const replaceShortcut =
-      process.platform === 'darwin' ? 'Meta+Alt+R' : 'Control+Alt+R';
+    const replaceShortcut = process.platform === 'darwin' ? 'Meta+Alt+R' : 'Control+Alt+R';
     await page.keyboard.press(replaceShortcut);
     await expect
       .poll(() => page.evaluate(() => navigator.clipboard.readText()))
@@ -269,9 +255,11 @@ test.describe('Developer utilities modal (Pro)', () => {
 
     await page.getByTestId('beautify-minify-language').selectOption('css');
     await page.getByTestId('beautify-minify-mode').selectOption('minify');
-    await page.getByTestId('beautify-minify-input').fill(
-      '/* header */\n.x {\n  color: red;\n  content: "  keep  spaces  ";\n  background: url("path.png");\n}'
-    );
+    await page
+      .getByTestId('beautify-minify-input')
+      .fill(
+        '/* header */\n.x {\n  color: red;\n  content: "  keep  spaces  ";\n  background: url("path.png");\n}'
+      );
 
     const output = page.getByTestId('beautify-minify-output');
     await expect(output).toHaveValue(
@@ -294,9 +282,7 @@ test.describe('Developer utilities modal (Pro)', () => {
       .fill('<!-- note --><root>\n  <child><![CDATA[  raw <tags>  ]]></child>\n</root>');
 
     const output = page.getByTestId('beautify-minify-output');
-    await expect(output).toHaveValue(
-      '<root><child><![CDATA[  raw <tags>  ]]></child></root>'
-    );
+    await expect(output).toHaveValue('<root><child><![CDATA[  raw <tags>  ]]></child></root>');
 
     await closeDeveloperUtilities(page);
   });
@@ -311,14 +297,12 @@ test.describe('Developer utilities modal (Pro)', () => {
     await page.getByTestId('hash-input-text').fill('abc');
 
     await page.getByTestId('hash-algorithm').selectOption('MD5');
-    await expect(page.getByTestId('hash-output')).toHaveValue(
-      '900150983cd24fb0d6963f7d28e17f72',
-    );
+    await expect(page.getByTestId('hash-output')).toHaveValue('900150983cd24fb0d6963f7d28e17f72');
 
     await page.getByTestId('hash-algorithm').selectOption('SHA-384');
     // SHA-384("abc") — canonical NIST test vector, 96 hex chars.
     await expect(page.getByTestId('hash-output')).toHaveValue(
-      'cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7',
+      'cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7'
     );
 
     // Flip to HMAC mode; MD5 must be gone from the dropdown, a Key field
@@ -328,7 +312,7 @@ test.describe('Developer utilities modal (Pro)', () => {
     await page.getByTestId('hash-hmac-key').fill('key');
     await page.getByTestId('hash-algorithm').selectOption('SHA-256');
     await expect(page.getByTestId('hash-output')).toHaveValue(
-      'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8',
+      'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8'
     );
 
     await closeDeveloperUtilities(page);
@@ -516,7 +500,7 @@ test.describe('Developer utilities modal (Pro)', () => {
 
     await page.getByTestId('curl-to-code-target').selectOption('requests');
     await expect(output).toHaveValue(
-      /requests\.request\("POST", "https:\/\/api\.example\.com\/users"/,
+      /requests\.request\("POST", "https:\/\/api\.example\.com\/users"/
     );
 
     await page.getByTestId('curl-to-code-target').selectOption('net-http');
@@ -649,7 +633,7 @@ test.describe('Developer utilities modal (Pro)', () => {
     // Feed a malformed \x sequence — the error banner replaces the output.
     await input.fill('a\\x1');
     await expect(page.getByTestId('backslash-escape-error')).toContainText(
-      'Expected two hex digits',
+      'Expected two hex digits'
     );
 
     // Switch to Python preset, back to Escape, and verify octal-capable
@@ -704,7 +688,7 @@ test.describe('Developer utilities modal (Pro)', () => {
     await expect(page.getByTestId('string-inspector-graphemes')).toHaveText('3');
     // The invisible character becomes a dedicated row with category=invisible.
     await expect(
-      page.locator('[data-testid="string-inspector-row"][data-category="invisible"]'),
+      page.locator('[data-testid="string-inspector-row"][data-category="invisible"]')
     ).toBeVisible();
 
     await closeDeveloperUtilities(page);
@@ -783,7 +767,7 @@ test.describe('Developer utilities modal (Pro)', () => {
       const keyPair = await crypto.subtle.generateKey(
         { name: 'ECDSA', namedCurve: 'P-256' },
         true,
-        ['sign', 'verify'],
+        ['sign', 'verify']
       );
       const privateJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
       const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
@@ -830,9 +814,7 @@ test.describe('Developer utilities modal (Pro)', () => {
     await expect(page.getByTestId('diff-result-line')).toHaveCount(0);
     // The seeded inputs introduce new words on the right side — at least
     // one `add` segment must render inline.
-    await expect(
-      page.getByTestId('diff-segment-add').first()
-    ).toBeVisible();
+    await expect(page.getByTestId('diff-segment-add').first()).toBeVisible();
 
     await page.getByTestId('diff-granularity-select').selectOption('character');
     await expect(page.getByTestId('diff-result-inline')).toBeVisible();
@@ -937,8 +919,8 @@ test.describe('Upsell notice banner', () => {
     await gotoApp(page);
     await expectTier(page, 'FREE');
 
-    await page.getByRole('button', { name: 'Developer utilities' }).click();
-    await expectNoticeContains(page, 'built-in developer utilities');
+    await page.keyboard.press('ControlOrMeta+Shift+G');
+    await expectNoticeContains(page, 'utility workflows');
 
     const dismiss = page.getByRole('button', { name: /dismiss notice/i });
     await dismiss.click();

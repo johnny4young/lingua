@@ -1,4 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -47,18 +53,15 @@ export function MarkdownPreviewPanel() {
     };
   }, [input, gfm]);
 
-  const registerOutput = useCallback(
-    () => (result && result.ok ? result.html : null),
-    [result]
-  );
+  const registerOutput = useCallback(() => (result && result.ok ? result.html : null), [result]);
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
-    setInput((prev) => prev);
+    setInput(prev => prev);
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.markdownPreview.title')}
         description={t('utilities.tool.markdownPreview.panelDescription')}
@@ -68,7 +71,7 @@ export function MarkdownPreviewPanel() {
             type="checkbox"
             data-testid="markdown-preview-gfm"
             checked={gfm}
-            onChange={(event) => setGfm(event.target.checked)}
+            onChange={event => setGfm(event.target.checked)}
           />
           <span>{t('utilities.tool.markdownPreview.gfm.label')}</span>
         </label>
@@ -78,7 +81,7 @@ export function MarkdownPreviewPanel() {
             aria-label={t('utilities.tool.markdownPreview.input.label')}
             data-testid="markdown-preview-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             spellCheck={false}
             className="min-h-[18rem] font-mono"
           />

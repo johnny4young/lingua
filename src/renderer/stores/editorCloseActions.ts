@@ -8,10 +8,7 @@ import { useNotebookStore } from './notebookStore';
 import { trackEvent } from '../utils/telemetry';
 import { defaultWorkflowMode, type WorkflowMode } from '../../shared/workflowMode';
 import type { EditorGet, EditorSet } from './editorStoreContext';
-import {
-  runtimeModeForRestoredTab,
-  workflowModeForRestoredTab,
-} from './editorModeHelpers';
+import { runtimeModeForRestoredTab, workflowModeForRestoredTab } from './editorModeHelpers';
 import {
   dropAutoLogIfUnsupported,
   dropCompareIfLanguageChanged,
@@ -46,9 +43,9 @@ export function createCloseActions(
   'closeTab' | 'renameTab' | 'closeOtherTabs' | 'closeTabsToRight' | 'closeAllTabs'
 > {
   return {
-    closeTab: async (id) => {
+    closeTab: async id => {
       const { tabs, removeTab, saveTabById } = get();
-      const tab = tabs.find((t) => t.id === id);
+      const tab = tabs.find(t => t.id === id);
       if (!tab) return true;
 
       if (!tab.isDirty) {
@@ -57,10 +54,7 @@ export function createCloseActions(
       }
 
       // Show confirmation dialog
-      const response = await window.lingua.confirmCloseTab(
-        tab.name,
-        getActiveAppLanguage()
-      );
+      const response = await window.lingua.confirmCloseTab(tab.name, getActiveAppLanguage());
       if (response === 0) {
         const saved = await saveTabById(id);
         if (!saved) return false;
@@ -89,8 +83,8 @@ export function createCloseActions(
     renameTab: (id, name) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      const existingTab = get().tabs.find((tab) => tab.id === id);
-      // SQL/HTTP MODEL rework — a SQL / HTTP workspace tab always shows the
+      const existingTab = get().tabs.find(tab => tab.id === id);
+      // SQL/HTTP MODEL rework — a SQL / HTTP / Utilities workspace tab always shows the
       // fixed "SQL" / "HTTP" workspace label + kind glyph, never a query /
       // request name (those are renamed in the rail). Refuse a tab rename
       // so an inline F2 / double-click can't drift the workspace label.
@@ -98,8 +92,8 @@ export function createCloseActions(
       if (existingTab?.kind === 'notebook') {
         const title = normalizeNotebookTitle(trimmed);
         const name = notebookFileNameForTitle(title);
-        set((state) => ({
-          tabs: state.tabs.map((tab) => {
+        set(state => ({
+          tabs: state.tabs.map(tab => {
             if (tab.id !== id) return tab;
             if (tab.name === name) return tab;
             return {
@@ -128,19 +122,15 @@ export function createCloseActions(
       // snapshot below.
       let activeTabLanguageChanged = false;
       let tabLanguageChanged = false;
-      set((state) => {
-        const next = state.tabs.map((tab) => {
+      set(state => {
+        const next = state.tabs.map(tab => {
           if (tab.id !== id) return tab;
           if (tab.name === trimmed) return tab;
           const language = resolveFileLanguageOrPlaintext(trimmed);
           const previousLanguage = tab.language;
           const runtimeMode = runtimeModeForRestoredTab(language, tab.runtimeMode);
-          const previousWorkflow =
-            tab.workflowMode ?? defaultWorkflowMode(tab.language);
-          const workflowMode = workflowModeForRestoredTab(
-            language,
-            tab.workflowMode
-          );
+          const previousWorkflow = tab.workflowMode ?? defaultWorkflowMode(tab.language);
+          const workflowMode = workflowModeForRestoredTab(language, tab.workflowMode);
           if (previousWorkflow !== workflowMode) {
             correctionsToEmit.push({
               language,
@@ -148,10 +138,7 @@ export function createCloseActions(
               to: workflowMode,
             });
           }
-          if (
-            previousLanguage !== language &&
-            state.activeTabId === tab.id
-          ) {
+          if (previousLanguage !== language && state.activeTabId === tab.id) {
             activeTabLanguageChanged = true;
           }
           if (previousLanguage !== language) {
@@ -217,7 +204,7 @@ export function createCloseActions(
         useDependencyDetectionStore.getState().evictTab(id);
       }
       if (tabLanguageChanged) {
-        const renamedTab = get().tabs.find((tab) => tab.id === id);
+        const renamedTab = get().tabs.find(tab => tab.id === id);
         if (renamedTab?.recipeBindingId === undefined) {
           useRecipeStore.getState().unbindRecipe(id);
         }
@@ -239,9 +226,9 @@ export function createCloseActions(
      * unsaved work via this bulk action even when triggered by a
      * single context-menu click.
      */
-    closeOtherTabs: async (id) => {
+    closeOtherTabs: async id => {
       const { tabs, closeTab } = get();
-      const targets = tabs.filter((tab) => tab.id !== id).map((tab) => tab.id);
+      const targets = tabs.filter(tab => tab.id !== id).map(tab => tab.id);
       for (const tabId of targets) {
         const closed = await closeTab(tabId);
         if (!closed) break;
@@ -252,11 +239,11 @@ export function createCloseActions(
      * Close every tab to the right of the supplied id, preserving the
      * pivot. Same dirty-check contract as `closeOtherTabs`.
      */
-    closeTabsToRight: async (id) => {
+    closeTabsToRight: async id => {
       const { tabs, closeTab } = get();
-      const pivot = tabs.findIndex((tab) => tab.id === id);
+      const pivot = tabs.findIndex(tab => tab.id === id);
       if (pivot < 0) return;
-      const targets = tabs.slice(pivot + 1).map((tab) => tab.id);
+      const targets = tabs.slice(pivot + 1).map(tab => tab.id);
       for (const tabId of targets) {
         const closed = await closeTab(tabId);
         if (!closed) break;
@@ -269,7 +256,7 @@ export function createCloseActions(
      */
     closeAllTabs: async () => {
       const { tabs, closeTab } = get();
-      const targets = tabs.map((tab) => tab.id);
+      const targets = tabs.map(tab => tab.id);
       for (const tabId of targets) {
         const closed = await closeTab(tabId);
         if (!closed) break;

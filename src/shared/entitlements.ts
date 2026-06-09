@@ -61,8 +61,10 @@ export function snippetCeilingForTier(tier: LicenseTier): number {
  * metadata (RL-061).
  */
 const FREE_TIER_ENTITLEMENTS: ReadonlySet<Entitlement> = new Set([
-  // Free tier gets *some* access today so the product is useful before
-  // activation. Entries listed here are the ones Free users keep.
+  // Free tier access to base product surfaces (for example single-shot
+  // Developer Utilities) is modeled by leaving those actions ungated.
+  // Entries in this enum represent paid upgrades, so Free currently
+  // receives none of them.
 ]);
 
 const PAID_TIER_ENTITLEMENTS: ReadonlySet<Entitlement> = new Set(ENTITLEMENTS);

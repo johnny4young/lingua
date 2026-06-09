@@ -10,6 +10,8 @@ import { findDeveloperUtility, type DeveloperUtilityId } from '../data/developer
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { readFromClipboard } from '../utils/clipboard';
+import { currentEffectiveTier } from './useEntitlement';
+import { isEntitled } from '../../shared/entitlements';
 
 /**
  * RL-069 Slice 3 — clipboard-on-focus apply.
@@ -26,6 +28,9 @@ import { readFromClipboard } from '../utils/clipboard';
  *   1. Default off (`'unset'` consent). Without a deliberate user
  *      opt-in via Settings → Editor → Developer Utilities, the
  *      clipboard is never read.
+ *   1b. The automation layer requires DEV_UTILITIES, so a Free or
+ *       downgraded session cannot read the clipboard even if localStorage
+ *       contains a stale granted consent flag.
  *   2. The clipboard contents never leave the renderer. The only
  *      observable effect is a status notice with the resolved
  *      Mod+Shift+A combo for the active platform.
@@ -51,6 +56,7 @@ export function useClipboardOnFocus(
 
   useEffect(() => {
     if (!enabled) return;
+    if (!isEntitled(currentEffectiveTier(), 'DEV_UTILITIES')) return;
     const consent = useSettingsStore.getState().utilitiesClipboardOnFocusConsent;
     if (consent !== 'granted') return;
     if (hasFiredForFocusRef.current) return;
@@ -126,17 +132,14 @@ export function takePendingClipboardApply(): PendingClipboardApply | null {
 }
 
 function resolveApplyShortcut(): string {
-  const definition = KEYBOARD_SHORTCUTS.find(
-    (entry) => entry.id === 'utility-apply-from-input'
-  );
+  const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'utility-apply-from-input');
   if (!definition) return '';
   const overrides = useSettingsStore.getState().shortcutOverrides;
   const combo = resolveCombos(definition, overrides)[0];
   if (!combo) return '';
   const runtimePlatform =
-    typeof window !== 'undefined' ? window.lingua?.platform ?? 'web' : 'web';
-  const navigatorPlatform =
-    typeof navigator !== 'undefined' ? navigator.platform : undefined;
+    typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
+  const navigatorPlatform = typeof navigator !== 'undefined' ? navigator.platform : undefined;
   const displayPlatform = resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
   return formatShortcutCombo(combo, displayPlatform);
 }

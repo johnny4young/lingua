@@ -4,16 +4,11 @@ import {
   useEditorStore,
   SQL_WORKSPACE_TAB_ID,
   HTTP_WORKSPACE_TAB_ID,
+  UTILITIES_WORKSPACE_TAB_ID,
 } from '@/stores/editorStore';
-import {
-  resetRecipeStoreForTests,
-  useRecipeStore,
-} from '@/stores/recipeStore';
+import { resetRecipeStoreForTests, useRecipeStore } from '@/stores/recipeStore';
 import { useUIStore } from '@/stores/uiStore';
-import {
-  resetWorkspaceSqlStoreForTests,
-  useWorkspaceSqlStore,
-} from '@/stores/workspaceSqlStore';
+import { resetWorkspaceSqlStoreForTests, useWorkspaceSqlStore } from '@/stores/workspaceSqlStore';
 import {
   resetWorkspaceToolStoreForTests,
   useWorkspaceToolStore,
@@ -162,9 +157,7 @@ describe('sessionStore', () => {
     const { tabs } = useEditorStore.getState();
     expect(tabs).toHaveLength(1);
     expect(tabs[0].recipeBindingId).toBe('js-sort-objects');
-    expect(useRecipeStore.getState().getBindingForTab(tabs[0].id)).toBe(
-      'js-sort-objects'
-    );
+    expect(useRecipeStore.getState().getBindingForTab(tabs[0].id)).toBe('js-sort-objects');
   });
 
   it('restores the Recipe panel when the active restored tab has a recipe binding', async () => {
@@ -194,9 +187,7 @@ describe('sessionStore', () => {
   });
 
   it('should handle missing files gracefully during restore', async () => {
-    (window.lingua.fs.read as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('ENOENT')
-    );
+    (window.lingua.fs.read as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('ENOENT'));
 
     useSessionStore.setState({
       savedTabs: [
@@ -251,7 +242,7 @@ describe('sessionStore', () => {
   // A pre-rework session that encoded N per-query tabs must collapse to
   // the single workspace tab per kind WITHOUT orphaning the persisted
   // collection (it rehydrates from its own store regardless).
-  describe('SQL / HTTP workspace tab restore', () => {
+  describe('SQL / HTTP / Utilities workspace tab restore', () => {
     it('saves a sql workspace tab on the stable workspace id', () => {
       useEditorStore.setState({
         tabs: [
@@ -382,11 +373,45 @@ describe('sessionStore', () => {
       expect(tabs).toHaveLength(1);
       expect(tabs[0].kind).toBe('http');
       expect(tabs[0].id).toBe(HTTP_WORKSPACE_TAB_ID);
-      const restoredRequest = useWorkspaceToolStore
-        .getState()
-        .getRequest('request-uuid-1');
+      const restoredRequest = useWorkspaceToolStore.getState().getRequest('request-uuid-1');
       expect(restoredRequest?.url).toBe('https://api.example.com/users');
       expect(restoredRequest?.method).toBe('POST');
+    });
+
+    it('saves and restores the utilities workspace tab on the stable id', async () => {
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: UTILITIES_WORKSPACE_TAB_ID,
+            name: 'Utilities',
+            language: 'utilities',
+            content: '',
+            isDirty: false,
+            kind: 'utilities',
+          },
+        ],
+        activeTabId: UTILITIES_WORKSPACE_TAB_ID,
+      });
+
+      useSessionStore.getState().saveSession();
+
+      const { savedTabs } = useSessionStore.getState();
+      expect(savedTabs).toHaveLength(1);
+      expect(savedTabs[0].kind).toBe('utilities');
+      expect(savedTabs[0].workspaceTabId).toBe(UTILITIES_WORKSPACE_TAB_ID);
+
+      useEditorStore.setState({ tabs: [], activeTabId: null });
+      await useSessionStore.getState().restoreSession();
+
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0]).toMatchObject({
+        id: UTILITIES_WORKSPACE_TAB_ID,
+        name: 'Utilities',
+        language: 'utilities',
+        kind: 'utilities',
+      });
+      expect(activeTabId).toBe(UTILITIES_WORKSPACE_TAB_ID);
     });
 
     it('MIGRATION: a legacy per-query session collapses to one sql + one http workspace tab without orphaning the collection', async () => {
@@ -399,18 +424,14 @@ describe('sessionStore', () => {
         ['legacy-sql-2', 'SELECT 2;'],
         ['legacy-sql-3', 'SELECT 3;'],
       ] as const) {
-        useWorkspaceSqlStore
-          .getState()
-          .createQuery(createBlankSqlQuery({ id, name: id, query }));
+        useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id, name: id, query }));
       }
       for (const [id, url] of [
         ['legacy-http-1', 'https://a.dev'],
         ['legacy-http-2', 'https://b.dev'],
       ] as const) {
         const blank = createBlankHttpRequest({ id, name: id });
-        useWorkspaceToolStore
-          .getState()
-          .createRequest({ ...blank, url });
+        useWorkspaceToolStore.getState().createRequest({ ...blank, url });
       }
 
       // A legacy session: one FileTab per query/request, ids = entry ids.
@@ -419,8 +440,20 @@ describe('sessionStore', () => {
           { name: 'q1', language: 'sql', content: '', kind: 'sql', workspaceTabId: 'legacy-sql-1' },
           { name: 'q2', language: 'sql', content: '', kind: 'sql', workspaceTabId: 'legacy-sql-2' },
           { name: 'q3', language: 'sql', content: '', kind: 'sql', workspaceTabId: 'legacy-sql-3' },
-          { name: 'r1', language: 'http', content: '', kind: 'http', workspaceTabId: 'legacy-http-1' },
-          { name: 'r2', language: 'http', content: '', kind: 'http', workspaceTabId: 'legacy-http-2' },
+          {
+            name: 'r1',
+            language: 'http',
+            content: '',
+            kind: 'http',
+            workspaceTabId: 'legacy-http-1',
+          },
+          {
+            name: 'r2',
+            language: 'http',
+            content: '',
+            kind: 'http',
+            workspaceTabId: 'legacy-http-2',
+          },
         ],
         // The active tab was the second SQL query — it must remap onto
         // the single surviving SQL workspace tab.
@@ -431,8 +464,8 @@ describe('sessionStore', () => {
 
       const { tabs, activeTabId } = useEditorStore.getState();
       // Collapsed: exactly one SQL tab + one HTTP tab, on the stable ids.
-      const sqlTabs = tabs.filter((t) => t.kind === 'sql');
-      const httpTabs = tabs.filter((t) => t.kind === 'http');
+      const sqlTabs = tabs.filter(t => t.kind === 'sql');
+      const httpTabs = tabs.filter(t => t.kind === 'http');
       expect(sqlTabs).toHaveLength(1);
       expect(httpTabs).toHaveLength(1);
       expect(sqlTabs[0]!.id).toBe(SQL_WORKSPACE_TAB_ID);

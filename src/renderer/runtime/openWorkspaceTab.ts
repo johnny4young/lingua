@@ -33,6 +33,7 @@
 import { useEditorStore } from '../stores/editorStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
+import type { DeveloperUtilityId } from '../data/developerUtilities';
 
 interface OpenWorkspaceTabOptions {
   /**
@@ -47,9 +48,7 @@ interface OpenWorkspaceTabOptions {
  * Open or focus the single HTTP workspace tab. With `adoptEntryId`, marks
  * the already-created request active so the rail selects it.
  */
-export function openHttpWorkspaceTab(
-  options: OpenWorkspaceTabOptions = {}
-): string | null {
+export function openHttpWorkspaceTab(options: OpenWorkspaceTabOptions = {}): string | null {
   const tabId = useEditorStore.getState().addHttpTab();
   if (tabId === null) return null;
   if (options.adoptEntryId) {
@@ -62,13 +61,20 @@ export function openHttpWorkspaceTab(
  * Open or focus the single SQL workspace tab. With `adoptEntryId`, marks
  * the already-created query active so the rail selects it.
  */
-export function openSqlWorkspaceTab(
-  options: OpenWorkspaceTabOptions = {}
-): string | null {
+export function openSqlWorkspaceTab(options: OpenWorkspaceTabOptions = {}): string | null {
   const tabId = useEditorStore.getState().addSqlTab();
   if (tabId === null) return null;
   if (options.adoptEntryId) {
     useWorkspaceSqlStore.getState().setActiveQuery(options.adoptEntryId);
   }
   return tabId;
+}
+
+/**
+ * Open or focus the single Developer Utilities workspace tab. With
+ * `utilityId`, selects that tool before focusing the tab (used by
+ * utility-specific shortcuts and command-palette actions).
+ */
+export function openUtilitiesWorkspaceTab(utilityId?: DeveloperUtilityId): string | null {
+  return useEditorStore.getState().addUtilitiesTab(utilityId);
 }

@@ -1,10 +1,15 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import i18next from 'i18next';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
+  DEFAULT_DEVELOPER_UTILITY_ID,
   DEVELOPER_UTILITIES,
   type DeveloperUtilityId,
 } from '../data/developerUtilities';
+import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { isEntitled } from '../../shared/entitlements';
+import { pushUpsellNotice } from '../utils/upsellNotice';
 
 /**
  * RL-069 Slice 3 — Per-tool history + favorites store.
@@ -22,10 +27,13 @@ import {
  *
  * Persistence rules:
  *   - `favorites` always persists (a pin is a deliberate user action).
- *   - `persistEnabled` always persists (the toggle's value).
- *   - `history` only persists for tools where `persistEnabled[id]` is
- *     true. Session-scoped entries for other tools are dropped on
- *     reload via `partialize`.
+ *   - `persistEnabled` and `history` only persist for Pro/paid tiers
+ *     that grant DEV_UTILITIES. Free users still get session history
+ *     and favorites, but the workflow/persistence layer is not saved
+ *     across reloads.
+ *   - Within Pro, `history` only persists for tools where
+ *     `persistEnabled[id]` is true. Session-scoped entries for other
+ *     tools are dropped on reload via `partialize`.
  *
  * Caps (Suggested change F):
  *   - `MAX_ENTRIES_PER_TOOL = 10` — FIFO eviction.
@@ -67,12 +75,10 @@ export interface UtilityHistoryState {
   persistEnabled: Partial<Record<DeveloperUtilityId, boolean>>;
   /** Pinned tools, in user-defined order. */
   favorites: DeveloperUtilityId[];
+  /** Currently selected tool in the full-screen Utilities workspace. */
+  activeUtilityId: DeveloperUtilityId;
 
-  pushEntry: (
-    toolId: DeveloperUtilityId,
-    input: string,
-    output: string
-  ) => void;
+  pushEntry: (toolId: DeveloperUtilityId, input: string, output: string) => void;
   clearHistory: (toolId?: DeveloperUtilityId) => void;
   togglePersist: (toolId: DeveloperUtilityId) => void;
 
@@ -80,6 +86,7 @@ export interface UtilityHistoryState {
   unpinFavorite: (toolId: DeveloperUtilityId) => void;
   reorderFavorites: (next: DeveloperUtilityId[]) => void;
   isFavorite: (toolId: DeveloperUtilityId) => boolean;
+  setActiveUtilityId: (toolId: DeveloperUtilityId) => void;
 }
 
 function byteLength(value: string): number {
@@ -111,11 +118,22 @@ function nextEntryId(): string {
 }
 
 const KNOWN_UTILITY_IDS = new Set<DeveloperUtilityId>(
-  DEVELOPER_UTILITIES.map((utility) => utility.id)
+  DEVELOPER_UTILITIES.map(utility => utility.id)
 );
 
 function isKnownUtilityId(value: unknown): value is DeveloperUtilityId {
   return typeof value === 'string' && KNOWN_UTILITY_IDS.has(value as DeveloperUtilityId);
+}
+
+function canPersistUtilityWorkflows(): boolean {
+  return isEntitled(currentEffectiveTier(), 'DEV_UTILITIES');
+}
+
+function notifyUtilityWorkflowsLocked(): void {
+  pushUpsellNotice({
+    messageKey: 'upsell.freeCeilingReached',
+    featureLabel: i18next.t('upsell.feature.utilityWorkflows'),
+  });
 }
 
 /**
@@ -140,6 +158,7 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
       history: {},
       persistEnabled: {},
       favorites: [],
+      activeUtilityId: DEFAULT_DEVELOPER_UTILITY_ID,
 
       pushEntry: (toolId, input, output) => {
         const inputCapped = truncate(input);
@@ -151,7 +170,7 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
           output: outputCapped.value,
           truncated: inputCapped.truncated || outputCapped.truncated,
         };
-        set((state) => {
+        set(state => {
           const previous = state.history[toolId] ?? [];
           // Avoid duplicate consecutive entries — re-pressing Apply on
           // the same input shouldn't bloat the ring with N copies.
@@ -169,8 +188,8 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
         });
       },
 
-      clearHistory: (toolId) => {
-        set((state) => {
+      clearHistory: toolId => {
+        set(state => {
           if (!toolId) {
             return { history: {} };
           }
@@ -180,8 +199,12 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
         });
       },
 
-      togglePersist: (toolId) => {
-        set((state) => ({
+      togglePersist: toolId => {
+        if (!canPersistUtilityWorkflows()) {
+          notifyUtilityWorkflowsLocked();
+          return;
+        }
+        set(state => ({
           persistEnabled: {
             ...state.persistEnabled,
             [toolId]: !state.persistEnabled[toolId],
@@ -189,30 +212,35 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
         }));
       },
 
-      pinFavorite: (toolId) => {
-        set((state) => {
+      pinFavorite: toolId => {
+        set(state => {
           if (state.favorites.includes(toolId)) return state;
           return { favorites: [...state.favorites, toolId] };
         });
       },
 
-      unpinFavorite: (toolId) => {
-        set((state) => ({
-          favorites: state.favorites.filter((id) => id !== toolId),
+      unpinFavorite: toolId => {
+        set(state => ({
+          favorites: state.favorites.filter(id => id !== toolId),
         }));
       },
 
-      reorderFavorites: (next) => {
+      reorderFavorites: next => {
         // Trust callers to pass a valid permutation, but defensively
         // strip any id that's not currently pinned. This guards against
         // a stale drag-and-drop payload referencing a tool that was
         // unpinned mid-drag (rare but observable).
         const allowed = new Set(get().favorites);
-        const sanitized = next.filter((id) => allowed.has(id) && isKnownUtilityId(id));
+        const sanitized = next.filter(id => allowed.has(id) && isKnownUtilityId(id));
         set({ favorites: sanitized });
       },
 
-      isFavorite: (toolId) => get().favorites.includes(toolId),
+      isFavorite: toolId => get().favorites.includes(toolId),
+
+      setActiveUtilityId: toolId => {
+        if (!isKnownUtilityId(toolId)) return;
+        set({ activeUtilityId: toolId });
+      },
     }),
     {
       name: UTILITY_HISTORY_STORAGE_KEY,
@@ -220,9 +248,18 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
       migrate: createMigrate(UTILITY_HISTORY_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
       // Slice 3 — only persist the bits the user explicitly opted into.
-      // History is filtered per-tool by `persistEnabled[id]`. Favorites +
-      // persistEnabled toggles always persist.
-      partialize: (state) => {
+      // History is filtered per-tool by `persistEnabled[id]`. Favorites
+      // always persist; workflow persistence toggles/history are paid
+      // and are stripped while the effective tier is Free.
+      partialize: state => {
+        if (!canPersistUtilityWorkflows()) {
+          return {
+            history: {},
+            persistEnabled: {},
+            favorites: state.favorites,
+            activeUtilityId: state.activeUtilityId,
+          };
+        }
         const persistedHistory: UtilityHistoryState['history'] = {};
         for (const [toolId, entries] of Object.entries(state.history)) {
           if (state.persistEnabled[toolId as DeveloperUtilityId]) {
@@ -233,6 +270,7 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
           history: persistedHistory,
           persistEnabled: state.persistEnabled,
           favorites: state.favorites,
+          activeUtilityId: state.activeUtilityId,
         };
         // Trim oldest entries across all tools until the budget fits.
         let bytes = approximatePersistedBytes(candidate);
@@ -274,6 +312,9 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
           favorites: Array.isArray(candidate.favorites)
             ? candidate.favorites.filter(isKnownUtilityId)
             : [],
+          activeUtilityId: isKnownUtilityId(candidate.activeUtilityId)
+            ? candidate.activeUtilityId
+            : DEFAULT_DEVELOPER_UTILITY_ID,
         };
       },
     }

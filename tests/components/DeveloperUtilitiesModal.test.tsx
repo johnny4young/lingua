@@ -3,24 +3,25 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { initI18n } from '../../src/renderer/i18n';
-import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
+import {
+  DeveloperUtilitiesModal,
+  DeveloperUtilitiesWorkspaceView,
+} from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
+import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
+import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { useUtilityHistoryStore } from '../../src/renderer/stores/utilityHistoryStore';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
   ),
-  OverlayBackdrop: ({
-    children,
-    onClose,
-  }: {
-    children: React.ReactNode;
-    onClose?: () => void;
-  }) => <div onClick={onClose}>{children}</div>,
-  OverlayCard: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+  OverlayBackdrop: ({ children, onClose }: { children: React.ReactNode; onClose?: () => void }) => (
+    <div onClick={onClose}>{children}</div>
+  ),
+  OverlayCard: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props}>{children}</div>
+  ),
 }));
 
 describe('DeveloperUtilitiesModal', () => {
@@ -28,6 +29,14 @@ describe('DeveloperUtilitiesModal', () => {
     initI18n('en');
     await i18next.changeLanguage('en');
     useSettingsStore.getState().resetShortcutOverrides();
+    useUtilityHistoryStore.setState({
+      history: {},
+      persistEnabled: {},
+      favorites: [],
+      activeUtilityId: 'json',
+    });
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    useUIStore.setState({ statusNotice: null });
     Object.defineProperty(window.navigator, 'platform', {
       configurable: true,
       value: 'Win32',
@@ -41,6 +50,36 @@ describe('DeveloperUtilitiesModal', () => {
     expect(screen.getByTestId('developer-utilities-modal')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Pretty print' })).toBeTruthy();
+  });
+
+  it('renders the full workspace from the persisted active utility', async () => {
+    const user = userEvent.setup();
+    useUtilityHistoryStore.getState().setActiveUtilityId('jwt');
+
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    expect(screen.getByTestId('developer-utilities-workspace')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'JWT Debugger' })).toBeTruthy();
+
+    await user.click(screen.getByTestId('utility-item-json'));
+
+    expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('json');
+    expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
+  });
+
+  it('keeps the Pipelines workflow locked on Free while base utilities render', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
+
+    await user.type(screen.getByTestId('utilities-search-input'), 'pipeline');
+    await waitFor(() => expect(screen.getByTestId('utility-lock-utility-pipelines')).toBeTruthy());
+    await user.click(screen.getByTestId('utility-item-utility-pipelines'));
+    await waitFor(() => expect(screen.getByTestId('utility-pipeline-locked')).toBeTruthy());
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });
 
   it('supports opening directly into a selected utility', async () => {
@@ -152,7 +191,7 @@ describe('DeveloperUtilitiesModal', () => {
 
     expect(screen.getByRole('heading', { name: 'Diff Viewer' })).toBeTruthy();
     expect(
-      screen.getByText((text) => text.startsWith('2 added,') && text.includes('1 removed'))
+      screen.getByText(text => text.startsWith('2 added,') && text.includes('1 removed'))
     ).toBeTruthy();
   });
 

@@ -1,4 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -12,23 +18,17 @@ export function SvgToCssPanel() {
   const { t } = useTranslation();
   const [encoding, setEncoding] = useState<SvgToCssEncoding>('base64');
   const [input, setInput] = useState(DEFAULT_SVG_TO_CSS_SAMPLE);
-  const result = useMemo(
-    () => convertSvgToCss(input, { encoding }),
-    [input, encoding],
-  );
+  const result = useMemo(() => convertSvgToCss(input, { encoding }), [input, encoding]);
 
-  const registerOutput = useCallback(
-    () => (result.ok ? result.dataUri : null),
-    [result]
-  );
+  const registerOutput = useCallback(() => (result.ok ? result.dataUri : null), [result]);
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
-    setInput((prev) => prev);
+    setInput(prev => prev);
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.svgToCss.title')}
         description={t('utilities.tool.svgToCss.panelDescription')}
@@ -39,7 +39,7 @@ export function SvgToCssPanel() {
             aria-label={t('utilities.tool.svgToCss.mode.label')}
             data-testid="svg-to-css-mode"
             value={encoding}
-            onChange={(event) => setEncoding(event.target.value as SvgToCssEncoding)}
+            onChange={event => setEncoding(event.target.value as SvgToCssEncoding)}
             className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
           >
             <option value="base64">{t('utilities.tool.svgToCss.mode.base64')}</option>
@@ -52,7 +52,7 @@ export function SvgToCssPanel() {
             aria-label={t('utilities.tool.svgToCss.input.label')}
             data-testid="svg-to-css-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             spellCheck={false}
             className="min-h-[12rem]"
           />
@@ -95,7 +95,7 @@ export function SvgToCssPanel() {
                   value={result.dataUri}
                   readOnly
                   spellCheck={false}
-                  className="pr-10 min-h-[6rem]"
+                  className="pr-10 min-h-[12rem] font-mono"
                 />
                 <div className="absolute right-2 top-2">
                   <CopyButton
@@ -115,7 +115,7 @@ export function SvgToCssPanel() {
                   value={result.cssBlock}
                   readOnly
                   spellCheck={false}
-                  className="pr-10 min-h-[8rem] font-mono"
+                  className="pr-10 min-h-[14rem] font-mono"
                 />
                 <div className="absolute right-2 top-2">
                   <CopyButton

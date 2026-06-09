@@ -1,4 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -18,8 +24,7 @@ export function SqlFormatterPanel() {
   const { t } = useTranslation();
   const [dialect, setDialect] = useState<SqlDialect>('sql');
   const [tabWidth, setTabWidth] = useState<2 | 4>(2);
-  const [keywordCase, setKeywordCase] =
-    useState<SqlFormatOptions['keywordCase']>('upper');
+  const [keywordCase, setKeywordCase] = useState<SqlFormatOptions['keywordCase']>('upper');
   const [input, setInput] = useState(DEFAULT_SQL_SAMPLE);
   const [result, setResult] = useState<FormatSqlResult | null>(null);
 
@@ -44,18 +49,15 @@ export function SqlFormatterPanel() {
     };
   }, [input, dialect, tabWidth, keywordCase]);
 
-  const registerOutput = useCallback(
-    () => (result && result.ok ? result.output : null),
-    [result]
-  );
+  const registerOutput = useCallback(() => (result && result.ok ? result.output : null), [result]);
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
-    setInput((prev) => prev);
+    setInput(prev => prev);
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.sqlFormatter.title')}
         description={t('utilities.tool.sqlFormatter.panelDescription')}
@@ -67,10 +69,10 @@ export function SqlFormatterPanel() {
               aria-label={t('utilities.tool.sqlFormatter.dialect.label')}
               data-testid="sql-formatter-dialect"
               value={dialect}
-              onChange={(event) => setDialect(event.target.value as SqlDialect)}
+              onChange={event => setDialect(event.target.value as SqlDialect)}
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
             >
-              {SQL_DIALECTS.map((value) => (
+              {SQL_DIALECTS.map(value => (
                 <option key={value} value={value}>
                   {t(SQL_DIALECT_KEYS[value])}
                 </option>
@@ -83,7 +85,7 @@ export function SqlFormatterPanel() {
               aria-label={t('utilities.tool.sqlFormatter.tabWidth.label')}
               data-testid="sql-formatter-tab-width"
               value={tabWidth}
-              onChange={(event) => setTabWidth(Number(event.target.value) as 2 | 4)}
+              onChange={event => setTabWidth(Number(event.target.value) as 2 | 4)}
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
             >
               <option value={2}>{t('utilities.tool.sqlFormatter.tabWidth.two')}</option>
@@ -96,7 +98,7 @@ export function SqlFormatterPanel() {
               aria-label={t('utilities.tool.sqlFormatter.keywordCase.label')}
               data-testid="sql-formatter-keyword-case"
               value={keywordCase}
-              onChange={(event) =>
+              onChange={event =>
                 setKeywordCase(event.target.value as SqlFormatOptions['keywordCase'])
               }
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
@@ -115,9 +117,9 @@ export function SqlFormatterPanel() {
             aria-label={t('utilities.tool.sqlFormatter.input.label')}
             data-testid="sql-formatter-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             spellCheck={false}
-            className="min-h-[14rem] font-mono"
+            className="min-h-[16rem] font-mono"
           />
         </div>
         <UtilityToolbar
@@ -137,9 +139,7 @@ export function SqlFormatterPanel() {
         ) : !result.ok ? (
           <StatusMessage
             message={t(result.errorKey, { limitKb: SQL_FORMATTER_MAX_KB })}
-            tone={
-              result.errorKey === 'utilities.tool.sqlFormatter.error.empty' ? 'muted' : 'error'
-            }
+            tone={result.errorKey === 'utilities.tool.sqlFormatter.error.empty' ? 'muted' : 'error'}
             testid="sql-formatter-error"
           />
         ) : (
@@ -150,7 +150,7 @@ export function SqlFormatterPanel() {
               value={result.output}
               readOnly
               spellCheck={false}
-              className="pr-10 min-h-[14rem] font-mono"
+              className="pr-10 min-h-[20rem] font-mono"
             />
             <div className="absolute right-2 top-2">
               <CopyButton

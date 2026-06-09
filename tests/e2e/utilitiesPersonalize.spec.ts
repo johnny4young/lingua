@@ -9,9 +9,11 @@
  * other panels appear in the panel-rotation pass below so a regression
  * in any of these axes lights up.
  *
- * Developer Utilities is Pro-gated; every test seeds a Pro license.
- * The blocking smoke gate the user elevated for Slice 2 carries over —
- * the slice does not close until every assertion stays green.
+ * Single-shot Developer Utilities are Free; this personalize suite
+ * seeds Pro because it exercises the paid productivity layer
+ * (persistent history + clipboard automation). The blocking smoke
+ * gate the user elevated for Slice 2 carries over — the slice does
+ * not close until every assertion stays green.
  */
 
 import {
@@ -36,9 +38,7 @@ test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
     await expectTier(page, 'PRO');
   });
 
-  test('Favorites: pin a tool, the favorites row appears and chip lights up', async ({
-    page,
-  }) => {
+  test('Favorites: pin a tool, the favorites row appears and chip lights up', async ({ page }) => {
     await openDeveloperUtilities(page);
 
     // No favorites yet — the row is hidden.
@@ -75,14 +75,10 @@ test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
     // JSON panel is the default landing. Clicking the JWT chip should
     // switch to the JWT panel.
     await page.getByTestId('utility-favorite-jwt').click();
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'JWT Debugger' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'JWT Debugger' })).toBeVisible();
   });
 
-  test('History drawer: Apply on JSON pushes an entry, Clear empties it', async ({
-    page,
-  }) => {
+  test('History drawer: Apply on JSON pushes an entry, Clear empties it', async ({ page }) => {
     await openDeveloperUtilities(page);
 
     // Default JSON panel — Apply against the seeded valid input.
@@ -121,14 +117,10 @@ test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
       name: 'Apply from clipboard on panel focus',
     });
     await toggle.click();
-    await expect(
-      page.getByTestId('utilities-clipboard-on-focus-status')
-    ).toContainText('Active');
+    await expect(page.getByTestId('utilities-clipboard-on-focus-status')).toContainText('Active');
 
     await toggle.click();
-    await expect(
-      page.getByTestId('utilities-clipboard-on-focus-status')
-    ).toContainText('Off');
+    await expect(page.getByTestId('utilities-clipboard-on-focus-status')).toContainText('Off');
 
     await closeSettings(page);
   });
@@ -177,9 +169,7 @@ test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
 
     for (const { id, heading } of checkPanels) {
       await page.getByTestId(`utility-item-${id}`).click();
-      await expect(
-        page.getByRole('heading', { level: 2, name: heading })
-      ).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible();
       if (id === 'base64') {
         await page.getByRole('textbox', { name: 'Input' }).fill('TGluZ3Vh');
       }
@@ -218,9 +208,9 @@ test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
       // Settings — clipboard toggle status reads in Spanish.
       await openSettings(page);
       await openSettingsTab(page, 'editor');
-      await expect(
-        page.getByTestId('utilities-clipboard-on-focus-status')
-      ).toContainText('Desactivado');
+      await expect(page.getByTestId('utilities-clipboard-on-focus-status')).toContainText(
+        'Desactivado'
+      );
       await closeSettings(page);
     } finally {
       await ctx.close();
@@ -229,7 +219,7 @@ test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
 
   test('console stays clean across the full personalize flow', async ({ page }) => {
     const errors: string[] = [];
-    page.on('console', (msg) => {
+    page.on('console', msg => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
 

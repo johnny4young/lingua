@@ -1,4 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -43,10 +49,7 @@ export function YamlJsonPanel() {
   const setInput = isYamlToJson ? setYamlInput : setJsonInput;
   const result = isYamlToJson ? yamlResult : jsonResult;
 
-  const registerOutput = useCallback(
-    () => (result.ok ? result.output : null),
-    [result]
-  );
+  const registerOutput = useCallback(() => (result.ok ? result.output : null), [result]);
   useRegisterUtilityOutput(registerOutput);
 
   // Apply auto-flips direction based on input shape: JSON → YAML.
@@ -61,7 +64,7 @@ export function YamlJsonPanel() {
   }, [input]);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.yamlJson.title')}
         description={t('utilities.tool.yamlJson.panelDescription')}
@@ -73,7 +76,7 @@ export function YamlJsonPanel() {
               aria-label={t('utilities.tool.yamlJson.mode.label')}
               data-testid="yaml-json-mode"
               value={mode}
-              onChange={(event) => setMode(event.target.value as YamlJsonMode)}
+              onChange={event => setMode(event.target.value as YamlJsonMode)}
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
             >
               <option value="yaml-to-json">{t('utilities.tool.yamlJson.mode.yamlToJson')}</option>
@@ -86,10 +89,10 @@ export function YamlJsonPanel() {
               aria-label={t('utilities.tool.yamlJson.indent.label')}
               data-testid="yaml-json-indent"
               value={indent}
-              onChange={(event) => setIndent(Number(event.target.value) as YamlJsonIndent)}
+              onChange={event => setIndent(Number(event.target.value) as YamlJsonIndent)}
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
             >
-              {YAML_JSON_INDENTS.map((value) => (
+              {YAML_JSON_INDENTS.map(value => (
                 <option key={value} value={value}>
                   {value === 2
                     ? t('utilities.tool.yamlJson.indent.two')
@@ -105,9 +108,9 @@ export function YamlJsonPanel() {
             aria-label={t('utilities.tool.yamlJson.input.label')}
             data-testid="yaml-json-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             spellCheck={false}
-            className="min-h-[14rem] font-mono"
+            className="min-h-[16rem] font-mono"
           />
         </div>
         <UtilityToolbar
@@ -144,7 +147,7 @@ export function YamlJsonPanel() {
                 value={result.output}
                 readOnly
                 spellCheck={false}
-                className="pr-10 min-h-[14rem] font-mono"
+                className="pr-10 min-h-[20rem] font-mono"
               />
               <div className="absolute right-2 top-2">
                 <CopyButton

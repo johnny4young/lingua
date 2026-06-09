@@ -1,9 +1,9 @@
 /**
  * RL-099 Slice 1 — Utility Pipelines panel.
  *
- * 3-section layout inside the existing Developer Utilities overlay
- * (NOT a new top-level bottom-panel tab — the plan keeps Slice 1
- * within `<UtilityToolbar>` territory):
+ * 3-section layout inside the Developer Utilities workspace. It started
+ * life inside the utilities overlay, but the workspace shell now gives
+ * the input editor and per-step outputs enough horizontal room:
  *
  *   - LEFT  : pipeline list (create / select / rename / duplicate /
  *             delete / import / export).
@@ -16,37 +16,16 @@
  * emit (`utility.pipeline_executed` — fold F).
  */
 
-import {
-  Copy as CopyIcon,
-  Download,
-  PlayCircle,
-  Plus,
-  Trash2,
-  Upload,
-} from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-} from 'react';
+import { Copy as CopyIcon, Download, PlayCircle, Plus, Trash2, Upload } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  DndContext,
-  closestCenter,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  arrayMove,
-} from '@dnd-kit/sortable';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useUtilityPipelineStore } from '../../stores/utilityPipelineStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
+import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import {
   PIPELINE_MAX_STEPS,
   createBlankPipeline,
@@ -56,37 +35,74 @@ import {
   type PipelineStepV1,
   type UtilityPipelineV1,
 } from '../../../shared/utilityPipeline';
-import {
-  UTILITY_ADAPTER_IDS,
-  type UtilityAdapterId,
-} from '../../../shared/utilities/types';
-import {
-  trackUtilityPipelineExecuted,
-} from '../../hooks/utilityPipelineTelemetry';
+import { UTILITY_ADAPTER_IDS, type UtilityAdapterId } from '../../../shared/utilities/types';
+import { trackUtilityPipelineExecuted } from '../../hooks/utilityPipelineTelemetry';
 import { UtilityPipelineStepRow } from './UtilityPipelineStepRow';
 import { cn } from '../../utils/cn';
+import { pushUpsellNotice } from '../../utils/upsellNotice';
+import { trackEvent } from '../../utils/telemetry';
 
 const DEFAULT_FIRST_STEP_UTILITY: UtilityAdapterId = 'json-format';
 
 export function UtilityPipelinePanel() {
   const { t } = useTranslation();
-  const pipelines = useUtilityPipelineStore((state) => state.pipelines);
-  const activePipelineId = useUtilityPipelineStore((state) => state.activePipelineId);
-  const isExecuting = useUtilityPipelineStore((state) => state.isExecutingActive);
-  const inputsByPipelineId = useUtilityPipelineStore(
-    (state) => state.inputsByPipelineId
-  );
-  const clipboardConsent = useSettingsStore(
-    (state) => state.utilitiesClipboardOnFocusConsent
-  );
+  const effectiveTier = useEffectiveTier();
+  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
+
+  const handleUnlock = useCallback(() => {
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: t('upsell.feature.utilityWorkflows'),
+    });
+    void trackEvent('feature.blocked', {
+      entitlement: 'utility-workflows',
+      tier: effectiveTier,
+    });
+  }, [effectiveTier, t]);
+
+  if (!canUseUtilityWorkflows) {
+    return (
+      <div
+        data-testid="utility-pipeline-locked"
+        className="flex h-full min-h-[34rem] flex-col items-center justify-center gap-4 rounded-[1.25rem] border border-warning/30 bg-warning/5 p-8 text-center"
+      >
+        <span className="rounded-full border border-warning/45 bg-warning/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-warning">
+          {t('utilities.locked.proBadge')}
+        </span>
+        <div className="max-w-xl">
+          <h3 className="text-lg font-semibold text-foreground">
+            {t('utilityPipeline.locked.title')}
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-muted">{t('utilityPipeline.locked.body')}</p>
+        </div>
+        <button
+          type="button"
+          data-testid="utility-pipeline-unlock"
+          onClick={handleUnlock}
+          className="button-primary"
+        >
+          {t('utilityPipeline.locked.action')}
+        </button>
+      </div>
+    );
+  }
+
+  return <UtilityPipelinePanelUnlocked />;
+}
+
+function UtilityPipelinePanelUnlocked() {
+  const { t } = useTranslation();
+  const pipelines = useUtilityPipelineStore(state => state.pipelines);
+  const activePipelineId = useUtilityPipelineStore(state => state.activePipelineId);
+  const isExecuting = useUtilityPipelineStore(state => state.isExecutingActive);
+  const inputsByPipelineId = useUtilityPipelineStore(state => state.inputsByPipelineId);
+  const clipboardConsent = useSettingsStore(state => state.utilitiesClipboardOnFocusConsent);
 
   const activePipeline: UtilityPipelineV1 | undefined = useMemo(
-    () => pipelines.find((p) => p.id === activePipelineId),
+    () => pipelines.find(p => p.id === activePipelineId),
     [pipelines, activePipelineId]
   );
-  const activeInput = activePipelineId
-    ? (inputsByPipelineId[activePipelineId] ?? '')
-    : '';
+  const activeInput = activePipelineId ? (inputsByPipelineId[activePipelineId] ?? '') : '';
 
   const { state: runState, run, reset: resetRun } = useUtilityPipelineRun();
   // Per-step result map keyed by step id so the panel can render the
@@ -142,9 +158,7 @@ export function UtilityPipelinePanel() {
   const handleStepsPatch = useCallback(
     (nextSteps: PipelineStepV1[]) => {
       if (!activePipeline) return;
-      useUtilityPipelineStore
-        .getState()
-        .updatePipeline(activePipeline.id, { steps: nextSteps });
+      useUtilityPipelineStore.getState().updatePipeline(activePipeline.id, { steps: nextSteps });
     },
     [activePipeline]
   );
@@ -172,10 +186,8 @@ export function UtilityPipelinePanel() {
   const handleStepUtilityChange = useCallback(
     (stepId: string, utilityId: UtilityAdapterId) => {
       if (!activePipeline) return;
-      const next = activePipeline.steps.map((step) =>
-        step.id === stepId
-          ? createBlankStep({ id: step.id, utilityId })
-          : step
+      const next = activePipeline.steps.map(step =>
+        step.id === stepId ? createBlankStep({ id: step.id, utilityId }) : step
       );
       handleStepsPatch(next);
     },
@@ -185,7 +197,7 @@ export function UtilityPipelinePanel() {
   const handleStepOptionsChange = useCallback(
     (stepId: string, nextOptions: Record<string, unknown>) => {
       if (!activePipeline) return;
-      const next = activePipeline.steps.map((step) =>
+      const next = activePipeline.steps.map(step =>
         step.id === stepId ? { ...step, options: nextOptions } : step
       );
       handleStepsPatch(next);
@@ -196,7 +208,7 @@ export function UtilityPipelinePanel() {
   const handleStepDelete = useCallback(
     (stepId: string) => {
       if (!activePipeline) return;
-      const next = activePipeline.steps.filter((step) => step.id !== stepId);
+      const next = activePipeline.steps.filter(step => step.id !== stepId);
       handleStepsPatch(next);
     },
     [activePipeline, handleStepsPatch]
@@ -207,8 +219,8 @@ export function UtilityPipelinePanel() {
       if (!activePipeline) return;
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-      const oldIndex = activePipeline.steps.findIndex((s) => s.id === active.id);
-      const newIndex = activePipeline.steps.findIndex((s) => s.id === over.id);
+      const oldIndex = activePipeline.steps.findIndex(s => s.id === active.id);
+      const newIndex = activePipeline.steps.findIndex(s => s.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
       handleStepsPatch(arrayMove(activePipeline.steps, oldIndex, newIndex));
     },
@@ -218,9 +230,7 @@ export function UtilityPipelinePanel() {
   const handleInputChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
       if (!activePipeline) return;
-      useUtilityPipelineStore
-        .getState()
-        .setPipelineInput(activePipeline.id, event.target.value);
+      useUtilityPipelineStore.getState().setPipelineInput(activePipeline.id, event.target.value);
     },
     [activePipeline]
   );
@@ -264,26 +274,20 @@ export function UtilityPipelinePanel() {
 
   const handleImportConfirm = useCallback(() => {
     if (!importTextareaValue.trim()) return;
-    const outcome = useUtilityPipelineStore
-      .getState()
-      .importPipelineJson(importTextareaValue);
+    const outcome = useUtilityPipelineStore.getState().importPipelineJson(importTextareaValue);
     if (outcome.ok) {
       setImportOpen(false);
       setImportTextareaValue('');
       setImportWarning(null);
     } else {
       const detail = outcome.detail ? ` — ${outcome.detail}` : '';
-      setImportWarning(
-        `${t(`utilityPipeline.import.reject.${camel(outcome.reason)}`)}${detail}`
-      );
+      setImportWarning(`${t(`utilityPipeline.import.reject.${camel(outcome.reason)}`)}${detail}`);
     }
   }, [importTextareaValue, t]);
 
   const handleExport = useCallback(async () => {
     if (!activePipeline) return;
-    const json = useUtilityPipelineStore
-      .getState()
-      .exportPipelineJson(activePipeline.id);
+    const json = useUtilityPipelineStore.getState().exportPipelineJson(activePipeline.id);
     if (!json) return;
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       try {
@@ -307,7 +311,7 @@ export function UtilityPipelinePanel() {
   return (
     <div
       data-testid="utility-pipeline-panel"
-      className="grid h-full min-h-0 grid-cols-[220px_1fr_320px] gap-3"
+      className="grid h-full min-h-[42rem] grid-cols-1 gap-4 xl:min-h-0 xl:grid-cols-[240px_minmax(22rem,0.85fr)_minmax(28rem,1.15fr)] 2xl:grid-cols-[260px_minmax(24rem,0.8fr)_minmax(36rem,1.35fr)]"
     >
       {/* LEFT — pipeline list */}
       <aside className="flex min-h-0 flex-col border-r border-border/60 pr-2">
@@ -350,12 +354,10 @@ export function UtilityPipelinePanel() {
           </div>
         </header>
         {pipelines.length === 0 ? (
-          <p className="px-2 py-3 text-xs text-muted">
-            {t('utilityPipeline.list.empty')}
-          </p>
+          <p className="px-2 py-3 text-xs text-muted">{t('utilityPipeline.list.empty')}</p>
         ) : null}
         <ul role="list" className="flex-1 overflow-y-auto">
-          {pipelines.map((p) => {
+          {pipelines.map(p => {
             const isActive = p.id === activePipelineId;
             return (
               <li
@@ -367,7 +369,7 @@ export function UtilityPipelinePanel() {
                 data-active={isActive}
                 aria-current={isActive ? 'true' : undefined}
                 onClick={() => handleSelect(p.id)}
-                onKeyDown={(event) => {
+                onKeyDown={event => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     handleSelect(p.id);
@@ -384,15 +386,15 @@ export function UtilityPipelinePanel() {
                   type="text"
                   value={p.name}
                   data-testid="utility-pipeline-list-name"
-                  onChange={(event) => handleRename(p.id, event.target.value)}
-                  onClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => event.stopPropagation()}
+                  onChange={event => handleRename(p.id, event.target.value)}
+                  onClick={event => event.stopPropagation()}
+                  onKeyDown={event => event.stopPropagation()}
                   placeholder={t('utilityPipeline.list.renamePlaceholder')}
                   className="min-w-0 flex-1 truncate bg-transparent text-xs outline-none focus:ring-0"
                 />
                 <button
                   type="button"
-                  onClick={(event) => {
+                  onClick={event => {
                     event.stopPropagation();
                     handleDuplicate(p.id);
                   }}
@@ -404,7 +406,7 @@ export function UtilityPipelinePanel() {
                 </button>
                 <button
                   type="button"
-                  onClick={(event) => {
+                  onClick={event => {
                     event.stopPropagation();
                     handleDelete(p.id);
                   }}
@@ -426,17 +428,14 @@ export function UtilityPipelinePanel() {
             <textarea
               ref={importTextareaRef}
               value={importTextareaValue}
-              onChange={(event) => setImportTextareaValue(event.target.value)}
+              onChange={event => setImportTextareaValue(event.target.value)}
               data-testid="utility-pipeline-import-textarea"
               placeholder={t('utilityPipeline.import.placeholder')}
               rows={4}
               className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-[10px]"
             />
             {importWarning ? (
-              <p
-                data-testid="utility-pipeline-import-error"
-                className="text-[10px] text-rose-300"
-              >
+              <p data-testid="utility-pipeline-import-error" className="text-[10px] text-rose-300">
                 {importWarning}
               </p>
             ) : null}
@@ -467,16 +466,11 @@ export function UtilityPipelinePanel() {
       </aside>
 
       {/* CENTER — editor */}
-      <section
-        data-testid="utility-pipeline-editor"
-        className="flex min-h-0 flex-col gap-2"
-      >
+      <section data-testid="utility-pipeline-editor" className="flex min-h-0 flex-col gap-2">
         {!activePipeline ? (
           <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
             <div className="text-sm font-medium">{t('utilityPipeline.empty.title')}</div>
-            <div className="text-xs text-muted">
-              {t('utilityPipeline.empty.body')}
-            </div>
+            <div className="text-xs text-muted">{t('utilityPipeline.empty.body')}</div>
           </div>
         ) : (
           <>
@@ -498,9 +492,7 @@ export function UtilityPipelinePanel() {
                 type="button"
                 onClick={handleRun}
                 disabled={
-                  isExecuting ||
-                  activePipeline.steps.length === 0 ||
-                  runState.phase === 'running'
+                  isExecuting || activePipeline.steps.length === 0 || runState.phase === 'running'
                 }
                 data-testid="utility-pipeline-editor-run"
                 aria-label={t('utilityPipeline.editor.run')}
@@ -522,7 +514,7 @@ export function UtilityPipelinePanel() {
             ) : (
               <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext
-                  items={activePipeline.steps.map((step) => step.id)}
+                  items={activePipeline.steps.map(step => step.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="grid gap-2">
@@ -534,9 +526,7 @@ export function UtilityPipelinePanel() {
                           step={step}
                           index={index}
                           status={statusOrPending(result)}
-                          {...(result?.errorMessage
-                            ? { errorMessage: result.errorMessage }
-                            : {})}
+                          {...(result?.errorMessage ? { errorMessage: result.errorMessage } : {})}
                           onUtilityChange={handleStepUtilityChange}
                           onOptionsChange={handleStepOptionsChange}
                           onDelete={handleStepDelete}
@@ -558,7 +548,7 @@ export function UtilityPipelinePanel() {
                 spellCheck={false}
                 data-testid="utility-pipeline-editor-input"
                 placeholder={t('utilityPipeline.editor.inputPlaceholder')}
-                rows={4}
+                rows={6}
                 className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-[11px]"
               />
             </div>
@@ -595,7 +585,7 @@ export function UtilityPipelinePanel() {
                 {result.status === 'ok' && typeof result.output === 'string' ? (
                   <pre
                     data-testid="utility-pipeline-result-output"
-                    className="max-h-[160px] overflow-auto whitespace-pre-wrap break-all rounded bg-background-elevated/60 p-2 font-mono text-[10px] text-foreground"
+                    className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded bg-background-elevated/60 p-2 font-mono text-[10px] text-foreground"
                   >
                     {result.output.length === 0
                       ? t('utilityPipeline.result.emptyOutput')

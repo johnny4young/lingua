@@ -79,7 +79,7 @@ persist(creator, {
   name: 'lingua-example',
   version: 1,
   migrate: createMigrate('lingua-example'),
-  partialize: (s) => ({ items: s.items }),
+  partialize: s => ({ items: s.items }),
 });
 ```
 
@@ -120,6 +120,7 @@ To change the persisted shape of, say, `lingua-settings` (rename `oldKey` →
      },
    },
    ```
+
 3. Add a v1→v2 fixture to `tests/stores/persistence/storeMigrations.test.ts`
    (the v0 back-compat case is already generated for every store).
 
@@ -148,7 +149,8 @@ pure predicate, `isPermissionAllowed`, so the policy has a single decision point
   links, capsule export, SQL results, "Copy JSON" — call
   `navigator.clipboard.writeText` / `.write`) and **`clipboard-read`** (capsule
   import from the clipboard, the Utility Pipeline paste action, and
-  clipboard-on-focus paste detection call `navigator.clipboard.readText`).
+  clipboard-on-focus paste detection after the Pro `DEV_UTILITIES` + user-consent
+  gates call `navigator.clipboard.readText`).
   Denying either breaks real app-shell features with `NotAllowedError`.
 - Subframes are denied even for those clipboard permissions, so sandboxed rich
   HTML and Browser Preview user code do not inherit the app shell's clipboard
@@ -389,23 +391,23 @@ Technical reasons:
 
 Most file operations use `invoke/handle` because they are command-like and need a result:
 
-| Preload method                  | IPC channel           | Main responsibility                                |
-| ------------------------------- | --------------------- | -------------------------------------------------- |
-| `selectDirectory()`             | `fs:select-directory` | open native directory picker and mint a rootId     |
-| `selectFile()`                  | `fs:select-file`      | open native file picker and mint a single-file rootId |
-| `reopenRoot(rootPath)`          | `fs:reopen-root`      | re-mint a rootId for a previously approved directory |
-| `reopenFile(filePath)`          | `fs:reopen-file`      | re-mint a single-file rootId for a previously approved file |
-| `revokeRoot(rootId)`            | `fs:revoke-root`      | release a process-scoped root capability           |
-| `readdir(rootId, relativePath)` | `fs:readdir`          | list entries, filter hidden items, sort dirs first |
-| `stat(rootId, relativePath)`    | `fs:stat`             | return metadata                                    |
-| `read(rootId, relativePath)`    | `fs:read`             | safe read inside the approved root                 |
-| `write(rootId, relativePath, content)` | `fs:write`     | safe write inside the approved root                |
-| `delete(rootId, relativePath, isDirectory)` | `fs:delete` | guarded delete with confirmation dialog     |
-| `rename(rootId, oldRelativePath, newName)` | `fs:rename` | validated rename inside the same parent      |
-| `mkdir(rootId, relativePath)`   | `fs:mkdir`            | safe directory creation                            |
-| `touch(rootId, relativePath)`   | `fs:touch`            | create empty file                                  |
-| `watchStart(rootId, relativePath)` | `fs:watch-start`   | create native watcher with an opaque watchId, or return a typed watcher diagnostic |
-| `watchStop(watchId)`            | `fs:watch-stop`       | close native watcher                               |
+| Preload method                              | IPC channel           | Main responsibility                                                                |
+| ------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------- |
+| `selectDirectory()`                         | `fs:select-directory` | open native directory picker and mint a rootId                                     |
+| `selectFile()`                              | `fs:select-file`      | open native file picker and mint a single-file rootId                              |
+| `reopenRoot(rootPath)`                      | `fs:reopen-root`      | re-mint a rootId for a previously approved directory                               |
+| `reopenFile(filePath)`                      | `fs:reopen-file`      | re-mint a single-file rootId for a previously approved file                        |
+| `revokeRoot(rootId)`                        | `fs:revoke-root`      | release a process-scoped root capability                                           |
+| `readdir(rootId, relativePath)`             | `fs:readdir`          | list entries, filter hidden items, sort dirs first                                 |
+| `stat(rootId, relativePath)`                | `fs:stat`             | return metadata                                                                    |
+| `read(rootId, relativePath)`                | `fs:read`             | safe read inside the approved root                                                 |
+| `write(rootId, relativePath, content)`      | `fs:write`            | safe write inside the approved root                                                |
+| `delete(rootId, relativePath, isDirectory)` | `fs:delete`           | guarded delete with confirmation dialog                                            |
+| `rename(rootId, oldRelativePath, newName)`  | `fs:rename`           | validated rename inside the same parent                                            |
+| `mkdir(rootId, relativePath)`               | `fs:mkdir`            | safe directory creation                                                            |
+| `touch(rootId, relativePath)`               | `fs:touch`            | create empty file                                                                  |
+| `watchStart(rootId, relativePath)`          | `fs:watch-start`      | create native watcher with an opaque watchId, or return a typed watcher diagnostic |
+| `watchStop(watchId)`                        | `fs:watch-stop`       | close native watcher                                                               |
 
 `reopenRoot` and `reopenFile` do not authorize arbitrary absolute paths.
 Main stores a small approval list for paths that came from native pickers

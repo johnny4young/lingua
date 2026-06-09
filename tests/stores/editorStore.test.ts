@@ -13,16 +13,12 @@ import {
   createDefaultTab,
   SQL_WORKSPACE_TAB_ID,
   HTTP_WORKSPACE_TAB_ID,
+  UTILITIES_WORKSPACE_TAB_ID,
 } from '@/stores/editorStore';
 import { useDependencyDetectionStore } from '@/stores/dependencyDetectionStore';
-import {
-  resetRecipeStoreForTests,
-  useRecipeStore,
-} from '@/stores/recipeStore';
-import {
-  resetNotebookStoreForTests,
-  useNotebookStore,
-} from '@/stores/notebookStore';
+import { resetRecipeStoreForTests, useRecipeStore } from '@/stores/recipeStore';
+import { resetNotebookStoreForTests, useNotebookStore } from '@/stores/notebookStore';
+import { useUtilityHistoryStore } from '@/stores/utilityHistoryStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useUIStore } from '@/stores/uiStore';
 import { pluginRegistry } from '@/plugins';
@@ -67,6 +63,12 @@ describe('editorStore', () => {
     });
     resetRecipeStoreForTests();
     resetNotebookStoreForTests();
+    useUtilityHistoryStore.setState({
+      history: {},
+      persistEnabled: {},
+      favorites: [],
+      activeUtilityId: 'json',
+    });
     useUIStore.setState({ statusNotice: null });
     setActiveProLicense();
     if (!pluginRegistry.get(luaPlugin.id)) {
@@ -81,9 +83,7 @@ describe('editorStore', () => {
             write: vi.fn().mockResolvedValue(true),
             selectFile: vi.fn().mockResolvedValue({ canceled: true }),
             saveDialog: vi.fn().mockResolvedValue({ canceled: true }),
-            reopenRoot: vi
-              .fn()
-              .mockResolvedValue({ ok: false, error: 'not-found' }),
+            reopenRoot: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
             revokeRoot: vi.fn().mockResolvedValue(true),
           },
           confirmCloseTab: vi.fn().mockResolvedValue(2), // Cancel by default
@@ -98,6 +98,12 @@ describe('editorStore', () => {
     useDependencyDetectionStore.getState().clear();
     resetRecipeStoreForTests();
     resetNotebookStoreForTests();
+    useUtilityHistoryStore.setState({
+      history: {},
+      persistEnabled: {},
+      favorites: [],
+      activeUtilityId: 'json',
+    });
     useEditorStore.setState(initialState, true);
     useUIStore.setState(initialUIState, true);
     localStorage.clear();
@@ -346,9 +352,7 @@ describe('editorStore', () => {
     });
 
     it('does not write notebook tabs as empty files before disk persistence ships', async () => {
-      const tabId = useEditorStore
-        .getState()
-        .addNotebookTab({ title: 'Notebook draft' });
+      const tabId = useEditorStore.getState().addNotebookTab({ title: 'Notebook draft' });
       expect(tabId).toBeTruthy();
 
       await useEditorStore.getState().saveActiveTabAs();
@@ -451,9 +455,11 @@ describe('editorStore', () => {
     it('revokes a picker-minted Save As capability when formatting throws before write', async () => {
       const { useSettingsStore } = await import('@/stores/settingsStore');
       useSettingsStore.setState({ formatOnSave: true });
-      (window.lingua as unknown as {
-        format: { gofmt: ReturnType<typeof vi.fn> };
-      }).format = {
+      (
+        window.lingua as unknown as {
+          format: { gofmt: ReturnType<typeof vi.fn> };
+        }
+      ).format = {
         gofmt: vi.fn().mockRejectedValue(new Error('formatter crashed')),
       };
       (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -540,11 +546,7 @@ describe('editorStore', () => {
 
       await useEditorStore.getState().saveActiveTab();
 
-      expect(window.lingua.fs.write).toHaveBeenCalledWith(
-        'root-raw',
-        'raw.js',
-        'const  x=1\n'
-      );
+      expect(window.lingua.fs.write).toHaveBeenCalledWith('root-raw', 'raw.js', 'const  x=1\n');
     });
 
     it('falls back to the original content and pushes a status notice on parse errors', async () => {
@@ -734,16 +736,14 @@ describe('editorStore', () => {
 
       useEditorStore.getState().renameTab(tabId!, '  Analysis.linguanb  ');
 
-      const tab = useEditorStore.getState().tabs.find((item) => item.id === tabId);
+      const tab = useEditorStore.getState().tabs.find(item => item.id === tabId);
       expect(tab).toMatchObject({
         name: 'Analysis.linguanb',
         language: 'python',
         kind: 'notebook',
         isDirty: false,
       });
-      expect(useNotebookStore.getState().getNotebookForTab(tabId!)?.title).toBe(
-        'Analysis'
-      );
+      expect(useNotebookStore.getState().getNotebookForTab(tabId!)?.title).toBe('Analysis');
     });
 
     it('evicts dependency detections when rename changes the tab language', () => {
@@ -753,17 +753,13 @@ describe('editorStore', () => {
         tabId: tab.id,
         language: 'javascript',
         detectionHash: 'h',
-        dependencies: [
-          { name: 'lodash', kind: 'import', status: 'detected' },
-        ],
+        dependencies: [{ name: 'lodash', kind: 'import', status: 'detected' }],
         classifiedAt: 1,
       });
 
       useEditorStore.getState().renameTab(tab.id, 'helper.go');
 
-      expect(useDependencyDetectionStore.getState().byTab.has(tab.id)).toBe(
-        false
-      );
+      expect(useDependencyDetectionStore.getState().byTab.has(tab.id)).toBe(false);
     });
 
     it('drops recipe binding and transient recipe state when rename leaves JavaScript', () => {
@@ -773,9 +769,7 @@ describe('editorStore', () => {
       };
       useEditorStore.getState().addTab(tab);
       useRecipeStore.getState().bindRecipeToTab(tab.id, 'js-sort-objects');
-      useRecipeStore
-        .getState()
-        .setRunResults(tab.id, [{ assertionId: 'a', status: 'pass' }]);
+      useRecipeStore.getState().setRunResults(tab.id, [{ assertionId: 'a', status: 'pass' }]);
 
       useEditorStore.getState().renameTab(tab.id, 'helper.py');
 
@@ -831,7 +825,7 @@ describe('editorStore', () => {
 
       const { tabs } = useEditorStore.getState();
       expect(tabs).toHaveLength(2);
-      expect(tabs.map((t) => t.id)).toEqual([a.id, b.id]);
+      expect(tabs.map(t => t.id)).toEqual([a.id, b.id]);
     });
 
     it('clears the entire strip when closeAllTabs runs', async () => {
@@ -880,7 +874,7 @@ describe('editorStore', () => {
       await useEditorStore.getState().closeAllTabs();
 
       expect(confirmCloseTab).toHaveBeenCalledTimes(1);
-      expect(useEditorStore.getState().tabs.map((tab) => tab.id)).toEqual([b.id, c.id]);
+      expect(useEditorStore.getState().tabs.map(tab => tab.id)).toEqual([b.id, c.id]);
     });
 
     it('stops closeTabsToRight after a dirty-tab cancel', async () => {
@@ -900,12 +894,7 @@ describe('editorStore', () => {
       await useEditorStore.getState().closeTabsToRight(b.id);
 
       expect(confirmCloseTab).toHaveBeenCalledTimes(1);
-      expect(useEditorStore.getState().tabs.map((tab) => tab.id)).toEqual([
-        a.id,
-        b.id,
-        c.id,
-        d.id,
-      ]);
+      expect(useEditorStore.getState().tabs.map(tab => tab.id)).toEqual([a.id, b.id, c.id, d.id]);
     });
 
     it('stops closeOtherTabs after a dirty-tab cancel', async () => {
@@ -925,11 +914,7 @@ describe('editorStore', () => {
       await useEditorStore.getState().closeOtherTabs(b.id);
 
       expect(confirmCloseTab).toHaveBeenCalledTimes(1);
-      expect(useEditorStore.getState().tabs.map((tab) => tab.id)).toEqual([
-        b.id,
-        c.id,
-        d.id,
-      ]);
+      expect(useEditorStore.getState().tabs.map(tab => tab.id)).toEqual([b.id, c.id, d.id]);
     });
   });
 
@@ -1146,11 +1131,11 @@ describe('editorStore', () => {
     });
   });
 
-  // SQL/HTTP MODEL rework — SQL and HTTP are full-screen COLLECTION
-  // workspaces: at most ONE SQL tab + ONE HTTP tab, each on a stable
+  // SQL/HTTP/Utilities MODEL rework — these are full-screen
+  // workspaces: at most ONE tab per kind, each on a stable
   // constant id, exempt from the Free tab budget, never renamed /
   // duplicated / saved through the document tab gestures.
-  describe('SQL / HTTP workspace tabs', () => {
+  describe('SQL / HTTP / Utilities workspace tabs', () => {
     const freeTier = {
       token: null,
       status: { kind: 'free' as const },
@@ -1183,6 +1168,20 @@ describe('editorStore', () => {
       expect(activeTabId).toBe(HTTP_WORKSPACE_TAB_ID);
     });
 
+    it('addUtilitiesTab creates the single Utilities workspace tab on the stable id', () => {
+      const id = useEditorStore.getState().addUtilitiesTab();
+      expect(id).toBe(UTILITIES_WORKSPACE_TAB_ID);
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0]).toMatchObject({
+        id: UTILITIES_WORKSPACE_TAB_ID,
+        name: 'Utilities',
+        kind: 'utilities',
+        language: 'utilities',
+      });
+      expect(activeTabId).toBe(UTILITIES_WORKSPACE_TAB_ID);
+    });
+
     it('addSqlTab focuses the existing workspace tab instead of minting a duplicate', () => {
       const first = useEditorStore.getState().addSqlTab();
       // Move focus elsewhere so the focus-or-create path is observable.
@@ -1192,9 +1191,7 @@ describe('editorStore', () => {
       const second = useEditorStore.getState().addSqlTab();
 
       expect(second).toBe(first);
-      const sqlTabs = useEditorStore
-        .getState()
-        .tabs.filter((t) => t.kind === 'sql');
+      const sqlTabs = useEditorStore.getState().tabs.filter(t => t.kind === 'sql');
       expect(sqlTabs).toHaveLength(1);
       expect(useEditorStore.getState().activeTabId).toBe(SQL_WORKSPACE_TAB_ID);
     });
@@ -1204,9 +1201,33 @@ describe('editorStore', () => {
       useEditorStore.getState().addTab(createDefaultTab('javascript'));
       const second = useEditorStore.getState().addHttpTab();
       expect(second).toBe(first);
-      expect(
-        useEditorStore.getState().tabs.filter((t) => t.kind === 'http')
-      ).toHaveLength(1);
+      expect(useEditorStore.getState().tabs.filter(t => t.kind === 'http')).toHaveLength(1);
+    });
+
+    it('addUtilitiesTab focuses the existing workspace tab and updates the selected tool', () => {
+      const first = useEditorStore.getState().addUtilitiesTab('jwt');
+      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+
+      const second = useEditorStore.getState().addUtilitiesTab('utility-pipelines');
+
+      expect(second).toBe(first);
+      expect(useEditorStore.getState().tabs.filter(t => t.kind === 'utilities')).toHaveLength(1);
+      expect(useEditorStore.getState().activeTabId).toBe(UTILITIES_WORKSPACE_TAB_ID);
+      expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('utility-pipelines');
+    });
+
+    it('addUtilitiesTab refuses the Pro-only Pipelines utility on Free', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      const { useUIStore } = await import('@/stores/uiStore');
+      useLicenseStore.setState(freeTier);
+      useUIStore.setState({ statusNotice: null });
+
+      const result = useEditorStore.getState().addUtilitiesTab('utility-pipelines');
+
+      expect(result).toBeNull();
+      expect(useEditorStore.getState().tabs.filter(t => t.kind === 'utilities')).toHaveLength(0);
+      expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('json');
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     });
 
     it('exempts workspace tabs from the Free tab budget so a Free user still gets a code tab', async () => {
@@ -1218,23 +1239,20 @@ describe('editorStore', () => {
       // Open both workspaces — exempt, so always succeed.
       expect(useEditorStore.getState().addSqlTab()).toBe(SQL_WORKSPACE_TAB_ID);
       expect(useEditorStore.getState().addHttpTab()).toBe(HTTP_WORKSPACE_TAB_ID);
-      expect(useEditorStore.getState().tabs).toHaveLength(2);
+      expect(useEditorStore.getState().addUtilitiesTab()).toBe(UTILITIES_WORKSPACE_TAB_ID);
+      expect(useEditorStore.getState().tabs).toHaveLength(3);
 
       // The single Free code tab must still fit — the two workspace
       // tabs do NOT crowd it out of the budget.
       useEditorStore.getState().addTab(createDefaultTab('javascript'));
-      expect(useEditorStore.getState().tabs).toHaveLength(3);
+      expect(useEditorStore.getState().tabs).toHaveLength(4);
       expect(useUIStore.getState().statusNotice).toBeNull();
 
       // A SECOND code tab is over the Free ceiling and is refused, even
       // though workspace tabs are present.
       useEditorStore.getState().addTab(createDefaultTab('python'));
-      expect(
-        useEditorStore.getState().tabs.filter((t) => !t.kind)
-      ).toHaveLength(1);
-      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
-        'upsell.freeCeilingReached'
-      );
+      expect(useEditorStore.getState().tabs.filter(t => !t.kind)).toHaveLength(1);
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     });
 
     it('addSqlTab succeeds on Free even though sql is not in the Free language allowlist', async () => {
@@ -1254,26 +1272,20 @@ describe('editorStore', () => {
     it('duplicateActiveTab is a no-op on a workspace tab (no colliding stable id)', () => {
       useEditorStore.getState().addSqlTab();
       useEditorStore.getState().duplicateActiveTab();
-      expect(
-        useEditorStore.getState().tabs.filter((t) => t.kind === 'sql')
-      ).toHaveLength(1);
+      expect(useEditorStore.getState().tabs.filter(t => t.kind === 'sql')).toHaveLength(1);
       expect(useEditorStore.getState().tabs).toHaveLength(1);
     });
 
     it('renameTab refuses to rename a workspace tab so the label never drifts', () => {
       useEditorStore.getState().addHttpTab();
       useEditorStore.getState().renameTab(HTTP_WORKSPACE_TAB_ID, 'Custom name');
-      const tab = useEditorStore
-        .getState()
-        .tabs.find((t) => t.id === HTTP_WORKSPACE_TAB_ID);
+      const tab = useEditorStore.getState().tabs.find(t => t.id === HTTP_WORKSPACE_TAB_ID);
       expect(tab?.name).toBe('HTTP');
     });
 
     it('saveTabById no-ops on a workspace tab without opening a file dialog', async () => {
-      useEditorStore.getState().addSqlTab();
-      const saved = await useEditorStore
-        .getState()
-        .saveTabById(SQL_WORKSPACE_TAB_ID);
+      useEditorStore.getState().addUtilitiesTab();
+      const saved = await useEditorStore.getState().saveTabById(UTILITIES_WORKSPACE_TAB_ID);
       expect(saved).toBe(false);
       // No save dialog gesture for a workspace tab.
       expect(window.lingua.fs.saveDialog).not.toHaveBeenCalled();
@@ -1289,7 +1301,7 @@ describe('editorStore', () => {
 
       const { tabs } = useEditorStore.getState();
       expect(tabs).toHaveLength(1);
-      expect(tabs.some((t) => t.kind === 'sql')).toBe(false);
+      expect(tabs.some(t => t.kind === 'sql')).toBe(false);
     });
   });
 });

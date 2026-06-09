@@ -1,9 +1,12 @@
 import type { EditorState, FileTab } from '../types';
 import i18next from 'i18next';
 import { useNotebookStore } from './notebookStore';
+import { useUtilityHistoryStore } from './utilityHistoryStore';
+import { findDeveloperUtility, type DeveloperUtilityId } from '../data/developerUtilities';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled, isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
+import { trackEvent } from '../utils/telemetry';
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import {
   budgetedTabCount,
@@ -11,22 +14,24 @@ import {
   HTTP_WORKSPACE_TAB_NAME,
   SQL_WORKSPACE_TAB_ID,
   SQL_WORKSPACE_TAB_NAME,
+  UTILITIES_WORKSPACE_TAB_ID,
+  UTILITIES_WORKSPACE_TAB_NAME,
 } from './editorTabUtils';
 
 /**
  * RL-128 fold A/B — workspace-opener action factory for the editor store.
  *
  * Bundles `addNotebookTab` (entitlement-gated notebook tab + companion
- * notebookStore seed) and the SQL / HTTP focus-or-create openers, which mint at
- * most one workspace tab per kind under a stable id and are exempt from the
- * Free tab budget. Extracted verbatim from `editorStore.ts`;
+ * notebookStore seed) and the SQL / HTTP / Utilities focus-or-create openers,
+ * which mint at most one workspace tab per kind under a stable id and are
+ * exempt from the Free tab budget. Extracted verbatim from `editorStore.ts`;
  * `createWorkspaceActions(set, get)` receives the same zustand `set`/`get` the
  * inline `create()` callback received.
  */
 export function createWorkspaceActions(
   set: EditorSet,
   get: EditorGet
-): Pick<EditorState, 'addNotebookTab' | 'addSqlTab' | 'addHttpTab'> {
+): Pick<EditorState, 'addNotebookTab' | 'addSqlTab' | 'addHttpTab' | 'addUtilitiesTab'> {
   return {
     /**
      * RL-043 Slice A — Create a fresh notebook tab. Wraps `addTab` with
@@ -35,7 +40,7 @@ export function createWorkspaceActions(
      * single-language `language` for the new tab. Seeds the companion
      * notebookStore entry so the panel mounts with a runnable starter.
      */
-    addNotebookTab: (opts) => {
+    addNotebookTab: opts => {
       const { tabs } = get();
       const tier = currentEffectiveTier();
       if (!isEntitled(tier, 'NOTEBOOK_MODE')) {
@@ -70,7 +75,7 @@ export function createWorkspaceActions(
         isDirty: false,
         kind: 'notebook',
       };
-      set((state) => ({
+      set(state => ({
         tabs: [...state.tabs, newTab],
         activeTabId: tabId,
       }));
@@ -100,7 +105,7 @@ export function createWorkspaceActions(
      */
     addSqlTab: () => {
       const { tabs } = get();
-      const existing = tabs.find((t) => t.id === SQL_WORKSPACE_TAB_ID);
+      const existing = tabs.find(t => t.id === SQL_WORKSPACE_TAB_ID);
       if (existing) {
         set({ activeTabId: existing.id });
         return existing.id;
@@ -116,7 +121,7 @@ export function createWorkspaceActions(
         isDirty: false,
         kind: 'sql',
       };
-      set((state) => ({
+      set(state => ({
         tabs: [...state.tabs, newTab],
         activeTabId: newTab.id,
       }));
@@ -137,7 +142,7 @@ export function createWorkspaceActions(
      */
     addHttpTab: () => {
       const { tabs } = get();
-      const existing = tabs.find((t) => t.id === HTTP_WORKSPACE_TAB_ID);
+      const existing = tabs.find(t => t.id === HTTP_WORKSPACE_TAB_ID);
       if (existing) {
         set({ activeTabId: existing.id });
         return existing.id;
@@ -150,7 +155,55 @@ export function createWorkspaceActions(
         isDirty: false,
         kind: 'http',
       };
-      set((state) => ({
+      set(state => ({
+        tabs: [...state.tabs, newTab],
+        activeTabId: newTab.id,
+      }));
+      return newTab.id;
+    },
+
+    /**
+     * MOV.03 — focus (or create) the SINGLE Developer Utilities
+     * workspace tab. The tab is the full-screen shell; selected tool,
+     * favorites, and history stay in `utilityHistoryStore` so direct
+     * opens such as Mod+Shift+G can select Pipelines without minting a
+     * different tab.
+     */
+    addUtilitiesTab: (utilityId?: DeveloperUtilityId) => {
+      const requestedUtility = utilityId ? findDeveloperUtility(utilityId) : null;
+      const tier = currentEffectiveTier();
+      if (
+        requestedUtility?.requiresEntitlement &&
+        !isEntitled(tier, requestedUtility.requiresEntitlement)
+      ) {
+        pushUpsellNotice({
+          messageKey: 'upsell.freeCeilingReached',
+          featureLabel: i18next.t('upsell.feature.utilityWorkflows'),
+        });
+        void trackEvent('feature.blocked', {
+          entitlement: 'utility-workflows',
+          tier,
+        });
+        return null;
+      }
+      if (utilityId) {
+        useUtilityHistoryStore.getState().setActiveUtilityId(utilityId);
+      }
+      const { tabs } = get();
+      const existing = tabs.find(t => t.id === UTILITIES_WORKSPACE_TAB_ID);
+      if (existing) {
+        set({ activeTabId: existing.id });
+        return existing.id;
+      }
+      const newTab: FileTab = {
+        id: UTILITIES_WORKSPACE_TAB_ID,
+        name: UTILITIES_WORKSPACE_TAB_NAME,
+        language: 'utilities',
+        content: '',
+        isDirty: false,
+        kind: 'utilities',
+      };
+      set(state => ({
         tabs: [...state.tabs, newTab],
         activeTabId: newTab.id,
       }));

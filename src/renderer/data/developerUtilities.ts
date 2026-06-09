@@ -25,6 +25,7 @@ import {
   detectsAsUuid,
   detectsAsYaml,
 } from '../utils/developerUtilities';
+import type { Entitlement } from '../../shared/entitlements';
 
 export type DeveloperUtilityId =
   | 'json'
@@ -88,6 +89,14 @@ export interface DeveloperUtilityDefinition {
    * panels with an obvious shorthand carry them.
    */
   aliases?: readonly string[];
+  /**
+   * Optional paid feature gate for advanced workflow surfaces that live
+   * inside the otherwise-free utilities catalog. The base single-shot
+   * utilities are Free; entries that persist or automate multi-step
+   * workflows declare their entitlement explicitly so launchers and the
+   * workspace can enforce the same policy.
+   */
+  requiresEntitlement?: Entitlement;
   /**
    * RL-069 Slice 2 — input-shape predicate used by the ⚡ Apply
    * button and the Mod+Shift+A shortcut. When omitted, the panel
@@ -180,8 +189,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.regex.description',
     keywords: ['regex', 'regexp', 'pattern', 'match', 'capture'],
     aliases: ['re'],
-    detect: ({ primary, secondary }) =>
-      detectsAsRegex(primary) && (secondary ?? '').length > 0,
+    detect: ({ primary, secondary }) => detectsAsRegex(primary) && (secondary ?? '').length > 0,
   },
   {
     id: 'color',
@@ -197,8 +205,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.diff.label',
     descriptionKey: 'utilities.tool.diff.description',
     keywords: ['diff', 'compare', 'text', 'changes'],
-    detect: ({ primary, secondary }) =>
-      primary.length > 0 && (secondary ?? '').length > 0,
+    detect: ({ primary, secondary }) => primary.length > 0 && (secondary ?? '').length > 0,
   },
   {
     id: 'number-base',
@@ -425,16 +432,15 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.utilityPipelines.description',
     keywords: ['pipeline', 'chain', 'compose', 'recipe', 'workflow', 'sequence'],
     aliases: ['pipe', 'flow'],
+    requiresEntitlement: 'DEV_UTILITIES',
   },
 ] as const;
 
-export function findDeveloperUtility(
-  id: DeveloperUtilityId
-): DeveloperUtilityDefinition {
+export function findDeveloperUtility(id: DeveloperUtilityId): DeveloperUtilityDefinition {
   const fallbackUtility = DEVELOPER_UTILITIES[0];
   if (!fallbackUtility) {
     throw new Error('Developer utilities catalog is empty.');
   }
 
-  return DEVELOPER_UTILITIES.find((utility) => utility.id === id) ?? fallbackUtility;
+  return DEVELOPER_UTILITIES.find(utility => utility.id === id) ?? fallbackUtility;
 }

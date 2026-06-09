@@ -20,14 +20,14 @@ const identity = (key: string) => key;
 
 describe('keyboardShortcuts catalog', () => {
   it('groups every shortcut under a declared group', () => {
-    const groupIds = new Set(SHORTCUT_GROUPS.map((group) => group.id));
+    const groupIds = new Set(SHORTCUT_GROUPS.map(group => group.id));
     for (const shortcut of KEYBOARD_SHORTCUTS) {
       expect(groupIds.has(shortcut.group)).toBe(true);
     }
   });
 
   it('keeps shortcut ids unique so list keys stay stable', () => {
-    const ids = KEYBOARD_SHORTCUTS.map((entry) => entry.id);
+    const ids = KEYBOARD_SHORTCUTS.map(entry => entry.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -62,9 +62,7 @@ describe('keyboardShortcuts catalog', () => {
         byCombo.set(key, owners);
       }
     }
-    const collisions = Array.from(byCombo.entries()).filter(
-      ([, owners]) => owners.length > 1
-    );
+    const collisions = Array.from(byCombo.entries()).filter(([, owners]) => owners.length > 1);
     expect(
       collisions,
       `Internal combo conflicts: ${collisions
@@ -74,7 +72,7 @@ describe('keyboardShortcuts catalog', () => {
   });
 
   it('covers the high-traffic shortcuts dispatched by useGlobalShortcuts', () => {
-    const ids = new Set(KEYBOARD_SHORTCUTS.map((entry) => entry.id));
+    const ids = new Set(KEYBOARD_SHORTCUTS.map(entry => entry.id));
     for (const required of [
       'run-toggle',
       'run-cycle-runtime-mode',
@@ -108,9 +106,7 @@ describe('keyboardShortcuts catalog', () => {
   });
 
   it('declares the runtime-mode cycle shortcut as Mod+Alt+M', () => {
-    const shortcut = KEYBOARD_SHORTCUTS.find(
-      (entry) => entry.id === 'run-cycle-runtime-mode'
-    );
+    const shortcut = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'run-cycle-runtime-mode');
     expect(shortcut).toBeDefined();
     expect(shortcut?.group).toBe('run');
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'M'] }]);
@@ -119,58 +115,47 @@ describe('keyboardShortcuts catalog', () => {
   it('declares the Recent Runs popover shortcut as Mod+Alt+H', () => {
     // RL-024 Slice 2 — moved from Mod+Shift+H to Mod+Alt+H so the
     // VSCode-parity `Mod+Shift+H` binding goes to project-replace.
-    const shortcut = KEYBOARD_SHORTCUTS.find(
-      (entry) => entry.id === 'run-toggle-recent-runs'
-    );
+    const shortcut = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'run-toggle-recent-runs');
     expect(shortcut).toBeDefined();
     expect(shortcut?.group).toBe('run');
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'H'] }]);
   });
 
   it('declares the capsule browse shortcut as Mod+Alt+C (RL-094 Slice 3)', () => {
-    const shortcut = KEYBOARD_SHORTCUTS.find(
-      (entry) => entry.id === 'overlay-capsule-list'
-    );
+    const shortcut = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'overlay-capsule-list');
     expect(shortcut).toBeDefined();
     expect(shortcut?.group).toBe('navigation');
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'C'] }]);
   });
 
   it('declares the project-replace shortcut as Mod+Shift+H', () => {
-    const shortcut = KEYBOARD_SHORTCUTS.find(
-      (entry) => entry.id === 'nav-project-replace'
-    );
+    const shortcut = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'nav-project-replace');
     expect(shortcut).toBeDefined();
     expect(shortcut?.group).toBe('navigation');
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Shift', 'H'] }]);
   });
 
   it('declares the Developer Utilities launcher shortcut as Mod+K', () => {
-    const shortcut = KEYBOARD_SHORTCUTS.find(
-      (entry) => entry.id === 'overlay-developer-utilities'
-    );
+    const shortcut = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'overlay-developer-utilities');
     expect(shortcut).toBeDefined();
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'K'] }]);
-    expect(shortcut?.group).toBe('overlays');
+    expect(shortcut?.group).toBe('utilities');
   });
 
   it('declares the onboarding replay shortcut as Mod+Shift+W', () => {
-    const shortcut = KEYBOARD_SHORTCUTS.find(
-      (entry) => entry.id === 'onboarding-replay'
-    );
+    const shortcut = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'onboarding-replay');
     expect(shortcut).toBeDefined();
     expect(shortcut?.group).toBe('view');
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Shift', 'W'] }]);
   });
 
-  it('declares a utilities group with all three RL-069 productivity shortcuts', () => {
-    const groupIds = new Set(SHORTCUT_GROUPS.map((group) => group.id));
+  it('declares a utilities group with the launcher plus productivity shortcuts', () => {
+    const groupIds = new Set(SHORTCUT_GROUPS.map(group => group.id));
     expect(groupIds.has('utilities')).toBe(true);
 
-    const utilityShortcuts = KEYBOARD_SHORTCUTS.filter(
-      (entry) => entry.group === 'utilities'
-    );
-    expect(utilityShortcuts.map((entry) => entry.id).sort()).toEqual([
+    const utilityShortcuts = KEYBOARD_SHORTCUTS.filter(entry => entry.group === 'utilities');
+    expect(utilityShortcuts.map(entry => entry.id).sort()).toEqual([
+      'overlay-developer-utilities',
       'utility-apply-from-input',
       'utility-copy-output',
       'utility-replace-clipboard',
@@ -185,27 +170,25 @@ describe('keyboardShortcuts catalog', () => {
       }
     }
 
+    expect(KEYBOARD_SHORTCUTS.find(entry => entry.id === 'utility-copy-output')?.combos).toEqual([
+      { tokens: ['Mod', 'Shift', 'C'] },
+    ]);
     expect(
-      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'utility-copy-output')?.combos
-    ).toEqual([{ tokens: ['Mod', 'Shift', 'C'] }]);
-    expect(
-      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'utility-replace-clipboard')?.combos
+      KEYBOARD_SHORTCUTS.find(entry => entry.id === 'utility-replace-clipboard')?.combos
     ).toEqual([{ tokens: ['Mod', 'Alt', 'R'] }]);
     // RL-069 Slice 2 — Mod+Shift+A keeps Mod+Enter free for the
     // editor's run-toggle shortcut.
     expect(
-      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'utility-apply-from-input')?.combos
+      KEYBOARD_SHORTCUTS.find(entry => entry.id === 'utility-apply-from-input')?.combos
     ).toEqual([{ tokens: ['Mod', 'Shift', 'A'] }]);
   });
 
   it('declares a debugger group with the Slice 1 control shortcuts and the Slice 1.5 toggle', () => {
-    const groupIds = new Set(SHORTCUT_GROUPS.map((group) => group.id));
+    const groupIds = new Set(SHORTCUT_GROUPS.map(group => group.id));
     expect(groupIds.has('debugger')).toBe(true);
 
-    const debuggerShortcuts = KEYBOARD_SHORTCUTS.filter(
-      (entry) => entry.group === 'debugger'
-    );
-    expect(debuggerShortcuts.map((entry) => entry.id).sort()).toEqual([
+    const debuggerShortcuts = KEYBOARD_SHORTCUTS.filter(entry => entry.group === 'debugger');
+    expect(debuggerShortcuts.map(entry => entry.id).sort()).toEqual([
       'debugger-continue',
       'debugger-step-into',
       'debugger-step-out',
@@ -216,22 +199,22 @@ describe('keyboardShortcuts catalog', () => {
 
     // Function-key combos mirror VS Code defaults exactly so muscle
     // memory carries over.
-    expect(
-      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-continue')?.combos
-    ).toEqual([{ tokens: ['F5'] }]);
-    expect(
-      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-step-over')?.combos
-    ).toEqual([{ tokens: ['F10'] }]);
-    expect(
-      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-step-into')?.combos
-    ).toEqual([{ tokens: ['F11'] }]);
-    expect(
-      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-step-out')?.combos
-    ).toEqual([{ tokens: ['Shift', 'F11'] }]);
+    expect(KEYBOARD_SHORTCUTS.find(entry => entry.id === 'debugger-continue')?.combos).toEqual([
+      { tokens: ['F5'] },
+    ]);
+    expect(KEYBOARD_SHORTCUTS.find(entry => entry.id === 'debugger-step-over')?.combos).toEqual([
+      { tokens: ['F10'] },
+    ]);
+    expect(KEYBOARD_SHORTCUTS.find(entry => entry.id === 'debugger-step-into')?.combos).toEqual([
+      { tokens: ['F11'] },
+    ]);
+    expect(KEYBOARD_SHORTCUTS.find(entry => entry.id === 'debugger-step-out')?.combos).toEqual([
+      { tokens: ['Shift', 'F11'] },
+    ]);
     // Slice 1.5 fold C — Mod+B is taken by `view-toggle-sidebar`, so the
     // breakpoint toggle ships with Mod+Shift+B.
     expect(
-      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-toggle-breakpoint')?.combos
+      KEYBOARD_SHORTCUTS.find(entry => entry.id === 'debugger-toggle-breakpoint')?.combos
     ).toEqual([{ tokens: ['Mod', 'Shift', 'B'] }]);
   });
 });
@@ -290,13 +273,10 @@ describe('filterShortcuts', () => {
   });
 
   it('matches against the translated label', () => {
-    const result = filterShortcuts(
-      KEYBOARD_SHORTCUTS,
-      'save',
-      'linux',
-      (key) => (key.endsWith('save.label') ? 'Save' : key)
+    const result = filterShortcuts(KEYBOARD_SHORTCUTS, 'save', 'linux', key =>
+      key.endsWith('save.label') ? 'Save' : key
     );
-    expect(result.some((entry) => entry.id === 'file-save')).toBe(true);
+    expect(result.some(entry => entry.id === 'file-save')).toBe(true);
   });
 
   it('matches against keywords', () => {
@@ -304,15 +284,15 @@ describe('filterShortcuts', () => {
     // No keyword is literally "hotkey", so this should be empty
     expect(result).toHaveLength(0);
     const keyworded = filterShortcuts(KEYBOARD_SHORTCUTS, 'fuzzy', 'linux', identity);
-    expect(keyworded.some((entry) => entry.id === 'nav-quick-open')).toBe(true);
+    expect(keyworded.some(entry => entry.id === 'nav-quick-open')).toBe(true);
   });
 
   it('matches against rendered combo text so users can search by keystroke', () => {
     const result = filterShortcuts(KEYBOARD_SHORTCUTS, 'ctrl+b', 'linux', identity);
-    expect(result.some((entry) => entry.id === 'view-toggle-sidebar')).toBe(true);
+    expect(result.some(entry => entry.id === 'view-toggle-sidebar')).toBe(true);
 
     const macResult = filterShortcuts(KEYBOARD_SHORTCUTS, '⌘B', 'darwin', identity);
-    expect(macResult.some((entry) => entry.id === 'view-toggle-sidebar')).toBe(true);
+    expect(macResult.some(entry => entry.id === 'view-toggle-sidebar')).toBe(true);
   });
 });
 
@@ -360,9 +340,9 @@ describe('keyboardEventToCombo', () => {
 
 describe('matchesCombo', () => {
   it('returns true when the event produces the same canonical combo', () => {
-    expect(
-      matchesCombo(keyEvent({ key: 'b', metaKey: true }), { tokens: ['Mod', 'B'] })
-    ).toBe(true);
+    expect(matchesCombo(keyEvent({ key: 'b', metaKey: true }), { tokens: ['Mod', 'B'] })).toBe(
+      true
+    );
   });
 
   it('returns false when modifiers or key differ', () => {
@@ -384,7 +364,7 @@ describe('matchesCombo', () => {
 });
 
 describe('resolveCombos', () => {
-  const definition = KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'view-toggle-sidebar')!;
+  const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'view-toggle-sidebar')!;
 
   it('falls back to the catalog when no override is present', () => {
     expect(resolveCombos(definition, {})).toEqual(definition.combos);

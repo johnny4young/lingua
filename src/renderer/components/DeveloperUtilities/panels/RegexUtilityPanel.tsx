@@ -1,4 +1,11 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityInput,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -17,7 +24,7 @@ export function RegexUtilityPanel() {
   const analysis = useMemo(() => analyzeRegex(pattern, flags, input), [pattern, flags, input]);
   const replaceResult = useMemo(
     () => applyRegexReplace(pattern, flags, input, replacement),
-    [pattern, flags, input, replacement],
+    [pattern, flags, input, replacement]
   );
 
   // RL-069 Slice 2 — In match mode, output the matched values
@@ -28,18 +35,18 @@ export function RegexUtilityPanel() {
       return replaceResult.output;
     }
     if (mode === 'match' && analysis.matches.length > 0) {
-      return analysis.matches.map((m) => m.match).join('\n');
+      return analysis.matches.map(m => m.match).join('\n');
     }
     return null;
   }, [mode, replaceResult, analysis.matches]);
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
-    setInput((prev) => prev);
+    setInput(prev => prev);
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.regex.title')}
         description={t('utilities.tool.regex.panelDescription')}
@@ -50,7 +57,7 @@ export function RegexUtilityPanel() {
             aria-label={t('utilities.tool.regex.mode.label')}
             data-testid="regex-mode"
             value={mode}
-            onChange={(event) => setMode(event.target.value as RegexMode)}
+            onChange={event => setMode(event.target.value as RegexMode)}
             className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
           >
             <option value="match">{t('utilities.tool.regex.mode.match')}</option>
@@ -63,7 +70,7 @@ export function RegexUtilityPanel() {
             aria-label={t('utilities.tool.regex.fieldPattern')}
             data-testid="regex-pattern"
             value={pattern}
-            onChange={(event) => setPattern(event.target.value)}
+            onChange={event => setPattern(event.target.value)}
             spellCheck={false}
           />
         </div>
@@ -73,7 +80,7 @@ export function RegexUtilityPanel() {
             aria-label={t('utilities.tool.regex.fieldFlags')}
             data-testid="regex-flags"
             value={flags}
-            onChange={(event) => setFlags(event.target.value)}
+            onChange={event => setFlags(event.target.value)}
             spellCheck={false}
             maxLength={10}
           />
@@ -84,7 +91,7 @@ export function RegexUtilityPanel() {
             aria-label={t('utilities.tool.regex.fieldInput')}
             data-testid="regex-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             spellCheck={false}
           />
         </div>
@@ -95,15 +102,13 @@ export function RegexUtilityPanel() {
               aria-label={t('utilities.tool.regex.fieldReplacement')}
               data-testid="regex-replacement"
               value={replacement}
-              onChange={(event) => setReplacement(event.target.value)}
+              onChange={event => setReplacement(event.target.value)}
               placeholder={t('utilities.tool.regex.replace.placeholder') ?? undefined}
               spellCheck={false}
             />
           </div>
         ) : null}
-        {analysis.errorKey ? (
-          <StatusMessage message={t(analysis.errorKey)} tone="error" />
-        ) : null}
+        {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
         <UtilityToolbar
           utilityId="regex"
           primary={pattern}

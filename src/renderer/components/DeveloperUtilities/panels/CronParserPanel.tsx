@@ -1,4 +1,11 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityInput,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -88,11 +95,11 @@ export function CronParserPanel() {
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
-    setExpression((prev) => prev);
+    setExpression(prev => prev);
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.cron.title')}
         description={t('utilities.tool.cron.panelDescription')}
@@ -103,7 +110,7 @@ export function CronParserPanel() {
             aria-label={t('utilities.tool.cron.input.label')}
             data-testid="cron-parser-input"
             value={expression}
-            onChange={(event) => setExpression(event.target.value)}
+            onChange={event => setExpression(event.target.value)}
             placeholder={t('utilities.tool.cron.input.placeholder') ?? undefined}
             spellCheck={false}
           />
@@ -117,7 +124,7 @@ export function CronParserPanel() {
             min={1}
             max={CRON_PARSER_MAX_NEXT}
             value={nextCount}
-            onChange={(event) => handleCountChange(event.target.valueAsNumber)}
+            onChange={event => handleCountChange(event.target.valueAsNumber)}
           />
         </label>
         <UtilityToolbar

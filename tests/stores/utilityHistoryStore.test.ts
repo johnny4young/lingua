@@ -5,11 +5,40 @@ import {
   UTILITY_HISTORY_STORAGE_KEY,
   useUtilityHistoryStore,
 } from '@/stores/utilityHistoryStore';
+import { useLicenseStore } from '@/stores/licenseStore';
+import { useUIStore } from '@/stores/uiStore';
 
 const textEncoder = new TextEncoder();
 
 function utf8Bytes(value: string): number {
   return textEncoder.encode(value).byteLength;
+}
+
+function setFreeTier() {
+  useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+}
+
+function setProTier() {
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'history@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
 }
 
 beforeEach(() => {
@@ -20,9 +49,12 @@ beforeEach(() => {
       history: {},
       persistEnabled: {},
       favorites: [],
+      activeUtilityId: 'json',
     },
     false
   );
+  setFreeTier();
+  useUIStore.setState({ statusNotice: null });
   localStorage.removeItem(UTILITY_HISTORY_STORAGE_KEY);
 });
 
@@ -36,6 +68,7 @@ describe('utilityHistoryStore — history', () => {
     expect(state.history).toEqual({});
     expect(state.favorites).toEqual([]);
     expect(state.persistEnabled).toEqual({});
+    expect(state.activeUtilityId).toBe('json');
   });
 
   it('pushes an entry to the front of the per-tool ring', () => {
@@ -102,10 +135,18 @@ describe('utilityHistoryStore — history', () => {
 
 describe('utilityHistoryStore — persist toggle', () => {
   it('togglePersist flips the per-tool flag idempotently', () => {
+    setProTier();
     useUtilityHistoryStore.getState().togglePersist('json');
     expect(useUtilityHistoryStore.getState().persistEnabled.json).toBe(true);
     useUtilityHistoryStore.getState().togglePersist('json');
     expect(useUtilityHistoryStore.getState().persistEnabled.json).toBe(false);
+  });
+
+  it('togglePersist is a Free no-op with an upsell notice', () => {
+    useUtilityHistoryStore.getState().togglePersist('json');
+
+    expect(useUtilityHistoryStore.getState().persistEnabled.json).toBeUndefined();
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });
 });
 
@@ -129,21 +170,11 @@ describe('utilityHistoryStore — favorites', () => {
     useUtilityHistoryStore.getState().pinFavorite('jwt');
 
     useUtilityHistoryStore.getState().reorderFavorites(['jwt', 'json', 'base64']);
-    expect(useUtilityHistoryStore.getState().favorites).toEqual([
-      'jwt',
-      'json',
-      'base64',
-    ]);
+    expect(useUtilityHistoryStore.getState().favorites).toEqual(['jwt', 'json', 'base64']);
 
     // Stale id (uuid wasn't pinned) gets sanitized out.
-    useUtilityHistoryStore
-      .getState()
-      .reorderFavorites(['uuid' as never, 'json', 'jwt', 'base64']);
-    expect(useUtilityHistoryStore.getState().favorites).toEqual([
-      'json',
-      'jwt',
-      'base64',
-    ]);
+    useUtilityHistoryStore.getState().reorderFavorites(['uuid' as never, 'json', 'jwt', 'base64']);
+    expect(useUtilityHistoryStore.getState().favorites).toEqual(['json', 'jwt', 'base64']);
   });
 
   it('isFavorite reflects the current state', () => {
@@ -153,8 +184,16 @@ describe('utilityHistoryStore — favorites', () => {
   });
 });
 
+describe('utilityHistoryStore — workspace selection', () => {
+  it('tracks the active utility workspace tool', () => {
+    useUtilityHistoryStore.getState().setActiveUtilityId('jwt');
+    expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('jwt');
+  });
+});
+
 describe('utilityHistoryStore — persistence partialize', () => {
   it('only persists history for tools where persistEnabled[id] is true', async () => {
+    setProTier();
     useUtilityHistoryStore.getState().togglePersist('json'); // → true
     useUtilityHistoryStore.getState().pushEntry('json', '{"a":1}', '');
     useUtilityHistoryStore.getState().pushEntry('base64', 'plain', 'cGxhaW4=');
@@ -165,10 +204,36 @@ describe('utilityHistoryStore — persistence partialize', () => {
     const raw = localStorage.getItem(UTILITY_HISTORY_STORAGE_KEY);
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw!) as {
-      state: { history: Record<string, unknown>; favorites: string[] };
+      state: {
+        history: Record<string, unknown>;
+        favorites: string[];
+        activeUtilityId: string;
+      };
     };
     expect(parsed.state.history.json).toBeDefined();
     expect(parsed.state.history.base64).toBeUndefined();
     expect(parsed.state.favorites).toEqual(['jwt']);
+    expect(parsed.state.activeUtilityId).toBe('json');
+  });
+
+  it('persists Free favorites and active utility without saved history', async () => {
+    useUtilityHistoryStore.getState().pushEntry('json', '{"a":1}', '');
+    useUtilityHistoryStore.getState().pinFavorite('jwt');
+
+    await Promise.resolve();
+    const raw = localStorage.getItem(UTILITY_HISTORY_STORAGE_KEY);
+    expect(raw).not.toBeNull();
+    const parsed = JSON.parse(raw!) as {
+      state: {
+        history: Record<string, unknown>;
+        persistEnabled: Record<string, unknown>;
+        favorites: string[];
+        activeUtilityId: string;
+      };
+    };
+    expect(parsed.state.history).toEqual({});
+    expect(parsed.state.persistEnabled).toEqual({});
+    expect(parsed.state.favorites).toEqual(['jwt']);
+    expect(parsed.state.activeUtilityId).toBe('json');
   });
 });

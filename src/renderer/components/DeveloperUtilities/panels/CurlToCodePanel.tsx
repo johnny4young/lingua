@@ -1,4 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -24,18 +30,15 @@ export function CurlToCodePanel() {
     [input, target]
   );
 
-  const registerOutput = useCallback(
-    () => (result.ok ? result.code : null),
-    [result]
-  );
+  const registerOutput = useCallback(() => (result.ok ? result.code : null), [result]);
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
-    setInput((prev) => prev);
+    setInput(prev => prev);
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.curlToCode.title')}
         description={t('utilities.tool.curlToCode.panelDescription')}
@@ -46,10 +49,10 @@ export function CurlToCodePanel() {
             aria-label={t('utilities.tool.curlToCode.target.label')}
             data-testid="curl-to-code-target"
             value={target}
-            onChange={(event) => setTarget(event.target.value as CurlTarget)}
+            onChange={event => setTarget(event.target.value as CurlTarget)}
             className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
           >
-            {CURL_TARGETS.map((option) => (
+            {CURL_TARGETS.map(option => (
               <option key={option} value={option}>
                 {t(CURL_TARGET_I18N_KEYS[option])}
               </option>
@@ -62,10 +65,10 @@ export function CurlToCodePanel() {
             aria-label={t('utilities.tool.curlToCode.input.label')}
             data-testid="curl-to-code-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             placeholder={t('utilities.tool.curlToCode.input.placeholder') ?? undefined}
             spellCheck={false}
-            className="min-h-[12rem] font-mono"
+            className="min-h-[16rem] font-mono"
           />
         </div>
         <UtilityToolbar
@@ -104,7 +107,7 @@ export function CurlToCodePanel() {
                 value={result.code}
                 readOnly
                 spellCheck={false}
-                className="pr-10 min-h-[14rem] font-mono"
+                className="pr-10 min-h-[20rem] font-mono"
               />
               <div className="absolute right-2 top-2">
                 <CopyButton

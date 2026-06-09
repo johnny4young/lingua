@@ -149,7 +149,7 @@ test.describe('Spanish locale — Pro flows', () => {
     await expect(page.getByText('1 ejecución registrada')).toBeVisible();
   });
 
-  test('developer utilities modal localizes its title and panel list', async ({ page }) => {
+  test('developer utilities workspace localizes its title and panel list', async ({ page }) => {
     await openDeveloperUtilities(page);
     await expect(page.getByRole('heading', { name: 'Utilidades integradas' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Formateador JSON' })).toBeVisible();
@@ -160,9 +160,7 @@ test.describe('Spanish locale — Pro flows', () => {
     await openDeveloperUtilities(page);
     await page.getByRole('button', { name: /^Analizador de URL/ }).click();
 
-    await expect(
-      page.getByRole('heading', { level: 3, name: 'Analizador de URL' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { level: 3, name: 'Analizador de URL' })).toBeVisible();
     await expect(page.getByText('Parámetros del query')).toBeVisible();
 
     await page.getByTestId('url-parser-input').fill('');

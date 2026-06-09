@@ -24,6 +24,8 @@ import { DeveloperUtilityPanel } from './UtilityPanels';
 import { prefetchUtilityPanel } from './UtilityPanelRegistry';
 import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
 import { trackEvent } from '../../utils/telemetry';
+import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { pushUpsellNotice } from '../../utils/upsellNotice';
 
 /**
  * FASE 1 (MOV.01) — Developer utilities migrated onto the Signal-Slate
@@ -46,6 +48,10 @@ import { trackEvent } from '../../utils/telemetry';
  *
  * Everything the overlay *does* — fuzzy search, arrow-key navigation,
  * favorites, telemetry, the selected-utility workspace — is unchanged.
+ *
+ * MOV.03 — the same master/detail body is also exported as
+ * `<DeveloperUtilitiesWorkspaceView>` so Utilities can live as a full-screen
+ * editor workspace tab without duplicating the 30-panel picker logic.
  */
 
 interface DeveloperUtilitiesModalProps {
@@ -60,34 +66,18 @@ const COPY_OUTPUT_SHORTCUT_HINT = {
 
 function getShortcutDisplayPlatform() {
   const runtimePlatform =
-    typeof window !== 'undefined' ? window.lingua?.platform ?? 'web' : 'web';
-  const navigatorPlatform =
-    typeof navigator !== 'undefined' ? navigator.platform : undefined;
+    typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
+  const navigatorPlatform = typeof navigator !== 'undefined' ? navigator.platform : undefined;
   return resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
 }
 
-export function DeveloperUtilitiesModal({
-  onClose,
-  initialUtilityId = DEFAULT_DEVELOPER_UTILITY_ID,
-}: DeveloperUtilitiesModalProps) {
-  const { t } = useTranslation();
-  const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
-  const [selectedUtilityId, setSelectedUtilityId] =
-    useState<DeveloperUtilityId>(initialUtilityId);
-  const [searchQuery, setSearchQuery] = useState('');
-  const searchRef = useRef<HTMLInputElement>(null);
-  // Button refs let keyboard navigation move actual focus into the list
-  // after a search-box arrow key, matching a roving-tabindex pattern
-  // without storing focus state separately.
-  const utilityButtonRefs = useRef(new Map<DeveloperUtilityId, HTMLButtonElement>());
-
-  const copyOutputShortcutHint = useMemo(() => {
-    // The footer reflects user shortcut overrides and platform glyphs, so
-    // resolve it from the same shortcut catalog used by the key handler.
+function useCopyOutputShortcutHint() {
+  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
+  return useMemo(() => {
+    // The footer/header reflects user shortcut overrides and platform glyphs,
+    // so resolve it from the same shortcut catalog used by the key handler.
     const displayPlatform = getShortcutDisplayPlatform();
-    const definition = KEYBOARD_SHORTCUTS.find(
-      (entry) => entry.id === COPY_OUTPUT_SHORTCUT_HINT.id
-    );
+    const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === COPY_OUTPUT_SHORTCUT_HINT.id);
     if (!definition) return null;
     const combo = resolveCombos(definition, shortcutOverrides)[0];
     if (!combo) return null;
@@ -96,14 +86,16 @@ export function DeveloperUtilitiesModal({
       combo: formatShortcutCombo(combo, displayPlatform),
     };
   }, [shortcutOverrides]);
+}
 
+function useFavoriteTelemetry(): void {
   // RL-069 Slice 3 — emit favorite-pinned telemetry from a one-shot
   // store subscription. We listen on the store so the trackEvent call
   // lives in one place even when the user pins from the sidebar OR
   // (potentially) from a future shortcut.
   useEffect(() => {
     let lastSize = useUtilityHistoryStore.getState().favorites.length;
-    return useUtilityHistoryStore.subscribe((state) => {
+    return useUtilityHistoryStore.subscribe(state => {
       const nextSize = state.favorites.length;
       if (nextSize > lastSize) {
         const last = state.favorites[state.favorites.length - 1];
@@ -117,10 +109,58 @@ export function DeveloperUtilitiesModal({
       lastSize = nextSize;
     });
   }, []);
+}
+
+function UtilityCopyShortcutHint({ className }: { className?: string }) {
+  const { t } = useTranslation();
+  const copyOutputShortcutHint = useCopyOutputShortcutHint();
+
+  if (!copyOutputShortcutHint) return <span />;
+
+  return (
+    <span
+      className={cn('flex items-center gap-[6px] text-[11.5px] text-fg-subtle', className)}
+      aria-label={t('utilities.shortcuts.outputAriaLabel')}
+      data-testid="utilities-sidebar-shortcuts"
+    >
+      <Kbd>{copyOutputShortcutHint.combo}</Kbd>
+      {t(copyOutputShortcutHint.labelKey)}
+    </span>
+  );
+}
+
+interface DeveloperUtilitiesWorkspaceBodyProps {
+  selectedUtilityId: DeveloperUtilityId;
+  onSelectUtility: (utilityId: DeveloperUtilityId) => void;
+  autoFocusSearch?: boolean;
+  testId?: string;
+  className?: string;
+}
+
+export function DeveloperUtilitiesWorkspaceBody({
+  selectedUtilityId,
+  onSelectUtility,
+  autoFocusSearch = true,
+  testId = 'developer-utilities-workspace-body',
+  className = 'grid h-full grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]',
+}: DeveloperUtilitiesWorkspaceBodyProps) {
+  const { t } = useTranslation();
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  const effectiveTier = useEffectiveTier();
+  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
+  // Button refs let keyboard navigation move actual focus into the list
+  // after a search-box arrow key, matching a roving-tabindex pattern
+  // without storing focus state separately.
+  const utilityButtonRefs = useRef(new Map<DeveloperUtilityId, HTMLButtonElement>());
+
+  useFavoriteTelemetry();
 
   useEffect(() => {
-    searchRef.current?.focus();
-  }, []);
+    if (autoFocusSearch) {
+      searchRef.current?.focus();
+    }
+  }, [autoFocusSearch]);
 
   const filteredUtilities = useMemo(() => {
     const q = searchQuery.trim();
@@ -136,8 +176,8 @@ export function DeveloperUtilitiesModal({
       const candidates: { value: string; weight: number }[] = [
         { value: title, weight: 1.0 },
         { value: desc, weight: 0.6 },
-        ...utility.keywords.map((kw) => ({ value: kw, weight: 0.85 })),
-        ...(utility.aliases ?? []).map((alias) => ({ value: alias, weight: 0.95 })),
+        ...utility.keywords.map(kw => ({ value: kw, weight: 0.85 })),
+        ...(utility.aliases ?? []).map(alias => ({ value: alias, weight: 0.95 })),
       ];
       let best = -Infinity;
       for (const { value, weight } of candidates) {
@@ -151,11 +191,26 @@ export function DeveloperUtilitiesModal({
       if (best > -Infinity) ranked.push({ utility, score: best });
     }
     ranked.sort((a, b) => b.score - a.score);
-    return ranked.map((r) => r.utility);
+    return ranked.map(r => r.utility);
   }, [searchQuery, t]);
 
+  const isUtilityLocked = (utility: DeveloperUtilityDefinition): boolean =>
+    utility.requiresEntitlement === 'DEV_UTILITIES' && !canUseUtilityWorkflows;
+
+  const notifyLockedUtility = () => {
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: t('upsell.feature.utilityWorkflows'),
+    });
+    void trackEvent('feature.blocked', {
+      entitlement: 'utility-workflows',
+      tier: effectiveTier,
+    });
+  };
+
   const activeSelectedUtilityId =
-    filteredUtilities.find((utility) => utility.id === selectedUtilityId)?.id ??
+    filteredUtilities.find(utility => utility.id === selectedUtilityId)?.id ??
+    filteredUtilities.find(utility => !isUtilityLocked(utility))?.id ??
     filteredUtilities[0]?.id ??
     selectedUtilityId;
   // `selectedUtility` never falls back to null because the catalog owns
@@ -174,21 +229,38 @@ export function DeveloperUtilitiesModal({
   const selectUtilityAt = (index: number, shouldFocusButton: boolean) => {
     const utility = filteredUtilities[index];
     if (!utility) return;
-    setSelectedUtilityId(utility.id);
+    if (isUtilityLocked(utility)) {
+      onSelectUtility(utility.id);
+      notifyLockedUtility();
+      if (shouldFocusButton) {
+        focusUtilityButton(utility.id);
+      }
+      return;
+    }
+    onSelectUtility(utility.id);
     if (shouldFocusButton) {
       focusUtilityButton(utility.id);
     }
   };
 
+  const handleSelectUtility = (utilityId: DeveloperUtilityId) => {
+    const utility = findDeveloperUtility(utilityId);
+    if (isUtilityLocked(utility)) {
+      onSelectUtility(utilityId);
+      notifyLockedUtility();
+      return;
+    }
+    onSelectUtility(utilityId);
+  };
+
   const selectRelativeUtility = (delta: number, shouldFocusButton: boolean) => {
     if (filteredUtilities.length === 0) return;
     const currentIndex = filteredUtilities.findIndex(
-      (utility) => utility.id === activeSelectedUtilityId
+      utility => utility.id === activeSelectedUtilityId
     );
     const fallbackIndex = delta > 0 ? -1 : 0;
     const baseIndex = currentIndex >= 0 ? currentIndex : fallbackIndex;
-    const nextIndex =
-      (baseIndex + delta + filteredUtilities.length) % filteredUtilities.length;
+    const nextIndex = (baseIndex + delta + filteredUtilities.length) % filteredUtilities.length;
     selectUtilityAt(nextIndex, shouldFocusButton);
   };
 
@@ -210,7 +282,7 @@ export function DeveloperUtilitiesModal({
       event.preventDefault();
       event.stopPropagation();
       const currentIndex = filteredUtilities.findIndex(
-        (utility) => utility.id === activeSelectedUtilityId
+        utility => utility.id === activeSelectedUtilityId
       );
       selectUtilityAt(Math.max(currentIndex, 0), true);
     }
@@ -242,6 +314,161 @@ export function DeveloperUtilitiesModal({
     }
   };
 
+  return (
+    <div data-testid={testId} className={className}>
+      <aside className="flex min-h-0 flex-col border-b border-border-subtle lg:border-b-0 lg:border-r">
+        <div className="px-4 pb-3 pt-4">
+          <div className="relative">
+            <Search
+              size={13}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle"
+              aria-hidden="true"
+            />
+            <input
+              ref={searchRef}
+              type="search"
+              value={searchQuery}
+              onChange={event => setSearchQuery(event.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={t('utilities.search.placeholder')}
+              aria-label={t('utilities.search.ariaLabel')}
+              data-testid="utilities-search-input"
+              className="w-full rounded-full border border-border/60 bg-bg-panel/70 py-2 pl-10 pr-3 text-[12.5px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/60"
+            />
+            {searchQuery.length > 0 ? (
+              <span
+                className="kbd-shell absolute right-2 top-1/2 -translate-y-1/2"
+                aria-label={t('utilities.search.escHint')}
+              >
+                {t('shortcuts.kbd.escape')}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <FavoritesRow selectedUtilityId={activeSelectedUtilityId} onSelect={handleSelectUtility} />
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          {filteredUtilities.length === 0 ? (
+            <div className="px-3 py-6 text-center">
+              <p className="text-[12px] text-fg-muted">
+                {t('utilities.search.empty', { query: searchQuery })}
+              </p>
+            </div>
+          ) : (
+            filteredUtilities.map(utility => {
+              const isSelected = utility.id === activeSelectedUtilityId;
+              const isLocked = isUtilityLocked(utility);
+              return (
+                <div
+                  key={utility.id}
+                  data-locked={isLocked || undefined}
+                  className={cn(
+                    'group mb-1 flex w-full items-start gap-1 rounded-xl pr-2 transition-colors',
+                    isSelected
+                      ? 'bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)]'
+                      : 'hover:bg-bg-panel-alt/70',
+                    isLocked && 'opacity-75'
+                  )}
+                >
+                  <button
+                    type="button"
+                    ref={node => {
+                      if (node) {
+                        utilityButtonRefs.current.set(utility.id, node);
+                      } else {
+                        utilityButtonRefs.current.delete(utility.id);
+                      }
+                    }}
+                    onClick={() => {
+                      if (isLocked) {
+                        onSelectUtility(utility.id);
+                        notifyLockedUtility();
+                        return;
+                      }
+                      onSelectUtility(utility.id);
+                    }}
+                    onKeyDown={handleUtilityKeyDown}
+                    onMouseEnter={() => {
+                      if (!isLocked) prefetchUtilityPanel(utility.id);
+                    }}
+                    onFocus={() => {
+                      if (!isLocked) prefetchUtilityPanel(utility.id);
+                    }}
+                    aria-pressed={isSelected}
+                    data-testid={`utility-item-${utility.id}`}
+                    className={cn(
+                      'flex flex-1 items-start gap-2.5 px-3 py-3 text-left',
+                      isLocked && 'cursor-pointer'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'mt-1.5 inline-block size-1.5 shrink-0 rounded-full',
+                        isSelected ? 'bg-accent' : 'bg-transparent'
+                      )}
+                      aria-hidden="true"
+                    />
+                    <span className="flex flex-1 flex-col">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={cn(
+                            'text-[13px] font-semibold leading-tight',
+                            isSelected ? 'text-accent-fg' : 'text-fg-base'
+                          )}
+                        >
+                          {t(utility.titleKey)}
+                        </span>
+                        {isLocked ? (
+                          <span
+                            data-testid={`utility-lock-${utility.id}`}
+                            className="rounded-full border border-warning/45 bg-warning/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-warning"
+                          >
+                            {t('utilities.locked.proBadge')}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span
+                        className={cn(
+                          'mt-1 line-clamp-2 text-[11.5px] leading-[1.45]',
+                          isSelected ? 'text-accent-fg/85' : 'text-fg-muted'
+                        )}
+                      >
+                        {t(utility.descriptionKey)}
+                      </span>
+                    </span>
+                  </button>
+                  {isLocked ? null : <FavoriteToggleButton utilityId={utility.id} />}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </aside>
+
+      <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
+        <div className="border-b border-border-subtle px-7 pb-5 pt-6">
+          <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
+          <h2 className="mt-1.5 text-[22px] font-bold leading-[1.15] tracking-[-0.01em] text-fg-base">
+            {t(selectedUtility.titleKey)}
+          </h2>
+          <p className="mt-1 max-w-3xl text-[13px] leading-[1.55] text-fg-muted">
+            {t(selectedUtility.descriptionKey)}
+          </p>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+          <DeveloperUtilityPanel toolId={activeSelectedUtilityId} />
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export function DeveloperUtilitiesModal({
+  onClose,
+  initialUtilityId = DEFAULT_DEVELOPER_UTILITY_ID,
+}: DeveloperUtilitiesModalProps) {
+  const { t } = useTranslation();
+  const [selectedUtilityId, setSelectedUtilityId] = useState<DeveloperUtilityId>(initialUtilityId);
+
   const header = (
     <div className="min-w-0">
       <h2
@@ -250,24 +477,11 @@ export function DeveloperUtilitiesModal({
       >
         {t('utilities.title')}
       </h2>
-      <p className="mt-0.5 truncate text-[12.5px] text-fg-subtle">
-        {t('utilities.description')}
-      </p>
+      <p className="mt-0.5 truncate text-[12.5px] text-fg-subtle">{t('utilities.description')}</p>
     </div>
   );
 
-  const footerLegend = copyOutputShortcutHint ? (
-    <span
-      className="flex items-center gap-[6px] text-[11.5px] text-fg-subtle"
-      aria-label={t('utilities.shortcuts.outputAriaLabel')}
-      data-testid="utilities-sidebar-shortcuts"
-    >
-      <Kbd>{copyOutputShortcutHint.combo}</Kbd>
-      {t(copyOutputShortcutHint.labelKey)}
-    </span>
-  ) : (
-    <span />
-  );
+  const footerLegend = <UtilityCopyShortcutHint />;
 
   const trailing = (
     <span className="font-mono text-[11px] text-fg-subtle">
@@ -287,129 +501,48 @@ export function DeveloperUtilitiesModal({
       trailing={trailing}
       bodyClassName="h-[min(70vh,640px)] overflow-hidden"
     >
-      <div
-        data-testid="developer-utilities-modal"
-        className="grid h-full grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]"
-      >
-        <aside className="flex min-h-0 flex-col border-b border-border-subtle lg:border-b-0 lg:border-r">
-          <div className="px-4 pb-3 pt-4">
-            <div className="relative">
-              <Search
-                size={13}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle"
-                aria-hidden="true"
-              />
-              <input
-                ref={searchRef}
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder={t('utilities.search.placeholder')}
-                aria-label={t('utilities.search.ariaLabel')}
-                data-testid="utilities-search-input"
-                className="w-full rounded-full border border-border/60 bg-bg-panel/70 py-2 pl-10 pr-3 text-[12.5px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/60"
-              />
-              {searchQuery.length > 0 ? (
-                <span
-                  className="kbd-shell absolute right-2 top-1/2 -translate-y-1/2"
-                  aria-label={t('utilities.search.escHint')}
-                >
-                  {t('shortcuts.kbd.escape')}
-                </span>
-              ) : null}
-            </div>
-          </div>
-          <FavoritesRow
-            selectedUtilityId={activeSelectedUtilityId}
-            onSelect={setSelectedUtilityId}
-          />
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {filteredUtilities.length === 0 ? (
-              <div className="px-3 py-6 text-center">
-                <p className="text-[12px] text-fg-muted">
-                  {t('utilities.search.empty', { query: searchQuery })}
-                </p>
-              </div>
-            ) : (
-              filteredUtilities.map((utility) => {
-                const isSelected = utility.id === activeSelectedUtilityId;
-                return (
-                  <div
-                    key={utility.id}
-                    className={cn(
-                      'group mb-1 flex w-full items-start gap-1 rounded-xl pr-2 transition-colors',
-                      isSelected
-                        ? 'bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)]'
-                        : 'hover:bg-bg-panel-alt/70'
-                    )}
-                  >
-                    <button
-                      type="button"
-                      ref={(node) => {
-                        if (node) {
-                          utilityButtonRefs.current.set(utility.id, node);
-                        } else {
-                          utilityButtonRefs.current.delete(utility.id);
-                        }
-                      }}
-                      onClick={() => setSelectedUtilityId(utility.id)}
-                      onKeyDown={handleUtilityKeyDown}
-                      onMouseEnter={() => prefetchUtilityPanel(utility.id)}
-                      onFocus={() => prefetchUtilityPanel(utility.id)}
-                      aria-pressed={isSelected}
-                      data-testid={`utility-item-${utility.id}`}
-                      className="flex flex-1 items-start gap-2.5 px-3 py-3 text-left"
-                    >
-                      <span
-                        className={cn(
-                          'mt-1.5 inline-block size-1.5 shrink-0 rounded-full',
-                          isSelected ? 'bg-accent' : 'bg-transparent'
-                        )}
-                        aria-hidden="true"
-                      />
-                      <span className="flex flex-1 flex-col">
-                        <span
-                          className={cn(
-                            'text-[13px] font-semibold leading-tight',
-                            isSelected ? 'text-accent-fg' : 'text-fg-base'
-                          )}
-                        >
-                          {t(utility.titleKey)}
-                        </span>
-                        <span
-                          className={cn(
-                            'mt-1 line-clamp-2 text-[11.5px] leading-[1.45]',
-                            isSelected ? 'text-accent-fg/85' : 'text-fg-muted'
-                          )}
-                        >
-                          {t(utility.descriptionKey)}
-                        </span>
-                      </span>
-                    </button>
-                    <FavoriteToggleButton utilityId={utility.id} />
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </aside>
-
-        <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
-          <div className="border-b border-border-subtle px-7 pb-5 pt-6">
-            <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
-            <h2 className="mt-1.5 text-[22px] font-bold leading-[1.15] tracking-[-0.01em] text-fg-base">
-              {t(selectedUtility.titleKey)}
-            </h2>
-            <p className="mt-1 max-w-3xl text-[13px] leading-[1.55] text-fg-muted">
-              {t(selectedUtility.descriptionKey)}
-            </p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-            <DeveloperUtilityPanel toolId={activeSelectedUtilityId} />
-          </div>
-        </main>
-      </div>
+      <DeveloperUtilitiesWorkspaceBody
+        selectedUtilityId={selectedUtilityId}
+        onSelectUtility={setSelectedUtilityId}
+        testId="developer-utilities-modal"
+      />
     </ModalShell>
+  );
+}
+
+export function DeveloperUtilitiesWorkspaceView() {
+  const { t } = useTranslation();
+  const activeUtilityId = useUtilityHistoryStore(state => state.activeUtilityId);
+  const setActiveUtilityId = useUtilityHistoryStore(state => state.setActiveUtilityId);
+
+  return (
+    <div
+      data-testid="developer-utilities-workspace"
+      className="flex h-full min-h-0 flex-col bg-bg-panel-alt/40"
+    >
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-border-subtle bg-bg-panel/80 px-6 py-4">
+        <div className="min-w-0">
+          <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
+          <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-[-0.01em] text-fg-base">
+            {t('utilities.title')}
+          </h1>
+          <p className="mt-1 max-w-3xl text-[13px] leading-[1.55] text-fg-muted">
+            {t('utilities.description')}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <UtilityCopyShortcutHint className="rounded-full border border-border-subtle bg-bg-panel-alt/70 px-2.5 py-1" />
+          <span className="rounded-full border border-border-subtle bg-bg-panel-alt/70 px-2.5 py-1 font-mono text-[11px] text-fg-subtle">
+            {t('utilities.toolCount', { count: DEVELOPER_UTILITIES.length })}
+          </span>
+        </div>
+      </header>
+      <DeveloperUtilitiesWorkspaceBody
+        selectedUtilityId={activeUtilityId}
+        onSelectUtility={setActiveUtilityId}
+        testId="developer-utilities-workspace-body"
+        className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]"
+      />
+    </div>
   );
 }

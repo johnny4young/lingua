@@ -1,1 +1,5 @@
-export { DeveloperUtilitiesModal } from './DeveloperUtilitiesModal';
+export {
+  DeveloperUtilitiesModal,
+  DeveloperUtilitiesWorkspaceBody,
+  DeveloperUtilitiesWorkspaceView,
+} from './DeveloperUtilitiesModal';

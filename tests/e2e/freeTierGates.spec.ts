@@ -164,16 +164,52 @@ test.describe('Free tier gates', () => {
     await expect(page.getByTestId('execution-history-popover')).toHaveCount(0);
   });
 
-  test('developer utilities toolbar button blocks the modal', async ({ page }) => {
+  test('developer utilities toolbar button opens the free workspace and locks workflows', async ({
+    page,
+  }) => {
     await page.getByRole('button', { name: 'Developer utilities' }).click();
-    await expectNoticeContains(page, 'built-in developer utilities');
-    await expect(page.getByTestId('developer-utilities-modal')).toHaveCount(0);
+    await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Built-in utilities' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'JSON Formatter' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Pretty print' })).toBeVisible();
+
+    await page.getByTestId('utilities-search-input').fill('pipeline');
+    await expect(page.getByTestId('utility-lock-utility-pipelines')).toBeVisible();
+    await page.getByTestId('utility-item-utility-pipelines').click();
+    await expect(page.getByTestId('utility-pipeline-locked')).toBeVisible();
+    await expectNoticeContains(page, 'utility workflows');
+    await page.getByTestId('utility-pipeline-unlock').click();
+    await expectNoticeContains(page, 'utility workflows');
+    await expect(page.getByTestId('utility-pipeline-panel')).toHaveCount(0);
   });
 
-  test('developer utilities shortcut blocks the modal', async ({ page }) => {
+  test('developer utilities shortcut opens the free workspace', async ({ page }) => {
     await page.keyboard.press('Control+K');
-    await expectNoticeContains(page, 'built-in developer utilities');
-    await expect(page.getByTestId('developer-utilities-modal')).toHaveCount(0);
+    await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'JSON Formatter' })).toBeVisible();
+  });
+
+  test('utility pipelines shortcut remains Pro-gated', async ({ page }) => {
+    await page.keyboard.press('ControlOrMeta+Shift+G');
+    await expectNoticeContains(page, 'utility workflows');
+    await expect(page.getByTestId('developer-utilities-workspace')).toHaveCount(0);
+    await expect(page.getByTestId('utility-pipeline-panel')).toHaveCount(0);
+  });
+
+  test('clipboard-on-focus automation is locked in Free settings', async ({ page }) => {
+    await openSettings(page);
+    await openSettingsTab(page, 'editor');
+
+    const toggle = page.getByRole('switch', {
+      name: 'Apply from clipboard on panel focus',
+    });
+    await expect(toggle).toBeDisabled();
+    await expect(page.getByTestId('utilities-clipboard-on-focus-status')).toContainText(
+      'Pro automation'
+    );
+
+    await page.getByTestId('utilities-clipboard-on-focus-unlock').click();
+    await expectNoticeContains(page, 'utility workflows');
   });
 
   test('license status pill reads "Free plan" and offers no clear affordance', async ({ page }) => {

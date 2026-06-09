@@ -5,7 +5,7 @@ import { create } from 'zustand';
  * RL-069 Slice 2 — adds an `applyHandler` slot so the global
  * `Mod+Shift+A` shortcut can fire the focused panel's ⚡ Apply.
  *
- * The Developer Utilities modal mounts one panel at a time. That panel
+ * The Developer Utilities workspace/modal mounts one panel at a time. That panel
  * registers a getter on mount via `useRegisterUtilityOutput`; the
  * global keyboard shortcut handler reads through that getter when the
  * user presses Cmd+Shift+C / Cmd+Alt+R. Nothing is "captured" — we
@@ -49,9 +49,9 @@ interface UtilityOutputState {
 export const useUtilityOutputStore = create<UtilityOutputState>((set, get) => ({
   provider: null,
   applyHandler: null,
-  setProvider: (provider) => set({ provider }),
+  setProvider: provider => set({ provider }),
   clearProvider: () => set({ provider: null }),
-  setApplyHandler: (handler) => set({ applyHandler: handler }),
+  setApplyHandler: handler => set({ applyHandler: handler }),
   clearApplyHandler: () => set({ applyHandler: null }),
   getProvider: () => get().provider,
   getApplyHandler: () => get().applyHandler,

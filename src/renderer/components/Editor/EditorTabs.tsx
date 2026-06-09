@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, Database, Globe, Loader2, X } from 'lucide-react';
+import { BookOpen, ChevronDown, Database, Globe, Loader2, Wrench, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -29,15 +29,15 @@ interface ContextMenuState {
  * starts an inline rename — Enter commits, Escape cancels.
  */
 export function EditorTabs() {
-  const tabs = useEditorStore((state) => state.tabs);
-  const activeTabId = useEditorStore((state) => state.activeTabId);
-  const setActiveTab = useEditorStore((state) => state.setActiveTab);
-  const closeTab = useEditorStore((state) => state.closeTab);
-  const renameTab = useEditorStore((state) => state.renameTab);
-  const duplicateActiveTab = useEditorStore((state) => state.duplicateActiveTab);
-  const closeOtherTabs = useEditorStore((state) => state.closeOtherTabs);
-  const closeTabsToRight = useEditorStore((state) => state.closeTabsToRight);
-  const closeAllTabs = useEditorStore((state) => state.closeAllTabs);
+  const tabs = useEditorStore(state => state.tabs);
+  const activeTabId = useEditorStore(state => state.activeTabId);
+  const setActiveTab = useEditorStore(state => state.setActiveTab);
+  const closeTab = useEditorStore(state => state.closeTab);
+  const renameTab = useEditorStore(state => state.renameTab);
+  const duplicateActiveTab = useEditorStore(state => state.duplicateActiveTab);
+  const closeOtherTabs = useEditorStore(state => state.closeOtherTabs);
+  const closeTabsToRight = useEditorStore(state => state.closeTabsToRight);
+  const closeAllTabs = useEditorStore(state => state.closeAllTabs);
   const { t } = useTranslation();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -45,10 +45,7 @@ export function EditorTabs() {
 
   if (tabs.length === 0) return null;
 
-  const handleActivationKey = (
-    event: KeyboardEvent<HTMLDivElement>,
-    tabId: string
-  ) => {
+  const handleActivationKey = (event: KeyboardEvent<HTMLDivElement>, tabId: string) => {
     if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
       event.preventDefault();
       const rect = event.currentTarget.getBoundingClientRect();
@@ -70,10 +67,7 @@ export function EditorTabs() {
     }
   };
 
-  const handleContextMenu = (
-    event: ReactMouseEvent<HTMLDivElement>,
-    tabId: string
-  ) => {
+  const handleContextMenu = (event: ReactMouseEvent<HTMLDivElement>, tabId: string) => {
     event.preventDefault();
     setActiveTab(tabId);
     setContextMenu({
@@ -107,16 +101,15 @@ export function EditorTabs() {
       tab.id === activeTabId ||
       tab.kind === 'sql' ||
       tab.kind === 'http' ||
-      tab.kind === 'notebook';
-    const pinnedIds = new Set(
-      tabs.filter(isPriority).map((tab) => tab.id)
-    );
+      tab.kind === 'notebook' ||
+      tab.kind === 'utilities';
+    const pinnedIds = new Set(tabs.filter(isPriority).map(tab => tab.id));
     // If the priority set alone exceeds the cap, keep all of it —
     // dropping a workspace tab or the active tab would be worse than
     // a slightly longer strip.
     const remainingSlots = Math.max(0, VISIBLE_TAB_CAP - pinnedIds.size);
     let filled = 0;
-    visibleTabs = tabs.filter((tab) => {
+    visibleTabs = tabs.filter(tab => {
       if (pinnedIds.has(tab.id)) return true;
       if (filled < remainingSlots) {
         filled += 1;
@@ -145,16 +138,12 @@ export function EditorTabs() {
           const tabLabel = `${tabKindShortCode(tab) ?? languageShortLabel(tab.language)} ${tab.name}`;
 
           return (
-            <Tooltip
-              key={tab.id}
-              content={resolveTabTooltip(tab, t)}
-              disabled={isRenaming}
-            >
+            <Tooltip key={tab.id} content={resolveTabTooltip(tab, t)} disabled={isRenaming}>
               <div
                 data-tab-id={tab.id}
                 data-active={isActive}
                 data-execution-state={tab.executionState ?? 'idle'}
-                onContextMenu={(event) => handleContextMenu(event, tab.id)}
+                onContextMenu={event => handleContextMenu(event, tab.id)}
                 className={cn(
                   'group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/60 px-3 text-xs transition-colors',
                   isActive
@@ -171,7 +160,7 @@ export function EditorTabs() {
                   aria-label={tabLabel}
                   data-testid="editor-tab-activation"
                   onClick={() => !isRenaming && setActiveTab(tab.id)}
-                  onKeyDown={(event) => handleActivationKey(event, tab.id)}
+                  onKeyDown={event => handleActivationKey(event, tab.id)}
                   className="flex h-full min-w-0 flex-1 items-center gap-2"
                 >
                   {/* MOV.02 (FASE 3) — workspace + notebook tabs lead with
@@ -184,7 +173,8 @@ export function EditorTabs() {
                       callers query. */}
                   {tab.kind === 'sql' ||
                   tab.kind === 'http' ||
-                  tab.kind === 'notebook' ? (
+                  tab.kind === 'notebook' ||
+                  tab.kind === 'utilities' ? (
                     <TabKindGlyph kind={tab.kind} />
                   ) : (
                     <TabLanguageChip language={tab.language} />
@@ -194,7 +184,7 @@ export function EditorTabs() {
                       initialName={tab.name}
                       placeholder={t('editorTabs.rename.placeholder')}
                       ariaLabel={t('editorTabs.rename.ariaLabel', { name: tab.name })}
-                      onCommit={(next) => {
+                      onCommit={next => {
                         renameTab(tab.id, next);
                         setRenamingTabId(null);
                       }}
@@ -235,7 +225,7 @@ export function EditorTabs() {
                     tab={tab}
                     unsavedLabel={t('editorTabs.unsaved', { name: tab.name })}
                     closeLabel={t('editorTabs.close', { name: tab.name })}
-                    onClose={(event) => {
+                    onClose={event => {
                       event.stopPropagation();
                       void closeTab(tab.id);
                     }}
@@ -258,38 +248,39 @@ export function EditorTabs() {
               tabs={tabs}
               activeTabId={activeTabId}
               hiddenCount={hiddenTabCount}
-              onSelect={(id) => setActiveTab(id)}
-              onClose={(id) => void closeTab(id)}
+              onSelect={id => setActiveTab(id)}
+              onClose={id => void closeTab(id)}
             />
           </>
         ) : null}
       </div>
-      {contextMenu && (() => {
-        const tabIndex = tabs.findIndex((tab) => tab.id === contextMenu.tabId);
-        const tab = tabs[tabIndex];
-        if (!tab) return null;
-        return (
-          <EditorTabContextMenu
-            anchor={contextMenu.anchor}
-            tabName={tab.name}
-            isLastTab={tabs.length === 1}
-            isRightmost={tabIndex === tabs.length - 1}
-            onClose={closeContextMenu}
-            onCloseTab={() => void closeTab(tab.id)}
-            onCloseOthers={() => void closeOtherTabs(tab.id)}
-            onCloseToRight={() => void closeTabsToRight(tab.id)}
-            onCloseAll={() => void closeAllTabs()}
-            onRename={() => {
-              setActiveTab(tab.id);
-              setRenamingTabId(tab.id);
-            }}
-            onDuplicate={() => {
-              setActiveTab(tab.id);
-              duplicateActiveTab();
-            }}
-          />
-        );
-      })()}
+      {contextMenu &&
+        (() => {
+          const tabIndex = tabs.findIndex(tab => tab.id === contextMenu.tabId);
+          const tab = tabs[tabIndex];
+          if (!tab) return null;
+          return (
+            <EditorTabContextMenu
+              anchor={contextMenu.anchor}
+              tabName={tab.name}
+              isLastTab={tabs.length === 1}
+              isRightmost={tabIndex === tabs.length - 1}
+              onClose={closeContextMenu}
+              onCloseTab={() => void closeTab(tab.id)}
+              onCloseOthers={() => void closeOtherTabs(tab.id)}
+              onCloseToRight={() => void closeTabsToRight(tab.id)}
+              onCloseAll={() => void closeAllTabs()}
+              onRename={() => {
+                setActiveTab(tab.id);
+                setRenamingTabId(tab.id);
+              }}
+              onDuplicate={() => {
+                setActiveTab(tab.id);
+                duplicateActiveTab();
+              }}
+            />
+          );
+        })()}
     </>
   );
 }
@@ -354,9 +345,9 @@ function RenameInput({
       placeholder={placeholder}
       aria-label={ariaLabel}
       data-testid="editor-tab-rename-input"
-      onChange={(event) => setValue(event.target.value)}
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => {
+      onChange={event => setValue(event.target.value)}
+      onClick={event => event.stopPropagation()}
+      onKeyDown={event => {
         if (event.key === 'Enter') {
           event.preventDefault();
           commit();
@@ -407,8 +398,7 @@ function TabStatusControl({
   // Pick the accessible label that matches the visible dot. Dirty + no
   // execution state => surface the historical "unsaved changes" copy
   // so screen-reader callers reading the regression test pass.
-  const accessibleLabel =
-    state === 'idle' && tab.isDirty ? unsavedLabel : undefined;
+  const accessibleLabel = state === 'idle' && tab.isDirty ? unsavedLabel : undefined;
 
   return (
     <span className="relative ml-0.5 inline-flex size-5 shrink-0 items-center justify-center">
@@ -532,7 +522,7 @@ function TabsOverflowDropdown({
     };
   }, [open]);
 
-  const dirtyCount = tabs.filter((tab) => tab.isDirty).length;
+  const dirtyCount = tabs.filter(tab => tab.isDirty).length;
 
   return (
     <div ref={containerRef} className="relative ml-1 flex items-center">
@@ -548,10 +538,10 @@ function TabsOverflowDropdown({
           aria-expanded={open}
           aria-label={t('editorTabs.overflow.ariaLabel', { count: hiddenCount })}
           data-testid="editor-tabs-overflow"
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={() => setOpen(prev => !prev)}
           className={cn(
             'inline-flex h-full items-center gap-1.5 border-l border-border/60 px-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-muted transition-colors hover:bg-bg-panel-alt/70 hover:text-fg-base',
-            open && 'bg-bg-panel-alt text-fg-base',
+            open && 'bg-bg-panel-alt text-fg-base'
           )}
         >
           <span>+{hiddenCount}</span>
@@ -573,7 +563,7 @@ function TabsOverflowDropdown({
                   key={tab.id}
                   className={cn(
                     'group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors',
-                    isActive ? 'bg-primary-soft' : 'hover:bg-bg-panel-alt/70',
+                    isActive ? 'bg-primary-soft' : 'hover:bg-bg-panel-alt/70'
                   )}
                 >
                   <button
@@ -588,7 +578,8 @@ function TabsOverflowDropdown({
                   >
                     {tab.kind === 'sql' ||
                     tab.kind === 'http' ||
-                    tab.kind === 'notebook' ? (
+                    tab.kind === 'notebook' ||
+                    tab.kind === 'utilities' ? (
                       <TabKindGlyph kind={tab.kind} size="menu" />
                     ) : (
                       <TabLanguageChip language={tab.language} size="menu" />
@@ -596,7 +587,7 @@ function TabsOverflowDropdown({
                     <span
                       className={cn(
                         'min-w-0 flex-1 truncate font-mono text-[12px]',
-                        isActive ? 'text-accent-fg font-semibold' : 'text-fg-base',
+                        isActive ? 'text-accent-fg font-semibold' : 'text-fg-base'
                       )}
                     >
                       {tab.name}
@@ -619,7 +610,7 @@ function TabsOverflowDropdown({
                   </button>
                   <button
                     type="button"
-                    onClick={(event) => {
+                    onClick={event => {
                       event.stopPropagation();
                       onClose(tab.id);
                     }}
@@ -654,12 +645,13 @@ function TabsOverflowDropdown({
  * used in the accessible tab label so it doesn't fall back to the
  * neutral marker language's "TXT". Returns null for code tabs (they
  * keep their language short label). Matches the prototype TypeGlyph
- * codes (SQL / HTTP / NB).
+ * codes (SQL / HTTP / UTIL / NB).
  */
 function tabKindShortCode(tab: FileTab): string | null {
   if (tab.kind === 'sql') return 'SQL';
   if (tab.kind === 'http') return 'HTTP';
   if (tab.kind === 'notebook') return 'NB';
+  if (tab.kind === 'utilities') return 'UTIL';
   return null;
 }
 
@@ -672,17 +664,14 @@ function tabKindShortCode(tab: FileTab): string | null {
  * the language code chip alone. Returns null for code tabs so the
  * existing chip-only layout is untouched.
  */
-function TabKindGlyph({
-  kind,
-  size = 'tab',
-}: {
-  kind: FileTab['kind'];
-  size?: 'tab' | 'menu';
-}) {
-  if (kind !== 'sql' && kind !== 'http' && kind !== 'notebook') return null;
-  const Icon = kind === 'sql' ? Database : kind === 'http' ? Globe : BookOpen;
+function TabKindGlyph({ kind, size = 'tab' }: { kind: FileTab['kind']; size?: 'tab' | 'menu' }) {
+  if (kind !== 'sql' && kind !== 'http' && kind !== 'notebook' && kind !== 'utilities') {
+    return null;
+  }
+  const Icon =
+    kind === 'sql' ? Database : kind === 'http' ? Globe : kind === 'notebook' ? BookOpen : Wrench;
   const iconSize = size === 'menu' ? 13 : 12;
-  // Kind-tinted so SQL / HTTP / Notebook read distinctly without
+  // Kind-tinted so SQL / HTTP / Utilities / Notebook read distinctly without
   // leaning on color alone (icon shape carries the identity too).
   // HTTP uses the informational (blue) tone rather than green: the
   // Signal-Slate rule reserves the success hue for the Run action and
@@ -692,7 +681,9 @@ function TabKindGlyph({
       ? 'text-accent'
       : kind === 'http'
         ? 'text-info-fg'
-        : 'text-primary';
+        : kind === 'notebook'
+          ? 'text-primary'
+          : 'text-warning-fg';
   return (
     <span
       data-testid="editor-tab-kind-glyph"

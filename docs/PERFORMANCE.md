@@ -70,7 +70,7 @@ full `build:web` + desktop-renderer build per "Refreshing the baseline".
 
 ## Lazy Developer Utilities panels (RL-125)
 
-The Developer Utilities modal is itself a lazy chunk, and `UtilityPanelRegistry`
+The Developer Utilities workspace shell is itself a lazy chunk, and `UtilityPanelRegistry`
 now loads each tool's panel through `React.lazy` (see
 `src/renderer/components/DeveloperUtilities/UtilityPanelRegistry.ts`), with
 `<Suspense>` in `UtilityPanels.tsx` and an on-hover `prefetchUtilityPanel` warm
@@ -79,10 +79,11 @@ import at their util call sites.
 
 Effect on this report: the shared `DeveloperUtilities` chunk drops from ~362 KiB
 to ~19 KiB, and each panel (plus its deps) becomes its own `lazy` chunk — so
-opening JSON or Base64 no longer pays for the QR / SQL / Markdown panels. The
-`initial` bucket stays flat (the modal was already lazy, so there was nothing in
-`initial` to remove); the win is the per-tool split in the `lazy` bucket, which
-grows in file count as the single 362 KiB chunk fans out.
+opening Utilities on JSON or Base64 no longer pays for the QR / SQL / Markdown
+panels. The `initial` bucket stays flat (the workspace shell was already lazy,
+so there was nothing in `initial` to remove); the win is the per-tool split in
+the `lazy` bucket, which grows in file count as the single 362 KiB chunk fans
+out.
 `tests/e2e/devUtilitiesLazyPanels.spec.ts` guards that the default tool does not
 fetch the heavy panel chunks and that selecting QR loads its chunk on demand.
 
@@ -161,4 +162,4 @@ artifact.
 9. Confirm Pyodide and Developer Utilities assets are not listed as
    `initial` in the performance report.
 10. Confirm the report is readable from terminal or CI logs without
-   opening Lingua.
+    opening Lingua.

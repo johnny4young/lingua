@@ -15,8 +15,8 @@ import {
  * always reads the freshest output without per-keystroke effects.
  *
  * On unmount the registration is cleared so a stale getter from a
- * closed modal session never leaks across "user closes utilities,
- * presses Cmd+Shift+C in the editor" boundaries.
+ * closed utilities workspace/modal session never leaks across "user closes
+ * utilities, presses Cmd+Shift+C in the editor" boundaries.
  *
  * React 18 Strict Mode note: the dev runtime double-invokes effects
  * (mount → cleanup → mount). The reference-equality guard below means

@@ -22,7 +22,7 @@ import { useEditorStore } from '../../src/renderer/stores/editorStore';
 
 const STORES_DIR = resolve(__dirname, '../../src/renderer/stores');
 
-/** The complete `EditorState` surface — 3 state fields + 33 actions. */
+/** The complete `EditorState` surface — 3 state fields + 34 actions. */
 const EXPECTED_STORE_KEYS = [
   // state
   'tabs',
@@ -40,6 +40,7 @@ const EXPECTED_STORE_KEYS = [
   'addNotebookTab',
   'addSqlTab',
   'addHttpTab',
+  'addUtilitiesTab',
   // content writes
   'updateContent',
   'setTabContentFromDisk',
@@ -77,6 +78,7 @@ const EXPECTED_MODULE_EXPORTS = [
   'isVariableInspectorSupportedLanguage',
   'SQL_WORKSPACE_TAB_ID',
   'HTTP_WORKSPACE_TAB_ID',
+  'UTILITIES_WORKSPACE_TAB_ID',
   'getActiveTab',
   'getActiveTabIndex',
   'languageFromPath',
@@ -142,7 +144,7 @@ describe('RL-128 editorStore split — public API barrel (fold C)', () => {
     expect(state.activeTabId).toBeNull();
     expect(state.pendingReveal).toBeNull();
     const actionKeys = EXPECTED_STORE_KEYS.filter(
-      (k) => !['tabs', 'activeTabId', 'pendingReveal'].includes(k)
+      k => !['tabs', 'activeTabId', 'pendingReveal'].includes(k)
     );
     for (const key of actionKeys) {
       expect(typeof (state as Record<string, unknown>)[key]).toBe('function');
@@ -157,6 +159,7 @@ describe('RL-128 editorStore split — public API barrel (fold C)', () => {
   it('the re-exported workspace ids keep their stable values', () => {
     expect(editorStoreModule.SQL_WORKSPACE_TAB_ID).toBe('lingua:workspace:sql');
     expect(editorStoreModule.HTTP_WORKSPACE_TAB_ID).toBe('lingua:workspace:http');
+    expect(editorStoreModule.UTILITIES_WORKSPACE_TAB_ID).toBe('lingua:workspace:utilities');
   });
 });
 
@@ -165,23 +168,21 @@ describe('RL-128 editorStore split — size budget (fold D)', () => {
     expect(lineCount(ASSEMBLY_FILE)).toBeLessThanOrEqual(ASSEMBLY_MAX_LINES);
   });
 
-  it.each(SPLIT_MODULES)('%s stays under the per-module budget', (file) => {
+  it.each(SPLIT_MODULES)('%s stays under the per-module budget', file => {
     expect(lineCount(file)).toBeLessThanOrEqual(MODULE_MAX_LINES);
   });
 });
 
 describe('RL-128 editorStore split — import acyclicity (fold E)', () => {
-  it.each([...SPLIT_MODULES])('%s does not import the store assembly', (file) => {
+  it.each([...SPLIT_MODULES])('%s does not import the store assembly', file => {
     expect(read(file)).not.toMatch(/from\s+['"]\.\/editorStore['"]/);
   });
 
-  it.each(PURE_LEAF_MODULES)('%s is a leaf — no action-factory imports', (file) => {
+  it.each(PURE_LEAF_MODULES)('%s is a leaf — no action-factory imports', file => {
     const source = read(file);
     for (const factory of ACTION_FACTORY_MODULES) {
       const moduleName = factory.replace(/\.ts$/, '');
-      expect(source).not.toMatch(
-        new RegExp(`from\\s+['"]\\./${moduleName}['"]`)
-      );
+      expect(source).not.toMatch(new RegExp(`from\\s+['"]\\./${moduleName}['"]`));
     }
   });
 });

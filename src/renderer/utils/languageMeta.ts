@@ -110,7 +110,7 @@ const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
     foreground: 'oklch(0.42 0.15 25)',
   },
   // Workspace kinds (sql/http) ride the DS accent token instead of a
-  // bespoke hue — the same tone the SQL/HTTP workspace lists use for
+  // bespoke hue — the same tone the SQL/HTTP/Utilities workspace lists use for
   // their badges — so the pill chip stays on-system in both themes.
   sql: {
     code: 'SQL',
@@ -121,6 +121,11 @@ const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
     code: 'HTTP',
     background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
     foreground: 'var(--color-accent)',
+  },
+  utilities: {
+    code: 'UTIL',
+    background: 'color-mix(in srgb, var(--color-warning-bg) 64%, transparent)',
+    foreground: 'var(--color-warning-fg)',
   },
 };
 
@@ -136,12 +141,12 @@ const FALLBACK_META: LanguageMeta = {
 };
 const FALLBACK_EXTENSION = 'txt';
 
-// Workspace tab kinds (`kind: 'sql' | 'http'`) carry a neutral
+// Workspace tab kinds (`kind: 'sql' | 'http' | 'utilities'`) carry a neutral
 // `language` marker that is intentionally NOT a real language pack —
 // every language-gated code path treats it as inert. But the chrome
 // surfaces (FloatingActionPill chip, tab strip) still ask for a label
 // and badge, and the pack-less fallback resolves to a misleading
-// TXT / Text. Pin a proper SQL / HTTP label + short code here so the
+// TXT / Text. Pin a proper workspace label + short code here so the
 // pill reads the workspace kind correctly without re-deriving it.
 const WORKSPACE_KIND_META: Record<string, LanguageMeta> = {
   sql: {
@@ -157,6 +162,13 @@ const WORKSPACE_KIND_META: Record<string, LanguageMeta> = {
     shortLabel: 'HTTP',
     extensions: ['http'],
     monacoLanguage: 'http',
+  },
+  utilities: {
+    ...FALLBACK_META,
+    label: 'Utilities',
+    shortLabel: 'UTIL',
+    extensions: ['txt'],
+    monacoLanguage: 'plaintext',
   },
 };
 
@@ -279,5 +291,5 @@ export function languageSupportsFileName(language: Language, fileName: string): 
   const normalized = fileName.toLowerCase();
   const fileNames = getLanguageMeta(language).fileNames ?? [];
 
-  return fileNames.some((candidate) => candidate.toLowerCase() === normalized);
+  return fileNames.some(candidate => candidate.toLowerCase() === normalized);
 }

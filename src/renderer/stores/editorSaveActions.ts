@@ -14,7 +14,7 @@ import { trackEvent } from '../utils/telemetry';
 import i18next from 'i18next';
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers';
-import { budgetedTabCount } from './editorTabUtils';
+import { budgetedTabCount, isWorkspaceTab } from './editorTabUtils';
 import { persistTab } from './editorPersistence';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
@@ -41,9 +41,7 @@ export function createSaveActions(
     openFile: async (rootId, relativePath, name, language, displayPath) => {
       const { tabs } = get();
 
-      const existing = tabs.find(
-        (t) => t.rootId === rootId && t.relativePath === relativePath
-      );
+      const existing = tabs.find(t => t.rootId === rootId && t.relativePath === relativePath);
       if (existing) {
         set({ activeTabId: existing.id });
         return;
@@ -63,10 +61,7 @@ export function createSaveActions(
         return;
       }
 
-      const content = await window.lingua.fs.read(
-        asRootId(rootId),
-        asRelativePath(relativePath)
-      );
+      const content = await window.lingua.fs.read(asRootId(rootId), asRelativePath(relativePath));
       const filePath = displayPath ?? relativePath;
 
       const newTab: FileTab = {
@@ -87,7 +82,7 @@ export function createSaveActions(
         workflowMode: workflowModeForNewTab(language),
       };
 
-      set((state) => ({
+      set(state => ({
         tabs: [...state.tabs, newTab],
         activeTabId: newTab.id,
       }));
@@ -103,7 +98,7 @@ export function createSaveActions(
       const filePath = joinAbsolute(result.rootPath, result.fileRelativePath);
 
       const existing = tabs.find(
-        (t) =>
+        t =>
           (t.rootId === result.rootId && t.relativePath === result.fileRelativePath) ||
           t.filePath === filePath
       );
@@ -141,14 +136,12 @@ export function createSaveActions(
         workflowMode: workflowModeForNewTab(language),
       };
 
-      set((state) => ({
+      set(state => ({
         tabs: [...state.tabs, newTab],
         activeTabId: newTab.id,
       }));
 
-      useRecentFilesStore
-        .getState()
-        .addRecentFile({ filePath, name: result.fileName, language });
+      useRecentFilesStore.getState().addRecentFile({ filePath, name: result.fileName, language });
     },
 
     saveActiveTab: async () => {
@@ -165,15 +158,15 @@ export function createSaveActions(
 
     saveTabById: async (id, forceSaveAs = false) => {
       const { tabs } = get();
-      const tab = tabs.find((t) => t.id === id);
+      const tab = tabs.find(t => t.id === id);
       if (!tab) return false;
-      // MOV.02 — SQL / HTTP workspace tabs have no disk representation;
-      // their query/request is auto-persisted to the workspace store on
-      // every edit. A Save / Save-As gesture (Cmd+S, palette) would
+      // Workspace tabs have no disk representation; their current
+      // query/request/tool state is auto-persisted to the owning workspace
+      // store. A Save / Save-As gesture (Cmd+S, palette) would
       // otherwise open a file dialog and write the empty `content` to
       // disk. There is nothing pending here (unlike notebooks), so we
       // no-op silently rather than surfacing a notice.
-      if (tab.kind === 'sql' || tab.kind === 'http') {
+      if (isWorkspaceTab(tab)) {
         return false;
       }
       if (tab.kind === 'notebook') {
@@ -190,8 +183,8 @@ export function createSaveActions(
       const savedTab = await persistTab(tab, forceSaveAs);
       if (!savedTab) return false;
 
-      set((state) => ({
-        tabs: state.tabs.map((t) => (t.id === id ? savedTab : t)),
+      set(state => ({
+        tabs: state.tabs.map(t => (t.id === id ? savedTab : t)),
       }));
 
       // RL-020 Slice 8 — Save-As that changed the language invalidates
@@ -202,10 +195,7 @@ export function createSaveActions(
       // `useAutoRun` already clears the ring on tab switch; if the
       // user navigated away during the file picker, the ring belongs
       // to a different tab and we must leave it alone.
-      if (
-        savedTab.language !== previousLanguage &&
-        get().activeTabId === id
-      ) {
+      if (savedTab.language !== previousLanguage && get().activeTabId === id) {
         useResultStore.getState().clearLastSuccessfulSnapshot();
       }
       if (savedTab.language !== previousLanguage) {
@@ -216,9 +206,7 @@ export function createSaveActions(
       }
 
       if (previousRootId && previousRootId !== savedTab.rootId) {
-        const rootStillUsed = tabs.some(
-          (t) => t.id !== id && t.rootId === previousRootId
-        );
+        const rootStillUsed = tabs.some(t => t.id !== id && t.rootId === previousRootId);
         const projectRootId = useProjectStore.getState().currentProject?.rootId;
         if (!rootStillUsed && previousRootId !== projectRootId) {
           await window.lingua.fs.revokeRoot(asRootId(previousRootId)).catch(() => {});

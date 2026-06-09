@@ -14,15 +14,12 @@ export function UrlUtilityPanel() {
   const [input, setInput] = useState('name=Lingua & scope=utils');
   const decoded = decodeUrlComponentValue(input);
 
-  const output = mode === 'encode' ? encodeUrlComponentValue(input) : decoded.value ?? '';
+  const output = mode === 'encode' ? encodeUrlComponentValue(input) : (decoded.value ?? '');
   const errorKey = mode === 'decode' ? decoded.errorKey : null;
 
   // RL-069 Slice 1 — same convention as Base64: encoded / decoded
   // value when valid, null when errored.
-  const registerOutput = useCallback(
-    () => (errorKey ? null : output || null),
-    [errorKey, output]
-  );
+  const registerOutput = useCallback(() => (errorKey ? null : output || null), [errorKey, output]);
   useRegisterUtilityOutput(registerOutput);
 
   // RL-069 Slice 2 — Apply auto-flips the mode based on detect:
@@ -50,12 +47,7 @@ export function UrlUtilityPanel() {
           {t('utilities.actions.decode')}
         </button>
       </div>
-      <UtilityToolbar
-        utilityId="url"
-        primary={input}
-        run={runApply}
-        setPrimary={setInput}
-      />
+      <UtilityToolbar utilityId="url" primary={input} run={runApply} setPrimary={setInput} />
       <TwoPaneTransformPanel
         title={t('utilities.tool.url.title')}
         description={t('utilities.tool.url.panelDescription')}
@@ -63,6 +55,7 @@ export function UrlUtilityPanel() {
         onInputChange={setInput}
         output={output}
         errorKey={errorKey}
+        layout="output-wide"
       />
     </div>
   );

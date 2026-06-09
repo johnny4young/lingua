@@ -2,11 +2,7 @@ import { TwoPaneTransformPanel, UtilityToolbar } from '../panelPrimitives';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
-import {
-  decodeBase64,
-  detectsAsBase64,
-  encodeBase64,
-} from '../../../utils/developerUtilities';
+import { decodeBase64, detectsAsBase64, encodeBase64 } from '../../../utils/developerUtilities';
 
 export function Base64UtilityPanel() {
   const { t } = useTranslation();
@@ -14,17 +10,14 @@ export function Base64UtilityPanel() {
   const [input, setInput] = useState('Lingua utilities');
   const decoded = decodeBase64(input);
 
-  const output = mode === 'encode' ? encodeBase64(input) : decoded.value ?? '';
+  const output = mode === 'encode' ? encodeBase64(input) : (decoded.value ?? '');
   const errorKey = mode === 'decode' ? decoded.errorKey : null;
 
   // RL-069 Slice 1 — encoded / decoded output flows through to the
   // global Cmd+Shift+C handler. When the input has a decode error we
   // intentionally surface null so the shortcut shows the empty toast
   // instead of a malformed value.
-  const registerOutput = useCallback(
-    () => (errorKey ? null : output || null),
-    [errorKey, output]
-  );
+  const registerOutput = useCallback(() => (errorKey ? null : output || null), [errorKey, output]);
   useRegisterUtilityOutput(registerOutput);
 
   // RL-069 Slice 2 — Apply auto-flips the mode based on detect:
@@ -53,12 +46,7 @@ export function Base64UtilityPanel() {
           {t('utilities.actions.decode')}
         </button>
       </div>
-      <UtilityToolbar
-        utilityId="base64"
-        primary={input}
-        run={runApply}
-        setPrimary={setInput}
-      />
+      <UtilityToolbar utilityId="base64" primary={input} run={runApply} setPrimary={setInput} />
       <TwoPaneTransformPanel
         title={t('utilities.tool.base64.title')}
         description={t('utilities.tool.base64.panelDescription')}
@@ -66,6 +54,7 @@ export function Base64UtilityPanel() {
         onInputChange={setInput}
         output={output}
         errorKey={errorKey}
+        layout="output-wide"
       />
     </div>
   );

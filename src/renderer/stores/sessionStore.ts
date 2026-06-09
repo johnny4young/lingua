@@ -16,6 +16,7 @@ import {
   useEditorStore,
   SQL_WORKSPACE_TAB_ID,
   HTTP_WORKSPACE_TAB_ID,
+  UTILITIES_WORKSPACE_TAB_ID,
 } from './editorStore';
 import { useRecipeStore } from './recipeStore';
 import { useUIStore } from './uiStore';
@@ -64,9 +65,9 @@ interface SessionTab {
    * the isolated `lingua-notebook-state` store keyed by the tab id
    * captured in `notebookTabId` below.
    *
-   * MOV.02 — widened to `'sql'` / `'http'`. A `'sql'` / `'http'` tab
-   * routes the restore through the full-screen workspace tab surface
-   * instead of Monaco.
+   * MOV.02 — widened to `'sql'` / `'http'`. MOV.03 adds
+   * `'utilities'`. These route restore through full-screen workspace
+   * tab surfaces instead of Monaco.
    *
    * SQL/HTTP MODEL rework — SQL and HTTP are now COLLECTION workspaces:
    * there is at most ONE SQL tab and ONE HTTP tab, each carrying a
@@ -77,7 +78,7 @@ interface SessionTab {
    * per-query/request tabs; restore collapses any legacy duplicates to
    * the single workspace tab per kind (see `restoreSession`).
    */
-  kind?: 'notebook' | 'sql' | 'http';
+  kind?: 'notebook' | 'sql' | 'http' | 'utilities';
   /**
    * RL-043 Slice A — original tabId captured at save time. Notebook
    * state in `useNotebookStore` is keyed by tabId; without this
@@ -86,7 +87,8 @@ interface SessionTab {
    */
   notebookTabId?: string;
   /**
-   * Original tabId captured at save time for SQL / HTTP workspace tabs.
+   * Original tabId captured at save time for SQL / HTTP / Utilities
+   * workspace tabs.
    *
    * SQL/HTTP MODEL rework — the workspace tab now carries a stable
    * constant id, so saving always records that constant here and restore
@@ -95,7 +97,8 @@ interface SessionTab {
    * `http` entry to the single stable workspace tab per kind. The
    * collection itself rehydrates from its own store key regardless, so
    * the legacy per-query id is no longer load-bearing for data recovery.
-   * Only populated when `kind === 'sql'` or `kind === 'http'`.
+   * Only populated when `kind === 'sql'`, `kind === 'http'`, or
+   * `kind === 'utilities'`.
    */
   workspaceTabId?: string;
 }
@@ -115,7 +118,7 @@ export const useSessionStore = create<SessionState>()(
 
       saveSession: () => {
         const { tabs, activeTabId } = useEditorStore.getState();
-        const savedTabs: SessionTab[] = tabs.map((tab) => ({
+        const savedTabs: SessionTab[] = tabs.map(tab => ({
           name: tab.name,
           language: tab.language,
           // Disk-backed tabs persist only the path; restore re-reads via
@@ -142,22 +145,25 @@ export const useSessionStore = create<SessionState>()(
           // by tabId; without this, restore would mint a fresh UUID
           // and the persisted notebook would be orphaned).
           //
-          // MOV.02 — same treatment for SQL / HTTP workspace tabs. The
-          // discriminator routes restore through the workspace tab
-          // surface, and `workspaceTabId` pins the original id so the
-          // `useWorkspaceSqlStore` / `useWorkspaceToolStore` entry
-          // (keyed by tab id) lines up with the restored tab.
+          // MOV.02/MOV.03 — same treatment for SQL / HTTP / Utilities
+          // workspace tabs. The discriminator routes restore through the
+          // workspace tab surface, and `workspaceTabId` pins the original id
+          // so the stable tab can be re-created without treating it like a
+          // disk-backed document.
           kind:
             tab.kind === 'notebook' ||
             tab.kind === 'sql' ||
-            tab.kind === 'http'
+            tab.kind === 'http' ||
+            tab.kind === 'utilities'
               ? tab.kind
               : undefined,
           notebookTabId: tab.kind === 'notebook' ? tab.id : undefined,
           workspaceTabId:
-            tab.kind === 'sql' || tab.kind === 'http' ? tab.id : undefined,
+            tab.kind === 'sql' || tab.kind === 'http' || tab.kind === 'utilities'
+              ? tab.id
+              : undefined,
         }));
-        const activeIndex = tabs.findIndex((t) => t.id === activeTabId);
+        const activeIndex = tabs.findIndex(t => t.id === activeTabId);
         set({ savedTabs, savedActiveIndex: activeIndex });
       },
 
@@ -185,6 +191,7 @@ export const useSessionStore = create<SessionState>()(
         // the active selection survives the collapse.
         let sqlWorkspaceRestored = false;
         let httpWorkspaceRestored = false;
+        let utilitiesWorkspaceRestored = false;
 
         // Map each surviving saved index to the id it restored to, so we
         // can remap `savedActiveIndex` after collapsing duplicates. A
@@ -234,13 +241,9 @@ export const useSessionStore = create<SessionState>()(
           // but trimming here keeps the in-memory tab structure
           // honest about which fields are live.
           const stdinSupported =
-            language === 'javascript' ||
-            language === 'typescript' ||
-            language === 'python';
+            language === 'javascript' || language === 'typescript' || language === 'python';
           const restoredStdinBuffer =
-            stdinSupported && typeof saved.stdinBuffer === 'string'
-              ? saved.stdinBuffer
-              : undefined;
+            stdinSupported && typeof saved.stdinBuffer === 'string' ? saved.stdinBuffer : undefined;
           const restoredRecipeBindingId =
             language === 'javascript' &&
             typeof saved.recipeBindingId === 'string' &&
@@ -262,11 +265,12 @@ export const useSessionStore = create<SessionState>()(
             typeof saved.notebookTabId === 'string' &&
             saved.notebookTabId.length > 0;
 
-          // SQL/HTTP MODEL rework — restore SQL / HTTP workspace tabs to
+          // Workspace model rework — restore SQL / HTTP / Utilities tabs to
           // the SINGLE stable workspace id per kind. The collection of
-          // queries/requests rehydrates from its own store key, so the
-          // session entry only needs to re-create the container tab. A
-          // corrupt entry (`kind: 'sql'`/`'http'` with no
+          // queries/requests and active utility selection rehydrate from
+          // their own stores, so the session entry only needs to re-create
+          // the container tab. A corrupt entry (`kind: 'sql'`/`'http'`/
+          // `'utilities'` with no
           // `workspaceTabId`) drops the discriminator and falls back to a
           // plain code tab, matching the prior contract for hand-edited
           // sessions. LEGACY sessions with N per-query tabs collapse:
@@ -279,6 +283,10 @@ export const useSessionStore = create<SessionState>()(
             saved.workspaceTabId.length > 0;
           const isHttpWorkspaceEntry =
             saved.kind === 'http' &&
+            typeof saved.workspaceTabId === 'string' &&
+            saved.workspaceTabId.length > 0;
+          const isUtilitiesWorkspaceEntry =
+            saved.kind === 'utilities' &&
             typeof saved.workspaceTabId === 'string' &&
             saved.workspaceTabId.length > 0;
 
@@ -319,9 +327,24 @@ export const useSessionStore = create<SessionState>()(
             continue;
           }
 
-          const restoredId = restoredAsNotebook
-            ? saved.notebookTabId!
-            : crypto.randomUUID();
+          if (isUtilitiesWorkspaceEntry) {
+            if (utilitiesWorkspaceRestored) {
+              savedIndexToRestoredId.push(UTILITIES_WORKSPACE_TAB_ID);
+              continue;
+            }
+            utilitiesWorkspaceRestored = true;
+            restored.push({
+              id: UTILITIES_WORKSPACE_TAB_ID,
+              name: 'Utilities',
+              language: 'utilities',
+              content: '',
+              kind: 'utilities' as const,
+            });
+            savedIndexToRestoredId.push(UTILITIES_WORKSPACE_TAB_ID);
+            continue;
+          }
+
+          const restoredId = restoredAsNotebook ? saved.notebookTabId! : crypto.randomUUID();
 
           restored.push({
             id: restoredId,
@@ -332,9 +355,7 @@ export const useSessionStore = create<SessionState>()(
             rootId,
             relativePath,
             ...(restoredRuntimeMode !== null ? { runtimeMode: restoredRuntimeMode } : {}),
-            ...(restoredStdinBuffer !== undefined
-              ? { stdinBuffer: restoredStdinBuffer }
-              : {}),
+            ...(restoredStdinBuffer !== undefined ? { stdinBuffer: restoredStdinBuffer } : {}),
             ...(restoredRecipeBindingId !== undefined
               ? { recipeBindingId: restoredRecipeBindingId }
               : {}),
@@ -360,7 +381,7 @@ export const useSessionStore = create<SessionState>()(
             recipeStore.bindRecipeToTab(tab.id, tab.recipeBindingId);
           }
         }
-        const activeRestoredTab = restored.find((tab) => tab.id === activeId);
+        const activeRestoredTab = restored.find(tab => tab.id === activeId);
         if (activeRestoredTab?.recipeBindingId !== undefined) {
           useUIStore.getState().openBottomPanel('recipe');
         }
@@ -372,7 +393,7 @@ export const useSessionStore = create<SessionState>()(
       migrate: createMigrate('lingua-session'),
       // Only the serializable snapshot belongs in localStorage. Actions and
       // live editor/UI state are rebuilt from the store creators at runtime.
-      partialize: (state) => ({
+      partialize: state => ({
         savedTabs: state.savedTabs,
         savedActiveIndex: state.savedActiveIndex,
       }),

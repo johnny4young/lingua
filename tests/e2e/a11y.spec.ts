@@ -110,18 +110,15 @@ test.describe('Automated axe scans', () => {
 
   test('Developer Utilities', async ({ page }) => {
     await openDeveloperUtilities(page);
-    await expect(page.getByRole('dialog', { name: /built-in utilities/i })).toBeVisible();
+    await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /built-in utilities/i })).toBeVisible();
     await auditA11y(page);
   });
 
   test('Keyboard Shortcuts overlay', async ({ page }) => {
     await openPaletteAction(page, 'keyboard shortcuts', /Keyboard Shortcuts/i);
-    await expect(
-      page.getByRole('heading', { name: /All built-in shortcuts/i })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('dialog', { name: /all built-in shortcuts/i })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: /All built-in shortcuts/i })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: /all built-in shortcuts/i })).toBeVisible();
     await auditA11y(page);
   });
 
@@ -200,7 +197,10 @@ test.describe('Keyboard-only flows', () => {
 
     await paletteInput(page).fill('snippets');
     await expect(
-      page.locator('[data-result-index]').filter({ hasText: /Open Snippets/i }).first()
+      page
+        .locator('[data-result-index]')
+        .filter({ hasText: /Open Snippets/i })
+        .first()
     ).toBeVisible();
 
     await page.keyboard.press('Escape');
@@ -219,14 +219,10 @@ test.describe('Keyboard-only flows', () => {
 
   test('Settings opens via Cmd+, and dismisses with Escape', async ({ page }) => {
     await page.keyboard.press('ControlOrMeta+Comma');
-    await expect(
-      page.getByRole('heading', { name: /tune the shell/i })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: /tune the shell/i })).toBeVisible();
 
     await page.keyboard.press('Escape');
-    await expect(
-      page.getByRole('heading', { name: /tune the shell/i })
-    ).toBeHidden();
+    await expect(page.getByRole('heading', { name: /tune the shell/i })).toBeHidden();
   });
 
   test('Settings tabs are reachable by Tab/arrow navigation', async ({ page }) => {
@@ -259,9 +255,7 @@ test.describe('Focus restoration', () => {
     await trigger.focus();
     await expect(trigger).toBeFocused();
     await trigger.press('Enter');
-    await expect(
-      page.getByRole('heading', { name: /tune the shell/i })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: /tune the shell/i })).toBeVisible();
 
     await closeSettings(page);
     await expect(trigger).toBeFocused();
@@ -300,23 +294,21 @@ test.describe('Focus restoration', () => {
     const trigger = page.getByTestId('action-pill-snippets');
     await trigger.focus();
     await trigger.press('Enter');
-    await expect(
-      page.getByRole('button', { name: /save active tab/i })
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /save active tab/i })).toBeVisible();
 
     await closeSnippets(page);
     await expect(trigger).toBeFocused();
   });
 
-  test('Developer Utilities restores focus to its toolbar trigger when dismissed', async ({
+  test('Developer Utilities opens as a workspace tab and can be closed from the tab strip', async ({
     page,
   }) => {
     const trigger = page.getByRole('button', { name: /developer utilities/i });
     await trigger.focus();
     await trigger.press('Enter');
-    await expect(page.getByTestId('developer-utilities-modal')).toBeVisible();
+    await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
 
     await closeDeveloperUtilities(page);
-    await expect(trigger).toBeFocused();
+    await expect(trigger).toBeVisible();
   });
 });

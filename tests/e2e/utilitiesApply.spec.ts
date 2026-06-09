@@ -8,8 +8,8 @@
  * The user explicitly required this smoke as a blocking gate: the
  * slice does not close until every assertion below stays green.
  *
- * Developer Utilities is Pro-gated (Free users see an upsell — see
- * `freeTierGates.spec.ts`), so every test seeds a Pro license.
+ * Base Developer Utilities are Free; this suite keeps seeding Pro so
+ * it also protects the paid workflow layer that shares the same surface.
  */
 
 import {
@@ -31,7 +31,9 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
     await expectTier(page, 'PRO');
   });
 
-  test('JSON: Apply enabled with seeded valid input, click + Cmd+Shift+C copies output', async ({ page }) => {
+  test('JSON: Apply enabled with seeded valid input, click + Cmd+Shift+C copies output', async ({
+    page,
+  }) => {
     await openDeveloperUtilities(page);
     await expect(page.getByRole('heading', { level: 2, name: 'JSON Formatter' })).toBeVisible();
 
@@ -45,9 +47,7 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
 
     // Cmd+Shift+C copies the formatted output via the global shortcut.
     await page.keyboard.press('Meta+Shift+C');
-    await expect(
-      page.getByText(/Output copied to clipboard|Salida copiada/i)
-    ).toBeVisible();
+    await expect(page.getByText(/Output copied to clipboard|Salida copiada/i)).toBeVisible();
 
     await closeDeveloperUtilities(page);
   });
@@ -68,7 +68,9 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
   test('Random String: pure generator panel exposes no Apply button', async ({ page }) => {
     await openDeveloperUtilities(page);
     await page.getByTestId('utility-item-random-string').click();
-    await expect(page.getByRole('heading', { level: 2, name: 'Random String Generator' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Random String Generator' })
+    ).toBeVisible();
 
     await expect(page.getByTestId('utility-apply-button')).toHaveCount(0);
   });
@@ -76,12 +78,16 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
   test('Lorem Ipsum: pure generator panel exposes no Apply button', async ({ page }) => {
     await openDeveloperUtilities(page);
     await page.getByTestId('utility-item-lorem-ipsum').click();
-    await expect(page.getByRole('heading', { level: 2, name: 'Lorem Ipsum Generator' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Lorem Ipsum Generator' })
+    ).toBeVisible();
 
     await expect(page.getByTestId('utility-apply-button')).toHaveCount(0);
   });
 
-  test('UUID: Apply is disabled with empty decoder, enabled with a valid UUID pasted', async ({ page }) => {
+  test('UUID: Apply is disabled with empty decoder, enabled with a valid UUID pasted', async ({
+    page,
+  }) => {
     await openDeveloperUtilities(page);
     await page.getByTestId('utility-item-uuid').click();
     await expect(page.getByRole('heading', { level: 2, name: 'UUID Generator' })).toBeVisible();
@@ -90,9 +96,7 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
     await expect(apply).toBeDisabled();
 
     // Paste a UUID into the decoder field — Apply should enable.
-    await page
-      .getByTestId('uuid-decoder-input')
-      .fill('550e8400-e29b-41d4-a716-446655440000');
+    await page.getByTestId('uuid-decoder-input').fill('550e8400-e29b-41d4-a716-446655440000');
     await expect(apply).toBeEnabled();
   });
 
@@ -112,14 +116,16 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
     await expect(apply).toBeEnabled();
   });
 
-  test('Mod+Shift+A: shortcut fires the focused panel Apply with localized toast', async ({ page }) => {
+  test('Mod+Shift+A: shortcut fires the focused panel Apply with localized toast', async ({
+    page,
+  }) => {
     await openDeveloperUtilities(page);
     // JSON panel is the default; Apply is enabled with the seeded payload.
     await page.keyboard.press('Meta+Shift+A');
 
-    await expect(
-      page.getByText(/Applied JSON Formatter|Apliqué Formateador JSON/i)
-    ).toBeVisible({ timeout: 4000 });
+    await expect(page.getByText(/Applied JSON Formatter|Apliqué Formateador JSON/i)).toBeVisible({
+      timeout: 4000,
+    });
   });
 
   test('Spanish locale: the Apply label uses neutral LatAm tuteo', async ({ browser }) => {
@@ -133,14 +139,14 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
       await expectTier(esPage, 'PRO');
       await openDeveloperUtilities(esPage);
 
-      await expect(
-        esPage.getByRole('button', { name: /Aplica desde la entrada/i })
-      ).toBeVisible({ timeout: 6000 });
+      await expect(esPage.getByRole('button', { name: /Aplica desde la entrada/i })).toBeVisible({
+        timeout: 6000,
+      });
 
       await esPage.keyboard.press('Meta+Shift+A');
-      await expect(
-        esPage.getByText(/Apliqué.*a la entrada actual/i)
-      ).toBeVisible({ timeout: 4000 });
+      await expect(esPage.getByText(/Apliqué.*a la entrada actual/i)).toBeVisible({
+        timeout: 4000,
+      });
     } finally {
       await ctx.close();
     }
@@ -148,7 +154,7 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
 
   test('console stays clean across the full Apply flow', async ({ page }) => {
     const errors: string[] = [];
-    page.on('console', (msg) => {
+    page.on('console', msg => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
 

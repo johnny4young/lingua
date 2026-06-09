@@ -1,4 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -22,18 +28,15 @@ export function HtmlToJsxPanel() {
     [input, wrapInFragment]
   );
 
-  const registerOutput = useCallback(
-    () => (result.ok ? result.jsx : null),
-    [result]
-  );
+  const registerOutput = useCallback(() => (result.ok ? result.jsx : null), [result]);
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
-    setInput((prev) => prev);
+    setInput(prev => prev);
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.htmlToJsx.title')}
         description={t('utilities.tool.htmlToJsx.panelDescription')}
@@ -44,9 +47,9 @@ export function HtmlToJsxPanel() {
             aria-label={t('utilities.tool.htmlToJsx.input.label')}
             data-testid="html-to-jsx-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             spellCheck={false}
-            className="min-h-[14rem] font-mono"
+            className="min-h-[16rem] font-mono"
           />
         </div>
         <label className="flex items-center gap-2 text-sm text-foreground">
@@ -54,7 +57,7 @@ export function HtmlToJsxPanel() {
             type="checkbox"
             data-testid="html-to-jsx-wrap-fragment"
             checked={wrapInFragment}
-            onChange={(event) => setWrapInFragment(event.target.checked)}
+            onChange={event => setWrapInFragment(event.target.checked)}
           />
           <span>{t('utilities.tool.htmlToJsx.wrapFragment')}</span>
         </label>
@@ -90,7 +93,7 @@ export function HtmlToJsxPanel() {
                 value={result.jsx}
                 readOnly
                 spellCheck={false}
-                className="pr-10 min-h-[14rem] font-mono"
+                className="pr-10 min-h-[20rem] font-mono"
               />
               <div className="absolute right-2 top-2">
                 <CopyButton

@@ -28,7 +28,7 @@ import { asRootId } from '../../shared/fs/brandedIds';
  * RL-128 fold A/B — tab-lifecycle action factory for the editor store.
  *
  * Bundles the create / restore / remove / focus / duplicate actions plus the
- * reveal plumbing, `setTabLanguage`, and `markSaved`. The SQL / HTTP / notebook
+ * reveal plumbing, `setTabLanguage`, and `markSaved`. The SQL / HTTP / Utilities / notebook
  * workspace openers live in `editorWorkspaceActions`. `createTabActions(set,
  * get)` receives the exact zustand `set`/`get` the `create()` callback would,
  * and returns the matching slice of `EditorState`; cross-factory calls (e.g.
@@ -54,7 +54,7 @@ export function createTabActions(
   | 'markSaved'
 > {
   return {
-    requestReveal: (target) => {
+    requestReveal: target => {
       // `line` must be at least 1 — Monaco rejects 0-indexed positions. We clamp
       // defensively so upstream surfaces (Project Search, Go to Symbol) can stay
       // agnostic about Monaco's 1-indexed contract.
@@ -76,7 +76,7 @@ export function createTabActions(
 
     clearPendingReveal: () => set({ pendingReveal: null }),
 
-    addTab: (tab) => {
+    addTab: tab => {
       const { tabs } = get();
       if (!isLanguageAllowed(currentEffectiveTier(), tab.language)) {
         pushUpsellNotice({
@@ -93,8 +93,8 @@ export function createTabActions(
       // already over the ceiling (grandfathered data from before gating
       // shipped) keep their tabs; only additions past the ceiling are
       // refused so nobody loses work in the upgrade. Workspace tabs
-      // (SQL / HTTP) are exempt — they never reach this `addTab` path,
-      // and `budgetedTabCount` excludes any that exist so they don't
+      // (SQL / HTTP / Utilities) are exempt — they never reach this
+      // `addTab` path, and `budgetedTabCount` excludes any that exist so they don't
       // crowd out the Free user's single code tab.
       if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabs) + 1)) {
         pushUpsellNotice({
@@ -127,7 +127,7 @@ export function createTabActions(
           workflowMode,
         })
       );
-      set((state) => ({
+      set(state => ({
         tabs: [...state.tabs, newTab],
         activeTabId: newTab.id,
       }));
@@ -135,35 +135,32 @@ export function createTabActions(
 
     restoreTabs: (tabs, activeTabId) =>
       set({
-        tabs: tabs.map((tab) =>
-          dropStdinIfUnsupported(dropAutoLogIfUnsupported({
-            ...tab,
-            isDirty: false,
-            // RL-019 Slice 1 — backfill missing runtime modes for JS/TS
-            // tabs restored from a pre-Slice-1 session. Non-JS/TS tabs
-            // never carry the field.
-            runtimeMode: runtimeModeForRestoredTab(tab.language, tab.runtimeMode),
-            // RL-020 Slice 2 — backfill missing workflow modes for tabs
-            // restored from a pre-Slice-2 session. Every tab carries
-            // the field in Slice 2 onwards; the coerce helper snaps a
-            // tampered persisted value back to the language default.
-            workflowMode: workflowModeForRestoredTab(
-              tab.language,
-              tab.workflowMode
-            ),
-          }))
+        tabs: tabs.map(tab =>
+          dropStdinIfUnsupported(
+            dropAutoLogIfUnsupported({
+              ...tab,
+              isDirty: false,
+              // RL-019 Slice 1 — backfill missing runtime modes for JS/TS
+              // tabs restored from a pre-Slice-1 session. Non-JS/TS tabs
+              // never carry the field.
+              runtimeMode: runtimeModeForRestoredTab(tab.language, tab.runtimeMode),
+              // RL-020 Slice 2 — backfill missing workflow modes for tabs
+              // restored from a pre-Slice-2 session. Every tab carries
+              // the field in Slice 2 onwards; the coerce helper snaps a
+              // tampered persisted value back to the language default.
+              workflowMode: workflowModeForRestoredTab(tab.language, tab.workflowMode),
+            })
+          )
         ),
         activeTabId: activeTabId ?? null,
       }),
 
-    removeTab: (id) =>
-      set((state) => {
-        const target = state.tabs.find((t) => t.id === id);
-        const tabs = state.tabs.filter((t) => t.id !== id);
+    removeTab: id =>
+      set(state => {
+        const target = state.tabs.find(t => t.id === id);
+        const tabs = state.tabs.filter(t => t.id !== id);
         const activeTabId =
-          state.activeTabId === id
-            ? tabs[tabs.length - 1]?.id ?? null
-            : state.activeTabId;
+          state.activeTabId === id ? (tabs[tabs.length - 1]?.id ?? null) : state.activeTabId;
         // RL-077 — revoke a tab-private capability when the last tab
         // using it goes away. Project-tree opens share the active
         // project's `rootId` (revoked centrally by `closeProject`), so
@@ -171,13 +168,10 @@ export function createTabActions(
         // session-restore mints are unique per tab and would otherwise
         // accumulate in main's registry until app shutdown.
         if (target?.rootId) {
-          const stillUsed = tabs.some((t) => t.rootId === target.rootId);
-          const projectRootId =
-            useProjectStore.getState().currentProject?.rootId;
+          const stillUsed = tabs.some(t => t.rootId === target.rootId);
+          const projectRootId = useProjectStore.getState().currentProject?.rootId;
           if (!stillUsed && target.rootId !== projectRootId) {
-            void window.lingua.fs
-              .revokeRoot(asRootId(target.rootId))
-              .catch(() => {});
+            void window.lingua.fs.revokeRoot(asRootId(target.rootId)).catch(() => {});
           }
         }
         // RL-025 Slice A — evict the per-tab detection cache so the
@@ -199,11 +193,9 @@ export function createTabActions(
         // but keyed by tabId, so an orphan entry would survive across
         // reloads without this hook.
         // Lazy import — see header comment.
-        void import('../runtime/notebookSession').then((mod) =>
-          mod.disposeNotebookSession(id)
-        );
+        void import('../runtime/notebookSession').then(mod => mod.disposeNotebookSession(id));
         useNotebookStore.getState().disposeNotebookForTab(id);
-        // SQL/HTTP MODEL rework — closing a SQL / HTTP workspace tab does
+        // SQL/HTTP MODEL rework — closing a SQL / HTTP / Utilities workspace tab does
         // NOT delete the collection. The queries/requests live in
         // `useWorkspaceSqlStore` / `useWorkspaceToolStore`, persisted on
         // their own localStorage keys; reopening the workspace (Mod+Alt+S
@@ -214,7 +206,7 @@ export function createTabActions(
         return { tabs, activeTabId };
       }),
 
-    setActiveTab: (id) => set({ activeTabId: id }),
+    setActiveTab: id => set({ activeTabId: id }),
 
     /**
      * RL-100 Slice 2 fold F — switch a tab's language without
@@ -229,7 +221,7 @@ export function createTabActions(
      */
     setTabLanguage: (id, language) => {
       const tabs = get().tabs;
-      const target = tabs.find((t) => t.id === id);
+      const target = tabs.find(t => t.id === id);
       if (!target) return;
       if (target.language === language) return;
       if (!isLanguageAllowed(currentEffectiveTier(), language)) {
@@ -239,18 +231,14 @@ export function createTabActions(
         });
         return;
       }
-      set((state) => ({
-        tabs: state.tabs.map((t) =>
-          t.id === id ? { ...t, language } : t
-        ),
+      set(state => ({
+        tabs: state.tabs.map(t => (t.id === id ? { ...t, language } : t)),
       }));
     },
 
-    markSaved: (id) =>
-      set((state) => ({
-        tabs: state.tabs.map((t) =>
-          t.id === id ? { ...t, isDirty: false } : t
-        ),
+    markSaved: id =>
+      set(state => ({
+        tabs: state.tabs.map(t => (t.id === id ? { ...t, isDirty: false } : t)),
       })),
 
     duplicateActiveTab: () => {
@@ -258,7 +246,7 @@ export function createTabActions(
       const tab = getActiveTab(get());
       if (!tab) return;
 
-      // SQL/HTTP MODEL rework — a SQL / HTTP workspace tab is a single
+      // SQL/HTTP MODEL rework — a SQL / HTTP / Utilities workspace tab is a single
       // collection container, not a document. "Duplicate tab" has no
       // meaning here (there is exactly one workspace tab per kind); the
       // rail owns duplicating an individual query/request inside the

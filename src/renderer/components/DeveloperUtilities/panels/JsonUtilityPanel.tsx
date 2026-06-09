@@ -1,4 +1,11 @@
-import { FieldLabel, JsonTreeNode, PanelSection, StatusMessage, UtilityToolbar, UtilityTextarea } from '../panelPrimitives';
+import {
+  FieldLabel,
+  JsonTreeNode,
+  PanelSection,
+  StatusMessage,
+  UtilityToolbar,
+  UtilityTextarea,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -25,7 +32,7 @@ export function JsonUtilityPanel() {
   }, [analysis.formatted]);
 
   return (
-    <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.45fr)] 2xl:grid-cols-[minmax(20rem,0.65fr)_minmax(42rem,1.7fr)]">
       <PanelSection
         title={t('utilities.tool.json.title')}
         description={t('utilities.tool.json.panelDescription')}
@@ -35,7 +42,8 @@ export function JsonUtilityPanel() {
           <UtilityTextarea
             aria-label={t('utilities.field.input')}
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
+            className="min-h-[18rem] font-mono"
           />
         </div>
         {analysis.errorKey ? (
@@ -56,19 +64,10 @@ export function JsonUtilityPanel() {
             >
               {t('utilities.tool.json.actions.minify')}
             </button>
-            <CopyButton
-              value={input}
-              testid="json-input-copy"
-              disabled={!input}
-            />
+            <CopyButton value={input} testid="json-input-copy" disabled={!input} />
           </div>
         )}
-        <UtilityToolbar
-          utilityId="json"
-          primary={input}
-          run={runApply}
-          setPrimary={setInput}
-        />
+        <UtilityToolbar utilityId="json" primary={input} run={runApply} setPrimary={setInput} />
       </PanelSection>
 
       <PanelSection
@@ -80,7 +79,7 @@ export function JsonUtilityPanel() {
         ) : analysis.parsed === null ? (
           <StatusMessage message={t('utilities.tool.json.empty')} />
         ) : (
-          <div className="max-h-[26rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+          <div className="max-h-[34rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
             <JsonTreeNode value={analysis.parsed} />
           </div>
         )}

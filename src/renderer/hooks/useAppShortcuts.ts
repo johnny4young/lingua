@@ -1,18 +1,9 @@
 import type { DeveloperUtilityId } from '../data/developerUtilities';
-import {
-  openHttpWorkspaceTab,
-  openSqlWorkspaceTab,
-} from '../runtime/openWorkspaceTab';
+import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { useRecipeStore } from '../stores/recipeStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
-import {
-  cycleRuntimeMode,
-  languageHasRuntimeModes,
-} from '../../shared/runtimeModes';
-import {
-  cycleWorkflowMode,
-  defaultWorkflowMode,
-} from '../../shared/workflowMode';
+import { cycleRuntimeMode, languageHasRuntimeModes } from '../../shared/runtimeModes';
+import { cycleWorkflowMode, defaultWorkflowMode } from '../../shared/workflowMode';
 import { toggleRecentRunsPopover } from '../runtime/recentRunsPopoverBridge';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
@@ -49,10 +40,7 @@ export interface AppShortcutDeps {
   overlay: AppOverlay;
   toggleOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
   closeOverlay: () => void;
-  openOverlay: (
-    overlay: Exclude<AppOverlay, 'none'>,
-    utilityId?: DeveloperUtilityId
-  ) => void;
+  openOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
   handleOpenDeveloperUtility: (utilityId?: DeveloperUtilityId) => void;
   exportProjectBundle: () => void | Promise<void>;
 }
@@ -116,7 +104,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       openSqlWorkspaceTab();
     },
     // RL-099 Slice 1 fold A — Mod+Shift+G opens the Developer
-    // Utilities overlay with the Pipelines panel preselected.
+    // Utilities workspace with the Pipelines panel preselected.
     openUtilityPipelines: () => {
       handleOpenDeveloperUtility('utility-pipelines');
     },
@@ -193,8 +181,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       const tab = getActiveTab(editorState);
       const snapshotRing = useResultStore.getState().snapshotRing;
       const snapshotIsRelevant =
-        tab !== null &&
-        snapshotRing.some((entry) => entry.language === tab.language);
+        tab !== null && snapshotRing.some(entry => entry.language === tab.language);
       if (!tab || !snapshotIsRelevant) {
         useUIStore.getState().pushStatusNotice({
           tone: 'info',
@@ -233,9 +220,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       const next = tab.variableInspectorEnabled !== true;
       editorState.setTabVariableInspectorEnabled(tab.id, next);
       syncVariableInspectorSurfaceAfterToggle(next);
-      const bucket = scopeSnapshot
-        ? bucketVariableCount(scopeSnapshot.variables.length)
-        : '0';
+      const bucket = scopeSnapshot ? bucketVariableCount(scopeSnapshot.variables.length) : '0';
       void trackEvent('runtime.variable_inspector_opened', {
         language: tab.language,
         variableCount: bucket,
@@ -265,10 +250,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         });
         return;
       }
-      if (
-        uiState.activeBottomPanel === 'stdin' &&
-        uiState.consoleVisible
-      ) {
+      if (uiState.activeBottomPanel === 'stdin' && uiState.consoleVisible) {
         uiState.setConsoleVisible(false);
       } else {
         uiState.openBottomPanel('stdin');
@@ -289,8 +271,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       // settingsStore persist; user sees the chip + card reorder
       // immediately.
       const settings = useSettingsStore.getState();
-      const next =
-        settings.variableInspectorSurface === 'floating' ? 'bottom' : 'floating';
+      const next = settings.variableInspectorSurface === 'floating' ? 'bottom' : 'floating';
       settings.setVariableInspectorSurface(next);
       const editorState = useEditorStore.getState();
       const tab = getActiveTab(editorState);
@@ -329,22 +310,19 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         });
         return;
       }
-      void exportCapsuleToClipboard(capsule, 'result-panel-export').then(
-        (result) => {
-          useUIStore.getState().pushStatusNotice(
-            result.ok
-              ? {
-                  tone: 'success',
-                  messageKey: 'settings.account.runCapsules.copiedNotice',
-                }
-              : {
-                  tone: 'warning',
-                  messageKey:
-                    'results.actions.exportCapsule.clipboardUnavailable',
-                }
-          );
-        }
-      );
+      void exportCapsuleToClipboard(capsule, 'result-panel-export').then(result => {
+        useUIStore.getState().pushStatusNotice(
+          result.ok
+            ? {
+                tone: 'success',
+                messageKey: 'settings.account.runCapsules.copiedNotice',
+              }
+            : {
+                tone: 'warning',
+                messageKey: 'results.actions.exportCapsule.clipboardUnavailable',
+              }
+        );
+      });
     },
     // RL-036 Phase A1 fold D — keyboard shortcut for the share-link
     // copy. Dispatches the same `lingua-share-link-trigger` event the
@@ -385,8 +363,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       const entry = activeTab
         ? useDependencyDetectionStore.getState().byTab.get(activeTab.id)
         : null;
-      const currentEntry =
-        entry?.language === activeTab?.language ? entry : null;
+      const currentEntry = entry?.language === activeTab?.language ? entry : null;
       const enabled = useSettingsStore.getState().dependencyDetectionEnabled;
       if (!enabled) {
         useUIStore.getState().pushStatusNotice({

@@ -5,7 +5,7 @@ import type { DeveloperUtilityId } from '../../data/developerUtilities';
  * RL-125 / AUDIT-05 — per-tool lazy panel registry. Each panel is a named
  * export, so the loader resolves through a `.then` that re-exposes it as the
  * `default` Vite/Rollup needs for code-splitting. The result: opening the
- * Developer Utilities modal no longer loads all 30 panels (and their single-use
+ * Developer Utilities workspace no longer loads all 30 panels (and their single-use
  * deps like `qrcode` / `sql-formatter`) at once — each tool's chunk loads the
  * first time it is selected. `UtilityPanels.tsx` provides the `<Suspense>`
  * boundary; `prefetchUtilityPanel` (fold F) warms a chunk on sidebar hover.
@@ -21,7 +21,7 @@ const named =
     // `name` is a known export of the loaded module, but indexing the
     // Record-typed module trips `noUncheckedIndexedAccess`; the cast asserts
     // the named panel component is present at runtime.
-    loader().then((module) => ({ default: module[name] as ComponentType }));
+    loader().then(module => ({ default: module[name] as ComponentType }));
 
 const PANEL_LOADERS = {
   json: named(() => import('./panels/JsonUtilityPanel'), 'JsonUtilityPanel'),

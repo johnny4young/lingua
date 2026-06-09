@@ -1,4 +1,5 @@
 import type { ShortcutCombo, ShortcutOverrideMap } from '../data/keyboardShortcuts';
+import type { DeveloperUtilityId } from '../data/developerUtilities';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { WorkflowMode } from '../../shared/workflowMode';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
@@ -198,21 +199,17 @@ export interface FileTab {
    * cell sources are the source of truth); `language` is informational
    * only — per-cell language is the runner dispatch key.
    *
-   * MOV.02 — widened to `'sql'` / `'http'`. These ascend the SQL +
-   * HTTP workspaces from the bottom dock to full-screen workspace
-   * tabs that sit alongside the Notebook tab. As with `'notebook'`,
-   * the `content` field is unused: a `'sql'` tab's query text lives in
-   * `useWorkspaceSqlStore` (a `SqlQueryV1` whose `id` equals
-   * `tab.id`), and an `'http'` tab's request lives in
-   * `useWorkspaceToolStore` (an `HttpRequestV1` whose `id` equals
-   * `tab.id`). `language` is the neutral marker `'sql'` / `'http'`
-   * (not a real Monaco-runnable language) so every language-gated
-   * code path (runtime mode, workflow mode, auto-log, stdin, recipe
-   * binding, variable inspector) falls through its existing guards
-   * and stays dormant. Cleared on tab close, which disposes the
-   * companion workspace-store entry keyed by `tab.id`.
+   * MOV.02 — widened to `'sql'` / `'http'`. MOV.03 adds
+   * `'utilities'`. These ascend workspace surfaces from modal/dock
+   * slots to full-screen workspace tabs that sit alongside Notebook.
+   * As with `'notebook'`, the `content` field is unused: SQL/HTTP own
+   * their collections in dedicated workspace stores, and Utilities
+   * keeps its active tool/favorites/history in `utilityHistoryStore`.
+   * `language` is a neutral marker (`'sql'` / `'http'` /
+   * `'utilities'`) rather than a Monaco-runnable language so every
+   * language-gated code path stays dormant.
    */
-  kind?: 'notebook' | 'sql' | 'http';
+  kind?: 'notebook' | 'sql' | 'http' | 'utilities';
 }
 
 /**
@@ -275,11 +272,7 @@ export interface EditorState {
    * explanation that the tab bar surfaces via title tooltip on
    * error states.
    */
-  setTabExecutionState: (
-    id: string,
-    state: TabExecutionState,
-    parseError?: string | null
-  ) => void;
+  setTabExecutionState: (id: string, state: TabExecutionState, parseError?: string | null) => void;
   /**
    * RL-019 Slice 1 — set the runtime mode for a JS/TS tab. No-op
    * (and a status-notice toast) when:
@@ -370,6 +363,12 @@ export interface EditorState {
    * by the rail. Always succeeds; returns the stable workspace tab id.
    */
   addHttpTab: () => string | null;
+  /**
+   * MOV.03 — focus (or create) the single Developer Utilities
+   * workspace tab. The selected utility id is owned by
+   * `utilityHistoryStore`, so this tab is only the full-screen shell.
+   */
+  addUtilitiesTab: (utilityId?: DeveloperUtilityId) => string | null;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The
@@ -803,16 +802,12 @@ export interface SettingsState {
    * Same `'granted' | 'declined'` discipline as the utilities consent
    * so a single Settings setter never widens the closed enum.
    */
-  setCapsuleImportClipboardOnFocusConsent: (
-    next: 'granted' | 'declined'
-  ) => void;
+  setCapsuleImportClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /**
    * RL-100 Slice 1 fold F — set the import-preview clipboard consent.
    * Closed enum mirrors the capsule-import + utilities setters.
    */
-  setImportPreviewClipboardOnFocusConsent: (
-    next: 'granted' | 'declined'
-  ) => void;
+  setImportPreviewClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /** RL-025 Slice A — flip the dependency detection master switch. */
   toggleDependencyDetectionEnabled: () => void;
   /**
@@ -884,10 +879,7 @@ export interface SettingsState {
    * preset tokens. Fires `runtime.timeout_preset_changed` telemetry
    * (fold A) with closed-enum `{ language, preset }` payload.
    */
-  setRuntimeTimeoutPreset: (
-    language: string,
-    preset: RuntimeTimeoutPreset
-  ) => void;
+  setRuntimeTimeoutPreset: (language: string, preset: RuntimeTimeoutPreset) => void;
   /**
    * RL-020 Slice 7 fold E — flip the countdown-in-pill toggle.
    */

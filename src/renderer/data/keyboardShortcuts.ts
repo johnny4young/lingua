@@ -181,15 +181,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'shortcuts.item.replayOnboarding.label',
     descriptionKey: 'shortcuts.item.replayOnboarding.description',
     combos: [{ tokens: ['Mod', 'Shift', 'W'] }],
-    keywords: [
-      'onboarding',
-      'welcome',
-      'inicio',
-      'guiado',
-      'replay',
-      'reset',
-      'rearm',
-    ],
+    keywords: ['onboarding', 'welcome', 'inicio', 'guiado', 'replay', 'reset', 'rearm'],
   },
   // RL-093 Slice 3 — recover from a floating-pill/variables-card that
   // ended up in an unreachable position (off-screen monitor change,
@@ -216,14 +208,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'shortcuts.item.showDependencies.label',
     descriptionKey: 'shortcuts.item.showDependencies.description',
     combos: [{ tokens: ['Mod', 'Shift', 'J'] }],
-    keywords: [
-      'dependencies',
-      'imports',
-      'requires',
-      'modules',
-      'paquetes',
-      'dependencias',
-    ],
+    keywords: ['dependencies', 'imports', 'requires', 'modules', 'paquetes', 'dependencias'],
   },
   {
     // RL-093 Slice 3 fold D — flip the variable inspector surface
@@ -323,7 +308,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['sql', 'query', 'duckdb', 'database', 'workspace'],
   },
   {
-    // RL-099 Slice 1 fold A — Open the Developer Utilities overlay
+    // RL-099 Slice 1 fold A — Open the Developer Utilities workspace
     // with the Pipelines panel preselected. Mod+Shift+G (G for
     // Graph / pipeline; verified free vs the catalog — Mod+Shift+R
     // browser-reserved, +T/N browser-reserved, +Q macOS log-out).
@@ -451,8 +436,11 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['settings', 'preferences'],
   },
   {
+    // MOV.03 — id kept stable for shortcut-overrides compatibility;
+    // the binding now opens/focuses a full-screen Utilities workspace
+    // tab instead of mounting a modal overlay.
     id: 'overlay-developer-utilities',
-    group: 'overlays',
+    group: 'utilities',
     labelKey: 'shortcuts.item.developerUtilities.label',
     descriptionKey: 'shortcuts.item.developerUtilities.description',
     combos: [{ tokens: ['Mod', 'K'] }],
@@ -607,8 +595,7 @@ const NON_MAC_TOKEN_LABELS: Record<string, string> = {
  * importing the macOS symbol glyphs.
  */
 export function formatShortcutToken(token: ShortcutKeyToken, platform: string): string {
-  const displayPlatform =
-    platform === 'darwin' ? 'darwin' : 'other';
+  const displayPlatform = platform === 'darwin' ? 'darwin' : 'other';
   if (token === 'Mod') return resolveModLabel(displayPlatform);
   const labels = displayPlatform === 'darwin' ? MAC_TOKEN_LABELS : NON_MAC_TOKEN_LABELS;
   const staticLabel = labels[token];
@@ -618,7 +605,7 @@ export function formatShortcutToken(token: ShortcutKeyToken, platform: string): 
 
 export function formatShortcutCombo(combo: ShortcutCombo, platform: string): string {
   const separator = platform === 'darwin' ? '' : '+';
-  return combo.tokens.map((token) => formatShortcutToken(token, platform)).join(separator);
+  return combo.tokens.map(token => formatShortcutToken(token, platform)).join(separator);
 }
 
 /**
@@ -630,7 +617,7 @@ export type ShortcutOverrideMap = Readonly<Record<string, readonly ShortcutCombo
 
 /** Canonical string representation for combo equality + conflict lookups. */
 export function comboKey(combo: ShortcutCombo): string {
-  return combo.tokens.map((token) => (token.length === 1 ? token.toUpperCase() : token)).join('+');
+  return combo.tokens.map(token => (token.length === 1 ? token.toUpperCase() : token)).join('+');
 }
 
 const RESERVED_BROWSER_COMBO_KEYS = new Set([
@@ -670,7 +657,12 @@ function normalizeMainKey(rawKey: string): string | null {
   if (rawKey === ']') return 'BracketRight';
   if (rawKey === '-') return 'Minus';
   if (rawKey === '=') return 'Equal';
-  if (rawKey === 'ArrowUp' || rawKey === 'ArrowDown' || rawKey === 'ArrowLeft' || rawKey === 'ArrowRight') {
+  if (
+    rawKey === 'ArrowUp' ||
+    rawKey === 'ArrowDown' ||
+    rawKey === 'ArrowLeft' ||
+    rawKey === 'ArrowRight'
+  ) {
     return rawKey;
   }
   if (/^F\d{1,2}$/.test(rawKey)) return rawKey;
@@ -746,7 +738,7 @@ export function findComboConflict(
   for (const definition of catalog) {
     if (definition.id === selfId) continue;
     const combos = resolveCombos(definition, overrides);
-    if (combos.some((combo) => comboKey(combo) === candidateKey)) {
+    if (combos.some(combo => comboKey(combo) === candidateKey)) {
       return definition.id;
     }
   }
@@ -763,12 +755,12 @@ export function filterShortcuts(
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) return [...shortcuts];
 
-  return shortcuts.filter((shortcut) => {
+  return shortcuts.filter(shortcut => {
     const label = translate(shortcut.labelKey).toLowerCase();
     if (label.includes(trimmed)) return true;
-    if (shortcut.keywords.some((keyword) => keyword.includes(trimmed))) return true;
+    if (shortcut.keywords.some(keyword => keyword.includes(trimmed))) return true;
     const combos = shortcut.combos
-      .map((combo) => formatShortcutCombo(combo, platform))
+      .map(combo => formatShortcutCombo(combo, platform))
       .join(' ')
       .toLowerCase();
     return combos.includes(trimmed);

@@ -8,7 +8,7 @@ import {
 
 describe('DEVELOPER_UTILITIES catalog', () => {
   it('keeps utility ids unique', () => {
-    const ids = DEVELOPER_UTILITIES.map((entry) => entry.id);
+    const ids = DEVELOPER_UTILITIES.map(entry => entry.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -26,10 +26,18 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     }
   });
 
+  it('keeps only workflow automation behind the DEV_UTILITIES entitlement', () => {
+    for (const utility of DEVELOPER_UTILITIES) {
+      if (utility.id === 'utility-pipelines') {
+        expect(utility.requiresEntitlement).toBe('DEV_UTILITIES');
+      } else {
+        expect(utility.requiresEntitlement, utility.id).toBeUndefined();
+      }
+    }
+  });
+
   it('default utility id resolves to a real catalog entry', () => {
-    const found = DEVELOPER_UTILITIES.find(
-      (utility) => utility.id === DEFAULT_DEVELOPER_UTILITY_ID
-    );
+    const found = DEVELOPER_UTILITIES.find(utility => utility.id === DEFAULT_DEVELOPER_UTILITY_ID);
     expect(found).toBeDefined();
   });
 
@@ -41,9 +49,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
   });
 
   describe('aliases (RL-069 Slice 1)', () => {
-    const withAliases = DEVELOPER_UTILITIES.filter(
-      (utility) => utility.aliases !== undefined
-    );
+    const withAliases = DEVELOPER_UTILITIES.filter(utility => utility.aliases !== undefined);
 
     it('seeds aliases on a meaningful subset of the catalog', () => {
       // Slice 1 deliberately scopes aliases to ~15 panels with obvious
@@ -69,7 +75,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
       // describe, aliases abbreviate. Duplication doesn't break the
       // search but bloats the catalog and confuses future readers.
       for (const utility of withAliases) {
-        const keywordSet = new Set(utility.keywords.map((kw) => kw.toLowerCase()));
+        const keywordSet = new Set(utility.keywords.map(kw => kw.toLowerCase()));
         for (const alias of utility.aliases ?? []) {
           expect(
             keywordSet.has(alias),
@@ -81,7 +87,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
 
     it('seeds the b64 / ts / md shorthands users actually type', () => {
       const findById = (id: DeveloperUtilityDefinition['id']) =>
-        DEVELOPER_UTILITIES.find((utility) => utility.id === id);
+        DEVELOPER_UTILITIES.find(utility => utility.id === id);
 
       expect(findById('base64')?.aliases).toContain('b64');
       expect(findById('timestamp')?.aliases).toContain('ts');
@@ -134,14 +140,14 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     });
 
     it('base64-image detects data URIs, not raw base64 payloads', () => {
-      const base64Image = DEVELOPER_UTILITIES.find((u) => u.id === 'base64-image');
+      const base64Image = DEVELOPER_UTILITIES.find(u => u.id === 'base64-image');
       expect(base64Image?.detect?.({ primary: 'data:image/png;base64,iVBORw0KGgo=' })).toBe(true);
       expect(base64Image?.detect?.({ primary: 'iVBORw0KGgo=' })).toBe(false);
     });
 
     it('regex and diff use the secondary input', () => {
-      const regex = DEVELOPER_UTILITIES.find((u) => u.id === 'regex');
-      const diff = DEVELOPER_UTILITIES.find((u) => u.id === 'diff');
+      const regex = DEVELOPER_UTILITIES.find(u => u.id === 'regex');
+      const diff = DEVELOPER_UTILITIES.find(u => u.id === 'diff');
       expect(regex?.detect?.({ primary: '\\d+' })).toBe(false);
       expect(regex?.detect?.({ primary: '\\d+', secondary: 'abc 123' })).toBe(true);
       expect(diff?.detect?.({ primary: 'left' })).toBe(false);

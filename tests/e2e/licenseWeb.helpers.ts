@@ -107,11 +107,7 @@ function buildE2eDevice(deviceId: string) {
   };
 }
 
-async function fulfillLicenseJson(
-  route: Route,
-  body: unknown,
-  status = 200
-): Promise<void> {
+async function fulfillLicenseJson(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({
     status,
     contentType: 'application/json',
@@ -120,9 +116,7 @@ async function fulfillLicenseJson(
   });
 }
 
-async function fulfillCorsPreflight(
-  route: Route
-): Promise<boolean> {
+async function fulfillCorsPreflight(route: Route): Promise<boolean> {
   if (route.request().method() !== 'OPTIONS') return false;
   await route.fulfill({
     status: 204,
@@ -304,7 +298,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededLanguage: language,
       seededSnippets: buildSeededSnippets(snippetCount),
       shouldSuppressWhatsNew: suppressWhatsNew,
-      seededLicenseToken: primeProLicense ? DEV_LICENSE_TOKEN ?? null : null,
+      seededLicenseToken: primeProLicense ? (DEV_LICENSE_TOKEN ?? null) : null,
     }
   );
 }
@@ -368,10 +362,7 @@ type SettingsTabId =
   | 'plugins'
   | 'recovery';
 
-export async function openSettingsTab(
-  page: Page,
-  tabId: SettingsTabId
-): Promise<void> {
+export async function openSettingsTab(page: Page, tabId: SettingsTabId): Promise<void> {
   const tab = page.getByTestId(`settings-tab-${tabId}`);
   await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
@@ -437,14 +428,14 @@ export async function closeSnippets(page: Page): Promise<void> {
 
 export async function openDeveloperUtilities(page: Page): Promise<void> {
   await page.getByRole('button', { name: /developer utilities|utilidades de desarrollo/i }).click();
-  await expect(page.getByTestId('developer-utilities-modal')).toBeVisible();
+  await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
 }
 
 export async function closeDeveloperUtilities(page: Page): Promise<void> {
   await page
-    .getByRole('button', { name: /close developer utilities|cerrar utilidades de desarrollo/i })
-    .click();
-  await expect(page.getByTestId('developer-utilities-modal')).toBeHidden();
+    .getByRole('button', { name: /close utilities|cerrar utilities/i })
+    .click({ force: true });
+  await expect(page.getByTestId('developer-utilities-workspace')).toHaveCount(0);
 }
 
 /**
@@ -471,10 +462,7 @@ export async function openPaletteAction(
  * Asserts the license-clear button shows up (= active tier persisted) and
  * that the status pill reflects the expected copy.
  */
-export async function applyDevLicense(
-  page: Page,
-  expectedStatus: RegExp | string
-): Promise<void> {
+export async function applyDevLicense(page: Page, expectedStatus: RegExp | string): Promise<void> {
   if ((await page.getByTestId('license-input').count()) === 0) {
     await openSettingsTab(page, 'account');
   }
@@ -582,7 +570,12 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
  */
 export async function createJavaScriptTab(page: Page): Promise<void> {
   const existingJsTab = page.getByRole('button', { name: /JS .*\.js/i });
-  if (await existingJsTab.first().isVisible().catch(() => false)) {
+  if (
+    await existingJsTab
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
     return;
   }
   const explicitNewButton = page.getByRole('button', {
@@ -616,10 +609,7 @@ export async function closeActiveEditorTab(page: Page): Promise<void> {
   }
   const fileName = activeTabLabel.replace(/^\S+\s+/, '');
   const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const closeButtonName = new RegExp(
-    `^(Close|Cerrar) ${escapedFileName}$`,
-    'i'
-  );
+  const closeButtonName = new RegExp(`^(Close|Cerrar) ${escapedFileName}$`, 'i');
   await page.getByRole('button', { name: closeButtonName }).click();
   await expect(page.getByRole('button', { name: closeButtonName })).toHaveCount(0);
 }

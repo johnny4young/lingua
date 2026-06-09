@@ -1,17 +1,28 @@
 /**
  * RL-099 Slice 1 — keyboard contract for the Utility Pipelines panel.
  *
- * Acceptance: Mod+Shift+G opens the Developer Utilities overlay with
+ * Acceptance: Mod+Shift+G opens the Developer Utilities workspace with
  * the Pipelines panel preselected. EN + ES locales verify the
  * tuteo copy. The full run-flow + adapter behavior is covered by
  * the component + shared unit tests.
  */
 
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import { expect, expectNoticeContains, gotoApp, seedSession, test } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
 test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
+  test('keeps the Pipelines shortcut Pro-gated on Free', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Shift+G');
+
+    await expectNoticeContains(page, 'utility workflows');
+    await expect(page.getByTestId('developer-utilities-workspace')).toHaveCount(0);
+    await expect(page.getByTestId('utility-pipeline-panel')).toHaveCount(0);
+  });
+
   test('opens the Pipelines panel inside Developer Utilities (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);

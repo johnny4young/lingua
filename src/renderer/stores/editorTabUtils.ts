@@ -51,11 +51,7 @@ export function dropAutoLogIfUnsupported<T extends FileTab>(tab: T): T {
  * different.
  */
 export function languageSupportsStdin(language: Language): boolean {
-  return (
-    language === 'javascript' ||
-    language === 'typescript' ||
-    language === 'python'
-  );
+  return language === 'javascript' || language === 'typescript' || language === 'python';
 }
 
 export function dropStdinIfUnsupported<T extends FileTab>(tab: T): T {
@@ -108,9 +104,7 @@ export function dropCompareIfLanguageChanged<T extends FileTab>(
  * surfacing stale state. Mirrors `dropAutoLogIfUnsupported` /
  * `dropCompareIfLanguageChanged`.
  */
-export const RECIPE_BINDING_SUPPORTED_LANGUAGES: ReadonlySet<Language> = new Set([
-  'javascript',
-]);
+export const RECIPE_BINDING_SUPPORTED_LANGUAGES: ReadonlySet<Language> = new Set(['javascript']);
 
 export function dropRecipeBindingIfLanguageChanged<T extends FileTab>(
   tab: T,
@@ -135,9 +129,7 @@ export const VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES: ReadonlySet<Language> = new
   'python',
 ]);
 
-export function isVariableInspectorSupportedLanguage(
-  language: Language
-): boolean {
+export function isVariableInspectorSupportedLanguage(language: Language): boolean {
   return VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES.has(language);
 }
 
@@ -171,27 +163,29 @@ export function dropVariableInspectorIfLanguageChanged<T extends FileTab>(
  */
 export const SQL_WORKSPACE_TAB_ID = 'lingua:workspace:sql';
 export const HTTP_WORKSPACE_TAB_ID = 'lingua:workspace:http';
+export const UTILITIES_WORKSPACE_TAB_ID = 'lingua:workspace:utilities';
 
 /**
- * Display names for the two workspace tabs. The tab strip shows the
- * SQL / HTTP glyph + this name, never a single query/request name.
+ * Display names for the workspace tabs. The tab strip shows the
+ * SQL / HTTP / Utilities glyph + this name, never a single query/request name.
  */
 export const SQL_WORKSPACE_TAB_NAME = 'SQL';
 export const HTTP_WORKSPACE_TAB_NAME = 'HTTP';
+export const UTILITIES_WORKSPACE_TAB_NAME = 'Utilities';
 
 /**
- * A SQL / HTTP workspace tab is the container for a whole collection,
+ * A SQL / HTTP / Utilities workspace tab is the container for a whole collection,
  * not a single document, so it is EXEMPT from the RL-060 Free tab
- * budget — a Free user always gets the two workspaces. Only
+ * budget — a Free user always gets the workspaces. Only
  * non-workspace tabs (code + notebook) count toward the ceiling.
  */
 export function isWorkspaceTab(tab: Pick<FileTab, 'kind'>): boolean {
-  return tab.kind === 'sql' || tab.kind === 'http';
+  return tab.kind === 'sql' || tab.kind === 'http' || tab.kind === 'utilities';
 }
 
 /**
  * Count only the tabs that consume the Free tab budget — workspace
- * tabs (SQL / HTTP) are exempt. Callers add the proposed new tab
+ * tabs (SQL / HTTP / Utilities) are exempt. Callers add the proposed new tab
  * themselves before comparing against `withinTabBudget`.
  */
 export function budgetedTabCount(tabs: ReadonlyArray<FileTab>): number {

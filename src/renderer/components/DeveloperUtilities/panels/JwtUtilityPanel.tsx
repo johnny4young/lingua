@@ -1,9 +1,22 @@
-import { FieldLabel, JsonTreeNode, PanelSection, StatusMessage, UtilityToolbar, UtilityTextarea } from '../panelPrimitives';
+import {
+  FieldLabel,
+  JsonTreeNode,
+  PanelSection,
+  StatusMessage,
+  UtilityToolbar,
+  UtilityTextarea,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
-import { JWT_SUPPORTED_ALGORITHMS, decodeJwt, isJwtAlgorithm, signJwt, verifyJwt } from '../../../utils/jwt';
+import {
+  JWT_SUPPORTED_ALGORITHMS,
+  decodeJwt,
+  isJwtAlgorithm,
+  signJwt,
+  verifyJwt,
+} from '../../../utils/jwt';
 import type { JwtAlgorithm, JwtSignResult, JwtVerifyResult } from '../../../utils/jwt';
 
 export function JwtUtilityPanel() {
@@ -33,7 +46,7 @@ export function JwtUtilityPanel() {
             aria-label={t('utilities.tool.jwt.mode.label')}
             data-testid="jwt-mode"
             value={mode}
-            onChange={(event) => {
+            onChange={event => {
               const next = event.target.value;
               if (next === 'decode' || next === 'verify' || next === 'sign') setMode(next);
             }}
@@ -44,12 +57,7 @@ export function JwtUtilityPanel() {
             <option value="sign">{t('utilities.tool.jwt.mode.sign')}</option>
           </select>
         </div>
-        <UtilityToolbar
-          utilityId="jwt"
-          primary={input}
-          run={runApply}
-          setPrimary={setInput}
-        />
+        <UtilityToolbar utilityId="jwt" primary={input} run={runApply} setPrimary={setInput} />
       </PanelSection>
 
       {mode === 'decode' ? (
@@ -86,7 +94,7 @@ function JwtDecodeSection({
   useRegisterUtilityOutput(registerOutput);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.45fr)] 2xl:grid-cols-[minmax(20rem,0.65fr)_minmax(42rem,1.7fr)]">
       <PanelSection
         title={t('utilities.tool.jwt.headerTitle')}
         description={t('utilities.tool.jwt.panelDescription')}
@@ -97,12 +105,11 @@ function JwtDecodeSection({
             aria-label={t('utilities.field.token')}
             data-testid="jwt-decode-token"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
+            className="min-h-[18rem] font-mono"
           />
         </div>
-        {analysis.errorKey ? (
-          <StatusMessage message={t(analysis.errorKey)} tone="error" />
-        ) : null}
+        {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
       </PanelSection>
 
       <div className="grid gap-4">
@@ -112,7 +119,7 @@ function JwtDecodeSection({
         >
           {analysis.header ? (
             <div className="grid gap-2">
-              <div className="max-h-48 overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+              <div className="max-h-[22rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
                 <JsonTreeNode value={analysis.header} />
               </div>
               <div className="flex justify-end">
@@ -132,7 +139,7 @@ function JwtDecodeSection({
         >
           {analysis.payload ? (
             <div className="grid gap-2">
-              <div className="max-h-48 overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+              <div className="max-h-[22rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
                 <JsonTreeNode value={analysis.payload} />
               </div>
               <div className="flex justify-end">
@@ -146,9 +153,7 @@ function JwtDecodeSection({
             <StatusMessage message={t('utilities.tool.jwt.empty')} />
           )}
         </PanelSection>
-        {analysis.errorKey ? (
-          <StatusMessage message={t(analysis.errorKey)} tone="error" />
-        ) : null}
+        {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
       </div>
     </div>
   );
@@ -193,7 +198,7 @@ function JwtVerifySection({
             aria-label={t('utilities.field.token')}
             data-testid="jwt-verify-token"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
           />
         </div>
         <div className="grid gap-2">
@@ -202,13 +207,13 @@ function JwtVerifySection({
             aria-label={t('utilities.tool.jwt.verify.algorithmLabel')}
             data-testid="jwt-verify-algorithm"
             value={algorithm}
-            onChange={(event) => {
+            onChange={event => {
               const next = event.target.value;
               if (isJwtAlgorithm(next)) setAlgorithm(next);
             }}
             className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
           >
-            {JWT_SUPPORTED_ALGORITHMS.map((alg) => (
+            {JWT_SUPPORTED_ALGORITHMS.map(alg => (
               <option key={alg} value={alg}>
                 {alg}
               </option>
@@ -221,7 +226,7 @@ function JwtVerifySection({
             aria-label={t('utilities.tool.jwt.verify.keyLabel')}
             data-testid="jwt-verify-key"
             value={key}
-            onChange={(event) => setKey(event.target.value)}
+            onChange={event => setKey(event.target.value)}
             placeholder={t('utilities.tool.jwt.verify.keyPlaceholder')}
             spellCheck={false}
           />
@@ -267,7 +272,7 @@ function JwtVerifyResultView({ result }: { result: JwtVerifyResult }) {
         ) : null}
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.jwt.payloadTitle')}</FieldLabel>
-          <div className="max-h-48 overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+          <div className="max-h-[22rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
             <JsonTreeNode value={result.payload} />
           </div>
         </div>
@@ -289,11 +294,7 @@ function JwtVerifyResultView({ result }: { result: JwtVerifyResult }) {
       title={t('utilities.tool.jwt.verify.resultTitle')}
       description={t('utilities.status.live')}
     >
-      <StatusMessage
-        tone="error"
-        message={t(messageKey, values)}
-        testid="jwt-verify-result-fail"
-      />
+      <StatusMessage tone="error" message={t(messageKey, values)} testid="jwt-verify-result-fail" />
     </PanelSection>
   );
 }
@@ -345,7 +346,7 @@ function JwtSignSection() {
   };
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.jwt.sign.title')}
         description={t('utilities.tool.jwt.sign.description')}
@@ -356,7 +357,7 @@ function JwtSignSection() {
             aria-label={t('utilities.tool.jwt.sign.headerLabel')}
             data-testid="jwt-sign-header"
             value={header}
-            onChange={(event) => setHeader(event.target.value)}
+            onChange={event => setHeader(event.target.value)}
             spellCheck={false}
           />
         </div>
@@ -366,7 +367,7 @@ function JwtSignSection() {
             aria-label={t('utilities.tool.jwt.sign.payloadLabel')}
             data-testid="jwt-sign-payload"
             value={payload}
-            onChange={(event) => setPayload(event.target.value)}
+            onChange={event => setPayload(event.target.value)}
             spellCheck={false}
           />
         </div>
@@ -376,13 +377,13 @@ function JwtSignSection() {
             aria-label={t('utilities.tool.jwt.sign.algorithmLabel')}
             data-testid="jwt-sign-algorithm"
             value={algorithm}
-            onChange={(event) => {
+            onChange={event => {
               const next = event.target.value;
               if (isJwtAlgorithm(next)) setAlgorithm(next);
             }}
             className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
           >
-            {JWT_SUPPORTED_ALGORITHMS.map((alg) => (
+            {JWT_SUPPORTED_ALGORITHMS.map(alg => (
               <option key={alg} value={alg}>
                 {alg}
               </option>
@@ -395,7 +396,7 @@ function JwtSignSection() {
             aria-label={t('utilities.tool.jwt.sign.keyLabel')}
             data-testid="jwt-sign-key"
             value={key}
-            onChange={(event) => setKey(event.target.value)}
+            onChange={event => setKey(event.target.value)}
             placeholder={t('utilities.tool.jwt.sign.keyPlaceholder')}
             spellCheck={false}
           />

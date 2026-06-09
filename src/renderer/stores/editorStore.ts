@@ -20,7 +20,7 @@ import { createCloseActions } from './editorCloseActions';
  *   - `editorSelectors`      — `getActiveTab` / `getActiveTabIndex`
  *   - `editorStoreContext`   — shared `EditorSet` / `EditorGet` types (fold A)
  *   - `editorTabActions`     — create / restore / remove / focus / duplicate
- *   - `editorWorkspaceActions`— notebook + SQL / HTTP workspace openers
+ *   - `editorWorkspaceActions`— notebook + SQL / HTTP / Utilities workspace openers
  *   - `editorContentActions` — buffer / execution-state / timeout / recipe-clear
  *   - `editorModeActions`    — runtime/workflow mode + capability toggles
  *   - `editorSaveActions`    — open / save / save-as
@@ -51,6 +51,7 @@ export {
   isVariableInspectorSupportedLanguage,
   SQL_WORKSPACE_TAB_ID,
   HTTP_WORKSPACE_TAB_ID,
+  UTILITIES_WORKSPACE_TAB_ID,
 } from './editorTabUtils';
 export { getActiveTab, getActiveTabIndex } from './editorSelectors';
 export { languageFromPath } from '../utils/language';

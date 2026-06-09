@@ -1,4 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -68,18 +74,15 @@ export function BeautifyMinifyUtilityPanel() {
 
   // RL-069 Slice 2 — output null while errored so the shortcut surfaces
   // the empty-output toast instead of stale content.
-  const registerOutput = useCallback(
-    () => (errorKey ? null : output || null),
-    [errorKey, output]
-  );
+  const registerOutput = useCallback(() => (errorKey ? null : output || null), [errorKey, output]);
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
-    setInput((prev) => prev);
+    setInput(prev => prev);
   }, []);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.beautifyMinify.title')}
         description={t('utilities.tool.beautifyMinify.panelDescription')}
@@ -90,7 +93,7 @@ export function BeautifyMinifyUtilityPanel() {
             <select
               data-testid="beautify-minify-language"
               value={language}
-              onChange={(event) => handleLanguageChange(event.target.value as MinifyLanguage)}
+              onChange={event => handleLanguageChange(event.target.value as MinifyLanguage)}
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
             >
               <option value="json">{t('utilities.tool.beautifyMinify.language.json')}</option>
@@ -109,7 +112,7 @@ export function BeautifyMinifyUtilityPanel() {
             <select
               data-testid="beautify-minify-mode"
               value={mode}
-              onChange={(event) => setMode(event.target.value as BeautifyMinifyMode)}
+              onChange={event => setMode(event.target.value as BeautifyMinifyMode)}
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
             >
               <option value="beautify">{t('utilities.tool.beautifyMinify.mode.beautify')}</option>
@@ -123,15 +126,15 @@ export function BeautifyMinifyUtilityPanel() {
             aria-label={t('utilities.field.input')}
             data-testid="beautify-minify-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             spellCheck={false}
+            className="min-h-[16rem] font-mono"
           />
         </div>
         {language === 'html' && mode === 'minify' ? (
           <StatusMessage message={t('utilities.tool.beautifyMinify.htmlMinifyHint')} />
         ) : null}
-        {(language === 'css' || language === 'scss' || language === 'less') &&
-        mode === 'minify' ? (
+        {(language === 'css' || language === 'scss' || language === 'less') && mode === 'minify' ? (
           <StatusMessage message={t('utilities.tool.beautifyMinify.cssFamilyMinifyHint')} />
         ) : null}
         {language === 'xml' && mode === 'minify' ? (
@@ -145,10 +148,7 @@ export function BeautifyMinifyUtilityPanel() {
         />
       </PanelSection>
 
-      <PanelSection
-        title={t('utilities.field.output')}
-        description={t('utilities.status.live')}
-      >
+      <PanelSection title={t('utilities.field.output')} description={t('utilities.status.live')}>
         {errorKey ? (
           <StatusMessage message={t(errorKey)} tone="error" />
         ) : (
@@ -159,7 +159,7 @@ export function BeautifyMinifyUtilityPanel() {
               value={output}
               readOnly
               spellCheck={false}
-              className="pr-10"
+              className="pr-10 min-h-[20rem] font-mono"
             />
             <div className="absolute right-2 top-2">
               <CopyButton value={output} disabled={!output} />

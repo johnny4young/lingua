@@ -1,9 +1,20 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
-import { JSON_CSV_DELIMITERS, JSON_CSV_MAX_KB, convertCsvToJson, convertJsonToCsv } from '../../../utils/jsonCsv';
+import {
+  JSON_CSV_DELIMITERS,
+  JSON_CSV_MAX_KB,
+  convertCsvToJson,
+  convertJsonToCsv,
+} from '../../../utils/jsonCsv';
 import { detectsAsJson } from '../../../utils/developerUtilities';
 import type { CsvToJsonResult, JsonCsvDelimiter, JsonToCsvResult } from '../../../utils/jsonCsv';
 
@@ -46,10 +57,7 @@ export function JsonCsvPanel() {
   const setInput = isJsonToCsv ? setJsonInput : setCsvInput;
   const result = isJsonToCsv ? jsonResult : csvResult;
 
-  const registerOutput = useCallback(
-    () => (result.ok ? result.output : null),
-    [result]
-  );
+  const registerOutput = useCallback(() => (result.ok ? result.output : null), [result]);
   useRegisterUtilityOutput(registerOutput);
 
   // Apply auto-flips direction based on input shape: JSON → CSV.
@@ -64,7 +72,7 @@ export function JsonCsvPanel() {
   }, [input]);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.jsonCsv.title')}
         description={t('utilities.tool.jsonCsv.panelDescription')}
@@ -76,7 +84,7 @@ export function JsonCsvPanel() {
               aria-label={t('utilities.tool.jsonCsv.mode.label')}
               data-testid="json-csv-mode"
               value={mode}
-              onChange={(event) => setMode(event.target.value as JsonCsvMode)}
+              onChange={event => setMode(event.target.value as JsonCsvMode)}
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
             >
               <option value="json-to-csv">{t('utilities.tool.jsonCsv.mode.jsonToCsv')}</option>
@@ -89,10 +97,10 @@ export function JsonCsvPanel() {
               aria-label={t('utilities.tool.jsonCsv.delimiter.label')}
               data-testid="json-csv-delimiter"
               value={delimiter}
-              onChange={(event) => setDelimiter(event.target.value as JsonCsvDelimiter)}
+              onChange={event => setDelimiter(event.target.value as JsonCsvDelimiter)}
               className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
             >
-              {JSON_CSV_DELIMITERS.map((value) => (
+              {JSON_CSV_DELIMITERS.map(value => (
                 <option key={value} value={value}>
                   {t(JSON_CSV_DELIMITER_KEYS[value])}
                 </option>
@@ -105,7 +113,7 @@ export function JsonCsvPanel() {
             type="checkbox"
             data-testid="json-csv-header"
             checked={includeHeader}
-            onChange={(event) => setIncludeHeader(event.target.checked)}
+            onChange={event => setIncludeHeader(event.target.checked)}
           />
           <span>{t('utilities.tool.jsonCsv.header.label')}</span>
         </label>
@@ -115,17 +123,12 @@ export function JsonCsvPanel() {
             aria-label={t('utilities.tool.jsonCsv.input.label')}
             data-testid="json-csv-input"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
             spellCheck={false}
-            className="min-h-[14rem] font-mono"
+            className="min-h-[16rem] font-mono"
           />
         </div>
-        <UtilityToolbar
-          utilityId="json-csv"
-          primary={input}
-          run={runApply}
-          setPrimary={setInput}
-        />
+        <UtilityToolbar utilityId="json-csv" primary={input} run={runApply} setPrimary={setInput} />
       </PanelSection>
 
       <PanelSection
@@ -155,7 +158,7 @@ export function JsonCsvPanel() {
                 value={result.output}
                 readOnly
                 spellCheck={false}
-                className="pr-10 min-h-[14rem] font-mono"
+                className="pr-10 min-h-[20rem] font-mono"
               />
               <div className="absolute right-2 top-2">
                 <CopyButton

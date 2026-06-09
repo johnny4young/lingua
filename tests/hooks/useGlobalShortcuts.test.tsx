@@ -2,10 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
-import {
-  takePendingClipboardApply,
-  useClipboardOnFocus,
-} from '@/hooks/useClipboardOnFocus';
+import { takePendingClipboardApply, useClipboardOnFocus } from '@/hooks/useClipboardOnFocus';
 import { useGlobalShortcuts, type AppOverlay } from '@/hooks/useGlobalShortcuts';
 import { setActiveEditor } from '@/runtime/editorAccess';
 import { setActiveDebugWorker } from '@/runtime/debuggerWorkerBridge';
@@ -14,6 +11,7 @@ import { useDebuggerStore } from '@/stores/debuggerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useUtilityOutputStore } from '@/stores/utilityOutputStore';
+import { useLicenseStore } from '@/stores/licenseStore';
 
 interface HarnessOptions {
   overlay?: AppOverlay;
@@ -80,6 +78,33 @@ function mockClipboardRead(value: string) {
     value: { readText },
   });
   return readText;
+}
+
+function setFreeTier() {
+  useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+}
+
+function setProTier() {
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'shortcuts@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
 }
 
 describe('useGlobalShortcuts', () => {
@@ -326,18 +351,29 @@ describe('useClipboardOnFocus', () => {
     await i18next.changeLanguage('en');
     useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'granted' }, false);
     useUIStore.setState({ statusNotice: null });
+    setProTier();
     takePendingClipboardApply();
   });
 
   it('does not read the clipboard when the toolbar has no apply target setter', async () => {
     const readText = mockClipboardRead('Lingua');
 
-    renderHook(() =>
-      useClipboardOnFocus('hash', () => true, vi.fn(), { enabled: false })
-    );
+    renderHook(() => useClipboardOnFocus('hash', () => true, vi.fn(), { enabled: false }));
 
     await Promise.resolve();
     expect(readText).not.toHaveBeenCalled();
+    expect(takePendingClipboardApply()).toBeNull();
+  });
+
+  it('does not read the clipboard on Free even with stale granted consent', async () => {
+    setFreeTier();
+    const readText = mockClipboardRead('{"a":1}');
+
+    renderHook(() => useClipboardOnFocus('json', () => true, vi.fn()));
+
+    await Promise.resolve();
+    expect(readText).not.toHaveBeenCalled();
+    expect(useUIStore.getState().statusNotice).toBeNull();
     expect(takePendingClipboardApply()).toBeNull();
   });
 
@@ -346,11 +382,7 @@ describe('useClipboardOnFocus', () => {
     const applyClipboardValue = vi.fn();
 
     renderHook(() =>
-      useClipboardOnFocus(
-        'json',
-        (value) => value.startsWith('{'),
-        applyClipboardValue
-      )
+      useClipboardOnFocus('json', value => value.startsWith('{'), applyClipboardValue)
     );
 
     await waitFor(() => {
@@ -374,11 +406,7 @@ describe('useClipboardOnFocus', () => {
     const applyClipboardValue = vi.fn();
 
     const { unmount } = renderHook(() =>
-      useClipboardOnFocus(
-        'json',
-        (value) => value.startsWith('{'),
-        applyClipboardValue
-      )
+      useClipboardOnFocus('json', value => value.startsWith('{'), applyClipboardValue)
     );
 
     await waitFor(() => {

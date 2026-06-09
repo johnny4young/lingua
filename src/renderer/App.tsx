@@ -16,10 +16,7 @@ import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
-import {
-  DEFAULT_DEVELOPER_UTILITY_ID,
-  type DeveloperUtilityId,
-} from './data/developerUtilities';
+import { findDeveloperUtility, type DeveloperUtilityId } from './data/developerUtilities';
 import { getActiveAppLanguage } from './i18n';
 import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
@@ -43,7 +40,8 @@ import { useProjectWatchSync } from './hooks/useProjectWatchSync';
 import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
-import { useEditorStore } from './stores/editorStore';
+import { getActiveTab, useEditorStore } from './stores/editorStore';
+import { openUtilitiesWorkspaceTab } from './runtime/openWorkspaceTab';
 import { usePluginStore } from './stores/pluginStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -65,12 +63,8 @@ function FactoryRecoveryNotice() {
       data-testid="factory-recovery-notice"
       className="fixed left-1/2 top-4 z-[70] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 rounded-[1rem] border border-warning/60 bg-background-elevated px-4 py-3 shadow-2xl shadow-black/30"
     >
-      <p className="text-sm font-semibold text-foreground">
-        {t('recovery.factoryNotice.title')}
-      </p>
-      <p className="mt-1 text-sm leading-6 text-muted">
-        {t('recovery.factoryNotice.body')}
-      </p>
+      <p className="text-sm font-semibold text-foreground">{t('recovery.factoryNotice.title')}</p>
+      <p className="mt-1 text-sm leading-6 text-muted">{t('recovery.factoryNotice.body')}</p>
     </aside>
   );
 }
@@ -80,33 +74,31 @@ function AppChrome({
   openOverlay,
   toggleOverlay,
   closeOverlay,
-  selectedUtilityId,
 }: {
   overlay: AppOverlay;
-  openOverlay: (
-    overlay: Exclude<AppOverlay, 'none'>,
-    utilityId?: DeveloperUtilityId
-  ) => void;
+  openOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
   toggleOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
   closeOverlay: () => void;
-  selectedUtilityId: DeveloperUtilityId;
 }) {
   const { run, stop, isRunning } = useRunner();
   const { t } = useTranslation();
-  const saveActiveTab = useEditorStore((s) => s.saveActiveTab);
-  const saveActiveTabAs = useEditorStore((s) => s.saveActiveTabAs);
-  const openFileFromDisk = useEditorStore((s) => s.openFileFromDisk);
-  const closeTab = useEditorStore((s) => s.closeTab);
-  const activeTabId = useEditorStore((s) => s.activeTabId);
-  const lastSeenVersion = useSettingsStore((s) => s.lastSeenVersion);
-  const setLastSeenVersion = useSettingsStore((s) => s.setLastSeenVersion);
-  const suppressTourAutoStart = useSettingsStore((s) => s.suppressTourAutoStart);
+  const saveActiveTab = useEditorStore(s => s.saveActiveTab);
+  const saveActiveTabAs = useEditorStore(s => s.saveActiveTabAs);
+  const openFileFromDisk = useEditorStore(s => s.openFileFromDisk);
+  const closeTab = useEditorStore(s => s.closeTab);
+  const activeTabId = useEditorStore(s => s.activeTabId);
+  const utilitiesWorkspaceActive = useEditorStore(s => {
+    return getActiveTab(s)?.kind === 'utilities';
+  });
+  const lastSeenVersion = useSettingsStore(s => s.lastSeenVersion);
+  const setLastSeenVersion = useSettingsStore(s => s.setLastSeenVersion);
+  const suppressTourAutoStart = useSettingsStore(s => s.suppressTourAutoStart);
   const { toggleSidebar, toggleConsole } = useUIStore();
-  const initializePlugins = usePluginStore((s) => s.initialize);
-  const initializeUpdates = useUpdateStore((s) => s.initialize);
+  const initializePlugins = usePluginStore(s => s.initialize);
+  const initializeUpdates = useUpdateStore(s => s.initialize);
   const appInfo = useAppInfo();
   const effectiveTier = useEffectiveTier();
-  const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
+  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
   // RL-026 Slice 3 — rust-analyzer lifecycle.
   // RL-026 Slice 4 — gopls lifecycle. Same hook shape via the shared
   // `useLspLifecycle`; the two languages have independent stores so a
@@ -331,7 +323,7 @@ function AppChrome({
 
     return window.lingua.onBeforeClose(() => {
       const { tabs } = useEditorStore.getState();
-      const dirtyTabs = tabs.filter((tab) => tab.isDirty);
+      const dirtyTabs = tabs.filter(tab => tab.isDirty);
 
       if (dirtyTabs.length === 0) {
         window.lingua.forceClose();
@@ -340,7 +332,7 @@ function AppChrome({
 
       void (async () => {
         const response = await window.lingua.confirmClose(
-          dirtyTabs.map((tab) => tab.name),
+          dirtyTabs.map(tab => tab.name),
           getActiveAppLanguage()
         );
 
@@ -361,18 +353,24 @@ function AppChrome({
   }, []);
 
   const handleOpenDeveloperUtility = (utilityId?: DeveloperUtilityId) => {
-    if (canUseDeveloperUtilities) {
-      openOverlay('utilities', utilityId);
+    const requestedUtility = utilityId ? findDeveloperUtility(utilityId) : null;
+    if (requestedUtility?.requiresEntitlement && !canUseUtilityWorkflows) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: t('upsell.feature.utilityWorkflows'),
+      });
+      void trackEvent('feature.blocked', {
+        entitlement: 'utility-workflows',
+        tier: effectiveTier,
+      });
       return;
     }
-    pushUpsellNotice({
-      messageKey: 'upsell.freeCeilingReached',
-      featureLabel: t('upsell.feature.devUtilities'),
-    });
-    void trackEvent('feature.blocked', {
-      entitlement: 'dev-utilities',
-      tier: effectiveTier,
-    });
+    openUtilitiesWorkspaceTab(utilityId);
+    closeOverlay();
+    // Preserve the pre-workspace adoption signal: the telemetry enum still
+    // names the event `overlay.opened`, but the surface id remains stable
+    // so dashboards do not lose Utilities open counts during MOV.03.
+    void trackEvent('overlay.opened', { overlayId: 'utilities' });
   };
 
   useAppShortcuts({
@@ -401,8 +399,7 @@ function AppChrome({
   useEffect(() => {
     const handler = () => openOverlay('snippets');
     window.addEventListener('lingua-open-snippets-overlay', handler);
-    return () =>
-      window.removeEventListener('lingua-open-snippets-overlay', handler);
+    return () => window.removeEventListener('lingua-open-snippets-overlay', handler);
   }, [openOverlay]);
 
   // RL-094 Slice 2 — Settings → Account → Run Capsules → Import
@@ -412,8 +409,7 @@ function AppChrome({
   useEffect(() => {
     const handler = () => openOverlay('capsule-import');
     window.addEventListener('lingua-open-capsule-import', handler);
-    return () =>
-      window.removeEventListener('lingua-open-capsule-import', handler);
+    return () => window.removeEventListener('lingua-open-capsule-import', handler);
   }, [openOverlay]);
 
   // RL-094 Slice 3 — the Settings → Run Capsules "Browse all" button
@@ -422,14 +418,12 @@ function AppChrome({
   // for the overlay's `capsule.browse_opened` telemetry, then open.
   useEffect(() => {
     const handler = (event: Event) => {
-      const surface = (event as CustomEvent<{ surface?: CapsuleBrowseSurface }>)
-        .detail?.surface;
+      const surface = (event as CustomEvent<{ surface?: CapsuleBrowseSurface }>).detail?.surface;
       claimCapsuleListSurface(surface ?? 'settings');
       openOverlay('capsule-list');
     };
     window.addEventListener('lingua-open-capsule-list', handler);
-    return () =>
-      window.removeEventListener('lingua-open-capsule-list', handler);
+    return () => window.removeEventListener('lingua-open-capsule-list', handler);
   }, [openOverlay]);
 
   const handleStartGuidedTour = () => {
@@ -453,7 +447,7 @@ function AppChrome({
         onOpenSnippets={() => openOverlay('snippets')}
         onOpenUtilities={() => handleOpenDeveloperUtility()}
         onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
-        utilitiesOpen={overlay === 'utilities'}
+        utilitiesOpen={utilitiesWorkspaceActive}
       />
       <ShareLinkController />
       <AppOverlays
@@ -462,7 +456,6 @@ function AppChrome({
         closeOverlay={closeOverlay}
         onStartGuidedTour={handleStartGuidedTour}
         onOpenDeveloperUtility={handleOpenDeveloperUtility}
-        selectedUtilityId={selectedUtilityId}
         run={run}
         isRunning={isRunning}
         exportProjectBundle={exportProjectBundle}
@@ -475,20 +468,10 @@ function AppChrome({
   );
 }
 
-
 export function App() {
   const [overlay, setOverlay] = useState<AppOverlay>('none');
-  const [selectedUtilityId, setSelectedUtilityId] = useState<DeveloperUtilityId>(
-    DEFAULT_DEVELOPER_UTILITY_ID
-  );
 
-  const openOverlay = (
-    nextOverlay: Exclude<AppOverlay, 'none'>,
-    utilityId?: DeveloperUtilityId
-  ) => {
-    if (nextOverlay === 'utilities') {
-      setSelectedUtilityId(utilityId ?? DEFAULT_DEVELOPER_UTILITY_ID);
-    }
+  const openOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
     setOverlay(nextOverlay);
     // RL-065 — fire overlay.opened so a consenting user's telemetry can
     // reflect which panels got use. trackEvent is a no-op unless consent
@@ -499,7 +482,7 @@ export function App() {
   };
 
   const toggleOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
-    setOverlay((currentOverlay) => {
+    setOverlay(currentOverlay => {
       const next = currentOverlay === nextOverlay ? 'none' : nextOverlay;
       if (next !== 'none') {
         void trackEvent('overlay.opened', { overlayId: next });
@@ -526,7 +509,6 @@ export function App() {
           openOverlay={openOverlay}
           toggleOverlay={toggleOverlay}
           closeOverlay={closeOverlay}
-          selectedUtilityId={selectedUtilityId}
         />
       </GuidedTourProvider>
     </ErrorBoundary>

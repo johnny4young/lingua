@@ -28,7 +28,6 @@ export type AppOverlay =
   | 'search'
   | 'replace'
   | 'go-to-symbol'
-  | 'utilities'
   | 'snippets'
   | 'whats-new'
   | 'keyboard-shortcuts'
@@ -82,8 +81,8 @@ interface UseGlobalShortcutsOptions {
    */
   toggleSqlWorkspace: () => void;
   /**
-   * RL-099 Slice 1 fold A — open the Developer Utilities overlay
-   * with the Pipelines panel preselected via Mod+Shift+G. Caller
+   * RL-099 Slice 1 fold A / MOV.03 — open the Developer Utilities
+   * workspace with the Pipelines panel preselected via Mod+Shift+G. Caller
    * wires this to `handleOpenDeveloperUtility('utility-pipelines')`.
    */
   openUtilityPipelines: () => void;
@@ -231,8 +230,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'onboarding-replay': () => options.replayOnboarding(),
     'view-show-dependencies': () => options.showDependenciesPanel(),
     'ui-reset-floating-positions': () => options.resetFloatingPositions(),
-    'view-toggle-variable-inspector-surface': () =>
-      options.toggleVariableInspectorSurface(),
+    'view-toggle-variable-inspector-surface': () => options.toggleVariableInspectorSurface(),
     'file-save': () => {
       void options.saveActiveTab();
     },
@@ -337,8 +335,7 @@ function canDispatchDebuggerShortcut(id: string): boolean {
   // never compete with normal-mode keystrokes.
   if (id === 'debugger-toggle-breakpoint') {
     // Slice 2 — debugger is baseline; the Settings toggle is gone.
-    return getActiveDebuggerTab() !== null &&
-      getActiveEditorCursorLine() !== null;
+    return getActiveDebuggerTab() !== null && getActiveEditorCursorLine() !== null;
   }
   if (!isDebugWorkerActive()) return false;
   const pausedFrame = useDebuggerStore.getState().pausedFrame;
@@ -365,18 +362,14 @@ function getActiveDebuggerTab(): { id: string; language: string } | null {
 let utilityClipboardInFlight = false;
 
 function getShortcutLabel(shortcutId: string): string | undefined {
-  const definition = KEYBOARD_SHORTCUTS.find((entry) => entry.id === shortcutId);
+  const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === shortcutId);
   if (!definition) return undefined;
-  const combo = resolveCombos(
-    definition,
-    useSettingsStore.getState().shortcutOverrides
-  )[0];
+  const combo = resolveCombos(definition, useSettingsStore.getState().shortcutOverrides)[0];
   if (!combo) return undefined;
 
   const runtimePlatform =
-    typeof window !== 'undefined' ? window.lingua?.platform ?? 'web' : 'web';
-  const navigatorPlatform =
-    typeof navigator !== 'undefined' ? navigator.platform : undefined;
+    typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
+  const navigatorPlatform = typeof navigator !== 'undefined' ? navigator.platform : undefined;
   const displayPlatform = resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
   return formatShortcutCombo(combo, displayPlatform);
 }
@@ -499,10 +492,10 @@ async function writeUtilityOutputToClipboard(mode: 'copy' | 'replace'): Promise<
 }
 
 export function useGlobalShortcuts(options: UseGlobalShortcutsOptions) {
-  const overrides = useSettingsStore((state) => state.shortcutOverrides);
+  const overrides = useSettingsStore(state => state.shortcutOverrides);
 
   const dispatchable = useMemo<readonly ShortcutDefinition[]>(
-    () => KEYBOARD_SHORTCUTS.filter((entry) => entry.id !== 'overlay-close'),
+    () => KEYBOARD_SHORTCUTS.filter(entry => entry.id !== 'overlay-close'),
     []
   );
 
@@ -520,7 +513,7 @@ export function useGlobalShortcuts(options: UseGlobalShortcutsOptions) {
     const actions = buildActionMap(options);
     for (const definition of dispatchable) {
       const combos = resolveCombos(definition, overrides);
-      if (!combos.some((combo) => matchesCombo(event, combo))) continue;
+      if (!combos.some(combo => matchesCombo(event, combo))) continue;
       if (definition.group === 'debugger' && !canDispatchDebuggerShortcut(definition.id)) continue;
       const action = actions[definition.id];
       if (!action) continue;

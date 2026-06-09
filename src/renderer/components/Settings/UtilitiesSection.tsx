@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
+import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { Toggle } from './shared';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
@@ -20,21 +22,39 @@ import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
  */
 export function UtilitiesSection() {
   const { t } = useTranslation();
-  const consent = useSettingsStore(
-    (state) => state.utilitiesClipboardOnFocusConsent
-  );
-  const setConsent = useSettingsStore(
-    (state) => state.setUtilitiesClipboardOnFocusConsent
-  );
-  const clearAllHistory = useUtilityHistoryStore((state) => state.clearHistory);
+  const consent = useSettingsStore(state => state.utilitiesClipboardOnFocusConsent);
+  const setConsent = useSettingsStore(state => state.setUtilitiesClipboardOnFocusConsent);
+  const clearAllHistory = useUtilityHistoryStore(state => state.clearHistory);
+  const effectiveTier = useEffectiveTier();
+  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
   const [confirmingClear, setConfirmingClear] = useState(false);
 
-  const consentStatusKey =
-    consent === 'granted'
+  const consentStatusKey = !canUseUtilityWorkflows
+    ? 'utilities.settings.clipboardOnFocus.locked'
+    : consent === 'granted'
       ? 'utilities.settings.clipboardOnFocus.granted'
       : consent === 'declined'
         ? 'utilities.settings.clipboardOnFocus.declined'
         : 'utilities.settings.clipboardOnFocus.notSet';
+
+  const handleClipboardUpsell = () => {
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: t('upsell.feature.utilityWorkflows'),
+    });
+    void trackEvent('feature.blocked', {
+      entitlement: 'utility-clipboard-automation',
+      tier: effectiveTier,
+    });
+  };
+
+  const handleClipboardToggle = () => {
+    if (!canUseUtilityWorkflows) {
+      handleClipboardUpsell();
+      return;
+    }
+    setConsent(consent === 'granted' ? 'declined' : 'granted');
+  };
 
   const handleClearAll = () => {
     if (!confirmingClear) {
@@ -61,10 +81,9 @@ export function UtilitiesSection() {
           control={
             <div className="grid justify-items-end gap-1">
               <Toggle
-                value={consent === 'granted'}
-                onChange={() =>
-                  setConsent(consent === 'granted' ? 'declined' : 'granted')
-                }
+                value={canUseUtilityWorkflows && consent === 'granted'}
+                onChange={handleClipboardToggle}
+                disabled={!canUseUtilityWorkflows}
                 aria-label={t('utilities.settings.clipboardOnFocus.label')}
               />
               <span
@@ -75,6 +94,16 @@ export function UtilitiesSection() {
               >
                 {t(consentStatusKey)}
               </span>
+              {!canUseUtilityWorkflows ? (
+                <button
+                  type="button"
+                  data-testid="utilities-clipboard-on-focus-unlock"
+                  onClick={handleClipboardUpsell}
+                  className="text-xs font-medium text-warning underline-offset-2 hover:underline"
+                >
+                  {t('utilities.settings.clipboardOnFocus.unlock')}
+                </button>
+              ) : null}
             </div>
           }
         />

@@ -3,17 +3,12 @@ import { useCallback, useMemo } from 'react';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from './CopyButton';
-import {
-  findDeveloperUtility,
-  type DeveloperUtilityId,
-} from '../../data/developerUtilities';
+import { findDeveloperUtility, type DeveloperUtilityId } from '../../data/developerUtilities';
 import { useRegisterUtilityApply } from '../../hooks/useRegisterUtilityOutput';
 import { useClipboardOnFocus } from '../../hooks/useClipboardOnFocus';
-import {
-  useUtilityHistoryStore,
-  type UtilityHistoryEntry,
-} from '../../stores/utilityHistoryStore';
+import { useUtilityHistoryStore, type UtilityHistoryEntry } from '../../stores/utilityHistoryStore';
 import { useUtilityOutputStore } from '../../stores/utilityOutputStore';
+import { cn } from '../../utils/cn';
 import { UtilityHistoryDrawer } from './UtilityHistoryDrawer';
 
 export function PanelSection({
@@ -37,29 +32,17 @@ export function PanelSection({
 }
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <label className="font-mono text-[10.5px] font-bold uppercase text-fg-subtle">{children}</label>;
+  return (
+    <label className="font-mono text-[10.5px] font-bold uppercase text-fg-subtle">{children}</label>
+  );
 }
 
 export function UtilityTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className={`um-control ${
-        props.className ?? ''
-      }`}
-    />
-  );
+  return <textarea {...props} className={`um-control ${props.className ?? ''}`} />;
 }
 
 export function UtilityInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={`um-control ${
-        props.className ?? ''
-      }`}
-    />
-  );
+  return <input {...props} className={`um-control ${props.className ?? ''}`} />;
 }
 
 export function StatusMessage({
@@ -89,13 +72,20 @@ export function StatusMessage({
   );
 }
 
-export function JsonTreeNode({
-  label,
-  value,
-}: {
-  label?: string;
-  value: unknown;
-}) {
+export const UTILITY_BALANCED_PANE_GRID =
+  'grid gap-4 xl:grid-cols-[minmax(18rem,1fr)_minmax(18rem,1fr)]';
+
+export const UTILITY_OUTPUT_WIDE_PANE_GRID =
+  'grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]';
+
+export const UTILITY_OUTPUT_MAX_PANE_GRID =
+  'grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.45fr)] 2xl:grid-cols-[minmax(20rem,0.65fr)_minmax(42rem,1.7fr)]';
+
+export const UTILITY_TALL_TEXTAREA_CLASS = 'min-h-[16rem] font-mono';
+
+export const UTILITY_EXTRA_TALL_TEXTAREA_CLASS = 'min-h-[20rem] font-mono';
+
+export function JsonTreeNode({ label, value }: { label?: string; value: unknown }) {
   if (Array.isArray(value)) {
     return (
       <div className="grid gap-2 pl-4">
@@ -105,7 +95,11 @@ export function JsonTreeNode({
         </div>
         <div className="grid gap-2 border-l border-border/70 pl-3">
           {value.map((entry, index) => (
-            <JsonTreeNode key={`${label ?? 'array'}-${index}`} label={String(index)} value={entry} />
+            <JsonTreeNode
+              key={`${label ?? 'array'}-${index}`}
+              label={String(index)}
+              value={entry}
+            />
           ))}
         </div>
       </div>
@@ -118,7 +112,11 @@ export function JsonTreeNode({
       <div className="grid gap-2 pl-4">
         <div className="text-xs font-medium text-foreground">
           {label ? `${label}: ` : ''}
-          <span className="text-muted">{'{'}{entries.length}{'}'}</span>
+          <span className="text-muted">
+            {'{'}
+            {entries.length}
+            {'}'}
+          </span>
         </div>
         <div className="grid gap-2 border-l border-border/70 pl-3">
           {entries.map(([key, entry]) => (
@@ -281,10 +279,7 @@ export function UtilityToolbar({
     ? 'utilities.actions.applyFromInput'
     : 'utilities.tooltip.applyUnavailable';
   return (
-    <div
-      data-testid="utility-toolbar"
-      className={`um-toolbar grid gap-2 ${className ?? ''}`}
-    >
+    <div data-testid="utility-toolbar" className={`um-toolbar grid gap-2 ${className ?? ''}`}>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -314,6 +309,9 @@ export function TwoPaneTransformPanel({
   onInputChange,
   output,
   errorKey,
+  layout = 'balanced',
+  inputClassName,
+  outputClassName,
 }: {
   title: string;
   description: string;
@@ -321,17 +319,27 @@ export function TwoPaneTransformPanel({
   onInputChange: (value: string) => void;
   output: string;
   errorKey: string | null;
+  layout?: 'balanced' | 'output-wide' | 'output-max';
+  inputClassName?: string;
+  outputClassName?: string;
 }) {
   const { t } = useTranslation();
+  const gridClassName =
+    layout === 'output-max'
+      ? UTILITY_OUTPUT_MAX_PANE_GRID
+      : layout === 'output-wide'
+        ? UTILITY_OUTPUT_WIDE_PANE_GRID
+        : UTILITY_BALANCED_PANE_GRID;
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className={gridClassName}>
       <PanelSection title={title} description={description}>
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.field.input')}</FieldLabel>
           <UtilityTextarea
             aria-label={t('utilities.field.input')}
             value={input}
-            onChange={(event) => onInputChange(event.target.value)}
+            onChange={event => onInputChange(event.target.value)}
+            className={inputClassName}
           />
         </div>
       </PanelSection>
@@ -344,7 +352,7 @@ export function TwoPaneTransformPanel({
             aria-label={t('utilities.field.output')}
             readOnly
             value={output}
-            className={errorKey ? 'pr-10 text-danger' : 'pr-10'}
+            className={cn('pr-10', outputClassName, errorKey ? 'text-danger' : undefined)}
           />
           <div className="absolute right-2 top-2">
             <CopyButton value={output} disabled={!output || Boolean(errorKey)} />

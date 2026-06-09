@@ -1,10 +1,21 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  UtilityTextarea,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { FileDropZone } from '../../ui/FileDropZone';
-import { BASE64_IMAGE_MAX_BYTES, decodeDataUri, encodeFileToDataUri, formatByteSize } from '../../../utils/base64Image';
+import {
+  BASE64_IMAGE_MAX_BYTES,
+  decodeDataUri,
+  encodeFileToDataUri,
+  formatByteSize,
+} from '../../../utils/base64Image';
 import { detectsAsDataUri } from '../../../utils/developerUtilities';
 import type { Base64ImageDecodeResult, Base64ImageEncodeResult } from '../../../utils/base64Image';
 
@@ -26,9 +37,9 @@ export function Base64ImagePanel() {
   const { t } = useTranslation();
   const [mode, setMode] = useState<Base64ImageMode>('encode');
 
-  const [encoded, setEncoded] = useState<
-    Extract<Base64ImageEncodeResult, { ok: true }> | null
-  >(null);
+  const [encoded, setEncoded] = useState<Extract<Base64ImageEncodeResult, { ok: true }> | null>(
+    null
+  );
   const [encodeError, setEncodeError] = useState<Base64ImageEncodeError | null>(null);
 
   const [decodeInput, setDecodeInput] = useState('');
@@ -110,7 +121,7 @@ export function Base64ImagePanel() {
   };
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.base64Image.title')}
         description={t('utilities.tool.base64Image.panelDescription')}
@@ -121,7 +132,7 @@ export function Base64ImagePanel() {
             aria-label={t('utilities.tool.base64Image.mode.label')}
             data-testid="base64-image-mode"
             value={mode}
-            onChange={(event) => setMode(event.target.value as Base64ImageMode)}
+            onChange={event => setMode(event.target.value as Base64ImageMode)}
             className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
           >
             <option value="encode">{t('utilities.tool.base64Image.mode.encode')}</option>
@@ -149,9 +160,7 @@ export function Base64ImagePanel() {
               placeholder={t('utilities.tool.base64Image.encode.maxSize', {
                 max: formatByteSize(BASE64_IMAGE_MAX_BYTES),
               })}
-              errorMessage={
-                encodeError ? describeEncodeError(encodeError) : undefined
-              }
+              errorMessage={encodeError ? describeEncodeError(encodeError) : undefined}
             />
             {encodeError ? (
               // Keep the existing testid live for regression tests that
@@ -174,9 +183,10 @@ export function Base64ImagePanel() {
               aria-label={t('utilities.tool.base64Image.decode.inputLabel')}
               data-testid="base64-image-decode-input"
               value={decodeInput}
-              onChange={(event) => setDecodeInput(event.target.value)}
+              onChange={event => setDecodeInput(event.target.value)}
               placeholder={t('utilities.tool.base64Image.decode.placeholder') ?? undefined}
               spellCheck={false}
+              className="min-h-[18rem] font-mono text-xs"
             />
             {decoded && !decoded.ok ? (
               <StatusMessage
@@ -216,13 +226,10 @@ export function Base64ImagePanel() {
                   value={encoded.dataUri}
                   readOnly
                   spellCheck={false}
-                  className="pr-10 font-mono text-xs"
+                  className="pr-10 min-h-[20rem] font-mono text-xs"
                 />
                 <div className="absolute right-2 top-2">
-                  <CopyButton
-                    value={encoded.dataUri}
-                    testid="base64-image-encode-output-copy"
-                  />
+                  <CopyButton value={encoded.dataUri} testid="base64-image-encode-output-copy" />
                 </div>
               </div>
             </div>

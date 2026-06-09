@@ -1,14 +1,6 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import {
-  ChevronUp,
-  Clock3,
-  Eye,
-  GitCompare,
-  MessageSquare,
-  PanelLeft,
-  X,
-} from 'lucide-react';
+import { ChevronUp, Clock3, Eye, GitCompare, MessageSquare, PanelLeft, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
@@ -46,7 +38,7 @@ function getFocusableElements(container: HTMLElement) {
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
     )
   ).filter(
-    (element) =>
+    element =>
       !element.hasAttribute('disabled') &&
       element.getAttribute('aria-hidden') !== 'true' &&
       element.tabIndex !== -1
@@ -63,7 +55,7 @@ const LazyNotebookView = lazy(async () => {
   return { default: module.NotebookView };
 });
 
-// MOV.02 (FASE 3) — SQL / HTTP workspaces mount as full-screen tabs
+// MOV.02 (FASE 3) — SQL / HTTP / Utilities workspaces mount as full-screen tabs
 // in the editor area (replacing the dock panels). Lazy so the DuckDB
 // WASM + HTTP client chunks stay out of the initial bundle until a
 // workspace tab is actually opened.
@@ -75,6 +67,11 @@ const LazySqlWorkspaceView = lazy(async () => {
 const LazyHttpWorkspaceView = lazy(async () => {
   const module = await import('../HttpWorkspace/HttpWorkspaceView');
   return { default: module.HttpWorkspaceView };
+});
+
+const LazyDeveloperUtilitiesWorkspaceView = lazy(async () => {
+  const module = await import('../DeveloperUtilities');
+  return { default: module.DeveloperUtilitiesWorkspaceView };
 });
 
 function useCompactShellLayout() {
@@ -155,7 +152,7 @@ const PanelChip = memo(function PanelChip({ chip }: { chip: PanelChipDescriptor 
       className={cn(
         'panel-chip',
         chip.active && 'panel-chip-active',
-        chip.disabled && 'cursor-not-allowed opacity-45',
+        chip.disabled && 'cursor-not-allowed opacity-45'
       )}
       aria-pressed={chip.active}
       disabled={chip.disabled}
@@ -172,28 +169,26 @@ const PanelChip = memo(function PanelChip({ chip }: { chip: PanelChipDescriptor 
 function PanelChipsRow() {
   const { t } = useTranslation();
   const activeTab = useActiveTab();
-  const setTabCompareEnabled = useEditorStore((state) => state.setTabCompareEnabled);
+  const setTabCompareEnabled = useEditorStore(state => state.setTabCompareEnabled);
   const setTabVariableInspectorEnabled = useEditorStore(
-    (state) => state.setTabVariableInspectorEnabled,
+    state => state.setTabVariableInspectorEnabled
   );
-  const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
-  const variableInspectorSurface = useSettingsStore(
-    (state) => state.variableInspectorSurface,
-  );
-  const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
-  const consoleVisible = useUIStore((state) => state.consoleVisible);
-  const openBottomPanel = useUIStore((state) => state.openBottomPanel);
-  const setConsoleVisible = useUIStore((state) => state.setConsoleVisible);
+  const showStdinPanel = useSettingsStore(state => state.showStdinPanel);
+  const variableInspectorSurface = useSettingsStore(state => state.variableInspectorSurface);
+  const activeBottomPanel = useUIStore(state => state.activeBottomPanel);
+  const consoleVisible = useUIStore(state => state.consoleVisible);
+  const openBottomPanel = useUIStore(state => state.openBottomPanel);
+  const setConsoleVisible = useUIStore(state => state.setConsoleVisible);
   // RL-122 — subscribe to identity-stable PRIMITIVE derivations instead
   // of the raw `snapshotRing` array + `scopeSnapshot` object, so this row
   // re-renders only when the comparator count or the captured variable
   // count for the active language actually changes — not on every run
   // that replaces those references.
-  const comparableSnapshotCount = useResultStore((state) =>
-    comparableSnapshotCountFor(state, activeTab?.language),
+  const comparableSnapshotCount = useResultStore(state =>
+    comparableSnapshotCountFor(state, activeTab?.language)
   );
-  const scopeVariableCount = useResultStore((state) =>
-    scopeSnapshotVariableCountFor(state, activeTab?.language),
+  const scopeVariableCount = useResultStore(state =>
+    scopeSnapshotVariableCountFor(state, activeTab?.language)
   );
 
   // RL-122 — build the chip descriptors in a memo keyed on the real
@@ -285,8 +280,7 @@ function PanelChipsRow() {
           // visible toggle. If the per-tab flag is already true but the drawer
           // is not showing Variables, clicking the inactive chip must open the
           // Variables tab rather than silently turning the feature off.
-          const variablesDrawerOpen =
-            activeBottomPanel === 'variables' && consoleVisible;
+          const variablesDrawerOpen = activeBottomPanel === 'variables' && consoleVisible;
           const nextEnabled =
             variableInspectorSurface === 'bottom'
               ? !variablesDrawerOpen
@@ -315,7 +309,7 @@ function PanelChipsRow() {
 
   return (
     <div className="panel-chip-row" role="toolbar" aria-label={t('panelChips.ariaLabel')}>
-      {chips.map((chip) => (
+      {chips.map(chip => (
         <PanelChip key={chip.id} chip={chip} />
       ))}
     </div>
@@ -323,10 +317,10 @@ function PanelChipsRow() {
 }
 
 function EditorArea() {
-  const hasTabs = useEditorStore((s) => s.tabs.length > 0);
+  const hasTabs = useEditorStore(s => s.tabs.length > 0);
   const { t } = useTranslation();
-  const sidebarVisible = useUIStore((s) => s.sidebarVisible);
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const sidebarVisible = useUIStore(s => s.sidebarVisible);
+  const toggleSidebar = useUIStore(s => s.toggleSidebar);
   const editorResultsLayout = useDefaultLayout({
     id: 'lingua-editor-results-layout',
     panelIds: ['editor-panel', 'results-panel'],
@@ -336,25 +330,30 @@ function EditorArea() {
   // mount `<NotebookView>` instead of Monaco. The selector returns a
   // primitive string-or-null so Zustand's default `===` check skips
   // re-renders when the active tab's kind hasn't changed.
-  const activeNotebookTabId = useEditorStore((s) => {
+  const activeNotebookTabId = useEditorStore(s => {
     if (!s.activeTabId) return null;
     const active = getActiveTab(s);
     return active?.kind === 'notebook' ? active.id : null;
   });
   // MOV.02 (FASE 3) — same primitive-or-null selector shape for the
-  // SQL / HTTP workspace tabs. When the active tab carries
+  // SQL / HTTP / Utilities workspace tabs. When the active tab carries
   // `kind: 'sql' | 'http'` we mount the full-screen workspace view
   // instead of Monaco; the FileTab id is the binding into the
   // workspace store (SqlQueryV1.id / HttpRequestV1.id).
-  const activeSqlTabId = useEditorStore((s) => {
+  const activeSqlTabId = useEditorStore(s => {
     if (!s.activeTabId) return null;
     const active = getActiveTab(s);
     return active?.kind === 'sql' ? active.id : null;
   });
-  const activeHttpTabId = useEditorStore((s) => {
+  const activeHttpTabId = useEditorStore(s => {
     if (!s.activeTabId) return null;
     const active = getActiveTab(s);
     return active?.kind === 'http' ? active.id : null;
+  });
+  const activeUtilitiesTabId = useEditorStore(s => {
+    if (!s.activeTabId) return null;
+    const active = getActiveTab(s);
+    return active?.kind === 'utilities' ? active.id : null;
   });
 
   return (
@@ -409,6 +408,16 @@ function EditorArea() {
           <div className="h-full min-h-0">
             <Suspense fallback={<EditorLoadingState />}>
               <LazyHttpWorkspaceView tabId={activeHttpTabId} />
+            </Suspense>
+          </div>
+        ) : activeUtilitiesTabId !== null ? (
+          /* MOV.03 — Developer Utilities now mounts as a full-screen
+             workspace tab so wide outputs (JSON, JWT, generated code,
+             Markdown/SQL, pipelines) get the editor canvas instead of a
+             constrained modal. */
+          <div className="h-full min-h-0">
+            <Suspense fallback={<EditorLoadingState />}>
+              <LazyDeveloperUtilitiesWorkspaceView />
             </Suspense>
           </div>
         ) : hasTabs ? (
@@ -575,7 +584,7 @@ function MainContent({
  */
 function EditorAreaWithConsoleRestoreStrip() {
   const { t } = useTranslation();
-  const setConsoleVisible = useUIStore((state) => state.setConsoleVisible);
+  const setConsoleVisible = useUIStore(state => state.setConsoleVisible);
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1">
@@ -723,7 +732,8 @@ export function AppLayout({
 
       const [firstFocusable] = focusableElements;
       const lastFocusable = focusableElements[focusableElements.length - 1];
-      const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const activeElement =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
       if (event.shiftKey) {
         if (activeElement === firstFocusable || !drawer.contains(activeElement)) {
@@ -797,9 +807,7 @@ export function AppLayout({
         aria-hidden={isCompactDrawerOpen ? 'true' : undefined}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <AppChrome
-          onOpenSettings={onOpenSettings}
-        />
+        <AppChrome onOpenSettings={onOpenSettings} />
         <Toolbar showFloatingPill />
         <FloatingActionPill
           onOpenSettings={onOpenSettings}
@@ -872,7 +880,7 @@ export function AppLayout({
             aria-modal="true"
             aria-label={t('layout.projectExplorer')}
             className="relative h-full w-[min(24rem,calc(100vw-1rem))] max-w-full"
-            onClick={(event) => event.stopPropagation()}
+            onClick={event => event.stopPropagation()}
           >
             <IconButton
               ref={compactDrawerCloseButtonRef}

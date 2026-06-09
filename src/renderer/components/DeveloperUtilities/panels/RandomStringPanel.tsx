@@ -51,11 +51,11 @@ export function RandomStringPanel() {
     t(`utilities.tool.randomString.charset.${key}`);
 
   const setToggle = (key: keyof CharsetToggles, value: boolean) => {
-    setToggles((prev) => ({ ...prev, [key]: value }));
+    setToggles(prev => ({ ...prev, [key]: value }));
   };
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.randomString.title')}
         description={t('utilities.tool.randomString.panelDescription')}
@@ -70,7 +70,7 @@ export function RandomStringPanel() {
               min={1}
               max={1024}
               value={length}
-              onChange={(event) =>
+              onChange={event =>
                 setLength(clampNumberInput(event.target.valueAsNumber, 1, 1024, 32))
               }
             />
@@ -84,9 +84,7 @@ export function RandomStringPanel() {
               min={1}
               max={100}
               value={count}
-              onChange={(event) =>
-                setCount(clampNumberInput(event.target.valueAsNumber, 1, 100, 5))
-              }
+              onChange={event => setCount(clampNumberInput(event.target.valueAsNumber, 1, 100, 5))}
             />
           </label>
         </div>
@@ -103,16 +101,13 @@ export function RandomStringPanel() {
                 'symbols',
                 'excludeAmbiguous',
               ] as (keyof CharsetToggles)[]
-            ).map((key) => (
-              <label
-                key={key}
-                className="flex items-center gap-2 text-sm text-foreground"
-              >
+            ).map(key => (
+              <label key={key} className="flex items-center gap-2 text-sm text-foreground">
                 <input
                   type="checkbox"
                   data-testid={`random-string-toggle-${key}`}
                   checked={toggles[key]}
-                  onChange={(event) => setToggle(key, event.target.checked)}
+                  onChange={event => setToggle(key, event.target.checked)}
                 />
                 <span>{toggleLabel(key)}</span>
               </label>
@@ -154,10 +149,7 @@ export function RandomStringPanel() {
                 className="flex items-center justify-between gap-2 rounded-[1rem] border border-border/80 bg-background/70 px-3 py-2 font-mono text-sm text-foreground"
               >
                 <span className="truncate">{value}</span>
-                <CopyButton
-                  value={value}
-                  testid={`random-string-value-copy-${index}`}
-                />
+                <CopyButton value={value} testid={`random-string-value-copy-${index}`} />
               </div>
             ))}
           </div>
