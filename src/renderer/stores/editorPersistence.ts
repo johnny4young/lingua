@@ -16,6 +16,7 @@ import {
   VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES,
 } from './editorTabUtils';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
+import { notifyBlockedFamily } from '../utils/blockedPath';
 
 /**
  * RL-128 — disk-persistence helpers extracted verbatim from `editorStore.ts`:
@@ -96,7 +97,10 @@ export async function persistTab(
   const needsPicker = forceSaveAs || !rootId || !relativePath;
   if (needsPicker) {
     const result = await window.lingua.fs.saveDialog(tab.name);
-    if (result.canceled) return null;
+    if (result.canceled) {
+      notifyBlockedFamily(result.blockedFamily);
+      return null;
+    }
     rootId = result.rootId;
     mintedRootId = result.rootId;
     relativePath = result.fileRelativePath;

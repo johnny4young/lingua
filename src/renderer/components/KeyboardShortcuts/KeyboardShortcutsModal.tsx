@@ -27,6 +27,7 @@ import {
   type ParseShortcutPresetResult,
 } from '../../utils/shortcutPreset';
 import { joinAbsolute } from '../../utils/filePath';
+import { notifyBlockedFamily } from '../../utils/blockedPath';
 import type { RootId } from '../../../shared/fs/brandedIds';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { Eyebrow } from '../ui/primitives';
@@ -312,7 +313,10 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     let mintedRootId: RootId | null = null;
     try {
       const chosen = await saveDialog('lingua-shortcuts.json');
-      if (chosen.canceled) return;
+      if (chosen.canceled) {
+        notifyBlockedFamily(chosen.blockedFamily);
+        return;
+      }
       mintedRootId = chosen.rootId;
       // Export only user overrides. Built-in preset ids are derivable from the
       // catalog and would make imported files stale when defaults change.
@@ -353,7 +357,10 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     let mintedRootId: RootId | null = null;
     try {
       const picked = await selectFile();
-      if (picked.canceled) return;
+      if (picked.canceled) {
+        notifyBlockedFamily(picked.blockedFamily);
+        return;
+      }
       mintedRootId = picked.rootId;
       const result = parseShortcutPreset(picked.content);
 

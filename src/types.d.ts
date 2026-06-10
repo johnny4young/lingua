@@ -669,6 +669,13 @@ interface GitHeadWatcherFailurePayload {
 
 // --------------------------------------------------------------- Main API
 
+type FsBlockedPathFamily =
+  | 'system'
+  | 'credentials'
+  | 'app-data'
+  | 'browser-profile'
+  | 'lingua-data';
+
 interface LinguaAPI {
   platform: string;
 
@@ -791,7 +798,7 @@ interface LinguaAPI {
      */
     selectDirectory: () => Promise<
       | { canceled: false; rootId: RootId; rootPath: string }
-      | { canceled: true }
+      | { canceled: true; blockedFamily?: FsBlockedPathFamily }
     >;
     selectFile: () => Promise<
       | {
@@ -802,7 +809,7 @@ interface LinguaAPI {
           fileName: string;
           content: string;
         }
-      | { canceled: true }
+      | { canceled: true; blockedFamily?: FsBlockedPathFamily }
     >;
     saveDialog: (
       defaultName: string,
@@ -814,7 +821,7 @@ interface LinguaAPI {
           rootPath: string;
           fileRelativePath: RelativePath;
         }
-      | { canceled: true }
+      | { canceled: true; blockedFamily?: FsBlockedPathFamily }
     >;
     /**
      * Re-mint a capability for an absolute root path the user
@@ -845,6 +852,19 @@ interface LinguaAPI {
           error: 'blocked' | 'not-found' | 'not-a-file' | 'not-approved';
         }
     >;
+    /**
+     * RL-137 / AUDIT-17 — classify a path against the filesystem denylist so a
+     * blocked reopen/pick can be surfaced with an actionable, localized notice.
+     * `family` mirrors `BLOCKED_PATH_FAMILIES` in `src/main/ipc/permissions.ts`;
+     * `null` means the path is allowed. The web build always returns `null`.
+     */
+    classifyBlockedPath: (
+      absolutePath: string
+    ) => Promise<{
+      family:
+        | FsBlockedPathFamily
+        | null;
+    }>;
     revokeRoot: (rootId: RootId) => Promise<boolean>;
     readdir: (rootId: RootId, relativePath: RelativePath) => Promise<FsDirEntry[]>;
     listAllFiles: (

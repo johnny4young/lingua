@@ -17,6 +17,7 @@ import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers
 import { budgetedTabCount, isWorkspaceTab } from './editorTabUtils';
 import { persistTab } from './editorPersistence';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
+import { notifyBlockedFamily } from '../utils/blockedPath';
 
 /**
  * RL-128 fold A/B — file-open + save action factory for the editor store.
@@ -92,7 +93,10 @@ export function createSaveActions(
 
     openFileFromDisk: async () => {
       const result = await window.lingua.fs.selectFile();
-      if (result.canceled) return;
+      if (result.canceled) {
+        notifyBlockedFamily(result.blockedFamily);
+        return;
+      }
       const language = resolveFileLanguageOrPlaintext(result.fileName);
       const { tabs } = get();
       const filePath = joinAbsolute(result.rootPath, result.fileRelativePath);

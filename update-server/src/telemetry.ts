@@ -239,6 +239,9 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts; `store` is a safe localStorage key token
   // (closed-enum at the renderer call site).
   'persistence.migrated',
+  // RL-137 / AUDIT-17 — mirror of src/shared/telemetry.ts. Closed payload
+  // `{ family }` ∈ FS_BLOCKED_FAMILIES; no path reaches the wire.
+  'fs.blocked',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -379,6 +382,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'notebook.cell_executed': ['language', 'status'],
   // RL-126 — mirror of src/shared/telemetry.ts.
   'persistence.migrated': ['store'],
+  // RL-137 / AUDIT-17 — mirror of src/shared/telemetry.ts.
+  'fs.blocked': ['family'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -421,6 +426,17 @@ export const DENY_SUBSTRINGS = [
 ] as const;
 
 const SAFE_TOKEN_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
+
+// RL-137 / AUDIT-17 — mirror of FS_BLOCKED_FAMILIES in src/shared/telemetry.ts
+// (itself a mirror of BLOCKED_PATH_FAMILIES in src/main/ipc/permissions.ts). A
+// parity test cross-imports the renderer source of truth to keep both aligned.
+export const FS_BLOCKED_FAMILIES = new Set([
+  'system',
+  'credentials',
+  'app-data',
+  'browser-profile',
+  'lingua-data',
+]);
 // RL-020 Slice 7 — widened to mirror the renderer (`'timeout'` and
 // `'stopped'` are the two distinct termination kinds the renderer
 // now reports). The parity test asserts both Sets stay in lockstep.
@@ -1440,6 +1456,10 @@ function isAllowedValue(
       // renderer call site, the token shape is enough on the wire.
       if (key === 'store') return isSafeToken(value);
       return false;
+    case 'fs.blocked':
+      return (
+        key === 'family' && typeof value === 'string' && FS_BLOCKED_FAMILIES.has(value)
+      );
     default: {
       const exhaustive: never = event;
       return exhaustive;

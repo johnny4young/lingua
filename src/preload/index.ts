@@ -218,6 +218,8 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.invoke('fs:reopen-root', absolutePath),
     reopenFile: (absolutePath: string) =>
       ipcRenderer.invoke('fs:reopen-file', absolutePath),
+    classifyBlockedPath: (absolutePath: string) =>
+      ipcRenderer.invoke('fs:classify-blocked-path', absolutePath),
     revokeRoot: (rootId: string) =>
       ipcRenderer.invoke('fs:revoke-root', rootId),
     readdir: (rootId: string, relativePath: string) =>

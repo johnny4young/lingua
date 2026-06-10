@@ -10,3 +10,11 @@ remains `docs/RELEASE_SECURITY.md`.
 | Date | Scope |
 | ---- | ----- |
 | [`2026-05-09`](./2026-05-09) | Full-repo Codex Security remediation packet covering filesystem IPC, licensing, update feeds, runtime assets, parser/resource caps, plugin discovery, and diagnostics. |
+
+## References
+
+Living policy references (not dated packets) that track current state:
+
+| Doc | Scope |
+| --- | ----- |
+| [`filesystem-denylist.md`](./filesystem-denylist.md) | Renderer-facing filesystem path denylist (`BLOCKED_PATHS`): families, enforcement layers, and how to extend it. Source of truth: `src/main/ipc/permissions.ts`. |

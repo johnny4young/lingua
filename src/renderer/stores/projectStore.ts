@@ -48,6 +48,7 @@ import {
   type FileTreeNode,
 } from './projectTree';
 import { useUIStore } from './uiStore';
+import { notifyBlockedFamily, notifyBlockedPath } from '../utils/blockedPath';
 
 /**
  * RL-087 — narrow the new tagged-union return shape from watchStart.
@@ -203,7 +204,10 @@ export const useProjectStore = create<ProjectState>()(
 
       createProject: async () => {
         const result = await window.lingua.fs.selectDirectory();
-        if (result.canceled) return;
+        if (result.canceled) {
+          notifyBlockedFamily(result.blockedFamily);
+          return;
+        }
 
         let newWatchId: WatchId | null = null;
         let nodes: FileTreeNode[];
@@ -274,12 +278,21 @@ export const useProjectStore = create<ProjectState>()(
           // Recent-project rows persist only absolute paths. Main must re-mint
           // a fresh root capability before the renderer can read that tree.
           const reopen = await window.lingua.fs.reopenRoot(rootPath);
-          if (!reopen.ok) return;
+          if (!reopen.ok) {
+            // RL-137 — a previously-approved root that now falls inside the
+            // denylist (e.g. under a newly-blocked app-data root) surfaces an
+            // actionable notice instead of silently failing to restore.
+            if (reopen.error === 'blocked') void notifyBlockedPath(rootPath);
+            return;
+          }
           activeRootId = reopen.rootId;
           activeRootPath = reopen.rootPath;
         } else {
           const picked = await window.lingua.fs.selectDirectory();
-          if (picked.canceled) return;
+          if (picked.canceled) {
+            notifyBlockedFamily(picked.blockedFamily);
+            return;
+          }
           activeRootId = picked.rootId;
           activeRootPath = picked.rootPath;
         }

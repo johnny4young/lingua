@@ -50,6 +50,7 @@ import {
 } from '../../shared/projectTemplate';
 import { useProjectStore } from '../stores/projectStore';
 import { useEditorStore } from '../stores/editorStore';
+import { notifyBlockedFamily } from '../utils/blockedPath';
 import type { Language } from '../types';
 import { trackTemplateProjectApplied } from './projectTemplateTelemetry';
 import {
@@ -114,6 +115,7 @@ export function useProjectTemplateScaffolder(): UseProjectTemplateScaffolderApi 
 
       const picker = await window.lingua.fs.selectDirectory();
       if (picker.canceled) {
+        notifyBlockedFamily(picker.blockedFamily);
         return { kind: 'canceled' };
       }
       const holdingRootId: RootId = picker.rootId;

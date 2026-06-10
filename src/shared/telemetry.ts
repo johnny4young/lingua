@@ -469,6 +469,12 @@ export const TELEMETRY_EVENTS = [
   // NO version numbers, NO persisted state reaches the wire. Lets us see which
   // stores actually hit a migration in the wild.
   'persistence.migrated',
+  // RL-137 / AUDIT-17 — a renderer-initiated reopen/pick was refused by the
+  // filesystem denylist. Closed payload `{ family }` ∈ FS_BLOCKED_FAMILIES
+  // (mirrors BLOCKED_PATH_FAMILIES in src/main/ipc/permissions.ts). NO path,
+  // NO filename reaches the wire — only the coarse family token. Mirrored on
+  // update-server with a parity test.
+  'fs.blocked',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -769,6 +775,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'notebook.cell_executed': ['language', 'status'],
   // RL-126 / AUDIT-06 — only the store key survives; see the value validator.
   'persistence.migrated': ['store'],
+  // RL-137 / AUDIT-17 — `family` ∈ FS_BLOCKED_FAMILIES. No path on the wire.
+  'fs.blocked': ['family'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -1390,6 +1398,19 @@ const DEBUGGER_REASON_BUCKETS: Record<
   'debugger.detached': new Set(['user-detach', 'run-complete', 'crash', 'stop']),
 };
 
+// RL-137 / AUDIT-17 — closed enum of filesystem-denylist families. Duplicated
+// here (vs importing from `src/main/ipc/permissions.ts`) so the redactor stays
+// a pure, node-free shared module. `update-server/test/telemetry.test.ts` and a
+// renderer-side parity test cross-import `BLOCKED_PATH_FAMILIES` to keep this
+// copy and the worker mirror aligned with the main-process source of truth.
+export const FS_BLOCKED_FAMILIES = new Set([
+  'system',
+  'credentials',
+  'app-data',
+  'browser-profile',
+  'lingua-data',
+]);
+
 export function isSafeToken(value: unknown): value is string {
   return typeof value === 'string' && SAFE_TOKEN_RE.test(value);
 }
@@ -1844,6 +1865,10 @@ function isAllowedValue(
           typeof value === 'string' && PIPELINE_RUN_STATUSES_SET.has(value)
         );
       return false;
+    case 'fs.blocked':
+      return (
+        key === 'family' && typeof value === 'string' && FS_BLOCKED_FAMILIES.has(value)
+      );
     default: {
       const exhaustive: never = event;
       return exhaustive;

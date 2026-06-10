@@ -8,6 +8,7 @@ import {
 } from '../../stores/projectIndexStore';
 import { useProjectStore, type FileTreeNode } from '../../stores/projectStore';
 import { useRecentFilesStore } from '../../stores/recentFilesStore';
+import { notifyBlockedPath } from '../../utils/blockedPath';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import { joinAbsolute } from '../../utils/filePath';
 import type { Language } from '../../types';
@@ -165,6 +166,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     // reopens only the approved file, not the whole parent directory.
     const reopen = await window.lingua.fs.reopenFile(file.path);
     if (!reopen.ok) {
+      if (reopen.error === 'blocked') void notifyBlockedPath(file.path);
       onClose();
       return;
     }

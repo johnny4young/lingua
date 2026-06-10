@@ -139,12 +139,15 @@ describe('fs:select-directory', () => {
     expect(result.rootPath).toBe(path.normalize(tmpRoot));
   });
 
-  it('rejects denylisted picks before mint', async () => {
+  it('returns a blocked family for denylisted picks before mint', async () => {
     showOpenDialog.mockResolvedValue({
       canceled: false,
       filePaths: ['/etc'],
     });
-    await expect(invoke('fs:select-directory')).rejects.toThrow('Access denied');
+    await expect(invoke('fs:select-directory')).resolves.toEqual({
+      canceled: true,
+      blockedFamily: 'system',
+    });
   });
 });
 
@@ -239,6 +242,17 @@ describe('fs:select-file', () => {
       }
     }
   );
+
+  it('returns a blocked family for denylisted files before mint', async () => {
+    showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: ['/etc/passwd'],
+    });
+    await expect(invoke('fs:select-file')).resolves.toEqual({
+      canceled: true,
+      blockedFamily: 'system',
+    });
+  });
 });
 
 describe('fs:save-dialog', () => {
@@ -275,14 +289,15 @@ describe('fs:save-dialog', () => {
     ).rejects.toThrow('unsafe-path');
   });
 
-  it('rejects denylisted save targets before mint', async () => {
+  it('returns a blocked family for denylisted save targets before mint', async () => {
     showSaveDialog.mockResolvedValue({
       canceled: false,
       filePath: '/etc/evil.js',
     });
-    await expect(invoke('fs:save-dialog', 'evil.js')).rejects.toThrow(
-      'Access denied'
-    );
+    await expect(invoke('fs:save-dialog', 'evil.js')).resolves.toEqual({
+      canceled: true,
+      blockedFamily: 'system',
+    });
   });
 });
 

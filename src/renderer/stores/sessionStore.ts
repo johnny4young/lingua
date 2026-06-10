@@ -20,6 +20,7 @@ import {
 } from './editorStore';
 import { useRecipeStore } from './recipeStore';
 import { useUIStore } from './uiStore';
+import { notifyBlockedPath } from '../utils/blockedPath';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { coerceRuntimeMode, type RuntimeMode } from '../../shared/runtimeModes';
 import type { RelativePath, RootId } from '../../shared/fs/brandedIds';
@@ -217,6 +218,11 @@ export const useSessionStore = create<SessionState>()(
                 relativePath = reopen.fileRelativePath;
                 content = await window.lingua.fs.read(rootId, relativePath);
               } else {
+                // RL-137 — name the denylist refusal so a restored tab whose
+                // file now sits in a protected family explains itself.
+                if (reopen.error === 'blocked') {
+                  void notifyBlockedPath(saved.filePath);
+                }
                 content = `// File not found: ${saved.name}\n`;
               }
             } catch {

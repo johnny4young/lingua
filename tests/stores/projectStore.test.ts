@@ -59,6 +59,7 @@ beforeEach(() => {
 
 afterEach(() => {
   useProjectStore.setState(initialState, true);
+  useUIStore.setState({ statusNotice: null });
   vi.clearAllMocks();
   localStorage.clear();
 });
@@ -509,6 +510,21 @@ describe('projectStore createProject', () => {
     await useProjectStore.getState().createProject();
 
     expect(useProjectStore.getState().currentProject?.name).toBe('picked');
+  });
+
+  it('surfaces a blocked picker family instead of silently canceling', async () => {
+    vi.mocked(window.lingua.fs.selectDirectory).mockResolvedValue({
+      canceled: true,
+      blockedFamily: 'app-data',
+    });
+
+    await useProjectStore.getState().createProject();
+
+    expect(useProjectStore.getState().currentProject).toBeNull();
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'error',
+      messageKey: 'fs.error.blockedPath.appData',
+    });
   });
 });
 

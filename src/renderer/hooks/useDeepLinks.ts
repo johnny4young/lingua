@@ -3,6 +3,7 @@ import { createDefaultTab, useEditorStore } from '../stores/editorStore';
 import { useSnippetsStore } from '../stores/snippetsStore';
 import type { AppOverlay } from './useGlobalShortcuts';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
+import { notifyBlockedPath } from '../utils/blockedPath';
 import type { DeepLinkTarget } from '../../shared/deepLinks';
 
 function fileNameFromPath(filePath: string): string {
@@ -29,6 +30,7 @@ export function useDeepLinks({ openOverlay }: UseDeepLinksOptions): boolean {
         // appearing.
         const reopen = await window.lingua.fs.reopenFile(target.filePath);
         if (!reopen.ok) {
+          if (reopen.error === 'blocked') void notifyBlockedPath(target.filePath);
           console.warn(
             '[deep-links] reopenFile rejected target',
             target.filePath,

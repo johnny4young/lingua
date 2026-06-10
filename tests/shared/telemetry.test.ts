@@ -76,6 +76,9 @@ describe('TELEMETRY_EVENTS', () => {
       // (f.e-a) alphabetically.
       'editor.replace_in_files_applied',
       'feature.blocked',
+      // RL-137 / AUDIT-17 — filesystem-denylist refusal. Closed `{ family }`.
+      // Sorts between `feature.blocked` and `git.*` (`fe` < `fs` < `gi`).
+      'fs.blocked',
       // RL-102 Slice 1 fold D — Git read-only layer adoption signal.
       // `git.diff_panel_opened` sorts before `git.layer_attached`
       // because `.diff_` < `.layer_` lexicographically.
@@ -325,6 +328,35 @@ describe('runtime.output_origin_clicked redaction', () => {
     );
     expect(event.properties).toEqual({ language: 'javascript' });
     expect(droppedKeys).toContain('surface');
+  });
+});
+
+describe('fs.blocked redaction (RL-137 / AUDIT-17)', () => {
+  it('keeps only the closed family token and never the path', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'fs.blocked',
+        properties: {
+          family: 'app-data',
+          // A path-bearing key must never survive — it is off-allowlist AND
+          // caught by the deny-substring pass.
+          filePath: '/Users/me/Library/Application Support/Chrome/Cookies',
+        },
+      })
+    );
+    expect(event.properties).toEqual({ family: 'app-data' });
+    expect(droppedKeys).toContain('filePath');
+  });
+
+  it('drops an unknown family value (closed-enum gate)', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'fs.blocked',
+        properties: { family: 'not-a-family' },
+      })
+    );
+    expect(event.properties).toEqual({});
+    expect(droppedKeys).toContain('family');
   });
 });
 

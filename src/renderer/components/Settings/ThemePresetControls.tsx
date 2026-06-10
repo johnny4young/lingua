@@ -9,6 +9,7 @@ import {
   type ParseThemePresetResult,
 } from '../../utils/themePreset';
 import { joinAbsolute } from '../../utils/filePath';
+import { notifyBlockedFamily } from '../../utils/blockedPath';
 import type { RootId } from '../../../shared/fs/brandedIds';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 
@@ -61,7 +62,10 @@ export function ThemePresetControls() {
     let mintedRootId: RootId | null = null;
     try {
       const chosen = await saveDialog(DEFAULT_FILENAME);
-      if (chosen.canceled) return;
+      if (chosen.canceled) {
+        notifyBlockedFamily(chosen.blockedFamily);
+        return;
+      }
       mintedRootId = chosen.rootId;
       await write(chosen.rootId, chosen.fileRelativePath, serialized);
       pushStatusNotice({
@@ -101,7 +105,10 @@ export function ThemePresetControls() {
     let mintedRootId: RootId | null = null;
     try {
       const picked = await selectFile();
-      if (picked.canceled) return;
+      if (picked.canceled) {
+        notifyBlockedFamily(picked.blockedFamily);
+        return;
+      }
       mintedRootId = picked.rootId;
       const result = parseThemePreset(picked.content);
 

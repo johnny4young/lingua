@@ -42,6 +42,7 @@ import {
   DEPENDENCY_COUNT_BUCKETS as WORKER_DEPENDENCY_COUNT_BUCKETS,
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
+  FS_BLOCKED_FAMILIES as WORKER_FS_BLOCKED_FAMILIES,
   TELEMETRY_EVENT_NAMES,
   checkRateLimit,
   ipBucket,
@@ -67,6 +68,7 @@ import {
   DEPENDENCY_COUNT_BUCKETS_SET as RENDERER_DEPENDENCY_COUNT_BUCKETS_SET,
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
+  FS_BLOCKED_FAMILIES as RENDERER_FS_BLOCKED_FAMILIES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
 import {
@@ -97,6 +99,10 @@ import { NOTEBOOK_CELL_STATUSES as RENDERER_NOTEBOOK_CELL_STATUSES } from '../..
 // it can't redact LESS than the renderer does.
 import { DENY_SUBSTRINGS as RENDERER_DENY_SUBSTRINGS } from '../../src/shared/redaction';
 import { LANGUAGE_PACKS } from '../../src/shared/languagePacks';
+// RL-137 / AUDIT-17 — cross-import the canonical filesystem-denylist family
+// tuple from the main-process source of truth so the 3-way parity check below
+// catches drift between it and either telemetry mirror.
+import { BLOCKED_PATH_FAMILIES } from '../../src/main/ipc/permissions';
 
 type FetchMock = Mock<typeof fetch>;
 
@@ -457,6 +463,14 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     for (const event of Object.keys(EVENT_PROPERTY_ALLOWLIST)) {
       expect(rendererSet.has(event), `${event} on worker but not renderer`).toBe(true);
     }
+  });
+
+  it('FS_BLOCKED_FAMILIES stays in 3-way sync (worker / renderer / permissions) — RL-137 / AUDIT-17', () => {
+    const worker = [...WORKER_FS_BLOCKED_FAMILIES].sort();
+    const renderer = [...RENDERER_FS_BLOCKED_FAMILIES].sort();
+    const canonical = [...BLOCKED_PATH_FAMILIES].sort();
+    expect(worker).toEqual(renderer);
+    expect(worker).toEqual(canonical);
   });
 
   it('CAPSULE_EXPORT_TRIGGERS stays in sync with the renderer enum (RL-094 Slice 1 fold A)', async () => {

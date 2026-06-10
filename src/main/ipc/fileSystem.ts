@@ -34,7 +34,13 @@ import {
   buildWatcherDiagnostic,
   type WatcherDiagnostic,
 } from '../../shared/fs/watcherDiagnostic';
-import { isPathBlocked, isPathWithinProject, isSafeEntryName } from './permissions';
+import {
+  blockedPathFamily,
+  isPathBlocked,
+  isPathWithinProject,
+  isSafeEntryName,
+  registerBlockedPaths,
+} from './permissions';
 import {
   mintFileCapability,
   mintRootCapability,
@@ -401,6 +407,20 @@ export function registerFileSystemHandlers(): void {
   // outlive the process. Idempotent; safe to call across hot-reload.
   ensureBeforeQuitCleanup();
 
+  // RL-137 / AUDIT-17 — block renderer-initiated reads/writes into Lingua's own
+  // electron-owned data dirs (userData / sessionData / logs). Resolved from
+  // `app` at startup rather than guessed from the app name, so the denylist
+  // matches the real on-disk paths on every OS. Idempotent across hot-reload.
+  registerBlockedPaths(
+    (['userData', 'sessionData', 'logs'] as const).flatMap((name) => {
+      try {
+        return [app.getPath(name)];
+      } catch {
+        return [];
+      }
+    })
+  );
+
   const t = (
     language: string | undefined,
     key: string,
@@ -423,8 +443,9 @@ export function registerFileSystemHandlers(): void {
       return { canceled: true } as const;
     }
     const chosen = result.filePaths[0]!;
-    if (isPathBlocked(chosen, 'read')) {
-      throw new Error(`Access denied: cannot open protected path: ${chosen}`);
+    const blockedFamily = blockedPathFamily(chosen);
+    if (blockedFamily) {
+      return { canceled: true, blockedFamily } as const;
     }
     const { rootId, rootPath } = mintRootCapability(chosen);
     await rememberApprovedRoot(chosen);
@@ -443,8 +464,9 @@ export function registerFileSystemHandlers(): void {
       return { canceled: true } as const;
     }
     const chosen = result.filePaths[0]!;
-    if (isPathBlocked(chosen, 'read')) {
-      throw new Error(`Access denied: cannot read protected path: ${chosen}`);
+    const blockedFamily = blockedPathFamily(chosen);
+    if (blockedFamily) {
+      return { canceled: true, blockedFamily } as const;
     }
     const { rootId, rootPath, fileRelativePath } = mintFileCapability(chosen);
     // Atomic read while we hold the freshly minted capability so the
@@ -484,16 +506,26 @@ export function registerFileSystemHandlers(): void {
       if (result.canceled || !result.filePath) {
         return { canceled: true } as const;
       }
-      if (isPathBlocked(result.filePath, 'write')) {
-        throw new Error(
-          `Access denied: cannot save to protected path: ${result.filePath}`
-        );
+      const blockedFamily = blockedPathFamily(result.filePath);
+      if (blockedFamily) {
+        return { canceled: true, blockedFamily } as const;
       }
       const { rootId, rootPath, fileRelativePath } = mintFileCapability(result.filePath);
       await rememberApprovedFile(result.filePath);
       return { canceled: false, rootId, rootPath, fileRelativePath } as const;
     }
   );
+
+  // RL-137 / AUDIT-17 — read-only classification so the renderer can show an
+  // actionable, localized denial (and a privacy-safe `fs.blocked` telemetry
+  // signal that names only the family, never the path) when a reopen or pick is
+  // refused by the denylist. Mints no capability; performs no disk write.
+  ipcMain.handle('fs:classify-blocked-path', (_event, absolutePath: string) => {
+    if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
+      return { family: null } as const;
+    }
+    return { family: blockedPathFamily(absolutePath) } as const;
+  });
 
   // ---------------------------------------------------------------- root mgmt
 
@@ -1526,9 +1558,10 @@ export function registerFileSystemHandlers(): void {
         ? await dialog.showSaveDialog(ownerWindow, saveOptions)
         : await dialog.showSaveDialog(saveOptions);
       if (saved.canceled || !saved.filePath) return { canceled: true };
-      if (isPathBlocked(saved.filePath, 'write')) {
+      const savedBlockedFamily = blockedPathFamily(saved.filePath);
+      if (savedBlockedFamily) {
         throw new Error(
-          `Access denied: cannot save to protected path: ${saved.filePath}`
+          `Access denied: cannot save to protected ${savedBlockedFamily} path: ${saved.filePath}`
         );
       }
       try {
@@ -1580,9 +1613,10 @@ export function registerFileSystemHandlers(): void {
         return { canceled: true };
       }
       const targetDir = picked.filePaths[0]!;
-      if (isPathBlocked(targetDir, 'write')) {
+      const targetBlockedFamily = blockedPathFamily(targetDir);
+      if (targetBlockedFamily) {
         throw new Error(
-          `Access denied: cannot write to protected path: ${targetDir}`
+          `Access denied: cannot write to protected ${targetBlockedFamily} path: ${targetDir}`
         );
       }
 

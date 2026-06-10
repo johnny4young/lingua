@@ -444,6 +444,13 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return { ok: false, error: 'not-found' } as const;
   },
 
+  // RL-137 / AUDIT-17 — the web FSA sandbox has no OS-path denylist (every
+  // handle is user-granted through the picker), so nothing is ever classified
+  // as blocked here.
+  classifyBlockedPath: async (_absolutePath: string) => {
+    return { family: null } as const;
+  },
+
   revokeRoot: async (rootId: string) => REGISTRY.delete(rootId),
 
   readdir: async (rootId: string, relativePath: string): Promise<FsDirEntry[]> => {
