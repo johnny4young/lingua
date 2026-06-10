@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { findHardcodedCopyViolations } from '../../scripts/check-renderer-copy.mjs';
+import {
+  checkRendererCopy,
+  findHardcodedCopyViolations,
+} from '../../scripts/check-renderer-copy.mjs';
 
 describe('check-renderer-copy', () => {
   it('flags obvious hardcoded JSX copy', () => {
@@ -42,5 +45,19 @@ describe('check-renderer-copy', () => {
     );
 
     expect(violations).toEqual([]);
+  });
+
+  it('skips touched paths that no longer exist instead of crashing', async () => {
+    // Regression — a commit that DELETES a renderer file used to make
+    // the guard ENOENT-crash: `git diff-tree HEAD` listed the dead path
+    // (it had no deletion-excluding --diff-filter) and the readFile
+    // aborted the whole run. First hit: the 2026-06-10 dead-code
+    // removal commit. Deleted files cannot ship hardcoded copy.
+    const result = await checkRendererCopy([
+      'src/renderer/components/__does-not-exist__/Ghost.tsx',
+    ]);
+
+    expect(result.files).toEqual([]);
+    expect(result.violations).toEqual([]);
   });
 });

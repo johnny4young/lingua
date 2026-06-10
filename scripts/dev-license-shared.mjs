@@ -6,6 +6,22 @@ const SUBTLE = webcrypto.subtle;
 
 export const VALID_DEV_LICENSE_TIERS = ['free', 'pro', 'pro_lifetime', 'team'];
 
+/**
+ * In-app plan label shown in Settings → License for each internal tier.
+ * Mirrors the `license.tier.*` i18n keys: the internal `pro` tier is the
+ * MONTHLY subscription (Polar `lingua_monthly`), while the public "Pro"
+ * one-time purchase (`lingua_lifetime`) is `pro_lifetime`. Printing this
+ * in the banner stops the recurring "I minted --tier pro but it says
+ * Monthly" confusion — to test the lifetime "Pro" label use
+ * `--tier pro_lifetime`.
+ */
+export const DEV_LICENSE_PLAN_LABELS = {
+  free: 'Free',
+  pro: 'Monthly',
+  pro_lifetime: 'Pro',
+  team: 'Pro',
+};
+
 // Kept in sync manually with `src/shared/entitlements.ts`. A mismatch is
 // harmless for verification; the renderer gates on `tier`, not on this list.
 export const KNOWN_ENTITLEMENTS = [
@@ -202,8 +218,14 @@ export function printDevLicenseBanner({
   launchLine,
 }) {
   const separator = '─'.repeat(72);
+  const planLabel = DEV_LICENSE_PLAN_LABELS[tier] ?? tier;
   console.log(separator);
-  console.log(`Lingua dev ${surface} session (tier: ${tier}, valid ${days} day(s))`);
+  console.log(
+    `Lingua dev ${surface} session (tier: ${tier} → shows as "${planLabel}", valid ${days} day(s))`
+  );
+  if (tier === 'pro') {
+    console.log('  (tier "pro" is the Monthly plan — use --tier pro_lifetime for the lifetime "Pro" label)');
+  }
   console.log(separator);
   console.log('Paste this token into Settings → License → "Paste a license token":');
   console.log('');
@@ -212,6 +234,11 @@ export function printDevLicenseBanner({
   console.log(separator);
   console.log(launchLine);
   console.log(separator);
+  // The pro launchers inject this throwaway key via process.env, which
+  // Vite prioritizes over .env files — so a stale VITE_LINGUA_LICENSE_
+  // PUBLIC_KEY_JWK in a local .env does NOT shadow it here. It DOES shadow
+  // a plain `dev:web` / manual `vite` launch, where a paste then fails with
+  // "signature does not match". Clear that line from your .env if so.
 }
 
 export function shouldSkipDevSessionLaunch() {

@@ -21,6 +21,7 @@
  */
 
 import { syncUserEnvInPyodide } from './python-worker-env';
+import { createStdinLineReader } from './python-worker-stdin';
 import { truncateSerialized } from '../runners/limits';
 import {
   DEFAULT_SCOPE_DEPTH,
@@ -789,8 +790,11 @@ ctx.addEventListener('message', async (event) => {
       /**
        * RL-020 Slice 6 — pre-set stdin buffer. Newline-delimited;
        * `input()` consumes one line per call. Empty / undefined
-       * leaves Pyodide's default handler so a bare `input()` call
-       * raises `EOFError` (stock Python REPL behavior).
+       * installs the same line reader with zero lines, so a bare
+       * `input()` hits EOF immediately and raises `EOFError` —
+       * without touching Pyodide's stock `prompt()`-based handler,
+       * which is unavailable in a Worker and leaks ReferenceError
+       * noise to the renderer console.
        */
       stdin?: string;
       /**
@@ -831,40 +835,26 @@ ctx.addEventListener('message', async (event) => {
     const startTime = performance.now();
     activeRunId = runId;
 
-    // RL-020 Slice 6 — line-by-line stdin reader. We split the
-    // buffer up front so per-`input()` consumption is O(1) and the
-    // consumed count is observable for the fold-G summary.
-    const rawStdinLines =
-      typeof stdin === 'string' && stdin.length > 0
-        ? (() => {
-            const parts = stdin.split('\n');
-            if (parts.length > 0 && parts[parts.length - 1] === '') {
-              parts.pop();
-            }
-            return parts;
-          })()
-        : [];
-    let stdinCursor = 0;
-    const stdinTotal = rawStdinLines.length;
+    // RL-020 Slice 6 — line-by-line stdin reader (see
+    // python-worker-stdin.ts for the EOF / empty-buffer contract).
+    const stdinReader = createStdinLineReader(stdin);
+    const stdinTotal = stdinReader.total;
 
     try {
       const py = (await loadPyodide()) as PyodideRuntime;
 
-      // RL-020 Slice 6 — install the stdin handler ONLY when the
-      // user typed something into the panel. Empty / undefined
-      // leaves Pyodide's stock handler (which raises EOFError on
-      // bare `input()`) — matches the documented panel hint.
-      if (stdinTotal > 0 && typeof py.setStdin === 'function') {
+      // RL-020 Slice 6 — install the stdin handler for EVERY run, not
+      // only when the panel has lines. With an empty buffer the reader
+      // returns `null` on the first read, so a bare `input()` raises a
+      // clean `EOFError` — the documented panel behavior. Falling back
+      // to Pyodide's STOCK handler instead would try `prompt()`, which
+      // does not exist in a Worker: Pyodide logs a raw
+      // `ReferenceError: prompt is not defined` to the renderer console
+      // on every read and surfaces an OSError instead of EOFError
+      // (caught live in the 2026-06-10 desktop validation).
+      if (typeof py.setStdin === 'function') {
         py.setStdin({
-          stdin: () => {
-            if (stdinCursor >= rawStdinLines.length) return null;
-            const value = rawStdinLines[stdinCursor]!;
-            stdinCursor += 1;
-            // Pyodide expects the next chunk of stdin including the
-            // line terminator; appending `\n` matches `input()`'s
-            // line semantics.
-            return `${value}\n`;
-          },
+          stdin: () => stdinReader.read(),
           isatty: false,
         });
       }
@@ -1460,7 +1450,7 @@ _lingua_state
         ctx.postMessage({
           type: 'stdin-consumed',
           runId,
-          count: stdinCursor,
+          count: stdinReader.consumedCount(),
           total: stdinTotal,
         });
       }
@@ -1498,7 +1488,7 @@ _lingua_state
         ctx.postMessage({
           type: 'stdin-consumed',
           runId,
-          count: stdinCursor,
+          count: stdinReader.consumedCount(),
           total: stdinTotal,
         });
       }
@@ -1512,8 +1502,9 @@ _lingua_state
       activeRunId = null;
       // RL-020 Slice 6 — restore Pyodide's stock stdin handler so
       // the next run starts on a clean baseline (the worker is
-      // persistent unlike js-worker.ts).
-      if (stdinTotal > 0 && pyodide) {
+      // persistent unlike js-worker.ts). Reset unconditionally: the
+      // line reader above is now installed on every run.
+      if (pyodide) {
         const runtime = pyodide as PyodideRuntime;
         runtime.setStdin?.();
       }

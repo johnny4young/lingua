@@ -157,7 +157,20 @@ async function listTouchedRendererFiles(args) {
   for (const argsSet of [
     ['diff', '--name-only', '--diff-filter=ACMRTUXB', 'HEAD', '--', 'src/renderer'],
     ['diff', '--cached', '--name-only', '--diff-filter=ACMRTUXB', '--', 'src/renderer'],
-    ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD', '--', 'src/renderer'],
+    // diff-tree needs the same deletion-excluding filter as the two
+    // diffs above: a commit that DELETES a renderer file otherwise
+    // lists the dead path and the readFile below crashes with ENOENT
+    // (first hit: the dead-code removal commit on 2026-06-10).
+    [
+      'diff-tree',
+      '--no-commit-id',
+      '--name-only',
+      '--diff-filter=ACMRTUXB',
+      '-r',
+      'HEAD',
+      '--',
+      'src/renderer',
+    ],
   ]) {
     const changed = await git(argsSet);
     for (const file of changed.split('\n').filter(Boolean)) {
@@ -177,13 +190,25 @@ export async function checkRendererCopy(fileArgs = []) {
   );
 
   const violations = [];
+  const readableFiles = [];
 
   for (const filePath of files) {
-    const sourceText = await readFile(filePath, 'utf8');
+    let sourceText;
+    try {
+      sourceText = await readFile(filePath, 'utf8');
+    } catch (error) {
+      // A touched path can stop existing between enumeration and read
+      // (deleted in the worktree, rename races). Skipping is correct:
+      // a file that no longer ships cannot carry hardcoded copy. Any
+      // other read failure still aborts the guard.
+      if (error && error.code === 'ENOENT') continue;
+      throw error;
+    }
+    readableFiles.push(filePath);
     violations.push(...findHardcodedCopyViolations(sourceText, filePath));
   }
 
-  return { files, violations };
+  return { files: readableFiles, violations };
 }
 
 async function main() {

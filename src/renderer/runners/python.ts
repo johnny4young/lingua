@@ -518,9 +518,11 @@ export class PythonRunner implements LanguageRunner {
         resultTruncationMarker: t('runner.truncated.result'),
         userEnv,
         // RL-020 Slice 6 — pre-set stdin buffer forwarded into Pyodide
-        // via `pyodide.setStdin`. Empty / undefined leaves the
-        // default handler in place, which preserves Pyodide's stock
-        // EOFError on bare `input()` calls.
+        // via `pyodide.setStdin`. Empty / undefined installs the same
+        // line reader with zero lines so bare `input()` raises a clean
+        // EOFError (the worker never falls back to Pyodide's stock
+        // `prompt()` handler, which is unavailable in a Worker and
+        // leaks ReferenceError noise to the renderer console).
         stdin: context?.stdin,
         // RL-020 Slice 9 — variable inspector capture. The Python
         // worker handles capture/error gracefully; passing `false`
