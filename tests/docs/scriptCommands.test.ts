@@ -137,6 +137,9 @@ describe('Script naming docs guard', () => {
       'changelog:draft',
       'changelog:check',
       'test',
+      // Dead-code gate (knip.jsonc): unreferenced files, unused/unlisted
+      // dependencies. Unused exports stay advisory via `pnpm exec knip`.
+      'check:deadcode',
       // RL-132 / AUDIT-12 — scoped tsc gate that type-checks the branded-id
       // swap-attack compile guard under tests/ (tsconfig.test.json).
       'typecheck:tests',

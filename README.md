@@ -4,7 +4,7 @@
 [![Node 24.x](https://img.shields.io/badge/node-24.x-brightgreen)](https://nodejs.org)
 [![License: Source-available (commercial)](https://img.shields.io/badge/license-source--available%20(commercial)-6f42c1)](./LICENSE)
 
-**Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app.** Lingua combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds. It is the multi-language answer to RunJS: the same "open, write, run" ergonomics, but with Go, Rust, and Python as first-class citizens instead of JavaScript-only.
+**Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, Rust, and Ruby in one offline-first Monaco-powered app.** Lingua combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds. It is the multi-language answer to RunJS: the same "open, write, run" ergonomics, but with Go, Rust, Python, and Ruby as first-class citizens instead of JavaScript-only.
 
 **Marketing site:** [linguacode.dev](https://linguacode.dev) — downloads, pricing, press kit, language-specific landing pages.
 **Web app:** [app.linguacode.dev](https://app.linguacode.dev) — the in-browser build.
@@ -34,7 +34,7 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 
 - Desktop app (Electron Forge + Vite + React 19 + TypeScript) and a parallel web build for browser-based usage.
 - Monaco-powered editor with tabs, templates, inline execution results, magic-comment value surfacing, command palette, quick open, project-wide search, and snippet library.
-- Built-in runners for JavaScript, TypeScript, Python (Pyodide), Go (compiled locally to WASM), and Rust (`rustc` native subprocess on desktop).
+- Built-in runners for JavaScript, TypeScript, Python (Pyodide), Go (compiled locally to WASM), Rust (`rustc` native subprocess on desktop), and Ruby (hybrid: bundled `@ruby/wasm-wasi` worker everywhere, system `ruby` subprocess on desktop when preferred).
 - Validate-only modes for JSON, YAML, `.env`, CSV, Dockerfile, `.editorconfig`, `.gitignore`, `Makefile`; view-only handling for TOML and INI/config files.
 - 29 focused developer-utility panels (JSON, regex, Base64/URL/UUID/hash/timestamp/JWT, color, diff, beautify/minify, case/encoding, QR, Lorem, SVG→CSS, HTML→JSX, cURL→code, YAML↔JSON, JSON↔CSV, Markdown preview, SQL formatter) reachable from the toolbar wrench and the Command Palette.
 - Format-on-save via Prettier (JS/TS/JSON/CSS) plus desktop-only gofmt, rustfmt, and Python formatters (ruff preferred, black fallback).
@@ -49,6 +49,7 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 - Python runs through Pyodide in both the desktop app and the web build.
 - Go is compiled to WebAssembly through the desktop IPC bridge and a local Go toolchain.
 - Rust is compiled and executed natively through the desktop IPC bridge and a local Rust toolchain.
+- Ruby is hybrid: a bundled `@ruby/wasm-wasi` worker runs everywhere, and the desktop app can dispatch to the system `ruby` instead (Settings → Editor → Ruby runtime: auto / system / wasm).
 - The web build stubs Go and Rust execution because local toolchains are not available in the browser.
 
 For deeper architecture detail and the per-capability execution-class decision, see [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and [`docs/CAPABILITY_MATRIX.md`](./docs/CAPABILITY_MATRIX.md).
@@ -61,6 +62,7 @@ For deeper architecture detail and the per-capability execution-class decision, 
 | pnpm           | >= 11   | Package manager (`corepack enable` picks the pinned version)   |
 | Go             | >= 1.21 | Required only for desktop Go execution                         |
 | Rust (`rustc`) | stable  | Required only for desktop Rust execution                       |
+| Ruby           | any     | Optional — desktop system-Ruby mode; the bundled WASM runtime needs nothing |
 
 ## Quickstart
 
@@ -78,7 +80,7 @@ pnpm run dev:web          # browser-only iteration
 pnpm run dev:desktop      # real Electron app + renderer dev server
 pnpm run dev:web:pro      # web build with throwaway dev license token printed
 pnpm run dev:desktop:pro  # desktop build with throwaway dev license token printed
-pnpm run smoke:desktop    # repeatable Electron smoke flow across all 5 languages
+pnpm run smoke:desktop    # repeatable Electron smoke across the native runtime matrix (JS, TS, Python, Go, Rust)
 pnpm run build:web        # static web build for app.linguacode.dev
 ```
 

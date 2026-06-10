@@ -1,7 +1,7 @@
 /**
  * RL-020 Slice 6 fold F — ambient pill that flags "a stdin buffer
  * is staged for the next run on this tab". Mirrors the visual
- * language of `<WorkflowModeStatusPill>` / `<AutoLogStatusPill>` so
+ * language of `<AutoLogStatusPill>` / `<AutoRunGateNotice>` so
  * the run-time-affordance row in the result panel stays scannable.
  *
  * Self-gates on language (JS / TS / Python) AND non-empty buffer.

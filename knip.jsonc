@@ -1,0 +1,61 @@
+{
+  // Dead-code / unused-dependency gate (see `check:deadcode` script).
+  //
+  // Scope note: the script runs `--include files,dependencies,unlisted`
+  // (high-signal categories that should stay at zero). The full report
+  // (`pnpm exec knip`) additionally lists unused *exports* — useful as a
+  // periodic review, but noisy as a gate: many exports exist for test
+  // seams or API symmetry, and rollup tree-shaking already drops them
+  // from shipped bundles.
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    // Electron process entries (forge.config.ts build section). The
+    // renderer/web entries and the vite configs themselves are picked
+    // up automatically by knip's vite + electron-forge plugins.
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    // Web-only module wired via the `@/plugins/catalog` alias in
+    // vite.web.config.mts — invisible to import scanning.
+    "src/web/plugin-catalog.ts",
+    // CLI bundle entry (scripts/build-cli.mjs esbuild entryPoints).
+    "src/cli/**/*.{ts,mts,mjs}",
+    // Web Workers and plugin runtimes are spawned via `new Worker(new
+    // URL(...))` / dynamic registration, not static imports.
+    "src/renderer/workers/*.ts",
+    "src/renderer/plugins/*.ts",
+    // Operational scripts are invoked directly by package.json / CI.
+    "scripts/**/*.mjs",
+    "forge.config.ts",
+    "vite.main.config.mts",
+    "vite.preload.config.mts",
+    "vite.renderer.config.mts",
+    "playwright.license-web.config.mts",
+    "eslint.config.*",
+    "tests/**/*.{ts,tsx}"
+  ],
+  "project": ["src/**/*.{ts,tsx,d.ts}", "scripts/**/*.mjs"],
+  // Mirror the aliases from vitest.config.mts / vite.renderer.config.mts.
+  "paths": {
+    "@/*": ["src/renderer/*"],
+    "#src/*": ["src/*"]
+  },
+  // license-server is an independent pnpm project with its own lockfile
+  // and test suite (update-server too, but the project globs above never
+  // reach it, so listing it here would be a no-op knip hints about).
+  "ignore": ["license-server/**"],
+  "ignoreDependencies": [
+    // Loaded from node_modules by the Vite build plugins as static
+    // runtime assets (copied into <outDir>/pyodide and served for the
+    // Ruby wasm payload) — no static import for knip to see.
+    "pyodide",
+    "@ruby/3.4-wasm-wasi",
+    // Consumed via `@import 'tailwindcss'` in src/renderer/index.css
+    // through @tailwindcss/postcss; CSS imports are outside knip's model.
+    "tailwindcss",
+    // Required at runtime by the Windows Squirrel boot path in main.
+    "electron-squirrel-startup",
+    // Referenced by string name in forge.config.ts `publishers` —
+    // knip's electron-forge plugin does not parse the publishers array.
+    "@electron-forge/publisher-github"
+  ]
+}

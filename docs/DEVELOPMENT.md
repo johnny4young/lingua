@@ -63,6 +63,7 @@ Use [`.env.example`](../.env.example) as the safe template for local overrides. 
 pnpm run lint
 pnpm run check:i18n
 pnpm run check:i18n:copy
+pnpm run check:deadcode
 pnpm test
 pnpm exec tsc --noEmit
 pnpm run build:web
@@ -108,6 +109,7 @@ reference for what each command owns.
 | `changelog:draft` | Drafts changelog entries from conventional commits. |
 | `changelog:check` | Blocks version/changelog drift before release. |
 | `test` | Runs the Vitest suite once. |
+| `check:deadcode` | Knip gate (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies. Unused *exports* are excluded from the gate — run `pnpm exec knip` for the full advisory report. |
 | `typecheck:tests` | Scoped `tsc -p tsconfig.test.json` pass that type-checks the branded-id swap-attack compile guard under `tests/` (root `tsc --noEmit` covers `src/**` only). |
 | `test:e2e:web` | Runs the Playwright web validation wrapper. |
 | `test:smoke:web:license` | Runs the web license smoke test. |

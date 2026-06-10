@@ -9,7 +9,7 @@ import {
   payloadAsJsonString,
 } from '@/components/Console/richConsoleFormat';
 import { RichValueChart } from '@/components/Console/RichValueChart';
-import type { RichOutputPayload } from '@shared/richOutput';
+import type { RichOutputPayload } from '#src/shared/richOutput';
 
 const chartMocks = vi.hoisted(() => ({
   canExportChart: false,

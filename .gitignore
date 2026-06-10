@@ -16,6 +16,7 @@ Library/
 
 # Local artifacts
 output/
+.audit/
 tmp/
 /PLAN.md
 /TEST_PLAN.md

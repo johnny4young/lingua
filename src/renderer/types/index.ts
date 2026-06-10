@@ -1146,10 +1146,38 @@ export interface ConsoleOutput {
   payload?: RichOutputPayload[];
 }
 
+/**
+ * The runner contract every execution backend implements (JS/TS worker,
+ * Pyodide, Go WASM, Rust subprocess, Ruby hybrid, plugin runtimes).
+ * `RunnerManager` (`src/renderer/runners/manager.ts`) owns the
+ * lifecycle: it lazily constructs one runner per language (or per
+ * JS/TS runtime mode), gates execution on `isReady()`, and dedupes
+ * concurrent `init()` calls through an in-flight promise map.
+ *
+ * Contract invariants:
+ *
+ *  - `init()` is the one-time async boot (toolchain detection, WASM
+ *    fetch, worker spawn). It may be called again after a failed boot;
+ *    a *throw* marks the runner unavailable and the rejection message
+ *    is surfaced to the user (e.g. "Go is not installed").
+ *  - `execute()` RESOLVES — it never rejects for user-code failures.
+ *    Compile errors, runtime errors, timeouts, and stop() all resolve
+ *    with an `ExecutionResult` whose `kind` / `error` describe the
+ *    outcome, so callers never need try/catch for user-code paths.
+ *  - `stop()` is synchronous, idempotent, and must settle any
+ *    in-flight `execute()` with a runner-stopped result (no dangling
+ *    promises after termination).
+ *  - `isReady()` reports whether `init()` completed; the manager uses
+ *    it to decide whether a run must await initialization first.
+ */
 export interface LanguageRunner {
+  /** Stable registry key (usually equal to `language`). */
   id: string;
+  /** Human-readable name for status surfaces ("Go", "Python"). */
   name: string;
+  /** Language-pack id this runner serves. */
   language: Language;
+  /** File extensions associated with the language (".go", ".rs"). */
   extensions: string[];
   init(): Promise<void>;
   execute(code: string, context?: ExecutionContext): Promise<ExecutionResult>;

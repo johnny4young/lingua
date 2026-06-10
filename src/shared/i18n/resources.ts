@@ -1,3 +1,15 @@
+/**
+ * Shared locale catalog used by BOTH processes: the renderer's i18next
+ * bootstrap and the main-process `runtime.ts` instance behind the
+ * fileSystem / profile / recovery IPC handlers.
+ *
+ * Layering note: these are the only `src/shared` imports that reach
+ * into `src/renderer`, and they are deliberate — the imports are pure
+ * JSON *data* (the locale catalogs), not renderer code. The catalogs
+ * stay under `src/renderer/i18n/locales` because the i18n tooling
+ * (`check-i18n.mjs`, `check-renderer-copy.mjs`, translator workflow)
+ * anchors on that path. Do not import renderer *code* from shared.
+ */
 import en from '../../renderer/i18n/locales/en/common.json';
 import es from '../../renderer/i18n/locales/es/common.json';
 

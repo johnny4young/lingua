@@ -5,7 +5,7 @@
  * the user "this is why your buffer suddenly has inline values
  * everywhere" without forcing them to look at Settings.
  *
- * Mirrors the visual language of `<WorkflowModeStatusPill>` and
+ * Mirrors the visual language of `<StdinStatusPill>` and
  * `<AutoRunGateNotice>` so the row stays scannable. Reads the per-tab
  * override (fold C) layered on top of the per-language Settings
  * default — the same resolution `useAutoRun.ts` uses.
