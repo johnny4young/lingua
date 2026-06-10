@@ -112,7 +112,6 @@ test.describe('Workflow mode action pill (RL-020 Slice 2)', () => {
 
     // The Slice-1 gate should still fire on an incomplete buffer.
     await replaceEditorText(page, 'const x = ');
-    await page.waitForTimeout(1_400);
     await expect(page.getByTestId('auto-run-gate-notice')).toBeVisible();
   });
 });

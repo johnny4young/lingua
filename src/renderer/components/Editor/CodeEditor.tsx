@@ -123,6 +123,40 @@ export function CodeEditor() {
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
   useRustLspDocumentSync(editorInstance, activeTab);
   useGoLspDocumentSync(editorInstance, activeTab);
+
+  // Rust tabs are the only ones mounted with an explicit `path` (so the
+  // LSP can address the document by URI), which switches
+  // @monaco-editor/react into keep-models-per-path mode — and nothing
+  // disposed those models when their tab closed, leaking text +
+  // tokenization state per closed Rust tab for the session lifetime.
+  // The selector folds the expected model URIs into one string so this
+  // effect only re-runs when the Rust tab set (id / name / filePath)
+  // actually changes, never per keystroke.
+  const expectedRustModelPaths = useEditorStore((state) =>
+    state.tabs
+      .filter((tab) => tab.language === 'rust')
+      .map((tab) => rustLspModelPathForTab(tab))
+      .join('\n')
+  );
+  useEffect(() => {
+    if (!monacoInstance) return;
+    const expected = new Set(
+      expectedRustModelPaths
+        .split('\n')
+        .filter(Boolean)
+        .map((path) => monacoInstance.Uri.parse(path).toString())
+    );
+    const mounted = editorRef.current?.getModel() ?? null;
+    for (const model of monacoInstance.editor.getModels()) {
+      if (model === mounted) continue;
+      if (model.getLanguageId() !== 'rust') continue;
+      // Only sweep models we minted (per-tab `path`): exact-URI match
+      // against the live Rust tab set. Anything else (diff panels,
+      // detached buffers from other surfaces) is left alone.
+      if (expected.has(model.uri.toString())) continue;
+      model.dispose();
+    }
+  }, [monacoInstance, expectedRustModelPaths]);
   // RL-027 Slice 1.5 — glyph-margin breakpoint dots + click → toggle.
   // The hook self-gates on `debuggerEnabled` AND `language ∈ {js, ts}`
   // so non-debug tabs stay byte-identical in the DOM.

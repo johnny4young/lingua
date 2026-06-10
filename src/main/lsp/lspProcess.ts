@@ -121,6 +121,15 @@ export class LspProcess {
       // here so packaged builds do not spam main's console.
     });
 
+    // writeFramedMessage guards with `stdin.writable` + try/catch, but an
+    // EPIPE from a server that dies while a frame flushes is delivered
+    // ASYNCHRONOUSLY as a stream 'error' event — without this listener it
+    // becomes an uncaught exception that crashes the main process. The
+    // child 'exit'/'error' handlers above own the failure surfacing.
+    child.stdin.on('error', () => {
+      // EPIPE / ERR_STREAM_DESTROYED — server exited mid-write.
+    });
+
     const handleExit = (
       code: number | null,
       signal: NodeJS.Signals | null

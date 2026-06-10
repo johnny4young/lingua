@@ -221,6 +221,14 @@ const createWindow = () => {
       event.preventDefault();
     }
   });
+  // Server-issued 3xx redirects fire `will-redirect`, which `will-navigate`
+  // does not cover — gate them with the identical allowlist so a redirect
+  // cannot reach an origin a direct navigation would be denied.
+  window.webContents.on('will-redirect', (event, targetUrl) => {
+    if (!isAllowedNavigationTarget(targetUrl, rendererUrl)) {
+      event.preventDefault();
+    }
+  });
 
   if (rendererUrl) {
     // Retry loading the dev server URL — Vite may not be ready yet

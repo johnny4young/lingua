@@ -143,6 +143,40 @@ export async function getDuckDbEngine(): Promise<DuckDbEngineHandle> {
  * MVP WASM at the public R2 runtime prefix because Cloudflare Pages
  * rejects oversized single assets.
  */
+/**
+ * Fetch the R2-mirrored DuckDB WASM, verify it against the build-time
+ * expected sha256 (computed from the pnpm-lock-verified node_modules
+ * payload in vite.web.config.mts), and hand back a blob URL DuckDB can
+ * instantiate from. A tampered bucket object fails loudly here — the
+ * existing `engine-load-failed` band surfaces it — instead of being
+ * executed unchecked. The caller owns revoking the blob URL.
+ */
+async function fetchVerifiedWasmUrl(
+  url: string,
+  expectedSha256: string
+): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch DuckDB runtime (${response.status} ${response.statusText})`
+    );
+  }
+  const bytes = await response.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const actual = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+  if (actual !== expectedSha256) {
+    throw new Error(
+      `DuckDB runtime integrity check failed: expected sha256 ${expectedSha256}, got ${actual}. ` +
+        'The mirrored runtime asset does not match this build.'
+    );
+  }
+  return URL.createObjectURL(
+    new Blob([bytes], { type: 'application/wasm' })
+  );
+}
+
 async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
   // Dynamic imports keep the chunk lazy. The browser fetches the
   // ~1 MiB JS shim first; the WASM only when DuckDB
@@ -153,8 +187,19 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
   );
   const mvpWorkerUrl: string = mvpWorkerModule.default;
   let mvpWasmUrl: string;
+  let revokeWasmUrl: (() => void) | null = null;
   if (__LINGUA_DUCKDB_MVP_WASM_URL__) {
-    mvpWasmUrl = __LINGUA_DUCKDB_MVP_WASM_URL__;
+    const expectedSha256 = __LINGUA_DUCKDB_MVP_WASM_SHA256__;
+    if (expectedSha256) {
+      mvpWasmUrl = await fetchVerifiedWasmUrl(
+        __LINGUA_DUCKDB_MVP_WASM_URL__,
+        expectedSha256
+      );
+      const blobUrl = mvpWasmUrl;
+      revokeWasmUrl = () => URL.revokeObjectURL(blobUrl);
+    } else {
+      mvpWasmUrl = __LINGUA_DUCKDB_MVP_WASM_URL__;
+    }
   } else {
     const mvpWasmModule = await import(
       '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url'
@@ -175,6 +220,10 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
     const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
     const db = new duckdb.AsyncDuckDB(logger, worker);
     await db.instantiate(mvpWasmUrl);
+    // The verified blob URL has served its purpose once instantiation
+    // completes; revoking frees the duplicated WASM bytes.
+    revokeWasmUrl?.();
+    revokeWasmUrl = null;
     return {
       connect: async (): Promise<DuckDbConnection> => {
         const connection = await db.connect();
@@ -197,8 +246,9 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
       },
     };
   } catch (err) {
-    // Reclaim the worker before the rejection propagates up to the
-    // `getDuckDbEngine` cache-reset path.
+    // Reclaim the worker (and any verified blob URL) before the
+    // rejection propagates up to the `getDuckDbEngine` cache-reset path.
+    revokeWasmUrl?.();
     try {
       worker.terminate();
     } catch {

@@ -35,6 +35,23 @@ import {
   type GitHeadWatcher,
   type GitHeadWatcherDiagnostic,
 } from '../git';
+import { pathIntersectsApprovedScope } from './fileSystem';
+import { isPathBlocked } from './permissions';
+
+/**
+ * RL-077-alignment gate for the git read-only layer. The git handlers are
+ * the one IPC surface that receives raw absolute paths (the repo toplevel
+ * can sit ABOVE the approved project root, so a rootId capability cannot
+ * express it). Before this gate they accepted ANY path — `git:diff` would
+ * read file contents out of arbitrary repos on disk if the renderer were
+ * compromised. Now a path must (a) not fall in the filesystem denylist and
+ * (b) intersect the user-approved scope (be an approved root, live inside
+ * one, or be an ancestor of one — the monorepo case).
+ */
+async function isApprovedGitScope(absolutePath: string): Promise<boolean> {
+  if (isPathBlocked(absolutePath, 'read')) return false;
+  return pathIntersectsApprovedScope(absolutePath);
+}
 
 /**
  * RL-102 Slice 2 — per-sender head-watch registry.
@@ -115,6 +132,12 @@ export function registerGitHandlers(): void {
         typeof rawFolderPath === 'string' && rawFolderPath.length > 0
           ? rawFolderPath
           : undefined;
+      // Unapproved folder → degrade to binary-only detection (no repo
+      // probing of the supplied path), same shape the renderer already
+      // handles for a folder that is not a git repo.
+      if (folderPath && !(await isApprovedGitScope(folderPath))) {
+        return detectGit(undefined);
+      }
       return detectGit(folderPath);
     }
   );
@@ -130,6 +153,9 @@ export function registerGitHandlers(): void {
         return { status: 'unknown' };
       }
       if (typeof rawFilePath !== 'string' || rawFilePath.length === 0) {
+        return { status: 'unknown' };
+      }
+      if (!(await isApprovedGitScope(rawRepoRoot))) {
         return { status: 'unknown' };
       }
       return getFileStatus(rawRepoRoot, rawFilePath);
@@ -149,6 +175,9 @@ export function registerGitHandlers(): void {
       if (typeof rawFilePath !== 'string' || rawFilePath.length === 0) {
         return { originalContent: '', modifiedContent: '', truncated: false };
       }
+      if (!(await isApprovedGitScope(rawRepoRoot))) {
+        return { originalContent: '', modifiedContent: '', truncated: false };
+      }
       return getFileDiff(rawRepoRoot, rawFilePath);
     }
   );
@@ -163,6 +192,9 @@ export function registerGitHandlers(): void {
       if (typeof rawRepoRoot !== 'string' || rawRepoRoot.length === 0) {
         return false;
       }
+      if (!(await isApprovedGitScope(rawRepoRoot))) {
+        return false;
+      }
       return revealRepo(rawRepoRoot);
     }
   );
@@ -175,6 +207,9 @@ export function registerGitHandlers(): void {
     'git:watch-head',
     async (event, rawRepoRoot: unknown): Promise<{ ok: boolean }> => {
       if (typeof rawRepoRoot !== 'string' || rawRepoRoot.length === 0) {
+        return { ok: false };
+      }
+      if (!(await isApprovedGitScope(rawRepoRoot))) {
         return { ok: false };
       }
       const repoRoot = rawRepoRoot;

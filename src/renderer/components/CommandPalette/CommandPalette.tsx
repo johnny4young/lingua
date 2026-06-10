@@ -6,6 +6,10 @@ import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
+import {
+  isJavaScriptFamily,
+  isWorkerRunnerLanguage,
+} from '../../../shared/languageFamilies';
 import { isRuntimeTimeoutSupportedLanguage } from '../../../shared/runtimeTimeoutPresets';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import {
@@ -156,8 +160,7 @@ export function CommandPalette({
       : null;
   const isAutoLogCommandEligible =
     activeTab !== null &&
-    (activeTab.language === 'javascript' ||
-      activeTab.language === 'typescript') &&
+    isJavaScriptFamily(activeTab.language) &&
     activeWorkflowMode === 'scratchpad';
   // RL-020 Slice 3 fold E — surface the active tab's language to the
   // palette model so the "Pin watch on current line" action only
@@ -288,18 +291,14 @@ export function CommandPalette({
       onFocusStdinPanel:
         activeTab &&
         useSettingsStore.getState().showStdinPanel &&
-        (activeTab.language === 'javascript' ||
-          activeTab.language === 'typescript' ||
-          activeTab.language === 'python') &&
+        isWorkerRunnerLanguage(activeTab.language) &&
         activeTab.runtimeMode !== 'browser-preview'
           ? () => useUIStore.getState().openBottomPanel('stdin')
           : undefined,
       stdinPanelAvailable:
         !!activeTab &&
         useSettingsStore.getState().showStdinPanel &&
-        (activeTab.language === 'javascript' ||
-          activeTab.language === 'typescript' ||
-          activeTab.language === 'python') &&
+        isWorkerRunnerLanguage(activeTab.language) &&
         activeTab.runtimeMode !== 'browser-preview',
       // RL-020 Slice 7 fold C — set the per-language timeout preset
       // for the active language from the palette. Only surfaces on

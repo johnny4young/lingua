@@ -14,6 +14,10 @@ import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import type { FileTab, Language, LayoutPreset } from '../../types';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
+import {
+  isJavaScriptFamily,
+  isWorkerRunnerLanguage,
+} from '../../../shared/languageFamilies';
 
 export type CommandCategory = 'template' | 'snippet' | 'action';
 
@@ -1173,9 +1177,7 @@ export function buildCommandPaletteModel({
     // Python). For other languages the action is hidden entirely
     // so the palette stays honest about what's possible.
     ...(onAddWatchToCurrentLine &&
-    (activeWatchLanguage === 'javascript' ||
-      activeWatchLanguage === 'typescript' ||
-      activeWatchLanguage === 'python')
+    isWorkerRunnerLanguage(activeWatchLanguage)
       ? [
           buildActionCommand(
             'action-add-watch',
@@ -1212,8 +1214,7 @@ export function buildCommandPaletteModel({
     // it would refuse. Reuses the per-tab override path so the
     // toggle is scoped to one tab, not the global Settings default.
     ...(onToggleAutoLogOnActiveTab &&
-    (activeWatchLanguage === 'javascript' ||
-      activeWatchLanguage === 'typescript')
+    isJavaScriptFamily(activeWatchLanguage)
       ? [
           buildActionCommand(
             'action-toggle-auto-log',

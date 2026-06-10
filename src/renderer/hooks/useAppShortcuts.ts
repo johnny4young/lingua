@@ -3,6 +3,7 @@ import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorksp
 import { useRecipeStore } from '../stores/recipeStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { cycleRuntimeMode, languageHasRuntimeModes } from '../../shared/runtimeModes';
+import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { cycleWorkflowMode, defaultWorkflowMode } from '../../shared/workflowMode';
 import { toggleRecentRunsPopover } from '../runtime/recentRunsPopoverBridge';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
@@ -240,9 +241,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         !!tab &&
         settings.showStdinPanel &&
         tab.runtimeMode !== 'browser-preview' &&
-        (tab.language === 'javascript' ||
-          tab.language === 'typescript' ||
-          tab.language === 'python');
+        isWorkerRunnerLanguage(tab.language);
       if (!stdinAvailable) {
         useUIStore.getState().pushStatusNotice({
           tone: 'info',

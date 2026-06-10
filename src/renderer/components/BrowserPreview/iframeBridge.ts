@@ -21,12 +21,20 @@
  *   { __lingua: 'browser-preview', runId, type, payload }
  *
  * The parent rejects any message whose envelope is missing the
- * `__lingua` discriminator or whose `runId` does not match the
- * active execution. User code calling `parent.postMessage({...})`
- * cannot impersonate the bridge because it does not know the
- * opaque `crypto.randomUUID()` runId. The sandbox attribute
- * additionally blocks `allow-same-origin`, so anything outside
- * the iframe stays unreachable.
+ * `__lingua` discriminator, whose `runId` does not match the active
+ * execution, or whose per-type payload shape fails `isBridgeMessage`.
+ *
+ * The runId is NOT a secret from user code: the bridge IIFE is an
+ * inline script in the same srcdoc realm, so user code can read it
+ * back out of `document.scripts` and post a well-formed envelope.
+ * What the gates actually guarantee is narrower and sufficient: a
+ * forged message can only target the CURRENT run's own console
+ * surface (stale runs are dropped by the runId/currentRunId match),
+ * and the closed-shape validation bounds what the renderer will
+ * accept to plain string rows. The real isolation boundary is the
+ * sandbox attribute without `allow-same-origin` plus the srcdoc CSP
+ * — anything outside the iframe stays unreachable regardless of
+ * what is posted.
  */
 
 export interface BridgeConsoleMessage {
@@ -75,9 +83,11 @@ export type BridgeMessage =
   | BridgeDoneMessage;
 
 /**
- * Discriminator key used in every posted message — also the only
- * field a malicious-user-code spoofer can guess. The runId is the
- * real anti-spoof gate.
+ * Discriminator key used in every posted message. Note that BOTH the
+ * discriminator and the runId are readable by user code in the same
+ * srcdoc realm (the bridge IIFE is an inline script), so neither is a
+ * secret — the module header documents what the message gates actually
+ * guarantee.
  */
 export const BRIDGE_DISCRIMINATOR = 'browser-preview' as const;
 
@@ -277,17 +287,54 @@ ${escapedUserCode}
 </html>`;
 }
 
+/** Closed set of console methods the bridge is allowed to relay. */
+const BRIDGE_CONSOLE_METHODS: ReadonlySet<string> = new Set([
+  'log',
+  'info',
+  'warn',
+  'error',
+]);
+
 /**
- * Type guard for messages received on the parent window. The
- * runner uses this to reject anything that does not carry our
- * discriminator before consulting the runId.
+ * Type guard for messages received on the parent window. Validates the
+ * FULL per-type payload shape, not just the envelope: user code in the
+ * srcdoc realm can read the runId out of the inline bridge script and
+ * post a well-formed envelope, so the runner must never trust `method`
+ * or `args` (or the error fields) beyond what this guard proves. A
+ * message whose declared `type` does not carry its required shape is
+ * dropped, never partially consumed.
  */
 export function isBridgeMessage(value: unknown): value is BridgeMessage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { __lingua?: unknown }).__lingua === BRIDGE_DISCRIMINATOR &&
-    typeof (value as { runId?: unknown }).runId === 'string' &&
-    typeof (value as { type?: unknown }).type === 'string'
-  );
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.__lingua !== BRIDGE_DISCRIMINATOR) return false;
+  if (typeof candidate.runId !== 'string') return false;
+
+  const optional = (field: unknown, type: 'string' | 'number'): boolean =>
+    field === undefined || typeof field === type;
+
+  switch (candidate.type) {
+    case 'console':
+      return (
+        typeof candidate.method === 'string' &&
+        BRIDGE_CONSOLE_METHODS.has(candidate.method) &&
+        Array.isArray(candidate.args) &&
+        candidate.args.every((arg) => typeof arg === 'string')
+      );
+    case 'error':
+      return (
+        typeof candidate.message === 'string' &&
+        optional(candidate.source, 'string') &&
+        optional(candidate.lineno, 'number') &&
+        optional(candidate.colno, 'number') &&
+        optional(candidate.stack, 'string')
+      );
+    case 'unhandledrejection':
+      return typeof candidate.message === 'string';
+    case 'ready':
+    case 'done':
+      return true;
+    default:
+      return false;
+  }
 }

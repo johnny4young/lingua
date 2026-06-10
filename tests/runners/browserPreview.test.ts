@@ -173,29 +173,71 @@ describe('iframe bridge — buildPreviewDocument', () => {
 });
 
 describe('iframe bridge — isBridgeMessage type guard', () => {
-  it('accepts a well-formed message', () => {
+  it('accepts a well-formed console message', () => {
     expect(
       isBridgeMessage({
         __lingua: BRIDGE_DISCRIMINATOR,
         runId: 'abc',
         type: 'console',
+        method: 'log',
+        args: ['hello', 'world'],
       })
     ).toBe(true);
   });
 
+  it('accepts ready / done / error / unhandledrejection shapes', () => {
+    const base = { __lingua: BRIDGE_DISCRIMINATOR, runId: 'abc' };
+    expect(isBridgeMessage({ ...base, type: 'ready' })).toBe(true);
+    expect(isBridgeMessage({ ...base, type: 'done' })).toBe(true);
+    expect(
+      isBridgeMessage({ ...base, type: 'error', message: 'boom', lineno: 3 })
+    ).toBe(true);
+    expect(
+      isBridgeMessage({ ...base, type: 'unhandledrejection', message: 'x' })
+    ).toBe(true);
+  });
+
+  it('rejects a console message without its payload shape (the old envelope-only hole)', () => {
+    // Pre-hardening this passed the guard with no method/args at all —
+    // user code in the srcdoc realm could post arbitrary non-string args
+    // straight into console rendering.
+    const base = { __lingua: BRIDGE_DISCRIMINATOR, runId: 'abc' };
+    expect(isBridgeMessage({ ...base, type: 'console' })).toBe(false);
+    expect(
+      isBridgeMessage({ ...base, type: 'console', method: 'table', args: [] })
+    ).toBe(false);
+    expect(
+      isBridgeMessage({
+        ...base,
+        type: 'console',
+        method: 'log',
+        args: [{ nested: 'object' }],
+      })
+    ).toBe(false);
+  });
+
+  it('rejects error messages with mistyped optional fields and unknown types', () => {
+    const base = { __lingua: BRIDGE_DISCRIMINATOR, runId: 'abc' };
+    expect(
+      isBridgeMessage({ ...base, type: 'error', message: 'boom', lineno: '3' })
+    ).toBe(false);
+    expect(isBridgeMessage({ ...base, type: 'error' })).toBe(false);
+    expect(isBridgeMessage({ ...base, type: 'spoofed' })).toBe(false);
+  });
+
   it('rejects messages without the discriminator', () => {
-    expect(isBridgeMessage({ runId: 'abc', type: 'console' })).toBe(false);
+    expect(isBridgeMessage({ runId: 'abc', type: 'ready' })).toBe(false);
   });
 
   it('rejects messages with a wrong discriminator', () => {
     expect(
-      isBridgeMessage({ __lingua: 'other', runId: 'abc', type: 'console' })
+      isBridgeMessage({ __lingua: 'other', runId: 'abc', type: 'ready' })
     ).toBe(false);
   });
 
   it('rejects messages without a runId', () => {
     expect(
-      isBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, type: 'console' })
+      isBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, type: 'ready' })
     ).toBe(false);
   });
 

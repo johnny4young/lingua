@@ -1,0 +1,17 @@
+# Cloudflare Pages response headers for the standalone web build
+# (dist/web — deployed by .github/workflows/deploy-web.yml). The CSP
+# itself ships as a <meta> tag in src/web/index.html; this file adds the
+# directives that CANNOT be expressed via meta (frame-ancestors-class
+# protection via X-Frame-Options) plus standard hardening headers.
+#
+# Intentionally NOT set: Cross-Origin-Embedder-Policy / -Opener-Policy —
+# the app fetches runtime WASM from the R2 mirror and does not need
+# SharedArrayBuffer, so COEP would only add cross-origin breakage risk.
+#
+# Harmless for the desktop build: file:// ignores this file entirely.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

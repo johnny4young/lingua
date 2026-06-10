@@ -98,6 +98,32 @@ let stdoutBuffer: StreamBuffer = { method: 'log', pending: '' };
 // when `result.error` exists, and user stderr must survive that filter.
 let stderrBuffer: StreamBuffer = { method: 'warn', pending: '' };
 
+/**
+ * Verify R2-mirrored bytes against the build-time expected sha256 before
+ * compiling. Only the standalone web build fetches the runtime from the
+ * R2 mirror (the define is null otherwise), and only that path needs the
+ * check: a tampered bucket object must fail loudly here instead of being
+ * instantiated. The expected hash comes from the pnpm-lock-verified
+ * node_modules payload, computed in vite.web.config.mts.
+ */
+async function compileVerified(
+  response: Response,
+  expectedSha256: string
+): Promise<WebAssembly.Module> {
+  const bytes = await response.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const actual = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+  if (actual !== expectedSha256) {
+    throw new Error(
+      `Ruby runtime integrity check failed: expected sha256 ${expectedSha256}, got ${actual}. ` +
+        'The mirrored runtime asset does not match this build.'
+    );
+  }
+  return WebAssembly.compile(bytes);
+}
+
 async function loadRuby(): Promise<RubyVM> {
   if (vm) return vm;
 
@@ -107,7 +133,12 @@ async function loadRuby(): Promise<RubyVM> {
       `Failed to fetch Ruby runtime (${response.status} ${response.statusText})`
     );
   }
-  const wasmModule = await WebAssembly.compileStreaming(response);
+  const expectedSha256 = __LINGUA_RUBY_WASM_URL__
+    ? __LINGUA_RUBY_WASM_SHA256__
+    : null;
+  const wasmModule = expectedSha256
+    ? await compileVerified(response, expectedSha256)
+    : await WebAssembly.compileStreaming(response);
 
   // The consolePrinter overrides WASI `fd_write` for fd 1 (stdout) and
   // fd 2 (stderr) so writes flow through our callbacks instead of the

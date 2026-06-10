@@ -61,14 +61,19 @@ function createChildProcess() {
     stdout: EventEmitter;
     stderr: EventEmitter;
     stdin: {
+      // `on` mirrors the runtime contract: the runner attaches a stdin
+      // 'error' listener (async EPIPE guard) before writing.
+      on: ReturnType<typeof vi.fn>;
       write: ReturnType<typeof vi.fn>;
       end: ReturnType<typeof vi.fn>;
     };
     kill: ReturnType<typeof vi.fn>;
+    pid?: number;
   };
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
   child.stdin = {
+    on: vi.fn(),
     write: vi.fn(),
     end: vi.fn(),
   };
@@ -172,6 +177,50 @@ describe('main node runner', () => {
     expect(child.stdin.write).toHaveBeenCalledWith('hello\n');
     expect(child.stdin.end).toHaveBeenCalled();
   });
+
+  it.runIf(process.platform !== 'win32')(
+    'spawns a detached process-group leader on POSIX and group-kills the tree on stop',
+    async () => {
+      const child = createChildProcess();
+      child.pid = 4242;
+      mocks.spawn.mockReturnValue(child);
+      const processKill = vi
+        .spyOn(process, 'kill')
+        .mockImplementation(() => true);
+
+      try {
+        const { registerNodeJSHandlers } = await import(
+          '../../src/main/node-runner'
+        );
+        registerNodeJSHandlers();
+        const run = handlerFor<NodeRunHandler>('node:run');
+        const stop = handlerFor<NodeStopHandler>('node:stop');
+
+        const promise = run({}, 'setInterval(() => {}, 1000)', {
+          runId: 'run-tree',
+          timeoutMs: 30_000,
+        });
+        await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+
+        expect(mocks.spawn).toHaveBeenCalledWith(
+          'node',
+          expect.any(Array),
+          expect.objectContaining({ detached: true })
+        );
+
+        await expect(stop({}, 'run-tree')).resolves.toEqual({ stopped: true });
+        // The whole process group (-pid) gets the signal, not just the
+        // direct child — user code that forked must die with it.
+        expect(processKill).toHaveBeenCalledWith(-4242, 'SIGTERM');
+        expect(child.kill).not.toHaveBeenCalled();
+
+        child.emit('close', null);
+        await expect(promise).resolves.toMatchObject({ kind: 'stopped' });
+      } finally {
+        processKill.mockRestore();
+      }
+    }
+  );
 
   it('node:stop terminates the matching active child and resolves the run as stopped', async () => {
     const child = createChildProcess();

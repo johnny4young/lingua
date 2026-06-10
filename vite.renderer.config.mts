@@ -25,6 +25,11 @@ export default defineConfig({
     // Cloudflare Pages never receives >25 MiB single assets.
     __LINGUA_DUCKDB_MVP_WASM_URL__: JSON.stringify(null),
     __LINGUA_RUBY_WASM_URL__: JSON.stringify(null),
+    // Same-origin / bundled payloads skip runtime sha256 verification
+    // (integrity is covered by runtime-assets.lock.json + pnpm-lock);
+    // only the web build's R2-mirrored fetches carry expected hashes.
+    __LINGUA_DUCKDB_MVP_WASM_SHA256__: JSON.stringify(null),
+    __LINGUA_RUBY_WASM_SHA256__: JSON.stringify(null),
   },
   // Repo-root `.env` / `.env.production` are the canonical source for
   // VITE_* values across all build configs (renderer, web, main). When

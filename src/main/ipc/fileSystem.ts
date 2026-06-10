@@ -180,6 +180,38 @@ async function hasApprovedFile(absolutePath: string): Promise<boolean> {
   return false;
 }
 
+/**
+ * True when `absolutePath` intersects the user-approved filesystem scope:
+ * it IS an approved root (or exactly an approved file), lives INSIDE an
+ * approved root, or is an ANCESTOR of an approved root. The ancestor arm
+ * exists for the git read-only layer, where the repository toplevel of an
+ * approved project subfolder legitimately sits ABOVE the approved root
+ * (monorepo case: project opened at repo/packages/app, repoRoot = repo).
+ *
+ * Read-only consumers outside the rootId capability system (the git:*
+ * handlers) gate on this so a compromised renderer cannot point them at
+ * arbitrary disk locations — closing the one IPC door that previously
+ * accepted raw absolute paths with no approval check, and aligning git
+ * with the RL-077 defense-in-depth posture.
+ */
+export async function pathIntersectsApprovedScope(
+  absolutePath: string
+): Promise<boolean> {
+  await loadFilesystemApprovals();
+  const normalized = normalizeApprovalPath(absolutePath);
+  if (approvedRoots.has(normalized) || approvedFiles.has(normalized)) {
+    return true;
+  }
+  for (const root of approvedRoots) {
+    // Inside an approved root, or an ancestor of one. Intentionally NOT
+    // widened to ancestors of approved single files: the git layer only
+    // ever operates on project roots, and narrower is safer.
+    if (isPathWithinProject(normalized, root)) return true;
+    if (isPathWithinProject(root, normalized)) return true;
+  }
+  return false;
+}
+
 export function _resetFilesystemApprovalsForTests(): void {
   filesystemApprovalsLoaded = false;
   approvedRoots = new Set();

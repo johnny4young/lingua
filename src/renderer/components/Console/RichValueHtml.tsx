@@ -10,6 +10,11 @@
  *     so direct parent DOM / storage access is blocked. `postMessage`
  *     can still deliver opaque-origin messages, so parent listeners
  *     must keep their own discriminator + run-id gates.
+ *   - A document-level CSP meta (the same
+ *     `IFRAME_CONTENT_SECURITY_POLICY` the browser-preview iframe
+ *     injects) is prepended to the payload so scripts inside the
+ *     rich-HTML surface cannot fetch / XHR / WebSocket out — the two
+ *     sandboxed-iframe surfaces enforce one network posture.
  *   - `referrerpolicy="no-referrer"` so any in-iframe network call
  *     does not leak the parent URL.
  *
@@ -24,6 +29,7 @@ import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RichOutputHtml } from '../../../shared/richOutput';
 import { clampHtmlHeight, validateHtmlPayload } from '../../../shared/richOutput';
+import { IFRAME_CONTENT_SECURITY_POLICY } from '../BrowserPreview/iframeBridge';
 import { trackEvent } from '../../utils/telemetry';
 
 interface RichValueHtmlProps {
@@ -34,6 +40,17 @@ export function RichValueHtml({ payload }: RichValueHtmlProps) {
   const { t } = useTranslation();
   const validated = useMemo(() => validateHtmlPayload(payload.html), [payload.html]);
   const height = useMemo(() => clampHtmlHeight(payload.height), [payload.height]);
+  // Prepend the shared srcdoc CSP so this surface carries the same
+  // no-network policy as the browser-preview iframe. For the typical
+  // fragment payload the leading <meta> lands in the implied <head>
+  // and applies document-wide.
+  const framed = useMemo(
+    () =>
+      validated === null
+        ? null
+        : `<meta http-equiv="Content-Security-Policy" content="${IFRAME_CONTENT_SECURITY_POLICY}">${validated}`,
+    [validated]
+  );
 
   useEffect(() => {
     if (validated === null) {
@@ -64,7 +81,7 @@ export function RichValueHtml({ payload }: RichValueHtmlProps) {
         {t('console.rich.htmlSandboxed')}
       </span>
       <iframe
-        srcDoc={validated}
+        srcDoc={framed ?? undefined}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         title={t('console.rich.htmlSandboxed')}

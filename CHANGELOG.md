@@ -8,6 +8,17 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Security
 - **Notarized release gate**: The macOS release workflow now fails closed when a build is signed but not notarized and stapled (`xcrun stapler validate` plus a Gatekeeper `spctl` assessment), and a release-time guard rejects any macOS update package whose filename the update feed cannot resolve — closing the gap that previously stranded macOS auto-update. The full update signature chain (manifest to installer to on-disk binary) is now documented in `docs/RELEASE_SECURITY.md`.
+- **Git layer joins the filesystem sandbox**: The read-only git integration now only operates on repositories that intersect the folders you have explicitly opened (including the repository root above a monorepo subfolder); arbitrary paths are refused, aligning git with the capability sandbox the rest of the filesystem already enforces.
+- **Verified web runtimes**: The standalone web build now verifies the sha256 of the Ruby and DuckDB WebAssembly runtimes fetched from the download mirror before instantiating them, and the web deployment ships hardening response headers (no sniffing, no framing, no referrer leakage).
+- **Sandboxed HTML output locked down**: Rich HTML console payloads now carry the same no-network Content-Security-Policy as the browser preview, both app shells gain `base-uri`/`form-action` CSP directives, and preview messages are validated against a closed per-type shape before rendering.
+
+### Fixed
+- **Rust compiles as edition 2021**: Run and format-on-save now agree on the Rust edition — modern syntax (`async`, `dyn`, current `into_iter()` semantics) compiles instead of failing with edition-2015 errors.
+- **Lua can no longer freeze the app**: An infinite Lua loop now stops at the execution deadline with the standard timed-out message instead of permanently freezing the window, and unbounded `print` output is capped like every other language.
+- **Stopping runs kills the whole process tree**: Timing out or stopping a Node, Ruby, or Rust run now terminates any child processes the code spawned (with SIGKILL escalation), instead of leaving them running in the background.
+
+### Changed
+- **Faster startup**: The TypeScript transpiler (esbuild) now loads on the first TypeScript or Node-mode run instead of at boot, Go programs transfer their compiled WebAssembly to the worker without an intermediate copy, and closed Rust tabs release their editor models.
 
 ## [0.6.0] — 2026-06-08
 

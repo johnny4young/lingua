@@ -23,6 +23,8 @@
  * Pure module — no DOM, no Monaco, vitest-safe under node env.
  */
 
+import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
+
 export type AppendWatchLanguage = 'javascript' | 'typescript' | 'python';
 
 const WATCH_MARKER_RE: Record<AppendWatchLanguage, RegExp> = {
@@ -167,5 +169,5 @@ export function appendWatchAtLine(
  * languages with a localized notice instead of silently failing.
  */
 export function isAppendWatchSupported(language: string): language is AppendWatchLanguage {
-  return language === 'javascript' || language === 'typescript' || language === 'python';
+  return isWorkerRunnerLanguage(language);
 }

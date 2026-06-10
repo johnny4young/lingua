@@ -58,6 +58,7 @@ import {
   buildNativeRunnerEnv,
   combinedAllowlist,
 } from './runners/nativeEnv';
+import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
 
 const execFileAsync = promisify(childProc.execFile);
 
@@ -160,6 +161,10 @@ export async function detectNode(
   try {
     const { stdout } = await execFileAsync('node', ['--version'], {
       env: resolveNodeRunEnv(userEnv),
+      // A hung PATH shim (rustup-style proxy, corporate wrapper) must not
+      // wedge the detect IPC promise forever. Matches the LSP launchers'
+      // 5s probe convention.
+      timeout: 5_000,
     });
     result = { installed: true, version: stdout.trim() };
   } catch {
@@ -317,6 +322,10 @@ async function spawnNode(
       cwd,
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
+      // Process-group leader on POSIX so timeout/Stop can fell the whole
+      // tree (user code that forks/spawns) via killProcessTree, not just
+      // the direct child. See src/main/runners/processTree.ts.
+      ...detachedSpawnOptions(),
     });
 
     const terminateChild = (nextKind: 'timeout' | 'stopped') => {
@@ -327,18 +336,10 @@ async function spawnNode(
         stoppedByUser = true;
       }
       kind = nextKind;
-      try {
-        child.kill('SIGTERM');
-      } catch {
-        // Already exited.
-      }
+      killProcessTree(child, 'SIGTERM');
       if (escalationTimer === null) {
         escalationTimer = setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            // Already exited.
-          }
+          killProcessTree(child, 'SIGKILL');
         }, KILL_ESCALATION_DELAY_MS);
       }
     };
@@ -350,6 +351,16 @@ async function spawnNode(
     // Stdin: Slice 6 forwarding. Empty / undefined closes
     // immediately so user code that reads stdin without an end
     // handler hits EOF on first read.
+    //
+    // The write/end below is wrapped in try/catch for the SYNCHRONOUS
+    // already-destroyed case, but an EPIPE from a child that exits while
+    // the buffer flushes is delivered ASYNCHRONOUSLY as a stream 'error'
+    // event — without this listener it becomes an uncaught exception that
+    // crashes the main process. Mirrors formatters.ts. Best-effort stdin:
+    // the child not reading it is a normal outcome, never an error.
+    child.stdin.on('error', () => {
+      // EPIPE / ERR_STREAM_DESTROYED — child exited before consuming stdin.
+    });
     try {
       if (options.stdin && options.stdin.length > 0) {
         child.stdin.write(options.stdin);

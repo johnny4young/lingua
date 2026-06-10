@@ -90,7 +90,6 @@ test.describe('stdin / input — JS + TS + Python (RL-020 Slice 6)', () => {
       page,
       'const a = parseInt(prompt(), 10);\nconst b = parseInt(prompt(), 10);\na + b\n'
     );
-    await page.waitForTimeout(1_600);
 
     const rows = page.locator('[data-result-kind="autoLog"]');
     await expect(rows.first()).toBeVisible();
@@ -132,7 +131,6 @@ test.describe('stdin / input — JS + TS + Python (RL-020 Slice 6)', () => {
       page,
       'try { prompt(); } catch (e) { console.error(e.message); }\n'
     );
-    await page.waitForTimeout(1_600);
 
     const console = page.locator('text=prompt is not defined');
     // jsdom workers don't ship `prompt`. The empty-buffer path

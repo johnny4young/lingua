@@ -6,6 +6,7 @@ import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
+import { isJavaScriptFamily } from '../../../shared/languageFamilies';
 
 /**
  * RL-019 Slice 3 — bottom-panel surface for the Browser preview
@@ -35,8 +36,7 @@ export function BrowserPreviewPanel() {
     : error
       ? 'browserPreview.runtimeError'
       : 'browserPreview.empty';
-  const isJsTsTab =
-    activeTab?.language === 'javascript' || activeTab?.language === 'typescript';
+  const isJsTsTab = isJavaScriptFamily(activeTab?.language);
   const isBrowserPreviewMode = activeTab?.runtimeMode === 'browser-preview';
 
   // Registration lifecycle. Strict-Mode-safe: snapshot the ref at

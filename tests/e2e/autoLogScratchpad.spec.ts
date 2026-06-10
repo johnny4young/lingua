@@ -71,8 +71,9 @@ test.describe('expression auto-log (RL-020 Slice 5)', () => {
       page,
       'const x = 5;\nconst y = 10;\nx + y\nx * y\n'
     );
-    await page.waitForTimeout(1_400);
 
+    // rows.first() toBeVisible below is the sync point for the
+    // debounced auto-run; no fixed wait needed.
     const rows = page.locator('[data-result-kind="autoLog"]');
     await expect(rows.first()).toBeVisible();
     // Two bare expressions → two auto-log rows surfaced.
@@ -113,7 +114,6 @@ test.describe('expression auto-log (RL-020 Slice 5)', () => {
     await createJavaScriptTab(page);
 
     await replaceEditorText(page, 'const x = 5;\nx + 1\n');
-    await page.waitForTimeout(1_400);
 
     await expect(
       page.locator('[data-result-kind="autoLog-pill"]')

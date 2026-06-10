@@ -1,6 +1,10 @@
 import type { FileTab, Language } from '../types';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers';
+import {
+  isJavaScriptFamily,
+  isWorkerRunnerLanguage,
+} from '../../shared/languageFamilies';
 
 /**
  * RL-128 — pure tab helpers extracted verbatim from `editorStore.ts`.
@@ -32,7 +36,7 @@ export function notebookFileNameForTitle(title: string): string {
 }
 
 export function languageSupportsAutoLog(language: Language): boolean {
-  return language === 'javascript' || language === 'typescript';
+  return isJavaScriptFamily(language);
 }
 
 export function dropAutoLogIfUnsupported<T extends FileTab>(tab: T): T {
@@ -51,7 +55,7 @@ export function dropAutoLogIfUnsupported<T extends FileTab>(tab: T): T {
  * different.
  */
 export function languageSupportsStdin(language: Language): boolean {
-  return language === 'javascript' || language === 'typescript' || language === 'python';
+  return isWorkerRunnerLanguage(language);
 }
 
 export function dropStdinIfUnsupported<T extends FileTab>(tab: T): T {

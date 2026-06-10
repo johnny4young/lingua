@@ -11,6 +11,7 @@ import { ipcMain } from 'electron';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
+import { RUST_EDITION } from './rust-compiler';
 
 const execFileAsync = promisify(execFile);
 const FORMATTER_TOOLCHAIN_KEYS = combinedAllowlist([]);
@@ -40,20 +41,38 @@ export interface FormatFailure {
 
 export type FormatIpcResult = FormatBinaryMissing | FormatSuccess | FormatFailure;
 
-const availabilityCache = new Map<string, boolean>();
+/**
+ * Negative probe results expire so a user who installs a formatter while
+ * Lingua is running recovers on the next format attempt instead of staying
+ * stuck on binary-missing until an app restart. Positive results stay
+ * cached for the process lifetime — an installed binary does not vanish.
+ */
+const NEGATIVE_PROBE_TTL_MS = 30_000;
+
+const availabilityCache = new Map<
+  string,
+  { available: boolean; probedAt: number }
+>();
 
 async function isBinaryAvailable(binary: string): Promise<boolean> {
   const cached = availabilityCache.get(binary);
   if (cached !== undefined) {
-    return cached;
+    if (cached.available) return true;
+    if (Date.now() - cached.probedAt < NEGATIVE_PROBE_TTL_MS) return false;
+    // Negative entry expired — fall through and re-probe.
   }
 
   try {
-    await execFileAsync(binary, ['--version'], { env: resolveFormatterEnv() });
-    availabilityCache.set(binary, true);
+    await execFileAsync(binary, ['--version'], {
+      env: resolveFormatterEnv(),
+      // A hung PATH shim must not wedge format-on-save forever. Matches
+      // the LSP launchers' 5s probe convention.
+      timeout: 5_000,
+    });
+    availabilityCache.set(binary, { available: true, probedAt: Date.now() });
     return true;
   } catch {
-    availabilityCache.set(binary, false);
+    availabilityCache.set(binary, { available: false, probedAt: Date.now() });
     return false;
   }
 }
@@ -173,7 +192,11 @@ async function formatWithRustfmt(source: string): Promise<FormatIpcResult> {
         'rustfmt is not available on PATH. Install it via `rustup component add rustfmt` to enable Rust formatting.',
     };
   }
-  return runFormatter('rustfmt', ['--emit', 'stdout', '--edition', '2021'], source);
+  return runFormatter(
+    'rustfmt',
+    ['--emit', 'stdout', '--edition', RUST_EDITION],
+    source
+  );
 }
 
 /**

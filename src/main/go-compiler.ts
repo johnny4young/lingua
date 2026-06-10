@@ -47,7 +47,13 @@ function compileTruncationMarker(messages?: NativeRunnerMessages): string {
 
 interface GoCompileResult {
   success: boolean;
-  wasmBytes?: number[];
+  /**
+   * Compiled WASM as a typed array — Electron structured clone ships it
+   * natively over IPC (the previous number[] expanded a 10 MiB wasm into
+   * a ~10M-element array, ~8x memory amplification per copy). Mirrors
+   * the renderer-facing declaration in src/types.d.ts.
+   */
+  wasmBytes?: Uint8Array;
   wasmExecJs?: string;
   error?: string;
   goVersion?: string;
@@ -103,11 +109,19 @@ export function resolveGoToolchainEnv(
 async function detectGo(userEnv?: Record<string, string>): Promise<GoDetectResult> {
   try {
     const env = resolveGoToolchainEnv(userEnv);
-    const { stdout } = await execFileAsync('go', ['version'], { env });
+    // 5s probe timeout: a hung PATH shim must not wedge the detect IPC
+    // promise forever. Matches the LSP launchers' convention.
+    const { stdout } = await execFileAsync('go', ['version'], {
+      env,
+      timeout: 5_000,
+    });
     const version = stdout.trim();
 
     // Get GOROOT for wasm_exec.js
-    const { stdout: goRoot } = await execFileAsync('go', ['env', 'GOROOT'], { env });
+    const { stdout: goRoot } = await execFileAsync('go', ['env', 'GOROOT'], {
+      env,
+      timeout: 5_000,
+    });
 
     return {
       installed: true,
@@ -189,9 +203,16 @@ async function compileGoToWasm(
       };
     }
 
-    // Read the compiled WASM
+    // Read the compiled WASM. Keep it a typed array end to end: Electron's
+    // structured clone ships Uint8Array natively, whereas the previous
+    // Array.from(...) expanded a 10 MiB wasm into a ~10M-element number[]
+    // (~8x memory amplification serialized twice — IPC + worker postMessage).
     const wasmBuffer = await readFile(wasmFile);
-    const wasmBytes = Array.from(new Uint8Array(wasmBuffer));
+    const wasmBytes = new Uint8Array(
+      wasmBuffer.buffer,
+      wasmBuffer.byteOffset,
+      wasmBuffer.byteLength
+    );
 
     const { source: wasmExecJs } = await readWasmExecJs(goInfo.goRoot);
 

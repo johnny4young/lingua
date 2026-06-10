@@ -10,6 +10,7 @@
 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,10 +43,29 @@ const webRuntimeBase = (
 const duckdbWasmVersion = readPackageVersion('node_modules/@duckdb/duckdb-wasm/package.json');
 const rubyWasmVersion = readPackageVersion('node_modules/@ruby/3.4-wasm-wasi/package.json');
 
+/**
+ * Build-time sha256 (hex) of a runtime WASM payload, computed from the SAME
+ * `node_modules` file deploy-web.yml uploads to R2. pnpm verifies the package
+ * tarball against the integrity pins in pnpm-lock.yaml at install time, so
+ * this hash is a trusted expected value — the workers compare the bytes they
+ * fetch from the R2 mirror against it before instantiation, closing the gap
+ * where a tampered bucket object would have been executed unchecked.
+ */
+function sha256OfRuntimeAsset(relativePath: string): string {
+  const bytes = readFileSync(path.resolve(__dirname, relativePath));
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
 export default defineConfig(({ command }) => {
   const useExternalWebRuntime = command === 'build';
   const duckdbWasmUrl = `${webRuntimeBase}/duckdb/${duckdbWasmVersion}/duckdb-mvp.wasm`;
   const rubyWasmUrl = `${webRuntimeBase}/ruby/${rubyWasmVersion}/ruby+stdlib.wasm`;
+  const duckdbWasmSha256 = useExternalWebRuntime
+    ? sha256OfRuntimeAsset('node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm')
+    : null;
+  const rubyWasmSha256 = useExternalWebRuntime
+    ? sha256OfRuntimeAsset('node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm')
+    : null;
 
   return {
     base,
@@ -62,6 +82,11 @@ export default defineConfig(({ command }) => {
       // the same-origin Vite middleware/assets.
       __LINGUA_DUCKDB_MVP_WASM_URL__: JSON.stringify(useExternalWebRuntime ? duckdbWasmUrl : null),
       __LINGUA_RUBY_WASM_URL__: JSON.stringify(useExternalWebRuntime ? rubyWasmUrl : null),
+      // Expected sha256 of the R2-mirrored payloads (null when serving
+      // same-origin assets, which skip runtime verification — they are
+      // covered by runtime-assets.lock.json / pnpm-lock integrity).
+      __LINGUA_DUCKDB_MVP_WASM_SHA256__: JSON.stringify(duckdbWasmSha256),
+      __LINGUA_RUBY_WASM_SHA256__: JSON.stringify(rubyWasmSha256),
     },
     root: path.resolve(__dirname, 'src/web'),
     // Repo-root `.env` / `.env.production` are the canonical source for

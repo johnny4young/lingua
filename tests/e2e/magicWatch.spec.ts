@@ -69,9 +69,8 @@ test.describe('@watch magic-comment pin (RL-020 Slice 3)', () => {
     await createJavaScriptTab(page);
     await seedWatchBuffer(page);
 
-    // Wait past the debounce so the seeded template auto-runs.
-    await page.waitForTimeout(1_400);
-
+    // No fixed debounce wait — the toBeVisible below auto-retries (10s
+    // expect timeout) and is the sync point for the seeded auto-run.
     // Pin watch must surface from the default seed alone.
     const watch = page.locator('[data-result-kind="watch"]').first();
     await expect(watch).toBeVisible();
@@ -86,9 +85,9 @@ test.describe('@watch magic-comment pin (RL-020 Slice 3)', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
     await seedWatchBuffer(page);
-    await page.waitForTimeout(1_400);
 
-    // Sanity — the watch is on screen before we break anything.
+    // Sanity — the watch is on screen before we break anything. This
+    // toBeVisible also waits out the seeded auto-run's debounce.
     await expect(page.locator('[data-result-kind="watch"]').first()).toBeVisible();
 
     // Append a clearly-incomplete fragment at the END of the seeded
@@ -96,9 +95,8 @@ test.describe('@watch magic-comment pin (RL-020 Slice 3)', () => {
     // the snapshot-restore). The trailing `+` operator triggers the
     // Slice 1 gate cleanly.
     await appendToEditor(page, '\nconst y = 1 +');
-    await page.waitForTimeout(1_400);
 
-    // Gate notice appears.
+    // Gate notice appears (toBeVisible waits out the debounce).
     await expect(page.getByTestId('auto-run-gate-notice')).toBeVisible();
     // Watch SURVIVES the gated keystroke (Slice 1 snapshot restore).
     await expect(page.locator('[data-result-kind="watch"]').first()).toBeVisible();

@@ -51,10 +51,8 @@ test.describe('Auto-run completion gate (RL-020 Slice 1)', () => {
 
     await replaceEditorText(page, 'for (let i = ');
 
-    // Wait past the debounce window so the gate runs.
-    await page.waitForTimeout(1_400);
-
-    // The ambient gate notice surfaces with the default-variant copy.
+    // The ambient gate notice surfaces with the default-variant copy
+    // (toBeVisible auto-retries past the debounce window).
     const notice = page.getByTestId('auto-run-gate-notice');
     await expect(notice).toBeVisible();
     await expect(notice).toHaveAttribute('data-gate-variant', 'default');
@@ -73,7 +71,6 @@ test.describe('Auto-run completion gate (RL-020 Slice 1)', () => {
     // doesn't intervene and we don't have to wrestle with cursor
     // position. `const x = ` clearly ends on `=`.
     await replaceEditorText(page, 'const x = ');
-    await page.waitForTimeout(1_400);
     await expect(page.getByTestId('auto-run-gate-notice')).toBeVisible();
 
     // Replace the buffer with the completed form (rather than
@@ -100,7 +97,6 @@ test.describe('Auto-run completion gate (RL-020 Slice 1)', () => {
     // Same no-bracket trailing-operator shape so Monaco auto-pair
     // doesn't muddy the assertion. `document.title = ` ends on `=`.
     await replaceEditorText(page, 'document.title = ');
-    await page.waitForTimeout(1_400);
 
     const notice = page.getByTestId('auto-run-gate-notice');
     await expect(notice).toBeVisible();

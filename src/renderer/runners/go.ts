@@ -124,7 +124,11 @@ export class GoRunner implements LanguageRunner {
       };
     }
 
-    // Step 2: Execute the WASM in a Web Worker
+    // Step 2: Execute the WASM in a Web Worker. Capture the payload in
+    // locals after the guard above — TS narrowing does not survive into
+    // the Promise executor closure below.
+    const wasmBytes = compileResult.wasmBytes;
+    const wasmExecJs = compileResult.wasmExecJs;
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     let error: ExecutionError | undefined;
@@ -239,13 +243,19 @@ export class GoRunner implements LanguageRunner {
         finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
       }, timeout);
 
-      this.worker.postMessage({
-        type: 'execute',
-        runId,
-        wasmBytes: compileResult.wasmBytes,
-        wasmExecJs: compileResult.wasmExecJs,
-        timeout,
-      });
+      // Transfer the WASM buffer instead of structured-cloning it — the
+      // worker takes ownership (zero-copy) and the renderer-side copy is
+      // per-run scratch that is never read again after this call.
+      this.worker.postMessage(
+        {
+          type: 'execute',
+          runId,
+          wasmBytes,
+          wasmExecJs,
+          timeout,
+        },
+        [wasmBytes.buffer]
+      );
     });
   }
 

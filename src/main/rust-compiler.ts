@@ -31,8 +31,29 @@ import {
   buildNativeRunnerEnv,
   combinedAllowlist,
 } from './runners/nativeEnv';
+import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Rust edition passed to BOTH rustc (compile) and rustfmt (format-on-save,
+ * src/main/formatters.ts). rustc defaults to edition 2015 when no flag is
+ * passed, which silently rejects `async`/`await`/`dyn` and changes
+ * `into_iter()` semantics — while every real-world cargo project (and our
+ * own formatter) assumes 2021. Keeping a single constant means the compile
+ * and format paths cannot drift apart again.
+ */
+export const RUST_EDITION = '2021';
+
+/** Wall-clock budget for the compiled user binary. */
+const RUST_RUN_TIMEOUT_MS = 30_000;
+
+/**
+ * SIGTERM → SIGKILL escalation window after the run timeout fires. A
+ * compiled binary has no interpreter shutdown hooks worth waiting for;
+ * matches the Node runner's 200 ms convention.
+ */
+const KILL_ESCALATION_DELAY_MS = 200;
 
 const COMPILE_TRUNCATION_MARKER = '\n[Compile output truncated]';
 const RUNTIME_STDOUT_TRUNCATION_MARKER = '\n[stdout truncated]';
@@ -86,6 +107,9 @@ async function detectRust(userEnv?: Record<string, string>): Promise<RustDetectR
   try {
     const { stdout } = await execFileAsync('rustc', ['--version'], {
       env: resolveRustRunEnv(userEnv),
+      // A hung rustup shim must not wedge the detect IPC promise forever.
+      // Matches the LSP launchers' 5s probe convention.
+      timeout: 5_000,
     });
     return { installed: true, version: stdout.trim() };
   } catch {
@@ -133,10 +157,14 @@ async function runRustCode(
     // --- Compile ---
     const compileStart = Date.now();
     try {
-      await execFileAsync('rustc', [sourceFile, '-o', binaryFile], {
-        env: mergedEnv,
-        timeout: 60_000, // compilation can be slow on first run
-      });
+      await execFileAsync(
+        'rustc',
+        ['--edition', RUST_EDITION, sourceFile, '-o', binaryFile],
+        {
+          env: mergedEnv,
+          timeout: 60_000, // compilation can be slow on first run
+        }
+      );
     } catch (compileErr) {
       const stderrRaw =
         (compileErr as { stderr?: string })?.stderr ?? String(compileErr);
@@ -162,8 +190,28 @@ async function runRustCode(
       let stderr = '';
       let stdoutTruncated = false;
       let stderrTruncated = false;
+      let escalationTimer: NodeJS.Timeout | null = null;
 
-      const child = spawn(binaryFile, [], { env: mergedEnv, timeout: 30_000 });
+      // Process-group leader on POSIX so the timeout can fell the whole
+      // tree (user binaries that fork/spawn), with SIGTERM → SIGKILL
+      // escalation — spawn's built-in `timeout` option only ever sent a
+      // single SIGTERM, which a signal-ignoring binary survives forever.
+      const child = spawn(binaryFile, [], {
+        env: mergedEnv,
+        ...detachedSpawnOptions(),
+      });
+
+      const killTimer = setTimeout(() => {
+        killProcessTree(child, 'SIGTERM');
+        escalationTimer = setTimeout(() => {
+          killProcessTree(child, 'SIGKILL');
+        }, KILL_ESCALATION_DELAY_MS);
+      }, RUST_RUN_TIMEOUT_MS);
+
+      const clearKillTimers = () => {
+        clearTimeout(killTimer);
+        if (escalationTimer !== null) clearTimeout(escalationTimer);
+      };
 
       child.stdout.on('data', (chunk: Buffer) => {
         if (stdoutTruncated) return;
@@ -192,6 +240,7 @@ async function runRustCode(
       });
 
       child.on('close', (code: number | null) => {
+        clearKillTimers();
         const exitCode = code ?? -1;
         resolve({
           success: exitCode === 0,
@@ -207,6 +256,7 @@ async function runRustCode(
       });
 
       child.on('error', (err: Error) => {
+        clearKillTimers();
         resolve({
           success: false,
           stdout,

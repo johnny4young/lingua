@@ -184,6 +184,15 @@ edit by hand. To change a row, edit the array + re-run the test
 - **Treat the current state as hybrid/gated.** The interpreter itself is
   portable, yet the product surface is still constrained by the conservative
   local-plugin model documented in `README.md`.
+- **Fengari is pinned-and-unmaintained — known, accepted.** `fengari@0.1.5`
+  has had no meaningful upstream release activity for years, so there is no
+  security patch stream for the Lua VM. Accepted under the RL-144 trust
+  model (the interpreter runs the user's OWN code in the trusted renderer;
+  no hostile input crosses it), and the runner enforces its own
+  deadline/output limits via a `lua_sethook` instruction hook
+  (`src/renderer/plugins/lua-runner.ts`). Revisit if a maintained
+  Lua-in-WASM alternative (e.g. wasmoon) becomes worth the migration —
+  the dependency review should not have to rediscover this.
 
 ### Ruby
 - **Browser WASM via `@ruby/wasm-wasi` is the shipping default.** RL-042

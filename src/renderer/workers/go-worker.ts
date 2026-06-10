@@ -65,8 +65,12 @@ declare function importScripts(...urls: string[]): void;
         };
 
         // Compile and instantiate the WASM module
-        // Two-step avoids the BufferSource vs Module overload ambiguity in TypeScript
-        const wasmBuffer = new Uint8Array(wasmBytes);
+        // Two-step avoids the BufferSource vs Module overload ambiguity in
+        // TypeScript. The renderer transfers the Uint8Array's buffer
+        // (zero-copy); the constructor arm survives as a defensive fallback
+        // for any caller still cloning a plain number[].
+        const wasmBuffer =
+          wasmBytes instanceof Uint8Array ? wasmBytes : new Uint8Array(wasmBytes);
         const wasmModule = await WebAssembly.compile(wasmBuffer);
         const wasmInstance = await WebAssembly.instantiate(wasmModule, go.importObject);
 

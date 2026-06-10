@@ -62,6 +62,7 @@ vi.mock('electron', () => ({
 
 import {
   _resetFilesystemApprovalsForTests,
+  pathIntersectsApprovedScope,
   registerFileSystemHandlers,
 } from '../../src/main/ipc/fileSystem';
 import {
@@ -1295,5 +1296,50 @@ describe('fs:importBundle', () => {
     });
     showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] });
     expect(await invoke('fs:importBundle', zip)).toEqual({ canceled: true });
+  });
+});
+
+// RL-102 hardening — the approved-scope intersection that gates the git
+// read-only IPC layer (src/main/ipc/git.ts). Exercised against the REAL
+// approvals registry via the same picker flow production uses.
+describe('pathIntersectsApprovedScope', () => {
+  it('matches the approved root itself, its children, and its ancestors', async () => {
+    const project = path.join(tmpRoot, 'monorepo', 'packages', 'app');
+    await mkdir(project, { recursive: true });
+    await approveRoot(project);
+
+    // Exact root.
+    expect(await pathIntersectsApprovedScope(project)).toBe(true);
+    // Inside the root.
+    expect(
+      await pathIntersectsApprovedScope(path.join(project, 'src', 'main.ts'))
+    ).toBe(true);
+    // Ancestor of the root — the monorepo repoRoot case.
+    expect(
+      await pathIntersectsApprovedScope(path.join(tmpRoot, 'monorepo'))
+    ).toBe(true);
+  });
+
+  it('rejects siblings, false prefixes, and unrelated paths', async () => {
+    const project = path.join(tmpRoot, 'proj');
+    await mkdir(project, { recursive: true });
+    await approveRoot(project);
+
+    // Sibling directory.
+    expect(
+      await pathIntersectsApprovedScope(path.join(tmpRoot, 'other'))
+    ).toBe(false);
+    // False prefix: projextra starts with proj but is not inside it.
+    expect(
+      await pathIntersectsApprovedScope(path.join(tmpRoot, 'projextra'))
+    ).toBe(false);
+    // Entirely unrelated repo elsewhere on disk.
+    expect(await pathIntersectsApprovedScope('/somewhere/else/repo')).toBe(
+      false
+    );
+  });
+
+  it('rejects everything when nothing has been approved', async () => {
+    expect(await pathIntersectsApprovedScope(tmpRoot)).toBe(false);
   });
 });

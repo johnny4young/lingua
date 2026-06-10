@@ -19,6 +19,19 @@ declare module 'fengari' {
     LUA_TBOOLEAN: number;
     LUA_TNUMBER: number;
     LUA_TSTRING: number;
+    /** Debug-hook mask: fire the hook every `count` VM instructions. */
+    LUA_MASKCOUNT: number;
+    /**
+     * Install a debug hook. With `LUA_MASKCOUNT` the hook fires every
+     * `count` instructions — the only interruption point for the
+     * synchronous Lua runner's deadline enforcement.
+     */
+    lua_sethook: (
+      state: FengariLuaState,
+      hook: (state: FengariLuaState, debugInfo?: unknown) => void,
+      mask: number,
+      count: number
+    ) => void;
     lua_close: (state: FengariLuaState) => void;
     lua_gettop: (state: FengariLuaState) => number;
     lua_type: (state: FengariLuaState, index: number) => number;
@@ -45,6 +58,12 @@ declare module 'fengari' {
     luaL_newstate: () => FengariLuaState | null;
     luaL_loadstring: (state: FengariLuaState, source: Uint8Array) => number;
     luaL_tolstring: (state: FengariLuaState, index: number) => void;
+    /**
+     * Raise a Lua error from a JS function/hook. Unwinds through the
+     * active `lua_pcall` (fengari implements the longjmp as a JS throw),
+     * leaving the message on the stack. Never returns.
+     */
+    luaL_error: (state: FengariLuaState, fmt: Uint8Array) => number;
   }
 
   export interface FengariLualibApi {
@@ -72,7 +91,13 @@ interface GoDetectResult {
 
 interface GoCompileResult {
   success: boolean;
-  wasmBytes?: number[];
+  /**
+   * Compiled WASM payload as a typed array (Electron structured clone
+   * ships it natively; the renderer forwards the underlying buffer to
+   * the Go worker as a transferable, so no number[] expansion happens
+   * anywhere on the path).
+   */
+  wasmBytes?: Uint8Array;
   wasmExecJs?: string;
   error?: string;
   goVersion?: string;
@@ -1143,5 +1168,13 @@ declare const __LINGUA_LICENSE_PUBLIC_KEY_JWK__: string | undefined;
 declare const __LINGUA_LICENSE_SERVER_URL__: string | undefined;
 declare const __LINGUA_DUCKDB_MVP_WASM_URL__: string | null | undefined;
 declare const __LINGUA_RUBY_WASM_URL__: string | null | undefined;
+/**
+ * Expected sha256 (hex) of the R2-mirrored WASM payloads, computed at
+ * build time from the pnpm-lock-verified node_modules files. Non-null
+ * only in the standalone web build; the workers verify fetched bytes
+ * against these before instantiation.
+ */
+declare const __LINGUA_DUCKDB_MVP_WASM_SHA256__: string | null | undefined;
+declare const __LINGUA_RUBY_WASM_SHA256__: string | null | undefined;
 declare const __LINGUA_PYODIDE_INDEX_URL__: string | null | undefined;
 declare const __LINGUA_E2E_HOOKS__: boolean | undefined;

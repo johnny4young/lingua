@@ -32,6 +32,8 @@
  * comment, non-whitespace token by source order).
  */
 
+import { isJavaScriptFamily } from './languageFamilies';
+
 export type AutoRunGateReason = 'empty' | 'incomplete' | 'ok';
 
 export interface AutoRunGateResult {
@@ -43,12 +45,13 @@ export interface AutoRunGateResult {
  * The shape of a `Language` value we care about. Stays string-typed
  * so this module never depends on the renderer's `LANGUAGE_PACKS`
  * registry — keeps the bundle clean for tests + the future
- * standalone bench fixture.
+ * standalone bench fixture. `isJavaScriptFamily` is the same shared,
+ * registry-free predicate, so the import does not break that contract.
  */
 type GatedLanguage = 'javascript' | 'typescript';
 
 function isGatedLanguage(language: string): language is GatedLanguage {
-  return language === 'javascript' || language === 'typescript';
+  return isJavaScriptFamily(language);
 }
 
 /**

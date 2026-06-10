@@ -21,7 +21,13 @@ import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 interface FakeChild extends EventEmitter {
-  stdin: { write: ReturnType<typeof vi.fn>; writable: boolean };
+  stdin: {
+    // `on` mirrors the runtime contract: LspProcess attaches a stdin
+    // 'error' listener (async EPIPE guard) right after spawn.
+    on: ReturnType<typeof vi.fn>;
+    write: ReturnType<typeof vi.fn>;
+    writable: boolean;
+  };
   stdout: EventEmitter;
   stderr: EventEmitter;
   kill: ReturnType<typeof vi.fn>;
@@ -29,7 +35,7 @@ interface FakeChild extends EventEmitter {
 
 function createFakeChild(): FakeChild {
   const child = new EventEmitter() as FakeChild;
-  child.stdin = { write: vi.fn(() => true), writable: true };
+  child.stdin = { on: vi.fn(), write: vi.fn(() => true), writable: true };
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
   child.kill = vi.fn(() => {

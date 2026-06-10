@@ -60,14 +60,19 @@ function createChildProcess() {
     stdout: EventEmitter;
     stderr: EventEmitter;
     stdin: {
+      // `on` mirrors the runtime contract: the runner attaches a stdin
+      // 'error' listener (async EPIPE guard) before writing.
+      on: ReturnType<typeof vi.fn>;
       write: ReturnType<typeof vi.fn>;
       end: ReturnType<typeof vi.fn>;
     };
     kill: ReturnType<typeof vi.fn>;
+    pid?: number;
   };
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
   child.stdin = {
+    on: vi.fn(),
     write: vi.fn(),
     end: vi.fn(),
   };

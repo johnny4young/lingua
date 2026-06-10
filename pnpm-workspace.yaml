@@ -58,6 +58,14 @@ overrides:
   # makers — so the release-blocking `pnpm audit --prod` was already
   # clean. Force the patched 0.2.7 anyway to clear the advisory from the
   # full (advisory) audit and keep the dev toolchain off the vulnerable
-  # range. (tar's open advisories flag every published version, so there
-  # is no fixed range to pin yet; it stays dev-only + advisory.)
+  # range.
+  #
+  # tar: the six open node-tar advisories now DO publish fixed releases
+  # (worst-case floor >=7.5.11) — an older note here claimed no fixed
+  # range existed, which is stale. The pin is still deliberately NOT
+  # applied: every path to tar runs through dev-only @electron/rebuild →
+  # node-gyp/cacache, which declare tar@^6, and forcing the 6→7 major
+  # across them needs a full make:desktop validation on every release
+  # platform before it can be trusted. `pnpm audit --prod` stays clean;
+  # re-check on the next @electron-forge bump (see the TODO above).
   "tmp": "^0.2.7"

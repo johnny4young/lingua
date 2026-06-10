@@ -1,4 +1,3 @@
-import * as esbuild from 'esbuild-wasm';
 import i18next from 'i18next';
 import type {
   LanguageRunner,
@@ -45,12 +44,11 @@ import {
   runnerTimeoutResult,
   type TranslateFn,
 } from './limits';
+import { loadEsbuild } from './esbuildLoader';
 
 // RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the runner
 // resolves the deadline from the per-language Settings preset on
 // every call to `execute()`.
-
-let esbuildInitialized = false;
 
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
@@ -96,12 +94,9 @@ export class TypeScriptRunner implements LanguageRunner {
   }
 
   async init(): Promise<void> {
-    if (!esbuildInitialized) {
-      await esbuild.initialize({
-        wasmURL: new URL('esbuild-wasm/esbuild.wasm', import.meta.url).href,
-      });
-      esbuildInitialized = true;
-    }
+    // Lazy-loads + initializes esbuild-wasm exactly once across all
+    // runners (see esbuildLoader.ts) so the chunk stays off the boot path.
+    await loadEsbuild();
     this.ready = true;
   }
 
@@ -122,6 +117,7 @@ export class TypeScriptRunner implements LanguageRunner {
     withMap = false
   ): Promise<{ js: string; map?: string; error?: ExecutionError }> {
     try {
+      const esbuild = await loadEsbuild();
       const result = await esbuild.transform(code, {
         loader: 'tsx',
         target: 'es2022',

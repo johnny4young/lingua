@@ -22,21 +22,23 @@
  * modes are implemented as of 2026-05-14.
  */
 
+import { isJavaScriptFamily } from './languageFamilies';
+
 export const RUNTIME_MODES = ['worker', 'node', 'browser-preview'] as const;
 export type RuntimeMode = (typeof RUNTIME_MODES)[number];
 
 const RUNTIME_MODE_SET: ReadonlySet<string> = new Set(RUNTIME_MODES);
 
-const JS_TS_LANGUAGES: ReadonlySet<string> = new Set(['javascript', 'typescript']);
-
 /**
  * Languages for which the per-tab runtime-mode selector applies.
- * Mirror this with the Toolbar render guard. Adding a language to
- * this set requires (1) the runner registry to honour the mode and
- * (2) a CAPABILITY_MATRIX update.
+ * Mirror this with the Toolbar render guard. Adding a language to the
+ * runtime-mode surface requires (1) the runner registry to honour the
+ * mode, (2) a CAPABILITY_MATRIX update, and (3) — if it is a new JS
+ * dialect — membership in `JS_FAMILY_LANGUAGES`. Today the surface is
+ * exactly the JS family, so this delegates to `isJavaScriptFamily`.
  */
 export function languageHasRuntimeModes(language: string | undefined): boolean {
-  return typeof language === 'string' && JS_TS_LANGUAGES.has(language);
+  return isJavaScriptFamily(language);
 }
 
 /**

@@ -54,6 +54,7 @@ import {
   MAX_NATIVE_STDERR_BYTES,
   truncateBytes,
 } from '../shared/runnerLimits';
+import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
 import {
   RUBY_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -171,6 +172,10 @@ export async function detectRuby(
   try {
     const { stdout } = await execFileAsync('ruby', ['--version'], {
       env: resolveRubyRunEnv(userEnv),
+      // A hung PATH shim (rbenv proxy, corporate wrapper) must not wedge
+      // the detect IPC promise forever. Matches the LSP launchers' 5s
+      // probe convention.
+      timeout: 5_000,
     });
     const version = stdout.trim();
     const { semver, platform } = parseRubyVersion(version);
@@ -341,6 +346,10 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
       cwd,
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
+      // Process-group leader on POSIX so timeout/Stop can fell the whole
+      // tree (user code that forks/spawns) via killProcessTree, not just
+      // the direct child. See src/main/runners/processTree.ts.
+      ...detachedSpawnOptions(),
     });
 
     const terminateChild = (nextKind: 'timeout' | 'stopped') => {
@@ -351,18 +360,10 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
         stoppedByUser = true;
       }
       kind = nextKind;
-      try {
-        child.kill('SIGTERM');
-      } catch {
-        // Already exited.
-      }
+      killProcessTree(child, 'SIGTERM');
       if (escalationTimer === null) {
         escalationTimer = setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            // Already exited.
-          }
+          killProcessTree(child, 'SIGKILL');
         }, KILL_ESCALATION_DELAY_MS);
       }
     };
@@ -375,6 +376,15 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
     // Node + Pyodide). Empty / undefined closes immediately so user
     // code that reads stdin without an end handler hits EOF on first
     // `gets` call (stock Ruby behavior).
+    //
+    // The try/catch covers the SYNCHRONOUS already-destroyed throw, but an
+    // EPIPE from a child that exits while the buffer flushes arrives
+    // ASYNCHRONOUSLY as a stream 'error' event — without this listener it
+    // is an uncaught exception that crashes the main process. Mirrors
+    // formatters.ts / node-runner.ts.
+    child.stdin.on('error', () => {
+      // EPIPE / ERR_STREAM_DESTROYED — child exited before consuming stdin.
+    });
     try {
       if (options.stdin && options.stdin.length > 0) {
         child.stdin.write(options.stdin);

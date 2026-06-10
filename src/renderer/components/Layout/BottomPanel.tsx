@@ -23,6 +23,7 @@ import { RecipeRunPanel } from '../Recipes/RecipeRunPanel';
 import { getRecipeById } from '../../data/recipes';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
+import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { Tooltip } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -67,9 +68,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   const stdinAvailable =
     showStdinPanelSetting &&
     activeRuntimeMode !== 'browser-preview' &&
-    (activeLanguage === 'javascript' ||
-      activeLanguage === 'typescript' ||
-      activeLanguage === 'python');
+    isWorkerRunnerLanguage(activeLanguage);
   // RL-093 Slice 3 — bottom-panel Variables tab is only offered when:
   // the user picked the bottom surface, the language supports the
   // inspector, a scope snapshot exists, and the per-tab flag is on.
@@ -79,9 +78,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
     variableInspectorSurface === 'bottom' &&
     activeVariableInspectorEnabled &&
     activeRuntimeMode !== 'node' &&
-    (activeLanguage === 'javascript' ||
-      activeLanguage === 'typescript' ||
-      activeLanguage === 'python') &&
+    isWorkerRunnerLanguage(activeLanguage) &&
     scopeSnapshot !== null &&
     scopeSnapshot.language === activeLanguage;
   const consoleVisible = useUIStore((state) => state.consoleVisible);

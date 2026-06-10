@@ -10,6 +10,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useGitStore } from '../stores/gitStore';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
+import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { trackEvent } from '../utils/telemetry';
 import { bucketDurationMs } from '../../shared/telemetry';
 import { extractTimeoutMagicComment } from '../utils/magicComments';
@@ -764,9 +765,7 @@ export async function executeTabManually(
     if (
       result.stdinConsumed &&
       result.stdinConsumed.count > 0 &&
-      (language === 'javascript' ||
-        language === 'typescript' ||
-        language === 'python')
+      isWorkerRunnerLanguage(language)
     ) {
       void trackEvent('runtime.stdin_used', { language });
     }

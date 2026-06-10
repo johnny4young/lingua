@@ -27,6 +27,7 @@ import {
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
+import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import type { LayoutPreset } from '../../types';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
@@ -201,17 +202,13 @@ function PanelChipsRow() {
     const stdinAvailable =
       showStdinPanel &&
       activeTab.runtimeMode !== 'browser-preview' &&
-      (activeTab.language === 'javascript' ||
-        activeTab.language === 'typescript' ||
-        activeTab.language === 'python');
+      isWorkerRunnerLanguage(activeTab.language);
     const stdinLineCount = countStdinLines(activeTab.stdinBuffer);
     const compareAvailable = executionMode === 'run' && comparableSnapshotCount > 0;
     const variableAvailable =
       executionMode === 'run' &&
       activeTab.runtimeMode !== 'node' &&
-      (activeTab.language === 'javascript' ||
-        activeTab.language === 'typescript' ||
-        activeTab.language === 'python') &&
+      isWorkerRunnerLanguage(activeTab.language) &&
       scopeVariableCount !== null;
     return [
       {

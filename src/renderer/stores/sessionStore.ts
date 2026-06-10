@@ -23,6 +23,7 @@ import { useUIStore } from './uiStore';
 import { notifyBlockedPath } from '../utils/blockedPath';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { coerceRuntimeMode, type RuntimeMode } from '../../shared/runtimeModes';
+import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import type { RelativePath, RootId } from '../../shared/fs/brandedIds';
 
 interface SessionTab {
@@ -246,8 +247,7 @@ export const useSessionStore = create<SessionState>()(
           // restore path also drops it via `dropStdinIfUnsupported`,
           // but trimming here keeps the in-memory tab structure
           // honest about which fields are live.
-          const stdinSupported =
-            language === 'javascript' || language === 'typescript' || language === 'python';
+          const stdinSupported = isWorkerRunnerLanguage(language);
           const restoredStdinBuffer =
             stdinSupported && typeof saved.stdinBuffer === 'string' ? saved.stdinBuffer : undefined;
           const restoredRecipeBindingId =

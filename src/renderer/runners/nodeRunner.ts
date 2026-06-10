@@ -39,7 +39,6 @@
  *     `node --inspect`, but Slice 2 does not.
  */
 
-import * as esbuild from 'esbuild-wasm';
 import i18next from 'i18next';
 import type {
   ConsoleOutput,
@@ -60,8 +59,7 @@ import {
   runnerStoppedResult,
   type TranslateFn,
 } from './limits';
-
-let esbuildInitializedForNode = false;
+import { loadEsbuild } from './esbuildLoader';
 
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
@@ -90,21 +88,9 @@ export class NodeRunner implements LanguageRunner {
   private activeRunId: string | null = null;
 
   async init(): Promise<void> {
-    // esbuild-wasm is reused across runners. The TS runner also
-    // initializes it; calling `initialize` twice is a noop (esbuild
-    // guards with the same module-level flag we mirror here).
-    if (!esbuildInitializedForNode) {
-      try {
-        await esbuild.initialize({
-          wasmURL: new URL('esbuild-wasm/esbuild.wasm', import.meta.url).href,
-        });
-      } catch (err) {
-        // Already initialized by another runner — fine.
-        const message = err instanceof Error ? err.message : String(err);
-        if (!/initialize/i.test(message)) throw err;
-      }
-      esbuildInitializedForNode = true;
-    }
+    // Lazy-loads + initializes esbuild-wasm exactly once across all
+    // runners (see esbuildLoader.ts) so the chunk stays off the boot path.
+    await loadEsbuild();
     this.ready = true;
   }
 
@@ -116,6 +102,7 @@ export class NodeRunner implements LanguageRunner {
     { js: string; error?: undefined } | { js: ''; error: ExecutionError }
   > {
     try {
+      const esbuild = await loadEsbuild();
       const result = await esbuild.transform(code, {
         loader: 'tsx',
         target: 'es2022',

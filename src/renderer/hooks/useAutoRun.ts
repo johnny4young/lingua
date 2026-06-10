@@ -14,6 +14,10 @@ import { isLanguageAllowed } from '../../shared/entitlements';
 import { collectBrowserPreviewSiblingSources } from '../runtime/browserPreviewSiblings';
 import { isLikelyComplete } from '../../shared/autoRunGating';
 import {
+  isJavaScriptFamily,
+  isWorkerRunnerLanguage,
+} from '../../shared/languageFamilies';
+import {
   defaultRuntimeTimeoutPreset,
   presetToMs,
 } from '../../shared/runtimeTimeoutPresets';
@@ -97,7 +101,7 @@ export function useAutoRun() {
     (s) => s.scratchpadAutoLogByLanguage
   );
   const autoLogEnabled =
-    (language === 'javascript' || language === 'typescript') &&
+    isJavaScriptFamily(language) &&
     workflowMode === 'scratchpad' &&
     (activeTab?.autoLogEnabled === undefined
       ? autoLogByLanguage[language] === true
@@ -572,9 +576,7 @@ export function useAutoRun() {
           if (
             result.stdinConsumed &&
             result.stdinConsumed.count > 0 &&
-            (language === 'javascript' ||
-              language === 'typescript' ||
-              language === 'python')
+            isWorkerRunnerLanguage(language)
           ) {
             void trackEvent('runtime.stdin_used', { language });
           }

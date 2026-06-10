@@ -4,6 +4,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { hasScopeSnapshotFor, useResultStore } from '../stores/resultStore';
 import { languageHasRuntimeModes } from '../../shared/runtimeModes';
+import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 import { getRecipeById } from '../data/recipes';
 
@@ -91,9 +92,7 @@ export function useLayoutAvailability(): LayoutAvailability {
     showStdinPanelSetting &&
     activeBottomPanelForLayout === 'stdin' &&
     activeRuntimeMode !== 'browser-preview' &&
-    (activeLanguage === 'javascript' ||
-      activeLanguage === 'typescript' ||
-      activeLanguage === 'python');
+    isWorkerRunnerLanguage(activeLanguage);
   // RL-093 Slice 3 — mirror BottomPanel.variablesAvailable so the
   // MainContent gate keeps the drawer mounted when Variables is the
   // sole reason to show it (no console, no debugger, no stdin).
@@ -102,9 +101,7 @@ export function useLayoutAvailability(): LayoutAvailability {
     variableInspectorSurfaceForLayout === 'bottom' &&
     activeVariableInspectorEnabled &&
     activeBottomPanelForLayout === 'variables' &&
-    (activeLanguage === 'javascript' ||
-      activeLanguage === 'typescript' ||
-      activeLanguage === 'python') &&
+    isWorkerRunnerLanguage(activeLanguage) &&
     hasScopeForActiveLayout;
   const activeRecipeBindingIdForLayout = useEditorStore((state) => {
     if (!state.activeTabId) return null;

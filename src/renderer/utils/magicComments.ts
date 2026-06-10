@@ -30,6 +30,8 @@
  * the runner reads when stitching results back into `LineResult[]`.
  */
 
+import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
+
 export type MagicCommentKind = 'arrow' | 'watch' | 'autoLog';
 
 /**
@@ -182,11 +184,7 @@ export function extractTimeoutMagicComment(
   // Limit to the JS / TS / Python comment dialects — other languages
   // have their own comment syntax and the directive is intentionally
   // narrow to the worker runners that consume it.
-  const supports =
-    language === 'javascript' ||
-    language === 'typescript' ||
-    language === 'python';
-  if (!supports) return null;
+  if (!isWorkerRunnerLanguage(language)) return null;
   const match = code.match(TIMEOUT_DIRECTIVE_RE);
   if (!match) return null;
   const rawValue = match[1];
@@ -242,11 +240,7 @@ export function originSuppressedByMagicComment(
   language: string,
   code: string
 ): boolean {
-  const supports =
-    language === 'javascript' ||
-    language === 'typescript' ||
-    language === 'python';
-  if (!supports) return false;
+  if (!isWorkerRunnerLanguage(language)) return false;
   if (typeof code !== 'string' || code.length === 0) return false;
   return ORIGIN_OFF_DIRECTIVE_RE.test(code);
 }

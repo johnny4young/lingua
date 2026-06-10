@@ -99,7 +99,7 @@ describe('GoRunner', () => {
     mockDetect.mockResolvedValue({ installed: true, version: 'go1.22.0', goRoot: '/usr/local/go' });
     mockCompile.mockResolvedValue({
       success: true,
-      wasmBytes: [0],
+      wasmBytes: new Uint8Array([0]),
       wasmExecJs: 'self.Go = class { constructor() { this.importObject = {}; } async run() {} }; self.fs = { writeSync() { return 0; } };',
     });
 
@@ -163,7 +163,7 @@ describe('GoRunner', () => {
     });
     mockCompile.mockResolvedValue({
       success: true,
-      wasmBytes: [0],
+      wasmBytes: new Uint8Array([0]),
       wasmExecJs: 'runtime',
     });
 
