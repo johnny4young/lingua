@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Language } from '../types';
+import type { EditorState, FileTab, Language } from '../types';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   useEditorStore,
@@ -110,6 +110,61 @@ interface SessionState {
   savedActiveIndex: number;
   saveSession: () => void;
   restoreSession: () => Promise<void>;
+}
+
+/**
+ * Per-tab arm of {@link sessionSnapshotEqual}. Compares only the
+ * fields `saveSession()` serializes into a `SessionTab`, with the
+ * same conditional semantics: `content` matters only for tabs without
+ * a `filePath` (disk-backed tabs persist `content: ''` and re-read
+ * from disk on restore), and the tab `id` matters because it feeds
+ * `notebookTabId` / `workspaceTabId` and the saved active index.
+ * Transient fields (`isDirty`, `executionState`, `parseError`, cursor
+ * state) are deliberately ignored — mutating them cannot change the
+ * persisted snapshot.
+ */
+function sessionTabEqual(a: FileTab, b: FileTab): boolean {
+  if (a === b) return true;
+  if (a.filePath !== b.filePath) return false;
+  return (
+    a.id === b.id &&
+    a.name === b.name &&
+    a.language === b.language &&
+    // Mirrors saveSession's `tab.filePath ? '' : tab.content` — for
+    // disk-backed tabs the serialized content is '' either way, so
+    // buffer edits there cannot change the snapshot.
+    (a.filePath ? true : a.content === b.content) &&
+    a.runtimeMode === b.runtimeMode &&
+    a.stdinBuffer === b.stdinBuffer &&
+    a.recipeBindingId === b.recipeBindingId &&
+    a.kind === b.kind
+  );
+}
+
+/**
+ * RL-147 (AUDIT-27) — equality over the EXACT editor-store projection
+ * `saveSession()` serializes. `useSessionAutoSave` calls this with
+ * zustand's `(state, prevState)` pair to skip re-arming the debounced
+ * session save when a mutation cannot change the persisted snapshot
+ * (`pendingReveal`, `isDirty` churn, per-run `setTabExecutionState`
+ * flips). Referential fast paths keep it O(1) for any mutation that
+ * does not replace the `tabs` array.
+ *
+ * BINDING CONTRACT: every field `saveSession()` reads must be compared
+ * here (via {@link sessionTabEqual}) with the same conditional
+ * semantics. When `saveSession` learns a new field, this helper must
+ * learn it in the same commit — `tests/stores/sessionStore.test.ts`
+ * enforces the pairing by asserting that states judged equal serialize
+ * byte-identically and that every persisted field flips the equality.
+ */
+export function sessionSnapshotEqual(
+  a: Pick<EditorState, 'tabs' | 'activeTabId'>,
+  b: Pick<EditorState, 'tabs' | 'activeTabId'>
+): boolean {
+  if (a.activeTabId !== b.activeTabId) return false;
+  if (a.tabs === b.tabs) return true;
+  if (a.tabs.length !== b.tabs.length) return false;
+  return a.tabs.every((tab, index) => sessionTabEqual(tab, b.tabs[index]!));
 }
 
 export const useSessionStore = create<SessionState>()(

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { useSessionStore } from '@/stores/sessionStore';
+import { sessionSnapshotEqual, useSessionStore } from '@/stores/sessionStore';
 import {
   useEditorStore,
   SQL_WORKSPACE_TAB_ID,
@@ -509,6 +509,129 @@ describe('sessionStore', () => {
       const { tabs } = useEditorStore.getState();
       expect(tabs).toHaveLength(1);
       expect(tabs[0].kind).toBeUndefined();
+    });
+  });
+
+  describe('sessionSnapshotEqual (RL-147)', () => {
+    const baseTab = (overrides: Record<string, unknown> = {}) => ({
+      id: 'tab-1',
+      name: 'untitled.ts',
+      language: 'typescript' as const,
+      content: 'const x = 1;',
+      isDirty: false,
+      ...overrides,
+    });
+
+    const snapshot = (
+      tabs: ReturnType<typeof baseTab>[],
+      activeTabId: string | null = 'tab-1'
+    ) => ({ tabs, activeTabId }) as Parameters<typeof sessionSnapshotEqual>[0];
+
+    it('treats transient-only mutations as equal (the §3.10 noise)', () => {
+      const a = snapshot([baseTab()]);
+      const b = snapshot([
+        baseTab({ isDirty: true, executionState: 'running', parseError: 'boom' }),
+      ]);
+      expect(sessionSnapshotEqual(a, b)).toBe(true);
+    });
+
+    it('short-circuits on referential equality of the tabs array', () => {
+      const tabs = [baseTab()];
+      expect(sessionSnapshotEqual(snapshot(tabs), snapshot(tabs))).toBe(true);
+    });
+
+    it('ignores content edits on disk-backed tabs (serialized as empty either way)', () => {
+      const a = snapshot([baseTab({ filePath: '/p/a.ts', content: 'v1' })]);
+      const b = snapshot([baseTab({ filePath: '/p/a.ts', content: 'v2 edited' })]);
+      expect(sessionSnapshotEqual(a, b)).toBe(true);
+    });
+
+    it.each([
+      ['id', { id: 'tab-other' }],
+      ['name', { name: 'renamed.ts' }],
+      ['language', { language: 'javascript' }],
+      ['content (untitled tab)', { content: 'const x = 2;' }],
+      ['filePath', { filePath: '/p/a.ts' }],
+      ['runtimeMode', { runtimeMode: 'node' }],
+      ['stdinBuffer', { stdinBuffer: 'line1\n' }],
+      ['recipeBindingId', { recipeBindingId: 'js-sort-objects' }],
+      ['kind', { kind: 'notebook' }],
+    ] as const)('flips on persisted tab field: %s', (_label, override) => {
+      const a = snapshot([baseTab()]);
+      const b = snapshot([baseTab(override)]);
+      expect(sessionSnapshotEqual(a, b)).toBe(false);
+    });
+
+    it('flips on activeTabId, tab count, and tab order', () => {
+      const tabA = baseTab();
+      const tabB = baseTab({ id: 'tab-2', name: 'other.ts' });
+      expect(sessionSnapshotEqual(snapshot([tabA]), snapshot([tabA], null))).toBe(false);
+      expect(sessionSnapshotEqual(snapshot([tabA]), snapshot([tabA, tabB]))).toBe(false);
+      expect(sessionSnapshotEqual(snapshot([tabA, tabB]), snapshot([tabB, tabA]))).toBe(false);
+    });
+
+    // Fold B — serialization-identity lock. The helper's BINDING
+    // CONTRACT with saveSession() is enforced here: states the helper
+    // calls equal must serialize byte-identically, and every persisted
+    // field must both flip the equality and change the serialized
+    // snapshot. If saveSession learns a new field without teaching the
+    // helper, the equal-pair assertion below starts failing the moment
+    // a test (or reviewer) adds that field to the transient list; the
+    // per-field list keeps the reverse direction honest.
+    const serializeCurrentSession = (): string => {
+      useSessionStore.getState().saveSession();
+      const { savedTabs, savedActiveIndex } = useSessionStore.getState();
+      return JSON.stringify({ savedTabs, savedActiveIndex });
+    };
+
+    it('states judged equal serialize byte-identically through saveSession', () => {
+      const a = snapshot([baseTab()]);
+      const b = snapshot([
+        baseTab({ isDirty: true, executionState: 'success', parseError: null }),
+      ]);
+      expect(sessionSnapshotEqual(a, b)).toBe(true);
+
+      useEditorStore.setState({ tabs: a.tabs, activeTabId: a.activeTabId });
+      const serializedA = serializeCurrentSession();
+      useEditorStore.setState({ tabs: b.tabs, activeTabId: b.activeTabId });
+      const serializedB = serializeCurrentSession();
+      expect(serializedB).toBe(serializedA);
+    });
+
+    it.each([
+      ['name', { name: 'renamed.ts' }],
+      ['language', { language: 'javascript' }],
+      ['content (untitled tab)', { content: 'const x = 2;' }],
+      ['filePath', { filePath: '/p/a.ts' }],
+      ['runtimeMode', { runtimeMode: 'node' }],
+      ['stdinBuffer', { stdinBuffer: 'line1\n' }],
+      ['recipeBindingId', { recipeBindingId: 'js-sort-objects' }],
+      ['kind (notebook, also feeds notebookTabId)', { kind: 'notebook' }],
+      ['kind (sql, also feeds workspaceTabId)', { kind: 'sql' }],
+    ] as const)(
+      'persisted field %s flips equality AND changes the serialized snapshot',
+      (_label, override) => {
+        const before = snapshot([baseTab()]);
+        const after = snapshot([baseTab(override)]);
+        expect(sessionSnapshotEqual(before, after)).toBe(false);
+
+        useEditorStore.setState({ tabs: before.tabs, activeTabId: before.activeTabId });
+        const serializedBefore = serializeCurrentSession();
+        useEditorStore.setState({ tabs: after.tabs, activeTabId: after.activeTabId });
+        const serializedAfter = serializeCurrentSession();
+        expect(serializedAfter).not.toBe(serializedBefore);
+      }
+    );
+
+    it('activeTabId change flips equality AND moves savedActiveIndex', () => {
+      const tabs = [baseTab()];
+      expect(sessionSnapshotEqual(snapshot(tabs, 'tab-1'), snapshot(tabs, null))).toBe(false);
+
+      useEditorStore.setState({ tabs, activeTabId: 'tab-1' });
+      const serializedActive = serializeCurrentSession();
+      useEditorStore.setState({ tabs, activeTabId: null });
+      const serializedInactive = serializeCurrentSession();
+      expect(serializedInactive).not.toBe(serializedActive);
     });
   });
 });

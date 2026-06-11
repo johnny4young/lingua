@@ -18,12 +18,15 @@ function lineCount(rel: string): number {
   return readFileSync(resolve(ROOT, rel), 'utf8').split('\n').length;
 }
 
-const APP_MAX_LINES = 560;
+// RL-147 tightened App.tsx from the re-based 560 to the audit's
+// original <500 target after extracting useSessionAutoSave.
+const APP_MAX_LINES = 500;
 const APP_LAYOUT_MAX_LINES = 920;
 
 const EXTRACTED_MODULES = [
   'src/renderer/hooks/useAppShortcuts.ts',
   'src/renderer/hooks/useLayoutAvailability.ts',
+  'src/renderer/hooks/useSessionAutoSave.ts',
   'src/renderer/components/AppOverlays.tsx',
   'src/renderer/components/Layout/BottomPanel.tsx',
 ];

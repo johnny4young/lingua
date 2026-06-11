@@ -23,6 +23,7 @@ import { useRunner } from './hooks/useRunner';
 import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useAppShortcuts } from './hooks/useAppShortcuts';
+import { useSessionAutoSave } from './hooks/useSessionAutoSave';
 import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
@@ -153,30 +154,9 @@ function AppChrome({
     };
   }, [smokeEnabled]);
 
-  // Auto-save session when tabs change (debounced)
-  useEffect(() => {
-    if (smokeEnabled) {
-      return;
-    }
-
-    let timeout: ReturnType<typeof setTimeout>;
-    const unsubscribe = useEditorStore.subscribe(() => {
-      const { restoreSession } = useSettingsStore.getState();
-      if (!restoreSession) {
-        return;
-      }
-
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        useSessionStore.getState().saveSession();
-      }, 1000);
-    });
-
-    return () => {
-      unsubscribe();
-      clearTimeout(timeout);
-    };
-  }, [smokeEnabled]);
+  // RL-147 — debounced session auto-save, narrowed to save-relevant
+  // editor-store changes (see useSessionAutoSave for the contract).
+  useSessionAutoSave(smokeEnabled);
 
   useEffect(() => {
     // RL-090 — safe mode skips plugin discovery so a broken plugin

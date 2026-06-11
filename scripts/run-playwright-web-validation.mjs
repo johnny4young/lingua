@@ -61,9 +61,16 @@ const licenseCachePath = path.join(cacheDir, 'dev-license.json');
 const buildMetadataPath = path.join(cacheDir, 'web-build-metadata.json');
 const distIndexPath = path.join(distDir, 'index.html');
 const e2eBuildMetadata = {
-  cacheVersion: 2,
+  cacheVersion: 3,
   e2eHooks: true,
   telemetryUrl: 'https://updates.linguacode.dev/telemetry',
+  // Local e2e builds keep DuckDB/Ruby WASM same-origin (see the
+  // LINGUA_WEB_RUNTIME_SAME_ORIGIN note in vite.web.config.mts): the
+  // R2 mirror only serves CORS headers to the production app origin,
+  // so a localhost preview fetching it trips the zero-console-error
+  // fixture. Tracked in the metadata so a dist built before this flag
+  // existed (or with it unset) cannot be reused by a cached run.
+  sameOriginRuntime: true,
 };
 
 function newestMtimeMs(anchorPath) {
@@ -181,6 +188,8 @@ if (needsRebuild) {
         VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK: mintedLicense.publicKeyJwk,
         VITE_LINGUA_TELEMETRY_URL: e2eBuildMetadata.telemetryUrl,
         LINGUA_E2E_HOOKS: '1',
+        // Hermetic validation build — see e2eBuildMetadata.sameOriginRuntime.
+        LINGUA_WEB_RUNTIME_SAME_ORIGIN: '1',
       },
     }
   );

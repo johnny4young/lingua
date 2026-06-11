@@ -57,7 +57,20 @@ function sha256OfRuntimeAsset(relativePath: string): string {
 }
 
 export default defineConfig(({ command }) => {
-  const useExternalWebRuntime = command === 'build';
+  // LINGUA_WEB_RUNTIME_SAME_ORIGIN=1 keeps the oversized WASM runtimes
+  // (DuckDB, Ruby) same-origin even in production-shaped builds. The
+  // local Playwright e2e runner sets it so validation runs are hermetic:
+  // the R2 mirror's bucket CORS policy allowlists only the production
+  // app origin (deploy-web.yml validates exactly that), so a localhost
+  // preview fetching the mirror gets a CORS block — which surfaced as
+  // flaky console-error failures in the SQL workspace specs. Deploys
+  // never set this var, and the deploy workflow's own CORS gate keeps
+  // covering the external path. Config-load-time process.env read,
+  // injected explicitly by scripts/run-playwright-web-validation.mjs —
+  // not a repo-root .env consumer, so the three-config envDir landmine
+  // does not apply.
+  const useExternalWebRuntime =
+    command === 'build' && process.env.LINGUA_WEB_RUNTIME_SAME_ORIGIN !== '1';
   const duckdbWasmUrl = `${webRuntimeBase}/duckdb/${duckdbWasmVersion}/duckdb-mvp.wasm`;
   const rubyWasmUrl = `${webRuntimeBase}/ruby/${rubyWasmVersion}/ruby+stdlib.wasm`;
   const duckdbWasmSha256 = useExternalWebRuntime
