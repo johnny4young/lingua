@@ -128,7 +128,7 @@
   "tour.step.commandPalette.title": "Paleta de comandos",
   "tour.step.commandPalette.text": "La paleta de comandos es la forma m\u00e1s r\u00e1pida de navegar plantillas, fragmentos, cambios de layout y acciones. \u00c1brela cuando quieras con Cmd+Shift+P o Ctrl+Shift+P.",
   "appearance.title": "Apariencia",
-  "appearance.description": "Lingua ofrece un shell orientado al modo oscuro y un modo claro refinado sin cambiar la configuraci\u00f3n del editor ni del entorno.",
+  "appearance.description": "Lingua aplica presets visuales que mantienen alineados el shell y el editor sin tocar los ajustes de ejecuci\u00f3n ni del entorno.",
   "appearance.theme.dark.label": "Oscuro",
   "appearance.theme.dark.description": "Shell grafito de alto contraste para sesiones de programaci\u00f3n enfocadas.",
   "appearance.theme.light.label": "Claro",

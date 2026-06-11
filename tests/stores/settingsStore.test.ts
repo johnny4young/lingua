@@ -61,14 +61,29 @@ describe('settingsStore', () => {
     expect(state.layoutPreset).toBe('horizontal');
   });
 
-  it('should set theme', () => {
+  it('should set theme as a complete shell/editor visual preset', () => {
+    useSettingsStore.getState().setEditorTheme('dracula');
     useSettingsStore.getState().setTheme('light');
     expect(useSettingsStore.getState().theme).toBe('light');
+    expect(useSettingsStore.getState().editorTheme).toBe('lingua-light');
+
+    useSettingsStore.getState().setTheme('dark');
+    expect(useSettingsStore.getState().theme).toBe('dark');
+    expect(useSettingsStore.getState().editorTheme).toBe('lingua-dark');
   });
 
-  it('should set editor theme', () => {
+  it('should set any editor theme while keeping theme as the polarity mirror', () => {
+    useSettingsStore.getState().setTheme('light');
     useSettingsStore.getState().setEditorTheme('dracula');
+    // The editor theme is freely customizable (advanced path), but
+    // state.theme follows the editor-derived polarity so the persisted
+    // field never lies to the inline boot scripts or profile export.
+    expect(useSettingsStore.getState().theme).toBe('dark');
     expect(useSettingsStore.getState().editorTheme).toBe('dracula');
+
+    useSettingsStore.getState().setEditorTheme('solarized-light');
+    expect(useSettingsStore.getState().theme).toBe('light');
+    expect(useSettingsStore.getState().editorTheme).toBe('solarized-light');
   });
 
   it('should set font size', () => {
@@ -398,6 +413,15 @@ describe('settingsStore', () => {
     useSettingsStore.getState().setFontSize(20);
     expect(useSettingsStore.getState().themePack).toBe('default');
     expect(useSettingsStore.getState().fontSize).toBe(20);
+  });
+
+  it('manual app theme preset flips themePack back to default and keeps shell/editor aligned', () => {
+    useSettingsStore.getState().applyThemePack('solarized-daylight');
+    useSettingsStore.getState().setTheme('dark');
+    const state = useSettingsStore.getState();
+    expect(state.themePack).toBe('default');
+    expect(state.theme).toBe('dark');
+    expect(state.editorTheme).toBe('lingua-dark');
   });
 
   it('applyThemePack does not touch workflow prefs', () => {

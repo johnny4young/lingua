@@ -64,7 +64,7 @@ describe('AppearanceSection', () => {
     expect(screen.getByText('Apariencia')).toBeTruthy();
     expect(
       screen.getByText(
-        'Lingua ofrece un shell orientado al modo oscuro y un modo claro refinado sin cambiar la configuración del editor ni del entorno.'
+        'Lingua aplica presets visuales que mantienen alineados el shell y el editor sin tocar los ajustes de ejecución ni del entorno.'
       )
     ).toBeTruthy();
     expect(screen.getByText('Oscuro')).toBeTruthy();
@@ -105,8 +105,38 @@ describe('AppearanceSection', () => {
     const user = userEvent.setup();
     await user.click(darkButton);
 
-    expect(useSettingsStore.getState().themePack).toBe('default');
-    expect(useSettingsStore.getState().theme).toBe('dark');
+    const state = useSettingsStore.getState();
+    expect(state.themePack).toBe('default');
+    expect(state.theme).toBe('dark');
+    expect(state.editorTheme).toBe('lingua-dark');
+  });
+
+  it('uses the effective editor-derived shell theme for selected appearance buttons', () => {
+    useSettingsStore.setState({ theme: 'light', editorTheme: 'lingua-dark' });
+
+    render(<AppearanceSection />);
+
+    expect(screen.getByRole('button', { name: /Dark/i }).getAttribute('aria-pressed')).toBe(
+      'true'
+    );
+    expect(screen.getByRole('button', { name: /Light/i }).getAttribute('aria-pressed')).toBe(
+      'false'
+    );
+  });
+
+  it('applies light as a complete shell/editor visual preset from Settings', async () => {
+    useSettingsStore.setState({ theme: 'dark', editorTheme: 'dracula' });
+    const user = userEvent.setup();
+    render(<AppearanceSection />);
+
+    await user.click(screen.getByRole('button', { name: /Light/i }));
+
+    const state = useSettingsStore.getState();
+    expect(state.theme).toBe('light');
+    expect(state.editorTheme).toBe('lingua-light');
+    expect(screen.getByRole('button', { name: /Light/i }).getAttribute('aria-pressed')).toBe(
+      'true'
+    );
   });
 
   it('blocks extended theme packs on the Free tier', async () => {

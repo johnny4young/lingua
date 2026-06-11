@@ -1,6 +1,7 @@
 import type { SettingsState } from '../types';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
+import { isDarkEditorTheme } from '../components/Settings/settingsOptions';
 import { DEFAULT_KEYMAP_PRESET_ID, findKeymapPreset } from '../data/keymapPresets';
 import { DEFAULT_THEME_PACK_ID, findThemePack } from '../data/themePacks';
 import { DEFAULT_EDITOR_FONT_FAMILY } from './settingsDefaults';
@@ -40,10 +41,23 @@ export function createAppearanceActions(
     setTheme: (theme) =>
       set({
         theme,
+        editorTheme: theme === 'light' ? 'lingua-light' : 'lingua-dark',
         themePack: DEFAULT_THEME_PACK_ID,
       }),
     setEditorTheme: (editorTheme) =>
-      set({ editorTheme, themePack: DEFAULT_THEME_PACK_ID }),
+      set({
+        editorTheme,
+        // state.theme must stay a faithful mirror of the effective shell
+        // polarity (which derives from editorTheme — see
+        // resolveEffectiveShellTheme): the inline boot scripts in
+        // index.html / src/web/index.html fall back to state.theme for
+        // legacy persisted states, profileExport.ts embeds it, and
+        // settingsMerge compares it against theme-pack appearances. The
+        // runtime shell ignores state.theme, so this changes no visible
+        // behavior — it only keeps the persisted field honest.
+        theme: isDarkEditorTheme(editorTheme) ? 'dark' : 'light',
+        themePack: DEFAULT_THEME_PACK_ID,
+      }),
     setFontSize: (fontSize) => set({ fontSize, themePack: DEFAULT_THEME_PACK_ID }),
     setFontFamily: (fontFamily) =>
       set((state) => {

@@ -1,6 +1,7 @@
 import { MoonStar, SunMedium } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_THEME_PACK_ID, THEME_PACKS } from '../../data/themePacks';
+import { resolveEffectiveShellTheme } from '../../hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { changeAppLanguage } from '../../i18n';
@@ -35,6 +36,7 @@ export function AppearanceSection() {
   const effectiveTier = useEffectiveTier();
   const canUseExtendedThemePacks = useEntitlement('THEME_PACK_EXTENDED');
   const theme = useSettingsStore((state) => state.theme);
+  const editorTheme = useSettingsStore((state) => state.editorTheme);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
@@ -42,6 +44,7 @@ export function AppearanceSection() {
   const applyThemePack = useSettingsStore((state) => state.applyThemePack);
   const { t } = useTranslation();
   const activePack = THEME_PACKS.find((pack) => pack.id === themePack) ?? THEME_PACKS[0]!;
+  const effectiveTheme = resolveEffectiveShellTheme(theme, editorTheme);
 
   const handleLanguageChange = (value: string) => {
     if (!isAppLanguage(value)) return;
@@ -114,13 +117,14 @@ export function AppearanceSection() {
       <div className="grid gap-3 sm:grid-cols-2">
         {APP_THEMES.map((option) => {
           const Icon = option.icon;
-          const selected = theme === option.id;
+          const selected = effectiveTheme === option.id;
 
           return (
             <button
               key={option.id}
               type="button"
               onClick={() => setTheme(option.id)}
+              aria-pressed={selected}
               className={`rounded-lg border p-4 text-left transition-all ${
                 selected
                   ? 'border-accent bg-primary-soft'

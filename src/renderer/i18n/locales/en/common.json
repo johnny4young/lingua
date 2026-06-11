@@ -128,7 +128,7 @@
   "tour.step.commandPalette.title": "Command palette",
   "tour.step.commandPalette.text": "The command palette is the fastest way to navigate templates, snippets, layout changes, and actions. Open it anytime with Cmd+Shift+P or Ctrl+Shift+P.",
   "appearance.title": "Appearance",
-  "appearance.description": "Lingua supports a dark-first shell and a refined light mode without changing your editor runtime settings.",
+  "appearance.description": "Lingua applies visual presets that keep the shell and editor aligned without touching runtime or environment settings.",
   "appearance.theme.dark.label": "Dark",
   "appearance.theme.dark.description": "High-contrast graphite shell for focused coding sessions.",
   "appearance.theme.light.label": "Light",
