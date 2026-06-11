@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
+      RL-140 (AUDIT-20) — declares both schemes so the browser paints
+      scrollbars and form controls correctly before the theme bootstrap
+      script below narrows it via root.style.colorScheme. Dark first:
+      it is the app default when no preference is persisted.
+    -->
+    <meta name="color-scheme" content="dark light" />
+    <!--
       CSP for the web build:
       - Pyodide is copied into the web build and served same-origin
         under /pyodide/ (see docs/RUNTIME_ASSETS_ADR.md).
@@ -29,10 +36,144 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev https: wss:; base-uri 'self'; form-action 'self';"
     />
+    <!--
+      RL-140 (AUDIT-20) — early TLS handshakes for the two boot-time
+      consumers: useWebVersionPolling.ts polls updates.linguacode.dev
+      unconditionally at boot, and /licenses/status revalidates against
+      licenses.linguacode.dev on boot for licensed users. crossorigin
+      because both consumers are CORS fetch calls.
+    -->
+    <link rel="preconnect" href="https://licenses.linguacode.dev" crossorigin />
+    <link rel="preconnect" href="https://updates.linguacode.dev" crossorigin />
+    <!--
+      RL-140 (AUDIT-20) — vendored JetBrains Mono (latin subset, OFL;
+      see public/fonts/OFL.txt) so the Monaco default editor stack
+      renders the same glyphs whether or not the user installed the
+      font locally. URLs are document-relative and @font-face lives
+      inline so the same block works in dev, dist/web, and the desktop
+      entry — full rationale in the root index.html mirror; keep both
+      blocks in sync.
+    -->
+    <link
+      rel="preload"
+      href="./fonts/jetbrains-mono-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./fonts/jetbrains-mono-latin-700-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <style>
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('./fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2');
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('./fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2');
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+    </style>
     <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="%BASE_URL%manifest.json" />
-    <meta name="theme-color" content="#1e1e2e" />
+    <meta name="theme-color" content="#0c1017" />
     <title>Lingua</title>
+    <!--
+      RL-140 fold B — theme bootstrap ported verbatim from the root
+      index.html (desktop entry). Before this, the web build applied
+      the persisted theme only after React hydrated, so light-theme
+      users got a dark flash on every load. The stale theme-color
+      #1e1e2e (pre-Signal-Slate) moved to the DS pair #0c1017/#f4efe7
+      in the same change. Keep in sync with the root index.html copy.
+    -->
+    <script>
+      (() => {
+        const themeColors = {
+          dark: '#0c1017',
+          light: '#f4efe7',
+        };
+
+        const resolveEditorThemePolarity = (editorTheme) => {
+          if (typeof editorTheme !== 'string' || editorTheme.length === 0) {
+            return null;
+          }
+          // Must mirror resolveEffectiveShellTheme in useAppTheme.ts:
+          // React derives shell polarity from the Monaco editor theme,
+          // not from the legacy state.theme field. Unknown editor themes
+          // fall back to dark, matching isDarkEditorTheme().
+          const lightEditorThemes = new Set(['lingua-light', 'vs', 'solarized-light']);
+          return lightEditorThemes.has(editorTheme) ? 'light' : 'dark';
+        };
+
+        const readStoredTheme = () => {
+          // The storage read sits inside the try: with storage access
+          // blocked (e.g. block-all-cookies) getItem itself throws
+          // SecurityError, and an uncaught error here would kill the
+          // bootstrap before any theme is applied.
+          try {
+            const storedState = window.localStorage.getItem('lingua-settings');
+            if (!storedState) {
+              return 'dark';
+            }
+
+            const parsed = JSON.parse(storedState);
+            const directEditorTheme = resolveEditorThemePolarity(parsed?.editorTheme);
+            if (directEditorTheme) {
+              return directEditorTheme;
+            }
+
+            const persistedEditorTheme = resolveEditorThemePolarity(parsed?.state?.editorTheme);
+            if (persistedEditorTheme) {
+              return persistedEditorTheme;
+            }
+
+            const directTheme = parsed?.theme;
+            if (directTheme === 'dark' || directTheme === 'light') {
+              return directTheme;
+            }
+
+            const persistedTheme = parsed?.state?.theme;
+            if (persistedTheme === 'dark' || persistedTheme === 'light') {
+              return persistedTheme;
+            }
+          } catch {}
+
+          return 'dark';
+        };
+
+        const theme = readStoredTheme();
+        const root = document.documentElement;
+        root.classList.remove('dark', 'light');
+        root.classList.add(theme);
+        root.dataset.theme = theme;
+        root.style.colorScheme = theme;
+
+        let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (!themeColorMeta) {
+          themeColorMeta = document.createElement('meta');
+          themeColorMeta.name = 'theme-color';
+          document.head.appendChild(themeColorMeta);
+        }
+
+        themeColorMeta.setAttribute('content', themeColors[theme]);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

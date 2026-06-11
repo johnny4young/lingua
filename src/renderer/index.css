@@ -1,4 +1,20 @@
-@import 'tailwindcss';
+@import 'tailwindcss' source(none);
+
+/*
+ * RL-140 (AUDIT-20) — explicit Tailwind v4 content sources. Without
+ * these, v4 auto-detection scans every non-gitignored file in the
+ * repo (tests/, scripts/, docs/, e2e specs), so class-shaped strings
+ * that only appear in test assertions or docs generate utilities the
+ * app never uses. Paths are relative to THIS file (src/renderer/).
+ * The audit suggested a tailwind.config.ts `content` block; in v4
+ * that requires a legacy `@config` directive — `@source` is the
+ * supported native mechanism. `@apply` below is unaffected: it
+ * resolves at build time and does not depend on source scanning.
+ * Add a new directive here if a new directory starts rendering DOM.
+ */
+@source '../renderer';
+@source '../web';
+@source '../shared';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
