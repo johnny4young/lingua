@@ -42,6 +42,7 @@ try {
     tier,
     days,
     token: minted.token,
+    publicKeyThumbprint: minted.publicKeyJwkThumbprint,
     launchLine: 'Opening the managed desktop launcher — close with Ctrl+C.',
   });
 

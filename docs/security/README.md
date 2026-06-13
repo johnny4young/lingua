@@ -18,3 +18,4 @@ Living policy references (not dated packets) that track current state:
 | Doc | Scope |
 | --- | ----- |
 | [`filesystem-denylist.md`](./filesystem-denylist.md) | Renderer-facing filesystem path denylist (`BLOCKED_PATHS`): families, enforcement layers, and how to extend it. Source of truth: `src/main/ipc/permissions.ts`. |
+| [`license-key-registry.json`](./license-key-registry.json) | RL-143 — every license-signing public key ever embedded, keyed by RFC 7638 thumbprint, with `issuedAt`/`status` and the rotation SLA the release gate enforces. Rotation runbook: `docs/RELEASE_SECURITY.md` § Licensing. |

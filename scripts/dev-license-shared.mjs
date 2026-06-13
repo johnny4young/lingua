@@ -1,6 +1,8 @@
 import { webcrypto } from 'node:crypto';
 import process from 'node:process';
 
+import { computeJwkThumbprint } from './lib/licenseKeyRotation.mjs';
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SUBTLE = webcrypto.subtle;
 
@@ -180,8 +182,14 @@ export async function mintDevLicense({
   // downstream caller (the Vite define on the desktop launcher,
   // `pnpm run dev:desktop:pro`, and the wrangler-secret usage in
   // `license-server/README.md`).
+  const normalizedPublicJwk = normalizeEd25519PublicJwk(publicKeyJwk);
   return {
-    publicKeyJwk: JSON.stringify(normalizeEd25519PublicJwk(publicKeyJwk)),
+    publicKeyJwk: JSON.stringify(normalizedPublicJwk),
+    // RL-143 — RFC 7638 thumbprint of the session keypair. Matches what
+    // Settings → License renders, so a dev can eyeball-verify the running
+    // app embeds THIS session's key (a mismatch means a stale tab/server
+    // from a previous mint — the classic stale-5174 paste failure).
+    publicKeyJwkThumbprint: computeJwkThumbprint(normalizedPublicJwk),
     privateKeyJwkDoNotShip: JSON.stringify(normalizeEd25519PrivateJwk(privateKeyJwk)),
     token: `${payloadPart}.${base64UrlEncode(signatureBytes)}`,
     payload,
@@ -216,6 +224,7 @@ export function printDevLicenseBanner({
   days,
   token,
   launchLine,
+  publicKeyThumbprint,
 }) {
   const separator = '─'.repeat(72);
   const planLabel = DEV_LICENSE_PLAN_LABELS[tier] ?? tier;
@@ -223,6 +232,12 @@ export function printDevLicenseBanner({
   console.log(
     `Lingua dev ${surface} session (tier: ${tier} → shows as "${planLabel}", valid ${days} day(s))`
   );
+  if (publicKeyThumbprint) {
+    // Must match the "Signing key fingerprint" row in Settings → License.
+    // A different value there means the app was built with another key
+    // (stale tab / older dev server) and any paste will fail to verify.
+    console.log(`Session key fingerprint: ${publicKeyThumbprint}`);
+  }
   if (tier === 'pro') {
     console.log('  (tier "pro" is the Monthly plan — use --tier pro_lifetime for the lifetime "Pro" label)');
   }

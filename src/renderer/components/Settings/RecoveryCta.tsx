@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { startRecovery } from '../../services/recoveryServer';
@@ -19,7 +19,9 @@ import { SpecRow } from '../ui/SpecRow';
  *
  * `prefilledEmail` lets parents (LicenseSection's recover-hint
  * branch, EducationCta's duplicate-email branch) pre-populate the
- * input so the user clicks Resend without retyping.
+ * input so the user clicks Resend without retyping. Parent callers
+ * key the component by the prefill value when they need a new value
+ * to reset the local draft.
  */
 export function RecoveryCta({
   prefilledEmail,
@@ -34,17 +36,6 @@ export function RecoveryCta({
   const [busy, setBusy] = useState(false);
   const [resendSentTo, setResendSentTo] = useState<string | null>(null);
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
-
-  // Sync input when the parent passes a new prefilled value (e.g. user
-  // hits the duplicate-email recover affordance for a different email).
-  useEffect(() => {
-    if (prefilledEmail && prefilledEmail !== email && !resendSentTo) {
-      setEmail(prefilledEmail);
-    }
-    // Intentionally narrow deps: re-syncing when `email` changes would
-    // fight the user's typing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefilledEmail]);
 
   const handleResend = async () => {
     if (busy) return;

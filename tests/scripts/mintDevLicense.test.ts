@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { verifyLicenseToken } from '../../src/shared/license';
+import { computeLicenseJwkThumbprint, verifyLicenseToken } from '../../src/shared/license';
 
 /**
  * End-to-end test for `scripts/mint-dev-license.mjs`. Runs the script as a
@@ -18,6 +18,7 @@ describe('scripts/mint-dev-license.mjs', () => {
     );
     const parsed = JSON.parse(stdout) as {
       publicKeyJwk: string;
+      publicKeyJwkThumbprint: string;
       token: string;
       payload: { tier: string; issuedTo: string };
     };
@@ -32,6 +33,12 @@ describe('scripts/mint-dev-license.mjs', () => {
       expect(result.payload.tier).toBe('pro');
       expect(result.state).toBe('active');
     }
+
+    // RL-143 — the emitted thumbprint must be the RFC 7638 value of the
+    // emitted key, i.e. exactly what Settings → License renders for a
+    // session built with it (the stale-5174 eyeball check).
+    expect(parsed.publicKeyJwkThumbprint).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(parsed.publicKeyJwkThumbprint).toBe(await computeLicenseJwkThumbprint(publicKey));
   });
 
   it('rejects an unsupported --tier without writing output', () => {

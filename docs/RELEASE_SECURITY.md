@@ -130,6 +130,62 @@ Revisit this decision when **any** of the following becomes true:
 - Confirm activation/status/remove-device paths preserve device caps and tagged
   errors.
 - Confirm private license-signing keys exist only in secret stores.
+- Confirm the `Assert license-key rotation policy` gate passed (it runs in
+  `release.yml` `security-audit`, `deploy-web.yml`, and CI).
+
+### License-signing key rotation (RL-143)
+
+The app embeds exactly one Ed25519 public key
+(`LINGUA_LICENSE_PUBLIC_KEY_JWK` in `.env` + `.env.production`); the private
+half exists only as the Cloudflare Workers secret
+`LINGUA_LICENSE_PRIVATE_KEY_JWK` in `license-server`. The key is stripped to
+RFC 8037 §2 fields, so it carries no `kid` or issue date — rotation metadata
+lives in [`security/license-key-registry.json`](./security/license-key-registry.json),
+keyed by the RFC 7638 JWK thumbprint.
+
+**Policy.** Keys rotate at most every `rotationSlaDays` (90). The guard
+(`scripts/assert-license-key-rotation.mjs`, alias
+`pnpm run check:license-rotation`) fails the release, web deploy, and CI when
+the embedded key is past the SLA, not documented in the registry, not
+`active`, or drifted between the two env files. It emits a non-blocking
+warning during the last `warnWindowDays` (14) before the breach — rotate when
+the warning appears, not when the gate goes red.
+
+**Where to read the fingerprint.** The guard prints the thumbprint on every
+run; the running app shows the same value in **Settings → License → Signing
+key fingerprint** (with a Copy button); `pnpm run dev:web:pro` /
+`dev:desktop:pro` print the session key's fingerprint in the launch banner.
+All three must agree with the registry's `active` entry.
+
+**Rotation procedure (mint → embed → ship → retire).** Rotating invalidates
+the signature on every outstanding token minted with the old key. Server-
+verified tiers recover automatically: clients receive a `refreshedToken` on
+their next `/licenses/status` call (or ride the 24h offline grace window per
+`LICENSING_ADR.md` Decision 4). Tokens that never re-sync (offline/lifetime
+issuance) must be re-issued to the customer — plan support comms before
+rotating.
+
+1. Mint a fresh production keypair with
+   `node scripts/mint-dev-license.mjs` (see its doc-comment for the
+   prod-keypair extraction pattern; `jq -r`, never `-c`). Note the
+   fingerprint printed as `publicKeyJwkThumbprint`.
+2. Update the Cloudflare Workers secrets in `license-server`:
+   `wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK` and
+   `LINGUA_LICENSE_PUBLIC_KEY_JWK`.
+3. In the SAME commit: replace `LINGUA_LICENSE_PUBLIC_KEY_JWK` in **both**
+   `.env` and `.env.production`, append the new key to
+   `security/license-key-registry.json` (`status: "active"`, `issuedAt` =
+   today), and flip the previous entry to `status: "retired"` with a
+   `retiredAt`. The guard enforces exactly one `active` entry.
+4. Run `pnpm run check:license-rotation` locally — it must print `ok` with
+   the new thumbprint.
+5. Rebuild and redeploy desktop + web immediately (a stale deployed bundle
+   still verifies against the retired key and rejects newly minted tokens).
+6. Verify in the shipped build: Settings → License fingerprint matches the
+   new registry entry.
+
+Never delete registry entries — retired rows are the audit trail of every
+key that ever shipped.
 
 ## Telemetry And Crash Reporting
 

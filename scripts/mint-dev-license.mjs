@@ -5,7 +5,7 @@
  * licenses come from the RL-061 issuer — this script exists so a developer
  * can exercise Pro-gated UI in web or Electron without hitting the issuer.
  *
- * Output: JSON on stdout with FOUR fields. The two JWK fields are
+ * Output: JSON on stdout with FIVE fields. The two JWK fields are
  * **double-encoded on purpose** — the value is a JSON-string whose
  * contents are the actual JWK JSON object. This shape is friendly to
  * shell quoting (env vars, `wrangler secret put` stdin) but means
@@ -15,6 +15,10 @@
  *     Pull it out with `jq -r .publicKeyJwk` (raw mode), NOT
  *     `jq -c` / `jq` (those re-encode and produce a JSON-string with
  *     escaped quotes — see "Common pitfall" below).
+ *   - publicKeyJwkThumbprint: RFC 7638 thumbprint of publicKeyJwk
+ *     (plain string, not double-encoded). RL-143 — matches the
+ *     'Signing key fingerprint' row in Settings → License and the
+ *     key-registry id in docs/security/license-key-registry.json.
  *   - privateKeyJwkDoNotShip: STRING, same shape (`kty`, `crv`, `d`,
  *     `x`), the matching private key. Never commit this. Never paste
  *     it into the app.

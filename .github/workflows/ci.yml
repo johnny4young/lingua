@@ -65,6 +65,12 @@ jobs:
         run: pnpm run check:i18n:copy
       - name: Changelog/version guard
         run: pnpm run changelog:check
+      # RL-143 — PR-time mirror of the release-blocking rotation gate so a
+      # license-key SLA breach surfaces the week it happens instead of on
+      # release day. Note main can go red purely by time passing the SLA;
+      # that pressure is deliberate — rotate per docs/RELEASE_SECURITY.md.
+      - name: License-key rotation policy
+        run: pnpm run check:license-rotation
       - name: Tests
         run: pnpm test
       # RL-080 Slice 1 — the update-server has its own tsconfig and

@@ -15,10 +15,37 @@ import { LicenseSection } from '@/components/Settings/LicenseSection';
 import { useLicenseStore, type LicenseStatus, type ServerSyncState } from '@/stores/licenseStore';
 import { useUIStore } from '@/stores/uiStore';
 import { startTrial } from '@/services/trialServer';
+import { writeToClipboard } from '@/utils/clipboard';
 
 vi.mock('@/services/trialServer', () => ({
   startTrial: vi.fn(),
 }));
+
+// RL-143 — the fingerprint row reads the module-scope PUBLIC_KEY_JWK, whose
+// value in vitest depends on whether the root .env was loaded into
+// import.meta.env. A getter-backed mock makes the row deterministic: tests
+// flip `fingerprintMockState.jwk` instead of guessing the ambient env.
+const fingerprintMockState = vi.hoisted(() => ({
+  jwk: null as JsonWebKey | null,
+}));
+
+vi.mock('@/stores/licenseWebVerify', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/stores/licenseWebVerify')>();
+  return {
+    ...original,
+    get PUBLIC_KEY_JWK() {
+      return fingerprintMockState.jwk;
+    },
+  };
+});
+
+vi.mock('@/utils/clipboard', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/utils/clipboard')>();
+  return {
+    ...original,
+    writeToClipboard: vi.fn(),
+  };
+});
 
 function stubStatus(status: LicenseStatus, token: string | null = null): void {
   act(() => {
@@ -711,5 +738,71 @@ describe('LicenseSection', () => {
         'taken@example.com',
       ),
     );
+  });
+
+  describe('signing key fingerprint row (RL-143)', () => {
+    // The committed production key; the expected value is the
+    // independently computed RFC 7638 vector also pinned in
+    // tests/scripts/licenseKeyRotation.test.ts.
+    const PROD_THUMBPRINT = 'U0WxZzfZ6Ql5ztLrXohowxMxnik8NMUOsaRixXYdfOs';
+
+    beforeEach(() => {
+      fingerprintMockState.jwk = {
+        kty: 'OKP',
+        crv: 'Ed25519',
+        x: '2RLtTcT4AfskWAFBqKI9t_AgFLNvS1hIoGNIK_wr1Kg',
+      };
+    });
+
+    afterEach(() => {
+      fingerprintMockState.jwk = null;
+    });
+
+    it('renders the RFC 7638 thumbprint of the embedded key with a Copy control', async () => {
+      render(<LicenseSection />);
+      await waitFor(() =>
+        expect(screen.getByTestId('license-key-fingerprint').textContent).toBe(PROD_THUMBPRINT),
+      );
+      expect(screen.getByTestId('license-key-fingerprint-copy')).toBeTruthy();
+    });
+
+    it('copies the thumbprint and pushes the success notice', async () => {
+      const user = userEvent.setup();
+      vi.mocked(writeToClipboard).mockResolvedValue(true);
+      render(<LicenseSection />);
+      await waitFor(() => expect(screen.getByTestId('license-key-fingerprint')).toBeTruthy());
+
+      await user.click(screen.getByTestId('license-key-fingerprint-copy'));
+
+      await waitFor(() =>
+        expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+          'license.keyFingerprint.copied',
+        ),
+      );
+      expect(vi.mocked(writeToClipboard)).toHaveBeenCalledWith(PROD_THUMBPRINT);
+    });
+
+    it('pushes an error notice when the clipboard write is denied', async () => {
+      const user = userEvent.setup();
+      vi.mocked(writeToClipboard).mockResolvedValue(false);
+      render(<LicenseSection />);
+      await waitFor(() => expect(screen.getByTestId('license-key-fingerprint')).toBeTruthy());
+
+      await user.click(screen.getByTestId('license-key-fingerprint-copy'));
+
+      await waitFor(() =>
+        expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+          'license.keyFingerprint.copyFailed',
+        ),
+      );
+      expect(useUIStore.getState().statusNotice?.tone).toBe('error');
+    });
+
+    it('hides the row entirely when the build embeds no public key', () => {
+      fingerprintMockState.jwk = null;
+      render(<LicenseSection />);
+      expect(screen.queryByTestId('license-key-fingerprint')).toBeNull();
+      expect(screen.queryByTestId('license-key-fingerprint-copy')).toBeNull();
+    });
   });
 });

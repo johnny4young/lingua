@@ -103,6 +103,7 @@ reference for what each command owns.
 | `compliance:release` | Regenerates the complete release compliance artifact set. |
 | `check:update-feed` | Validates stable or draft desktop update feeds. |
 | `check:r2-mirror` | Validates GitHub Release asset parity against the public R2 mirror. |
+| `check:license-rotation` | Asserts the embedded license-signing key is registered, active, non-drifted, and inside the rotation SLA (`docs/security/license-key-registry.json`). |
 | `performance:report` | Collects bundle/runtime performance measurements. |
 | `performance:baseline` | Rewrites the committed performance baseline from current measurements. |
 | `check:performance` | Compares current measurements against the committed baseline. |

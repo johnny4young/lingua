@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { computeLicenseJwkThumbprint } from '../../../shared/license';
 import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
+import { PUBLIC_KEY_JWK } from '../../stores/licenseWebVerify';
 import { useUIStore } from '../../stores/uiStore';
 import { getOrMintDeviceId } from '../../services/deviceFingerprint';
+import { writeToClipboard } from '../../utils/clipboard';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { DeviceList } from './DeviceList';
@@ -122,6 +125,24 @@ export function LicenseSection() {
   // it into uiStore would let it survive route changes, which is the
   // wrong shape for this single-step remediation flow.
   const [exhaustedModalOpen, setExhaustedModalOpen] = useState(false);
+  const [dismissedExhaustedModal, setDismissedExhaustedModal] = useState(false);
+
+  // RL-143 — RFC 7638 thumbprint of the build-embedded signing key, shown
+  // so the operator can verify the running build against the rotation
+  // registry (docs/security/license-key-registry.json). Async because the
+  // digest goes through WebCrypto; stays null (row hidden) on dev builds
+  // that embed no key.
+  const [keyThumbprint, setKeyThumbprint] = useState<string | null>(null);
+  useEffect(() => {
+    if (!PUBLIC_KEY_JWK) return undefined;
+    let cancelled = false;
+    void computeLicenseJwkThumbprint(PUBLIC_KEY_JWK).then(value => {
+      if (!cancelled) setKeyThumbprint(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const status = useLicenseStore(state => state.status);
   const token = useLicenseStore(state => state.token);
@@ -134,37 +155,30 @@ export function LicenseSection() {
   const removeDevice = useLicenseStore(state => state.removeDevice);
   const clearRecoverHint = useLicenseStore(state => state.clearRecoverHint);
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
+  const isDevicesExhausted = status.kind === 'invalid' && status.reason === 'devices-exhausted';
 
   // Slice 4 — when a child CTA hits a duplicate-email branch with
   // `canRecover: true`, we capture the email here and pass it down to
-  // RecoveryCta as a prefill so the user can recover with one click.
-  // Also seeded by the renderer-driven recoverHint (stale-token branch).
+  // RecoveryCta as a prefill so the user can recover with one click. The
+  // renderer-driven recoverHint (stale-token branch) stays derived at render
+  // time so we don't need a synchronous state mirror inside an effect.
   const [recoveryPrefill, setRecoveryPrefill] = useState<string | null>(null);
-  useEffect(() => {
-    if (recoverHint && recoverHint.email !== recoveryPrefill) {
-      setRecoveryPrefill(recoverHint.email);
-    }
-  }, [recoverHint, recoveryPrefill]);
+  const recoveryPrefillEmail = recoverHint?.email ?? recoveryPrefill;
 
   const handleDismissRecoverHint = useCallback(() => {
     clearRecoverHint();
     setRecoveryPrefill(null);
   }, [clearRecoverHint]);
 
-  // Auto-open the modal whenever the active status flips into
-  // `invalid:devices-exhausted` (covers the post-rehydrate case where
-  // `setLicenseToken` ran in a previous session and we land back here
-  // with the cap still hit). Closing the modal does NOT clear the
-  // status — that requires removing a device + retrying or pressing
-  // Cancel — so we re-open until the user resolves the cap.
-  useEffect(() => {
-    if (status.kind === 'invalid' && status.reason === 'devices-exhausted') {
-      setExhaustedModalOpen(true);
-    }
-  }, [status]);
+  // Auto-show the modal for a rehydrated `invalid:devices-exhausted` status
+  // without mirroring the status into state from an effect. Closing it marks
+  // the current exhausted state dismissed until the user tries Apply again.
+  const showExhaustedModal =
+    exhaustedModalOpen || (isDevicesExhausted && !dismissedExhaustedModal);
 
   const handleExhaustedModalClose = useCallback(() => {
     setExhaustedModalOpen(false);
+    setDismissedExhaustedModal(true);
   }, []);
 
   const handleApply = async () => {
@@ -176,6 +190,7 @@ export function LicenseSection() {
         // The exhausted case routes through the modal — the user needs
         // a device list + Remove buttons + Retry, not a one-line banner.
         if (next.reason === 'devices-exhausted') {
+          setDismissedExhaustedModal(false);
           setExhaustedModalOpen(true);
           return;
         }
@@ -249,6 +264,16 @@ export function LicenseSection() {
     }
   };
 
+  const handleCopyFingerprint = async () => {
+    if (!keyThumbprint) return;
+    const copied = await writeToClipboard(keyThumbprint);
+    pushStatusNotice(
+      copied
+        ? { tone: 'success', messageKey: 'license.keyFingerprint.copied' }
+        : { tone: 'error', messageKey: 'license.keyFingerprint.copyFailed' }
+    );
+  };
+
   const handleClear = async () => {
     if (isClearing) return;
     setIsClearing(true);
@@ -267,7 +292,7 @@ export function LicenseSection() {
 
   const showCtas =
     status.kind === 'free' ||
-    (status.kind === 'invalid' && status.reason !== 'devices-exhausted');
+    (status.kind === 'invalid' && !isDevicesExhausted);
 
   return (
     <SettingsSection eyebrow={t('license.title')} description={t('license.description')}>
@@ -299,6 +324,38 @@ export function LicenseSection() {
           }
         />
       </SpecCard>
+
+      {/* RL-143 — embedded signing-key fingerprint. Rendered only when the
+          build embeds a public key; the operator cross-checks this value
+          against docs/security/license-key-registry.json when rotating. */}
+      {keyThumbprint ? (
+        <SpecCard>
+          <SpecRow
+            last
+            label={t('license.keyFingerprint.label')}
+            description={t('license.keyFingerprint.hint')}
+            control={
+              <div className="flex items-center gap-2">
+                <code
+                  data-testid="license-key-fingerprint"
+                  title={keyThumbprint}
+                  className="max-w-[200px] truncate font-mono text-[11px] text-fg-muted"
+                >
+                  {keyThumbprint}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyFingerprint()}
+                  data-testid="license-key-fingerprint-copy"
+                  className="rounded-md border border-border-default px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg-base"
+                >
+                  {t('license.keyFingerprint.copy')}
+                </button>
+              </div>
+            }
+          />
+        </SpecCard>
+      ) : null}
 
       {/* Paste a license token. */}
       <SpecCard>
@@ -336,7 +393,11 @@ export function LicenseSection() {
           <SpecCard>
             <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
             <EducationCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
-            <RecoveryCta prefilledEmail={recoveryPrefill ?? undefined} last />
+            <RecoveryCta
+              key={recoveryPrefillEmail ?? 'empty-recovery-prefill'}
+              prefilledEmail={recoveryPrefillEmail ?? undefined}
+              last
+            />
           </SpecCard>
           {recoverHint ? (
             <div
@@ -384,7 +445,7 @@ export function LicenseSection() {
         </div>
       ) : null}
 
-      {exhaustedModalOpen ? <ExhaustedDevicesModal onClose={handleExhaustedModalClose} /> : null}
+      {showExhaustedModal ? <ExhaustedDevicesModal onClose={handleExhaustedModalClose} /> : null}
     </SettingsSection>
   );
 }

@@ -54,6 +54,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # RL-143 — manual workflow_dispatch deploys bypass release.yml's
+      # security-audit job entirely, so the license-key rotation gate must
+      # also run here before the bundle that embeds the key is built.
+      - name: Assert license-key rotation policy
+        run: pnpm run check:license-rotation
+
       - name: Start Cloudflare deploy validation artifact
         shell: bash
         env:

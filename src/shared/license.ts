@@ -208,6 +208,29 @@ async function getSubtleCrypto(): Promise<SubtleCrypto | null> {
 }
 
 /**
+ * RFC 7638 §3 thumbprint of the embedded Ed25519 license public key:
+ * SHA-256 over the canonical JSON holding only the required OKP members in
+ * lexicographic order (`crv`, `kty`, `x`), base64url without padding
+ * (43 chars). This is the stable key id used by the rotation registry
+ * (`docs/security/license-key-registry.json`), the release-time rotation
+ * guard, and the Settings → License fingerprint row. Must stay byte-equal
+ * with `computeJwkThumbprint` in `scripts/lib/licenseKeyRotation.mjs` —
+ * the twin equivalence is pinned by `tests/scripts/licenseKeyRotation.test.ts`.
+ *
+ * Returns null when the JWK is not the Ed25519 OKP public-key shape or
+ * WebCrypto is unavailable, so UI callers hide the surface instead of
+ * throwing.
+ */
+export async function computeLicenseJwkThumbprint(jwk: JsonWebKey): Promise<string | null> {
+  if (jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519' || typeof jwk.x !== 'string') return null;
+  const subtle = await getSubtleCrypto();
+  if (!subtle) return null;
+  const canonical = `{"crv":${JSON.stringify(jwk.crv)},"kty":${JSON.stringify(jwk.kty)},"x":${JSON.stringify(jwk.x)}}`;
+  const digest = await subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return base64UrlEncode(new Uint8Array(digest));
+}
+
+/**
  * Strip every JWK field that is not in RFC 8037 §2 for Ed25519
  * (`kty`, `crv`, `x`). Node 22+ webcrypto `exportKey('jwk', …)` adds
  * `alg: "Ed25519"`, `key_ops`, and `ext` to the public key; some

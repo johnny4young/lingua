@@ -231,6 +231,22 @@ test.describe('Settings — License flows', () => {
     await expectTier(page, 'PRO');
   });
 
+  test('shows the embedded signing-key fingerprint as a 43-char thumbprint (RL-143)', async ({ page }) => {
+    // The e2e web build embeds a freshly minted dev key
+    // (run-playwright-web-validation.mjs), so the row must render with the
+    // RFC 7638 thumbprint of THAT key — locking the row against
+    // regressions in a real built bundle, not just jsdom.
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await openSettings(page);
+    await openSettingsTab(page, 'account');
+
+    const fingerprint = page.getByTestId('license-key-fingerprint');
+    await expect(fingerprint).toBeVisible();
+    await expect(fingerprint).toHaveText(/^[A-Za-z0-9_-]{43}$/);
+    await expect(page.getByTestId('license-key-fingerprint-copy')).toBeVisible();
+  });
+
   test('malformed token never leaks developer details to the banner', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);

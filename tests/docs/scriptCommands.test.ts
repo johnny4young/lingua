@@ -128,6 +128,11 @@ describe('Script naming docs guard', () => {
       // mirror-r2 keeps `downloads.linguacode.dev` in sync for
       // marketing-site CTAs). See `docs/runbooks/r2-release-mirror-setup.md`.
       'check:r2-mirror',
+      // RL-143 — license-signing-key rotation gate (registry +
+      // SLA + env-drift assertions); also wired into release.yml,
+      // deploy-web.yml, and ci.yml. See docs/RELEASE_SECURITY.md
+      // § Licensing for the rotation runbook.
+      'check:license-rotation',
       // RL-086 — bundle/runtime performance budgets and reports
       'performance:report',
       'performance:baseline',

@@ -87,6 +87,7 @@ async function main() {
     tier,
     days,
     token: minted.token,
+    publicKeyThumbprint: minted.publicKeyJwkThumbprint,
     launchLine: `Opening Vite on http://localhost:${displayPort} with --strictPort — close with Ctrl+C.`,
   });
 
