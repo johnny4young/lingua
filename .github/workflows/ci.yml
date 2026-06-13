@@ -93,7 +93,14 @@ jobs:
         run: pnpm run check:performance
       - name: Third-party license policy
         run: pnpm run check:licenses
-      - name: Security audit
+      # RL-145 — blocking production-graph audit at PR time. The release
+      # pipeline already gated prod advisories (RL-080); this brings the
+      # same fail-closed gate to every PR so a prod high/critical dep is
+      # caught before merge, not only at release. The dev-inclusive full
+      # audit below stays advisory by design (see docs/RELEASE_SECURITY.md).
+      - name: Production dependency audit (blocking)
+        run: pnpm run check:prod-audit
+      - name: Security audit (advisory, full graph)
         run: pnpm audit --audit-level high
         continue-on-error: true
 

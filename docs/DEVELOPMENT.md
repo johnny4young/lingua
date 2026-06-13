@@ -66,12 +66,13 @@ pnpm run check:i18n:copy
 pnpm run check:deadcode
 pnpm test
 pnpm exec tsc --noEmit
+pnpm run check:prod-audit
 pnpm run build:web
 pnpm run smoke:desktop:stagewright
 pnpm run smoke:desktop
 ```
 
-These are the main local verification commands. CI also runs the changelog/version guard, the third-party license policy gate, and a high-severity `pnpm audit`; release runs add exact release-tag changelog validation, the production-only blocking audit, plus SBOM/license artifact generation.
+These are the main local verification commands. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. CI also runs the changelog/version guard, the third-party license policy gate, and a high-severity advisory `pnpm audit` over the full graph; release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
 
 ## Package script reference
 
@@ -104,6 +105,7 @@ reference for what each command owns.
 | `check:update-feed` | Validates stable or draft desktop update feeds. |
 | `check:r2-mirror` | Validates GitHub Release asset parity against the public R2 mirror. |
 | `check:license-rotation` | Asserts the embedded license-signing key is registered, active, non-drifted, and inside the rotation SLA (`docs/security/license-key-registry.json`). |
+| `check:prod-audit` | Fails closed on a `high`/`critical` advisory in the production dependency graph (`pnpm audit --prod`); runs in PR CI and release. |
 | `performance:report` | Collects bundle/runtime performance measurements. |
 | `performance:baseline` | Rewrites the committed performance baseline from current measurements. |
 | `check:performance` | Compares current measurements against the committed baseline. |

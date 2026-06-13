@@ -203,6 +203,43 @@ key that ever shipped.
 - Confirm public builds do not introduce AGPL/commercial runtime dependencies
   without an explicit license decision.
 - Confirm no disallowed runtime license ships in packaged artifacts.
+- Confirm the `pnpm run check:prod-audit` gate passed (it runs in CI on every
+  PR and in `release.yml` security-audit).
+
+### Production dependency audit gate (RL-145)
+
+`pnpm run check:prod-audit` (`scripts/assert-prod-audit.mjs` over the pure
+`scripts/lib/prodAudit.mjs`) runs `pnpm audit --prod --json`, applies a
+severity threshold (default `high`), and **fails closed** — a `high` or
+`critical` advisory in the production dependency graph, an unparseable audit
+payload, or a `pnpm audit` that could not run all exit non-zero. It is wired
+into `ci.yml` (PR gate) and `release.yml` (security-audit job), so a prod
+advisory is caught before merge, not only at release time.
+
+**Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
+is blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
+stays advisory (`continue-on-error: true`): its `high` findings (e.g. the
+`esbuild` GHSA reached through `vite` / `@electron-forge/*`, and the dev-only
+`tar` advisory) are unfixable without upstream electron-forge / vite upgrades
+and never ship in a packaged artifact. Making the full audit blocking would
+red-CI the repo on dev-tooling advisories that pose no user risk. Keep the
+split.
+
+**Bypass procedure (vendored exception).** If a production `high` advisory has
+no available fix and the risk is assessed acceptable for a release:
+
+1. Document the advisory id, the affected package + path (`pnpm why <pkg>`),
+   the risk assessment, and the planned remediation date in the PR
+   description.
+2. Add a transitive `pnpm.overrides` pin in `package.json` to the patched
+   version if one exists; re-run `pnpm run check:prod-audit` to confirm green.
+3. If no patched version exists, raise the gate threshold for that single run
+   only via `node scripts/assert-prod-audit.mjs --level critical` in a
+   dedicated commit whose message records the vendored exception, and open a
+   tracking entry in `docs/BACKLOG.md`. Never weaken the default `high`
+   threshold in CI without that paper trail. `critical` production advisories
+   remain release-blocking under this procedure; they need a patched dependency
+   or a separate maintainer-approved incident exception.
 
 ## Public Documentation Claims
 

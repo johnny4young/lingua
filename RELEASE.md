@@ -42,7 +42,7 @@ This repository uses a draft-first manual release process, with the release tag 
 4. Provide `release_tag`, the stable tag/version to create and publish, for example `vX.Y.Z`.
 5. Wait for the `Release` GitHub Actions workflow to complete.
 6. Inspect the workflow summary:
-   - Production dependency audit (release-blocking `pnpm audit --prod --audit-level high`)
+   - Production dependency audit (release-blocking `pnpm run check:prod-audit`)
    - Changelog/version guard with exact release-tag validation
    - Third-party license policy and release compliance artifact generation
    - macOS signing verification
@@ -66,7 +66,7 @@ This repository uses a draft-first manual release process, with the release tag 
 
 ## Validation checklist
 
-- Release-blocking production dependency audit passed (`pnpm audit --prod --audit-level high` in the `security-audit` job); the same job also prints full dependency audit output as advisory signal for build-tool drift
+- Release-blocking production dependency audit passed (`pnpm run check:prod-audit` in the `security-audit` job); the same job also prints full dependency audit output as advisory signal for build-tool drift
 - Changelog/version guard passed (`pnpm run changelog:check`)
 - Performance budget guard passed (`pnpm run check:performance`)
 - Third-party license policy passed (`pnpm run check:licenses`)

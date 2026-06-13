@@ -113,8 +113,11 @@ describe('release workflow', () => {
     // still prints as advisory output because stable Forge 7 carries
     // dev-only audit findings with no stable upstream fix.
     expect(workflow).toMatch(/security-audit:\s*\n\s*name: Security audit \(release-blocking\)/u);
+    // RL-145 — the blocking prod gate runs through the fixture-tested
+    // `check:prod-audit` wrapper (same mechanism as PR CI), not a second
+    // inline `pnpm audit` expression that could drift.
     expect(workflow).toMatch(
-      /Run blocking production audit[\s\S]*?pnpm audit --prod --audit-level high/u
+      /Run blocking production audit[\s\S]*?pnpm run check:prod-audit/u
     );
     expect(workflow).toMatch(
       /Run advisory full audit[\s\S]*?pnpm audit --audit-level high[\s\S]*?continue-on-error: true/u

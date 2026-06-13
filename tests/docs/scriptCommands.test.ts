@@ -133,6 +133,10 @@ describe('Script naming docs guard', () => {
       // deploy-web.yml, and ci.yml. See docs/RELEASE_SECURITY.md
       // § Licensing for the rotation runbook.
       'check:license-rotation',
+      // RL-145 — blocking production-graph audit gate (pnpm audit --prod
+      // wrapper); wired into ci.yml (PR) and release.yml. See
+      // docs/RELEASE_SECURITY.md for the prod-vs-full split rationale.
+      'check:prod-audit',
       // RL-086 — bundle/runtime performance budgets and reports
       'performance:report',
       'performance:baseline',
