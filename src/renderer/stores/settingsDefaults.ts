@@ -84,7 +84,7 @@ export function createInitialSettingsState() {
     minimap: false,
     layoutPreset: 'horizontal',
     maxLoopIterations: 10_000,
-    restoreSession: false,
+    restoreSessionMode: 'ask',
     formatOnSave: false,
     vimMode: false,
     nativeExecutionAcknowledged: false,

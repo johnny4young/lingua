@@ -475,6 +475,15 @@ export const TELEMETRY_EVENTS = [
   // NO filename reaches the wire — only the coarse family token. Mirrored on
   // update-server with a parity test.
   'fs.blocked',
+  // RL-111 — workspace session restore. `session.restored` fires when a prior
+  // session is rehydrated; closed payload `{ tabCount, source }` where
+  // `source ∈ {auto, prompt}` (auto = `always` mode silent restore, prompt =
+  // the user clicked the `ask`-mode toast). `session.snapshotDiscarded` fires
+  // when the `ask` prompt is dismissed without restoring (`{ tabCount }`). NO
+  // tab names, paths, languages, or content reach the wire — only the count.
+  // Mirrored on update-server with a parity test.
+  'session.restored',
+  'session.snapshotDiscarded',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -777,6 +786,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'persistence.migrated': ['store'],
   // RL-137 / AUDIT-17 — `family` ∈ FS_BLOCKED_FAMILIES. No path on the wire.
   'fs.blocked': ['family'],
+  // RL-111 — `tabCount` is a non-negative integer (count only). `source`
+  // is the closed enum `auto` | `prompt`.
+  'session.restored': ['tabCount', 'source'],
+  'session.snapshotDiscarded': ['tabCount'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -1411,6 +1424,11 @@ export const FS_BLOCKED_FAMILIES = new Set([
   'lingua-data',
 ]);
 
+// RL-111 — closed enum for the `session.restored` source property.
+// `auto` = `always`-mode silent restore; `prompt` = user clicked the
+// `ask`-mode restore toast.
+export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
+
 export function isSafeToken(value: unknown): value is string {
   return typeof value === 'string' && SAFE_TOKEN_RE.test(value);
 }
@@ -1869,6 +1887,13 @@ function isAllowedValue(
       return (
         key === 'family' && typeof value === 'string' && FS_BLOCKED_FAMILIES.has(value)
       );
+    case 'session.restored':
+      if (key === 'tabCount') return isSafeCount(value);
+      if (key === 'source')
+        return typeof value === 'string' && SESSION_RESTORE_SOURCES.has(value);
+      return false;
+    case 'session.snapshotDiscarded':
+      return key === 'tabCount' && isSafeCount(value);
     default: {
       const exhaustive: never = event;
       return exhaustive;

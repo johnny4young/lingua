@@ -12,7 +12,7 @@ export function createSessionActions(
   set: SettingsSet
 ): Pick<
   SettingsState,
-  | 'toggleRestoreSession'
+  | 'setRestoreSessionMode'
   | 'resetOnboardingWelcome'
   | 'resetOnboardingFirstRun'
   | 'resetOnboardingFirstSnippet'
@@ -27,7 +27,7 @@ export function createSessionActions(
   | 'setSqlWorkspaceQueryTimeoutMs'
 > {
   return {
-    toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
+    setRestoreSessionMode: (mode) => set({ restoreSessionMode: mode }),
     // RL-101 Slice 1 — three reset setters. Flip the corresponding
     // flag back to `false` so the next welcome-seed, first-run, or
     // first-snippet event re-arms the toast. Settings → General

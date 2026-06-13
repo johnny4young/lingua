@@ -24,6 +24,7 @@ import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useSessionAutoSave } from './hooks/useSessionAutoSave';
+import { useSessionRestoreBoot } from './hooks/useSessionRestoreBoot';
 import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
@@ -44,7 +45,6 @@ import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { getActiveTab, useEditorStore } from './stores/editorStore';
 import { openUtilitiesWorkspaceTab } from './runtime/openWorkspaceTab';
 import { usePluginStore } from './stores/pluginStore';
-import { useSessionStore } from './stores/sessionStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
@@ -113,46 +113,12 @@ function AppChrome({
   // shared by the FileTree button, the Mod+Alt+E shortcut, and the
   // command-palette actions.
   const { exportProjectBundle } = useProjectBundle();
-  const hasRestoredSessionRef = useRef(false);
   const hasHandledWhatsNewRef = useRef(false);
   const hasHandledAutoTourRef = useRef(false);
-  const [sessionRestoreReady, setSessionRestoreReady] = useState(false);
-
-  // Restore session on first mount if setting is enabled.
-  // RL-090 — safe mode skips session restore so a corrupted persisted
-  // tab state cannot keep the renderer in a crash loop.
-  useEffect(() => {
-    let cancelled = false;
-
-    const finish = () => {
-      if (!cancelled) {
-        setSessionRestoreReady(true);
-      }
-    };
-
-    if (hasRestoredSessionRef.current || smokeEnabled) {
-      finish();
-      return;
-    }
-    hasRestoredSessionRef.current = true;
-
-    if (isSafeMode()) {
-      finish();
-      return;
-    }
-
-    const { restoreSession } = useSettingsStore.getState();
-    void (async () => {
-      if (restoreSession) {
-        await useSessionStore.getState().restoreSession();
-      }
-      finish();
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [smokeEnabled]);
+  // RL-111 — boot-time session restore (extracted to a hook to keep App.tsx
+  // under the AUDIT-11 size budget). Owns the `always`/`ask`/`never` decision
+  // and the `ask`-mode restore prompt; returns the boot-gating ready flag.
+  const sessionRestoreReady = useSessionRestoreBoot(smokeEnabled);
 
   // RL-147 — debounced session auto-save, narrowed to save-relevant
   // editor-store changes (see useSessionAutoSave for the contract).

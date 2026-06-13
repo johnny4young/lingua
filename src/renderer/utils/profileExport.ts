@@ -43,7 +43,7 @@ function pickPortableSettings(): PortableSettings {
     loopProtection: true,
     maxLoopIterations: state.maxLoopIterations,
     hideUndefined: true,
-    restoreSession: state.restoreSession,
+    restoreSessionMode: state.restoreSessionMode,
     formatOnSave: state.formatOnSave,
     vimMode: state.vimMode,
     syncShellWithEditorTheme: true,

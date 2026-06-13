@@ -242,6 +242,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-137 / AUDIT-17 — mirror of src/shared/telemetry.ts. Closed payload
   // `{ family }` ∈ FS_BLOCKED_FAMILIES; no path reaches the wire.
   'fs.blocked',
+  // RL-111 — mirror of src/shared/telemetry.ts. `session.restored`
+  // `{ tabCount, source∈{auto,prompt} }`; `session.snapshotDiscarded`
+  // `{ tabCount }`. Count only; no tab names/paths/content.
+  'session.restored',
+  'session.snapshotDiscarded',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -384,6 +389,9 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'persistence.migrated': ['store'],
   // RL-137 / AUDIT-17 — mirror of src/shared/telemetry.ts.
   'fs.blocked': ['family'],
+  // RL-111 — mirror of src/shared/telemetry.ts.
+  'session.restored': ['tabCount', 'source'],
+  'session.snapshotDiscarded': ['tabCount'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -437,6 +445,8 @@ export const FS_BLOCKED_FAMILIES = new Set([
   'browser-profile',
   'lingua-data',
 ]);
+// RL-111 — mirror of SESSION_RESTORE_SOURCES in src/shared/telemetry.ts.
+export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
 // RL-020 Slice 7 — widened to mirror the renderer (`'timeout'` and
 // `'stopped'` are the two distinct termination kinds the renderer
 // now reports). The parity test asserts both Sets stay in lockstep.
@@ -1460,6 +1470,13 @@ function isAllowedValue(
       return (
         key === 'family' && typeof value === 'string' && FS_BLOCKED_FAMILIES.has(value)
       );
+    case 'session.restored':
+      if (key === 'tabCount') return isSafeCount(value);
+      if (key === 'source')
+        return typeof value === 'string' && SESSION_RESTORE_SOURCES.has(value);
+      return false;
+    case 'session.snapshotDiscarded':
+      return key === 'tabCount' && isSafeCount(value);
     default: {
       const exhaustive: never = event;
       return exhaustive;

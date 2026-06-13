@@ -3,6 +3,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { CommandPalette } from '../../src/renderer/components/CommandPalette/CommandPalette';
 import { SHARE_LINK_TRIGGER_EVENT } from '../../src/renderer/components/Share/shareLinkEvents';
+import {
+  armPendingSessionRestoreSnapshot,
+  clearPendingSessionRestoreSnapshot,
+  useSessionStore,
+} from '../../src/renderer/stores/sessionStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 const {
@@ -211,6 +216,8 @@ describe('CommandPalette', () => {
     settingsState.dependencyDetectionEnabled = true;
     settingsState.variableInspectorSurface = 'floating';
     settingsState.consoleRichRenderingEnabled = true;
+    useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
+    clearPendingSessionRestoreSnapshot();
     useUIStore.setState({
       activeBottomPanel: 'console',
       consoleVisible: false,
@@ -280,6 +287,36 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Actions')).toBeTruthy();
     expect(screen.getByText('Templates')).toBeTruthy();
     expect(screen.queryByText('Snippets')).toBeNull();
+  });
+
+  it('keeps Restore last session visible for a pending ask-mode snapshot after savedTabs changes', () => {
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'previous.js',
+          language: 'javascript',
+          content: 'console.log("previous")',
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+    expect(armPendingSessionRestoreSnapshot()).toBe(1);
+    useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
+
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'restore' } });
+
+    expect(screen.getByText('Restore last session')).toBeTruthy();
   });
 
   it('flattens results without scope headers when the user types a query', () => {

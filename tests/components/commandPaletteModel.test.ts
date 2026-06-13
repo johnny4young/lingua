@@ -275,6 +275,59 @@ describe('buildCommandPaletteModel', () => {
     expect(onImportProjectBundle).toHaveBeenCalledOnce();
   });
 
+  it('exposes Restore last session only when wired AND a snapshot tab exists (RL-111 fold D)', () => {
+    const onRestoreSession = vi.fn();
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    // Not wired → hidden.
+    expect(
+      buildCommandPaletteModel(baseArgs).find((c) => c.id === 'action-restore-session')
+    ).toBeUndefined();
+
+    // Wired but no saved tabs → still hidden (never offer to restore nothing).
+    expect(
+      buildCommandPaletteModel({
+        ...baseArgs,
+        onRestoreSession,
+        savedSessionTabCount: 0,
+      }).find((c) => c.id === 'action-restore-session')
+    ).toBeUndefined();
+
+    // Wired AND a snapshot exists → surfaced; activating it fires + closes.
+    const onClose = vi.fn();
+    const restoreCommand = buildCommandPaletteModel({
+      ...baseArgs,
+      onClose,
+      onRestoreSession,
+      savedSessionTabCount: 3,
+    }).find((c) => c.id === 'action-restore-session');
+    expect(restoreCommand).toBeDefined();
+    restoreCommand?.action();
+    expect(onRestoreSession).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('exposes the project search action only when the opener is wired in', () => {
     const onOpenProjectSearch = vi.fn();
     const baseArgs = {

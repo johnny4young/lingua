@@ -34,7 +34,7 @@ describe('useSessionAutoSave (RL-147)', () => {
     saveSpy = vi.fn();
     useEditorStore.setState({ tabs: [UNTITLED_TAB], activeTabId: 'tab-1' });
     useSessionStore.setState({ saveSession: saveSpy });
-    useSettingsStore.setState({ restoreSession: true });
+    useSettingsStore.setState({ restoreSessionMode: 'always' });
   });
 
   afterEach(() => {
@@ -101,13 +101,22 @@ describe('useSessionAutoSave (RL-147)', () => {
     expect(saveSpy).not.toHaveBeenCalled();
   });
 
-  it('stays inert when the restoreSession setting is off', () => {
-    useSettingsStore.setState({ restoreSession: false });
+  it('stays inert when restoreSessionMode is never (RL-111)', () => {
+    useSettingsStore.setState({ restoreSessionMode: 'never' });
     renderHook(() => useSessionAutoSave(false));
 
     changeUntitledContent('const x = 2;');
     vi.advanceTimersByTime(5000);
     expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it('still auto-saves under restoreSessionMode ask so the prompt has a snapshot (RL-111)', () => {
+    useSettingsStore.setState({ restoreSessionMode: 'ask' });
+    renderHook(() => useSessionAutoSave(false));
+
+    changeUntitledContent('const x = 3;');
+    vi.advanceTimersByTime(1000);
+    expect(saveSpy).toHaveBeenCalled();
   });
 
   it('stays inert under desktop smoke mode', () => {

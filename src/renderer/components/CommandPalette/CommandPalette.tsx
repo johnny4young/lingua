@@ -18,6 +18,10 @@ import {
 } from '../../stores/executionHistoryStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
+import {
+  getPendingSessionRestoreTabCount,
+  useSessionStore,
+} from '../../stores/sessionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -191,6 +195,14 @@ export function CommandPalette({
       dependencyDetectionEntry.skippedReason !== undefined);
   const { setLayoutPreset } = useSettingsStore();
   const vimMode = useSettingsStore((state) => state.vimMode);
+  // RL-111 fold D — gates the "Restore last session" palette command. When
+  // ask-mode boot pinned a previous-session snapshot, prefer that in-memory
+  // count over the auto-save store's current value so the palette fallback stays
+  // aligned with the boot prompt after the toast dismisses.
+  const savedSessionTabCount = useSessionStore((state) => {
+    const pendingCount = getPendingSessionRestoreTabCount();
+    return pendingCount > 0 ? pendingCount : state.savedTabs.length;
+  });
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
   const { t, i18n } = useTranslation();
 
@@ -212,6 +224,14 @@ export function CommandPalette({
       onFocusLanguageTab: focusLanguageTab,
       onRerunLast: canUseExecutionHistory ? onRerunLast : undefined,
       onNewProjectFromTemplate,
+      // RL-111 fold D — restore the pending ask-mode boot snapshot when one
+      // exists; otherwise restore the currently persisted session on demand.
+      // The model hides the command when no snapshot tab exists, so a fresh user
+      // never sees a no-op entry.
+      onRestoreSession: () => {
+        void useSessionStore.getState().restoreSession();
+      },
+      savedSessionTabCount,
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       onToggleVimMode,
       vimModeEnabled: vimMode,
@@ -626,6 +646,7 @@ export function CommandPalette({
     activeTab,
     setTabAutoLogEnabled,
     latestCapsule,
+    savedSessionTabCount,
     i18n.language,
   ]);
 

@@ -10,6 +10,10 @@ import { useConsoleStore } from '../stores/consoleStore';
 import { createDefaultTab, getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import {
+  getPendingSessionRestoreTabCount,
+  useSessionStore,
+} from '../stores/sessionStore';
 import { useSnippetsStore } from '../stores/snippetsStore';
 import {
   useUIStore,
@@ -182,6 +186,17 @@ function seedWelcomeIfNeeded(): void {
     settings.hasCompletedOnboardingWelcome &&
     settings.onboardingWelcomeSeedVersion >= SEEDED_SCRATCHPAD_VERSION;
   if (onCurrentVersion) return;
+  if (
+    settings.restoreSessionMode === 'ask' &&
+    (getPendingSessionRestoreTabCount() > 0 ||
+      useSessionStore.getState().savedTabs.length > 0)
+  ) {
+    // Ask-mode means a previous-session snapshot exists but the user has not
+    // chosen whether to surface it. Do not seed the welcome scratchpad here:
+    // that would schedule autosave and replace the very snapshot the restore
+    // prompt/palette are offering.
+    return;
+  }
 
   const base = createDefaultTab(SEEDED_SCRATCHPAD_LANGUAGE as Language);
   editor.addTab({

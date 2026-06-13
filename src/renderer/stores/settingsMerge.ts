@@ -254,8 +254,20 @@ export function settingsMerge(
     merged.importPreviewClipboardOnFocusConsent === 'unset'
       ? merged.importPreviewClipboardOnFocusConsent
       : 'unset';
+  // RL-111 — guard the session-restore mode on rehydrate. The v1->v2
+  // migration converts the legacy `restoreSession` boolean, but a
+  // tampered / hand-edited localStorage value (or a blob that skipped
+  // migration) must still coerce to a known enum. Unknown -> the
+  // privacy-conscious `'ask'` default rather than silent auto-restore.
+  const restoreSessionMode: SettingsState['restoreSessionMode'] =
+    merged.restoreSessionMode === 'never' ||
+    merged.restoreSessionMode === 'ask' ||
+    merged.restoreSessionMode === 'always'
+      ? merged.restoreSessionMode
+      : 'ask';
   return {
     ...merged,
+    restoreSessionMode,
     hasCompletedOnboardingWelcome,
     hasCompletedOnboardingFirstRun,
     hasCompletedOnboardingFirstSnippet,

@@ -46,8 +46,8 @@ export function EditorSection() {
   const toggleMinimap = useSettingsStore((state) => state.toggleMinimap);
   const maxLoopIterations = useSettingsStore((state) => state.maxLoopIterations);
   const setMaxLoopIterations = useSettingsStore((state) => state.setMaxLoopIterations);
-  const restoreSession = useSettingsStore((state) => state.restoreSession);
-  const toggleRestoreSession = useSettingsStore((state) => state.toggleRestoreSession);
+  const restoreSessionMode = useSettingsStore((state) => state.restoreSessionMode);
+  const setRestoreSessionMode = useSettingsStore((state) => state.setRestoreSessionMode);
   const formatOnSave = useSettingsStore((state) => state.formatOnSave);
   const toggleFormatOnSave = useSettingsStore((state) => state.toggleFormatOnSave);
   const vimMode = useSettingsStore((state) => state.vimMode);
@@ -327,7 +327,21 @@ export function EditorSection() {
         <SpecRow
           label={t('editor.restoreSession.label')}
           description={t('editor.restoreSession.hint')}
-          control={<Toggle value={restoreSession} onChange={toggleRestoreSession} />}
+          control={
+            <Select
+              value={restoreSessionMode}
+              onChange={(event) =>
+                setRestoreSessionMode(event.target.value as typeof restoreSessionMode)
+              }
+              aria-label={t('editor.restoreSession.label')}
+            >
+              {(['never', 'ask', 'always'] as const).map((mode) => (
+                <option key={mode} value={mode}>
+                  {t(`editor.restoreSession.mode.${mode}`)}
+                </option>
+              ))}
+            </Select>
+          }
         />
 
         <SpecRow

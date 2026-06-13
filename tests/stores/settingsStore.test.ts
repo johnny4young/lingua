@@ -141,15 +141,17 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().layoutPreset).toBe('horizontal');
   });
 
-  it('should default restoreSession to false', () => {
-    expect(useSettingsStore.getState().restoreSession).toBe(false);
+  it('should default restoreSessionMode to ask (RL-111)', () => {
+    expect(useSettingsStore.getState().restoreSessionMode).toBe('ask');
   });
 
-  it('should toggle restoreSession', () => {
-    useSettingsStore.getState().toggleRestoreSession();
-    expect(useSettingsStore.getState().restoreSession).toBe(true);
-    useSettingsStore.getState().toggleRestoreSession();
-    expect(useSettingsStore.getState().restoreSession).toBe(false);
+  it('should set restoreSessionMode across the closed enum (RL-111)', () => {
+    useSettingsStore.getState().setRestoreSessionMode('always');
+    expect(useSettingsStore.getState().restoreSessionMode).toBe('always');
+    useSettingsStore.getState().setRestoreSessionMode('never');
+    expect(useSettingsStore.getState().restoreSessionMode).toBe('never');
+    useSettingsStore.getState().setRestoreSessionMode('ask');
+    expect(useSettingsStore.getState().restoreSessionMode).toBe('ask');
   });
 
   it('should default formatOnSave to false', () => {
@@ -192,7 +194,7 @@ describe('settingsStore', () => {
   });
 
   it('applyThemePreset updates theming fields and leaves safety prefs alone', () => {
-    useSettingsStore.setState({ formatOnSave: true, restoreSession: true });
+    useSettingsStore.setState({ formatOnSave: true, restoreSessionMode: 'always' });
 
     useSettingsStore.getState().applyThemePreset({
       theme: 'light',
@@ -210,7 +212,7 @@ describe('settingsStore', () => {
     expect(state.layoutPreset).toBe('vertical');
     // Preset must not override workflow preferences
     expect(state.formatOnSave).toBe(true);
-    expect(state.restoreSession).toBe(true);
+    expect(state.restoreSessionMode).toBe('always');
   });
 
   it('blocks extended theme packs on the Free tier', () => {
@@ -427,12 +429,12 @@ describe('settingsStore', () => {
   it('applyThemePack does not touch workflow prefs', () => {
     useSettingsStore.setState({
       formatOnSave: true,
-      restoreSession: true,
+      restoreSessionMode: 'always',
     });
     useSettingsStore.getState().applyThemePack('solarized-daylight');
     const state = useSettingsStore.getState();
     expect(state.formatOnSave).toBe(true);
-    expect(state.restoreSession).toBe(true);
+    expect(state.restoreSessionMode).toBe('always');
   });
 
   it('defaults keymapPreset to "default" and applies a preset by id', () => {

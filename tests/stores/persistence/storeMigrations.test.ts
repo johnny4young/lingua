@@ -24,10 +24,16 @@ import { useRecentFilesStore } from '../../../src/renderer/stores/recentFilesSto
 const STORE_NAMES = Object.keys(migrationRegistry) as PersistedStoreName[];
 
 describe('Fold A — v0 back-compat per persisted store', () => {
-  // The AC: rehydrating a v0 (unversioned) payload still works. With identity
-  // 0->1 migrations today, every store must return its persisted shape
-  // unchanged so no returning user loses data on the version bump.
-  for (const name of STORE_NAMES) {
+  // The AC: rehydrating a v0 (unversioned) payload still works. Stores with an
+  // identity migration map must return their persisted shape unchanged so no
+  // returning user loses data on the version bump. Stores that have grown a
+  // real forward step (RL-111: lingua-settings 1->2) are exercised by their
+  // own dedicated test below — the generic identity assertion does not apply.
+  const IDENTITY_STORES = STORE_NAMES.filter(
+    (name) => Object.keys(migrationRegistry[name]).length === 0
+  );
+
+  for (const name of IDENTITY_STORES) {
     it(`preserves an unversioned payload for ${name}`, () => {
       const migrate = createMigrate(name);
       const payload = { _probe: 'legacy-v0', list: [1, 2, 3], nested: { ok: true } };
@@ -35,13 +41,44 @@ describe('Fold A — v0 back-compat per persisted store', () => {
       expect(migrate(payload, 0)).toEqual(payload);
       expect(migrate(payload, undefined as unknown as number)).toEqual(payload);
     });
+  }
 
+  // Corrupt-payload reset is universal — it precedes any step replay, so it
+  // holds for identity AND migrating stores alike.
+  for (const name of STORE_NAMES) {
     it(`resets a corrupt payload to defaults for ${name}`, () => {
       const migrate = createMigrate(name);
       expect(migrate('corrupt-string', 0)).toBeUndefined();
       expect(migrate([], 0)).toBeUndefined();
     });
   }
+});
+
+describe('lingua-settings v1->v2 — restoreSession boolean to restoreSessionMode enum (RL-111)', () => {
+  const migrate = createMigrate('lingua-settings');
+
+  it('maps legacy restoreSession:true to always', () => {
+    const result = migrate({ theme: 'dark', restoreSession: true }, 1) as Record<string, unknown>;
+    expect(result.restoreSessionMode).toBe('always');
+    expect(result).not.toHaveProperty('restoreSession');
+    expect(result.theme).toBe('dark');
+  });
+
+  it('maps legacy restoreSession:false to ask (fold B — better default for everyone)', () => {
+    const result = migrate({ restoreSession: false }, 1) as Record<string, unknown>;
+    expect(result.restoreSessionMode).toBe('ask');
+    expect(result).not.toHaveProperty('restoreSession');
+  });
+
+  it('defaults a missing legacy value to ask', () => {
+    const result = migrate({ theme: 'light' }, 1) as Record<string, unknown>;
+    expect(result.restoreSessionMode).toBe('ask');
+  });
+
+  it('runs the step when migrating from an unversioned (v0) payload', () => {
+    const result = migrate({ restoreSession: true }, 0) as Record<string, unknown>;
+    expect(result.restoreSessionMode).toBe('always');
+  });
 });
 
 describe('Fold B — drift guard: every persisted store is versioned + registered', () => {

@@ -112,6 +112,49 @@ interface SessionState {
   restoreSession: () => Promise<void>;
 }
 
+interface PendingSessionRestoreSnapshot {
+  savedTabs: SessionTab[];
+  savedActiveIndex: number;
+}
+
+let pendingSessionRestoreSnapshot: PendingSessionRestoreSnapshot | null = null;
+
+function cloneSessionTabs(tabs: readonly SessionTab[]): SessionTab[] {
+  return tabs.map(tab => ({ ...tab }));
+}
+
+/**
+ * RL-111 ask-mode boot prompt guard.
+ *
+ * The saved-session store keeps auto-saving in ask mode so future restarts have
+ * a fresh snapshot. That means the visible "Restore last session" prompt cannot
+ * read `savedTabs` lazily at click time: onboarding, a new manual tab, or any
+ * normal edit may have already replaced the persisted snapshot. Keep the boot
+ * snapshot in memory until an explicit restore consumes it, so both the prompt
+ * CTA and the palette fallback restore the same previous-session tabs they
+ * advertised even if `savedTabs` changes after boot.
+ */
+export function armPendingSessionRestoreSnapshot(): number {
+  const { savedTabs, savedActiveIndex } = useSessionStore.getState();
+  if (savedTabs.length === 0) {
+    pendingSessionRestoreSnapshot = null;
+    return 0;
+  }
+  pendingSessionRestoreSnapshot = {
+    savedTabs: cloneSessionTabs(savedTabs),
+    savedActiveIndex,
+  };
+  return pendingSessionRestoreSnapshot.savedTabs.length;
+}
+
+export function getPendingSessionRestoreTabCount(): number {
+  return pendingSessionRestoreSnapshot?.savedTabs.length ?? 0;
+}
+
+export function clearPendingSessionRestoreSnapshot(): void {
+  pendingSessionRestoreSnapshot = null;
+}
+
 /**
  * Per-tab arm of {@link sessionSnapshotEqual}. Compares only the
  * fields `saveSession()` serializes into a `SessionTab`, with the
@@ -225,8 +268,14 @@ export const useSessionStore = create<SessionState>()(
       },
 
       restoreSession: async () => {
-        const { savedTabs, savedActiveIndex } = get();
-        if (savedTabs.length === 0) return;
+        const pendingSnapshot = pendingSessionRestoreSnapshot;
+        const { savedTabs, savedActiveIndex } = pendingSnapshot ?? get();
+        if (savedTabs.length === 0) {
+          if (pendingSnapshot) {
+            clearPendingSessionRestoreSnapshot();
+          }
+          return;
+        }
 
         const restored: Array<
           Parameters<ReturnType<typeof useEditorStore.getState>['restoreTabs']>[0][number] & {
@@ -445,6 +494,9 @@ export const useSessionStore = create<SessionState>()(
         const activeRestoredTab = restored.find(tab => tab.id === activeId);
         if (activeRestoredTab?.recipeBindingId !== undefined) {
           useUIStore.getState().openBottomPanel('recipe');
+        }
+        if (pendingSnapshot) {
+          clearPendingSessionRestoreSnapshot();
         }
       },
     }),

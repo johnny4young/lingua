@@ -43,7 +43,13 @@ export interface PortableSettings {
   loopProtection?: boolean;
   maxLoopIterations?: number;
   hideUndefined?: boolean;
-  restoreSession?: boolean;
+  /**
+   * RL-111 — session-restore policy. Replaced the legacy
+   * `restoreSession?: boolean`. A profile exported by an older build
+   * carries `restoreSession` instead; {@link pickPortableSettings}
+   * maps it on import (`true -> 'always'`, `false -> 'ask'`).
+   */
+  restoreSessionMode?: string;
   formatOnSave?: boolean;
   vimMode?: boolean;
   syncShellWithEditorTheme?: boolean;
@@ -97,7 +103,6 @@ const BOOLEAN_SETTINGS: readonly (keyof PortableSettings)[] = [
   'minimap',
   'loopProtection',
   'hideUndefined',
-  'restoreSession',
   'formatOnSave',
   'vimMode',
   'syncShellWithEditorTheme',
@@ -113,6 +118,7 @@ const STRING_SETTINGS: readonly (keyof PortableSettings)[] = [
 
 const LAYOUT_PRESETS = new Set(['horizontal', 'vertical', 'editor-only']);
 const APP_LANGUAGES = new Set(['system', 'en', 'es']);
+const RESTORE_SESSION_MODES = new Set(['never', 'ask', 'always']);
 const MAX_PROFILE_STRING_LENGTH = 512;
 
 function isBoundedString(value: unknown): value is string {
@@ -157,6 +163,16 @@ function pickPortableSettings(raw: unknown): PortableSettings {
   }
   if (isBoundedString(raw.language) && APP_LANGUAGES.has(raw.language)) {
     out.language = raw.language;
+  }
+  // RL-111 — accept the new enum field; fall back to mapping the legacy
+  // `restoreSession` boolean so a profile exported by an older build still
+  // round-trips (true -> always, false -> ask, matching the v1->v2 store
+  // migration). A present-but-invalid value is simply dropped (the store's
+  // merge sanitizer would coerce it to 'ask' anyway).
+  if (isBoundedString(raw.restoreSessionMode) && RESTORE_SESSION_MODES.has(raw.restoreSessionMode)) {
+    out.restoreSessionMode = raw.restoreSessionMode;
+  } else if (typeof raw.restoreSession === 'boolean') {
+    out.restoreSessionMode = raw.restoreSession ? 'always' : 'ask';
   }
   if (isPlainObject(raw.shortcutOverrides)) {
     out.shortcutOverrides = raw.shortcutOverrides;

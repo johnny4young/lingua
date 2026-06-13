@@ -512,6 +512,24 @@ export interface ConsoleState {
 
 export type LayoutPreset = 'horizontal' | 'vertical' | 'editor-only';
 
+/**
+ * RL-111 — boot-time session-restore policy. Replaces the legacy
+ * `restoreSession: boolean`. Three closed states:
+ *
+ *   - `never`   — ignore the persisted session snapshot; always boot fresh.
+ *   - `ask`     — if the snapshot holds ≥1 tab, surface a clickable
+ *                 "Restore N tabs" prompt; restore only on click. Default
+ *                 for fresh installs, and the privacy-conscious middle
+ *                 ground (reopening after screen-sharing does not auto-
+ *                 surface private code).
+ *   - `always`  — restore the snapshot silently on boot (the legacy
+ *                 `restoreSession: true` behavior).
+ *
+ * The v1→v2 settings migration maps legacy `false → 'ask'` (fold B —
+ * everyone gets the better default) and `true → 'always'`.
+ */
+export type RestoreSessionMode = 'never' | 'ask' | 'always';
+
 export interface SettingsState {
   theme: 'dark' | 'light';
   editorTheme: string;
@@ -521,7 +539,7 @@ export interface SettingsState {
   minimap: boolean;
   layoutPreset: LayoutPreset;
   maxLoopIterations: number;
-  restoreSession: boolean;
+  restoreSessionMode: RestoreSessionMode;
   formatOnSave: boolean;
   /**
    * RL-037 Vim mode flag. When `true`, the editor lazy-loads
@@ -738,7 +756,7 @@ export interface SettingsState {
    * User-defined keyboard shortcut overrides keyed by shortcut id. Missing
    * entries fall back to the catalog defaults in `keyboardShortcuts.ts`.
    * Theme preset import/export intentionally does NOT touch this map — the
-   * same rationale that keeps loopProtection/restoreSession out of presets.
+   * same rationale that keeps loopProtection/restoreSessionMode out of presets.
    */
   shortcutOverrides: ShortcutOverrideMap;
   /**
@@ -788,7 +806,7 @@ export interface SettingsState {
   toggleMinimap: () => void;
   setLayoutPreset: (preset: LayoutPreset) => void;
   setMaxLoopIterations: (max: number) => void;
-  toggleRestoreSession: () => void;
+  setRestoreSessionMode: (mode: RestoreSessionMode) => void;
   toggleFormatOnSave: () => void;
   toggleVimMode: () => void;
   /** RL-079 — flip the native-execution acknowledgement flag. */
@@ -932,7 +950,7 @@ export interface SettingsState {
   /**
    * Apply a named theme pack. Replaces appearance/typography/layout fields
    * with the pack's bundle and stores the pack id. Unknown ids are ignored.
-   * Does not touch safety/workflow prefs (loopProtection, restoreSession,
+   * Does not touch safety/workflow prefs (loopProtection, restoreSessionMode,
    * formatOnSave) — same rationale as `applyThemePreset`.
    */
   applyThemePack: (packId: string) => void;

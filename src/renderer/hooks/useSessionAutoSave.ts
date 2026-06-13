@@ -50,8 +50,12 @@ export function useSessionAutoSave(smokeEnabled: boolean): void {
     };
 
     const unsubscribe = useEditorStore.subscribe((state, prevState) => {
-      const { restoreSession } = useSettingsStore.getState();
-      if (!restoreSession) {
+      // RL-111 — persist the snapshot for both `ask` (so the boot prompt
+      // has something to offer) and `always`. `never` writes nothing,
+      // which also respects the privacy intent: opting out means no
+      // session blob is ever written.
+      const { restoreSessionMode } = useSettingsStore.getState();
+      if (restoreSessionMode === 'never') {
         return;
       }
       if (sessionSnapshotEqual(state, prevState)) {

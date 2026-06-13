@@ -126,6 +126,51 @@ describe('parseAndValidateProfile', () => {
     expect(result.profile.data.settings).toEqual({ theme: 'dark' });
   });
 
+  it('round-trips the RL-111 restoreSessionMode enum and validates it', () => {
+    const withMode = (mode: unknown) =>
+      JSON.stringify({
+        schemaVersion: 1,
+        exportedAt: VALID_V1.exportedAt,
+        appVersion: '0.2.4',
+        data: {
+          settings: { restoreSessionMode: mode },
+          snippets: [],
+          envVars: { global: {}, project: {} },
+        },
+      });
+    for (const mode of ['never', 'ask', 'always']) {
+      const result = parseAndValidateProfile(withMode(mode));
+      if (!result.ok) throw new Error('expected ok');
+      expect(result.profile.data.settings.restoreSessionMode).toBe(mode);
+    }
+    // An out-of-enum value is dropped (the store merge would coerce to 'ask').
+    const bad = parseAndValidateProfile(withMode('sometimes'));
+    if (!bad.ok) throw new Error('expected ok');
+    expect(bad.profile.data.settings).not.toHaveProperty('restoreSessionMode');
+  });
+
+  it('maps a legacy restoreSession boolean to restoreSessionMode on import (RL-111 back-compat)', () => {
+    const withLegacy = (restoreSession: boolean) =>
+      JSON.stringify({
+        schemaVersion: 1,
+        exportedAt: VALID_V1.exportedAt,
+        appVersion: '0.2.4',
+        data: {
+          settings: { restoreSession },
+          snippets: [],
+          envVars: { global: {}, project: {} },
+        },
+      });
+    const enabled = parseAndValidateProfile(withLegacy(true));
+    if (!enabled.ok) throw new Error('expected ok');
+    expect(enabled.profile.data.settings.restoreSessionMode).toBe('always');
+    expect(enabled.profile.data.settings).not.toHaveProperty('restoreSession');
+
+    const disabled = parseAndValidateProfile(withLegacy(false));
+    if (!disabled.ok) throw new Error('expected ok');
+    expect(disabled.profile.data.settings.restoreSessionMode).toBe('ask');
+  });
+
   it('sanitizes imported env-var keys and values through the shared guard', () => {
     const oversizedValue = 'x'.repeat(32_769);
     const malicious = {

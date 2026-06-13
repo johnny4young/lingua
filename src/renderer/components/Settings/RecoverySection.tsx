@@ -73,7 +73,7 @@ function buildScopeActions(): ScopeAction[] {
           loopProtection: true,
           maxLoopIterations: 10000,
           hideUndefined: true,
-          restoreSession: false,
+          restoreSessionMode: 'ask',
           formatOnSave: false,
           vimMode: false,
           syncShellWithEditorTheme: true,

@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { sessionSnapshotEqual, useSessionStore } from '@/stores/sessionStore';
+import {
+  armPendingSessionRestoreSnapshot,
+  clearPendingSessionRestoreSnapshot,
+  getPendingSessionRestoreTabCount,
+  sessionSnapshotEqual,
+  useSessionStore,
+} from '@/stores/sessionStore';
 import {
   useEditorStore,
   SQL_WORKSPACE_TAB_ID,
@@ -27,6 +33,7 @@ describe('sessionStore', () => {
     resetRecipeStoreForTests();
     resetWorkspaceSqlStoreForTests();
     resetWorkspaceToolStoreForTests();
+    clearPendingSessionRestoreSnapshot();
     localStorage.clear();
 
     Object.defineProperty(globalThis, 'window', {
@@ -54,6 +61,7 @@ describe('sessionStore', () => {
     useSessionStore.setState(initialSessionState, true);
     useEditorStore.setState(initialEditorState, true);
     resetRecipeStoreForTests();
+    clearPendingSessionRestoreSnapshot();
     localStorage.clear();
   });
 
@@ -137,6 +145,40 @@ describe('sessionStore', () => {
 
     // Active tab should be the second one (index 1)
     expect(activeTabId).toBe(tabs[1].id);
+  });
+
+  it('restores the armed ask-mode snapshot even if autosave replaces savedTabs before restore', async () => {
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'previous.js',
+          language: 'javascript',
+          content: 'console.log("previous")',
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+    expect(armPendingSessionRestoreSnapshot()).toBe(1);
+
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'new-work.js',
+          language: 'javascript',
+          content: 'console.log("new work")',
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+
+    await useSessionStore.getState().restoreSession();
+
+    const { tabs, activeTabId } = useEditorStore.getState();
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]?.name).toBe('previous.js');
+    expect(tabs[0]?.content).toBe('console.log("previous")');
+    expect(activeTabId).toBe(tabs[0]?.id);
+    expect(getPendingSessionRestoreTabCount()).toBe(0);
   });
 
   it('restores recipe bindings into the editor tab and transient recipe store', async () => {

@@ -60,6 +60,21 @@ interface BuildCommandPaletteModelArgs {
    */
   onNewProjectFromTemplate?: () => void;
   /**
+   * RL-111 fold D — fires when the user activates "Restore last session".
+   * Optional; surfaced only when the caller wires it AND a persisted or
+   * ask-mode-pinned snapshot with ≥1 tab exists ({@link savedSessionTabCount}),
+   * so the command never offers to restore nothing. Lets a `never`/`ask` user
+   * trigger restore on demand after dismissing the boot prompt.
+   */
+  onRestoreSession?: () => void;
+  /**
+   * RL-111 fold D — saved-session tab count, gating the Restore command's
+   * visibility. The caller may pass an in-memory pending ask-mode snapshot
+   * count here. Defaults to 0 (command hidden) for callers without a session
+   * surface.
+   */
+  savedSessionTabCount?: number;
+  /**
    * RL-028 sixth slice trailer — fires when the user activates a per-entry
    * "Replay {language} run · {status} · {duration}" palette command.
    * Optional; when omitted no replay commands are emitted. Caller is
@@ -635,6 +650,8 @@ export function buildCommandPaletteModel({
   onFocusLanguageTab,
   onRerunLast,
   onNewProjectFromTemplate,
+  onRestoreSession,
+  savedSessionTabCount = 0,
   onReplayEntry,
   onToggleVimMode,
   vimModeEnabled = false,
@@ -801,6 +818,23 @@ export function buildCommandPaletteModel({
             ],
             () => {
               onNewProjectFromTemplate();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-111 fold D — Restore last session. Surfaces only when the caller
+    // wires the handler AND a persisted/pending snapshot with ≥1 tab exists,
+    // so the command never offers to restore nothing.
+    ...(onRestoreSession && savedSessionTabCount > 0
+      ? [
+          buildActionCommand(
+            'action-restore-session',
+            translate('commandPalette.action.restoreSession.label'),
+            translate('commandPalette.action.restoreSession.description'),
+            ['session', 'restore', 'reopen', 'tabs', 'previous', 'last'],
+            () => {
+              onRestoreSession();
               onClose();
             }
           ),

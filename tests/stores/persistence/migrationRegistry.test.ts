@@ -93,8 +93,10 @@ describe('migrateState (pure core)', () => {
 
 describe('createMigrate (per-store wrapper)', () => {
   it('preserves a v0 payload unchanged for an identity store (no telemetry)', () => {
-    const migrate = createMigrate('lingua-settings');
-    const payload = { theme: 'dark', fontSize: 14 };
+    // RL-111 — lingua-settings is no longer identity (it has a 1->2 step);
+    // use lingua-snippets, which still has an empty migration map.
+    const migrate = createMigrate('lingua-snippets');
+    const payload = { snippets: [{ id: 's1' }] };
     expect(migrate(payload, 0)).toBe(payload);
   });
 

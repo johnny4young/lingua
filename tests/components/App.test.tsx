@@ -18,6 +18,7 @@ const {
   mockStartTour,
   mockUseDesktopSmoke,
   mockTrackEvent,
+  mockArmPendingSessionRestoreSnapshot,
 } = vi.hoisted(() => ({
   mockRestoreSession: vi.fn().mockResolvedValue(undefined),
   mockSaveSession: vi.fn(),
@@ -42,6 +43,7 @@ const {
   mockStartTour: vi.fn(),
   mockUseDesktopSmoke: vi.fn(),
   mockTrackEvent: vi.fn().mockResolvedValue(undefined),
+  mockArmPendingSessionRestoreSnapshot: vi.fn(() => 0),
 }));
 
 let beforeCloseHandler: (() => void) | undefined;
@@ -68,7 +70,7 @@ const mockEditorState = {
 };
 
 const mockSettingsState = {
-  restoreSession: true,
+  restoreSessionMode: 'always' as 'never' | 'ask' | 'always',
   lastSeenVersion: null as string | null,
   hasCompletedTour: false,
   suppressTourAutoStart: false,
@@ -203,10 +205,16 @@ vi.mock('../../src/renderer/stores/pluginStore', () => ({
 }));
 
 vi.mock('../../src/renderer/stores/sessionStore', () => ({
+  armPendingSessionRestoreSnapshot: mockArmPendingSessionRestoreSnapshot,
+  getPendingSessionRestoreTabCount: vi.fn(() => 0),
+  clearPendingSessionRestoreSnapshot: vi.fn(),
   useSessionStore: {
     getState: () => ({
       restoreSession: mockRestoreSession,
       saveSession: mockSaveSession,
+      // RL-111 — the boot hook reads savedTabs.length for the restore
+      // telemetry tabCount and the ask-mode prompt gate.
+      savedTabs: [],
     }),
   },
 }));
@@ -252,7 +260,7 @@ describe('App', () => {
     vi.clearAllMocks();
     beforeCloseHandler = undefined;
     smokeEnabled = false;
-    mockSettingsState.restoreSession = true;
+    mockSettingsState.restoreSessionMode = 'always';
     mockSettingsState.lastSeenVersion = null;
     mockSettingsState.hasCompletedTour = false;
     mockSettingsState.suppressTourAutoStart = false;

@@ -44,7 +44,7 @@ export function settingsPartialize(state: SettingsState) {
     minimap: state.minimap,
     layoutPreset: state.layoutPreset,
     maxLoopIterations: state.maxLoopIterations,
-    restoreSession: state.restoreSession,
+    restoreSessionMode: state.restoreSessionMode,
     formatOnSave: state.formatOnSave,
     vimMode: state.vimMode,
     nativeExecutionAcknowledged: state.nativeExecutionAcknowledged,

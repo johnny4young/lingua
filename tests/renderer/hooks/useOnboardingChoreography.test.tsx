@@ -7,6 +7,10 @@ import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useSnippetsStore } from '../../../src/renderer/stores/snippetsStore';
 import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
 import {
+  clearPendingSessionRestoreSnapshot,
+  useSessionStore,
+} from '../../../src/renderer/stores/sessionStore';
+import {
   SEEDED_SCRATCHPAD_NAME,
   SEEDED_SCRATCHPAD_VERSION,
 } from '../../../src/renderer/onboarding/seedScratchpad';
@@ -31,6 +35,8 @@ async function resetStores() {
     useUIStore.setState({ statusNotice: null });
     useSnippetsStore.setState({ snippets: [] });
     useExecutionHistoryStore.setState({ entries: [] });
+    useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
+    clearPendingSessionRestoreSnapshot();
   });
 }
 
@@ -76,6 +82,29 @@ describe('useOnboardingChoreography', () => {
     renderHook(() => useOnboardingChoreography({ enabled: true }));
     expect(useEditorStore.getState().tabs.length).toBe(1);
     expect(useEditorStore.getState().tabs[0]?.name).toBe('restored.js');
+    expect(useSettingsStore.getState().hasCompletedOnboardingWelcome).toBe(
+      false
+    );
+  });
+
+  it('does NOT seed over a pending ask-mode restore snapshot', () => {
+    act(() => {
+      useSettingsStore.setState({ restoreSessionMode: 'ask' });
+      useSessionStore.setState({
+        savedTabs: [
+          {
+            name: 'previous.js',
+            content: 'console.log("previous")',
+            language: 'javascript',
+          } as never,
+        ],
+        savedActiveIndex: 0,
+      });
+    });
+
+    renderHook(() => useOnboardingChoreography({ enabled: true }));
+
+    expect(useEditorStore.getState().tabs.length).toBe(0);
     expect(useSettingsStore.getState().hasCompletedOnboardingWelcome).toBe(
       false
     );

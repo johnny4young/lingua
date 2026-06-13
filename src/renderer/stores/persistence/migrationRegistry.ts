@@ -76,7 +76,25 @@ export type PersistedStoreName =
  * and bump `version: 2` in settingsStore's persist config.
  */
 export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrationMap>> = {
-  'lingua-settings': {},
+  // RL-111 v1->v2 — the legacy `restoreSession` boolean becomes the
+  // `restoreSessionMode` closed enum. Fold B: legacy `false` (the old
+  // default, no restore) maps to `'ask'` so every user gets the new
+  // privacy-conscious prompt default, not silent never-restore; legacy
+  // `true` (explicit auto-restore) maps to `'always'` to preserve that
+  // user's silent-restore behavior. The old key is dropped. Pure + total:
+  // a missing / non-boolean legacy value falls through to `'ask'`.
+  'lingua-settings': {
+    2: (state) => {
+      const { restoreSession, ...rest } = state as { restoreSession?: unknown } & Record<
+        string,
+        unknown
+      >;
+      return {
+        ...rest,
+        restoreSessionMode: restoreSession === true ? 'always' : 'ask',
+      };
+    },
+  },
   'lingua-session': {},
   'lingua-snippets': {},
   'lingua-project-store': {},

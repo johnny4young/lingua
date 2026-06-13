@@ -55,9 +55,10 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'lingua-settings',
       // RL-126 / AUDIT-06 — schema version + central migration. The 0->1 step
       // is identity (no shape change yet); the existing onRehydrate/merge
-      // sanitizers still run after migrate. A future field rename registers a
-      // step under key 2 in migrationRegistry and bumps this to version: 2.
-      version: 1,
+      // sanitizers still run after migrate. RL-111 added the 1->2 step
+      // (restoreSession boolean -> restoreSessionMode enum) in
+      // migrationRegistry; bump here in lockstep.
+      version: 2,
       migrate: createMigrate('lingua-settings'),
       partialize: settingsPartialize,
       merge: settingsMerge,

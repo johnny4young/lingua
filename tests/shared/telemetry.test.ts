@@ -234,6 +234,12 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-020 Slice 2 — per-tab workflow mode change. Closed-enum
       // payload `{ language, from, to, trigger }`.
       'runtime.workflow_mode_changed',
+      // RL-111 — workspace session restore. `session.restored`
+      // `{ tabCount, source∈{auto,prompt} }`; `session.snapshotDiscarded`
+      // `{ tabCount }`. Count only; no tab names/paths/content. Sorts
+      // between `runtime.*` (ru) and `share.*` (sh) — `se` < `sh`.
+      'session.restored',
+      'session.snapshotDiscarded',
       // RL-036 Phase A1 fold B + G — share-link lifecycle. Two events:
       // `share.created` for the encode (copy) side with
       // `{ trigger, status, sizeBucket }`, `share.opened` for the
