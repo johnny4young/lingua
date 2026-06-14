@@ -6,6 +6,13 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-06-14
+
+### Added
+- **Smart paste**: Pasting a Lingua share link, a run capsule, a cURL command, a stack trace, or a large JSON document into the editor now offers a one-click import through a non-blocking toast — open the share link or capsule, turn the cURL into a request in the HTTP workspace, or drop a large blob into a JSON tab — instead of landing as raw text. `Cmd+Shift+V` always pastes as plain text (also available as a "Paste as plain text" command), and a Settings → Editor toggle turns detection off entirely.
+- **Inline lint and quick-fixes**: JavaScript and TypeScript now surface problems as you type, toggleable per language in Settings → Editor. A built-in rule flags loose equality (`==` / `!=`) with a one-keystroke fix to the strict form, and quick-fixes can add a missing semicolon or wrap a selection in `try`/`catch` — alongside the editor's existing type diagnostics.
+- **Reopen your last session**: Lingua can bring back the tabs from your previous session on startup. Choose never, ask each time (the new default), or always from Settings → Editor; an "ask" prompt and a command-palette action let you restore on demand without auto-reopening private code after a screen share.
+
 ### Security
 - **Notarized release gate**: The macOS release workflow now fails closed when a build is signed but not notarized and stapled (`xcrun stapler validate` plus a Gatekeeper `spctl` assessment), and a release-time guard rejects any macOS update package whose filename the update feed cannot resolve — closing the gap that previously stranded macOS auto-update. The full update signature chain (manifest to installer to on-disk binary) is now documented in `docs/RELEASE_SECURITY.md`.
 - **Git layer joins the filesystem sandbox**: The read-only git integration now only operates on repositories that intersect the folders you have explicitly opened (including the repository root above a monorepo subfolder); arbitrary paths are refused, aligning git with the capability sandbox the rest of the filesystem already enforces.
@@ -16,9 +23,10 @@ The format follows Keep a Changelog and groups changes by release.
 - **Rust compiles as edition 2021**: Run and format-on-save now agree on the Rust edition — modern syntax (`async`, `dyn`, current `into_iter()` semantics) compiles instead of failing with edition-2015 errors.
 - **Lua can no longer freeze the app**: An infinite Lua loop now stops at the execution deadline with the standard timed-out message instead of permanently freezing the window, and unbounded `print` output is capped like every other language.
 - **Stopping runs kills the whole process tree**: Timing out or stopping a Node, Ruby, or Rust run now terminates any child processes the code spawned (with SIGKILL escalation), instead of leaving them running in the background.
+- **Appearance theme buttons apply real presets**: The Settings → Appearance theme buttons now switch the shell/editor to genuine presets instead of behaving as no-ops.
 
 ### Changed
-- **Faster startup**: The TypeScript transpiler (esbuild) now loads on the first TypeScript or Node-mode run instead of at boot, Go programs transfer their compiled WebAssembly to the worker without an intermediate copy, and closed Rust tabs release their editor models.
+- **Faster startup**: The TypeScript transpiler (esbuild) now loads on the first TypeScript or Node-mode run instead of at boot, Go programs transfer their compiled WebAssembly to the worker without an intermediate copy, closed Rust tabs release their editor models, and the workspace session auto-save now re-arms only when the persisted snapshot actually changes instead of on every transient editor mutation.
 
 ## [0.6.0] — 2026-06-08
 
