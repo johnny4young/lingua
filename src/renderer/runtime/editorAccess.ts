@@ -25,6 +25,15 @@ export function setActiveEditor(
   ref.editor = editor;
 }
 
+/**
+ * RL-110 fold D — return the active Monaco editor instance (or null). Used by
+ * the command-palette "Paste as plain text" action to drive a detection-
+ * bypassing paste without threading the editor ref through the palette tree.
+ */
+export function getActiveEditor(): monacoTypes.editor.IStandaloneCodeEditor | null {
+  return ref.editor;
+}
+
 export function getActiveEditorCursorLine(): number | null {
   const editor = ref.editor;
   if (!editor) return null;

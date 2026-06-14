@@ -50,6 +50,12 @@ export function EditorSection() {
   const setRestoreSessionMode = useSettingsStore((state) => state.setRestoreSessionMode);
   const formatOnSave = useSettingsStore((state) => state.formatOnSave);
   const toggleFormatOnSave = useSettingsStore((state) => state.toggleFormatOnSave);
+  const smartPasteDetectionEnabled = useSettingsStore(
+    (state) => state.smartPasteDetectionEnabled
+  );
+  const toggleSmartPasteDetection = useSettingsStore(
+    (state) => state.toggleSmartPasteDetection
+  );
   const vimMode = useSettingsStore((state) => state.vimMode);
   const toggleVimMode = useSettingsStore((state) => state.toggleVimMode);
   const defaultRuntimeMode = useSettingsStore((state) => state.defaultRuntimeMode);
@@ -374,6 +380,18 @@ export function EditorSection() {
           label={t('editor.formatOnSave.label')}
           description={t('editor.formatOnSave.hint')}
           control={<Toggle value={formatOnSave} onChange={toggleFormatOnSave} />}
+        />
+
+        {/* RL-110 — smart paste detection master toggle. */}
+        <SpecRow
+          label={t('editor.smartPaste.label')}
+          description={t('editor.smartPaste.hint')}
+          control={
+            <Toggle
+              value={smartPasteDetectionEnabled}
+              onChange={toggleSmartPasteDetection}
+            />
+          }
         />
 
         <SpecRow

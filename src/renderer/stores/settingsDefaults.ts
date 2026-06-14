@@ -101,6 +101,10 @@ export function createInitialSettingsState() {
     maxLoopIterations: 10_000,
     restoreSessionMode: 'ask',
     formatOnSave: false,
+    // RL-110 — smart paste detection ships ON: pasting a share-link, capsule,
+    // cURL, stack frame, or large JSON offers an import action. Cmd+Shift+V and
+    // this toggle both bypass it.
+    smartPasteDetectionEnabled: true,
     vimMode: false,
     nativeExecutionAcknowledged: false,
     executionHistorySnapshotEnabled: true,

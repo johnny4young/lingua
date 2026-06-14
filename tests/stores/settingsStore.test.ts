@@ -209,6 +209,34 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().formatOnSave).toBe(false);
   });
 
+  it('should default smartPasteDetectionEnabled ON and toggle it (RL-110)', () => {
+    expect(useSettingsStore.getState().smartPasteDetectionEnabled).toBe(true);
+    useSettingsStore.getState().toggleSmartPasteDetection();
+    expect(useSettingsStore.getState().smartPasteDetectionEnabled).toBe(false);
+    useSettingsStore.getState().toggleSmartPasteDetection();
+    expect(useSettingsStore.getState().smartPasteDetectionEnabled).toBe(true);
+  });
+
+  it('drops malformed persisted smart paste values back to the ON seed (RL-110)', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          smartPasteDetectionEnabled: 'false',
+        },
+        version: 2,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().smartPasteDetectionEnabled).toBe(true);
+  });
+
   it('fails closed when a persisted execution-history snapshot preference is malformed', async () => {
     localStorage.setItem(
       'lingua-settings',

@@ -492,6 +492,13 @@ export const TELEMETRY_EVENTS = [
   // rules. NO code, message text, or positions reach the wire. Mirrored on
   // update-server with a parity test.
   'editor.lint_diagnostic_emitted',
+  // RL-110 — smart paste detection. `editor.smart_paste_shown` fires when the
+  // import toast appears; `editor.smart_paste_applied` fires when the user
+  // resolves it. Closed payloads `{ handler∈SMART_PASTE_HANDLERS }` and
+  // `{ handler, accepted }` (accepted=false on dismiss / keep-as-text). NO
+  // pasted content, URLs, or paths reach the wire. Mirrored on update-server.
+  'editor.smart_paste_shown',
+  'editor.smart_paste_applied',
   // RL-109 close-out — project-scoped env adoption. Fires once per session the
   // first time a native runner resolves env for a project, with closed payload
   // `{ hasProjectVars }` (did the active project carry any project-tier vars).
@@ -806,6 +813,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-108 — `language` is a safe token; `severity` ∈ error/warning/info;
   // `ruleId` ∈ LINT_RULE_IDS (custom ids + `ts-native`).
   'editor.lint_diagnostic_emitted': ['language', 'severity', 'ruleId'],
+  // RL-110 — `handler` ∈ SMART_PASTE_HANDLERS; `accepted` is a boolean.
+  'editor.smart_paste_shown': ['handler'],
+  'editor.smart_paste_applied': ['handler', 'accepted'],
   // RL-109 close-out — `hasProjectVars` is a boolean; no env keys/values.
   'env.project_scope_used': ['hasProjectVars'],
 };
@@ -1453,6 +1463,17 @@ export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
 export const LINT_RULE_IDS = new Set(['strict-equality', 'ts-native']);
 export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
 
+// RL-110 — closed enum for the `handler` property of the smart-paste events.
+// One token per paste-intent kind (mirrors `PasteIntentKind` in
+// src/renderer/clipboard/pasteHandlers.ts).
+export const SMART_PASTE_HANDLERS = new Set([
+  'share-link',
+  'capsule',
+  'curl',
+  'stack-trace',
+  'large-json',
+]);
+
 export function isSafeToken(value: unknown): value is string {
   return typeof value === 'string' && SAFE_TOKEN_RE.test(value);
 }
@@ -1922,6 +1943,12 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'severity') return typeof value === 'string' && LINT_SEVERITIES.has(value);
       if (key === 'ruleId') return typeof value === 'string' && LINT_RULE_IDS.has(value);
+      return false;
+    case 'editor.smart_paste_shown':
+      return key === 'handler' && typeof value === 'string' && SMART_PASTE_HANDLERS.has(value);
+    case 'editor.smart_paste_applied':
+      if (key === 'handler') return typeof value === 'string' && SMART_PASTE_HANDLERS.has(value);
+      if (key === 'accepted') return typeof value === 'boolean';
       return false;
     case 'env.project_scope_used':
       return key === 'hasProjectVars' && typeof value === 'boolean';

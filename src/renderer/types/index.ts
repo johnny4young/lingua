@@ -542,6 +542,14 @@ export interface SettingsState {
   restoreSessionMode: RestoreSessionMode;
   formatOnSave: boolean;
   /**
+   * RL-110 — master toggle for smart paste detection. When `true` (default),
+   * pasting a recognized artifact (share-link, capsule, cURL, stack frame,
+   * large JSON) into the editor surfaces a non-blocking import toast. When
+   * `false`, every paste is literal. Cmd+Shift+V bypasses detection for a
+   * single paste regardless of this flag.
+   */
+  smartPasteDetectionEnabled: boolean;
+  /**
    * RL-037 Vim mode flag. When `true`, the editor lazy-loads
    * `monaco-vim` and attaches Vim keybindings to the active Monaco
    * editor.
@@ -817,6 +825,8 @@ export interface SettingsState {
   setMaxLoopIterations: (max: number) => void;
   setRestoreSessionMode: (mode: RestoreSessionMode) => void;
   toggleFormatOnSave: () => void;
+  /** RL-110 — flip the smart-paste detection master toggle. */
+  toggleSmartPasteDetection: () => void;
   toggleVimMode: () => void;
   /** RL-079 — flip the native-execution acknowledgement flag. */
   setNativeExecutionAcknowledged: (value: boolean) => void;

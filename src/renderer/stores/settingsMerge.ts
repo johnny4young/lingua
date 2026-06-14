@@ -173,10 +173,9 @@ export function settingsMerge(
     typeof merged.firstWorkflowModeSwitchAcknowledged === 'boolean'
       ? merged.firstWorkflowModeSwitchAcknowledged
       : currentState.firstWorkflowModeSwitchAcknowledged;
-  const showStdinPanel =
-    typeof merged.showStdinPanel === 'boolean'
-      ? merged.showStdinPanel
-      : currentState.showStdinPanel;
+  const showStdinPanel = typeof merged.showStdinPanel === 'boolean'
+    ? merged.showStdinPanel
+    : currentState.showStdinPanel;
   // RL-093 Slice 3 — guard the closed enum on rehydrate so a
   // tampered localStorage entry can't surface a broken
   // dropdown / route to a non-existent panel.
@@ -285,6 +284,7 @@ export function settingsMerge(
     scratchpadAutoLogByLanguage: seededAutoLog,
     inlineLintEnabledByLanguage: resolveInlineLintByLanguage(merged.inlineLintEnabledByLanguage),
     showStdinPanel,
+    smartPasteDetectionEnabled: typeof merged.smartPasteDetectionEnabled === 'boolean' ? merged.smartPasteDetectionEnabled : currentState.smartPasteDetectionEnabled,
     variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
     showTimeoutCountdown,

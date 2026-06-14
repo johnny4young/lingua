@@ -37,6 +37,7 @@ export function createRuntimeActions(
   SettingsState,
   | 'setMaxLoopIterations'
   | 'toggleFormatOnSave'
+  | 'toggleSmartPasteDetection'
   | 'setNativeExecutionAcknowledged'
   | 'setDefaultRuntimeMode'
   | 'setWorkflowModeDefault'
@@ -52,6 +53,11 @@ export function createRuntimeActions(
   return {
     setMaxLoopIterations: (maxLoopIterations) => set({ maxLoopIterations }),
     toggleFormatOnSave: () => set((s) => ({ formatOnSave: !s.formatOnSave })),
+    // RL-110 — flip smart-paste detection. Plain boolean toggle (mirrors
+    // formatOnSave); adoption rides editor.smart_paste_shown/applied, not the
+    // toggle itself, so no telemetry here.
+    toggleSmartPasteDetection: () =>
+      set((s) => ({ smartPasteDetectionEnabled: !s.smartPasteDetectionEnabled })),
     setNativeExecutionAcknowledged: (nativeExecutionAcknowledged) =>
       set({ nativeExecutionAcknowledged }),
     // RL-019 Slice 1 fold B — guard the setter so only implemented

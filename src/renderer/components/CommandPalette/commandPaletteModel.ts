@@ -81,6 +81,13 @@ interface BuildCommandPaletteModelArgs {
    */
   inlineLintActiveIssueCount?: number;
   /**
+   * RL-110 fold D — fires the "Paste as plain text" action, a discoverable
+   * surface for the editor's Cmd+Shift+V bypass. The caller drives a
+   * detection-bypassing paste on the active editor via `requestPlainPaste`.
+   * Optional; surfaced only when wired (i.e. an editor is active).
+   */
+  onPastePlainText?: () => void;
+  /**
    * RL-111 fold D — saved-session tab count, gating the Restore command's
    * visibility. The caller may pass an in-memory pending ask-mode snapshot
    * count here. Defaults to 0 (command hidden) for callers without a session
@@ -666,6 +673,7 @@ export function buildCommandPaletteModel({
   onRestoreSession,
   onToggleInlineLint,
   inlineLintActiveIssueCount = 0,
+  onPastePlainText,
   savedSessionTabCount = 0,
   onReplayEntry,
   onToggleVimMode,
@@ -1419,6 +1427,23 @@ export function buildCommandPaletteModel({
             () => {
               onToggleInlineLint();
               onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-110 fold D — "Paste as plain text", the discoverable twin of the
+    // editor's Cmd+Shift+V bypass. Surfaced only when the caller wires it
+    // (an editor is active). Closes the palette first, then pastes.
+    ...(onPastePlainText
+      ? [
+          buildActionCommand(
+            'action-paste-plain-text',
+            translate('commandPalette.action.pastePlainText.label'),
+            translate('commandPalette.action.pastePlainText.description'),
+            ['paste', 'plain', 'text', 'raw', 'literal', 'smart', 'bypass', 'pegar', 'texto'],
+            () => {
+              onClose();
+              onPastePlainText();
             }
           ),
         ]

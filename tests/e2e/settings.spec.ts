@@ -310,7 +310,7 @@ test.describe('Settings persistence', () => {
   // written before schema versioning (an unversioned v0 payload) must still
   // load cleanly through the new migrate path, and the store must re-stamp the
   // envelope to the current version on the next write.
-  test('an unversioned (v0) settings payload rehydrates and re-stamps to v1', async ({
+  test('an unversioned (v0) settings payload rehydrates and re-stamps to the current version', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
@@ -332,7 +332,8 @@ test.describe('Settings persistence', () => {
     expect(loaded?.state?.fontSize).toBe(18);
 
     // Toggle a setting so the store persists, then assert the envelope now
-    // carries the current schema version.
+    // carries the current schema version (bumped to 2 by RL-111's
+    // restoreSession -> restoreSessionMode 1->2 migration).
     await openSettings(page);
     await openSettingsTab(page, 'editor');
     await page.getByRole('switch', { name: 'Vim mode' }).click();
@@ -345,6 +346,6 @@ test.describe('Settings persistence', () => {
           return raw ? (JSON.parse(raw) as { version?: number }).version : undefined;
         })
       )
-      .toBe(1);
+      .toBe(2);
   });
 });

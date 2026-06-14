@@ -24,6 +24,7 @@ import { useBreakpointGutter } from '../../hooks/useBreakpointGutter';
 import { useEditorHighlightSync } from '../../hooks/useEditorHighlightSync';
 import { useLanguageIntelligenceDiagnostics } from '../../hooks/useLanguageIntelligenceDiagnostics';
 import { useInlineLint } from '../../hooks/useInlineLint';
+import { useSmartPaste } from '../../hooks/useSmartPaste';
 import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
@@ -125,6 +126,9 @@ export function CodeEditor() {
   // RL-108 — inline lint: per-language toggle over Monaco's native JS/TS
   // diagnostics + custom 'lingua-lint' markers + quick-fix provider.
   useInlineLint(editorInstance, monacoInstance, activeTab);
+  // RL-110 — smart paste detection: share-link / capsule / cURL / stack-trace /
+  // large-JSON paste intents surfaced as a non-blocking import toast.
+  useSmartPaste(editorInstance, monacoInstance);
   useRustLspDocumentSync(editorInstance, activeTab);
   useGoLspDocumentSync(editorInstance, activeTab);
 

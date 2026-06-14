@@ -76,6 +76,8 @@ describe('TELEMETRY_EVENTS', () => {
       // (f.e-a) alphabetically.
       'editor.lint_diagnostic_emitted',
       'editor.replace_in_files_applied',
+      'editor.smart_paste_applied',
+      'editor.smart_paste_shown',
       'env.project_scope_used',
       'feature.blocked',
       // RL-137 / AUDIT-17 — filesystem-denylist refusal. Closed `{ family }`.

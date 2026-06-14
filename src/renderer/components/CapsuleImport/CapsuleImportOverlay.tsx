@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, FileUp } from 'lucide-react';
 import { useCapsuleImport } from '../../hooks/useCapsuleImport';
+import { takePendingCapsuleImportSource } from '../../clipboard/pendingCapsuleImport';
 import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
@@ -78,6 +79,23 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   );
   const [pasteValue, setPasteValue] = useState('');
   const autoDetectedRef = useRef(false);
+  // RL-110 fold E — when the overlay was opened by a smart-paste capsule
+  // import, decode the stashed JSON on mount so the preview opens pre-filled.
+  // Takes precedence over the clipboard auto-detect below (seed wins) and is
+  // one-shot (the holder clears itself).
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
+    const seed = takePendingCapsuleImportSource();
+    if (!seed) return;
+    autoDetectedRef.current = true; // don't let clipboard auto-detect clobber it
+    const timer = window.setTimeout(() => {
+      setPasteValue(seed);
+      decodeFromText(seed, 'paste');
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [decodeFromText]);
   useEffect(() => {
     if (autoDetectedRef.current) return;
     if (clipboardConsent !== 'granted') return;

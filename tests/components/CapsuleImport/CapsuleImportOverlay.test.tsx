@@ -4,9 +4,10 @@
  * cancel + confirm, and the Fold G HTTP capsule bridge.
  */
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CapsuleImportOverlay } from '../../../src/renderer/components/CapsuleImport';
+import { setPendingCapsuleImportSource } from '../../../src/renderer/clipboard/pendingCapsuleImport';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useWorkspaceToolStore } from '../../../src/renderer/stores/workspaceToolStore';
@@ -84,6 +85,21 @@ describe('CapsuleImportOverlay', () => {
     ) as HTMLButtonElement;
     expect(confirm.disabled).toBe(false);
     expect(screen.getByTestId('capsule-import-preview')).toBeTruthy();
+  });
+
+  it('RL-110 fold E — decodes a smart-paste seed on mount (pre-filled preview)', async () => {
+    setPendingCapsuleImportSource(MINIMAL_JSON);
+    render(<CapsuleImportOverlay onClose={() => undefined} />);
+    // The preview + enabled confirm appear without any user interaction.
+    expect(await screen.findByTestId('capsule-import-preview')).toBeTruthy();
+    const confirm = screen.getByTestId(
+      'capsule-import-overlay-confirm'
+    ) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
+    // The seed is one-shot: a second overlay opens empty.
+    cleanup();
+    render(<CapsuleImportOverlay onClose={() => undefined} />);
+    expect(screen.getByTestId('capsule-import-empty')).toBeTruthy();
   });
 
   it('shows the reject banner with the closed-enum reason on bad JSON', () => {

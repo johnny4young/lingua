@@ -117,7 +117,13 @@ function resolveKillSwitch(): boolean {
 export function isTelemetryEnabled(): boolean {
   if (resolveKillSwitch()) return false;
   if (!resolveEndpoint()) return false;
-  return useSettingsStore.getState().telemetryConsent === 'granted';
+  // `useSettingsStore` can be undefined here if telemetry fires during the
+  // settings store's own persist migrate — `reportMigration` (RL-126/RL-111)
+  // calls `trackEvent` inside `createMigrate`, before the module binding is
+  // assigned (a call-time import cycle). Treat an unavailable store as
+  // no-consent: privacy-safe (defaults to NOT sending) and crash-free, which
+  // honors this function's documented "never affects rehydration" contract.
+  return useSettingsStore?.getState?.().telemetryConsent === 'granted';
 }
 
 export async function emitTelemetryEvent(

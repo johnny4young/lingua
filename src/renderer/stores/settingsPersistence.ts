@@ -46,6 +46,7 @@ export function settingsPartialize(state: SettingsState) {
     maxLoopIterations: state.maxLoopIterations,
     restoreSessionMode: state.restoreSessionMode,
     formatOnSave: state.formatOnSave,
+    smartPasteDetectionEnabled: state.smartPasteDetectionEnabled,
     vimMode: state.vimMode,
     nativeExecutionAcknowledged: state.nativeExecutionAcknowledged,
     executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,

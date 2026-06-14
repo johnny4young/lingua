@@ -53,6 +53,8 @@ import {
   filterCommandPaletteCommands,
 } from './commandPaletteModel';
 import { countCustomLintIssues } from '../../lint/customLintRules';
+import { requestPlainPaste } from '../../hooks/useSmartPaste';
+import { getActiveEditor } from '../../runtime/editorAccess';
 
 interface CommandPaletteProps {
   onClose: () => void;
@@ -252,6 +254,15 @@ export function CommandPalette({
       inlineLintActiveIssueCount: activeTab
         ? countCustomLintIssues(activeTab.content, activeTab.language)
         : 0,
+      // RL-110 fold D — "Paste as plain text" surfaced only when an editor
+      // tab is active. Drives the same bypass as Cmd+Shift+V via the active
+      // editor handle (no-op if the editor went away between open and click).
+      onPastePlainText: activeTab
+        ? () => {
+            const editor = getActiveEditor();
+            if (editor) requestPlainPaste(editor);
+          }
+        : undefined,
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       onToggleVimMode,
       vimModeEnabled: vimMode,
