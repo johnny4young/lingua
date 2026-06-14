@@ -21,7 +21,9 @@ import {
   BASELINE_SENSITIVE_HEADERS_LC,
   MAX_COMBOS_PER_SHORTCUT,
   MAX_TOKENS_PER_COMBO,
+  INLINE_LINT_DEFAULT_SEED,
   SETTINGS_AUTO_LOG_LANGUAGE_SET,
+  SETTINGS_INLINE_LINT_LANGUAGE_SET,
   SETTINGS_WORKFLOW_MODE_LANGUAGE_SET,
 } from './settingsDefaults';
 
@@ -76,6 +78,24 @@ export function sanitizeScratchpadAutoLog(value: unknown): Record<string, boolea
     out[language] = raw === true;
   }
   return out;
+}
+
+/**
+ * RL-108 — resolve a persisted `inlineLintEnabledByLanguage` map on rehydrate:
+ * drop languages outside the supported set, drop non-boolean values, then
+ * re-seed missing keys (default ON for JS/TS) so a returning user keeps live
+ * lint while a persisted `false` still wins. Returns a fresh object.
+ */
+export function resolveInlineLintByLanguage(value: unknown): Record<string, boolean> {
+  const sanitized: Record<string, boolean> = {};
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    for (const [language, raw] of Object.entries(value as Record<string, unknown>)) {
+      if (!SETTINGS_INLINE_LINT_LANGUAGE_SET.has(language)) continue;
+      if (typeof raw !== 'boolean') continue;
+      sanitized[language] = raw;
+    }
+  }
+  return { ...INLINE_LINT_DEFAULT_SEED, ...sanitized };
 }
 
 /**

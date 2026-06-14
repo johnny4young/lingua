@@ -52,6 +52,21 @@ export const SETTINGS_AUTO_LOG_LANGUAGE_SET: ReadonlySet<string> = new Set(
   Object.keys(SCRATCHPAD_AUTO_LOG_DEFAULT_SEED)
 );
 
+/**
+ * RL-108 — per-language inline-lint defaults. Slice 1 covers JS/TS only and
+ * ships ON: Monaco's built-in TS/JS diagnostics are already live, so the
+ * default preserves today's behavior while giving users a per-language off
+ * switch. Other languages are added here when their lint lands (Slice 2+).
+ */
+export const INLINE_LINT_DEFAULT_SEED: Record<string, boolean> = {
+  javascript: true,
+  typescript: true,
+};
+
+export const SETTINGS_INLINE_LINT_LANGUAGE_SET: ReadonlySet<string> = new Set(
+  Object.keys(INLINE_LINT_DEFAULT_SEED)
+);
+
 export const APP_LANGUAGES = ['system', 'en', 'es'] as const;
 
 export const MAX_TOKENS_PER_COMBO = 5;
@@ -119,6 +134,7 @@ export function createInitialSettingsState() {
     // opt-in (a quietly enabled flag could surprise a user with a
     // wall of inline values on first open).
     scratchpadAutoLogByLanguage: { ...SCRATCHPAD_AUTO_LOG_DEFAULT_SEED },
+    inlineLintEnabledByLanguage: { ...INLINE_LINT_DEFAULT_SEED },
     // RL-020 Slice 6 fold D — bottom-panel `stdin` tab is offered
     // by default. The user can hide it from Settings → Editor;
     // disabling the tab does NOT clear per-tab `stdinBuffer`

@@ -23,6 +23,7 @@ import {
 import { useBreakpointGutter } from '../../hooks/useBreakpointGutter';
 import { useEditorHighlightSync } from '../../hooks/useEditorHighlightSync';
 import { useLanguageIntelligenceDiagnostics } from '../../hooks/useLanguageIntelligenceDiagnostics';
+import { useInlineLint } from '../../hooks/useInlineLint';
 import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
@@ -121,6 +122,9 @@ export function CodeEditor() {
 
   const activeTab = useActiveTab();
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
+  // RL-108 — inline lint: per-language toggle over Monaco's native JS/TS
+  // diagnostics + custom 'lingua-lint' markers + quick-fix provider.
+  useInlineLint(editorInstance, monacoInstance, activeTab);
   useRustLspDocumentSync(editorInstance, activeTab);
   useGoLspDocumentSync(editorInstance, activeTab);
 

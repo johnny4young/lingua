@@ -66,6 +66,12 @@ export function EditorSection() {
   const setScratchpadAutoLogDefault = useSettingsStore(
     (state) => state.setScratchpadAutoLogDefault
   );
+  // RL-108 — inline lint is stored + surfaced per language, so adding a
+  // language's lint in a later slice lights up a new row without a re-layout.
+  const inlineLintEnabledByLanguage = useSettingsStore(
+    (state) => state.inlineLintEnabledByLanguage
+  );
+  const setInlineLintEnabled = useSettingsStore((state) => state.setInlineLintEnabled);
   const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
   const toggleShowStdinPanel = useSettingsStore((state) => state.toggleShowStdinPanel);
   const variableInspectorSurface = useSettingsStore(
@@ -323,6 +329,26 @@ export function EditorSection() {
           description={t('editor.minimap.hint')}
           control={<Toggle value={minimap} onChange={toggleMinimap} />}
         />
+
+        {/* RL-108 — one row per lintable language. Slice 1 = JS/TS; a third
+            language's lint adds a row here automatically. */}
+        {(['javascript', 'typescript'] as const).map((lang, index) => (
+          <SpecRow
+            key={lang}
+            label={t('editor.inlineLint.languageLabel', {
+              language: t(`editor.inlineLint.language.${lang}`),
+            })}
+            description={index === 0 ? t('editor.inlineLint.hint') : undefined}
+            control={
+              <Toggle
+                value={inlineLintEnabledByLanguage[lang] !== false}
+                onChange={() =>
+                  setInlineLintEnabled(lang, inlineLintEnabledByLanguage[lang] === false)
+                }
+              />
+            }
+          />
+        ))}
 
         <SpecRow
           label={t('editor.restoreSession.label')}

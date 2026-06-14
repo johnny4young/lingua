@@ -16,6 +16,7 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import {
   SETTINGS_AUTO_LOG_LANGUAGE_SET,
+  SETTINGS_INLINE_LINT_LANGUAGE_SET,
   SETTINGS_WORKFLOW_MODE_LANGUAGE_SET,
 } from './settingsDefaults';
 import type { SettingsGet, SettingsSet } from './settingsStoreContext';
@@ -40,6 +41,7 @@ export function createRuntimeActions(
   | 'setDefaultRuntimeMode'
   | 'setWorkflowModeDefault'
   | 'setScratchpadAutoLogDefault'
+  | 'setInlineLintEnabled'
   | 'toggleShowStdinPanel'
   | 'setVariableInspectorSurface'
   | 'setRuntimeTimeoutPreset'
@@ -103,6 +105,22 @@ export function createRuntimeActions(
       if (changed) {
         void trackEvent('runtime.auto_log_enabled', { language, enabled });
       }
+    },
+    // RL-108 — flip inline lint for one language. Pure state write (no toggle
+    // telemetry; adoption rides `editor.lint_diagnostic_emitted`). No-op for
+    // languages outside the supported set so a stray call can't seed a key.
+    setInlineLintEnabled: (language: string, enabled: boolean) => {
+      if (!SETTINGS_INLINE_LINT_LANGUAGE_SET.has(language)) return;
+      set((state) => {
+        const current = state.inlineLintEnabledByLanguage[language] === true;
+        if (current === enabled) return state;
+        return {
+          inlineLintEnabledByLanguage: {
+            ...state.inlineLintEnabledByLanguage,
+            [language]: enabled,
+          },
+        };
+      });
     },
     // RL-020 Slice 6 fold D — flip the bottom-panel stdin tab
     // visibility. Per-tab buffers are preserved either way.

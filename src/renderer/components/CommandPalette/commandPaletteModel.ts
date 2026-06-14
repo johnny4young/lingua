@@ -68,6 +68,19 @@ interface BuildCommandPaletteModelArgs {
    */
   onRestoreSession?: () => void;
   /**
+   * RL-108 fold B — fires when the user activates "Toggle inline lint".
+   * Optional; surfaced only when the active tab is a lintable JS/TS language
+   * (the caller decides). Flips the per-language inline-lint setting.
+   */
+  onToggleInlineLint?: () => void;
+  /**
+   * RL-108 fold D — custom-lint issue count for the active JS/TS tab. When > 0
+   * the "Toggle inline lint" command description previews it (e.g. "… · 2
+   * issues"). Defaults to 0 (plain description). Computed by the caller via
+   * `countCustomLintIssues` so the model stays free of editor coupling.
+   */
+  inlineLintActiveIssueCount?: number;
+  /**
    * RL-111 fold D — saved-session tab count, gating the Restore command's
    * visibility. The caller may pass an in-memory pending ask-mode snapshot
    * count here. Defaults to 0 (command hidden) for callers without a session
@@ -651,6 +664,8 @@ export function buildCommandPaletteModel({
   onRerunLast,
   onNewProjectFromTemplate,
   onRestoreSession,
+  onToggleInlineLint,
+  inlineLintActiveIssueCount = 0,
   savedSessionTabCount = 0,
   onReplayEntry,
   onToggleVimMode,
@@ -1379,6 +1394,30 @@ export function buildCommandPaletteModel({
             ['vim', 'mode', 'keybindings', 'editor', 'toggle'],
             () => {
               onToggleVimMode();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-108 fold B — toggle inline lint for the active language. Surfaced
+    // only when the caller wires it (i.e. the active tab is a lintable JS/TS
+    // language).
+    ...(onToggleInlineLint
+      ? [
+          buildActionCommand(
+            'action-toggle-inline-lint',
+            translate('commandPalette.action.toggleInlineLint.label'),
+            // RL-108 fold D — when the active JS/TS buffer has custom-lint
+            // issues, preview the count so the palette surfaces "there are N
+            // things to fix here" without opening the editor gutter.
+            inlineLintActiveIssueCount > 0
+              ? translate('commandPalette.action.toggleInlineLint.descriptionWithCount', {
+                  count: inlineLintActiveIssueCount,
+                })
+              : translate('commandPalette.action.toggleInlineLint.description'),
+            ['lint', 'inline', 'diagnostics', 'squiggle', 'editor', 'toggle'],
+            () => {
+              onToggleInlineLint();
               onClose();
             }
           ),

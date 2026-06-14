@@ -66,6 +66,7 @@ export function settingsPartialize(state: SettingsState) {
     defaultRuntimeMode: state.defaultRuntimeMode,
     workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
     scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
+    inlineLintEnabledByLanguage: state.inlineLintEnabledByLanguage,
     showStdinPanel: state.showStdinPanel,
     variableInspectorSurface: state.variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: state.runtimeTimeoutPresetByLanguage,

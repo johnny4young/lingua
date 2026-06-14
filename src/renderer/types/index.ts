@@ -637,6 +637,15 @@ export interface SettingsState {
    */
   scratchpadAutoLogByLanguage: Record<string, boolean>;
   /**
+   * RL-108 — per-language inline-lint enablement. Keyed by language id;
+   * Slice 1 ships `javascript`/`typescript` ON. When `false` for a language,
+   * Monaco's built-in TS/JS squiggles are silenced (via
+   * `setMonacoInlineLintEnabled`) and the custom `'lingua-lint'` markers are
+   * cleared for that language. Unknown keys are stripped on rehydrate;
+   * non-boolean values coerce to the seed default.
+   */
+  inlineLintEnabledByLanguage: Record<string, boolean>;
+  /**
    * RL-020 Slice 6 fold D — master visibility toggle for the
    * bottom-panel `stdin` tab. Default `true` (the tab is offered
    * for JS / TS / Python tabs). When `false`, the BottomPanel
@@ -883,6 +892,13 @@ export interface SettingsState {
    * payload `{ language, enabled }`.
    */
   setScratchpadAutoLogDefault: (language: string, enabled: boolean) => void;
+  /**
+   * RL-108 — flip inline lint for one language. No-op for languages outside
+   * the supported set ({@link SETTINGS_INLINE_LINT_LANGUAGE_SET}). Pure state
+   * write; the diagnostic-adoption signal rides
+   * `editor.lint_diagnostic_emitted`, not the toggle.
+   */
+  setInlineLintEnabled: (language: string, enabled: boolean) => void;
   /**
    * RL-020 Slice 6 fold D — flip the master visibility toggle for
    * the bottom-panel `stdin` tab.

@@ -223,6 +223,30 @@ export function applyTypeScriptDefaults(m: Monaco): void {
   ts.typescriptDefaults.setCompilerOptions(compilerOptions);
 }
 
+/**
+ * RL-108 — toggle Monaco's built-in TS/JS live diagnostics for one language.
+ * `applyTypeScriptDefaults` enables them by default; this lets the Settings
+ * "Inline lint" toggle silence (or restore) the squiggles per language by
+ * flipping `noSemanticValidation` / `noSyntaxValidation`. Monaco's TS/JS
+ * defaults are global singletons, so this affects every model of that language
+ * (the toggle is per-language, not per-tab, by design). No-op when the
+ * TypeScript contribution is not yet present.
+ */
+export function setMonacoInlineLintEnabled(
+  m: Monaco,
+  language: 'javascript' | 'typescript',
+  enabled: boolean
+): void {
+  const ts = m.languages.typescript;
+  if (!ts) return;
+  const defaults = language === 'typescript' ? ts.typescriptDefaults : ts.javascriptDefaults;
+  defaults.setDiagnosticsOptions({
+    noSemanticValidation: !enabled,
+    noSyntaxValidation: !enabled,
+    onlyVisible: false,
+  });
+}
+
 // The TypeScript contribution augments the global `monaco.languages` object
 // with worker accessors at runtime, but `editor.api.d.ts` exports only a
 // deprecation stub (`{ deprecated: true }`) so the types don't reflect that

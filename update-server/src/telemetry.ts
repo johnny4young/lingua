@@ -247,6 +247,12 @@ export const TELEMETRY_EVENT_NAMES = [
   // `{ tabCount }`. Count only; no tab names/paths/content.
   'session.restored',
   'session.snapshotDiscarded',
+  // RL-108 — mirror of src/shared/telemetry.ts. `{ language, severity, ruleId }`;
+  // counts/enums only, no code or positions.
+  'editor.lint_diagnostic_emitted',
+  // RL-109 close-out — mirror of src/shared/telemetry.ts. `{ hasProjectVars }`;
+  // boolean only, no env keys/values/paths.
+  'env.project_scope_used',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -392,6 +398,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-111 — mirror of src/shared/telemetry.ts.
   'session.restored': ['tabCount', 'source'],
   'session.snapshotDiscarded': ['tabCount'],
+  // RL-108 — mirror of src/shared/telemetry.ts.
+  'editor.lint_diagnostic_emitted': ['language', 'severity', 'ruleId'],
+  // RL-109 close-out — mirror of src/shared/telemetry.ts.
+  'env.project_scope_used': ['hasProjectVars'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -447,6 +457,10 @@ export const FS_BLOCKED_FAMILIES = new Set([
 ]);
 // RL-111 — mirror of SESSION_RESTORE_SOURCES in src/shared/telemetry.ts.
 export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
+
+// RL-108 — mirror of LINT_RULE_IDS / LINT_SEVERITIES in src/shared/telemetry.ts.
+export const LINT_RULE_IDS = new Set(['strict-equality', 'ts-native']);
+export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
 // RL-020 Slice 7 — widened to mirror the renderer (`'timeout'` and
 // `'stopped'` are the two distinct termination kinds the renderer
 // now reports). The parity test asserts both Sets stay in lockstep.
@@ -1477,6 +1491,13 @@ function isAllowedValue(
       return false;
     case 'session.snapshotDiscarded':
       return key === 'tabCount' && isSafeCount(value);
+    case 'editor.lint_diagnostic_emitted':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'severity') return typeof value === 'string' && LINT_SEVERITIES.has(value);
+      if (key === 'ruleId') return typeof value === 'string' && LINT_RULE_IDS.has(value);
+      return false;
+    case 'env.project_scope_used':
+      return key === 'hasProjectVars' && typeof value === 'boolean';
     default: {
       const exhaustive: never = event;
       return exhaustive;

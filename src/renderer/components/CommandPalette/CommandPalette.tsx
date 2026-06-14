@@ -52,6 +52,7 @@ import {
   buildCommandPaletteModel,
   filterCommandPaletteCommands,
 } from './commandPaletteModel';
+import { countCustomLintIssues } from '../../lint/customLintRules';
 
 interface CommandPaletteProps {
   onClose: () => void;
@@ -232,6 +233,25 @@ export function CommandPalette({
         void useSessionStore.getState().restoreSession();
       },
       savedSessionTabCount,
+      // RL-108 fold B — toggle inline lint for the active language, surfaced
+      // only on a lintable JS/TS tab. Flips the per-language setting.
+      onToggleInlineLint:
+        activeTab && (activeTab.language === 'javascript' || activeTab.language === 'typescript')
+          ? () => {
+              const { inlineLintEnabledByLanguage, setInlineLintEnabled } =
+                useSettingsStore.getState();
+              setInlineLintEnabled(
+                activeTab.language,
+                inlineLintEnabledByLanguage[activeTab.language] === false
+              );
+            }
+          : undefined,
+      // RL-108 fold D — preview the active JS/TS buffer's custom-lint issue
+      // count on the toggle command. Pure scan (no Monaco), so it stays cheap
+      // even though the model is rebuilt on every palette open.
+      inlineLintActiveIssueCount: activeTab
+        ? countCustomLintIssues(activeTab.content, activeTab.language)
+        : 0,
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       onToggleVimMode,
       vimModeEnabled: vimMode,

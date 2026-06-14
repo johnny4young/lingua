@@ -154,6 +154,50 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().restoreSessionMode).toBe('ask');
   });
 
+  it('should default inlineLintEnabledByLanguage ON for JS/TS (RL-108)', () => {
+    const map = useSettingsStore.getState().inlineLintEnabledByLanguage;
+    expect(map.javascript).toBe(true);
+    expect(map.typescript).toBe(true);
+  });
+
+  it('should set inline lint per language and ignore unsupported ones (RL-108)', () => {
+    useSettingsStore.getState().setInlineLintEnabled('typescript', false);
+    expect(useSettingsStore.getState().inlineLintEnabledByLanguage.typescript).toBe(false);
+    expect(useSettingsStore.getState().inlineLintEnabledByLanguage.javascript).toBe(true);
+    // Unsupported language is a no-op — never seeds a stray key.
+    useSettingsStore.getState().setInlineLintEnabled('python', true);
+    expect(useSettingsStore.getState().inlineLintEnabledByLanguage.python).toBeUndefined();
+    useSettingsStore.getState().setInlineLintEnabled('typescript', true);
+    expect(useSettingsStore.getState().inlineLintEnabledByLanguage.typescript).toBe(true);
+  });
+
+  it('drops malformed persisted inline-lint values back to the ON seed (RL-108)', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          inlineLintEnabledByLanguage: {
+            javascript: 'disabled',
+            typescript: false,
+            python: true,
+          },
+        },
+        version: 2,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().inlineLintEnabledByLanguage).toEqual({
+      javascript: true,
+      typescript: false,
+    });
+  });
+
   it('should default formatOnSave to false', () => {
     expect(useSettingsStore.getState().formatOnSave).toBe(false);
   });

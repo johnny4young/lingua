@@ -30,6 +30,7 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`services/`](services)     | Renderer-side HTTP clients for license, trial, education, recovery, update, and web dependency flows |
 | [`languageSupport/`](languageSupport) | Declarative editor/language descriptors consumed by Monaco and language intelligence |
 | [`languageIntelligence/`](languageIntelligence) | Renderer adapters for diagnostics, completion, hover, and signature help |
+| [`lint/`](lint)             | Inline-lint rules + quick-fix provider Monaco's TS worker does not cover (RL-108) |
 | [`validation/`](validation) | Validate-only document checks for non-runnable development files          |
 | [`workers/`](workers)       | Web Worker entry points for JS/TS/Python/Go browser execution             |
 | [`utils/`](utils)           | Framework-agnostic helpers and renderer-specific utilities                |

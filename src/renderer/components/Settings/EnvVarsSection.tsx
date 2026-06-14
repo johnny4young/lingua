@@ -67,6 +67,7 @@ export function EnvVarsSection() {
             <ScopeHeading
               icon={<Globe size={14} aria-hidden="true" />}
               title={t('envVars.globalTitle')}
+              description={t('envVars.global.appliesToAllHint')}
             />
             <ScopeEditor
               testidPrefix="env-vars"

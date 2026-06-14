@@ -74,7 +74,9 @@ describe('TELEMETRY_EVENTS', () => {
       // `{ scope, countBucket, regex }`. Sorts between
       // `dependency.install_started` (d.e-p) and `feature.blocked`
       // (f.e-a) alphabetically.
+      'editor.lint_diagnostic_emitted',
       'editor.replace_in_files_applied',
+      'env.project_scope_used',
       'feature.blocked',
       // RL-137 / AUDIT-17 — filesystem-denylist refusal. Closed `{ family }`.
       // Sorts between `feature.blocked` and `git.*` (`fe` < `fs` < `gi`).

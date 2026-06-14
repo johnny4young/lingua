@@ -23,6 +23,7 @@ import {
 import {
   hasOwn,
   isAppLanguage,
+  resolveInlineLintByLanguage,
   sanitizeRuntimeTimeoutPresets,
   sanitizeScratchpadAutoLog,
   sanitizeSensitiveHttpHeaders,
@@ -282,6 +283,7 @@ export function settingsMerge(
     defaultRuntimeMode: normalizedDefaultRuntimeMode,
     workflowModeDefaultsByLanguage: seededWorkflowDefaults,
     scratchpadAutoLogByLanguage: seededAutoLog,
+    inlineLintEnabledByLanguage: resolveInlineLintByLanguage(merged.inlineLintEnabledByLanguage),
     showStdinPanel,
     variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: seededTimeoutPresets,

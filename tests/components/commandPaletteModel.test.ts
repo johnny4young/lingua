@@ -328,6 +328,58 @@ describe('buildCommandPaletteModel', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('exposes Toggle inline lint only when wired (RL-108 fold B)', () => {
+    const onToggleInlineLint = vi.fn();
+    const onClose = vi.fn();
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    expect(
+      buildCommandPaletteModel(baseArgs).find((c) => c.id === 'action-toggle-inline-lint')
+    ).toBeUndefined();
+
+    const command = buildCommandPaletteModel({ ...baseArgs, onToggleInlineLint }).find(
+      (c) => c.id === 'action-toggle-inline-lint'
+    );
+    expect(command).toBeDefined();
+    command?.action();
+    expect(onToggleInlineLint).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+
+    // RL-108 fold D — when the active buffer has custom-lint issues, the
+    // description previews the count; with zero it stays the plain copy.
+    const plain = buildCommandPaletteModel({ ...baseArgs, onToggleInlineLint }).find(
+      (c) => c.id === 'action-toggle-inline-lint'
+    );
+    const withCount = buildCommandPaletteModel({
+      ...baseArgs,
+      onToggleInlineLint,
+      inlineLintActiveIssueCount: 2,
+    }).find((c) => c.id === 'action-toggle-inline-lint');
+    expect(withCount?.description).toContain('2');
+    expect(withCount?.description).not.toBe(plain?.description);
+  });
+
   it('exposes the project search action only when the opener is wired in', () => {
     const onOpenProjectSearch = vi.fn();
     const baseArgs = {

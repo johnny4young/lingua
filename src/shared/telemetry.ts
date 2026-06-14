@@ -484,6 +484,19 @@ export const TELEMETRY_EVENTS = [
   // Mirrored on update-server with a parity test.
   'session.restored',
   'session.snapshotDiscarded',
+  // RL-108 — inline lint adoption. Fires at most once per session per
+  // (language, severity, ruleId) when a JS/TS diagnostic first surfaces.
+  // Closed payload `{ language, severity∈{error,warning,info},
+  // ruleId∈{strict-equality, ts-native} }` — `ts-native` covers Monaco's
+  // built-in TS worker diagnostics, the custom ids cover the `'lingua-lint'`
+  // rules. NO code, message text, or positions reach the wire. Mirrored on
+  // update-server with a parity test.
+  'editor.lint_diagnostic_emitted',
+  // RL-109 close-out — project-scoped env adoption. Fires once per session the
+  // first time a native runner resolves env for a project, with closed payload
+  // `{ hasProjectVars }` (did the active project carry any project-tier vars).
+  // NO keys, values, or project paths reach the wire. Mirrored on update-server.
+  'env.project_scope_used',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -790,6 +803,11 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // is the closed enum `auto` | `prompt`.
   'session.restored': ['tabCount', 'source'],
   'session.snapshotDiscarded': ['tabCount'],
+  // RL-108 — `language` is a safe token; `severity` ∈ error/warning/info;
+  // `ruleId` ∈ LINT_RULE_IDS (custom ids + `ts-native`).
+  'editor.lint_diagnostic_emitted': ['language', 'severity', 'ruleId'],
+  // RL-109 close-out — `hasProjectVars` is a boolean; no env keys/values.
+  'env.project_scope_used': ['hasProjectVars'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -1429,6 +1447,12 @@ export const FS_BLOCKED_FAMILIES = new Set([
 // `ask`-mode restore toast.
 export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
 
+// RL-108 — closed enums for `editor.lint_diagnostic_emitted`. `ruleId`
+// covers the custom `'lingua-lint'` rules plus `ts-native` (Monaco's
+// built-in TS worker diagnostics). `severity` is the marker severity bucket.
+export const LINT_RULE_IDS = new Set(['strict-equality', 'ts-native']);
+export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
+
 export function isSafeToken(value: unknown): value is string {
   return typeof value === 'string' && SAFE_TOKEN_RE.test(value);
 }
@@ -1894,6 +1918,13 @@ function isAllowedValue(
       return false;
     case 'session.snapshotDiscarded':
       return key === 'tabCount' && isSafeCount(value);
+    case 'editor.lint_diagnostic_emitted':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'severity') return typeof value === 'string' && LINT_SEVERITIES.has(value);
+      if (key === 'ruleId') return typeof value === 'string' && LINT_RULE_IDS.has(value);
+      return false;
+    case 'env.project_scope_used':
+      return key === 'hasProjectVars' && typeof value === 'boolean';
     default: {
       const exhaustive: never = event;
       return exhaustive;
