@@ -5,6 +5,7 @@ This repository uses a draft-first manual release process, with the release tag 
 ## Preconditions
 
 - CI is green on `main`
+- The release preflight passes locally: `pnpm run release:preflight`. It runs the release-blocking gates the way CI runs them — license-key rotation with an absent `.env` (so a gitignored dev key cannot mask a CI failure), the R2 web-runtime mirror readiness probe (public access + CORS), changelog/version, production audit, third-party licenses, performance budget, compliance artifacts, and the production web build — so breakage surfaces here instead of after a signed build and a published draft. The gate list is pinned to this workflow by `tests/scripts/releasePreflight.test.ts`.
 - No open P0 incidents in `docs/PLAN.md`
 - Release tag will be a stable tag in the form `vX.Y.Z`
 - `package.json` `version` and root [`CHANGELOG.md`](./CHANGELOG.md) have both been bumped to the target version in a merged commit
@@ -66,6 +67,8 @@ This repository uses a draft-first manual release process, with the release tag 
 
 ## Validation checklist
 
+- Release preflight passed locally before the workflow was dispatched (`pnpm run release:preflight`)
+- R2 web-runtime mirror readiness passed early in the workflow (`infra-readiness` job → `pnpm run check:release-infra`), before the build + publish jobs, so a misconfigured bucket (no public access / no CORS) fails fast instead of after a signed build and a published draft
 - Release-blocking production dependency audit passed (`pnpm run check:prod-audit` in the `security-audit` job); the same job also prints full dependency audit output as advisory signal for build-tool drift
 - Changelog/version guard passed (`pnpm run changelog:check`)
 - Performance budget guard passed (`pnpm run check:performance`)

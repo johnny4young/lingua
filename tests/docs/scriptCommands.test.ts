@@ -128,6 +128,11 @@ describe('Script naming docs guard', () => {
       // mirror-r2 keeps `downloads.linguacode.dev` in sync for
       // marketing-site CTAs). See `docs/runbooks/r2-release-mirror-setup.md`.
       'check:r2-mirror',
+      // Release hardening — probe the public R2 web-runtime mirror
+      // (public access + CORS) and the local release preflight that
+      // runs the release-blocking gates CI-faithfully before dispatch.
+      'check:release-infra',
+      'release:preflight',
       // RL-143 — license-signing-key rotation gate (registry +
       // SLA + env-drift assertions); also wired into release.yml,
       // deploy-web.yml, and ci.yml. See docs/RELEASE_SECURITY.md

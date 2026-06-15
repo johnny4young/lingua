@@ -104,6 +104,8 @@ reference for what each command owns.
 | `compliance:release` | Regenerates the complete release compliance artifact set. |
 | `check:update-feed` | Validates stable or draft desktop update feeds. |
 | `check:r2-mirror` | Validates GitHub Release asset parity against the public R2 mirror. |
+| `check:release-infra` | Probes the public R2 web-runtime mirror (`R2_PUBLIC_BASE`) for public access + CORS for the web app origin, before a release. Catches the 403/CORS class that broke v0.7.0 at deploy time. |
+| `release:preflight` | Runs the release-blocking gates locally, CI-faithfully (license rotation with an absent `.env`, R2 readiness, changelog/version, prod audit, licenses, performance, compliance, web build), before dispatching the Release workflow. |
 | `check:license-rotation` | Asserts the embedded license-signing key is registered, active, non-drifted, and inside the rotation SLA (`docs/security/license-key-registry.json`). |
 | `check:prod-audit` | Fails closed on a `high`/`critical` advisory in the production dependency graph (`pnpm audit --prod`); runs in PR CI and release. |
 | `performance:report` | Collects bundle/runtime performance measurements. |

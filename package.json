@@ -32,6 +32,8 @@
     "compliance:release": "node ./scripts/write-release-compliance-artifacts.mjs",
     "check:update-feed": "node ./scripts/validate-update-feed.mjs",
     "check:r2-mirror": "node ./scripts/check-r2-mirror.mjs",
+    "check:release-infra": "node ./scripts/check-release-infra.mjs",
+    "release:preflight": "node ./scripts/release-preflight.mjs",
     "check:license-rotation": "node ./scripts/assert-license-key-rotation.mjs",
     "check:prod-audit": "node ./scripts/assert-prod-audit.mjs",
     "performance:report": "node ./scripts/performance-report.mjs",

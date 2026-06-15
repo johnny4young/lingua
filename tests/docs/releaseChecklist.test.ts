@@ -87,6 +87,17 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toMatch(/smoke:desktop.*passed|passed.*smoke:desktop/i);
   });
 
+  it('requires the release preflight + early R2 infra-readiness gate', () => {
+    // The release broke twice in CI on gates that were not previewable before
+    // dispatch (license-rotation logic; R2 public-access/CORS only checked at
+    // deploy time). The preflight + the early infra-readiness job close that;
+    // the runbook must keep naming both so the human procedure stays in
+    // lockstep with `release.yml`.
+    expect(checklist).toContain('pnpm run release:preflight');
+    expect(checklist).toContain('pnpm run check:release-infra');
+    expect(checklist).toMatch(/infra-readiness/);
+  });
+
   it('requires the release-blocking audit + checksum re-verify gates', () => {
     // RL-080 Slice 2 introduced the release-blocking production dependency
     // audit. RL-145 moved that gate behind the fixture-tested

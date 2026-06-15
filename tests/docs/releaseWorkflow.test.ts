@@ -135,13 +135,28 @@ describe('release workflow', () => {
     //
     // so a `prettier` / yamllint reformat that flips the shape does
     // NOT silently drop the audit dep on the build jobs.
+    // `[^\]]*` tolerates additional deps after security-audit (the build jobs
+    // also depend on `infra-readiness`) — the invariant is that security-audit
+    // is a dependency, not that it is the ONLY one.
     const inlineDeps =
-      workflow.match(/needs:\s*\[\s*prepare-release-tag\s*,\s*security-audit\s*\]/gu) ?? [];
+      workflow.match(/needs:\s*\[\s*prepare-release-tag\s*,\s*security-audit\b[^\]]*\]/gu) ?? [];
     const multiLineDeps =
       workflow.match(/needs:\s*\n\s*-\s*prepare-release-tag\s*\n\s*-\s*security-audit/gu) ?? [];
     expect(inlineDeps.length + multiLineDeps.length).toBeGreaterThanOrEqual(3);
     expect(workflow).toMatch(/deploy-web:[\s\S]*?needs:\s*\[\s*publish\s*,\s*security-audit\s*\]/u);
     expect(workflow).toContain("needs.security-audit.result == 'success'");
+  });
+
+  it('probes R2 infra readiness early — before the build jobs (v0.7.0 hardening)', () => {
+    // The R2 public-access/CORS break (v0.7.0 run 2) only surfaced at deploy
+    // time, after a signed macOS build + a published draft. The infra-readiness
+    // job runs the probe right after the tag is prepared, and every build job
+    // depends on it, so a misconfigured bucket fails the release in seconds.
+    expect(workflow).toMatch(/infra-readiness:[\s\S]*?needs:\s*prepare-release-tag/u);
+    expect(workflow).toMatch(/infra-readiness:[\s\S]*?pnpm run check:release-infra/u);
+    const buildDepsOnInfra =
+      workflow.match(/needs:\s*\[\s*prepare-release-tag\s*,\s*security-audit\s*,\s*infra-readiness\s*\]/gu) ?? [];
+    expect(buildDepsOnInfra.length).toBeGreaterThanOrEqual(3);
   });
 
   it('runs a release-blocking packaged desktop smoke after macOS signing (RL-080 Slice 3)', () => {
