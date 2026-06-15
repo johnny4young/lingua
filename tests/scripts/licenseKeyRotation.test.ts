@@ -195,6 +195,20 @@ describe('evaluateLicenseKeyRotation', () => {
     expect(result.failures.join('\n')).toMatch(/different license public keys/u);
   });
 
+  it('passes when .env is absent — it is gitignored, so absent in CI and fresh clones', () => {
+    // The shipped key lives only in the committed .env.production; a missing
+    // dev .env must not block a release. Regression guard for the v0.7.0
+    // release-day failure where CI (no .env) tripped the old hard-fail.
+    const result = evaluateLicenseKeyRotation({
+      productionEnvText: envText(PROD_JWK),
+      devEnvText: null,
+      registry: registryWith(),
+      nowMs: FRESH_NOW,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
   it('fails on missing or malformed production env value', () => {
     const missing = evaluateLicenseKeyRotation({
       productionEnvText: '# nothing here\n',

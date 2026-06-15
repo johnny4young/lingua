@@ -4,14 +4,15 @@
  * RL-143 release-time guard: assert the embedded license-signing public key
  * satisfies the rotation policy BEFORE anything user-facing is built.
  *
- * What this closes: the Ed25519 public key committed in `.env` /
- * `.env.production` carries no `kid` or issuance date (CF Workers rejects
- * JWK fields beyond RFC 8037 §2), so nothing would otherwise stop a stale
- * or undocumented key from shipping for another year. This guard reads the
- * committed env files, computes the RFC 7638 thumbprint, and checks it
- * against `docs/security/license-key-registry.json`: the key must be
- * documented, `active`, identical across both env files, and younger than
- * the rotation SLA. The rotation runbook lives in
+ * What this closes: the Ed25519 public key committed in `.env.production`
+ * carries no `kid` or issuance date (CF Workers rejects JWK fields beyond
+ * RFC 8037 §2), so nothing would otherwise stop a stale or undocumented key
+ * from shipping for another year. This guard reads the committed
+ * `.env.production`, computes the RFC 7638 thumbprint, and checks it against
+ * `docs/security/license-key-registry.json`: the key must be documented,
+ * `active`, and younger than the rotation SLA. The dev `.env` is gitignored
+ * (absent in CI / fresh clones, which is fine); when it IS present its key
+ * must match `.env.production`. The rotation runbook lives in
  * `docs/RELEASE_SECURITY.md` § Licensing.
  *
  * Wired into: `.github/workflows/release.yml` (security-audit job),

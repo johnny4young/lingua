@@ -1,8 +1,10 @@
 /**
  * RL-143 — license-signing-key rotation policy, pure logic.
  *
- * The app embeds exactly one Ed25519 public key (committed in `.env` /
- * `.env.production` as `LINGUA_LICENSE_PUBLIC_KEY_JWK`); the private half
+ * The app embeds exactly one Ed25519 public key — committed in `.env.production`
+ * as `LINGUA_LICENSE_PUBLIC_KEY_JWK` (the dev `.env` is gitignored, so it is the
+ * authoritative committed copy; when a dev `.env` is present it must match it);
+ * the private half
  * lives only as a Cloudflare Workers secret. Because the JWK is stripped to
  * RFC 8037 §2 fields (`kty`/`crv`/`x` — CF Workers rejects anything extra,
  * see `scripts/dev-license-shared.mjs`), the key itself carries no `kid` or
@@ -161,14 +163,14 @@ export function evaluateLicenseKeyRotation({ productionEnvText, devEnvText, regi
     }
   }
 
-  // Drift guard: both committed copies must be the same key. The .env
-  // comments demand same-commit updates; this is the enforcement.
+  // Drift guard: when a dev `.env` is present it must embed the SAME key as
+  // the committed `.env.production`. `.env` is gitignored (dev-local), so it is
+  // legitimately absent in CI and on fresh clones — the shipped key lives only
+  // in the committed `.env.production`, which the registry/SLA checks above
+  // already cover. An absent `.env` is therefore NOT a release blocker; we only
+  // fail on a present-but-drifted dev key (or a malformed dev JWK).
   const devRaw = extractEnvValue(devEnvText, LICENSE_KEY_ENV_NAME);
-  if (devRaw === null) {
-    failures.push(
-      `.env does not define ${LICENSE_KEY_ENV_NAME}; dev builds would verify against no key while production embeds one.`
-    );
-  } else if (thumbprint !== null) {
+  if (devRaw !== null && thumbprint !== null) {
     let devJwk = null;
     try {
       devJwk = JSON.parse(devRaw);
