@@ -69,6 +69,10 @@ export function settingsPartialize(state: SettingsState) {
     scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
     inlineLintEnabledByLanguage: state.inlineLintEnabledByLanguage,
     showStdinPanel: state.showStdinPanel,
+    // RL-112 — persist the status-bar visibility so the user's choice
+    // survives reloads. Rehydrate-merge falls back to the platform default
+    // when this key is absent.
+    showStatusBar: state.showStatusBar,
     variableInspectorSurface: state.variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: state.runtimeTimeoutPresetByLanguage,
     showTimeoutCountdown: state.showTimeoutCountdown,

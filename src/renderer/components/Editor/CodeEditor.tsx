@@ -214,7 +214,9 @@ export function CodeEditor() {
     // RL-027 Slice 1.5 fold C — register the editor with the
     // module-level ref the keyboard-shortcut bus consults to read
     // the cursor line. Cleared in the matching unmount effect below.
-    setActiveEditor(editor);
+    // RL-112 — also hand over the `monaco` namespace so the persistent
+    // status bar can read marker severities + `getModelMarkers`.
+    setActiveEditor(editor, monaco);
 
     editor.onDidScrollChange((e) => {
       window.dispatchEvent(

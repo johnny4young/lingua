@@ -80,6 +80,9 @@ export function EditorSection() {
   const setInlineLintEnabled = useSettingsStore((state) => state.setInlineLintEnabled);
   const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
   const toggleShowStdinPanel = useSettingsStore((state) => state.toggleShowStdinPanel);
+  // RL-112 — master visibility toggle for the persistent bottom status bar.
+  const showStatusBar = useSettingsStore((state) => state.showStatusBar);
+  const setShowStatusBar = useSettingsStore((state) => state.setShowStatusBar);
   const variableInspectorSurface = useSettingsStore(
     (state) => state.variableInspectorSurface
   );
@@ -446,6 +449,21 @@ export function EditorSection() {
               onChange={toggleShowStdinPanel}
               aria-label={t('stdin.settings.label')}
               data-testid="settings-show-stdin-panel"
+            />
+          }
+        />
+
+        {/* RL-112 — persistent bottom status bar visibility. Default ON
+            desktop / OFF web; when OFF the bar fully unmounts. */}
+        <SpecRow
+          label={t('settings.editor.showStatusBar.label')}
+          description={t('settings.editor.showStatusBar.hint')}
+          control={
+            <Toggle
+              value={showStatusBar}
+              onChange={() => setShowStatusBar(!showStatusBar)}
+              aria-label={t('settings.editor.showStatusBar.label')}
+              data-testid="settings-show-status-bar"
             />
           }
         />

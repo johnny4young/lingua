@@ -44,6 +44,7 @@ export function createRuntimeActions(
   | 'setScratchpadAutoLogDefault'
   | 'setInlineLintEnabled'
   | 'toggleShowStdinPanel'
+  | 'setShowStatusBar'
   | 'setVariableInspectorSurface'
   | 'setRuntimeTimeoutPreset'
   | 'toggleShowTimeoutCountdown'
@@ -127,6 +128,21 @@ export function createRuntimeActions(
           },
         };
       });
+    },
+    // RL-112 — flip the persistent status-bar visibility. Emits
+    // `editor.status_bar_toggled` on real change only (idempotent calls do
+    // not re-emit); the telemetry call is consent-gated upstream by
+    // `trackEvent`, so no consent duplication is needed here.
+    setShowStatusBar: (enabled: boolean) => {
+      let changed = false;
+      set((state) => {
+        if (state.showStatusBar === enabled) return state;
+        changed = true;
+        return { showStatusBar: enabled };
+      });
+      if (changed) {
+        void trackEvent('editor.status_bar_toggled', { enabled });
+      }
     },
     // RL-020 Slice 6 fold D — flip the bottom-panel stdin tab
     // visibility. Per-tab buffers are preserved either way.

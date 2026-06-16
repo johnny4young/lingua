@@ -79,6 +79,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Open-tab, recent-file, and project-index file navigation       |
 | [`components/Share/`](components/Share)                   | `ShareLinkButton.tsx`, confirmation modal             | Share-link generation affordances and copied-link feedback      |
 | [`components/Snippets/`](components/Snippets)             | `SnippetsModal.tsx`                                   | Snippet browser and insert flow                                |
+| [`components/StatusBar/`](components/StatusBar)           | `StatusBar.tsx`, `useStatusBarModel.ts`              | Persistent 24px bottom bar: language, lint, cursor, indent, Git |
 | [`components/StatusNotice/`](components/StatusNotice)     | `StatusNoticeBanner.tsx`                              | Global status-notice banner rendering                          |
 | [`components/Welcome/`](components/Welcome)               | welcome/project template overlays                     | Empty-state entry points and project template launcher          |
 | [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |

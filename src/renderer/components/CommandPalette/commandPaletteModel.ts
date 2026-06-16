@@ -88,6 +88,19 @@ interface BuildCommandPaletteModelArgs {
    */
   onPastePlainText?: () => void;
   /**
+   * RL-112 fold C — fires the "Toggle status bar" action, flipping the
+   * `showStatusBar` setting. Optional; when omitted the command is hidden.
+   */
+  onToggleStatusBar?: () => void;
+  /**
+   * RL-112 fold C — fires the "Focus status bar" action, moving keyboard
+   * focus to the bar's first segment via `focusStatusBar()`. Optional;
+   * surfaced only when wired AND the bar is currently visible (the caller
+   * gates on `showStatusBar`) so the palette never offers to focus a bar
+   * that is not on screen.
+   */
+  onFocusStatusBar?: () => void;
+  /**
    * RL-111 fold D — saved-session tab count, gating the Restore command's
    * visibility. The caller may pass an in-memory pending ask-mode snapshot
    * count here. Defaults to 0 (command hidden) for callers without a session
@@ -674,6 +687,8 @@ export function buildCommandPaletteModel({
   onToggleInlineLint,
   inlineLintActiveIssueCount = 0,
   onPastePlainText,
+  onToggleStatusBar,
+  onFocusStatusBar,
   savedSessionTabCount = 0,
   onReplayEntry,
   onToggleVimMode,
@@ -1444,6 +1459,38 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onPastePlainText();
+            }
+          ),
+        ]
+      : []),
+    // RL-112 fold C — toggle the persistent status bar. Hidden when the
+    // caller does not wire `onToggleStatusBar` so legacy callers keep working.
+    ...(onToggleStatusBar
+      ? [
+          buildActionCommand(
+            'action-toggle-status-bar',
+            translate('command.toggleStatusBar'),
+            translate('command.toggleStatusBar'),
+            ['status', 'bar', 'toggle', 'show', 'hide', 'estado', 'barra', 'cursor', 'lint'],
+            () => {
+              onToggleStatusBar();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-112 fold C — focus the status bar's first segment. Surfaced only
+    // when wired AND the bar is visible (the caller gates on `showStatusBar`).
+    ...(onFocusStatusBar
+      ? [
+          buildActionCommand(
+            'action-focus-status-bar',
+            translate('command.focusStatusBar'),
+            translate('command.focusStatusBar'),
+            ['status', 'bar', 'focus', 'keyboard', 'estado', 'barra', 'enfocar'],
+            () => {
+              onFocusStatusBar();
+              onClose();
             }
           ),
         ]

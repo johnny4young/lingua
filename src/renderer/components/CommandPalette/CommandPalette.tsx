@@ -55,6 +55,7 @@ import {
 import { countCustomLintIssues } from '../../lint/customLintRules';
 import { requestPlainPaste } from '../../hooks/useSmartPaste';
 import { getActiveEditor } from '../../runtime/editorAccess';
+import { focusStatusBar } from '../StatusBar/statusBarAccess';
 
 interface CommandPaletteProps {
   onClose: () => void;
@@ -198,6 +199,9 @@ export function CommandPalette({
       dependencyDetectionEntry.skippedReason !== undefined);
   const { setLayoutPreset } = useSettingsStore();
   const vimMode = useSettingsStore((state) => state.vimMode);
+  // RL-112 fold C — gate the "Focus status bar" palette command on the bar's
+  // current visibility so it never offers to focus a hidden bar.
+  const showStatusBar = useSettingsStore((state) => state.showStatusBar);
   // RL-111 fold D — gates the "Restore last session" palette command. When
   // ask-mode boot pinned a previous-session snapshot, prefer that in-memory
   // count over the auto-save store's current value so the palette fallback stays
@@ -263,6 +267,14 @@ export function CommandPalette({
             if (editor) requestPlainPaste(editor);
           }
         : undefined,
+      // RL-112 fold C — toggle the persistent status bar (always wired) and
+      // focus its first segment (only when the bar is visible, so the palette
+      // never offers to focus a hidden bar).
+      onToggleStatusBar: () => {
+        const { showStatusBar, setShowStatusBar } = useSettingsStore.getState();
+        setShowStatusBar(!showStatusBar);
+      },
+      onFocusStatusBar: showStatusBar ? () => focusStatusBar() : undefined,
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       onToggleVimMode,
       vimModeEnabled: vimMode,
@@ -650,6 +662,7 @@ export function CommandPalette({
     onReplayEntry,
     onToggleVimMode,
     vimMode,
+    showStatusBar,
     activeTabId,
     activeRuntimeMode,
     activeTimeoutLanguage,

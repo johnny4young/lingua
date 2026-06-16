@@ -67,6 +67,20 @@ export const SETTINGS_INLINE_LINT_LANGUAGE_SET: ReadonlySet<string> = new Set(
   Object.keys(INLINE_LINT_DEFAULT_SEED)
 );
 
+/**
+ * RL-112 — platform-aware default for the persistent status-bar toggle.
+ * ON for the desktop shell (where the chrome echoes a native IDE) and OFF
+ * for web (keep the lighter browser canvas quiet by default). Mirrors the
+ * platform probe in `executeTabManually.ts` but guards `window` so it stays
+ * safe in non-DOM test contexts (returns `false` when window / lingua absent).
+ */
+export function defaultShowStatusBar(): boolean {
+  return (
+    (globalThis as { window?: { lingua?: { platform?: string } } }).window
+      ?.lingua?.platform === 'desktop'
+  );
+}
+
 export const APP_LANGUAGES = ['system', 'en', 'es'] as const;
 
 export const MAX_TOKENS_PER_COMBO = 5;
@@ -144,6 +158,10 @@ export function createInitialSettingsState() {
     // disabling the tab does NOT clear per-tab `stdinBuffer`
     // values so re-enabling the tab restores the existing input.
     showStdinPanel: true,
+    // RL-112 — persistent bottom status bar. Default ON desktop / OFF web
+    // via the platform probe; the merge function preserves a persisted
+    // choice across reloads.
+    showStatusBar: defaultShowStatusBar(),
     // RL-093 Slice 3 — variable inspector surface preference. Default
     // 'floating' keeps backward-compatible behavior for users upgrading
     // from earlier Slice 2 builds where only the FloatingVariablesCard

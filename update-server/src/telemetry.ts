@@ -254,6 +254,8 @@ export const TELEMETRY_EVENT_NAMES = [
   // `{ handler, accepted }`; enums/boolean only, no pasted content.
   'editor.smart_paste_shown',
   'editor.smart_paste_applied',
+  // RL-112 — mirror of src/shared/telemetry.ts. `{ enabled }`; boolean only.
+  'editor.status_bar_toggled',
   // RL-109 close-out — mirror of src/shared/telemetry.ts. `{ hasProjectVars }`;
   // boolean only, no env keys/values/paths.
   'env.project_scope_used',
@@ -407,6 +409,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-110 — mirror of src/shared/telemetry.ts.
   'editor.smart_paste_shown': ['handler'],
   'editor.smart_paste_applied': ['handler', 'accepted'],
+  // RL-112 — mirror of src/shared/telemetry.ts.
+  'editor.status_bar_toggled': ['enabled'],
   // RL-109 close-out — mirror of src/shared/telemetry.ts.
   'env.project_scope_used': ['hasProjectVars'],
 };
@@ -1517,6 +1521,8 @@ function isAllowedValue(
       if (key === 'handler') return typeof value === 'string' && SMART_PASTE_HANDLERS.has(value);
       if (key === 'accepted') return typeof value === 'boolean';
       return false;
+    case 'editor.status_bar_toggled':
+      return key === 'enabled' && typeof value === 'boolean';
     case 'env.project_scope_used':
       return key === 'hasProjectVars' && typeof value === 'boolean';
     default: {

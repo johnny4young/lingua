@@ -78,6 +78,10 @@ describe('TELEMETRY_EVENTS', () => {
       'editor.replace_in_files_applied',
       'editor.smart_paste_applied',
       'editor.smart_paste_shown',
+      // RL-112 — status-bar visibility toggle. Closed-enum `{ enabled }`
+      // boolean. Sorts after `smart_paste_shown` (`st` > `sm`) and before
+      // `env.*` (`editor` < `env`).
+      'editor.status_bar_toggled',
       'env.project_scope_used',
       'feature.blocked',
       // RL-137 / AUDIT-17 — filesystem-denylist refusal. Closed `{ family }`.

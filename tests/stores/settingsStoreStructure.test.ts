@@ -21,7 +21,7 @@ import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 const STORES_DIR = resolve(__dirname, '../../src/renderer/stores');
 
-/** The complete `SettingsState` surface — data fields + setters (91 members). */
+/** The complete `SettingsState` surface — data fields + setters (93 members). */
 const EXPECTED_STORE_KEYS = [
   'acknowledgeFirstWorkflowModeSwitch',
   'addSensitiveHttpHeader',
@@ -84,6 +84,7 @@ const EXPECTED_STORE_KEYS = [
   'setRuntimeTimeoutPreset',
   'setScratchpadAutoLogDefault',
   'setShortcutOverride',
+  'setShowStatusBar',
   'setSqlWorkspaceQueryTimeoutMs',
   'setSqlWorkspaceRowDisplayLimit',
   'setSuppressTourAutoStart',
@@ -93,6 +94,7 @@ const EXPECTED_STORE_KEYS = [
   'setVariableInspectorSurface',
   'setWorkflowModeDefault',
   'shortcutOverrides',
+  'showStatusBar',
   'showStdinPanel',
   'showTimeoutCountdown',
   'showVariableInspectorByDefault',
@@ -149,6 +151,7 @@ const STATE_FIELDS = new Set([
   'scratchpadAutoLogByLanguage',
   'inlineLintEnabledByLanguage',
   'showStdinPanel',
+  'showStatusBar',
   'variableInspectorSurface',
   'runtimeTimeoutPresetByLanguage',
   'showTimeoutCountdown',

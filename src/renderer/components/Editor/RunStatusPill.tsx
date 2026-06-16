@@ -16,6 +16,12 @@
  * `mm:ss` countdown variant instead of the post-termination one.
  * Default OFF so the panel stays quiet by default for users who
  * never asked for a live counter.
+ *
+ * RL-112 fold F — when rendered inside the 24px persistent status bar
+ * (`compact`), the post-termination badges drop their trailing text label so
+ * the icon-only badge fits the bar height. The countdown keeps its `mm:ss`
+ * label (it carries no icon-only equivalent). All gates (hidden on
+ * success / idle / first paint) and `data-*` attrs are unchanged.
  */
 
 import { useEffect, useState } from 'react';
@@ -33,7 +39,7 @@ function formatMmSs(remainingMs: number): string {
   return `${mm}:${ss.toString().padStart(2, '0')}`;
 }
 
-export function RunStatusPill() {
+export function RunStatusPill({ compact = false }: { compact?: boolean } = {}) {
   const { t } = useTranslation();
   const runTermination = useResultStore((state) => state.runTermination);
   const runDeadlineAt = useResultStore((state) => state.runDeadlineAt);
@@ -104,7 +110,7 @@ export function RunStatusPill() {
         >
           <StatusBadge tone="warning" dot>
             <AlarmClock size={10} aria-hidden="true" className="opacity-70" />
-            {t('runtime.statusPill.timeout.label')}
+            {compact ? null : t('runtime.statusPill.timeout.label')}
           </StatusBadge>
         </span>
       );
@@ -120,7 +126,7 @@ export function RunStatusPill() {
         >
           <StatusBadge tone="neutral" dot>
             <Square size={10} aria-hidden="true" className="opacity-70" />
-            {t('runtime.statusPill.stopped.label')}
+            {compact ? null : t('runtime.statusPill.stopped.label')}
           </StatusBadge>
         </span>
       );
@@ -136,7 +142,7 @@ export function RunStatusPill() {
         >
           <StatusBadge tone="error" dot>
             <AlertTriangle size={10} aria-hidden="true" className="opacity-70" />
-            {t('runtime.statusPill.error.label')}
+            {compact ? null : t('runtime.statusPill.error.label')}
           </StatusBadge>
         </span>
       );

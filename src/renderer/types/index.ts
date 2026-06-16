@@ -662,6 +662,14 @@ export interface SettingsState {
    */
   showStdinPanel: boolean;
   /**
+   * RL-112 — master visibility toggle for the persistent bottom status
+   * bar (language, problems, cursor position, encoding, indent, Git
+   * branch, run status). Default ON desktop / OFF web. When `false` the
+   * bar is fully unmounted (not just hidden), so it costs nothing for
+   * users who never want it.
+   */
+  showStatusBar: boolean;
+  /**
    * RL-093 Slice 3 — controls whether the variable inspector renders as
    * a draggable `<FloatingVariablesCard>` (default) or as a Variables
    * tab inside the bottom panel. Per-tab `variableInspectorEnabled`
@@ -914,6 +922,12 @@ export interface SettingsState {
    * the bottom-panel `stdin` tab.
    */
   toggleShowStdinPanel: () => void;
+  /**
+   * RL-112 — set the master visibility toggle for the persistent bottom
+   * status bar. Emits `editor.status_bar_toggled` ({ enabled }) telemetry
+   * on real change only.
+   */
+  setShowStatusBar: (enabled: boolean) => void;
   /** RL-093 Slice 3 — switch the variable inspector surface. */
   setVariableInspectorSurface: (surface: 'floating' | 'bottom') => void;
   /**

@@ -6,10 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
 import { EditorTabs } from '../Editor/EditorTabs';
-import { GitProjectBranchChip } from '../Editor/GitProjectBranchChip';
 import { ResultPanel } from '../Editor/ResultPanel';
 import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
 import { AppChrome } from '../Chrome';
+import { StatusBar } from '../StatusBar/StatusBar';
 import { BottomPanel } from './BottomPanel';
 import { Toolbar } from '../Toolbar';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
@@ -373,11 +373,9 @@ function EditorArea() {
         <div className="min-w-0 flex-1 overflow-hidden">
           <EditorTabs />
         </div>
-        {/* RL-102 Slice 2 fold C — project-wide branch chip.
-            Self-renders to null when no git posture; positioned at
-            the right of the editor-tabs chrome so it never competes
-            with the per-tab pills for space. */}
-        <GitProjectBranchChip />
+        {/* RL-112 fold A — the project-wide branch indicator moved into the
+            persistent status bar's Git segment (mounted at the bottom of the
+            shell). `<GitProjectBranchChip>` is no longer mounted here. */}
       </div>
       <PanelChipsRow />
       <div className="min-h-0 flex-1">
@@ -864,6 +862,12 @@ export function AppLayout({
             </div>
           </div>
         )}
+        {/* RL-112 — persistent bottom status bar. Last child of the
+            shell-underlay flex-col so it pins to the bottom of the flow AND
+            inherits the inert + aria-hidden the underlay receives while the
+            compact drawer is open. Self-renders null when showStatusBar is
+            OFF. */}
+        <StatusBar />
       </div>
       {isCompactDrawerOpen && (
         <OverlayBackdrop

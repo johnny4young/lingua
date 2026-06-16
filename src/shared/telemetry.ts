@@ -499,6 +499,9 @@ export const TELEMETRY_EVENTS = [
   // pasted content, URLs, or paths reach the wire. Mirrored on update-server.
   'editor.smart_paste_shown',
   'editor.smart_paste_applied',
+  // RL-112 — fires when the user toggles the persistent status bar; closed
+  // payload `{ enabled }` boolean. Mirrored on update-server with a parity test.
+  'editor.status_bar_toggled',
   // RL-109 close-out — project-scoped env adoption. Fires once per session the
   // first time a native runner resolves env for a project, with closed payload
   // `{ hasProjectVars }` (did the active project carry any project-tier vars).
@@ -816,6 +819,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-110 — `handler` ∈ SMART_PASTE_HANDLERS; `accepted` is a boolean.
   'editor.smart_paste_shown': ['handler'],
   'editor.smart_paste_applied': ['handler', 'accepted'],
+  // RL-112 — `enabled` is a boolean (status-bar visibility).
+  'editor.status_bar_toggled': ['enabled'],
   // RL-109 close-out — `hasProjectVars` is a boolean; no env keys/values.
   'env.project_scope_used': ['hasProjectVars'],
 };
@@ -1950,6 +1955,8 @@ function isAllowedValue(
       if (key === 'handler') return typeof value === 'string' && SMART_PASTE_HANDLERS.has(value);
       if (key === 'accepted') return typeof value === 'boolean';
       return false;
+    case 'editor.status_bar_toggled':
+      return key === 'enabled' && typeof value === 'boolean';
     case 'env.project_scope_used':
       return key === 'hasProjectVars' && typeof value === 'boolean';
     default: {
