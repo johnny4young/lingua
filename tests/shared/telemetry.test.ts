@@ -34,8 +34,12 @@ describe('TELEMETRY_EVENTS', () => {
     expect([...TELEMETRY_EVENTS].sort()).toEqual([
       'app.launched',
       // RL-094 Slice 3 fold G — capsule browse overlay adoption signal.
-      // Closed-enum `{ surface, tier }`. Sorts before `capsule.exported`.
+      // Closed-enum `{ surface, tier }`. Sorts before `capsule.compared`.
       'capsule.browse_opened',
+      // RL-094 Slice 4 — capsule diff comparator adoption signal.
+      // Closed-enum `{ sameLanguage }` boolean. Sorts between
+      // `capsule.browse_opened` and `capsule.exported`.
+      'capsule.compared',
       // RL-094 Slice 1 fold A — Run Capsule export adoption signal.
       // Closed-enum `{ trigger, sizeBucket }`. Sorts at the top of the
       // alphabetical list.
@@ -1185,6 +1189,30 @@ describe('capsule.browse_opened value validator (RL-094 Slice 3 fold G)', () => 
     );
     expect(event.properties).not.toHaveProperty('surface');
     expect(droppedKeys).toContain('surface');
+  });
+});
+
+describe('capsule.compared value validator (RL-094 Slice 4)', () => {
+  it('accepts a boolean sameLanguage either way', () => {
+    for (const sameLanguage of [true, false]) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'capsule.compared',
+          properties: { sameLanguage },
+        })
+      );
+      expect(event.properties).toEqual({ sameLanguage });
+    }
+  });
+  it('drops a non-boolean sameLanguage', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'capsule.compared',
+        properties: { sameLanguage: 'yes' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('sameLanguage');
+    expect(droppedKeys).toContain('sameLanguage');
   });
 });
 

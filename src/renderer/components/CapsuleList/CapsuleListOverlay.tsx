@@ -30,14 +30,18 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, ExternalLink, Eye, Package, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, Eye, GitCompare, Package, Trash2 } from 'lucide-react';
 import {
   useExecutionHistoryStore,
   type ExecutionHistoryEntry,
 } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useEntitlement, useEffectiveTier } from '../../hooks/useEntitlement';
-import { summarizeRunCapsule, utf8ByteLength } from '../../../shared/runCapsule';
+import {
+  summarizeRunCapsule,
+  utf8ByteLength,
+  type RunCapsuleV1,
+} from '../../../shared/runCapsule';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { openCapsuleSourceInNewTab } from '../../utils/openCapsuleTab';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
@@ -48,6 +52,7 @@ import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { StatusBadge } from '../ui/StatusBadge';
 import { EmptyState } from '../ui/EmptyState';
 import { CapsuleImportPreview } from '../CapsuleImport';
+import { CapsuleComparisonModal } from './CapsuleComparisonModal';
 import { readCapsuleListSurfaceForMount } from './capsuleListSurface';
 
 export interface CapsuleListOverlayProps {
@@ -56,6 +61,21 @@ export interface CapsuleListOverlayProps {
 
 /** Status filter chip values. `all` disables the status predicate. */
 type StatusFilter = 'all' | 'ok' | 'error';
+
+/**
+ * RL-094 Slice 4 — sort two capsule entries oldest → newest so the
+ * comparison modal renders Older / Newer panes deterministically.
+ * Mirror of `compareHistoryEntries` in `ExecutionHistoryPopover`:
+ * timestamp first, then a stable `id` tie-break for entries captured in
+ * the same millisecond (the store ids are monotonic per bucket).
+ */
+function compareCapsuleEntries(
+  older: ExecutionHistoryEntry,
+  newer: ExecutionHistoryEntry
+): number {
+  if (older.timestamp !== newer.timestamp) return older.timestamp - newer.timestamp;
+  return older.id.localeCompare(newer.id);
+}
 
 function formatRelative(
   timestamp: number,
@@ -136,6 +156,18 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     });
   }, [capsuleEntries, statusFilter, languageFilter]);
 
+  // ─── Compare selection (fold A) ──────────────────────────────────
+  // Mirror `ExecutionHistoryPopover`: a free-toggle multiselect whose
+  // Compare action is gated at exactly two. We do NOT cap the set at two
+  // — toggling is unconstrained and only `compareEnabled` enforces the
+  // pair (matching the popover precedent and keeping the toggle UX
+  // predictable). `comparePair` holds the [older, newer] tuple handed to
+  // the modal once the user presses Compare.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [comparePair, setComparePair] = useState<[RunCapsuleV1, RunCapsuleV1] | null>(
+    null
+  );
+
   // ─── Selection (drives the right-hand preview) ───────────────────
   // Track the user's explicit pick, but DERIVE the effective selection
   // so a pick that filters out (filter change or delete) transparently
@@ -164,6 +196,62 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
         : 0,
     [selected]
   );
+
+  // ─── Compare derivations (fold A) ────────────────────────────────
+  // Only count selections that survive the current filter so a
+  // filtered-out pick can never form a stale pair. Every capsule entry
+  // carries a `lastCapsule`, so the predicate is just set-membership.
+  const selectedEntries = useMemo(
+    () => filtered.filter((entry) => selectedIds.has(entry.id)),
+    [filtered, selectedIds]
+  );
+  const compareEnabled = selectedEntries.length === 2;
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  // Filter setters that ALSO clear the compare selection so a selection
+  // made under one filter can't combine with one made under another into
+  // a pair the user never saw side by side. Done imperatively in the
+  // handler (mirror of `ExecutionHistoryPopover`'s reset hygiene) rather
+  // than a setState-in-effect. Overlay-close reset is implicit — the
+  // whole component unmounts.
+  const changeStatusFilter = useCallback((next: StatusFilter) => {
+    setStatusFilter(next);
+    setSelectedIds(new Set());
+  }, []);
+  const changeLanguageFilter = useCallback((next: string) => {
+    setLanguageFilter(next);
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleCompare = useCallback(() => {
+    if (selectedEntries.length !== 2) return;
+    // Sort oldest → newest so the modal renders Older / Newer panes
+    // deterministically. Both entries are capsule entries, so
+    // `lastCapsule` is defined on each.
+    const [older, newer] = [...selectedEntries].sort(compareCapsuleEntries) as [
+      ExecutionHistoryEntry,
+      ExecutionHistoryEntry,
+    ];
+    const olderCapsule = older.lastCapsule;
+    const newerCapsule = newer.lastCapsule;
+    if (!olderCapsule || !newerCapsule) return;
+    setComparePair([olderCapsule, newerCapsule]);
+    void trackEvent('capsule.compared', {
+      sameLanguage: olderCapsule.tab.language === newerCapsule.tab.language,
+    });
+  }, [selectedEntries]);
+
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!canBrowse || capsuleEntries.length === 0) return;
@@ -286,16 +374,40 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   }
 
   return (
+    <>
     <CapsuleShell
       titleId={titleId}
       onClose={onClose}
       footerTrailing={
-        <span
-          data-testid="capsule-list-count"
-          className="font-mono text-[11px] text-fg-subtle"
-        >
-          {t('capsuleList.count', { count: capsuleEntries.length })}
-        </span>
+        <div className="flex items-center gap-3">
+          {capsuleEntries.length > 0 ? (
+            <>
+              <span
+                data-testid="capsule-compare-hint"
+                className="text-[11px] text-fg-subtle"
+              >
+                {compareEnabled ? null : t('capsule.compare.selectHint')}
+              </span>
+              <button
+                type="button"
+                onClick={handleCompare}
+                disabled={!compareEnabled}
+                data-testid="capsule-compare-button"
+                aria-label={t('capsule.compare.action')}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-[11px] text-fg-muted transition-colors hover:border-border-strong hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border-subtle disabled:hover:text-fg-muted"
+              >
+                <GitCompare size={12} aria-hidden="true" />
+                {t('capsule.compare.action')}
+              </button>
+            </>
+          ) : null}
+          <span
+            data-testid="capsule-list-count"
+            className="font-mono text-[11px] text-fg-subtle"
+          >
+            {t('capsuleList.count', { count: capsuleEntries.length })}
+          </span>
+        </div>
       }
     >
       {capsuleEntries.length === 0 ? (
@@ -318,7 +430,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
           >
             <FilterChip
               active={languageFilter === 'all'}
-              onClick={() => setLanguageFilter('all')}
+              onClick={() => changeLanguageFilter('all')}
               testid="capsule-list-filter-language-all"
             >
               {t('capsuleList.filter.allLanguages')}
@@ -327,7 +439,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
               <FilterChip
                 key={lang}
                 active={languageFilter === lang}
-                onClick={() => setLanguageFilter(lang)}
+                onClick={() => changeLanguageFilter(lang)}
                 testid={`capsule-list-filter-language-${lang}`}
               >
                 {lang}
@@ -339,21 +451,21 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
             />
             <FilterChip
               active={statusFilter === 'all'}
-              onClick={() => setStatusFilter('all')}
+              onClick={() => changeStatusFilter('all')}
               testid="capsule-list-filter-status-all"
             >
               {t('capsuleList.filter.allStatuses')}
             </FilterChip>
             <FilterChip
               active={statusFilter === 'ok'}
-              onClick={() => setStatusFilter('ok')}
+              onClick={() => changeStatusFilter('ok')}
               testid="capsule-list-filter-status-ok"
             >
               {t('capsuleList.filter.statusOk')}
             </FilterChip>
             <FilterChip
               active={statusFilter === 'error'}
-              onClick={() => setStatusFilter('error')}
+              onClick={() => changeStatusFilter('error')}
               testid="capsule-list-filter-status-error"
             >
               {t('capsuleList.filter.statusError')}
@@ -369,6 +481,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
               {filtered.map((entry) => {
                 const capsule = entry.lastCapsule!;
                 const isSelected = entry.id === selectedId;
+                const isChecked = selectedIds.has(entry.id);
                 return (
                   <li key={entry.id}>
                     <div
@@ -381,29 +494,45 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                           : 'border-border-subtle bg-bg-inset/40 hover:bg-bg-panel-alt'
                       )}
                     >
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(entry.id)}
-                        data-testid="capsule-list-row-select"
-                        className="block w-full text-left"
-                      >
-                        <span className="flex items-center gap-2">
-                          <StatusBadge tone="neutral">
-                            {capsule.tab.language}
-                          </StatusBadge>
-                          <StatusBadge
-                            tone={entry.status === 'ok' ? 'success' : 'error'}
-                          >
-                            {entry.status}
-                          </StatusBadge>
-                          <span className="ml-auto font-mono text-[10px] text-fg-subtle">
-                            {formatRelative(entry.timestamp, now, t)}
+                      <div className="flex items-start gap-2">
+                        {/* fold A — compare multiselect. A real checkbox so
+                            keyboard + screen-reader users can build the pair;
+                            sits outside the row-select button (no nested
+                            interactive controls). */}
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleSelected(entry.id)}
+                          data-testid={`capsule-row-select-${entry.id}`}
+                          aria-label={t('capsule.compare.checkbox.aria', {
+                            language: capsule.tab.language,
+                          })}
+                          className="mt-1 h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(entry.id)}
+                          data-testid="capsule-list-row-select"
+                          className="block min-w-0 flex-1 text-left"
+                        >
+                          <span className="flex items-center gap-2">
+                            <StatusBadge tone="neutral">
+                              {capsule.tab.language}
+                            </StatusBadge>
+                            <StatusBadge
+                              tone={entry.status === 'ok' ? 'success' : 'error'}
+                            >
+                              {entry.status}
+                            </StatusBadge>
+                            <span className="ml-auto font-mono text-[10px] text-fg-subtle">
+                              {formatRelative(entry.timestamp, now, t)}
+                            </span>
                           </span>
-                        </span>
-                        <span className="mt-1 block truncate text-[11px] text-fg-subtle">
-                          {summarizeRunCapsule(capsule)}
-                        </span>
-                      </button>
+                          <span className="mt-1 block truncate text-[11px] text-fg-subtle">
+                            {summarizeRunCapsule(capsule)}
+                          </span>
+                        </button>
+                      </div>
                       <div className="mt-2 flex items-center gap-1">
                         <RowAction
                           icon={<Eye size={12} aria-hidden="true" />}
@@ -471,6 +600,15 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
         </div>
       )}
     </CapsuleShell>
+    {/* fold A — the comparator renders as a sibling so it layers above
+        the list overlay. `comparePair` is null until the user presses
+        Compare; closing it clears the pair but leaves the multiselect
+        intact so they can adjust and re-compare. */}
+    <CapsuleComparisonModal
+      capsules={comparePair}
+      onClose={() => setComparePair(null)}
+    />
+    </>
   );
 }
 

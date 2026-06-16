@@ -197,6 +197,12 @@ export const TELEMETRY_EVENTS = [
   // measurable. NO capsuleId, NO source content. Mirrored on
   // update-server with a parity test.
   'capsule.browse_opened',
+  // RL-094 Slice 4 — capsule diff comparator adoption signal. Closed-enum
+  // `{ sameLanguage }` boolean (true when the two compared capsules share
+  // a language). NO capsuleIds, NO source content, NO environment leaks.
+  // Sorts after `capsule.browse_opened`, before `capsule.exported`
+  // alphabetically. Mirrored on update-server with a parity test.
+  'capsule.compared',
   // RL-094 Slice 1 fold A — adoption signal for the Run Capsule
   // export surface. Closed-enum `{ trigger, sizeBucket }` where
   // `trigger ∈ CAPSULE_EXPORT_TRIGGERS` and `sizeBucket ∈
@@ -681,6 +687,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `tier` is an open safe-token (license tier; mirrors
   // `feature.blocked.tier`).
   'capsule.browse_opened': ['surface', 'tier'],
+  // RL-094 Slice 4 — `sameLanguage` is a boolean; the validator below
+  // enforces the type.
+  'capsule.compared': ['sameLanguage'],
   // RL-094 Slice 1 fold A — `trigger` ∈ `CAPSULE_EXPORT_TRIGGERS`,
   // `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS`. Both closed enums.
   'capsule.exported': ['trigger', 'sizeBucket'],
@@ -1676,6 +1685,8 @@ function isAllowedValue(
       // trial / education) — same treatment as `feature.blocked.tier`.
       if (key === 'tier') return isSafeToken(value);
       return false;
+    case 'capsule.compared':
+      return key === 'sameLanguage' && typeof value === 'boolean';
     case 'capsule.exported':
       if (key === 'trigger')
         return (

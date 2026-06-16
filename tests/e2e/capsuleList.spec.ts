@@ -8,7 +8,14 @@
  * by the component test suite.
  */
 
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import {
+  expect,
+  gotoApp,
+  openCommandPalette,
+  paletteInput,
+  seedSession,
+  test,
+} from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -18,6 +25,30 @@ test.describe('Capsule browse — Mod+Alt+C binding', () => {
     await gotoApp(page);
 
     await page.keyboard.press('ControlOrMeta+Alt+C');
+
+    const dialog = page.getByRole('dialog', { name: /run capsules/i });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByText(/Browse run capsules with Pro/i)
+    ).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+  });
+
+  // RL-094 Slice 4 fold C — the "Compare two capsules" palette command
+  // opens the SAME capsule browser. This locks the overlay-survival
+  // ordering (onClose before onBrowseCapsules); a regression there would
+  // close the overlay in the same tick it opens, so this would fail.
+  test('the Compare two capsules palette command opens the browser (EN)', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+
+    await openCommandPalette(page);
+    await paletteInput(page).fill('compare');
+    await page.getByText('Compare two capsules').click();
 
     const dialog = page.getByRole('dialog', { name: /run capsules/i });
     await expect(dialog).toBeVisible();

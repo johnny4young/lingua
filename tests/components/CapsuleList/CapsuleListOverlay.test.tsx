@@ -166,6 +166,121 @@ describe('CapsuleListOverlay — Pro tier', () => {
   });
 });
 
+describe('CapsuleListOverlay — compare selection (RL-094 Slice 4)', () => {
+  it('gates the Compare button until exactly two capsules are selected', () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+
+    const compareButton = screen.getByTestId(
+      'capsule-compare-button'
+    ) as HTMLButtonElement;
+    // 0 selected → disabled.
+    expect(compareButton.disabled).toBe(true);
+
+    // 1 selected → still disabled.
+    fireEvent.click(screen.getByTestId('capsule-row-select-e1'));
+    expect(compareButton.disabled).toBe(true);
+
+    // 2 selected → enabled.
+    fireEvent.click(screen.getByTestId('capsule-row-select-e2'));
+    expect(compareButton.disabled).toBe(false);
+
+    // Toggling a (third) selection off drops back below two → disabled.
+    fireEvent.click(screen.getByTestId('capsule-row-select-e2'));
+    expect(compareButton.disabled).toBe(true);
+  });
+
+  it('opens the comparator with the pair sorted oldest → newest and fires telemetry', () => {
+    // e1 (javascript) is older, e2 (typescript) is newer by timestamp.
+    useExecutionHistoryStore.setState({
+      entries: [
+        { ...entry('e1', 'javascript', 'ok', FIXTURE_MINIMAL_JS), timestamp: 1_000 },
+        { ...entry('e2', 'typescript', 'error', FIXTURE_FULL_TS), timestamp: 2_000 },
+      ],
+    });
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('capsule-row-select-e1'));
+    fireEvent.click(screen.getByTestId('capsule-row-select-e2'));
+    fireEvent.click(screen.getByTestId('capsule-compare-button'));
+
+    // Modal opens.
+    expect(screen.getByTestId('capsule-compare-modal')).not.toBeNull();
+    // Older pane = the javascript (older) capsule's source.
+    expect(screen.getByTestId('capsule-compare-pane-older').textContent).toBe(
+      FIXTURE_MINIMAL_JS.source.content
+    );
+    expect(screen.getByTestId('capsule-compare-pane-newer').textContent).toBe(
+      FIXTURE_FULL_TS.source.content
+    );
+    // Cross-language pair → sameLanguage false.
+    expect(trackEvent).toHaveBeenCalledWith('capsule.compared', {
+      sameLanguage: false,
+    });
+  });
+
+  it('fires capsule.compared with sameLanguage true for a same-language pair', () => {
+    useExecutionHistoryStore.setState({
+      entries: [
+        { ...entry('e1', 'javascript', 'ok', FIXTURE_MINIMAL_JS), timestamp: 1_000 },
+        {
+          ...entry('e2', 'javascript', 'ok', {
+            ...FIXTURE_MINIMAL_JS,
+            capsuleId: '00000000-0000-4000-8000-0000000000aa',
+            source: { content: 'console.log(99);', contentHash: 'h2' },
+          }),
+          timestamp: 2_000,
+        },
+      ],
+    });
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('capsule-row-select-e1'));
+    fireEvent.click(screen.getByTestId('capsule-row-select-e2'));
+    fireEvent.click(screen.getByTestId('capsule-compare-button'));
+
+    expect(trackEvent).toHaveBeenCalledWith('capsule.compared', {
+      sameLanguage: true,
+    });
+  });
+
+  it('clears the selection when a filter changes (no stale cross-filter pair)', () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('capsule-row-select-e1'));
+    fireEvent.click(screen.getByTestId('capsule-row-select-e2'));
+    expect(
+      (screen.getByTestId('capsule-compare-button') as HTMLButtonElement).disabled
+    ).toBe(false);
+
+    // Switching to a status filter clears the selection.
+    fireEvent.click(screen.getByTestId('capsule-list-filter-status-error'));
+    // Only the error (typescript e2) row is visible now, and its checkbox
+    // is back to unchecked.
+    const e2checkbox = screen.getByTestId('capsule-row-select-e2') as HTMLInputElement;
+    expect(e2checkbox.checked).toBe(false);
+    expect(
+      (screen.getByTestId('capsule-compare-button') as HTMLButtonElement).disabled
+    ).toBe(true);
+  });
+});
+
+describe('CapsuleListOverlay — Free tier hides compare UI (RL-094 Slice 4)', () => {
+  beforeEach(() => {
+    mockEntitled = false;
+    mockTier = 'free';
+  });
+
+  it('renders no per-row select checkbox and no Compare button', () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByTestId('capsule-list-upsell')).not.toBeNull();
+    expect(screen.queryByTestId('capsule-row-select-e1')).toBeNull();
+    expect(screen.queryByTestId('capsule-compare-button')).toBeNull();
+  });
+});
+
 describe('CapsuleListOverlay — Free tier upsell (fold G)', () => {
   beforeEach(() => {
     mockEntitled = false;

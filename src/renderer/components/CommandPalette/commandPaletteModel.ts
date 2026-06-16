@@ -955,6 +955,39 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
+    // RL-094 Slice 4 fold C — Compare two capsules. Gated on the SAME
+    // `onBrowseCapsules` handler: the comparator selection lives inline
+    // in the capsule browser (per-row checkboxes + a Compare button), so
+    // this command just opens that overlay where the user picks the pair.
+    // No separate "compare mode" plumbing is needed. `onClose()` MUST run
+    // before `onBrowseCapsules()` (same overlay-survival ordering as
+    // `action-browse-capsules`): both set the single App `overlay` slot,
+    // and within one React event handler the last setState wins — closing
+    // the palette first lets the capsule-list overlay survive.
+    ...(onBrowseCapsules
+      ? [
+          buildActionCommand(
+            'action-compare-capsules',
+            translate('command.compareCapsules'),
+            translate('command.compareCapsules.description'),
+            [
+              'capsule',
+              'compare',
+              'diff',
+              'side by side',
+              'two',
+              'comparar',
+              'capsula',
+              'cápsula',
+              'comparación',
+            ],
+            () => {
+              onClose();
+              onBrowseCapsules();
+            }
+          ),
+        ]
+      : []),
     // RL-100 Slice 1 — open the global Import overlay. Mirror of the
     // capsule-import wiring above. Surfaces only when App.tsx wires
     // the AppOverlay branch; the `Mod+Alt+I` shortcut hits the same

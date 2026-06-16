@@ -104,6 +104,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // Closed-enum `{ surface, tier }` where `surface ∈
   // CAPSULE_BROWSE_SURFACES` and `tier` is an open safe-token.
   'capsule.browse_opened',
+  // RL-094 Slice 4 — mirror of `capsule.compared`. Closed-enum
+  // `{ sameLanguage }` boolean. Sorts after `capsule.browse_opened`,
+  // before `capsule.exported`.
+  'capsule.compared',
   // RL-094 Slice 1 fold A — mirror of `capsule.exported`. Closed-enum
   // `{ trigger, sizeBucket }` from `CAPSULE_EXPORT_TRIGGERS` /
   // `CAPSULE_SIZE_BUCKETS`.
@@ -326,6 +330,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
   // RL-094 Slice 3 fold G — mirror of `capsule.browse_opened`.
   'capsule.browse_opened': ['surface', 'tier'],
+  // RL-094 Slice 4 — mirror of `capsule.compared`. Boolean `sameLanguage`.
+  'capsule.compared': ['sameLanguage'],
   // RL-094 Slice 1 fold A — mirror of `capsule.exported`.
   'capsule.exported': ['trigger', 'sizeBucket'],
   // RL-094 Slice 2 fold D — mirror of `capsule.imported`. All three
@@ -1255,6 +1261,8 @@ function isAllowedValue(
       // `tier` is an open safe-token, same as `feature.blocked.tier`.
       if (key === 'tier') return isSafeToken(value);
       return false;
+    case 'capsule.compared':
+      return key === 'sameLanguage' && typeof value === 'boolean';
     case 'capsule.exported':
       if (key === 'trigger')
         return typeof value === 'string' && CAPSULE_EXPORT_TRIGGERS.has(value);
