@@ -51,11 +51,31 @@ export function corsHeaderAllowsAppOrigin(header) {
 }
 
 /**
+ * Does a Cloudflare `cf-mitigated` response header mean the request was
+ * challenged/blocked at the edge (managed challenge, free Bot Fight Mode, …)?
+ * Any non-empty value means Cloudflare mitigated the request BEFORE it reached
+ * R2 — so it is NOT a CORS / public-access problem. Free Bot Fight Mode
+ * managed-challenges datacenter-ASN traffic (e.g. the GitHub Actions runner)
+ * and cannot be exempted by WAF skip rules; that is exactly how the v0.7.0 web
+ * deploy was blocked, while the generic "configure CORS" message sent the
+ * operator down the wrong path. Detecting it here lets the early `infra-readiness`
+ * CI job (which runs from a challenged runner IP) name the real cause.
+ *
+ * @param {string | null | undefined} cfMitigated
+ * @returns {boolean}
+ */
+export function isCloudflareChallenge(cfMitigated) {
+  return typeof cfMitigated === 'string' && cfMitigated.trim() !== '';
+}
+
+/**
  * @typedef {object} InfraProbeInput
  * @property {string} url            The probed public URL.
  * @property {'runtime-asset' | 'sentinel'} kind
  * @property {number | null} status  HTTP status, or null for a network error.
  * @property {string | null} acao    The `access-control-allow-origin` header.
+ * @property {string | null} [cfMitigated]  The `cf-mitigated` header, set when
+ *   Cloudflare challenges/blocks the request at the edge (bot mitigation).
  */
 
 /**
@@ -68,6 +88,8 @@ export function corsHeaderAllowsAppOrigin(header) {
 /**
  * Classify a single probe into ok / warn / fail. This is where the v0.7.0
  * failure modes are encoded:
+ * - Cloudflare challenge (`cf-mitigated` set) → fail, but with a distinct
+ *   "bot mitigation, not CORS" cause + fix (the second v0.7.0 break).
  * - 403 → fail (bucket public access / CORS not configured — the actual break).
  * - 200 but no app-origin CORS → fail (reachable but the browser would block it).
  * - 404 on a versioned runtime asset → warn (a version bump not yet mirrored;
@@ -78,7 +100,17 @@ export function corsHeaderAllowsAppOrigin(header) {
  * @param {InfraProbeInput} input
  * @returns {InfraProbeResult}
  */
-export function classifyInfraProbe({ url, kind, status, acao }) {
+export function classifyInfraProbe({ url, kind, status, acao, cfMitigated }) {
+  // Edge mitigation (managed challenge / free Bot Fight Mode) blocks the request
+  // before it reaches R2 — NOT a CORS or public-access misconfiguration. Surface
+  // the real cause + fix instead of the misleading "configure CORS" message.
+  if (isCloudflareChallenge(cfMitigated)) {
+    return {
+      url,
+      level: 'fail',
+      detail: `blocked by Cloudflare bot mitigation (cf-mitigated: ${String(cfMitigated).trim()}), not a CORS problem — disable Bot Fight Mode for this host (Cloudflare → Security → Bots) or exclude it; see docs/runbooks/r2-release-mirror-setup.md`,
+    };
+  }
   if (status === 200) {
     if (corsHeaderAllowsAppOrigin(acao)) {
       return { url, level: 'ok', detail: 'reachable with app-origin CORS' };

@@ -55,6 +55,7 @@ async function readPackageVersion(pkg) {
 async function probe(url, { attempts = 2, backoffMs = 2000 } = {}) {
   let status = null;
   let acao = null;
+  let cfMitigated = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await fetch(url, {
@@ -64,15 +65,20 @@ async function probe(url, { attempts = 2, backoffMs = 2000 } = {}) {
       });
       status = response.status;
       acao = response.headers.get('access-control-allow-origin');
+      // `cf-mitigated` distinguishes a Cloudflare bot challenge from a real CORS
+      // miss. (Only visible from a challenged IP — e.g. the CI runner, not a
+      // residential dev box — so locally this stays null and the probe looks ok.)
+      cfMitigated = response.headers.get('cf-mitigated');
       // 403/404 are deterministic policy answers — do not waste retries on them.
       if (status !== 502 && status !== 503 && status !== 504) break;
     } catch {
       status = null;
       acao = null;
+      cfMitigated = null;
     }
     if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, backoffMs));
   }
-  return { status, acao };
+  return { status, acao, cfMitigated };
 }
 
 function printHelp() {
@@ -143,8 +149,8 @@ export async function main(argv = process.argv.slice(2)) {
   console.log(`release-infra: probing public mirror ${publicBase} (origin ${APP_ORIGIN})`);
   const probes = [];
   for (const target of targets) {
-    const { status, acao } = await probe(target.url);
-    const result = classifyInfraProbe({ url: target.url, kind: target.kind, status, acao });
+    const { status, acao, cfMitigated } = await probe(target.url);
+    const result = classifyInfraProbe({ url: target.url, kind: target.kind, status, acao, cfMitigated });
     probes.push(result);
     const glyph = result.level === 'ok' ? 'ok ' : result.level === 'warn' ? 'warn' : 'FAIL';
     console.log(`  [${glyph}] ${target.url} — ${result.detail}`);

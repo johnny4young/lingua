@@ -168,12 +168,25 @@ jobs:
             local headers_file
             headers_file="$(mktemp)"
             for attempt in 1 2 3 4; do
-              if curl --fail --silent --show-error --location --head \
+              # No --fail: capture the response headers even on a 4xx so we can
+              # tell a real CORS miss from a Cloudflare edge challenge.
+              curl --silent --show-error --location --head \
                 --header 'Origin: https://app.linguacode.dev' \
-                "${url}" > "${headers_file}"; then
-                if tr -d '\r' < "${headers_file}" | grep -Eiq '^access-control-allow-origin:[[:space:]]*(\*|https://app\.linguacode\.dev)[[:space:]]*$'; then
-                  return 0
-                fi
+                "${url}" > "${headers_file}" || true
+
+              # A Cloudflare bot challenge (e.g. free Bot Fight Mode) blocks the
+              # runner IP at the edge before R2 — deterministic, not transient or
+              # CORS — so fail fast with the real cause instead of burning retries
+              # and printing the misleading "configure CORS" message.
+              if tr -d '\r' < "${headers_file}" | grep -Eiq '^cf-mitigated:[[:space:]]*[^[:space:]]'; then
+                echo "::error::R2 runtime asset ${url} was challenged by Cloudflare (cf-mitigated), not served — a bot-mitigation block on the GitHub Actions runner IP, NOT a CORS problem. Disable Bot Fight Mode for downloads.linguacode.dev (Cloudflare -> Security -> Bots) or exclude the host; see docs/runbooks/r2-release-mirror-setup.md."
+                echo "Response headers:"
+                cat "${headers_file}" || true
+                exit 1
+              fi
+
+              if tr -d '\r' < "${headers_file}" | grep -Eiq '^access-control-allow-origin:[[:space:]]*(\*|https://app\.linguacode\.dev)[[:space:]]*$'; then
+                return 0
               fi
               echo "::warning::R2 runtime asset CORS check failed for ${url} on attempt ${attempt}; retrying."
               sleep 10

@@ -5,6 +5,7 @@ import {
   buildRuntimeAssetUrl,
   classifyInfraProbe,
   corsHeaderAllowsAppOrigin,
+  isCloudflareChallenge,
   summarizeInfraReadiness,
 } from '../../scripts/lib/releaseInfra.mjs';
 
@@ -37,6 +38,18 @@ describe('corsHeaderAllowsAppOrigin', () => {
   });
 });
 
+describe('isCloudflareChallenge', () => {
+  it('treats any non-empty cf-mitigated value as an edge challenge', () => {
+    expect(isCloudflareChallenge('challenge')).toBe(true);
+    expect(isCloudflareChallenge(' challenge ')).toBe(true);
+    expect(isCloudflareChallenge('block')).toBe(true);
+    expect(isCloudflareChallenge('')).toBe(false);
+    expect(isCloudflareChallenge('   ')).toBe(false);
+    expect(isCloudflareChallenge(null)).toBe(false);
+    expect(isCloudflareChallenge(undefined)).toBe(false);
+  });
+});
+
 describe('classifyInfraProbe', () => {
   const url = 'https://d.example.com/web-runtime/duckdb/1/x.wasm';
 
@@ -55,6 +68,22 @@ describe('classifyInfraProbe', () => {
     const r = classifyInfraProbe({ url, kind: 'runtime-asset', status: 403, acao: null });
     expect(r.level).toBe('fail');
     expect(r.detail).toMatch(/403/u);
+  });
+
+  it('cf-mitigated challenge → fail with a bot-mitigation cause, NOT a CORS one', () => {
+    const r = classifyInfraProbe({ url, kind: 'runtime-asset', status: 403, acao: null, cfMitigated: 'challenge' });
+    expect(r.level).toBe('fail');
+    expect(r.detail).toMatch(/Bot Fight Mode/u);
+    expect(r.detail).toMatch(/cf-mitigated: challenge/u);
+    // It must NOT mislead the operator toward the CORS/public-access fix.
+    expect(r.detail).not.toMatch(/Access-Control-Allow-Origin/u);
+    expect(r.detail).not.toMatch(/public access/u);
+  });
+
+  it('the challenge cause wins even when the status looks otherwise ok', () => {
+    const r = classifyInfraProbe({ url, kind: 'runtime-asset', status: 200, acao: '*', cfMitigated: 'challenge' });
+    expect(r.level).toBe('fail');
+    expect(r.detail).toMatch(/Bot Fight Mode/u);
   });
 
   it('404 on a runtime asset → warn (version bump not yet mirrored)', () => {
