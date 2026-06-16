@@ -981,6 +981,10 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // overlay. Distinct so the dashboard can attribute exports that
   // originate from browsing history vs the latest-run surfaces.
   'list-export',
+  // RL-099 Slice 3 — explicit "Save run as capsule" from the utility
+  // pipeline panel. Distinct so the dashboard can measure how often a
+  // pipeline run is promoted into the capsule ring.
+  'pipeline-run',
 ]);
 // RL-094 Slice 3 fold G — closed enum of surfaces that can open the
 // capsule browse overlay. Mirrored in `update-server/src/telemetry.ts`

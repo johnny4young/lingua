@@ -6,16 +6,37 @@
  * tests; this suite just verifies the wiring.
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockTrackEvent } = vi.hoisted(() => ({
+  mockTrackEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../../src/renderer/utils/telemetry', () => ({
+  trackEvent: mockTrackEvent,
+}));
+
+// Partial-mock the capsule builder so a single test can force a build
+// failure (the saveFailed branch) while every other test exercises the
+// real builder. `vi.fn(actual.buildPipelineCapsule)` delegates by
+// default; the failure test overrides one call with mockRejectedValueOnce.
+vi.mock('../../../src/renderer/runtime/pipelineCapsule', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../../src/renderer/runtime/pipelineCapsule')>();
+  return { ...actual, buildPipelineCapsule: vi.fn(actual.buildPipelineCapsule) };
+});
+
 import { UtilityPipelinePanel } from '../../../src/renderer/components/DeveloperUtilities/UtilityPipelinePanel';
+import { buildPipelineCapsule } from '../../../src/renderer/runtime/pipelineCapsule';
 import {
   resetUtilityPipelineStoreForTests,
   useUtilityPipelineStore,
 } from '../../../src/renderer/stores/utilityPipelineStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
+import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { createBlankPipeline, createBlankStep } from '../../../src/shared/utilityPipeline';
 
@@ -51,6 +72,8 @@ beforeEach(() => {
   resetUtilityPipelineStoreForTests();
   useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'declined' });
   useUIStore.setState({ statusNotice: null });
+  useExecutionHistoryStore.getState().clear();
+  mockTrackEvent.mockClear();
   setProTier();
 });
 
@@ -145,5 +168,144 @@ describe('UtilityPipelinePanel', () => {
     await waitFor(() => {
       expect(useUtilityPipelineStore.getState().pipelines[0]?.name).toBe('renamed pipeline');
     });
+  });
+
+  // RL-099 Slice 3 fold A — explicit Save-as-capsule button.
+  it('disables Save-as-capsule before a run completes', async () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
+    pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput('p1', '{"a":1}');
+
+    render(<UtilityPipelinePanel />);
+    const saveBtn = screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+  });
+
+  it('records a pipeline capsule + fires capsule.exported on Save-as-capsule', async () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
+    pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput('p1', '{"a":1}');
+
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+
+    // The run is NOT auto-recorded — nothing in the history ring yet.
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => {
+      const saveBtn = screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement;
+      expect(saveBtn.disabled).toBe(false);
+    });
+    expect(useExecutionHistoryStore.getState().latestCapsule()).toBeNull();
+
+    // Explicit click records the capsule into the history ring.
+    await user.click(screen.getByTestId('pipeline-save-capsule'));
+    await waitFor(() => {
+      const capsule = useExecutionHistoryStore.getState().latestCapsule();
+      expect(capsule?.tab.language).toBe('pipeline');
+      expect(capsule?.environment.runner).toBe('utility-pipeline');
+    });
+
+    // …and fires the widened capsule.exported trigger.
+    const exportCall = mockTrackEvent.mock.calls.find(
+      call => call[0] === 'capsule.exported'
+    );
+    expect(exportCall).toBeDefined();
+    expect((exportCall?.[1] as { trigger?: string }).trigger).toBe('pipeline-run');
+
+    // The run row carries a success status + a toast confirmed the save.
+    expect(useExecutionHistoryStore.getState().entries[0]?.status).toBe('ok');
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('pipeline.capsule.saved');
+  });
+
+  it('saves the exact settled run as a capsule even after the input changes', async () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
+    pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput('p1', '{"a":1}');
+
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => {
+      const saveBtn = screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement;
+      expect(saveBtn.disabled).toBe(false);
+    });
+
+    const input = screen.getByTestId('utility-pipeline-editor-input') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '{"changed":true}' } });
+    await user.click(screen.getByTestId('pipeline-save-capsule'));
+
+    const capsule = useExecutionHistoryStore.getState().latestCapsule();
+    expect(capsule?.input.stdin).toBe('{"a":1}');
+    expect(capsule?.input.stdin).not.toBe('{"changed":true}');
+    expect(capsule?.result.stdout).toContain('"a": 1');
+  });
+
+  it('shows an error toast and records nothing when the capsule build fails', async () => {
+    // Force the pure-crypto capsule build to throw for this one save.
+    vi.mocked(buildPipelineCapsule).mockRejectedValueOnce(new Error('crypto unavailable'));
+
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
+    pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput('p1', '{"a":1}');
+
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => {
+      const saveBtn = screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement;
+      expect(saveBtn.disabled).toBe(false);
+    });
+
+    await user.click(screen.getByTestId('pipeline-save-capsule'));
+
+    // The failed build surfaces the error toast…
+    await waitFor(() => {
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'pipeline.capsule.saveFailed'
+      );
+    });
+    // …records NOTHING into the ring (a capsule-less entry would never
+    // surface in the Pro browse anyway)…
+    expect(useExecutionHistoryStore.getState().latestCapsule()).toBeNull();
+    expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
+    // …and never fires the export telemetry.
+    const exportCall = mockTrackEvent.mock.calls.find(
+      call => call[0] === 'capsule.exported'
+    );
+    expect(exportCall).toBeUndefined();
+  });
+
+  it('disables Save after a successful save so the run cannot be recorded twice', async () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
+    pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput('p1', '{"a":1}');
+
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement).disabled
+      ).toBe(false);
+    });
+
+    await user.click(screen.getByTestId('pipeline-save-capsule'));
+
+    // Exactly one capsule recorded, and the button disables so a re-click
+    // cannot append a duplicate of the same run.
+    await waitFor(() => {
+      expect(useExecutionHistoryStore.getState().entries).toHaveLength(1);
+    });
+    expect(
+      (screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement).disabled
+    ).toBe(true);
   });
 });

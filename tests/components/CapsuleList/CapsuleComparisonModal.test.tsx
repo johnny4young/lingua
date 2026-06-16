@@ -244,7 +244,7 @@ describe('CapsuleComparisonModal', () => {
 
     render(<CapsuleComparisonModal capsules={[older, newer]} onClose={vi.fn()} />);
 
-    expect(screen.getByText('Comparar capsules')).toBeTruthy();
+    expect(screen.getByText('Comparar cápsulas')).toBeTruthy();
     expect(
       screen.getByTestId('capsule-compare-summary-language').textContent
     ).toBe('Lenguaje: python → javascript');

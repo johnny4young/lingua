@@ -1109,6 +1109,8 @@ describe('capsule.exported value validator (RL-094 Slice 1 fold A)', () => {
       'result-panel-export',
       // RL-094 Slice 3 — per-row export from the browse overlay.
       'list-export',
+      // RL-099 Slice 3 — explicit Save-as-capsule from the pipeline panel.
+      'pipeline-run',
     ] as const) {
       const { event } = redactForTelemetry(
         buildEvent({

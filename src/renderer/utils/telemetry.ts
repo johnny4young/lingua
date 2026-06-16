@@ -165,12 +165,17 @@ export async function emitTelemetryEvent(
   }
 }
 
+let cachedSessionId: string | null = null;
+
 /**
- * Sessionid is generated once per renderer launch and never persisted.
- * We keep it at module scope so the same id tags every event fired in
- * this tab / window, and a fresh launch gets a fresh id automatically.
+ * Session id is generated once per renderer launch and never persisted.
+ * It is resolved lazily instead of as a top-level const because persist
+ * migrations can fire telemetry while this module is still initializing.
  */
-const SESSION_ID = createSessionId();
+function getSessionId(): string {
+  cachedSessionId ??= createSessionId();
+  return cachedSessionId;
+}
 
 export function resolveTelemetryBase(): Pick<
   TelemetryEvent,
@@ -191,7 +196,7 @@ export function resolveTelemetryBase(): Pick<
     appVersion: import.meta.env?.VITE_LINGUA_APP_VERSION ?? '0.0.0',
     osBucket,
     licenseStatus,
-    sessionId: SESSION_ID,
+    sessionId: getSessionId(),
   };
 }
 

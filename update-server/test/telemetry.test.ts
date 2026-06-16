@@ -498,6 +498,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual([
       'list-export',
       'palette-export',
+      'pipeline-run',
       'result-panel-export',
       'settings-export',
     ]);

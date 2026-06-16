@@ -16,7 +16,15 @@
  * emit (`utility.pipeline_executed` — fold F).
  */
 
-import { Copy as CopyIcon, Download, PlayCircle, Plus, Trash2, Upload } from 'lucide-react';
+import {
+  Copy as CopyIcon,
+  Download,
+  PackagePlus,
+  PlayCircle,
+  Plus,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
@@ -24,25 +32,45 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { useUtilityPipelineStore } from '../../stores/utilityPipelineStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import {
   PIPELINE_MAX_STEPS,
   createBlankPipeline,
   createBlankStep,
+  type PipelineRunOutcome,
   type PipelineStepResult,
   type PipelineStepStatus,
   type PipelineStepV1,
   type UtilityPipelineV1,
 } from '../../../shared/utilityPipeline';
+import { bucketCapsuleSize, utf8ByteLength } from '../../../shared/runCapsule';
+import { getBundledAppInfo } from '../../../shared/appInfo';
 import { UTILITY_ADAPTER_IDS, type UtilityAdapterId } from '../../../shared/utilities/types';
 import { trackUtilityPipelineExecuted } from '../../hooks/utilityPipelineTelemetry';
+import { buildPipelineCapsule } from '../../runtime/pipelineCapsule';
 import { UtilityPipelineStepRow } from './UtilityPipelineStepRow';
 import { cn } from '../../utils/cn';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 
 const DEFAULT_FIRST_STEP_UTILITY: UtilityAdapterId = 'json-format';
+
+type CapsuleRunSnapshot = {
+  pipelineId: string;
+  pipelineName: string;
+  steps: PipelineStepV1[];
+  input: string;
+  outcome: PipelineRunOutcome;
+};
+
+function clonePipelineSteps(steps: readonly PipelineStepV1[]): PipelineStepV1[] {
+  return steps.map(step => ({
+    ...step,
+    options: { ...step.options },
+  }));
+}
 
 export function UtilityPipelinePanel() {
   const { t } = useTranslation();
@@ -105,6 +133,7 @@ function UtilityPipelinePanelUnlocked() {
   const activeInput = activePipelineId ? (inputsByPipelineId[activePipelineId] ?? '') : '';
 
   const { state: runState, run, reset: resetRun } = useUtilityPipelineRun();
+  const [capsuleRunSnapshot, setCapsuleRunSnapshot] = useState<CapsuleRunSnapshot | null>(null);
   // Per-step result map keyed by step id so the panel can render the
   // status badge regardless of which step is rendered.
   const stepResultMap = useMemo(() => {
@@ -240,13 +269,99 @@ function UtilityPipelinePanelUnlocked() {
     if (activePipeline.steps.length === 0) return;
     if (useUtilityPipelineStore.getState().isExecutingActive) return;
     useUtilityPipelineStore.getState().setIsExecutingActive(true);
+    const runInput = activeInput;
+    const runSteps = clonePipelineSteps(activePipeline.steps);
+    const runPipelineId = activePipeline.id;
+    const runPipelineName = activePipeline.name;
+    setCapsuleRunSnapshot(null);
     try {
-      const outcome = await run(activePipeline, activeInput);
-      if (outcome) trackUtilityPipelineExecuted(outcome);
+      const outcome = await run(activePipeline, runInput);
+      if (outcome) {
+        trackUtilityPipelineExecuted(outcome);
+        setCapsuleRunSnapshot({
+          pipelineId: runPipelineId,
+          pipelineName: runPipelineName,
+          steps: runSteps,
+          input: runInput,
+          outcome,
+        });
+      }
     } finally {
       useUtilityPipelineStore.getState().setIsExecutingActive(false);
     }
   }, [activePipeline, activeInput, run]);
+
+  // Fold A — EXPLICIT "Save run as capsule". This is deliberately NOT
+  // wired into `handleRun`: a pipeline run only lands in the in-memory
+  // execution-history ring (and thus the Pro browse overlay + RL-094
+  // comparator) when the user asks for it. Keep a snapshot of the exact
+  // run inputs so edits made after settle cannot pair a stale outcome with
+  // the current recipe/input.
+  const canSaveCapsule =
+    runState.phase === 'settled' &&
+    capsuleRunSnapshot !== null &&
+    capsuleRunSnapshot.pipelineId === activePipelineId &&
+    !isExecuting;
+
+  const handleSaveCapsule = useCallback(async () => {
+    if (
+      runState.phase !== 'settled' ||
+      capsuleRunSnapshot === null ||
+      capsuleRunSnapshot.pipelineId !== activePipelineId
+    ) {
+      return;
+    }
+    const appInfo = getBundledAppInfo();
+    const platform: 'web' | 'desktop' =
+      typeof window !== 'undefined' && window.lingua?.platform === 'desktop'
+        ? 'desktop'
+        : 'web';
+    let capsule;
+    try {
+      capsule = await buildPipelineCapsule({
+        appVersion: appInfo.version,
+        pipelineName: capsuleRunSnapshot.pipelineName,
+        steps: capsuleRunSnapshot.steps,
+        input: capsuleRunSnapshot.input,
+        outcome: capsuleRunSnapshot.outcome,
+        platform,
+      });
+    } catch {
+      capsule = undefined;
+    }
+    if (capsule === undefined) {
+      // The capsule build (pure Web Crypto + UUID) failed. Record nothing —
+      // a capsule-less entry never surfaces in the Pro browse anyway — and
+      // tell the user the save did not happen, rather than a misleading
+      // "saved" toast on an entry that does not exist.
+      useUIStore.getState().pushStatusNotice({
+        tone: 'error',
+        messageKey: 'pipeline.capsule.saveFailed',
+      });
+      return;
+    }
+    useExecutionHistoryStore.getState().record({
+      language: 'pipeline',
+      status: capsuleRunSnapshot.outcome.status === 'all-ok' ? 'ok' : 'error',
+      durationMs: capsuleRunSnapshot.outcome.durationMs,
+      lastCapsule: capsule,
+    });
+    void trackEvent('capsule.exported', {
+      trigger: 'pipeline-run',
+      sizeBucket: bucketCapsuleSize(utf8ByteLength(JSON.stringify(capsule))),
+    });
+    useUIStore.getState().pushStatusNotice({
+      tone: 'success',
+      messageKey: 'pipeline.capsule.saved',
+    });
+    // One capsule per run: clear the snapshot so the button disables after a
+    // successful save. Without this, re-clicking Save records a duplicate
+    // capsule of the same run (each build mints a fresh capsuleId, and
+    // `record` appends). A subsequent run installs a new snapshot and
+    // re-enables the button; the build-failure path above returns early and
+    // leaves the snapshot intact so the user can retry.
+    setCapsuleRunSnapshot(null);
+  }, [activePipelineId, capsuleRunSnapshot, runState.phase]);
 
   // Fold G — Import-from-clipboard auto-detect (gated on the existing
   // `utilitiesClipboardOnFocusConsent` three-state from RL-069 Slice 3).
@@ -561,8 +676,21 @@ function UtilityPipelinePanelUnlocked() {
         data-testid="utility-pipeline-result"
         className="flex min-h-0 flex-col gap-2 border-l border-border/60 pl-2"
       >
-        <header className="pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
-          {t('utilityPipeline.result.title')}
+        <header className="flex items-center gap-2 pb-1">
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            {t('utilityPipeline.result.title')}
+          </span>
+          <button
+            type="button"
+            onClick={handleSaveCapsule}
+            disabled={!canSaveCapsule}
+            data-testid="pipeline-save-capsule"
+            title={t('pipeline.capsule.saveAction')}
+            className="ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-[10px] font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <PackagePlus size={11} aria-hidden="true" />
+            <span>{t('pipeline.capsule.saveAction')}</span>
+          </button>
         </header>
         {runState.phase === 'idle' ? (
           <p className="text-xs text-muted">{t('utilityPipeline.result.empty')}</p>

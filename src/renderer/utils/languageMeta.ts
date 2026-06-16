@@ -122,6 +122,14 @@ const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
     background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
     foreground: 'var(--color-accent)',
   },
+  // RL-099 Slice 3 fold E — pipeline-run capsules carry `tab.language =
+  // 'pipeline'`. Same DS accent token as the other workspace kinds so
+  // the capsule browse badge + RL-094 comparator chip stay on-system.
+  pipeline: {
+    code: 'PIPE',
+    background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
+    foreground: 'var(--color-accent)',
+  },
   utilities: {
     code: 'UTIL',
     background: 'color-mix(in srgb, var(--color-warning-bg) 64%, transparent)',
@@ -162,6 +170,18 @@ const WORKSPACE_KIND_META: Record<string, LanguageMeta> = {
     shortLabel: 'HTTP',
     extensions: ['http'],
     monacoLanguage: 'http',
+  },
+  // RL-099 Slice 3 fold E — the `'pipeline'` capsule marker. Mirrors the
+  // `'http'` entry so `languageLabel('pipeline')` (capsule browse badge,
+  // RL-094 comparator summary) resolves to the friendly "Pipeline"
+  // instead of the misleading TXT / Text pack-less fallback. The recipe
+  // body renders as plaintext, matching the capsule's source content.
+  pipeline: {
+    ...FALLBACK_META,
+    label: 'Pipeline',
+    shortLabel: 'PIPE',
+    extensions: ['txt'],
+    monacoLanguage: 'plaintext',
   },
   utilities: {
     ...FALLBACK_META,
