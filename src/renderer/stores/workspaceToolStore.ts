@@ -32,6 +32,10 @@ import {
   type HttpRequestV1,
   type HttpResponseV1,
 } from '../../shared/httpWorkspace';
+import {
+  parseHttpEnvironment,
+  type HttpEnvironmentV1,
+} from '../../shared/httpEnvironment';
 
 /**
  * Per-request response history LRU. 10 entries keep recent runs
@@ -62,6 +66,23 @@ interface WorkspaceToolState {
    * "no run in flight" state.
    */
   readonly isExecutingActive: boolean;
+
+  /**
+   * RL-097 Slice 3a — persisted HTTP environments. Each is a named bag
+   * of `{{key}}` → value bindings (some flagged secret) the user can
+   * swap before sending. Persisted alongside requests; secret VALUES
+   * are stored in plain the same way an explicit `Authorization`
+   * header row already is — redaction is a TELEMETRY / SHARE / DISPLAY
+   * guarantee, not a localStorage-at-rest one (see `httpWorkspace.ts`
+   * file header).
+   */
+  readonly environments: ReadonlyArray<HttpEnvironmentV1>;
+  /**
+   * RL-097 Slice 3a — the active environment's id, or null for "No
+   * environment". Validated against the surviving environment list on
+   * rehydrate (a stale id repoints to null).
+   */
+  readonly activeEnvironmentId: string | null;
 
   // -------- mutations ------------------------------------------------------
 
@@ -95,6 +116,26 @@ interface WorkspaceToolState {
   getRequest: (id: string) => HttpRequestV1 | undefined;
   /** Returns the most-recent response for a request, or undefined. */
   getLatestResponse: (id: string) => HttpResponseV1 | undefined;
+
+  // -------- RL-097 Slice 3a — environment CRUD ----------------------------
+
+  /** Append a new environment to the list. Does not auto-activate it. */
+  createEnvironment: (env: HttpEnvironmentV1) => void;
+  /**
+   * Patch fields on an existing environment; preserves the version + id
+   * pin and bumps `updatedAt`. No-op on an unknown id.
+   */
+  updateEnvironment: (id: string, patch: Partial<HttpEnvironmentV1>) => void;
+  /**
+   * Drop an environment. If it was the active one, repoint
+   * `activeEnvironmentId` to null (never to a different environment —
+   * the user's active selection should not silently jump).
+   */
+  deleteEnvironment: (id: string) => void;
+  /** Set the active environment (or null for "No environment"). */
+  setActiveEnvironment: (id: string | null) => void;
+  /** The currently-active environment, or undefined when none is set. */
+  getActiveEnvironment: () => HttpEnvironmentV1 | undefined;
 }
 
 /**
@@ -104,13 +145,20 @@ interface WorkspaceToolState {
  */
 function createInitialState(): Pick<
   WorkspaceToolState,
-  'requests' | 'responsesByRequestId' | 'activeRequestId' | 'isExecutingActive'
+  | 'requests'
+  | 'responsesByRequestId'
+  | 'activeRequestId'
+  | 'isExecutingActive'
+  | 'environments'
+  | 'activeEnvironmentId'
 > {
   return {
     requests: [],
     responsesByRequestId: {},
     activeRequestId: null,
     isExecutingActive: false,
+    environments: [],
+    activeEnvironmentId: null,
   };
 }
 
@@ -218,6 +266,55 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
 
       getRequest: (id) => get().requests.find((r) => r.id === id),
       getLatestResponse: (id) => get().responsesByRequestId[id]?.[0],
+
+      // -------- RL-097 Slice 3a — environment CRUD ------------------------
+
+      createEnvironment: (env) =>
+        set((state) => ({ environments: [...state.environments, env] })),
+
+      updateEnvironment: (id, patch) =>
+        set((state) => {
+          const idx = state.environments.findIndex((e) => e.id === id);
+          if (idx === -1) return state;
+          const existing = state.environments[idx];
+          if (!existing) return state;
+          const updated: HttpEnvironmentV1 = {
+            ...existing,
+            ...patch,
+            // Preserve the version + id pin (mirrors updateRequest).
+            version: 1,
+            id: existing.id,
+            updatedAt: new Date().toISOString(),
+          };
+          const next = state.environments.slice();
+          next[idx] = updated;
+          return { environments: next };
+        }),
+
+      deleteEnvironment: (id) =>
+        set((state) => {
+          if (!state.environments.some((e) => e.id === id)) return state;
+          const environments = state.environments.filter((e) => e.id !== id);
+          // If the deleted env was active, repoint to null — never to a
+          // surviving sibling (the user's active selection should not
+          // silently jump to an unrelated environment).
+          const activeEnvironmentId =
+            state.activeEnvironmentId === id ? null : state.activeEnvironmentId;
+          return { environments, activeEnvironmentId };
+        }),
+
+      setActiveEnvironment: (id) =>
+        set((state) =>
+          state.activeEnvironmentId === id
+            ? state
+            : { activeEnvironmentId: id }
+        ),
+
+      getActiveEnvironment: () => {
+        const { environments, activeEnvironmentId } = get();
+        if (activeEnvironmentId === null) return undefined;
+        return environments.find((e) => e.id === activeEnvironmentId);
+      },
     }),
     {
       name: 'lingua-workspace-tool-state',
@@ -251,6 +348,13 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           requests: state.requests,
           responsesByRequestId: persistedResponses,
           activeRequestId: state.activeRequestId,
+          // RL-097 Slice 3a — additive fields. No persist `version` bump:
+          // a v1 blob predating this field has no `environments` key, and
+          // `merge` below defaults it to `[]` (and `activeEnvironmentId`
+          // to a validated id or null), so old blobs rehydrate cleanly
+          // without a migration step.
+          environments: state.environments,
+          activeEnvironmentId: state.activeEnvironmentId,
         };
       },
       // Sanitize on rehydrate — drop any invalid entry silently so a
@@ -301,6 +405,29 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
             merged.activeRequestId = exists ? p.activeRequestId : null;
           } else {
             merged.activeRequestId = null;
+          }
+          // RL-097 Slice 3a — additive fields. No persist version bump is
+          // needed: a v1 blob with NO `environments` key falls through to
+          // the `[]` default here, and `activeEnvironmentId` is re-validated
+          // against the surviving environments (stale id → null). Invalid
+          // individual environments drop silently via parseHttpEnvironment.
+          if (Array.isArray(p.environments)) {
+            const safeEnvironments: HttpEnvironmentV1[] = [];
+            for (const raw of p.environments) {
+              const parsed = parseHttpEnvironment(raw);
+              if (parsed !== null) safeEnvironments.push(parsed);
+            }
+            merged.environments = safeEnvironments;
+          } else {
+            merged.environments = [];
+          }
+          if (typeof p.activeEnvironmentId === 'string') {
+            const exists = merged.environments.some(
+              (e) => e.id === p.activeEnvironmentId
+            );
+            merged.activeEnvironmentId = exists ? p.activeEnvironmentId : null;
+          } else {
+            merged.activeEnvironmentId = null;
           }
         }
         // Always start with a clean execution flag (see field docs).

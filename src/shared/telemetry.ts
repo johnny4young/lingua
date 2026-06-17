@@ -781,10 +781,18 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-024 Slice 2 — `scope` ∈ REPLACE_IN_FILES_SCOPES,
   // `countBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET, `regex` boolean.
   'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
-  // RL-097 Slice 1 fold F — `method` ∈ HTTP_METHODS_SET,
+  // RL-097 Slice 1 fold F + Slice 3a fold D — `method` ∈ HTTP_METHODS_SET,
   // `statusBucket` ∈ HTTP_STATUS_BUCKETS_SET, `redactedHeadersBucket`
-  // ∈ DEPENDENCY_COUNT_BUCKETS_SET. No URL, body, or header values.
-  'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
+  // ∈ DEPENDENCY_COUNT_BUCKETS_SET, `resolvedVarsBucket` ∈
+  // DEPENDENCY_COUNT_BUCKETS_SET (count of distinct env `{{vars}}`
+  // successfully resolved in the sent request). No URL, body, header
+  // values, or variable names/values — only the bucketed count.
+  'http.request_executed': [
+    'method',
+    'statusBucket',
+    'redactedHeadersBucket',
+    'resolvedVarsBucket',
+  ],
   // RL-100 Slice 1 fold E — `importerId` ∈ IMPORTER_IDS_SET,
   // `status` ∈ IMPORT_STATUSES_SET, `sizeBucket` ∈
   // CAPSULE_SIZE_BUCKETS (reused from RL-094). No URL, no header
@@ -1882,6 +1890,11 @@ function isAllowedValue(
           typeof value === 'string' && HTTP_STATUS_BUCKETS_SET.has(value)
         );
       if (key === 'redactedHeadersBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      // RL-097 Slice 3a fold D — bucketed count of resolved env vars.
+      if (key === 'resolvedVarsBucket')
         return (
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
         );

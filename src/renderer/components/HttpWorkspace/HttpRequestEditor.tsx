@@ -39,12 +39,18 @@ import {
   type HttpRequestHeader,
   type HttpRequestV1,
 } from '../../../shared/httpWorkspace';
+import {
+  maskSecretsForCapsule,
+  type HttpEnvironmentV1,
+} from '../../../shared/httpEnvironment';
 import { writeToClipboard } from '../../utils/clipboard';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/cn';
 import { tryParseCurl } from './curlImport';
 import { HttpParamsTab } from './HttpParamsTab';
 import { HttpAuthTab } from './HttpAuthTab';
+import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
+import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
 
@@ -62,13 +68,30 @@ export interface HttpRequestEditorProps {
   /** Send the current request. Caller disables during in-flight. */
   onSend: (request: HttpRequestV1) => void;
   isExecuting: boolean;
+  /**
+   * RL-097 Slice 3a — environment wiring. The selector renders in the
+   * header; the resolution preview renders beneath the URL. The active
+   * environment also drives the secret-safe Copy-as-cURL. Optional with
+   * empty/no-op defaults so the editor still renders standalone (e.g. in
+   * a focused unit test) without the environment surfaces.
+   */
+  environments?: ReadonlyArray<HttpEnvironmentV1>;
+  activeEnvironmentId?: string | null;
+  onSelectEnvironment?: (id: string | null) => void;
+  onManageEnvironment?: () => void;
 }
+
+const NO_ENVIRONMENTS: ReadonlyArray<HttpEnvironmentV1> = [];
 
 export function HttpRequestEditor({
   request,
   onPatch,
   onSend,
   isExecuting,
+  environments = NO_ENVIRONMENTS,
+  activeEnvironmentId = null,
+  onSelectEnvironment,
+  onManageEnvironment,
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
 
@@ -88,6 +111,28 @@ export function HttpRequestEditor({
   );
   const [auth, setAuth] = useState<HttpRequestAuth | undefined>(request.auth);
   const [builderTab, setBuilderTab] = useState<BuilderTab>('params');
+
+  // RL-097 Slice 3a — the active environment, resolved from props.
+  const activeEnv = useMemo<HttpEnvironmentV1 | null>(
+    () => environments.find((e) => e.id === activeEnvironmentId) ?? null,
+    [environments, activeEnvironmentId]
+  );
+
+  // RL-097 Slice 3a folds A + C — a LIVE request snapshot for the
+  // resolution preview, rebuilt from the in-editor draft state on every
+  // keystroke (the persisted `request` lags behind the 500 ms debounce).
+  const previewRequest = useMemo<HttpRequestV1>(
+    () => ({
+      ...request,
+      method,
+      url,
+      headers,
+      queryParams: params,
+      ...(auth ? { auth } : {}),
+      body: body ?? { kind: 'none' },
+    }),
+    [request, method, url, headers, params, auth, body]
+  );
 
   // Fold D — debounced auto-save. One timer covers all fields so a
   // rapid edit across URL + params + headers + body settles to a
@@ -248,9 +293,18 @@ export function HttpRequestEditor({
   // Copy as cURL — build a shell command from the resolved draft (URL
   // incl. params, composed headers incl. injected auth, body) and copy
   // it. A one-shot notice confirms / surfaces a clipboard failure.
+  //
+  // RL-097 Slice 3a fold B — when an environment is active, feed the
+  // curl builder a request whose NON-secret vars are resolved (so the
+  // printed command is runnable) but whose SECRET vars stay as their
+  // `{{key}}` placeholder (no clipboard leak). With no env active, the
+  // raw draft is printed verbatim — the "clipboard is the user's own
+  // surface" philosophy still holds for manually-typed values; env
+  // secrets are the documented exception.
   const handleCopyCurl = useCallback(async () => {
     const draft = buildDraftRequest();
-    const command = buildCurlCommand(draft);
+    const forCurl = activeEnv ? maskSecretsForCapsule(draft, activeEnv) : draft;
+    const command = buildCurlCommand(forCurl);
     const ok = await writeToClipboard(command);
     useUIStore.getState().pushStatusNotice({
       tone: ok ? 'success' : 'warning',
@@ -258,7 +312,7 @@ export function HttpRequestEditor({
         ? 'httpWorkspace.editor.copyCurl.copied'
         : 'httpWorkspace.editor.copyCurl.failed',
     });
-  }, [buildDraftRequest]);
+  }, [buildDraftRequest, activeEnv]);
 
   // Flush on unmount so an edit typed <500 ms before the editor
   // unmounts (tab close, panel teardown) still lands on its request.
@@ -468,6 +522,17 @@ export function HttpRequestEditor({
       onKeyDown={handleKeyDown}
       className="flex h-full min-w-0 flex-col gap-2 overflow-hidden p-3"
     >
+      {/* RL-097 Slice 3a — environment selector slot, above the
+          method/URL row so it reads as request-wide context. */}
+      <div className="flex shrink-0 items-center justify-end">
+        <HttpEnvironmentSelector
+          environments={environments}
+          activeEnvironmentId={activeEnvironmentId}
+          onSelect={onSelectEnvironment ?? (() => undefined)}
+          onManage={onManageEnvironment ?? (() => undefined)}
+        />
+      </div>
+
       {/* Method + URL row */}
       <div className="flex shrink-0 items-center gap-2">
         <label className="sr-only" htmlFor="http-request-method">
@@ -533,6 +598,10 @@ export function HttpRequestEditor({
           <span>{t('httpWorkspace.editor.send.label')}</span>
         </button>
       </div>
+
+      {/* RL-097 Slice 3a folds A + C — resolution preview beneath the
+          URL. Resolved URL (secrets masked) + variable-state chips. */}
+      <HttpEnvironmentPreview request={previewRequest} env={activeEnv} />
 
       {/* Request builder sub-tabs (Params | Auth | Headers | Body). */}
       <div

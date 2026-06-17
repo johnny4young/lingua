@@ -12,6 +12,7 @@ import {
   createBlankHttpRequest,
   type HttpResponseV1,
 } from '../../src/shared/httpWorkspace';
+import { createBlankHttpEnvironment } from '../../src/shared/httpEnvironment';
 
 function makeRequest(id: string, name: string) {
   return createBlankHttpRequest({
@@ -194,5 +195,165 @@ describe('useWorkspaceToolStore (RL-097 Slice 1)', () => {
     expect(useWorkspaceToolStore.getState().getLatestResponse('a')?.status).toBe(
       500
     );
+  });
+});
+
+describe('useWorkspaceToolStore environments (RL-097 Slice 3a)', () => {
+  beforeEach(() => {
+    localStorage.removeItem('lingua-workspace-tool-state');
+    resetWorkspaceToolStoreForTests();
+  });
+
+  afterEach(() => {
+    resetWorkspaceToolStoreForTests();
+    localStorage.removeItem('lingua-workspace-tool-state');
+  });
+
+  function makeEnv(id: string, name: string) {
+    return createBlankHttpEnvironment({
+      id,
+      name,
+      now: '2026-06-16T00:00:00.000Z',
+    });
+  }
+
+  it('defaults environments to [] and activeEnvironmentId to null', () => {
+    expect(useWorkspaceToolStore.getState().environments).toEqual([]);
+    expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBeNull();
+  });
+
+  it('createEnvironment appends without auto-activating', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    expect(useWorkspaceToolStore.getState().environments).toHaveLength(1);
+    expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBeNull();
+  });
+
+  it('updateEnvironment patches variables + bumps updatedAt, preserving version/id', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    useWorkspaceToolStore.getState().updateEnvironment('e1', {
+      // @ts-expect-error — defensive pin test
+      version: 99,
+      // @ts-expect-error — defensive pin test
+      id: 'hijacked',
+      variables: [{ key: 'host', value: 'x', secret: true }],
+    });
+    const updated = useWorkspaceToolStore.getState().environments[0];
+    expect(updated?.version).toBe(1);
+    expect(updated?.id).toBe('e1');
+    expect(updated?.variables).toEqual([
+      { key: 'host', value: 'x', secret: true },
+    ]);
+    expect(updated?.updatedAt).not.toBe('2026-06-16T00:00:00.000Z');
+  });
+
+  it('setActiveEnvironment + getActiveEnvironment resolve the active env', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    useWorkspaceToolStore.getState().setActiveEnvironment('e1');
+    expect(useWorkspaceToolStore.getState().getActiveEnvironment()?.id).toBe(
+      'e1'
+    );
+    useWorkspaceToolStore.getState().setActiveEnvironment(null);
+    expect(useWorkspaceToolStore.getState().getActiveEnvironment()).toBeUndefined();
+  });
+
+  it('deleteEnvironment repoints active to null when the active env is deleted', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e2', 'Prod'));
+    useWorkspaceToolStore.getState().setActiveEnvironment('e1');
+    useWorkspaceToolStore.getState().deleteEnvironment('e1');
+    expect(
+      useWorkspaceToolStore.getState().environments.map((e) => e.id)
+    ).toEqual(['e2']);
+    // Repoints to null, NOT to the surviving sibling.
+    expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBeNull();
+  });
+
+  it('deleteEnvironment leaves a different active selection untouched', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e2', 'Prod'));
+    useWorkspaceToolStore.getState().setActiveEnvironment('e2');
+    useWorkspaceToolStore.getState().deleteEnvironment('e1');
+    expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBe('e2');
+  });
+
+  it('a v1 blob with NO environments key rehydrates environments to [] (no version bump)', () => {
+    // Simulate a pre-Slice-3a persisted blob: version 1, no env keys.
+    localStorage.setItem(
+      'lingua-workspace-tool-state',
+      JSON.stringify({
+        state: {
+          requests: [],
+          responsesByRequestId: {},
+          activeRequestId: null,
+        },
+        version: 1,
+      })
+    );
+    // Force a rehydrate from the persisted blob.
+    void useWorkspaceToolStore.persist.rehydrate();
+    expect(useWorkspaceToolStore.getState().environments).toEqual([]);
+    expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBeNull();
+  });
+
+  it('rehydrate validates activeEnvironmentId against surviving environments', () => {
+    localStorage.setItem(
+      'lingua-workspace-tool-state',
+      JSON.stringify({
+        state: {
+          requests: [],
+          responsesByRequestId: {},
+          activeRequestId: null,
+          environments: [
+            {
+              version: 1,
+              id: 'e1',
+              name: 'Dev',
+              variables: [{ key: 'host', value: 'x', secret: false }],
+              createdAt: '2026-06-16T00:00:00.000Z',
+              updatedAt: '2026-06-16T00:00:00.000Z',
+            },
+          ],
+          // Points at a non-existent env → must rehydrate to null.
+          activeEnvironmentId: 'gone',
+        },
+        version: 1,
+      })
+    );
+    void useWorkspaceToolStore.persist.rehydrate();
+    expect(
+      useWorkspaceToolStore.getState().environments.map((e) => e.id)
+    ).toEqual(['e1']);
+    expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBeNull();
+  });
+
+  it('rehydrate drops invalid environments but keeps valid ones', () => {
+    localStorage.setItem(
+      'lingua-workspace-tool-state',
+      JSON.stringify({
+        state: {
+          requests: [],
+          responsesByRequestId: {},
+          activeRequestId: null,
+          environments: [
+            { version: 2, id: 'bad', name: 'x', variables: [] }, // wrong version → dropped
+            {
+              version: 1,
+              id: 'e1',
+              name: 'Dev',
+              variables: [],
+              createdAt: 'a',
+              updatedAt: 'b',
+            },
+          ],
+          activeEnvironmentId: 'e1',
+        },
+        version: 1,
+      })
+    );
+    void useWorkspaceToolStore.persist.rehydrate();
+    expect(
+      useWorkspaceToolStore.getState().environments.map((e) => e.id)
+    ).toEqual(['e1']);
+    expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBe('e1');
   });
 });

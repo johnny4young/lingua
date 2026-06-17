@@ -389,8 +389,13 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'template_project_applied': ['templateId', 'language'],
   // RL-024 Slice 2 — mirror.
   'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
-  // RL-097 Slice 1 fold F — mirror of src/shared/telemetry.ts.
-  'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
+  // RL-097 Slice 1 fold F + Slice 3a fold D — mirror of src/shared/telemetry.ts.
+  'http.request_executed': [
+    'method',
+    'statusBucket',
+    'redactedHeadersBucket',
+    'resolvedVarsBucket',
+  ],
   // RL-100 Slice 1 fold E — mirror of src/shared/telemetry.ts.
   'import.applied': ['importerId', 'status', 'sizeBucket'],
   'import.notebook_warnings_surfaced': ['warningKindCount', 'dominantKind'],
@@ -1443,6 +1448,11 @@ function isAllowedValue(
           typeof value === 'string' && HTTP_STATUS_BUCKETS_SET.has(value)
         );
       if (key === 'redactedHeadersBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      // RL-097 Slice 3a fold D — bucketed count of resolved env vars.
+      if (key === 'resolvedVarsBucket')
         return (
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
         );

@@ -47,6 +47,7 @@ import {
   checkRateLimit,
   ipBucket,
   keyLooksSensitive,
+  validateTelemetryPayload,
 } from '../src/telemetry';
 import {
   ONBOARDING_DISMISS_MODES as RENDERER_ONBOARDING_DISMISS_MODES,
@@ -1004,6 +1005,43 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       '6-10',
       '>10',
     ]);
+  });
+
+  it('http.request_executed allowlist carries resolvedVarsBucket + validator accepts it (RL-097 Slice 3a fold D)', () => {
+    // The Slice 3a fold-D property must be on the worker allowlist, and
+    // the validator must accept a DEPENDENCY_COUNT_BUCKETS value for it
+    // while rejecting an off-enum value. Guards drift between the
+    // allowlist array and the validator switch.
+    expect(EVENT_PROPERTY_ALLOWLIST['http.request_executed']).toEqual([
+      'method',
+      'statusBucket',
+      'redactedHeadersBucket',
+      'resolvedVarsBucket',
+    ]);
+    const accepted = validateTelemetryPayload({
+      event: 'http.request_executed',
+      properties: {
+        method: 'GET',
+        statusBucket: '2xx',
+        redactedHeadersBucket: '0',
+        resolvedVarsBucket: '2-5',
+      },
+    });
+    expect(accepted.ok).toBe(true);
+    expect(accepted.ok && accepted.properties.resolvedVarsBucket).toBe('2-5');
+    const rejected = validateTelemetryPayload({
+      event: 'http.request_executed',
+      properties: {
+        method: 'GET',
+        statusBucket: '2xx',
+        redactedHeadersBucket: '0',
+        resolvedVarsBucket: '999',
+      },
+    });
+    expect(rejected.ok).toBe(true);
+    expect(
+      rejected.ok && rejected.properties.resolvedVarsBucket
+    ).toBeUndefined();
   });
 
   it('SQL query statuses stay in sync (RL-097 Slice 2 fold F)', () => {

@@ -1,13 +1,18 @@
 /**
- * RL-097 Slice 1 fold F — HTTP workspace telemetry helper.
+ * RL-097 Slice 1 fold F + Slice 3a fold D — HTTP workspace telemetry
+ * helper.
  *
  * Single event: `http.request_executed { method, statusBucket,
- * redactedHeadersBucket }`. NO URL, NO body, NO header values — only
- * closed-enum buckets so dashboards group by intent without leaking
- * request content. Mirrored on update-server with parity test.
+ * redactedHeadersBucket, resolvedVarsBucket }`. NO URL, NO body, NO
+ * header values, NO env variable names/values — only closed-enum
+ * buckets so dashboards group by intent without leaking request
+ * content. Mirrored on update-server with parity test.
  *
- * `redactedHeadersBucket` reuses the `DEPENDENCY_COUNT_BUCKETS` enum
- * shape so we don't fragment the bucket vocabulary across events.
+ * Both `redactedHeadersBucket` and `resolvedVarsBucket` reuse the
+ * `DEPENDENCY_COUNT_BUCKETS` enum shape so we don't fragment the bucket
+ * vocabulary across events. `resolvedVarsBucket` is the bucketed count
+ * of distinct environment `{{vars}}` successfully resolved in the sent
+ * request — only the bucket leaves the device, never the values.
  */
 
 import {
@@ -27,13 +32,16 @@ function bucketCount(count: number): '0' | '1' | '2-5' | '6-10' | '>10' {
 
 export function trackHttpRequestExecuted(
   method: HttpMethod,
-  response: HttpResponseV1
+  response: HttpResponseV1,
+  resolvedVarsCount = 0
 ): void {
   const statusBucket = statusBucketForResponse(response);
   const redactedHeadersBucket = bucketCount(response.redactedHeaders.length);
+  const resolvedVarsBucket = bucketCount(resolvedVarsCount);
   void trackEvent('http.request_executed', {
     method,
     statusBucket,
     redactedHeadersBucket,
+    resolvedVarsBucket,
   });
 }

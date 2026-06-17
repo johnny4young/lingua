@@ -20,6 +20,14 @@ import {
   createBlankHttpRequest,
   type HttpRequestV1,
 } from '../../../shared/httpWorkspace';
+import {
+  collectSecretResolvedValues,
+  findResolvedVariables,
+  findUnresolvedVariables,
+  interpolateRequest,
+  maskSecretsForCapsule,
+  maskSecretValuesInResponse,
+} from '../../../shared/httpEnvironment';
 import { executeHttpRequest } from '../../runtime/httpClient';
 import { buildHttpResponseCapsule } from '../../runtime/httpResponseCapsule';
 import { trackHttpRequestExecuted } from '../../hooks/httpWorkspaceTelemetry';
@@ -28,6 +36,7 @@ import { HttpRequestList } from './HttpRequestList';
 import { HttpRequestEditor } from './HttpRequestEditor';
 import { HttpResponsePreview } from './HttpResponsePreview';
 import { HttpResponseHistory } from './HttpResponseHistory';
+import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 
 export interface HttpWorkspacePanelProps {
   /**
@@ -65,6 +74,13 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const sensitiveHttpHeaders = useSettingsStore(
     (state) => state.sensitiveHttpHeaders
   );
+  // RL-097 Slice 3a — environments + active selection drive the
+  // selector, the resolution preview, and send-time interpolation.
+  const environments = useWorkspaceToolStore((state) => state.environments);
+  const activeEnvironmentId = useWorkspaceToolStore(
+    (state) => state.activeEnvironmentId
+  );
+  const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
   // Which response in the active request's history the preview shows.
   // 0 = newest (the default, which the live preview lands on). Reset to
   // newest whenever the active request changes or a new run records.
@@ -192,17 +208,54 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     []
   );
 
+  // RL-097 Slice 3a — send pipeline with environment interpolation +
+  // secret-aware redaction. The privacy invariant (no resolved secret on
+  // any persisted / shared / displayed surface) is enforced here:
+  //   - `interpolateRequest` resolves ALL vars into the OUTBOUND request
+  //     (the only surface that carries a resolved secret — it goes
+  //     straight to fetch and is never recorded).
+  //   - `maskSecretValuesInResponse` scrubs any secret a server echoed
+  //     back BEFORE the response is recorded / capsuled.
+  //   - `maskSecretsForCapsule` keeps secret tokens as `{{key}}` in the
+  //     capsule source so the export never carries the resolved value.
   const handleSend = useCallback(async (requestToSend: HttpRequestV1) => {
     if (useWorkspaceToolStore.getState().isExecutingActive) return;
+    const env = useWorkspaceToolStore.getState().getActiveEnvironment() ?? null;
+
+    // Block the send when a referenced `{{var}}` has no binding in the
+    // active env (or there is no env). Surfacing the names lets the user
+    // fix the environment without guessing which token is missing.
+    const unresolved = findUnresolvedVariables(requestToSend, env);
+    if (unresolved.length > 0) {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'error',
+        messageKey: 'httpWorkspace.environment.unresolved.body',
+        values: {
+          count: unresolved.length,
+          names: unresolved.join(', '),
+        },
+      });
+      return;
+    }
+
     useWorkspaceToolStore.getState().setIsExecutingActive(true);
     try {
-      const response = await executeHttpRequest(requestToSend, {
+      // Resolve EVERY var (secret + non-secret) into the outbound request.
+      const outbound = interpolateRequest(requestToSend, env);
+      const raw = await executeHttpRequest(outbound, {
         userSensitiveHeaders: sensitiveHttpHeaders,
       });
+      // Scrub any echoed secret value out of the response BEFORE it is
+      // recorded or capsuled. No-op when there are no secrets.
+      const response = maskSecretValuesInResponse(
+        raw,
+        collectSecretResolvedValues(env)
+      );
       useWorkspaceToolStore
         .getState()
         .recordResponse(requestToSend.id, response);
-      trackHttpRequestExecuted(requestToSend.method, response);
+      const resolvedCount = findResolvedVariables(requestToSend, env).length;
+      trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
       let capsule;
       try {
         const appInfo = getBundledAppInfo();
@@ -210,10 +263,13 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           typeof window !== 'undefined' && window.lingua?.platform === 'desktop'
             ? 'desktop'
             : 'web';
+        // Capsule-safe request: non-secret vars resolved (replay
+        // fidelity), secret vars kept as `{{key}}` placeholders.
+        const capsuleSafe = maskSecretsForCapsule(requestToSend, env);
         capsule = await buildHttpResponseCapsule({
           appVersion: appInfo.version,
           requestName: requestToSend.name,
-          request: requestToSend,
+          request: capsuleSafe,
           response,
           platform,
           userSensitiveHeaders: sensitiveHttpHeaders,
@@ -238,6 +294,14 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       useWorkspaceToolStore.getState().setIsExecutingActive(false);
     }
   }, [sensitiveHttpHeaders]);
+
+  const handleSelectEnvironment = useCallback((id: string | null) => {
+    useWorkspaceToolStore.getState().setActiveEnvironment(id);
+  }, []);
+
+  const handleManageEnvironment = useCallback(() => {
+    setIsManagerOpen(true);
+  }, []);
 
   return (
     <div
@@ -269,6 +333,10 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               onPatch={handlePatch}
               onSend={handleSend}
               isExecuting={isExecuting}
+              environments={environments}
+              activeEnvironmentId={activeEnvironmentId}
+              onSelectEnvironment={handleSelectEnvironment}
+              onManageEnvironment={handleManageEnvironment}
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center px-4 py-6">
@@ -296,6 +364,21 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           </div>
         </Panel>
       </Group>
+      {isManagerOpen ? (
+        <HttpEnvironmentManager
+          environments={environments}
+          onClose={() => setIsManagerOpen(false)}
+          onCreate={(env) =>
+            useWorkspaceToolStore.getState().createEnvironment(env)
+          }
+          onUpdate={(id, patch) =>
+            useWorkspaceToolStore.getState().updateEnvironment(id, patch)
+          }
+          onDelete={(id) =>
+            useWorkspaceToolStore.getState().deleteEnvironment(id)
+          }
+        />
+      ) : null}
     </div>
   );
 }

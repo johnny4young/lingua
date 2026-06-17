@@ -743,6 +743,17 @@ function shellQuote(value: string): string {
  * copy-MY-request affordance, like Chrome DevTools "Copy as cURL"),
  * not the redacted shape. Redaction is a telemetry / share guarantee;
  * the clipboard is the user's own surface.
+ *
+ * RL-097 Slice 3a fold B — ENVIRONMENT SECRET EXCEPTION. The
+ * "clipboard is the user's own surface" philosophy holds for values the
+ * user TYPED. It does NOT hold for environment secrets: a `{{key}}`
+ * bound to a `secret: true` env var would otherwise be resolved into
+ * the clipboard. Callers with an active environment must pre-process the
+ * request through `maskSecretsForCapsule(request, env)` BEFORE passing
+ * it here, so non-secret vars resolve (the command stays runnable) but
+ * secret vars print as their `{{key}}` placeholder (no clipboard leak).
+ * This function itself is env-agnostic — it prints whatever request it
+ * is handed; the masking is the caller's responsibility.
  */
 export function buildCurlCommand(request: HttpRequestV1): string {
   const parts: string[] = ['curl'];

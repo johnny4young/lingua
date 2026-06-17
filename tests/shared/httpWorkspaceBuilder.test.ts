@@ -24,6 +24,11 @@ import {
   urlToParams,
   type HttpRequestV1,
 } from '../../src/shared/httpWorkspace';
+import {
+  maskSecretsForCapsule,
+  type HttpEnvironmentV1,
+  type HttpEnvVariableV1,
+} from '../../src/shared/httpEnvironment';
 
 function makeRequest(overrides: Partial<HttpRequestV1> = {}): HttpRequestV1 {
   return {
@@ -31,6 +36,17 @@ function makeRequest(overrides: Partial<HttpRequestV1> = {}): HttpRequestV1 {
     method: 'GET',
     url: 'https://api.example.com/users',
     ...overrides,
+  };
+}
+
+function env(variables: HttpEnvVariableV1[]): HttpEnvironmentV1 {
+  return {
+    version: 1,
+    id: 'e1',
+    name: 'Dev',
+    variables,
+    createdAt: '2026-06-16T00:00:00.000Z',
+    updatedAt: '2026-06-16T00:00:00.000Z',
   };
 }
 
@@ -225,6 +241,31 @@ describe('buildCurlCommand — copy as cURL', () => {
     expect(buildCurlCommand(request)).toBe(
       "curl 'https://api.example.com/users'"
     );
+  });
+
+  // RL-097 Slice 3a fold B — secret-safe cURL. When an environment is
+  // active, callers pre-mask via `maskSecretsForCapsule` so non-secret
+  // vars resolve (runnable) and secret vars stay `{{key}}` (no leak).
+  it('with a masked request, non-secret vars resolve and secret vars stay {{key}} (fold B)', () => {
+    const request = makeRequest({
+      method: 'POST',
+      url: 'https://{{host}}/users',
+      headers: [
+        { name: 'Authorization', value: 'Bearer {{token}}', enabled: true },
+      ],
+      body: { kind: 'json', content: '{"h":"{{host}}"}' },
+    });
+    const masked = maskSecretsForCapsule(
+      request,
+      env([
+        { key: 'host', value: 'api.example.com', secret: false },
+        { key: 'token', value: 'sk-live-DONOTLEAK', secret: true },
+      ])
+    );
+    const command = buildCurlCommand(masked);
+    expect(command).toContain("'https://api.example.com/users'");
+    expect(command).toContain("-H 'Authorization: Bearer {{token}}'");
+    expect(command).not.toContain('sk-live-DONOTLEAK');
   });
 });
 

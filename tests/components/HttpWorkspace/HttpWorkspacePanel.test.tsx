@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpWorkspacePanel } from '../../../src/renderer/components/HttpWorkspace';
@@ -120,6 +120,191 @@ describe('HttpWorkspacePanel', () => {
       expect(latestCapsule?.tab.language).toBe('http');
       expect(latestCapsule?.environment.runner).toBe('http-client');
     });
+  });
+
+  // ---- RL-097 Slice 3a — environment interpolation + secret redaction ----
+
+  it('interpolates the active environment into the OUTBOUND request', async () => {
+    const user = userEvent.setup();
+    // Seed an active environment with a host binding.
+    useWorkspaceToolStore.setState({
+      environments: [
+        {
+          version: 1,
+          id: 'e1',
+          name: 'Dev',
+          variables: [
+            { key: 'host', value: 'api.example.com', secret: false },
+          ],
+          createdAt: '2026-06-16T00:00:00.000Z',
+          updatedAt: '2026-06-16T00:00:00.000Z',
+        },
+      ],
+      activeEnvironmentId: 'e1',
+    });
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-list-create'));
+    // `fireEvent.change` sets the literal value — `user.type` would treat
+    // `{{` as a userEvent escape and mangle the token to `{host}}`.
+    fireEvent.change(screen.getByTestId('http-request-editor-url'), {
+      target: { value: 'https://{{host}}/users' },
+    });
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalledTimes(1));
+    const sentRequest = executeHttpRequestMock.mock.calls[0]?.[0];
+    // The outbound (fetched) request carries the RESOLVED url.
+    expect(sentRequest.url).toBe('https://api.example.com/users');
+  });
+
+  it('BLOCKS the send when a referenced variable has no value (no fetch, no recorded response)', async () => {
+    const user = userEvent.setup();
+    // Active env that does NOT define {{host}}.
+    useWorkspaceToolStore.setState({
+      environments: [
+        {
+          version: 1,
+          id: 'e1',
+          name: 'Dev',
+          variables: [],
+          createdAt: '2026-06-16T00:00:00.000Z',
+          updatedAt: '2026-06-16T00:00:00.000Z',
+        },
+      ],
+      activeEnvironmentId: 'e1',
+    });
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-list-create'));
+    fireEvent.change(screen.getByTestId('http-request-editor-url'), {
+      target: { value: 'https://{{host}}/users' },
+    });
+    const reqId = useWorkspaceToolStore.getState().requests[0]!.id;
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    // The send is blocked: fetch is never called, nothing recorded.
+    // Give the (rejected) async handler a tick to settle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(executeHttpRequestMock).not.toHaveBeenCalled();
+    expect(
+      useWorkspaceToolStore.getState().responsesByRequestId[reqId]
+    ).toBeUndefined();
+    // The execution flag is reset (the user can retry after fixing).
+    expect(useWorkspaceToolStore.getState().isExecutingActive).toBe(false);
+  });
+
+  it('PRIVACY: a resolved secret never reaches the recorded response or the capsule', async () => {
+    const user = userEvent.setup();
+    const SECRET = 'sk-live-SUPERSECRET';
+    // The mocked server ECHOES the secret back in the body, a header,
+    // the ORIGINAL url, and the final URL — the worst case the scrubber
+    // must catch. `url` is the resolved outbound URL, so a secret in a
+    // query param rides it verbatim (the field the live smoke caught
+    // leaking past the scrubber).
+    executeHttpRequestMock.mockResolvedValue({
+      version: 1,
+      kind: 'success',
+      status: 200,
+      statusText: 'OK',
+      url: `https://api.example.com/users?token=${SECRET}`,
+      finalUrl: `https://api.example.com/cb?token=${SECRET}`,
+      headers: [{ name: 'X-Echo', value: SECRET, redacted: false }],
+      body: `{"echo":"${SECRET}"}`,
+      contentType: 'application/json',
+      sizeBytes: 40,
+      durationMs: 5,
+      tooLarge: false,
+      redactedHeaders: [],
+      recordedAt: '2026-06-16T00:00:00.000Z',
+    });
+    useWorkspaceToolStore.setState({
+      environments: [
+        {
+          version: 1,
+          id: 'e1',
+          name: 'Dev',
+          variables: [
+            { key: 'host', value: 'api.example.com', secret: false },
+            { key: 'token', value: SECRET, secret: true },
+          ],
+          createdAt: '2026-06-16T00:00:00.000Z',
+          updatedAt: '2026-06-16T00:00:00.000Z',
+        },
+      ],
+      activeEnvironmentId: 'e1',
+    });
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-list-create'));
+    fireEvent.change(screen.getByTestId('http-request-editor-url'), {
+      target: { value: 'https://{{host}}/users' },
+    });
+    // Two headers carrying the secret token:
+    //   - Authorization (baseline-sensitive) → the capsule serializer
+    //     redacts its VALUE to <redacted> (the request-header redaction
+    //     layer), so the secret can't leak even before masking.
+    //   - X-Custom (NON-sensitive) → the value is NOT header-redacted, so
+    //     the env masking is what keeps the secret out: it stays
+    //     `Bearer {{token}}` in the capsule source.
+    await user.click(screen.getByTestId('http-request-editor-tab-headers'));
+    await user.click(screen.getByTestId('http-request-editor-headers-add'));
+    await user.click(screen.getByTestId('http-request-editor-headers-add'));
+    const nameInputs = screen.getAllByTestId('http-request-editor-header-name');
+    const valueInputs = screen.getAllByTestId('http-request-editor-header-value');
+    fireEvent.change(nameInputs[0]!, { target: { value: 'Authorization' } });
+    fireEvent.change(valueInputs[0]!, { target: { value: 'Bearer {{token}}' } });
+    fireEvent.change(nameInputs[1]!, { target: { value: 'X-Custom' } });
+    fireEvent.change(valueInputs[1]!, { target: { value: 'Bearer {{token}}' } });
+    const reqId = useWorkspaceToolStore.getState().requests[0]!.id;
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalledTimes(1));
+
+    // 1) The OUTBOUND request DID carry the resolved secret in BOTH
+    //    headers (it must, to authenticate) — this proves interpolation
+    //    happened on the wire request.
+    const sent = executeHttpRequestMock.mock.calls[0]?.[0];
+    const authHeader = sent.headers.find(
+      (h: { name: string }) => h.name === 'Authorization'
+    );
+    const customHeader = sent.headers.find(
+      (h: { name: string }) => h.name === 'X-Custom'
+    );
+    expect(authHeader.value).toBe(`Bearer ${SECRET}`);
+    expect(customHeader.value).toBe(`Bearer ${SECRET}`);
+
+    // 2) The RECORDED response must NOT contain the secret anywhere
+    //    (body / header value / finalUrl all scrubbed to <redacted>).
+    await waitFor(() => {
+      expect(
+        useWorkspaceToolStore.getState().responsesByRequestId[reqId]
+      ).toBeDefined();
+    });
+    const recorded =
+      useWorkspaceToolStore.getState().responsesByRequestId[reqId]![0]!;
+    expect(JSON.stringify(recorded)).not.toContain(SECRET);
+    expect(recorded.body).toContain('<redacted>');
+    expect(recorded.finalUrl).toContain('<redacted>');
+    expect(
+      recorded.headers.find((h) => h.name === 'X-Echo')?.value
+    ).toBe('<redacted>');
+
+    // 3) The recorded CAPSULE (source + stdout) must NOT carry the secret
+    //    ANYWHERE. The masking keeps the token as `{{token}}` on the
+    //    non-sensitive X-Custom header; the Authorization value is
+    //    additionally header-redacted to <redacted>. stdout is the
+    //    scrubbed response body.
+    await waitFor(() => {
+      expect(useExecutionHistoryStore.getState().latestCapsule()).toBeDefined();
+    });
+    const capsule = useExecutionHistoryStore.getState().latestCapsule()!;
+    expect(JSON.stringify(capsule)).not.toContain(SECRET);
+    // The masked placeholder survives on the non-sensitive header.
+    expect(capsule.source.content).toContain('X-Custom: Bearer {{token}}');
+    // The sensitive header value is redacted (defense in depth).
+    expect(capsule.source.content).toContain('Authorization: <redacted>');
+    expect(capsule.result.stdout ?? '').not.toContain(SECRET);
   });
 });
 
