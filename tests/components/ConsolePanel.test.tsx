@@ -696,6 +696,57 @@ describe('ConsolePanel', () => {
     expect(within(screen.getByRole('dialog')).getByText('Stack trace')).toBeTruthy();
   });
 
+  it('portals the rich-output details popover to <body> so a filtered console ancestor cannot clip the table', async () => {
+    const user = userEvent.setup();
+    resetState({
+      entries: [
+        {
+          id: 'table-rich',
+          type: 'log',
+          content: 'Table(3×2)',
+          timestamp: Date.now(),
+          language: 'javascript',
+          payload: [
+            {
+              kind: 'table',
+              columns: ['name', 'kcal'],
+              rows: [
+                [
+                  { kind: 'primitive', type: 'string', repr: '"apple"' },
+                  { kind: 'primitive', type: 'number', repr: '52' },
+                ],
+                [
+                  { kind: 'primitive', type: 'string', repr: '"mango"' },
+                  { kind: 'primitive', type: 'number', repr: '60' },
+                ],
+                [
+                  { kind: 'primitive', type: 'string', repr: '"banana"' },
+                  { kind: 'primitive', type: 'number', repr: '89' },
+                ],
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const { container } = render(<ConsolePanel />);
+    await user.click(screen.getByTestId('console-rich-open-details'));
+
+    const dialog = screen.getByRole('dialog');
+    // The popover renders via createPortal to <body>, NOT inside the
+    // ConsolePanel subtree. The console panel carries `backdrop-filter:
+    // blur()`, which (like `transform` / `filter`) makes it the containing
+    // block for `position: fixed` descendants — so an in-tree overlay's
+    // `fixed inset-0` is trapped inside the short console strip and clips the
+    // table below the viewport. Portaling escapes that ancestor. (jsdom does
+    // not compute layout, so this pins the portal mechanism, not the pixels.)
+    expect(container.contains(dialog)).toBe(false);
+    expect(dialog.parentElement).toBe(document.body);
+    // The full typed table renders in the portaled dialog (all rows present).
+    expect(within(dialog).getByText('"banana"')).toBeTruthy();
+  });
+
   it('clicking a filter pill calls toggleFilter with its type', async () => {
     const user = userEvent.setup();
     render(<ConsolePanel />);

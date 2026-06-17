@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { RichOutputPayload } from '../../../shared/richOutput';
 import { OverlayBackdrop, Tooltip } from '../ui/chrome';
@@ -82,7 +83,14 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  return (
+  // Portal to <body> so the centered modal escapes the console panel's
+  // `backdrop-filter: blur()` ancestor. A non-`none` `backdrop-filter` (like
+  // `transform` / `filter`) makes that ancestor the containing block for
+  // `position: fixed` descendants, which otherwise traps the `.overlay-backdrop`
+  // (`fixed inset-0`) inside the short console strip — centering this dialog in
+  // a ~64px box and clipping a console.table / rich-output preview below the
+  // viewport. Portaling restores true viewport-relative centering + scroll.
+  return createPortal(
     <OverlayBackdrop
       align="center"
       onClose={onClose}
@@ -168,7 +176,8 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
           )}
         </div>
       </div>
-    </OverlayBackdrop>
+    </OverlayBackdrop>,
+    document.body
   );
 }
 
