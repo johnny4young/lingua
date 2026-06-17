@@ -374,8 +374,28 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           onUpdate={(id, patch) =>
             useWorkspaceToolStore.getState().updateEnvironment(id, patch)
           }
+          onUpdateVariables={(id, updater) =>
+            useWorkspaceToolStore
+              .getState()
+              .updateEnvironmentVariables(id, updater)
+          }
           onDelete={(id) =>
             useWorkspaceToolStore.getState().deleteEnvironment(id)
+          }
+          onDuplicate={(id) =>
+            useWorkspaceToolStore
+              .getState()
+              .duplicateEnvironment(
+                id,
+                crypto.randomUUID(),
+                t('httpWorkspace.environment.manager.copySuffix')
+              )
+          }
+          onExport={(id) =>
+            useWorkspaceToolStore.getState().exportEnvironmentJson(id)
+          }
+          onImport={(json) =>
+            useWorkspaceToolStore.getState().importEnvironmentJson(json)
           }
         />
       ) : null}

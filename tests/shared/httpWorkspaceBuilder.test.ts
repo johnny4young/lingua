@@ -39,12 +39,15 @@ function makeRequest(overrides: Partial<HttpRequestV1> = {}): HttpRequestV1 {
   };
 }
 
-function env(variables: HttpEnvVariableV1[]): HttpEnvironmentV1 {
+function env(
+  variables: Array<Omit<HttpEnvVariableV1, 'id'>>
+): HttpEnvironmentV1 {
   return {
     version: 1,
     id: 'e1',
     name: 'Dev',
-    variables,
+    // RL-097 Slice 3b added the opaque `id`; stamp a synthetic one per row.
+    variables: variables.map((row, i) => ({ id: `v${i}`, ...row })),
     createdAt: '2026-06-16T00:00:00.000Z',
     updatedAt: '2026-06-16T00:00:00.000Z',
   };

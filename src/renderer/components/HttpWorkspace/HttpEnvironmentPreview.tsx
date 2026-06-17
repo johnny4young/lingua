@@ -1,13 +1,19 @@
 /**
- * RL-097 Slice 3a folds A + C — resolution preview.
+ * RL-097 Slices 3a + 3b — resolution preview.
  *
  * Renders beneath the URL row whenever the request references
- * `{{tokens}}` OR an environment is active. Two parts:
+ * `{{tokens}}` OR an environment is active. Three parts:
  *
  *   - Fold A — the effective URL with NON-secret vars resolved and
  *     SECRET vars shown as their `{{key}}` placeholder. Built via
  *     `maskSecretsForCapsule` so a resolved secret value can NEVER reach
  *     this surface.
+ *   - Slice 3b fold E — the injected Auth header (name + masked value),
+ *     derived from `buildAuthHeader(maskSecretsForCapsule(request).auth)`.
+ *     Because the masked request keeps a secret auth `{{token}}` as its
+ *     placeholder, this line shows e.g. `Authorization: Bearer {{token}}`,
+ *     never the resolved secret. Only rendered when the active auth config
+ *     actually injects a header.
  *   - Fold C — a chip row of the distinct variables referenced, each
  *     tagged: plain (resolved, non-secret), `secret` (resolved but
  *     masked), or `unresolved` (red — no binding in the active env).
@@ -15,8 +21,9 @@
  *     vars + state without the value of any secret being printed.
  *
  * Privacy invariant: this component prints NO resolved secret value
- * anywhere — not in the URL line, not in a chip. Secret chips show only
- * the key + a "secret" badge.
+ * anywhere — not in the URL line, not in the auth line, not in a chip.
+ * Secret chips show only the key + a "secret" badge; the auth line uses
+ * the masked request, so a secret auth field stays `{{key}}`.
  */
 
 import { useMemo } from 'react';
@@ -27,7 +34,7 @@ import {
   maskSecretsForCapsule,
   type HttpEnvironmentV1,
 } from '../../../shared/httpEnvironment';
-import type { HttpRequestV1 } from '../../../shared/httpWorkspace';
+import { buildAuthHeader, type HttpRequestV1 } from '../../../shared/httpWorkspace';
 
 export interface HttpEnvironmentPreviewProps {
   request: HttpRequestV1;
@@ -43,11 +50,19 @@ export function HttpEnvironmentPreview({
   const { t } = useTranslation();
 
   // The masked request: non-secret vars resolved, secret vars left as
-  // `{{key}}`. Its URL is the safe "Resolves to" display.
-  const maskedUrl = useMemo(
-    () => maskSecretsForCapsule(request, env).url,
+  // `{{key}}`. Its URL is the safe "Resolves to" display; its auth block
+  // feeds the masked Auth-header line below.
+  const masked = useMemo(
+    () => maskSecretsForCapsule(request, env),
     [request, env]
   );
+  const maskedUrl = masked.url;
+
+  // Slice 3b fold E — the injected Auth header (name + masked value). Built
+  // from the MASKED request's auth, so a secret auth `{{token}}` stays
+  // `{{token}}` here (never the resolved secret). `null` when the active
+  // auth config injects nothing (kind none / empty fields).
+  const authHeader = useMemo(() => buildAuthHeader(masked.auth), [masked.auth]);
 
   const chips = useMemo(() => {
     const secretKeys = new Set<string>();
@@ -73,9 +88,9 @@ export function HttpEnvironmentPreview({
     return out;
   }, [request, env]);
 
-  // Only render when there is something to show: an active env, or the
-  // request references at least one token.
-  const hasContent = env !== null || chips.length > 0;
+  // Only render when there is something to show: an active env, the
+  // request references at least one token, or an auth header is injected.
+  const hasContent = env !== null || chips.length > 0 || authHeader !== null;
   if (!hasContent) return null;
 
   return (
@@ -95,6 +110,20 @@ export function HttpEnvironmentPreview({
           {maskedUrl}
         </span>
       </div>
+      {authHeader !== null ? (
+        <div className="flex items-baseline gap-2">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+            {t('httpWorkspace.environment.preview.authLabel')}
+          </span>
+          <span
+            data-testid="http-environment-preview-auth"
+            className="min-w-0 flex-1 truncate font-mono text-[11px] text-fg-base"
+            title={`${authHeader.name}: ${authHeader.value}`}
+          >
+            {`${authHeader.name}: ${authHeader.value}`}
+          </span>
+        </div>
+      ) : null}
       {chips.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1">
           {chips.map((chip) => {

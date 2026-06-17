@@ -25,17 +25,28 @@
  *     `fetch` call and nowhere else.
  *
  * All functions in this module are pure data transforms — no IPC, no
- * side effects, no stateful module-level regex. `parseHttpEnvironment`
- * is the defense-in-depth boundary at the localStorage rehydrate edge,
- * mirroring `parseHttpRequest` in `httpWorkspace.ts`.
+ * side effects, no stateful module-level regex — with ONE documented
+ * exception: `parseEnvVariable` backfills a missing opaque row `id` via
+ * `crypto.randomUUID()` (RL-097 Slice 3b), so the parser is non-pure for
+ * that single non-semantic field only. `parseHttpEnvironment` is the
+ * defense-in-depth boundary at the localStorage rehydrate edge, mirroring
+ * `parseHttpRequest` in `httpWorkspace.ts`.
  */
 
-import type { HttpRequestV1 } from './httpWorkspace';
+import type { HttpRequestAuth, HttpRequestV1 } from './httpWorkspace';
 import type { HttpResponseV1 } from './httpWorkspace';
 
 /**
  * One variable binding in an environment.
  *
+ *   - `id`     — RL-097 Slice 3b. An opaque client-side row id used ONLY
+ *     as the React list key + the @dnd-kit drag-reorder handle. It is NOT
+ *     user-visible, NOT part of the value identity (two rows with the same
+ *     key/value/secret but different ids are equivalent bindings), and is
+ *     STRIPPED on export (`exportEnvironmentJson`) so a shared environment
+ *     carries no instance-local ids. Minted via `crypto.randomUUID()` on
+ *     create / clone / import; `parseEnvVariable` backfills it for rows
+ *     persisted before this field existed.
  *   - `key`    — the token name (matches `VARIABLE_TOKEN`'s charset
  *     `[A-Za-z0-9_.-]+`). Looked up against `{{key}}` tokens.
  *   - `value`  — the substitution string. May be empty (an empty value
@@ -45,9 +56,42 @@ import type { HttpResponseV1 } from './httpWorkspace';
  *     It is still resolved on the outbound request.
  */
 export interface HttpEnvVariableV1 {
+  /**
+   * Opaque client-side row id (React key + drag-reorder handle). Not
+   * user-visible, not part of the value identity, stripped on export.
+   */
+  id: string;
   key: string;
   value: string;
   secret: boolean;
+}
+
+/**
+ * RL-097 Slice 3b — case-insensitive heuristic for "this key looks like a
+ * secret". Matches a `_TOKEN` / `_KEY` / `_SECRET` suffix, the whole-word
+ * `PASSWORD` / `TOKEN` / `KEY` / `SECRET`, or a `PASSWORD` substring (so
+ * `DB_PASSWORD`, `apiPassword`, `MY_API_TOKEN`, `STRIPE_SECRET_KEY`, a bare
+ * `password` / `token` all match). Drives the manager's secret-by-default
+ * suggestion ONLY — it never forces `secret` on a row the user explicitly
+ * unset (that policy lives in the manager, not here). Pure + exported so it
+ * is unit-testable.
+ *
+ * Deliberately conservative on false positives: `host`, `name`, `url`,
+ * `base`, `path`, `id` do NOT match.
+ */
+export function looksSecret(key: string): boolean {
+  if (typeof key !== 'string' || key.length === 0) return false;
+  // Normalise camelCase → snake so `apiKey` / `clientSecret` expose the
+  // trailing word boundary that `API_KEY` / `CLIENT_SECRET` already have.
+  const normalised = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase();
+  // `(^|[^A-Z0-9])` anchors the trailing word so `HOST_KEY` / `API_TOKEN` /
+  // `API_KEY` / bare `KEY` / `TOKEN` match while `MONKEY` / `BROKER`
+  // (KEY/KER inside a word) do not. A PASSWORD substring matches anywhere —
+  // a password rarely belongs on a non-secret token.
+  return (
+    /(^|[^A-Z0-9])(TOKEN|KEY|SECRET|PASSWORD)$/.test(normalised) ||
+    normalised.includes('PASSWORD')
+  );
 }
 
 /**
@@ -111,6 +155,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * otherwise-valid environment. `secret` defaults to `false` when absent
  * (forward-compat: an environment persisted before the secret flag
  * existed loads as all-non-secret).
+ *
+ * RL-097 Slice 3b — `id` is kept when it is a non-empty string, otherwise
+ * BACKFILLED with a fresh `crypto.randomUUID()`. This is the ONE place the
+ * parser is intentionally non-pure: rows persisted before Slice 3b (and
+ * rows from an imported / hand-written JSON, whose ids are deliberately
+ * stripped on export) have no id, and the React list + drag reorder need a
+ * stable one. The backfill touches only this opaque id — it never
+ * fabricates key/value/secret data.
  */
 function parseEnvVariable(value: unknown): HttpEnvVariableV1 | null {
   if (!isRecord(value)) return null;
@@ -119,7 +171,11 @@ function parseEnvVariable(value: unknown): HttpEnvVariableV1 | null {
   if (typeof key !== 'string' || key.length === 0) return null;
   if (typeof varValue !== 'string') return null;
   const secret = value.secret === true;
-  return { key, value: varValue, secret };
+  const id =
+    typeof value.id === 'string' && value.id.length > 0
+      ? value.id
+      : crypto.randomUUID();
+  return { id, key, value: varValue, secret };
 }
 
 /**
@@ -169,6 +225,61 @@ export function createBlankHttpEnvironment(options: {
     variables: [],
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+/**
+ * RL-097 Slice 3b — build a fresh variable row with a minted opaque id.
+ * Centralises the `crypto.randomUUID()` mint so the manager's add, the
+ * duplicate-env clone, and the import path all stamp a unique row id
+ * without each re-stating the `id` field.
+ */
+export function createEnvVariable(
+  fields: Omit<HttpEnvVariableV1, 'id'>
+): HttpEnvVariableV1 {
+  return { id: crypto.randomUUID(), ...fields };
+}
+
+/**
+ * RL-097 Slice 3b — the shape `exportEnvironmentJson` serialises. It is a
+ * SHARE-time projection of an environment, deliberately divergent from the
+ * persisted `HttpEnvironmentV1`:
+ *
+ *   - PRIVACY: every `secret: true` variable exports `value: ''` (key +
+ *     secret flag preserved, value blanked). A shared file must NEVER carry
+ *     a resolved secret — the recipient re-enters their own secret values.
+ *   - the env `id` and every variable `id` are STRIPPED — they are
+ *     instance-local (`importEnvironmentJson` / `parseEnvVariable` mint
+ *     fresh ones), so leaking them would let two installs collide on a
+ *     hand-shared id.
+ *   - timestamps are dropped — the importer stamps its own.
+ */
+export interface HttpEnvironmentExportV1 {
+  version: 1;
+  name: string;
+  variables: Array<{ key: string; value: string; secret: boolean }>;
+}
+
+/**
+ * Project an environment onto its share-safe export shape (see
+ * `HttpEnvironmentExportV1`). Pure + exported so the secret-blanking +
+ * id-stripping invariant is unit-testable independent of the store's
+ * `JSON.stringify` wrapper. A `secret: true` value is replaced with `''`;
+ * non-secret values pass through verbatim.
+ */
+export function toExportableEnvironment(
+  env: HttpEnvironmentV1
+): HttpEnvironmentExportV1 {
+  return {
+    version: 1,
+    name: env.name,
+    variables: env.variables.map((variable) => ({
+      key: variable.key,
+      // Secret values NEVER leave this machine. Blank the value; keep the
+      // key + secret flag so the recipient sees which rows to refill.
+      value: variable.secret ? '' : variable.value,
+      secret: variable.secret,
+    })),
   };
 }
 
@@ -252,10 +363,53 @@ function buildNonSecretLookup(
 }
 
 /**
+ * RL-097 Slice 3b — interpolate every value-bearing field of an auth block
+ * (`token` / `username` / `password` / `apiKeyHeader` / `apiKeyValue`)
+ * through `lookup`, preserving `kind` and any other fields. Returns the
+ * SAME reference for absent / `kind: 'none'` auth (nothing to resolve), so
+ * the common no-auth path allocates nothing.
+ *
+ * Because this runs inside the shared `mapRequestStrings`, auth is a
+ * first-class env surface exactly like url / headers / body:
+ *
+ *   - via `interpolateRequest` (full lookup) a secret `{{API_TOKEN}}` in
+ *     the Bearer field resolves to the real token on the OUTBOUND request
+ *     (it must, to authenticate);
+ *   - via `maskSecretsForCapsule` (non-secret lookup) that same secret
+ *     token is left as the literal `{{API_TOKEN}}` placeholder, so the
+ *     capsule's auth field — and the `Authorization` header
+ *     `composeRequestHeaders` derives from it — never carries the resolved
+ *     secret. (Defense in depth: the capsule serializer ALSO redacts the
+ *     baseline-sensitive `Authorization` value to `<redacted>`.)
+ */
+function interpolateAuth(
+  auth: HttpRequestAuth | undefined,
+  lookup: Map<string, string>
+): HttpRequestAuth | undefined {
+  if (!auth || auth.kind === 'none') return auth;
+  const next: HttpRequestAuth = { ...auth };
+  if (auth.token !== undefined) next.token = interpolateString(auth.token, lookup);
+  if (auth.username !== undefined) {
+    next.username = interpolateString(auth.username, lookup);
+  }
+  if (auth.password !== undefined) {
+    next.password = interpolateString(auth.password, lookup);
+  }
+  if (auth.apiKeyHeader !== undefined) {
+    next.apiKeyHeader = interpolateString(auth.apiKeyHeader, lookup);
+  }
+  if (auth.apiKeyValue !== undefined) {
+    next.apiKeyValue = interpolateString(auth.apiKeyValue, lookup);
+  }
+  return next;
+}
+
+/**
  * Apply a lookup across the interpolatable surfaces of a request (url,
- * every header value, body.content) and return a NEW request. The
- * `version`/`id` pins are preserved. Shared by the outbound + masked
- * paths — the only difference between them is which lookup they pass.
+ * every header value, body.content, AND the auth block — RL-097 Slice 3b)
+ * and return a NEW request. The `version`/`id` pins are preserved. Shared
+ * by the outbound + masked paths — the only difference between them is
+ * which lookup they pass.
  */
 function mapRequestStrings(
   request: HttpRequestV1,
@@ -276,6 +430,13 @@ function mapRequestStrings(
       ...request.body,
       content: interpolateString(request.body.content, lookup),
     };
+  }
+  // Auth is a first-class env surface: a secret `{{token}}` in the Bearer
+  // field resolves on the outbound request (full lookup) but stays
+  // `{{token}}` under the non-secret lookup `maskSecretsForCapsule` uses.
+  const auth = interpolateAuth(request.auth, lookup);
+  if (auth !== undefined) {
+    next.auth = auth;
   }
   return next;
 }
@@ -311,11 +472,29 @@ export function maskSecretsForCapsule(
 }
 
 /**
+ * RL-097 Slice 3b — the value-bearing strings of an auth block that may
+ * carry `{{tokens}}`, in field order. Empty for absent / `kind: 'none'`
+ * auth. Used by BOTH variable scanners so the Auth sub-tab participates in
+ * the resolved / unresolved bucketing exactly like url / headers / body.
+ */
+function authScanFields(auth: HttpRequestAuth | undefined): string[] {
+  if (!auth || auth.kind === 'none') return [];
+  const fields: string[] = [];
+  if (auth.token !== undefined) fields.push(auth.token);
+  if (auth.username !== undefined) fields.push(auth.username);
+  if (auth.password !== undefined) fields.push(auth.password);
+  if (auth.apiKeyHeader !== undefined) fields.push(auth.apiKeyHeader);
+  if (auth.apiKeyValue !== undefined) fields.push(auth.apiKeyValue);
+  return fields;
+}
+
+/**
  * Collect every distinct `{{token}}` key that appears in the request's
- * url, ENABLED header values, or body.content but is NOT defined in the
- * environment (when `env` is null, ALL referenced tokens count as
- * unresolved). First-seen order, deduped. Drives the pre-send block +
- * the "unresolved" chips in the editor preview.
+ * url, ENABLED header values, body.content, or auth fields (RL-097 Slice
+ * 3b) but is NOT defined in the environment (when `env` is null, ALL
+ * referenced tokens count as unresolved). First-seen order, deduped.
+ * Drives the pre-send block + the "unresolved" chips in the editor
+ * preview.
  *
  * Note: a variable defined with an EMPTY value is treated as resolved
  * here — the user has bound the key, the binding is just blank. (Empty
@@ -349,15 +528,16 @@ export function findUnresolvedVariables(
   if (request.body && request.body.kind !== 'none' && request.body.content) {
     scan(request.body.content);
   }
+  for (const field of authScanFields(request.auth)) scan(field);
   return out;
 }
 
 /**
  * Collect every distinct `{{token}}` key referenced in the request's
- * url, ENABLED header values, or body.content that IS defined in the
- * environment. First-seen order, deduped. Used to bucket the
- * resolved-variable count for telemetry (fold D) and to drive the
- * resolution-preview chips.
+ * url, ENABLED header values, body.content, or auth fields (RL-097 Slice
+ * 3b) that IS defined in the environment. First-seen order, deduped. Used
+ * to bucket the resolved-variable count for telemetry (fold D) and to
+ * drive the resolution-preview chips.
  */
 export function findResolvedVariables(
   request: HttpRequestV1,
@@ -385,6 +565,7 @@ export function findResolvedVariables(
   if (request.body && request.body.kind !== 'none' && request.body.content) {
     scan(request.body.content);
   }
+  for (const field of authScanFields(request.auth)) scan(field);
   return out;
 }
 

@@ -326,6 +326,131 @@ describe('useWorkspaceToolStore environments (RL-097 Slice 3a)', () => {
     expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBeNull();
   });
 
+  it('updateEnvironmentVariables applies the updater to the CURRENT list (collapse-safe)', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    // Two adds dispatched back-to-back. A render-prop clobber would lose
+    // the first; the functional updater composes them.
+    useWorkspaceToolStore
+      .getState()
+      .updateEnvironmentVariables('e1', (vars) => [
+        ...vars,
+        { id: 'a', key: 'A', value: '1', secret: false },
+      ]);
+    useWorkspaceToolStore
+      .getState()
+      .updateEnvironmentVariables('e1', (vars) => [
+        ...vars,
+        { id: 'b', key: 'B', value: '2', secret: false },
+      ]);
+    const env = useWorkspaceToolStore.getState().environments[0];
+    expect(env?.variables.map((v) => v.key)).toEqual(['A', 'B']);
+    expect(env?.updatedAt).not.toBe('2026-06-16T00:00:00.000Z');
+  });
+
+  it('updateEnvironmentVariables is a no-op on an unknown id', () => {
+    const before = useWorkspaceToolStore.getState();
+    useWorkspaceToolStore
+      .getState()
+      .updateEnvironmentVariables('missing', () => [
+        { id: 'x', key: 'X', value: '1', secret: false },
+      ]);
+    expect(useWorkspaceToolStore.getState()).toBe(before);
+  });
+
+  it('duplicateEnvironment clones with fresh row ids + preserved secrets, no auto-activate', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    useWorkspaceToolStore.getState().updateEnvironmentVariables('e1', () => [
+      { id: 'orig-1', key: 'host', value: 'api.x', secret: false },
+      { id: 'orig-2', key: 'token', value: 'sk-secret', secret: true },
+    ]);
+    useWorkspaceToolStore.getState().setActiveEnvironment('e1');
+
+    useWorkspaceToolStore.getState().duplicateEnvironment('e1', 'e2', 'copy');
+    const { environments, activeEnvironmentId } = useWorkspaceToolStore.getState();
+    expect(environments.map((e) => e.id)).toEqual(['e1', 'e2']);
+    const clone = environments[1]!;
+    expect(clone.name).toBe('Dev copy');
+    // Variable values + secret flags preserved.
+    expect(clone.variables.map((v) => ({ key: v.key, value: v.value, secret: v.secret }))).toEqual([
+      { key: 'host', value: 'api.x', secret: false },
+      { key: 'token', value: 'sk-secret', secret: true },
+    ]);
+    // Row ids are FRESH (no collision with the source rows).
+    expect(clone.variables[0]?.id).not.toBe('orig-1');
+    expect(clone.variables[1]?.id).not.toBe('orig-2');
+    // Does NOT auto-activate — the original stays active.
+    expect(activeEnvironmentId).toBe('e1');
+  });
+
+  it('duplicateEnvironment is a no-op on an unknown id', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    useWorkspaceToolStore.getState().duplicateEnvironment('missing', 'e2', 'copy');
+    expect(useWorkspaceToolStore.getState().environments).toHaveLength(1);
+  });
+
+  it('exportEnvironmentJson masks secret values + strips ids', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    useWorkspaceToolStore.getState().updateEnvironmentVariables('e1', () => [
+      { id: 'r1', key: 'host', value: 'api.x', secret: false },
+      { id: 'r2', key: 'token', value: 'sk-EXPORTSECRET', secret: true },
+    ]);
+    const json = useWorkspaceToolStore.getState().exportEnvironmentJson('e1')!;
+    expect(json).toBeTruthy();
+    const parsed = JSON.parse(json);
+    expect(parsed.name).toBe('Dev');
+    expect(parsed.variables).toEqual([
+      { key: 'host', value: 'api.x', secret: false },
+      { key: 'token', value: '', secret: true },
+    ]);
+    // No resolved secret + no instance-local ids in the exported text.
+    expect(json).not.toContain('sk-EXPORTSECRET');
+    expect(json).not.toContain('e1');
+    expect(json).not.toContain('r1');
+    expect(json).not.toContain('r2');
+  });
+
+  it('exportEnvironmentJson returns null on an unknown id', () => {
+    expect(useWorkspaceToolStore.getState().exportEnvironmentJson('missing')).toBeNull();
+  });
+
+  it('importEnvironmentJson mints a fresh id + appends without auto-activating', () => {
+    useWorkspaceToolStore.getState().createEnvironment(makeEnv('e1', 'Dev'));
+    useWorkspaceToolStore.getState().setActiveEnvironment('e1');
+    const exportBlob = JSON.stringify({
+      version: 1,
+      name: 'Imported',
+      variables: [
+        { key: 'host', value: 'api.y', secret: false },
+        { key: 'token', value: '', secret: true },
+      ],
+    });
+    const result = useWorkspaceToolStore.getState().importEnvironmentJson(exportBlob);
+    expect(result.ok).toBe(true);
+    const { environments, activeEnvironmentId } = useWorkspaceToolStore.getState();
+    expect(environments.map((e) => e.name)).toEqual(['Dev', 'Imported']);
+    const imported = environments[1]!;
+    // Fresh env id (not a hand-supplied one) + backfilled variable ids.
+    expect(imported.id).toBeTruthy();
+    expect(imported.id).not.toBe('e1');
+    expect(imported.variables.every((v) => v.id.length > 0)).toBe(true);
+    // Does NOT auto-activate.
+    expect(activeEnvironmentId).toBe('e1');
+  });
+
+  it('importEnvironmentJson tolerates malformed JSON + invalid shapes', () => {
+    expect(useWorkspaceToolStore.getState().importEnvironmentJson('not json {')).toEqual({
+      ok: false,
+    });
+    expect(
+      useWorkspaceToolStore.getState().importEnvironmentJson('{"version":2,"name":"x","variables":[]}')
+    ).toEqual({ ok: false });
+    expect(useWorkspaceToolStore.getState().importEnvironmentJson('[]')).toEqual({
+      ok: false,
+    });
+    // None of the rejects appended anything.
+    expect(useWorkspaceToolStore.getState().environments).toHaveLength(0);
+  });
+
   it('rehydrate drops invalid environments but keeps valid ones', () => {
     localStorage.setItem(
       'lingua-workspace-tool-state',

@@ -11,31 +11,47 @@ import { describe, expect, it } from 'vitest';
 import {
   collectSecretResolvedValues,
   createBlankHttpEnvironment,
+  createEnvVariable,
   findResolvedVariables,
   findUnresolvedVariables,
   interpolateRequest,
   interpolateString,
+  looksSecret,
   maskSecretsForCapsule,
   maskSecretValuesInResponse,
   parseHttpEnvironment,
+  toExportableEnvironment,
   type HttpEnvironmentV1,
   type HttpEnvVariableV1,
 } from '../../src/shared/httpEnvironment';
 import {
   createBlankHttpRequest,
+  type HttpRequestAuth,
   type HttpRequestV1,
   type HttpResponseV1,
 } from '../../src/shared/httpWorkspace';
 
+/**
+ * Build a variable row from `{key, value, secret}` with a deterministic
+ * opaque id (RL-097 Slice 3b added `HttpEnvVariableV1.id`). Tests assert on
+ * key/value/secret semantics, not the opaque id, so a stable synthetic id
+ * keeps the literals readable.
+ */
+function vars(
+  rows: Array<Omit<HttpEnvVariableV1, 'id'>>
+): HttpEnvVariableV1[] {
+  return rows.map((row, i) => ({ id: `v${i}`, ...row }));
+}
+
 function env(
-  variables: HttpEnvVariableV1[],
+  variables: Array<Omit<HttpEnvVariableV1, 'id'>>,
   overrides: Partial<HttpEnvironmentV1> = {}
 ): HttpEnvironmentV1 {
   return {
     version: 1,
     id: 'env-1',
     name: 'Dev',
-    variables,
+    variables: vars(variables),
     createdAt: '2026-06-16T00:00:00.000Z',
     updatedAt: '2026-06-16T00:00:00.000Z',
     ...overrides,
@@ -145,6 +161,107 @@ describe('interpolateRequest (outbound — resolves ALL vars)', () => {
     const out = interpolateRequest(r, null);
     expect(out.url).toBe('https://{{host}}/x');
     expect(out).not.toBe(r); // structurally cloned
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RL-097 Slice 3b — auth is a first-class env surface.
+// ---------------------------------------------------------------------------
+
+describe('auth interpolation (RL-097 Slice 3b)', () => {
+  function authReq(auth: HttpRequestAuth): HttpRequestV1 {
+    return req({ url: 'https://api.example.com', auth });
+  }
+
+  it('interpolateRequest resolves the bearer token (outbound)', () => {
+    const e = env([{ key: 'token', value: 'sk-live-123', secret: false }]);
+    const out = interpolateRequest(
+      authReq({ kind: 'bearer', token: 'Bearer-prefix {{token}}' }),
+      e
+    );
+    expect(out.auth?.token).toBe('Bearer-prefix sk-live-123');
+    expect(out.auth?.kind).toBe('bearer');
+  });
+
+  it('interpolateRequest resolves basic username + password', () => {
+    const e = env([
+      { key: 'user', value: 'ada', secret: false },
+      { key: 'pass', value: 'hunter2', secret: false },
+    ]);
+    const out = interpolateRequest(
+      authReq({ kind: 'basic', username: '{{user}}', password: '{{pass}}' }),
+      e
+    );
+    expect(out.auth?.username).toBe('ada');
+    expect(out.auth?.password).toBe('hunter2');
+  });
+
+  it('interpolateRequest resolves apiKey header name + value', () => {
+    const e = env([
+      { key: 'hdr', value: 'X-Custom-Key', secret: false },
+      { key: 'val', value: 'abc123', secret: false },
+    ]);
+    const out = interpolateRequest(
+      authReq({ kind: 'apiKey', apiKeyHeader: '{{hdr}}', apiKeyValue: '{{val}}' }),
+      e
+    );
+    expect(out.auth?.apiKeyHeader).toBe('X-Custom-Key');
+    expect(out.auth?.apiKeyValue).toBe('abc123');
+  });
+
+  it('leaves auth untouched for kind none', () => {
+    const e = env([{ key: 'token', value: 'x', secret: false }]);
+    const out = interpolateRequest(authReq({ kind: 'none' }), e);
+    expect(out.auth).toEqual({ kind: 'none' });
+  });
+
+  it('PRIVACY: a SECRET token in the Bearer field resolves OUTBOUND but maskSecretsForCapsule keeps it {{key}}', () => {
+    const SECRET = 'sk-live-AUTHSECRET';
+    const e = env([{ key: 'token', value: SECRET, secret: true }]);
+    const r = authReq({ kind: 'bearer', token: '{{token}}' });
+
+    // Outbound: the resolved secret MUST reach the wire to authenticate.
+    const outbound = interpolateRequest(r, e);
+    expect(outbound.auth?.token).toBe(SECRET);
+
+    // Capsule-safe: the secret stays a placeholder — never the resolved value.
+    const masked = maskSecretsForCapsule(r, e);
+    expect(masked.auth?.token).toBe('{{token}}');
+    expect(JSON.stringify(masked)).not.toContain(SECRET);
+  });
+
+  it('PRIVACY: a SECRET basic password is masked in the capsule but resolved outbound', () => {
+    const SECRET = 'p@ss-SECRET';
+    const e = env([{ key: 'pw', value: SECRET, secret: true }]);
+    const r = authReq({ kind: 'basic', username: 'ada', password: '{{pw}}' });
+    expect(interpolateRequest(r, e).auth?.password).toBe(SECRET);
+    const masked = maskSecretsForCapsule(r, e);
+    expect(masked.auth?.password).toBe('{{pw}}');
+    expect(JSON.stringify(masked)).not.toContain(SECRET);
+  });
+
+  it('findUnresolvedVariables scans auth fields when present', () => {
+    const e = env([{ key: 'known', value: 'x', secret: false }]);
+    const r = authReq({
+      kind: 'apiKey',
+      apiKeyHeader: '{{known}}',
+      apiKeyValue: '{{missingAuthVar}}',
+    });
+    expect(findUnresolvedVariables(r, e)).toEqual(['missingAuthVar']);
+  });
+
+  it('findResolvedVariables scans auth fields when present', () => {
+    const e = env([
+      { key: 'token', value: 'x', secret: true },
+      { key: 'unused', value: 'y', secret: false },
+    ]);
+    const r = authReq({ kind: 'bearer', token: '{{token}}' });
+    expect(findResolvedVariables(r, e)).toEqual(['token']);
+  });
+
+  it('does NOT scan auth fields for kind none', () => {
+    const r = authReq({ kind: 'none', token: '{{ghost}}' });
+    expect(findUnresolvedVariables(r, null)).toEqual([]);
   });
 });
 
@@ -332,11 +449,31 @@ describe('parseHttpEnvironment', () => {
       updatedAt: '2026-06-16T00:00:00.000Z',
     });
     expect(parsed).not.toBeNull();
-    expect(parsed?.variables[0]).toEqual({
+    expect(parsed?.variables[0]).toMatchObject({
       key: 'host',
       value: 'x',
       secret: true,
     });
+    // Slice 3b — a row with no `id` is backfilled with a fresh UUID.
+    expect(typeof parsed?.variables[0]?.id).toBe('string');
+    expect(parsed?.variables[0]?.id.length).toBeGreaterThan(0);
+  });
+
+  it('keeps a non-empty persisted variable id, backfills a missing one', () => {
+    const parsed = parseHttpEnvironment({
+      version: 1,
+      id: 'e1',
+      name: 'Prod',
+      variables: [
+        { id: 'keep-me', key: 'a', value: '1', secret: false },
+        { key: 'b', value: '2', secret: false },
+      ],
+      createdAt: '2026-06-16T00:00:00.000Z',
+      updatedAt: '2026-06-16T00:00:00.000Z',
+    });
+    expect(parsed?.variables[0]?.id).toBe('keep-me');
+    expect(parsed?.variables[1]?.id).toBeTruthy();
+    expect(parsed?.variables[1]?.id).not.toBe('keep-me');
   });
 
   it('rejects a wrong version', () => {
@@ -366,7 +503,14 @@ describe('parseHttpEnvironment', () => {
       createdAt: 'a',
       updatedAt: 'b',
     });
-    expect(parsed?.variables).toEqual([
+    // Ignore the backfilled opaque ids — assert on the semantic fields.
+    expect(
+      parsed?.variables.map((v) => ({
+        key: v.key,
+        value: v.value,
+        secret: v.secret,
+      }))
+    ).toEqual([
       { key: 'ok', value: 'v', secret: false },
       { key: 'noSecretFlag', value: 'v', secret: false },
     ]);
@@ -396,5 +540,108 @@ describe('createBlankHttpEnvironment', () => {
       createdAt: '2026-06-16T00:00:00.000Z',
       updatedAt: '2026-06-16T00:00:00.000Z',
     });
+  });
+});
+
+describe('createEnvVariable (RL-097 Slice 3b)', () => {
+  it('mints a fresh id and carries the fields through', () => {
+    const a = createEnvVariable({ key: 'k', value: 'v', secret: true });
+    const b = createEnvVariable({ key: 'k', value: 'v', secret: true });
+    expect(a).toMatchObject({ key: 'k', value: 'v', secret: true });
+    expect(typeof a.id).toBe('string');
+    expect(a.id.length).toBeGreaterThan(0);
+    expect(a.id).not.toBe(b.id); // unique per call
+  });
+});
+
+describe('looksSecret (RL-097 Slice 3b)', () => {
+  it('matches token-like keys (suffix + whole-word, case-insensitive)', () => {
+    for (const key of [
+      'API_TOKEN',
+      'api_token',
+      'TOKEN',
+      'token',
+      'STRIPE_SECRET_KEY',
+      'apiKey',
+      'API_KEY',
+      'KEY',
+      'SECRET',
+      'client_secret',
+      'PASSWORD',
+      'password',
+      'DB_PASSWORD',
+    ]) {
+      expect(looksSecret(key)).toBe(true);
+    }
+  });
+
+  it('does NOT match non-secret keys (no false positives)', () => {
+    for (const key of [
+      'host',
+      'HOST',
+      'name',
+      'baseUrl',
+      'base_url',
+      'path',
+      'id',
+      'MONKEY', // KEY inside a word
+      'BROKER', // KER inside a word
+      'version',
+      '',
+    ]) {
+      expect(looksSecret(key)).toBe(false);
+    }
+  });
+});
+
+describe('toExportableEnvironment (RL-097 Slice 3b — privacy)', () => {
+  it('blanks secret values, keeps non-secret values, strips all ids', () => {
+    const e = env(
+      [
+        { key: 'host', value: 'api.example.com', secret: false },
+        { key: 'token', value: 'sk-live-EXPORTSECRET', secret: true },
+      ],
+      { id: 'env-local', name: 'Dev' }
+    );
+    const exported = toExportableEnvironment(e);
+    expect(exported).toEqual({
+      version: 1,
+      name: 'Dev',
+      variables: [
+        { key: 'host', value: 'api.example.com', secret: false },
+        // Secret value blanked; key + flag preserved.
+        { key: 'token', value: '', secret: true },
+      ],
+    });
+    // No env id, no variable ids, and absolutely no resolved secret value.
+    const json = JSON.stringify(exported);
+    expect(json).not.toContain('env-local');
+    expect(json).not.toContain('sk-live-EXPORTSECRET');
+    expect('id' in exported).toBe(false);
+    for (const v of exported.variables) {
+      expect('id' in v).toBe(false);
+    }
+  });
+
+  it('round-trips through parseHttpEnvironment (re-pinned id + timestamps), secret value stays blank', () => {
+    const e = env([{ key: 'token', value: 'sk-SECRET', secret: true }], {
+      name: 'Prod',
+    });
+    const exported = toExportableEnvironment(e);
+    // Mirror the store importer: layer a fresh id + timestamps onto the
+    // exported shape, then parse (which backfills variable ids).
+    const reparsed = parseHttpEnvironment({
+      ...exported,
+      id: 'fresh-id',
+      createdAt: '2026-06-16T00:00:00.000Z',
+      updatedAt: '2026-06-16T00:00:00.000Z',
+    });
+    expect(reparsed?.name).toBe('Prod');
+    expect(reparsed?.variables[0]).toMatchObject({
+      key: 'token',
+      value: '', // still blank — a shared secret is never carried
+      secret: true,
+    });
+    expect(reparsed?.variables[0]?.id).toBeTruthy();
   });
 });

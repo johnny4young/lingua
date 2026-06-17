@@ -37,6 +37,7 @@ import {
   type RunCapsuleV1,
 } from '../../shared/runCapsule';
 import {
+  composeRequestHeaders,
   isHeaderSensitive,
   type HttpRequestV1,
   type HttpResponseV1,
@@ -73,6 +74,16 @@ function mapResponseKindToCapsuleStatus(
  * Names round-trip; values for sensitive headers are replaced with
  * the literal `<redacted>` sentinel.
  *
+ * RL-097 Slice 3b — headers are composed via `composeRequestHeaders`, so
+ * the INJECTED Auth header (Authorization / API-key from the Auth sub-tab)
+ * is reflected in the capsule exactly as it is on the wire — matching the
+ * Copy-as-cURL builder. Defense in depth: when an environment is active
+ * the caller already passed a `maskSecretsForCapsule`-masked request, so a
+ * secret auth `{{token}}` is still a placeholder here; the injected
+ * `Authorization` value is ADDITIONALLY redacted to `<redacted>` because
+ * `Authorization` / `x-api-key` are baseline-sensitive. A resolved auth
+ * secret can therefore never reach the capsule by either path.
+ *
  * Headers are sorted lexicographically for content-hash stability:
  * two semantically-identical requests with different ordering must
  * produce the same hash.
@@ -84,8 +95,10 @@ function serializeRequestForCapsule(
   const lines: string[] = [];
   lines.push(`# Lingua HTTP request capsule v1`);
   lines.push(`${request.method} ${request.url}`);
-  const sortedHeaders = request.headers
-    .filter((h) => h.enabled && h.name.length > 0)
+  // `composeRequestHeaders` drops disabled / empty rows and appends the
+  // injected auth header (auth wins a name collision), matching the wire
+  // request the cURL builder prints.
+  const sortedHeaders = composeRequestHeaders(request)
     .map((h) => ({
       name: h.name,
       value: isHeaderSensitive(h.name, userSensitiveHeaders)

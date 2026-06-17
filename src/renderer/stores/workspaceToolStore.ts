@@ -34,7 +34,9 @@ import {
 } from '../../shared/httpWorkspace';
 import {
   parseHttpEnvironment,
+  toExportableEnvironment,
   type HttpEnvironmentV1,
+  type HttpEnvVariableV1,
 } from '../../shared/httpEnvironment';
 
 /**
@@ -126,6 +128,47 @@ interface WorkspaceToolState {
    * pin and bumps `updatedAt`. No-op on an unknown id.
    */
   updateEnvironment: (id: string, patch: Partial<HttpEnvironmentV1>) => void;
+  /**
+   * RL-097 Slice 3b — functional variable update. Apply `updater` to the
+   * environment's CURRENT variable list (read inside the `set`) and store
+   * the result. This is the collapse-safe path for the manager: two adds
+   * dispatched in one tick each see the prior add's result, so neither is
+   * lost (a render-prop-based `onUpdate({ variables: [...prop, row] })`
+   * would clobber the first). Bumps `updatedAt`, preserves version/id.
+   * No-op on an unknown id.
+   */
+  updateEnvironmentVariables: (
+    id: string,
+    updater: (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]
+  ) => void;
+  /**
+   * RL-097 Slice 3b — clone an environment. Deep-clones the variable rows
+   * with FRESH opaque ids (preserving key/value/secret), mints a new env
+   * id, names it `<original> <copySuffix>`, stamps fresh timestamps, and
+   * appends WITHOUT auto-activating (mirrors `duplicatePipeline`). No-op on
+   * an unknown id.
+   */
+  duplicateEnvironment: (
+    id: string,
+    newId: string,
+    copySuffix: string
+  ) => void;
+  /**
+   * RL-097 Slice 3b — serialise an environment to pretty JSON for sharing.
+   * PRIVACY: secret values are blanked and all instance-local ids stripped
+   * (see `toExportableEnvironment`). Returns null on an unknown id or a
+   * (practically impossible) serialise failure.
+   */
+  exportEnvironmentJson: (id: string) => string | null;
+  /**
+   * RL-097 Slice 3b — parse an exported environment JSON, mint a FRESH env
+   * id, append it WITHOUT auto-activating. Tolerates malformed JSON +
+   * invalid shapes (returns `{ ok: false }`). On success returns the new
+   * env id so the caller can select it if it wants.
+   */
+  importEnvironmentJson: (
+    json: string
+  ) => { ok: true; id: string } | { ok: false };
   /**
    * Drop an environment. If it was the active one, repoint
    * `activeEnvironmentId` to null (never to a different environment —
@@ -290,6 +333,91 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           next[idx] = updated;
           return { environments: next };
         }),
+
+      updateEnvironmentVariables: (id, updater) =>
+        set((state) => {
+          const idx = state.environments.findIndex((e) => e.id === id);
+          if (idx === -1) return state;
+          const existing = state.environments[idx];
+          if (!existing) return state;
+          const updated: HttpEnvironmentV1 = {
+            ...existing,
+            // `updater` reads the CURRENT list inside this `set`, so two
+            // adds in one tick compose instead of clobbering.
+            variables: updater(existing.variables),
+            version: 1,
+            id: existing.id,
+            updatedAt: new Date().toISOString(),
+          };
+          const next = state.environments.slice();
+          next[idx] = updated;
+          return { environments: next };
+        }),
+
+      duplicateEnvironment: (id, newId, copySuffix) =>
+        set((state) => {
+          const source = state.environments.find((e) => e.id === id);
+          if (!source) return state;
+          const now = new Date().toISOString();
+          const clone: HttpEnvironmentV1 = {
+            version: 1,
+            id: newId,
+            name:
+              source.name.length > 0
+                ? `${source.name} ${copySuffix}`
+                : copySuffix.trim(),
+            // Deep-clone rows with FRESH ids so the clone's drag reorder +
+            // React keys never collide with the original's rows. Secret
+            // flags + values are preserved (this is a local clone, not an
+            // export — `exportEnvironmentJson` is where secrets get blanked).
+            variables: source.variables.map((variable) => ({
+              ...variable,
+              id: crypto.randomUUID(),
+            })),
+            createdAt: now,
+            updatedAt: now,
+          };
+          // Append (do NOT auto-activate — mirrors createEnvironment).
+          return { environments: [...state.environments, clone] };
+        }),
+
+      exportEnvironmentJson: (id) => {
+        const env = get().environments.find((e) => e.id === id);
+        if (!env) return null;
+        try {
+          return JSON.stringify(toExportableEnvironment(env), null, 2);
+        } catch {
+          return null;
+        }
+      },
+
+      importEnvironmentJson: (json) => {
+        let raw: unknown;
+        try {
+          raw = JSON.parse(json);
+        } catch {
+          return { ok: false };
+        }
+        // parseHttpEnvironment requires id + timestamps; an exported blob
+        // strips them. Layer the importer's own fields on top so the strict
+        // parser still validates version/name/variables (and backfills each
+        // variable's opaque id), then re-pin a FRESH env id.
+        const newId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const candidate =
+          raw && typeof raw === 'object' && !Array.isArray(raw)
+            ? {
+                ...(raw as Record<string, unknown>),
+                id: newId,
+                createdAt: now,
+                updatedAt: now,
+              }
+            : raw;
+        const parsed = parseHttpEnvironment(candidate);
+        if (parsed === null) return { ok: false };
+        set((state) => ({ environments: [...state.environments, parsed] }));
+        return { ok: true, id: parsed.id };
+      },
 
       deleteEnvironment: (id) =>
         set((state) => {

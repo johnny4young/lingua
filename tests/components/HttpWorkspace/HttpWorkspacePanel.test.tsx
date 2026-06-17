@@ -306,6 +306,131 @@ describe('HttpWorkspacePanel', () => {
     expect(capsule.source.content).toContain('Authorization: <redacted>');
     expect(capsule.result.stdout ?? '').not.toContain(SECRET);
   });
+
+  // ---- RL-097 Slice 3b — Auth-tab interpolation is privacy-critical ----
+
+  it('PRIVACY: a secret in the AUTH Bearer field resolves OUTBOUND but never reaches the response/capsule', async () => {
+    const user = userEvent.setup();
+    const SECRET = 'sk-live-AUTHTABSECRET';
+    // Server echoes the secret back in the body — the scrubber must catch it.
+    executeHttpRequestMock.mockResolvedValue({
+      version: 1,
+      kind: 'success',
+      status: 200,
+      statusText: 'OK',
+      url: 'https://api.example.com/users',
+      finalUrl: 'https://api.example.com/users',
+      headers: [{ name: 'X-Echo', value: SECRET, redacted: false }],
+      body: `{"echo":"${SECRET}"}`,
+      contentType: 'application/json',
+      sizeBytes: 40,
+      durationMs: 5,
+      tooLarge: false,
+      redactedHeaders: [],
+      recordedAt: '2026-06-16T00:00:00.000Z',
+    });
+    useWorkspaceToolStore.setState({
+      environments: [
+        {
+          version: 1,
+          id: 'e1',
+          name: 'Dev',
+          variables: [{ id: 'r1', key: 'token', value: SECRET, secret: true }],
+          createdAt: '2026-06-16T00:00:00.000Z',
+          updatedAt: '2026-06-16T00:00:00.000Z',
+        },
+      ],
+      activeEnvironmentId: 'e1',
+    });
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-list-create'));
+    fireEvent.change(screen.getByTestId('http-request-editor-url'), {
+      target: { value: 'https://api.example.com/users' },
+    });
+    // Configure Bearer auth with the SECRET env token via the Auth sub-tab.
+    await user.click(screen.getByTestId('http-request-editor-tab-auth'));
+    fireEvent.change(screen.getByTestId('http-request-editor-auth-kind'), {
+      target: { value: 'bearer' },
+    });
+    fireEvent.change(
+      screen.getByTestId('http-request-editor-auth-bearer-token'),
+      { target: { value: '{{token}}' } }
+    );
+    const reqId = useWorkspaceToolStore.getState().requests[0]!.id;
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalledTimes(1));
+
+    // 1) OUTBOUND: the injected Authorization header DID carry the resolved
+    //    secret (it must, to authenticate). `composeRequestHeaders` runs on
+    //    the interpolated request, so the auth secret reaches the wire.
+    const sent = executeHttpRequestMock.mock.calls[0]?.[0];
+    expect(sent.auth?.token).toBe(SECRET);
+
+    // 2) RECORDED response: the echoed secret is scrubbed everywhere.
+    await waitFor(() => {
+      expect(
+        useWorkspaceToolStore.getState().responsesByRequestId[reqId]
+      ).toBeDefined();
+    });
+    const recorded =
+      useWorkspaceToolStore.getState().responsesByRequestId[reqId]![0]!;
+    expect(JSON.stringify(recorded)).not.toContain(SECRET);
+    expect(recorded.body).toContain('<redacted>');
+
+    // 3) CAPSULE: the masked request keeps the auth token as `{{token}}`,
+    //    and the Authorization header it derives is baseline-redacted. The
+    //    resolved secret appears NOWHERE in the capsule.
+    await waitFor(() => {
+      expect(useExecutionHistoryStore.getState().latestCapsule()).toBeDefined();
+    });
+    const capsule = useExecutionHistoryStore.getState().latestCapsule()!;
+    expect(JSON.stringify(capsule)).not.toContain(SECRET);
+    expect(capsule.source.content).toContain('Authorization: <redacted>');
+  });
+
+  it('BLOCKS the send when an AUTH field references an unbound variable', async () => {
+    const user = userEvent.setup();
+    // Active env that does NOT define {{token}}.
+    useWorkspaceToolStore.setState({
+      environments: [
+        {
+          version: 1,
+          id: 'e1',
+          name: 'Dev',
+          variables: [],
+          createdAt: '2026-06-16T00:00:00.000Z',
+          updatedAt: '2026-06-16T00:00:00.000Z',
+        },
+      ],
+      activeEnvironmentId: 'e1',
+    });
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-list-create'));
+    fireEvent.change(screen.getByTestId('http-request-editor-url'), {
+      target: { value: 'https://api.example.com/users' },
+    });
+    await user.click(screen.getByTestId('http-request-editor-tab-auth'));
+    fireEvent.change(screen.getByTestId('http-request-editor-auth-kind'), {
+      target: { value: 'bearer' },
+    });
+    fireEvent.change(
+      screen.getByTestId('http-request-editor-auth-bearer-token'),
+      { target: { value: '{{token}}' } }
+    );
+    const reqId = useWorkspaceToolStore.getState().requests[0]!.id;
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The unresolved auth var blocks the send — no fetch, nothing recorded.
+    expect(executeHttpRequestMock).not.toHaveBeenCalled();
+    expect(
+      useWorkspaceToolStore.getState().responsesByRequestId[reqId]
+    ).toBeUndefined();
+    expect(useWorkspaceToolStore.getState().isExecutingActive).toBe(false);
+  });
 });
 
 /**
