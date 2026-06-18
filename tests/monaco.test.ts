@@ -80,6 +80,7 @@ vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => monacoMock);
 vi.mock('monaco-editor/esm/vs/editor/editor.all.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/language/typescript/monaco.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/language/json/monaco.contribution.js', () => ({}));
+vi.mock('monaco-editor/esm/vs/basic-languages/sql/sql.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/basic-languages/javascript/javascript.js', () => basicLanguageModule);
 vi.mock('monaco-editor/esm/vs/basic-languages/typescript/typescript.js', () => basicLanguageModule);
 vi.mock('monaco-editor/esm/vs/basic-languages/go/go.js', () => basicLanguageModule);

@@ -11,6 +11,13 @@ import 'monaco-editor/esm/vs/editor/editor.all.js';
 // TypeScript contribution, not by the raw editor API surface.
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
 import 'monaco-editor/esm/vs/language/json/monaco.contribution.js';
+// RL-097 Slice 3 — the SQL workspace editor renders Monaco on the `sql`
+// language. SQL is a basic-language (Monarch tokenizer + language config),
+// so its contribution is imported eagerly here alongside JS/TS/JSON. It is
+// not routed through the lazy `registerLanguageOnce` registry because the
+// SQL workspace is not a file-backed editor tab — there is no
+// `LanguageSupportDescriptor` for it.
+import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution.js';
 
 // ── Workers ────────────────────────────────────────────────────────────────
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';

@@ -30,6 +30,26 @@ import {
   type RuntimeTimeoutPreset,
 } from '../../../shared/runtimeTimeoutPresets';
 
+/**
+ * RL-097 Slice 3 fold D — SQL query timeout presets (milliseconds). The
+ * setter clamps to [1s, 5min]; these are the surfaced choices. The label
+ * key per preset lives in `settings.editor.sqlWorkspace.queryTimeout.*`.
+ */
+const SQL_QUERY_TIMEOUT_PRESETS: ReadonlyArray<{
+  ms: number;
+  labelKey: string;
+}> = [
+  { ms: 5_000, labelKey: 'settings.editor.sqlWorkspace.queryTimeout.option5s' },
+  { ms: 15_000, labelKey: 'settings.editor.sqlWorkspace.queryTimeout.option15s' },
+  { ms: 30_000, labelKey: 'settings.editor.sqlWorkspace.queryTimeout.option30s' },
+  { ms: 60_000, labelKey: 'settings.editor.sqlWorkspace.queryTimeout.option60s' },
+  { ms: 300_000, labelKey: 'settings.editor.sqlWorkspace.queryTimeout.option5m' },
+];
+
+const SQL_ROW_DISPLAY_LIMITS: ReadonlyArray<100 | 500 | 1000 | 5000> = [
+  100, 500, 1000, 5000,
+];
+
 export function EditorSection() {
   const effectiveTier = useEffectiveTier();
   const canUseExtendedFonts = useEntitlement('FONT_PACK_EXTENDED');
@@ -113,6 +133,21 @@ export function EditorSection() {
   );
   const toggleDependencyDetectionEnabled = useSettingsStore(
     (state) => state.toggleDependencyDetectionEnabled
+  );
+  // RL-097 Slice 3 fold D — SQL workspace result-grid + execution
+  // defaults. The settings + clamped setters already exist (Slice 2);
+  // this section just surfaces them.
+  const sqlWorkspaceRowDisplayLimit = useSettingsStore(
+    (state) => state.sqlWorkspaceRowDisplayLimit
+  );
+  const setSqlWorkspaceRowDisplayLimit = useSettingsStore(
+    (state) => state.setSqlWorkspaceRowDisplayLimit
+  );
+  const sqlWorkspaceQueryTimeoutMs = useSettingsStore(
+    (state) => state.sqlWorkspaceQueryTimeoutMs
+  );
+  const setSqlWorkspaceQueryTimeoutMs = useSettingsStore(
+    (state) => state.setSqlWorkspaceQueryTimeoutMs
   );
   const { t } = useTranslation();
   // Slice 2 — ligatures auto-enable when the active font supports them.
@@ -642,6 +677,63 @@ export function EditorSection() {
           }
         />
       </SpecCard>
+      </SettingsSection>
+
+      {/* RL-097 Slice 3 fold D — SQL workspace defaults render as their
+          own sibling SettingsSection (mirrors the ThemePresetControls
+          sibling below) so the title + description label the row-display
+          limit + query-timeout controls, both bound to the (clamped)
+          settings actions shipped in Slice 2. */}
+      <SettingsSection
+        eyebrow={t('settings.editor.sqlWorkspace.title')}
+        description={t('settings.editor.sqlWorkspace.description')}
+      >
+        <SpecCard>
+          <SpecRow
+            label={t('settings.editor.sqlWorkspace.rowDisplayLimit.label')}
+            description={t('settings.editor.sqlWorkspace.rowDisplayLimit.hint')}
+            control={
+              <Select
+                value={sqlWorkspaceRowDisplayLimit}
+                onChange={(event) =>
+                  setSqlWorkspaceRowDisplayLimit(
+                    Number(event.target.value) as 100 | 500 | 1000 | 5000
+                  )
+                }
+                aria-label={t('settings.editor.sqlWorkspace.rowDisplayLimit.label')}
+                data-testid="settings-sql-row-display-limit"
+              >
+                {SQL_ROW_DISPLAY_LIMITS.map((limit) => (
+                  <option key={limit} value={limit}>
+                    {limit.toLocaleString()}
+                  </option>
+                ))}
+              </Select>
+            }
+          />
+
+          <SpecRow
+            label={t('settings.editor.sqlWorkspace.queryTimeout.label')}
+            description={t('settings.editor.sqlWorkspace.queryTimeout.hint')}
+            last
+            control={
+              <Select
+                value={sqlWorkspaceQueryTimeoutMs}
+                onChange={(event) =>
+                  setSqlWorkspaceQueryTimeoutMs(Number(event.target.value))
+                }
+                aria-label={t('settings.editor.sqlWorkspace.queryTimeout.label')}
+                data-testid="settings-sql-query-timeout"
+              >
+                {SQL_QUERY_TIMEOUT_PRESETS.map((preset) => (
+                  <option key={preset.ms} value={preset.ms}>
+                    {t(preset.labelKey)}
+                  </option>
+                ))}
+              </Select>
+            }
+          />
+        </SpecCard>
       </SettingsSection>
 
       {/* RL-095 Slice 1 (post-review refactor) — the Language Support

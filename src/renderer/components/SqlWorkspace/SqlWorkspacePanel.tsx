@@ -431,6 +431,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
               onPatch={handlePatch}
               onRun={handleRun}
               isExecuting={isExecuting}
+              tables={schemaTables}
               {...(insertSignal !== null ? { insertSignal } : {})}
             />
           ) : (

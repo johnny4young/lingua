@@ -67,6 +67,67 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
+// RL-097 Slice 3 — the SQL editor renders Monaco, which cannot mount in jsdom
+// (it touches `CSS.escape` + a real theme service). Stand in a controlled
+// `<textarea>` that keeps the `sql-query-editor-textarea` testid the panel
+// tests query, and routes a real Cmd/Ctrl+Enter keypress to the run command
+// captured from the host's `editor.addCommand`, so `{Meta>}{Enter}` still runs
+// the query through the same `onRunShortcut` path the production keybinding uses.
+vi.mock('@monaco-editor/react', () => {
+  // Bit layout that distinguishes the host's two chords (CtrlCmd|Enter vs
+  // Shift|Alt|KeyF). Only the values' uniqueness matters here.
+  const KeyMod = { CtrlCmd: 1 << 11, Shift: 1 << 10, Alt: 1 << 9 };
+  const KeyCode = { Enter: 3, KeyF: 36 };
+  const RUN_CHORD = KeyMod.CtrlCmd | KeyCode.Enter;
+
+  const MonacoEditor = ({
+    value,
+    onChange,
+    onMount,
+    options,
+  }: {
+    value: string;
+    onChange?: (value: string | undefined) => void;
+    onMount?: (editor: unknown, monaco: unknown) => void;
+    options?: { ariaLabel?: string };
+  }) => {
+    let runCommand: (() => void) | null = null;
+    const editor = {
+      getSelection: () => null,
+      getModel: () => ({ getValueInRange: () => '' }),
+      addCommand: (chord: number, callback: () => void) => {
+        if (chord === RUN_CHORD) runCommand = callback;
+      },
+      onDidDispose: () => {},
+    };
+    const monaco = {
+      KeyMod,
+      KeyCode,
+      editor: { defineTheme: () => {} },
+      languages: {
+        CompletionItemKind: { Struct: 5, Keyword: 17 },
+        registerCompletionItemProvider: () => ({ dispose: () => {} }),
+      },
+    };
+    onMount?.(editor, monaco);
+    return (
+      <textarea
+        data-testid="sql-query-editor-textarea"
+        aria-label={options?.ariaLabel}
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        onKeyDown={(event) => {
+          if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+            event.preventDefault();
+            runCommand?.();
+          }
+        }}
+      />
+    );
+  };
+  return { default: MonacoEditor, loader: { config: () => {} } };
+});
+
 // SQL/HTTP MODEL rework — the workspace-tab-close test drives the real
 // `editorStore.closeTab`, whose `removeTab` fires a fire-and-forget
 // `import('../runtime/notebookSession')` (lazy by design). That module

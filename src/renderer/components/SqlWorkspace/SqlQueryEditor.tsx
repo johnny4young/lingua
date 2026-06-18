@@ -1,23 +1,26 @@
 /**
- * RL-097 Slice 2 — Center column: edit the active SQL query
- * (textarea editor, Run, format) with auto-save + Cmd+Enter run
- * shortcut.
+ * RL-097 Slice 2 + Slice 3 — Center column: edit the active SQL query
+ * (Monaco editor on the `sql` language as of Slice 3, Run, format) with
+ * auto-save + Cmd+Enter run shortcut.
  *
  * Folds wired here:
  *
- *   - **A**: Cmd/Ctrl+Enter while focus is inside the query editor
- *     fires the Run handler. Mirrors the HTTP workspace `Cmd+Enter`
- *     muscle memory + the scratchpad run shortcut.
+ *   - **A** (Slice 2): Cmd/Ctrl+Enter fires the Run handler. As of
+ *     Slice 3 (fold E below) it runs the SELECTION when non-empty, else
+ *     the full query. Mirrors the HTTP workspace `Cmd+Enter` muscle
+ *     memory + the scratchpad run shortcut.
  *   - **B**: pretty-print SQL via `sql-formatter` (lazy-imported so
  *     the formatter ~30 KB chunk lands separately). Triggered by a
- *     button in the editor toolbar. Reformat on save would be too
- *     aggressive — single-action button keeps it intentional.
+ *     toolbar button OR Shift+Alt+F inside the editor (Slice 3 fold C).
+ *     Reformat on save would be too aggressive — explicit action only.
  *   - **D-mirror**: every keystroke debounced 500 ms auto-saves via
  *     `onPatch` — no explicit Save button. Mirrors HTTP Slice 1 fold D.
  *
- * Intentionally a plain `<textarea>` instead of Monaco — Slice 2
- * keeps the bundle weight focused on DuckDB-WASM (~7 MiB). A Monaco
- * SQL editor with IntelliSense is Slice 3+ territory.
+ * Slice 3 swaps the Slice 2 `<textarea>` for `<SqlMonacoEditor>` (folds
+ * A/B/C/E live in that host). The auto-save debounce, RQ-02 id-pinning,
+ * byte-cap, and schema-browser insert (via the controlled `value`) are
+ * preserved exactly — the editor's `text` state stays the source of
+ * truth and the Monaco host is fully controlled by it.
  */
 
 import { Loader2, Play, Wand2 } from 'lucide-react';
@@ -30,6 +33,8 @@ import {
   type SqlQueryV1,
 } from '../../../shared/sqlWorkspace';
 import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
+import { SqlMonacoEditor } from './SqlMonacoEditor';
+import type { SqlSchemaTable } from './SqlSchemaBrowser';
 
 export interface SqlQueryEditorProps {
   query: SqlQueryV1;
@@ -51,6 +56,12 @@ export interface SqlQueryEditorProps {
    * twice in a row — the changing nonce is what the effect keys on.
    */
   insertSignal?: { text: string; nonce: number };
+  /**
+   * Slice 3 fold A — live session tables, threaded from the panel's
+   * schema browser. Fed to the Monaco completion provider so table names
+   * autocomplete. Empty until the user runs a `SHOW TABLES` refresh.
+   */
+  tables: ReadonlyArray<SqlSchemaTable>;
 }
 
 export function SqlQueryEditor({
@@ -59,10 +70,10 @@ export function SqlQueryEditor({
   onRun,
   isExecuting,
   insertSignal,
+  tables,
 }: SqlQueryEditorProps) {
   const { t } = useTranslation();
   const [text, setText] = useState<string>(query.query);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const lastInsertNonceRef = useRef<number>(insertSignal?.nonce ?? 0);
   const lastSavedRef = useRef<string>(query.query);
   const latestTextRef = useRef<string>(query.query);
@@ -111,8 +122,9 @@ export function SqlQueryEditor({
 
   // Schema-browser insert. Keyed on the signal nonce so re-inserting
   // the same table (identical text) still fires. Appends on a fresh
-  // line when the draft already has content, then focuses the textarea
-  // so the user can keep editing. The debounce effect picks up the
+  // line when the draft already has content. The append flows through
+  // `setText` → the controlled `value` prop → Monaco reconciles its
+  // model, so no editor ref is needed. The debounce effect picks up the
   // resulting `text` change and auto-saves.
   useEffect(() => {
     if (insertSignal === undefined) return;
@@ -126,7 +138,6 @@ export function SqlQueryEditor({
         ? insertSignal.text
         : `${trimmed}\n${insertSignal.text}`;
     });
-    textareaRef.current?.focus();
   }, [insertSignal]);
 
   useEffect(() => {
@@ -173,16 +184,32 @@ export function SqlQueryEditor({
     onRun({ ...query, query: text });
   }, [isExecuting, overCap, text, query, onPatch, onRun]);
 
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Cmd+Enter (macOS) / Ctrl+Enter (other) → Run.
-      const cmdOrCtrl = event.metaKey || event.ctrlKey;
-      if (cmdOrCtrl && event.key === 'Enter') {
-        event.preventDefault();
-        handleRun();
+  // Slice 3 fold E — Cmd/Ctrl+Enter inside the editor runs the SELECTION
+  // when it is non-empty, else the full query. The auto-save always
+  // flushes (and persists) the FULL `text` — never the selection — so a
+  // partial run never truncates the saved query. The toolbar Run button
+  // keeps calling `handleRun` (full query) unchanged.
+  const handleRunWithSelection = useCallback(
+    ({ selectedText }: { selectedText: string | null }) => {
+      if (isExecuting) return;
+      if (overCap) return;
+      // Flush the pending auto-save of the FULL text synchronously so the
+      // persisted query stays the whole buffer even on a selection run.
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
       }
+      if (text !== lastSavedRef.current) {
+        lastSavedRef.current = text;
+        onPatch(query.id, { query: text });
+      }
+      const runText =
+        selectedText !== null && selectedText.trim().length > 0
+          ? selectedText
+          : text;
+      onRun({ ...query, query: runText });
     },
-    [handleRun]
+    [isExecuting, overCap, text, query, onPatch, onRun]
   );
 
   // Fold B — pretty-print via sql-formatter. Lazy-import keeps the
@@ -270,15 +297,13 @@ export function SqlQueryEditor({
           </span>
         </button>
       </header>
-      <textarea
-        ref={textareaRef}
-        data-testid="sql-query-editor-textarea"
+      <SqlMonacoEditor
         value={text}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={handleKeyDown}
-        spellCheck={false}
-        placeholder={t('sqlWorkspace.editor.placeholder')}
-        className="min-h-0 flex-1 resize-none border-0 bg-bg-base px-3 py-2.5 font-mono text-[13px] leading-[1.7] text-fg-base placeholder:text-fg-subtle focus-visible:outline-none"
+        onChange={setText}
+        onRunShortcut={handleRunWithSelection}
+        onFormatShortcut={handleFormat}
+        tables={tables}
+        ariaLabel={t('sqlWorkspace.editor.ariaLabel')}
       />
     </div>
   );
