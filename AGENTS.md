@@ -175,7 +175,7 @@ built with a different public key.
 
 ```bash
 pnpm run dev:web:pro               # tier=pro, valid 30 days
-pnpm run dev:web:pro -- --tier team --days 7
+pnpm run dev:web:pro --tier team --days 7
 ```
 
 Copy the token printed in the terminal → open the running app →
@@ -196,8 +196,8 @@ paste into Settings → License.
 
 ```bash
 pnpm run dev:desktop:pro
-pnpm run dev:desktop:pro -- --tier team --days 7
-pnpm run dev:desktop:pro -- --sync-main --exit-after-ms 4000
+pnpm run dev:desktop:pro --tier team --days 7
+pnpm run dev:desktop:pro --sync-main --exit-after-ms 4000
 ```
 
 Copy the token printed in the terminal → open the running desktop app

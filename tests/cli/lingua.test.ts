@@ -64,6 +64,7 @@ describe('dispatch', () => {
     const code = await dispatch(['list', 'utilities', '--json'], io);
     expect(code).toBe(CLI_EXIT_CODES.ok);
     const parsed = JSON.parse(state.stdout) as { utilities: unknown[] };
-    expect(parsed.utilities).toHaveLength(6);
+    // RL-099 Slice 4 — 15 adapters after the vocabulary expansion.
+    expect(parsed.utilities).toHaveLength(15);
   });
 });

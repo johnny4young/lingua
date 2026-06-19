@@ -39,9 +39,9 @@
 
 /**
  * Closed enum of utility adapter ids. Add a new adapter here AND in
- * `registry.ts`. Mirrored on `update-server/src/telemetry.ts` for
- * future telemetry; Slice 1 does not surface the id on the wire (so
- * dropping an adapter never breaks the parity test).
+ * `registry.ts`. Telemetry deliberately does not surface adapter ids
+ * today; if a future slice does, mirror this enum on the update-server
+ * allowlist in the same change.
  */
 export const UTILITY_ADAPTER_IDS = [
   'json-format',
@@ -50,6 +50,19 @@ export const UTILITY_ADAPTER_IDS = [
   'url-parse',
   'regex-replace',
   'diff-text',
+  // RL-099 Slice 4 — adapter-vocabulary expansion. Core 4 transforms
+  // plus the folded-in timestamp / color / string-case / html-entity
+  // adapters. Each is a pure shared reimplementation (the shared layer
+  // cannot import the renderer helpers; mirrors the base64 precedent).
+  'hash',
+  'jwt-decode',
+  'url-encode',
+  'url-decode',
+  'timestamp',
+  'color-convert',
+  'string-case',
+  'html-entity-encode',
+  'html-entity-decode',
 ] as const;
 export type UtilityAdapterId = (typeof UTILITY_ADAPTER_IDS)[number];
 

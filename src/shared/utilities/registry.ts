@@ -17,11 +17,21 @@
  */
 
 import { base64DecodeAdapter, base64EncodeAdapter } from './base64';
+import { colorConvertAdapter } from './colorConvert';
 import { diffTextAdapter } from './diffText';
+import { hashAdapter } from './hash';
+import {
+  htmlEntityDecodeAdapter,
+  htmlEntityEncodeAdapter,
+} from './htmlEntity';
 import { jsonFormatAdapter } from './jsonFormat';
+import { jwtDecodeAdapter } from './jwtDecode';
 import { regexReplaceAdapter } from './regexReplace';
+import { stringCaseAdapter } from './stringCase';
+import { timestampAdapter } from './timestamp';
 import type { UtilityAdapter, UtilityAdapterId } from './types';
 import { urlParseAdapter } from './urlParse';
+import { urlDecodeAdapter, urlEncodeAdapter } from './urlComponent';
 
 // `as` is required because `Record<UtilityAdapterId, UtilityAdapter>`
 // is too narrow — each adapter has its own TOptions generic so the
@@ -36,6 +46,16 @@ export const UTILITY_ADAPTER_REGISTRY: Readonly<
   'url-parse': urlParseAdapter as UtilityAdapter<unknown>,
   'regex-replace': regexReplaceAdapter as UtilityAdapter<unknown>,
   'diff-text': diffTextAdapter as UtilityAdapter<unknown>,
+  // RL-099 Slice 4 — vocabulary expansion (core 4 + folds A/B/C/E).
+  hash: hashAdapter as UtilityAdapter<unknown>,
+  'jwt-decode': jwtDecodeAdapter as UtilityAdapter<unknown>,
+  'url-encode': urlEncodeAdapter as UtilityAdapter<unknown>,
+  'url-decode': urlDecodeAdapter as UtilityAdapter<unknown>,
+  timestamp: timestampAdapter as UtilityAdapter<unknown>,
+  'color-convert': colorConvertAdapter as UtilityAdapter<unknown>,
+  'string-case': stringCaseAdapter as UtilityAdapter<unknown>,
+  'html-entity-encode': htmlEntityEncodeAdapter as UtilityAdapter<unknown>,
+  'html-entity-decode': htmlEntityDecodeAdapter as UtilityAdapter<unknown>,
 };
 
 export function getAdapter(id: string): UtilityAdapter<unknown> | undefined {

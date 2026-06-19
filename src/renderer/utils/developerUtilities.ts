@@ -1,4 +1,12 @@
 import { parseInAnyBase } from './numberBase';
+// RL-099 Slice 4 fold F — URL component encode/decode live in the
+// shared utilities layer (the `url-encode` / `url-decode` pipeline
+// adapters) so the single-shot URL panel and the pipeline share one
+// implementation of the actual encode/decode call.
+import {
+  decodeUrlComponentSafe,
+  encodeUrlComponent,
+} from '../../shared/utilities/urlComponent';
 
 export interface JsonAnalysis {
   formatted: string | null;
@@ -153,28 +161,19 @@ export function decodeBase64(value: string): TransformResult {
 }
 
 export function encodeUrlComponentValue(value: string): string {
-  return encodeURIComponent(value);
+  return encodeUrlComponent(value);
 }
 
 export function decodeUrlComponentValue(value: string): TransformResult {
+  // Preserve the panel UX short-circuit: whitespace-only decodes to an
+  // empty string rather than echoing the spaces.
   if (!value.trim()) {
-    return {
-      value: '',
-      errorKey: null,
-    };
+    return { value: '', errorKey: null };
   }
-
-  try {
-    return {
-      value: decodeURIComponent(value),
-      errorKey: null,
-    };
-  } catch {
-    return {
-      value: null,
-      errorKey: 'utilities.tool.url.error',
-    };
-  }
+  const decoded = decodeUrlComponentSafe(value);
+  return decoded === null
+    ? { value: null, errorKey: 'utilities.tool.url.error' }
+    : { value: decoded, errorKey: null };
 }
 
 /**

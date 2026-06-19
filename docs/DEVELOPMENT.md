@@ -234,7 +234,7 @@ Both commands mint a throwaway dev public key + signed token, print the token to
 The desktop wrapper also forwards the managed-launcher flags you already use on `dev:desktop`:
 
 ```bash
-pnpm run dev:desktop:pro -- --sync-main --exit-after-ms 4000
+pnpm run dev:desktop:pro --sync-main --exit-after-ms 4000
 ```
 
 If you need the keypair + token as data for CI or a custom local workflow:

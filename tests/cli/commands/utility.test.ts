@@ -209,7 +209,7 @@ describe('runUtilityCommand', () => {
 });
 
 describe('runListUtilitiesCommand', () => {
-  it('lists all 6 adapter ids in plain mode', () => {
+  it('lists all 15 adapter ids in plain mode', () => {
     const { io, state } = createFakeIo();
     const code = runListUtilitiesCommand({ json: false, quiet: false }, io);
     expect(code).toBe(CLI_EXIT_CODES.ok);
@@ -219,6 +219,16 @@ describe('runListUtilitiesCommand', () => {
     expect(state.stdout).toContain('url-parse');
     expect(state.stdout).toContain('regex-replace');
     expect(state.stdout).toContain('diff-text');
+    // RL-099 Slice 4 — vocabulary expansion adapters.
+    expect(state.stdout).toContain('hash');
+    expect(state.stdout).toContain('jwt-decode');
+    expect(state.stdout).toContain('url-encode');
+    expect(state.stdout).toContain('url-decode');
+    expect(state.stdout).toContain('timestamp');
+    expect(state.stdout).toContain('color-convert');
+    expect(state.stdout).toContain('string-case');
+    expect(state.stdout).toContain('html-entity-encode');
+    expect(state.stdout).toContain('html-entity-decode');
   });
 
   it('emits a structured JSON list with --json', () => {
@@ -228,9 +238,12 @@ describe('runListUtilitiesCommand', () => {
     const parsed = JSON.parse(state.stdout) as {
       utilities: Array<{ id: string; inputKind: string; outputKind: string; optionKeys: string[] }>;
     };
-    expect(parsed.utilities).toHaveLength(6);
+    expect(parsed.utilities).toHaveLength(15);
     const jsonFormat = parsed.utilities.find((u) => u.id === 'json-format');
     expect(jsonFormat?.optionKeys).toEqual(['indent']);
+    // RL-099 Slice 4 — the hash adapter surfaces its algorithm option.
+    const hash = parsed.utilities.find((u) => u.id === 'hash');
+    expect(hash?.optionKeys).toEqual(['algorithm']);
   });
 
   it('--quiet emits nothing in plain mode', () => {

@@ -32,6 +32,11 @@ const UNRESOLVED = Symbol('unresolved');
 let cachedEndpoint: string | null | typeof UNRESOLVED = UNRESOLVED;
 let cachedKillSwitch: boolean | typeof UNRESOLVED = UNRESOLVED;
 let invalidEndpointWarned = false;
+// `var` is intentional here. Persistence migrations can emit telemetry during
+// a circular import while this module is still initializing; `var` avoids a TDZ
+// crash before `getSessionId()` gets its first lazy call.
+// eslint-disable-next-line no-var
+var cachedSessionId: string | null = null;
 
 /**
  * Reset the cached endpoint + kill-switch + warning flag. Test-only —
@@ -165,8 +170,6 @@ export async function emitTelemetryEvent(
   }
 }
 
-let cachedSessionId: string | null = null;
-
 /**
  * Session id is generated once per renderer launch and never persisted.
  * It is resolved lazily instead of as a top-level const because persist
@@ -209,7 +212,12 @@ export async function trackEvent(
   event: TelemetryEventName,
   properties: Record<string, string | number | boolean> = {}
 ): Promise<void> {
-  await emitTelemetryEvent(event, properties, resolveTelemetryBase());
+  try {
+    await emitTelemetryEvent(event, properties, resolveTelemetryBase());
+  } catch {
+    // Best-effort means best-effort even during circular module initialization
+    // (persist migrations can call this while telemetry caches are still in TDZ).
+  }
 }
 
 /**
