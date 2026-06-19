@@ -823,6 +823,15 @@ export interface SettingsState {
    * by the runtime regardless of this value.
    */
   sqlWorkspaceQueryTimeoutMs: number;
+  /**
+   * RL-097 Slice 3 (SQL OPFS) — opt into persisting the SQL workspace
+   * DuckDB database to this browser's OPFS so tables + rows survive a
+   * reload. Default `false` (the workspace is an in-memory scratchpad).
+   * The runtime falls back to in-memory whenever OPFS is unavailable,
+   * so a `true` value here is a *request*, not a guarantee. Takes effect
+   * on the next reload or via the Settings "Reconnect now" action.
+   */
+  sqlWorkspacePersistTables: boolean;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -981,6 +990,13 @@ export interface SettingsState {
    * and floors at 1 s; non-finite values reset to the 30 s default.
    */
   setSqlWorkspaceQueryTimeoutMs: (value: number) => void;
+  /**
+   * RL-097 Slice 3 (SQL OPFS) — toggle SQL workspace table persistence.
+   * Coerces non-boolean inputs to `false`. The change applies to the
+   * next DuckDB instantiate (reload or "Reconnect now"); the live engine
+   * is not migrated mid-session.
+   */
+  setSqlWorkspacePersistTables: (value: boolean) => void;
   /**
    * Apply a named keymap preset. Replaces `shortcutOverrides` with the
    * preset's bundle and stores the preset id. Unknown ids are ignored so

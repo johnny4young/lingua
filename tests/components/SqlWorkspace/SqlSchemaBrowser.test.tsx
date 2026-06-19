@@ -107,6 +107,64 @@ describe('SqlSchemaBrowser', () => {
     expect(screen.getAllByTestId('sql-schema-browser-table')).toHaveLength(2);
   });
 
+  it('renders the storage chip per mode (RL-097 Slice 3 OPFS)', () => {
+    // Persistent: opfs mode + a usage label.
+    const { rerender } = render(
+      <SqlSchemaBrowser
+        tables={[]}
+        isLoading={false}
+        onRefresh={vi.fn()}
+        onInsertTable={vi.fn()}
+        canInsert
+        storageMode="opfs"
+        persistRequested
+        storageUsageLabel="~5 MB"
+      />
+    );
+    const chip = screen.getByTestId('sql-schema-browser-storage');
+    expect(chip.getAttribute('data-storage-mode')).toBe('opfs');
+    expect(chip.textContent).toContain('Persistent');
+    expect(
+      screen.getByTestId('sql-schema-browser-storage-usage').textContent
+    ).toContain('~5 MB');
+
+    // In-memory by choice (persistence off): the neutral session label,
+    // and NO usage chip.
+    rerender(
+      <SqlSchemaBrowser
+        tables={[]}
+        isLoading={false}
+        onRefresh={vi.fn()}
+        onInsertTable={vi.fn()}
+        canInsert
+        storageMode="memory"
+        persistRequested={false}
+      />
+    );
+    expect(screen.getByTestId('sql-schema-browser-storage').textContent).toContain(
+      'this session'
+    );
+    expect(
+      screen.queryByTestId('sql-schema-browser-storage-usage')
+    ).toBeNull();
+
+    // In-memory but persistence WAS requested → "storage unavailable".
+    rerender(
+      <SqlSchemaBrowser
+        tables={[]}
+        isLoading={false}
+        onRefresh={vi.fn()}
+        onInsertTable={vi.fn()}
+        canInsert
+        storageMode="memory"
+        persistRequested
+      />
+    );
+    expect(screen.getByTestId('sql-schema-browser-storage').textContent).toContain(
+      'storage unavailable'
+    );
+  });
+
   it('fires onRefresh and disables the button while loading', async () => {
     const user = userEvent.setup();
     const onRefresh = vi.fn();

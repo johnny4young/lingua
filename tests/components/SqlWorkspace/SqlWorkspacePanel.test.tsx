@@ -150,6 +150,7 @@ beforeEach(() => {
   useSettingsStore.setState({
     sqlWorkspaceRowDisplayLimit: 1000,
     sqlWorkspaceQueryTimeoutMs: 30_000,
+    sqlWorkspacePersistTables: false,
   });
   useUIStore.setState({ statusNotice: null });
   __setDuckDbEngineFactoryForTests(() => Promise.resolve(happyPathEngine()));
@@ -318,6 +319,7 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
     useEditorStore.setState({ tabs: [], activeTabId: null });
     useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
     seedProLicense();
+    useSettingsStore.setState({ sqlWorkspacePersistTables: false });
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve(happyPathEngine())
     );
@@ -446,6 +448,18 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
     // esbuild-wasm transform under jsdom).
     expect(screen.getByTestId('sql-schema-browser')).toBeTruthy();
     expect(screen.getByTestId('sql-schema-browser-refresh')).toBeTruthy();
+  });
+
+  it('does not label a pending persistence toggle as unavailable before reconnect', () => {
+    useEditorStore.getState().addSqlTab();
+    useSettingsStore.setState({ sqlWorkspacePersistTables: true });
+    useWorkspaceSqlStore.getState().setStorageMode('memory', 'memory');
+
+    render(<SqlWorkspacePanel />);
+
+    const chip = screen.getByTestId('sql-schema-browser-storage');
+    expect(chip.textContent).toContain('this session');
+    expect(chip.textContent).not.toContain('storage unavailable');
   });
 
   it('duplicating a rail row clones the query in the store and selects the clone', async () => {

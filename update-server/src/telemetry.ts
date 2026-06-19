@@ -223,6 +223,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts. Parity test cross-imports
   // SQL_QUERY_STATUSES_SET and SQL_DURATION_BUCKETS_SET.
   'sql.query_executed',
+  // RL-097 Slice 3 (SQL OPFS) fold F — SQL workspace storage backing.
+  // Closed-enum `{ mode, requested }` (both ∈ SQL_STORAGE_MODES_SET)
+  // mirrored from src/shared/telemetry.ts. Parity test cross-imports
+  // SQL_STORAGE_MODES_SET.
+  'sql.storage_mode',
   // RL-099 Slice 1 fold F — utility pipeline execution. Closed-enum
   // `{ stepCount, status }` mirrored from src/shared/telemetry.ts.
   // Parity test cross-imports PIPELINE_RUN_STATUSES_SET.
@@ -401,6 +406,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'import.notebook_warnings_surfaced': ['warningKindCount', 'dominantKind'],
   // RL-097 Slice 2 fold F — mirror of src/shared/telemetry.ts.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
+  // RL-097 Slice 3 (SQL OPFS) fold F — mirror of src/shared/telemetry.ts.
+  'sql.storage_mode': ['mode', 'requested'],
   // RL-099 Slice 1 fold F — mirror of src/shared/telemetry.ts.
   'utility.pipeline_executed': ['stepCount', 'status'],
   // RL-039 Slice B fold B — mirror of src/shared/telemetry.ts.
@@ -856,6 +863,10 @@ export const SQL_DURATION_BUCKETS_SET = new Set([
   '<30s',
   '>=30s',
 ]);
+// RL-097 Slice 3 (SQL OPFS) fold F — mirror of SQL_STORAGE_MODES_SET.
+// Source of truth is `SQL_STORAGE_MODES` in
+// `src/shared/sqlWorkspace.ts`; parity test cross-imports it.
+export const SQL_STORAGE_MODES_SET = new Set(['opfs', 'memory']);
 // RL-099 Slice 1 fold F — mirror of PIPELINE_RUN_STATUSES_SET. Source
 // of truth lives in `src/shared/utilityPipeline.ts`; duplicated here
 // so the worker validator can stay free of renderer-only imports.
@@ -1489,6 +1500,12 @@ function isAllowedValue(
           typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
         );
       return false;
+    case 'sql.storage_mode':
+      return (
+        (key === 'mode' || key === 'requested') &&
+        typeof value === 'string' &&
+        SQL_STORAGE_MODES_SET.has(value)
+      );
     case 'utility.pipeline_executed':
       if (key === 'stepCount')
         return (

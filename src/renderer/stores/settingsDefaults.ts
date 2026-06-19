@@ -231,5 +231,8 @@ export function createInitialSettingsState() {
     // ceiling.
     sqlWorkspaceRowDisplayLimit: 1000,
     sqlWorkspaceQueryTimeoutMs: 30_000,
+    // RL-097 Slice 3 (SQL OPFS) — off by default; the SQL workspace is
+    // an in-memory scratchpad unless the user opts into persistence.
+    sqlWorkspacePersistTables: false,
   } satisfies Partial<SettingsState>;
 }

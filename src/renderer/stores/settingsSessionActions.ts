@@ -25,6 +25,7 @@ export function createSessionActions(
   | 'setSuppressTourAutoStart'
   | 'setSqlWorkspaceRowDisplayLimit'
   | 'setSqlWorkspaceQueryTimeoutMs'
+  | 'setSqlWorkspacePersistTables'
 > {
   return {
     setRestoreSessionMode: (mode) => set({ restoreSessionMode: mode }),
@@ -79,6 +80,14 @@ export function createSessionActions(
         const next = Math.min(Math.max(1_000, Math.floor(value)), 5 * 60 * 1000);
         if (state.sqlWorkspaceQueryTimeoutMs === next) return state;
         return { sqlWorkspaceQueryTimeoutMs: next };
+      }),
+    // RL-097 Slice 3 (SQL OPFS) — coerce to boolean so a stray
+    // localStorage value can't smuggle a non-boolean into the setting.
+    setSqlWorkspacePersistTables: (value) =>
+      set((state) => {
+        const next = value === true;
+        if (state.sqlWorkspacePersistTables === next) return state;
+        return { sqlWorkspacePersistTables: next };
       }),
   };
 }

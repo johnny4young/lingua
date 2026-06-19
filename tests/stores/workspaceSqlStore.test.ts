@@ -38,6 +38,15 @@ describe('useWorkspaceSqlStore', () => {
     expect(state.queries).toEqual([]);
     expect(state.activeQueryId).toBeNull();
     expect(state.isExecutingActive).toBe(false);
+    expect(state.storageMode).toBe('memory');
+    expect(state.storageRequestedMode).toBe('memory');
+  });
+
+  it('records resolved and requested SQL storage mode separately', () => {
+    useWorkspaceSqlStore.getState().setStorageMode('memory', 'opfs');
+    const state = useWorkspaceSqlStore.getState();
+    expect(state.storageMode).toBe('memory');
+    expect(state.storageRequestedMode).toBe('opfs');
   });
 
   it('createQuery prepends and sets active', () => {

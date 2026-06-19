@@ -12,10 +12,18 @@
  * resolve through `t()`.
  */
 
-import { ChevronDown, ChevronRight, Database, RefreshCw } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Cpu,
+  Database,
+  HardDrive,
+  RefreshCw,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
+import type { SqlStorageMode } from '../../../shared/sqlWorkspace';
 
 /**
  * One discovered session table. `columnCount` is optional — the
@@ -40,6 +48,24 @@ export interface SqlSchemaBrowserProps {
   onInsertTable: (name: string) => void;
   /** Whether a query is active to receive the inserted starter. */
   canInsert: boolean;
+  /**
+   * RL-097 Slice 3 (SQL OPFS) — resolved storage backing of the live
+   * DuckDB engine. Drives the storage chip below the header. Optional
+   * (defaults to `'memory'`) so isolated renders need not wire it; the
+   * panel always passes the live value.
+   */
+  storageMode?: SqlStorageMode;
+  /**
+   * Whether the user opted into persistence. Distinguishes "in-memory
+   * by choice" from "in-memory because OPFS is unavailable". Optional;
+   * defaults to `false`.
+   */
+  persistRequested?: boolean;
+  /**
+   * Fold C — approximate origin storage label (e.g. `~12 MB`), shown
+   * next to the persistent chip. `null` hides it.
+   */
+  storageUsageLabel?: string | null;
 }
 
 export function SqlSchemaBrowser({
@@ -48,9 +74,23 @@ export function SqlSchemaBrowser({
   onRefresh,
   onInsertTable,
   canInsert,
+  storageMode = 'memory',
+  persistRequested = false,
+  storageUsageLabel = null,
 }: SqlSchemaBrowserProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+
+  // RL-097 Slice 3 (SQL OPFS) — the chip label depends on BOTH the
+  // resolved mode and whether persistence was requested: in-memory while
+  // persistence was off is normal; in-memory while it was requested means
+  // OPFS was unavailable.
+  const storageLabelKey =
+    storageMode === 'opfs'
+      ? 'sqlWorkspace.storage.persistent'
+      : persistRequested
+        ? 'sqlWorkspace.storage.unavailable'
+        : 'sqlWorkspace.storage.memory';
 
   return (
     <section
@@ -99,6 +139,33 @@ export function SqlSchemaBrowser({
           />
         </button>
       </header>
+      {/* RL-097 Slice 3 (SQL OPFS) — storage-backing chip. Always
+          visible (even collapsed) so the persistence state is never
+          hidden. */}
+      <div
+        data-testid="sql-schema-browser-storage"
+        data-storage-mode={storageMode}
+        className="flex items-center gap-1.5 px-2.5 pb-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-fg-subtle"
+        aria-label={t('sqlWorkspace.storage.ariaLabel')}
+        title={t(storageLabelKey)}
+      >
+        {storageMode === 'opfs' ? (
+          <HardDrive size={10} aria-hidden="true" className="text-accent" />
+        ) : (
+          <Cpu size={10} aria-hidden="true" />
+        )}
+        <span className="min-w-0 truncate normal-case tracking-normal">
+          {t(storageLabelKey)}
+        </span>
+        {storageMode === 'opfs' && storageUsageLabel ? (
+          <span
+            data-testid="sql-schema-browser-storage-usage"
+            className="shrink-0 normal-case tracking-normal text-fg-muted"
+          >
+            · {storageUsageLabel}
+          </span>
+        ) : null}
+      </div>
       {collapsed ? null : (
         <div className="max-h-[34vh] overflow-y-auto px-1.5 pb-2">
           {tables.length === 0 ? (

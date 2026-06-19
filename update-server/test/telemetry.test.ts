@@ -33,6 +33,7 @@ import {
   HTTP_STATUS_BUCKETS_SET as WORKER_HTTP_STATUS_BUCKETS_SET,
   SQL_QUERY_STATUSES_SET as WORKER_SQL_QUERY_STATUSES_SET,
   SQL_DURATION_BUCKETS_SET as WORKER_SQL_DURATION_BUCKETS_SET,
+  SQL_STORAGE_MODES_SET as WORKER_SQL_STORAGE_MODES_SET,
   PIPELINE_RUN_STATUSES_SET as WORKER_PIPELINE_RUN_STATUSES_SET,
   IMPORTER_IDS_SET as WORKER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as WORKER_IMPORT_STATUSES_SET,
@@ -60,6 +61,7 @@ import {
   HTTP_STATUS_BUCKETS_SET as RENDERER_HTTP_STATUS_BUCKETS_SET,
   SQL_QUERY_STATUSES_SET as RENDERER_SQL_QUERY_STATUSES_SET,
   SQL_DURATION_BUCKETS_SET as RENDERER_SQL_DURATION_BUCKETS_SET,
+  SQL_STORAGE_MODES_SET as RENDERER_SQL_STORAGE_MODES_SET,
   PIPELINE_RUN_STATUSES_SET as RENDERER_PIPELINE_RUN_STATUSES_SET,
   IMPORTER_IDS_SET as RENDERER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as RENDERER_IMPORT_STATUSES_SET,
@@ -76,6 +78,10 @@ import {
   IMPORTER_IDS as RENDERER_IMPORTER_IDS,
   NOTEBOOK_WARNING_KINDS as RENDERER_NOTEBOOK_WARNING_KINDS,
 } from '../../src/shared/importers/types';
+// RL-097 Slice 3 (SQL OPFS) fold F — cross-import the canonical
+// SQL_STORAGE_MODES tuple so the 3-way parity check below catches drift
+// between the canonical list and either telemetry Set copy.
+import { SQL_STORAGE_MODES as CANONICAL_SQL_STORAGE_MODES } from '../../src/shared/sqlWorkspace';
 // RL-039 Slice B fold B — cross-import the canonical `RECIPE_RUN_STATUSES`
 // const tuple from the renderer source-of-truth (`lessonRunner.ts`).
 // The two `_SET` duplicates in `src/shared/telemetry.ts` +
@@ -1079,6 +1085,24 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       '<30s',
       '<5s',
       '>=30s',
+    ]);
+  });
+
+  it('SQL storage modes stay in sync (RL-097 Slice 3 fold F)', () => {
+    // Closed-enum parity for `sql.storage_mode.{mode,requested}`. The
+    // canonical source of truth is `SQL_STORAGE_MODES` in
+    // `src/shared/sqlWorkspace.ts`; both telemetry copies mirror it.
+    // 3-way check (worker ↔ renderer ↔ canonical) so adding a future
+    // backing (e.g. an IndexedDB fallback) must touch all three.
+    expect([...WORKER_SQL_STORAGE_MODES_SET].sort()).toEqual(
+      [...RENDERER_SQL_STORAGE_MODES_SET].sort()
+    );
+    expect([...WORKER_SQL_STORAGE_MODES_SET].sort()).toEqual(
+      [...CANONICAL_SQL_STORAGE_MODES].sort()
+    );
+    expect([...WORKER_SQL_STORAGE_MODES_SET].sort()).toEqual([
+      'memory',
+      'opfs',
     ]);
   });
 

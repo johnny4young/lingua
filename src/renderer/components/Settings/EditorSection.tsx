@@ -1,7 +1,19 @@
 import { useTranslation } from 'react-i18next';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useUIStore } from '../../stores/uiStore';
+import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { trackEvent } from '../../utils/telemetry';
+import { trackSqlStorageMode } from '../../hooks/sqlWorkspaceTelemetry';
+import {
+  clearPersistedSqlDatabase,
+  configureDuckDbPersistence,
+  flushAndReleaseDuckDbEngine,
+  getDuckDbEngine,
+  getResolvedSqlStorageMode,
+  getResolvedSqlStorageRequestMode,
+  isOpfsStorageAvailable,
+} from '../../runtime/duckdbClient';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import {
   DEFAULT_FONT_FAMILY,
@@ -149,6 +161,13 @@ export function EditorSection() {
   const setSqlWorkspaceQueryTimeoutMs = useSettingsStore(
     (state) => state.setSqlWorkspaceQueryTimeoutMs
   );
+  // RL-097 Slice 3 (SQL OPFS) — table-persistence toggle + actions.
+  const sqlWorkspacePersistTables = useSettingsStore(
+    (state) => state.sqlWorkspacePersistTables
+  );
+  const setSqlWorkspacePersistTables = useSettingsStore(
+    (state) => state.setSqlWorkspacePersistTables
+  );
   const { t } = useTranslation();
   // Slice 2 — ligatures auto-enable when the active font supports them.
   // Settings → Editor no longer surfaces a toggle.
@@ -163,6 +182,92 @@ export function EditorSection() {
       entitlement: 'execution-history',
       tier: effectiveTier,
     });
+  };
+
+  // RL-097 Slice 3 (SQL OPFS) — whether this browser exposes OPFS at
+  // all. When false the toggle still works (the runtime falls back to
+  // in-memory + notifies) but we surface an inline note so the user
+  // understands persistence won't take.
+  const opfsAvailable = isOpfsStorageAvailable();
+
+  // RL-097 Slice 3 (SQL OPFS) fold E — delete the persisted database.
+  // Destructive (drops every saved table + row), so it confirms first.
+  // `clearPersistedSqlDatabase` terminates the engine before removing
+  // the OPFS file. Reconnect immediately afterwards so the SQL panel chip
+  // reflects the fresh backing instead of staying stale until the next run.
+  const handleClearSqlData = () => {
+    if (
+      !window.confirm(
+        t('settings.editor.sqlWorkspace.persistTables.clearConfirm')
+      )
+    ) {
+      return;
+    }
+    void (async () => {
+      await clearPersistedSqlDatabase();
+      configureDuckDbPersistence(sqlWorkspacePersistTables);
+      try {
+        await getDuckDbEngine();
+      } catch (err) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'warning',
+          messageKey: 'sqlWorkspace.response.engineLoadFailedBand',
+          detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
+        });
+        return;
+      }
+      const resolved = getResolvedSqlStorageMode();
+      const requested = getResolvedSqlStorageRequestMode();
+      useWorkspaceSqlStore.getState().setStorageMode(resolved, requested);
+      trackSqlStorageMode(resolved, requested);
+      const fellBack = requested === 'opfs' && resolved === 'memory';
+      useUIStore.getState().pushStatusNotice({
+        tone: fellBack ? 'warning' : 'success',
+        messageKey: fellBack
+          ? 'sqlWorkspace.storage.unavailableNotice'
+          : 'settings.editor.sqlWorkspace.persistTables.cleared',
+      });
+    })();
+  };
+
+  // RL-097 Slice 3 (SQL OPFS) fold E — apply the persistence toggle to
+  // the live engine without a full reload. Terminating drops the current
+  // session's in-memory tables, so it confirms first. Re-instantiates,
+  // records the resolved mode (chip updates live), and fires the
+  // storage-mode telemetry for the new resolution.
+  const handleReconnectSql = () => {
+    if (
+      !window.confirm(
+        t('settings.editor.sqlWorkspace.persistTables.reconnectConfirm')
+      )
+    ) {
+      return;
+    }
+    void (async () => {
+      await flushAndReleaseDuckDbEngine();
+      configureDuckDbPersistence(sqlWorkspacePersistTables);
+      try {
+        await getDuckDbEngine();
+      } catch (err) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'warning',
+          messageKey: 'sqlWorkspace.response.engineLoadFailedBand',
+          detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
+        });
+        return;
+      }
+      const resolved = getResolvedSqlStorageMode();
+      const requested = getResolvedSqlStorageRequestMode();
+      useWorkspaceSqlStore.getState().setStorageMode(resolved, requested);
+      trackSqlStorageMode(resolved, requested);
+      const fellBack = requested === 'opfs' && resolved === 'memory';
+      useUIStore.getState().pushStatusNotice({
+        tone: fellBack ? 'warning' : 'success',
+        messageKey: fellBack
+          ? 'sqlWorkspace.storage.unavailableNotice'
+          : 'settings.editor.sqlWorkspace.persistTables.reconnected',
+      });
+    })();
   };
 
   const handleFontFamilyChange = (nextFontFamily: string) => {
@@ -715,7 +820,6 @@ export function EditorSection() {
           <SpecRow
             label={t('settings.editor.sqlWorkspace.queryTimeout.label')}
             description={t('settings.editor.sqlWorkspace.queryTimeout.hint')}
-            last
             control={
               <Select
                 value={sqlWorkspaceQueryTimeoutMs}
@@ -733,7 +837,52 @@ export function EditorSection() {
               </Select>
             }
           />
+
+          {/* RL-097 Slice 3 (SQL OPFS) — opt into persisting the DuckDB
+              database to OPFS. Off by default; the runtime falls back to
+              in-memory when OPFS is unavailable. Takes effect on the next
+              reload or via the Reconnect now action below. */}
+          <SpecRow
+            label={t('settings.editor.sqlWorkspace.persistTables.label')}
+            description={
+              opfsAvailable
+                ? t('settings.editor.sqlWorkspace.persistTables.hint')
+                : `${t('settings.editor.sqlWorkspace.persistTables.hint')} ${t('settings.editor.sqlWorkspace.persistTables.unavailable')}`
+            }
+            last
+            control={
+              <Toggle
+                value={sqlWorkspacePersistTables}
+                onChange={() =>
+                  setSqlWorkspacePersistTables(!sqlWorkspacePersistTables)
+                }
+                aria-label={t('settings.editor.sqlWorkspace.persistTables.label')}
+              />
+            }
+          />
         </SpecCard>
+
+        {/* RL-097 Slice 3 (SQL OPFS) folds E — apply the toggle to the
+            live engine without a reload, and wipe the persisted database.
+            Both are session-affecting, so each confirms first. */}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={handleReconnectSql}
+            data-testid="settings-sql-reconnect"
+          >
+            {t('settings.editor.sqlWorkspace.persistTables.reconnect')}
+          </button>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={handleClearSqlData}
+            data-testid="settings-sql-clear-data"
+          >
+            {t('settings.editor.sqlWorkspace.persistTables.clear')}
+          </button>
+        </div>
       </SettingsSection>
 
       {/* RL-095 Slice 1 (post-review refactor) — the Language Support

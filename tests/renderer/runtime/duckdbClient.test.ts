@@ -6,11 +6,19 @@
  * counting, sanitiseRowForJson for BigInt + Date + nested values.
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   __setDuckDbEngineFactoryForTests,
+  __setResolvedSqlStorageModeForTests,
+  applyDuckDbPersistence,
+  clearPersistedSqlDatabase,
+  configureDuckDbPersistence,
   countSqlStatements,
+  estimateOriginStorageBytes,
   executeQuery,
+  getResolvedSqlStorageMode,
+  getResolvedSqlStorageRequestMode,
+  isOpfsStorageAvailable,
   mapArrowTable,
   type ArrowTableLike,
   type DuckDbConnection,
@@ -19,6 +27,7 @@ import {
 import {
   MAX_RESULT_PREVIEW_BYTES,
   MAX_RESULT_ROWS,
+  OPFS_SQL_DB_PATH,
 } from '../../../src/shared/sqlWorkspace';
 
 function arrowTableFrom(
@@ -237,5 +246,114 @@ describe('executeQuery', () => {
     );
     const outcome = await executeQuery('SELECT 1; SELECT 2; SELECT 3;');
     expect(outcome.statementCount).toBe(3);
+  });
+});
+
+describe('OPFS persistence (RL-097 Slice 3)', () => {
+  it('stays in-memory when persistence is off (no open call)', async () => {
+    const open = vi.fn(async () => undefined);
+    const mode = await applyDuckDbPersistence({ open }, false, true);
+    expect(mode).toBe('memory');
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('stays in-memory when OPFS is unavailable (no open call)', async () => {
+    const open = vi.fn(async () => undefined);
+    const mode = await applyDuckDbPersistence({ open }, true, false);
+    expect(mode).toBe('memory');
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('opens the opfs database when persistence is on and OPFS available', async () => {
+    const open = vi.fn(async () => undefined);
+    const mode = await applyDuckDbPersistence({ open }, true, true);
+    expect(mode).toBe('opfs');
+    expect(open).toHaveBeenCalledTimes(1);
+    const cfg = open.mock.calls[0]![0] as {
+      path?: string;
+      accessMode?: number;
+      opfs?: { fileHandling?: string };
+    };
+    expect(cfg.path).toBe(OPFS_SQL_DB_PATH);
+    expect(cfg.accessMode).toBe(3); // DuckDBAccessMode.READ_WRITE
+    expect(cfg.opfs).toEqual({ fileHandling: 'auto' });
+  });
+
+  it('falls back to in-memory when the opfs open throws (cross-tab lock)', async () => {
+    const open = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('locked by another tab'))
+      .mockResolvedValueOnce(undefined);
+    const mode = await applyDuckDbPersistence({ open }, true, true);
+    expect(mode).toBe('memory');
+    // First call = opfs attempt; second = the defensive ':memory:' reopen.
+    expect(open).toHaveBeenCalledTimes(2);
+    const reopen = open.mock.calls[1]![0] as { path?: string };
+    expect(reopen.path).toBe(':memory:');
+  });
+
+  it('isOpfsStorageAvailable is false in jsdom (no navigator.storage.getDirectory)', () => {
+    expect(isOpfsStorageAvailable()).toBe(false);
+  });
+
+  it('estimateOriginStorageBytes returns null when the API is absent', async () => {
+    expect(await estimateOriginStorageBytes()).toBeNull();
+  });
+
+  it('configureDuckDbPersistence does not flip the resolved mode by itself', () => {
+    configureDuckDbPersistence(true);
+    // Preference captured for the NEXT instantiate; nothing resolved yet.
+    expect(getResolvedSqlStorageMode()).toBe('memory');
+    expect(getResolvedSqlStorageRequestMode()).toBe('memory');
+    configureDuckDbPersistence(false);
+  });
+
+  it('tracks the request that produced the resolved storage mode', () => {
+    __setResolvedSqlStorageModeForTests('memory', 'opfs');
+    expect(getResolvedSqlStorageMode()).toBe('memory');
+    expect(getResolvedSqlStorageRequestMode()).toBe('opfs');
+  });
+
+  it('issues CHECKPOINT after a successful query when persistent (fold A)', async () => {
+    const queries: string[] = [];
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve({
+        connect: async () => ({
+          query: async (sql: string) => {
+            queries.push(sql);
+            return { columns: [], rows: [], rowCount: 0, tooLarge: false };
+          },
+          close: async () => undefined,
+        }),
+        terminate: async () => undefined,
+      })
+    );
+    // Force the resolved mode AFTER the factory set (which resets it).
+    __setResolvedSqlStorageModeForTests('opfs');
+    await executeQuery('CREATE TABLE t AS SELECT 1');
+    expect(queries).toContain('CHECKPOINT');
+  });
+
+  it('does NOT issue CHECKPOINT when in-memory', async () => {
+    const queries: string[] = [];
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve({
+        connect: async () => ({
+          query: async (sql: string) => {
+            queries.push(sql);
+            return { columns: [], rows: [], rowCount: 0, tooLarge: false };
+          },
+          close: async () => undefined,
+        }),
+        terminate: async () => undefined,
+      })
+    );
+    __setResolvedSqlStorageModeForTests('memory');
+    await executeQuery('SELECT 1');
+    expect(queries).not.toContain('CHECKPOINT');
+  });
+
+  it('clearPersistedSqlDatabase resolves without throwing when OPFS unavailable', async () => {
+    await expect(clearPersistedSqlDatabase()).resolves.toBeUndefined();
   });
 });

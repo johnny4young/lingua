@@ -437,6 +437,14 @@ export const TELEMETRY_EVENTS = [
   // text, NO schema names, NO column names, NO row values reach the
   // wire. Mirrored on update-server with parity test.
   'sql.query_executed',
+  // RL-097 Slice 3 (SQL OPFS) fold F — SQL workspace storage backing.
+  // Fires once per session when the DuckDB engine first resolves its
+  // backing. Closed-enum `{ mode, requested }` where both ∈
+  // SQL_STORAGE_MODES_SET (`'opfs' / 'memory'`): `mode` is the resolved
+  // backing, `requested` is what the user opted into. NO database
+  // content, table names, or row values reach the wire. Mirrored on
+  // update-server with parity test.
+  'sql.storage_mode',
   // RL-099 Slice 1 fold F — utility pipeline execution. Fires once
   // per Run against a stored utility pipeline. Closed-enum
   // `{ stepCount, status }` where `stepCount` reuses
@@ -808,6 +816,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // ∈ SQL_DURATION_BUCKETS_SET. No query text, schema names, or row
   // values on the wire.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
+  // RL-097 Slice 3 (SQL OPFS) fold F — `mode` + `requested` ∈
+  // SQL_STORAGE_MODES_SET. No database content on the wire.
+  'sql.storage_mode': ['mode', 'requested'],
   // RL-099 Slice 1 fold F — `stepCount` ∈ DEPENDENCY_COUNT_BUCKETS_SET,
   // `status` ∈ PIPELINE_RUN_STATUSES_SET. No step contents, utility
   // ids, or input/output values on the wire.
@@ -1352,6 +1363,12 @@ export const SQL_QUERY_STATUSES_SET = new Set([
   'too-large',
   'engine-load-failed',
 ]);
+// RL-097 Slice 3 (SQL OPFS) fold F — closed enum for `mode` +
+// `requested` on `sql.storage_mode`. The renderer-side source of truth
+// is `SQL_STORAGE_MODES` in `src/shared/sqlWorkspace.ts`; duplicated
+// here so the validator stays in shared code without importing the
+// workspace module. Mirrored on update-server with parity test.
+export const SQL_STORAGE_MODES_SET = new Set(['opfs', 'memory']);
 // RL-097 Slice 2 fold F — closed enum for `durationBucket` on
 // `sql.query_executed`. Coarse-grained classes so dashboards group
 // by shape (fast / slow / very-slow) without leaking the exact
@@ -1951,6 +1968,13 @@ function isAllowedValue(
           typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
         );
       return false;
+    case 'sql.storage_mode':
+      // Both keys share the same closed enum.
+      return (
+        (key === 'mode' || key === 'requested') &&
+        typeof value === 'string' &&
+        SQL_STORAGE_MODES_SET.has(value)
+      );
     case 'utility.pipeline_executed':
       if (key === 'stepCount')
         return (

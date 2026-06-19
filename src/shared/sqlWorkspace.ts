@@ -89,6 +89,38 @@ export const MAX_RESULT_PREVIEW_BYTES = 256 * 1024;
 export const DEFAULT_QUERY_TIMEOUT_MS = 30_000;
 export const MAX_QUERY_TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * RL-097 Slice 3 (SQL OPFS) — where the persistent DuckDB database
+ * file lives in the origin's OPFS (Origin Private File System) when
+ * the user opts into table persistence. The `opfs://` protocol is
+ * understood natively by `@duckdb/duckdb-wasm`'s `db.open({ path })`.
+ * Single fixed name — one persistent database per origin; switching
+ * databases is out of scope for this slice.
+ */
+export const OPFS_SQL_DB_PATH = 'opfs://lingua-sql.db';
+
+/**
+ * RL-097 Slice 3 (SQL OPFS) — resolved storage backing of the live
+ * DuckDB session.
+ *
+ *   - `'opfs'`   — the database is persisted to OPFS; tables + rows
+ *                  survive a reload / app restart.
+ *   - `'memory'` — the database lives only in the worker heap and is
+ *                  discarded on reload. This is the default and the
+ *                  fallback whenever persistence is off or OPFS is
+ *                  unavailable (old Safari, private mode, a cross-tab
+ *                  lock, or an `open` failure).
+ *
+ * This is the *resolved* mode, not the user's *requested* preference:
+ * a user who toggled persistence on but whose browser lacks OPFS
+ * resolves to `'memory'`. The renderer compares requested vs resolved
+ * to surface a "storage unavailable" hint.
+ */
+export type SqlStorageMode = 'opfs' | 'memory';
+
+/** Closed enum of {@link SqlStorageMode} values — source of truth. */
+export const SQL_STORAGE_MODES: readonly SqlStorageMode[] = ['opfs', 'memory'];
+
 /** UTF-8 byte count helper. Matches `utf8ByteLength` in httpWorkspace.ts. */
 export function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;

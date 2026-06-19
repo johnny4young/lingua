@@ -30,16 +30,37 @@ import {
 import {
   executeQuery,
   getDuckDbEngine,
+  configureDuckDbPersistence,
+  getResolvedSqlStorageMode,
+  getResolvedSqlStorageRequestMode,
+  flushAndReleaseDuckDbEngine,
+  estimateOriginStorageBytes,
   type DuckDbEngineHandle,
 } from '../../runtime/duckdbClient';
 import { buildSqlResponseCapsule } from '../../runtime/sqlResponseCapsule';
-import { trackSqlQueryExecuted } from '../../hooks/sqlWorkspaceTelemetry';
+import {
+  trackSqlQueryExecuted,
+  trackSqlStorageMode,
+} from '../../hooks/sqlWorkspaceTelemetry';
 import { buildSelectStarter } from './sqlResultFormatters';
 import { EmptyState } from '../ui/EmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
 import { SqlResultPreview } from './SqlResultPreview';
 import { SqlSchemaBrowser, type SqlSchemaTable } from './SqlSchemaBrowser';
+
+/**
+ * RL-097 Slice 3 (SQL OPFS) fold C — compact, locale-agnostic byte
+ * label (`~5 MB`). Origin-wide storage estimate, hence the leading `~`.
+ * Numbers only; the surrounding copy is translated.
+ */
+function formatApproxStorage(bytes: number): string {
+  if (bytes < 1024) return `~${bytes} B`;
+  if (bytes < 1024 * 1024) return `~${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `~${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `~${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
 
 export interface SqlWorkspacePanelProps {
   /**
@@ -86,6 +107,23 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   );
   const queryTimeoutMs = useSettingsStore(
     (state) => state.sqlWorkspaceQueryTimeoutMs
+  );
+  // RL-097 Slice 3 (SQL OPFS) — the user's persistence preference,
+  // applied to the DuckDB engine on mount (before the eager-load).
+  const persistTables = useSettingsStore(
+    (state) => state.sqlWorkspacePersistTables
+  );
+
+  // RL-097 Slice 3 (SQL OPFS) — the RESOLVED storage backing lives in
+  // the store so the chip stays live when Settings "Reconnect now"
+  // re-resolves the engine. The approximate origin-storage label
+  // (fold C) is panel-local and recomputed when the mode flips.
+  const storageMode = useWorkspaceSqlStore((state) => state.storageMode);
+  const storageRequestedMode = useWorkspaceSqlStore(
+    (state) => state.storageRequestedMode
+  );
+  const [storageUsageLabel, setStorageUsageLabel] = useState<string | null>(
+    null
   );
 
   // Schema/table browser — session-scoped DuckDB table introspection.
@@ -384,10 +422,76 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // load in the background so the user's first Run isn't a 7 MiB
   // cold-boot wait. Fire-and-forget; failures surface on the Run
   // path. Only fires once per session.
+  //
+  // RL-097 Slice 3 (SQL OPFS) — capture the persistence preference
+  // BEFORE the engine instantiates so the factory opens the `opfs://`
+  // database when requested. After it resolves, reflect the actual
+  // backing in the chip, fire the storage-mode telemetry once (fold F),
+  // surface a notice if persistence was requested but unavailable
+  // (fold D), and compute the approximate storage label (fold C).
+  // `persistTables` is read once at mount; flipping the toggle takes
+  // effect on the next reload or via Settings "Reconnect now".
   useEffect(() => {
-    void getDuckDbEngine().catch(() => {
-      /* swallow — user-visible retry happens via Run path */
+    configureDuckDbPersistence(persistTables);
+    let cancelled = false;
+    void getDuckDbEngine()
+      .then(() => {
+        if (cancelled) return;
+        const resolved = getResolvedSqlStorageMode();
+        const requested = getResolvedSqlStorageRequestMode();
+        useWorkspaceSqlStore.getState().setStorageMode(resolved, requested);
+        trackSqlStorageMode(resolved, requested);
+        if (requested === 'opfs' && resolved === 'memory') {
+          useUIStore.getState().pushStatusNotice({
+            tone: 'warning',
+            messageKey: 'sqlWorkspace.storage.unavailableNotice',
+          });
+        }
+      })
+      .catch(() => {
+        /* swallow — user-visible retry happens via Run path */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Mount-once: the engine is a session singleton and `persistTables`
+    // is intentionally captured at mount (see comment above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // RL-097 Slice 3 (SQL OPFS) fold C — recompute the approximate
+  // origin-storage label whenever the resolved backing becomes
+  // persistent (including after a Settings "Reconnect now"). Origin-wide
+  // estimate, hence approximate. No synchronous reset on the non-opfs
+  // branch: the chip only renders the label while `storageMode === 'opfs'`,
+  // so a stale value is never visible, and the recompute refreshes it the
+  // next time the engine resolves to OPFS.
+  useEffect(() => {
+    if (storageMode !== 'opfs') return;
+    let cancelled = false;
+    void estimateOriginStorageBytes().then((bytes) => {
+      if (!cancelled) {
+        setStorageUsageLabel(bytes === null ? null : formatApproxStorage(bytes));
+      }
     });
+    return () => {
+      cancelled = true;
+    };
+  }, [storageMode]);
+
+  // RL-097 Slice 3 (SQL OPFS) fold B — flush + release the engine on
+  // page teardown so OPFS sync-access handles release cleanly and the
+  // next session/tab re-opens without a stale-lock fallback. Durability
+  // does not depend on this (fold A checkpoints every write); this is
+  // hygiene. `pagehide` fires on tab close + bfcache navigation.
+  useEffect(() => {
+    const handlePageHide = () => {
+      void flushAndReleaseDuckDbEngine();
+    };
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, []);
 
   return (
@@ -421,6 +525,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
               onRefresh={() => void handleRefreshTables()}
               onInsertTable={handleInsertTable}
               canInsert={activeQuery !== undefined}
+              storageMode={storageMode}
+              persistRequested={storageRequestedMode === 'opfs'}
+              storageUsageLabel={storageUsageLabel}
             />
           </div>
         </Panel>

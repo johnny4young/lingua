@@ -38,9 +38,11 @@ import {
   MAX_RESULT_ROWS,
   DEFAULT_QUERY_TIMEOUT_MS,
   MAX_QUERY_TIMEOUT_MS,
+  OPFS_SQL_DB_PATH,
   utf8ByteLength,
   type SqlColumnMetadata,
   type SqlQueryStatus,
+  type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +105,218 @@ export type DuckDbEngineFactory = () => Promise<DuckDbEngineHandle>;
 let cachedEngine: Promise<DuckDbEngineHandle> | null = null;
 let activeFactory: DuckDbEngineFactory | null = null;
 
+// ---------------------------------------------------------------------------
+// RL-097 Slice 3 (SQL OPFS) — opt-in table persistence.
+//
+// The engine is a session singleton. The user's persistence preference
+// is captured into `desiredPersistence` BEFORE the first instantiate
+// (the panel calls `configureDuckDbPersistence` on mount); the factory
+// reads it once and resolves the actual backing into
+// `resolvedStorageMode`. Changing the toggle therefore takes effect on
+// the next reload — or immediately after `flushAndReleaseDuckDbEngine`
+// drops the singleton (the Settings "Reconnect now" action, fold E).
+// ---------------------------------------------------------------------------
+
+/** The user's requested persistence preference, applied on next instantiate. */
+let desiredPersistence = false;
+/** The backing the live (or last) engine actually resolved to. */
+let resolvedStorageMode: SqlStorageMode = 'memory';
+/** The storage backing requested when the live (or last) engine resolved. */
+let resolvedStorageRequestedMode: SqlStorageMode = 'memory';
+
+/**
+ * `DuckDBAccessMode.READ_WRITE` — numeric value from the
+ * `@duckdb/duckdb-wasm` binding enum (UNDEFINED=0, AUTOMATIC=1,
+ * READ_ONLY=2, READ_WRITE=3). Inlined so the persistence helper does
+ * not force the lazy `duckdb-wasm` chunk into the main bundle just to
+ * read one constant.
+ */
+const DUCKDB_ACCESS_MODE_READ_WRITE = 3;
+
+/**
+ * OPFS file names DuckDB may create for the persistent database — the
+ * database file plus its write-ahead-log sidecar. Derived from
+ * `OPFS_SQL_DB_PATH` minus the `opfs://` protocol prefix. Used by the
+ * clear-data action to remove every artifact.
+ */
+const OPFS_SQL_DB_FILE_NAMES: readonly string[] = (() => {
+  const base = OPFS_SQL_DB_PATH.replace(/^opfs:\/\//, '');
+  return [base, `${base}.wal`];
+})();
+
+/** Minimal `db.open` surface the persistence helper depends on. */
+interface DuckDbOpenable {
+  open: (config: {
+    path?: string;
+    accessMode?: number;
+    opfs?: { fileHandling?: 'auto' | 'manual' };
+  }) => Promise<void>;
+}
+
+/**
+ * Set the persistence preference for the NEXT engine instantiate. A
+ * no-op against an already-running engine — the caller reloads or calls
+ * `flushAndReleaseDuckDbEngine` to re-resolve. Idempotent.
+ */
+export function configureDuckDbPersistence(persist: boolean): void {
+  desiredPersistence = persist === true;
+}
+
+/** The storage backing of the live (or most recently resolved) engine. */
+export function getResolvedSqlStorageMode(): SqlStorageMode {
+  return resolvedStorageMode;
+}
+
+/** The storage backing requested for the live (or most recently resolved) engine. */
+export function getResolvedSqlStorageRequestMode(): SqlStorageMode {
+  return resolvedStorageRequestedMode;
+}
+
+/**
+ * Whether this environment exposes OPFS. The presence of
+ * `navigator.storage.getDirectory` on the main thread is a reliable
+ * proxy for the worker-side sync-access-handle support DuckDB needs;
+ * the actual `db.open` is still wrapped in a fallback in case the
+ * handle acquisition fails at runtime (cross-tab lock, private mode).
+ */
+export function isOpfsStorageAvailable(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    typeof navigator.storage !== 'undefined' &&
+    typeof navigator.storage.getDirectory === 'function'
+  );
+}
+
+/**
+ * Resolve the storage backing for a freshly-instantiated database.
+ * Pure decision + IO, extracted so tests can exercise every branch
+ * without standing up DuckDB:
+ *
+ *   - persistence off OR OPFS unavailable → `'memory'` (no `open`).
+ *   - persistence on + available → `db.open(opfs://…)`; `'opfs'` on
+ *     success.
+ *   - `open` throws (locked by another tab, quota, unsupported) →
+ *     best-effort reopen of an in-memory database, resolve `'memory'`.
+ *
+ * `instantiate` already leaves an in-memory database ready, so the
+ * `':memory:'` reopen is belt-and-suspenders against a half-open state
+ * from the throwing `open` — the workspace must never be left dead.
+ */
+export async function applyDuckDbPersistence(
+  db: DuckDbOpenable,
+  persist: boolean,
+  opfsAvailable: boolean
+): Promise<SqlStorageMode> {
+  if (!persist || !opfsAvailable) return 'memory';
+  try {
+    await db.open({
+      path: OPFS_SQL_DB_PATH,
+      accessMode: DUCKDB_ACCESS_MODE_READ_WRITE,
+      opfs: { fileHandling: 'auto' },
+    });
+    return 'opfs';
+  } catch {
+    try {
+      await db.open({ path: ':memory:' });
+    } catch {
+      /* the post-instantiate default is already in-memory */
+    }
+    return 'memory';
+  }
+}
+
+/**
+ * Terminate + drop the cached engine, resetting the resolved mode to
+ * the in-memory default. The next `getDuckDbEngine` re-instantiates and
+ * re-resolves persistence. Terminating also releases the OPFS sync
+ * access handle so the file can be removed or re-opened by another tab.
+ */
+async function terminateDuckDbEngine(): Promise<void> {
+  const pending = cachedEngine;
+  cachedEngine = null;
+  resolvedStorageMode = 'memory';
+  resolvedStorageRequestedMode = 'memory';
+  if (pending === null) return;
+  try {
+    const engine = await pending;
+    await engine.terminate();
+  } catch {
+    /* never resolved, or already terminated — nothing to release */
+  }
+}
+
+/**
+ * Fold B — flush + release on app/tab teardown (or the Settings
+ * "Reconnect now" action). Checkpoints first when persistent so the WAL
+ * lands in the OPFS file, then terminates so the handle releases
+ * cleanly and the next session/tab re-opens without a stale-lock
+ * fallback. Durability does not depend on this completing — fold A
+ * already checkpoints after every write.
+ */
+export async function flushAndReleaseDuckDbEngine(): Promise<void> {
+  if (cachedEngine !== null && resolvedStorageMode === 'opfs') {
+    try {
+      const engine = await cachedEngine;
+      const connection = await engine.connect();
+      try {
+        await connection.query('CHECKPOINT');
+      } finally {
+        await connection.close();
+      }
+    } catch {
+      /* best-effort — page may be unloading */
+    }
+  }
+  await terminateDuckDbEngine();
+}
+
+/**
+ * Delete the persisted DuckDB database from OPFS. Releases the engine
+ * first (it holds an exclusive sync-access handle that would block
+ * `removeEntry`), then removes the database file + WAL sidecar. The
+ * next `getDuckDbEngine` re-instantiates; re-opening the (now absent)
+ * OPFS path yields a fresh empty database. Idempotent — a missing file
+ * is swallowed.
+ */
+export async function clearPersistedSqlDatabase(): Promise<void> {
+  await terminateDuckDbEngine();
+  if (!isOpfsStorageAvailable()) return;
+  try {
+    const root = await navigator.storage.getDirectory();
+    for (const name of OPFS_SQL_DB_FILE_NAMES) {
+      try {
+        await root.removeEntry(name);
+      } catch {
+        /* NotFoundError — never existed; idempotent */
+      }
+    }
+  } catch {
+    /* getDirectory failed — nothing to clear */
+  }
+}
+
+/**
+ * Fold C — approximate origin storage in use, in bytes, via
+ * `navigator.storage.estimate()`. This is ORIGIN-WIDE (OPFS + caches +
+ * IndexedDB + localStorage), not the database file alone, so the UI
+ * labels it as approximate. Returns `null` when the API is absent.
+ */
+export async function estimateOriginStorageBytes(): Promise<number | null> {
+  if (
+    typeof navigator === 'undefined' ||
+    typeof navigator.storage === 'undefined' ||
+    typeof navigator.storage.estimate !== 'function'
+  ) {
+    return null;
+  }
+  try {
+    const { usage } = await navigator.storage.estimate();
+    return typeof usage === 'number' ? usage : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Test seam: swap the engine factory + reset the cached singleton.
  * The production code never calls this; vitest cases call it from
@@ -113,6 +327,21 @@ export function __setDuckDbEngineFactoryForTests(
 ): void {
   activeFactory = factory;
   cachedEngine = null;
+  resolvedStorageMode = 'memory';
+  resolvedStorageRequestedMode = 'memory';
+  desiredPersistence = false;
+}
+
+/**
+ * Test seam — force the resolved storage mode so the CHECKPOINT-on-write
+ * path (fold A) can be exercised without a real OPFS-backed engine.
+ */
+export function __setResolvedSqlStorageModeForTests(
+  mode: SqlStorageMode,
+  requestedMode: SqlStorageMode = mode
+): void {
+  resolvedStorageMode = mode;
+  resolvedStorageRequestedMode = requestedMode;
 }
 
 /**
@@ -224,6 +453,20 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
     // completes; revoking frees the duplicated WASM bytes.
     revokeWasmUrl?.();
     revokeWasmUrl = null;
+    // RL-097 Slice 3 (SQL OPFS) — resolve the storage backing. When the
+    // user opted into persistence and OPFS is available this opens the
+    // `opfs://` database so tables survive a reload; otherwise it stays
+    // in-memory. Failures fall back to in-memory inside the helper, so
+    // this never blocks the engine from coming up.
+    const requestedStorageMode: SqlStorageMode = desiredPersistence
+      ? 'opfs'
+      : 'memory';
+    resolvedStorageMode = await applyDuckDbPersistence(
+      db,
+      desiredPersistence,
+      isOpfsStorageAvailable()
+    );
+    resolvedStorageRequestedMode = requestedStorageMode;
     return {
       connect: async (): Promise<DuckDbConnection> => {
         const connection = await db.connect();
@@ -528,6 +771,18 @@ export async function executeQuery(
       };
     }
     const { columns, rows, rowCount, tooLarge } = raceResult;
+    // Fold A — flush the WAL to the OPFS database file so a hard reload
+    // or crash does not lose the writes from this statement. Best-effort
+    // on the same connection before it closes: a failed CHECKPOINT must
+    // never turn a successful query into an error, and it is a cheap
+    // no-op on a read-only (SELECT) session.
+    if (resolvedStorageMode === 'opfs') {
+      try {
+        await connection.query('CHECKPOINT');
+      } catch {
+        /* durability is best-effort; the query already succeeded */
+      }
+    }
     return {
       status: tooLarge ? 'too-large' : 'success',
       rows,

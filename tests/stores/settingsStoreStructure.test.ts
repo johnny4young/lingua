@@ -85,6 +85,7 @@ const EXPECTED_STORE_KEYS = [
   'setScratchpadAutoLogDefault',
   'setShortcutOverride',
   'setShowStatusBar',
+  'setSqlWorkspacePersistTables',
   'setSqlWorkspaceQueryTimeoutMs',
   'setSqlWorkspaceRowDisplayLimit',
   'setSuppressTourAutoStart',
@@ -99,6 +100,7 @@ const EXPECTED_STORE_KEYS = [
   'showTimeoutCountdown',
   'showVariableInspectorByDefault',
   'smartPasteDetectionEnabled',
+  'sqlWorkspacePersistTables',
   'sqlWorkspaceQueryTimeoutMs',
   'sqlWorkspaceRowDisplayLimit',
   'suppressTourAutoStart',
@@ -174,6 +176,7 @@ const STATE_FIELDS = new Set([
   'sensitiveHttpHeaders',
   'sqlWorkspaceRowDisplayLimit',
   'sqlWorkspaceQueryTimeoutMs',
+  'sqlWorkspacePersistTables',
 ]);
 
 /** The assembly point — must stay thin. */

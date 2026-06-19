@@ -292,6 +292,7 @@ export function settingsMerge(
     sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
+    sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // RL-097 S3 OPFS: coerce to boolean on rehydrate
     capsuleImportClipboardOnFocusConsent,
     importPreviewClipboardOnFocusConsent,
   };

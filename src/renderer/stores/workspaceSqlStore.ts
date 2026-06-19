@@ -22,9 +22,10 @@
  *   - Sanitize-on-rehydrate drops invalid entries silently so a
  *     hand-edited localStorage key or a forward-version drift
  *     cannot brick the panel on boot.
- *   - The DuckDB DATABASE itself is NOT persisted — only the query
- *     text + metadata + result preview. Reload always starts with
- *     a fresh in-memory database.
+ *   - The DuckDB database is in-memory by default; when the user opts
+ *     into SQL table persistence, DuckDB stores the database in OPFS.
+ *     Query text + metadata + result previews still persist through
+ *     this store, independently of the database backing.
  */
 
 import { create } from 'zustand';
@@ -35,6 +36,7 @@ import {
   parseSqlResponse,
   type SqlQueryV1,
   type SqlResponseV1,
+  type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
 
 /**
@@ -64,6 +66,22 @@ interface WorkspaceSqlState {
    * clean "no run in flight" state.
    */
   readonly isExecutingActive: boolean;
+  /**
+   * RL-097 Slice 3 (SQL OPFS) — the RESOLVED storage backing of the live
+   * DuckDB engine (`'opfs'` persistent / `'memory'` ephemeral). Held in
+   * the store (not local panel state) so the SQL panel chip stays live
+   * when Settings "Reconnect now" re-resolves the engine from another
+   * component. NOT persisted — re-resolved on each engine instantiate.
+   */
+  readonly storageMode: SqlStorageMode;
+  /**
+   * RL-097 Slice 3 (SQL OPFS) — the storage backing REQUESTED when the
+   * live DuckDB engine resolved. Kept separate from Settings because a
+   * just-toggled preference is pending until reload/reconnect; without
+   * this split the chip would mislabel "pending reconnect" as
+   * "storage unavailable".
+   */
+  readonly storageRequestedMode: SqlStorageMode;
 
   // -------- mutations ------------------------------------------------------
 
@@ -91,6 +109,11 @@ interface WorkspaceSqlState {
   clearHistory: (queryId: string) => void;
   /** Flip the execution flag (called by the panel layer). */
   setIsExecutingActive: (value: boolean) => void;
+  /** RL-097 Slice 3 (SQL OPFS) — record resolved + requested storage backing. */
+  setStorageMode: (
+    mode: SqlStorageMode,
+    requestedMode?: SqlStorageMode
+  ) => void;
 
   // -------- selectors (cheap derived data) ---------------------------------
 
@@ -107,13 +130,20 @@ interface WorkspaceSqlState {
  */
 function createInitialState(): Pick<
   WorkspaceSqlState,
-  'queries' | 'responsesByQueryId' | 'activeQueryId' | 'isExecutingActive'
+  | 'queries'
+  | 'responsesByQueryId'
+  | 'activeQueryId'
+  | 'isExecutingActive'
+  | 'storageMode'
+  | 'storageRequestedMode'
 > {
   return {
     queries: [],
     responsesByQueryId: {},
     activeQueryId: null,
     isExecutingActive: false,
+    storageMode: 'memory',
+    storageRequestedMode: 'memory',
   };
 }
 
@@ -228,6 +258,17 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
         set((state) =>
           state.isExecutingActive === value ? state : { isExecutingActive: value }
         ),
+      setStorageMode: (mode, requestedMode) =>
+        set((state) => {
+          const nextRequestedMode = requestedMode ?? state.storageRequestedMode;
+          if (
+            state.storageMode === mode &&
+            state.storageRequestedMode === nextRequestedMode
+          ) {
+            return state;
+          }
+          return { storageMode: mode, storageRequestedMode: nextRequestedMode };
+        }),
 
       getQuery: (id) => get().queries.find((q) => q.id === id),
       getLatestResponse: (id) => get().responsesByQueryId[id]?.[0],

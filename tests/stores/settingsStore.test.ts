@@ -363,6 +363,32 @@ describe('settingsStore', () => {
     );
   });
 
+  it('coerces a tampered sqlWorkspacePersistTables to a strict boolean on rehydrate (RL-097 Slice 3 OPFS)', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: { sqlWorkspacePersistTables: 'yes-please' },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(false);
+  });
+
+  it('setSqlWorkspacePersistTables coerces non-boolean input to false (RL-097 Slice 3 OPFS)', () => {
+    useSettingsStore.getState().setSqlWorkspacePersistTables(true);
+    expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(true);
+    // @ts-expect-error — exercising the runtime guard with a bad value.
+    useSettingsStore.getState().setSqlWorkspacePersistTables('on');
+    expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(false);
+  });
+
   it('mirrors telemetry consent through the preload bridge when the toggle changes', async () => {
     const consentSet = vi.fn().mockResolvedValue({ ok: true });
     window.lingua = {

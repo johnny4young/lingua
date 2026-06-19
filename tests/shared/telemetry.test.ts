@@ -268,6 +268,8 @@ describe('TELEMETRY_EVENTS', () => {
       // `SQL_DURATION_BUCKETS_SET`. Sorts between `share.opened` (sh)
       // and `template_project_applied` (te) alphabetically.
       'sql.query_executed',
+      // RL-097 Slice 3 (SQL OPFS) fold F — SQL workspace storage backing.
+      'sql.storage_mode',
       // RL-103 Slice 1 fold B — curated project template applied.
       // Closed-enum `{ templateId, language }` from
       // `TEMPLATE_PROJECT_IDS` + language pack id. Sorts between

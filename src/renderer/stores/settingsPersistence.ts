@@ -102,5 +102,7 @@ export function settingsPartialize(state: SettingsState) {
     // RL-097 Slice 2 — persist SQL workspace preferences.
     sqlWorkspaceRowDisplayLimit: state.sqlWorkspaceRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,
+    // RL-097 Slice 3 (SQL OPFS) — persist the table-persistence toggle.
+    sqlWorkspacePersistTables: state.sqlWorkspacePersistTables,
   };
 }

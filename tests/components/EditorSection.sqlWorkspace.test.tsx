@@ -65,6 +65,27 @@ describe('EditorSection — SQL workspace subsection (RL-097 Slice 3)', () => {
     expect(useSettingsStore.getState().sqlWorkspaceQueryTimeoutMs).toBe(60_000);
   });
 
+  it('renders the persist-tables toggle and flips the setting on click (RL-097 Slice 3 OPFS)', () => {
+    useSettingsStore.setState({ sqlWorkspacePersistTables: false });
+    render(<EditorSection />);
+
+    const toggle = screen.getByLabelText('Persist tables across sessions');
+    fireEvent.click(toggle);
+    expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(true);
+
+    fireEvent.click(toggle);
+    expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(false);
+  });
+
+  it('renders the clear + reconnect actions (RL-097 Slice 3 OPFS)', () => {
+    render(<EditorSection />);
+    // Present but not clicked here — both touch the live DuckDB engine
+    // (reconnect re-instantiates; clear terminates), exercised in the
+    // web smoke, not this isolated render.
+    expect(screen.getByTestId('settings-sql-reconnect')).toBeTruthy();
+    expect(screen.getByTestId('settings-sql-clear-data')).toBeTruthy();
+  });
+
   it('localizes the subsection in Spanish (tuteo)', async () => {
     await i18next.changeLanguage('es');
     render(<EditorSection />);
@@ -72,6 +93,10 @@ describe('EditorSection — SQL workspace subsection (RL-097 Slice 3)', () => {
     expect(screen.getByText('Límite de filas mostradas')).toBeTruthy();
     expect(
       screen.getByText('Tiempo de espera de la consulta')
+    ).toBeTruthy();
+    // RL-097 Slice 3 — tuteo imperative for the persistence toggle.
+    expect(
+      screen.getByText('Conserva las tablas entre sesiones')
     ).toBeTruthy();
   });
 });
