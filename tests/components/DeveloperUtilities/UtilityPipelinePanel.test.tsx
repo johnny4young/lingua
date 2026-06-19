@@ -96,6 +96,38 @@ describe('UtilityPipelinePanel', () => {
     expect(screen.getByText(/no pipelines yet/i)).toBeTruthy();
   });
 
+  it('shows the template gallery in the empty state (RL-099 Slice 5)', () => {
+    render(<UtilityPipelinePanel />);
+    expect(screen.getByTestId('pipeline-template-gallery')).toBeTruthy();
+    // One card per catalog template (8 after fold E).
+    expect(screen.getAllByTestId('pipeline-template-card')).toHaveLength(8);
+  });
+
+  it('Use template creates + selects a pipeline, seeds the sample input, fires telemetry', async () => {
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    const useBtn = document.querySelector(
+      '[data-testid="pipeline-template-use"][data-template-id="slugify"]'
+    ) as HTMLButtonElement;
+    expect(useBtn).toBeTruthy();
+    await user.click(useBtn);
+
+    await waitFor(() => {
+      expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(1);
+    });
+    const state = useUtilityPipelineStore.getState();
+    const created = state.pipelines[0]!;
+    expect(state.activePipelineId).toBe(created.id);
+    expect(created.steps.map((s) => s.utilityId)).toEqual(['string-case']);
+    expect(created.steps[0]!.options).toEqual({ target: 'kebab' });
+    // Fold F — the sample input is seeded so the pipeline is runnable.
+    expect(state.getPipelineInput(created.id)).toBe('Hello World Example');
+    // Fold A — adoption telemetry with the curated template id.
+    expect(mockTrackEvent).toHaveBeenCalledWith('utility.pipeline_template_used', {
+      templateId: 'slugify',
+    });
+  });
+
   it('creates a pipeline via the New button', async () => {
     const user = userEvent.setup();
     render(<UtilityPipelinePanel />);

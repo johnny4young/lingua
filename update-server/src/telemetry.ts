@@ -232,6 +232,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // `{ stepCount, status }` mirrored from src/shared/telemetry.ts.
   // Parity test cross-imports PIPELINE_RUN_STATUSES_SET.
   'utility.pipeline_executed',
+  // RL-099 Slice 5 fold A — pipeline template gallery adoption.
+  // Closed-enum `{ templateId }` (∈ PIPELINE_TEMPLATE_IDS_SET) mirrored
+  // from src/shared/telemetry.ts. Parity test cross-imports the set.
+  'utility.pipeline_template_used',
   // RL-039 Slice B fold B — Recipes overlay open + Run + Test
   // settle. Closed-enum `{ language }` + `{ language, status }`
   // mirrored from src/shared/telemetry.ts. Parity test cross-imports
@@ -410,6 +414,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'sql.storage_mode': ['mode', 'requested'],
   // RL-099 Slice 1 fold F — mirror of src/shared/telemetry.ts.
   'utility.pipeline_executed': ['stepCount', 'status'],
+  // RL-099 Slice 5 fold A — mirror of src/shared/telemetry.ts.
+  'utility.pipeline_template_used': ['templateId'],
   // RL-039 Slice B fold B — mirror of src/shared/telemetry.ts.
   'recipe.opened': ['language'],
   'recipe.test_run': ['language', 'status'],
@@ -876,6 +882,19 @@ export const PIPELINE_RUN_STATUSES_SET = new Set([
   'partial',
   'all-failed',
   'incompatible',
+]);
+// RL-099 Slice 5 fold A — mirror of PIPELINE_TEMPLATE_IDS. Source of
+// truth is `src/shared/utilityPipelineTemplates.ts`; parity test
+// cross-imports it.
+export const PIPELINE_TEMPLATE_IDS_SET = new Set([
+  'decode-jwt',
+  'hash-base64',
+  'url-decode-json',
+  'html-decode',
+  'slugify',
+  'base64-decode-json',
+  'humanize-timestamp',
+  'convert-color',
 ]);
 // RL-025 Slice B — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
 // DEPENDENCY_INSTALL_FAILURE_REASONS from
@@ -1516,6 +1535,12 @@ function isAllowedValue(
           typeof value === 'string' && PIPELINE_RUN_STATUSES_SET.has(value)
         );
       return false;
+    case 'utility.pipeline_template_used':
+      return (
+        key === 'templateId' &&
+        typeof value === 'string' &&
+        PIPELINE_TEMPLATE_IDS_SET.has(value)
+      );
     case 'recipe.opened':
       if (key === 'language') return isSafeToken(value);
       return false;

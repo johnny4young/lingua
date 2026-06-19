@@ -453,6 +453,13 @@ export const TELEMETRY_EVENTS = [
   // contents, NO utility ids, NO input/output values reach the wire.
   // Mirrored on update-server with parity test.
   'utility.pipeline_executed',
+  // RL-099 Slice 5 fold A — pipeline template gallery adoption. Fires
+  // once when the user instantiates a starter from the gallery.
+  // Closed-enum `{ templateId }` where templateId ∈
+  // PIPELINE_TEMPLATE_IDS_SET (a curated, content-free catalog id). NO
+  // pipeline contents on the wire. Mirrored on update-server with
+  // parity test.
+  'utility.pipeline_template_used',
   // RL-039 Slice B fold B — Recipes overlay discovery + Run + Test
   // commit. `recipe.opened { language }` fires when the user
   // confirms "Open" on the Recipes overlay (Mod+Alt+L). NO recipe id
@@ -823,6 +830,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `status` ∈ PIPELINE_RUN_STATUSES_SET. No step contents, utility
   // ids, or input/output values on the wire.
   'utility.pipeline_executed': ['stepCount', 'status'],
+  // RL-099 Slice 5 fold A — `templateId` ∈ PIPELINE_TEMPLATE_IDS_SET.
+  // No pipeline contents on the wire.
+  'utility.pipeline_template_used': ['templateId'],
   // RL-039 Slice B fold B — `language` ∈ LANGUAGE_PACK_IDS (Slice B
   // catalog is JS-only; schema generic). NO recipe id on the wire.
   'recipe.opened': ['language'],
@@ -1391,6 +1401,21 @@ export const PIPELINE_RUN_STATUSES_SET = new Set([
   'partial',
   'all-failed',
   'incompatible',
+]);
+// RL-099 Slice 5 fold A — closed enum for `templateId` on
+// `utility.pipeline_template_used`. Source of truth is
+// `PIPELINE_TEMPLATE_IDS` in `src/shared/utilityPipelineTemplates.ts`;
+// duplicated here so the validator stays free of renderer-only imports.
+// Mirrored on update-server with a 3-way parity test.
+export const PIPELINE_TEMPLATE_IDS_SET = new Set([
+  'decode-jwt',
+  'hash-base64',
+  'url-decode-json',
+  'html-decode',
+  'slugify',
+  'base64-decode-json',
+  'humanize-timestamp',
+  'convert-color',
 ]);
 export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
   'invalid-specifier',
@@ -1985,6 +2010,12 @@ function isAllowedValue(
           typeof value === 'string' && PIPELINE_RUN_STATUSES_SET.has(value)
         );
       return false;
+    case 'utility.pipeline_template_used':
+      return (
+        key === 'templateId' &&
+        typeof value === 'string' &&
+        PIPELINE_TEMPLATE_IDS_SET.has(value)
+      );
     case 'fs.blocked':
       return (
         key === 'family' && typeof value === 'string' && FS_BLOCKED_FAMILIES.has(value)

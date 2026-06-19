@@ -35,6 +35,7 @@ import {
   SQL_DURATION_BUCKETS_SET as WORKER_SQL_DURATION_BUCKETS_SET,
   SQL_STORAGE_MODES_SET as WORKER_SQL_STORAGE_MODES_SET,
   PIPELINE_RUN_STATUSES_SET as WORKER_PIPELINE_RUN_STATUSES_SET,
+  PIPELINE_TEMPLATE_IDS_SET as WORKER_PIPELINE_TEMPLATE_IDS_SET,
   IMPORTER_IDS_SET as WORKER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as WORKER_IMPORT_STATUSES_SET,
   NOTEBOOK_WARNING_KINDS_SET as WORKER_NOTEBOOK_WARNING_KINDS_SET,
@@ -63,6 +64,7 @@ import {
   SQL_DURATION_BUCKETS_SET as RENDERER_SQL_DURATION_BUCKETS_SET,
   SQL_STORAGE_MODES_SET as RENDERER_SQL_STORAGE_MODES_SET,
   PIPELINE_RUN_STATUSES_SET as RENDERER_PIPELINE_RUN_STATUSES_SET,
+  PIPELINE_TEMPLATE_IDS_SET as RENDERER_PIPELINE_TEMPLATE_IDS_SET,
   IMPORTER_IDS_SET as RENDERER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as RENDERER_IMPORT_STATUSES_SET,
   NOTEBOOK_WARNING_KINDS_SET as RENDERER_NOTEBOOK_WARNING_KINDS_SET,
@@ -82,6 +84,9 @@ import {
 // SQL_STORAGE_MODES tuple so the 3-way parity check below catches drift
 // between the canonical list and either telemetry Set copy.
 import { SQL_STORAGE_MODES as CANONICAL_SQL_STORAGE_MODES } from '../../src/shared/sqlWorkspace';
+// RL-099 Slice 5 fold A — canonical pipeline template ids for the 3-way
+// parity check (worker <-> renderer telemetry copy <-> catalog source).
+import { PIPELINE_TEMPLATE_IDS as CANONICAL_PIPELINE_TEMPLATE_IDS } from '../../src/shared/utilityPipelineTemplates';
 // RL-039 Slice B fold B — cross-import the canonical `RECIPE_RUN_STATUSES`
 // const tuple from the renderer source-of-truth (`lessonRunner.ts`).
 // The two `_SET` duplicates in `src/shared/telemetry.ts` +
@@ -1121,6 +1126,29 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'all-ok',
       'incompatible',
       'partial',
+    ]);
+  });
+
+  it('pipeline template ids stay in sync (RL-099 Slice 5 fold A)', () => {
+    // Closed-enum parity for `utility.pipeline_template_used.templateId`.
+    // Canonical source is `PIPELINE_TEMPLATE_IDS` in
+    // `src/shared/utilityPipelineTemplates.ts`; both telemetry copies
+    // mirror it. 3-way check so a new template id must touch all three.
+    expect([...WORKER_PIPELINE_TEMPLATE_IDS_SET].sort()).toEqual(
+      [...RENDERER_PIPELINE_TEMPLATE_IDS_SET].sort()
+    );
+    expect([...WORKER_PIPELINE_TEMPLATE_IDS_SET].sort()).toEqual(
+      [...CANONICAL_PIPELINE_TEMPLATE_IDS].sort()
+    );
+    expect([...WORKER_PIPELINE_TEMPLATE_IDS_SET].sort()).toEqual([
+      'base64-decode-json',
+      'convert-color',
+      'decode-jwt',
+      'hash-base64',
+      'html-decode',
+      'humanize-timestamp',
+      'slugify',
+      'url-decode-json',
     ]);
   });
 

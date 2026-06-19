@@ -289,6 +289,8 @@ describe('TELEMETRY_EVENTS', () => {
       // utility.clipboard < utility.favorite < utility.history <
       // utility.pipeline. Pipeline comes last.
       'utility.pipeline_executed',
+      // RL-099 Slice 5 fold A — pipeline template gallery adoption.
+      'utility.pipeline_template_used',
     ]);
   });
 

@@ -22,6 +22,7 @@ import {
   PackagePlus,
   PlayCircle,
   Plus,
+  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -48,9 +49,14 @@ import {
 import { bucketCapsuleSize, utf8ByteLength } from '../../../shared/runCapsule';
 import { getBundledAppInfo } from '../../../shared/appInfo';
 import { UTILITY_ADAPTER_IDS, type UtilityAdapterId } from '../../../shared/utilities/types';
+import {
+  instantiatePipelineTemplate,
+  type PipelineTemplate,
+} from '../../../shared/utilityPipelineTemplates';
 import { trackUtilityPipelineExecuted } from '../../hooks/utilityPipelineTelemetry';
 import { buildPipelineCapsule } from '../../runtime/pipelineCapsule';
 import { UtilityPipelineStepRow } from './UtilityPipelineStepRow';
+import { PipelineTemplateGallery } from './PipelineTemplateGallery';
 import { cn } from '../../utils/cn';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
@@ -161,6 +167,39 @@ function UtilityPipelinePanelUnlocked() {
   const handleSelect = useCallback((id: string) => {
     useUtilityPipelineStore.getState().setActivePipeline(id);
   }, []);
+
+  // RL-099 Slice 5 fold B — deselect the active pipeline so the
+  // empty-state template gallery shows, letting users with existing
+  // pipelines browse starters too (their pipelines stay in the list).
+  const handleShowTemplates = useCallback(() => {
+    useUtilityPipelineStore.getState().setActivePipeline(null);
+  }, []);
+
+  // RL-099 Slice 5 — instantiate a gallery template into a fresh
+  // pipeline, select it, seed the sample input (fold F), and record the
+  // adoption event (fold A). Ids are minted here (the shared catalog
+  // stays free of crypto), one per step.
+  const handleUseTemplate = useCallback(
+    (template: PipelineTemplate) => {
+      const pipelineId = crypto.randomUUID();
+      const stepIds = template.steps.map(() => crypto.randomUUID());
+      const pipeline = instantiatePipelineTemplate(template, {
+        pipelineId,
+        stepIds,
+        name: t(template.nameKey),
+      });
+      const store = useUtilityPipelineStore.getState();
+      store.createPipeline(pipeline);
+      store.setActivePipeline(pipeline.id);
+      if (template.sampleInput.length > 0) {
+        store.setPipelineInput(pipeline.id, template.sampleInput);
+      }
+      void trackEvent('utility.pipeline_template_used', {
+        templateId: template.id,
+      });
+    },
+    [t]
+  );
 
   const handleRename = useCallback((id: string, name: string) => {
     useUtilityPipelineStore.getState().updatePipeline(id, { name });
@@ -458,6 +497,16 @@ function UtilityPipelinePanelUnlocked() {
             </button>
             <button
               type="button"
+              onClick={handleShowTemplates}
+              aria-label={t('utilityPipeline.template.galleryTitle')}
+              title={t('utilityPipeline.template.galleryTitle')}
+              data-testid="utility-pipeline-list-templates"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
+            >
+              <Sparkles size={11} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
               onClick={handleCreate}
               aria-label={t('utilityPipeline.list.create')}
               title={t('utilityPipeline.list.create')}
@@ -583,9 +632,14 @@ function UtilityPipelinePanelUnlocked() {
       {/* CENTER — editor */}
       <section data-testid="utility-pipeline-editor" className="flex min-h-0 flex-col gap-2">
         {!activePipeline ? (
-          <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
-            <div className="text-sm font-medium">{t('utilityPipeline.empty.title')}</div>
-            <div className="text-xs text-muted">{t('utilityPipeline.empty.body')}</div>
+          <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
+            <div className="flex flex-col gap-1">
+              <div className="text-sm font-medium">{t('utilityPipeline.empty.title')}</div>
+              <div className="text-xs text-muted">{t('utilityPipeline.empty.body')}</div>
+            </div>
+            {/* RL-099 Slice 5 — starter gallery so a blank pipeline panel
+                is discoverable now the engine ships 15 adapters. */}
+            <PipelineTemplateGallery onUseTemplate={handleUseTemplate} />
           </div>
         ) : (
           <>
