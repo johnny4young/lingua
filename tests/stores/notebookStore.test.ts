@@ -309,7 +309,7 @@ describe('useNotebookStore CRUD', () => {
   it('restartNotebookSession clears outputs + transient state + disposes the sandbox', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: ['hi'], stderr: [], sessionDelta: { x: 42 } },
+      structuredResult: { stdout: ['hi'], stderr: [], sessionDelta: { x: 42 } },
       stdout: [],
       stderr: [],
     });

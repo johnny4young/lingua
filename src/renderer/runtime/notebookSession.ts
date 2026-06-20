@@ -25,12 +25,18 @@
  *      - Captures `console.log` / `.error` into stdout / stderr
  *        buffers.
  *      - Resolves to `{ stdout, stderr, sessionDelta }`.
- *   3. The renderer reads `result.result.sessionDelta` and merges it
- *      into the per-tab sandbox. JSON-only round-trip is the Slice A
- *      contract: primitives + plain objects + arrays survive;
- *      functions / class instances / Promises / Maps / Sets do NOT.
- *      Slice B+ promotes to a per-tab worker instance with a real
- *      shared `globalThis` so non-serializable values persist.
+ *   3. The renderer reads `result.structuredResult.sessionDelta` and
+ *      merges it into the per-tab sandbox. The run sets
+ *      `captureStructuredResult` so the worker forwards the live
+ *      `{ stdout, stderr, sessionDelta }` object via the postMessage
+ *      structured clone — NOT `result.result`, which is a display string
+ *      the worker truncates at MAX_RESULT_BYTES (that truncation silently
+ *      dropped the cross-cell delta before RL-043 Slice B). JSON-only
+ *      round-trip is still the sandbox contract: primitives + plain
+ *      objects + arrays survive; functions / class instances / Promises /
+ *      Maps / Sets do NOT. A later slice promotes to a per-tab worker
+ *      instance with a real shared `globalThis` so non-serializable
+ *      values persist.
  *   4. Tab close + language change call `dispose(tabId)` which
  *      drops the sandbox object so the next session for the same
  *      tab id starts clean.
@@ -40,6 +46,12 @@
  * presets + RL-077 / RL-078 hardening apply unchanged.
  */
 
+// Type-only import is fully erased at build, so it adds ZERO bundle
+// weight. The TypeScript COMPILER (~2.5 MB) is loaded lazily via the
+// dynamic `import('typescript')` in `loadTypescript()` below — a
+// separate async chunk fetched only when a cell first runs, NOT inlined
+// into the notebook chunk (RL-043 Slice B bundle guard).
+import type * as TsTypes from 'typescript';
 import { runnerManager } from '../runners';
 import {
   NOTEBOOK_CELL_LANGUAGES,
@@ -108,69 +120,131 @@ export const MAX_NOTEBOOK_SANDBOX_KEYS = 128;
 // ---------------------------------------------------------------------------
 
 /**
- * Fold C — rewrite top-level `const NAME = …;` / `let NAME = …;` /
- * `function NAME(...) { ... }` declarations to ALSO assign onto the
- * local `_sessionDelta` object so the post-run capture step sees
- * them. ONLY top-level declarations (those starting at column zero,
- * no leading whitespace) are rewritten — nested declarations inside
- * `if` / `for` / functions stay local + invisible to subsequent cells.
- *
- * Limitations (honest Slice A scope; Slice B+ adopts a TypeScript
- * AST rewriter via Monaco's TS service):
- *
- *   - Destructuring patterns (`const { a, b } = obj;`) are NOT
- *     rewritten — they execute as block-scoped local. Cell 2 won't
- *     see `a` / `b`. Documented in the panel UI.
- *   - Multi-line declarations whose first line doesn't end with
- *     `;` / `)` / `]` are skipped to avoid emitting an assignment
- *     before the right-hand-side completes (which would throw at
- *     runtime). The local binding still works in-cell.
- *   - `class Name { ... }` declarations are NOT rewritten. Use
- *     `const Name = class { ... }` to share across cells.
- *
- * The rewrite preserves source ordering and never deletes user code;
- * it only injects `_sessionDelta.NAME = NAME;` after the
- * declaration so the original local binding still resolves
- * normally inside the SAME cell.
+ * Lazily-loaded TypeScript compiler. Cached as a Promise so concurrent
+ * cell runs share one load. Dynamic import keeps the ~2.5 MB compiler
+ * in its own async chunk (fetched on first cell run) instead of inlined
+ * into the notebook chunk.
  */
-export function rewriteTopLevelDeclarationsForSession(source: string): string {
-  const lines = source.split(/\r?\n/);
-  const out: string[] = [];
-  const topLevelDeclRe = /^(const|let)\s+([A-Za-z_$][\w$]*)\s*=/;
-  const topLevelFnRe = /^function\s+([A-Za-z_$][\w$]*)\s*\(/;
-  const topLevelAsyncFnRe = /^async\s+function\s+([A-Za-z_$][\w$]*)\s*\(/;
-  for (const line of lines) {
-    out.push(line);
-    // Only column-zero declarations: a leading whitespace char
-    // means "nested" (inside an if / for / function block) and we
-    // intentionally leave those local.
-    if (/^[ \t]/.test(line)) continue;
-    const declMatch = topLevelDeclRe.exec(line);
-    if (declMatch) {
-      const name = declMatch[2]!;
-      // Detect multi-line declarations (e.g. `const x = {`) by
-      // requiring the line to end with a closed expression. If
-      // unclear, skip the rewrite — the local binding still works
-      // in-cell, just won't survive cross-cell.
-      const trimmed = line.trimEnd();
-      if (trimmed.endsWith(';') || trimmed.endsWith(')') || trimmed.endsWith(']')) {
-        out.push(`try { _sessionDelta.${name} = ${name}; } catch { /* non-serializable */ }`);
-      }
-      continue;
+let cachedTypescript: Promise<typeof TsTypes> | null = null;
+function loadTypescript(): Promise<typeof TsTypes> {
+  if (cachedTypescript === null) {
+    // Reset the cache on a rejected import so a transient chunk-load
+    // failure (corrupt asset, disk error) doesn't permanently break
+    // every later cell run — the next run re-attempts. Mirrors the
+    // `getDuckDbEngine` cache-reset precedent.
+    cachedTypescript = import('typescript').catch((err: unknown) => {
+      cachedTypescript = null;
+      throw err;
+    });
+  }
+  return cachedTypescript;
+}
+
+/**
+ * Collect every identifier a binding name introduces, recursing through
+ * object + array destructuring patterns (rest, renamed, defaults, and
+ * array holes). `const { a: x, ...rest } = obj` yields `['x', 'rest']`;
+ * `const [, y] = arr` yields `['y']`. `tsApi` is the lazily-loaded
+ * compiler module (passed in so this helper stays free of a static
+ * `typescript` value import).
+ */
+function collectBindingNames(
+  tsApi: typeof TsTypes,
+  name: TsTypes.BindingName,
+  out: string[]
+): void {
+  if (tsApi.isIdentifier(name)) {
+    out.push(name.text);
+    return;
+  }
+  // ObjectBindingPattern | ArrayBindingPattern — both expose `.elements`
+  // of BindingElement (each carrying its own `.name: BindingName`), with
+  // array patterns also allowing OmittedExpression holes.
+  for (const element of name.elements) {
+    if (tsApi.isOmittedExpression(element)) continue;
+    collectBindingNames(tsApi, element.name, out);
+  }
+}
+
+/**
+ * RL-043 Slice B — rewrite top-level declarations to ALSO assign their
+ * bindings onto the local `_sessionDelta` object so the post-run capture
+ * step shares them with later cells. ONLY top-level statements are
+ * rewritten — declarations nested inside `if` / `for` / functions stay
+ * local + invisible to subsequent cells, exactly as before.
+ *
+ * This replaces the Slice A column-zero regex with a TypeScript-AST walk
+ * (`ts.createSourceFile`), which robustly handles the cases the regex
+ * could not: object/array destructuring (incl. rest, renamed, defaults,
+ * holes), multi-line declarations, `var`, and `class Name {}` — all now
+ * shared across cells.
+ *
+ * The rewrite preserves source ordering and never deletes user code: it
+ * splices `try { _sessionDelta.NAME = NAME; } catch {}` in after each
+ * top-level declaration's end, so the original binding still resolves
+ * normally inside the SAME cell. Functions / classes are not
+ * JSON-serializable, so their delta assignment is dropped by
+ * `extractSerializableDelta`; the in-cell binding is unaffected.
+ *
+ * A parse failure (invalid JS) returns the source unchanged — the run
+ * pipeline surfaces the syntax error as it does today.
+ *
+ * Async because the TypeScript compiler is loaded lazily (see
+ * `loadTypescript`); the only caller (`composeNotebookCellSource`)
+ * already runs inside the async `runNotebookCell` path.
+ */
+export async function rewriteTopLevelDeclarationsForSession(
+  source: string
+): Promise<string> {
+  const ts = await loadTypescript();
+  const sourceFile = ts.createSourceFile(
+    'notebook-cell.js',
+    source,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ false,
+    ts.ScriptKind.JS
+  );
+  // `createSourceFile` is intentionally tolerant and still returns a tree for
+  // broken input. Do not splice into that recovery tree: the user's original
+  // syntax error is clearer than a secondary error from a best-effort insert.
+  const parseDiagnostics = (
+    sourceFile as TsTypes.SourceFile & {
+      parseDiagnostics?: ReadonlyArray<unknown>;
     }
-    const fnMatch = topLevelFnRe.exec(line) ?? topLevelAsyncFnRe.exec(line);
-    if (fnMatch) {
-      const name = fnMatch[1]!;
-      // Function declarations are hoisted so the assignment runs
-      // safely after the line in source order. Functions are NOT
-      // JSON-serializable, so the assignment will fail the
-      // structural-clone-equivalent check in `extractSerializableDelta`
-      // below — Slice B+ promotes to a worker sandbox that retains
-      // function references natively.
-      out.push(`try { _sessionDelta.${name} = ${name}; } catch { /* non-serializable */ }`);
+  ).parseDiagnostics;
+  if (parseDiagnostics && parseDiagnostics.length > 0) return source;
+  // One insertion per top-level declaration: its source end offset + the
+  // names it binds.
+  const inserts: Array<{ end: number; names: string[] }> = [];
+  for (const statement of sourceFile.statements) {
+    const names: string[] = [];
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        collectBindingNames(ts, declaration.name, names);
+      }
+    } else if (ts.isFunctionDeclaration(statement) && statement.name) {
+      names.push(statement.name.text);
+    } else if (ts.isClassDeclaration(statement) && statement.name) {
+      names.push(statement.name.text);
+    }
+    if (names.length > 0) {
+      inserts.push({ end: statement.end, names });
     }
   }
-  return out.join('\n');
+  if (inserts.length === 0) return source;
+  // Splice descending so earlier end offsets stay valid as we insert.
+  let out = source;
+  for (let i = inserts.length - 1; i >= 0; i -= 1) {
+    const insert = inserts[i]!;
+    const assignments = insert.names
+      .map(
+        (name) =>
+          `try { _sessionDelta.${name} = ${name}; } catch { /* non-serializable */ }`
+      )
+      .join('\n');
+    out = `${out.slice(0, insert.end)}\n${assignments}${out.slice(insert.end)}`;
+  }
+  return out;
 }
 
 /**
@@ -184,11 +258,11 @@ export function rewriteTopLevelDeclarationsForSession(source: string): string {
  * source runs, the rewriter's `_sessionDelta` object is returned
  * and merged into the per-tab sandbox by the renderer.
  */
-export function composeNotebookCellSource(
+export async function composeNotebookCellSource(
   userSource: string,
   sandbox: Readonly<Record<string, unknown>>
-): string {
-  const rewritten = rewriteTopLevelDeclarationsForSession(userSource);
+): Promise<string> {
+  const rewritten = await rewriteTopLevelDeclarationsForSession(userSource);
   // Pull-ins: emit `const KEY = <JSON literal>;` for every existing
   // sandbox key. Each key is a `[A-Za-z_$][\w$]*` slug (rewriter only
   // accepts these). JSON.stringify the value so primitives + plain
@@ -358,9 +432,17 @@ export async function runNotebookCell(
   }
   session.isRunning = true;
   try {
-    const composed = composeNotebookCellSource(request.source, session.sandbox);
+    const composed = await composeNotebookCellSource(
+      request.source,
+      session.sandbox
+    );
     const result = await runnerManager.execute('javascript', composed, {
       language: 'javascript',
+      // RL-043 Slice B — ask the worker to forward the cell's structured
+      // return value losslessly on `result.structuredResult`. The default
+      // `result.result` is a display string the worker truncates at
+      // MAX_RESULT_BYTES, which silently dropped the cross-cell delta.
+      captureStructuredResult: true,
       ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}),
     });
     if (result.kind === 'stopped' || result.cancelled === true) {
@@ -389,11 +471,14 @@ export async function runNotebookCell(
         },
       };
     }
-    // The composed source resolves to `{ stdout, stderr, sessionDelta }`.
-    // Fall back to the runner's own stdout/stderr arrays when the
-    // resolved value is missing (defensive — should never happen for
-    // a clean run).
-    const composedResult = result.result;
+    // The composed source resolves to `{ stdout, stderr, sessionDelta }`,
+    // forwarded losslessly as `structuredResult` because we set
+    // `captureStructuredResult` on the run (NOT `result.result`, which is
+    // a truncated display string). Fall back to the runner's own
+    // stdout/stderr arrays when the structured value is missing (defensive
+    // — e.g. a non-cloneable return, which should never happen for the
+    // JSON-clean composed object).
+    const composedResult = result.structuredResult;
     let composedStdout: string[] = [];
     let composedStderr: string[] = [];
     let sessionDelta: unknown = {};
@@ -437,6 +522,19 @@ export async function runNotebookCell(
         stderr: composedStderr,
         sandboxKeyCount: Object.keys(session.sandbox).length,
         producedKeys,
+      },
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return {
+      ok: true,
+      outcome: {
+        status: 'error',
+        stdout: [],
+        stderr: [errorMessage],
+        errorMessage,
+        sandboxKeyCount: Object.keys(session.sandbox).length,
+        producedKeys: [],
       },
     };
   } finally {

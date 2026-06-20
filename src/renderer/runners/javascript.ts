@@ -117,6 +117,10 @@ export class JavaScriptRunner implements LanguageRunner {
     const stderr: ConsoleOutput[] = [];
     const magicResults: MagicCommentResult[] = [];
     let result: unknown;
+    // RL-043 Slice B — the worker's structured return value, forwarded
+    // losslessly when the caller set `captureStructuredResult` (notebook
+    // path). Stays `undefined` for normal runs.
+    let structuredResult: unknown;
     let error: ExecutionError | undefined;
     // RL-020 Slice 6 fold G — the worker echoes its stdin
     // consumption summary as a `stdin-consumed` message; relay
@@ -419,6 +423,10 @@ export class JavaScriptRunner implements LanguageRunner {
           }
           case 'result':
             result = msg.value;
+            // RL-043 Slice B — capture the structured value when the
+            // worker forwarded it (only when we asked via
+            // `captureStructuredResult`).
+            if (msg.structured !== undefined) structuredResult = msg.structured;
             break;
           case 'error':
             error = msg.error;
@@ -470,6 +478,9 @@ export class JavaScriptRunner implements LanguageRunner {
               stdout,
               stderr,
               result,
+              // RL-043 Slice B — surface the lossless structured value
+              // when the worker forwarded it; `undefined` for normal runs.
+              structuredResult,
               executionTime: msg.executionTime,
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
@@ -563,6 +574,9 @@ export class JavaScriptRunner implements LanguageRunner {
         captureScope: !debug && context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
         scopeLanguage: 'javascript',
+        // RL-043 Slice B — ask the worker to forward the structured
+        // return value (notebook reads it from `structuredResult`).
+        captureStructuredResult: context?.captureStructuredResult === true,
       });
     });
   }

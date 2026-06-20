@@ -1,6 +1,13 @@
 /**
  * RL-043 Slice A — Mod+Alt+N opens a new notebook tab + notebook UI
  * responds to the toolbar. Cross-locale (EN + ES tuteo) regression.
+ *
+ * RL-043 Slice B — real cross-cell variable sharing through the actual
+ * JS worker round-trip (no mocked runner). This is the coverage gap
+ * that hid the pre-existing bug where the worker serialized the cell's
+ * return value to a truncatable display string and the renderer never
+ * read the structured `sessionDelta`; the structured-result channel
+ * fix is what makes the assertion below pass.
  */
 
 import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
@@ -48,5 +55,92 @@ test.describe('Notebook foundation — Mod+Alt+N binding', () => {
 
     await page.getByTestId('notebook-toolbar-add-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
+  });
+});
+
+test.describe('Notebook — cross-cell variable sharing (Slice B)', () => {
+  test('a later cell reads a destructured binding declared by an earlier cell', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    // Cell 1 — a destructuring declaration (the case the column-zero
+    // regex could not capture and the AST rewriter now handles).
+    const firstRow = page.getByTestId('notebook-code-cell-row').first();
+    await firstRow
+      .getByTestId('notebook-code-cell-source')
+      .fill('const { shared } = { shared: 42 };');
+    await firstRow.getByTestId('notebook-code-cell-run').click();
+    await expect(firstRow.getByTestId('notebook-code-cell-status')).toContainText(
+      'Ok'
+    );
+    // The variable-flow chip proves the binding was captured into the
+    // session sandbox — empty before the structured-result fix.
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-produces')
+    ).toContainText('shared');
+
+    // Cell 2 — read the cross-cell binding through the real worker.
+    await page.getByTestId('notebook-toolbar-add-code').click();
+    await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
+    const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
+    await secondRow
+      .getByTestId('notebook-code-cell-source')
+      .fill("console.log('shared is', shared * 2);");
+    await secondRow.getByTestId('notebook-code-cell-run').click();
+    await expect(
+      secondRow.getByTestId('notebook-code-cell-status')
+    ).toContainText('Ok');
+    // 42 crossed from cell 1; 42 * 2 = 84 proves the value (not just the
+    // name) round-tripped losslessly.
+    await expect(
+      secondRow.getByTestId('notebook-code-cell-outputs')
+    ).toContainText('shared is 84');
+  });
+
+  test('a serializable binding still crosses when a function is declared beside it', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    // Cell 1 declares serializable data AND a non-cloneable function.
+    // The rewriter captures BOTH into `_sessionDelta`; a bare
+    // `structuredClone` of the result would throw on the function and drop
+    // the WHOLE delta — the JSON cascade keeps `data`, drops `helper`.
+    const firstRow = page.getByTestId('notebook-code-cell-row').first();
+    await firstRow
+      .getByTestId('notebook-code-cell-source')
+      .fill('const data = [4, 5, 6];\nfunction helper(n) { return n; }');
+    await firstRow.getByTestId('notebook-code-cell-run').click();
+    await expect(firstRow.getByTestId('notebook-code-cell-status')).toContainText(
+      'Ok'
+    );
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-produces')
+    ).toContainText('data');
+
+    await page.getByTestId('notebook-toolbar-add-code').click();
+    await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
+    const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
+    await secondRow
+      .getByTestId('notebook-code-cell-source')
+      .fill("console.log('first is', data[0]);");
+    await secondRow.getByTestId('notebook-code-cell-run').click();
+    await expect(
+      secondRow.getByTestId('notebook-code-cell-status')
+    ).toContainText('Ok');
+    // `data` survived the cascade even though `helper` (a function) sat in
+    // the same delta — proving the snapshot is not all-or-nothing.
+    await expect(
+      secondRow.getByTestId('notebook-code-cell-outputs')
+    ).toContainText('first is 4');
   });
 });

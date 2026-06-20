@@ -165,20 +165,23 @@ describe('<NotebookView />', () => {
   it('Run cell calls the runner via the orchestrator', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: ['42'], stderr: [], sessionDelta: { v: 42 } },
+      structuredResult: { stdout: ['42'], stderr: [], sessionDelta: { v: 42 } },
       stdout: [],
       stderr: [],
     });
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
     await user.click(screen.getByTestId('notebook-code-cell-run'));
-    expect(mockExecute).toHaveBeenCalledTimes(1);
+    // RL-043 Slice B — the run path now awaits a lazy `import('typescript')`
+    // before reaching the runner, so wait for the call (matching the other
+    // run-cell assertions in this file).
+    await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
   });
 
   it('runs the focused code cell on Cmd+Enter without falling through to the global runner', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: ['42'], stderr: [], sessionDelta: { v: 42 } },
+      structuredResult: { stdout: ['42'], stderr: [], sessionDelta: { v: 42 } },
       stdout: [],
       stderr: [],
     });
@@ -193,7 +196,7 @@ describe('<NotebookView />', () => {
   it('Shift+Enter on the last code cell runs it and appends a fresh code cell (Jupyter parity)', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: [], stderr: [], sessionDelta: {} },
+      structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
       stdout: [],
       stderr: [],
     });
@@ -216,7 +219,7 @@ describe('<NotebookView />', () => {
   it('Alt+Enter runs the cell and inserts a code cell directly below', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: [], stderr: [], sessionDelta: {} },
+      structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
       stdout: [],
       stderr: [],
     });
@@ -237,7 +240,7 @@ describe('<NotebookView />', () => {
   it('Shift+Enter preserves the current code cell language when appending below', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: [], stderr: [], sessionDelta: {} },
+      structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
       stdout: [],
       stderr: [],
     });
@@ -277,7 +280,7 @@ describe('<NotebookView />', () => {
   it('Run above uses the active cell instead of always targeting the last code cell', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: [], stderr: [], sessionDelta: {} },
+      structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
       stdout: [],
       stderr: [],
     });

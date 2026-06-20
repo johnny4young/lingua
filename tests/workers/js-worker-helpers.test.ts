@@ -18,7 +18,10 @@ vi.stubGlobal('self', {
 // Protocol documentation tests
 // ---------------------------------------------------------------------------
 
-async function executeJsWorkerCode(code: string): Promise<Array<Record<string, unknown>>> {
+async function executeJsWorkerCode(
+  code: string,
+  options: { captureStructuredResult?: boolean } = {}
+): Promise<Array<Record<string, unknown>>> {
   vi.resetModules();
   const messages: Array<Record<string, unknown>> = [];
   let messageHandler:
@@ -50,6 +53,7 @@ async function executeJsWorkerCode(code: string): Promise<Array<Record<string, u
       runId: 'run-1',
       code,
       resultTruncationMarker: '[result truncated]',
+      captureStructuredResult: options.captureStructuredResult,
     },
   });
 
@@ -189,6 +193,60 @@ describe('js-worker module', () => {
           'line' in frame
       );
     })).toBe(true);
+  });
+
+  it('keeps structured-result serializable siblings beside function and bigint leaves', async () => {
+    const messages = await executeJsWorkerCode(
+      `
+        return {
+          stdout: [],
+          stderr: [],
+          sessionDelta: {
+            data: [4, 5, 6],
+            keep: 'yes',
+            helper() { return 1; },
+            counter: 1n
+          }
+        };
+      `,
+      { captureStructuredResult: true }
+    );
+
+    const resultMessage = messages.find((message) => message.type === 'result') as
+      | { structured?: { sessionDelta?: Record<string, unknown> } }
+      | undefined;
+    expect(resultMessage?.structured?.sessionDelta).toMatchObject({
+      data: [4, 5, 6],
+      keep: 'yes',
+    });
+    expect(resultMessage?.structured?.sessionDelta).not.toHaveProperty('helper');
+    expect(resultMessage?.structured?.sessionDelta).not.toHaveProperty('counter');
+  });
+
+  it('does not break a clean run when a structured value has a throwing getter', async () => {
+    // A session variable with a throwing getter defeats structuredClone AND
+    // the JSON fallback (Object.entries invokes the getter). The snapshot must
+    // degrade to string-only — the run still reports a result, never an error.
+    const messages = await executeJsWorkerCode(
+      `
+        const trap = {};
+        Object.defineProperty(trap, 'boom', {
+          enumerable: true,
+          get() { throw new Error('side effect'); }
+        });
+        return { stdout: [], stderr: [], sessionDelta: { trap } };
+      `,
+      { captureStructuredResult: true }
+    );
+
+    // The run settles as a result (not an error), just without a structured
+    // payload — exactly the graceful degradation the renderer falls back on.
+    const resultMessage = messages.find((message) => message.type === 'result') as
+      | { structured?: unknown }
+      | undefined;
+    expect(resultMessage).toBeDefined();
+    expect(resultMessage?.structured).toBeUndefined();
+    expect(messages.some((message) => message.type === 'error')).toBe(false);
   });
 
   // RL-144 (AUDIT-24) — lock the AsyncFunction trust boundary. The

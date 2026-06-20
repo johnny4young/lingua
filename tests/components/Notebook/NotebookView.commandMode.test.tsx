@@ -338,7 +338,7 @@ describe('<NotebookView /> command mode', () => {
     it('Run from here runs the active cell + cells below', async () => {
       mockExecute.mockResolvedValue({
         kind: 'ok',
-        result: { stdout: [], stderr: [], sessionDelta: {} },
+        structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
         stdout: [],
         stderr: [],
       });

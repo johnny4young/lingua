@@ -1096,6 +1096,18 @@ export interface ExecutionContext {
    * preference here; runners clamp to the shared `MAX_SCOPE_DEPTH`.
    */
   scopeDepth?: number;
+  /**
+   * RL-043 Slice B — when `true`, the runner asks its worker to ALSO
+   * post the run's structured return value (e.g. the notebook's
+   * `{ stdout, stderr, sessionDelta }` object) as live data on
+   * `ExecutionResult.structuredResult`, bypassing the display-only
+   * string serializer that truncates at `MAX_RESULT_BYTES`. Only the
+   * notebook session manager sets this; normal runs leave it unset so
+   * the extra structured clone + larger postMessage payload never
+   * burdens the hot path. Runners that don't implement structured
+   * capture ignore the field harmlessly.
+   */
+  captureStructuredResult?: boolean;
 }
 
 export interface ExecutionError {
@@ -1205,6 +1217,17 @@ export interface ExecutionResult {
    * toggle can light up.
    */
   scopeSnapshot?: ScopeSnapshot | null;
+  /**
+   * RL-043 Slice B — the run's structured return value, posted by the
+   * worker when the caller set `ExecutionContext.captureStructuredResult`.
+   * Unlike `result` (a display string the worker serializes + truncates
+   * at `MAX_RESULT_BYTES`), this carries the live value through the
+   * postMessage structured clone, so the notebook's
+   * `{ stdout, stderr, sessionDelta }` round-trips losslessly. `undefined`
+   * when not requested, when the run errored, or when the value was not
+   * structured-cloneable.
+   */
+  structuredResult?: unknown;
 }
 
 export interface ConsoleOutput {
@@ -1322,7 +1345,18 @@ export type WorkerResponse =
         reason: 'invalid-src' | 'size-limit' | 'validation-failed';
       };
     }
-  | { type: 'result'; runId: string; value?: unknown }
+  | {
+      type: 'result';
+      runId: string;
+      value?: unknown;
+      /**
+       * RL-043 Slice B — structured return value forwarded losslessly
+       * via the postMessage structured clone when the execute request
+       * set `captureStructuredResult`. The runner threads this onto
+       * `ExecutionResult.structuredResult`; absent for normal runs.
+       */
+      structured?: unknown;
+    }
   | {
       type: 'error';
       /**

@@ -198,6 +198,85 @@ function serialize(args: unknown[], marker: string): string[] {
   });
 }
 
+function toJsonStructuredValue(
+  value: unknown,
+  seen: WeakSet<object> = new WeakSet()
+): unknown {
+  if (value === null) return null;
+  if (
+    typeof value === 'string' ||
+    typeof value === 'boolean'
+  ) {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (
+    value === undefined ||
+    typeof value === 'function' ||
+    typeof value === 'symbol' ||
+    typeof value === 'bigint'
+  ) {
+    return undefined;
+  }
+  if (typeof value !== 'object') return undefined;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  if (seen.has(value)) return undefined;
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return value.map((item) => {
+        const next = toJsonStructuredValue(item, seen);
+        return next === undefined ? null : next;
+      });
+    }
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      const next = toJsonStructuredValue(item, seen);
+      if (next !== undefined) out[key] = next;
+    }
+    return out;
+  } finally {
+    seen.delete(value);
+  }
+}
+
+/**
+ * RL-043 Slice B — resilient structured snapshot for the
+ * `captureStructuredResult` channel. `structuredClone` is lossless (Map /
+ * Set / Date survive) but ALL-OR-NOTHING: a single non-cloneable leaf (a
+ * function / symbol / DOM node) throws `DataCloneError` and would drop the
+ * whole payload. The notebook rewriter captures top-level functions /
+ * classes into `_sessionDelta`, so a cell that declares a helper function
+ * beside serializable data hits this routinely. On a clone failure we fall
+ * back to a per-leaf JSON-compatible cascade, which silently drops the
+ * non-serializable leaves but keeps every serializable sibling — exactly the
+ * JSON-sandbox semantics the renderer's `extractSerializableDelta` enforces,
+ * minus the 64 KB display truncation. Circular / BigInt-only values that
+ * defeat both tiers degrade to `undefined`, and the caller leaves `structured`
+ * unset (string-only result; the renderer falls back to an empty delta).
+ */
+function safeStructuredResult(value: unknown): unknown {
+  try {
+    return structuredClone(value);
+  } catch {
+    // The JSON fallback walks user-controlled values, and `Object.entries`
+    // invokes getters — a throwing getter or exotic proxy must NOT break an
+    // otherwise-clean run (the sibling scope-snapshot capture guards the same
+    // way: "capture failures must not break the run"). Degrade to `undefined`
+    // so the result stays string-only and the renderer falls back to an empty
+    // delta, exactly as for a value that defeats both tiers.
+    try {
+      return toJsonStructuredValue(value);
+    } catch {
+      return undefined;
+    }
+  }
+}
+
 /**
  * RL-044 Slice 1B — produce typed `RichOutputPayload` payloads aligned
  * by index with the legacy `args: string[]` array. The text path stays
@@ -659,6 +738,15 @@ interface ExecuteMessage {
    * runner.
    */
   scopeLanguage?: string;
+  /**
+   * RL-043 Slice B — when `true`, ALSO post the structured return
+   * value on the `'result'` reply (`structured` field) so the notebook
+   * runner round-trips `{ stdout, stderr, sessionDelta }` losslessly
+   * instead of parsing the truncated display string. Snapshotted via
+   * `safeStructuredResult` (structuredClone → JSON round-trip cascade),
+   * so non-serializable leaves drop while serializable siblings survive.
+   */
+  captureStructuredResult?: boolean;
 }
 
 /**
@@ -930,11 +1018,30 @@ ctx.addEventListener('message', async (event) => {
       const result = await executionPromise;
 
       if (result !== undefined) {
-        ctx.postMessage({
+        const resultMessage: {
+          type: 'result';
+          runId: string;
+          value: unknown;
+          structured?: unknown;
+        } = {
           type: 'result',
           runId,
           value: serialize([result], marker)[0],
-        });
+        };
+        // RL-043 Slice B — forward the live structured value (the
+        // notebook's `{ stdout, stderr, sessionDelta }`) when asked, so
+        // the runner can round-trip it losslessly instead of parsing the
+        // display string that `serialize` truncates at MAX_RESULT_BYTES.
+        // `safeStructuredResult` is resilient: a bare `structuredClone`
+        // would drop the WHOLE delta when a cell declares a function /
+        // class beside serializable data (the rewriter captures those into
+        // `_sessionDelta`), so it cascades per leaf and keeps the
+        // serializable siblings. `undefined` ⇒ leave it string-only.
+        if (exec.captureStructuredResult === true) {
+          const snapshot = safeStructuredResult(result);
+          if (snapshot !== undefined) resultMessage.structured = snapshot;
+        }
+        ctx.postMessage(resultMessage);
       }
 
       // RL-020 Slice 9 — capture the post-execute scope BEFORE the

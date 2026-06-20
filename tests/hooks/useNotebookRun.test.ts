@@ -91,7 +91,7 @@ describe('useNotebookRun', () => {
   it('runCell flips status to running then ok and writes outputs', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: ['hi'], stderr: [], sessionDelta: {} },
+      structuredResult: { stdout: ['hi'], stderr: [], sessionDelta: {} },
       stdout: [],
       stderr: [],
     });
@@ -149,7 +149,7 @@ describe('useNotebookRun', () => {
   it('runCell emits a closed-enum telemetry payload', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: [], stderr: [], sessionDelta: {} },
+      structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
       stdout: [],
       stderr: [],
     });
@@ -181,7 +181,7 @@ describe('useNotebookRun', () => {
       })
       .mockResolvedValueOnce({
         kind: 'ok',
-        result: { stdout: ['unused'], stderr: [], sessionDelta: {} },
+        structuredResult: { stdout: ['unused'], stderr: [], sessionDelta: {} },
         stdout: [],
         stderr: [],
       });
@@ -219,7 +219,7 @@ describe('useNotebookRun', () => {
     expect(typeof secondCellId).toBe('string');
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: ['ok'], stderr: [], sessionDelta: {} },
+      structuredResult: { stdout: ['ok'], stderr: [], sessionDelta: {} },
       stdout: [],
       stderr: [],
     });
@@ -254,7 +254,7 @@ describe('useNotebookRun', () => {
       })
       .mockResolvedValueOnce({
         kind: 'ok',
-        result: { stdout: [], stderr: [], sessionDelta: {} },
+        structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
         stdout: [],
         stderr: [],
       });
@@ -270,7 +270,7 @@ describe('useNotebookRun', () => {
   it('a settled run stamps a monotonic [N] execution order onto the cell', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      result: { stdout: [], stderr: [], sessionDelta: {} },
+      structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
       stdout: [],
       stderr: [],
     });
