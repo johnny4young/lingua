@@ -28,3 +28,14 @@ export function trackNotebookCellExecuted(
     status: payload.status,
   });
 }
+
+/**
+ * RL-043 Slice C fold E — fire when the user switches a cell's language
+ * via the per-cell selector. `to` ∈ NOTEBOOK_CELL_LANGUAGES_SET; an
+ * adoption signal for TypeScript cells. NO cell source on the wire.
+ */
+export function trackNotebookCellLanguageChanged(
+  to: NotebookCellLanguage
+): void {
+  void trackEvent('notebook.cell_language_changed', { to });
+}

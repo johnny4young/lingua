@@ -20,6 +20,7 @@ import { resetRecipeStoreForTests, useRecipeStore } from '@/stores/recipeStore';
 import { resetNotebookStoreForTests, useNotebookStore } from '@/stores/notebookStore';
 import { useUtilityHistoryStore } from '@/stores/utilityHistoryStore';
 import { useLicenseStore } from '@/stores/licenseStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
@@ -70,6 +71,7 @@ describe('editorStore', () => {
       activeUtilityId: 'json',
     });
     useUIStore.setState({ statusNotice: null });
+    useSettingsStore.setState({ notebookDefaultCellLanguage: 'javascript' });
     setActiveProLicense();
     if (!pluginRegistry.get(luaPlugin.id)) {
       pluginRegistry.register(luaPlugin);
@@ -349,6 +351,27 @@ describe('editorStore', () => {
         'script.py',
         'print("saved")'
       );
+    });
+
+    it('uses the notebook default language when creating a new notebook tab', () => {
+      useSettingsStore.setState({ notebookDefaultCellLanguage: 'typescript' });
+
+      const tabId = useEditorStore
+        .getState()
+        .addNotebookTab({ title: 'Notebook draft' });
+
+      expect(tabId).toBeTruthy();
+      expect(useEditorStore.getState().tabs.find((tab) => tab.id === tabId)).toMatchObject({
+        language: 'typescript',
+        kind: 'notebook',
+      });
+      const codeCell = useNotebookStore
+        .getState()
+        .getNotebookForTab(tabId!)!
+        .cells.find((cell) => cell.kind === 'code')!;
+      expect(codeCell.kind).toBe('code');
+      if (codeCell.kind !== 'code') return;
+      expect(codeCell.language).toBe('typescript');
     });
 
     it('does not write notebook tabs as empty files before disk persistence ships', async () => {

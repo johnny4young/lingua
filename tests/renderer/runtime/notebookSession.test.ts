@@ -29,6 +29,7 @@ import {
   resetNotebookSessionsForTests,
   rewriteTopLevelDeclarationsForSession,
   runNotebookCell,
+  transpileTypescriptCell,
 } from '../../../src/renderer/runtime/notebookSession';
 import { runnerManager } from '../../../src/renderer/runners';
 import * as ts from 'typescript';
@@ -53,6 +54,15 @@ function syntaxErrorCount(source: string): number {
     .parseDiagnostics.length;
 }
 
+async function executeComposedNotebookSource(
+  source: string
+): Promise<{ sessionDelta: unknown }> {
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as
+    new (body: string) => () => Promise<{ sessionDelta: unknown }>;
+  const fn = new AsyncFunction(await composeNotebookCellSource(source, {}));
+  return fn();
+}
+
 describe('notebookSession closed enums', () => {
   it('NOTEBOOK_CELL_STATUSES stays the canonical tuple', () => {
     expect([...NOTEBOOK_CELL_STATUSES].sort()).toEqual(
@@ -60,9 +70,10 @@ describe('notebookSession closed enums', () => {
     );
   });
 
-  it('isNotebookRunnableLanguage gates Slice A to JavaScript only', () => {
+  it('isNotebookRunnableLanguage runs JS + TS (Slice C), still rejects Python', () => {
     expect(isNotebookRunnableLanguage('javascript')).toBe(true);
-    expect(isNotebookRunnableLanguage('typescript')).toBe(false);
+    // RL-043 Slice C — TypeScript is type-stripped + run through the JS pipeline.
+    expect(isNotebookRunnableLanguage('typescript')).toBe(true);
     expect(isNotebookRunnableLanguage('python')).toBe(false);
   });
 });
@@ -224,6 +235,71 @@ describe('composeNotebookCellSource', () => {
   });
 });
 
+describe('transpileTypescriptCell (RL-043 Slice C)', () => {
+  it('type-strips a typed declaration to runnable JavaScript', async () => {
+    const result = await transpileTypescriptCell('const x: number = 41 + 1;');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.js).toContain('const x = 41 + 1');
+    expect(result.js).not.toContain(': number');
+  });
+
+  it('erases type-only constructs (interface / type) to nothing runnable', async () => {
+    const result = await transpileTypescriptCell(
+      'interface Point { x: number }\ntype Id = string;\nconst n = 1;'
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.js).not.toContain('interface');
+    expect(result.js).not.toContain('type Id');
+    expect(result.js).toContain('const n = 1');
+  });
+
+  it('erases type-only imports/exports without emitting a runtime module marker', async () => {
+    const result = await transpileTypescriptCell(
+      'import type { Foo } from "./types";\nexport type Bar = Foo;\nconst n: number = 1;'
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.js).toContain('const n = 1');
+    expect(result.js).not.toContain('import type');
+    expect(result.js).not.toContain('export type');
+    expect(result.js).not.toContain('export {}');
+  });
+
+  it('fold F — emits a serializable runtime value for `enum` so it crosses cells', async () => {
+    const result = await transpileTypescriptCell('enum Color { Red, Green }');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // enum lowers to a `var Color` IIFE — a plain object the rewriter
+    // captures + the JSON sandbox round-trips after the IIFE initializes it.
+    expect(result.js).toContain('var Color');
+    const executed = await executeComposedNotebookSource(result.js);
+    const safe = extractSerializableDelta(executed.sessionDelta);
+    expect(safe.Color).toMatchObject({ Red: 0, Green: 1 });
+  });
+
+  it('fold F — lowers a `namespace` to a captured object', async () => {
+    const result = await transpileTypescriptCell(
+      'namespace NS { export const v = 1; }'
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const executed = await executeComposedNotebookSource(result.js);
+    const safe = extractSerializableDelta(executed.sessionDelta);
+    expect(safe.NS).toMatchObject({ v: 1 });
+  });
+
+  it('fold B — surfaces a syntax error with a 1-based line:col position', async () => {
+    const result = await transpileTypescriptCell('const y: number = ;');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toContain('TypeScript:');
+    // The position suffix points at the offending line:col (1-based).
+    expect(result.message).toMatch(/\(1:\d+\)/);
+  });
+});
+
 describe('extractSerializableDelta', () => {
   it('keeps primitives, plain objects, and arrays', () => {
     const safe = extractSerializableDelta({
@@ -367,6 +443,45 @@ describe('runNotebookCell + session manager', () => {
     });
     const composedForSecond = String(mockExecute.mock.calls[1]?.[1] ?? '');
     expect(composedForSecond).toContain('const secret = 7;');
+  });
+
+  it('type-strips a TypeScript cell before the runner + merges its delta', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: '{ "sessionDelta": { "n": 7 } }',
+      structuredResult: { stdout: [], stderr: [], sessionDelta: { n: 7 } },
+      stdout: [],
+      stderr: [],
+    });
+    const result = await runNotebookCell({
+      tabId: 'tab-ts',
+      language: 'typescript',
+      source: 'const n: number = 7;',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('ok');
+    // The source handed to the runner is type-stripped JavaScript.
+    const composed = String(mockExecute.mock.calls[0]?.[1] ?? '');
+    expect(composed).not.toContain(': number');
+    expect(composed).toContain('const n = 7');
+    // Cross-cell delta still merges (TS rides the same structured channel).
+    expect(getNotebookSessionKeys('tab-ts')).toContain('n');
+  });
+
+  it('surfaces a TypeScript syntax error as an error outcome, never reaching the runner', async () => {
+    mockExecute.mockClear();
+    const result = await runNotebookCell({
+      tabId: 'tab-ts-err',
+      language: 'typescript',
+      source: 'const broken: number = ;',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('error');
+    expect(result.outcome.errorMessage).toContain('TypeScript:');
+    // A transpile failure short-circuits before the worker round-trip.
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('records error + propagates the error message to stderr', async () => {

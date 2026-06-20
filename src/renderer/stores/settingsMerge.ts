@@ -243,10 +243,7 @@ export function settingsMerge(
   // RL-100 Slice 1 fold F — same three-state sanitize as the
   // capsule-import + utilities consents. Anything else falls
   // back to `'unset'` so the user is prompted again in Slice 2.
-  const importPreviewClipboardOnFocusConsent:
-    | 'unset'
-    | 'granted'
-    | 'declined' =
+  const importPreviewClipboardOnFocusConsent: 'unset' | 'granted' | 'declined' =
     merged.importPreviewClipboardOnFocusConsent === 'granted' ||
     merged.importPreviewClipboardOnFocusConsent === 'declined' ||
     merged.importPreviewClipboardOnFocusConsent === 'unset'
@@ -293,6 +290,7 @@ export function settingsMerge(
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
     sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // RL-097 S3 OPFS: coerce to boolean on rehydrate
+    notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // RL-043 SC: only the runnable pair; anything else falls back to JS
     capsuleImportClipboardOnFocusConsent,
     importPreviewClipboardOnFocusConsent,
   };

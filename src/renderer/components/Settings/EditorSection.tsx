@@ -23,6 +23,7 @@ import {
 } from './settingsOptions';
 import { Select, StepperButton, Toggle } from './shared';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
+import { languageLabel } from '../../utils/languageMeta';
 import { ThemePresetControls } from './ThemePresetControls';
 import {
   RUNTIME_MODES,
@@ -92,6 +93,12 @@ export function EditorSection() {
   const toggleVimMode = useSettingsStore((state) => state.toggleVimMode);
   const defaultRuntimeMode = useSettingsStore((state) => state.defaultRuntimeMode);
   const setDefaultRuntimeMode = useSettingsStore((state) => state.setDefaultRuntimeMode);
+  const notebookDefaultCellLanguage = useSettingsStore(
+    (state) => state.notebookDefaultCellLanguage
+  );
+  const setNotebookDefaultCellLanguage = useSettingsStore(
+    (state) => state.setNotebookDefaultCellLanguage
+  );
   const workflowModeDefaultsByLanguage = useSettingsStore(
     (state) => state.workflowModeDefaultsByLanguage
   );
@@ -433,6 +440,31 @@ export function EditorSection() {
                   </option>
                 );
               })}
+            </Select>
+          }
+        />
+
+        {/* RL-043 Slice C fold D — default language for new notebook code
+            cells. Only the two runnable cell languages are offered. */}
+        <SpecRow
+          label={t('notebook.settings.defaultLanguage.title')}
+          description={t('notebook.settings.defaultLanguage.description')}
+          control={
+            <Select
+              value={notebookDefaultCellLanguage}
+              onChange={(event) =>
+                setNotebookDefaultCellLanguage(
+                  event.target.value as 'javascript' | 'typescript'
+                )
+              }
+              aria-label={t('notebook.settings.defaultLanguage.title')}
+              data-testid="settings-notebook-default-language"
+            >
+              {(['javascript', 'typescript'] as const).map((lang) => (
+                <option key={lang} value={lang}>
+                  {languageLabel(lang)}
+                </option>
+              ))}
             </Select>
           }
         />

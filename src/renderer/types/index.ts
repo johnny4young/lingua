@@ -832,6 +832,12 @@ export interface SettingsState {
    * on the next reload or via the Settings "Reconnect now" action.
    */
   sqlWorkspacePersistTables: boolean;
+  /**
+   * RL-043 Slice C fold D — language seeded into a new notebook code
+   * cell by the "Add code" toolbar button. Only the two runnable cell
+   * languages are offered; defaults to `'javascript'`.
+   */
+  notebookDefaultCellLanguage: 'javascript' | 'typescript';
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -905,6 +911,13 @@ export interface SettingsState {
    * Rejects (no-op) for modes that are not yet implemented.
    */
   setDefaultRuntimeMode: (mode: RuntimeMode) => void;
+  /**
+   * RL-043 Slice C fold D — set the default language for new notebook
+   * code cells. Rejects (no-op) anything outside the runnable pair.
+   */
+  setNotebookDefaultCellLanguage: (
+    language: 'javascript' | 'typescript'
+  ) => void;
   /**
    * RL-020 Slice 2 — set the default workflow mode for a language.
    * No-op when the language does not support the requested mode.

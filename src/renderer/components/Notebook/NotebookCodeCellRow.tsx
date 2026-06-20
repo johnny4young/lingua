@@ -23,7 +23,11 @@ import {
   Play,
   Trash2,
 } from 'lucide-react';
-import type { NotebookCodeCellV1 } from '../../../shared/notebook';
+import {
+  NOTEBOOK_CELL_LANGUAGES,
+  type NotebookCellLanguage,
+  type NotebookCodeCellV1,
+} from '../../../shared/notebook';
 import type { NotebookCellRunStatus } from '../../stores/notebookStore';
 import { cn } from '../../utils/cn';
 import { languageBadgeTone, languageLabel } from '../../utils/languageMeta';
@@ -83,6 +87,9 @@ export interface NotebookCodeCellRowProps {
   onMoveUp: (cellId: string) => void;
   onMoveDown: (cellId: string) => void;
   onDelete: (cellId: string) => void;
+  /** RL-043 Slice C — change this cell's language via the header
+   * selector (JavaScript ↔ TypeScript; Python is shown but disabled). */
+  onLanguageChange: (cellId: string, language: NotebookCellLanguage) => void;
 }
 
 /**
@@ -166,6 +173,7 @@ export function NotebookCodeCellRow({
   onMoveUp,
   onMoveDown,
   onDelete,
+  onLanguageChange,
 }: NotebookCodeCellRowProps) {
   const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -353,16 +361,32 @@ export function NotebookCodeCellRow({
       ) : null}
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span
-            className="inline-flex h-5 items-center rounded px-1.5 text-[10px] font-bold uppercase tracking-wider"
+          {/* RL-043 Slice C — language selector. JS ↔ TS switch; Python
+              stays in the list but disabled (the runner doesn't execute
+              it yet). Styled as the canonical language-tone pill. */}
+          <select
+            className="h-5 cursor-pointer appearance-none rounded px-1.5 text-[10px] font-bold uppercase tracking-wider outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed"
             style={{
               background: languageTone.background,
               color: languageTone.foreground,
             }}
             data-testid="notebook-code-cell-language"
+            aria-label={t('notebook.cell.languageSelectLabel')}
+            value={cell.language}
+            disabled={disabled}
+            onChange={(event) =>
+              onLanguageChange(
+                cell.id,
+                event.target.value as NotebookCellLanguage
+              )
+            }
           >
-            {languageTone.code}
-          </span>
+            {NOTEBOOK_CELL_LANGUAGES.map((lang) => (
+              <option key={lang} value={lang} disabled={lang === 'python'}>
+                {languageBadgeTone(lang).code}
+              </option>
+            ))}
+          </select>
           <span
             className="text-[10px] uppercase tracking-wider text-muted"
             data-testid="notebook-code-cell-index"

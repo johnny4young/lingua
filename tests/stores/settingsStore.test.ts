@@ -154,6 +154,27 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().restoreSessionMode).toBe('ask');
   });
 
+  it('defaults notebookDefaultCellLanguage to javascript + sets the runnable pair, rejecting others (RL-043 Slice C)', () => {
+    expect(useSettingsStore.getState().notebookDefaultCellLanguage).toBe(
+      'javascript'
+    );
+    useSettingsStore.getState().setNotebookDefaultCellLanguage('typescript');
+    expect(useSettingsStore.getState().notebookDefaultCellLanguage).toBe(
+      'typescript'
+    );
+    const persisted = JSON.parse(localStorage.getItem('lingua-settings') ?? '{}') as {
+      state?: { notebookDefaultCellLanguage?: unknown };
+    };
+    expect(persisted.state?.notebookDefaultCellLanguage).toBe('typescript');
+    // The setter guards the closed pair — an unrunnable language is a no-op.
+    useSettingsStore
+      .getState()
+      .setNotebookDefaultCellLanguage('python' as 'javascript' | 'typescript');
+    expect(useSettingsStore.getState().notebookDefaultCellLanguage).toBe(
+      'typescript'
+    );
+  });
+
   it('should default inlineLintEnabledByLanguage ON for JS/TS (RL-108)', () => {
     const map = useSettingsStore.getState().inlineLintEnabledByLanguage;
     expect(map.javascript).toBe(true);

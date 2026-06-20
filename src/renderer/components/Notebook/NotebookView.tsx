@@ -42,7 +42,9 @@ import {
   useNotebookStore,
 } from '../../stores/notebookStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { useNotebookRun } from '../../hooks/useNotebookRun';
+import { trackNotebookCellLanguageChanged } from '../../hooks/notebookTelemetry';
 import { NotebookCodeCellRow } from './NotebookCodeCellRow';
 import { NotebookMarkdownCellRow } from './NotebookMarkdownCellRow';
 import {
@@ -104,6 +106,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const addCell = useNotebookStore((s) => s.addCell);
   const removeCell = useNotebookStore((s) => s.removeCell);
   const updateCellSource = useNotebookStore((s) => s.updateCellSource);
+  const setCellLanguage = useNotebookStore((s) => s.setCellLanguage);
   const moveCell = useNotebookStore((s) => s.moveCell);
   // Signal-Slate — new engine actions for the command-mode UX + toolbar.
   const transformCell = useNotebookStore((s) => s.transformCell);
@@ -155,11 +158,18 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     () => notebook?.cells.filter(isNotebookCodeCell).length ?? 0,
     [notebook]
   );
+  // RL-043 Slice C fold D — the user's default-language preference is the
+  // floor for new code cells, replacing the hardcoded `'javascript'`. The
+  // contextual signals (backing tab language, an existing code cell) are
+  // more specific and still win.
+  const notebookDefaultCellLanguage = useSettingsStore(
+    (s) => s.notebookDefaultCellLanguage
+  );
   const preferredCodeLanguage = useMemo<NotebookCellLanguage>(() => {
     if (backingTabLanguage) return backingTabLanguage;
     const firstCodeCell = notebook?.cells.find(isNotebookCodeCell);
-    return firstCodeCell?.language ?? 'javascript';
-  }, [backingTabLanguage, notebook]);
+    return firstCodeCell?.language ?? notebookDefaultCellLanguage;
+  }, [backingTabLanguage, notebook, notebookDefaultCellLanguage]);
   const exportLanguage = useMemo(
     () => (notebook ? pickNotebookExportLanguage(notebook) : null),
     [notebook]
@@ -220,6 +230,19 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       });
     },
     [addCell, notebook, pushStatusNotice, tabId]
+  );
+
+  // RL-043 Slice C — switch a cell's language via the header selector +
+  // emit the fold-E adoption signal. Native UI disables Python, but the
+  // handler still guards programmatic events so the store and telemetry
+  // remain scoped to the runnable JS↔TS pair.
+  const handleLanguageChange = useCallback(
+    (cellId: string, language: NotebookCellLanguage) => {
+      if (language !== 'javascript' && language !== 'typescript') return;
+      setCellLanguage(tabId, cellId, language);
+      trackNotebookCellLanguageChanged(language);
+    },
+    [setCellLanguage, tabId]
   );
 
   const handleMove = useCallback(
@@ -827,6 +850,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                     onMoveUp={(cellId) => handleMove(cellId, 'up')}
                     onMoveDown={(cellId) => handleMove(cellId, 'down')}
                     onDelete={handleDelete}
+                    onLanguageChange={handleLanguageChange}
                   />
                 </li>
               );

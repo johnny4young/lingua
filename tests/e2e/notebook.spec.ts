@@ -144,3 +144,77 @@ test.describe('Notebook — cross-cell variable sharing (Slice B)', () => {
     ).toContainText('first is 4');
   });
 });
+
+test.describe('Notebook — TypeScript cells (Slice C)', () => {
+  test('a TypeScript cell type-strips, runs, and shares a binding with a JS cell', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    // Switch the seeded cell to TypeScript via the header selector, then
+    // run a typed declaration — it type-strips through `ts.transpileModule`
+    // and executes on the JS worker.
+    const firstRow = page.getByTestId('notebook-code-cell-row').first();
+    await firstRow
+      .getByTestId('notebook-code-cell-language')
+      .selectOption('typescript');
+    await firstRow
+      .getByTestId('notebook-code-cell-source')
+      .fill('const doubled: number = 21 * 2;\nconsole.log(doubled);');
+    await firstRow.getByTestId('notebook-code-cell-run').click();
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-status')
+    ).toContainText('Ok');
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-outputs')
+    ).toContainText('42');
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-produces')
+    ).toContainText('doubled');
+
+    // A JS cell reads the binding the TS cell declared — cross-cell sharing
+    // is language-agnostic (the sandbox round-trips plain JSON values).
+    await page.getByTestId('notebook-toolbar-add-code').click();
+    await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
+    const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
+    await secondRow
+      .getByTestId('notebook-code-cell-source')
+      .fill("console.log('doubled is', doubled + 1);");
+    await secondRow.getByTestId('notebook-code-cell-run').click();
+    await expect(
+      secondRow.getByTestId('notebook-code-cell-status')
+    ).toContainText('Ok');
+    await expect(
+      secondRow.getByTestId('notebook-code-cell-outputs')
+    ).toContainText('doubled is 43');
+  });
+
+  test('a TypeScript syntax error surfaces a precise compiler message', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    const firstRow = page.getByTestId('notebook-code-cell-row').first();
+    await firstRow
+      .getByTestId('notebook-code-cell-language')
+      .selectOption('typescript');
+    await firstRow
+      .getByTestId('notebook-code-cell-source')
+      .fill('const broken: number = ;');
+    await firstRow.getByTestId('notebook-code-cell-run').click();
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-status')
+    ).toContainText('Error');
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-outputs')
+    ).toContainText('TypeScript:');
+  });
+});

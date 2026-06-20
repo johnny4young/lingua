@@ -234,5 +234,7 @@ export function createInitialSettingsState() {
     // RL-097 Slice 3 (SQL OPFS) — off by default; the SQL workspace is
     // an in-memory scratchpad unless the user opts into persistence.
     sqlWorkspacePersistTables: false,
+    // RL-043 Slice C fold D — new notebook code cells default to JS.
+    notebookDefaultCellLanguage: 'javascript',
   } satisfies Partial<SettingsState>;
 }

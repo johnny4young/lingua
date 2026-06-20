@@ -40,6 +40,7 @@ export function createRuntimeActions(
   | 'toggleSmartPasteDetection'
   | 'setNativeExecutionAcknowledged'
   | 'setDefaultRuntimeMode'
+  | 'setNotebookDefaultCellLanguage'
   | 'setWorkflowModeDefault'
   | 'setScratchpadAutoLogDefault'
   | 'setInlineLintEnabled'
@@ -68,6 +69,13 @@ export function createRuntimeActions(
     setDefaultRuntimeMode: (mode: RuntimeMode) => {
       if (!isRuntimeModeImplemented(mode)) return;
       set({ defaultRuntimeMode: mode });
+    },
+    // RL-043 Slice C fold D — seed language for new notebook code cells.
+    // Guards the closed pair so a programmatic call can't smuggle an
+    // unrunnable language (e.g. python) into the default.
+    setNotebookDefaultCellLanguage: (language) => {
+      if (language !== 'javascript' && language !== 'typescript') return;
+      set({ notebookDefaultCellLanguage: language });
     },
     // RL-020 Slice 2 — set or clear the per-language workflow
     // default. `null` resets to the shared helper. The setter

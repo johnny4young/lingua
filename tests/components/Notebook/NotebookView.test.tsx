@@ -178,6 +178,51 @@ describe('<NotebookView />', () => {
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
   });
 
+  it('the cell language selector switches JS to TS and emits the adoption event', async () => {
+    const telemetry = await import('../../../src/renderer/utils/telemetry');
+    render(<NotebookView tabId={TAB_ID} />);
+    const select = screen.getByTestId(
+      'notebook-code-cell-language'
+    ) as HTMLSelectElement;
+    expect(select.value).toBe('javascript');
+    fireEvent.change(select, { target: { value: 'typescript' } });
+    const codeCell = useNotebookStore
+      .getState()
+      .getNotebookForTab(TAB_ID)!
+      .cells.find((c) => c.kind === 'code')!;
+    expect(codeCell.kind).toBe('code');
+    if (codeCell.kind === 'code') expect(codeCell.language).toBe('typescript');
+    expect(telemetry.trackEvent).toHaveBeenCalledWith(
+      'notebook.cell_language_changed',
+      { to: 'typescript' }
+    );
+  });
+
+  it('the cell language selector keeps Python in the list but disabled (fold C)', async () => {
+    const telemetry = await import('../../../src/renderer/utils/telemetry');
+    vi.mocked(telemetry.trackEvent).mockClear();
+    render(<NotebookView tabId={TAB_ID} />);
+    const select = screen.getByTestId('notebook-code-cell-language');
+    const python = select.querySelector(
+      'option[value="python"]'
+    ) as HTMLOptionElement | null;
+    expect(python).not.toBeNull();
+    expect(python?.disabled).toBe(true);
+
+    fireEvent.change(select, { target: { value: 'python' } });
+    const codeCell = useNotebookStore
+      .getState()
+      .getNotebookForTab(TAB_ID)!
+      .cells.find((c) => c.kind === 'code')!;
+    expect(codeCell.kind).toBe('code');
+    if (codeCell.kind !== 'code') return;
+    expect(codeCell.language).toBe('javascript');
+    expect(telemetry.trackEvent).not.toHaveBeenCalledWith(
+      'notebook.cell_language_changed',
+      { to: 'python' }
+    );
+  });
+
   it('runs the focused code cell on Cmd+Enter without falling through to the global runner', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',

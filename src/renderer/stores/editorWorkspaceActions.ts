@@ -1,6 +1,7 @@
 import type { EditorState, FileTab } from '../types';
 import i18next from 'i18next';
 import { useNotebookStore } from './notebookStore';
+import { useSettingsStore } from './settingsStore';
 import { useUtilityHistoryStore } from './utilityHistoryStore';
 import { findDeveloperUtility, type DeveloperUtilityId } from '../data/developerUtilities';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
@@ -50,7 +51,8 @@ export function createWorkspaceActions(
         });
         return null;
       }
-      const requestedLanguage = opts?.language ?? 'javascript';
+      const requestedLanguage =
+        opts?.language ?? useSettingsStore.getState().notebookDefaultCellLanguage;
       if (!isLanguageAllowed(tier, requestedLanguage)) {
         pushUpsellNotice({
           messageKey: 'upsell.freeCeilingReached',
@@ -79,7 +81,11 @@ export function createWorkspaceActions(
         tabs: [...state.tabs, newTab],
         activeTabId: tabId,
       }));
-      useNotebookStore.getState().createNotebookForTab(tabId, title);
+      useNotebookStore.getState().createNotebookForTab(
+        tabId,
+        title,
+        requestedLanguage === 'typescript' ? 'typescript' : 'javascript'
+      );
       return tabId;
     },
 

@@ -50,6 +50,20 @@ describe('useNotebookStore CRUD', () => {
     );
   });
 
+  it('createNotebookForTab can seed the starter code cell as TypeScript', () => {
+    useNotebookStore
+      .getState()
+      .createNotebookForTab('tab-ts-default', 'Hello', 'typescript');
+
+    const codeCell = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-ts-default')!
+      .cells.find((cell) => cell.kind === 'code')!;
+    expect(codeCell.kind).toBe('code');
+    if (codeCell.kind !== 'code') return;
+    expect(codeCell.language).toBe('typescript');
+  });
+
   it('createNotebookForTab ignores empty tabId', () => {
     useNotebookStore.getState().createNotebookForTab('', 'X');
     expect(useNotebookStore.getState().notebooks).toEqual({});
@@ -132,6 +146,55 @@ describe('useNotebookStore CRUD', () => {
       .getNotebookForTab('tab-6')!
       .cells.find((c) => c.id === codeCell.id)!;
     expect(after.source.length).toBeLessThanOrEqual(32 * 1024);
+  });
+
+  it('setCellLanguage switches a code cell language + clears its outputs and run state', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-lang');
+    const codeCell = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-lang')!
+      .cells.find((c) => c.kind === 'code')!;
+    store.setCellOutputs('tab-lang', codeCell.id, [
+      { kind: 'text', stream: 'stdout', text: 'stale' },
+    ]);
+    store.setCellRunStatus('tab-lang', codeCell.id, 'ok');
+    store.setCellLanguage('tab-lang', codeCell.id, 'typescript');
+    const after = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-lang')!
+      .cells.find((c) => c.id === codeCell.id)!;
+    expect(after.kind).toBe('code');
+    if (after.kind !== 'code') return;
+    expect(after.language).toBe('typescript');
+    expect(after.outputs).toEqual([]);
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-lang', codeCell.id)
+    ).toBe('idle');
+
+    store.setCellLanguage('tab-lang', codeCell.id, 'python');
+    const afterUnsupported = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-lang')!
+      .cells.find((c) => c.id === codeCell.id)!;
+    expect(afterUnsupported.kind).toBe('code');
+    if (afterUnsupported.kind !== 'code') return;
+    expect(afterUnsupported.language).toBe('typescript');
+  });
+
+  it('setCellLanguage is a no-op on a markdown cell', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-lang2');
+    const markdownCell = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-lang2')!
+      .cells.find((c) => c.kind === 'markdown')!;
+    const before = useNotebookStore.getState().getNotebookForTab('tab-lang2');
+    store.setCellLanguage('tab-lang2', markdownCell.id, 'typescript');
+    // A no-op returns the identical state object (no re-render).
+    expect(useNotebookStore.getState().getNotebookForTab('tab-lang2')).toBe(
+      before
+    );
   });
 
   it('moveCell reorders inside the cells array', () => {

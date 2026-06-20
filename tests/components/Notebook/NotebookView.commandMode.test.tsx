@@ -296,6 +296,22 @@ describe('<NotebookView /> command mode', () => {
     ).toHaveLength(2);
   });
 
+  it('does not fire command keybinds while the cell language selector is focused (RL-043 Slice C)', () => {
+    seed([codeCell('c1'), codeCell('c2')], 'c1');
+    render(<NotebookView tabId={TAB_ID} />);
+    const select = screen.getAllByTestId('notebook-code-cell-language')[0]!;
+    select.focus();
+    // Option type-ahead ('j') must NOT move the active cell, and 'dd' must
+    // NOT delete — the selector is an editable surface like the textarea.
+    fireEvent.keyDown(select, { key: 'j' });
+    expect(useNotebookStore.getState().getActiveCellId(TAB_ID)).toBe('c1');
+    fireEvent.keyDown(select, { key: 'd' });
+    fireEvent.keyDown(select, { key: 'd' });
+    expect(
+      useNotebookStore.getState().getNotebookForTab(TAB_ID)!.cells
+    ).toHaveLength(2);
+  });
+
   it('shows the Jupyter [N] execution-order stamp after a run', () => {
     seed([codeCell('c1')], 'c1');
     useNotebookStore.getState().setCellExecutionOrder(TAB_ID, 'c1');

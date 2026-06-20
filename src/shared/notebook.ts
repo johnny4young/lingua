@@ -334,16 +334,20 @@ export function serializeNotebook(notebook: NotebookV1): string | null {
 
 /**
  * Build a fresh empty notebook scaffold. Slice A seeds two cells —
- * one markdown welcome + one JavaScript code cell — so the user
- * lands on a runnable canvas. Slice B+ can promote this to a richer
- * starter template once the notebook editor matures.
+ * one markdown welcome + one runnable code cell — so the user lands on
+ * a canvas that matches their default notebook-cell language. Slice B+
+ * can promote this to a richer starter template once the notebook editor
+ * matures.
  */
 export function createBlankNotebook(opts: {
   id: string;
   title: string;
   now?: string;
+  initialCodeCellLanguage?: NotebookCellLanguage;
 }): NotebookV1 {
   const createdAt = opts.now ?? new Date().toISOString();
+  const initialCodeCellLanguage =
+    opts.initialCodeCellLanguage === 'typescript' ? 'typescript' : 'javascript';
   return {
     version: 1,
     id: opts.id,
@@ -359,7 +363,7 @@ export function createBlankNotebook(opts: {
       {
         kind: 'code',
         id: 'cell-first',
-        language: 'javascript',
+        language: initialCodeCellLanguage,
         source: 'const x = 21;\nconsole.log(x * 2);',
         outputs: [],
       },
@@ -368,7 +372,7 @@ export function createBlankNotebook(opts: {
 }
 
 /**
- * Convenience guard for store callers + UI gating. Slice A widens to
+ * Convenience guard for store callers + UI gating. Slice C runs
  * `'javascript' | 'typescript'`; Python lives in the schema but the
  * runner rejects it (see `notebookSession.ts`).
  */

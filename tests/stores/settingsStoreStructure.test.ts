@@ -21,7 +21,7 @@ import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 const STORES_DIR = resolve(__dirname, '../../src/renderer/stores');
 
-/** The complete `SettingsState` surface — data fields + setters (93 members). */
+/** The complete `SettingsState` surface — data fields + setters. */
 const EXPECTED_STORE_KEYS = [
   'acknowledgeFirstWorkflowModeSwitch',
   'addSensitiveHttpHeader',
@@ -55,6 +55,7 @@ const EXPECTED_STORE_KEYS = [
   'minimap',
   'nativeExecutionAcknowledged',
   'nodeRunnerFirstRunNoticeShown',
+  'notebookDefaultCellLanguage',
   'onboardingWelcomeSeedVersion',
   'removeSensitiveHttpHeader',
   'resetOnboardingFirstRun',
@@ -79,6 +80,7 @@ const EXPECTED_STORE_KEYS = [
   'setLayoutPreset',
   'setMaxLoopIterations',
   'setNativeExecutionAcknowledged',
+  'setNotebookDefaultCellLanguage',
   'setRestoreSessionMode',
   'setRubyRuntimePreference',
   'setRuntimeTimeoutPreset',
@@ -177,6 +179,7 @@ const STATE_FIELDS = new Set([
   'sqlWorkspaceRowDisplayLimit',
   'sqlWorkspaceQueryTimeoutMs',
   'sqlWorkspacePersistTables',
+  'notebookDefaultCellLanguage',
 ]);
 
 /** The assembly point — must stay thin. */

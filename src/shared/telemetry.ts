@@ -476,14 +476,20 @@ export const TELEMETRY_EVENTS = [
   // RL-043 Slice A fold B — notebook cell execution. Fires once per
   // `Run cell` settle (and once per cell in `Run all` / `Run above`).
   // Closed-enum `{ language, status }` where `language` ∈
-  // `NOTEBOOK_CELL_LANGUAGES_SET` (Slice A: `'javascript'` only;
-  // schema-generic for Slice B+ TypeScript + Python) and `status` ∈
-  // `NOTEBOOK_CELL_STATUSES_SET` (`'ok' / 'error' / 'stopped'`). NO
+  // `NOTEBOOK_CELL_LANGUAGES_SET` (Slice C executes JavaScript +
+  // TypeScript; Python remains schema-only until its runner lands)
+  // and `status` ∈ `NOTEBOOK_CELL_STATUSES_SET` (`'ok' / 'error' /
+  // 'stopped'`). NO
   // cell source, NO output bytes reach the wire. Mirrored on
   // update-server with a 3-way parity test cross-importing the
   // canonical `NOTEBOOK_CELL_STATUSES` tuple from
   // `src/renderer/runtime/notebookSession.ts`.
   'notebook.cell_executed',
+  // RL-043 Slice C fold E — a notebook cell's language was switched via
+  // the per-cell selector. Closed-enum `{ to }` where `to` ∈
+  // `NOTEBOOK_CELL_LANGUAGES_SET`; an adoption signal for TypeScript
+  // cells. NO cell source reaches the wire. Mirrored on update-server.
+  'notebook.cell_language_changed',
   // RL-126 / AUDIT-06 — a persisted Zustand store ran a schema migration on
   // rehydrate (its stored version was older than the current version). Closed
   // payload `{ store }` where `store` is the localStorage key (a safe token);
@@ -840,9 +846,12 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // ∈ RECIPE_RUN_STATUSES_SET.
   'recipe.test_run': ['language', 'status'],
   // RL-043 Slice A fold B — `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET
-  // (Slice A: javascript only), `status` ∈ NOTEBOOK_CELL_STATUSES_SET
+  // (Slice C: JavaScript + TypeScript runnable; Python schema-only),
+  // `status` ∈ NOTEBOOK_CELL_STATUSES_SET
   // (`'ok' / 'error' / 'stopped'`).
   'notebook.cell_executed': ['language', 'status'],
+  // RL-043 Slice C fold E — `to` ∈ NOTEBOOK_CELL_LANGUAGES_SET.
+  'notebook.cell_language_changed': ['to'],
   // RL-126 / AUDIT-06 — only the store key survives; see the value validator.
   'persistence.migrated': ['store'],
   // RL-137 / AUDIT-17 — `family` ∈ FS_BLOCKED_FAMILIES. No path on the wire.
@@ -1126,9 +1135,9 @@ export const NOTEBOOK_CELL_STATUSES_SET = new Set([
 ]);
 // RL-043 Slice A fold B — closed enum of code-cell languages. Source
 // of truth in `src/shared/notebook.ts` (`NOTEBOOK_CELL_LANGUAGES`).
-// Slice A renders Python in the schema but the runner rejects it;
-// the telemetry validator accepts all three so a Slice B+ Python
-// wiring doesn't have to revisit this Set.
+// Slice C runs JavaScript + TypeScript; Python remains schema-only and
+// runner-rejected. The telemetry validator accepts all three so future
+// Python wiring doesn't have to revisit this Set.
 export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
   'javascript',
   'typescript',
@@ -1973,6 +1982,12 @@ function isAllowedValue(
       if (key === 'status')
         return typeof value === 'string' && NOTEBOOK_CELL_STATUSES_SET.has(value);
       return false;
+    case 'notebook.cell_language_changed':
+      return (
+        key === 'to' &&
+        typeof value === 'string' &&
+        NOTEBOOK_CELL_LANGUAGES_SET.has(value)
+      );
     case 'persistence.migrated':
       // RL-126 — `store` is a localStorage key (a safe token like
       // `lingua-settings`); the closed-enum membership is enforced at the call

@@ -248,6 +248,9 @@ export const TELEMETRY_EVENT_NAMES = [
   // NOTEBOOK_CELL_STATUSES tuple from
   // src/renderer/runtime/notebookSession.ts.
   'notebook.cell_executed',
+  // RL-043 Slice C fold E — notebook cell language switch. Closed-enum
+  // `{ to }` mirrored from src/shared/telemetry.ts.
+  'notebook.cell_language_changed',
   // RL-126 — persisted-store schema migration. Mirror of
   // src/shared/telemetry.ts; `store` is a safe localStorage key token
   // (closed-enum at the renderer call site).
@@ -421,6 +424,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'recipe.test_run': ['language', 'status'],
   // RL-043 Slice A fold B — mirror of src/shared/telemetry.ts.
   'notebook.cell_executed': ['language', 'status'],
+  // RL-043 Slice C fold E — mirror of src/shared/telemetry.ts.
+  'notebook.cell_language_changed': ['to'],
   // RL-126 — mirror of src/shared/telemetry.ts.
   'persistence.migrated': ['store'],
   // RL-137 / AUDIT-17 — mirror of src/shared/telemetry.ts.
@@ -1555,6 +1560,12 @@ function isAllowedValue(
       if (key === 'status')
         return typeof value === 'string' && NOTEBOOK_CELL_STATUSES_SET.has(value);
       return false;
+    case 'notebook.cell_language_changed':
+      return (
+        key === 'to' &&
+        typeof value === 'string' &&
+        NOTEBOOK_CELL_LANGUAGES_SET.has(value)
+      );
     case 'persistence.migrated':
       // RL-126 — `store` is a localStorage key (a safe token like
       // `lingua-settings`); the closed-enum membership is enforced at the

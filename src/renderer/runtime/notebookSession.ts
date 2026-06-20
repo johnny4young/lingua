@@ -84,13 +84,16 @@ export type NotebookSessionRejectReason =
   (typeof NOTEBOOK_SESSION_REJECT_REASONS)[number];
 
 /**
- * Slice A code-cell run gate. Mirrors the runner's `'javascript'`
- * pipeline; TypeScript routes through the same worker via Monaco's
- * TS transpile step (deferred to Slice B for cleanliness — Slice A
- * runner-side gate is JS only).
+ * Code-cell run gate. JavaScript runs directly; TypeScript (RL-043
+ * Slice C) is type-stripped to JavaScript via `ts.transpileModule`
+ * (the same lazily-loaded compiler the cross-cell rewriter uses) and
+ * then runs through the identical `'javascript'` worker pipeline, so
+ * cross-cell sharing, timeouts, and the structured-result channel all
+ * apply unchanged. Python stays runner-rejected (separate sandbox
+ * model; future slice).
  */
 export const NOTEBOOK_RUNNABLE_LANGUAGES: ReadonlySet<NotebookCellLanguage> =
-  new Set(['javascript']);
+  new Set(['javascript', 'typescript']);
 
 export function isNotebookRunnableLanguage(
   language: NotebookCellLanguage
@@ -138,6 +141,63 @@ function loadTypescript(): Promise<typeof TsTypes> {
     });
   }
   return cachedTypescript;
+}
+
+/**
+ * RL-043 Slice C — outcome of type-stripping a TypeScript cell. `js` is
+ * the emitted JavaScript on success; `message` carries a human-readable
+ * compiler diagnostic (with a `line:col` suffix — fold B) when the cell
+ * has a syntax error, so the cell surfaces a precise message instead of
+ * a generic failure.
+ */
+export type NotebookTranspileResult =
+  | { readonly ok: true; readonly js: string }
+  | { readonly ok: false; readonly message: string };
+
+/**
+ * RL-043 Slice C — type-strip a TypeScript cell to JavaScript so it runs
+ * through the JS worker pipeline. Uses `ts.transpileModule` on the
+ * already-lazily-loaded compiler (no extra dependency, no esbuild-wasm
+ * fetch on the notebook path). `module: Preserve` + `target: ES2022`
+ * type-strips without inventing an `export {}` module marker for
+ * type-only imports/exports; value imports/exports remain unsupported
+ * cell-module syntax and naturally surface as run errors. `enum` /
+ * `namespace` emit a serializable runtime value that the cross-cell
+ * rewriter then captures.
+ *
+ * `transpileModule` does NOT type-check; the reported diagnostics are
+ * parser-level syntax errors only. We surface the first one (fold B) and
+ * leave a clean cell unchanged. The emitted JS then flows through the
+ * existing rewriter + `composeNotebookCellSource` untouched, so a TS
+ * cell shares declarations cross-cell exactly like a JS cell.
+ */
+export async function transpileTypescriptCell(
+  source: string
+): Promise<NotebookTranspileResult> {
+  const ts = await loadTypescript();
+  const result = ts.transpileModule(source, {
+    fileName: 'notebook-cell.ts',
+    reportDiagnostics: true,
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.Preserve,
+    },
+  });
+  const firstError = (result.diagnostics ?? []).find(
+    (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error
+  );
+  if (firstError !== undefined) {
+    const text = ts.flattenDiagnosticMessageText(firstError.messageText, '\n');
+    let position = '';
+    if (firstError.file !== undefined && typeof firstError.start === 'number') {
+      const { line, character } =
+        firstError.file.getLineAndCharacterOfPosition(firstError.start);
+      // 1-based for display, mirroring how editors report TS errors.
+      position = ` (${line + 1}:${character + 1})`;
+    }
+    return { ok: false, message: `TypeScript: ${text}${position}` };
+  }
+  return { ok: true, js: result.outputText };
 }
 
 /**
@@ -214,13 +274,24 @@ export async function rewriteTopLevelDeclarationsForSession(
   ).parseDiagnostics;
   if (parseDiagnostics && parseDiagnostics.length > 0) return source;
   // One insertion per top-level declaration: its source end offset + the
-  // names it binds.
+  // names it binds. Uninitialized top-level variables are deferred to
+  // end-of-cell because TypeScript lowers `enum` / `namespace` to
+  // `var Name; (function (Name) { ... })(Name || (Name = {}));`;
+  // capturing immediately after `var Name;` would snapshot `undefined`
+  // and drop the serializable object those TS constructs create.
   const inserts: Array<{ end: number; names: string[] }> = [];
+  const deferredVariableNames: string[] = [];
   for (const statement of sourceFile.statements) {
     const names: string[] = [];
     if (ts.isVariableStatement(statement)) {
       for (const declaration of statement.declarationList.declarations) {
-        collectBindingNames(ts, declaration.name, names);
+        const declarationNames: string[] = [];
+        collectBindingNames(ts, declaration.name, declarationNames);
+        if (declaration.initializer === undefined) {
+          deferredVariableNames.push(...declarationNames);
+        } else {
+          names.push(...declarationNames);
+        }
       }
     } else if (ts.isFunctionDeclaration(statement) && statement.name) {
       names.push(statement.name.text);
@@ -230,6 +301,9 @@ export async function rewriteTopLevelDeclarationsForSession(
     if (names.length > 0) {
       inserts.push({ end: statement.end, names });
     }
+  }
+  if (deferredVariableNames.length > 0) {
+    inserts.push({ end: source.length, names: deferredVariableNames });
   }
   if (inserts.length === 0) return source;
   // Splice descending so earlier end offsets stay valid as we insert.
@@ -432,8 +506,31 @@ export async function runNotebookCell(
   }
   session.isRunning = true;
   try {
+    // RL-043 Slice C — TypeScript cells are type-stripped to JavaScript
+    // BEFORE the rewriter + compose, then run through the identical JS
+    // pipeline. A transpile (syntax) error short-circuits to an `error`
+    // outcome carrying the precise compiler message (fold B); JS cells
+    // skip this hop entirely.
+    let runnableSource = request.source;
+    if (request.language === 'typescript') {
+      const transpiled = await transpileTypescriptCell(request.source);
+      if (!transpiled.ok) {
+        return {
+          ok: true,
+          outcome: {
+            status: 'error',
+            stdout: [],
+            stderr: [transpiled.message],
+            errorMessage: transpiled.message,
+            sandboxKeyCount: Object.keys(session.sandbox).length,
+            producedKeys: [],
+          },
+        };
+      }
+      runnableSource = transpiled.js;
+    }
     const composed = await composeNotebookCellSource(
-      request.source,
+      runnableSource,
       session.sandbox
     );
     const result = await runnerManager.execute('javascript', composed, {

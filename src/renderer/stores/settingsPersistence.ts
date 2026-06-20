@@ -104,5 +104,8 @@ export function settingsPartialize(state: SettingsState) {
     sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,
     // RL-097 Slice 3 (SQL OPFS) — persist the table-persistence toggle.
     sqlWorkspacePersistTables: state.sqlWorkspacePersistTables,
+    // RL-043 Slice C fold D — persist the user's default language for new
+    // notebook code cells; merge sanitizes it back to JS/TS on rehydrate.
+    notebookDefaultCellLanguage: state.notebookDefaultCellLanguage,
   };
 }

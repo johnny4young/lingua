@@ -129,7 +129,11 @@ export interface NotebookState {
   // -------- mutations -----------------------------------------------------
 
   /** Create a new notebook for a tab; idempotent if already exists. */
-  createNotebookForTab: (tabId: string, title?: string) => void;
+  createNotebookForTab: (
+    tabId: string,
+    title?: string,
+    initialCodeCellLanguage?: NotebookCellLanguage
+  ) => void;
   /** Drop the entire notebook entry for a tab. Called by editorStore's
    * `removeTab` + `renameTab` hooks. */
   disposeNotebookForTab: (tabId: string) => void;
@@ -158,6 +162,15 @@ export interface NotebookState {
     tabId: string,
     cellId: string,
     newKind: NotebookCellKind
+  ) => void;
+  /** RL-043 Slice C — change a code cell's language (JS↔TS). Clears the
+   * cell's outputs + transient run state (the prior run no longer
+   * describes the new language). No-op on a markdown cell or when the
+   * language is unchanged. */
+  setCellLanguage: (
+    tabId: string,
+    cellId: string,
+    language: NotebookCellLanguage
   ) => void;
   /** Reorder cells — move from index `fromIdx` to `toIdx`. */
   moveCell: (tabId: string, fromIdx: number, toIdx: number) => void;
@@ -231,13 +244,18 @@ export const useNotebookStore = create<NotebookState>()(
     (set, get) => ({
       ...createInitialState(),
 
-      createNotebookForTab: (tabId, title = 'Untitled notebook') => {
+      createNotebookForTab: (
+        tabId,
+        title = 'Untitled notebook',
+        initialCodeCellLanguage
+      ) => {
         if (typeof tabId !== 'string' || tabId.length === 0) return;
         set((state) => {
           if (state.notebooks[tabId]) return state;
           const notebook = createBlankNotebook({
             id: `notebook-${tabId.slice(0, 8)}`,
             title,
+            initialCodeCellLanguage,
           });
           return {
             notebooks: {
@@ -477,6 +495,53 @@ export const useNotebookStore = create<NotebookState>()(
           // Clear this cell's transient run state — its prior status /
           // latency / var-flow / execution stamp no longer describe the
           // new cell kind. Drop them in lockstep so nothing orphans.
+          const { [cellId]: _ds, ...remainingStatus } = slice.cellRunStatus;
+          void _ds;
+          const { [cellId]: _dd, ...remainingDuration } =
+            slice.cellDurationMs ?? {};
+          void _dd;
+          const { [cellId]: _dv, ...remainingVarFlow } =
+            slice.cellVarFlow ?? {};
+          void _dv;
+          const { [cellId]: _do, ...remainingOrder } =
+            slice.cellExecutionOrder ?? {};
+          void _do;
+          return {
+            notebooks: {
+              ...state.notebooks,
+              [tabId]: {
+                ...slice,
+                notebook: { ...slice.notebook, cells: next },
+                cellRunStatus: remainingStatus,
+                cellDurationMs: remainingDuration,
+                cellVarFlow: remainingVarFlow,
+                cellExecutionOrder: remainingOrder,
+              },
+            },
+          };
+        }),
+
+      setCellLanguage: (tabId, cellId, language) =>
+        set((state) => {
+          if (language !== 'javascript' && language !== 'typescript') {
+            return state;
+          }
+          const slice = state.notebooks[tabId];
+          if (!slice) return state;
+          const idx = slice.notebook.cells.findIndex((c) => c.id === cellId);
+          if (idx === -1) return state;
+          const existing = slice.notebook.cells[idx]!;
+          // Only code cells carry a language; an unchanged language is a
+          // no-op so the union of returned states stays minimal.
+          if (existing.kind !== 'code' || existing.language === language) {
+            return state;
+          }
+          const next = slice.notebook.cells.slice();
+          // Outputs from the prior language are stale once the cell runs
+          // under the new one — drop them with the language change.
+          next[idx] = { ...existing, language, outputs: [] };
+          // Clear this cell's transient run state in lockstep so nothing
+          // orphans (mirrors `transformCell`).
           const { [cellId]: _ds, ...remainingStatus } = slice.cellRunStatus;
           void _ds;
           const { [cellId]: _dd, ...remainingDuration } =
