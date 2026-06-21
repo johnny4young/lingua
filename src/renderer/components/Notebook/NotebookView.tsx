@@ -44,13 +44,17 @@ import {
 import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useNotebookRun } from '../../hooks/useNotebookRun';
-import { trackNotebookCellLanguageChanged } from '../../hooks/notebookTelemetry';
+import {
+  trackNotebookCellLanguageChanged,
+  trackNotebookExported,
+} from '../../hooks/notebookTelemetry';
 import { NotebookCodeCellRow } from './NotebookCodeCellRow';
 import { NotebookMarkdownCellRow } from './NotebookMarkdownCellRow';
 import {
   exportNotebookAsScript,
   pickNotebookExportLanguage,
 } from './notebookExportToScript';
+import { exportNotebookAsIpynb } from './notebookExportToIpynb';
 import { useNotebookCommandMode } from './useNotebookCommandMode';
 import { Kbd } from '../ui/ModalShell';
 import { cn } from '../../utils/cn';
@@ -135,6 +139,10 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // button in the toolbar.
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const shortcutsAnchorRef = useRef<HTMLDivElement | null>(null);
+  // RL-043 Slice D — export-format menu (Script | Jupyter .ipynb). Same
+  // popover mechanics as the shortcuts legend.
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuAnchorRef = useRef<HTMLDivElement | null>(null);
   // Signal-Slate — command-mode "enter edit" request. Markdown rows
   // start in preview, so command-mode Enter must flip them into their
   // editor. We bump a `{ cellId, nonce }` request the row watches; the
@@ -199,6 +207,25 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [shortcutsOpen]);
+
+  // RL-043 Slice D — dismiss the export menu on outside-click / Escape.
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!exportMenuAnchorRef.current?.contains(event.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExportMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [exportMenuOpen]);
 
   const handleAddMarkdown = useCallback(() => {
     if (!notebook) return;
@@ -408,7 +435,25 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     ]
   );
 
+  // RL-043 Slice D — shared blob-download path for both export formats.
+  const downloadTextFile = useCallback(
+    (content: string, filename: string, mimeType: string) => {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      // Defer revoke so the click has time to start the download.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+    []
+  );
+
   const handleExport = useCallback(() => {
+    setExportMenuOpen(false);
     if (!notebook) return;
     const result = exportNotebookAsScript(notebook);
     if (result.source.length === 0) {
@@ -419,18 +464,12 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       return;
     }
     try {
-      const blob = new Blob([result.source], {
-        type: 'text/plain;charset=utf-8',
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = result.suggestedFileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      // Defer revoke so the click has time to start the download.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadTextFile(
+        result.source,
+        result.suggestedFileName,
+        'text/plain;charset=utf-8'
+      );
+      trackNotebookExported('script');
       pushStatusNotice({
         tone: 'success',
         messageKey: 'notebook.notice.exportOk',
@@ -441,7 +480,35 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         messageKey: 'notebook.notice.exportFailed',
       });
     }
-  }, [notebook, pushStatusNotice]);
+  }, [downloadTextFile, notebook, pushStatusNotice]);
+
+  // RL-043 Slice D — export to Jupyter `.ipynb` (nbformat v4). Threads the
+  // transient `[N]` execution-order map so Jupyter consumers see the run
+  // sequence (fold C). Gated by the same toolbar disable as script export.
+  const handleExportIpynb = useCallback(() => {
+    setExportMenuOpen(false);
+    if (!notebook) return;
+    const result = exportNotebookAsIpynb(notebook, {
+      executionOrder: cellExecutionOrderMap ?? {},
+    });
+    try {
+      downloadTextFile(
+        result.json,
+        result.suggestedFileName,
+        'application/x-ipynb+json;charset=utf-8'
+      );
+      trackNotebookExported('ipynb');
+      pushStatusNotice({
+        tone: 'success',
+        messageKey: 'notebook.notice.exportIpynbOk',
+      });
+    } catch {
+      pushStatusNotice({
+        tone: 'error',
+        messageKey: 'notebook.notice.exportFailed',
+      });
+    }
+  }, [cellExecutionOrderMap, downloadTextFile, notebook, pushStatusNotice]);
 
   const handleTitleCommit = useCallback(
     (value: string) => {
@@ -619,7 +686,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={handleAddMarkdown}
             disabled={disabled}
             data-testid="notebook-toolbar-add-markdown"
-            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="button-ghost px-2.5 text-[11px]"
           >
             <FileText size={11} aria-hidden="true" />
             {t('notebook.toolbar.addMarkdown')}
@@ -629,7 +696,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={() => handleAddCode(preferredCodeLanguage)}
             disabled={disabled}
             data-testid="notebook-toolbar-add-code"
-            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="button-ghost px-2.5 text-[11px]"
           >
             <CodeXml size={11} aria-hidden="true" />
             {t('notebook.toolbar.addCode')}
@@ -642,7 +709,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             }}
             disabled={disabled || !canRunThroughActiveCell}
             data-testid="notebook-toolbar-run-above"
-            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="button-ghost px-2.5 text-[11px]"
           >
             <Hammer size={11} aria-hidden="true" />
             {t('notebook.toolbar.runAbove')}
@@ -652,7 +719,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={handleRunFromHere}
             disabled={disabled || !canRunFromActiveCell}
             data-testid="notebook-toolbar-run-from-here"
-            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="button-ghost px-2.5 text-[11px]"
           >
             <PlayCircle size={11} aria-hidden="true" />
             {t('notebook.toolbar.runFromHere')}
@@ -663,7 +730,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             disabled={disabled || lastCodeCellId === null}
             data-testid="notebook-toolbar-run-all"
             className={cn(
-              'inline-flex h-7 items-center gap-1 rounded border px-2 text-[11px] font-medium',
+              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
               disabled
                 ? 'border-border/40 bg-surface/40 text-muted'
                 : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
@@ -687,7 +754,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={stop}
             disabled={!isAnyCellRunning}
             data-testid="notebook-toolbar-stop"
-            className="inline-flex h-7 items-center gap-1 rounded border border-warning-border bg-warning-bg px-2 text-[11px] font-medium text-warning-fg hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-[11px] font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Square size={11} aria-hidden="true" />
             {t('notebook.toolbar.stop')}
@@ -699,7 +766,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             disabled={disabled}
             title={t('notebook.toolbar.restartHint')}
             data-testid="notebook-toolbar-restart"
-            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="button-ghost px-2.5 text-[11px]"
           >
             <RotateCcw size={11} aria-hidden="true" />
             {t('notebook.toolbar.restart')}
@@ -709,23 +776,56 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={handleClearOutputs}
             disabled={disabled || !hasOutputsToClear}
             data-testid="notebook-toolbar-clear-outputs"
-            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="button-ghost px-2.5 text-[11px]"
           >
             <Eraser size={11} aria-hidden="true" />
             {t('notebook.toolbar.clearOutputs')}
           </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={disabled || codeCellsCount === 0}
-            data-testid="notebook-toolbar-export"
-            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Sparkles size={11} aria-hidden="true" />
-            {t('notebook.toolbar.exportScript', {
-              language: exportLanguageLabel,
-            })}
-          </button>
+          {/* RL-043 Slice D — export-format menu (Script | Jupyter .ipynb),
+              same popover mechanics as the shortcuts legend. */}
+          <div className="relative" ref={exportMenuAnchorRef}>
+            <button
+              type="button"
+              onClick={() => setExportMenuOpen((open) => !open)}
+              disabled={disabled || codeCellsCount === 0}
+              aria-expanded={exportMenuOpen}
+              aria-haspopup="menu"
+              data-testid="notebook-toolbar-export"
+              className="button-ghost px-2.5 text-[11px]"
+            >
+              <Sparkles size={11} aria-hidden="true" />
+              {t('notebook.toolbar.export')}
+            </button>
+            {exportMenuOpen ? (
+              <div
+                role="menu"
+                aria-label={t('notebook.toolbar.exportMenuLabel')}
+                data-testid="notebook-export-menu"
+                className="absolute right-0 top-9 z-20 w-60 rounded-md border border-border/60 bg-bg-elevated p-1 shadow-lg"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleExport}
+                  data-testid="notebook-export-script"
+                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] text-muted hover:bg-surface/60 hover:text-foreground"
+                >
+                  {t('notebook.toolbar.exportScript', {
+                    language: exportLanguageLabel,
+                  })}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleExportIpynb}
+                  data-testid="notebook-export-ipynb"
+                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] text-muted hover:bg-surface/60 hover:text-foreground"
+                >
+                  {t('notebook.toolbar.exportAsIpynb')}
+                </button>
+              </div>
+            ) : null}
+          </div>
           <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
           <div className="relative" ref={shortcutsAnchorRef}>
             <button
@@ -737,10 +837,10 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               title={t('notebook.command.shortcutsTitle')}
               data-testid="notebook-toolbar-shortcuts"
               className={cn(
-                'inline-flex h-7 w-7 items-center justify-center rounded border text-[11px]',
+                'inline-flex h-[28px] w-[28px] items-center justify-center rounded-lg border text-[11px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
                 shortcutsOpen
                   ? 'border-primary/60 bg-primary/10 text-foreground'
-                  : 'border-border/60 bg-surface/40 text-muted hover:text-foreground'
+                  : 'border-transparent text-muted hover:bg-surface-strong/60 hover:text-foreground'
               )}
             >
               <Keyboard size={12} aria-hidden="true" />

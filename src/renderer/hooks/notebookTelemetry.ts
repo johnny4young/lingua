@@ -39,3 +39,19 @@ export function trackNotebookCellLanguageChanged(
 ): void {
   void trackEvent('notebook.cell_language_changed', { to });
 }
+
+/**
+ * RL-043 Slice D fold D — closed enum of notebook export formats. `script`
+ * is the language-aware `.js`/`.ts`/`.py`/`.txt` export; `ipynb` is the
+ * Jupyter nbformat v4 export.
+ */
+export type NotebookExportFormat = 'script' | 'ipynb';
+
+/**
+ * RL-043 Slice D fold D — fire when the user exports a notebook. `format`
+ * ∈ NOTEBOOK_EXPORT_FORMATS_SET; an adoption signal for the Jupyter export.
+ * NO cell source / title on the wire.
+ */
+export function trackNotebookExported(format: NotebookExportFormat): void {
+  void trackEvent('notebook.exported', { format });
+}

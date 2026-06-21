@@ -158,6 +158,65 @@ describe('ipynbImporterAdapter.preview — happy paths', () => {
     expect(code.language).toBe('python');
   });
 
+  it('RL-043 Slice D fold B — a per-cell metadata.lingua.language wins over the kernelspec', () => {
+    const outcome = ipynbImporterAdapter.preview(
+      JSON.stringify({
+        nbformat: 4,
+        nbformat_minor: 5,
+        metadata: { kernelspec: { language: 'javascript' } },
+        cells: [
+          { cell_type: 'code', source: ['const a = 1;'], outputs: [] },
+          {
+            cell_type: 'code',
+            metadata: { lingua: { language: 'typescript' } },
+            source: ['const b: number = 2;'],
+            outputs: [],
+          },
+          {
+            cell_type: 'code',
+            metadata: { lingua: { language: 'ruby' } },
+            source: ['const c = 3;'],
+            outputs: [],
+          },
+        ],
+      })
+    );
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const code = (outcome.preview as IpynbImporterPreview).notebook.cells.filter(
+      (c) => c.kind === 'code'
+    );
+    // No metadata → kernelspec language.
+    if (code[0]?.kind === 'code') expect(code[0].language).toBe('javascript');
+    // Valid per-cell metadata wins.
+    if (code[1]?.kind === 'code') expect(code[1].language).toBe('typescript');
+    // Unsupported per-cell language → falls back to the kernelspec.
+    if (code[2]?.kind === 'code') expect(code[2].language).toBe('javascript');
+  });
+
+  it('RL-043 Slice D preserves reusable Lingua cell ids and regenerates unsafe ones', () => {
+    const outcome = ipynbImporterAdapter.preview(
+      JSON.stringify({
+        nbformat: 4,
+        nbformat_minor: 5,
+        metadata: { kernelspec: { language: 'javascript' } },
+        cells: [
+          { cell_type: 'markdown', id: 'm1', source: ['# Notes'] },
+          { cell_type: 'code', id: 'c1', source: ['const a = 1;'], outputs: [] },
+          { cell_type: 'code', id: 'Bad_ID', source: ['const b = 2;'], outputs: [] },
+          { cell_type: 'code', id: 'c1', source: ['const c = 3;'], outputs: [] },
+        ],
+      })
+    );
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const cells = (outcome.preview as IpynbImporterPreview).notebook.cells;
+    expect(cells[0]?.id).toBe('m1');
+    expect(cells[1]?.id).toBe('c1');
+    expect(cells[2]?.id).toMatch(/^cell-2-[a-z0-9]{4}$/);
+    expect(cells[3]?.id).toMatch(/^cell-3-[a-z0-9]{4}$/);
+  });
+
   it('round-trips through parseNotebook', () => {
     const outcome = ipynbImporterAdapter.preview(
       loadFixture('hello-python.ipynb')

@@ -218,3 +218,23 @@ test.describe('Notebook — TypeScript cells (Slice C)', () => {
     ).toContainText('TypeScript:');
   });
 });
+
+test.describe('Notebook — export (Slice D)', () => {
+  test('the export menu downloads a Jupyter .ipynb file', async ({ page }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    // The seeded notebook has a code cell, so export is enabled.
+    await page.getByTestId('notebook-toolbar-export').click();
+    await expect(page.getByTestId('notebook-export-menu')).toBeVisible();
+    await expect(page.getByTestId('notebook-export-script')).toBeVisible();
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('notebook-export-ipynb').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.ipynb$/);
+  });
+});

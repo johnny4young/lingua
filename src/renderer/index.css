@@ -480,7 +480,14 @@
   --spacing-4: var(--space-4);
   --spacing-5: var(--space-5);
   --spacing-6: var(--space-6);
-  --spacing-7: var(--space-7);
+  /* RL UI pass — the `7` step is pinned to a standard 28px for COMPONENT
+     sizing (h-7/w-7/px-7…) instead of inheriting the 48px layout-rhythm
+     value from `--space-7`. The 8pt `--space-7: 48px` layout token stays
+     intact for direct use; this only decouples the Tailwind utility step,
+     which was the single step driving every oversized `h-7` button/control
+     across the app. Steps 5/6/8 stay coupled — they're load-bearing layout
+     spacing (gap-6/p-8/…), not component-height steps. */
+  --spacing-7: 28px;
   --spacing-8: var(--space-8);
 
   /* Tailwind expects `--radius-*` to be on the @theme block to
@@ -682,22 +689,25 @@
     @apply hover:border-error/35 hover:bg-error/10 hover:text-error;
   }
 
-  /* Primary button families */
+  /* Primary button families — RL UI pass: one compact ~28px scale,
+     rounded-lg (was rounded-xl), py-1.5 (was py-2), font-medium, a
+     subtle primary shadow instead of the old 14px/35px glow, and a
+     focus-visible ring on every variant. */
   .button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary px-3.5 py-2 text-xs font-semibold tracking-[0.02em] text-primary-foreground transition-all duration-200 hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45;
-    box-shadow: 0 14px 35px color-mix(in srgb, var(--app-primary) 28%, transparent);
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary px-3 py-1.5 text-xs font-medium tracking-[0.01em] text-primary-foreground transition-colors duration-150 hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--app-primary) 22%, transparent);
   }
 
   .button-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border/80 bg-surface-strong/88 px-3.5 py-2 text-xs font-semibold tracking-[0.02em] text-foreground transition-all duration-200 hover:border-border-strong/90 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface-strong/70 px-3 py-1.5 text-xs font-medium tracking-[0.01em] text-foreground transition-colors duration-150 hover:border-border-strong/80 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
   }
 
   .button-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-transparent px-2.5 py-2 text-xs font-semibold tracking-[0.02em] text-muted transition-all duration-200 hover:bg-surface-strong/72 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-medium tracking-[0.01em] text-muted transition-colors duration-150 hover:bg-surface-strong/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
   }
 
   .button-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-error/25 bg-error/12 px-3.5 py-2 text-xs font-semibold tracking-[0.02em] text-error transition-all duration-200 hover:bg-error/18 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-error/25 bg-error/12 px-3 py-1.5 text-xs font-medium tracking-[0.01em] text-error transition-colors duration-150 hover:bg-error/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
   }
   .field-shell {
     @apply w-full rounded-2xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;

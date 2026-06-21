@@ -324,14 +324,43 @@ function jupyterSourceToString(source: unknown): string {
   return '';
 }
 
-function nextCellId(index: number): string {
-  return `cell-${index.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+const LINGUA_CELL_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+function readReusableCellId(rawId: unknown): string | null {
+  if (typeof rawId !== 'string') return null;
+  return LINGUA_CELL_ID_RE.test(rawId) ? rawId : null;
+}
+
+function nextCellId(index: number, usedCellIds: Set<string>): string {
+  let candidate: string;
+  do {
+    candidate = `cell-${index.toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
+  } while (usedCellIds.has(candidate));
+  return candidate;
+}
+
+function resolveCellId(
+  rawId: unknown,
+  index: number,
+  usedCellIds: Set<string>
+): string {
+  const reusable = readReusableCellId(rawId);
+  if (reusable !== null && !usedCellIds.has(reusable)) {
+    usedCellIds.add(reusable);
+    return reusable;
+  }
+  const generated = nextCellId(index, usedCellIds);
+  usedCellIds.add(generated);
+  return generated;
 }
 
 interface MapCellOptions {
   index: number;
   notebookLanguage: NotebookCellLanguage;
   warningSink: ImporterLossyWarning[];
+  usedCellIds: Set<string>;
 }
 
 function mapMarkdownCell(
@@ -341,9 +370,29 @@ function mapMarkdownCell(
   const source = clampCellSource(jupyterSourceToString(raw.source));
   return {
     kind: 'markdown',
-    id: nextCellId(opts.index),
+    id: resolveCellId(raw.id, opts.index, opts.usedCellIds),
     source,
   };
+}
+
+/**
+ * RL-043 Slice D fold B — read a Lingua-private per-cell language from
+ * `metadata.lingua.language` when present (and valid), so a notebook that
+ * Lingua exported round-trips its real per-cell JS/TS even though
+ * nbformat's single `kernelspec.language` can't express a mix. Standard
+ * Jupyter notebooks lack this key and fall back to the kernel language.
+ */
+function readLinguaCellLanguage(
+  metadata: unknown
+): NotebookCellLanguage | null {
+  if (metadata === null || typeof metadata !== 'object') return null;
+  const lingua = (metadata as { lingua?: unknown }).lingua;
+  if (lingua === null || typeof lingua !== 'object') return null;
+  const language = (lingua as { language?: unknown }).language;
+  if (typeof language !== 'string') return null;
+  return (NOTEBOOK_CELL_LANGUAGES as readonly string[]).includes(language)
+    ? (language as NotebookCellLanguage)
+    : null;
 }
 
 function mapCodeCell(
@@ -351,6 +400,7 @@ function mapCodeCell(
   opts: MapCellOptions
 ): NotebookCodeCellV1 {
   const source = clampCellSource(jupyterSourceToString(raw.source));
+  const cellLanguage = readLinguaCellLanguage(raw.metadata);
   const outputs: NotebookCellOutputV1[] = [];
   if (raw.execution_count !== undefined && raw.execution_count !== null) {
     // `execution_count` is cell metadata in nbformat v4. Warn once per
@@ -370,8 +420,10 @@ function mapCodeCell(
   }
   return {
     kind: 'code',
-    id: nextCellId(opts.index),
-    language: opts.notebookLanguage,
+    id: resolveCellId(raw.id, opts.index, opts.usedCellIds),
+    // Fold B — a Lingua-stamped per-cell language wins over the single
+    // kernel language so mixed JS/TS round-trips losslessly.
+    language: cellLanguage ?? opts.notebookLanguage,
     source,
     outputs,
   };
@@ -491,6 +543,7 @@ function previewIpynb(
   // Walk cells.
   const cells: NotebookCellV1[] = [];
   let droppedRawCount = 0;
+  const usedCellIds = new Set<string>();
   for (let idx = 0; idx < rawCells.length; idx += 1) {
     const rawCell = rawCells[idx];
     if (
@@ -504,13 +557,23 @@ function previewIpynb(
     const cellType = typeof cell.cell_type === 'string' ? cell.cell_type : '';
     if (cellType === 'markdown') {
       cells.push(
-        mapMarkdownCell(cell, { index: idx, notebookLanguage, warningSink })
+        mapMarkdownCell(cell, {
+          index: idx,
+          notebookLanguage,
+          warningSink,
+          usedCellIds,
+        })
       );
       continue;
     }
     if (cellType === 'code') {
       cells.push(
-        mapCodeCell(cell, { index: idx, notebookLanguage, warningSink })
+        mapCodeCell(cell, {
+          index: idx,
+          notebookLanguage,
+          warningSink,
+          usedCellIds,
+        })
       );
       continue;
     }

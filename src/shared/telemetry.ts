@@ -490,6 +490,11 @@ export const TELEMETRY_EVENTS = [
   // `NOTEBOOK_CELL_LANGUAGES_SET`; an adoption signal for TypeScript
   // cells. NO cell source reaches the wire. Mirrored on update-server.
   'notebook.cell_language_changed',
+  // RL-043 Slice D fold D — a notebook was exported. Closed-enum
+  // `{ format }` where `format` ∈ `NOTEBOOK_EXPORT_FORMATS_SET`
+  // (`script` | `ipynb`). NO cell source / title on the wire. Mirrored
+  // on update-server.
+  'notebook.exported',
   // RL-126 / AUDIT-06 — a persisted Zustand store ran a schema migration on
   // rehydrate (its stored version was older than the current version). Closed
   // payload `{ store }` where `store` is the localStorage key (a safe token);
@@ -852,6 +857,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'notebook.cell_executed': ['language', 'status'],
   // RL-043 Slice C fold E — `to` ∈ NOTEBOOK_CELL_LANGUAGES_SET.
   'notebook.cell_language_changed': ['to'],
+  // RL-043 Slice D fold D — `format` ∈ NOTEBOOK_EXPORT_FORMATS_SET.
+  'notebook.exported': ['format'],
   // RL-126 / AUDIT-06 — only the store key survives; see the value validator.
   'persistence.migrated': ['store'],
   // RL-137 / AUDIT-17 — `family` ∈ FS_BLOCKED_FAMILIES. No path on the wire.
@@ -1143,6 +1150,10 @@ export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
   'typescript',
   'python',
 ]);
+// RL-043 Slice D fold D — closed enum of notebook export formats. Mirror
+// on update-server with a parity test. `script` is the language-aware
+// `.js`/`.ts`/`.py`/`.txt` export; `ipynb` is the Jupyter nbformat v4 export.
+export const NOTEBOOK_EXPORT_FORMATS_SET = new Set(['script', 'ipynb']);
 // RL-095 Slice 1 fold A — closed enum for the surface that drove a
 // Language Support Scorecard view. Mirrored on update-server with
 // parity test. The property name is `surface` (not `source`) because
@@ -1987,6 +1998,12 @@ function isAllowedValue(
         key === 'to' &&
         typeof value === 'string' &&
         NOTEBOOK_CELL_LANGUAGES_SET.has(value)
+      );
+    case 'notebook.exported':
+      return (
+        key === 'format' &&
+        typeof value === 'string' &&
+        NOTEBOOK_EXPORT_FORMATS_SET.has(value)
       );
     case 'persistence.migrated':
       // RL-126 — `store` is a localStorage key (a safe token like

@@ -25,6 +25,7 @@ import {
   useNotebookStore,
 } from '../../../src/renderer/stores/notebookStore';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
+import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { runnerManager } from '../../../src/renderer/runners';
 import type { NotebookCellV1 } from '../../../src/shared/notebook';
 
@@ -70,6 +71,7 @@ describe('<NotebookView />', () => {
       activeTabId: TAB_ID,
     });
     localStorage.clear();
+    useUIStore.setState({ statusNotice: null });
     mockExecute.mockReset();
     await i18next.changeLanguage('en');
     useNotebookStore.getState().createNotebookForTab(TAB_ID, 'Hello');
@@ -77,6 +79,7 @@ describe('<NotebookView />', () => {
   afterEach(async () => {
     resetNotebookStoreForTests();
     useEditorStore.setState({ tabs: [], activeTabId: null });
+    useUIStore.setState({ statusNotice: null });
     localStorage.clear();
     await i18next.changeLanguage('en');
   });
@@ -221,6 +224,32 @@ describe('<NotebookView />', () => {
       'notebook.cell_language_changed',
       { to: 'python' }
     );
+  });
+
+  it('the export menu offers script + Jupyter .ipynb and the .ipynb action fires the export (RL-043 Slice D)', async () => {
+    const telemetry = await import('../../../src/renderer/utils/telemetry');
+    vi.mocked(telemetry.trackEvent).mockClear();
+    // jsdom has no URL.createObjectURL — stub it so the blob download path
+    // succeeds and the export reaches the telemetry call.
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL =
+      vi.fn(() => 'blob:mock');
+    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL =
+      vi.fn();
+    const user = userEvent.setup();
+    render(<NotebookView tabId={TAB_ID} />);
+    // The seeded notebook has a code cell, so export is enabled.
+    await user.click(screen.getByTestId('notebook-toolbar-export'));
+    expect(screen.getByTestId('notebook-export-menu')).toBeTruthy();
+    expect(screen.getByTestId('notebook-export-script')).toBeTruthy();
+    await user.click(screen.getByTestId('notebook-export-ipynb'));
+    expect(telemetry.trackEvent).toHaveBeenCalledWith('notebook.exported', {
+      format: 'ipynb',
+    });
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+      'notebook.notice.exportIpynbOk'
+    );
+    // The menu closes after an export action.
+    expect(screen.queryByTestId('notebook-export-menu')).toBeNull();
   });
 
   it('runs the focused code cell on Cmd+Enter without falling through to the global runner', async () => {

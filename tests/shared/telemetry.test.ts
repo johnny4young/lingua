@@ -131,6 +131,8 @@ describe('TELEMETRY_EVENTS', () => {
       'notebook.cell_executed',
       // RL-043 Slice C fold E — per-cell language switch adoption signal.
       'notebook.cell_language_changed',
+      // RL-043 Slice D fold D — notebook export (script | ipynb) signal.
+      'notebook.exported',
       // RL-101 Slice 1 — onboarding choreography (alphabetic order
       // puts `onboarding.*` between `language_scorecard_viewed` and
       // `overlay.opened`). Closed-enum payloads:

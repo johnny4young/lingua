@@ -251,6 +251,9 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-043 Slice C fold E — notebook cell language switch. Closed-enum
   // `{ to }` mirrored from src/shared/telemetry.ts.
   'notebook.cell_language_changed',
+  // RL-043 Slice D fold D — notebook export. Closed-enum `{ format }`
+  // mirrored from src/shared/telemetry.ts.
+  'notebook.exported',
   // RL-126 — persisted-store schema migration. Mirror of
   // src/shared/telemetry.ts; `store` is a safe localStorage key token
   // (closed-enum at the renderer call site).
@@ -426,6 +429,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'notebook.cell_executed': ['language', 'status'],
   // RL-043 Slice C fold E — mirror of src/shared/telemetry.ts.
   'notebook.cell_language_changed': ['to'],
+  // RL-043 Slice D fold D — mirror of src/shared/telemetry.ts.
+  'notebook.exported': ['format'],
   // RL-126 — mirror of src/shared/telemetry.ts.
   'persistence.migrated': ['store'],
   // RL-137 / AUDIT-17 — mirror of src/shared/telemetry.ts.
@@ -697,6 +702,8 @@ export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
   'typescript',
   'python',
 ]);
+// RL-043 Slice D fold D — mirror of src/shared/telemetry.ts.
+export const NOTEBOOK_EXPORT_FORMATS_SET = new Set(['script', 'ipynb']);
 // RL-095 Slice 1 fold A — mirror of `LANGUAGE_SCORECARD_SURFACES`.
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
@@ -1565,6 +1572,12 @@ function isAllowedValue(
         key === 'to' &&
         typeof value === 'string' &&
         NOTEBOOK_CELL_LANGUAGES_SET.has(value)
+      );
+    case 'notebook.exported':
+      return (
+        key === 'format' &&
+        typeof value === 'string' &&
+        NOTEBOOK_EXPORT_FORMATS_SET.has(value)
       );
     case 'persistence.migrated':
       // RL-126 — `store` is a localStorage key (a safe token like
