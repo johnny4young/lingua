@@ -112,8 +112,16 @@ export const IMPORTER_LOSSY_WARNINGS = [
   //     we could not flatten to a single header (bearer IS mapped).
   //   - `postman-prerequest-script` / `postman-test-script`: the
   //     `event` scripts are dropped (Lingua has no scripting runtime).
-  //   - `postman-variable`: `{{var}}` placeholders left literal because
-  //     Slice 3 does not resolve environment / globals files.
+  //   - `postman-variable`: a `{{var}}` STATIC placeholder left literal
+  //     because no matching collection-level variable was found (an
+  //     environment / globals-file var we don't read, or a typo).
+  //     Collection-level `variable` entries ARE now resolved on import,
+  //     so this fires only for what stayed unresolved.
+  //   - `postman-dynamic-variable`: a Postman dynamic `{{$guid}}` /
+  //     `{{$timestamp}}` / `{{$randomInt}}` placeholder — resolved by
+  //     Postman at send time, never from the collection, so it is left
+  //     literal and flagged distinctly so the user knows it's a runtime
+  //     value, not a missing definition.
   //   - `postman-graphql-body`: GraphQL body kept as raw text only.
   //   - `postman-formdata-file`: multipart / file-upload body parts
   //     are not importable; the text parts survive.
@@ -122,6 +130,7 @@ export const IMPORTER_LOSSY_WARNINGS = [
   'postman-prerequest-script',
   'postman-test-script',
   'postman-variable',
+  'postman-dynamic-variable',
   'postman-graphql-body',
   'postman-formdata-file',
   'bruno-script-dropped',

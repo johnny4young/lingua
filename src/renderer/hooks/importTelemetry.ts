@@ -15,6 +15,10 @@
  */
 
 import type { CapsuleSizeBucket } from '../../shared/runCapsule';
+import {
+  bucketDependencyCount,
+  type DependencyCountBucket,
+} from '../../shared/dependencies/types';
 import type {
   ImporterId,
   ImporterLossyWarning,
@@ -103,4 +107,33 @@ export function countDistinctNotebookWarningKinds(
     if (kind !== null) kinds.add(kind);
   }
   return kinds.size;
+}
+
+/**
+ * RL-100 Slice 3.5 (Postman vars) fold B — `import.postman_variables_resolved`.
+ *
+ * Buckets the distinct collection-variable resolution result of a
+ * Postman import into the shared `DEPENDENCY_COUNT_BUCKETS` enum (the
+ * same bucketer the HTTP workspace's `resolvedVarsBucket` uses). The
+ * caller fires this ONLY when the collection referenced at least one
+ * `{{variable}}` (resolved OR unresolved); a variable-free import skips
+ * the event entirely. NO variable names or values reach the wire.
+ */
+export interface PostmanVariablesResolvedPayload {
+  resolvedBucket: DependencyCountBucket;
+  unresolvedBucket: DependencyCountBucket;
+}
+
+export function trackPostmanVariablesResolved(
+  payload: PostmanVariablesResolvedPayload
+): void {
+  void trackEvent('import.postman_variables_resolved', {
+    resolvedBucket: payload.resolvedBucket,
+    unresolvedBucket: payload.unresolvedBucket,
+  });
+}
+
+/** Bucket a distinct variable count for the fold-B telemetry event. */
+export function bucketImportVariableCount(count: number): DependencyCountBucket {
+  return bucketDependencyCount(count);
 }

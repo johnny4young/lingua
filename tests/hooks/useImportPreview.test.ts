@@ -6,8 +6,9 @@
  */
 
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  bucketImportVariableCount,
   bucketWarningKindCount,
   countDistinctNotebookWarningKinds,
   deriveDominantNotebookWarning,
@@ -21,6 +22,12 @@ import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 import { useNotebookStore } from '../../src/renderer/stores/notebookStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useWorkspaceToolStore } from '../../src/renderer/stores/workspaceToolStore';
+
+const trackEventMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../../src/renderer/utils/telemetry', () => ({
+  trackEvent: trackEventMock,
+}));
 
 function seedProTier() {
   // RL-100 Slice 2 — `addNotebookTab` gates on the NOTEBOOK_MODE
@@ -51,6 +58,7 @@ function seedProTier() {
 
 beforeEach(() => {
   localStorage.clear();
+  trackEventMock.mockClear();
   // Reset workspace tool store so each test starts from a clean
   // requests list.
   useWorkspaceToolStore.setState({
@@ -276,6 +284,47 @@ describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
 
     expect(result.current.state.phase).toBe('idle');
   });
+
+  it('fires bucketed Postman variable telemetry after a resolved collection import', () => {
+    const postman = JSON.stringify({
+      info: {
+        name: 'Vars',
+        schema:
+          'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      },
+      variable: [{ key: 'baseUrl', value: 'api.example.com' }],
+      item: [
+        {
+          name: 'List',
+          request: {
+            method: 'GET',
+            url: 'https://{{baseUrl}}/{{missingPath}}',
+          },
+        },
+      ],
+    });
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(postman);
+    });
+
+    act(() => {
+      result.current.confirm();
+    });
+
+    expect(trackEventMock).toHaveBeenCalledWith('import.applied', {
+      importerId: 'postman-collection',
+      status: 'ok',
+      sizeBucket: expect.any(String),
+    });
+    expect(trackEventMock).toHaveBeenCalledWith(
+      'import.postman_variables_resolved',
+      {
+        resolvedBucket: '1',
+        unresolvedBucket: '1',
+      }
+    );
+  });
 });
 
 describe('import notebook warning telemetry helpers', () => {
@@ -306,5 +355,13 @@ describe('import notebook warning telemetry helpers', () => {
     expect(bucketWarningKindCount(5)).toBe('2-5');
     expect(bucketWarningKindCount(6)).toBe('6-10');
     expect(bucketWarningKindCount(11)).toBe('>10');
+  });
+
+  it('buckets Postman variable counts on the same dependency-count ladder (fold B)', () => {
+    expect(bucketImportVariableCount(0)).toBe('0');
+    expect(bucketImportVariableCount(1)).toBe('1');
+    expect(bucketImportVariableCount(4)).toBe('2-5');
+    expect(bucketImportVariableCount(9)).toBe('6-10');
+    expect(bucketImportVariableCount(25)).toBe('>10');
   });
 });

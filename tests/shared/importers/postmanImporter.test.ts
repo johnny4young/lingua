@@ -403,6 +403,190 @@ describe('postmanImporterAdapter.preview — auth + lossy warnings', () => {
   });
 });
 
+describe('postmanImporterAdapter.preview — collection variable resolution', () => {
+  it('resolves a collection variable in the url + reports the resolved count', () => {
+    const p = preview(
+      collection([leaf('Get', { method: 'GET', url: 'https://{{base_url}}/items' })], {
+        variable: [{ key: 'base_url', value: 'api.example.com' }],
+      })
+    );
+    expect(p.requests[0]?.url).toBe('https://api.example.com/items');
+    expect(p.warnings).not.toContain('postman-variable');
+    expect(p.counts.variablesResolved).toBe(1);
+    expect(p.counts.variablesUnresolved).toBe(0);
+  });
+
+  it('resolves variables in header names + values (fold E)', () => {
+    const p = preview(
+      collection(
+        [
+          leaf('H', {
+            method: 'GET',
+            url: 'https://x.dev',
+            header: [
+              { key: '{{hdrName}}', value: '{{apiKey}}' },
+              { key: 'Static', value: 'plain' },
+            ],
+          }),
+        ],
+        {
+          variable: [
+            { key: 'hdrName', value: 'X-Api-Key' },
+            { key: 'apiKey', value: 'secret-token' },
+          ],
+        }
+      )
+    );
+    const headers = p.requests[0]?.headers ?? [];
+    expect(headers[0]).toEqual({ name: 'X-Api-Key', value: 'secret-token', enabled: true });
+    expect(headers[1]).toEqual({ name: 'Static', value: 'plain', enabled: true });
+    expect(p.warnings).not.toContain('postman-variable');
+  });
+
+  it('resolves variables inside a request body (kind preserved)', () => {
+    const p = preview(
+      collection(
+        [
+          leaf('B', {
+            method: 'POST',
+            url: 'https://x.dev',
+            body: { mode: 'raw', raw: '{"token":"{{token}}"}' },
+          }),
+        ],
+        { variable: [{ key: 'token', value: 'abc123' }] }
+      )
+    );
+    expect(p.requests[0]?.body).toEqual({ kind: 'json', content: '{"token":"abc123"}' });
+    expect(p.warnings).not.toContain('postman-variable');
+  });
+
+  it('resolves transitive references through the variable map (fold A)', () => {
+    const p = preview(
+      collection([leaf('T', { method: 'GET', url: 'https://{{fullHost}}/v1' })], {
+        variable: [
+          { key: 'fullHost', value: '{{sub}}.example.com' },
+          { key: 'sub', value: 'api' },
+        ],
+      })
+    );
+    expect(p.requests[0]?.url).toBe('https://api.example.com/v1');
+    expect(p.warnings).not.toContain('postman-variable');
+  });
+
+  it('terminates on a variable reference cycle, leaving it literal (fold A guard)', () => {
+    const p = preview(
+      collection([leaf('C', { method: 'GET', url: 'https://x.dev/{{a}}' })], {
+        variable: [
+          { key: 'a', value: '{{b}}' },
+          { key: 'b', value: '{{a}}' },
+        ],
+      })
+    );
+    // The cycle guard leaves the unexpandable reference literal rather
+    // than looping; the import still settles.
+    expect(p.requests[0]?.url).toBe('https://x.dev/{{a}}');
+    expect(p.warnings).toContain('postman-variable');
+    expect(p.counts.variablesUnresolved).toBe(1);
+  });
+
+  it('warns when a collection variable expands to an unknown nested token', () => {
+    const p = preview(
+      collection([leaf('T', { method: 'GET', url: 'https://{{fullHost}}/v1' })], {
+        variable: [{ key: 'fullHost', value: '{{envHost}}' }],
+      })
+    );
+    expect(p.requests[0]?.url).toBe('https://{{envHost}}/v1');
+    expect(p.warnings).toContain('postman-variable');
+    expect(p.counts.variablesResolved).toBe(1);
+    expect(p.counts.variablesUnresolved).toBe(1);
+  });
+
+  it('treats malformed non-string collection variables as unresolved', () => {
+    const p = preview(
+      collection([leaf('N', { method: 'GET', url: 'https://{{port}}/v1' })], {
+        variable: [{ key: 'port', value: 443 }],
+      })
+    );
+    expect(p.requests[0]?.url).toBe('https://{{port}}/v1');
+    expect(p.warnings).toContain('postman-variable');
+    expect(p.counts.variablesResolved).toBe(0);
+    expect(p.counts.variablesUnresolved).toBe(1);
+  });
+
+  it('keeps a dynamic {{$guid}} literal + warns distinctly (fold D)', () => {
+    const p = preview(
+      collection([leaf('D', { method: 'GET', url: 'https://x.dev/{{$guid}}' })])
+    );
+    expect(p.requests[0]?.url).toBe('https://x.dev/{{$guid}}');
+    expect(p.warnings).toContain('postman-dynamic-variable');
+    expect(p.warnings).not.toContain('postman-variable');
+    expect(p.counts.variablesUnresolved).toBe(0);
+  });
+
+  it('skips disabled collection variables (left unresolved + warned)', () => {
+    const p = preview(
+      collection([leaf('X', { method: 'GET', url: 'https://{{base}}/x' })], {
+        variable: [{ key: 'base', value: 'real.com', disabled: true }],
+      })
+    );
+    expect(p.requests[0]?.url).toBe('https://{{base}}/x');
+    expect(p.warnings).toContain('postman-variable');
+    expect(p.counts.variablesUnresolved).toBe(1);
+    expect(p.counts.variablesResolved).toBe(0);
+  });
+
+  it('resolves variables in folder + request names (fold E)', () => {
+    const p = preview(
+      collection(
+        [
+          {
+            name: '{{folderName}}',
+            item: [leaf('{{reqName}}', { method: 'GET', url: 'https://x.dev' })],
+          },
+        ],
+        {
+          variable: [
+            { key: 'folderName', value: 'Users' },
+            { key: 'reqName', value: 'List' },
+          ],
+        }
+      )
+    );
+    expect(p.requests[0]?.name).toBe('Users / List');
+  });
+
+  it('mixes resolved + unresolved: substitutes known, warns on the rest', () => {
+    const p = preview(
+      collection([leaf('M', { method: 'GET', url: 'https://{{base}}/{{missing}}' })], {
+        variable: [{ key: 'base', value: 'api.com' }],
+      })
+    );
+    expect(p.requests[0]?.url).toBe('https://api.com/{{missing}}');
+    expect(p.warnings).toContain('postman-variable');
+    expect(p.counts.variablesResolved).toBe(1);
+    expect(p.counts.variablesUnresolved).toBe(1);
+  });
+
+  it('trims whitespace inside the braces when matching keys', () => {
+    const p = preview(
+      collection([leaf('W', { method: 'GET', url: 'https://{{ base }}/x' })], {
+        variable: [{ key: 'base', value: 'api.com' }],
+      })
+    );
+    expect(p.requests[0]?.url).toBe('https://api.com/x');
+  });
+
+  it('round-trips resolved values through import()', () => {
+    const p = preview(
+      collection([leaf('R', { method: 'GET', url: 'https://{{base}}/x' })], {
+        variable: [{ key: 'base', value: 'api.com' }],
+      })
+    );
+    const result = postmanImporterAdapter.import(p) as CollectionImporterResult;
+    expect(result.requests[0]?.url).toBe('https://api.com/x');
+  });
+});
+
 describe('postmanImporterAdapter.preview — caps + rejects', () => {
   it('truncates beyond MAX_IMPORT_REQUESTS and reports the dropped count', () => {
     const items = Array.from({ length: MAX_IMPORT_REQUESTS + 5 }, (_, i) =>

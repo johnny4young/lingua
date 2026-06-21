@@ -116,6 +116,10 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-100 Slice 2 fold E — `.ipynb` warning band. Sorts right
       // after `import.applied` (lex order on the dotted segment).
       'import.notebook_warnings_surfaced',
+      // RL-100 Slice 3.5 (Postman vars) fold B — collection-variable
+      // resolution outcome. Sorts after `import.notebook_warnings_surfaced`
+      // because `notebook` < `postman` on the dotted segment.
+      'import.postman_variables_resolved',
       // RL-095 Slice 1 fold A — Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
       // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key

@@ -263,6 +263,33 @@ describe('ImportPreviewOverlay — collection arm (RL-100 Slice 3)', () => {
     ).toBe(2);
   });
 
+  it('surfaces a resolved-variables chip when collection vars are substituted (fold C)', async () => {
+    const withVars = JSON.stringify({
+      info: {
+        name: 'Var API',
+        schema:
+          'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      },
+      variable: [{ key: 'base_url', value: 'api.example.com' }],
+      item: [
+        { name: 'List', request: { method: 'GET', url: 'https://{{base_url}}/items' } },
+      ],
+    });
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(withVars);
+    await waitFor(() => {
+      const chip = screen.getByTestId('import-preview-collection-variables');
+      expect(chip.textContent).toMatch(/1 variable resolved/i);
+    });
+    // The substituted URL reaches the request row, not the placeholder.
+    expect(
+      screen.getByTestId('import-preview-collection-requests').textContent
+    ).toMatch(/api\.example\.com/);
+  });
+
   it('flips the confirm label to the collection variant with the count (fold C)', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);

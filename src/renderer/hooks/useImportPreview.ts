@@ -66,11 +66,13 @@ import { useNotebookStore } from '../stores/notebookStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
 import { openHttpWorkspaceTab } from '../runtime/openWorkspaceTab';
 import {
+  bucketImportVariableCount,
   bucketWarningKindCount,
   countDistinctNotebookWarningKinds,
   deriveDominantNotebookWarning,
   trackImportApplied,
   trackNotebookWarningsSurfaced,
+  trackPostmanVariablesResolved,
 } from './importTelemetry';
 
 export type ImportPreviewPhase = 'idle' | 'previewed' | 'rejected';
@@ -362,6 +364,20 @@ export function useImportPreview(): UseImportPreviewResult {
         status: 'ok',
         sizeBucket: bucketCapsuleSize(state.sourceBytes),
       });
+      // Fold B — Postman-only: report the collection-variable
+      // resolution result when the collection referenced any
+      // `{{variable}}`. Bruno has no collection-var concept in this
+      // slice, so its counts stay undefined and the event is skipped.
+      if (state.importerId === 'postman-collection') {
+        const resolvedCount = state.preview.counts.variablesResolved ?? 0;
+        const unresolvedCount = state.preview.counts.variablesUnresolved ?? 0;
+        if (resolvedCount > 0 || unresolvedCount > 0) {
+          trackPostmanVariablesResolved({
+            resolvedBucket: bucketImportVariableCount(resolvedCount),
+            unresolvedBucket: bucketImportVariableCount(unresolvedCount),
+          });
+        }
+      }
       setState(INITIAL_STATE);
       return {
         kind: state.importerId,

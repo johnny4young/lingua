@@ -88,6 +88,20 @@ export interface CollectionImporterPreview {
     readonly folders: number;
     /** Requests dropped because the collection exceeded the cap. */
     readonly truncated: number;
+    /**
+     * Distinct collection-level `{{variables}}` actually substituted
+     * (Postman only; undefined for Bruno, which has no collection-var
+     * concept in this slice). Surfaced by the preview chip + the
+     * `import.postman_variables_resolved` telemetry bucket.
+     */
+    readonly variablesResolved?: number;
+    /**
+     * Distinct static `{{placeholders}}` left literal because no
+     * matching collection variable was found (drives the narrowed
+     * `postman-variable` warning). Dynamic `{{$...}}` tokens are NOT
+     * counted here — they surface via `postman-dynamic-variable`.
+     */
+    readonly variablesUnresolved?: number;
   };
   readonly warnings: ReadonlyArray<ImporterLossyWarning>;
 }
@@ -389,10 +403,152 @@ function readAuthParam(raw: unknown, name: string): string | null {
   return null;
 }
 
-const VARIABLE_PATTERN = /\{\{[^}]+\}\}/;
+// ---------------------------------------------------------------------------
+// Collection variable resolution
+// ---------------------------------------------------------------------------
 
-function mentionsVariable(text: string): boolean {
-  return VARIABLE_PATTERN.test(text);
+/**
+ * Matches a single `{{token}}` placeholder; the capture group is the
+ * raw inner token. Whitespace is trimmed by the caller so `{{ id }}`
+ * and `{{id}}` resolve to the same key. The class excludes `{`/`}` so
+ * adjacent placeholders never merge into one match. Global, so
+ * `String.replace` walks every placeholder in a value.
+ */
+const VARIABLE_TOKEN_PATTERN = /\{\{([^{}]+)\}\}/g;
+
+/**
+ * A Postman *dynamic* variable — `{{$guid}}`, `{{$timestamp}}`,
+ * `{{$randomInt}}`, etc. Postman fills these at send time, NOT from the
+ * collection `variable` array, so Lingua can never resolve them on
+ * import. They are left literal and reported via the distinct
+ * `postman-dynamic-variable` warning so the user knows they are
+ * runtime placeholders, not a missing definition.
+ */
+function isDynamicVariableToken(token: string): boolean {
+  return token.startsWith('$');
+}
+
+/**
+ * Per-import variable-resolution state. Threaded through the item walk
+ * so every substituted value contributes to the same DISTINCT key /
+ * token sets — the preview chip + the fold-B telemetry buckets report
+ * distinct counts, not raw substitution counts.
+ */
+interface VariableResolution {
+  /** Flattened `key -> value` map (disabled excluded, transitive expanded). */
+  readonly map: ReadonlyMap<string, string>;
+  /** Distinct collection keys actually substituted at least once. */
+  readonly resolvedKeys: Set<string>;
+  /** Distinct static placeholders left literal (no matching key). */
+  readonly unresolvedTokens: Set<string>;
+  /** Distinct dynamic `{{$...}}` placeholders left literal. */
+  readonly dynamicTokens: Set<string>;
+}
+
+/**
+ * Parse the collection root `variable` array into a `key -> value`
+ * map. Entries are `{ key, value, disabled? }`; `disabled: true`
+ * entries are skipped (Postman treats them as inactive), keys are
+ * trimmed, and a later duplicate key wins (matches Postman's
+ * last-write resolution). Non-string keys/values are ignored.
+ */
+function parseCollectionVariables(raw: unknown): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!Array.isArray(raw)) return map;
+  for (const entry of raw) {
+    if (entry === null || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    if (e.disabled === true) continue;
+    const key = typeof e.key === 'string' ? e.key.trim() : '';
+    if (key.length === 0) continue;
+    if (typeof e.value !== 'string') continue;
+    map.set(key, e.value);
+  }
+  return map;
+}
+
+/**
+ * Recursively expand `{{other}}` references inside a variable's value
+ * so `fullUrl = {{base}}/v1` is fully resolved before substitution
+ * into requests. `stack` carries the keys currently being expanded;
+ * a token already on the stack is a cycle (`a -> {{b}}`, `b -> {{a}}`)
+ * and is left literal, so expansion always terminates. Dynamic and
+ * unknown tokens are also left literal.
+ */
+function expandValue(
+  key: string,
+  map: ReadonlyMap<string, string>,
+  stack: ReadonlySet<string>
+): string {
+  const raw = map.get(key) ?? '';
+  if (!raw.includes('{{')) return raw;
+  return raw.replace(VARIABLE_TOKEN_PATTERN, (match, rawToken: string) => {
+    const token = rawToken.trim();
+    if (isDynamicVariableToken(token) || !map.has(token) || stack.has(token)) {
+      return match;
+    }
+    const nextStack = new Set(stack);
+    nextStack.add(token);
+    return expandValue(token, map, nextStack);
+  });
+}
+
+/**
+ * Fold A — pre-expand transitive references so the request-level
+ * resolver only does a single pass. Each key is expanded with itself
+ * seeded on the cycle stack.
+ */
+function flattenVariableMap(map: Map<string, string>): Map<string, string> {
+  const flat = new Map<string, string>();
+  for (const key of map.keys()) {
+    flat.set(key, expandValue(key, map, new Set([key])));
+  }
+  return flat;
+}
+
+/**
+ * Substitute every `{{token}}` in `text` against the resolution map,
+ * recording each token as resolved / unresolved / dynamic on the
+ * shared accumulator. Unresolved + dynamic tokens are left literal so
+ * the user can still see (and fix) them in the imported request.
+ */
+function resolveVariables(text: string, resolution: VariableResolution): string {
+  if (text.length === 0 || !text.includes('{{')) return text;
+  return text.replace(VARIABLE_TOKEN_PATTERN, (match, rawToken: string) => {
+    const token = rawToken.trim();
+    if (isDynamicVariableToken(token)) {
+      resolution.dynamicTokens.add(token);
+      return match;
+    }
+    const value = resolution.map.get(token);
+    if (value !== undefined) {
+      resolution.resolvedKeys.add(token);
+      recordLiteralVariableTokens(value, resolution);
+      return value;
+    }
+    resolution.unresolvedTokens.add(token);
+    return match;
+  });
+}
+
+/**
+ * A flattened collection variable value can still contain literal
+ * placeholders when it references an unknown env/global variable, a
+ * dynamic Postman token, or a cycle. Record those leftover tokens so
+ * the warning band/telemetry reflect what remains unresolved after
+ * substitution instead of reporting a false clean import.
+ */
+function recordLiteralVariableTokens(
+  text: string,
+  resolution: VariableResolution
+): void {
+  if (!text.includes('{{')) return;
+  text.replace(VARIABLE_TOKEN_PATTERN, (_match, rawToken: string) => {
+    const token = rawToken.trim();
+    if (isDynamicVariableToken(token)) resolution.dynamicTokens.add(token);
+    else resolution.unresolvedTokens.add(token);
+    return _match;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +560,8 @@ interface WalkState {
   folders: number;
   truncated: number;
   readonly warnings: Set<ImporterLossyWarning>;
+  /** Collection-variable resolution accumulator (shared across the walk). */
+  readonly variables: VariableResolution;
 }
 
 function walkItems(
@@ -419,13 +577,15 @@ function walkItems(
     const itemAuth = item.auth !== undefined ? item.auth : inheritedAuth;
     if (Array.isArray(item.item)) {
       scanItemScripts(item.event, state.warnings);
-      // Folder — recurse with the name prefixed.
+      // Folder — recurse with the name prefixed. Fold E: resolve
+      // `{{var}}` in the folder name so request labels read cleanly.
       state.folders += 1;
+      const folderName = resolveVariables(name, state.variables);
       const nextPrefix =
-        name.length > 0
+        folderName.length > 0
           ? pathPrefix.length > 0
-            ? `${pathPrefix} / ${name}`
-            : name
+            ? `${pathPrefix} / ${folderName}`
+            : folderName
           : pathPrefix;
       walkItems(item.item, nextPrefix, state, itemAuth);
       continue;
@@ -436,13 +596,7 @@ function walkItems(
       state.truncated += 1;
       continue;
     }
-    const parsed = mapRequestItem(
-      item,
-      name,
-      pathPrefix,
-      state.warnings,
-      itemAuth
-    );
+    const parsed = mapRequestItem(item, name, pathPrefix, state, itemAuth);
     if (parsed !== null) state.requests.push(parsed);
   }
 }
@@ -451,9 +605,10 @@ function mapRequestItem(
   item: RawPostmanItem,
   name: string,
   pathPrefix: string,
-  warningSink: Set<ImporterLossyWarning>,
+  state: WalkState,
   inheritedAuth: unknown
 ): ParsedCollectionRequest | null {
+  const warningSink = state.warnings;
   // `request` is usually an object; a bare string is a GET URL shorthand.
   const rawRequest = item.request;
   let method: HttpMethod = 'GET';
@@ -486,29 +641,45 @@ function mapRequestItem(
     headers.push(authHeader);
   }
 
-  // Variable + script lossy-warning scan.
-  if (
-    mentionsVariable(url) ||
-    headers.some((h) => mentionsVariable(h.value) || mentionsVariable(h.name)) ||
-    (body?.content !== undefined && mentionsVariable(body.content))
-  ) {
-    warningSink.add('postman-variable');
-  }
   scanItemScripts(item.event, warningSink);
+
+  // Resolve `{{variables}}` across the request. The body KIND is kept
+  // as detected pre-resolution (mapBody already classified raw vs
+  // json); only the content string is substituted. Header names whose
+  // resolved value collapses to empty are dropped (defensive — a
+  // header keyed entirely on an unknown var is unusable).
+  const resolution = state.variables;
+  const resolvedUrl = resolveVariables(url, resolution);
+  const resolvedHeaders = headers
+    .map((h) => ({
+      ...h,
+      name: resolveVariables(h.name, resolution),
+      value: resolveVariables(h.value, resolution),
+    }))
+    .filter((h) => h.name.length > 0);
+  const resolvedBody = body
+    ? {
+        ...body,
+        ...(typeof body.content === 'string'
+          ? { content: resolveVariables(body.content, resolution) }
+          : {}),
+      }
+    : undefined;
+  const resolvedName = resolveVariables(name, resolution);
 
   const label =
     pathPrefix.length > 0
-      ? `${pathPrefix} / ${name.length > 0 ? name : method}`
-      : name.length > 0
-        ? name
-        : `${method} ${url}`;
+      ? `${pathPrefix} / ${resolvedName.length > 0 ? resolvedName : method}`
+      : resolvedName.length > 0
+        ? resolvedName
+        : `${method} ${resolvedUrl}`;
 
   return {
     name: label.slice(0, 120),
     method,
-    url,
-    headers,
-    ...(body ? { body } : {}),
+    url: resolvedUrl,
+    headers: resolvedHeaders,
+    ...(resolvedBody ? { body: resolvedBody } : {}),
   };
 }
 
@@ -584,9 +755,25 @@ function previewPostman(
     folders: 0,
     truncated: 0,
     warnings: new Set<ImporterLossyWarning>(),
+    variables: {
+      map: flattenVariableMap(parseCollectionVariables(root.variable)),
+      resolvedKeys: new Set<string>(),
+      unresolvedTokens: new Set<string>(),
+      dynamicTokens: new Set<string>(),
+    },
   };
   scanItemScripts(root.event, state.warnings);
   walkItems(root.item, '', state, root.auth);
+
+  // Variable warnings fire only for what STAYED literal after
+  // resolution: unresolved statics (env / globals files we don't read)
+  // and dynamic `{{$...}}` runtime placeholders (fold D).
+  if (state.variables.unresolvedTokens.size > 0) {
+    state.warnings.add('postman-variable');
+  }
+  if (state.variables.dynamicTokens.size > 0) {
+    state.warnings.add('postman-dynamic-variable');
+  }
 
   if (state.requests.length === 0) {
     return rejectPostman('empty-collection');
@@ -606,6 +793,8 @@ function previewPostman(
       total: state.requests.length,
       folders: state.folders,
       truncated: state.truncated,
+      variablesResolved: state.variables.resolvedKeys.size,
+      variablesUnresolved: state.variables.unresolvedTokens.size,
     },
     warnings: [...state.warnings],
   };

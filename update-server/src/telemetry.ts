@@ -218,6 +218,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts. Parity test cross-imports
   // NOTEBOOK_WARNING_KINDS_SET.
   'import.notebook_warnings_surfaced',
+  // RL-100 Slice 3.5 (Postman vars) fold B — collection-variable
+  // resolution outcome. Closed-enum `{ resolvedBucket, unresolvedBucket }`
+  // (both ∈ DEPENDENCY_COUNT_BUCKETS) mirrored from
+  // src/shared/telemetry.ts. NO variable names / values / URLs on the wire.
+  'import.postman_variables_resolved',
   // RL-097 Slice 2 fold F — SQL workspace query execution. Closed-enum
   // `{ status, rowCountBucket, durationBucket }` mirrored from
   // src/shared/telemetry.ts. Parity test cross-imports
@@ -414,6 +419,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-100 Slice 1 fold E — mirror of src/shared/telemetry.ts.
   'import.applied': ['importerId', 'status', 'sizeBucket'],
   'import.notebook_warnings_surfaced': ['warningKindCount', 'dominantKind'],
+  'import.postman_variables_resolved': ['resolvedBucket', 'unresolvedBucket'],
   // RL-097 Slice 2 fold F — mirror of src/shared/telemetry.ts.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
   // RL-097 Slice 3 (SQL OPFS) fold F — mirror of src/shared/telemetry.ts.
@@ -1515,6 +1521,12 @@ function isAllowedValue(
       if (key === 'dominantKind')
         return (
           typeof value === 'string' && NOTEBOOK_WARNING_KINDS_SET.has(value)
+        );
+      return false;
+    case 'import.postman_variables_resolved':
+      if (key === 'resolvedBucket' || key === 'unresolvedBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
         );
       return false;
     case 'sql.query_executed':

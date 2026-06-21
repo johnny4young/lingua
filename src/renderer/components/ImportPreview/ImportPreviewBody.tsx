@@ -369,6 +369,15 @@ function CollectionPreviewBand({
             </StatusBadge>
           </span>
         ) : null}
+        {counts.variablesResolved !== undefined && counts.variablesResolved > 0 ? (
+          <span data-testid="import-preview-collection-variables" className="inline-flex">
+            <StatusBadge tone="success">
+              {t('importPreview.collection.variablesResolved', {
+                count: counts.variablesResolved,
+              })}
+            </StatusBadge>
+          </span>
+        ) : null}
       </section>
 
       <section className="grid gap-1">

@@ -426,6 +426,16 @@ export const TELEMETRY_EVENTS = [
   // NO kernel name reach the wire. Mirrored on update-server with
   // parity test.
   'import.notebook_warnings_surfaced',
+  // RL-100 Slice 3.5 (Postman vars) fold B — collection-variable
+  // resolution outcome. Fires once per successful Postman collection
+  // import that referenced ANY `{{variable}}` (resolved OR unresolved).
+  // Closed-enum `{ resolvedBucket, unresolvedBucket }` where both ∈
+  // DEPENDENCY_COUNT_BUCKETS_SET (`'0' / '1' / '2-5' / '6-10' / '>10'`):
+  // `resolvedBucket` buckets the distinct collection vars substituted,
+  // `unresolvedBucket` the distinct static placeholders left literal.
+  // NO variable names, NO values, NO URLs reach the wire — only the two
+  // bucketed counts. Mirrored on update-server with parity test.
+  'import.postman_variables_resolved',
   // RL-097 Slice 2 fold F — SQL workspace query execution. Fires
   // once per Run / Cmd+Enter against the DuckDB-WASM engine.
   // Closed-enum `{ status, rowCountBucket, durationBucket }` where
@@ -829,6 +839,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // NOTEBOOK_WARNING_KINDS_SET. No cell text, no output bytes, no
   // kernel name on the wire.
   'import.notebook_warnings_surfaced': ['warningKindCount', 'dominantKind'],
+  // RL-100 Slice 3.5 (Postman vars) fold B — `resolvedBucket` +
+  // `unresolvedBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET. No variable
+  // names, values, or URLs on the wire.
+  'import.postman_variables_resolved': ['resolvedBucket', 'unresolvedBucket'],
   // RL-097 Slice 2 fold F — `status` ∈ SQL_QUERY_STATUSES_SET,
   // `rowCountBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET, `durationBucket`
   // ∈ SQL_DURATION_BUCKETS_SET. No query text, schema names, or row
@@ -1977,6 +1991,12 @@ function isAllowedValue(
       if (key === 'dominantKind')
         return (
           typeof value === 'string' && NOTEBOOK_WARNING_KINDS_SET.has(value)
+        );
+      return false;
+    case 'import.postman_variables_resolved':
+      if (key === 'resolvedBucket' || key === 'unresolvedBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
         );
       return false;
     case 'recipe.opened':
