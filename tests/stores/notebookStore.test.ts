@@ -50,6 +50,37 @@ describe('useNotebookStore CRUD', () => {
     );
   });
 
+  it('installImportedNotebook overwrites a tab with a parsed notebook, lossless (RL-043 Slice E)', () => {
+    const store = useNotebookStore.getState();
+    // Seed a blank notebook then install an imported one over it.
+    store.createNotebookForTab('tab-imp', 'Blank');
+    useNotebookStore.getState().installImportedNotebook(
+      'tab-imp',
+      {
+        version: 1,
+        id: 'nb-imported',
+        title: 'Imported',
+        createdAt: '2026-06-20T00:00:00.000Z',
+        cells: [
+          { kind: 'markdown', id: 'm1', source: '# Hi' },
+          { kind: 'code', id: 'c1', language: 'typescript', source: 'const a = 1;', outputs: [] },
+        ],
+      },
+      { c1: 5, ghost: 2 }
+    );
+    const installed = useNotebookStore.getState().getNotebookForTab('tab-imp');
+    // The document's own ids / title survive (no regeneration).
+    expect(installed?.id).toBe('nb-imported');
+    expect(installed?.title).toBe('Imported');
+    expect(installed?.cells.map((c) => c.id)).toEqual(['m1', 'c1']);
+    // Execution order restored + counter resumed past the max stamp;
+    // the unknown cell id is dropped.
+    expect(useNotebookStore.getState().getCellExecutionOrder('tab-imp', 'c1')).toBe(5);
+    expect(useNotebookStore.getState().getCellExecutionOrder('tab-imp', 'ghost')).toBeNull();
+    expect(useNotebookStore.getState().notebooks['tab-imp']?.executionCounter).toBe(5);
+    expect(useNotebookStore.getState().getActiveCellId('tab-imp')).toBe('m1');
+  });
+
   it('createNotebookForTab can seed the starter code cell as TypeScript', () => {
     useNotebookStore
       .getState()

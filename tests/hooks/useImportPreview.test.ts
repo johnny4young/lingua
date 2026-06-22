@@ -14,6 +14,8 @@ import {
   deriveDominantNotebookWarning,
 } from '../../src/renderer/hooks/importTelemetry';
 import { useImportPreview } from '../../src/renderer/hooks/useImportPreview';
+import { serializeNotebookDocument } from '../../src/shared/notebookDocument';
+import type { NotebookV1 } from '../../src/shared/notebook';
 import {
   useEditorStore,
   HTTP_WORKSPACE_TAB_ID,
@@ -324,6 +326,53 @@ describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
         unresolvedBucket: '1',
       }
     );
+  });
+});
+
+describe('useImportPreview — .linguanb arm (RL-043 Slice E)', () => {
+  const linguanbNotebook: NotebookV1 = {
+    version: 1,
+    id: 'nb-saved',
+    title: 'Saved Notebook',
+    createdAt: '2026-06-20T00:00:00.000Z',
+    cells: [
+      { kind: 'markdown', id: 'm1', source: '# Notes' },
+      { kind: 'code', id: 'c1', language: 'typescript', source: 'const a: number = 1;', outputs: [] },
+    ],
+  };
+  const sampleLinguanb = serializeNotebookDocument(linguanbNotebook, {
+    executionOrder: { c1: 3 },
+  });
+
+  it('detects + previews a .linguanb payload as kind linguanb-notebook', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(sampleLinguanb);
+    });
+    expect(result.current.state.phase).toBe('previewed');
+    expect(result.current.state.importerId).toBe('linguanb-notebook');
+    expect(result.current.state.preview?.kind).toBe('linguanb-notebook');
+  });
+
+  it('confirm installs the notebook losslessly (preserves cell ids + restores [N]) — fold B/F', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(sampleLinguanb);
+    });
+    let returned: ReturnType<typeof result.current.confirm> = null;
+    act(() => {
+      returned = result.current.confirm();
+    });
+    expect(returned?.kind).toBe('linguanb-notebook');
+    const tabId = returned?.notebookTabId;
+    expect(tabId).toBeDefined();
+    if (!tabId) return;
+    const installed = useNotebookStore.getState().getNotebookForTab(tabId);
+    // Lossless — the document's own cell ids survive (no regeneration).
+    expect(installed?.cells.map((c) => c.id)).toEqual(['m1', 'c1']);
+    expect(installed?.title).toBe('Saved Notebook');
+    // Fold B — the [N] execution stamp is restored into the store.
+    expect(useNotebookStore.getState().getCellExecutionOrder(tabId, 'c1')).toBe(3);
   });
 });
 

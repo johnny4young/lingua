@@ -671,6 +671,7 @@ export const IMPORTER_IDS_SET = new Set([
   'ipynb-notebook',
   'postman-collection',
   'bruno-collection',
+  'linguanb-notebook',
 ]);
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
 // RL-100 Slice 2 fold E — mirrors `NOTEBOOK_WARNING_KINDS_SET` in
@@ -709,7 +710,11 @@ export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
   'python',
 ]);
 // RL-043 Slice D fold D — mirror of src/shared/telemetry.ts.
-export const NOTEBOOK_EXPORT_FORMATS_SET = new Set(['script', 'ipynb']);
+export const NOTEBOOK_EXPORT_FORMATS_SET = new Set([
+  'script',
+  'ipynb',
+  'linguanb',
+]);
 // RL-095 Slice 1 fold A — mirror of `LANGUAGE_SCORECARD_SURFACES`.
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',

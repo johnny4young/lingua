@@ -22,13 +22,24 @@ describe('IMPORTER_REGISTRY', () => {
     );
   });
 
-  it('Slice 3 ships curl-http + ipynb-notebook + postman/bruno collections', () => {
+  it('ships curl-http + ipynb-notebook + postman/bruno collections + linguanb (RL-043 Slice E)', () => {
     expect([...IMPORTER_IDS].sort()).toEqual([
       'bruno-collection',
       'curl-http',
       'ipynb-notebook',
+      'linguanb-notebook',
       'postman-collection',
     ]);
+  });
+
+  it('lists linguanb-notebook BEFORE ipynb-notebook so its specific detect wins', () => {
+    // A `.linguanb` envelope embeds an inner `"cells":` array that the
+    // ipynb adapter would otherwise claim; registry order routes the
+    // specific `format` marker first.
+    const ids = Object.keys(IMPORTER_REGISTRY);
+    expect(ids.indexOf('linguanb-notebook')).toBeLessThan(
+      ids.indexOf('ipynb-notebook')
+    );
   });
 });
 

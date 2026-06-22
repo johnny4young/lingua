@@ -23,16 +23,25 @@
 import { brunoImporterAdapter } from './brunoImporter';
 import { curlImporterAdapter } from './curlImporter';
 import { ipynbImporterAdapter } from './ipynbImporter';
+import { linguanbImporterAdapter } from './linguanbImporter';
 import { postmanImporterAdapter } from './postmanImporter';
 import type { ImporterAdapter, ImporterId } from './types';
 
 // `unknown` generic params mirror the utility-registry precedent —
 // each adapter carries its own TPreview / TResult; the union is too
 // narrow to express directly so we widen at the registry boundary.
+//
+// ORDER MATTERS for `detectImporter`: `'linguanb-notebook'` is listed
+// BEFORE `'ipynb-notebook'` because a `.linguanb` envelope embeds an
+// inner notebook with a `"cells":` array, which the ipynb adapter's
+// loose `"cells":` / `"nbformat":` sniff would otherwise claim first.
+// The linguanb `detect` requires the specific `"format":"linguanb"`
+// marker, so checking it first routes each format to the right adapter.
 export const IMPORTER_REGISTRY: Readonly<
   Record<ImporterId, ImporterAdapter<unknown, unknown>>
 > = {
   'curl-http': curlImporterAdapter as ImporterAdapter<unknown, unknown>,
+  'linguanb-notebook': linguanbImporterAdapter as ImporterAdapter<unknown, unknown>,
   'ipynb-notebook': ipynbImporterAdapter as ImporterAdapter<unknown, unknown>,
   'postman-collection': postmanImporterAdapter as ImporterAdapter<unknown, unknown>,
   'bruno-collection': brunoImporterAdapter as ImporterAdapter<unknown, unknown>,

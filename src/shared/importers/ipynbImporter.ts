@@ -648,7 +648,11 @@ function deriveNotebookTitle(metadata: Record<string, unknown>): string {
 const CELL_SNIPPET_PREVIEW_LENGTH = 200;
 const CELL_SNIPPET_MAX_COUNT = 3;
 
-function buildCellSnippets(
+/**
+ * Build the first-N-cells preview snippets. Exported so the RL-043
+ * Slice E `.linguanb` importer reuses the identical band rendering.
+ */
+export function buildCellSnippets(
   cells: ReadonlyArray<NotebookCellV1>
 ): IpynbCellSnippet[] {
   const snippets: IpynbCellSnippet[] = [];
@@ -670,7 +674,9 @@ function buildCellSnippets(
   return snippets;
 }
 
-function countCells(
+/** Count code / markdown cells for the summary chip. Exported for reuse
+ * by the RL-043 Slice E `.linguanb` importer (always `droppedRaw: 0`). */
+export function countCells(
   cells: ReadonlyArray<NotebookCellV1>,
   droppedRaw: number
 ): IpynbImporterPreview['cellCounts'] {
@@ -688,7 +694,9 @@ function countCells(
   };
 }
 
-function pickDominantLanguage(
+/** Pick the dominant code-cell language (null on tie / no code cells).
+ * Exported for reuse by the RL-043 Slice E `.linguanb` importer. */
+export function pickDominantLanguage(
   cells: ReadonlyArray<NotebookCellV1>
 ): NotebookCellLanguage | null {
   const counts: Partial<Record<NotebookCellLanguage, number>> = {};

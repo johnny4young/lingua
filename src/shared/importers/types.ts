@@ -43,8 +43,10 @@
 /**
  * Closed enum of importer ids. Slice 1 shipped `'curl-http'`;
  * Slice 2 (2026-05-27) added `'ipynb-notebook'`; Slice 3 (2026-05-28)
- * adds `'postman-collection'` + `'bruno-collection'`. The enum stays
- * open for `'codepen-url'` (Slice 4+).
+ * adds `'postman-collection'` + `'bruno-collection'`. RL-043 Slice E
+ * (2026-06-21) adds `'linguanb-notebook'` — the lossless native
+ * notebook document (counterpart to the lossy `.ipynb` import). The
+ * enum stays open for `'codepen-url'` (Slice 4+).
  *
  * Mirrored on `update-server/src/telemetry.ts` as
  * `IMPORTER_IDS_SET` — see the parity test there.
@@ -54,6 +56,7 @@ export const IMPORTER_IDS = [
   'ipynb-notebook',
   'postman-collection',
   'bruno-collection',
+  'linguanb-notebook',
 ] as const;
 export type ImporterId = (typeof IMPORTER_IDS)[number];
 

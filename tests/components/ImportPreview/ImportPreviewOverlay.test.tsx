@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { ImportPreviewOverlay } from '../../../src/renderer/components/ImportPreview/ImportPreviewOverlay';
+import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useWorkspaceToolStore } from '../../../src/renderer/stores/workspaceToolStore';
@@ -18,6 +19,29 @@ import {
   useEditorStore,
   HTTP_WORKSPACE_TAB_ID,
 } from '../../../src/renderer/stores/editorStore';
+
+function seedProTier() {
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'test@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
+}
 
 beforeEach(() => {
   localStorage.clear();
@@ -34,6 +58,7 @@ beforeEach(() => {
   useEditorStore.setState({ tabs: [], activeTabId: null });
   useUIStore.setState({ activeBottomPanel: 'console', statusNotice: null });
   useSettingsStore.setState({ importPreviewClipboardOnFocusConsent: 'unset' });
+  seedProTier();
   // Reset to EN before each test so a previous ES test doesn't bleed in.
   void i18next.changeLanguage('en');
 });
@@ -49,11 +74,17 @@ describe('ImportPreviewOverlay', () => {
     expect(screen.getByTestId('import-preview-empty').textContent).toMatch(
       /Bruno/i
     );
+    expect(screen.getByTestId('import-preview-empty').textContent).toMatch(
+      /Lingua/i
+    );
     expect(screen.getByTestId('import-preview-pick-file').textContent).toMatch(
       /Postman/i
     );
     expect(screen.getByTestId('import-preview-pick-file').textContent).toMatch(
       /Bruno/i
+    );
+    expect(screen.getByTestId('import-preview-pick-file').textContent).toMatch(
+      /\.linguanb/i
     );
     // Confirm starts disabled when nothing is parsed yet.
     const confirm = screen.getByTestId('import-preview-confirm') as HTMLButtonElement;
@@ -228,6 +259,56 @@ describe('ImportPreviewOverlay — ipynb arm (RL-100 Slice 2)', () => {
     expect((screen.getByTestId('import-preview-paste') as HTMLTextAreaElement).value).toBe('');
     expect(screen.getByTestId('import-preview-empty')).toBeTruthy();
     expect(useUIStore.getState().statusNotice).toBeNull();
+  });
+});
+
+describe('ImportPreviewOverlay — .linguanb arm (RL-043 Slice E)', () => {
+  const sampleLinguanb = JSON.stringify({
+    format: 'linguanb',
+    documentVersion: 1,
+    notebook: {
+      version: 1,
+      id: 'nb-x',
+      title: 'Saved',
+      createdAt: '2026-06-20T00:00:00.000Z',
+      cells: [
+        { kind: 'markdown', id: 'm1', source: '# Hello' },
+        { kind: 'code', id: 'c1', language: 'typescript', source: 'const a = 1;', outputs: [] },
+      ],
+    },
+  });
+
+  it('renders the notebook band with the lossless badge on paste (fold C)', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(sampleLinguanb);
+    await waitFor(() => {
+      const body = screen.getByTestId('import-preview-body');
+      expect(body.getAttribute('data-preview-kind')).toBe('linguanb-notebook');
+    });
+    // Fold C — the native lossless badge, not the Jupyter badge.
+    expect(screen.getByTestId('import-preview-ipynb-badge').textContent).toMatch(/lossless/i);
+    expect(screen.getByTestId('import-preview-notebook-summary').textContent).toMatch(/2 cells/);
+  });
+
+  it('uses the notebook confirm label and success toast on confirm', async () => {
+    let closed = false;
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => (closed = true)} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(sampleLinguanb);
+    await waitFor(() => {
+      const btn = screen.getByTestId('import-preview-confirm');
+      expect(btn.textContent).toMatch(/Import as notebook/i);
+    });
+    await user.click(screen.getByTestId('import-preview-confirm'));
+    expect(closed).toBe(true);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+      'importPreview.success.notebookOpened'
+    );
   });
 });
 

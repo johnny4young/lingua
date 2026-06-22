@@ -134,6 +134,20 @@ export interface NotebookState {
     title?: string,
     initialCodeCellLanguage?: NotebookCellLanguage
   ) => void;
+  /**
+   * RL-043 Slice E — install a fully-formed `NotebookV1` (parsed from a
+   * `.linguanb` import) into a tab, preserving the document's own cell
+   * ids / title / createdAt and restoring the per-cell `[N]` execution
+   * stamps (fold B). Unlike the `addCell` walk the `.ipynb` import uses,
+   * this keeps the import lossless. Overwrites any existing slice for the
+   * tab; transient run state (status / durations / var-flow) starts clean
+   * since the imported run did not happen in this session.
+   */
+  installImportedNotebook: (
+    tabId: string,
+    notebook: NotebookV1,
+    executionOrder?: Readonly<Record<string, number>>
+  ) => void;
   /** Drop the entire notebook entry for a tab. Called by editorStore's
    * `removeTab` + `renameTab` hooks. */
   disposeNotebookForTab: (tabId: string) => void;
@@ -267,6 +281,38 @@ export const useNotebookStore = create<NotebookState>()(
                 cellVarFlow: {},
                 executionCounter: 0,
                 cellExecutionOrder: {},
+                lastDeleted: null,
+                activeCellId: notebook.cells[0]?.id ?? null,
+              },
+            },
+          };
+        });
+      },
+
+      installImportedNotebook: (tabId, notebook, executionOrder) => {
+        if (typeof tabId !== 'string' || tabId.length === 0) return;
+        set((state) => {
+          const cellIds = new Set(notebook.cells.map((cell) => cell.id));
+          const order: Record<string, number> = {};
+          let maxStamp = 0;
+          for (const [cellId, value] of Object.entries(executionOrder ?? {})) {
+            if (cellIds.has(cellId) && Number.isInteger(value) && value > 0) {
+              order[cellId] = value;
+              if (value > maxStamp) maxStamp = value;
+            }
+          }
+          return {
+            notebooks: {
+              ...state.notebooks,
+              [tabId]: {
+                notebook,
+                cellRunStatus: {},
+                cellDurationMs: {},
+                cellVarFlow: {},
+                // Resume the counter past the highest restored stamp so a
+                // later run in this session earns a fresh, monotonic `[N]`.
+                executionCounter: maxStamp,
+                cellExecutionOrder: order,
                 lastDeleted: null,
                 activeCellId: notebook.cells[0]?.id ?? null,
               },

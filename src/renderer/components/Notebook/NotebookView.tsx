@@ -55,6 +55,9 @@ import {
   pickNotebookExportLanguage,
 } from './notebookExportToScript';
 import { exportNotebookAsIpynb } from './notebookExportToIpynb';
+import { exportNotebookAsLinguanb } from './notebookExportToLinguanb';
+import { downloadTextFile } from '../../utils/downloadTextFile';
+import { saveOrDownloadLinguanb } from '../../runtime/notebookLinguanbDisk';
 import { useNotebookCommandMode } from './useNotebookCommandMode';
 import { Kbd } from '../ui/ModalShell';
 import { cn } from '../../utils/cn';
@@ -435,23 +438,6 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     ]
   );
 
-  // RL-043 Slice D — shared blob-download path for both export formats.
-  const downloadTextFile = useCallback(
-    (content: string, filename: string, mimeType: string) => {
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = filename;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      // Defer revoke so the click has time to start the download.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    },
-    []
-  );
-
   const handleExport = useCallback(() => {
     setExportMenuOpen(false);
     if (!notebook) return;
@@ -480,7 +466,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         messageKey: 'notebook.notice.exportFailed',
       });
     }
-  }, [downloadTextFile, notebook, pushStatusNotice]);
+  }, [notebook, pushStatusNotice]);
 
   // RL-043 Slice D — export to Jupyter `.ipynb` (nbformat v4). Threads the
   // transient `[N]` execution-order map so Jupyter consumers see the run
@@ -508,7 +494,35 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         messageKey: 'notebook.notice.exportFailed',
       });
     }
-  }, [cellExecutionOrderMap, downloadTextFile, notebook, pushStatusNotice]);
+  }, [cellExecutionOrderMap, notebook, pushStatusNotice]);
+
+  // RL-043 Slice E — export to the native lossless `.linguanb` document.
+  // Threads the transient `[N]` execution-order map so a round-trip
+  // restores the run sequence (fold B). Fold A: on desktop the export
+  // goes through the native Save dialog (capability sandbox); on web it
+  // falls back to a blob download. Gated by the same toolbar disable as
+  // the other export formats.
+  const handleExportLinguanb = useCallback(() => {
+    setExportMenuOpen(false);
+    if (!notebook) return;
+    const result = exportNotebookAsLinguanb(notebook, {
+      executionOrder: cellExecutionOrderMap ?? {},
+    });
+    void saveOrDownloadLinguanb(result.json, result.suggestedFileName, {
+      onOk: () => {
+        trackNotebookExported('linguanb');
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'notebook.notice.exportLinguanbOk',
+        });
+      },
+      onError: () =>
+        pushStatusNotice({
+          tone: 'error',
+          messageKey: 'notebook.notice.exportFailed',
+        }),
+    });
+  }, [cellExecutionOrderMap, notebook, pushStatusNotice]);
 
   const handleTitleCommit = useCallback(
     (value: string) => {
@@ -822,6 +836,15 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                   className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] text-muted hover:bg-surface/60 hover:text-foreground"
                 >
                   {t('notebook.toolbar.exportAsIpynb')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleExportLinguanb}
+                  data-testid="notebook-export-linguanb"
+                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] text-muted hover:bg-surface/60 hover:text-foreground"
+                >
+                  {t('notebook.toolbar.exportAsLinguanb')}
                 </button>
               </div>
             ) : null}

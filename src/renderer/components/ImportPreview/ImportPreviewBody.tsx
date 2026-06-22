@@ -25,6 +25,7 @@ import type {
   IpynbCellSnippet,
   IpynbImporterPreview,
 } from '../../../shared/importers/ipynbImporter';
+import type { LinguanbImporterPreview } from '../../../shared/importers/linguanbImporter';
 import type {
   CollectionImporterPreview,
   ParsedCollectionRequest,
@@ -35,6 +36,7 @@ import { cn } from '../../utils/cn';
 export type ImportPreviewBodyShape =
   | (CurlImporterPreview & { readonly kind: 'curl-http' })
   | IpynbImporterPreview
+  | LinguanbImporterPreview
   | CollectionImporterPreview;
 
 export interface ImportPreviewBodyProps {
@@ -67,7 +69,7 @@ const LANGUAGE_LABEL: Record<string, string> = {
 };
 
 export function ImportPreviewBody({ preview }: ImportPreviewBodyProps) {
-  if (preview.kind === 'ipynb-notebook') {
+  if (preview.kind === 'ipynb-notebook' || preview.kind === 'linguanb-notebook') {
     return <NotebookPreviewBand preview={preview} />;
   }
   if (preview.kind === 'http-collection') {
@@ -201,19 +203,31 @@ function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
 // Slice 2 — `.ipynb` preview
 // ---------------------------------------------------------------------------
 
-function NotebookPreviewBand({ preview }: { preview: IpynbImporterPreview }) {
+function NotebookPreviewBand({
+  preview,
+}: {
+  preview: IpynbImporterPreview | LinguanbImporterPreview;
+}) {
   const { t } = useTranslation();
   const { cellCounts, dominantLanguage, title, cellSnippets } = preview;
+  // RL-043 Slice E fold C — a `.linguanb` import is the lossless native
+  // format; flag it with a success-tone badge so the user sees it
+  // preserves everything, distinct from the lossy `.ipynb` (info tone).
+  const isLossless = preview.kind === 'linguanb-notebook';
 
   return (
     <div
       data-testid="import-preview-body"
-      data-preview-kind="ipynb-notebook"
+      data-preview-kind={preview.kind}
       className="grid gap-3 rounded-md border border-border-subtle bg-bg-inset p-3"
     >
       <header className="flex items-center gap-2">
         <span data-testid="import-preview-ipynb-badge" className="inline-flex">
-          <StatusBadge tone="info">{t('importPreview.notebook.badge')}</StatusBadge>
+          <StatusBadge tone={isLossless ? 'success' : 'info'}>
+            {isLossless
+              ? t('importPreview.linguanb.badge')
+              : t('importPreview.notebook.badge')}
+          </StatusBadge>
         </span>
         <span
           data-testid="import-preview-notebook-title"

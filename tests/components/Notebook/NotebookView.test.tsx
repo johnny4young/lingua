@@ -252,6 +252,28 @@ describe('<NotebookView />', () => {
     expect(screen.queryByTestId('notebook-export-menu')).toBeNull();
   });
 
+  it('the export menu offers .linguanb and it fires the lossless export (RL-043 Slice E)', async () => {
+    const telemetry = await import('../../../src/renderer/utils/telemetry');
+    vi.mocked(telemetry.trackEvent).mockClear();
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL =
+      vi.fn(() => 'blob:mock');
+    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = vi.fn();
+    const user = userEvent.setup();
+    render(<NotebookView tabId={TAB_ID} />);
+    await user.click(screen.getByTestId('notebook-toolbar-export'));
+    expect(screen.getByTestId('notebook-export-linguanb')).toBeTruthy();
+    await user.click(screen.getByTestId('notebook-export-linguanb'));
+    // Web build (no window.lingua.fs) falls back to the blob download.
+    await waitFor(() => {
+      expect(telemetry.trackEvent).toHaveBeenCalledWith('notebook.exported', {
+        format: 'linguanb',
+      });
+    });
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+      'notebook.notice.exportLinguanbOk'
+    );
+  });
+
   it('runs the focused code cell on Cmd+Enter without falling through to the global runner', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',

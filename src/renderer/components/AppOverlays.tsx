@@ -18,6 +18,7 @@ import { replayHistoryEntry } from '../utils/replayHistoryEntry';
 import { CHANGELOG_ENTRIES } from '../data/changelog';
 import { type DeveloperUtilityId } from '../data/developerUtilities';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
+import { exportActiveNotebookAsLinguanb } from '../runtime/exportActiveNotebook';
 import { useRecipeStore } from '../stores/recipeStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -124,6 +125,7 @@ export function AppOverlays({
           onOpenImportOverlay={() => openOverlay('import-preview')}
           onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
           onNewNotebook={() => useEditorStore.getState().addNotebookTab()}
+          onExportActiveNotebookLinguanb={() => exportActiveNotebookAsLinguanb()}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}

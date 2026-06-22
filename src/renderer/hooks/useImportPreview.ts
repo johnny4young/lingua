@@ -47,6 +47,10 @@ import type {
   IpynbImporterResult,
 } from '../../shared/importers/ipynbImporter';
 import type {
+  LinguanbImporterPreview,
+  LinguanbImporterResult,
+} from '../../shared/importers/linguanbImporter';
+import type {
   CollectionImporterPreview,
   CollectionImporterResult,
 } from '../../shared/importers/postmanImporter';
@@ -89,6 +93,7 @@ export type ImportPreviewPhase = 'idle' | 'previewed' | 'rejected';
 export type AnyImporterPreview =
   | (CurlImporterPreview & { readonly kind: 'curl-http' })
   | IpynbImporterPreview
+  | LinguanbImporterPreview
   | CollectionImporterPreview;
 
 export interface ImportPreviewState {
@@ -109,6 +114,7 @@ export interface ConfirmResult {
   readonly kind:
     | 'curl-http'
     | 'ipynb-notebook'
+    | 'linguanb-notebook'
     | 'postman-collection'
     | 'bruno-collection';
   /** Slice 1 — newly-created request. Null for ipynb / collections. */
@@ -323,6 +329,53 @@ export function useImportPreview(): UseImportPreviewResult {
       setState(INITIAL_STATE);
       return {
         kind: 'ipynb-notebook',
+        notebookTabId: tabId,
+        dominantLanguage: result.dominantLanguage,
+      };
+    }
+
+    if (
+      state.importerId === 'linguanb-notebook' &&
+      state.preview.kind === 'linguanb-notebook'
+    ) {
+      const result = adapter.import(state.preview) as LinguanbImporterResult;
+      const editorState = useEditorStore.getState();
+      const tabLanguage =
+        result.dominantLanguage ??
+        firstNotebookCodeLanguage(result.notebook) ??
+        'javascript';
+      const tabId =
+        editorState.addNotebookTab?.({
+          title: result.title,
+          language: tabLanguage,
+        }) ?? null;
+      if (tabId === null) {
+        // Entitlement / tab-budget rejected (notebook is Pro-gated) —
+        // mirror the `.ipynb` cancelled-telemetry path.
+        trackImportApplied({
+          importerId: 'linguanb-notebook',
+          status: 'cancelled',
+          sizeBucket: bucketCapsuleSize(state.sourceBytes),
+        });
+        setState(INITIAL_STATE);
+        return null;
+      }
+      // Install the parsed notebook LOSSLESSLY — preserves the document's
+      // own cell ids / title / createdAt and restores the per-cell `[N]`
+      // execution stamps (fold B), overwriting the blank notebook
+      // `addNotebookTab` seeded. Unlike the `.ipynb` path's addCell walk,
+      // nothing is regenerated.
+      useNotebookStore
+        .getState()
+        .installImportedNotebook(tabId, result.notebook, result.executionOrder);
+      trackImportApplied({
+        importerId: 'linguanb-notebook',
+        status: 'ok',
+        sizeBucket: bucketCapsuleSize(state.sourceBytes),
+      });
+      setState(INITIAL_STATE);
+      return {
+        kind: 'linguanb-notebook',
         notebookTabId: tabId,
         dominantLanguage: result.dominantLanguage,
       };

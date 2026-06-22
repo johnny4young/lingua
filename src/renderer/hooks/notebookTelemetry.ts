@@ -43,9 +43,10 @@ export function trackNotebookCellLanguageChanged(
 /**
  * RL-043 Slice D fold D — closed enum of notebook export formats. `script`
  * is the language-aware `.js`/`.ts`/`.py`/`.txt` export; `ipynb` is the
- * Jupyter nbformat v4 export.
+ * Jupyter nbformat v4 export; `linguanb` (RL-043 Slice E) is the native
+ * lossless `.linguanb` document export.
  */
-export type NotebookExportFormat = 'script' | 'ipynb';
+export type NotebookExportFormat = 'script' | 'ipynb' | 'linguanb';
 
 /**
  * RL-043 Slice D fold D — fire when the user exports a notebook. `format`

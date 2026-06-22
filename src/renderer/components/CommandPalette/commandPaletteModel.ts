@@ -369,6 +369,13 @@ interface BuildCommandPaletteModelArgs {
    */
   onNewNotebook?: () => void;
   /**
+   * RL-043 Slice E fold E — export the ACTIVE notebook to a `.linguanb`
+   * document. Optional; when omitted the palette entry hides. The
+   * callback no-ops with a status notice when the active tab is not a
+   * notebook, so the entry can stay always-listed.
+   */
+  onExportActiveNotebookLinguanb?: () => void;
+  /**
    * RL-095 Slice 1 fold B — opens Settings on the Languages tab and
    * scrolls to the Language Support Scorecard. Optional; when
    * omitted the palette entry is hidden.
@@ -742,6 +749,7 @@ export function buildCommandPaletteModel({
   onOpenImportOverlay,
   onOpenRecipes,
   onNewNotebook,
+  onExportActiveNotebookLinguanb,
   onShowLanguageSupport,
   onCopyLanguageScorecardMarkdown,
   onCopyShareLink,
@@ -1073,6 +1081,23 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onNewNotebook();
+            }
+          ),
+        ]
+      : []),
+    // RL-043 Slice E fold E — export the active notebook as a native
+    // lossless `.linguanb` document, the palette twin of the toolbar
+    // export menu so it is reachable without the notebook toolbar.
+    ...(onExportActiveNotebookLinguanb
+      ? [
+          buildActionCommand(
+            'action-export-notebook-linguanb',
+            translate('commandPalette.action.exportNotebookLinguanb.label'),
+            translate('commandPalette.action.exportNotebookLinguanb.description'),
+            ['notebook', 'export', 'linguanb', 'save', 'cuaderno', 'exporta', 'guardar'],
+            () => {
+              onClose();
+              onExportActiveNotebookLinguanb();
             }
           ),
         ]

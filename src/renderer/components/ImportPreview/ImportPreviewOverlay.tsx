@@ -17,7 +17,7 @@
  *              the detected dominant code-cell language.
  *
  * Slice 2 folds:
- *   A. Drag-drop accepts `.ipynb` (file input `accept` widened).
+ *   A. Drag-drop accepts notebook files (file input `accept` widened).
  *   B. `detectImporter` content-sniff handles both adapters; file
  *      extension hint kicks in for drop events.
  *   C. Confirm button label adapts per importer kind.
@@ -60,6 +60,8 @@ function formatLabelKeyForImporter(importerId: ImporterId): string {
       return 'importPreview.format.curl';
     case 'ipynb-notebook':
       return 'importPreview.format.ipynb';
+    case 'linguanb-notebook':
+      return 'importPreview.format.linguanb';
     case 'postman-collection':
       return 'importPreview.format.postman';
     case 'bruno-collection':
@@ -250,7 +252,10 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         tone: 'success',
         messageKey: 'importPreview.success.toast',
       });
-    } else if (created.kind === 'ipynb-notebook') {
+    } else if (
+      created.kind === 'ipynb-notebook' ||
+      created.kind === 'linguanb-notebook'
+    ) {
       pushStatusNotice({
         tone: 'success',
         messageKey: 'importPreview.success.notebookOpened',
@@ -280,7 +285,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     previewed && previewed.kind === 'http-collection' ? previewed.counts.total : 0;
   // Fold C — confirm label per importer kind.
   const confirmLabel =
-    importerId === 'ipynb-notebook'
+    importerId === 'ipynb-notebook' || importerId === 'linguanb-notebook'
       ? t('importPreview.action.confirm.notebook')
       : importerId === 'curl-http'
         ? t('importPreview.action.confirm.curl')
@@ -305,7 +310,9 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         ? `importPreview.reject.ipynb.${state.rejectDetail}`
         : importerId === 'postman-collection'
           ? `importPreview.reject.postman.${state.rejectDetail}`
-          : null
+          : importerId === 'linguanb-notebook'
+            ? `importPreview.reject.linguanb.${state.rejectDetail}`
+            : null
       : null;
 
   return (
@@ -417,7 +424,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".curl,.txt,.ipynb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json"
+            accept=".curl,.txt,.ipynb,.linguanb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json,application/x-linguanb+json"
             onChange={handleFileChange}
             className="sr-only"
             data-testid="import-preview-file-input"

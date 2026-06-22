@@ -1109,12 +1109,14 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
 // Parity test in `update-server/test/telemetry.test.ts` cross-imports
 // the renderer source of truth to keep the two copies in sync.
 // RL-100 Slice 2 widens with `'ipynb-notebook'`; Slice 3 widens with
-// `'postman-collection'` + `'bruno-collection'`.
+// `'postman-collection'` + `'bruno-collection'`; RL-043 Slice E widens
+// with `'linguanb-notebook'`.
 export const IMPORTER_IDS_SET = new Set([
   'curl-http',
   'ipynb-notebook',
   'postman-collection',
   'bruno-collection',
+  'linguanb-notebook',
 ]);
 // RL-100 Slice 1 fold E — closed enum of import outcomes.
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
@@ -1166,8 +1168,13 @@ export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
 ]);
 // RL-043 Slice D fold D — closed enum of notebook export formats. Mirror
 // on update-server with a parity test. `script` is the language-aware
-// `.js`/`.ts`/`.py`/`.txt` export; `ipynb` is the Jupyter nbformat v4 export.
-export const NOTEBOOK_EXPORT_FORMATS_SET = new Set(['script', 'ipynb']);
+// `.js`/`.ts`/`.py`/`.txt` export; `ipynb` is the Jupyter nbformat v4
+// export; `linguanb` (RL-043 Slice E) is the native lossless export.
+export const NOTEBOOK_EXPORT_FORMATS_SET = new Set([
+  'script',
+  'ipynb',
+  'linguanb',
+]);
 // RL-095 Slice 1 fold A — closed enum for the surface that drove a
 // Language Support Scorecard view. Mirrored on update-server with
 // parity test. The property name is `surface` (not `source`) because

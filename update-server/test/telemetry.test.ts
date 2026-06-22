@@ -1223,11 +1223,13 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       [...RENDERER_IMPORTER_IDS_SET].sort()
     );
     // RL-100 Slice 2 widened to include the `.ipynb` adapter; Slice 3
-    // added the Postman + Bruno collection adapters.
+    // added the Postman + Bruno collection adapters; RL-043 Slice E
+    // added the native `.linguanb` adapter.
     expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual([
       'bruno-collection',
       'curl-http',
       'ipynb-notebook',
+      'linguanb-notebook',
       'postman-collection',
     ]);
     expect([...WORKER_IMPORT_STATUSES_SET].sort()).toEqual(

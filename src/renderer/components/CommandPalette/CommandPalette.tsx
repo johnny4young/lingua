@@ -113,6 +113,10 @@ interface CommandPaletteProps {
    * RL-043 Slice A fold A — creates a fresh notebook tab (`Mod+Alt+N`).
    */
   onNewNotebook?: () => void;
+  /**
+   * RL-043 Slice E fold E — export the active notebook as `.linguanb`.
+   */
+  onExportActiveNotebookLinguanb?: () => void;
 }
 
 export function CommandPalette({
@@ -139,6 +143,7 @@ export function CommandPalette({
   onOpenImportOverlay,
   onOpenRecipes,
   onNewNotebook,
+  onExportActiveNotebookLinguanb,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -520,6 +525,7 @@ export function CommandPalette({
       onOpenImportOverlay,
       onOpenRecipes,
       onNewNotebook,
+      onExportActiveNotebookLinguanb,
       // RL-095 Slice 1 fold B — open Settings on the Languages tab and
       // scroll to the scorecard. Three pieces of choreography:
       //   1. Claim the next scorecard mount as `surface: 'palette'`
