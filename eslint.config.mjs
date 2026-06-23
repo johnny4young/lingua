@@ -5,7 +5,17 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'out/', 'output/', '.vite/', 'node_modules/', '*.config.*'] },
+  {
+    ignores: [
+      'dist/',
+      'out/',
+      'output/',
+      '.vite/',
+      '.claude/',
+      'node_modules/',
+      '*.config.*',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   // Global: honour _ prefix for intentionally unused identifiers across all files

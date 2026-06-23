@@ -25,9 +25,14 @@ import {
   htmlEntityEncodeAdapter,
 } from './htmlEntity';
 import { jsonFormatAdapter } from './jsonFormat';
+import { jsonMinifyAdapter } from './jsonMinify';
 import { jwtDecodeAdapter } from './jwtDecode';
+import { lineSortAdapter } from './lineSort';
+import { numberBaseAdapter } from './numberBase';
 import { regexReplaceAdapter } from './regexReplace';
+import { slugifyAdapter } from './slugify';
 import { stringCaseAdapter } from './stringCase';
+import { textStatsAdapter } from './textStats';
 import { timestampAdapter } from './timestamp';
 import type { UtilityAdapter, UtilityAdapterId } from './types';
 import { urlParseAdapter } from './urlParse';
@@ -56,6 +61,12 @@ export const UTILITY_ADAPTER_REGISTRY: Readonly<
   'string-case': stringCaseAdapter as UtilityAdapter<unknown>,
   'html-entity-encode': htmlEntityEncodeAdapter as UtilityAdapter<unknown>,
   'html-entity-decode': htmlEntityDecodeAdapter as UtilityAdapter<unknown>,
+  // RL-099 Slice 6 — vocabulary expansion round 2.
+  'number-base': numberBaseAdapter as UtilityAdapter<unknown>,
+  'line-sort': lineSortAdapter as UtilityAdapter<unknown>,
+  slugify: slugifyAdapter as UtilityAdapter<unknown>,
+  'json-minify': jsonMinifyAdapter as UtilityAdapter<unknown>,
+  'text-stats': textStatsAdapter as UtilityAdapter<unknown>,
 };
 
 export function getAdapter(id: string): UtilityAdapter<unknown> | undefined {

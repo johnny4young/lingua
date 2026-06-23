@@ -1,10 +1,9 @@
 /**
  * RL-099 Slice 1 — utility adapter unit tests.
  *
- * Covers all 5 adapters (json-format, base64-encode / decode,
- * url-parse, regex-replace, diff-text) — happy path + reject path
- * + parseOptions shape guard. Keeps the test surface single-file
- * since each adapter is small.
+ * Covers the shared utility adapter registry — happy path + reject path
+ * + parseOptions shape guard. Keeps the test surface single-file since
+ * each adapter is small.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -26,6 +25,11 @@ import {
   htmlEntityDecodeAdapter,
   htmlEntityEncodeAdapter,
 } from '../../../src/shared/utilities/htmlEntity';
+import { numberBaseAdapter } from '../../../src/shared/utilities/numberBase';
+import { lineSortAdapter } from '../../../src/shared/utilities/lineSort';
+import { slugifyAdapter } from '../../../src/shared/utilities/slugify';
+import { jsonMinifyAdapter } from '../../../src/shared/utilities/jsonMinify';
+import { textStatsAdapter } from '../../../src/shared/utilities/textStats';
 import {
   UTILITY_ADAPTER_REGISTRY,
   listAdapters,
@@ -35,7 +39,7 @@ import enCommon from '../../../src/renderer/i18n/locales/en/common.json';
 import esCommon from '../../../src/renderer/i18n/locales/es/common.json';
 
 describe('UTILITY_ADAPTER_REGISTRY', () => {
-  it('exposes all 15 closed-enum adapters', () => {
+  it('exposes all 20 closed-enum adapters', () => {
     expect(Object.keys(UTILITY_ADAPTER_REGISTRY).sort()).toEqual([
       'base64-decode',
       'base64-encode',
@@ -45,9 +49,14 @@ describe('UTILITY_ADAPTER_REGISTRY', () => {
       'html-entity-decode',
       'html-entity-encode',
       'json-format',
+      'json-minify',
       'jwt-decode',
+      'line-sort',
+      'number-base',
       'regex-replace',
+      'slugify',
       'string-case',
+      'text-stats',
       'timestamp',
       'url-decode',
       'url-encode',
@@ -443,6 +452,214 @@ describe('html entity adapters', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value).toBe('bad: &#12abc; &#xzz;');
+  });
+});
+
+// RL-099 Slice 6 — vocabulary expansion round 2.
+describe('numberBaseAdapter (RL-099 Slice 6)', () => {
+  it('auto-detects a hex literal and converts to decimal', async () => {
+    const r = await numberBaseAdapter.run('0xFF', {
+      from: 'auto',
+      to: '10',
+      prefixOutput: false,
+    });
+    expect(r.ok && r.value).toBe('255');
+  });
+
+  it('converts decimal to binary with the 0b prefix (fold G)', async () => {
+    const r = await numberBaseAdapter.run('10', {
+      from: '10',
+      to: '2',
+      prefixOutput: true,
+    });
+    expect(r.ok && r.value).toBe('0b1010');
+  });
+
+  it('handles negative values and large integers (BigInt, no precision loss)', async () => {
+    const big = '123456789012345678901234567890';
+    const r = await numberBaseAdapter.run(`-${big}`, {
+      from: '10',
+      to: '16',
+      prefixOutput: false,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value).toBe(`-${BigInt(big).toString(16)}`);
+  });
+
+  it('rejects a digit out of range for the source base', async () => {
+    const r = await numberBaseAdapter.run('9', {
+      from: '2',
+      to: '10',
+      prefixOutput: false,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe('invalid-input');
+  });
+
+  it('rejects empty input', async () => {
+    const r = await numberBaseAdapter.run('   ', {
+      from: 'auto',
+      to: '10',
+      prefixOutput: false,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it('parseOptions rejects an unknown base', () => {
+    expect(numberBaseAdapter.parseOptions({ from: '3', to: '10' })).toBeNull();
+    expect(numberBaseAdapter.parseOptions(undefined)).toEqual({
+      from: 'auto',
+      to: '10',
+      prefixOutput: false,
+    });
+  });
+});
+
+describe('lineSortAdapter (RL-099 Slice 6)', () => {
+  it('sorts ascending by codepoint and preserves a trailing newline', async () => {
+    const r = await lineSortAdapter.run('banana\napple\ncherry\n', {
+      direction: 'asc',
+      caseInsensitive: false,
+      unique: false,
+      numeric: false,
+    });
+    expect(r.ok && r.value).toBe('apple\nbanana\ncherry\n');
+  });
+
+  it('drops duplicates with the unique option', async () => {
+    const r = await lineSortAdapter.run('b\na\nb\na', {
+      direction: 'asc',
+      caseInsensitive: false,
+      unique: true,
+      numeric: false,
+    });
+    expect(r.ok && r.value).toBe('a\nb');
+  });
+
+  it('sorts numerically (natural order) when enabled (fold D)', async () => {
+    const r = await lineSortAdapter.run('item10\nitem2\nitem1', {
+      direction: 'asc',
+      caseInsensitive: false,
+      unique: false,
+      numeric: true,
+    });
+    expect(r.ok && r.value).toBe('item1\nitem2\nitem10');
+  });
+
+  it('normalizes CRLF and legacy CR line endings before sorting', async () => {
+    const r = await lineSortAdapter.run('delta\r\nalpha\rcharlie', {
+      direction: 'asc',
+      caseInsensitive: false,
+      unique: false,
+      numeric: false,
+    });
+    expect(r.ok && r.value).toBe('alpha\ncharlie\ndelta');
+  });
+
+  it('case-insensitive descending order', async () => {
+    const r = await lineSortAdapter.run('b\nA\nc', {
+      direction: 'desc',
+      caseInsensitive: true,
+      unique: false,
+      numeric: false,
+    });
+    expect(r.ok && r.value).toBe('c\nb\nA');
+  });
+
+  it('parseOptions rejects invalid direction and boolean shapes', () => {
+    expect(lineSortAdapter.parseOptions({ direction: 'sideways' })).toBeNull();
+    expect(lineSortAdapter.parseOptions({ unique: 'true' })).toBeNull();
+    expect(lineSortAdapter.parseOptions(undefined)).toEqual({
+      direction: 'asc',
+      caseInsensitive: false,
+      unique: false,
+      numeric: false,
+    });
+  });
+});
+
+describe('slugifyAdapter (RL-099 Slice 6)', () => {
+  it('slugifies with accent folding and lowercasing', async () => {
+    const r = await slugifyAdapter.run('  Crème Brûlée! ', {
+      separator: 'hyphen',
+      lowercase: true,
+    });
+    expect(r.ok && r.value).toBe('creme-brulee');
+  });
+
+  it('honours the underscore separator and case preservation', async () => {
+    const r = await slugifyAdapter.run('Hello World', {
+      separator: 'underscore',
+      lowercase: false,
+    });
+    expect(r.ok && r.value).toBe('Hello_World');
+  });
+
+  it('collapses all-symbol input to an empty slug (no failure)', async () => {
+    const r = await slugifyAdapter.run('@@@ ###', {
+      separator: 'hyphen',
+      lowercase: true,
+    });
+    expect(r.ok && r.value).toBe('');
+  });
+
+  it('parseOptions rejects invalid separator and boolean shapes', () => {
+    expect(slugifyAdapter.parseOptions({ separator: 'space' })).toBeNull();
+    expect(slugifyAdapter.parseOptions({ lowercase: 'true' })).toBeNull();
+    expect(slugifyAdapter.parseOptions(undefined)).toEqual({
+      separator: 'hyphen',
+      lowercase: true,
+    });
+  });
+});
+
+describe('jsonMinifyAdapter (RL-099 Slice 6 fold B)', () => {
+  it('minifies valid JSON', async () => {
+    const r = await jsonMinifyAdapter.run('{\n  "a": 1,\n  "b": [2, 3]\n}', {});
+    expect(r.ok && r.value).toBe('{"a":1,"b":[2,3]}');
+  });
+
+  it('rejects malformed JSON with invalid-input', async () => {
+    const r = await jsonMinifyAdapter.run('{ not json', {});
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe('invalid-input');
+  });
+
+  it('parseOptions rejects non-object option blobs', () => {
+    expect(jsonMinifyAdapter.parseOptions(['unexpected'])).toBeNull();
+    expect(jsonMinifyAdapter.parseOptions('unexpected')).toBeNull();
+    expect(jsonMinifyAdapter.parseOptions(undefined)).toEqual({});
+  });
+});
+
+describe('textStatsAdapter (RL-099 Slice 6 fold C)', () => {
+  it('counts lines, words, characters, and bytes', async () => {
+    const r = await textStatsAdapter.run('hello world\nsecond line', {});
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value).toBe('Lines: 2\nWords: 4\nCharacters: 23\nBytes: 23');
+  });
+
+  it('reports zeros for empty input', async () => {
+    const r = await textStatsAdapter.run('', {});
+    expect(r.ok && r.value).toBe('Lines: 0\nWords: 0\nCharacters: 0\nBytes: 0');
+  });
+
+  it('counts multi-byte characters by code point and UTF-8 bytes', async () => {
+    const r = await textStatsAdapter.run('café', {});
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // 4 code points, 5 UTF-8 bytes (é = 2 bytes).
+    expect(r.value).toBe('Lines: 1\nWords: 1\nCharacters: 4\nBytes: 5');
+  });
+
+  it('parseOptions rejects non-object option blobs', () => {
+    expect(textStatsAdapter.parseOptions(['unexpected'])).toBeNull();
+    expect(textStatsAdapter.parseOptions('unexpected')).toBeNull();
+    expect(textStatsAdapter.parseOptions(undefined)).toEqual({});
   });
 });
 

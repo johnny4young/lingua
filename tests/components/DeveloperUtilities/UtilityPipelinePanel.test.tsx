@@ -118,8 +118,11 @@ describe('UtilityPipelinePanel', () => {
     const state = useUtilityPipelineStore.getState();
     const created = state.pipelines[0]!;
     expect(state.activePipelineId).toBe(created.id);
-    expect(created.steps.map((s) => s.utilityId)).toEqual(['string-case']);
-    expect(created.steps[0]!.options).toEqual({ target: 'kebab' });
+    expect(created.steps.map((s) => s.utilityId)).toEqual(['slugify']);
+    expect(created.steps[0]!.options).toEqual({
+      separator: 'hyphen',
+      lowercase: true,
+    });
     // Fold F — the sample input is seeded so the pipeline is runnable.
     expect(state.getPipelineInput(created.id)).toBe('Hello World Example');
     // Fold A — adoption telemetry with the curated template id.

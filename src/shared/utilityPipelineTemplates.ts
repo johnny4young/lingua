@@ -61,8 +61,9 @@ export interface PipelineTemplate {
 
 /**
  * The curated catalog. Each template composes shipped adapters into a
- * common developer flow. Only non-default options are spelled out (e.g.
- * slugify's `kebab`); omitted options fall back to the adapter default.
+ * common developer flow. Most omitted options fall back to the adapter
+ * default; templates may spell out defaults when the named recipe would
+ * otherwise drift if an adapter default changed.
  */
 export const PIPELINE_TEMPLATES: readonly PipelineTemplate[] = [
   {
@@ -101,7 +102,15 @@ export const PIPELINE_TEMPLATES: readonly PipelineTemplate[] = [
     id: 'slugify',
     nameKey: 'utilityPipeline.template.slugify.name',
     descriptionKey: 'utilityPipeline.template.slugify.description',
-    steps: [{ utilityId: 'string-case', options: { target: 'kebab' } }],
+    // RL-099 Slice 6 — use the dedicated slugify adapter now that it
+    // exists; the previous string-case/kebab stand-in did not strip
+    // punctuation or fold diacritics, so it was not URL-slug safe.
+    steps: [
+      {
+        utilityId: 'slugify',
+        options: { separator: 'hyphen', lowercase: true },
+      },
+    ],
     sampleInput: 'Hello World Example',
   },
   {

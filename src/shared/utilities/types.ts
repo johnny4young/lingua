@@ -63,6 +63,14 @@ export const UTILITY_ADAPTER_IDS = [
   'string-case',
   'html-entity-encode',
   'html-entity-decode',
+  // RL-099 Slice 6 — vocabulary expansion round 2. Pure text→text
+  // transforms (number radix, line sort, slugify, JSON minify, text
+  // stats). Each is a self-contained shared reimplementation.
+  'number-base',
+  'line-sort',
+  'slugify',
+  'json-minify',
+  'text-stats',
 ] as const;
 export type UtilityAdapterId = (typeof UTILITY_ADAPTER_IDS)[number];
 

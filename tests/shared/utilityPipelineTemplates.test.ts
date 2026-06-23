@@ -69,14 +69,17 @@ describe('instantiatePipelineTemplate', () => {
     expect(pipeline.steps.map((s) => s.id)).toEqual(['s1', 's2']);
   });
 
-  it('applies spelled-out options (slugify → kebab)', () => {
+  it('applies the dedicated slugify adapter options', () => {
     const template = getPipelineTemplate('slugify')!;
     const pipeline = instantiatePipelineTemplate(template, {
       pipelineId: 'pipe-2',
       stepIds: ['s1'],
       name: 'Slugify',
     });
-    expect(pipeline.steps[0]!.options).toEqual({ target: 'kebab' });
+    expect(pipeline.steps[0]).toMatchObject({
+      utilityId: 'slugify',
+      options: { separator: 'hyphen', lowercase: true },
+    });
   });
 
   it('synthesizes step ids deterministically when under-supplied', () => {

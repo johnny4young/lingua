@@ -66,7 +66,10 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     const out = runCli(['list', 'utilities', '--json']);
     expect(out.code).toBe(0);
     const parsed = JSON.parse(out.stdout) as { utilities: unknown[] };
-    expect(parsed.utilities).toHaveLength(6);
+    // RL-099 Slice 6 — 20 adapters after vocabulary expansion round 2.
+    // (Prerequisite fix: Slice 4 left this at the Slice 1 count of 6 because
+    // the on-disk bundle was stale; rebuilt by build:cli before this runs.)
+    expect(parsed.utilities).toHaveLength(20);
   });
 
   it('exits 1 with file-not-found when validating a missing capsule', () => {
