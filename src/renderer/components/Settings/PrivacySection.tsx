@@ -60,7 +60,7 @@ export function PrivacySection() {
                 data-testid="telemetry-status"
                 role="status"
                 aria-live="polite"
-                className="text-[11px] text-fg-subtle"
+                className="text-caption text-fg-subtle"
               >
                 {t(statusKey)}
               </span>
@@ -85,7 +85,7 @@ export function PrivacySection() {
                 data-testid="native-execution-status"
                 role="status"
                 aria-live="polite"
-                className="text-[11px] text-fg-subtle"
+                className="text-caption text-fg-subtle"
               >
                 {t(nativeStatusKey)}
               </span>
@@ -139,7 +139,7 @@ function SensitiveHeadersRow() {
               <li key={`baseline-${name}`}>
                 <span
                   data-testid="settings-sensitive-headers-baseline-chip"
-                  className="inline-flex items-center rounded-full bg-bg-panel-alt px-2 py-0.5 text-[11px] font-medium tabular-nums text-fg-muted"
+                  className="inline-flex items-center rounded-full bg-bg-panel-alt px-2 py-0.5 text-caption font-medium tabular-nums text-fg-muted"
                   title={t('settings.privacy.sensitiveHeaders.baselineHint')}
                 >
                   {name}
@@ -150,7 +150,7 @@ function SensitiveHeadersRow() {
               <li key={`user-${name}`}>
                 <span
                   data-testid="settings-sensitive-headers-user-chip"
-                  className="inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-[11px] font-medium text-warning-fg"
+                  className="inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-caption font-medium text-warning-fg"
                 >
                   {name}
                   <button
@@ -183,14 +183,14 @@ function SensitiveHeadersRow() {
               }}
               placeholder={t('settings.privacy.sensitiveHeaders.placeholder')}
               data-testid="settings-sensitive-headers-input"
-              className="h-7 min-w-0 flex-1 rounded-md border border-border-default bg-bg-base px-2 text-[12px] text-fg-base focus:border-accent/55 focus:outline-none"
+              className="h-7 min-w-0 flex-1 rounded-md border border-border-default bg-bg-base px-2 text-body-sm text-fg-base focus:border-accent/55 focus:outline-none"
             />
             <button
               type="button"
               onClick={commit}
               disabled={draft.trim().length === 0}
               data-testid="settings-sensitive-headers-add"
-              className="button-secondary text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+              className="button-secondary text-body-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('settings.privacy.sensitiveHeaders.add')}
             </button>

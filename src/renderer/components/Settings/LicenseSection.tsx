@@ -314,7 +314,7 @@ export function LicenseSection() {
                   type="button"
                   onClick={() => void handleClear()}
                   disabled={isClearing || isApplying}
-                  className="rounded-md border border-border-default px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60"
                   data-testid="license-clear"
                 >
                   {t('license.clear')}
@@ -339,7 +339,7 @@ export function LicenseSection() {
                 <code
                   data-testid="license-key-fingerprint"
                   title={keyThumbprint}
-                  className="max-w-[200px] truncate font-mono text-[11px] text-fg-muted"
+                  className="max-w-[200px] truncate font-mono text-caption text-fg-muted"
                 >
                   {keyThumbprint}
                 </code>
@@ -347,7 +347,7 @@ export function LicenseSection() {
                   type="button"
                   onClick={() => void handleCopyFingerprint()}
                   data-testid="license-key-fingerprint-copy"
-                  className="rounded-md border border-border-default px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg-base"
+                  className="rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base"
                 >
                   {t('license.keyFingerprint.copy')}
                 </button>
@@ -372,7 +372,7 @@ export function LicenseSection() {
                 spellCheck={false}
                 onChange={event => setDraft(event.target.value)}
                 data-testid="license-input"
-                className="min-h-20 w-full rounded-md border border-border-default bg-bg-base px-3 py-2 font-mono text-[12px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
+                className="min-h-20 w-full rounded-md border border-border-default bg-bg-base px-3 py-2 font-mono text-body-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
               />
               <button
                 type="button"
@@ -401,14 +401,14 @@ export function LicenseSection() {
           </SpecCard>
           {recoverHint ? (
             <div
-              className="rounded-md border border-warning-border bg-warning-bg px-3.5 py-3 text-[12px] leading-5 text-warning-fg"
+              className="rounded-md border border-warning-border bg-warning-bg px-3.5 py-3 text-body-sm leading-5 text-warning-fg"
               data-testid="license-recover-hint"
             >
               <p className="mb-2">{t('license.recovery.staleHint', { email: recoverHint.email })}</p>
               <button
                 type="button"
                 onClick={handleDismissRecoverHint}
-                className="text-[11px] text-warning-fg underline-offset-2 hover:underline"
+                className="text-caption text-warning-fg underline-offset-2 hover:underline"
               >
                 {t('license.recovery.dismissHint')}
               </button>
@@ -424,8 +424,8 @@ export function LicenseSection() {
         <div data-testid="license-devices-row">
           <SpecCard className="py-[14px]">
             <div className="space-y-1">
-              <p className="text-[13px] font-medium text-fg-base">{t('license.devices.title')}</p>
-              <p className="text-[11.5px] leading-5 text-fg-subtle">
+              <p className="text-body font-medium text-fg-base">{t('license.devices.title')}</p>
+              <p className="text-caption leading-5 text-fg-subtle">
                 {t('license.devices.hint', {
                   desktop: deviceLimit.desktop,
                   web: deviceLimit.web,

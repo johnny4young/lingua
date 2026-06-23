@@ -462,7 +462,7 @@ function EditorLoadingState() {
   const { t } = useTranslation();
 
   return (
-    <div className="flex h-full items-center justify-center bg-background text-sm text-muted">
+    <div className="flex h-full items-center justify-center bg-background text-body text-muted">
       {t('layout.loadingEditor')}
     </div>
   );
@@ -589,7 +589,7 @@ function EditorAreaWithConsoleRestoreStrip() {
         type="button"
         data-testid="bottom-panel-restore"
         onClick={() => setConsoleVisible(true)}
-        className="flex h-6 shrink-0 items-center justify-center gap-2 border-t border-border-strong/60 bg-surface-strong/60 text-[10.5px] font-bold uppercase tracking-[0.14em] text-fg-subtle transition-colors hover:bg-surface-strong/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="flex h-6 shrink-0 items-center justify-center gap-2 border-t border-border-strong/60 bg-surface-strong/60 text-eyebrow font-bold uppercase tracking-[0.14em] text-fg-subtle transition-colors hover:bg-surface-strong/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         aria-label={t('bottomPanel.actions.show')}
       >
         <ChevronUp size={12} aria-hidden="true" />

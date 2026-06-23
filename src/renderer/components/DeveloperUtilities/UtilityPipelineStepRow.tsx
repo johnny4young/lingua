@@ -112,7 +112,7 @@ export function UtilityPipelineStepRow({
         >
           <GripVertical size={14} aria-hidden="true" />
         </button>
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+        <span className="text-eyebrow font-bold uppercase tracking-wider text-muted">
           {t('utilityPipeline.step.indexLabel', { index: index + 1 })}
         </span>
         <select
@@ -120,7 +120,7 @@ export function UtilityPipelineStepRow({
           onChange={handleUtilityChange}
           data-testid="utility-pipeline-step-utility"
           aria-label={t('utilityPipeline.step.utilityLabel')}
-          className="min-w-[180px] rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
+          className="min-w-[180px] rounded-md border border-border/60 bg-background px-2 py-1 text-body-sm"
         >
           {UTILITY_ADAPTER_IDS.map((id) => {
             const a = getAdapter(id);
@@ -136,7 +136,7 @@ export function UtilityPipelineStepRow({
             data-testid="utility-pipeline-step-status"
             data-status={status}
             className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-eyebrow font-medium ring-1',
               STATUS_TONE[status]
             )}
           >
@@ -172,7 +172,7 @@ export function UtilityPipelineStepRow({
         errorMessage ? (
           <pre
             data-testid="utility-pipeline-step-error"
-            className="whitespace-pre-wrap break-all rounded bg-rose-500/10 p-2 font-mono text-[10px] text-rose-200"
+            className="whitespace-pre-wrap break-all rounded bg-rose-500/10 p-2 font-mono text-eyebrow text-rose-200"
           >
             {errorMessage}
           </pre>
@@ -201,7 +201,7 @@ function OptionFieldInput({ field, value, onChange }: OptionFieldInputProps) {
       : undefined;
   if (field.type === 'text') {
     return (
-      <label className="grid gap-1 text-[10px]">
+      <label className="grid gap-1 text-eyebrow">
         <span className="text-muted">{t(field.labelKey)}</span>
         <input
           type="text"
@@ -209,14 +209,14 @@ function OptionFieldInput({ field, value, onChange }: OptionFieldInputProps) {
           placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}
           data-testid={`utility-pipeline-step-option-${field.key}`}
-          className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-[11px]"
+          className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-caption"
         />
       </label>
     );
   }
   if (field.type === 'textarea') {
     return (
-      <label className="grid gap-1 text-[10px]">
+      <label className="grid gap-1 text-eyebrow">
         <span className="text-muted">{t(field.labelKey)}</span>
         <textarea
           value={typeof value === 'string' ? value : field.defaultValue}
@@ -225,20 +225,20 @@ function OptionFieldInput({ field, value, onChange }: OptionFieldInputProps) {
           spellCheck={false}
           rows={3}
           data-testid={`utility-pipeline-step-option-${field.key}`}
-          className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-[11px]"
+          className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-caption"
         />
       </label>
     );
   }
   if (field.type === 'select') {
     return (
-      <label className="grid gap-1 text-[10px]">
+      <label className="grid gap-1 text-eyebrow">
         <span className="text-muted">{t(field.labelKey)}</span>
         <select
           value={typeof value === 'string' ? value : field.defaultValue}
           onChange={(event) => onChange(event.target.value)}
           data-testid={`utility-pipeline-step-option-${field.key}`}
-          className="rounded border border-border/60 bg-background px-2 py-1 text-[11px]"
+          className="rounded border border-border/60 bg-background px-2 py-1 text-caption"
         >
           {field.options.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -251,7 +251,7 @@ function OptionFieldInput({ field, value, onChange }: OptionFieldInputProps) {
   }
   // boolean
   return (
-    <label className="inline-flex items-center gap-2 text-[10px]">
+    <label className="inline-flex items-center gap-2 text-eyebrow">
       <input
         type="checkbox"
         checked={typeof value === 'boolean' ? value : field.defaultValue}

@@ -76,14 +76,14 @@ export function AboutSection({
       <SettingsSection eyebrow={t('about.title')} description={t('about.description')}>
         {/* Hero identity tile — LG glyph + product name, above the spec card. */}
         <div className="flex items-start gap-3 rounded-lg border border-border-subtle bg-bg-inset p-4">
-          <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-sm font-semibold text-primary-foreground shadow-[0_14px_35px_rgba(98,71,190,0.25)]">
+          <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-4xl bg-primary text-body font-semibold text-primary-foreground shadow-[0_14px_35px_color-mix(in_srgb,var(--color-accent)_25%,transparent)]">
             LG
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-display text-xl font-semibold tracking-[-0.04em] text-fg-base">
+            <p className="font-display text-h2 font-semibold tracking-[-0.04em] text-fg-base">
               {productName}
             </p>
-            <p className="mt-1 text-sm leading-6 text-fg-subtle">
+            <p className="mt-1 text-body leading-6 text-fg-subtle">
               {t('about.hero.copy')}
             </p>
           </div>
@@ -95,19 +95,19 @@ export function AboutSection({
           <SpecRow
             label={t('about.field.version')}
             control={
-              <span className="font-mono text-[12.5px] text-fg-base">{version}</span>
+              <span className="font-mono text-body-sm text-fg-base">{version}</span>
             }
           />
           <SpecRow
             label={t('about.field.buildDate')}
             control={
-              <span className="font-mono text-[12.5px] text-fg-base">{buildDate}</span>
+              <span className="font-mono text-body-sm text-fg-base">{buildDate}</span>
             }
           />
           <SpecRow
             label={t('about.field.license')}
             control={
-              <span className="font-mono text-[12.5px] text-fg-base">{licenseType}</span>
+              <span className="font-mono text-body-sm text-fg-base">{licenseType}</span>
             }
             last
           />

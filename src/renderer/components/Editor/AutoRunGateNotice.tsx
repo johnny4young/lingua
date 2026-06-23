@@ -8,7 +8,7 @@ import { useResultStore } from '../../stores/resultStore';
  *
  * Renders inside the result panel header (next to the execution-time
  * pill) when `autoRunGateReason === 'incomplete'`. One line,
- * `text-[11px] text-muted`, no icon, no toast — intentionally quiet
+ * `text-caption text-muted`, no icon, no toast — intentionally quiet
  * so it doesn't fight the user's editing flow.
  *
  * Fold E — when the active tab is in `runtimeMode === 'browser-
@@ -37,7 +37,7 @@ export function AutoRunGateNotice() {
       aria-live="polite"
       data-testid="auto-run-gate-notice"
       data-gate-variant={isBrowserPreview ? 'browser-preview' : 'default'}
-      className="status-pill border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-medium tracking-[0.02em] text-warning"
+      className="status-pill border-warning/30 bg-warning/10 px-2 py-0.5 text-eyebrow font-medium tracking-[0.02em] text-warning"
       title={t(descriptionKey)}
     >
       {t(titleKey)}

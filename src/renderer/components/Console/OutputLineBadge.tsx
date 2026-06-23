@@ -97,7 +97,7 @@ export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
       onMouseLeave={handleMouseLeave}
       title={t('console.outputBadge.tooltip')}
       aria-label={t('console.outputBadge.ariaLabel', { line: origin.line })}
-      className="inline-flex items-center rounded px-1.5 py-0 text-[10px] font-mono font-medium leading-[14px] text-fg-subtle hover:text-foreground hover:bg-surface-strong/70 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      className="inline-flex items-center rounded px-1.5 py-0 text-eyebrow font-mono font-medium leading-[14px] text-fg-subtle hover:text-foreground hover:bg-surface-strong/70 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
       L{origin.line}
     </button>

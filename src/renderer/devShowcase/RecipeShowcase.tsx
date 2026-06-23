@@ -42,7 +42,7 @@ import { RuntimeSelector } from '../components/ui/RuntimeSelector';
 function Cell({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-bg-panel p-5">
-      <div className="font-mono text-[10.5px] font-semibold uppercase text-fg-muted">
+      <div className="font-mono text-eyebrow font-semibold uppercase text-fg-muted">
         {title}
       </div>
       {children}
@@ -80,17 +80,17 @@ export function RecipeShowcase() {
     <div className="min-h-screen bg-bg-base p-8 text-fg-base">
       <header className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-semibold text-fg-base">
+          <h1 className="text-h2 font-semibold text-fg-base">
             Signal-Slate · FASE 0 recipes
           </h1>
-          <p className="mt-1 text-[13px] text-fg-subtle">
+          <p className="mt-1 text-body text-fg-subtle">
             Every token-driven foundation primitive, in one place.
           </p>
         </div>
         <button
           type="button"
           onClick={toggleTheme}
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border-subtle bg-bg-panel-alt px-3 text-[12.5px] text-fg-base hover:bg-bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border-subtle bg-bg-panel-alt px-3 text-body-sm text-fg-base hover:bg-bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
         >
           {dark ? <Sun size={14} aria-hidden /> : <Moon size={14} aria-hidden />}
           {dark ? 'Light theme' : 'Dark theme'}
@@ -144,7 +144,7 @@ export function RecipeShowcase() {
             runLabel="Run"
             stopLabel="Stop"
           />
-          <p className="text-[11.5px] text-fg-subtle">
+          <p className="text-caption text-fg-subtle">
             Toggle by clicking: running={String(running)}
           </p>
         </Cell>
@@ -159,15 +159,15 @@ export function RecipeShowcase() {
               onClose={() => undefined}
               icon={<Search size={16} aria-hidden />}
               header={
-                <span className="text-[14px] text-fg-subtle">
+                <span className="text-body text-fg-subtle">
                   Search templates, snippets, commands…
                 </span>
               }
-              trailing={<span className="font-mono text-[11px] text-fg-subtle">99 results</span>}
+              trailing={<span className="font-mono text-caption text-fg-subtle">99 results</span>}
               size="max-w-[560px]"
             >
               <div className="flex flex-col gap-1">
-                <div className="px-3 pb-1 pt-2 font-mono text-[10.5px] font-semibold uppercase text-fg-muted">
+                <div className="px-3 pb-1 pt-2 font-mono text-eyebrow font-semibold uppercase text-fg-muted">
                   Commands
                 </div>
                 <button
@@ -178,10 +178,10 @@ export function RecipeShowcase() {
                     <Zap size={14} aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13.5px] font-medium text-fg-base">
+                    <span className="block text-body font-medium text-fg-base">
                       Open Keyboard Shortcuts
                     </span>
-                    <span className="block text-[12px] text-fg-subtle">
+                    <span className="block text-body-sm text-fg-subtle">
                       View every built-in shortcut with a live filter
                     </span>
                   </span>
@@ -195,8 +195,8 @@ export function RecipeShowcase() {
                     <FileText size={14} aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13.5px] font-medium text-fg-base">Open File</span>
-                    <span className="block text-[12px] text-fg-subtle">Open a file from disk</span>
+                    <span className="block text-body font-medium text-fg-base">Open File</span>
+                    <span className="block text-body-sm text-fg-subtle">Open a file from disk</span>
                   </span>
                   <Kbd>⌘ O</Kbd>
                 </button>
@@ -214,19 +214,19 @@ export function RecipeShowcase() {
             <SpecCard>
               <SpecRow
                 label="Version"
-                control={<span className="font-mono text-[12.5px] text-fg-base">0.4.0</span>}
+                control={<span className="font-mono text-body-sm text-fg-base">0.4.0</span>}
               />
               <SpecRow
                 label="Reopen last session"
                 description="Restore tabs from the previous session on restart."
                 control={
-                  <span className="font-mono text-[12.5px] text-fg-base">On</span>
+                  <span className="font-mono text-body-sm text-fg-base">On</span>
                 }
               />
               <SpecRow
                 label="License"
                 last
-                control={<span className="font-mono text-[12.5px] text-fg-base">Commercial</span>}
+                control={<span className="font-mono text-body-sm text-fg-base">Commercial</span>}
               />
             </SpecCard>
           </SettingsSection>
@@ -240,7 +240,7 @@ export function RecipeShowcase() {
               title="No query yet"
               description="Write a statement and run it — the result table lands right here."
               action={
-                <span className="inline-flex items-center gap-[6px] rounded-md bg-accent px-3 py-[6px] text-[12px] font-medium text-fg-on-accent">
+                <span className="inline-flex items-center gap-[6px] rounded-md bg-accent px-3 py-[6px] text-body-sm font-medium text-fg-on-accent">
                   <Plus size={12} aria-hidden /> New query <Kbd>⌘↵</Kbd>
                 </span>
               }
@@ -266,7 +266,7 @@ export function RecipeShowcase() {
               activeTab={tab}
               onTabChange={setTab}
             />
-            <div className="px-4 py-3 font-mono text-[12.5px] text-fg-muted">
+            <div className="px-4 py-3 font-mono text-body-sm text-fg-muted">
               active tab: <span className="text-fg-base">{tab}</span>
             </div>
           </div>
@@ -274,7 +274,7 @@ export function RecipeShowcase() {
 
         {/* InlineMarker */}
         <Cell title="InlineMarker · type-aware + @watch">
-          <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-bg-inset px-4 py-3 font-mono text-[13px]">
+          <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-bg-inset px-4 py-3 font-mono text-body">
             <div className="flex items-center justify-between">
               <span className="text-fg-base">const doubled = counter * 2;</span>
               <InlineMarker value="10" type="number" />

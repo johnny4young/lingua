@@ -150,7 +150,7 @@ export function EducationCta({
             autoComplete="email"
             onChange={(event) => setEmail(event.target.value)}
             data-testid="education-email-input"
-            className="w-full rounded-md border border-border-default bg-bg-base px-3 py-2 text-[12.5px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
+            className="w-full rounded-md border border-border-default bg-bg-base px-3 py-2 text-body-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
           />
           <button
             type="button"

@@ -60,7 +60,7 @@ export function CopyButton({ value, label, testid, disabled = false }: CopyButto
       title={tooltip}
       data-testid={testid ?? 'copy-button'}
       data-copied={copied || undefined}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-[0.55rem] border border-transparent text-muted transition-colors hover:border-border/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-transparent text-muted transition-colors hover:border-border/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
     </button>

@@ -212,7 +212,7 @@ export function ProfileSection() {
             onChange={(event) => setPasted(event.target.value)}
             placeholder={t('profile.import.placeholder')}
             rows={6}
-            className="field-shell font-mono text-xs"
+            className="field-shell font-mono text-body-sm"
             data-testid="profile-import-textarea"
             aria-label={t('profile.import.placeholder')}
           />
@@ -233,9 +233,9 @@ export function ProfileSection() {
       {parsed ? (
         <div
           data-testid="profile-import-dry-run"
-          className="grid gap-2 rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-3 text-xs leading-5 text-fg-muted"
+          className="grid gap-2 rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-3 text-body-sm leading-5 text-fg-muted"
         >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-base">
+          <p className="text-caption font-semibold uppercase tracking-[0.16em] text-fg-base">
             {t('profile.import.dryRun.title')}
           </p>
           <ul className="list-disc pl-4">
@@ -257,7 +257,7 @@ export function ProfileSection() {
           </ul>
 
           <fieldset className="grid gap-1.5">
-            <legend className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-base">
+            <legend className="text-caption font-semibold uppercase tracking-[0.16em] text-fg-base">
               {t('profile.import.policy.label')}
             </legend>
             {(['replace', 'merge', 'preserve'] as const).map((option) => (
@@ -277,7 +277,7 @@ export function ProfileSection() {
                 <span className="grid">
                   <span>{t(`profile.import.policy.${option}`)}</span>
                   {option === 'merge' ? (
-                    <span className="text-[11px] text-fg-subtle">
+                    <span className="text-caption text-fg-subtle">
                       {t('profile.import.policy.merge.hint')}
                     </span>
                   ) : null}

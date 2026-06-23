@@ -42,10 +42,10 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
         )}
         aria-hidden="true"
       />
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-[11.5px] font-mono">
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-caption font-mono">
         <span
           aria-label={t('chrome.mark.aria')}
-          className="inline-flex h-3 w-3 items-center justify-center rounded-[3px] bg-primary text-[8px] font-bold text-background"
+          className="inline-flex h-3 w-3 items-center justify-center rounded-sm bg-primary text-nano font-bold text-background"
         >
           L
         </span>
@@ -64,7 +64,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
           <span
             data-testid="app-chrome-unsaved"
             aria-label={t('chrome.unsaved.aria')}
-            className="inline-flex items-center gap-1 rounded-[2px] border border-border-strong/70 px-1 py-px font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-warning"
+            className="inline-flex items-center gap-1 rounded-sm border border-border-strong/70 px-1 py-px font-mono text-micro font-bold uppercase tracking-[0.12em] text-warning"
           >
             <span
               aria-hidden="true"
@@ -99,7 +99,7 @@ function UpdateReadyChip({ onClick }: { onClick?: () => void }) {
       data-testid="app-chrome-update-ready"
       aria-label={t('updates.chip.ready')}
       title={t('updates.chip.ready')}
-      className="inline-flex items-center gap-1 rounded-[2px] border border-success/70 px-1 py-px font-mono text-[9px] font-bold uppercase text-success hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success/40"
+      className="inline-flex items-center gap-1 rounded-sm border border-success/70 px-1 py-px font-mono text-micro font-bold uppercase text-success hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success/40"
     >
       <Download size={9} aria-hidden="true" />
       {t('updates.chip.ready')}

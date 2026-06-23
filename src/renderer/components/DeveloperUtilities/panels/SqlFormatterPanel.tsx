@@ -63,14 +63,14 @@ export function SqlFormatterPanel() {
         description={t('utilities.tool.sqlFormatter.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-3">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.sqlFormatter.dialect.label')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.sqlFormatter.dialect.label')}
               data-testid="sql-formatter-dialect"
               value={dialect}
               onChange={event => setDialect(event.target.value as SqlDialect)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               {SQL_DIALECTS.map(value => (
                 <option key={value} value={value}>
@@ -79,20 +79,20 @@ export function SqlFormatterPanel() {
               ))}
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.sqlFormatter.tabWidth.label')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.sqlFormatter.tabWidth.label')}
               data-testid="sql-formatter-tab-width"
               value={tabWidth}
               onChange={event => setTabWidth(Number(event.target.value) as 2 | 4)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value={2}>{t('utilities.tool.sqlFormatter.tabWidth.two')}</option>
               <option value={4}>{t('utilities.tool.sqlFormatter.tabWidth.four')}</option>
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.sqlFormatter.keywordCase.label')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.sqlFormatter.keywordCase.label')}
@@ -101,7 +101,7 @@ export function SqlFormatterPanel() {
               onChange={event =>
                 setKeywordCase(event.target.value as SqlFormatOptions['keywordCase'])
               }
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="preserve">
                 {t('utilities.tool.sqlFormatter.keywordCase.preserve')}

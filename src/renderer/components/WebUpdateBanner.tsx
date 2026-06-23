@@ -40,11 +40,11 @@ export function WebUpdateBanner() {
       role="status"
       aria-live="polite"
       data-testid="web-update-banner"
-      className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/30 bg-primary/10 px-4 py-2.5 text-sm text-foreground"
+      className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/30 bg-primary/10 px-4 py-2.5 text-body text-foreground"
     >
       <div className="grid gap-0.5">
         <p className="font-medium leading-5">{t('update.banner.title')}</p>
-        <p className="text-xs leading-5 text-muted">
+        <p className="text-body-sm leading-5 text-muted">
           {t('update.banner.body', { version: remoteVersion })}
         </p>
       </div>
@@ -53,7 +53,7 @@ export function WebUpdateBanner() {
           type="button"
           onClick={handleReload}
           data-testid="web-update-banner-reload"
-          className="button-primary inline-flex items-center gap-1.5 px-3 py-1 text-xs"
+          className="button-primary inline-flex items-center gap-1.5 px-3 py-1 text-body-sm"
         >
           <RefreshCcw size={12} aria-hidden="true" />
           {t('update.banner.reload')}

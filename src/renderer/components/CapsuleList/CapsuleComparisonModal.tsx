@@ -59,7 +59,7 @@ function DiffLine({ segment }: { segment: DiffSegment }) {
   const sigil = isAdd ? '+' : isRemove ? '−' : ' ';
   return (
     <div
-      className={`flex gap-2 whitespace-pre-wrap px-3 py-0.5 font-mono text-xs leading-5 ${tone}`}
+      className={`flex gap-2 whitespace-pre-wrap px-3 py-0.5 font-mono text-body-sm leading-5 ${tone}`}
       data-testid={`capsule-compare-diff-line-${segment.kind}`}
     >
       <span aria-hidden="true" className="select-none opacity-60">
@@ -89,7 +89,7 @@ function EnvChip({
   return (
     <div
       data-testid={testid}
-      className="font-mono text-[11px] text-foreground"
+      className="font-mono text-caption text-foreground"
     >
       {text}
     </div>
@@ -175,11 +175,11 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
           <div className="min-w-0">
             <h2
               id="capsule-compare-modal-title"
-              className="font-display text-[20px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
+              className="font-display text-h2 font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
             >
               {t('capsule.compare.title')}
             </h2>
-            <p className="mt-1 text-[12.5px] leading-[1.5] text-muted">
+            <p className="mt-1 text-body-sm leading-[1.5] text-muted">
               {t('capsule.compare.subtitle')}
             </p>
           </div>
@@ -195,7 +195,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
 
         <div
           data-testid="capsule-compare-summary"
-          className="border-b border-border/80 px-6 py-3 text-[12px] leading-[1.6] text-muted"
+          className="border-b border-border/80 px-6 py-3 text-body-sm leading-[1.6] text-muted"
         >
           <div data-testid="capsule-compare-summary-language">
             {model.sameLanguage
@@ -257,7 +257,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
         {model.contentIdentical ? (
           <p
             data-testid="capsule-compare-identical"
-            className="px-6 py-8 text-center text-[12.5px] text-muted"
+            className="px-6 py-8 text-center text-body-sm text-muted"
           >
             {t('capsule.compare.identical')}
           </p>
@@ -281,7 +281,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                     disabled={section.empty}
                     onClick={() => setPick({ capsules, section: key })}
                     data-testid={`capsule-compare-tab-${key}`}
-                    className={`rounded-md px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    className={`rounded-md px-3 py-1 text-caption font-semibold uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                       isActive
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted hover:text-foreground'
@@ -296,7 +296,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
             {active.empty ? (
               <p
                 data-testid="capsule-compare-section-empty"
-                className="px-6 py-8 text-center text-[12.5px] text-muted"
+                className="px-6 py-8 text-center text-body-sm text-muted"
               >
                 {t('capsule.compare.section.empty')}
               </p>
@@ -304,23 +304,23 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
               <>
                 <div className="grid max-h-[42vh] grid-cols-2 gap-0 overflow-hidden">
                   <div className="flex flex-col border-r border-border/80">
-                    <div className="border-b border-border/80 px-4 py-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted">
+                    <div className="border-b border-border/80 px-4 py-2 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted">
                       {t('capsule.compare.olderPane')}
                     </div>
                     <pre
                       data-testid="capsule-compare-pane-older"
-                      className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-xs leading-5 text-foreground"
+                      className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-body-sm leading-5 text-foreground"
                     >
                       {active.olderText}
                     </pre>
                   </div>
                   <div className="flex flex-col">
-                    <div className="border-b border-border/80 px-4 py-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted">
+                    <div className="border-b border-border/80 px-4 py-2 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted">
                       {t('capsule.compare.newerPane')}
                     </div>
                     <pre
                       data-testid="capsule-compare-pane-newer"
-                      className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-xs leading-5 text-foreground"
+                      className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-body-sm leading-5 text-foreground"
                     >
                       {active.newerText}
                     </pre>
@@ -331,7 +331,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                   {active.clamped ? (
                     <div
                       data-testid="capsule-compare-clamped"
-                      className="border-b border-border/80 px-6 py-2 text-[12px] text-warning"
+                      className="border-b border-border/80 px-6 py-2 text-body-sm text-warning"
                     >
                       {t('capsule.compare.clamped', {
                         limit: DIFF_MAX_INPUT_CHARS.toLocaleString(
@@ -351,7 +351,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                   {active.omittedLines > 0 ? (
                     <div
                       data-testid="capsule-compare-more-lines"
-                      className="border-t border-border/80 px-6 py-2 text-[12px] text-muted"
+                      className="border-t border-border/80 px-6 py-2 text-body-sm text-muted"
                     >
                       {t('capsule.compare.moreLines', { count: active.omittedLines })}
                     </div>

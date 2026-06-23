@@ -33,7 +33,7 @@ export function PanelSection({
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="font-mono text-[10.5px] font-bold uppercase text-fg-subtle">{children}</label>
+    <label className="font-mono text-eyebrow font-bold uppercase text-fg-subtle">{children}</label>
   );
 }
 
@@ -66,7 +66,7 @@ export function StatusMessage({
           ? 'text-warning'
           : 'text-muted';
   return (
-    <p className={`text-xs leading-5 ${toneClass} ${className ?? ''}`} data-testid={testid}>
+    <p className={`text-body-sm leading-5 ${toneClass} ${className ?? ''}`} data-testid={testid}>
       {message}
     </p>
   );
@@ -89,7 +89,7 @@ export function JsonTreeNode({ label, value }: { label?: string; value: unknown 
   if (Array.isArray(value)) {
     return (
       <div className="grid gap-2 pl-4">
-        <div className="text-xs font-medium text-foreground">
+        <div className="text-body-sm font-medium text-foreground">
           {label ? `${label}: ` : ''}
           <span className="text-muted">[{value.length}]</span>
         </div>
@@ -110,7 +110,7 @@ export function JsonTreeNode({ label, value }: { label?: string; value: unknown 
     const entries = Object.entries(value as Record<string, unknown>);
     return (
       <div className="grid gap-2 pl-4">
-        <div className="text-xs font-medium text-foreground">
+        <div className="text-body-sm font-medium text-foreground">
           {label ? `${label}: ` : ''}
           <span className="text-muted">
             {'{'}
@@ -128,7 +128,7 @@ export function JsonTreeNode({ label, value }: { label?: string; value: unknown 
   }
 
   return (
-    <div className="text-xs text-foreground">
+    <div className="text-body-sm text-foreground">
       {label ? <span className="font-medium text-foreground">{label}: </span> : null}
       <span className="text-muted">{String(value)}</span>
     </div>
@@ -288,7 +288,7 @@ export function UtilityToolbar({
           data-testid={applyTestId}
           aria-label={t(labelKey)}
           title={t(tooltipKey)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-bg-panel px-3 py-1.5 text-xs font-semibold text-fg-base transition-colors hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-bg-panel px-3 py-1.5 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Zap size={12} aria-hidden="true" />
           {t(labelKey)}

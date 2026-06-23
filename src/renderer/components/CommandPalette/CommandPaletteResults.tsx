@@ -106,16 +106,16 @@ function renderEntry(
         {CATEGORY_ICON[command.category]}
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[13.5px] font-medium text-fg-base">
+        <span className="truncate text-body font-medium text-fg-base">
           {command.label}
         </span>
-        <span className="truncate text-xs text-fg-subtle">
+        <span className="truncate text-body-sm text-fg-subtle">
           {command.description}
         </span>
       </div>
       {command.language && (
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${languageBadgeClass(command.language)}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.14em] ${languageBadgeClass(command.language)}`}
         >
           {languageShortLabel(command.language)}
         </span>

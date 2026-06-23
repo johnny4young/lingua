@@ -66,21 +66,21 @@ export function LoremIpsumPanel() {
         description={t('utilities.tool.loremIpsum.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.loremIpsum.unitLabel')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.loremIpsum.unitLabel')}
               data-testid="lorem-ipsum-unit"
               value={unit}
               onChange={event => handleUnitChange(event.target.value as LoremIpsumUnit)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="words">{t('utilities.tool.loremIpsum.unit.words')}</option>
               <option value="sentences">{t('utilities.tool.loremIpsum.unit.sentences')}</option>
               <option value="paragraphs">{t('utilities.tool.loremIpsum.unit.paragraphs')}</option>
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.loremIpsum.countLabel')}</FieldLabel>
             <UtilityInput
               aria-label={t('utilities.tool.loremIpsum.countLabel')}
@@ -93,7 +93,7 @@ export function LoremIpsumPanel() {
             />
           </label>
         </div>
-        <label className="flex items-center gap-2 text-sm text-foreground">
+        <label className="flex items-center gap-2 text-body text-foreground">
           <input
             type="checkbox"
             data-testid="lorem-ipsum-classic"

@@ -111,13 +111,13 @@ export function SqlSchemaBrowser({
             <ChevronDown size={12} aria-hidden="true" />
           )}
           <Database size={12} aria-hidden="true" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em]">
+          <span className="font-mono text-eyebrow uppercase tracking-[0.14em]">
             {t('sqlWorkspace.schema.label')}
           </span>
           {tables.length > 0 ? (
             <span
               data-testid="sql-schema-browser-count"
-              className="ml-1 rounded-sm bg-bg-panel-alt px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-fg-muted"
+              className="ml-1 rounded-sm bg-bg-panel-alt px-1.5 py-0.5 font-mono text-micro tabular-nums text-fg-muted"
             >
               {tables.length}
             </span>
@@ -145,7 +145,7 @@ export function SqlSchemaBrowser({
       <div
         data-testid="sql-schema-browser-storage"
         data-storage-mode={storageMode}
-        className="flex items-center gap-1.5 px-2.5 pb-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-fg-subtle"
+        className="flex items-center gap-1.5 px-2.5 pb-1.5 font-mono text-micro uppercase tracking-[0.12em] text-fg-subtle"
         aria-label={t('sqlWorkspace.storage.ariaLabel')}
         title={t(storageLabelKey)}
       >
@@ -171,7 +171,7 @@ export function SqlSchemaBrowser({
           {tables.length === 0 ? (
             <p
               data-testid="sql-schema-browser-empty"
-              className="px-1.5 py-1.5 text-[10.5px] leading-relaxed text-fg-subtle"
+              className="px-1.5 py-1.5 text-eyebrow leading-relaxed text-fg-subtle"
             >
               {t('sqlWorkspace.schema.empty')}
             </p>
@@ -189,7 +189,7 @@ export function SqlSchemaBrowser({
                       name: table.name,
                     })}
                     className={cn(
-                      'group flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                      'group flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-body-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                       canInsert
                         ? 'text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
                         : 'cursor-not-allowed text-fg-subtle opacity-60'
@@ -206,7 +206,7 @@ export function SqlSchemaBrowser({
                     {table.columnCount !== undefined ? (
                       <span
                         data-testid="sql-schema-browser-col-count"
-                        className="shrink-0 font-mono text-[9.5px] tabular-nums text-fg-subtle"
+                        className="shrink-0 font-mono text-micro tabular-nums text-fg-subtle"
                       >
                         {t('sqlWorkspace.schema.columnCount', {
                           count: table.columnCount,

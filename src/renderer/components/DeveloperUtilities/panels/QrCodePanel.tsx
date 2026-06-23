@@ -168,7 +168,7 @@ export function QrCodePanel() {
             const next = event.target.value;
             if (next === 'generate' || next === 'decode') setMode(next);
           }}
-          className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+          className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
         >
           <option value="generate">
             {t('utilities.tool.qrCode.mode.generate')}
@@ -228,7 +228,7 @@ export function QrCodePanel() {
                   // through. If the guard rejects we drop the change silently.
                   if (isQrErrorCorrectionLevel(next)) setLevel(next);
                 }}
-                className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+                className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
               >
                 {QR_ERROR_CORRECTION_LEVELS.map((value) => (
                   <option key={value} value={value}>
@@ -248,7 +248,7 @@ export function QrCodePanel() {
             title={t('utilities.tool.qrCode.colors.title')}
             description={t('utilities.tool.qrCode.colors.description')}
           >
-            <label className="inline-flex cursor-pointer items-center gap-3 rounded-[0.9rem] border border-border/80 bg-background/88 px-3 py-2 transition-colors hover:border-border-strong/90">
+            <label className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-background/88 px-3 py-2 transition-colors hover:border-border-strong/90">
               <input
                 type="checkbox"
                 checked={highContrast}
@@ -257,21 +257,21 @@ export function QrCodePanel() {
                 className="h-4 w-4 cursor-pointer"
               />
               <span className="grid gap-0.5">
-                <span className="text-xs font-medium text-foreground">
+                <span className="text-body-sm font-medium text-foreground">
                   {t('utilities.tool.qrCode.highContrast.toggle')}
                 </span>
-                <span className="text-[11px] text-muted">
+                <span className="text-caption text-muted">
                   {t('utilities.tool.qrCode.highContrast.hint')}
                 </span>
               </span>
             </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs text-muted">
+              <label className="grid gap-1 text-body-sm text-muted">
                 <FieldLabel>
                   {t('utilities.tool.qrCode.colors.foreground')}
                 </FieldLabel>
-                <span className="inline-flex items-center gap-3 rounded-[0.9rem] border border-border/80 bg-background/88 px-3 py-2">
+                <span className="inline-flex items-center gap-3 rounded-xl border border-border/80 bg-background/88 px-3 py-2">
                   <input
                     type="color"
                     aria-label={t('utilities.tool.qrCode.colors.foreground')}
@@ -279,21 +279,21 @@ export function QrCodePanel() {
                     value={effectiveDark}
                     disabled={highContrast}
                     onChange={(event) => setDarkColor(event.target.value)}
-                    className="h-7 w-10 cursor-pointer rounded-[0.55rem] border border-border/60 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-7 w-10 cursor-pointer rounded-lg border border-border/60 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   <span
-                    className="font-mono text-[11px] text-foreground"
+                    className="font-mono text-caption text-foreground"
                     data-testid="qr-code-color-dark-readout"
                   >
                     {effectiveDark.toUpperCase()}
                   </span>
                 </span>
               </label>
-              <label className="grid gap-1 text-xs text-muted">
+              <label className="grid gap-1 text-body-sm text-muted">
                 <FieldLabel>
                   {t('utilities.tool.qrCode.colors.background')}
                 </FieldLabel>
-                <span className="inline-flex items-center gap-3 rounded-[0.9rem] border border-border/80 bg-background/88 px-3 py-2">
+                <span className="inline-flex items-center gap-3 rounded-xl border border-border/80 bg-background/88 px-3 py-2">
                   <input
                     type="color"
                     aria-label={t('utilities.tool.qrCode.colors.background')}
@@ -301,10 +301,10 @@ export function QrCodePanel() {
                     value={effectiveLight}
                     disabled={highContrast}
                     onChange={(event) => setLightColor(event.target.value)}
-                    className="h-7 w-10 cursor-pointer rounded-[0.55rem] border border-border/60 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-7 w-10 cursor-pointer rounded-lg border border-border/60 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   <span
-                    className="font-mono text-[11px] text-foreground"
+                    className="font-mono text-caption text-foreground"
                     data-testid="qr-code-color-light-readout"
                   >
                     {effectiveLight.toUpperCase()}
@@ -331,7 +331,7 @@ export function QrCodePanel() {
               type="button"
               onClick={handleResetColors}
               data-testid="qr-code-color-reset"
-              className="inline-flex w-fit items-center gap-2 rounded-[0.9rem] border border-border/80 bg-surface/60 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80"
+              className="inline-flex w-fit items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80"
             >
               {t('utilities.tool.qrCode.colors.reset')}
             </button>
@@ -356,14 +356,14 @@ export function QrCodePanel() {
                   src={pngResult.value}
                   alt={t('utilities.tool.qrCode.preview.alt', { payload })}
                   data-testid="qr-code-image"
-                  className="mx-auto h-64 w-64 rounded-[1.1rem] border border-border/80 bg-background/65 p-2"
+                  className="mx-auto h-64 w-64 rounded-2xl border border-border/80 bg-background/65 p-2"
                 />
                 <div className="flex flex-wrap justify-center gap-2">
                   <a
                     href={pngResult.value}
                     download="qr-code.png"
                     data-testid="qr-code-download"
-                    className="inline-flex items-center gap-2 rounded-[0.9rem] border border-border/80 bg-surface/60 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80"
                   >
                     {t('utilities.tool.qrCode.download.png')}
                   </a>
@@ -372,7 +372,7 @@ export function QrCodePanel() {
                       href={svgResult.value}
                       download="qr-code.svg"
                       data-testid="qr-code-download-svg"
-                      className="inline-flex items-center gap-2 rounded-[0.9rem] border border-border/80 bg-surface/60 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80"
+                      className="inline-flex items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80"
                     >
                       {t('utilities.tool.qrCode.download.svg')}
                     </a>
@@ -381,7 +381,7 @@ export function QrCodePanel() {
                     type="button"
                     onClick={handleCopyPng}
                     data-testid="qr-code-copy-png"
-                    className="inline-flex items-center gap-2 rounded-[0.9rem] border border-border/80 bg-surface/60 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80"
                   >
                     {t(copyPngLabelKey(copyPngState))}
                   </button>
@@ -424,7 +424,7 @@ export function QrCodePanel() {
                     value={decodeResult.value}
                     readOnly
                     spellCheck={false}
-                    className="pr-10 font-mono text-xs"
+                    className="pr-10 font-mono text-body-sm"
                   />
                   <div className="absolute right-2 top-2">
                     <CopyButton

@@ -104,7 +104,7 @@ export function RuntimeModeSelector() {
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={compactTooltip}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-inset px-3 py-[7px] text-[12.5px] font-medium tracking-[0.01em] text-fg-base transition-colors hover:bg-bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-inset px-3 py-[7px] text-body-sm font-medium tracking-[0.01em] text-fg-base transition-colors hover:bg-bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset"
         >
           <CurrentIcon size={12} aria-hidden="true" className="text-fg-subtle" />
           <span>{currentLabel}</span>
@@ -148,13 +148,13 @@ export function RuntimeModeSelector() {
               >
                 <Icon size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
                 <span className="flex-1">
-                  <span className="block text-xs font-semibold">{t(labelKey)}</span>
-                  <span className="mt-1 block text-[0.7rem] text-fg-subtle">
+                  <span className="block text-body-sm font-semibold">{t(labelKey)}</span>
+                  <span className="mt-1 block text-caption text-fg-subtle">
                     {t(hintKey)}
                   </span>
                 </span>
                 {selected ? (
-                  <span className="status-pill border-border-subtle bg-transparent px-2 text-[0.65rem] text-fg-subtle">
+                  <span className="status-pill border-border-subtle bg-transparent px-2 text-eyebrow text-fg-subtle">
                     {t('toolbar.newFile.current')}
                   </span>
                 ) : null}

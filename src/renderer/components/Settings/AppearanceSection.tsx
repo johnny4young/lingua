@@ -132,14 +132,14 @@ export function AppearanceSection() {
               }`}
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[15px] font-semibold text-fg-base">
+                <span className="text-body-lg font-semibold text-fg-base">
                   {t(option.labelKey)}
                 </span>
                 <span className={selected ? 'text-accent' : 'text-fg-subtle'}>
                   <Icon size={16} />
                 </span>
               </div>
-              <p className="mt-1.5 text-[12px] leading-5 text-fg-subtle">
+              <p className="mt-1.5 text-body-sm leading-5 text-fg-subtle">
                 {t(option.descriptionKey)}
               </p>
               <div className="mt-3 flex gap-2">

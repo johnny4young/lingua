@@ -123,41 +123,41 @@ export function HashUtilityPanel() {
         description={t('utilities.tool.hash.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.hash.mode.label')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.hash.mode.label')}
               data-testid="hash-mode"
               value={mode}
               onChange={(event) => handleModeChange(event.target.value as HashMode)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="plain">{t('utilities.tool.hash.mode.plain')}</option>
               <option value="hmac">{t('utilities.tool.hash.mode.hmac')}</option>
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.hash.source.label')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.hash.source.label')}
               data-testid="hash-source"
               value={source}
               onChange={(event) => setSource(event.target.value as HashInputSource)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="text">{t('utilities.tool.hash.source.text')}</option>
               <option value="file">{t('utilities.tool.hash.source.file')}</option>
             </select>
           </label>
         </div>
-        <label className="grid gap-1 text-xs text-muted">
+        <label className="grid gap-1 text-body-sm text-muted">
           <FieldLabel>{t('utilities.tool.hash.algorithmLabel')}</FieldLabel>
           <select
             aria-label={t('utilities.tool.hash.algorithmLabel')}
             data-testid="hash-algorithm"
             value={algorithm}
             onChange={(event) => setAlgorithm(event.target.value as HashAlgorithm)}
-            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
             {algorithmOptions.map((algo) => (
               <option key={algo} value={algo}>
@@ -211,7 +211,7 @@ export function HashUtilityPanel() {
               summary={
                 file ? (
                   <span
-                    className="font-mono text-xs text-foreground"
+                    className="font-mono text-body-sm text-foreground"
                     data-testid="hash-file-summary"
                   >
                     {t('utilities.tool.hash.input.fileSummary', {
@@ -249,7 +249,7 @@ export function HashUtilityPanel() {
             />
             {result.message ? (
               <p
-                className="rounded-[0.9rem] border border-border/70 bg-background/55 px-3 py-2 font-mono text-xs text-muted"
+                className="rounded-xl border border-border/70 bg-background/55 px-3 py-2 font-mono text-body-sm text-muted"
                 data-testid="hash-error-detail"
               >
                 {result.message}

@@ -51,14 +51,14 @@ export function RegexUtilityPanel() {
         title={t('utilities.tool.regex.title')}
         description={t('utilities.tool.regex.panelDescription')}
       >
-        <label className="grid gap-1 text-xs text-muted">
+        <label className="grid gap-1 text-body-sm text-muted">
           <FieldLabel>{t('utilities.tool.regex.mode.label')}</FieldLabel>
           <select
             aria-label={t('utilities.tool.regex.mode.label')}
             data-testid="regex-mode"
             value={mode}
             onChange={event => setMode(event.target.value as RegexMode)}
-            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
             <option value="match">{t('utilities.tool.regex.mode.match')}</option>
             <option value="replace">{t('utilities.tool.regex.mode.replace')}</option>
@@ -133,16 +133,16 @@ export function RegexUtilityPanel() {
                 tone="success"
                 message={t('utilities.tool.regex.count', { count: analysis.matches.length })}
               />
-              <div className="max-h-[24rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+              <div className="max-h-[24rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
                 <ul className="grid gap-2">
                   {analysis.matches.map((entry, index) => (
                     <li
                       key={`${entry.index}-${index}`}
-                      className="grid gap-1 rounded-[0.9rem] border border-border/70 bg-surface/55 px-3 py-2"
+                      className="grid gap-1 rounded-xl border border-border/70 bg-surface/55 px-3 py-2"
                     >
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-mono text-sm text-foreground">{entry.match}</span>
-                        <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                        <span className="font-mono text-body text-foreground">{entry.match}</span>
+                        <span className="text-caption uppercase tracking-[0.16em] text-muted">
                           {t('utilities.tool.regex.indexLabel', { index: entry.index })}
                         </span>
                       </div>
@@ -151,7 +151,7 @@ export function RegexUtilityPanel() {
                           {entry.groups.map((group, groupIndex) => (
                             <li
                               key={`${entry.index}-group-${groupIndex}`}
-                              className="flex items-baseline justify-between gap-2 font-mono text-xs text-muted"
+                              className="flex items-baseline justify-between gap-2 font-mono text-body-sm text-muted"
                             >
                               <span>
                                 {group.name

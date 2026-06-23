@@ -13,7 +13,7 @@ function UtilityPanelFallback() {
   const { t } = useTranslation();
   return (
     <div
-      className="flex min-h-[12rem] items-center justify-center text-xs text-muted"
+      className="flex min-h-[12rem] items-center justify-center text-body-sm text-muted"
       role="status"
       aria-live="polite"
       data-testid="utility-panel-loading"

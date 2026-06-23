@@ -91,15 +91,15 @@ export function StatusNoticeBanner() {
       data-testid="status-notice-banner"
       data-tone={notice.tone}
       className={cn(
-        'pointer-events-auto fixed bottom-6 right-6 z-[60] flex max-w-md items-start gap-3 rounded-[1.1rem] border px-4 py-3 shadow-lg backdrop-blur',
+        'pointer-events-auto fixed bottom-6 right-6 z-[60] flex max-w-md items-start gap-3 rounded-2xl border px-4 py-3 shadow-lg backdrop-blur',
         toneClasses(notice.tone)
       )}
     >
       <ToneIcon tone={notice.tone} />
-      <div className="grid min-w-0 flex-1 gap-1 text-sm">
+      <div className="grid min-w-0 flex-1 gap-1 text-body">
         <p className="font-medium leading-5">{t(notice.messageKey, notice.values)}</p>
         {notice.detail ? (
-          <p className="max-h-32 overflow-auto text-[11.5px] leading-[1.45] text-muted">
+          <p className="max-h-32 overflow-auto text-caption leading-[1.45] text-muted">
             {notice.detail}
           </p>
         ) : null}
@@ -114,7 +114,7 @@ export function StatusNoticeBanner() {
                 type="button"
                 onClick={() => handleActionClick(action)}
                 data-testid={`status-notice-action-${action.labelKey}`}
-                className="rounded-full border border-foreground/20 bg-surface-strong/80 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/15 hover:text-foreground"
+                className="rounded-full border border-foreground/20 bg-surface-strong/80 px-3 py-1 text-body-sm font-medium text-foreground transition-colors hover:bg-primary/15 hover:text-foreground"
               >
                 {t(action.labelKey)}
               </button>

@@ -79,7 +79,7 @@ function MatchDiff({ match }: { readonly match: ProjectReplaceMatch }) {
   // replacedPreview side-by-side).
   return (
     <div className="group/match relative block">
-      <span className="block truncate font-mono text-xs leading-6 text-muted">
+      <span className="block truncate font-mono text-body-sm leading-6 text-muted">
         <span className="text-danger/80 line-through decoration-danger/40">
           {match.preview.slice(0, match.matchStart)}
           <mark className="rounded-sm bg-danger/20 px-0.5 text-foreground">
@@ -88,7 +88,7 @@ function MatchDiff({ match }: { readonly match: ProjectReplaceMatch }) {
           {match.preview.slice(match.matchEnd)}
         </span>
       </span>
-      <span className="block truncate font-mono text-xs leading-6 text-success">
+      <span className="block truncate font-mono text-body-sm leading-6 text-success">
         <mark className="rounded-sm bg-success/15 px-0.5 text-foreground">
           {match.replacement}
         </mark>
@@ -115,7 +115,7 @@ function FileRow({
   if (result.regexTimedOut) {
     return (
       <div
-        className="border-t border-border/60 px-4 py-2 text-xs text-warning"
+        className="border-t border-border/60 px-4 py-2 text-body-sm text-warning"
         data-testid={`project-replace-row-${result.relativePath}`}
       >
         {t('projectReplace.regexTimedOut', { path: result.relativePath })}
@@ -128,11 +128,11 @@ function FileRow({
       data-testid={`project-replace-row-${result.relativePath}`}
     >
       <header className="flex items-center justify-between gap-3 px-4 py-2">
-        <span className="truncate font-mono text-[12px] text-foreground">
+        <span className="truncate font-mono text-body-sm text-foreground">
           {result.relativePath}
         </span>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-muted">
+          <span className="text-caption text-muted">
             {t('projectReplace.matchCount', {
               count: result.matches.length,
               fileCount: 1,
@@ -142,7 +142,7 @@ function FileRow({
             type="button"
             disabled={applying}
             onClick={() => onApply(result.relativePath)}
-            className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] text-foreground hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-caption text-foreground hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid={`project-replace-apply-file-${result.relativePath}`}
           >
             {t('projectReplace.applyToFile.button')}
@@ -375,7 +375,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
               onKeyDown={handleKeyDown}
               placeholder={t('projectReplace.find.placeholder')}
               aria-label={t('projectReplace.find.placeholder')}
-              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+              className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted"
               data-testid="project-replace-find-input"
             />
             {query && (
@@ -398,11 +398,11 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
               onKeyDown={handleKeyDown}
               placeholder={t('projectReplace.replace.placeholder')}
               aria-label={t('projectReplace.replace.placeholder')}
-              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+              className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted"
               data-testid="project-replace-replacement-input"
             />
           </div>
-          <div className="flex items-center justify-between gap-3 text-[11px] text-muted">
+          <div className="flex items-center justify-between gap-3 text-caption text-muted">
             <div className="flex items-center gap-3">
               <label className="inline-flex items-center gap-1">
                 <input
@@ -426,7 +426,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
               </label>
             </div>
             <div
-              className="flex flex-wrap items-center gap-1 text-[10.5px] text-fg-subtle"
+              className="flex flex-wrap items-center gap-1 text-eyebrow text-fg-subtle"
               data-testid="project-replace-excludes-chips"
             >
               <span>{t('projectReplace.excludes.label')}</span>
@@ -444,7 +444,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
 
         {applyProgress ? (
           <div
-            className="border-t border-border/60 bg-surface/30 px-4 py-1 text-[11px] text-muted"
+            className="border-t border-border/60 bg-surface/30 px-4 py-1 text-caption text-muted"
             data-testid="project-replace-progress"
           >
             {t('projectReplace.progress', {
@@ -459,19 +459,19 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
           data-testid="project-replace-list"
         >
           {showNoProject ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">
+            <p className="px-4 py-10 text-center text-body text-muted">
               {t('projectReplace.empty.noProject')}
             </p>
           ) : status === 'error' ? (
-            <p className="px-4 py-10 text-center text-sm text-danger">
+            <p className="px-4 py-10 text-center text-body text-danger">
               {error ?? ''}
             </p>
           ) : showEmptyState ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">
+            <p className="px-4 py-10 text-center text-body text-muted">
               {t('projectReplace.empty.noMatch', { query })}
             </p>
           ) : !hasQuery ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">
+            <p className="px-4 py-10 text-center text-body text-muted">
               {t('projectReplace.empty.body')}
             </p>
           ) : (
@@ -487,7 +487,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
         </div>
 
         {hasQuery && installableFileCount >= 1 ? (
-          <footer className="flex items-center justify-between gap-3 border-t border-border/70 bg-surface/30 px-4 py-2 text-xs text-muted">
+          <footer className="flex items-center justify-between gap-3 border-t border-border/70 bg-surface/30 px-4 py-2 text-body-sm text-muted">
             <span>
               {t('projectReplace.matchCount', {
                 count: totalMatches,
@@ -498,7 +498,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
               type="button"
               disabled={installableFileCount === 0 || applyProgress !== null}
               onClick={() => setConfirmOpen(true)}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-primary/30 px-3 py-1 text-[11px] font-medium text-foreground hover:bg-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-primary/30 px-3 py-1 text-caption font-medium text-foreground hover:bg-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="project-replace-apply-all"
             >
               {t('projectReplace.applyToAll.button')}
@@ -518,12 +518,12 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
             className="w-full max-w-md"
             data-testid="project-replace-confirm"
           >
-            <header className="px-4 py-3 text-sm font-semibold text-foreground">
+            <header className="px-4 py-3 text-body font-semibold text-foreground">
               {t('projectReplace.confirm.title', {
                 fileCount: installableFileCount,
               })}
             </header>
-            <p className="px-4 py-2 text-xs text-muted">
+            <p className="px-4 py-2 text-body-sm text-muted">
               {t('projectReplace.confirm.body', {
                 count: totalMatches,
                 fileCount: installableFileCount,
@@ -533,7 +533,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
               <button
                 type="button"
                 onClick={() => setConfirmOpen(false)}
-                className="rounded-md border border-border/70 bg-surface/40 px-3 py-1 text-[11px] text-foreground hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="rounded-md border border-border/70 bg-surface/40 px-3 py-1 text-caption text-foreground hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 data-testid="project-replace-confirm-cancel"
               >
                 {t('projectReplace.confirm.cancel')}
@@ -541,7 +541,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
               <button
                 type="button"
                 onClick={() => void handleApplyToAll()}
-                className="rounded-md border border-border/70 bg-primary/40 px-3 py-1 text-[11px] font-medium text-foreground hover:bg-primary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="rounded-md border border-border/70 bg-primary/40 px-3 py-1 text-caption font-medium text-foreground hover:bg-primary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 data-testid="project-replace-confirm-apply"
               >
                 {t('projectReplace.applyToAll.button')}

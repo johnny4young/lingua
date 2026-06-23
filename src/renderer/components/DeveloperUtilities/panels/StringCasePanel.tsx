@@ -58,10 +58,10 @@ export function StringCasePanel() {
             return (
               <div
                 key={key}
-                className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3"
+                className="grid gap-1 rounded-2xl border border-border/80 bg-background/65 px-3 py-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                  <span className="text-caption uppercase tracking-[0.16em] text-muted">
                     {t(`utilities.tool.stringCase.output.${key}`)}
                   </span>
                   <CopyButton
@@ -71,7 +71,7 @@ export function StringCasePanel() {
                   />
                 </div>
                 <span
-                  className="break-all font-mono text-sm text-foreground"
+                  className="break-all font-mono text-body text-foreground"
                   data-testid={`string-case-${key}`}
                 >
                   {value || '—'}

@@ -384,7 +384,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
             <>
               <span
                 data-testid="capsule-compare-hint"
-                className="text-[11px] text-fg-subtle"
+                className="text-caption text-fg-subtle"
               >
                 {compareEnabled ? null : t('capsule.compare.selectHint')}
               </span>
@@ -394,7 +394,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                 disabled={!compareEnabled}
                 data-testid="capsule-compare-button"
                 aria-label={t('capsule.compare.action')}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-[11px] text-fg-muted transition-colors hover:border-border-strong hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border-subtle disabled:hover:text-fg-muted"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption text-fg-muted transition-colors hover:border-border-strong hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border-subtle disabled:hover:text-fg-muted"
               >
                 <GitCompare size={12} aria-hidden="true" />
                 {t('capsule.compare.action')}
@@ -403,7 +403,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
           ) : null}
           <span
             data-testid="capsule-list-count"
-            className="font-mono text-[11px] text-fg-subtle"
+            className="font-mono text-caption text-fg-subtle"
           >
             {t('capsuleList.count', { count: capsuleEntries.length })}
           </span>
@@ -426,7 +426,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
           {/* Filter chips (fold C) */}
           <div
             data-testid="capsule-list-filters"
-            className="flex flex-wrap items-center gap-1.5 text-[11px]"
+            className="flex flex-wrap items-center gap-1.5 text-caption"
           >
             <FilterChip
               active={languageFilter === 'all'}
@@ -488,7 +488,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                       data-testid="capsule-list-row"
                       data-selected={isSelected ? 'true' : 'false'}
                       className={cn(
-                        'rounded-md border px-2.5 py-2 text-xs transition-colors',
+                        'rounded-md border px-2.5 py-2 text-body-sm transition-colors',
                         isSelected
                           ? 'border-border-strong bg-bg-panel-alt'
                           : 'border-border-subtle bg-bg-inset/40 hover:bg-bg-panel-alt'
@@ -524,11 +524,11 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                             >
                               {entry.status}
                             </StatusBadge>
-                            <span className="ml-auto font-mono text-[10px] text-fg-subtle">
+                            <span className="ml-auto font-mono text-eyebrow text-fg-subtle">
                               {formatRelative(entry.timestamp, now, t)}
                             </span>
                           </span>
-                          <span className="mt-1 block truncate text-[11px] text-fg-subtle">
+                          <span className="mt-1 block truncate text-caption text-fg-subtle">
                             {summarizeRunCapsule(capsule)}
                           </span>
                         </button>
@@ -573,7 +573,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
               {filtered.length === 0 ? (
                 <li
                   data-testid="capsule-list-filtered-empty"
-                  className="rounded-md border border-dashed border-border-subtle px-3 py-4 text-center text-[11px] text-fg-subtle"
+                  className="rounded-md border border-dashed border-border-subtle px-3 py-4 text-center text-caption text-fg-subtle"
                 >
                   {t('capsuleList.filter.noMatches')}
                 </li>
@@ -591,7 +591,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                   byteLength={previewByteLength}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset/40 p-6 text-center text-xs text-fg-subtle">
+                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset/40 p-6 text-center text-body-sm text-fg-subtle">
                   {t('capsuleList.preview.placeholder')}
                 </div>
               )}
@@ -644,11 +644,11 @@ function CapsuleShell({
         <div data-testid="capsule-list-overlay">
           <div
             id={titleId}
-            className="text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+            className="text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
           >
             {t('capsuleList.overlay.title')}
           </div>
-          <div className="mt-0.5 text-[12.5px] text-fg-subtle">
+          <div className="mt-0.5 text-body-sm text-fg-subtle">
             {t('capsuleList.overlay.subtitle')}
           </div>
         </div>
@@ -680,7 +680,7 @@ function FilterChip({
       data-active={active ? 'true' : 'false'}
       aria-pressed={active}
       className={cn(
-        'rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide',
+        'rounded-full border px-2 py-0.5 font-mono text-eyebrow uppercase tracking-wide',
         active
           ? 'border-accent/40 bg-accent/10 text-accent-fg'
           : 'border-border-subtle bg-bg-inset text-fg-muted hover:text-fg-base'

@@ -160,17 +160,17 @@ export function FloatingVariablesCard() {
         <>
           <div className="floating-variables-card-body">
             {entries.length === 0 ? (
-              <p className="px-1 py-4 text-center text-[12px] italic text-fg-muted">
+              <p className="px-1 py-4 text-center text-body-sm italic text-fg-muted">
                 {t('variableInspector.panel.empty')}
               </p>
             ) : (
               entries.map((entry) => (
                 <div key={entry.name} className="floating-variables-row">
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-[11.5px] font-semibold text-accent-fg">
+                    <p className="truncate font-mono text-caption font-semibold text-accent-fg">
                       {entry.name}
                     </p>
-                    <p className="mt-0.5 truncate font-mono text-[15px] font-semibold text-fg-base">
+                    <p className="mt-0.5 truncate font-mono text-body-lg font-semibold text-fg-base">
                       {valuePreview(entry.value)}
                     </p>
                   </div>

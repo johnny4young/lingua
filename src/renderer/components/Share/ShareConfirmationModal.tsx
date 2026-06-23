@@ -75,16 +75,16 @@ export function ShareConfirmationModal({
         <div className="surface-header px-5 py-4">
           <h2
             id="share-confirm-modal-title"
-            className="font-display text-xl font-semibold text-foreground"
+            className="font-display text-h2 font-semibold text-foreground"
           >
             {t('share.confirm.title')}
           </h2>
         </div>
-        <div className="space-y-3 px-5 py-5 text-sm leading-6 text-fg-muted">
+        <div className="space-y-3 px-5 py-5 text-body leading-6 text-fg-muted">
           <p id="share-confirm-modal-warning" role="alert">
             {t('share.confirm.warning')}
           </p>
-          <dl className="grid grid-cols-2 gap-y-1 text-xs font-mono text-fg-subtle">
+          <dl className="grid grid-cols-2 gap-y-1 text-body-sm font-mono text-fg-subtle">
             <dt>{t('share.confirm.metaLanguage')}</dt>
             <dd
               className="text-fg-base"
@@ -101,18 +101,18 @@ export function ShareConfirmationModal({
             </dd>
           </dl>
           <div>
-            <p className="mb-1 text-xs uppercase text-fg-subtle">
+            <p className="mb-1 text-body-sm uppercase text-fg-subtle">
               {t('share.confirm.previewLabel')}
             </p>
             <pre
               data-testid="share-confirm-preview"
-              className="max-h-[40vh] overflow-auto rounded-md border border-border/80 bg-bg-elevated/80 p-3 text-[11px] leading-snug text-fg-base whitespace-pre-wrap break-words"
+              className="max-h-[40vh] overflow-auto rounded-md border border-border/80 bg-bg-elevated/80 p-3 text-caption leading-snug text-fg-base whitespace-pre-wrap break-words"
             >
               {sourcePreview.text}
             </pre>
             {sourcePreview.truncated ? (
               <p
-                className="mt-1 text-xs text-fg-subtle"
+                className="mt-1 text-body-sm text-fg-subtle"
                 data-testid="share-confirm-preview-truncated"
               >
                 {t('share.confirm.previewTruncated', {
@@ -123,18 +123,18 @@ export function ShareConfirmationModal({
           </div>
           {stdinPreviewBlock ? (
             <div>
-              <p className="mb-1 text-xs uppercase text-fg-subtle">
+              <p className="mb-1 text-body-sm uppercase text-fg-subtle">
                 {t('share.confirm.stdinPreviewLabel')}
               </p>
               <pre
                 data-testid="share-confirm-stdin-preview"
-                className="max-h-[24vh] overflow-auto rounded-md border border-border/80 bg-bg-elevated/80 p-3 text-[11px] leading-snug text-fg-base whitespace-pre-wrap break-words"
+                className="max-h-[24vh] overflow-auto rounded-md border border-border/80 bg-bg-elevated/80 p-3 text-caption leading-snug text-fg-base whitespace-pre-wrap break-words"
               >
                 {stdinPreviewBlock.text}
               </pre>
               {stdinPreviewBlock.truncated ? (
                 <p
-                  className="mt-1 text-xs text-fg-subtle"
+                  className="mt-1 text-body-sm text-fg-subtle"
                   data-testid="share-confirm-stdin-preview-truncated"
                 >
                   {t('share.confirm.previewTruncated', {

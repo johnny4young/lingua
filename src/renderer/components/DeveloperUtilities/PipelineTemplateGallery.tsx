@@ -34,11 +34,11 @@ export function PipelineTemplateGallery({
       aria-label={t('utilityPipeline.template.galleryTitle')}
     >
       <header className="flex flex-col gap-1">
-        <div className="flex items-center gap-1.5 text-sm font-medium text-fg-base">
+        <div className="flex items-center gap-1.5 text-body font-medium text-fg-base">
           <Sparkles size={14} aria-hidden="true" className="text-accent" />
           {t('utilityPipeline.template.galleryTitle')}
         </div>
-        <p className="text-xs text-muted">
+        <p className="text-body-sm text-muted">
           {t('utilityPipeline.template.galleryBody')}
         </p>
       </header>
@@ -50,17 +50,17 @@ export function PipelineTemplateGallery({
               data-template-id={template.id}
               className="flex h-full flex-col gap-2 rounded-md border border-border-subtle bg-bg-panel-alt p-3"
             >
-              <div className="text-[13px] font-medium text-fg-base">
+              <div className="text-body font-medium text-fg-base">
                 {t(template.nameKey)}
               </div>
-              <div className="flex-1 text-xs leading-relaxed text-muted">
+              <div className="flex-1 text-body-sm leading-relaxed text-muted">
                 {t(template.descriptionKey)}
               </div>
               {/* Fold C — adapter chain preview so the card is self-
                   explanatory before the user commits. */}
               <div
                 data-testid="pipeline-template-chain"
-                className="flex flex-wrap items-center gap-1 font-mono text-[10px] text-fg-subtle"
+                className="flex flex-wrap items-center gap-1 font-mono text-eyebrow text-fg-subtle"
               >
                 {template.steps.map((step, index) => {
                   const adapter = getAdapter(step.utilityId);
@@ -82,7 +82,7 @@ export function PipelineTemplateGallery({
                 onClick={() => onUseTemplate(template)}
                 data-testid="pipeline-template-use"
                 data-template-id={template.id}
-                className="button-secondary self-start text-xs"
+                className="button-secondary self-start text-body-sm"
               >
                 {t('utilityPipeline.template.useButton')}
               </button>

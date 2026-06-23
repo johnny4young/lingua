@@ -147,7 +147,7 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
             onKeyDown={handleKeyDown}
             placeholder={t('goToSymbol.placeholder')}
             aria-label={t('goToSymbol.placeholder')}
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted"
           />
           <Kbd>esc</Kbd>
         </div>
@@ -163,33 +163,33 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
                   type="button"
                   onClick={() => selectSymbol(entry)}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition-colors ${
+                  className={`flex w-full items-center gap-3 rounded-4xl px-3 py-2 text-left transition-colors ${
                     isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/68'
                   }`}
                 >
                   <span className="status-pill shrink-0">{symbolKindBadge(entry.kind)}</span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium text-foreground">
+                    <span className="truncate text-body font-medium text-foreground">
                       {entry.name}
                     </span>
                     {entry.qualifiedName !== entry.name && (
-                      <span className="truncate text-xs text-muted">
+                      <span className="truncate text-body-sm text-muted">
                         {entry.qualifiedName}
                       </span>
                     )}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-muted">
+                  <span className="shrink-0 font-mono text-body-sm text-muted">
                     {entry.line}:{entry.column}
                   </span>
                 </button>
               );
             })
           ) : (
-            <p className="px-4 py-10 text-center text-sm text-muted">{emptyCopy}</p>
+            <p className="px-4 py-10 text-center text-body text-muted">{emptyCopy}</p>
           )}
         </div>
 
-        <div className="surface-header flex items-center gap-4 px-4 py-3 text-[11px] text-muted">
+        <div className="surface-header flex items-center gap-4 px-4 py-3 text-caption text-muted">
           <span>
             <Kbd>↑↓</Kbd> {t('goToSymbol.hint.navigate')}
           </span>

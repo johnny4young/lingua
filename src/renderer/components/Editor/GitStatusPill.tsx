@@ -247,7 +247,7 @@ export function GitStatusPill({
         data-testid="git-status-pill"
         data-git-status={entry.status}
         data-git-branch={posture.branch ?? null}
-        className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0 text-[10px] font-medium leading-[14px] transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${spec.className}`}
+        className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0 text-eyebrow font-medium leading-[14px] transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${spec.className}`}
       >
         {spec.showDot ? (
           <span
@@ -276,7 +276,7 @@ export function GitStatusPill({
               aria-label={t('editor.git.contextMenu.ariaLabel')}
               data-testid="git-status-pill-menu"
               style={{ top: contextMenu.y, left: contextMenu.x }}
-              className="fixed z-[1000] min-w-[180px] rounded-md border border-border bg-surface shadow-lg py-1 text-sm"
+              className="fixed z-[1000] min-w-[180px] rounded-md border border-border bg-surface shadow-lg py-1 text-body"
             >
               <button
                 type="button"

@@ -142,7 +142,7 @@ export function ConsoleEntryRenderer({
                   // "Details" label. Contrast bumped from `text-fg-subtle`
                   // to `text-fg-muted` so the affordance is discoverable
                   // without dominating the row.
-                  className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-surface/30 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted transition-colors hover:border-border-strong/70 hover:bg-surface/60 hover:text-foreground"
+                  className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-surface/30 px-1.5 py-0.5 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-muted transition-colors hover:border-border-strong/70 hover:bg-surface/60 hover:text-foreground"
                 >
                   <Maximize2 size={10} aria-hidden="true" />
                   <span>{t('console.rich.openDetailsShort')}</span>

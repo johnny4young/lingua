@@ -233,7 +233,7 @@ export function HttpResponsePreview({
         trailing={
           <span className="flex items-center gap-2">
             {prettyToggleVisible ? (
-              <label className="inline-flex items-center gap-1.5 text-[11.5px] text-fg-subtle">
+              <label className="inline-flex items-center gap-1.5 text-caption text-fg-subtle">
                 <input
                   type="checkbox"
                   checked={prettyJson}
@@ -246,7 +246,7 @@ export function HttpResponsePreview({
             {response.redactedHeaders.length > 0 ? (
               <span
                 data-testid="http-response-preview-redacted-badge"
-                className="rounded-sm bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning-fg"
+                className="rounded-sm bg-warning-bg px-1.5 py-0.5 text-eyebrow font-semibold text-warning-fg"
               >
                 {t('httpWorkspace.response.redactedHeaders.badge', {
                   count: response.redactedHeaders.length,
@@ -263,7 +263,7 @@ export function HttpResponsePreview({
       response.kind === 'timeout' ? (
         <div
           data-testid="http-response-preview-error"
-          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-[11px] text-warning-fg"
+          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-caption text-warning-fg"
         >
           {response.kind === 'cors-error'
             ? t('httpWorkspace.response.error.cors')
@@ -293,7 +293,7 @@ export function HttpResponsePreview({
       {response.kind === 'too-large' ? (
         <div
           data-testid="http-response-preview-too-large"
-          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-[11px] text-warning-fg"
+          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-caption text-warning-fg"
         >
           {t('httpWorkspace.response.error.tooLarge')}
         </div>
@@ -309,12 +309,12 @@ export function HttpResponsePreview({
             placeholder={t('httpWorkspace.response.search.placeholder')}
             aria-label={t('httpWorkspace.response.search.ariaLabel')}
             data-testid="http-response-preview-search"
-            className="h-6 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+            className="h-6 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
           />
           {trimmedSearch.length > 0 ? (
             <span
               data-testid="http-response-preview-search-count"
-              className="shrink-0 font-mono text-[10.5px] tabular-nums text-fg-subtle"
+              className="shrink-0 font-mono text-eyebrow tabular-nums text-fg-subtle"
             >
               {t('httpWorkspace.response.search.matches', { count: matchCount })}
             </span>
@@ -347,7 +347,7 @@ export function HttpResponsePreview({
             <pre
               data-testid="http-response-preview-body-text"
               data-mode={prettyBody !== null ? 'pretty' : 'raw'}
-              className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed"
+              className="whitespace-pre-wrap break-words font-mono text-caption leading-relaxed"
             >
               {bodySegments !== null
                 ? bodySegments.map((seg, i) =>
@@ -372,7 +372,7 @@ export function HttpResponsePreview({
           <ul
             role="list"
             data-testid="http-response-preview-headers"
-            className="flex flex-col gap-1 text-[11px]"
+            className="flex flex-col gap-1 text-caption"
           >
             {response.headers.length === 0 ? (
               <li className="text-fg-subtle">
@@ -393,7 +393,7 @@ export function HttpResponsePreview({
         {tab === 'raw' ? (
           <pre
             data-testid="http-response-preview-raw"
-            className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed"
+            className="whitespace-pre-wrap break-words font-mono text-caption leading-relaxed"
           >
             {`HTTP/1.1 ${response.status} ${response.statusText}\n` +
               response.headers

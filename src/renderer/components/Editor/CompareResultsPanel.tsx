@@ -87,7 +87,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center">
         <span
-          className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-xs italic text-fg-muted"
+          className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-body-sm italic text-fg-muted"
           data-testid="compare-empty-no-snapshot"
         >
           {t('compare.panel.empty.noSnapshot')}
@@ -118,14 +118,14 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
   return (
     <div className="flex h-full flex-col bg-bg-base" data-testid="compare-results-panel">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-bg-panel-alt/65 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2 text-[11px] text-fg-muted">
+        <div className="flex min-w-0 items-center gap-2 text-caption text-fg-muted">
           <GitCompare size={12} className="text-accent-fg" aria-hidden />
           <EyebrowMono>{t('compare.panel.title')}</EyebrowMono>
           <MonoBadge tone="accent">
             {ringOptions.length}
           </MonoBadge>
           {ringOptions.length > 1 && (
-            <label className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+            <label className="flex items-center gap-1.5 text-caption text-fg-muted">
               <span className="sr-only">{t('compare.target.selectLabel')}</span>
               <select
                 aria-label={t('compare.target.selectLabel')}
@@ -134,7 +134,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
                 onChange={(event) =>
                   setCompareTarget(Number(event.target.value))
                 }
-                className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-[11px] text-fg-base outline-none focus:border-accent/50"
+                className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-caption text-fg-base outline-none focus:border-accent/50"
               >
                 {ringOptions.map((entry, index) => (
                   <option key={entry.capturedAt} value={entry.capturedAt}>
@@ -175,7 +175,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
           </button>
         </div>
         {diff.mode === 'compiled' && (
-          <label className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+          <label className="flex items-center gap-1.5 text-caption text-fg-muted">
             <span>{t('compare.granularity.label')}</span>
             <select
               aria-label={t('compare.granularity.label')}
@@ -184,7 +184,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
               onChange={(event) =>
                 setGranularity(event.target.value as DiffGranularity)
               }
-              className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-[11px] text-fg-base outline-none focus:border-accent/50"
+              className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-caption text-fg-base outline-none focus:border-accent/50"
             >
               <option value="line">{t('compare.granularity.line')}</option>
               <option value="word">{t('compare.granularity.word')}</option>
@@ -199,7 +199,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
       {diff.identical ? (
         <div className="flex flex-1 items-center justify-center px-6 text-center">
           <span
-            className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-xs italic text-fg-muted"
+            className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-body-sm italic text-fg-muted"
             data-testid="compare-empty-identical"
           >
             {t('compare.panel.empty.identical')}
@@ -214,8 +214,8 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
         // padding) and use left-border colour stripes instead of full
         // background fills so longer outputs stay readable.
         <div className="flex-1 overflow-y-auto" data-testid="compare-rows">
-          <table className="w-full font-mono text-[11px]">
-            <thead className="sticky top-0 z-10 bg-bg-panel-alt/95 text-left text-[9.5px] uppercase tracking-[0.12em] text-fg-subtle backdrop-blur">
+          <table className="w-full font-mono text-caption">
+            <thead className="sticky top-0 z-10 bg-bg-panel-alt/95 text-left text-micro uppercase tracking-[0.12em] text-fg-subtle backdrop-blur">
               <tr>
                 <th className="w-10 px-3 py-1.5 font-semibold">{t('compare.row.line')}</th>
                 <th className="px-2 py-1.5 font-semibold">{t('compare.row.before')}</th>
@@ -281,7 +281,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
                     <td className="px-2 py-1 text-right">
                       <span
                         className={cn(
-                          'inline-flex h-5 w-6 items-center justify-center rounded-md text-[10px] font-bold tabular-nums',
+                          'inline-flex h-5 w-6 items-center justify-center rounded-md text-eyebrow font-bold tabular-nums',
                           deltaChip.tone,
                         )}
                         aria-label={row.kind}
@@ -297,7 +297,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
         </div>
       ) : (
         <div
-          className="flex-1 overflow-y-auto px-4 py-2 font-mono text-[11px]"
+          className="flex-1 overflow-y-auto px-4 py-2 font-mono text-caption"
           data-testid="compare-unified"
         >
           <ul className="grid">

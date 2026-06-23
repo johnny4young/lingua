@@ -130,7 +130,7 @@ export function NotebookMarkdownCellRow({
             <StatusBadge tone="neutral">MD</StatusBadge>
           </span>
           <span
-            className="text-[10px] uppercase tracking-wider text-muted"
+            className="text-eyebrow uppercase tracking-wider text-muted"
             data-testid="notebook-markdown-cell-index"
           >
             {t('notebook.cell.indexLabel', { index: cellIndex + 1 })}
@@ -142,7 +142,7 @@ export function NotebookMarkdownCellRow({
               data-testid="notebook-cell-mode"
               data-mode={mode}
               className={cn(
-                'mr-1 hidden rounded px-1.5 text-[9px] font-semibold uppercase tracking-wider sm:inline',
+                'mr-1 hidden rounded px-1.5 text-micro font-semibold uppercase tracking-wider sm:inline',
                 mode === 'edit'
                   ? 'bg-primary/15 text-primary'
                   : 'bg-bg-panel-alt text-fg-subtle'
@@ -223,7 +223,7 @@ export function NotebookMarkdownCellRow({
           rows={3}
           spellCheck
           className={cn(
-            'min-h-[48px] resize-none rounded border border-border/60 bg-background p-2 font-mono text-xs text-foreground outline-none',
+            'min-h-[48px] resize-none rounded border border-border/60 bg-background p-2 font-mono text-body-sm text-foreground outline-none',
             'focus:border-border-strong disabled:cursor-not-allowed'
           )}
         />
@@ -234,7 +234,7 @@ export function NotebookMarkdownCellRow({
           className="cursor-text rounded border border-transparent p-2 hover:border-border/40"
         >
           {cell.source.length === 0 ? (
-            <p className="text-[11px] italic text-muted">
+            <p className="text-caption italic text-muted">
               {t('notebook.cell.markdownSourcePlaceholder')}
             </p>
           ) : (

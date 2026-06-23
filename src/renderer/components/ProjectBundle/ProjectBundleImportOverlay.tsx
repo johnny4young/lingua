@@ -134,11 +134,11 @@ export function ProjectBundleImportOverlay({
         <div className="min-w-0">
           <h2
             id="project-bundle-import-title"
-            className="truncate text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+            className="truncate text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
           >
             {t('projectBundle.import.title')}
           </h2>
-          <p className="mt-0.5 text-[12.5px] text-fg-subtle">
+          <p className="mt-0.5 text-body-sm text-fg-subtle">
             {t('projectBundle.import.subtitle')}
           </p>
         </div>
@@ -181,7 +181,7 @@ export function ProjectBundleImportOverlay({
       >
         {/* TOP — load source */}
         <section className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+          <span className="text-caption font-semibold uppercase tracking-wider text-fg-subtle">
             {t('projectBundle.import.loadLabel')}
           </span>
           <button
@@ -189,14 +189,14 @@ export function ProjectBundleImportOverlay({
             onClick={handlePickFile}
             data-testid="project-bundle-import-open-file"
             className={cn(
-              'flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-xs text-fg-subtle transition-colors',
+              'flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-body-sm text-fg-subtle transition-colors',
               'hover:border-border-strong hover:text-fg-base',
               isDragOver && 'border-accent bg-accent/10 text-fg-base'
             )}
           >
             <FileUp size={14} aria-hidden="true" />
             <span>{t('projectBundle.import.pickFile')}</span>
-            <span className="text-[10px]">{t('projectBundle.import.dropHint')}</span>
+            <span className="text-eyebrow">{t('projectBundle.import.dropHint')}</span>
           </button>
           <input
             ref={fileInputRef}
@@ -215,12 +215,12 @@ export function ProjectBundleImportOverlay({
               data-testid="project-bundle-import-preview"
               className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-bg-inset p-3"
             >
-              <h3 className="text-[12.5px] font-semibold text-fg-base">
+              <h3 className="text-body-sm font-semibold text-fg-base">
                 {t('projectBundle.import.previewHeading', {
                   count: decoded.files.length,
                 })}
               </h3>
-              <ul className="max-h-44 overflow-auto font-mono text-[11px] text-fg-subtle">
+              <ul className="max-h-44 overflow-auto font-mono text-caption text-fg-subtle">
                 {decoded.files.map((file) => (
                   <li key={file.path} className="truncate">
                     {file.path}
@@ -232,10 +232,10 @@ export function ProjectBundleImportOverlay({
                   data-testid="project-bundle-import-rejects"
                   className="mt-1 border-t border-border-subtle pt-2"
                 >
-                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-warning-fg">
+                  <h4 className="text-caption font-semibold uppercase tracking-wider text-warning-fg">
                     {t('projectBundle.import.rejectsHeading')}
                   </h4>
-                  <ul className="font-mono text-[10.5px] text-warning-fg/80">
+                  <ul className="font-mono text-eyebrow text-warning-fg/80">
                     {decoded.rejects.map((reject) => (
                       <li key={reject.path} className="truncate">
                         {reject.path} — {t(`projectBundle.reject.${reject.reason}`)}
@@ -250,7 +250,7 @@ export function ProjectBundleImportOverlay({
               role="alert"
               data-testid="project-bundle-import-reject"
               data-reason={rejected.reason}
-              className="flex flex-col gap-2 rounded-lg border border-error-border/60 bg-error-bg p-4 text-xs text-error-fg"
+              className="flex flex-col gap-2 rounded-lg border border-error-border/60 bg-error-bg p-4 text-body-sm text-error-fg"
             >
               <header className="flex items-center gap-2">
                 <AlertCircle size={14} aria-hidden="true" />

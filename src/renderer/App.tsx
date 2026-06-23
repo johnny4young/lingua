@@ -62,10 +62,10 @@ function FactoryRecoveryNotice() {
     <aside
       role="status"
       data-testid="factory-recovery-notice"
-      className="fixed left-1/2 top-4 z-[70] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 rounded-[1rem] border border-warning/60 bg-background-elevated px-4 py-3 shadow-2xl shadow-black/30"
+      className="fixed left-1/2 top-4 z-[70] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-warning/60 bg-background-elevated px-4 py-3 shadow-2xl shadow-black/30"
     >
-      <p className="text-sm font-semibold text-foreground">{t('recovery.factoryNotice.title')}</p>
-      <p className="mt-1 text-sm leading-6 text-muted">{t('recovery.factoryNotice.body')}</p>
+      <p className="text-body font-semibold text-foreground">{t('recovery.factoryNotice.title')}</p>
+      <p className="mt-1 text-body leading-6 text-muted">{t('recovery.factoryNotice.body')}</p>
     </aside>
   );
 }

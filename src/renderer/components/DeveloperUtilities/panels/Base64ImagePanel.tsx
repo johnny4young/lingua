@@ -126,14 +126,14 @@ export function Base64ImagePanel() {
         title={t('utilities.tool.base64Image.title')}
         description={t('utilities.tool.base64Image.panelDescription')}
       >
-        <label className="grid gap-1 text-xs text-muted">
+        <label className="grid gap-1 text-body-sm text-muted">
           <FieldLabel>{t('utilities.tool.base64Image.mode.label')}</FieldLabel>
           <select
             aria-label={t('utilities.tool.base64Image.mode.label')}
             data-testid="base64-image-mode"
             value={mode}
             onChange={event => setMode(event.target.value as Base64ImageMode)}
-            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
             <option value="encode">{t('utilities.tool.base64Image.mode.encode')}</option>
             <option value="decode">{t('utilities.tool.base64Image.mode.decode')}</option>
@@ -186,7 +186,7 @@ export function Base64ImagePanel() {
               onChange={event => setDecodeInput(event.target.value)}
               placeholder={t('utilities.tool.base64Image.decode.placeholder') ?? undefined}
               spellCheck={false}
-              className="min-h-[18rem] font-mono text-xs"
+              className="min-h-[18rem] font-mono text-body-sm"
             />
             {decoded && !decoded.ok ? (
               <StatusMessage
@@ -210,7 +210,7 @@ export function Base64ImagePanel() {
                 data-testid="base64-image-preview"
                 src={encoded.dataUri}
                 alt={t('utilities.tool.base64Image.preview.alt')}
-                className="max-h-48 w-full rounded-[1rem] border border-border/80 bg-background/70 object-contain"
+                className="max-h-48 w-full rounded-2xl border border-border/80 bg-background/70 object-contain"
               />
               <StatusMessage
                 testid="base64-image-metadata"
@@ -226,7 +226,7 @@ export function Base64ImagePanel() {
                   value={encoded.dataUri}
                   readOnly
                   spellCheck={false}
-                  className="pr-10 min-h-[20rem] font-mono text-xs"
+                  className="pr-10 min-h-[20rem] font-mono text-body-sm"
                 />
                 <div className="absolute right-2 top-2">
                   <CopyButton value={encoded.dataUri} testid="base64-image-encode-output-copy" />
@@ -242,7 +242,7 @@ export function Base64ImagePanel() {
               data-testid="base64-image-preview"
               src={decoded.value.dataUri}
               alt={t('utilities.tool.base64Image.preview.alt')}
-              className="max-h-48 w-full rounded-[1rem] border border-border/80 bg-background/70 object-contain"
+              className="max-h-48 w-full rounded-2xl border border-border/80 bg-background/70 object-contain"
             />
             <StatusMessage
               testid="base64-image-metadata"

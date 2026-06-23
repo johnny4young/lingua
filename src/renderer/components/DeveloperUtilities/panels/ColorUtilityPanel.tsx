@@ -20,12 +20,12 @@ function ColorOutputCard({
   testid?: string;
 }) {
   return (
-    <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
+    <div className="grid gap-1 rounded-2xl border border-border/80 bg-background/65 px-3 py-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-[0.16em] text-muted">{label}</span>
+        <span className="text-caption uppercase tracking-[0.16em] text-muted">{label}</span>
         <CopyButton value={value} testid={testid ? `${testid}-copy` : undefined} disabled={!value} />
       </div>
-      <span className="font-mono text-sm text-foreground" data-testid={testid}>
+      <span className="font-mono text-body text-foreground" data-testid={testid}>
         {display}
       </span>
     </div>
@@ -71,7 +71,7 @@ export function ColorUtilityPanel() {
             </span>
           </FieldLabel>
           <label
-            className="inline-flex cursor-pointer items-center gap-3 rounded-[0.9rem] border border-border/80 bg-background/88 px-3 py-2 transition-colors hover:border-border-strong/90"
+            className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-background/88 px-3 py-2 transition-colors hover:border-border-strong/90"
             aria-label={t('utilities.tool.color.fieldPicker')}
           >
             <input
@@ -79,9 +79,9 @@ export function ColorUtilityPanel() {
               aria-label={t('utilities.tool.color.fieldPicker')}
               value={analysis.hex ?? '#000000'}
               onChange={(event) => setInput(event.target.value)}
-              className="h-7 w-10 cursor-pointer rounded-[0.55rem] border border-border/60 bg-transparent p-0"
+              className="h-7 w-10 cursor-pointer rounded-lg border border-border/60 bg-transparent p-0"
             />
-            <span className="text-xs text-muted">{t('utilities.tool.color.pickerHint')}</span>
+            <span className="text-body-sm text-muted">{t('utilities.tool.color.pickerHint')}</span>
           </label>
         </div>
         {analysis.errorKey ? (
@@ -103,7 +103,7 @@ export function ColorUtilityPanel() {
       >
         <div
           aria-label={t('utilities.tool.color.swatchLabel')}
-          className="h-24 w-full rounded-[1.1rem] border border-border/80"
+          className="h-24 w-full rounded-2xl border border-border/80"
           style={{ backgroundColor: swatch }}
         />
         <div className="grid gap-3 md:grid-cols-2">

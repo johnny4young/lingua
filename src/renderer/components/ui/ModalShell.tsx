@@ -45,7 +45,7 @@ export function Kbd({ children, className }: KbdProps) {
     <kbd
       className={cn(
         'inline-flex items-center gap-1 rounded-sm border border-border-subtle bg-bg-panel-alt px-1.5 py-0.5',
-        'font-mono text-[10.5px] font-medium leading-none text-fg-muted',
+        'font-mono text-eyebrow font-medium leading-none text-fg-muted',
         className
       )}
     >
@@ -161,15 +161,15 @@ function DefaultFooterLegend() {
   const { t } = useTranslation();
   return (
     <div className="flex items-center gap-[14px]">
-      <span className="flex items-center gap-[6px] text-[11.5px] text-fg-subtle">
+      <span className="flex items-center gap-[6px] text-caption text-fg-subtle">
         <Kbd>↑↓</Kbd>
         {t('modal.legend.navigate')}
       </span>
-      <span className="flex items-center gap-[6px] text-[11.5px] text-fg-subtle">
+      <span className="flex items-center gap-[6px] text-caption text-fg-subtle">
         <Kbd>↵</Kbd>
         {t('modal.legend.select')}
       </span>
-      <span className="flex items-center gap-[6px] text-[11.5px] text-fg-subtle">
+      <span className="flex items-center gap-[6px] text-caption text-fg-subtle">
         <Kbd>esc</Kbd>
         {t('modal.legend.close')}
       </span>

@@ -133,7 +133,7 @@ export function RubyRuntimeRow({ last = false }: RubyRuntimeRowProps = {}) {
             <option value="wasm">{t('settings.editor.rubyRuntime.option.wasm')}</option>
           </Select>
           {status ? (
-            <p className="text-[11.5px] text-fg-subtle" data-testid="settings-ruby-runtime-status">
+            <p className="text-caption text-fg-subtle" data-testid="settings-ruby-runtime-status">
               {status}
             </p>
           ) : null}
@@ -143,7 +143,7 @@ export function RubyRuntimeRow({ last = false }: RubyRuntimeRowProps = {}) {
               Electron window. */}
           <button
             type="button"
-            className="text-[11.5px] text-accent hover:underline"
+            className="text-caption text-accent hover:underline"
             onClick={onDocsClick}
             data-testid="settings-ruby-runtime-docs-link"
           >

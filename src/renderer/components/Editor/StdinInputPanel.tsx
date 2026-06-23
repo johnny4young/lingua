@@ -174,7 +174,7 @@ export function StdinInputPanel() {
         className="flex h-full items-center justify-center px-6 text-center"
         data-testid="stdin-panel-empty"
       >
-        <span className="text-xs italic text-muted">
+        <span className="text-body-sm italic text-muted">
           {t('stdin.panel.empty')}
         </span>
       </div>
@@ -187,7 +187,7 @@ export function StdinInputPanel() {
         className="flex h-full items-center justify-center px-6 text-center"
         data-testid="stdin-panel-unsupported"
       >
-        <span className="text-xs italic text-muted">
+        <span className="text-body-sm italic text-muted">
           {t('stdin.panel.unsupportedLanguage')}
         </span>
       </div>
@@ -287,7 +287,7 @@ export function StdinInputPanel() {
               {t('stdin.panel.lineCountBadge', { count: filledCount, promptFn })}
             </MonoBadge>
           </div>
-          <p className="mt-1 max-w-[60ch] text-[12px] leading-5 text-fg-muted">
+          <p className="mt-1 max-w-[60ch] text-body-sm leading-5 text-fg-muted">
             {t('stdin.panel.descriptionShort', { promptFn })}
           </p>
         </div>
@@ -295,7 +295,7 @@ export function StdinInputPanel() {
           {stdinConsumed && stdinConsumed.total > 0 ? (
             <span
               data-testid="stdin-panel-consumed"
-              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"
+              className="inline-flex items-center gap-1.5 text-caption font-medium text-success"
             >
               <Check size={11} aria-hidden />
               {t('stdin.panel.consumed', {
@@ -368,17 +368,17 @@ export function StdinInputPanel() {
             key={preset.k}
             type="button"
             onClick={() => applyPreset(preset)}
-            className="button-ghost h-7 gap-2 px-2.5 text-[11px]"
+            className="button-ghost h-7 gap-2 px-2.5 text-caption"
             data-testid={`stdin-preset-${preset.k}`}
           >
             <span className="font-semibold">{t(preset.labelKey)}</span>
-            <span className="font-mono text-[10px] text-fg-subtle">
+            <span className="font-mono text-eyebrow text-fg-subtle">
               {preset.meta}
             </span>
           </button>
         ))}
         <span className="flex-1" />
-        <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-fg-subtle">
+        <span className="inline-flex items-center gap-1.5 font-mono text-eyebrow text-fg-subtle">
           <Kbd>↵</Kbd>
           <span>{t('stdin.kbd.append')}</span>
           <Plus size={10} aria-hidden className="text-fg-subtle/50" />
@@ -482,12 +482,12 @@ function SortableStdinRow({
         ) : isNext ? (
           <Play size={8} />
         ) : (
-          <span className="text-[10px]">·</span>
+          <span className="text-eyebrow">·</span>
         )}
       </span>
       <span
         className={cn(
-          'text-right font-mono text-[11px] font-semibold',
+          'text-right font-mono text-caption font-semibold',
           consumed
             ? 'text-fg-subtle'
             : isNext
@@ -506,7 +506,7 @@ function SortableStdinRow({
         placeholder={isNext ? placeholderNext : ''}
         aria-label={ariaLabel}
         className={cn(
-          'min-w-0 bg-transparent font-mono text-[12.5px] text-fg-base outline-none placeholder:text-fg-subtle/60 placeholder:italic',
+          'min-w-0 bg-transparent font-mono text-body-sm text-fg-base outline-none placeholder:text-fg-subtle/60 placeholder:italic',
           consumed && 'line-through text-fg-muted/85',
         )}
       />
@@ -515,7 +515,7 @@ function SortableStdinRow({
       </span>
       <span
         className={cn(
-          'text-right font-mono text-[10.5px]',
+          'text-right font-mono text-eyebrow',
           consumed ? 'text-fg-subtle' : isNext ? 'text-fg-muted' : '',
         )}
       >

@@ -35,7 +35,7 @@ export function StatusBadge({ tone, dot = false, children }: StatusBadgeProps) {
       data-status-tone={tone}
       className={cn(
         'inline-flex items-center gap-[5px] whitespace-nowrap rounded-sm border px-2 py-[3px]',
-        'font-mono text-[9.5px] font-semibold uppercase leading-[1.3]',
+        'font-mono text-micro font-semibold uppercase leading-[1.3]',
         toneClasses[tone]
       )}
     >

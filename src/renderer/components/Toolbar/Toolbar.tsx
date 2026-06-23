@@ -293,7 +293,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
                   aria-haspopup="menu"
                   aria-expanded={isRunMenuOpen}
                   className={cn(
-                    'inline-flex w-10 items-center justify-center border-l px-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45',
+                    'inline-flex w-10 items-center justify-center border-l px-2 text-body-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45',
                     primaryActionIsDebug
                       ? 'border-error/20 bg-error/12 text-error hover:bg-error/18'
                       : 'border-fg-on-accent/15 bg-success-fg text-fg-on-accent hover:opacity-90'
@@ -316,7 +316,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
                   onClick={() => runFromMenu('run')}
                   disabled={actionDisabled}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
                     selectedExecutionAction === 'run'
                       ? 'bg-success-bg text-success-fg'
                       : 'text-fg-base hover:bg-bg-panel-alt'
@@ -332,7 +332,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
                   disabled={debugActionDisabled}
                   data-testid="toolbar-debug-button"
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
                     selectedExecutionAction === 'debug'
                       ? 'bg-danger/12 text-danger'
                       : 'text-danger hover:bg-danger/10'
@@ -400,7 +400,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
           ref={newFileMenuRef}
           className={cn('relative shrink-0', showFloatingPill && 'hidden')}
         >
-          <div className="inline-flex h-10 overflow-hidden rounded-xl border border-border/70 bg-surface-strong/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="inline-flex h-10 overflow-hidden rounded-xl border border-border/70 bg-surface-strong/80 shadow-[var(--shadow-sm)]">
             <Tooltip content={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}>
               <button
                 onClick={() => handleNewFile(defaultNewFileLanguage)}
@@ -439,7 +439,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
                     key={language.id}
                     role="menuitem"
                     onClick={() => handleNewFile(language.id)}
-                    className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-medium transition-colors ${
+                    className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-body-sm font-medium transition-colors ${
                       language.id === defaultNewFileLanguage
                         ? 'bg-primary-soft text-primary'
                         : 'text-foreground hover:bg-surface-strong/78'
@@ -449,14 +449,14 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
                     <span className="flex items-center gap-2">
                       {!isLanguageAllowed(effectiveTier, language.id) ? (
                         <span
-                          className="status-pill border-primary/25 bg-transparent px-2 text-[0.7rem] text-primary"
+                          className="status-pill border-primary/25 bg-transparent px-2 text-caption text-primary"
                           data-testid={`toolbar-new-file-capability-${language.id}`}
                         >
                           {t('language.capability.proOnly')}
                         </span>
                       ) : capabilityKey && (
                         <span
-                          className="status-pill border-border/60 bg-transparent px-2 text-[0.7rem] text-muted"
+                          className="status-pill border-border/60 bg-transparent px-2 text-caption text-muted"
                           data-testid={`toolbar-new-file-capability-${language.id}`}
                         >
                           {t(capabilityKey)}

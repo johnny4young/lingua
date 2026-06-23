@@ -193,7 +193,7 @@ export function FileTreeNode({
     <div>
       <div
         data-active={isActiveFile ? 'true' : undefined}
-        className={`group flex items-center gap-1 rounded-xl border-l-2 px-1.5 py-1 text-xs transition-colors ${
+        className={`group flex items-center gap-1 rounded-xl border-l-2 px-1.5 py-1 text-body-sm transition-colors ${
           isActiveFile
             ? 'border-primary bg-primary-soft'
             : hovered
@@ -275,7 +275,7 @@ export function FileTreeNode({
 
         {showDesktopOnlyBadge && !renaming && (
           <span
-            className="ml-1 shrink-0 rounded-md border border-border/60 bg-transparent px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-muted"
+            className="ml-1 shrink-0 rounded-md border border-border/60 bg-transparent px-1.5 py-0.5 text-micro font-medium uppercase tracking-wide text-muted"
             data-testid={`file-tree-capability-${node.path}`}
           >
             {t('language.capability.desktopOnly')}
@@ -360,7 +360,7 @@ export function FileTreeNode({
           ))}
           {node.children.length === 0 && (
             <p
-              className="py-0.5 text-xs italic text-muted"
+              className="py-0.5 text-body-sm italic text-muted"
               style={{ paddingLeft: `${(depth + 2) * 12 + 4}px` }}
             >
               {t('fileTree.emptyDirectory')}
@@ -393,7 +393,7 @@ function FileTreeGlyph({ language }: { language: ProjectFileTreeNode['language']
   return (
     <span
       aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-[3px] font-mono text-[8px] font-bold uppercase leading-none"
+      className="inline-flex shrink-0 items-center justify-center rounded-sm font-mono text-nano font-bold uppercase leading-none"
       style={{
         minWidth: 16,
         height: 16,

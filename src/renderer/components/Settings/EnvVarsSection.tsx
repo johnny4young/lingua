@@ -77,7 +77,7 @@ export function EnvVarsSection() {
               onRemove={(key) => removeGlobalVar(key)}
             />
             <p
-              className="text-[11.5px] leading-5 text-fg-subtle"
+              className="text-caption leading-5 text-fg-subtle"
               data-testid="env-vars-precedence-note"
             >
               {t('envVars.precedenceNote')}
@@ -138,10 +138,10 @@ function ScopeHeading({
         <span className="text-fg-muted" aria-hidden="true">
           {icon}
         </span>
-        <h4 className="text-[13px] font-semibold text-fg-base">{title}</h4>
+        <h4 className="text-body font-semibold text-fg-base">{title}</h4>
       </div>
       {description ? (
-        <p className="text-[11.5px] leading-5 text-fg-subtle">{description}</p>
+        <p className="text-caption leading-5 text-fg-subtle">{description}</p>
       ) : null}
     </div>
   );
@@ -209,16 +209,16 @@ function EffectiveEnvPanel({
         <div className="flex min-w-0 items-center gap-2.5">
           <SquareTerminal size={15} className="shrink-0 text-accent-fg" aria-hidden="true" />
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-accent-fg">
+            <p className="text-body font-semibold text-accent-fg">
               {t('envVars.effectiveTitle')}
             </p>
-            <p className="mt-0.5 truncate font-mono text-[11px] text-accent-fg/85">
+            <p className="mt-0.5 truncate font-mono text-caption text-accent-fg/85">
               {t('envVars.precedenceChain')}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="font-mono text-[11px] text-accent-fg/85">
+          <span className="font-mono text-caption text-accent-fg/85">
             {t('envVars.effectiveCount', { count: entries.length })}
           </span>
           <ChevronDown
@@ -231,7 +231,7 @@ function EffectiveEnvPanel({
       <div className="border-t border-accent/30 px-4 py-3">
         {entries.length === 0 ? (
           <p
-            className="text-[11.5px] leading-5 text-fg-subtle"
+            className="text-caption leading-5 text-fg-subtle"
             data-testid="env-vars-effective-empty"
           >
             {t('envVars.effectiveEmpty')}
@@ -245,14 +245,14 @@ function EffectiveEnvPanel({
                 data-testid={`env-vars-effective-row-${key}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[12px] font-semibold text-fg-base">{key}</span>
+                  <span className="font-mono text-body-sm font-semibold text-fg-base">{key}</span>
                   <span data-testid={`env-vars-effective-tier-${key}`}>
                     <StatusBadge tone={TIER_TONE[record.from] ?? 'neutral'}>
                       {t(`envVars.trace.tier.${record.from}`)}
                     </StatusBadge>
                   </span>
                 </div>
-                <span className="truncate font-mono text-[11.5px] text-fg-muted" title={record.value}>
+                <span className="truncate font-mono text-caption text-fg-muted" title={record.value}>
                   {record.value === '' ? t('envVars.emptyValueDisplay') : record.value}
                 </span>
               </li>
@@ -446,7 +446,7 @@ function ScopeEditor({
         onSubmit={handleSubmit}
         data-testid={`${testidPrefix}-form`}
       >
-        <label className="grid flex-1 gap-1 text-[11.5px] font-medium text-fg-base">
+        <label className="grid flex-1 gap-1 text-caption font-medium text-fg-base">
           <span>{t('envVars.keyLabel')}</span>
           <input
             type="text"
@@ -459,7 +459,7 @@ function ScopeEditor({
             data-testid={`${testidPrefix}-key-input`}
           />
         </label>
-        <label className="grid flex-1 gap-1 text-[11.5px] font-medium text-fg-base">
+        <label className="grid flex-1 gap-1 text-caption font-medium text-fg-base">
           <span>{t('envVars.valueLabel')}</span>
           <input
             type="text"
@@ -483,7 +483,7 @@ function ScopeEditor({
         <p
           id={errorId}
           role="alert"
-          className="text-[11.5px] text-error"
+          className="text-caption text-error"
           data-testid={`${testidPrefix}-error`}
         >
           {error}
@@ -492,7 +492,7 @@ function ScopeEditor({
 
       {sortedEntries.length === 0 ? (
         <p
-          className="rounded-lg border border-dashed border-border-default px-3.5 py-4 text-[11.5px] text-fg-subtle"
+          className="rounded-lg border border-dashed border-border-default px-3.5 py-4 text-caption text-fg-subtle"
           data-testid={`${testidPrefix}-empty`}
         >
           {t(emptyMessageKey)}
@@ -505,8 +505,8 @@ function ScopeEditor({
               className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-bg-inset px-3.5 py-2.5"
             >
               <div className="min-w-0 flex-1">
-                <p className="font-mono text-[12px] font-semibold text-fg-base">{key}</p>
-                <p className="truncate font-mono text-[11.5px] text-fg-muted" title={value}>
+                <p className="font-mono text-body-sm font-semibold text-fg-base">{key}</p>
+                <p className="truncate font-mono text-caption text-fg-muted" title={value}>
                   {value === '' ? t('envVars.emptyValueDisplay') : value}
                 </p>
               </div>

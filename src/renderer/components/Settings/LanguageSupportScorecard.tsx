@@ -147,7 +147,7 @@ export function LanguageSupportScorecard({
         data-surface={surface}
       >
         <div className="flex items-center justify-between gap-3 px-[18px] py-3">
-          <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-fg-subtle">
+          <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
             {t('languageSupport.scorecard.tableLabel')}
           </span>
           <button
@@ -155,7 +155,7 @@ export function LanguageSupportScorecard({
             onClick={() => setLegendOpen((v) => !v)}
             data-testid="language-support-scorecard-legend-toggle"
             aria-expanded={legendOpen}
-            className="rounded-sm border border-border-subtle px-2 py-0.5 font-mono text-[10px] text-fg-muted hover:bg-bg-panel-alt"
+            className="rounded-sm border border-border-subtle px-2 py-0.5 font-mono text-eyebrow text-fg-muted hover:bg-bg-panel-alt"
             title={t('languageSupport.scorecard.legendButton')}
             aria-label={t('languageSupport.scorecard.legendButton')}
           >
@@ -165,7 +165,7 @@ export function LanguageSupportScorecard({
         {legendOpen ? (
           <ul
             data-testid="language-support-scorecard-legend"
-            className="mx-[18px] mb-3 grid gap-1.5 rounded-md border border-border-subtle bg-bg-panel-alt px-3 py-2 text-[11.5px] text-fg-subtle sm:grid-cols-2"
+            className="mx-[18px] mb-3 grid gap-1.5 rounded-md border border-border-subtle bg-bg-panel-alt px-3 py-2 text-caption text-fg-subtle sm:grid-cols-2"
           >
             {LANGUAGE_CAPABILITY_STATUSES.map((status) => (
               <li
@@ -193,17 +193,17 @@ export function LanguageSupportScorecard({
          * instead of squeezing the last column to nothing.
          */}
         <div className="overflow-auto px-[18px] pb-3">
-          <table className="min-w-[720px] border-collapse text-[11.5px]">
+          <table className="min-w-[720px] border-collapse text-caption">
             <thead>
               <tr className="text-left text-fg-subtle">
-                <th className="px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.1em]">
+                <th className="px-2 py-1 font-mono text-micro font-semibold uppercase tracking-[0.1em]">
                   {t('languageSupport.scorecard.languageColumn')}
                 </th>
                 {LANGUAGE_CAPABILITIES.map((cap) => (
                   <th
                     key={cap}
                     scope="col"
-                    className="whitespace-nowrap px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.08em]"
+                    className="whitespace-nowrap px-2 py-1 font-mono text-micro font-semibold uppercase tracking-[0.08em]"
                     title={t(`languageSupport.capability.${cap}`)}
                   >
                     {t(`languageSupport.capability.${cap}`)}
@@ -220,7 +220,7 @@ export function LanguageSupportScorecard({
                 >
                   <th
                     scope="row"
-                    className="whitespace-nowrap px-2 py-2 text-left text-[12.5px] font-medium text-fg-base"
+                    className="whitespace-nowrap px-2 py-2 text-left text-body-sm font-medium text-fg-base"
                   >
                     {profile.displayName}
                   </th>

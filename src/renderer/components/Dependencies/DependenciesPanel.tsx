@@ -475,7 +475,7 @@ export function DependenciesPanel() {
       className="flex h-full min-h-0 flex-col bg-background"
       data-testid="dependencies-panel"
     >
-      <header className="flex items-center justify-between gap-3 border-b border-border/70 bg-surface/40 px-4 py-2 text-xs uppercase tracking-[0.12em] text-fg-subtle">
+      <header className="flex items-center justify-between gap-3 border-b border-border/70 bg-surface/40 px-4 py-2 text-body-sm uppercase tracking-[0.12em] text-fg-subtle">
         <div className="flex items-center gap-2">
           <Boxes size={12} aria-hidden="true" />
           <span>
@@ -488,14 +488,14 @@ export function DependenciesPanel() {
               type="button"
               onClick={handleInstallAll}
               disabled={isInstalling}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-[11px] normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:hover:bg-surface/60"
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-caption normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:hover:bg-surface/60"
               data-testid="dependencies-install-all"
             >
               <Download size={11} aria-hidden="true" />
               {t('dependencies.install.allButton', { count: installableCount })}
             </button>
           ) : null}
-          <span className="text-[10.5px] normal-case tracking-normal text-fg-muted">
+          <span className="text-eyebrow normal-case tracking-normal text-fg-muted">
             {t('dependencies.privacyNote')}
           </span>
         </div>
@@ -607,7 +607,7 @@ function DependencyRow({
         className="shrink-0 text-fg-subtle"
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-mono text-[13px] text-fg-base">
+        <p className="truncate font-mono text-body text-fg-base">
           {dep.name}
           {dep.submodule ? (
             <span className="text-fg-subtle">/{dep.submodule}</span>
@@ -627,8 +627,8 @@ function DependencyRow({
         aria-label={t('dependencies.install.button')}
         className={
           disabled
-            ? 'inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] text-fg-muted opacity-60 cursor-not-allowed'
-            : 'inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+            ? 'inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-caption text-fg-muted opacity-60 cursor-not-allowed'
+            : 'inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-caption text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
         }
         data-testid={`dependency-install-${dep.name}`}
       >
@@ -673,14 +673,14 @@ function InstallLogSurface({
       className="border-t border-border/70 bg-surface/30"
       data-testid="dependencies-install-log"
     >
-      <header className="flex items-center justify-between gap-3 px-4 py-2 text-xs uppercase tracking-[0.12em] text-fg-subtle">
+      <header className="flex items-center justify-between gap-3 px-4 py-2 text-body-sm uppercase tracking-[0.12em] text-fg-subtle">
         <span>{t('dependencies.install.log.title')}</span>
         <div className="flex items-center gap-2">
           {isRunning && cancellable ? (
             <button
               type="button"
               onClick={onCancel}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-caption normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               data-testid="dependencies-install-cancel"
             >
               <X size={11} aria-hidden="true" />
@@ -690,7 +690,7 @@ function InstallLogSurface({
             <button
               type="button"
               onClick={() => setHiddenInstallKey(installKey)}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-caption normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               data-testid="dependencies-install-log-dismiss"
             >
               <X size={11} aria-hidden="true" />
@@ -701,7 +701,7 @@ function InstallLogSurface({
       </header>
       <pre
         ref={scrollRef}
-        className="max-h-40 overflow-auto whitespace-pre-wrap break-words px-4 pb-3 font-mono text-[11px] leading-relaxed text-fg-muted"
+        className="max-h-40 overflow-auto whitespace-pre-wrap break-words px-4 pb-3 font-mono text-caption leading-relaxed text-fg-muted"
         data-testid="dependencies-install-log-output"
       >
         {log.length === 0 ? t('dependencies.install.log.empty') : log}
@@ -723,8 +723,8 @@ function EmptyState({
       data-testid="dependencies-panel-empty"
     >
       <Boxes size={20} aria-hidden="true" className="text-fg-subtle" />
-      <p className="text-sm font-semibold text-fg-base">{title}</p>
-      <p className="max-w-[44ch] text-[12.5px] leading-relaxed text-fg-muted">
+      <p className="text-body font-semibold text-fg-base">{title}</p>
+      <p className="max-w-[44ch] text-body-sm leading-relaxed text-fg-muted">
         {body}
       </p>
     </div>

@@ -231,7 +231,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
             aria-selected={effectiveTab === 'console'}
             onClick={() => selectTab('console')}
             className={cn(
-              'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+              'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
               effectiveTab === 'console'
                 ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
                 : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
@@ -256,7 +256,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               aria-selected={effectiveTab === 'debugger'}
               onClick={() => selectTab('debugger')}
               className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 effectiveTab === 'debugger'
                   ? 'border-border-strong border-t-danger border-b-background bg-background text-danger shadow-[0_1px_0_0_var(--app-background)]'
                   : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-danger'
@@ -268,7 +268,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
                 <span
                   data-testid="bottom-panel-debugger-count"
                   className={cn(
-                    'rounded border px-1.5 py-0.5 text-[10px] leading-none',
+                    'rounded border px-1.5 py-0.5 text-eyebrow leading-none',
                     enabledBreakpointCount > 0
                       ? 'border-danger/30 bg-danger/10 text-danger'
                       : 'border-border/70 bg-surface text-muted'
@@ -289,7 +289,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               aria-selected={effectiveTab === 'browser-preview'}
               onClick={() => selectTab('browser-preview')}
               className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 effectiveTab === 'browser-preview'
                   ? 'border-border-strong border-t-primary border-b-background bg-background text-primary shadow-[0_1px_0_0_var(--app-background)]'
                   : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
@@ -309,7 +309,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               aria-selected={effectiveTab === 'stdin'}
               onClick={() => selectTab('stdin')}
               className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 effectiveTab === 'stdin'
                   ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
                   : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
@@ -329,7 +329,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               aria-selected={effectiveTab === 'variables'}
               onClick={() => selectTab('variables')}
               className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 effectiveTab === 'variables'
                   ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
                   : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
@@ -349,7 +349,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               aria-selected={effectiveTab === 'dependencies'}
               onClick={() => selectTab('dependencies')}
               className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 effectiveTab === 'dependencies'
                   ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
                   : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
@@ -369,7 +369,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               aria-selected={effectiveTab === 'git-diff'}
               onClick={() => selectTab('git-diff')}
               className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 effectiveTab === 'git-diff'
                   ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
                   : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
@@ -397,7 +397,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               aria-selected={effectiveTab === 'recipe'}
               onClick={() => selectTab('recipe')}
               className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 effectiveTab === 'recipe'
                   ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
                   : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'

@@ -98,16 +98,16 @@ export function UtilityPipelinePanel() {
     return (
       <div
         data-testid="utility-pipeline-locked"
-        className="flex h-full min-h-[34rem] flex-col items-center justify-center gap-4 rounded-[1.25rem] border border-warning/30 bg-warning/5 p-8 text-center"
+        className="flex h-full min-h-[34rem] flex-col items-center justify-center gap-4 rounded-2xl border border-warning/30 bg-warning/5 p-8 text-center"
       >
-        <span className="rounded-full border border-warning/45 bg-warning/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-warning">
+        <span className="rounded-full border border-warning/45 bg-warning/10 px-2 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.16em] text-warning">
           {t('utilities.locked.proBadge')}
         </span>
         <div className="max-w-xl">
-          <h3 className="text-lg font-semibold text-foreground">
+          <h3 className="text-h3 font-semibold text-foreground">
             {t('utilityPipeline.locked.title')}
           </h3>
-          <p className="mt-2 text-sm leading-6 text-muted">{t('utilityPipeline.locked.body')}</p>
+          <p className="mt-2 text-body leading-6 text-muted">{t('utilityPipeline.locked.body')}</p>
         </div>
         <button
           type="button"
@@ -470,7 +470,7 @@ function UtilityPipelinePanelUnlocked() {
       {/* LEFT — pipeline list */}
       <aside className="flex min-h-0 flex-col border-r border-border/60 pr-2">
         <header className="flex items-center justify-between gap-2 pb-2">
-          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+          <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
             {t('utilityPipeline.list.label')}
           </span>
           <div className="flex items-center gap-1">
@@ -518,7 +518,7 @@ function UtilityPipelinePanelUnlocked() {
           </div>
         </header>
         {pipelines.length === 0 ? (
-          <p className="px-2 py-3 text-xs text-muted">{t('utilityPipeline.list.empty')}</p>
+          <p className="px-2 py-3 text-body-sm text-muted">{t('utilityPipeline.list.empty')}</p>
         ) : null}
         <ul role="list" className="flex-1 overflow-y-auto">
           {pipelines.map(p => {
@@ -540,7 +540,7 @@ function UtilityPipelinePanelUnlocked() {
                   }
                 }}
                 className={cn(
-                  'group flex items-center gap-1 rounded px-2 py-1.5 text-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  'group flex items-center gap-1 rounded px-2 py-1.5 text-body-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                   isActive
                     ? 'bg-background-elevated text-foreground'
                     : 'text-muted hover:bg-surface-strong/60 hover:text-foreground'
@@ -554,7 +554,7 @@ function UtilityPipelinePanelUnlocked() {
                   onClick={event => event.stopPropagation()}
                   onKeyDown={event => event.stopPropagation()}
                   placeholder={t('utilityPipeline.list.renamePlaceholder')}
-                  className="min-w-0 flex-1 truncate bg-transparent text-xs outline-none focus:ring-0"
+                  className="min-w-0 flex-1 truncate bg-transparent text-body-sm outline-none focus:ring-0"
                 />
                 <button
                   type="button"
@@ -596,10 +596,10 @@ function UtilityPipelinePanelUnlocked() {
               data-testid="utility-pipeline-import-textarea"
               placeholder={t('utilityPipeline.import.placeholder')}
               rows={4}
-              className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-[10px]"
+              className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-eyebrow"
             />
             {importWarning ? (
-              <p data-testid="utility-pipeline-import-error" className="text-[10px] text-rose-300">
+              <p data-testid="utility-pipeline-import-error" className="text-eyebrow text-rose-300">
                 {importWarning}
               </p>
             ) : null}
@@ -611,7 +611,7 @@ function UtilityPipelinePanelUnlocked() {
                   setImportWarning(null);
                 }}
                 data-testid="utility-pipeline-import-cancel"
-                className="inline-flex h-6 items-center rounded border border-border/60 bg-surface/40 px-2 text-[10px] text-muted hover:text-foreground"
+                className="inline-flex h-6 items-center rounded border border-border/60 bg-surface/40 px-2 text-eyebrow text-muted hover:text-foreground"
               >
                 {t('utilityPipeline.import.cancel')}
               </button>
@@ -620,7 +620,7 @@ function UtilityPipelinePanelUnlocked() {
                 onClick={handleImportConfirm}
                 disabled={!importTextareaValue.trim()}
                 data-testid="utility-pipeline-import-confirm"
-                className="inline-flex h-6 items-center rounded border border-accent/40 bg-accent/10 px-2 text-[10px] text-accent-fg hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-6 items-center rounded border border-accent/40 bg-accent/10 px-2 text-eyebrow text-accent-fg hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t('utilityPipeline.import.confirm')}
               </button>
@@ -634,8 +634,8 @@ function UtilityPipelinePanelUnlocked() {
         {!activePipeline ? (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
             <div className="flex flex-col gap-1">
-              <div className="text-sm font-medium">{t('utilityPipeline.empty.title')}</div>
-              <div className="text-xs text-muted">{t('utilityPipeline.empty.body')}</div>
+              <div className="text-body font-medium">{t('utilityPipeline.empty.title')}</div>
+              <div className="text-body-sm text-muted">{t('utilityPipeline.empty.body')}</div>
             </div>
             {/* RL-099 Slice 5 — starter gallery so a blank pipeline panel
                 is discoverable now the engine ships 15 adapters. */}
@@ -644,7 +644,7 @@ function UtilityPipelinePanelUnlocked() {
         ) : (
           <>
             <header className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+              <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
                 {t('utilityPipeline.editor.stepsLabel')}
               </span>
               <button
@@ -652,7 +652,7 @@ function UtilityPipelinePanelUnlocked() {
                 onClick={handleAddStep}
                 disabled={activePipeline.steps.length >= PIPELINE_MAX_STEPS}
                 data-testid="utility-pipeline-editor-add-step"
-                className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-[11px] font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus size={11} aria-hidden="true" />
                 <span>{t('utilityPipeline.editor.addStep')}</span>
@@ -665,7 +665,7 @@ function UtilityPipelinePanelUnlocked() {
                 }
                 data-testid="utility-pipeline-editor-run"
                 aria-label={t('utilityPipeline.editor.run')}
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-success-border bg-success-bg px-2 text-[11px] font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-success-border bg-success-bg px-2 text-caption font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <PlayCircle size={11} aria-hidden="true" />
                 <span>
@@ -677,7 +677,7 @@ function UtilityPipelinePanelUnlocked() {
             </header>
 
             {activePipeline.steps.length === 0 ? (
-              <div className="rounded border border-dashed border-border/60 p-4 text-center text-xs text-muted">
+              <div className="rounded border border-dashed border-border/60 p-4 text-center text-body-sm text-muted">
                 {t('utilityPipeline.editor.emptyPipeline')}
               </div>
             ) : (
@@ -708,7 +708,7 @@ function UtilityPipelinePanelUnlocked() {
             )}
 
             <div className="grid gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+              <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
                 {t('utilityPipeline.editor.inputLabel')}
               </span>
               <textarea
@@ -718,7 +718,7 @@ function UtilityPipelinePanelUnlocked() {
                 data-testid="utility-pipeline-editor-input"
                 placeholder={t('utilityPipeline.editor.inputPlaceholder')}
                 rows={6}
-                className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-[11px]"
+                className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-caption"
               />
             </div>
           </>
@@ -731,7 +731,7 @@ function UtilityPipelinePanelUnlocked() {
         className="flex min-h-0 flex-col gap-2 border-l border-border/60 pl-2"
       >
         <header className="flex items-center gap-2 pb-1">
-          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+          <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
             {t('utilityPipeline.result.title')}
           </span>
           <button
@@ -740,14 +740,14 @@ function UtilityPipelinePanelUnlocked() {
             disabled={!canSaveCapsule}
             data-testid="pipeline-save-capsule"
             title={t('pipeline.capsule.saveAction')}
-            className="ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-[10px] font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-eyebrow font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <PackagePlus size={11} aria-hidden="true" />
             <span>{t('pipeline.capsule.saveAction')}</span>
           </button>
         </header>
         {runState.phase === 'idle' ? (
-          <p className="text-xs text-muted">{t('utilityPipeline.result.empty')}</p>
+          <p className="text-body-sm text-muted">{t('utilityPipeline.result.empty')}</p>
         ) : (
           <ol className="flex-1 space-y-2 overflow-y-auto pr-1">
             {runState.stepResults.map((result, index) => (
@@ -757,7 +757,7 @@ function UtilityPipelinePanelUnlocked() {
                 data-status={result.status}
                 className="grid gap-1 rounded border border-border/40 bg-surface/30 p-2"
               >
-                <header className="flex items-center gap-2 text-[10px] text-muted">
+                <header className="flex items-center gap-2 text-eyebrow text-muted">
                   <span className="font-bold uppercase tracking-wider">
                     {t('utilityPipeline.result.stepLabel', { index: index + 1 })}
                   </span>
@@ -767,7 +767,7 @@ function UtilityPipelinePanelUnlocked() {
                 {result.status === 'ok' && typeof result.output === 'string' ? (
                   <pre
                     data-testid="utility-pipeline-result-output"
-                    className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded bg-background-elevated/60 p-2 font-mono text-[10px] text-foreground"
+                    className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded bg-background-elevated/60 p-2 font-mono text-eyebrow text-foreground"
                   >
                     {result.output.length === 0
                       ? t('utilityPipeline.result.emptyOutput')
@@ -777,18 +777,18 @@ function UtilityPipelinePanelUnlocked() {
                 {result.status === 'error' || result.status === 'timeout' ? (
                   <p
                     data-testid="utility-pipeline-result-error"
-                    className="font-mono text-[10px] text-rose-300"
+                    className="font-mono text-eyebrow text-rose-300"
                   >
                     {result.errorMessage ?? t(`utilityPipeline.result.${result.status}`)}
                   </p>
                 ) : null}
                 {result.status === 'skipped' ? (
-                  <p className="text-[10px] text-muted">
+                  <p className="text-eyebrow text-muted">
                     {t('utilityPipeline.result.skippedHint')}
                   </p>
                 ) : null}
                 {result.status === 'incompatible' ? (
-                  <p className="font-mono text-[10px] text-amber-300">
+                  <p className="font-mono text-eyebrow text-amber-300">
                     {result.errorMessage ?? t('utilityPipeline.result.incompatibleHint')}
                   </p>
                 ) : null}

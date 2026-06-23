@@ -50,7 +50,7 @@ export function JwtUtilityPanel() {
               const next = event.target.value;
               if (next === 'decode' || next === 'verify' || next === 'sign') setMode(next);
             }}
-            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
             <option value="decode">{t('utilities.tool.jwt.mode.decode')}</option>
             <option value="verify">{t('utilities.tool.jwt.mode.verify')}</option>
@@ -119,7 +119,7 @@ function JwtDecodeSection({
         >
           {analysis.header ? (
             <div className="grid gap-2">
-              <div className="max-h-[22rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+              <div className="max-h-[22rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
                 <JsonTreeNode value={analysis.header} />
               </div>
               <div className="flex justify-end">
@@ -139,7 +139,7 @@ function JwtDecodeSection({
         >
           {analysis.payload ? (
             <div className="grid gap-2">
-              <div className="max-h-[22rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+              <div className="max-h-[22rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
                 <JsonTreeNode value={analysis.payload} />
               </div>
               <div className="flex justify-end">
@@ -211,7 +211,7 @@ function JwtVerifySection({
               const next = event.target.value;
               if (isJwtAlgorithm(next)) setAlgorithm(next);
             }}
-            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
             {JWT_SUPPORTED_ALGORITHMS.map(alg => (
               <option key={alg} value={alg}>
@@ -236,7 +236,7 @@ function JwtVerifySection({
           onClick={() => void handleVerify()}
           disabled={running}
           data-testid="jwt-verify-run"
-          className="inline-flex w-fit items-center gap-2 rounded-[0.9rem] border border-border/80 bg-surface/60 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80 disabled:opacity-50"
+          className="inline-flex w-fit items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80 disabled:opacity-50"
         >
           {t('utilities.tool.jwt.verify.action')}
         </button>
@@ -272,7 +272,7 @@ function JwtVerifyResultView({ result }: { result: JwtVerifyResult }) {
         ) : null}
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.jwt.payloadTitle')}</FieldLabel>
-          <div className="max-h-[22rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+          <div className="max-h-[22rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
             <JsonTreeNode value={result.payload} />
           </div>
         </div>
@@ -381,7 +381,7 @@ function JwtSignSection() {
               const next = event.target.value;
               if (isJwtAlgorithm(next)) setAlgorithm(next);
             }}
-            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
             {JWT_SUPPORTED_ALGORITHMS.map(alg => (
               <option key={alg} value={alg}>
@@ -406,7 +406,7 @@ function JwtSignSection() {
           onClick={() => void handleSign()}
           disabled={running}
           data-testid="jwt-sign-run"
-          className="inline-flex w-fit items-center gap-2 rounded-[0.9rem] border border-border/80 bg-surface/60 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80 disabled:opacity-50"
+          className="inline-flex w-fit items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80 disabled:opacity-50"
         >
           {t('utilities.tool.jwt.sign.action')}
         </button>

@@ -722,7 +722,7 @@ export function FloatingActionPill({
       <span className="action-pill-divider action-pill-meta-divider" />
 
       {/* 4. History dots */}
-      <div className="action-pill-meta inline-flex items-center gap-2 pl-2 pr-3 text-[10.5px] font-mono text-fg-subtle">
+      <div className="action-pill-meta inline-flex items-center gap-2 pl-2 pr-3 text-eyebrow font-mono text-fg-subtle">
         <span className="uppercase font-bold">{t('actionPill.runs')}</span>
         <RunHistoryDots history={history} />
         {lastRunMs !== null ? (
@@ -737,7 +737,7 @@ export function FloatingActionPill({
               a tooltip explaining the always-on behaviour. */}
       <Tooltip content={t('actionPill.autosaveTooltip')}>
         <div
-          className="action-pill-meta inline-flex items-center gap-1.5 pl-2 pr-3 text-[10.5px] font-mono text-fg-muted"
+          className="action-pill-meta inline-flex items-center gap-1.5 pl-2 pr-3 text-eyebrow font-mono text-fg-muted"
           data-testid="action-pill-autosave"
         >
           <span
@@ -916,7 +916,7 @@ function RecipesActionPillButton({
             data-testid="action-pill-recipes-badge"
             data-passed-count={passedCount}
             aria-label={t('chrome.recipes.badgeAria', { count: passedCount })}
-            className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border border-success-border bg-success-fg px-0.5 text-[8px] font-bold leading-none text-fg-on-accent shadow-sm"
+            className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border border-success-border bg-success-fg px-0.5 text-nano font-bold leading-none text-fg-on-accent shadow-sm"
           >
             {passedCount > 99 ? '99+' : passedCount}
           </span>

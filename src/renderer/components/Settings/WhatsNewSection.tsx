@@ -52,7 +52,7 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
       parts.push(
         <code
           key={`${index}-code`}
-          className="rounded-md bg-surface-strong/85 px-1.5 py-0.5 font-mono text-[12px] text-foreground"
+          className="rounded-md bg-surface-strong/85 px-1.5 py-0.5 font-mono text-body-sm text-foreground"
         >
           {token.slice(1, -1)}
         </code>
@@ -146,10 +146,10 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
         <aside className="flex w-full shrink-0 flex-col border-b border-border/80 bg-background/55 lg:w-[280px] lg:border-b-0 lg:border-r">
           <div className="surface-header px-5 pt-5 pb-3">
             <Eyebrow className="mb-0.5">{t('whatsNew.title')}</Eyebrow>
-            <h2 className="font-display text-[18px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
+            <h2 className="font-display text-h3 font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
               {t('whatsNew.subtitle')}
             </h2>
-            <p className="mt-1 text-[11.5px] leading-[1.45] text-muted">
+            <p className="mt-1 text-caption leading-[1.45] text-muted">
               {t('whatsNew.versionsCount', {
                 count: entries.length,
               })}
@@ -167,7 +167,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                 placeholder={t('whatsNew.search.placeholder')}
                 aria-label={t('whatsNew.search.ariaLabel')}
                 data-testid="changelog-search"
-                className="w-full rounded-[0.85rem] border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-[12px] text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
+                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
             </div>
           </div>
@@ -175,7 +175,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
           <div className="flex-1 overflow-y-auto p-2">
             {filteredEntries.length === 0 ? (
               <div className="px-3 py-6 text-center">
-                <p className="text-[12px] text-muted">
+                <p className="text-body-sm text-muted">
                   {t('whatsNew.search.empty', {
                     query,
                   })}
@@ -196,7 +196,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                     aria-pressed={isSelected}
                     data-testid={`changelog-entry-${entry.version}`}
                     className={cn(
-                      'mb-1 flex w-full items-start gap-2.5 rounded-[1rem] px-3 py-2 text-left transition-colors',
+                      'mb-1 flex w-full items-start gap-2.5 rounded-2xl px-3 py-2 text-left transition-colors',
                       isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/72'
                     )}
                   >
@@ -210,13 +210,13 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                     <span className="flex flex-col">
                       <span
                         className={cn(
-                          'font-mono text-[13px] font-semibold leading-tight',
+                          'font-mono text-body font-semibold leading-tight',
                           isSelected ? 'text-primary' : 'text-foreground'
                         )}
                       >
                         {entry.version}
                       </span>
-                      <span className="mt-0.5 text-[11px] text-muted">
+                      <span className="mt-0.5 text-caption text-muted">
                         {entry.unreleased
                           ? t('whatsNew.entry.unreleased')
                           : (entry.date ?? '—')}
@@ -244,7 +244,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                   {selectedEntry.date ? ` · ${selectedEntry.date}` : null}
                 </Eyebrow>
                 <div className="flex items-baseline gap-3">
-                  <h2 className="font-display text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] text-foreground">
+                  <h2 className="font-display text-display font-semibold leading-[1.05] tracking-[-0.03em] text-foreground">
                     {selectedEntry.version}
                   </h2>
                   {selectedEntry.unreleased ? (
@@ -253,14 +253,14 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                     </Pill>
                   ) : null}
                 </div>
-                <p className="mt-1 max-w-2xl text-[12.5px] leading-[1.5] text-muted">
+                <p className="mt-1 max-w-2xl text-body-sm leading-[1.5] text-muted">
                   {t('whatsNew.description')}
                 </p>
               </div>
             ) : (
               <div>
                 <Eyebrow>{t('whatsNew.title')}</Eyebrow>
-                <h2 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-foreground">
+                <h2 className="font-display text-h2 font-semibold tracking-[-0.02em] text-foreground">
                   {t('whatsNew.empty')}
                 </h2>
               </div>
@@ -288,7 +288,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                     <section key={`${selectedEntry.version}-${section.title}`}>
                       <div className="mb-2 flex items-center gap-2">
                         <Pill tone={cat.tone}>{cat.badge}</Pill>
-                        <h4 className="text-[12.5px] font-semibold text-foreground">
+                        <h4 className="text-body-sm font-semibold text-foreground">
                           {section.title}
                         </h4>
                       </div>
@@ -296,7 +296,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                         {section.items.map((item) => (
                           <li
                             key={item}
-                            className="text-[13px] leading-[1.55] text-foreground/90"
+                            className="text-body leading-[1.55] text-foreground/90"
                           >
                             {renderInlineMarkdown(item)}
                           </li>
@@ -307,8 +307,8 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                 })}
               </div>
             ) : (
-              <div className="rounded-[1.15rem] border border-border/80 bg-background-elevated/72 p-6 text-center">
-                <p className="text-[13px] font-medium text-foreground">
+              <div className="rounded-2xl border border-border/80 bg-background-elevated/72 p-6 text-center">
+                <p className="text-body font-medium text-foreground">
                   {t('whatsNew.empty')}
                 </p>
               </div>

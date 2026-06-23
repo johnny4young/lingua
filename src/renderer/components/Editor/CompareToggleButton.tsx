@@ -75,7 +75,7 @@ export function CompareToggleButton() {
       disabled={!canEnable}
       data-testid="compare-toggle"
       data-state={canEnable ? (enabled ? 'on' : 'off') : 'disabled'}
-      className={`button-secondary inline-flex items-center gap-1 px-2.5 py-1 font-mono text-[10px] ${
+      className={`button-secondary inline-flex items-center gap-1 px-2.5 py-1 font-mono text-eyebrow ${
         enabled
           ? 'border-primary/25 bg-primary-soft text-primary'
           : !canEnable

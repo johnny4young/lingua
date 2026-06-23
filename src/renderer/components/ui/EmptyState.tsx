@@ -18,9 +18,9 @@ export function EmptyState({ icon, title, description, action, className }: Empt
       <span className="mb-[14px] grid h-10 w-10 place-items-center rounded-lg border border-border-subtle bg-bg-inset text-accent">
         {icon}
       </span>
-      <div className="text-[14.5px] font-semibold text-fg-base">{title}</div>
+      <div className="text-body-lg font-semibold text-fg-base">{title}</div>
       {description ? (
-        <div className="mt-[6px] text-[12.5px] leading-relaxed text-fg-subtle">{description}</div>
+        <div className="mt-[6px] text-body-sm leading-relaxed text-fg-subtle">{description}</div>
       ) : null}
       {action ? <div className="mt-[14px]">{action}</div> : null}
     </div>

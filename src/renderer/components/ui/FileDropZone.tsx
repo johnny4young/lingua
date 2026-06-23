@@ -71,7 +71,7 @@ export function FileDropZone({
       data-testid={testId}
       data-drop-state={effectiveState}
       className={cn(
-        'group relative grid cursor-pointer gap-2 rounded-[1.1rem] border-2 border-dashed p-4 text-center text-[12px] transition-colors',
+        'group relative grid cursor-pointer gap-2 rounded-2xl border-2 border-dashed p-4 text-center text-body-sm transition-colors',
         stateClasses(effectiveState),
         className
       )}

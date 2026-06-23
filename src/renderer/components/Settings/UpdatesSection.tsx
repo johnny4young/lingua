@@ -47,12 +47,12 @@ export function UpdatesSection() {
       <StatusBadge tone={toneForUpdateStatus(status)} dot>
         {statusLabel}
       </StatusBadge>
-      {releaseName && <p className="text-xs text-fg-muted">{releaseName}</p>}
+      {releaseName && <p className="text-body-sm text-fg-muted">{releaseName}</p>}
       {displayMessage && (
-        <p className="max-w-[18rem] text-xs leading-5 text-fg-subtle">{displayMessage}</p>
+        <p className="max-w-[18rem] text-body-sm leading-5 text-fg-subtle">{displayMessage}</p>
       )}
       {lastCheckedAt && (
-        <p className="text-[11px] text-fg-subtle">
+        <p className="text-caption text-fg-subtle">
           {t('updates.lastChecked')}: {new Date(lastCheckedAt).toLocaleString()}
         </p>
       )}

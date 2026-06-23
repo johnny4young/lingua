@@ -59,14 +59,14 @@ export function ProjectTemplatesOverlay({
     >
       <div className="mt-12 w-full max-w-5xl">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-fg-base">
+          <h2 className="font-display text-h3 font-semibold tracking-[-0.02em] text-fg-base">
             {t('emptyState.projectTemplates.heading')}
           </h2>
           <button
             type="button"
             onClick={onClose}
             data-testid="project-templates-overlay-close"
-            className="rounded-full px-3 py-1 text-xs font-medium text-fg-muted hover:text-fg-base"
+            className="rounded-full px-3 py-1 text-body-sm font-medium text-fg-muted hover:text-fg-base"
           >
             {t('emptyState.projectTemplates.dismiss')}
           </button>

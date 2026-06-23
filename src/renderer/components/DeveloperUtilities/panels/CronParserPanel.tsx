@@ -115,7 +115,7 @@ export function CronParserPanel() {
             spellCheck={false}
           />
         </div>
-        <label className="grid gap-1 text-xs text-muted md:max-w-[12rem]">
+        <label className="grid gap-1 text-body-sm text-muted md:max-w-[12rem]">
           <FieldLabel>{t('utilities.tool.cron.nextCount.label')}</FieldLabel>
           <UtilityInput
             aria-label={t('utilities.tool.cron.nextCount.label')}
@@ -149,7 +149,7 @@ export function CronParserPanel() {
             />
             {result.message ? (
               <p
-                className="font-mono text-[11px] leading-4 text-muted"
+                className="font-mono text-caption leading-4 text-muted"
                 data-testid="cron-parser-error-detail"
               >
                 {result.message}
@@ -184,13 +184,13 @@ export function CronParserPanel() {
                 <StatusMessage message={t('utilities.tool.cron.nextRuns.empty')} />
               ) : (
                 <ul
-                  className="grid gap-1 rounded-[1.1rem] border border-border/80 bg-background/65 p-3"
+                  className="grid gap-1 rounded-2xl border border-border/80 bg-background/65 p-3"
                   data-testid="cron-parser-next-runs"
                 >
                   {result.nextRuns.map((date, index) => (
                     <li
                       key={`${date.toISOString()}-${index}`}
-                      className="font-mono text-xs text-foreground"
+                      className="font-mono text-body-sm text-foreground"
                       data-testid={`cron-parser-next-row-${index}`}
                     >
                       {formatCronRunTimestamp(date, i18n.language || 'en')}

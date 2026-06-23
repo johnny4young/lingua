@@ -178,7 +178,7 @@ export function EditorTabContextMenu({
             role="menuitem"
             disabled={item.disabled}
             onClick={wrap(item.onSelect)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-surface-strong/82 focus:bg-surface-strong/88 disabled:cursor-not-allowed disabled:opacity-45"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-body-sm text-foreground transition-colors hover:bg-surface-strong/82 focus:bg-surface-strong/88 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <span className="flex-1">{item.label}</span>
             {item.kbd && <Kbd>{item.kbd}</Kbd>}

@@ -66,8 +66,8 @@ export function LayoutSection() {
             >
               <LayoutIcon preset={preset.id} active={selected} />
               <div>
-                <p className="text-[12.5px] font-medium text-fg-base">{label}</p>
-                <p className="mt-1 text-[11px] leading-5 text-fg-subtle">{description}</p>
+                <p className="text-body-sm font-medium text-fg-base">{label}</p>
+                <p className="mt-1 text-caption leading-5 text-fg-subtle">{description}</p>
               </div>
             </button>
           );

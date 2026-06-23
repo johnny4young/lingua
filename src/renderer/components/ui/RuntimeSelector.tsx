@@ -31,7 +31,7 @@ export interface RuntimeSelectorProps {
 }
 
 const SEGMENT_BASE =
-  'inline-flex min-h-10 items-center text-[12.5px] transition-colors focus-visible:outline-none ' +
+  'inline-flex min-h-10 items-center text-body-sm transition-colors focus-visible:outline-none ' +
   'focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-45';
 
 export function RuntimeSelector({
@@ -63,7 +63,7 @@ export function RuntimeSelector({
         {languageGlyph ? (
           <span
             className={cn(
-              'rounded-sm px-1 py-[2px] font-mono text-[8.5px] font-bold text-fg-on-accent',
+              'rounded-sm px-1 py-[2px] font-mono text-nano font-bold text-fg-on-accent',
               languageGlyph.className ?? 'bg-slate-500'
             )}
           >
@@ -103,7 +103,7 @@ export function RuntimeSelector({
         {running ? <Square size={11} aria-hidden /> : <Play size={11} aria-hidden />}
         {activeLabel ? <span>{activeLabel}</span> : null}
         {!running && runShortcut ? (
-          <kbd className="inline-flex items-center gap-1 rounded-sm bg-fg-on-accent/15 px-1.5 py-0.5 font-mono text-[10.5px] font-medium leading-none">
+          <kbd className="inline-flex items-center gap-1 rounded-sm bg-fg-on-accent/15 px-1.5 py-0.5 font-mono text-eyebrow font-medium leading-none">
             {runShortcut}
           </kbd>
         ) : null}

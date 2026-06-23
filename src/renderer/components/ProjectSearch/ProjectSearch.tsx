@@ -55,7 +55,7 @@ function MatchPreview({ match }: { match: ProjectSearchMatch }) {
   const after = match.preview.slice(match.matchEnd);
 
   return (
-    <span className="block truncate font-mono text-xs leading-6 text-muted">
+    <span className="block truncate font-mono text-body-sm leading-6 text-muted">
       {before}
       <mark className="rounded-sm bg-primary/30 px-0.5 text-foreground">{hit}</mark>
       {after}
@@ -226,7 +226,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
             onKeyDown={handleKeyDown}
             placeholder={t('projectSearch.placeholder')}
             aria-label={t('projectSearch.placeholder')}
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted"
           />
           {query && (
             <button
@@ -243,19 +243,19 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
 
         <div ref={listRef} className="max-h-[28rem] overflow-y-auto px-2 py-2">
           {showNoProject ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">
+            <p className="px-4 py-10 text-center text-body text-muted">
               {t('projectSearch.empty.noProject')}
             </p>
           ) : status === 'error' ? (
-            <p className="px-4 py-10 text-center text-sm text-danger">
+            <p className="px-4 py-10 text-center text-body text-danger">
               {t('projectSearch.error', { message: error ?? '' })}
             </p>
           ) : showEmptyState ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">
+            <p className="px-4 py-10 text-center text-body text-muted">
               {t('projectSearch.empty.noMatch', { query })}
             </p>
           ) : !hasQuery ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">
+            <p className="px-4 py-10 text-center text-body text-muted">
               {t('projectSearch.empty.hint')}
             </p>
           ) : (
@@ -265,7 +265,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
                   <div
                     key={row.key}
                     data-row-key={row.key}
-                    className="mt-3 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted"
+                    className="mt-3 px-3 py-1 text-body-sm font-semibold uppercase tracking-[0.14em] text-muted"
                   >
                     {row.result.relativePath}
                   </div>
@@ -280,11 +280,11 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
                   data-row-key={row.key}
                   onClick={() => void openMatch(row)}
                   onMouseEnter={() => setSelectedMatchKey(row.key)}
-                  className={`flex w-full items-start gap-3 rounded-2xl px-3 py-2 text-left transition-colors ${
+                  className={`flex w-full items-start gap-3 rounded-4xl px-3 py-2 text-left transition-colors ${
                     isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/68'
                   }`}
                 >
-                  <span className="mt-[0.2rem] w-12 shrink-0 text-right font-mono text-xs text-muted">
+                  <span className="mt-[0.2rem] w-12 shrink-0 text-right font-mono text-body-sm text-muted">
                     {row.match?.line}:{row.match?.column}
                   </span>
                   {row.match && <MatchPreview match={row.match} />}
@@ -294,7 +294,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
           )}
         </div>
 
-        <div className="surface-header flex items-center gap-4 px-4 py-3 text-[11px] text-muted">
+        <div className="surface-header flex items-center gap-4 px-4 py-3 text-caption text-muted">
           <span>
             <Kbd>↑↓</Kbd> {t('projectSearch.hint.navigate')}
           </span>

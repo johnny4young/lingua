@@ -555,7 +555,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
                     type="button"
                     onClick={handleCreate}
                     data-testid="sql-workspace-empty-create"
-                    className="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-[12.5px] font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                    className="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
                   >
                     <Plus size={13} aria-hidden="true" />
                     {t('sqlWorkspace.empty.cta')}

@@ -35,7 +35,7 @@ export function Eyebrow({
   return (
     <p
       className={cn(
-        'mb-3 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted',
+        'mb-3 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted',
         className
       )}
     >
@@ -71,7 +71,7 @@ export function DenseSection({
     <section className={cn('first:mt-0 mt-7', className)}>
       <Eyebrow>{eyebrow}</Eyebrow>
       {description ? (
-        <p className="mb-3 max-w-[60ch] text-[12px] leading-5 text-muted">{description}</p>
+        <p className="mb-3 max-w-[60ch] text-body-sm leading-5 text-muted">{description}</p>
       ) : null}
       {children}
     </section>
@@ -105,9 +105,9 @@ export function RowDense({
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-[12.5px] font-medium leading-tight text-foreground">{label}</p>
+        <p className="text-body-sm font-medium leading-tight text-foreground">{label}</p>
         {hint ? (
-          <p className="mt-1 max-w-[44ch] text-[11.5px] leading-[1.45] text-muted">{hint}</p>
+          <p className="mt-1 max-w-[44ch] text-caption leading-[1.45] text-muted">{hint}</p>
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
@@ -146,7 +146,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]',
+        'inline-flex items-center rounded-full border px-2 py-0.5 text-eyebrow font-semibold uppercase tracking-[0.14em]',
         pillToneClasses[tone],
         className
       )}
@@ -169,7 +169,7 @@ const btnKindClasses: Record<BtnKind, string> = {
 };
 
 const btnSizeClasses: Record<BtnSize, string> = {
-  sm: 'h-7 px-2.5 text-[11px]',
+  sm: 'h-7 px-2.5 text-caption',
   md: '',
 };
 
@@ -214,7 +214,7 @@ export function EyebrowMono({
   return (
     <span
       className={cn(
-        'inline-block font-mono text-[10.5px] font-bold uppercase tracking-[0.18em] text-fg-subtle',
+        'inline-block font-mono text-eyebrow font-bold uppercase tracking-[0.18em] text-fg-subtle',
         className,
       )}
     >
@@ -256,7 +256,7 @@ export function TypePill({
     <span
       data-type-pill={kind}
       className={cn(
-        'inline-flex items-center rounded-sm border px-1.5 py-[1px] font-mono text-[9px] font-bold uppercase tracking-[0.08em]',
+        'inline-flex items-center rounded-sm border px-1.5 py-[1px] font-mono text-micro font-bold uppercase tracking-[0.08em]',
         // Default styling; the `[data-type-pill="..."]` overrides in
         // index.css colour the pill by type.
         'border-border-subtle bg-bg-panel-alt text-fg-subtle',
@@ -295,7 +295,7 @@ export function MonoBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center justify-center rounded border px-1.5 py-[1px] font-mono text-[10px] font-semibold leading-none',
+        'inline-flex items-center justify-center rounded border px-1.5 py-[1px] font-mono text-eyebrow font-semibold leading-none',
         toneClass[tone],
         className,
       )}
@@ -383,10 +383,10 @@ export function DisplayHeading({
 }) {
   const sizeClass =
     level === 'display'
-      ? 'text-[40px] tracking-[-0.03em]'
+      ? 'text-display tracking-[-0.03em]'
       : level === 'h1'
-        ? 'text-[22px] tracking-[-0.02em]'
-        : 'text-[17px] tracking-[-0.015em]';
+        ? 'text-h2 tracking-[-0.02em]'
+        : 'text-h3 tracking-[-0.015em]';
   return (
     <h2
       className={cn(

@@ -228,13 +228,13 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
             }}
             onKeyDown={handleKeyDown}
             placeholder={t('quickOpen.placeholder')}
-            className="min-w-0 flex-1 bg-transparent text-sm text-fg-base outline-none placeholder:text-fg-subtle"
+            className="min-w-0 flex-1 bg-transparent text-body text-fg-base outline-none placeholder:text-fg-subtle"
           />
         </>
       }
       footerLegend={<ModalFooterLegend navigate open select={false} close={false} />}
       trailing={
-        <span className="font-mono text-[11px] text-fg-subtle">
+        <span className="font-mono text-caption text-fg-subtle">
           {t('quickOpen.count', { count: filtered.length })}
         </span>
       }
@@ -311,9 +311,9 @@ function renderQuickOpenResults(
       }`}
     >
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium text-fg-base">{file.name}</span>
+        <span className="truncate text-body font-medium text-fg-base">{file.name}</span>
         {file.path !== file.name && (
-          <span className="truncate text-xs text-fg-subtle">{file.path}</span>
+          <span className="truncate text-body-sm text-fg-subtle">{file.path}</span>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -325,7 +325,7 @@ function renderQuickOpenResults(
         )}
         {file.language && (
           <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${languageBadgeClass(file.language)}`}
+            className={`rounded-full px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.14em] ${languageBadgeClass(file.language)}`}
           >
             {file.language}
           </span>
@@ -357,7 +357,7 @@ function renderQuickOpenResults(
     return [
       <p
         key={`section-${source}`}
-        className="px-3 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle"
+        className="px-3 pb-1.5 pt-3 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle"
         role="presentation"
       >
         {t(QUICK_OPEN_SECTION_LABEL_KEY[source])}

@@ -50,12 +50,12 @@ export function SqlStatusPill({ status, rowCount, durationMs }: SqlStatusPillPro
         {label}
       </StatusBadge>
       {showStats && rowCount !== undefined ? (
-        <span className="font-mono text-[10px] tabular-nums text-fg-subtle">
+        <span className="font-mono text-eyebrow tabular-nums text-fg-subtle">
           {t('sqlWorkspace.response.rowCount', { count: rowCount })}
         </span>
       ) : null}
       {showStats && durationMs !== undefined ? (
-        <span className="font-mono text-[10px] tabular-nums text-fg-subtle">
+        <span className="font-mono text-eyebrow tabular-nums text-fg-subtle">
           · {Math.max(0, Math.round(durationMs))} ms
         </span>
       ) : null}

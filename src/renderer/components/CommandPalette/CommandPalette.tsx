@@ -763,7 +763,7 @@ export function CommandPalette({
             onKeyDown={handleKeyDown}
             placeholder={t('commandPalette.search.placeholder')}
             aria-label={t('shortcuts.item.commandPalette.label')}
-            className="min-w-0 flex-1 bg-transparent text-sm text-fg-base outline-none placeholder:text-fg-subtle"
+            className="min-w-0 flex-1 bg-transparent text-body text-fg-base outline-none placeholder:text-fg-subtle"
           />
           {query && (
             <Tooltip content={t('commandPalette.search.clear')}>
@@ -784,7 +784,7 @@ export function CommandPalette({
       }
       footerLegend={<ModalFooterLegend navigate select close={false} />}
       trailing={
-        <span className="font-mono text-[11px] text-fg-subtle">
+        <span className="font-mono text-caption text-fg-subtle">
           {t('commandPalette.results.count', { count: filtered.length })}
         </span>
       }

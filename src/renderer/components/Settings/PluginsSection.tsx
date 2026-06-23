@@ -71,11 +71,11 @@ export function PluginsSection() {
       title={t('plugins.title')}
       description={t('plugins.description')}
     >
-      <div className="rounded-[1.35rem] border border-border/80 bg-background-elevated/72 p-4">
+      <div className="rounded-3xl border border-border/80 bg-background-elevated/72 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{t('plugins.directory.label')}</p>
-            <p className="mt-1 break-all text-xs leading-6 text-muted">
+            <p className="text-body font-medium text-foreground">{t('plugins.directory.label')}</p>
+            <p className="mt-1 break-all text-body-sm leading-6 text-muted">
               {installDirectory ?? t('plugins.directory.unavailable')}
             </p>
           </div>
@@ -90,7 +90,7 @@ export function PluginsSection() {
       </div>
 
       {plugins.length === 0 ? (
-        <div className="rounded-[1.35rem] border border-dashed border-border/80 px-4 py-8">
+        <div className="rounded-3xl border border-dashed border-border/80 px-4 py-8">
           <EmptyState
             icon={<Puzzle size={18} aria-hidden="true" />}
             title={t('plugins.empty')}
@@ -102,21 +102,21 @@ export function PluginsSection() {
           {plugins.map((plugin) => (
             <div
               key={plugin.manifestPath}
-              className="rounded-[1.35rem] border border-border/80 bg-background-elevated/72 p-4"
+              className="rounded-3xl border border-border/80 bg-background-elevated/72 p-4"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{plugin.displayName}</p>
-                  <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted">
+                  <p className="text-body font-medium text-foreground">{plugin.displayName}</p>
+                  <p className="mt-1 text-caption uppercase tracking-[0.16em] text-muted">
                     {formatPluginStatus(plugin.status, t)}
                   </p>
                 </div>
-                <p className="text-[11px] text-muted">{plugin.pluginId}</p>
+                <p className="text-caption text-muted">{plugin.pluginId}</p>
               </div>
-              <p className="mt-3 text-sm leading-6 text-muted">
+              <p className="mt-3 text-body leading-6 text-muted">
                 {formatPluginDiagnostic(plugin, t)}
               </p>
-              <p className="mt-3 break-all text-[11px] leading-5 text-muted">
+              <p className="mt-3 break-all text-caption leading-5 text-muted">
                 {plugin.manifestPath}
               </p>
             </div>

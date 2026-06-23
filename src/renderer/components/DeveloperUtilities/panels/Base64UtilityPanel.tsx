@@ -33,14 +33,14 @@ export function Base64UtilityPanel() {
       <div className="inline-flex w-fit overflow-hidden rounded-full border border-border/60 bg-bg-panel-alt">
         <button
           type="button"
-          className={`px-4 py-2 text-xs font-semibold ${mode === 'encode' ? 'bg-primary-soft text-primary' : 'text-foreground'}`}
+          className={`px-4 py-2 text-body-sm font-semibold ${mode === 'encode' ? 'bg-primary-soft text-primary' : 'text-foreground'}`}
           onClick={() => setMode('encode')}
         >
           {t('utilities.actions.encode')}
         </button>
         <button
           type="button"
-          className={`px-4 py-2 text-xs font-semibold ${mode === 'decode' ? 'bg-primary-soft text-primary' : 'text-foreground'}`}
+          className={`px-4 py-2 text-body-sm font-semibold ${mode === 'decode' ? 'bg-primary-soft text-primary' : 'text-foreground'}`}
           onClick={() => setMode('decode')}
         >
           {t('utilities.actions.decode')}

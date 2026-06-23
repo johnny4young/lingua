@@ -109,15 +109,15 @@ function TimestampOutputCard({
 }) {
   const hasValue = value !== null && value !== undefined && String(value).length > 0;
   const stringValue = hasValue ? String(value) : '';
-  const textClass = `${monospace ? 'font-mono ' : ''}text-sm text-foreground`;
+  const textClass = `${monospace ? 'font-mono ' : ''}text-body text-foreground`;
   return (
     <div
-      className={`grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3 ${
+      className={`grid gap-1 rounded-2xl border border-border/80 bg-background/65 px-3 py-3 ${
         fullWidth ? 'md:col-span-2' : ''
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-[0.16em] text-muted">{label}</span>
+        <span className="text-caption uppercase tracking-[0.16em] text-muted">{label}</span>
         <CopyButton value={stringValue} testid={`${testid}-copy`} disabled={!hasValue} />
       </div>
       <span className={textClass} data-testid={testid}>

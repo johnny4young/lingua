@@ -81,18 +81,18 @@ function DeviceBucket({
       className="rounded-md border border-border-subtle bg-bg-base px-3 py-2.5"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
+        <span className="font-mono text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-muted">
           {t(headingKey)}
         </span>
         <span
           data-testid={`license-devices-counter-${surface}`}
-          className="font-mono text-[11px] text-fg-subtle"
+          className="font-mono text-caption text-fg-subtle"
         >
           {t('license.devices.counter', { count: rows.length, limit })}
         </span>
       </div>
       {rows.length === 0 ? (
-        <p className="mt-2 text-[12px] text-fg-subtle">{t(emptyKey)}</p>
+        <p className="mt-2 text-body-sm text-fg-subtle">{t(emptyKey)}</p>
       ) : (
         <ul className="mt-2 grid gap-1.5">
           {rows.map((device) => (
@@ -145,7 +145,7 @@ function DeviceRow({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-[13px] text-fg-base" title={device.deviceName}>
+          <span className="truncate text-body text-fg-base" title={device.deviceName}>
             {device.deviceName}
           </span>
           {isCurrent ? (
@@ -154,7 +154,7 @@ function DeviceRow({
             </span>
           ) : null}
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-fg-subtle">
+        <div className="mt-0.5 flex items-center gap-1.5 text-caption text-fg-subtle">
           <span>{device.os}</span>
           <span aria-hidden="true">·</span>
           <span>{t('license.devices.lastSeen', { relative: lastSeenRelative })}</span>
@@ -172,7 +172,7 @@ function DeviceRow({
             : t('license.devices.remove')
         }
         className={cn(
-          'shrink-0 rounded-md border border-border-default px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60'
+          'shrink-0 rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60'
         )}
       >
         {isPending ? t('license.devices.removing') : t('license.devices.remove')}

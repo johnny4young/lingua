@@ -93,7 +93,7 @@ export function WorkflowModeSegment() {
         <span
           data-testid="workflow-mode-segment-collapsed"
           data-workflow-mode={onlyMode}
-          className="status-pill rounded-lg border-border-subtle bg-bg-inset px-2.5 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+          className="status-pill rounded-lg border-border-subtle bg-bg-inset px-2.5 py-1 text-caption font-semibold uppercase tracking-[0.08em] text-fg-subtle"
         >
           {t(MODE_LABEL_KEY[onlyMode])}
         </span>
@@ -141,7 +141,7 @@ export function WorkflowModeSegment() {
       data-testid="workflow-mode-segment"
       data-workflow-mode={currentMode}
       onKeyDown={handleKeyDown}
-      className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-border-subtle bg-bg-inset p-0.5 text-[0.7rem] font-semibold tracking-[0.02em] text-fg-base"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-border-subtle bg-bg-inset p-0.5 text-caption font-semibold tracking-[0.02em] text-fg-base"
     >
       {WORKFLOW_MODES.map((mode) => {
         const Icon = MODE_ICON[mode];
@@ -163,7 +163,7 @@ export function WorkflowModeSegment() {
             tabIndex={active ? 0 : -1}
             onClick={() => handleSelect(mode)}
             className={cn(
-              'inline-flex items-center gap-1 rounded-[5px] px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset',
+              'inline-flex items-center gap-1 rounded-sm px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset',
               supported
                 ? active
                   ? 'bg-bg-panel-alt font-semibold text-fg-base'

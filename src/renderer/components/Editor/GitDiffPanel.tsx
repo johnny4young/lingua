@@ -214,7 +214,7 @@ export function GitDiffPanel() {
       data-testid="git-diff-panel"
       className="flex h-full flex-col overflow-hidden"
     >
-      <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-xs">
+      <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-body-sm">
         <span className="font-medium">
           {t('editor.git.diffPanel.title')}
         </span>
@@ -261,7 +261,7 @@ interface EmptyHintProps {
 
 function EmptyHint({ title, body }: EmptyHintProps) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-6 text-center text-sm">
+    <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-6 text-center text-body">
       <div className="font-medium">{title}</div>
       <div className="text-muted">{body}</div>
     </div>

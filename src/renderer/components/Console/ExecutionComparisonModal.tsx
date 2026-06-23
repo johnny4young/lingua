@@ -53,7 +53,7 @@ function DiffLine({ segment }: { segment: DiffSegment }) {
   const sigil = isAdd ? '+' : isRemove ? '−' : ' ';
   return (
     <div
-      className={`flex gap-2 whitespace-pre-wrap px-3 py-0.5 font-mono text-xs leading-5 ${tone}`}
+      className={`flex gap-2 whitespace-pre-wrap px-3 py-0.5 font-mono text-body-sm leading-5 ${tone}`}
       data-testid={`execution-compare-diff-line-${segment.kind}`}
     >
       <span aria-hidden="true" className="select-none opacity-60">
@@ -140,11 +140,11 @@ export function ExecutionComparisonModal({ entries, onClose }: ExecutionComparis
           <div className="min-w-0">
             <h2
               id="execution-compare-modal-title"
-              className="font-display text-[20px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
+              className="font-display text-h2 font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
             >
               {t('executionHistory.compare.modal.title')}
             </h2>
-            <p className="mt-1 text-[12.5px] leading-[1.5] text-muted">
+            <p className="mt-1 text-body-sm leading-[1.5] text-muted">
               {t('executionHistory.compare.modal.subtitle')}
             </p>
           </div>
@@ -159,7 +159,7 @@ export function ExecutionComparisonModal({ entries, onClose }: ExecutionComparis
 
         <div
           data-testid="execution-compare-summary"
-          className="border-b border-border/80 px-6 py-3 text-[12px] leading-[1.6] text-muted"
+          className="border-b border-border/80 px-6 py-3 text-body-sm leading-[1.6] text-muted"
         >
           <div data-testid="execution-compare-summary-language">
             {sameLanguage
@@ -202,23 +202,23 @@ export function ExecutionComparisonModal({ entries, onClose }: ExecutionComparis
 
         <div className="grid max-h-[42vh] grid-cols-2 gap-0 overflow-hidden">
           <div className="flex flex-col border-r border-border/80">
-            <div className="border-b border-border/80 px-4 py-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted">
+            <div className="border-b border-border/80 px-4 py-2 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted">
               {t('executionHistory.compare.modal.olderPane')} · {older.language}
             </div>
             <pre
               data-testid="execution-compare-pane-older"
-              className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-xs leading-5 text-foreground"
+              className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-body-sm leading-5 text-foreground"
             >
               {olderCode}
             </pre>
           </div>
           <div className="flex flex-col">
-            <div className="border-b border-border/80 px-4 py-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted">
+            <div className="border-b border-border/80 px-4 py-2 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted">
               {t('executionHistory.compare.modal.newerPane')} · {newer.language}
             </div>
             <pre
               data-testid="execution-compare-pane-newer"
-              className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-xs leading-5 text-foreground"
+              className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-body-sm leading-5 text-foreground"
             >
               {newerCode}
             </pre>
@@ -226,7 +226,7 @@ export function ExecutionComparisonModal({ entries, onClose }: ExecutionComparis
         </div>
 
         <div className="border-t border-border/80">
-          <div className="flex items-center justify-between border-b border-border/80 px-6 py-2 text-[11px] uppercase tracking-[0.14em] text-muted">
+          <div className="flex items-center justify-between border-b border-border/80 px-6 py-2 text-caption uppercase tracking-[0.14em] text-muted">
             <span data-testid="execution-compare-diff-header">
               {t('executionHistory.compare.diff.header', {
                 add: summary.add,
@@ -237,7 +237,7 @@ export function ExecutionComparisonModal({ entries, onClose }: ExecutionComparis
           {isIdentical ? (
             <p
               data-testid="execution-compare-diff-identical"
-              className="px-6 py-4 text-[12.5px] text-muted"
+              className="px-6 py-4 text-body-sm text-muted"
             >
               {t('executionHistory.compare.diff.identical')}
             </p>

@@ -75,7 +75,7 @@ export function StringInspectorPanel() {
               <li
                 key={warning.kind}
                 data-testid={`string-inspector-warning-${warning.kind}`}
-                className="rounded-[0.9rem] border border-warning/60 bg-warning/10 px-3 py-2 text-xs text-warning"
+                className="rounded-xl border border-warning/60 bg-warning/10 px-3 py-2 text-body-sm text-warning"
               >
                 {t(warningKeyForKind(warning.kind), { count: warning.at.length })}
               </li>
@@ -92,11 +92,11 @@ export function StringInspectorPanel() {
           <StatusMessage message={t('utilities.tool.stringInspector.table.empty')} />
         ) : (
           <div
-            className="max-h-[26rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65"
+            className="max-h-[26rem] overflow-auto rounded-2xl border border-border/80 bg-background/65"
             data-testid="string-inspector-table"
           >
-            <table className="w-full border-collapse text-xs">
-              <thead className="sticky top-0 bg-surface/88 text-[11px] uppercase tracking-[0.16em] text-muted">
+            <table className="w-full border-collapse text-body-sm">
+              <thead className="sticky top-0 bg-surface/88 text-caption uppercase tracking-[0.16em] text-muted">
                 <tr>
                   <th className="px-3 py-2 text-left">
                     {t('utilities.tool.stringInspector.column.index')}
@@ -155,9 +155,9 @@ function InspectorCountCard({
   testid: string;
 }) {
   return (
-    <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
-      <span className="text-[11px] uppercase tracking-[0.16em] text-muted">{label}</span>
-      <span className="font-mono text-sm text-foreground" data-testid={testid}>
+    <div className="grid gap-1 rounded-2xl border border-border/80 bg-background/65 px-3 py-3">
+      <span className="text-caption uppercase tracking-[0.16em] text-muted">{label}</span>
+      <span className="font-mono text-body text-foreground" data-testid={testid}>
         {value.toLocaleString()}
       </span>
     </div>

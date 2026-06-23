@@ -116,7 +116,7 @@ export function OnboardingSection() {
           aria-expanded={previewOpen}
           aria-controls="onboarding-seed-preview"
           data-testid="onboarding-section-preview-toggle"
-          className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium text-fg-base"
+          className="flex w-full items-center justify-between gap-3 text-left text-body font-medium text-fg-base"
         >
           <span>{t('onboarding.section.previewLabel')}</span>
           {previewOpen ? (
@@ -131,12 +131,12 @@ export function OnboardingSection() {
             className="mt-3 space-y-2"
             data-testid="onboarding-section-preview-body"
           >
-            <p className="text-xs text-fg-muted font-mono">
+            <p className="text-body-sm text-fg-muted font-mono">
               {SEEDED_SCRATCHPAD_NAME} · {SEEDED_SCRATCHPAD_LANGUAGE}
             </p>
             <pre
               data-testid="onboarding-section-preview-source"
-              className="max-h-[40vh] overflow-auto rounded-md border border-border-subtle bg-bg-base/80 p-3 text-[11px] leading-snug text-fg-base whitespace-pre-wrap break-words"
+              className="max-h-[40vh] overflow-auto rounded-md border border-border-subtle bg-bg-base/80 p-3 text-caption leading-snug text-fg-base whitespace-pre-wrap break-words"
             >
               {SEEDED_SCRATCHPAD_SOURCE}
             </pre>

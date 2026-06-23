@@ -193,7 +193,7 @@ export function SqlResultPreview({
               aria-hidden="true"
               className="animate-spin text-fg-subtle"
             />
-            <div className="text-[12.5px] text-fg-subtle">
+            <div className="text-body-sm text-fg-subtle">
               {t('sqlWorkspace.response.loading')}
             </div>
           </div>
@@ -208,7 +208,7 @@ export function SqlResultPreview({
                   type="button"
                   onClick={onRun}
                   data-testid="sql-result-preview-run"
-                  className="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-[12.5px] font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                  className="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
                 >
                   {t('sqlWorkspace.response.emptyCta')}
                 </button>
@@ -241,7 +241,7 @@ export function SqlResultPreview({
         {showStatementCount ? (
           <span
             data-testid="sql-result-preview-statement-count"
-            className="mr-1 rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
+            className="mr-1 rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-eyebrow font-medium text-fg-muted"
           >
             {t('sqlWorkspace.response.statementCount', {
               count: response.statementCount,
@@ -315,7 +315,7 @@ export function SqlResultPreview({
         <div
           role="alert"
           data-testid="sql-result-preview-too-large"
-          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-[11px] text-warning-fg"
+          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-caption text-warning-fg"
         >
           <div className="flex items-start gap-2">
             <AlertTriangle
@@ -330,7 +330,7 @@ export function SqlResultPreview({
                   total: response.rowCount,
                 })}
               </p>
-              <p className="mt-0.5 text-[10px] text-warning-fg/80">
+              <p className="mt-0.5 text-eyebrow text-warning-fg/80">
                 {t('sqlWorkspace.response.tooLargeHint')}
               </p>
             </div>
@@ -353,7 +353,7 @@ export function SqlResultPreview({
               data-testid="sql-result-preview-filter"
               placeholder={t('sqlWorkspace.grid.filterPlaceholder')}
               aria-label={t('sqlWorkspace.grid.filterAria')}
-              className="min-w-0 flex-1 bg-transparent font-mono text-[11.5px] text-fg-base placeholder:text-fg-subtle focus:outline-none"
+              className="min-w-0 flex-1 bg-transparent font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:outline-none"
             />
             {filter.length > 0 ? (
               <button
@@ -371,7 +371,7 @@ export function SqlResultPreview({
           {filter.trim().length > 0 ? (
             <span
               data-testid="sql-result-preview-filter-count"
-              className="shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle"
+              className="shrink-0 font-mono text-eyebrow tabular-nums text-fg-subtle"
             >
               {t('sqlWorkspace.grid.filterMatches', {
                 shown: filteredCount,
@@ -400,12 +400,12 @@ export function SqlResultPreview({
         ) : hasResultBody && response.rows.length > 0 && filter.trim().length > 0 ? (
           <div
             data-testid="sql-result-preview-filter-empty"
-            className="grid h-full place-items-center px-4 py-6 text-center text-xs text-fg-subtle"
+            className="grid h-full place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle"
           >
             {t('sqlWorkspace.grid.filterEmpty')}
           </div>
         ) : response.status === 'success' ? (
-          <div className="grid h-full place-items-center px-4 py-6 text-center text-xs text-fg-subtle">
+          <div className="grid h-full place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle">
             {t('sqlWorkspace.response.noRows')}
           </div>
         ) : null}
@@ -429,14 +429,14 @@ export function SqlResultPreview({
             aria-hidden="true"
             className="shrink-0 text-success-fg"
           />
-          <span className="text-[12px] text-fg-muted">
+          <span className="text-body-sm text-fg-muted">
             {t('sqlWorkspace.snippet.nudge')}
           </span>
           <button
             type="button"
             onClick={onSaveSnippet}
             data-testid="sql-result-preview-save-snippet"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 py-1 text-[11.5px] font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 py-1 text-caption font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <Bookmark size={12} aria-hidden="true" />
             {t('sqlWorkspace.snippet.cta')}
@@ -494,7 +494,7 @@ function ErrorBand({
     <div
       role="alert"
       data-testid={`sql-result-preview-error-${status}`}
-      className="border-b border-error-border bg-error-bg px-3 py-2 text-[11px] text-error-fg"
+      className="border-b border-error-border bg-error-bg px-3 py-2 text-caption text-error-fg"
     >
       <div className="flex items-start gap-2">
         <AlertTriangle
@@ -505,12 +505,12 @@ function ErrorBand({
         <div>
           <p className="font-semibold">{t(bandKey)}</p>
           {message ? (
-            <pre className="mt-1 max-h-[120px] overflow-auto whitespace-pre-wrap break-all rounded bg-error-bg p-2 font-mono text-[10px] text-error-fg">
+            <pre className="mt-1 max-h-[120px] overflow-auto whitespace-pre-wrap break-all rounded bg-error-bg p-2 font-mono text-eyebrow text-error-fg">
               {message}
             </pre>
           ) : null}
           {hintKey ? (
-            <p className="mt-1 text-[10px] text-error-fg/80">{t(hintKey)}</p>
+            <p className="mt-1 text-eyebrow text-error-fg/80">{t(hintKey)}</p>
           ) : null}
         </div>
       </div>
@@ -530,7 +530,7 @@ function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
   return (
     <table
       data-testid="sql-result-preview-table"
-      className="w-full min-w-max table-fixed border-collapse font-mono text-[12.5px]"
+      className="w-full min-w-max table-fixed border-collapse font-mono text-body-sm"
     >
       <thead className="sticky top-0 z-10 bg-bg-base/95 backdrop-blur">
         <tr>
@@ -557,10 +557,10 @@ function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
                   title={t('sqlWorkspace.grid.sortBy', { name: col.name })}
                   className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
                 >
-                  <span className="text-[10px] uppercase tracking-[0.08em] text-fg-muted">
+                  <span className="text-eyebrow uppercase tracking-[0.08em] text-fg-muted">
                     {col.name}
                   </span>
-                  <span className="text-[9px] tracking-[0.04em] text-accent">
+                  <span className="text-micro tracking-[0.04em] text-accent">
                     {col.type}
                   </span>
                   {isSorted ? (
@@ -636,7 +636,7 @@ function JsonView({
   return (
     <pre
       data-testid="sql-result-preview-json"
-      className="overflow-auto px-3 py-2 font-mono text-[12px] leading-[1.7] text-fg-base"
+      className="overflow-auto px-3 py-2 font-mono text-body-sm leading-[1.7] text-fg-base"
     >
       {serialized}
     </pre>

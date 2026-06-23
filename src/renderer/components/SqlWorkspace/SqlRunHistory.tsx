@@ -67,7 +67,7 @@ export function SqlRunHistory({
       className="shrink-0 border-t border-border-subtle bg-bg-panel"
     >
       <header className="px-3 py-1.5">
-        <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-fg-subtle">
+        <span className="font-mono text-micro uppercase tracking-[0.14em] text-fg-subtle">
           {t('sqlWorkspace.history.label')}
         </span>
       </header>
@@ -90,7 +90,7 @@ export function SqlRunHistory({
                 data-active={isActive}
                 aria-current={isActive ? 'true' : undefined}
                 className={cn(
-                  'mb-0.5 flex w-full items-center gap-2 rounded-md border-l-2 px-2 py-1 text-left text-[11.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  'mb-0.5 flex w-full items-center gap-2 rounded-md border-l-2 px-2 py-1 text-left text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                   isActive
                     ? 'border-l-accent bg-bg-inset text-fg-base'
                     : 'border-l-transparent text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
@@ -106,7 +106,7 @@ export function SqlRunHistory({
                     })}
                   </span>
                 ) : null}
-                <span className="ml-auto flex items-center gap-2 font-mono text-[10px] tabular-nums text-fg-subtle">
+                <span className="ml-auto flex items-center gap-2 font-mono text-eyebrow tabular-nums text-fg-subtle">
                   <span>{Math.max(0, Math.round(entry.durationMs))} ms</span>
                   <span>{formatClock(entry.recordedAt)}</span>
                 </span>

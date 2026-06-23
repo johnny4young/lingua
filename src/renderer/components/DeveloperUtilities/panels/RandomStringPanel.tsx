@@ -61,7 +61,7 @@ export function RandomStringPanel() {
         description={t('utilities.tool.randomString.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.randomString.lengthLabel')}</FieldLabel>
             <UtilityInput
               aria-label={t('utilities.tool.randomString.lengthLabel')}
@@ -75,7 +75,7 @@ export function RandomStringPanel() {
               }
             />
           </label>
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.randomString.countLabel')}</FieldLabel>
             <UtilityInput
               aria-label={t('utilities.tool.randomString.countLabel')}
@@ -89,7 +89,7 @@ export function RandomStringPanel() {
           </label>
         </div>
         <fieldset className="grid gap-2">
-          <legend className="text-xs font-medium uppercase tracking-wide text-muted">
+          <legend className="text-body-sm font-medium uppercase tracking-wide text-muted">
             {t('utilities.tool.randomString.charsetLabel')}
           </legend>
           <div className="grid gap-2 md:grid-cols-2">
@@ -102,7 +102,7 @@ export function RandomStringPanel() {
                 'excludeAmbiguous',
               ] as (keyof CharsetToggles)[]
             ).map(key => (
-              <label key={key} className="flex items-center gap-2 text-sm text-foreground">
+              <label key={key} className="flex items-center gap-2 text-body text-foreground">
                 <input
                   type="checkbox"
                   data-testid={`random-string-toggle-${key}`}
@@ -146,7 +146,7 @@ export function RandomStringPanel() {
               <div
                 key={`${index}-${value}`}
                 data-testid={`random-string-value-${index}`}
-                className="flex items-center justify-between gap-2 rounded-[1rem] border border-border/80 bg-background/70 px-3 py-2 font-mono text-sm text-foreground"
+                className="flex items-center justify-between gap-2 rounded-2xl border border-border/80 bg-background/70 px-3 py-2 font-mono text-body text-foreground"
               >
                 <span className="truncate">{value}</span>
                 <CopyButton value={value} testid={`random-string-value-copy-${index}`} />

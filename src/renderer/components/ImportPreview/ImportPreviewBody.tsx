@@ -110,7 +110,7 @@ function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
         <span
           data-testid="import-preview-method"
           className={cn(
-            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1',
+            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wider ring-1',
             methodTone
           )}
         >
@@ -118,7 +118,7 @@ function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
         </span>
         <span
           data-testid="import-preview-url"
-          className="min-w-0 flex-1 truncate font-mono text-xs text-fg-base"
+          className="min-w-0 flex-1 truncate font-mono text-body-sm text-fg-base"
           title={redacted.url}
         >
           {redacted.url}
@@ -127,7 +127,7 @@ function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
 
       {redacted.headers.length > 0 ? (
         <section className="grid gap-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-fg-subtle">
+          <div className="text-eyebrow font-bold uppercase tracking-wider text-fg-subtle">
             {t('importPreview.preview.headersLabel')}
             <span className="ml-2 text-fg-subtle/70">({redacted.headers.length})</span>
           </div>
@@ -142,7 +142,7 @@ function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
                 <li
                   key={`${header.name}-${idx}`}
                   data-redacted={isRedacted}
-                  className="flex items-center gap-2 font-mono text-[10px]"
+                  className="flex items-center gap-2 font-mono text-eyebrow"
                 >
                   <span className="min-w-[120px] shrink-0 truncate text-fg-subtle">
                     {header.name}
@@ -171,7 +171,7 @@ function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
           {hasRedactedHeader ? (
             <p
               data-testid="import-preview-redacted-hint"
-              className="text-[10px] text-fg-subtle"
+              className="text-eyebrow text-fg-subtle"
             >
               {t('importPreview.preview.redactedHeaderHint')}
             </p>
@@ -181,13 +181,13 @@ function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
 
       {redacted.body ? (
         <section className="grid gap-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-fg-subtle">
+          <div className="text-eyebrow font-bold uppercase tracking-wider text-fg-subtle">
             {t('importPreview.preview.bodyLabel')}
             <span className="ml-2 text-fg-subtle/70">({redacted.body.kind})</span>
           </div>
           <pre
             data-testid="import-preview-body-content"
-            className="max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded bg-bg-panel p-2 font-mono text-[10px] text-fg-base"
+            className="max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded bg-bg-panel p-2 font-mono text-eyebrow text-fg-base"
           >
             {!redacted.body.content || redacted.body.content.length === 0
               ? '(empty)'
@@ -231,7 +231,7 @@ function NotebookPreviewBand({
         </span>
         <span
           data-testid="import-preview-notebook-title"
-          className="min-w-0 flex-1 truncate font-mono text-xs text-fg-base"
+          className="min-w-0 flex-1 truncate font-mono text-body-sm text-fg-base"
           title={title}
         >
           {title}
@@ -270,7 +270,7 @@ function NotebookPreviewBand({
 
       {cellSnippets.length > 0 ? (
         <section className="grid gap-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-fg-subtle">
+          <div className="text-eyebrow font-bold uppercase tracking-wider text-fg-subtle">
             {t('importPreview.notebook.cellSnippetsTitle')}
           </div>
           <ul
@@ -302,7 +302,7 @@ function CellSnippetRow({ snippet }: { snippet: IpynbCellSnippet }) {
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            'inline-flex h-4 items-center rounded px-1.5 text-[9px] font-bold uppercase tracking-wider',
+            'inline-flex h-4 items-center rounded px-1.5 text-micro font-bold uppercase tracking-wider',
             isCode && snippet.language
               ? languageBadgeClass(snippet.language)
               : 'bg-bg-panel-alt text-fg-muted'
@@ -317,12 +317,12 @@ function CellSnippetRow({ snippet }: { snippet: IpynbCellSnippet }) {
             : t('importPreview.notebook.cellSnippetMarkdown')}
         </span>
         {isCode && snippet.outputCount !== undefined && snippet.outputCount > 0 ? (
-          <span className="text-[10px] text-fg-subtle">
+          <span className="text-eyebrow text-fg-subtle">
             ({snippet.outputCount})
           </span>
         ) : null}
       </div>
-      <pre className="whitespace-pre-wrap break-all font-mono text-[10px] text-fg-base">
+      <pre className="whitespace-pre-wrap break-all font-mono text-eyebrow text-fg-base">
         {snippet.preview.length > 0 ? snippet.preview : '(empty)'}
       </pre>
     </div>
@@ -358,7 +358,7 @@ function CollectionPreviewBand({
         </span>
         <span
           data-testid="import-preview-collection-title"
-          className="min-w-0 flex-1 truncate font-mono text-xs text-fg-base"
+          className="min-w-0 flex-1 truncate font-mono text-body-sm text-fg-base"
           title={title}
         >
           {title}
@@ -395,7 +395,7 @@ function CollectionPreviewBand({
       </section>
 
       <section className="grid gap-1">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-fg-subtle">
+        <div className="text-eyebrow font-bold uppercase tracking-wider text-fg-subtle">
           {t('importPreview.collection.requestsTitle')}
         </div>
         <ul
@@ -430,18 +430,18 @@ function CollectionRequestRow({
     <>
       <span
         className={cn(
-          'inline-flex w-14 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ring-1',
+          'inline-flex w-14 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-micro font-bold uppercase tracking-wider ring-1',
           methodTone
         )}
       >
         {request.method}
       </span>
       <div className="grid min-w-0 flex-1">
-        <span className="truncate text-[11px] text-fg-base" title={request.name}>
+        <span className="truncate text-caption text-fg-base" title={request.name}>
           {request.name}
         </span>
         <span
-          className="truncate font-mono text-[9px] text-fg-subtle"
+          className="truncate font-mono text-micro text-fg-subtle"
           title={request.url}
         >
           {request.url}
@@ -449,7 +449,7 @@ function CollectionRequestRow({
       </div>
       {sensitiveCount > 0 ? (
         <span
-          className="inline-flex shrink-0 items-center gap-0.5 text-[9px] text-warning-fg"
+          className="inline-flex shrink-0 items-center gap-0.5 text-micro text-warning-fg"
           title={t('importPreview.collection.redactedHeaderHint')}
           data-testid="import-preview-collection-redacted"
         >

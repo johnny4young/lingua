@@ -198,16 +198,16 @@ function findNextMarker(text: string, start: number): InlineMarker | null {
 export function RecipeMarkdown({ source }: RecipeMarkdownProps) {
   const blocks = parseRecipeMarkdown(source);
   return (
-    <div data-testid="recipe-markdown" className="grid gap-2 text-[12px] text-foreground">
+    <div data-testid="recipe-markdown" className="grid gap-2 text-body-sm text-foreground">
       {blocks.map((block, idx) => {
         switch (block.kind) {
           case 'heading': {
             const className =
               block.level === 1
-                ? 'text-base font-semibold tracking-tight'
+                ? 'text-body-lg font-semibold tracking-tight'
                 : block.level === 2
-                  ? 'text-sm font-semibold tracking-tight'
-                  : 'text-xs font-semibold uppercase tracking-wider text-muted';
+                  ? 'text-body font-semibold tracking-tight'
+                  : 'text-body-sm font-semibold uppercase tracking-wider text-muted';
             const Tag = (`h${block.level}` as 'h1' | 'h2' | 'h3');
             return (
               <Tag key={`heading-${idx}`} className={className}>
@@ -223,7 +223,7 @@ export function RecipeMarkdown({ source }: RecipeMarkdownProps) {
             );
           case 'list':
             return (
-              <ul key={`list-${idx}`} className="list-disc space-y-1 pl-5 text-[12px]">
+              <ul key={`list-${idx}`} className="list-disc space-y-1 pl-5 text-body-sm">
                 {block.items.map((item, itemIdx) => (
                   <li key={`item-${idx}-${itemIdx}`}>{renderInline(item)}</li>
                 ))}
@@ -234,7 +234,7 @@ export function RecipeMarkdown({ source }: RecipeMarkdownProps) {
               <pre
                 key={`code-${idx}`}
                 data-language={block.language || 'text'}
-                className="overflow-x-auto rounded border border-border/40 bg-background-elevated/60 p-2 font-mono text-[11px] text-foreground"
+                className="overflow-x-auto rounded border border-border/40 bg-background-elevated/60 p-2 font-mono text-caption text-foreground"
               >
                 {block.content}
               </pre>

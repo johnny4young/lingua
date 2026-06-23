@@ -14,13 +14,13 @@ export function InlineMarker({ value, type, watch = false, className }: InlineMa
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-2 rounded-[5px] bg-bg-inset/60 py-[3px] pl-[9px] pr-1 font-mono text-[11.5px]',
+        'inline-flex items-center gap-2 rounded-sm bg-bg-inset/60 py-[3px] pl-[9px] pr-1 font-mono text-caption',
         className
       )}
     >
-      {watch ? <code className="text-[9.5px] text-accent">@WATCH</code> : null}
+      {watch ? <code className="text-micro text-accent">@WATCH</code> : null}
       <span className="font-semibold text-fg-base">{value}</span>
-      <span className="border-l border-border-subtle pl-2 text-[9.5px] uppercase text-fg-subtle">
+      <span className="border-l border-border-subtle pl-2 text-micro uppercase text-fg-subtle">
         {type}
       </span>
     </span>

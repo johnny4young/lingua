@@ -97,6 +97,10 @@
   --color-bg-panel: oklch(1 0 0);
   --color-bg-panel-alt: oklch(0.968 0.005 210);
   --color-bg-inset: oklch(0.935 0.006 210);
+  /* DS parity (design-sync apply) — pre-baked modal scrim used by DS
+     components (e.g. Dialog). The app's own solid --color-overlay
+     (below) + runtime alpha stays the canonical scrim for app code. */
+  --color-bg-overlay: oklch(0.16 0.012 210 / 0.6);
 
   /* Text */
   --color-fg-base: oklch(0.16 0.012 210);
@@ -113,6 +117,9 @@
   --color-accent: oklch(0.52 0.18 210);
   --color-accent-hover: oklch(0.44 0.18 210);
   --color-accent-fg: oklch(0.36 0.17 210);
+  /* DS parity (design-sync apply) — soft pill / selected-row / focus-ring tint
+     that DS primitives (Badge accent, IconButton active) reference. */
+  --color-accent-tint: oklch(0.97 0.018 210);
 
   /* Overlay scrim base — the modal backdrop tint. A scrim must DIM the
      content beneath it, so even on light surfaces it is a dark neutral
@@ -124,6 +131,11 @@
   --color-success-bg: oklch(0.94 0.06 155);
   --color-success-fg: oklch(0.35 0.14 155);
   --color-success-border: oklch(0.55 0.14 155);
+  /* Workflow 'debug' accent (amber). run/scratchpad were already token-driven;
+     this puts debug on the same footing instead of inline oklch on the rule. */
+  --color-debug-fill: oklch(0.78 0.14 22);
+  --color-debug-fill-hover: oklch(0.82 0.16 22);
+  --color-debug-fg: oklch(0.22 0.16 22);
   --color-warning-bg: oklch(0.95 0.07 70);
   --color-warning-fg: oklch(0.42 0.14 70);
   --color-warning-border: oklch(0.62 0.16 70);
@@ -143,6 +155,29 @@
   --color-syntax-operator: oklch(0.45 0.018 210);
   --color-syntax-variable: oklch(0.32 0.016 210);
   --color-syntax-punctuation: oklch(0.62 0.015 210);
+
+  /* Inline-result editor decorations — sub-palette selected by the Monaco
+     theme class (.vs/.hc-light vs .vs-dark), so these live in :root (not the
+     shell [data-theme] dark block) and are named by editor theme. Promoted
+     from inline oklch on the rules so the values sit in one place. The `-prop`
+     variants feed the marker's own --inline-result-* custom props; the pill
+     hues are a type palette distinct from --color-syntax-*. */
+  --color-inline-light-tint: oklch(0.93 0.02 210);
+  --color-inline-light-fg: oklch(0.48 0.014 210);
+  --color-inline-light-arrow-prop: oklch(0.5 0.018 210);
+  --color-inline-light-arrow: oklch(0.62 0.015 210);
+  --color-inline-light-value-prop: oklch(0.2 0.018 210);
+  --color-inline-light-value: oklch(0.22 0.014 210);
+  --color-inline-dark-tint: oklch(0.14 0.008 220);
+  --color-inline-dark-fg: oklch(0.74 0.018 220);
+  --color-inline-dark-arrow-prop: oklch(0.7 0.02 220);
+  --color-inline-dark-arrow: oklch(0.62 0.018 220);
+  --color-inline-dark-value-prop: oklch(0.96 0.012 220);
+  --color-inline-dark-value: oklch(0.96 0.008 220);
+  --color-inline-dark-pill: oklch(0.76 0.018 220);
+  --color-inline-pill-string: oklch(0.8 0.14 155);
+  --color-inline-pill-number: oklch(0.8 0.12 250);
+  --color-inline-pill-object: oklch(0.82 0.1 45);
 
   /* Editor surfaces */
   --color-editor-bg: oklch(0.99 0.003 210);
@@ -224,12 +259,42 @@
   --text-eyebrow-lh: 1.2;
   --text-eyebrow-tracking: 0.16em;
   --text-eyebrow-weight: 600;
+  /* Scale-completion roles (design-sync 100% pass) — fill the three gaps the
+     canonical component classes used Tailwind defaults / sub-floor px for, so
+     every size now references a DS role. `control` + `body-md` carry the
+     Tailwind default line-heights (1.33 / 1.43) on purpose: buttons and fields
+     migrate to them with zero height change (a reading lh of 1.5 would grow
+     them). `display-lg` is the hero step above `display`. `micro` / `nano`
+     absorb the <10.5px sub-floor (badges, kbd, dense pills) within ±0.5px. */
+  --text-control-size: 12px;
+  --text-control-lh: 1.33;
+  --text-control-tracking: 0.01em;
+  --text-control-weight: 500;
+  --text-body-md-size: 14px;
+  --text-body-md-lh: 1.43;
+  --text-body-md-tracking: 0;
+  --text-body-md-weight: 450;
+  --text-display-lg-size: 48px;
+  --text-display-lg-lh: 1.05;
+  --text-display-lg-tracking: 0;
+  --text-display-lg-weight: 550;
+  --text-micro-size: 9px;
+  --text-micro-lh: 1.4;
+  --text-micro-tracking: 0.01em;
+  --text-micro-weight: 500;
+  --text-nano-size: 8px;
+  --text-nano-lh: 1.35;
+  --text-nano-tracking: 0.01em;
+  --text-nano-weight: 500;
 
   /* Shadows (light) */
   --shadow-none: none;
   --shadow-sm: 0 1px 2px rgba(16, 18, 26, 0.06);
   --shadow-md: 0 4px 10px -2px rgba(16, 18, 26, 0.08), 0 2px 4px -2px rgba(16, 18, 26, 0.06);
   --shadow-lg: 0 12px 28px -8px rgba(16, 18, 26, 0.14), 0 4px 10px -4px rgba(16, 18, 26, 0.08);
+  /* xl — floating overlays (action pill, rich dropdown, variables card) that
+     sit above lg-elevation panels. Was hand-rolled per component before. */
+  --shadow-xl: 0 18px 40px -10px rgba(15, 15, 40, 0.22), 0 4px 12px -4px rgba(15, 15, 40, 0.1);
 
   /* Motion */
   --duration-fast: 120ms;
@@ -297,6 +362,8 @@
   --color-bg-panel: oklch(0.16 0.01 210);
   --color-bg-panel-alt: oklch(0.2 0.012 210);
   --color-bg-inset: oklch(0.14 0.008 210);
+  /* DS parity (design-sync apply) — dark pre-baked modal scrim. */
+  --color-bg-overlay: oklch(0.1 0.005 210 / 0.7);
 
   --color-fg-base: oklch(0.98 0.005 210);
   --color-fg-muted: oklch(0.72 0.018 210);
@@ -310,6 +377,8 @@
   --color-accent: oklch(0.72 0.17 210);
   --color-accent-hover: oklch(0.8 0.16 210);
   --color-accent-fg: oklch(0.85 0.14 210);
+  /* DS parity (design-sync apply) — dark accent tint. */
+  --color-accent-tint: oklch(0.22 0.035 210);
 
   /* Overlay scrim base (dark) — drops nearly to black so the blurred
      backdrop reads as "everything behind is dimmed". Matches the
@@ -319,6 +388,8 @@
   --color-success-bg: oklch(0.25 0.06 155);
   --color-success-fg: oklch(0.78 0.14 155);
   --color-success-border: oklch(0.65 0.14 155);
+  --color-debug-fill: oklch(0.7 0.18 22);
+  --color-debug-fg: oklch(0.16 0.1 22);
   --color-warning-bg: oklch(0.28 0.08 70);
   --color-warning-fg: oklch(0.82 0.12 70);
   --color-warning-border: oklch(0.7 0.14 70);
@@ -356,6 +427,7 @@
   --shadow-sm: inset 0 1px 0 oklch(0.3 0.015 210 / 0.7), 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: inset 0 1px 0 oklch(0.32 0.015 210 / 0.8), 0 6px 14px rgba(0, 0, 0, 0.45);
   --shadow-lg: inset 0 1px 0 oklch(0.34 0.015 210 / 0.9), 0 18px 36px rgba(0, 0, 0, 0.55);
+  --shadow-xl: inset 0 1px 0 oklch(0.34 0.015 210 / 0.9), 0 22px 40px rgba(0, 0, 0, 0.55);
 
   /* Legacy --app-* bridge — dark-mode-specific overrides where the
      light declaration referenced an alpha-baked value that needs a
@@ -429,11 +501,13 @@
   --color-slate-800: var(--color-slate-800);
   --color-slate-900: var(--color-slate-900);
 
-  /* Surfaces — `bg-bg-base`, `bg-bg-panel`, `bg-bg-panel-alt`, `bg-bg-inset`. */
+  /* Surfaces — `bg-bg-base`, `bg-bg-panel`, `bg-bg-panel-alt`, `bg-bg-inset`,
+     `bg-bg-overlay` (DS parity, design-sync apply). */
   --color-bg-base: var(--color-bg-base);
   --color-bg-panel: var(--color-bg-panel);
   --color-bg-panel-alt: var(--color-bg-panel-alt);
   --color-bg-inset: var(--color-bg-inset);
+  --color-bg-overlay: var(--color-bg-overlay);
 
   /* Foreground — `text-fg-base`, `text-fg-muted`, `text-fg-subtle`,
      `text-fg-on-accent`. */
@@ -449,10 +523,12 @@
   --color-border-default: var(--color-border-default);
   --color-border-strong: var(--color-border-strong);
 
-  /* Accent — `bg-accent`, `bg-accent-hover`, `text-accent-fg`. */
+  /* Accent — `bg-accent`, `bg-accent-hover`, `text-accent-fg`,
+     `bg-accent-tint` (DS parity, design-sync apply). */
   --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent-hover);
   --color-accent-fg: var(--color-accent-fg);
+  --color-accent-tint: var(--color-accent-tint);
 
   /* Overlay scrim — surfaces `bg-overlay` so the modal backdrop can use
      `bg-overlay/70` for its dimming tint in both themes. */
@@ -490,15 +566,57 @@
   --spacing-7: 28px;
   --spacing-8: var(--space-8);
 
-  /* Tailwind expects `--radius-*` to be on the @theme block to
-     generate the `rounded-*` utilities. Bridge from the DS scale to
-     historical Lingua names (the old `--radius-2xl` is intentionally
-     larger than DS xl — kept for the few overlay cards that need it). */
+  /* Tailwind expects `--radius-*` to be on the @theme block to generate the
+     `rounded-*` utilities. The scale is now monotonic and gap-free: sm/md/lg/xl
+     bridge the DS base tokens, and 2xl(17px)/3xl(22px) fill the old 14px->30px
+     gap that cards used to hand-roll as `rounded-[1.05rem]` / `rounded-[1.35rem]`.
+     4xl(1.85rem) preserves the large overlay-card radius that used to be 2xl. */
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
-  --radius-2xl: 1.85rem;
+  --radius-2xl: 17px;
+  --radius-3xl: 22px;
+  --radius-4xl: 1.85rem;
+
+  /* DS purpose-named type scale (design-sync 100% pass) — exposes the
+     `--text-*-size` / `-lh` tokens as Tailwind utilities (`text-caption`,
+     `text-body-sm`, `text-eyebrow`, `text-h2`…) so components reference the
+     DS scale instead of hand-rolled `text-[11px]`. Size + line-height come
+     from the DS tokens; weight/tracking stay per-element classes. The scale
+     is now closed: `control` (12/1.33) + `body-md` (14/1.43) replaced the
+     Tailwind `text-xs` / `text-sm` defaults on buttons + fields with zero
+     height change, `display-lg` (48) is the hero step, and `micro` (9) /
+     `nano` (8) absorbed the sub-floor px. No renderer class uses a raw
+     `text-[…px]` or a Tailwind t-shirt size for type any more. */
+  --text-display: var(--text-display-size);
+  --text-display--line-height: var(--text-display-lh);
+  --text-h1: var(--text-h1-size);
+  --text-h1--line-height: var(--text-h1-lh);
+  --text-h2: var(--text-h2-size);
+  --text-h2--line-height: var(--text-h2-lh);
+  --text-h3: var(--text-h3-size);
+  --text-h3--line-height: var(--text-h3-lh);
+  --text-body-lg: var(--text-body-lg-size);
+  --text-body-lg--line-height: var(--text-body-lg-lh);
+  --text-body: var(--text-body-size);
+  --text-body--line-height: var(--text-body-lh);
+  --text-body-sm: var(--text-body-sm-size);
+  --text-body-sm--line-height: var(--text-body-sm-lh);
+  --text-caption: var(--text-caption-size);
+  --text-caption--line-height: var(--text-caption-lh);
+  --text-eyebrow: var(--text-eyebrow-size);
+  --text-eyebrow--line-height: var(--text-eyebrow-lh);
+  --text-control: var(--text-control-size);
+  --text-control--line-height: var(--text-control-lh);
+  --text-body-md: var(--text-body-md-size);
+  --text-body-md--line-height: var(--text-body-md-lh);
+  --text-display-lg: var(--text-display-lg-size);
+  --text-display-lg--line-height: var(--text-display-lg-lh);
+  --text-micro: var(--text-micro-size);
+  --text-micro--line-height: var(--text-micro-lh);
+  --text-nano: var(--text-nano-size);
+  --text-nano--line-height: var(--text-nano-lh);
 
   --animate-shell-fade: shell-fade var(--duration-slow) var(--curve-ease-out);
   --animate-rise-in: rise-in var(--duration-normal) var(--curve-ease-out);
@@ -651,12 +769,12 @@
   }
 
   .surface-panel {
-    @apply rounded-2xl border border-border/80 bg-panel backdrop-blur-xl;
+    @apply rounded-4xl border border-border/80 bg-panel backdrop-blur-xl;
     box-shadow: var(--app-shadow);
   }
 
   .surface-panel-strong {
-    @apply rounded-[1.75rem] border border-border-strong/80 bg-surface/88 backdrop-blur-xl;
+    @apply rounded-4xl border border-border-strong/80 bg-surface/88 backdrop-blur-xl;
     box-shadow: var(--app-shadow);
   }
 
@@ -672,7 +790,7 @@
   }
 
   .overlay-card {
-    @apply animate-shell-fade overflow-hidden rounded-[1.75rem] border border-border-strong/80 bg-surface/88 backdrop-blur-xl;
+    @apply animate-shell-fade overflow-hidden rounded-4xl border border-border-strong/80 bg-surface/88 backdrop-blur-xl;
     box-shadow: var(--app-shadow);
   }
 
@@ -694,35 +812,35 @@
      subtle primary shadow instead of the old 14px/35px glow, and a
      focus-visible ring on every variant. */
   .button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary px-3 py-1.5 text-xs font-medium tracking-[0.01em] text-primary-foreground transition-colors duration-150 hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary px-3 py-1.5 text-control font-medium tracking-[0.01em] text-primary-foreground transition-colors duration-150 hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
     box-shadow: 0 1px 2px color-mix(in srgb, var(--app-primary) 22%, transparent);
   }
 
   .button-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface-strong/70 px-3 py-1.5 text-xs font-medium tracking-[0.01em] text-foreground transition-colors duration-150 hover:border-border-strong/80 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface-strong/70 px-3 py-1.5 text-control font-medium tracking-[0.01em] text-foreground transition-colors duration-150 hover:border-border-strong/80 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
   }
 
   .button-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-medium tracking-[0.01em] text-muted transition-colors duration-150 hover:bg-surface-strong/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-control font-medium tracking-[0.01em] text-muted transition-colors duration-150 hover:bg-surface-strong/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
   }
 
   .button-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-error/25 bg-error/12 px-3 py-1.5 text-xs font-medium tracking-[0.01em] text-error transition-colors duration-150 hover:bg-error/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-error/25 bg-error/12 px-3 py-1.5 text-control font-medium tracking-[0.01em] text-error transition-colors duration-150 hover:bg-error/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
   }
   .field-shell {
-    @apply w-full rounded-2xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;
+    @apply w-full rounded-4xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-body-md text-foreground outline-none transition-all duration-200 placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;
   }
 
   .field-label {
-    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted;
+    @apply text-caption font-semibold uppercase tracking-[0.18em] text-muted;
   }
 
   .panel-title {
-    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-muted;
+    @apply text-caption font-semibold uppercase tracking-[0.2em] text-muted;
   }
 
   .subtle-copy {
-    @apply text-sm leading-6 text-muted;
+    @apply text-body-md leading-6 text-muted;
   }
 
   /* Toolbar and keyboard affordances */
@@ -731,15 +849,15 @@
   }
 
   .kbd-shell {
-    @apply rounded-lg border border-border/80 bg-surface/75 px-1.5 py-0.5 font-mono text-[10px] text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.03)];
+    @apply rounded-lg border border-border/80 bg-surface/75 px-1.5 py-0.5 font-mono text-eyebrow text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.03)];
   }
 
   .status-pill {
-    @apply inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-border/80 bg-surface-strong/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted;
+    @apply inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-border/80 bg-surface-strong/75 px-2 py-0.5 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted;
   }
 
   .tooltip-content {
-    @apply fixed z-[12000] max-w-[22rem] rounded-xl border px-3 py-2 text-[11px] font-medium leading-5 transition-opacity duration-150;
+    @apply fixed z-[12000] max-w-[22rem] rounded-xl border px-3 py-2 text-caption font-medium leading-5 transition-opacity duration-150;
     background: color-mix(in srgb, var(--app-surface) 94%, transparent) !important;
     border-color: color-mix(in srgb, var(--app-border-strong) 82%, transparent) !important;
     color: var(--app-foreground) !important;
@@ -798,7 +916,7 @@
   }
 
   .guided-tour-spotlight {
-    @apply pointer-events-none fixed rounded-[1.25rem];
+    @apply pointer-events-none fixed rounded-2xl;
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--app-primary) 82%, transparent),
       0 0 0 10px color-mix(in srgb, var(--app-primary) 18%, transparent),
@@ -811,7 +929,7 @@
     --tour-surface-strong: color-mix(in srgb, var(--app-surface-strong) 86%, transparent);
     --tour-border: color-mix(in srgb, var(--app-border-strong) 92%, transparent);
     --tour-shadow: 0 32px 120px color-mix(in srgb, var(--app-background) 52%, black);
-    @apply pointer-events-auto fixed max-w-[25rem] overflow-hidden rounded-[1.6rem] border text-foreground;
+    @apply pointer-events-auto fixed max-w-[25rem] overflow-hidden rounded-3xl border text-foreground;
     width: min(25rem, calc(100vw - 2rem));
     overflow: visible;
     background: linear-gradient(
@@ -841,13 +959,13 @@
   }
 
   .guided-tour-title {
-    @apply font-display text-xl font-semibold;
+    @apply font-display text-h2 font-semibold;
     color: var(--app-foreground);
     letter-spacing: 0;
   }
 
   .guided-tour-text {
-    @apply px-5 py-4 text-sm leading-6;
+    @apply px-5 py-4 text-body-md leading-6;
     color: var(--app-muted);
   }
 
@@ -867,7 +985,7 @@
   }
 
   .guided-tour-button {
-    @apply inline-flex min-h-10 items-center justify-center rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all duration-200;
+    @apply inline-flex min-h-10 items-center justify-center rounded-xl border px-3.5 py-2 text-control font-semibold transition-all duration-200;
     letter-spacing: 0;
   }
 
@@ -885,7 +1003,7 @@
   }
 
   .guided-tour-dont-show-again {
-    @apply inline-flex cursor-pointer select-none items-center gap-2 text-xs text-muted;
+    @apply inline-flex cursor-pointer select-none items-center gap-2 text-control text-muted;
     margin-right: auto;
   }
 
@@ -1041,58 +1159,58 @@
   .monaco-editor.hc-light .lingua-inline-result {
     /* Quiet inset tint (no opaque panel, no drop shadow) so the marker
        reads as a faint annotation in the light editor theme too. */
-    --inline-result-bg: color-mix(in srgb, oklch(0.93 0.02 210) 55%, transparent);
-    --inline-result-arrow: oklch(0.5 0.018 210);
-    --inline-result-value: oklch(0.2 0.018 210);
-    color: oklch(0.48 0.014 210);
+    --inline-result-bg: color-mix(in srgb, var(--color-inline-light-tint) 55%, transparent);
+    --inline-result-arrow: var(--color-inline-light-arrow-prop);
+    --inline-result-value: var(--color-inline-light-value-prop);
+    color: var(--color-inline-light-fg);
   }
 
   .monaco-editor.vs .lingua-inline-result-arrow,
   .monaco-editor.hc-light .lingua-inline-result-arrow {
-    color: oklch(0.62 0.015 210);
+    color: var(--color-inline-light-arrow);
   }
 
   .monaco-editor.vs .lingua-inline-result-value,
   .monaco-editor.hc-light .lingua-inline-result-value {
-    color: oklch(0.22 0.014 210);
+    color: var(--color-inline-light-value);
   }
 
   .monaco-editor.vs-dark .lingua-inline-result {
     /* Quiet inset tint (no opaque panel, no drop shadow). */
-    --inline-result-bg: color-mix(in srgb, oklch(0.14 0.008 220) 55%, transparent);
-    --inline-result-arrow: oklch(0.7 0.02 220);
-    --inline-result-value: oklch(0.96 0.012 220);
-    color: oklch(0.74 0.018 220);
+    --inline-result-bg: color-mix(in srgb, var(--color-inline-dark-tint) 55%, transparent);
+    --inline-result-arrow: var(--color-inline-dark-arrow-prop);
+    --inline-result-value: var(--color-inline-dark-value-prop);
+    color: var(--color-inline-dark-fg);
   }
 
   .monaco-editor.vs-dark .lingua-inline-result-arrow {
-    color: oklch(0.62 0.018 220);
+    color: var(--color-inline-dark-arrow);
   }
 
   .monaco-editor.vs-dark .lingua-inline-result-value {
-    color: oklch(0.96 0.008 220);
+    color: var(--color-inline-dark-value);
   }
 
   .monaco-editor.vs-dark .lingua-inline-result-pill {
-    color: oklch(0.76 0.018 220);
+    color: var(--color-inline-dark-pill);
   }
 
   /* Per-kind type hue — text colour only; the borderless/fill-less
      pill keeps its LEFT hairline divider neutral so only the label
      tints. The `data-type-pill` semantic is preserved. */
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='string'] {
-    color: oklch(0.8 0.14 155);
+    color: var(--color-inline-pill-string);
   }
 
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='number'],
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='boolean'] {
-    color: oklch(0.8 0.12 250);
+    color: var(--color-inline-pill-number);
   }
 
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='object'],
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='array'],
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='error'] {
-    color: oklch(0.82 0.1 45);
+    color: var(--color-inline-pill-object);
   }
 
   /* RL-027 Slice 1.5 — Monaco glyph-margin breakpoint dot. The class
@@ -1312,13 +1430,13 @@
   .action-pill {
     @apply inline-flex items-stretch rounded-full border border-border/80 bg-bg-panel/95 backdrop-blur-xl;
     padding: 4px;
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 18px 40px -20px rgba(15, 15, 40, 0.18);
+    box-shadow: var(--shadow-xl);
     gap: 4px;
   }
 
   .dark .action-pill,
   [data-theme='dark'] .action-pill {
-    box-shadow: inset 0 1px 0 oklch(0.32 0.015 210 / 0.8), 0 18px 36px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow-xl);
   }
 
   .action-pill-segment {
@@ -1432,12 +1550,12 @@
   }
 
   .action-pill-run[data-workflow='debug'] {
-    background: oklch(0.78 0.14 22);
-    color: oklch(0.22 0.16 22);
-    box-shadow: 0 0 0 3px oklch(0.78 0.14 22 / 0.2);
+    background: var(--color-debug-fill);
+    color: var(--color-debug-fg);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-debug-fill) 20%, transparent);
   }
   .action-pill-run[data-workflow='debug']:hover {
-    background: oklch(0.82 0.16 22);
+    background: var(--color-debug-fill-hover);
   }
 
   .action-pill-run[data-workflow='scratchpad'] {
@@ -1451,9 +1569,9 @@
 
   .dark .action-pill-run[data-workflow='debug'],
   [data-theme='dark'] .action-pill-run[data-workflow='debug'] {
-    background: oklch(0.7 0.18 22);
-    color: oklch(0.16 0.1 22);
-    box-shadow: 0 0 0 3px oklch(0.7 0.18 22 / 0.25);
+    background: var(--color-debug-fill);
+    color: var(--color-debug-fg);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-debug-fill) 25%, transparent);
   }
   .dark .action-pill-run[data-workflow='scratchpad'],
   [data-theme='dark'] .action-pill-run[data-workflow='scratchpad'] {
@@ -1528,7 +1646,7 @@
   /* Panel chips row — Stdin · Historial · Comparar · Variables. Each
      chip lives below the tab strip and toggles the bottom drawer. */
   .panel-chip {
-    @apply inline-flex h-6 items-center gap-1.5 rounded-full border border-transparent px-2.5 text-[11px] font-medium leading-none text-fg-muted transition-colors duration-150;
+    @apply inline-flex h-6 items-center gap-1.5 rounded-full border border-transparent px-2.5 text-caption font-medium leading-none text-fg-muted transition-colors duration-150;
   }
   .panel-chip:disabled {
     @apply cursor-not-allowed opacity-50;
@@ -1549,7 +1667,7 @@
   }
 
   .panel-chip-badge {
-    @apply inline-flex min-w-[1rem] items-center justify-center rounded-full px-1 font-mono text-[9px] font-bold leading-none;
+    @apply inline-flex min-w-[1rem] items-center justify-center rounded-full px-1 font-mono text-micro font-bold leading-none;
     background: var(--color-accent);
     color: white;
     padding-block: 2px;
@@ -1563,16 +1681,16 @@
      icon · label · description and a trailing badge (ACTUAL/PRO/kbd). */
   .dropdown-rich {
     @apply rounded-xl border border-border/80 bg-bg-panel p-1.5 backdrop-blur-xl;
-    box-shadow: 0 18px 40px -10px rgba(15, 15, 40, 0.22), 0 4px 12px -4px rgba(15, 15, 40, 0.1);
+    box-shadow: var(--shadow-xl);
   }
 
   .dark .dropdown-rich,
   [data-theme='dark'] .dropdown-rich {
-    box-shadow: inset 0 1px 0 oklch(0.34 0.015 210 / 0.9), 0 22px 40px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow-xl);
   }
 
   .dropdown-rich-row {
-    @apply grid items-start gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-[13px] font-medium text-fg-base transition-colors duration-150;
+    @apply grid items-start gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-body font-medium text-fg-base transition-colors duration-150;
     grid-template-columns: auto 1fr auto;
   }
 
@@ -1595,11 +1713,11 @@
   }
 
   .dropdown-rich-row .row-label {
-    @apply text-[13px] font-semibold leading-tight;
+    @apply text-body font-semibold leading-tight;
   }
 
   .dropdown-rich-row .row-desc {
-    @apply mt-1 max-w-[26ch] text-[12px] leading-snug text-fg-muted;
+    @apply mt-1 max-w-[26ch] text-body-sm leading-snug text-fg-muted;
   }
 
   .dropdown-rich-row[data-active='true'] .row-desc {
@@ -1607,7 +1725,7 @@
   }
 
   .dropdown-rich-footer {
-    @apply mt-1 flex items-center gap-1.5 border-t border-border/60 px-3 pt-2 font-mono text-[10.5px] text-fg-subtle;
+    @apply mt-1 flex items-center gap-1.5 border-t border-border/60 px-3 pt-2 font-mono text-eyebrow text-fg-subtle;
   }
 
   /* Type-pill colouring by data attribute. The base styling lives on
@@ -1638,7 +1756,7 @@
      plus a hint), inset bg, subtle border, optional `error` data-attr
      for invalid states with red ring. */
   .um-card {
-    @apply flex min-h-0 min-w-0 flex-col rounded-[18px] border border-border/80 bg-bg-panel-alt p-5;
+    @apply flex min-h-0 min-w-0 flex-col rounded-2xl border border-border/80 bg-bg-panel-alt p-5;
   }
 
   .um-card[data-error='true'] {
@@ -1647,15 +1765,15 @@
   }
 
   .um-card-title {
-    @apply text-[15px] font-bold leading-tight text-fg-base;
+    @apply text-body-lg font-bold leading-tight text-fg-base;
   }
 
   .um-card-subtitle {
-    @apply mt-1 max-w-[60ch] text-[12.5px] leading-relaxed text-fg-muted;
+    @apply mt-1 max-w-[60ch] text-body-sm leading-relaxed text-fg-muted;
   }
 
   .um-card-output {
-    @apply min-h-0 flex-1 overflow-auto rounded-md border border-border-subtle bg-bg-inset/60 p-3 font-mono text-[12.5px] text-fg-base;
+    @apply min-h-0 flex-1 overflow-auto rounded-md border border-border-subtle bg-bg-inset/60 p-3 font-mono text-body-sm text-fg-base;
   }
 
   .um-field {
@@ -1663,7 +1781,7 @@
   }
 
   .um-control {
-    @apply w-full rounded-xl border border-border/80 bg-bg-inset/60 px-3 py-2.5 text-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55;
+    @apply w-full rounded-xl border border-border/80 bg-bg-inset/60 px-3 py-2.5 text-body-md text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55;
   }
 
   textarea.um-control {
@@ -1685,12 +1803,12 @@
 
   .floating-variables-card {
     @apply w-[260px] overflow-hidden rounded-xl border border-border/80 bg-bg-panel/95 backdrop-blur-xl;
-    box-shadow: 0 18px 38px -14px rgba(15, 15, 40, 0.24), 0 4px 12px -6px rgba(15, 15, 40, 0.14);
+    box-shadow: var(--shadow-xl);
   }
 
   .dark .floating-variables-card,
   [data-theme='dark'] .floating-variables-card {
-    box-shadow: inset 0 1px 0 oklch(0.34 0.015 210 / 0.9), 0 22px 40px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow-xl);
   }
 
   .floating-variables-card[data-collapsed='true'] {
@@ -1725,7 +1843,7 @@
   }
 
   .floating-variables-card-footer {
-    @apply flex items-center justify-between gap-3 border-t border-border/60 px-3 py-2 font-mono text-[10.5px] text-fg-subtle;
+    @apply flex items-center justify-between gap-3 border-t border-border/60 px-3 py-2 font-mono text-eyebrow text-fg-subtle;
   }
 
   /* Utilities modal shell — 28px corner radius and the soft cool-gray
@@ -1742,11 +1860,11 @@
   }
 
   .settings-rail-group-label {
-    @apply px-4 pb-1.5 pt-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em] text-fg-subtle;
+    @apply px-4 pb-1.5 pt-2 font-mono text-micro font-bold uppercase tracking-[0.16em] text-fg-subtle;
   }
 
   .settings-rail-row {
-    @apply grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-[12.5px] font-[450] text-fg-muted transition-colors duration-150;
+    @apply grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
   }
 
   .settings-rail-row:hover {
@@ -1780,13 +1898,13 @@
   }
 
   .effective-config-tile-body {
-    @apply max-h-64 overflow-auto p-4 font-mono text-[11.5px] leading-relaxed text-fg-base;
+    @apply max-h-64 overflow-auto p-4 font-mono text-caption leading-relaxed text-fg-base;
   }
 
   /* Settings v2 status bar — visually rhymes with the editor status
      bar so the modal feels like part of the editor. */
   .settings-status-bar {
-    @apply flex h-7 items-center gap-3 border-t border-border/80 bg-bg-panel-alt/70 px-4 font-mono text-[11px] text-fg-subtle;
+    @apply flex h-7 items-center gap-3 border-t border-border/80 bg-bg-panel-alt/70 px-4 font-mono text-caption text-fg-subtle;
   }
 }
 

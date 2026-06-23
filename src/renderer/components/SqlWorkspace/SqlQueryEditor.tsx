@@ -250,11 +250,11 @@ export function SqlQueryEditor({
       className="flex h-full min-w-0 flex-col bg-bg-base"
     >
       <header className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
+        <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
           {t('sqlWorkspace.editor.queryLabel')}
         </span>
         <span
-          className={`ml-auto font-mono text-[10.5px] tabular-nums ${overCap ? 'text-error-fg' : 'text-fg-subtle'}`}
+          className={`ml-auto font-mono text-eyebrow tabular-nums ${overCap ? 'text-error-fg' : 'text-fg-subtle'}`}
           data-testid="sql-query-editor-size"
           aria-live="polite"
         >
@@ -273,7 +273,7 @@ export function SqlQueryEditor({
           data-testid="sql-query-editor-format"
           aria-label={t('sqlWorkspace.editor.format')}
           title={t('sqlWorkspace.editor.format')}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-[12px] font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Wand2 size={11} aria-hidden="true" />
           <span>{t('sqlWorkspace.editor.format')}</span>
@@ -284,7 +284,7 @@ export function SqlQueryEditor({
           disabled={isExecuting || overCap || text.trim().length === 0}
           data-testid="sql-query-editor-run"
           aria-label={t('sqlWorkspace.editor.run')}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-success-fg bg-success-fg px-2.5 text-[12px] font-semibold text-bg-base transition-colors hover:bg-success-border hover:border-success-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-success-fg bg-success-fg px-2.5 text-body-sm font-semibold text-bg-base transition-colors hover:bg-success-border hover:border-success-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isExecuting ? (
             <Loader2 size={11} aria-hidden="true" className="animate-spin" />
@@ -292,7 +292,7 @@ export function SqlQueryEditor({
             <Play size={11} aria-hidden="true" />
           )}
           <span>{t('sqlWorkspace.editor.run')}</span>
-          <span className="ml-1 hidden font-mono text-[10px] opacity-80 sm:inline">
+          <span className="ml-1 hidden font-mono text-eyebrow opacity-80 sm:inline">
             {runShortcutHint}
           </span>
         </button>

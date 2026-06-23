@@ -31,7 +31,7 @@ export function FileTreeInlineInput({
     <input
       ref={ref}
       placeholder={placeholder}
-      className="field-shell rounded-xl px-2.5 py-1.5 text-xs"
+      className="field-shell rounded-xl px-2.5 py-1.5 text-body-sm"
       onBlur={commit}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {

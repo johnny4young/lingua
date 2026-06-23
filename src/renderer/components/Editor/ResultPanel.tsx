@@ -181,7 +181,7 @@ export function ResultPanel() {
         ) : (
           <div className="min-w-0">
             <span className="panel-title">{t(titleKey)}</span>
-            <p className="mt-0.5 text-[11px] text-muted">{t(descriptionKey)}</p>
+            <p className="mt-0.5 text-caption text-muted">{t(descriptionKey)}</p>
           </div>
         )}
         <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
@@ -222,7 +222,7 @@ export function ResultPanel() {
           />
         ) : !hasContent && !isAutoRunning ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <span className="text-xs italic text-muted">{t(emptyKey)}</span>
+            <span className="text-body-sm italic text-muted">{t(emptyKey)}</span>
           </div>
         ) : dynamic ? (
           // RL-093 Slice 3 — in scratchpad mode the per-line values
@@ -236,7 +236,7 @@ export function ResultPanel() {
           <>
             {error ? (
               <div className="border-t border-error/20 bg-error/10 px-4 py-3">
-                <pre className="whitespace-pre-wrap font-mono text-xs text-error">
+                <pre className="whitespace-pre-wrap font-mono text-body-sm text-error">
                   {error.message}
                   {error.line !== undefined &&
                     ` ${t('results.inline.errorLineSuffix', { line: error.line })}`}
@@ -244,7 +244,7 @@ export function ResultPanel() {
               </div>
             ) : (
               <div className="flex h-full items-center justify-center px-6 text-center">
-                <span className="text-xs italic text-muted">
+                <span className="text-body-sm italic text-muted">
                   {t('results.inline.editorHint')}
                 </span>
               </div>

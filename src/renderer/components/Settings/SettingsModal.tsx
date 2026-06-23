@@ -364,7 +364,7 @@ function SettingsTopBar({
   const activeLabel = RAIL_ITEMS.find((it) => it.id === active)?.labelKey;
   return (
     <div className="flex h-12 flex-none items-center gap-3 border-b border-border/80 bg-bg-panel px-4">
-      <div className="flex items-center gap-2 text-[12.5px]">
+      <div className="flex items-center gap-2 text-body-sm">
         <SettingsIcon size={14} className="text-fg-subtle" aria-hidden />
         <span className="text-fg-muted">{t('settings.title')}</span>
         <span className="text-fg-subtle">›</span>
@@ -390,7 +390,7 @@ function SettingsTopBar({
           onChange={(e) => onFilterChange(e.target.value)}
           placeholder={t('settings.filter.placeholder')}
           className={cn(
-            'min-w-0 flex-1 bg-transparent font-mono text-[12px] outline-none placeholder:text-fg-subtle',
+            'min-w-0 flex-1 bg-transparent font-mono text-body-sm outline-none placeholder:text-fg-subtle',
             filter ? 'font-semibold text-accent-fg' : 'text-fg-muted',
           )}
           data-testid="settings-filter-input"
@@ -398,7 +398,7 @@ function SettingsTopBar({
         />
         {filter ? (
           <>
-            <span className="font-mono text-[10px] text-accent-fg">
+            <span className="font-mono text-eyebrow text-accent-fg">
               {matchCount === 0
                 ? t('settings.filter.noMatches')
                 : t('settings.filter.matches', { count: matchCount })}
@@ -522,14 +522,14 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
         <div className="flex items-center gap-2">
           <Braces size={13} className="text-fg-subtle" aria-hidden />
           <EyebrowMono>{t('settings.effectiveConfig.label')}</EyebrowMono>
-          <span className="text-[11.5px] text-fg-muted">
+          <span className="text-caption text-fg-muted">
             {t('settings.effectiveConfig.hint')}
           </span>
         </div>
       </summary>
       <button
         type="button"
-        className="button-ghost absolute right-3 top-2 text-[11px]"
+        className="button-ghost absolute right-3 top-2 text-caption"
         onClick={() => {
           void navigator.clipboard.writeText(json).then(() => {
             setCopied(true);
@@ -771,16 +771,16 @@ export function SettingsModal({
               <ShortcutsPreviewCard />
               <div className="flex items-center justify-between gap-4 rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-[13px]">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-medium text-fg-base">
+                  <div className="text-body font-medium text-fg-base">
                     {t('settings.shortcuts.linkLabel')}
                   </div>
-                  <div className="mt-[2px] max-w-[52ch] text-[11.5px] leading-relaxed text-fg-subtle">
+                  <div className="mt-[2px] max-w-[52ch] text-caption leading-relaxed text-fg-subtle">
                     {t('settings.shortcuts.linkHint')}
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="button-primary shrink-0 text-[12px]"
+                  className="button-primary shrink-0 text-body-sm"
                   onClick={() => {
                     if (onOpenKeyboardShortcuts) {
                       onClose();

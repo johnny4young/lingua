@@ -40,14 +40,14 @@ export function FirstRunConsentModal() {
         <div className="surface-header px-5 py-4">
           <h2
             id="first-run-consent-title"
-            className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground"
+            className="font-display text-h2 font-semibold tracking-[-0.02em] text-foreground"
           >
             {t('privacy.firstRun.title')}
           </h2>
         </div>
-        <div className="space-y-4 px-5 py-5 text-sm leading-6 text-muted">
+        <div className="space-y-4 px-5 py-5 text-body leading-6 text-muted">
           <p>{t('privacy.firstRun.body')}</p>
-          <p className="text-xs text-muted/80">
+          <p className="text-body-sm text-muted/80">
             {t('privacy.firstRun.changeLater')}
           </p>
         </div>

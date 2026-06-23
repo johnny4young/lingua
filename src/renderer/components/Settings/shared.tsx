@@ -25,7 +25,7 @@ export function Section({
     <section id={id} className="space-y-2.5">
       <div className="space-y-1">
         <h3 className="panel-title">{title}</h3>
-        {description && <p className="text-sm leading-6 text-muted">{description}</p>}
+        {description && <p className="text-body leading-6 text-muted">{description}</p>}
       </div>
       <div className="space-y-2">{children}</div>
     </section>
@@ -67,15 +67,15 @@ export function Row({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-[1.15rem] border border-border/80 bg-background-elevated/72 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-3 rounded-2xl border border-border/80 bg-background-elevated/72 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between',
         className
       )}
     >
       <div className="min-w-0">
-        <p id={labelId} className="text-sm font-medium text-foreground">
+        <p id={labelId} className="text-body font-medium text-foreground">
           {label}
         </p>
-        {hint && <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>}
+        {hint && <p className="mt-1 text-body-sm leading-5 text-muted">{hint}</p>}
       </div>
       {/*
        * RL-044 Slice 2b-β-α Prerequisite fix — Settings panel vertical
@@ -138,7 +138,7 @@ export function Toggle({
       )}
     >
       <span
-        className="absolute left-[2px] top-1/2 h-[28px] w-[28px] rounded-full bg-white shadow-[0_4px_14px_rgba(15,23,42,0.25)] transition-transform"
+        className="absolute left-[2px] top-1/2 h-[28px] w-[28px] rounded-full bg-white shadow-[var(--shadow-md)] transition-transform"
         style={{ transform: `translate(${value ? 24 : 0}px, -50%)` }}
       />
     </button>
@@ -146,7 +146,7 @@ export function Toggle({
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('field-shell pr-9 text-sm', props.className)} {...props} />;
+  return <select className={cn('field-shell pr-9 text-body', props.className)} {...props} />;
 }
 
 export function StepperButton({
@@ -157,7 +157,7 @@ export function StepperButton({
   return (
     <button
       type={props.type ?? 'button'}
-      className={cn('button-secondary h-9 w-9 px-0 text-sm', className)}
+      className={cn('button-secondary h-9 w-9 px-0 text-body', className)}
       {...props}
     >
       {children}

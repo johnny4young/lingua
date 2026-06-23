@@ -119,7 +119,7 @@ function UtilityCopyShortcutHint({ className }: { className?: string }) {
 
   return (
     <span
-      className={cn('flex items-center gap-[6px] text-[11.5px] text-fg-subtle', className)}
+      className={cn('flex items-center gap-[6px] text-caption text-fg-subtle', className)}
       aria-label={t('utilities.shortcuts.outputAriaLabel')}
       data-testid="utilities-sidebar-shortcuts"
     >
@@ -333,7 +333,7 @@ export function DeveloperUtilitiesWorkspaceBody({
               placeholder={t('utilities.search.placeholder')}
               aria-label={t('utilities.search.ariaLabel')}
               data-testid="utilities-search-input"
-              className="w-full rounded-full border border-border/60 bg-bg-panel/70 py-2 pl-10 pr-3 text-[12.5px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/60"
+              className="w-full rounded-full border border-border/60 bg-bg-panel/70 py-2 pl-10 pr-3 text-body-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/60"
             />
             {searchQuery.length > 0 ? (
               <span
@@ -349,7 +349,7 @@ export function DeveloperUtilitiesWorkspaceBody({
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {filteredUtilities.length === 0 ? (
             <div className="px-3 py-6 text-center">
-              <p className="text-[12px] text-fg-muted">
+              <p className="text-body-sm text-fg-muted">
                 {t('utilities.search.empty', { query: searchQuery })}
               </p>
             </div>
@@ -411,7 +411,7 @@ export function DeveloperUtilitiesWorkspaceBody({
                       <span className="flex flex-wrap items-center gap-2">
                         <span
                           className={cn(
-                            'text-[13px] font-semibold leading-tight',
+                            'text-body font-semibold leading-tight',
                             isSelected ? 'text-accent-fg' : 'text-fg-base'
                           )}
                         >
@@ -420,7 +420,7 @@ export function DeveloperUtilitiesWorkspaceBody({
                         {isLocked ? (
                           <span
                             data-testid={`utility-lock-${utility.id}`}
-                            className="rounded-full border border-warning/45 bg-warning/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-warning"
+                            className="rounded-full border border-warning/45 bg-warning/10 px-1.5 py-0.5 font-mono text-micro font-bold uppercase tracking-[0.16em] text-warning"
                           >
                             {t('utilities.locked.proBadge')}
                           </span>
@@ -428,7 +428,7 @@ export function DeveloperUtilitiesWorkspaceBody({
                       </span>
                       <span
                         className={cn(
-                          'mt-1 line-clamp-2 text-[11.5px] leading-[1.45]',
+                          'mt-1 line-clamp-2 text-caption leading-[1.45]',
                           isSelected ? 'text-accent-fg/85' : 'text-fg-muted'
                         )}
                       >
@@ -447,10 +447,10 @@ export function DeveloperUtilitiesWorkspaceBody({
       <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
         <div className="border-b border-border-subtle px-7 pb-5 pt-6">
           <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
-          <h2 className="mt-1.5 text-[22px] font-bold leading-[1.15] tracking-[-0.01em] text-fg-base">
+          <h2 className="mt-1.5 text-h2 font-bold leading-[1.15] tracking-[-0.01em] text-fg-base">
             {t(selectedUtility.titleKey)}
           </h2>
-          <p className="mt-1 max-w-3xl text-[13px] leading-[1.55] text-fg-muted">
+          <p className="mt-1 max-w-3xl text-body leading-[1.55] text-fg-muted">
             {t(selectedUtility.descriptionKey)}
           </p>
         </div>
@@ -473,18 +473,18 @@ export function DeveloperUtilitiesModal({
     <div className="min-w-0">
       <h2
         id="developer-utilities-modal-title"
-        className="text-[16px] font-semibold leading-tight tracking-[-0.01em] text-fg-base"
+        className="text-body-lg font-semibold leading-tight tracking-[-0.01em] text-fg-base"
       >
         {t('utilities.title')}
       </h2>
-      <p className="mt-0.5 truncate text-[12.5px] text-fg-subtle">{t('utilities.description')}</p>
+      <p className="mt-0.5 truncate text-body-sm text-fg-subtle">{t('utilities.description')}</p>
     </div>
   );
 
   const footerLegend = <UtilityCopyShortcutHint />;
 
   const trailing = (
-    <span className="font-mono text-[11px] text-fg-subtle">
+    <span className="font-mono text-caption text-fg-subtle">
       {t('utilities.toolCount', { count: DEVELOPER_UTILITIES.length })}
     </span>
   );
@@ -523,16 +523,16 @@ export function DeveloperUtilitiesWorkspaceView() {
       <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-border-subtle bg-bg-panel/80 px-6 py-4">
         <div className="min-w-0">
           <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
-          <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-[-0.01em] text-fg-base">
+          <h1 className="mt-1 text-h2 font-bold leading-tight tracking-[-0.01em] text-fg-base">
             {t('utilities.title')}
           </h1>
-          <p className="mt-1 max-w-3xl text-[13px] leading-[1.55] text-fg-muted">
+          <p className="mt-1 max-w-3xl text-body leading-[1.55] text-fg-muted">
             {t('utilities.description')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <UtilityCopyShortcutHint className="rounded-full border border-border-subtle bg-bg-panel-alt/70 px-2.5 py-1" />
-          <span className="rounded-full border border-border-subtle bg-bg-panel-alt/70 px-2.5 py-1 font-mono text-[11px] text-fg-subtle">
+          <span className="rounded-full border border-border-subtle bg-bg-panel-alt/70 px-2.5 py-1 font-mono text-caption text-fg-subtle">
             {t('utilities.toolCount', { count: DEVELOPER_UTILITIES.length })}
           </span>
         </div>

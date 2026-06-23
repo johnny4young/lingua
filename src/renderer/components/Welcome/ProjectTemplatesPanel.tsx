@@ -89,14 +89,14 @@ export function ProjectTemplatesPanel() {
   return (
     <section
       data-testid="welcome-project-templates"
-      className="animate-rise-in overflow-hidden rounded-2xl border border-border-subtle/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_8%,transparent)]"
+      className="animate-rise-in overflow-hidden rounded-4xl border border-border-subtle/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_8%,transparent)]"
     >
       <header className="flex items-start justify-between gap-3 border-b border-border-subtle/60 bg-bg-panel-alt/60 px-5 py-4">
         <div>
           <p className="panel-title">
             {t('emptyState.projectTemplates.heading')}
           </p>
-          <p className="mt-1 max-w-2xl text-sm text-fg-muted">
+          <p className="mt-1 max-w-2xl text-body text-fg-muted">
             {t('emptyState.projectTemplates.subheading')}
           </p>
         </div>
@@ -114,24 +114,24 @@ export function ProjectTemplatesPanel() {
             <article
               key={template.id}
               data-testid={`welcome-project-template-${template.id}`}
-              className="group flex flex-col gap-3 rounded-[1.1rem] border border-border-subtle/70 bg-bg-panel-alt/65 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-panel"
+              className="group flex flex-col gap-3 rounded-2xl border border-border-subtle/70 bg-bg-panel-alt/65 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-panel"
             >
               <div className="flex items-center justify-between gap-2">
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] ${languageBadgeClass(template.language as Language)}`}
+                  className={`rounded-full px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.16em] ${languageBadgeClass(template.language as Language)}`}
                 >
                   {languageLabel(template.language as Language)}
                 </span>
-                <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-fg-muted">
+                <span className="text-eyebrow font-medium uppercase tracking-[0.12em] text-fg-muted">
                   {t('emptyState.projectTemplates.fileCount', {
                     count: template.files.length,
                   })}
                 </span>
               </div>
-              <h3 className="font-display text-base font-semibold tracking-[-0.02em] text-fg-base">
+              <h3 className="font-display text-body-lg font-semibold tracking-[-0.02em] text-fg-base">
                 {t(template.labelKey)}
               </h3>
-              <p className="text-xs leading-6 text-fg-muted">
+              <p className="text-body-sm leading-6 text-fg-muted">
                 {t(template.descriptionKey)}
               </p>
               <button
@@ -145,7 +145,7 @@ export function ProjectTemplatesPanel() {
                   void handleClick(template);
                 }}
                 data-testid={`welcome-project-template-${template.id}-action`}
-                className="mt-auto inline-flex items-center justify-center gap-2 self-start rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent/20 disabled:opacity-60"
+                className="mt-auto inline-flex items-center justify-center gap-2 self-start rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-body-sm font-semibold text-accent-fg transition-colors hover:bg-accent/20 disabled:opacity-60"
               >
                 {busy
                   ? '…'
@@ -187,12 +187,12 @@ function NoticeBody(props: {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-fg-base">
+          <p className="text-body font-semibold text-fg-base">
             {t('emptyState.projectTemplates.successHeading', {
               label: t(notice.template.labelKey),
             })}
           </p>
-          <p className="mt-0.5 text-xs text-fg-muted">
+          <p className="mt-0.5 text-body-sm text-fg-muted">
             {t('emptyState.projectTemplates.successBody', {
               count: notice.template.files.length,
             })}
@@ -203,14 +203,14 @@ function NoticeBody(props: {
             type="button"
             onClick={onReveal}
             data-testid="welcome-project-template-reveal"
-            className="rounded-full border border-border-subtle/70 bg-bg-panel-alt px-3 py-1.5 text-xs font-semibold text-fg-base hover:bg-bg-panel"
+            className="rounded-full border border-border-subtle/70 bg-bg-panel-alt px-3 py-1.5 text-body-sm font-semibold text-fg-base hover:bg-bg-panel"
           >
             {t('emptyState.projectTemplates.revealInFinder')}
           </button>
           <button
             type="button"
             onClick={onDismiss}
-            className="rounded-full px-2 py-1.5 text-xs font-medium text-fg-muted hover:text-fg-base"
+            className="rounded-full px-2 py-1.5 text-body-sm font-medium text-fg-muted hover:text-fg-base"
           >
             {t('emptyState.projectTemplates.dismiss')}
           </button>
@@ -226,11 +226,11 @@ function NoticeBody(props: {
         : notice.message;
   return (
     <div className="flex items-center justify-between gap-3">
-      <p className="text-xs leading-6 text-fg-base">{message}</p>
+      <p className="text-body-sm leading-6 text-fg-base">{message}</p>
       <button
         type="button"
         onClick={onDismiss}
-        className="rounded-full px-2 py-1 text-xs font-medium text-fg-muted hover:text-fg-base"
+        className="rounded-full px-2 py-1 text-body-sm font-medium text-fg-muted hover:text-fg-base"
       >
         {t('emptyState.projectTemplates.dismiss')}
       </button>

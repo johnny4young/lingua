@@ -78,27 +78,27 @@ export function JsonCsvPanel() {
         description={t('utilities.tool.jsonCsv.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.jsonCsv.mode.label')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.jsonCsv.mode.label')}
               data-testid="json-csv-mode"
               value={mode}
               onChange={event => setMode(event.target.value as JsonCsvMode)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="json-to-csv">{t('utilities.tool.jsonCsv.mode.jsonToCsv')}</option>
               <option value="csv-to-json">{t('utilities.tool.jsonCsv.mode.csvToJson')}</option>
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.jsonCsv.delimiter.label')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.jsonCsv.delimiter.label')}
               data-testid="json-csv-delimiter"
               value={delimiter}
               onChange={event => setDelimiter(event.target.value as JsonCsvDelimiter)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               {JSON_CSV_DELIMITERS.map(value => (
                 <option key={value} value={value}>
@@ -108,7 +108,7 @@ export function JsonCsvPanel() {
             </select>
           </label>
         </div>
-        <label className="flex items-center gap-2 text-sm text-foreground">
+        <label className="flex items-center gap-2 text-body text-foreground">
           <input
             type="checkbox"
             data-testid="json-csv-header"

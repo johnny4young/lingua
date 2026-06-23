@@ -92,7 +92,7 @@ function ShortcutComboPill({
     <kbd
       data-testid={comboId}
       aria-label={formatShortcutCombo(combo, platform)}
-      className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-[0.8rem] border border-border/80 bg-surface-strong/85 px-2.5 py-1 font-sans text-[12px] font-medium text-foreground shadow-sm"
+      className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border/80 bg-surface-strong/85 px-2.5 py-1 font-sans text-body-sm font-medium text-foreground shadow-sm"
       style={{
         fontVariantLigatures: 'none',
         fontFeatureSettings: '"liga" 0, "calt" 0',
@@ -141,13 +141,13 @@ function ShortcutRow({
       data-testid={rowId}
       className="flex items-center justify-between gap-4 border-b border-border/60 px-3 py-2 last:border-b-0"
     >
-      <div className="grid gap-0.5 text-sm text-foreground">
+      <div className="grid gap-0.5 text-body text-foreground">
         <span>{t(shortcut.labelKey)}</span>
         {shortcut.descriptionKey ? (
-          <span className="text-xs text-muted">{t(shortcut.descriptionKey)}</span>
+          <span className="text-body-sm text-muted">{t(shortcut.descriptionKey)}</span>
         ) : null}
         {isRecording ? (
-          <span className="text-xs text-primary" role="status">
+          <span className="text-body-sm text-primary" role="status">
             {t('shortcuts.editor.recordingHint')}
           </span>
         ) : null}
@@ -173,7 +173,7 @@ function ShortcutRow({
               <button
                 type="button"
                 onClick={onCancelRecording}
-                className="rounded-[0.55rem] border border-transparent px-1.5 py-0.5 text-[11px] text-muted hover:border-border/70 hover:text-foreground"
+                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.cancelAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.cancel')}
@@ -183,7 +183,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onStartRecording}
                 data-testid={`shortcut-edit-${shortcut.id}`}
-                className="rounded-[0.55rem] border border-transparent px-1.5 py-0.5 text-[11px] text-muted hover:border-border/70 hover:text-foreground"
+                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.editAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.edit')}
@@ -194,7 +194,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onReset}
                 data-testid={`shortcut-reset-${shortcut.id}`}
-                className="rounded-[0.55rem] border border-transparent px-1.5 py-0.5 text-[11px] text-muted hover:border-border/70 hover:text-foreground"
+                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.resetSingleAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.reset')}
@@ -410,18 +410,18 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         <header className="surface-header px-6 pt-5 pb-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-primary-soft text-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-soft text-primary">
                 <Keyboard size={18} />
               </div>
               <div>
                 <Eyebrow className="mb-0.5">{t('shortcuts.panelTitle')}</Eyebrow>
                 <h2
                   id="keyboard-shortcuts-modal-title"
-                  className="font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
+                  className="font-display text-h2 font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
                 >
                   {t('shortcuts.title')}
                 </h2>
-                <p className="mt-1 max-w-2xl text-[12.5px] leading-[1.5] text-muted">
+                <p className="mt-1 max-w-2xl text-body-sm leading-[1.5] text-muted">
                   {t('shortcuts.description')}
                 </p>
               </div>
@@ -431,13 +431,13 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
             </IconButton>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-[11.5px] text-muted">
+            <label className="flex items-center gap-2 text-caption text-muted">
               <span>{t('shortcuts.preset.label')}</span>
               <select
                 value={keymapPreset}
                 onChange={(event) => applyKeymapPreset(event.target.value)}
                 data-testid="shortcut-preset-select"
-                className="rounded-[0.75rem] border border-border/80 bg-background-elevated/88 px-2.5 py-1.5 text-[12px] text-foreground outline-none focus:border-primary/50"
+                className="rounded-xl border border-border/80 bg-background-elevated/88 px-2.5 py-1.5 text-body-sm text-foreground outline-none focus:border-primary/50"
               >
                 {KEYMAP_PRESETS.map((preset) => (
                   <option key={preset.id} value={preset.id}>
@@ -458,7 +458,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                 placeholder={t('shortcuts.searchPlaceholder')}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="w-full rounded-[0.85rem] border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-[12px] text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
+                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
               {query.length > 0 ? (
                 <button
@@ -476,11 +476,11 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {matching.length === 0 ? (
-            <div className="rounded-[1rem] border border-border/80 bg-background/65 px-4 py-6 text-center">
-              <p className="text-[13px] font-medium text-foreground">
+            <div className="rounded-2xl border border-border/80 bg-background/65 px-4 py-6 text-center">
+              <p className="text-body font-medium text-foreground">
                 {t('shortcuts.empty.title')}
               </p>
-              <p className="mt-1 text-[12px] text-muted">
+              <p className="mt-1 text-body-sm text-muted">
                 {t('shortcuts.empty', { query: query.trim() })}
               </p>
             </div>
@@ -500,7 +500,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                         · {items.length}
                       </span>
                     </Eyebrow>
-                    <ul className="grid gap-1 rounded-[1.1rem] border border-border/80 bg-background/65">
+                    <ul className="grid gap-1 rounded-2xl border border-border/80 bg-background/65">
                       {items.map((shortcut) => (
                         <ShortcutRow
                           key={shortcut.id}
@@ -523,7 +523,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         </div>
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border/80 px-5 py-3">
-          <p className="text-xs text-muted">
+          <p className="text-body-sm text-muted">
             {hasOverrides
               ? t('shortcuts.editor.overrideCount', { count: Object.keys(overrides).length })
               : t('shortcuts.editor.noOverrides')}
@@ -534,7 +534,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               onClick={() => void handleExport()}
               disabled={!hasOverrides}
               data-testid="shortcut-export"
-              className="inline-flex items-center gap-1.5 rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download size={12} />
               {t('shortcuts.editor.export')}
@@ -543,7 +543,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               type="button"
               onClick={() => void handleImport()}
               data-testid="shortcut-import"
-              className="inline-flex items-center gap-1.5 rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:text-foreground"
             >
               <Upload size={12} />
               {t('shortcuts.editor.import')}
@@ -553,7 +553,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               onClick={handleResetAll}
               disabled={!hasOverrides}
               data-testid="shortcut-reset-all"
-              className="inline-flex items-center gap-1.5 rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RotateCcw size={12} />
               {t('shortcuts.editor.resetAll')}

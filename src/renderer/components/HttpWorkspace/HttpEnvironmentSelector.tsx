@@ -43,7 +43,7 @@ export function HttpEnvironmentSelector({
         }}
         aria-label={t('httpWorkspace.environment.selector.label')}
         title={t('httpWorkspace.environment.selector.label')}
-        className="h-8 max-w-[160px] shrink-0 rounded-md border border-border-subtle bg-bg-panel px-2 text-xs font-medium text-fg-base focus:border-border-strong focus:outline-none"
+        className="h-8 max-w-[160px] shrink-0 rounded-md border border-border-subtle bg-bg-panel px-2 text-body-sm font-medium text-fg-base focus:border-border-strong focus:outline-none"
       >
         <option value="">{t('httpWorkspace.environment.selector.none')}</option>
         {environments.map((env) => (

@@ -90,7 +90,7 @@ export function UtilitiesSection() {
                 data-testid="utilities-clipboard-on-focus-status"
                 role="status"
                 aria-live="polite"
-                className="text-xs text-fg-subtle"
+                className="text-body-sm text-fg-subtle"
               >
                 {t(consentStatusKey)}
               </span>
@@ -99,7 +99,7 @@ export function UtilitiesSection() {
                   type="button"
                   data-testid="utilities-clipboard-on-focus-unlock"
                   onClick={handleClipboardUpsell}
-                  className="text-xs font-medium text-warning underline-offset-2 hover:underline"
+                  className="text-body-sm font-medium text-warning underline-offset-2 hover:underline"
                 >
                   {t('utilities.settings.clipboardOnFocus.unlock')}
                 </button>
@@ -128,7 +128,7 @@ export function UtilitiesSection() {
                   type="button"
                   data-testid="utilities-clear-all-history-cancel"
                   onClick={() => setConfirmingClear(false)}
-                  className="text-xs text-fg-subtle underline-offset-2 hover:text-fg-base hover:underline"
+                  className="text-body-sm text-fg-subtle underline-offset-2 hover:text-fg-base hover:underline"
                 >
                   {t('utilities.settings.clearAll.cancel')}
                 </button>

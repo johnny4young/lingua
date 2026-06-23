@@ -326,11 +326,11 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         <div className="min-w-0">
           <h2
             id="import-preview-title"
-            className="truncate text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+            className="truncate text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
           >
             {t('importPreview.overlay.title')}
           </h2>
-          <p className="mt-0.5 text-[12.5px] text-fg-subtle">
+          <p className="mt-0.5 text-body-sm text-fg-subtle">
             {t('importPreview.overlay.description')}
           </p>
         </div>
@@ -339,7 +339,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         detectedFormatLabel ? (
           <span
             data-testid="import-preview-detected"
-            className="text-[11.5px] text-fg-subtle"
+            className="text-caption text-fg-subtle"
           >
             {t('importPreview.footer.detected', { format: detectedFormatLabel })}
           </span>
@@ -389,7 +389,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="import-preview-paste"
-            className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-subtle"
+            className="text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle"
           >
             {t('importPreview.source.pasteLabel')}
           </label>
@@ -401,11 +401,11 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
             placeholder={t('importPreview.source.pastePlaceholderNotebook')}
             rows={4}
             spellCheck={false}
-            className="min-h-[88px] resize-none rounded-md border border-border-default bg-bg-inset p-2.5 font-mono text-xs text-fg-base outline-none focus:border-border-strong"
+            className="min-h-[88px] resize-none rounded-md border border-border-default bg-bg-inset p-2.5 font-mono text-body-sm text-fg-base outline-none focus:border-border-strong"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
+          <span className="text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
             {t('importPreview.source.fileCta')}
           </span>
           <button
@@ -413,7 +413,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
             onClick={handlePickFile}
             data-testid="import-preview-pick-file"
             className={cn(
-              'flex min-h-[88px] flex-1 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-xs text-fg-subtle transition-colors',
+              'flex min-h-[88px] flex-1 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-body-sm text-fg-subtle transition-colors',
               'hover:border-border-strong hover:text-fg-base',
               isDragOver && 'border-accent bg-accent/10 text-fg-base'
             )}
@@ -440,7 +440,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
                 <div
                   data-testid="import-preview-warnings"
                   role="status"
-                  className="grid gap-1 rounded-md border border-warning-border/60 bg-warning-bg p-3 text-[11px] text-warning-fg"
+                  className="grid gap-1 rounded-md border border-warning-border/60 bg-warning-bg p-3 text-caption text-warning-fg"
                 >
                   <div className="flex items-center gap-1 font-semibold">
                     <AlertCircle size={12} aria-hidden="true" />
@@ -462,7 +462,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
               data-testid="import-preview-reject"
               data-reject-reason={rejected}
               data-reject-detail={state.rejectDetail ?? ''}
-              className="grid gap-1 rounded-md border border-error-border/60 bg-error-bg p-3 text-[12px] text-error-fg"
+              className="grid gap-1 rounded-md border border-error-border/60 bg-error-bg p-3 text-body-sm text-error-fg"
             >
               {/* When an importer-specific detail exists (e.g. an
                   `.ipynb` `wrong-version` / `oversized` reject), the
@@ -488,7 +488,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           ) : (
             <div
               data-testid="import-preview-empty"
-              className="grid place-items-center rounded-md border border-dashed border-border-subtle bg-bg-inset p-6 text-center text-xs text-fg-subtle"
+              className="grid place-items-center rounded-md border border-dashed border-border-subtle bg-bg-inset p-6 text-center text-body-sm text-fg-subtle"
             >
               {t('importPreview.preview.emptyHint')}
             </div>

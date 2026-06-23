@@ -80,7 +80,7 @@ export interface HttpEnvironmentManagerProps {
 }
 
 const FIELD_CLASS =
-  'h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none';
+  'h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none';
 
 export function HttpEnvironmentManager({
   environments,
@@ -242,7 +242,7 @@ export function HttpEnvironmentManager({
       header={
         <h2
           id={titleId}
-          className="text-sm font-semibold text-fg-base"
+          className="text-body font-semibold text-fg-base"
           data-testid="http-environment-manager"
         >
           {t('httpWorkspace.environment.manager.title')}
@@ -254,7 +254,7 @@ export function HttpEnvironmentManager({
             type="button"
             onClick={handleAddEnvironment}
             data-testid="http-environment-add"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-[11.5px] font-medium text-fg-base transition-colors hover:bg-bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption font-medium text-fg-base transition-colors hover:bg-bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             <Plus size={12} aria-hidden="true" />
             <span>{t('httpWorkspace.environment.manager.addEnvironment')}</span>
@@ -263,7 +263,7 @@ export function HttpEnvironmentManager({
             type="button"
             onClick={handleOpenImport}
             data-testid="http-environment-import"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-[11.5px] font-medium text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption font-medium text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             <Upload size={12} aria-hidden="true" />
             <span>{t('httpWorkspace.environment.manager.import')}</span>
@@ -283,7 +283,7 @@ export function HttpEnvironmentManager({
             data-testid="http-environment-import-textarea"
             placeholder={t('httpWorkspace.environment.manager.importPlaceholder')}
             rows={4}
-            className="rounded-md border border-border-subtle bg-bg-panel px-2 py-1 font-mono text-[10px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+            className="rounded-md border border-border-subtle bg-bg-panel px-2 py-1 font-mono text-eyebrow text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
           />
           <div className="flex justify-end gap-1.5">
             <button
@@ -293,7 +293,7 @@ export function HttpEnvironmentManager({
                 setImportValue('');
               }}
               data-testid="http-environment-import-cancel"
-              className="inline-flex h-6 items-center rounded-md border border-border-subtle px-2 text-[11px] text-fg-subtle transition-colors hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+              className="inline-flex h-6 items-center rounded-md border border-border-subtle px-2 text-caption text-fg-subtle transition-colors hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
             >
               {t('httpWorkspace.environment.manager.importCancel')}
             </button>
@@ -302,7 +302,7 @@ export function HttpEnvironmentManager({
               onClick={handleConfirmImport}
               disabled={!importValue.trim()}
               data-testid="http-environment-import-confirm"
-              className="inline-flex h-6 items-center rounded-md border border-accent bg-accent px-2 text-[11px] font-medium text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+              className="inline-flex h-6 items-center rounded-md border border-accent bg-accent px-2 text-caption font-medium text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
             >
               {t('httpWorkspace.environment.manager.importConfirm')}
             </button>
@@ -313,7 +313,7 @@ export function HttpEnvironmentManager({
       {environments.length === 0 ? (
         <p
           data-testid="http-environment-empty"
-          className="px-1 py-6 text-center text-[12px] text-fg-subtle"
+          className="px-1 py-6 text-center text-body-sm text-fg-subtle"
         >
           {t('httpWorkspace.environment.manager.empty')}
         </p>
@@ -337,8 +337,8 @@ export function HttpEnvironmentManager({
                     onClick={() => setSelectedId(env.id)}
                     className={
                       active
-                        ? 'rounded-md bg-bg-inset px-2.5 py-1 text-[11.5px] font-semibold text-fg-base'
-                        : 'rounded-md px-2.5 py-1 text-[11.5px] text-fg-subtle transition-colors hover:text-fg-base'
+                        ? 'rounded-md bg-bg-inset px-2.5 py-1 text-caption font-semibold text-fg-base'
+                        : 'rounded-md px-2.5 py-1 text-caption text-fg-subtle transition-colors hover:text-fg-base'
                     }
                   >
                     {env.name.length > 0
@@ -369,7 +369,7 @@ export function HttpEnvironmentManager({
                   )}
                   aria-label={t('httpWorkspace.environment.manager.nameLabel')}
                   data-testid="http-environment-name"
-                  className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2.5 text-xs font-medium text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+                  className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2.5 text-body-sm font-medium text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
                 />
                 <button
                   type="button"
@@ -411,7 +411,7 @@ export function HttpEnvironmentManager({
 
               {/* Variable table */}
               <div className="flex items-center gap-2">
-                <span className="text-[11.5px] font-semibold text-fg-base">
+                <span className="text-caption font-semibold text-fg-base">
                   {t('httpWorkspace.environment.manager.variablesLabel')}
                 </span>
                 <button
@@ -453,7 +453,7 @@ export function HttpEnvironmentManager({
                       />
                     ))}
                     {selected.variables.length === 0 ? (
-                      <li className="text-[11px] text-fg-subtle">
+                      <li className="text-caption text-fg-subtle">
                         {t('httpWorkspace.environment.manager.noVariables')}
                       </li>
                     ) : null}
@@ -524,7 +524,7 @@ function HttpEnvironmentVariableRow({
         placeholder={t('httpWorkspace.environment.manager.keyPlaceholder')}
         aria-label={t('httpWorkspace.environment.manager.keyPlaceholder')}
         data-testid="http-environment-var-key"
-        className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+        className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
       />
       <input
         type={variable.secret ? 'password' : 'text'}
@@ -535,7 +535,7 @@ function HttpEnvironmentVariableRow({
         data-testid="http-environment-var-value"
         className={FIELD_CLASS}
       />
-      <label className="inline-flex shrink-0 items-center gap-1 text-[10.5px] text-fg-subtle">
+      <label className="inline-flex shrink-0 items-center gap-1 text-eyebrow text-fg-subtle">
         <input
           type="checkbox"
           checked={variable.secret}

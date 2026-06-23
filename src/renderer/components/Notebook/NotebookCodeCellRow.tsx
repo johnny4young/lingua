@@ -365,7 +365,7 @@ export function NotebookCodeCellRow({
               stays in the list but disabled (the runner doesn't execute
               it yet). Styled as the canonical language-tone pill. */}
           <select
-            className="h-5 cursor-pointer appearance-none rounded px-1.5 text-[10px] font-bold uppercase tracking-wider outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed"
+            className="h-5 cursor-pointer appearance-none rounded px-1.5 text-eyebrow font-bold uppercase tracking-wider outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed"
             style={{
               background: languageTone.background,
               color: languageTone.foreground,
@@ -388,7 +388,7 @@ export function NotebookCodeCellRow({
             ))}
           </select>
           <span
-            className="text-[10px] uppercase tracking-wider text-muted"
+            className="text-eyebrow uppercase tracking-wider text-muted"
             data-testid="notebook-code-cell-index"
           >
             {t('notebook.cell.indexLabel', { index: cellIndex + 1 })}
@@ -397,7 +397,7 @@ export function NotebookCodeCellRow({
               and only present once the cell has run. */}
           {executionOrder !== null ? (
             <span
-              className="font-mono text-[10px] text-fg-subtle"
+              className="font-mono text-eyebrow text-fg-subtle"
               data-testid="notebook-code-cell-execution-order"
             >
               {t('notebook.cell.executionOrder', { n: executionOrder })}
@@ -422,7 +422,7 @@ export function NotebookCodeCellRow({
           {usesKeys.length > 0 ? (
             <span
               data-testid="notebook-code-cell-uses"
-              className="inline-flex h-5 items-center rounded border border-info-border/40 bg-info-bg px-2 font-mono text-[9.5px] text-info-fg"
+              className="inline-flex h-5 items-center rounded border border-info-border/40 bg-info-bg px-2 font-mono text-micro text-info-fg"
             >
               {t('notebook.cell.usesChip', { names: usesKeys.join(', ') })}
             </span>
@@ -430,7 +430,7 @@ export function NotebookCodeCellRow({
           {producesKeys.length > 0 ? (
             <span
               data-testid="notebook-code-cell-produces"
-              className="inline-flex h-5 items-center font-mono text-[9.5px] text-fg-subtle"
+              className="inline-flex h-5 items-center font-mono text-micro text-fg-subtle"
             >
               {t('notebook.cell.producesChip', {
                 names: producesKeys.join(', '),
@@ -444,7 +444,7 @@ export function NotebookCodeCellRow({
               data-testid="notebook-cell-mode"
               data-mode={mode}
               className={cn(
-                'mr-1 hidden rounded px-1.5 text-[9px] font-semibold uppercase tracking-wider sm:inline',
+                'mr-1 hidden rounded px-1.5 text-micro font-semibold uppercase tracking-wider sm:inline',
                 mode === 'edit'
                   ? 'bg-primary/15 text-primary'
                   : 'bg-bg-panel-alt text-fg-subtle'
@@ -462,7 +462,7 @@ export function NotebookCodeCellRow({
             onClick={() => runWithFlush(onRunCell)}
             disabled={disabled || status === 'running'}
             data-testid="notebook-code-cell-run"
-            className="inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-[10px] font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-eyebrow font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Play size={9} aria-hidden="true" />
             {t('notebook.cell.runCell')}
@@ -555,7 +555,7 @@ export function NotebookCodeCellRow({
         })}
         title={t('notebook.cell.codeSourceShortcutHint')}
         rows={3}
-        className="min-h-[64px] resize-none rounded border border-border/60 bg-background p-2 font-mono text-xs text-foreground outline-none focus:border-border-strong disabled:cursor-not-allowed"
+        className="min-h-[64px] resize-none rounded border border-border/60 bg-background p-2 font-mono text-body-sm text-foreground outline-none focus:border-border-strong disabled:cursor-not-allowed"
       />
       {hasOutputs ? (
         <div className="overflow-hidden rounded border border-border/40 bg-background-elevated/50">
@@ -611,7 +611,7 @@ export function NotebookCodeCellRow({
                   key={`${cell.id}-output-${idx}`}
                   data-stream={output.stream}
                   className={cn(
-                    'whitespace-pre-wrap break-all font-mono text-[11px]',
+                    'whitespace-pre-wrap break-all font-mono text-caption',
                     output.stream === 'stderr'
                       ? 'text-error-fg'
                       : 'text-foreground'

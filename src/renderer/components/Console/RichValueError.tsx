@@ -183,11 +183,11 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
   return (
     <div
       ref={containerRef}
-      className="flex flex-col gap-0.5 font-mono text-[11px]"
+      className="flex flex-col gap-0.5 font-mono text-caption"
       data-testid="console-rich-error"
     >
       <span className="text-fg-danger">{payload.message}</span>
-      <span className="text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
+      <span className="text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
         {t('console.rich.errorStackHeader')}
       </span>
       <ul className="flex flex-col gap-0.5 pl-2">
@@ -216,7 +216,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
               <li
                 key={index}
                 role="none"
-                className="mt-1 border-t border-border/40 px-1 pt-1 text-[10px] italic text-fg-subtle"
+                className="mt-1 border-t border-border/40 px-1 pt-1 text-eyebrow italic text-fg-subtle"
                 data-testid="console-rich-error-frame-causedby"
                 data-causedby={frame.causedBy}
               >
@@ -261,7 +261,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
           role="menu"
           aria-label={t('console.rich.errorStackHeader')}
           style={{ position: 'fixed', top: menu.y + 4, left: menu.x + 4, zIndex: 50 }}
-          className="rounded-md border border-border/60 bg-bg-elevated p-1 text-[11px] shadow-md"
+          className="rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-md"
           data-testid="console-rich-error-frame-menu"
         >
           <button

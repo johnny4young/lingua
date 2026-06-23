@@ -59,7 +59,7 @@ export function HttpRequestList({
       className="flex h-full flex-col overflow-hidden border-r border-border-subtle bg-bg-panel"
     >
       <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-2.5">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
+        <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
           {t('httpWorkspace.requestList.label')}
         </span>
         <button
@@ -79,7 +79,7 @@ export function HttpRequestList({
         aria-label={t('httpWorkspace.requestList.ariaLabel')}
       >
         {requests.length === 0 ? (
-          <li className="px-2 py-3 text-xs text-fg-subtle">
+          <li className="px-2 py-3 text-body-sm text-fg-subtle">
             {t('httpWorkspace.requestList.empty')}
           </li>
         ) : null}
@@ -108,7 +108,7 @@ export function HttpRequestList({
               // always reserved (transparent when inactive) so the row
               // text never shifts on selection.
               className={cn(
-                'group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+                'group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-body-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
                 isActive
                   ? 'border-l-accent bg-bg-inset text-fg-base'
                   : 'border-l-transparent text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
@@ -126,7 +126,7 @@ export function HttpRequestList({
             >
               <span
                 data-testid="http-request-list-row-method"
-                className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-fg-subtle"
+                className="shrink-0 font-mono text-micro font-bold uppercase tracking-[0.04em] text-fg-subtle"
               >
                 {req.method}
               </span>
@@ -136,7 +136,7 @@ export function HttpRequestList({
                   type="text"
                   defaultValue={req.name}
                   data-testid="http-request-list-rename-input"
-                  className="min-w-0 flex-1 truncate bg-transparent text-xs outline-none focus:ring-0"
+                  className="min-w-0 flex-1 truncate bg-transparent text-body-sm outline-none focus:ring-0"
                   onBlur={(event) => {
                     const next = event.target.value.trim();
                     if (next.length > 0 && next !== req.name) {

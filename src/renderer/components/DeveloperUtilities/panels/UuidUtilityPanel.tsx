@@ -65,7 +65,7 @@ export function UuidUtilityPanel() {
               setKind(next);
               regenerate(next);
             }}
-            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
             <option value="v4">{t('utilities.tool.uuid.version.v4')}</option>
             <option value="v7">{t('utilities.tool.uuid.version.v7')}</option>
@@ -84,7 +84,7 @@ export function UuidUtilityPanel() {
             <div
               key={value}
               data-testid="uuid-generated-value"
-              className="flex items-center justify-between gap-2 rounded-[1rem] border border-border/80 bg-background/70 px-3 py-2 font-mono text-sm text-foreground"
+              className="flex items-center justify-between gap-2 rounded-2xl border border-border/80 bg-background/70 px-3 py-2 font-mono text-body text-foreground"
             >
               <span className="truncate">{value}</span>
               <CopyButton

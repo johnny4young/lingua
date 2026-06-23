@@ -66,7 +66,7 @@ export function MarkdownPreviewPanel() {
         title={t('utilities.tool.markdownPreview.title')}
         description={t('utilities.tool.markdownPreview.panelDescription')}
       >
-        <label className="flex items-center gap-2 text-sm text-foreground">
+        <label className="flex items-center gap-2 text-body text-foreground">
           <input
             type="checkbox"
             data-testid="markdown-preview-gfm"

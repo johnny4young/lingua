@@ -278,11 +278,11 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
         <div className="min-w-0">
           <h2
             id="capsule-import-title"
-            className="truncate text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+            className="truncate text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
           >
             {t('capsuleImport.overlay.title')}
           </h2>
-          <p className="mt-0.5 text-[12.5px] text-fg-subtle">
+          <p className="mt-0.5 text-body-sm text-fg-subtle">
             {t('capsuleImport.overlay.subtitle')}
           </p>
         </div>
@@ -356,7 +356,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
           <div className="flex flex-col gap-1">
             <label
               htmlFor="capsule-import-paste"
-              className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle"
+              className="text-caption font-semibold uppercase tracking-wider text-fg-subtle"
             >
               {t('capsuleImport.load.paste')}
             </label>
@@ -368,11 +368,11 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
               placeholder={t('capsuleImport.load.pastePlaceholder')}
               rows={4}
               spellCheck={false}
-              className="min-h-[80px] resize-none rounded-md border border-border-default bg-bg-inset p-2 font-mono text-xs text-fg-base outline-none focus:border-border-strong"
+              className="min-h-[80px] resize-none rounded-md border border-border-default bg-bg-inset p-2 font-mono text-body-sm text-fg-base outline-none focus:border-border-strong"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+            <span className="text-caption font-semibold uppercase tracking-wider text-fg-subtle">
               {t('capsuleImport.load.dropZone')}
             </span>
             <button
@@ -380,14 +380,14 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
               onClick={handlePickFile}
               data-testid="capsule-import-open-file"
               className={cn(
-                'flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-xs text-fg-subtle transition-colors',
+                'flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-body-sm text-fg-subtle transition-colors',
                 'hover:border-border-strong hover:text-fg-base',
                 isDragOver && 'border-accent bg-accent/10 text-fg-base'
               )}
             >
               <FileUp size={14} aria-hidden="true" />
               <span>{t('capsuleImport.load.file')}</span>
-              <span className="text-[10px]">
+              <span className="text-eyebrow">
                 {t('capsuleImport.load.dropZoneHint')}
               </span>
             </button>
@@ -403,7 +403,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
           {clipboardConsent === 'unset' ? (
             <div
               data-testid="capsule-import-clipboard-consent"
-              className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-subtle bg-bg-inset px-3 py-2 text-[11px] text-fg-subtle"
+              className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-subtle bg-bg-inset px-3 py-2 text-caption text-fg-subtle"
             >
               <span>{t('capsuleImport.load.clipboardConsentPrompt')}</span>
               <span className="flex gap-2">
@@ -475,7 +475,7 @@ function RejectBanner({
       role="alert"
       data-testid="capsule-import-reject"
       data-reason={reason}
-      className="flex h-full flex-col gap-2 rounded-lg border border-error-border/60 bg-error-bg p-4 text-xs text-error-fg"
+      className="flex h-full flex-col gap-2 rounded-lg border border-error-border/60 bg-error-bg p-4 text-body-sm text-error-fg"
     >
       <header className="flex items-center gap-2 text-error-fg">
         <AlertCircle size={14} aria-hidden="true" />
@@ -484,7 +484,7 @@ function RejectBanner({
         </h3>
       </header>
       <p>{t(messageKey)}</p>
-      <p className="font-mono text-[10px] text-error-fg/70">
+      <p className="font-mono text-eyebrow text-error-fg/70">
         {byteLength.toLocaleString()} B
         {detail ? ` · ${detail}` : ''}
       </p>

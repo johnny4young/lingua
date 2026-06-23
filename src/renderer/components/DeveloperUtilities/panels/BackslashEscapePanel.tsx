@@ -62,27 +62,27 @@ export function BackslashEscapePanel() {
         description={t('utilities.tool.backslashEscape.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.backslashEscape.modeLabel')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.backslashEscape.modeLabel')}
               data-testid="backslash-escape-mode"
               value={mode}
               onChange={event => setMode(event.target.value as BackslashMode)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="escape">{t('utilities.tool.backslashEscape.mode.escape')}</option>
               <option value="unescape">{t('utilities.tool.backslashEscape.mode.unescape')}</option>
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.backslashEscape.presetLabel')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.backslashEscape.presetLabel')}
               data-testid="backslash-escape-preset"
               value={preset}
               onChange={event => setPreset(event.target.value as BackslashPreset)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               {BACKSLASH_PRESETS.map(entry => (
                 <option key={entry} value={entry}>

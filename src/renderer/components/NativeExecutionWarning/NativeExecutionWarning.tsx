@@ -73,12 +73,12 @@ export function NativeExecutionWarning() {
         <div className="surface-header px-5 py-4">
           <h2
             id="native-execution-warning-title"
-            className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground"
+            className="font-display text-h2 font-semibold tracking-[-0.02em] text-foreground"
           >
             {t('nativeExecution.modal.title')}
           </h2>
         </div>
-        <div className="space-y-4 px-5 py-5 text-sm leading-6 text-muted">
+        <div className="space-y-4 px-5 py-5 text-body leading-6 text-muted">
           <p id="native-execution-warning-body">
             {t('nativeExecution.modal.body')}
           </p>

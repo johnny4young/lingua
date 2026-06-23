@@ -190,7 +190,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         <FolderOpen size={14} className="shrink-0 text-warning" />
         <div className="min-w-0 flex-1">
           <span
-            className="block truncate font-display text-sm font-semibold tracking-[0.08em] text-foreground"
+            className="block truncate font-display text-body font-semibold tracking-[0.08em] text-foreground"
             title={truncatedRootPath}
             data-testid="file-tree-root-tooltip"
           >
@@ -198,7 +198,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           </span>
           {fileCount > 0 && (
             <span
-              className="block text-[0.65rem] uppercase tracking-[0.14em] text-muted"
+              className="block text-eyebrow uppercase tracking-[0.14em] text-muted"
               data-testid="file-tree-file-count"
             >
               {t('fileTree.fileCount', { count: fileCount })}
@@ -283,7 +283,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         ))}
 
         {nodes.length === 0 && (
-          <p className="px-3 py-4 text-center text-xs italic text-muted">
+          <p className="px-3 py-4 text-center text-body-sm italic text-muted">
             {t('fileTree.empty')}
           </p>
         )}
@@ -293,7 +293,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
       <div className="border-t border-border/70 p-2">
         <button
           onClick={() => openProject()}
-          className="flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
+          className="flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-body-sm text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
         >
           <OpenFolderIcon size={12} />
           {t('fileTree.openDifferent')}

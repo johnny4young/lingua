@@ -168,10 +168,10 @@ export function PrivacyTrustSection() {
       >
         <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
           <table
-            className="min-w-full text-sm"
+            className="min-w-full text-body"
             data-testid="privacy-local-stores-table"
           >
-            <thead className="bg-bg-panel-alt text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
+            <thead className="bg-bg-panel-alt text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">
                   {t('settings.privacy.localStores.col.key')}
@@ -194,14 +194,14 @@ export function PrivacyTrustSection() {
                   className="border-t border-border-subtle"
                   data-testid={`privacy-local-stores-row-${row.key}`}
                 >
-                  <td className="px-3 py-2 font-mono text-xs text-fg-base">
+                  <td className="px-3 py-2 font-mono text-body-sm text-fg-base">
                     {row.key}
                   </td>
-                  <td className="px-3 py-2 text-xs text-fg-muted">
+                  <td className="px-3 py-2 text-body-sm text-fg-muted">
                     {t(row.purposeKey)}
                   </td>
                   <td
-                    className="px-3 py-2 text-right font-mono text-xs text-fg-muted"
+                    className="px-3 py-2 text-right font-mono text-body-sm text-fg-muted"
                     data-testid={`privacy-local-stores-size-${row.key}`}
                   >
                     {formatBytes(row.bytes)}
@@ -232,7 +232,7 @@ export function PrivacyTrustSection() {
          */}
         <p
           data-testid="privacy-capsules-retained"
-          className="text-xs text-fg-subtle"
+          className="text-body-sm text-fg-subtle"
         >
           {t('settings.privacy.localStores.capsulesRetained', {
             count: capsulesRetained,
@@ -246,10 +246,10 @@ export function PrivacyTrustSection() {
       >
         <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
           <table
-            className="min-w-full text-sm"
+            className="min-w-full text-body"
             data-testid="privacy-network-activity-table"
           >
-            <thead className="bg-bg-panel-alt text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
+            <thead className="bg-bg-panel-alt text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">
                   {t('settings.privacy.network.col.feature')}
@@ -269,13 +269,13 @@ export function PrivacyTrustSection() {
                   className="border-t border-border-subtle"
                   data-testid={`privacy-network-row-${row.feature}`}
                 >
-                  <td className="px-3 py-2 text-xs text-fg-base">
+                  <td className="px-3 py-2 text-body-sm text-fg-base">
                     {t(networkFeatureLabel(row.feature))}
                   </td>
                   <td className="px-3 py-2">
                     <NetworkStatusChip status={row.status} />
                   </td>
-                  <td className="px-3 py-2 text-xs text-fg-muted">
+                  <td className="px-3 py-2 text-body-sm text-fg-muted">
                     {row.lastCallAt === null
                       ? t('settings.privacy.network.lastCall.never')
                       : formatRelativeTimestamp(row.lastCallAt)}
@@ -310,7 +310,7 @@ function RedactionPreviewBlock({
   const { t } = useTranslation();
   return (
     <div className="space-y-3" data-testid="privacy-redaction-preview">
-      <h3 className="text-[13px] font-medium leading-tight text-fg-base">
+      <h3 className="text-body font-medium leading-tight text-fg-base">
         {t('settings.privacy.redaction.title')}
       </h3>
       <textarea
@@ -320,16 +320,16 @@ function RedactionPreviewBlock({
         rows={4}
         spellCheck={false}
         aria-label={t('settings.privacy.redaction.title')}
-        className="w-full rounded-lg border border-border-subtle bg-bg-inset p-3 text-sm font-mono text-fg-base outline-none transition-colors focus:border-accent/55"
+        className="w-full rounded-lg border border-border-subtle bg-bg-inset p-3 text-body font-mono text-fg-base outline-none transition-colors focus:border-accent/55"
         data-testid="privacy-redaction-input"
       />
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-border-subtle bg-bg-inset p-3">
-          <p className="mb-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
+          <p className="mb-2 font-mono text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
             {t('settings.privacy.redaction.before')}
           </p>
           <pre
-            className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-fg-base"
+            className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-caption leading-snug text-fg-base"
             data-testid="privacy-redaction-before"
           >
             {input.length === 0
@@ -338,11 +338,11 @@ function RedactionPreviewBlock({
           </pre>
         </div>
         <div className="rounded-lg border border-border-subtle bg-bg-inset p-3">
-          <p className="mb-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
+          <p className="mb-2 font-mono text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
             {t('settings.privacy.redaction.after')}
           </p>
           <pre
-            className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-fg-base"
+            className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-caption leading-snug text-fg-base"
             data-testid="privacy-redaction-after"
           >
             {input.length === 0
@@ -408,12 +408,12 @@ function ClearConfirmationModal({
         <div className="surface-header px-5 py-4">
           <h2
             id="privacy-clear-confirm-title"
-            className="font-display text-xl font-semibold text-foreground"
+            className="font-display text-h2 font-semibold text-foreground"
           >
             {t('settings.privacy.localStores.clear.confirmTitle')}
           </h2>
         </div>
-        <div className="px-5 py-5 text-sm text-fg-muted">
+        <div className="px-5 py-5 text-body text-fg-muted">
           <p>
             {t('settings.privacy.localStores.clear.confirm', {
               key: storageKey,

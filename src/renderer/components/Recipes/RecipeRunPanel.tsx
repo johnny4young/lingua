@@ -87,7 +87,7 @@ export function RecipeRunPanel() {
     return (
       <div
         data-testid="recipe-run-panel-unbound"
-        className="grid h-full place-items-center border-l border-border-subtle bg-bg-panel p-6 text-center text-xs text-fg-subtle"
+        className="grid h-full place-items-center border-l border-border-subtle bg-bg-panel p-6 text-center text-body-sm text-fg-subtle"
       >
         <div className="grid gap-2">
           <p>{t('recipes.panel.unboundFallback')}</p>
@@ -95,7 +95,7 @@ export function RecipeRunPanel() {
             type="button"
             onClick={openOverlay}
             data-testid="recipe-run-panel-open-overlay"
-            className="inline-flex h-7 items-center justify-self-center rounded-md border border-accent/40 bg-accent/10 px-3 text-[11px] font-medium text-accent-fg hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            className="inline-flex h-7 items-center justify-self-center rounded-md border border-accent/40 bg-accent/10 px-3 text-caption font-medium text-accent-fg hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             {t('recipes.panel.openAnother')}
           </button>
@@ -139,10 +139,10 @@ export function RecipeRunPanel() {
     >
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-2.5">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-display text-[15px] font-semibold tracking-[-0.01em] text-fg-base">
+          <h3 className="truncate font-display text-body-lg font-semibold tracking-[-0.01em] text-fg-base">
             {pickProse(recipe.title, locale)}
           </h3>
-          <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.08em] text-fg-subtle">
+          <p className="mt-0.5 truncate font-mono text-eyebrow uppercase tracking-[0.08em] text-fg-subtle">
             {recipe.tags.join(' · ')}
           </p>
         </div>
@@ -151,7 +151,7 @@ export function RecipeRunPanel() {
             type="button"
             onClick={openOverlay}
             data-testid="recipe-run-panel-open-another"
-            className="inline-flex h-6 items-center rounded-md border border-border-subtle bg-bg-inset px-2 text-[10px] uppercase tracking-[0.08em] text-fg-muted hover:border-border hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            className="inline-flex h-6 items-center rounded-md border border-border-subtle bg-bg-inset px-2 text-eyebrow uppercase tracking-[0.08em] text-fg-muted hover:border-border hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             {t('recipes.panel.openAnother')}
           </button>
@@ -182,7 +182,7 @@ export function RecipeRunPanel() {
             disabled={isRunning || !runnable}
             data-testid="recipe-run-panel-run"
             className={cn(
-              'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+              'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
               // Run + Test KEEPS green — it is a real run. The hardcoded
               // emerald is replaced by the DS `success` triple so it stays
               // green and resolves correctly in both themes.
@@ -205,13 +205,13 @@ export function RecipeRunPanel() {
             )}
           </button>
           {!runnable ? (
-            <span className="text-[11px] text-warning-fg">
+            <span className="text-caption text-warning-fg">
               {t('recipes.notice.disabledForNonJs')}
             </span>
           ) : results.length > 0 ? (
             <span
               data-testid="recipe-run-panel-summary"
-              className="text-[11px] text-fg-muted"
+              className="text-caption text-fg-muted"
             >
               {allPassed ? (
                 <span className="inline-flex items-center gap-1 text-success-fg">
@@ -287,13 +287,13 @@ function AssertionResultRow({
       data-assertion-id={result.assertionId}
       data-status={result.status}
       className={cn(
-        'grid gap-1 rounded-md border p-2 text-[11px]',
+        'grid gap-1 rounded-md border p-2 text-caption',
         tone
       )}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-fg-base">{label}</span>
-        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em]">
+        <span className="inline-flex items-center gap-1 text-eyebrow uppercase tracking-[0.08em]">
           {result.status === 'pass' ? (
             <Check size={11} aria-hidden="true" />
           ) : null}
@@ -303,9 +303,9 @@ function AssertionResultRow({
       {result.details !== undefined && result.details.length > 0 ? (
         <div
           data-testid="recipe-run-panel-result-details"
-          className="rounded-md bg-bg-inset p-1.5 font-mono text-[10px] text-fg-muted"
+          className="rounded-md bg-bg-inset p-1.5 font-mono text-eyebrow text-fg-muted"
         >
-          <span className="text-[9px] uppercase tracking-[0.08em] text-fg-subtle">
+          <span className="text-micro uppercase tracking-[0.08em] text-fg-subtle">
             {t('recipes.assertion.detailsLabel')}
           </span>
           <div className="whitespace-pre-wrap break-all">{result.details}</div>
@@ -313,7 +313,7 @@ function AssertionResultRow({
       ) : assertion?.hint !== undefined && result.status !== 'pass' ? (
         <p
           data-testid="recipe-run-panel-result-hint"
-          className="text-[10px] text-fg-muted"
+          className="text-eyebrow text-fg-muted"
         >
           {pickProse(assertion.hint, locale)}
         </p>

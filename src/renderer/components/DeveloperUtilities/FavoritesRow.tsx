@@ -79,7 +79,7 @@ export function FavoritesRow({
       data-testid="utilities-favorites-row"
       className="border-b border-border/80 bg-background/45 px-3 py-2"
     >
-      <p className="mb-1.5 text-[10px] uppercase tracking-[0.2em] text-muted">
+      <p className="mb-1.5 text-eyebrow uppercase tracking-[0.2em] text-muted">
         {t('utilities.favorites.label')}
       </p>
       <DndContext
@@ -137,7 +137,7 @@ function FavoriteChip({
       data-testid={`utility-favorite-${id}`}
       data-selected={isSelected || undefined}
       className={cn(
-        'inline-flex items-center gap-1 rounded-[0.85rem] border bg-background/85',
+        'inline-flex items-center gap-1 rounded-xl border bg-background/85',
         isSelected
           ? 'border-primary/60 bg-primary-soft text-primary'
           : 'border-border/80 text-foreground hover:border-primary/40'
@@ -161,7 +161,7 @@ function FavoriteChip({
       <button
         type="button"
         onClick={() => onSelect(id)}
-        className="px-1.5 py-1 text-[11.5px] font-medium"
+        className="px-1.5 py-1 text-caption font-medium"
       >
         {t(definition.titleKey)}
       </button>

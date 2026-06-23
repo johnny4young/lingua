@@ -73,7 +73,7 @@ export function SqlQueryList({
       className="flex h-full flex-col overflow-hidden bg-bg-panel"
     >
       <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-2.5 py-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
+        <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
           {t('sqlWorkspace.queryList.label')}
         </span>
         <button
@@ -93,7 +93,7 @@ export function SqlQueryList({
         aria-label={t('sqlWorkspace.queryList.ariaLabel')}
       >
         {queries.length === 0 ? (
-          <li className="px-2.5 py-4 text-xs text-fg-subtle">
+          <li className="px-2.5 py-4 text-body-sm text-fg-subtle">
             {t('sqlWorkspace.queryList.empty')}
           </li>
         ) : null}
@@ -110,7 +110,7 @@ export function SqlQueryList({
               tabIndex={isRenaming ? -1 : 0}
               aria-current={isActive ? 'true' : undefined}
               className={cn(
-                'group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-[12.5px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-body-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 isActive
                   ? 'border-l-accent bg-bg-inset text-fg-base'
                   : 'border-l-transparent text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
@@ -128,7 +128,7 @@ export function SqlQueryList({
             >
               <span
                 data-testid="sql-query-list-row-chip"
-                className="shrink-0 font-mono text-[8.5px] font-bold tracking-[0.04em] text-accent"
+                className="shrink-0 font-mono text-nano font-bold tracking-[0.04em] text-accent"
               >
                 {queryChipLabel(q.query)}
               </span>
@@ -138,7 +138,7 @@ export function SqlQueryList({
                   type="text"
                   defaultValue={q.name}
                   data-testid="sql-query-list-rename-input"
-                  className="min-w-0 flex-1 truncate bg-transparent text-[12.5px] text-fg-base outline-none focus:ring-0"
+                  className="min-w-0 flex-1 truncate bg-transparent text-body-sm text-fg-base outline-none focus:ring-0"
                   onBlur={(event) => {
                     const next = event.target.value.trim();
                     if (next.length > 0 && next !== q.name) {

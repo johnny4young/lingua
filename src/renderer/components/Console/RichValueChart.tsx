@@ -178,7 +178,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
     >
       <span className="absolute left-0 top-0 z-10 flex items-center gap-1 px-1">
         {status === 'loading' && (
-          <span className="rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
+          <span className="rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
             {t('console.rich.chartLoading')}
           </span>
         )}
@@ -191,14 +191,14 @@ export function RichValueChart({ payload }: RichValueChartProps) {
           aria-haspopup="menu"
           aria-expanded={showMenu}
           data-testid="console-rich-chart-actions"
-          className="rounded-md border border-transparent px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle hover:border-border/60 hover:text-foreground"
+          className="rounded-md border border-transparent px-1.5 py-0.5 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle hover:border-border/60 hover:text-foreground"
         >
           ⋯
         </button>
         {showMenu && (
           <span
             role="menu"
-            className="absolute right-0 top-full mt-1 flex min-w-40 flex-col rounded-md border border-border/60 bg-bg-elevated p-1 text-[11px] shadow-md"
+            className="absolute right-0 top-full mt-1 flex min-w-40 flex-col rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-md"
             data-testid="console-rich-chart-menu"
           >
             {canExportChart ? (
@@ -241,7 +241,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
       />
       {status === 'failed' && (
         <span
-          className="block rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-[11px] text-fg-subtle"
+          className="block rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-caption text-fg-subtle"
           data-testid="console-rich-chart-failed"
         >
           {t('console.rich.chartLoadFailed')}

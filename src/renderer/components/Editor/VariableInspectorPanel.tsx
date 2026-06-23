@@ -226,11 +226,11 @@ function VariableRow({ name, value, diffKind, depth }: RowProps) {
       <li
         data-testid={`variable-row-${name}`}
         data-diff-kind={diffKind}
-        className="grid grid-cols-[16px_18px_minmax(7rem,0.65fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-1.5 font-mono text-[11px] hover:bg-bg-panel-alt/65"
+        className="grid grid-cols-[16px_18px_minmax(7rem,0.65fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-1.5 font-mono text-caption hover:bg-bg-panel-alt/65"
         style={{ paddingLeft: depth > 0 ? `${depth * 1.25 + 0.75}rem` : undefined }}
       >
         <span
-          className={`select-none text-[10px] ${diffTone}`}
+          className={`select-none text-eyebrow ${diffTone}`}
           aria-label={diffKind ?? 'unchanged'}
         >
           {diffGlyph}
@@ -258,7 +258,7 @@ function VariableRow({ name, value, diffKind, depth }: RowProps) {
               <ChevronRight size={11} />
             )
           ) : (
-            <span className="text-[10px] text-fg-subtle">{typeIcon(value)}</span>
+            <span className="text-eyebrow text-fg-subtle">{typeIcon(value)}</span>
           )}
         </button>
         <span className="truncate text-fg-base">{name}</span>
@@ -300,7 +300,7 @@ function ExpandedEntries({
       {typeof value.truncatedCount === 'number' && value.truncatedCount > 0 && (
         <li
           data-testid="variable-truncated-banner"
-          className="px-3 py-1 font-mono text-[10px] italic text-fg-muted"
+          className="px-3 py-1 font-mono text-eyebrow italic text-fg-muted"
           style={{ paddingLeft: `${depth * 1.25 + 0.75}rem` }}
         >
           {t('variableInspector.row.truncated', { count: value.truncatedCount })}
@@ -377,7 +377,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
     return (
       <div className="flex h-full items-center justify-center px-6 text-center">
         <span
-          className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-xs italic text-fg-muted"
+          className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-body-sm italic text-fg-muted"
           data-testid="variable-inspector-empty"
         >
           {t('variableInspector.panel.empty')}
@@ -405,7 +405,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
               data-testid="variable-inspector-view-list"
               aria-pressed={viewMode === 'list'}
               onClick={() => setViewMode('list')}
-              className={`px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+              className={`px-2.5 py-0.5 font-mono text-eyebrow font-bold uppercase tracking-[0.12em] transition-colors ${
                 viewMode === 'list'
                   ? 'bg-primary-soft text-accent-fg'
                   : 'text-fg-subtle hover:bg-bg-panel-alt/70 hover:text-fg-base'
@@ -418,7 +418,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
               data-testid="variable-inspector-view-cards"
               aria-pressed={viewMode === 'cards'}
               onClick={() => setViewMode('cards')}
-              className={`px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+              className={`px-2.5 py-0.5 font-mono text-eyebrow font-bold uppercase tracking-[0.12em] transition-colors ${
                 viewMode === 'cards'
                   ? 'bg-primary-soft text-accent-fg'
                   : 'text-fg-subtle hover:bg-bg-panel-alt/70 hover:text-fg-base'
@@ -428,7 +428,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
             </button>
           </div>
         </div>
-        <label className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+        <label className="flex items-center gap-1.5 text-caption text-fg-muted">
           <span className="sr-only">{t('variableInspector.filter.label')}</span>
           <Search size={11} aria-hidden className="text-fg-subtle" />
           <input
@@ -438,7 +438,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
             placeholder={t('variableInspector.filter.placeholder')}
             aria-label={t('variableInspector.filter.label')}
             data-testid="variable-inspector-filter"
-            className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-[11px] text-fg-base outline-none placeholder:text-fg-subtle focus:border-accent/50"
+            className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-caption text-fg-base outline-none placeholder:text-fg-subtle focus:border-accent/50"
           />
         </label>
       </div>
@@ -446,7 +446,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
         {visibleVariables.length === 0 && !hasTopLevelTruncation ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <span
-              className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-xs italic text-fg-muted"
+              className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-body-sm italic text-fg-muted"
               data-testid={
                 filterLower.length > 0
                   ? 'variable-inspector-filter-empty'
@@ -480,7 +480,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
             {hasTopLevelTruncation && (
                 <li
                   data-testid="variable-inspector-top-truncated"
-                  className="px-3 py-1 font-mono text-[10px] italic text-fg-muted"
+                  className="px-3 py-1 font-mono text-eyebrow italic text-fg-muted"
                 >
                   {t('variableInspector.row.truncated', {
                     count: matchedSnapshot.truncatedCount,
@@ -563,7 +563,7 @@ function CardsByDiff({
         {hasTopLevelTruncation && (
           <p
             data-testid="variable-inspector-top-truncated-cards"
-            className="col-span-full px-1 py-1 font-mono text-[10px] italic text-fg-muted"
+            className="col-span-full px-1 py-1 font-mono text-eyebrow italic text-fg-muted"
           >
             {t('variableInspector.row.truncated', { count: truncatedCount })}
           </p>
@@ -611,7 +611,7 @@ function CardsByDiff({
       {hasTopLevelTruncation && (
         <p
           data-testid="variable-inspector-top-truncated-cards"
-          className="px-1 py-1 font-mono text-[10px] italic text-fg-muted"
+          className="px-1 py-1 font-mono text-eyebrow italic text-fg-muted"
         >
           {t('variableInspector.row.truncated', { count: truncatedCount })}
         </p>
@@ -687,7 +687,7 @@ function VariableCard({
     >
       <p
         className={classNames(
-          'truncate font-mono text-[11.5px] font-semibold tracking-[-0.005em]',
+          'truncate font-mono text-caption font-semibold tracking-[-0.005em]',
           diffKind === 'added' || diffKind === 'changed'
             ? 'text-accent-fg'
             : 'text-fg-muted',
@@ -695,7 +695,7 @@ function VariableCard({
       >
         {name}
       </p>
-      <p className="break-words font-mono text-[15px] font-semibold leading-tight text-fg-base">
+      <p className="break-words font-mono text-body-lg font-semibold leading-tight text-fg-base">
         {preview}
       </p>
       <div className="mt-auto flex items-center justify-end">

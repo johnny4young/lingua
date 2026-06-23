@@ -629,7 +629,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     return (
       <div
         data-testid="notebook-view-empty"
-        className="grid h-full place-items-center p-6 text-center text-xs text-muted"
+        className="grid h-full place-items-center p-6 text-center text-body-sm text-muted"
       >
         {t('notebook.empty.notFound')}
       </div>
@@ -685,9 +685,9 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             data-testid="notebook-title"
             spellCheck={false}
             aria-label={t('notebook.titleLabel')}
-            className="min-w-0 flex-1 truncate rounded border border-transparent bg-transparent px-2 py-1 font-display text-sm font-semibold tracking-tight text-foreground hover:border-border/40 focus:border-border-strong focus:bg-bg-elevated focus:outline-none"
+            className="min-w-0 flex-1 truncate rounded border border-transparent bg-transparent px-2 py-1 font-display text-body font-semibold tracking-tight text-foreground hover:border-border/40 focus:border-border-strong focus:bg-bg-elevated focus:outline-none"
           />
-          <span className="hidden text-[10px] uppercase tracking-wider text-muted sm:inline">
+          <span className="hidden text-eyebrow uppercase tracking-wider text-muted sm:inline">
             {t('notebook.toolbar.summary', {
               cells: notebook.cells.length,
               codeCells: codeCellsCount,
@@ -700,7 +700,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={handleAddMarkdown}
             disabled={disabled}
             data-testid="notebook-toolbar-add-markdown"
-            className="button-ghost px-2.5 text-[11px]"
+            className="button-ghost px-2.5 text-caption"
           >
             <FileText size={11} aria-hidden="true" />
             {t('notebook.toolbar.addMarkdown')}
@@ -710,7 +710,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={() => handleAddCode(preferredCodeLanguage)}
             disabled={disabled}
             data-testid="notebook-toolbar-add-code"
-            className="button-ghost px-2.5 text-[11px]"
+            className="button-ghost px-2.5 text-caption"
           >
             <CodeXml size={11} aria-hidden="true" />
             {t('notebook.toolbar.addCode')}
@@ -723,7 +723,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             }}
             disabled={disabled || !canRunThroughActiveCell}
             data-testid="notebook-toolbar-run-above"
-            className="button-ghost px-2.5 text-[11px]"
+            className="button-ghost px-2.5 text-caption"
           >
             <Hammer size={11} aria-hidden="true" />
             {t('notebook.toolbar.runAbove')}
@@ -733,7 +733,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={handleRunFromHere}
             disabled={disabled || !canRunFromActiveCell}
             data-testid="notebook-toolbar-run-from-here"
-            className="button-ghost px-2.5 text-[11px]"
+            className="button-ghost px-2.5 text-caption"
           >
             <PlayCircle size={11} aria-hidden="true" />
             {t('notebook.toolbar.runFromHere')}
@@ -744,7 +744,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             disabled={disabled || lastCodeCellId === null}
             data-testid="notebook-toolbar-run-all"
             className={cn(
-              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-caption font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
               disabled
                 ? 'border-border/40 bg-surface/40 text-muted'
                 : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
@@ -768,7 +768,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={stop}
             disabled={!isAnyCellRunning}
             data-testid="notebook-toolbar-stop"
-            className="inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-[11px] font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Square size={11} aria-hidden="true" />
             {t('notebook.toolbar.stop')}
@@ -780,7 +780,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             disabled={disabled}
             title={t('notebook.toolbar.restartHint')}
             data-testid="notebook-toolbar-restart"
-            className="button-ghost px-2.5 text-[11px]"
+            className="button-ghost px-2.5 text-caption"
           >
             <RotateCcw size={11} aria-hidden="true" />
             {t('notebook.toolbar.restart')}
@@ -790,7 +790,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={handleClearOutputs}
             disabled={disabled || !hasOutputsToClear}
             data-testid="notebook-toolbar-clear-outputs"
-            className="button-ghost px-2.5 text-[11px]"
+            className="button-ghost px-2.5 text-caption"
           >
             <Eraser size={11} aria-hidden="true" />
             {t('notebook.toolbar.clearOutputs')}
@@ -805,7 +805,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               aria-expanded={exportMenuOpen}
               aria-haspopup="menu"
               data-testid="notebook-toolbar-export"
-              className="button-ghost px-2.5 text-[11px]"
+              className="button-ghost px-2.5 text-caption"
             >
               <Sparkles size={11} aria-hidden="true" />
               {t('notebook.toolbar.export')}
@@ -822,7 +822,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                   role="menuitem"
                   onClick={handleExport}
                   data-testid="notebook-export-script"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] text-muted hover:bg-surface/60 hover:text-foreground"
+                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
                 >
                   {t('notebook.toolbar.exportScript', {
                     language: exportLanguageLabel,
@@ -833,7 +833,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                   role="menuitem"
                   onClick={handleExportIpynb}
                   data-testid="notebook-export-ipynb"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] text-muted hover:bg-surface/60 hover:text-foreground"
+                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
                 >
                   {t('notebook.toolbar.exportAsIpynb')}
                 </button>
@@ -842,7 +842,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                   role="menuitem"
                   onClick={handleExportLinguanb}
                   data-testid="notebook-export-linguanb"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] text-muted hover:bg-surface/60 hover:text-foreground"
+                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
                 >
                   {t('notebook.toolbar.exportAsLinguanb')}
                 </button>
@@ -860,7 +860,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               title={t('notebook.command.shortcutsTitle')}
               data-testid="notebook-toolbar-shortcuts"
               className={cn(
-                'inline-flex h-[28px] w-[28px] items-center justify-center rounded-lg border text-[11px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                'inline-flex h-[28px] w-[28px] items-center justify-center rounded-lg border text-caption transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
                 shortcutsOpen
                   ? 'border-primary/60 bg-primary/10 text-foreground'
                   : 'border-transparent text-muted hover:bg-surface-strong/60 hover:text-foreground'
@@ -875,14 +875,14 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                 data-testid="notebook-shortcuts-legend"
                 className="absolute right-0 top-9 z-20 w-72 rounded-md border border-border/60 bg-bg-elevated p-3 shadow-lg"
               >
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                <p className="mb-2 text-eyebrow font-semibold uppercase tracking-wider text-muted">
                   {t('notebook.command.shortcutsTitle')}
                 </p>
                 <ul className="grid gap-1.5">
                   {NOTEBOOK_SHORTCUT_HINTS.map(({ keys, labelKey }) => (
                     <li
                       key={labelKey}
-                      className="flex items-center justify-between gap-2 text-[11px] text-foreground"
+                      className="flex items-center justify-between gap-2 text-caption text-foreground"
                     >
                       <span>{t(labelKey)}</span>
                       <span className="flex shrink-0 items-center gap-1">
@@ -907,11 +907,11 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         {notebook.cells.length === 0 ? (
           <div
             data-testid="notebook-cells-empty"
-            className="grid place-items-center rounded border border-dashed border-border/60 p-8 text-center text-xs text-muted"
+            className="grid place-items-center rounded border border-dashed border-border/60 p-8 text-center text-body-sm text-muted"
           >
             <div className="grid gap-2">
               <p>{t('notebook.empty.title')}</p>
-              <p className="text-[11px]">{t('notebook.empty.cta')}</p>
+              <p className="text-caption">{t('notebook.empty.cta')}</p>
             </div>
           </div>
         ) : (
@@ -987,7 +987,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               onClick={() => handleAddCode(preferredCodeLanguage)}
               disabled={disabled}
               data-testid="notebook-cells-append-code"
-              className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-[11px] text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               <CodeXml size={11} aria-hidden="true" />
               {t('notebook.toolbar.addCode')}
@@ -997,7 +997,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               onClick={handleAddMarkdown}
               disabled={disabled}
               data-testid="notebook-cells-append-markdown"
-              className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-[11px] text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               <FileText size={11} aria-hidden="true" />
               {t('notebook.toolbar.addMarkdown')}

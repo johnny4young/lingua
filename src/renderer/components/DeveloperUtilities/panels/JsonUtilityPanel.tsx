@@ -79,7 +79,7 @@ export function JsonUtilityPanel() {
         ) : analysis.parsed === null ? (
           <StatusMessage message={t('utilities.tool.json.empty')} />
         ) : (
-          <div className="max-h-[34rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+          <div className="max-h-[34rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
             <JsonTreeNode value={analysis.parsed} />
           </div>
         )}

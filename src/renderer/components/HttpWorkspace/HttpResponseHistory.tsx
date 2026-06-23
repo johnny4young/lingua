@@ -66,7 +66,7 @@ export function HttpResponseHistory({
       className="flex shrink-0 flex-col border-t border-border-subtle bg-bg-panel"
     >
       <header className="px-3 pt-2 pb-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
+        <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
           {t('httpWorkspace.response.history.label')}
         </span>
       </header>
@@ -82,7 +82,7 @@ export function HttpResponseHistory({
                 data-selected={isSelected}
                 aria-current={isSelected ? 'true' : undefined}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md border-l-2 px-2 py-1 text-left text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+                  'flex w-full items-center gap-2 rounded-md border-l-2 px-2 py-1 text-left text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
                   isSelected
                     ? 'border-l-accent bg-bg-inset text-fg-base'
                     : 'border-l-transparent text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
@@ -92,7 +92,7 @@ export function HttpResponseHistory({
                 <span className="font-mono tabular-nums text-fg-subtle">
                   {entry.durationMs} ms
                 </span>
-                <span className="ml-auto shrink-0 text-[10.5px] text-fg-subtle">
+                <span className="ml-auto shrink-0 text-eyebrow text-fg-subtle">
                   {relative(entry.recordedAt)}
                 </span>
               </button>

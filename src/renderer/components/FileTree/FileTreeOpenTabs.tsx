@@ -103,7 +103,7 @@ export function FileTreeOpenTabs({ onNavigate }: FileTreeOpenTabsProps) {
                 ? `${tab.name} · ${t('fileTree.dirtyDot.label')}`
                 : tab.name
             }
-            className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs transition-colors ${
+            className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-body-sm transition-colors ${
               tab.id === activeTabId
                 ? 'bg-surface-strong/88 text-foreground'
                 : 'text-muted hover:bg-surface-strong/62 hover:text-foreground'
@@ -137,7 +137,7 @@ function OpenTabGlyph({ language }: { language: Language }) {
   return (
     <span
       aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-[3px] font-mono text-[8px] font-bold uppercase leading-none"
+      className="inline-flex shrink-0 items-center justify-center rounded-sm font-mono text-nano font-bold uppercase leading-none"
       style={{
         minWidth: 16,
         height: 16,

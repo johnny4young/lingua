@@ -85,7 +85,7 @@ export function RunCapsulesSection() {
           description={summary ?? t('settings.account.runCapsules.emptyState')}
           control={
             <div className="flex flex-col items-end gap-2">
-              <label className="flex items-center gap-2 text-[11.5px] text-fg-subtle">
+              <label className="flex items-center gap-2 text-caption text-fg-subtle">
                 <input
                   type="checkbox"
                   checked={prettyPrint}
@@ -111,7 +111,7 @@ export function RunCapsulesSection() {
                  */}
                 <button
                   type="button"
-                  className="rounded-md border border-border-default px-3 py-1.5 text-[12px] text-fg-base transition-colors hover:bg-bg-panel-alt"
+                  className="rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt"
                   onClick={() => {
                     window.dispatchEvent(
                       new CustomEvent('lingua-open-capsule-list', {
@@ -126,7 +126,7 @@ export function RunCapsulesSection() {
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-border-default px-3 py-1.5 text-[12px] text-fg-base transition-colors hover:bg-bg-panel-alt"
+                  className="rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt"
                   onClick={() => {
                     window.dispatchEvent(
                       new CustomEvent('lingua-open-capsule-import')
@@ -160,7 +160,7 @@ export function RunCapsulesSection() {
                 readOnly
                 value={inlineFallback}
                 rows={6}
-                className="w-full max-w-[320px] rounded-md border border-border-default bg-bg-base p-2 font-mono text-[12px] text-fg-base"
+                className="w-full max-w-[320px] rounded-md border border-border-default bg-bg-base p-2 font-mono text-body-sm text-fg-base"
                 data-testid="capsule-fallback-textarea"
                 onFocus={(event) => event.currentTarget.select()}
               />

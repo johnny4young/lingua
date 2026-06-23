@@ -20,7 +20,7 @@ import {
 } from '../../../shared/httpWorkspace';
 
 const FIELD_CLASS =
-  'h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none';
+  'h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none';
 
 export interface HttpAuthTabProps {
   auth: HttpRequestAuth | undefined;
@@ -34,7 +34,7 @@ export function HttpAuthTab({ auth, onChange }: HttpAuthTabProps) {
   return (
     <section data-testid="http-request-editor-auth" className="flex flex-col gap-2">
       <header className="flex items-center gap-2">
-        <span className="text-[11.5px] font-semibold text-fg-base">
+        <span className="text-caption font-semibold text-fg-base">
           {t('httpWorkspace.editor.auth.label')}
         </span>
         <label className="sr-only" htmlFor="http-request-auth-kind">
@@ -48,7 +48,7 @@ export function HttpAuthTab({ auth, onChange }: HttpAuthTabProps) {
             onChange({ ...auth, kind: nextKind });
           }}
           data-testid="http-request-editor-auth-kind"
-          className="h-6 rounded-md border border-border-subtle bg-bg-panel px-1.5 text-[10px] font-semibold text-fg-base focus:border-border-strong focus:outline-none"
+          className="h-6 rounded-md border border-border-subtle bg-bg-panel px-1.5 text-caption font-semibold text-fg-base focus:border-border-strong focus:outline-none"
         >
           <option value="none">{t('httpWorkspace.editor.auth.kind.none')}</option>
           <option value="bearer">
@@ -62,14 +62,14 @@ export function HttpAuthTab({ auth, onChange }: HttpAuthTabProps) {
       </header>
 
       {kind === 'none' ? (
-        <p className="text-[11px] text-fg-subtle">
+        <p className="text-caption text-fg-subtle">
           {t('httpWorkspace.editor.auth.none.hint')}
         </p>
       ) : null}
 
       {kind === 'bearer' ? (
         <label className="flex items-center gap-2">
-          <span className="w-20 shrink-0 text-[11px] text-fg-subtle">
+          <span className="w-20 shrink-0 text-caption text-fg-subtle">
             {t('httpWorkspace.editor.auth.bearer.token')}
           </span>
           <input
@@ -89,7 +89,7 @@ export function HttpAuthTab({ auth, onChange }: HttpAuthTabProps) {
       {kind === 'basic' ? (
         <div className="flex flex-col gap-1.5">
           <label className="flex items-center gap-2">
-            <span className="w-20 shrink-0 text-[11px] text-fg-subtle">
+            <span className="w-20 shrink-0 text-caption text-fg-subtle">
               {t('httpWorkspace.editor.auth.basic.username')}
             </span>
             <input
@@ -105,7 +105,7 @@ export function HttpAuthTab({ auth, onChange }: HttpAuthTabProps) {
             />
           </label>
           <label className="flex items-center gap-2">
-            <span className="w-20 shrink-0 text-[11px] text-fg-subtle">
+            <span className="w-20 shrink-0 text-caption text-fg-subtle">
               {t('httpWorkspace.editor.auth.basic.password')}
             </span>
             <input
@@ -126,7 +126,7 @@ export function HttpAuthTab({ auth, onChange }: HttpAuthTabProps) {
       {kind === 'apiKey' ? (
         <div className="flex flex-col gap-1.5">
           <label className="flex items-center gap-2">
-            <span className="w-20 shrink-0 text-[11px] text-fg-subtle">
+            <span className="w-20 shrink-0 text-caption text-fg-subtle">
               {t('httpWorkspace.editor.auth.apiKey.header')}
             </span>
             <input
@@ -142,7 +142,7 @@ export function HttpAuthTab({ auth, onChange }: HttpAuthTabProps) {
             />
           </label>
           <label className="flex items-center gap-2">
-            <span className="w-20 shrink-0 text-[11px] text-fg-subtle">
+            <span className="w-20 shrink-0 text-caption text-fg-subtle">
               {t('httpWorkspace.editor.auth.apiKey.value')}
             </span>
             <input

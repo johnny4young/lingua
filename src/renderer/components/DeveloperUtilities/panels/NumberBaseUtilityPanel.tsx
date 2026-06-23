@@ -114,7 +114,7 @@ export function NumberBaseUtilityPanel() {
               <div className="flex items-center justify-between gap-3">
                 <FieldLabel>{t(view.labelKey)}</FieldLabel>
                 {view.id === 'custom' ? (
-                  <label className="flex items-center gap-2 text-xs text-muted">
+                  <label className="flex items-center gap-2 text-body-sm text-muted">
                     <span>{t('utilities.tool.numberBase.customBaseLabel')}</span>
                     <input
                       type="number"
@@ -126,7 +126,7 @@ export function NumberBaseUtilityPanel() {
                         if (isValidBase(next)) setCustomBase(next);
                       }}
                       aria-label={t('utilities.tool.numberBase.customBaseLabel')}
-                      className="w-16 rounded-[0.75rem] border border-border/80 bg-background/88 px-2 py-1 text-xs text-foreground outline-none focus:border-primary/50"
+                      className="w-16 rounded-xl border border-border/80 bg-background/88 px-2 py-1 text-body-sm text-foreground outline-none focus:border-primary/50"
                     />
                   </label>
                 ) : null}

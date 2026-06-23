@@ -61,7 +61,7 @@ export function ResultHeader({
       )}
     >
       {status}
-      {meta ? <span className="font-mono text-[11px] text-fg-subtle">{meta}</span> : null}
+      {meta ? <span className="font-mono text-caption text-fg-subtle">{meta}</span> : null}
       {tabs && tabs.length > 0 ? (
         <div className="ml-auto flex gap-1">
           {tabs.map((tab) => {
@@ -73,7 +73,7 @@ export function ResultHeader({
                 aria-pressed={active}
                 onClick={() => onTabChange?.(tab.id)}
                 className={cn(
-                  'rounded-sm px-[9px] py-[3px] text-[11.5px] transition-colors',
+                  'rounded-sm px-[9px] py-[3px] text-caption transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset',
                   active
                     ? 'bg-bg-panel-alt font-semibold text-fg-base'

@@ -117,14 +117,14 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
         role="alert"
         data-testid={`error-boundary-${region}`}
         data-region={region}
-        className="flex h-full w-full flex-col gap-3 rounded-[1.2rem] border border-border/80 bg-background-elevated/72 p-5"
+        className="flex h-full w-full flex-col gap-3 rounded-2xl border border-border/80 bg-background-elevated/72 p-5"
       >
-        <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
+        <h2 className="font-display text-h3 font-semibold tracking-[-0.02em] text-foreground">
           {fallbackTitle}
         </h2>
-        <p className="text-sm leading-6 text-muted">{t('errorBoundary.description')}</p>
+        <p className="text-body leading-6 text-muted">{t('errorBoundary.description')}</p>
         {report ? (
-          <p className="font-mono text-xs leading-5 text-muted">
+          <p className="font-mono text-body-sm leading-5 text-muted">
             {report.errorName}: {report.errorMessage}
           </p>
         ) : null}

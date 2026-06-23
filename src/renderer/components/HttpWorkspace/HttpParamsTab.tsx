@@ -29,7 +29,7 @@ export function HttpParamsTab({
   return (
     <section data-testid="http-request-editor-params">
       <header className="flex items-center gap-2">
-        <span className="text-[11.5px] font-semibold text-fg-base">
+        <span className="text-caption font-semibold text-fg-base">
           {t('httpWorkspace.editor.params.label')}
         </span>
         <button
@@ -43,7 +43,7 @@ export function HttpParamsTab({
           <Plus size={12} aria-hidden="true" />
         </button>
         {params.length === 0 ? (
-          <span className="text-[11px] text-fg-subtle">
+          <span className="text-caption text-fg-subtle">
             {t('httpWorkspace.editor.params.empty')}
           </span>
         ) : null}
@@ -67,7 +67,7 @@ export function HttpParamsTab({
               placeholder={t('httpWorkspace.editor.params.name.placeholder')}
               aria-label={t('httpWorkspace.editor.params.name.placeholder')}
               data-testid="http-request-editor-param-name"
-              className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+              className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
             />
             <input
               type="text"
@@ -76,7 +76,7 @@ export function HttpParamsTab({
               placeholder={t('httpWorkspace.editor.params.value.placeholder')}
               aria-label={t('httpWorkspace.editor.params.value.placeholder')}
               data-testid="http-request-editor-param-value"
-              className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+              className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
             />
             <button
               type="button"

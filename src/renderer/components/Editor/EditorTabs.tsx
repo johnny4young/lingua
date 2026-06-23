@@ -145,7 +145,7 @@ export function EditorTabs() {
                 data-execution-state={tab.executionState ?? 'idle'}
                 onContextMenu={event => handleContextMenu(event, tab.id)}
                 className={cn(
-                  'group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/60 px-3 text-xs transition-colors',
+                  'group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/60 px-3 text-body-sm transition-colors',
                   isActive
                     ? // Active: panel bg + 2px top accent + matching bottom border so the
                       // tab visually merges with the editor surface below.
@@ -195,7 +195,7 @@ export function EditorTabs() {
                       data-testid="editor-tab-filename"
                       onDoubleClick={() => setRenamingTabId(tab.id)}
                       className={cn(
-                        'min-w-0 flex-1 truncate font-mono text-[11.5px] leading-none',
+                        'min-w-0 flex-1 truncate font-mono text-caption leading-none',
                         tab.executionState === 'error' && 'text-error/95'
                       )}
                     >
@@ -359,7 +359,7 @@ function RenameInput({
         }
       }}
       onBlur={commit}
-      className="min-w-0 flex-1 rounded-md border border-primary/45 bg-background-elevated px-1.5 py-0.5 font-mono text-[11.5px] leading-none text-foreground outline-none focus:ring-2 focus:ring-ring/45"
+      className="min-w-0 flex-1 rounded-md border border-primary/45 bg-background-elevated px-1.5 py-0.5 font-mono text-caption leading-none text-foreground outline-none focus:ring-2 focus:ring-ring/45"
     />
   );
 }
@@ -540,7 +540,7 @@ function TabsOverflowDropdown({
           data-testid="editor-tabs-overflow"
           onClick={() => setOpen(prev => !prev)}
           className={cn(
-            'inline-flex h-full items-center gap-1.5 border-l border-border/60 px-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-muted transition-colors hover:bg-bg-panel-alt/70 hover:text-fg-base',
+            'inline-flex h-full items-center gap-1.5 border-l border-border/60 px-3 font-mono text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-muted transition-colors hover:bg-bg-panel-alt/70 hover:text-fg-base',
             open && 'bg-bg-panel-alt text-fg-base'
           )}
         >
@@ -586,7 +586,7 @@ function TabsOverflowDropdown({
                     )}
                     <span
                       className={cn(
-                        'min-w-0 flex-1 truncate font-mono text-[12px]',
+                        'min-w-0 flex-1 truncate font-mono text-body-sm',
                         isActive ? 'text-accent-fg font-semibold' : 'text-fg-base'
                       )}
                     >
@@ -595,7 +595,7 @@ function TabsOverflowDropdown({
                     {isHidden ? (
                       <span
                         aria-hidden
-                        className="rounded-full bg-bg-panel-alt px-1.5 font-mono text-[9px] font-semibold text-fg-subtle"
+                        className="rounded-full bg-bg-panel-alt px-1.5 font-mono text-micro font-semibold text-fg-subtle"
                       >
                         +{index - 4}
                       </span>
@@ -623,7 +623,7 @@ function TabsOverflowDropdown({
               );
             })}
           </div>
-          <div className="flex items-center gap-2 border-t border-border/50 px-3 py-2 font-mono text-[10.5px] text-fg-subtle">
+          <div className="flex items-center gap-2 border-t border-border/50 px-3 py-2 font-mono text-eyebrow text-fg-subtle">
             <Kbd>↑↓</Kbd>
             <span>{t('actionPill.navigate')}</span>
             <span className="flex-1" />
@@ -707,7 +707,7 @@ function TabLanguageChip({
   return (
     <span
       data-testid="editor-tab-lang-chip"
-      className="shrink-0 rounded-[3px] font-bold leading-none"
+      className="shrink-0 rounded-sm font-bold leading-none"
       style={{
         minWidth: size === 'menu' ? 24 : 21,
         height: size === 'menu' ? 22 : 17,

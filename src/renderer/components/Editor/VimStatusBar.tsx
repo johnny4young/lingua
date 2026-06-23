@@ -28,7 +28,7 @@ export const VimStatusBar = forwardRef<HTMLDivElement, VimStatusBarProps>(
         aria-hidden={!vimEnabled}
         className={
           vimEnabled
-            ? 'flex items-center gap-3 border-t border-border/60 bg-surface-strong/40 px-3 py-1 font-mono text-[11px] text-muted'
+            ? 'flex items-center gap-3 border-t border-border/60 bg-surface-strong/40 px-3 py-1 font-mono text-caption text-muted'
             : 'hidden'
         }
       />

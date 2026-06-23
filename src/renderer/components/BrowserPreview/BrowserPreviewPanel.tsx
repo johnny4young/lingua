@@ -86,7 +86,7 @@ export function BrowserPreviewPanel() {
       <div className="surface-header flex h-12 shrink-0 items-center justify-between px-4">
         <div>
           <span className="panel-title">{t('browserPreview.title')}</span>
-          <p className="mt-0.5 text-[11px] text-muted">{t('browserPreview.description')}</p>
+          <p className="mt-0.5 text-caption text-muted">{t('browserPreview.description')}</p>
         </div>
         <div className="flex items-center gap-2">
           {isManualRunning ? <Loader2 size={13} className="animate-spin text-primary" /> : null}
@@ -96,7 +96,7 @@ export function BrowserPreviewPanel() {
               onClick={handleInspect}
               data-testid="browser-preview-inspect-button"
               aria-label={t('browserPreview.inspect.tooltip')}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-surface-strong/72 px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-surface-strong/72 px-2.5 py-1 text-caption font-semibold text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <ExternalLink size={11} />
               {t('browserPreview.inspect.label')}
@@ -128,7 +128,7 @@ export function BrowserPreviewPanel() {
         />
         {!isJsTsTab || !isBrowserPreviewMode ? (
           <div
-            className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/72 px-6 text-center text-xs text-muted"
+            className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/72 px-6 text-center text-body-sm text-muted"
             data-testid="browser-preview-empty-overlay"
           >
             <Eye size={20} aria-hidden="true" />
@@ -136,7 +136,7 @@ export function BrowserPreviewPanel() {
           </div>
         ) : null}
       </div>
-      <div className="surface-header flex h-9 shrink-0 items-center justify-between border-t border-border/60 px-4 text-[11px] text-muted">
+      <div className="surface-header flex h-9 shrink-0 items-center justify-between border-t border-border/60 px-4 text-caption text-muted">
         <span data-testid="browser-preview-status">{t(statusKey)}</span>
         {inspectFailed ? (
           <span className="text-error" data-testid="browser-preview-inspect-error">

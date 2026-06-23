@@ -33,14 +33,14 @@ export function SvgToCssPanel() {
         title={t('utilities.tool.svgToCss.title')}
         description={t('utilities.tool.svgToCss.panelDescription')}
       >
-        <label className="grid gap-1 text-xs text-muted">
+        <label className="grid gap-1 text-body-sm text-muted">
           <FieldLabel>{t('utilities.tool.svgToCss.mode.label')}</FieldLabel>
           <select
             aria-label={t('utilities.tool.svgToCss.mode.label')}
             data-testid="svg-to-css-mode"
             value={encoding}
             onChange={event => setEncoding(event.target.value as SvgToCssEncoding)}
-            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
             <option value="base64">{t('utilities.tool.svgToCss.mode.base64')}</option>
             <option value="percent">{t('utilities.tool.svgToCss.mode.percent')}</option>

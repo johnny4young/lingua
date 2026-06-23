@@ -186,11 +186,11 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
           <div>
             <h2
               id={titleId}
-              className="font-display text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+              className="font-display text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
             >
               {t('recipes.overlay.title')}
             </h2>
-            <p className="mt-0.5 text-[12.5px] text-fg-subtle">
+            <p className="mt-0.5 text-body-sm text-fg-subtle">
               {t('recipes.overlay.description')}
             </p>
           </div>
@@ -202,7 +202,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
               type="button"
               onClick={() => closeRef.current()}
               data-testid="recipes-cancel"
-              className="inline-flex h-7 items-center rounded-md border border-border-subtle bg-transparent px-3 text-[12.5px] text-fg-muted hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+              className="inline-flex h-7 items-center rounded-md border border-border-subtle bg-transparent px-3 text-body-sm text-fg-muted hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
             >
               {t('recipes.action.cancel')}
             </button>
@@ -214,7 +214,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
               }}
               disabled={filtered.length === 0}
               data-testid="recipes-open"
-              className="inline-flex h-7 items-center rounded-md border border-accent bg-accent px-3 text-[12.5px] font-medium text-fg-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-7 items-center rounded-md border border-accent bg-accent px-3 text-body-sm font-medium text-fg-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('recipes.action.open')}
             </button>
@@ -234,7 +234,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
             data-testid="recipes-search-input"
             autoFocus
             spellCheck={false}
-            className="rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-xs text-fg-base outline-none focus:border-border-strong"
+            className="rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-body-sm text-fg-base outline-none focus:border-border-strong"
           />
           <div
             role="radiogroup"
@@ -251,7 +251,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
                 onClick={() => setLanguage(value)}
                 data-testid={`recipes-filter-${value}`}
                 className={cn(
-                  'inline-flex h-6 items-center rounded-full border px-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em]',
+                  'inline-flex h-6 items-center rounded-full border px-3 font-mono text-eyebrow font-medium uppercase tracking-[0.08em]',
                   language === value
                     ? 'border-accent/40 bg-accent/10 text-accent-fg'
                     : 'border-border-subtle bg-bg-inset text-fg-muted hover:text-fg-base'
@@ -268,7 +268,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
           {filtered.length === 0 ? (
             <div
               data-testid="recipes-empty"
-              className="grid place-items-center px-6 py-8 text-center text-xs text-fg-subtle"
+              className="grid place-items-center px-6 py-8 text-center text-body-sm text-fg-subtle"
             >
               {t('recipes.overlay.empty')}
             </div>
@@ -296,7 +296,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="flex-1 font-display text-[13.5px] font-semibold tracking-tight text-fg-base">
+                      <span className="flex-1 font-display text-body font-semibold tracking-tight text-fg-base">
                         {pickProse(recipe.title, locale)}
                       </span>
                       {isPassed ? (
@@ -310,7 +310,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
                       ) : null}
                     </div>
                     <span
-                      className="line-clamp-2 text-[12px] text-fg-subtle"
+                      className="line-clamp-2 text-body-sm text-fg-subtle"
                       data-testid="recipes-row-prompt-preview"
                     >
                       {previewPromptLine(recipe.prompt, locale, 96)}
@@ -319,7 +319,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
                       {recipe.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center rounded-[3px] border border-border-subtle px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-[0.06em] text-fg-subtle"
+                          className="inline-flex items-center rounded-sm border border-border-subtle px-1.5 py-0.5 font-mono text-nano uppercase tracking-[0.06em] text-fg-subtle"
                         >
                           {tag}
                         </span>

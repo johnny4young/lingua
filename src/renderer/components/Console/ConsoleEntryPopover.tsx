@@ -99,9 +99,9 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
       aria-label={t('console.rich.detailsDialogLabel')}
     >
       <div
-        className="relative w-[min(720px,90vw)] max-h-[min(80vh,720px)] overflow-hidden rounded-2xl border border-border-strong/80 bg-bg-panel shadow-xl"
+        className="relative w-[min(720px,90vw)] max-h-[min(80vh,720px)] overflow-hidden rounded-4xl border border-border-strong/80 bg-bg-panel shadow-xl"
       >
-        <div className="flex items-center gap-1 border-b border-border-subtle/60 bg-bg-panel-alt px-3 py-2 text-[11px]">
+        <div className="flex items-center gap-1 border-b border-border-subtle/60 bg-bg-panel-alt px-3 py-2 text-caption">
           <Tooltip content={t('console.rich.previewShortcutTooltip')}>
             <button
               type="button"
@@ -139,7 +139,7 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
               Raw JSON tab one click away. */}
           <span
             aria-hidden="true"
-            className="ml-2 select-none font-mono text-[10px] text-fg-subtle"
+            className="ml-2 select-none font-mono text-eyebrow text-fg-subtle"
           >
             {typeIcon(payload)}
           </span>
@@ -147,7 +147,7 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
             <button
               type="button"
               onClick={() => void handleCopy()}
-              className="rounded-md border border-border/60 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle hover:border-border/90 hover:text-foreground"
+              className="rounded-md border border-border/60 px-2 py-1 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle hover:border-border/90 hover:text-foreground"
               data-pro-gated={!canCopyJson || undefined}
               data-testid="console-rich-copy-json"
             >
@@ -166,7 +166,7 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
           </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-3 font-mono text-[11px] leading-5">
+        <div className="max-h-[60vh] overflow-y-auto p-3 font-mono text-caption leading-5">
           {tab === 'preview' ? (
             <PreviewBody payload={payload} />
           ) : (
@@ -224,7 +224,7 @@ function PreviewTable({ payload }: { payload: Extract<RichOutputPayload, { kind:
   const { t } = useTranslation();
   return (
     <div className="overflow-auto">
-      <table className="min-w-full border-collapse text-[11px]">
+      <table className="min-w-full border-collapse text-caption">
         <thead>
           <tr className="border-b border-border-subtle/60 text-fg-subtle">
             {payload.columns.map((col) => (
@@ -247,7 +247,7 @@ function PreviewTable({ payload }: { payload: Extract<RichOutputPayload, { kind:
         </tbody>
       </table>
       {payload.truncatedRowCount !== undefined && (
-        <p className="mt-2 text-[10px] text-fg-subtle">
+        <p className="mt-2 text-eyebrow text-fg-subtle">
           {t('console.rich.moreCount', { count: payload.truncatedRowCount })}
         </p>
       )}
@@ -267,7 +267,7 @@ function PreviewMap({ payload }: { payload: Extract<RichOutputPayload, { kind: '
         </div>
       ))}
       {payload.truncatedCount !== undefined && (
-        <p className="text-[10px] text-fg-subtle">
+        <p className="text-eyebrow text-fg-subtle">
           {t('console.rich.moreCount', { count: payload.truncatedCount })}
         </p>
       )}
@@ -285,7 +285,7 @@ function PreviewSet({ payload }: { payload: Extract<RichOutputPayload, { kind: '
         </div>
       ))}
       {payload.truncatedCount !== undefined && (
-        <p className="text-[10px] text-fg-subtle">
+        <p className="text-eyebrow text-fg-subtle">
           {t('console.rich.moreCount', { count: payload.truncatedCount })}
         </p>
       )}
@@ -308,7 +308,7 @@ function PreviewObject({
         </div>
       ))}
       {value.truncatedCount !== undefined && (
-        <p className="text-[10px] text-fg-subtle">
+        <p className="text-eyebrow text-fg-subtle">
           {t('console.rich.moreCount', { count: value.truncatedCount })}
         </p>
       )}
@@ -331,7 +331,7 @@ function PreviewArray({
         </div>
       ))}
       {value.truncatedCount !== undefined && (
-        <p className="text-[10px] text-fg-subtle">
+        <p className="text-eyebrow text-fg-subtle">
           {t('console.rich.moreCount', { count: value.truncatedCount })}
         </p>
       )}

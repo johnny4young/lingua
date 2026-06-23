@@ -47,14 +47,14 @@ export function HtmlEntityPanel() {
         description={t('utilities.tool.htmlEntity.panelDescription')}
       >
         <div className="grid gap-2">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.htmlEntity.mode.label')}</FieldLabel>
             <select
               aria-label={t('utilities.tool.htmlEntity.mode.label')}
               data-testid="html-entity-mode"
               value={mode}
               onChange={(event) => setMode(event.target.value as HtmlEntityMode)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="encode-minimal">
                 {t('utilities.tool.htmlEntity.mode.encodeMinimal')}

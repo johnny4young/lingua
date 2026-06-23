@@ -88,13 +88,13 @@ export function BeautifyMinifyUtilityPanel() {
         description={t('utilities.tool.beautifyMinify.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.beautifyMinify.languageLabel')}</FieldLabel>
             <select
               data-testid="beautify-minify-language"
               value={language}
               onChange={event => handleLanguageChange(event.target.value as MinifyLanguage)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="json">{t('utilities.tool.beautifyMinify.language.json')}</option>
               <option value="javascript">
@@ -107,13 +107,13 @@ export function BeautifyMinifyUtilityPanel() {
               <option value="xml">{t('utilities.tool.beautifyMinify.language.xml')}</option>
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="grid gap-1 text-body-sm text-muted">
             <FieldLabel>{t('utilities.tool.beautifyMinify.modeLabel')}</FieldLabel>
             <select
               data-testid="beautify-minify-mode"
               value={mode}
               onChange={event => setMode(event.target.value as BeautifyMinifyMode)}
-              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="beautify">{t('utilities.tool.beautifyMinify.mode.beautify')}</option>
               <option value="minify">{t('utilities.tool.beautifyMinify.mode.minify')}</option>

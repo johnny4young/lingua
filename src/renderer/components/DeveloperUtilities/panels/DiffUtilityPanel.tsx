@@ -61,14 +61,14 @@ export function DiffUtilityPanel() {
         description={t('utilities.tool.diff.resultDescription')}
       >
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-muted">
+          <label className="flex items-center gap-2 text-body-sm text-muted">
             <span>{t('utilities.tool.diff.granularity.label')}</span>
             <select
               aria-label={t('utilities.tool.diff.granularity.label')}
               data-testid="diff-granularity-select"
               value={granularity}
               onChange={(event) => setGranularity(event.target.value as DiffGranularity)}
-              className="rounded-[0.9rem] border border-border/80 bg-background/88 px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary/50"
+              className="rounded-xl border border-border/80 bg-background/88 px-2.5 py-1.5 text-body text-foreground outline-none focus:border-primary/50"
             >
               <option value="line">{t('utilities.tool.diff.granularity.line')}</option>
               <option value="word">{t('utilities.tool.diff.granularity.word')}</option>
@@ -109,7 +109,7 @@ function DiffLineResult({ segments }: { segments: readonly DiffSegment[] }) {
   const rows = useMemo(() => segmentsToLineRows(segments), [segments]);
   return (
     <div
-      className="max-h-[26rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65"
+      className="max-h-[26rem] overflow-auto rounded-2xl border border-border/80 bg-background/65"
       data-testid="diff-result-line"
     >
       <ul className="grid">
@@ -125,7 +125,7 @@ function DiffLineResult({ segments }: { segments: readonly DiffSegment[] }) {
             <li
               key={`${row.kind}-${index}`}
               data-testid={`diff-line-${row.kind}`}
-              className={`flex items-baseline gap-2 px-3 py-1 font-mono text-xs ${toneClass}`}
+              className={`flex items-baseline gap-2 px-3 py-1 font-mono text-body-sm ${toneClass}`}
             >
               <span className="w-4 select-none text-muted">{prefix}</span>
               <span className="whitespace-pre-wrap break-words">{row.text || ' '}</span>
@@ -140,7 +140,7 @@ function DiffLineResult({ segments }: { segments: readonly DiffSegment[] }) {
 function DiffInlineResult({ segments }: { segments: readonly DiffSegment[] }) {
   return (
     <div
-      className="max-h-[26rem] overflow-auto whitespace-pre-wrap break-words rounded-[1.1rem] border border-border/80 bg-background/65 px-3 py-3 font-mono text-xs leading-5 text-foreground"
+      className="max-h-[26rem] overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-border/80 bg-background/65 px-3 py-3 font-mono text-body-sm leading-5 text-foreground"
       data-testid="diff-result-inline"
     >
       {segments.map((segment, index) => {

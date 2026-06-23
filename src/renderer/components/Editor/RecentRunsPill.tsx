@@ -197,7 +197,7 @@ export function RecentRunsPill() {
             tier: 'free',
           });
         }}
-        className="status-pill border-border/40 bg-surface-strong/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted hover:bg-surface"
+        className="status-pill border-border/40 bg-surface-strong/60 px-2 py-0.5 text-eyebrow font-medium uppercase tracking-[0.08em] text-muted hover:bg-surface"
       >
         <History size={11} aria-hidden="true" className="mr-1" />
         {t('executionHistory.tabPill.upsell.label')}
@@ -223,7 +223,7 @@ export function RecentRunsPill() {
           setOpenTabId((current) => (current === activeTabId ? null : activeTabId));
         }}
         className={cn(
-          'status-pill border-border/40 bg-surface-strong/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted hover:bg-surface',
+          'status-pill border-border/40 bg-surface-strong/60 px-2 py-0.5 text-eyebrow font-medium uppercase tracking-[0.08em] text-muted hover:bg-surface',
           open && 'border-primary/40 text-primary'
         )}
       >
@@ -238,10 +238,10 @@ export function RecentRunsPill() {
           className="surface-panel-strong absolute right-0 top-[calc(100%+0.55rem)] z-20 w-[20rem] p-2"
         >
           <header className="flex items-center justify-between gap-2 px-1 pb-2">
-            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-muted">
+            <span className="text-caption font-semibold uppercase tracking-[0.08em] text-muted">
               {t('executionHistory.tabPill.popoverTitle')}
             </span>
-            <span className="text-[0.65rem] text-muted">
+            <span className="text-eyebrow text-muted">
               {t('executionHistory.tabPill.count', { count: tabEntries.length })}
             </span>
           </header>
@@ -252,7 +252,7 @@ export function RecentRunsPill() {
                 <li
                   key={entry.id}
                   data-testid={`recent-runs-popover-row-${entry.id}`}
-                  className="flex items-center gap-2 rounded-lg border border-border/40 bg-background-elevated/40 px-2 py-1.5 text-xs"
+                  className="flex items-center gap-2 rounded-lg border border-border/40 bg-background-elevated/40 px-2 py-1.5 text-body-sm"
                 >
                   <span
                     aria-hidden="true"
@@ -274,7 +274,7 @@ export function RecentRunsPill() {
                   <span className="shrink-0 tabular-nums text-muted">
                     {formatDuration(entry.durationMs)}
                   </span>
-                  <span className="shrink-0 text-[0.65rem] text-muted">
+                  <span className="shrink-0 text-eyebrow text-muted">
                     {formatRelative(entry.timestamp, now, t)}
                   </span>
                   <button

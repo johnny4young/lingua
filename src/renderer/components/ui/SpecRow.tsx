@@ -44,7 +44,7 @@ export function SpecRow({ label, description, control, last = false }: SpecRowPr
         <div
           id={labelId}
           className={cn(
-            'text-[13px]',
+            'text-body',
             // A described row leans on a heavier, higher-contrast label;
             // a bare metadata row stays quiet. Mirrors the mockup's
             // `fontWeight: desc ? 550 : 450` / `color: desc ? fg : fgMut`.
@@ -54,7 +54,7 @@ export function SpecRow({ label, description, control, last = false }: SpecRowPr
           {label}
         </div>
         {description ? (
-          <div className="mt-[2px] text-[11.5px] text-fg-subtle">{description}</div>
+          <div className="mt-[2px] text-caption text-fg-subtle">{description}</div>
         ) : null}
       </div>
       <div className="shrink-0">{labelledControl}</div>
@@ -101,11 +101,11 @@ export function SettingsSection({ eyebrow, description, children }: SettingsSect
   return (
     <section className="flex flex-col gap-[14px]">
       <div>
-        <h3 className="font-mono text-[10.5px] font-semibold uppercase text-fg-muted">
+        <h3 className="font-mono text-eyebrow font-semibold uppercase text-fg-muted">
           {eyebrow}
         </h3>
         {description ? (
-          <p className="mt-[6px] text-[13px] leading-relaxed text-fg-subtle">{description}</p>
+          <p className="mt-[6px] text-body leading-relaxed text-fg-subtle">{description}</p>
         ) : null}
       </div>
       {children}

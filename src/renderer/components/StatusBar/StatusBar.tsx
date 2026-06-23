@@ -150,7 +150,7 @@ function StatusBarContent() {
   return (
     <div
       data-testid="status-bar"
-      className="flex h-6 shrink-0 items-stretch border-t border-border bg-bg-base text-[11px]"
+      className="flex h-6 shrink-0 items-stretch border-t border-border bg-bg-base text-caption"
     >
       {/* 1 — Language (click cycles the active tab's language). */}
       <button

@@ -232,7 +232,7 @@ export function ExecutionHistoryPopover({
           role="dialog"
           aria-label={t('executionHistory.title')}
           data-testid="execution-history-popover"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,90vw)] overflow-hidden rounded-[1.2rem] border border-border/80 bg-background-elevated/96 shadow-[0_24px_55px_rgba(12,12,16,0.35)]"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,90vw)] overflow-hidden rounded-2xl border border-border/80 bg-background-elevated/96 shadow-[var(--shadow-lg)]"
         >
           <header className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3">
             <span className="panel-title">{t('executionHistory.title')}</span>
@@ -241,7 +241,7 @@ export function ExecutionHistoryPopover({
                 type="button"
                 onClick={handleClear}
                 data-testid="execution-history-clear"
-                className="text-[11px] uppercase tracking-[0.14em] text-muted hover:text-foreground"
+                className="text-caption uppercase tracking-[0.14em] text-muted hover:text-foreground"
               >
                 {t('executionHistory.clear')}
               </button>
@@ -250,7 +250,7 @@ export function ExecutionHistoryPopover({
 
           {tabHasEntries ? (
             <label
-              className="flex items-center gap-2 border-b border-border/60 bg-background-elevated/60 px-4 py-2 text-[11px] uppercase tracking-[0.08em] text-muted"
+              className="flex items-center gap-2 border-b border-border/60 bg-background-elevated/60 px-4 py-2 text-caption uppercase tracking-[0.08em] text-muted"
               data-testid="execution-history-this-tab-toggle"
             >
               <input
@@ -264,7 +264,7 @@ export function ExecutionHistoryPopover({
           ) : null}
 
           {!hasEntries ? (
-            <p className="px-4 py-6 text-sm text-muted" data-testid="execution-history-empty">
+            <p className="px-4 py-6 text-body text-muted" data-testid="execution-history-empty">
               {thisTabOnly
                 ? t('executionHistory.filter.thisTabOnly.empty')
                 : t('executionHistory.empty')}
@@ -315,10 +315,10 @@ export function ExecutionHistoryPopover({
                       />
                     </span>
                     <div className="grid min-w-0 gap-0.5">
-                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                      <span className="text-body-sm font-semibold uppercase tracking-[0.16em] text-muted">
                         {entry.language}
                       </span>
-                      <span className="text-sm text-foreground">
+                      <span className="text-body text-foreground">
                         {t('executionHistory.entry.durationMs', {
                           value: formatDuration(entry.durationMs),
                         })}
@@ -328,7 +328,7 @@ export function ExecutionHistoryPopover({
                           </span>
                         ) : null}
                       </span>
-                      <span className="text-[11px] text-muted">
+                      <span className="text-caption text-muted">
                         {formatRelative(entry.timestamp, now, t)}
                       </span>
                     </div>
@@ -342,7 +342,7 @@ export function ExecutionHistoryPopover({
                         aria-label={t('executionHistory.rerun.aria', {
                           language: entry.language,
                         })}
-                        className="rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border/80 disabled:hover:text-muted"
+                        className="rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border/80 disabled:hover:text-muted"
                       >
                         {t('executionHistory.rerun.label')}
                       </button>
@@ -357,7 +357,7 @@ export function ExecutionHistoryPopover({
             <footer className="flex items-center justify-between gap-3 border-t border-border/80 px-4 py-3">
               <span
                 data-testid="execution-history-compare-hint"
-                className="text-[11px] text-muted"
+                className="text-caption text-muted"
               >
                 {compareEnabled ? null : t(compareDisabledHintKey)}
               </span>
@@ -371,7 +371,7 @@ export function ExecutionHistoryPopover({
                     ? t('executionHistory.compare.button.enabledAria')
                     : t(compareDisabledHintKey)
                 }
-                className="rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border/80 disabled:hover:text-muted"
+                className="rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border/80 disabled:hover:text-muted"
               >
                 {t('executionHistory.compare.button.label')}
               </button>

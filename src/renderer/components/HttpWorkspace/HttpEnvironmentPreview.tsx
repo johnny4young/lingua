@@ -99,12 +99,12 @@ export function HttpEnvironmentPreview({
       className="flex shrink-0 flex-col gap-1 rounded-md border border-border-subtle bg-bg-inset px-2.5 py-1.5"
     >
       <div className="flex items-baseline gap-2">
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+        <span className="shrink-0 text-eyebrow font-semibold uppercase tracking-wide text-fg-subtle">
           {t('httpWorkspace.environment.preview.label')}
         </span>
         <span
           data-testid="http-environment-preview-url"
-          className="min-w-0 flex-1 truncate font-mono text-[11px] text-fg-base"
+          className="min-w-0 flex-1 truncate font-mono text-caption text-fg-base"
           title={maskedUrl}
         >
           {maskedUrl}
@@ -112,12 +112,12 @@ export function HttpEnvironmentPreview({
       </div>
       {authHeader !== null ? (
         <div className="flex items-baseline gap-2">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+          <span className="shrink-0 text-eyebrow font-semibold uppercase tracking-wide text-fg-subtle">
             {t('httpWorkspace.environment.preview.authLabel')}
           </span>
           <span
             data-testid="http-environment-preview-auth"
-            className="min-w-0 flex-1 truncate font-mono text-[11px] text-fg-base"
+            className="min-w-0 flex-1 truncate font-mono text-caption text-fg-base"
             title={`${authHeader.name}: ${authHeader.value}`}
           >
             {`${authHeader.name}: ${authHeader.value}`}
@@ -141,18 +141,18 @@ export function HttpEnvironmentPreview({
                 }
                 className={
                   isUnresolved
-                    ? 'inline-flex items-center gap-1 rounded-sm border border-error-fg/40 bg-error/10 px-1.5 py-0.5 font-mono text-[10px] text-error-fg'
-                    : 'inline-flex items-center gap-1 rounded-sm bg-bg-panel-alt px-1.5 py-0.5 font-mono text-[10px] text-fg-muted'
+                    ? 'inline-flex items-center gap-1 rounded-sm border border-error-fg/40 bg-error/10 px-1.5 py-0.5 font-mono text-eyebrow text-error-fg'
+                    : 'inline-flex items-center gap-1 rounded-sm bg-bg-panel-alt px-1.5 py-0.5 font-mono text-eyebrow text-fg-muted'
                 }
               >
                 <span>{chip.key}</span>
                 {isSecret ? (
-                  <span className="rounded-sm bg-bg-panel px-1 text-[8.5px] font-semibold uppercase tracking-wide text-fg-subtle">
+                  <span className="rounded-sm bg-bg-panel px-1 text-nano font-semibold uppercase tracking-wide text-fg-subtle">
                     {t('httpWorkspace.environment.preview.secretBadge')}
                   </span>
                 ) : null}
                 {isUnresolved ? (
-                  <span className="rounded-sm px-1 text-[8.5px] font-semibold uppercase tracking-wide">
+                  <span className="rounded-sm px-1 text-nano font-semibold uppercase tracking-wide">
                     {t('httpWorkspace.environment.preview.unresolvedBadge')}
                   </span>
                 ) : null}

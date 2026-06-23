@@ -37,15 +37,15 @@ function UrlReadoutCard({
   const hidden = sensitive && !revealed && value.length > 0;
   const display = hidden ? '•'.repeat(Math.min(value.length, 12)) : value || '—';
   return (
-    <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
+    <div className="grid gap-1 rounded-2xl border border-border/80 bg-background/65 px-3 py-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-[0.16em] text-muted">{label}</span>
+        <span className="text-caption uppercase tracking-[0.16em] text-muted">{label}</span>
         <div className="flex items-center gap-1">
           {sensitive && value.length > 0 && onToggleReveal ? (
             <button
               type="button"
               onClick={onToggleReveal}
-              className="rounded-[0.6rem] border border-border/80 px-2 py-1 text-[11px] font-medium text-muted hover:border-border-strong/90 hover:text-foreground"
+              className="rounded-lg border border-border/80 px-2 py-1 text-caption font-medium text-muted hover:border-border-strong/90 hover:text-foreground"
               data-testid={`${testid}-reveal`}
             >
               {revealed ? hideLabel : revealLabel}
@@ -59,7 +59,7 @@ function UrlReadoutCard({
         </div>
       </div>
       <span
-        className="break-all font-mono text-sm text-foreground"
+        className="break-all font-mono text-body text-foreground"
         data-testid={testid}
       >
         {display}
@@ -171,10 +171,10 @@ export function UrlParserPanel() {
               />
             ) : (
               <div
-                className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3"
+                className="grid gap-1 rounded-2xl border border-border/80 bg-background/65 px-3 py-3"
                 data-testid="url-parser-query-table"
               >
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-center gap-2 pb-1 text-[11px] uppercase tracking-[0.16em] text-muted">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-center gap-2 pb-1 text-caption uppercase tracking-[0.16em] text-muted">
                   <span>{t('utilities.tool.urlParser.query.header.key')}</span>
                   <span>{t('utilities.tool.urlParser.query.header.value')}</span>
                   <span className="sr-only">
@@ -187,10 +187,10 @@ export function UrlParserPanel() {
                     data-testid="url-parser-query-row"
                     className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-center gap-2 border-t border-border/60 pt-1 first:border-t-0 first:pt-0"
                   >
-                    <span className="truncate font-mono text-sm text-foreground">
+                    <span className="truncate font-mono text-body text-foreground">
                       {entry.key}
                     </span>
-                    <span className="break-all font-mono text-sm text-muted">
+                    <span className="break-all font-mono text-body text-muted">
                       {entry.value}
                     </span>
                     <CopyButton

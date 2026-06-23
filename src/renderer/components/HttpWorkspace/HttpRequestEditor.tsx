@@ -547,7 +547,7 @@ export function HttpRequestEditor({
             setMethod(next);
             scheduleAutoSave({ method: next });
           }}
-          className="h-8 shrink-0 rounded-md border border-border bg-bg-panel px-2 font-mono text-xs font-semibold tabular-nums text-fg-base focus:border-border-strong focus:outline-none"
+          className="h-8 shrink-0 rounded-md border border-border bg-bg-panel px-2 font-mono text-body-sm font-semibold tabular-nums text-fg-base focus:border-border-strong focus:outline-none"
         >
           {HTTP_METHODS.map((m) => (
             <option key={m} value={m}>
@@ -563,7 +563,7 @@ export function HttpRequestEditor({
           value={url}
           onChange={(event) => handleUrlChange(event.target.value)}
           onPaste={handleUrlPaste}
-          className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-3 font-mono text-[12.5px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+          className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-3 font-mono text-body-sm text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
         />
         {/* Copy as cURL — ghost icon button, sits left of Send. */}
         <button
@@ -588,7 +588,7 @@ export function HttpRequestEditor({
           data-testid="http-request-editor-send"
           aria-label={t('httpWorkspace.editor.send.label')}
           title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint')}`}
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-xs font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isExecuting ? (
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
@@ -622,7 +622,7 @@ export function HttpRequestEditor({
               data-active={active}
               onClick={() => setBuilderTab(bt.id)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
                 active
                   ? 'bg-bg-inset font-semibold text-fg-base'
                   : 'text-fg-subtle hover:text-fg-base'
@@ -630,7 +630,7 @@ export function HttpRequestEditor({
             >
               <span>{bt.label}</span>
               {bt.badge ? (
-                <span className="rounded-sm bg-bg-panel-alt px-1 text-[9.5px] font-semibold tabular-nums text-fg-muted">
+                <span className="rounded-sm bg-bg-panel-alt px-1 text-micro font-semibold tabular-nums text-fg-muted">
                   {bt.badge}
                 </span>
               ) : null}
@@ -657,7 +657,7 @@ export function HttpRequestEditor({
         {effectiveBuilderTab === 'headers' ? (
           <section data-testid="http-request-editor-headers">
             <header className="flex items-center gap-2">
-              <span className="text-[11.5px] font-semibold text-fg-base">
+              <span className="text-caption font-semibold text-fg-base">
                 {t('httpWorkspace.editor.headers.label')}
               </span>
               <button
@@ -671,7 +671,7 @@ export function HttpRequestEditor({
                 <Plus size={12} aria-hidden="true" />
               </button>
               {headers.length === 0 ? (
-                <span className="text-[11px] text-fg-subtle">
+                <span className="text-caption text-fg-subtle">
                   {t('httpWorkspace.editor.headers.empty')}
                 </span>
               ) : null}
@@ -699,7 +699,7 @@ export function HttpRequestEditor({
                     placeholder={t('httpWorkspace.editor.headers.name.placeholder')}
                     aria-label={t('httpWorkspace.editor.headers.name.placeholder')}
                     data-testid="http-request-editor-header-name"
-                    className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+                    className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
                   />
                   <input
                     type="text"
@@ -710,7 +710,7 @@ export function HttpRequestEditor({
                     placeholder={t('httpWorkspace.editor.headers.value.placeholder')}
                     aria-label={t('httpWorkspace.editor.headers.value.placeholder')}
                     data-testid="http-request-editor-header-value"
-                    className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+                    className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
                   />
                   <button
                     type="button"
@@ -729,7 +729,7 @@ export function HttpRequestEditor({
         {effectiveBuilderTab === 'body' && supportsBody ? (
           <section data-testid="http-request-editor-body">
             <header className="flex items-center justify-between">
-              <span className="text-[11.5px] font-semibold text-fg-base">
+              <span className="text-caption font-semibold text-fg-base">
                 {t('httpWorkspace.editor.body.label')}
               </span>
               <select
@@ -744,7 +744,7 @@ export function HttpRequestEditor({
                   scheduleAutoSave({ body: next });
                 }}
                 data-testid="http-request-editor-body-kind"
-                className="h-6 rounded-md border border-border-subtle bg-bg-panel px-1.5 text-[10px] font-semibold text-fg-base focus:border-border-strong focus:outline-none"
+                className="h-6 rounded-md border border-border-subtle bg-bg-panel px-1.5 text-eyebrow font-semibold text-fg-base focus:border-border-strong focus:outline-none"
               >
                 <option value="none">
                   {t('httpWorkspace.editor.body.kind.none')}
@@ -778,7 +778,7 @@ export function HttpRequestEditor({
                 placeholder={t('httpWorkspace.editor.body.placeholder')}
                 aria-label={t('httpWorkspace.editor.body.label')}
                 data-testid="http-request-editor-body-content"
-                className="mt-1 h-40 w-full resize-y rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+                className="mt-1 h-40 w-full resize-y rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
               />
             ) : null}
           </section>

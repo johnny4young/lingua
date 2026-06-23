@@ -52,11 +52,11 @@ export function CapsuleImportPreview({
     >
       <header
         data-testid="capsule-import-preview-metadata"
-        className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/40 bg-background-elevated/60 px-3 py-2 text-[11px] text-muted"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/40 bg-background-elevated/60 px-3 py-2 text-caption text-muted"
       >
         <span
           data-testid="capsule-import-preview-metadata-language"
-          className="inline-flex items-center gap-1.5 rounded bg-surface-strong/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground"
+          className="inline-flex items-center gap-1.5 rounded bg-surface-strong/60 px-1.5 py-0.5 font-mono text-eyebrow uppercase tracking-wider text-foreground"
         >
           {isHttpCapsule ? (
             <Globe size={10} aria-hidden="true" />
@@ -94,14 +94,14 @@ export function CapsuleImportPreview({
         <div
           role="alert"
           data-testid="capsule-import-preview-omitted-banner"
-          className="flex items-start gap-2 border-b border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200"
+          className="flex items-start gap-2 border-b border-amber-500/40 bg-amber-500/10 px-3 py-2 text-caption text-amber-200"
         >
           <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
           <div>
             <p className="font-semibold">
               {t('capsuleImport.preview.omittedFields')}
             </p>
-            <p className="mt-0.5 font-mono text-[10px] text-amber-100/80">
+            <p className="mt-0.5 font-mono text-eyebrow text-amber-100/80">
               {omittedFields.join(', ')}
             </p>
           </div>
@@ -110,7 +110,7 @@ export function CapsuleImportPreview({
       <div
         role="tablist"
         aria-label={t('capsuleImport.preview.tablistLabel')}
-        className="flex shrink-0 items-center gap-1 border-b border-border/40 bg-surface/40 px-2 py-1.5 text-[11px]"
+        className="flex shrink-0 items-center gap-1 border-b border-border/40 bg-surface/40 px-2 py-1.5 text-caption"
       >
         {PREVIEW_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -123,7 +123,7 @@ export function CapsuleImportPreview({
               data-testid={`capsule-import-preview-tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'rounded px-2 py-1 text-xs',
+                'rounded px-2 py-1 text-body-sm',
                 isActive
                   ? 'bg-background-elevated text-foreground'
                   : 'text-muted hover:bg-surface-strong/60 hover:text-foreground'
@@ -138,7 +138,7 @@ export function CapsuleImportPreview({
         role="tabpanel"
         aria-label={t(`capsuleImport.preview.tab.${activeTab}`)}
         data-testid={`capsule-import-preview-panel-${activeTab}`}
-        className="flex-1 min-h-0 overflow-auto p-3 font-mono text-xs"
+        className="flex-1 min-h-0 overflow-auto p-3 font-mono text-body-sm"
       >
         {activeTab === 'source' ? (
           <SourcePanel capsule={capsule} />
@@ -186,7 +186,7 @@ function ResultPanel({ capsule }: { capsule: RunCapsuleV1 }) {
         </pre>
       ) : null}
       <section>
-        <h4 className="text-[10px] uppercase tracking-wider text-muted">
+        <h4 className="text-eyebrow uppercase tracking-wider text-muted">
           <code>stdout</code>
           {omittedStdout ? (
             <span
@@ -207,7 +207,7 @@ function ResultPanel({ capsule }: { capsule: RunCapsuleV1 }) {
         </pre>
       </section>
       <section>
-        <h4 className="text-[10px] uppercase tracking-wider text-muted">
+        <h4 className="text-eyebrow uppercase tracking-wider text-muted">
           <code>stderr</code>
           {omittedStderr ? (
             <span
@@ -260,7 +260,7 @@ function EnvironmentPanel({ capsule }: { capsule: RunCapsuleV1 }) {
       </dl>
       {dependencyJson ? (
         <section>
-          <h4 className="text-[10px] uppercase tracking-wider text-muted">
+          <h4 className="text-eyebrow uppercase tracking-wider text-muted">
             {t('capsuleImport.preview.metadata.dependencySummary')}
           </h4>
           <pre

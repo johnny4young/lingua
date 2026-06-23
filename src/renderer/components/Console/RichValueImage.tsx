@@ -43,7 +43,7 @@ export function RichValueImage({ payload, fallbackText }: RichValueImageProps) {
   if (validated === null) {
     return (
       <span
-        className="rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-[11px] text-fg-subtle"
+        className="rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-caption text-fg-subtle"
         data-testid="console-rich-image-rejected"
         title={fallbackText}
       >
@@ -55,7 +55,7 @@ export function RichValueImage({ payload, fallbackText }: RichValueImageProps) {
   if (loadError) {
     return (
       <span
-        className="rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-[11px] text-fg-subtle"
+        className="rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-caption text-fg-subtle"
         data-testid="console-rich-image-load-failed"
       >
         {t('console.rich.imageInvalidSrc')}

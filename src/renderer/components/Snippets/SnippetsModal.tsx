@@ -248,11 +248,11 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
           <div className="min-w-0">
             <h2
               id="snippets-modal-title"
-              className="truncate text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+              className="truncate text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
             >
               {t('snippets.header')}
             </h2>
-            <p className="truncate text-[12.5px] text-fg-subtle">
+            <p className="truncate text-body-sm text-fg-subtle">
               {t('snippets.detail.description')}
             </p>
           </div>
@@ -260,7 +260,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
       }
       bodyClassName="max-h-[min(72vh,560px)] overflow-y-auto p-4"
       footerLegend={
-        <span className="text-[12px] text-fg-subtle">
+        <span className="text-body-sm text-fg-subtle">
           {activeTab
             ? t('snippets.activeTab.label', { name: activeTab.name })
             : t('snippets.activeTab.hint')}
@@ -319,7 +319,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
 
           <div className="flex flex-col gap-1">
             {sortedSnippets.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border-subtle bg-bg-inset px-4 py-6 text-center text-[12px] text-fg-subtle">
+              <div className="rounded-lg border border-dashed border-border-subtle bg-bg-inset px-4 py-6 text-center text-body-sm text-fg-subtle">
                 {t('snippets.empty')}
               </div>
             ) : (
@@ -340,10 +340,10 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                         : 'flex w-full flex-col rounded-lg border border-transparent px-3 py-[9px] text-left hover:bg-bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70'
                     }
                   >
-                    <span className="truncate text-[13.5px] font-medium text-fg-base">
+                    <span className="truncate text-body font-medium text-fg-base">
                       {snippet.label}
                     </span>
-                    <span className="truncate text-[12px] text-fg-subtle">
+                    <span className="truncate text-body-sm text-fg-subtle">
                       {snippet.description || languageLabel(snippet.language)}
                     </span>
                   </button>
@@ -358,7 +358,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="panel-title">{t('snippets.detail.title')}</p>
-              <h3 className="mt-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-fg-base">
+              <h3 className="mt-1 truncate text-body-lg font-semibold tracking-[-0.01em] text-fg-base">
                 {detailHeading}
               </h3>
             </div>
@@ -461,7 +461,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                 }))
               }
               placeholder={t('snippets.fields.code.placeholder')}
-              className="field-shell min-h-[220px] font-mono text-sm leading-6"
+              className="field-shell min-h-[220px] font-mono text-body leading-6"
               spellCheck={false}
             />
           </label>

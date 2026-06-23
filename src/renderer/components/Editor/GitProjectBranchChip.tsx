@@ -51,7 +51,7 @@ export function GitProjectBranchChip() {
       data-git-branch={posture.branch ?? null}
       title={tooltip}
       aria-label={tooltip}
-      className="flex h-full shrink-0 items-center gap-1 border-l border-border/60 px-2 text-[11px] text-muted"
+      className="flex h-full shrink-0 items-center gap-1 border-l border-border/60 px-2 text-caption text-muted"
     >
       <GitBranch size={11} aria-hidden="true" className="opacity-70" />
       <span className="truncate max-w-[160px]">{branchLabel}</span>

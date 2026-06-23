@@ -17,7 +17,7 @@ import type { Language } from '../../types';
 import { Tooltip } from '../ui/chrome';
 
 const debuggerButtonBase =
-  'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-xs font-medium shadow-sm shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55';
+  'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-body-sm font-medium shadow-sm shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55';
 const debuggerActionButton =
   `${debuggerButtonBase} text-foreground hover:border-primary/50 hover:bg-surface-strong/65`;
 const debuggerDangerButton =
@@ -172,7 +172,7 @@ export function DebuggerDrawer({
       }`}
     >
       <header className="flex flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-body font-semibold text-foreground">
           <Tooltip
             content={
               drawerCollapsed
@@ -203,7 +203,7 @@ export function DebuggerDrawer({
           <Tooltip content={breakpointSummaryHint}>
             <span
               data-testid="debugger-breakpoint-summary"
-              className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
+              className={`status-pill border-transparent px-2 py-0.5 text-eyebrow ${
                 enabledBreakpointCount > 0 ? 'bg-danger/10 text-danger' : 'bg-surface text-muted'
               }`}
             >
@@ -212,7 +212,7 @@ export function DebuggerDrawer({
           </Tooltip>
           <Tooltip content={statusHint}>
             <span
-              className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
+              className={`status-pill border-transparent px-2 py-0.5 text-eyebrow ${
                 isPaused ? 'bg-danger/12 text-danger' : 'bg-surface text-muted'
               }`}
             >
@@ -220,7 +220,7 @@ export function DebuggerDrawer({
             </span>
           </Tooltip>
           {isPaused && pausedFrame ? (
-            <span className="text-xs font-normal text-muted">
+            <span className="text-body-sm font-normal text-muted">
               ·{' '}
               {t('debugger.paused.heading', {
                 line: pausedFrame.line,
@@ -331,7 +331,7 @@ export function DebuggerDrawer({
       {drawerCollapsed ? null : !isPaused ? (
         <p
           id="debugger-drawer-body"
-          className="min-h-0 flex-1 px-4 pb-3 text-xs text-muted"
+          className="min-h-0 flex-1 px-4 pb-3 text-body-sm text-muted"
           data-testid="debugger-empty"
         >
           {t(idleCopyKey)}
@@ -348,13 +348,13 @@ export function DebuggerDrawer({
             testid="debugger-locals"
           >
             {Object.keys(pausedFrame!.locals).length === 0 ? (
-              <p className="text-[11px] text-muted">
+              <p className="text-caption text-muted">
                 {t('debugger.paused.locals.empty')}
               </p>
             ) : (
               <ul className="grid gap-1">
                 {Object.entries(pausedFrame!.locals).map(([name, value]) => (
-                  <li key={name} className="font-mono text-[11px] text-foreground">
+                  <li key={name} className="font-mono text-caption text-foreground">
                     <span className="text-muted">{name}: </span>
                     {value}
                   </li>
@@ -367,7 +367,7 @@ export function DebuggerDrawer({
             testid="debugger-callstack"
           >
             {pausedFrame!.callStack.length === 0 ? (
-              <p className="text-[11px] text-muted">
+              <p className="text-caption text-muted">
                 {t('debugger.paused.callstack.empty')}
               </p>
             ) : (
@@ -375,7 +375,7 @@ export function DebuggerDrawer({
                 {pausedFrame!.callStack.map((frame, index) => (
                   <li
                     key={`${frame.functionName}-${frame.line}-${index}`}
-                    className="font-mono text-[11px] text-foreground"
+                    className="font-mono text-caption text-foreground"
                   >
                     {frame.functionName} <span className="text-muted">:{frame.line}</span>
                   </li>
@@ -388,13 +388,13 @@ export function DebuggerDrawer({
             testid="debugger-watches"
           >
             {Object.keys(pausedFrame!.watchResults).length === 0 ? (
-              <p className="text-[11px] text-muted">
+              <p className="text-caption text-muted">
                 {t('debugger.paused.watches.empty')}
               </p>
             ) : (
               <ul className="grid gap-1">
                 {Object.entries(pausedFrame!.watchResults).map(([expr, result]) => (
-                  <li key={expr} className="font-mono text-[11px] text-foreground">
+                  <li key={expr} className="font-mono text-caption text-foreground">
                     <span className="text-muted">{expr}: </span>
                     {result.pending
                       ? t('debugger.paused.watches.pending')
@@ -424,9 +424,9 @@ function DrawerSection({
   return (
     <div
       data-testid={testid}
-      className="rounded-[0.85rem] border border-border/80 bg-background/35 px-3 py-2"
+      className="rounded-xl border border-border/80 bg-background/35 px-3 py-2"
     >
-      <h4 className="mb-1 text-[10px] uppercase tracking-[0.2em] text-muted">{title}</h4>
+      <h4 className="mb-1 text-eyebrow uppercase tracking-[0.2em] text-muted">{title}</h4>
       {children}
     </div>
   );
