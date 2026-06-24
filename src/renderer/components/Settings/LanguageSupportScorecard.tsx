@@ -4,10 +4,14 @@ import {
   LANGUAGE_CAPABILITIES,
   LANGUAGE_CAPABILITY_STATUSES,
   LANGUAGE_SUPPORT_PROFILES,
+  resolveCapabilityStatus,
+  SCORECARD_PLATFORMS,
   type LanguageCapability,
   type LanguageCapabilityStatus,
   type LanguageSupportProfile,
+  type ScorecardPlatform,
 } from '../../../shared/languageSupport';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { trackEvent } from '../../utils/telemetry';
 import { SettingsSection } from '../ui/SpecRow';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
@@ -90,6 +94,16 @@ export function LanguageSupportScorecard({
   const { t } = useTranslation();
   const [legendOpen, setLegendOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // RL-095 Slice 2 — sticky Web/Desktop filter (persisted in settings,
+  // fold C). `all` is the default cross-platform view.
+  const platform = useSettingsStore((s) => s.languageScorecardPlatform);
+  const setPlatform = useSettingsStore((s) => s.setLanguageScorecardPlatform);
+  const onPlatformChange = (next: ScorecardPlatform) => {
+    if (next === platform) return;
+    setPlatform(next);
+    // Fold D — adoption signal; content-free closed enum, no PII.
+    void trackEvent('language_scorecard_platform_toggled', { platform: next });
+  };
   // Read the override at mount via `useState` init (pure read; both
   // StrictMode invocations of the init return the same value because
   // the consume below runs in an effect, not during render). Mutating
@@ -150,17 +164,46 @@ export function LanguageSupportScorecard({
           <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
             {t('languageSupport.scorecard.tableLabel')}
           </span>
-          <button
-            type="button"
-            onClick={() => setLegendOpen((v) => !v)}
-            data-testid="language-support-scorecard-legend-toggle"
-            aria-expanded={legendOpen}
-            className="rounded-sm border border-border-subtle px-2 py-0.5 font-mono text-eyebrow text-fg-muted hover:bg-bg-panel-alt"
-            title={t('languageSupport.scorecard.legendButton')}
-            aria-label={t('languageSupport.scorecard.legendButton')}
-          >
-            ?
-          </button>
+          <div className="flex items-center gap-2">
+            {/* RL-095 Slice 2 — Web/Desktop platform filter. `all` is the
+                cross-platform view; `web`/`desktop` collapse each cell to its
+                resolved status for that platform. */}
+            <div
+              role="group"
+              aria-label={t('languageSupport.scorecard.platform.ariaLabel')}
+              data-testid="language-support-scorecard-platform-toggle"
+              className="flex overflow-hidden rounded-sm border border-border-subtle"
+            >
+              {SCORECARD_PLATFORMS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => onPlatformChange(option)}
+                  data-testid={`language-support-scorecard-platform-${option}`}
+                  aria-pressed={platform === option}
+                  className={
+                    'px-2 py-0.5 font-mono text-eyebrow ' +
+                    (platform === option
+                      ? 'bg-bg-panel-alt text-fg-base'
+                      : 'text-fg-muted hover:bg-bg-panel-alt')
+                  }
+                >
+                  {t(`languageSupport.scorecard.platform.${option}`)}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setLegendOpen((v) => !v)}
+              data-testid="language-support-scorecard-legend-toggle"
+              aria-expanded={legendOpen}
+              className="rounded-sm border border-border-subtle px-2 py-0.5 font-mono text-eyebrow text-fg-muted hover:bg-bg-panel-alt"
+              title={t('languageSupport.scorecard.legendButton')}
+              aria-label={t('languageSupport.scorecard.legendButton')}
+            >
+              ?
+            </button>
+          </div>
         </div>
         {legendOpen ? (
           <ul
@@ -225,7 +268,13 @@ export function LanguageSupportScorecard({
                     {profile.displayName}
                   </th>
                   {LANGUAGE_CAPABILITIES.map((cap) => (
-                    <ScorecardCell key={cap} capability={cap} profile={profile} t={t} />
+                    <ScorecardCell
+                      key={cap}
+                      capability={cap}
+                      profile={profile}
+                      platform={platform}
+                      t={t}
+                    />
                   ))}
                 </tr>
               ))}
@@ -240,26 +289,58 @@ export function LanguageSupportScorecard({
 interface ScorecardCellProps {
   capability: LanguageCapability;
   profile: LanguageSupportProfile;
+  /** RL-095 Slice 2 — active platform filter; `all` keeps the default view. */
+  platform: ScorecardPlatform;
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-function ScorecardCell({ capability, profile, t }: ScorecardCellProps) {
-  const status = profile.capabilities[capability];
+function ScorecardCell({ capability, profile, platform, t }: ScorecardCellProps) {
   const note = profile.notes?.[capability];
-  const platform = profile.perPlatform?.[capability];
+
+  // RL-095 Slice 2 — per-platform view: collapse the cell to the resolved
+  // status for the selected platform (single chip, no W/D pills — the
+  // column IS the platform). Fold B: the tooltip ALWAYS leads with the
+  // resolved "{platform}: {status}" line so a desktop-only -> unsupported
+  // flip reads clearly, then appends the axis note for context. (Leading
+  // with `note ??` instead would hide the resolved status whenever a note
+  // exists and could read as contradictory — e.g. Go `lsp` resolves to
+  // `unsupported` on Web, but its note describes the desktop gopls bridge.)
+  if (platform === 'web' || platform === 'desktop') {
+    const resolved = resolveCapabilityStatus(profile, capability, platform);
+    const statusLabel = t(`languageSupport.status.${statusKeyFragment(resolved)}`);
+    const platformStatusLine = t('languageSupport.platform.resolvedTitle', {
+      platform: t(`languageSupport.scorecard.platform.${platform}`),
+      status: statusLabel,
+    });
+    const resolvedTitle = note ? `${platformStatusLine} — ${note}` : platformStatusLine;
+    return (
+      <td
+        className="px-2 py-2 align-top"
+        data-testid={`language-support-scorecard-cell-${profile.languageId}-${capability}`}
+        data-status={resolved}
+        data-platform-view={platform}
+        title={resolvedTitle}
+      >
+        <StatusBadge tone={STATUS_TONE[resolved]}>{statusLabel}</StatusBadge>
+      </td>
+    );
+  }
+
+  const status = profile.capabilities[capability];
+  const platformOverride = profile.perPlatform?.[capability];
   const hasPlatformOverride =
-    platform !== undefined &&
-    (platform.web !== undefined || platform.desktop !== undefined);
+    platformOverride !== undefined &&
+    (platformOverride.web !== undefined || platformOverride.desktop !== undefined);
 
   const cellTitle = note ?? t(`languageSupport.status.${statusKeyFragment(status)}`);
-  const webTitle = platform?.web
+  const webTitle = platformOverride?.web
     ? t('languageSupport.platform.webTitle', {
-        status: t(`languageSupport.status.${statusKeyFragment(platform.web)}`),
+        status: t(`languageSupport.status.${statusKeyFragment(platformOverride.web)}`),
       })
     : undefined;
-  const desktopTitle = platform?.desktop
+  const desktopTitle = platformOverride?.desktop
     ? t('languageSupport.platform.desktopTitle', {
-        status: t(`languageSupport.status.${statusKeyFragment(platform.desktop)}`),
+        status: t(`languageSupport.status.${statusKeyFragment(platformOverride.desktop)}`),
       })
     : undefined;
 
@@ -279,16 +360,16 @@ function ScorecardCell({ capability, profile, t }: ScorecardCellProps) {
             className="flex gap-1"
             data-testid={`language-support-scorecard-platform-${profile.languageId}-${capability}`}
           >
-            {platform!.web !== undefined ? (
+            {platformOverride!.web !== undefined ? (
               <span data-platform="web" title={webTitle} aria-label={webTitle}>
-                <StatusBadge tone={STATUS_TONE[platform!.web]}>
+                <StatusBadge tone={STATUS_TONE[platformOverride!.web]}>
                   {t('languageSupport.platform.webShort')}
                 </StatusBadge>
               </span>
             ) : null}
-            {platform!.desktop !== undefined ? (
+            {platformOverride!.desktop !== undefined ? (
               <span data-platform="desktop" title={desktopTitle} aria-label={desktopTitle}>
-                <StatusBadge tone={STATUS_TONE[platform!.desktop]}>
+                <StatusBadge tone={STATUS_TONE[platformOverride!.desktop]}>
                   {t('languageSupport.platform.desktopShort')}
                 </StatusBadge>
               </span>

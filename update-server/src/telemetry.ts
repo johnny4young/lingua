@@ -126,6 +126,8 @@ export const TELEMETRY_EVENT_NAMES = [
   // Closed-enum `{ surface }` from `LANGUAGE_SCORECARD_SURFACES`. The
   // property is named `surface` (not `source`) because the redactor
   // strips any key whose lowercased name contains 'source'.
+  // RL-095 Slice 2 — scorecard Web/Desktop toggle adoption signal.
+  'language_scorecard_platform_toggled',
   'language_scorecard_viewed',
   // RL-036 Phase A1 fold B + G — mirror of `share.created`. Closed-
   // enum `{ trigger, status, sizeBucket }` from
@@ -357,6 +359,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-094 Slice 2 fold D — mirror of `capsule.imported`. All three
   // values come from closed enums; the validator below enforces.
   'capsule.imported': ['surface', 'status', 'sizeBucket'],
+  // RL-095 Slice 2 — `platform` ∈ `LANGUAGE_SCORECARD_PLATFORMS`.
+  'language_scorecard_platform_toggled': ['platform'],
   // RL-095 Slice 1 fold A — mirror of `language_scorecard_viewed`.
   'language_scorecard_viewed': ['surface'],
   // RL-036 Phase A1 fold B + G — mirror of `share.created`.
@@ -721,6 +725,13 @@ export const NOTEBOOK_EXPORT_FORMATS_SET = new Set([
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
   'palette',
+]);
+// RL-095 Slice 2 — mirror of `LANGUAGE_SCORECARD_PLATFORMS` /
+// `SCORECARD_PLATFORMS`. Parity test asserts alignment.
+export const LANGUAGE_SCORECARD_PLATFORMS = new Set([
+  'all',
+  'web',
+  'desktop',
 ]);
 // RL-036 Phase A1 fold B + G — mirrors of the share-link enums.
 // `cancelled` currently covers user dismissal and clipboard-write failure.
@@ -1348,6 +1359,10 @@ function isAllowedValue(
         );
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'language_scorecard_platform_toggled':
+      if (key === 'platform')
+        return typeof value === 'string' && LANGUAGE_SCORECARD_PLATFORMS.has(value);
       return false;
     case 'language_scorecard_viewed':
       if (key === 'surface')

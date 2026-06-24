@@ -25,6 +25,7 @@ import {
   isAppLanguage,
   resolveInlineLintByLanguage,
   sanitizeRuntimeTimeoutPresets,
+  sanitizeScorecardPlatform,
   sanitizeScratchpadAutoLog,
   sanitizeSensitiveHttpHeaders,
   sanitizeShortcutOverrides,
@@ -263,6 +264,7 @@ export function settingsMerge(
   return {
     ...merged,
     restoreSessionMode,
+    languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform), // RL-095 S2
     hasCompletedOnboardingWelcome,
     hasCompletedOnboardingFirstRun,
     hasCompletedOnboardingFirstSnippet,

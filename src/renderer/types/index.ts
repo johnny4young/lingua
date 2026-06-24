@@ -5,6 +5,7 @@ import type { WorkflowMode } from '../../shared/workflowMode';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
+import type { ScorecardPlatform } from '../../shared/languageSupport';
 
 export type { RuntimeTimeoutPreset };
 export type { ScopeSnapshot };
@@ -540,6 +541,8 @@ export interface SettingsState {
   layoutPreset: LayoutPreset;
   maxLoopIterations: number;
   restoreSessionMode: RestoreSessionMode;
+  /** RL-095 Slice 2 — sticky Web/Desktop filter on the Language Support Scorecard. */
+  languageScorecardPlatform: ScorecardPlatform;
   formatOnSave: boolean;
   /**
    * RL-110 — master toggle for smart paste detection. When `true` (default),
@@ -847,6 +850,8 @@ export interface SettingsState {
   setLayoutPreset: (preset: LayoutPreset) => void;
   setMaxLoopIterations: (max: number) => void;
   setRestoreSessionMode: (mode: RestoreSessionMode) => void;
+  /** RL-095 Slice 2 — set the scorecard's Web/Desktop platform filter. */
+  setLanguageScorecardPlatform: (platform: ScorecardPlatform) => void;
   toggleFormatOnSave: () => void;
   /** RL-110 — flip the smart-paste detection master toggle. */
   toggleSmartPasteDetection: () => void;

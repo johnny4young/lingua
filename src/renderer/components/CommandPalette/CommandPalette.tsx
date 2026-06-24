@@ -624,8 +624,15 @@ export function CommandPalette({
           }
         : undefined,
       // RL-095 Slice 1 fold F — render + copy markdown to clipboard.
+      // Slice 2 fold A: honor the scorecard's sticky platform filter so the
+      // clipboard payload matches what the user sees (and the matching
+      // per-platform section in docs/CAPABILITY_MATRIX.md). Default `all`
+      // reproduces the original cross-platform table verbatim.
       onCopyLanguageScorecardMarkdown: () => {
-        const markdown = renderLanguageScorecardMarkdown();
+        const markdown = renderLanguageScorecardMarkdown(
+          undefined,
+          useSettingsStore.getState().languageScorecardPlatform
+        );
         const writer = navigator.clipboard?.writeText;
         if (typeof writer === 'function') {
           void writer

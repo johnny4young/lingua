@@ -32,6 +32,7 @@ import {
   LANGUAGE_CAPABILITY_STATUSES,
   LANGUAGE_SUPPORT_PROFILES,
 } from '../../../src/shared/languageSupport';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 const { trackEventMock } = vi.hoisted(() => ({
   trackEventMock: vi.fn(),
@@ -56,6 +57,9 @@ describe('LanguageSupportScorecard', () => {
     await i18next.changeLanguage('en');
     _resetLanguageScorecardAdoptionGuardForTesting();
     trackEventMock.mockReset();
+    // RL-095 Slice 2 — reset the sticky platform filter so a toggle in one
+    // test never leaks the resolved-cell view into the next.
+    useSettingsStore.setState({ languageScorecardPlatform: 'all' });
     // Force the no-IntersectionObserver fallback so telemetry fires
     // synchronously on mount.
     delete (window as IOWindow).IntersectionObserver;
@@ -211,6 +215,122 @@ describe('LanguageSupportScorecard', () => {
     expect(trackEventMock).toHaveBeenCalledTimes(2);
     const calls = trackEventMock.mock.calls.map((args) => args[1]);
     expect(calls).toEqual([{ surface: 'settings' }, { surface: 'palette' }]);
+  });
+
+  // RL-095 Slice 2 — Web | Desktop platform filter.
+  const toggledCalls = () =>
+    trackEventMock.mock.calls.filter(
+      (args) => args[0] === 'language_scorecard_platform_toggled'
+    );
+
+  it('defaults the platform toggle to All', () => {
+    render(<LanguageSupportScorecard />);
+    const group = screen.getByTestId('language-support-scorecard-platform-toggle');
+    expect(group).toBeTruthy();
+    expect(
+      screen
+        .getByTestId('language-support-scorecard-platform-all')
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(
+      screen
+        .getByTestId('language-support-scorecard-platform-web')
+        .getAttribute('aria-pressed')
+    ).toBe('false');
+  });
+
+  it('collapses cells to the web-resolved status when Web is selected', () => {
+    render(<LanguageSupportScorecard />);
+    // JS packages is desktop-only -> unsupported on web.
+    fireEvent.click(screen.getByTestId('language-support-scorecard-platform-web'));
+    const cell = screen.getByTestId(
+      'language-support-scorecard-cell-javascript-packages'
+    );
+    expect(cell.getAttribute('data-status')).toBe('unsupported');
+    expect(cell.getAttribute('data-platform-view')).toBe('web');
+    // The W/D override pills disappear in a single-platform view — the
+    // column IS the platform.
+    expect(
+      screen.queryByTestId('language-support-scorecard-platform-ruby-webRuntime')
+    ).toBeNull();
+  });
+
+  it('collapses cells to the desktop-resolved status when Desktop is selected', () => {
+    render(<LanguageSupportScorecard />);
+    fireEvent.click(
+      screen.getByTestId('language-support-scorecard-platform-desktop')
+    );
+    const cell = screen.getByTestId(
+      'language-support-scorecard-cell-javascript-packages'
+    );
+    // desktop-only -> available on desktop.
+    expect(cell.getAttribute('data-status')).toBe('available');
+    expect(cell.getAttribute('data-platform-view')).toBe('desktop');
+  });
+
+  it('per-platform tooltip leads with the resolved status, then appends the axis note', () => {
+    render(<LanguageSupportScorecard />);
+    fireEvent.click(screen.getByTestId('language-support-scorecard-platform-web'));
+    // Go LSP is desktop-only -> unsupported on web AND carries an axis
+    // note (the gopls bridge). The tooltip must lead with the resolved
+    // status so the chip + tooltip agree; the note follows for context.
+    const goLsp = screen.getByTestId('language-support-scorecard-cell-go-lsp');
+    const goTitle = goLsp.getAttribute('title') ?? '';
+    expect(goTitle.startsWith('Web: Unsupported')).toBe(true);
+    expect(goTitle).toContain('gopls');
+    // A cell with no note shows just the resolved "{platform}: {status}".
+    const jsSyntax = screen.getByTestId(
+      'language-support-scorecard-cell-javascript-syntax'
+    );
+    expect(jsSyntax.getAttribute('title')).toBe('Web: Available');
+  });
+
+  it('restores the All view (default chip + Ruby pills) when toggled back', () => {
+    render(<LanguageSupportScorecard />);
+    fireEvent.click(screen.getByTestId('language-support-scorecard-platform-web'));
+    expect(
+      screen.queryByTestId('language-support-scorecard-platform-ruby-webRuntime')
+    ).toBeNull();
+    fireEvent.click(screen.getByTestId('language-support-scorecard-platform-all'));
+    expect(
+      screen.getByTestId('language-support-scorecard-platform-ruby-webRuntime')
+    ).toBeTruthy();
+    // The cell carries no per-platform-view marker back in All.
+    const cell = screen.getByTestId(
+      'language-support-scorecard-cell-javascript-packages'
+    );
+    expect(cell.getAttribute('data-status')).toBe('desktop-only');
+    expect(cell.getAttribute('data-platform-view')).toBeNull();
+  });
+
+  it('fires language_scorecard_platform_toggled once per real change', () => {
+    render(<LanguageSupportScorecard />);
+    fireEvent.click(screen.getByTestId('language-support-scorecard-platform-web'));
+    expect(toggledCalls()).toEqual([
+      ['language_scorecard_platform_toggled', { platform: 'web' }],
+    ]);
+    // Re-clicking the active option is a no-op (no duplicate event).
+    fireEvent.click(screen.getByTestId('language-support-scorecard-platform-web'));
+    expect(toggledCalls()).toHaveLength(1);
+    fireEvent.click(
+      screen.getByTestId('language-support-scorecard-platform-desktop')
+    );
+    expect(toggledCalls()).toHaveLength(2);
+    expect(toggledCalls()[1]).toEqual([
+      'language_scorecard_platform_toggled',
+      { platform: 'desktop' },
+    ]);
+  });
+
+  it('renders the platform toggle labels with ES tuteo copy', async () => {
+    await i18next.changeLanguage('es');
+    render(<LanguageSupportScorecard />);
+    expect(
+      screen.getByTestId('language-support-scorecard-platform-all').textContent
+    ).toBe('Todas');
+    expect(
+      screen.getByTestId('language-support-scorecard-platform-desktop').textContent
+    ).toBe('Escritorio');
   });
 
   it('renders ES copy with tuteo when locale flips to es', async () => {

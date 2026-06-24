@@ -33,6 +33,7 @@ export function createAppearanceActions(
   | 'setShortcutOverride'
   | 'clearShortcutOverride'
   | 'resetShortcutOverrides'
+  | 'setLanguageScorecardPlatform'
 > {
   return {
     // Each field the theme pack covers resets `themePack` to `default` so
@@ -105,6 +106,10 @@ export function createAppearanceActions(
       }),
     resetShortcutOverrides: () =>
       set({ shortcutOverrides: {}, keymapPreset: DEFAULT_KEYMAP_PRESET_ID }),
+    // RL-095 Slice 2 — sticky Web/Desktop filter on the Language Support
+    // Scorecard. A pure display preference (no theme-pack coupling).
+    setLanguageScorecardPlatform: (languageScorecardPlatform) =>
+      set({ languageScorecardPlatform }),
     applyKeymapPreset: (presetId) => {
       const preset = findKeymapPreset(presetId);
       if (!preset) return;

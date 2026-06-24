@@ -7,7 +7,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { SCORECARD_PLATFORMS } from '../../src/shared/languageSupport';
 import {
+  LANGUAGE_SCORECARD_PLATFORMS,
   TELEMETRY_EVENTS,
   bucketDurationMs,
   bucketOs,
@@ -120,6 +122,12 @@ describe('TELEMETRY_EVENTS', () => {
       // resolution outcome. Sorts after `import.notebook_warnings_surfaced`
       // because `notebook` < `postman` on the dotted segment.
       'import.postman_variables_resolved',
+      // RL-095 Slice 2 fold D — Web/Desktop scorecard filter toggle.
+      // Closed-enum payload `{ platform }` from
+      // `LANGUAGE_SCORECARD_PLATFORMS` (all | web | desktop). Sorts
+      // before `language_scorecard_viewed` because `platform_` <
+      // `viewed` on the shared `language_scorecard_` prefix.
+      'language_scorecard_platform_toggled',
       // RL-095 Slice 1 fold A — Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
       // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key
@@ -540,6 +548,39 @@ describe('runtime.mode_changed value validator (RL-019 Slice 1 + Slice 3)', () =
     );
     expect(event.properties.mode).toBe('browser-preview');
     expect(event.properties).not.toHaveProperty('language');
+  });
+});
+
+describe('language_scorecard_platform_toggled value validator (RL-095 Slice 2)', () => {
+  it('keeps the telemetry closed enum aligned with the scorecard platform source of truth', () => {
+    expect([...LANGUAGE_SCORECARD_PLATFORMS].sort()).toEqual(
+      [...SCORECARD_PLATFORMS].sort()
+    );
+  });
+
+  it('accepts every LANGUAGE_SCORECARD_PLATFORMS value', () => {
+    for (const platform of LANGUAGE_SCORECARD_PLATFORMS) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'language_scorecard_platform_toggled',
+          properties: { platform },
+        })
+      );
+      expect(
+        event.properties.platform,
+        `platform ${platform} should survive the redactor`
+      ).toBe(platform);
+    }
+  });
+
+  it('drops an unknown platform value', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'language_scorecard_platform_toggled',
+        properties: { platform: 'mobile' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('platform');
   });
 });
 

@@ -232,6 +232,8 @@ export const TELEMETRY_EVENTS = [
   // (not `source`) because the DENY_SUBSTRINGS pass below strips any
   // key whose lowercased name contains 'source' — same precedent as
   // `runtime.workflow_mode_changed { trigger }`.
+  // RL-095 Slice 2 — scorecard Web/Desktop toggle adoption signal.
+  'language_scorecard_platform_toggled',
   'language_scorecard_viewed',
   // RL-036 Phase A1 fold B + G — share-link creation. Closed-enum
   // `{ trigger, status, sizeBucket }` where trigger ∈ SHARE_CREATE_TRIGGERS
@@ -733,6 +735,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `status` ∈ `CAPSULE_IMPORT_STATUSES`, `sizeBucket` ∈
   // `CAPSULE_SIZE_BUCKETS`. All three closed enums.
   'capsule.imported': ['surface', 'status', 'sizeBucket'],
+  // RL-095 Slice 2 — `platform` ∈ `LANGUAGE_SCORECARD_PLATFORMS`.
+  'language_scorecard_platform_toggled': ['platform'],
   // RL-095 Slice 1 fold A — `surface` ∈ `LANGUAGE_SCORECARD_SURFACES`.
   'language_scorecard_viewed': ['surface'],
   // RL-036 Phase A1 fold B + G — `trigger` ∈ `SHARE_CREATE_TRIGGERS`,
@@ -1185,6 +1189,15 @@ export const NOTEBOOK_EXPORT_FORMATS_SET = new Set([
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
   'palette',
+]);
+// RL-095 Slice 2 — `platform` ∈ the scorecard's Web/Desktop filter. Mirror
+// of `SCORECARD_PLATFORMS` in `src/shared/languageSupport.ts` (kept as a
+// local Set so update-server can mirror it without importing the renderer
+// scorecard module); the parity test asserts all three stay aligned.
+export const LANGUAGE_SCORECARD_PLATFORMS = new Set([
+  'all',
+  'web',
+  'desktop',
 ]);
 // RL-036 Phase A1 fold B — `trigger` ∈ surface that initiated the
 // share-link copy. Mirrored on update-server.
@@ -1814,6 +1827,12 @@ function isAllowedValue(
         );
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'language_scorecard_platform_toggled':
+      if (key === 'platform')
+        return (
+          typeof value === 'string' && LANGUAGE_SCORECARD_PLATFORMS.has(value)
+        );
       return false;
     case 'language_scorecard_viewed':
       if (key === 'surface')

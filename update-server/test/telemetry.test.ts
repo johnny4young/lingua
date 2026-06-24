@@ -45,6 +45,7 @@ import {
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
   FS_BLOCKED_FAMILIES as WORKER_FS_BLOCKED_FAMILIES,
+  LANGUAGE_SCORECARD_PLATFORMS as WORKER_LANGUAGE_SCORECARD_PLATFORMS,
   TELEMETRY_EVENT_NAMES,
   checkRateLimit,
   ipBucket,
@@ -74,6 +75,7 @@ import {
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   FS_BLOCKED_FAMILIES as RENDERER_FS_BLOCKED_FAMILIES,
+  LANGUAGE_SCORECARD_PLATFORMS as RENDERER_LANGUAGE_SCORECARD_PLATFORMS,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
 import {
@@ -485,6 +487,17 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(worker).toEqual(canonical);
   });
 
+  it('LANGUAGE_SCORECARD_PLATFORMS stays in sync with the renderer enum (RL-095 Slice 2)', () => {
+    expect([...WORKER_LANGUAGE_SCORECARD_PLATFORMS].sort()).toEqual(
+      [...RENDERER_LANGUAGE_SCORECARD_PLATFORMS].sort()
+    );
+    expect([...WORKER_LANGUAGE_SCORECARD_PLATFORMS].sort()).toEqual([
+      'all',
+      'desktop',
+      'web',
+    ]);
+  });
+
   it('CAPSULE_EXPORT_TRIGGERS stays in sync with the renderer enum (RL-094 Slice 1 fold A)', async () => {
     // Closed-enum parity for the `capsule.exported.trigger` field.
     // Drift here would silently widen the surface the export
@@ -829,6 +842,34 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       line.includes('"telepathy"')
     );
     expect(unknownSurfaceLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('language_scorecard_platform_toggled accepts closed-enum platform, drops unknown values (RL-095 Slice 2)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'language_scorecard_platform_toggled',
+      properties: { platform: 'desktop' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownResponse = await postTelemetry({
+      event: 'language_scorecard_platform_toggled',
+      properties: { platform: 'mobile' },
+    });
+    expect(unknownResponse.status).toBe(204);
+
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"language_scorecard_platform_toggled"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const okLine = eventLines.find((line) =>
+      line.includes('"platform":"desktop"')
+    );
+    expect(okLine).toBeDefined();
+    const unknownPlatformLine = eventLines.find((line) =>
+      line.includes('"mobile"')
+    );
+    expect(unknownPlatformLine).toBeUndefined();
     consoleSpy.mockRestore();
   });
 

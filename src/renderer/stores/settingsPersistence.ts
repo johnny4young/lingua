@@ -45,6 +45,7 @@ export function settingsPartialize(state: SettingsState) {
     layoutPreset: state.layoutPreset,
     maxLoopIterations: state.maxLoopIterations,
     restoreSessionMode: state.restoreSessionMode,
+    languageScorecardPlatform: state.languageScorecardPlatform,
     formatOnSave: state.formatOnSave,
     smartPasteDetectionEnabled: state.smartPasteDetectionEnabled,
     vimMode: state.vimMode,

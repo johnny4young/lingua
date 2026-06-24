@@ -16,6 +16,7 @@ import {
   isRuntimeTimeoutSupportedLanguage,
   type RuntimeTimeoutPreset,
 } from '../../shared/runtimeTimeoutPresets';
+import { type ScorecardPlatform } from '../../shared/languageSupport';
 import {
   APP_LANGUAGES,
   BASELINE_SENSITIVE_HEADERS_LC,
@@ -262,4 +263,15 @@ export function sanitizeSqlRowDisplayLimit(value: unknown): 100 | 500 | 1000 | 5
 export function sanitizeSqlQueryTimeoutMs(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 30_000;
   return Math.min(Math.max(1_000, Math.floor(value)), 5 * 60 * 1000);
+}
+
+/**
+ * RL-095 Slice 2 — narrow the persisted scorecard platform filter to the
+ * closed `ScorecardPlatform` enum; unknown / hand-edited values fall back to
+ * the cross-platform `'all'` view.
+ */
+export function sanitizeScorecardPlatform(value: unknown): ScorecardPlatform {
+  return value === 'web' || value === 'desktop' || value === 'all'
+    ? value
+    : 'all';
 }

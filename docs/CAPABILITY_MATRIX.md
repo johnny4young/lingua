@@ -68,6 +68,44 @@ edit by hand. To change a row, edit the array + re-run the test
 | Lua | `available` | `available` | `unsupported` | `available` | `web-only` | `unsupported` | `unsupported` | `unsupported` | `unsupported` |
 <!-- AUTO-DERIVED:LANGUAGE_SUPPORT_PROFILES:END -->
 
+### Resolved per platform
+
+RL-095 Slice 2 — the Settings → Languages scorecard adds a
+**Web | Desktop** filter. The two tables below are the same profiles
+resolved for one platform at a time via `resolveCapabilityStatus`:
+`desktop-only` collapses to `unsupported` on web / `available` on
+desktop (and `web-only` the mirror), the two runtime axes pass through
+unchanged, and explicit `perPlatform` overrides win. Both blocks are
+auto-derived — do not edit by hand.
+
+#### Web
+
+<!-- AUTO-DERIVED:LANGUAGE_SUPPORT_PROFILES:WEB:START -->
+| Language | Syntax | Autocomplete | LSP | Web runtime | Desktop runtime | Packages | Stdin | Rich output | Debugger |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| JavaScript | `available` | `available` | `available` | `available` | `available` | `unsupported` | `available` | `available` | `partial` |
+| TypeScript | `available` | `available` | `available` | `available` | `available` | `unsupported` | `available` | `available` | `partial` |
+| Python | `available` | `available` | `planned` | `available` | `available` | `partial` | `available` | `available` | `planned` |
+| Go | `available` | `available` | `unsupported` | `unsupported` | `available` | `unsupported` | `unsupported` | `unsupported` | `planned` |
+| Rust | `available` | `available` | `unsupported` | `unsupported` | `available` | `unsupported` | `unsupported` | `unsupported` | `planned` |
+| Ruby | `available` | `available` | `unsupported` | `partial` | `available` | `unsupported` | `unsupported` | `unsupported` | `unsupported` |
+| Lua | `available` | `available` | `unsupported` | `available` | `web-only` | `unsupported` | `unsupported` | `unsupported` | `unsupported` |
+<!-- AUTO-DERIVED:LANGUAGE_SUPPORT_PROFILES:WEB:END -->
+
+#### Desktop
+
+<!-- AUTO-DERIVED:LANGUAGE_SUPPORT_PROFILES:DESKTOP:START -->
+| Language | Syntax | Autocomplete | LSP | Web runtime | Desktop runtime | Packages | Stdin | Rich output | Debugger |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| JavaScript | `available` | `available` | `available` | `available` | `available` | `available` | `available` | `available` | `partial` |
+| TypeScript | `available` | `available` | `available` | `available` | `available` | `available` | `available` | `available` | `partial` |
+| Python | `available` | `available` | `planned` | `available` | `available` | `partial` | `available` | `available` | `planned` |
+| Go | `available` | `available` | `available` | `unsupported` | `available` | `available` | `available` | `unsupported` | `planned` |
+| Rust | `available` | `available` | `available` | `unsupported` | `available` | `available` | `available` | `unsupported` | `planned` |
+| Ruby | `available` | `available` | `unsupported` | `partial` | `available` | `available` | `available` | `unsupported` | `unsupported` |
+| Lua | `available` | `available` | `unsupported` | `available` | `web-only` | `unsupported` | `unsupported` | `unsupported` | `unsupported` |
+<!-- AUTO-DERIVED:LANGUAGE_SUPPORT_PROFILES:DESKTOP:END -->
+
 ## Runtime matrix
 
 | Capability            | Browser WASM  | Browser interpreter | WebContainer | Desktop native | Hybrid | Recommended class | Notes |

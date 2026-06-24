@@ -114,6 +114,7 @@ export function createInitialSettingsState() {
     layoutPreset: 'horizontal',
     maxLoopIterations: 10_000,
     restoreSessionMode: 'ask',
+    languageScorecardPlatform: 'all',
     formatOnSave: false,
     // RL-110 — smart paste detection ships ON: pasting a share-link, capsule,
     // cURL, stack frame, or large JSON offers an import action. Cmd+Shift+V and

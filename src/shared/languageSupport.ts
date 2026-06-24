@@ -301,6 +301,69 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// RL-095 Slice 2 — per-platform resolution (Web | Desktop toggle)
+// ---------------------------------------------------------------------------
+
+/**
+ * The scorecard's platform filter. `all` is the default cross-platform
+ * view (every cell shows its declared status, plus the W/D override pills
+ * where a profile sets `perPlatform`). `web` / `desktop` collapse each row
+ * to the effective status for that one platform via
+ * {@link resolveCapabilityStatus}.
+ */
+export const SCORECARD_PLATFORMS = ['all', 'web', 'desktop'] as const;
+export type ScorecardPlatform = (typeof SCORECARD_PLATFORMS)[number];
+
+/** The two concrete platforms a status can be resolved against. */
+export type ResolvablePlatform = Exclude<ScorecardPlatform, 'all'>;
+
+/**
+ * The two capability axes that are inherently per-platform already —
+ * `webRuntime` describes the browser, `desktopRuntime` the native host.
+ * They are NEVER remapped by {@link resolveCapabilityStatus} (only a
+ * `perPlatform` override can change them): remapping `desktopRuntime`'s
+ * `web-only` value — Lua reuses the browser engine on desktop, so it DOES
+ * run there — would wrongly read as "unsupported on desktop".
+ */
+export const RUNTIME_CAPABILITIES: ReadonlySet<LanguageCapability> = new Set<LanguageCapability>(
+  ['webRuntime', 'desktopRuntime']
+);
+
+/**
+ * RL-095 Slice 2 — resolve a capability's effective status for ONE
+ * platform. Precedence:
+ *
+ *   1. An explicit `perPlatform[capability][platform]` override wins
+ *      (e.g. Ruby's `webRuntime` is `partial` on web only).
+ *   2. The two runtime axes pass through unchanged (see
+ *      {@link RUNTIME_CAPABILITIES}).
+ *   3. The cross-platform descriptors collapse to concrete availability:
+ *      `desktop-only` is `unsupported` on web / `available` on desktop;
+ *      `web-only` is the mirror.
+ *   4. Every other status (`available` / `partial` / `planned` /
+ *      `unsupported`) is platform-agnostic and returned as-is.
+ *
+ * Pure + total; drives both the toggle UI and the per-platform markdown.
+ */
+export function resolveCapabilityStatus(
+  profile: LanguageSupportProfile,
+  capability: LanguageCapability,
+  platform: ResolvablePlatform
+): LanguageCapabilityStatus {
+  const override = profile.perPlatform?.[capability]?.[platform];
+  if (override !== undefined) return override;
+  const base = profile.capabilities[capability];
+  if (RUNTIME_CAPABILITIES.has(capability)) return base;
+  if (base === 'desktop-only') {
+    return platform === 'web' ? 'unsupported' : 'available';
+  }
+  if (base === 'web-only') {
+    return platform === 'web' ? 'available' : 'unsupported';
+  }
+  return base;
+}
+
+// ---------------------------------------------------------------------------
 // Markdown renderer (used by docs guard test + Fold F palette command)
 // ---------------------------------------------------------------------------
 
@@ -319,15 +382,22 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
  * `LANGUAGE_SUPPORT_PROFILES` (stability-ordered, not alphabetical).
  */
 export function renderLanguageScorecardMarkdown(
-  profiles: readonly LanguageSupportProfile[] = LANGUAGE_SUPPORT_PROFILES
+  profiles: readonly LanguageSupportProfile[] = LANGUAGE_SUPPORT_PROFILES,
+  platform: ScorecardPlatform = 'all'
 ): string {
   const header = ['Language', ...LANGUAGE_CAPABILITIES.map(capabilityLabel)];
   const separator = header.map(() => '---');
   const rows = profiles.map((profile) => [
     profile.displayName,
-    ...LANGUAGE_CAPABILITIES.map(
-      (cap) => '`' + profile.capabilities[cap] + '`'
-    ),
+    ...LANGUAGE_CAPABILITIES.map((cap) => {
+      // RL-095 Slice 2 — `all` keeps the declared cross-platform status;
+      // `web` / `desktop` collapse to the resolved per-platform status.
+      const status =
+        platform === 'all'
+          ? profile.capabilities[cap]
+          : resolveCapabilityStatus(profile, cap, platform);
+      return '`' + status + '`';
+    }),
   ]);
   const lines = [
     `| ${header.join(' | ')} |`,
