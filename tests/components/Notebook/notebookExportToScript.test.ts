@@ -81,5 +81,13 @@ describe('notebookExportToScript', () => {
     const exported = exportNotebookAsScript(source);
     expect(exported.language).toBeNull();
     expect(exported.suggestedFileName).toBe('data-check.txt');
+    // RL-043 Slice F (fold D) — the now-runnable Python cell's source +
+    // delimiter must survive the mixed export. A mixed export carries a
+    // single `//` comment prefix (language is null), so the Python cell's
+    // delimiter is `//`-style too, not `#`.
+    expect(exported.source).toContain('// --- cell js-1 (javascript) ---');
+    expect(exported.source).toContain('console.log(1);');
+    expect(exported.source).toContain('// --- cell py-1 (python) ---');
+    expect(exported.source).toContain('print(2)');
   });
 });

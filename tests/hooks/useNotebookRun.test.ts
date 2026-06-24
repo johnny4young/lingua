@@ -9,6 +9,10 @@ vi.mock('../../src/renderer/runners', () => ({
   runnerManager: {
     execute: vi.fn(),
     stop: vi.fn(),
+    // RL-043 Slice F (fold B) — the hook checks this before a Python run
+    // to decide whether to surface the "starting Python" notice. Default
+    // false so the bulk of the suite never trips the notice.
+    needsInitialization: vi.fn(() => false),
   },
 }));
 
@@ -27,9 +31,12 @@ import {
   useNotebookStore,
 } from '../../src/renderer/stores/notebookStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import type { NotebookCellLanguage } from '../../src/shared/notebook';
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 const mockStop = runnerManager.stop as unknown as ReturnType<typeof vi.fn>;
+const mockNeedsInit =
+  runnerManager.needsInitialization as unknown as ReturnType<typeof vi.fn>;
 const mockTrack = trackEvent as unknown as ReturnType<typeof vi.fn>;
 
 function seedNotebook(tabId: string): {
@@ -45,7 +52,10 @@ function seedNotebook(tabId: string): {
   };
 }
 
-function seedPythonOnlyNotebook(tabId: string): void {
+function seedSingleCodeCellNotebook(
+  tabId: string,
+  language: NotebookCellLanguage
+): void {
   resetNotebookStoreForTests();
   useNotebookStore.setState({
     notebooks: {
@@ -53,19 +63,19 @@ function seedPythonOnlyNotebook(tabId: string): void {
         notebook: {
           version: 1,
           id: `notebook-${tabId}`,
-          title: 'Python import',
+          title: 'Single code cell',
           cells: [
             {
               kind: 'code',
-              id: 'cell-python',
-              language: 'python',
-              source: 'print("hi")',
+              id: 'cell-1',
+              language,
+              source: language === 'python' ? 'print("hi")' : 'x',
               outputs: [],
             },
           ],
         },
         cellRunStatus: {},
-        activeCellId: 'cell-python',
+        activeCellId: 'cell-1',
       },
     },
   });
@@ -193,18 +203,63 @@ describe('useNotebookRun', () => {
     expect(mockExecute).toHaveBeenCalledTimes(1);
   });
 
-  it('runAll surfaces a notice instead of silently no-oping when every code cell is unsupported', async () => {
-    seedPythonOnlyNotebook('tab-python');
+  it('runAll runs a Python-only notebook through the python runner (Slice F)', async () => {
+    seedSingleCodeCellNotebook('tab-python', 'python');
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: 'hi',
+      stdout: [{ args: ['hi'] }],
+      stderr: [],
+    });
     const { result } = renderHook(() => useNotebookRun());
 
     await act(async () => {
       await result.current.runAll('tab-python');
     });
 
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(mockExecute.mock.calls[0]?.[0]).toBe('python');
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-python', 'cell-1')
+    ).toBe('ok');
+  });
+
+  it('runAll surfaces a notice when every code cell is an unsupported language', async () => {
+    // All three real code-cell languages run now (Slice F), so the
+    // notice path is exercised with an out-of-enum language cast.
+    seedSingleCodeCellNotebook('tab-unsupported', 'ruby' as NotebookCellLanguage);
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.runAll('tab-unsupported');
+    });
+
     expect(mockExecute).not.toHaveBeenCalled();
     expect(useUIStore.getState().statusNotice).toMatchObject({
       tone: 'info',
       messageKey: 'notebook.notice.languageNotSupported',
+    });
+  });
+
+  it('surfaces the "starting Python" notice on a cold Python run (Slice F fold B)', async () => {
+    seedSingleCodeCellNotebook('tab-cold', 'python');
+    mockNeedsInit.mockReturnValueOnce(true);
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: '',
+      stdout: [{ args: ['hi'] }],
+      stderr: [],
+    });
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.runCell('tab-cold', 'cell-1');
+    });
+
+    expect(mockNeedsInit).toHaveBeenCalledWith('python');
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'info',
+      messageKey: 'notebook.notice.pythonStarting',
     });
   });
 
@@ -294,11 +349,15 @@ describe('useNotebookRun', () => {
     ).toBe(2);
   });
 
-  it('stop signals the runner', () => {
+  it('stop signals both notebook-runnable runners (JS worker + Python)', () => {
     const { result } = renderHook(() => useNotebookRun());
     act(() => {
       result.current.stop();
     });
+    // JS / TS share the 'javascript' worker; Python (Slice F) runs on the
+    // 'python' runner. stop() hits both since the hook doesn't track the
+    // in-flight language.
     expect(mockStop).toHaveBeenCalledWith('javascript');
+    expect(mockStop).toHaveBeenCalledWith('python');
   });
 });

@@ -58,6 +58,7 @@ import { exportNotebookAsIpynb } from './notebookExportToIpynb';
 import { exportNotebookAsLinguanb } from './notebookExportToLinguanb';
 import { downloadTextFile } from '../../utils/downloadTextFile';
 import { saveOrDownloadLinguanb } from '../../runtime/notebookLinguanbDisk';
+import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
 import { useNotebookCommandMode } from './useNotebookCommandMode';
 import { Kbd } from '../ui/ModalShell';
 import { cn } from '../../utils/cn';
@@ -262,13 +263,14 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [addCell, notebook, pushStatusNotice, tabId]
   );
 
-  // RL-043 Slice C — switch a cell's language via the header selector +
-  // emit the fold-E adoption signal. Native UI disables Python, but the
-  // handler still guards programmatic events so the store and telemetry
-  // remain scoped to the runnable JS↔TS pair.
+  // RL-043 Slice F — switch a cell's language via the header selector +
+  // emit the fold-E adoption signal. JS / TS / Python are all runnable
+  // now; the handler still guards programmatic events against a
+  // hypothetical non-runnable code-cell language so the store + telemetry
+  // never carry one.
   const handleLanguageChange = useCallback(
     (cellId: string, language: NotebookCellLanguage) => {
-      if (language !== 'javascript' && language !== 'typescript') return;
+      if (!isNotebookRunnableLanguage(language)) return;
       setCellLanguage(tabId, cellId, language);
       trackNotebookCellLanguageChanged(language);
     },

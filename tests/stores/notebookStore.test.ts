@@ -21,7 +21,10 @@ import {
   runNotebookCell,
 } from '../../src/renderer/runtime/notebookSession';
 import { runnerManager } from '../../src/renderer/runners';
-import { MAX_CELLS_PER_NOTEBOOK } from '../../src/shared/notebook';
+import {
+  MAX_CELLS_PER_NOTEBOOK,
+  type NotebookCellLanguage,
+} from '../../src/shared/notebook';
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 
@@ -203,14 +206,36 @@ describe('useNotebookStore CRUD', () => {
       useNotebookStore.getState().getCellRunStatus('tab-lang', codeCell.id)
     ).toBe('idle');
 
+    // RL-043 Slice F — Python is runnable now, so switching to it is
+    // accepted (and clears outputs + run state like any language change).
+    store.setCellOutputs('tab-lang', codeCell.id, [
+      { kind: 'text', stream: 'stdout', text: 'stale-again' },
+    ]);
+    store.setCellRunStatus('tab-lang', codeCell.id, 'ok');
     store.setCellLanguage('tab-lang', codeCell.id, 'python');
-    const afterUnsupported = useNotebookStore
+    const afterPython = useNotebookStore
       .getState()
       .getNotebookForTab('tab-lang')!
       .cells.find((c) => c.id === codeCell.id)!;
-    expect(afterUnsupported.kind).toBe('code');
-    if (afterUnsupported.kind !== 'code') return;
-    expect(afterUnsupported.language).toBe('typescript');
+    expect(afterPython.kind).toBe('code');
+    if (afterPython.kind !== 'code') return;
+    expect(afterPython.language).toBe('python');
+    expect(afterPython.outputs).toEqual([]);
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-lang', codeCell.id)
+    ).toBe('idle');
+
+    // Defensive: a runtime value outside the schema enum is a no-op
+    // (returns the identical state object, no re-render).
+    const beforeBad = useNotebookStore.getState().getNotebookForTab('tab-lang');
+    store.setCellLanguage(
+      'tab-lang',
+      codeCell.id,
+      'ruby' as NotebookCellLanguage
+    );
+    expect(useNotebookStore.getState().getNotebookForTab('tab-lang')).toBe(
+      beforeBad
+    );
   });
 
   it('setCellLanguage is a no-op on a markdown cell', () => {

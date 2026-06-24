@@ -219,6 +219,43 @@ test.describe('Notebook — TypeScript cells (Slice C)', () => {
   });
 });
 
+test.describe('Notebook — Python cells (Slice F)', () => {
+  test('a Python cell runs through Pyodide and shows its stdout', async ({
+    page,
+  }) => {
+    // Pyodide boots on the first Python run; give the whole flow room.
+    test.setTimeout(120_000);
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    const firstRow = page.getByTestId('notebook-code-cell-row').first();
+    await firstRow
+      .getByTestId('notebook-code-cell-language')
+      .selectOption('python');
+    // Fold A — the independent-run hint is visible on Python cells.
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-python-hint')
+    ).toBeVisible();
+
+    await firstRow
+      .getByTestId('notebook-code-cell-source')
+      .fill('print("hello from python")');
+    await firstRow.getByTestId('notebook-code-cell-run').click();
+
+    // First run boots Pyodide — allow generous headroom over the default
+    // 10s expect timeout.
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-status')
+    ).toContainText('Ok', { timeout: 90_000 });
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-outputs')
+    ).toContainText('hello from python', { timeout: 90_000 });
+  });
+});
+
 test.describe('Notebook — export (Slice D)', () => {
   test('the export menu downloads a Jupyter .ipynb file', async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });

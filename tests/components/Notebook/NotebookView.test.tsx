@@ -12,7 +12,13 @@ import i18next from 'i18next';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/renderer/runners', () => ({
-  runnerManager: { execute: vi.fn(), stop: vi.fn() },
+  runnerManager: {
+    execute: vi.fn(),
+    stop: vi.fn(),
+    // RL-043 Slice F (fold B) — the run hook probes this before a cold
+    // Python run; default false keeps existing run tests on the warm path.
+    needsInitialization: vi.fn(() => false),
+  },
 }));
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
@@ -201,7 +207,7 @@ describe('<NotebookView />', () => {
     );
   });
 
-  it('the cell language selector keeps Python in the list but disabled (fold C)', async () => {
+  it('the cell language selector enables Python and switches to it (Slice F)', async () => {
     const telemetry = await import('../../../src/renderer/utils/telemetry');
     vi.mocked(telemetry.trackEvent).mockClear();
     render(<NotebookView tabId={TAB_ID} />);
@@ -210,7 +216,8 @@ describe('<NotebookView />', () => {
       'option[value="python"]'
     ) as HTMLOptionElement | null;
     expect(python).not.toBeNull();
-    expect(python?.disabled).toBe(true);
+    // RL-043 Slice F — Python now runs, so the option is no longer disabled.
+    expect(python?.disabled).toBe(false);
 
     fireEvent.change(select, { target: { value: 'python' } });
     const codeCell = useNotebookStore
@@ -219,8 +226,8 @@ describe('<NotebookView />', () => {
       .cells.find((c) => c.kind === 'code')!;
     expect(codeCell.kind).toBe('code');
     if (codeCell.kind !== 'code') return;
-    expect(codeCell.language).toBe('javascript');
-    expect(telemetry.trackEvent).not.toHaveBeenCalledWith(
+    expect(codeCell.language).toBe('python');
+    expect(telemetry.trackEvent).toHaveBeenCalledWith(
       'notebook.cell_language_changed',
       { to: 'python' }
     );
@@ -333,11 +340,11 @@ describe('<NotebookView />', () => {
     );
   });
 
-  it('Shift+Enter preserves the current code cell language when appending below', async () => {
+  it('Shift+Enter runs a Python cell and appends a new cell preserving its language', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
-      stdout: [],
+      result: '',
+      stdout: [{ args: ['hi'] }],
       stderr: [],
     });
     seedNotebookCells([
@@ -358,7 +365,14 @@ describe('<NotebookView />', () => {
       });
     });
 
-    expect(mockExecute).not.toHaveBeenCalled();
+    // RL-043 Slice F — Python runs now, so Shift+Enter executes the cell
+    // through the python runner (it no longer no-ops on an unsupported
+    // language) before appending the language-preserving cell below.
+    expect(mockExecute).toHaveBeenCalledWith(
+      'python',
+      expect.any(String),
+      expect.objectContaining({ language: 'python' })
+    );
     await waitFor(() => {
       const codeCells = useNotebookStore
         .getState()

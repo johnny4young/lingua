@@ -36,6 +36,7 @@ import {
   MAX_CELLS_PER_NOTEBOOK,
   MAX_CELL_SOURCE_LENGTH,
   MAX_OUTPUTS_PER_CELL,
+  NOTEBOOK_CELL_LANGUAGES,
   parseNotebook,
   type NotebookCellKind,
   type NotebookCellLanguage,
@@ -569,7 +570,10 @@ export const useNotebookStore = create<NotebookState>()(
 
       setCellLanguage: (tabId, cellId, language) =>
         set((state) => {
-          if (language !== 'javascript' && language !== 'typescript') {
+          // RL-043 Slice F — JS / TS / Python are all valid code-cell
+          // languages now. Defensively reject a runtime value outside the
+          // schema enum (e.g. a cast from a programmatic caller).
+          if (!NOTEBOOK_CELL_LANGUAGES.includes(language)) {
             return state;
           }
           const slice = state.notebooks[tabId];

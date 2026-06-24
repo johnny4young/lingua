@@ -111,6 +111,21 @@ export function useNotebookRun(): UseNotebookRunResult {
       store.setCellRunStatus(tabId, cellId, 'running');
       setIsAnyCellRunning(true);
 
+      // RL-043 Slice F (fold B) — the first Python cell run boots Pyodide
+      // (web) / the native runtime, which can take a few seconds. Surface
+      // a one-shot info notice so a freshly-clicked Python cell doesn't
+      // read as hung. `needsInitialization` is false on every subsequent
+      // run, so the notice only fires on the cold start.
+      if (
+        cell.language === 'python' &&
+        runnerManager.needsInitialization('python')
+      ) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'notebook.notice.pythonStarting',
+        });
+      }
+
       // FASE 4 — snapshot the sandbox keys BEFORE the run so the
       // `uses` chip reflects what this cell consumed from earlier
       // cells (the run itself will add this cell's own declarations).
@@ -301,11 +316,16 @@ export function useNotebookRun(): UseNotebookRunResult {
 
   const stop = useCallback(() => {
     stopRequestedRef.current = true;
-    // Best-effort: tell the JS runner to stop the in-flight execute.
-    // The worker treats `stop()` as a hard abort; the
-    // `notebookSession.runNotebookCell` catches the `cancelled` flag
-    // and resolves with `status: 'stopped'`.
+    // Best-effort: tell the in-flight runner to abort. We stop both
+    // notebook-runnable runners because the hook does not track which
+    // language is currently executing — JS / TS share the `'javascript'`
+    // worker (TS type-strips to JS), Python (RL-043 Slice F) runs on the
+    // `'python'` runner. `stop()` is idempotent on an idle runner, so
+    // stopping both is safe. The worker / native runtime treats this as a
+    // hard abort; `notebookSession.runNotebookCell` catches the
+    // `cancelled` flag and resolves with `status: 'stopped'`.
     runnerManager.stop('javascript');
+    runnerManager.stop('python');
   }, []);
 
   return { isAnyCellRunning, runCell, runAll, runAbove, runFromHere, stop };

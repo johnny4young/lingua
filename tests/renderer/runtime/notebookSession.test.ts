@@ -32,6 +32,7 @@ import {
   transpileTypescriptCell,
 } from '../../../src/renderer/runtime/notebookSession';
 import { runnerManager } from '../../../src/renderer/runners';
+import type { NotebookCellLanguage } from '../../../src/shared/notebook';
 import * as ts from 'typescript';
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
@@ -70,11 +71,12 @@ describe('notebookSession closed enums', () => {
     );
   });
 
-  it('isNotebookRunnableLanguage runs JS + TS (Slice C), still rejects Python', () => {
+  it('isNotebookRunnableLanguage runs JS + TS + Python (Slice F)', () => {
     expect(isNotebookRunnableLanguage('javascript')).toBe(true);
     // RL-043 Slice C — TypeScript is type-stripped + run through the JS pipeline.
     expect(isNotebookRunnableLanguage('typescript')).toBe(true);
-    expect(isNotebookRunnableLanguage('python')).toBe(false);
+    // RL-043 Slice F — Python runs independently through the Python runner.
+    expect(isNotebookRunnableLanguage('python')).toBe(true);
   });
 });
 
@@ -344,13 +346,128 @@ describe('runNotebookCell + session manager', () => {
     resetNotebookSessionsForTests();
   });
 
-  it('rejects unsupported languages with `language-not-supported`', async () => {
+  it('rejects a non-code-cell language with `language-not-supported`', async () => {
     const result = await runNotebookCell({
       tabId: 'tab-1',
-      language: 'python',
-      source: 'print(1)',
+      // All three real code-cell languages (JS / TS / Python) now run, so
+      // the reject path is exercised with an out-of-enum language cast.
+      language: 'ruby' as NotebookCellLanguage,
+      source: 'puts 1',
     });
     expect(result).toEqual({ ok: false, reason: 'language-not-supported' });
+  });
+
+  it('runs a Python cell through the python runner, independent of the JS sandbox (Slice F)', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: 'hello',
+      // Runner stdout/stderr entries preserve console-arg boundaries:
+      // `{ args: string[] }` per entry (see flattenStdoutText).
+      stdout: [{ args: ['hello'] }],
+      stderr: [],
+    });
+    const result = await runNotebookCell({
+      tabId: 'tab-py',
+      language: 'python',
+      source: 'print("hello")',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('ok');
+    expect(result.outcome.stdout).toEqual(['hello']);
+    // Generator/transform independence: Python never feeds the JS sandbox.
+    expect(result.outcome.producedKeys).toEqual([]);
+    expect(getNotebookSessionKeys('tab-py')).toEqual([]);
+    // Routed to the python runner with the RAW source (no JS compose) and
+    // WITHOUT the JS-only structured-result channel.
+    expect(mockExecute.mock.calls[0]?.[0]).toBe('python');
+    expect(mockExecute.mock.calls[0]?.[1]).toBe('print("hello")');
+    expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({ language: 'python' });
+    expect(mockExecute.mock.calls[0]?.[2]).not.toHaveProperty(
+      'captureStructuredResult'
+    );
+  });
+
+  it('surfaces a Python runtime error on the cell outcome (Slice F)', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: '',
+      stdout: [],
+      stderr: [{ args: ['Traceback (most recent call last):'] }],
+      error: { message: "NameError: name 'x' is not defined" },
+    });
+    const result = await runNotebookCell({
+      tabId: 'tab-py-err',
+      language: 'python',
+      source: 'print(x)',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('error');
+    expect(result.outcome.errorMessage).toContain('NameError');
+    expect(result.outcome.stderr).toContain(
+      "NameError: name 'x' is not defined"
+    );
+  });
+
+  it('maps a stopped Python run to a stopped outcome (Slice F)', async () => {
+    // The real Python runner returns `runnerStoppedResult`: `cancelled:
+    // true` WITH an `error.message` set (the "stopped" message). The
+    // branch must check `cancelled` BEFORE `error.message`, so the outcome
+    // is `stopped`, not `error`. Mocking the authentic shape locks that
+    // precedence in (a `kind: 'stopped'` mock would not have caught it).
+    mockExecute.mockResolvedValue({
+      kind: 'stopped',
+      result: undefined,
+      stdout: [],
+      stderr: [],
+      cancelled: true,
+      error: { message: 'Execution stopped' },
+    });
+    const result = await runNotebookCell({
+      tabId: 'tab-py-stop',
+      language: 'python',
+      source: 'while True: pass',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('stopped');
+    // The stop message must NOT leak onto stderr as if it were an error.
+    expect(result.outcome.stderr).toEqual([]);
+  });
+
+  it('keeps Python isolated from the JS cross-cell sandbox (Slice F)', async () => {
+    // A JS cell declares `x`; a later Python cell must NOT see it injected
+    // and must NOT mutate the JS sandbox.
+    mockExecute.mockResolvedValueOnce({
+      kind: 'ok',
+      result: '{ "sessionDelta": { "x": 1 } }',
+      structuredResult: { stdout: [], stderr: [], sessionDelta: { x: 1 } },
+      stdout: [],
+      stderr: [],
+    });
+    await runNotebookCell({
+      tabId: 'tab-mix',
+      language: 'javascript',
+      source: 'const x = 1;',
+    });
+    mockExecute.mockResolvedValueOnce({
+      kind: 'ok',
+      result: '',
+      stdout: [{ args: ['ok'] }],
+      stderr: [],
+    });
+    await runNotebookCell({
+      tabId: 'tab-mix',
+      language: 'python',
+      source: 'print("ok")',
+    });
+    // The python run received the raw source, not a composed JS prelude
+    // carrying `x`.
+    const pythonSource = String(mockExecute.mock.calls[1]?.[1] ?? '');
+    expect(pythonSource).toBe('print("ok")');
+    // The JS sandbox still holds only `x` (python added nothing).
+    expect(getNotebookSessionKeys('tab-mix')).toEqual(['x']);
   });
 
   it('records ok + merges sessionDelta into the per-tab sandbox', async () => {

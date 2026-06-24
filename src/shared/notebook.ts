@@ -52,12 +52,11 @@ export const NOTEBOOK_REJECT_REASONS = [
 export type NotebookRejectReason = (typeof NOTEBOOK_REJECT_REASONS)[number];
 
 /**
- * Closed enum of code-cell languages Slice A. Markdown cells are NOT
- * in this set — they're a separate cell kind. The schema is generic
- * (the literal includes Python so a Slice B+ Python wiring doesn't
- * have to revisit the schema), but the renderer-side
- * `notebookSession` runner currently rejects Python with
- * `'language-not-supported'`.
+ * Closed enum of code-cell languages. Markdown cells are NOT in this
+ * set — they're a separate cell kind. JavaScript + TypeScript share the
+ * JS worker pipeline (cross-cell state); Python (RL-043 Slice F) runs
+ * through the Python runner independently per cell (no cross-cell state
+ * yet). All three are accepted by the `notebookSession` runner.
  */
 export const NOTEBOOK_CELL_LANGUAGES = [
   'javascript',
@@ -372,9 +371,10 @@ export function createBlankNotebook(opts: {
 }
 
 /**
- * Convenience guard for store callers + UI gating. Slice C runs
- * `'javascript' | 'typescript'`; Python lives in the schema but the
- * runner rejects it (see `notebookSession.ts`).
+ * Convenience guard for store callers + UI gating. The runner executes
+ * all three code-cell languages — `'javascript' | 'typescript'` (JS
+ * worker, cross-cell state) and `'python'` (RL-043 Slice F, independent
+ * per cell). See `notebookSession.ts`.
  */
 export function isNotebookCodeCell(
   cell: NotebookCellV1

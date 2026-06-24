@@ -34,6 +34,7 @@ import { languageBadgeTone, languageLabel } from '../../utils/languageMeta';
 import { ResultHeader } from '../ui/ResultHeader';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
+import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
 
 export interface NotebookCodeCellRowProps {
   readonly cell: NotebookCodeCellV1;
@@ -361,9 +362,9 @@ export function NotebookCodeCellRow({
       ) : null}
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          {/* RL-043 Slice C — language selector. JS ↔ TS switch; Python
-              stays in the list but disabled (the runner doesn't execute
-              it yet). Styled as the canonical language-tone pill. */}
+          {/* RL-043 Slice F — language selector. JS / TS / Python are all
+              runnable now (Python runs independently per cell). Styled as
+              the canonical language-tone pill. */}
           <select
             className="h-5 cursor-pointer appearance-none rounded px-1.5 text-eyebrow font-bold uppercase tracking-wider outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed"
             style={{
@@ -382,7 +383,16 @@ export function NotebookCodeCellRow({
             }
           >
             {NOTEBOOK_CELL_LANGUAGES.map((lang) => (
-              <option key={lang} value={lang} disabled={lang === 'python'}>
+              // Disable any schema language the runner can't execute yet,
+              // so the selector stays consistent with handleLanguageChange
+              // (view) + setCellLanguage (store). Today all three run, so
+              // this is a no-op guard that future-proofs the next language
+              // added to the schema before it is wired to a runner.
+              <option
+                key={lang}
+                value={lang}
+                disabled={!isNotebookRunnableLanguage(lang)}
+              >
                 {languageBadgeTone(lang).code}
               </option>
             ))}
@@ -435,6 +445,19 @@ export function NotebookCodeCellRow({
               {t('notebook.cell.producesChip', {
                 names: producesKeys.join(', '),
               })}
+            </span>
+          ) : null}
+          {/* RL-043 Slice F (fold A) — Python cells run independently (no
+              cross-cell variables yet). The chip truncates; the full
+              sentence is the hover title so a user never hits a silent
+              NameError between cells without an explanation. */}
+          {cell.language === 'python' ? (
+            <span
+              data-testid="notebook-code-cell-python-hint"
+              className="max-w-[14rem] truncate text-micro text-fg-subtle"
+              title={t('notebook.cell.pythonIndependentHint')}
+            >
+              {t('notebook.cell.pythonIndependentHint')}
             </span>
           ) : null}
         </div>

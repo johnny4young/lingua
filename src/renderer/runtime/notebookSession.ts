@@ -89,11 +89,15 @@ export type NotebookSessionRejectReason =
  * (the same lazily-loaded compiler the cross-cell rewriter uses) and
  * then runs through the identical `'javascript'` worker pipeline, so
  * cross-cell sharing, timeouts, and the structured-result channel all
- * apply unchanged. Python stays runner-rejected (separate sandbox
- * model; future slice).
+ * apply unchanged. Python (RL-043 Slice F) runs through the existing
+ * Python runner (web Pyodide / desktop native) but INDEPENDENTLY per
+ * cell — it does NOT join the JS composed-source + serialized-sandbox
+ * cross-cell channel (that channel only round-trips JS values). True
+ * cross-cell Python state needs a persistent interpreter and stays a
+ * separate future slice.
  */
 export const NOTEBOOK_RUNNABLE_LANGUAGES: ReadonlySet<NotebookCellLanguage> =
-  new Set(['javascript', 'typescript']);
+  new Set(['javascript', 'typescript', 'python']);
 
 export function isNotebookRunnableLanguage(
   language: NotebookCellLanguage
@@ -506,6 +510,58 @@ export async function runNotebookCell(
   }
   session.isRunning = true;
   try {
+    // RL-043 Slice F — Python cells run through the existing Python
+    // runner (web Pyodide / desktop native) INDEPENDENTLY: no composed
+    // source, no JS sandbox injection, no structured-result channel
+    // (those serialize JS values). The per-tab JS sandbox is left
+    // untouched and `producedKeys` is empty — cross-cell Python state is
+    // a separate future slice. stdout / stderr / error / stopped map
+    // straight onto the outcome.
+    if (request.language === 'python') {
+      const result = await runnerManager.execute('python', request.source, {
+        language: 'python',
+        ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}),
+      });
+      const sandboxKeyCount = Object.keys(session.sandbox).length;
+      if (result.kind === 'stopped' || result.cancelled === true) {
+        return {
+          ok: true,
+          outcome: {
+            status: 'stopped',
+            stdout: [],
+            stderr: [],
+            sandboxKeyCount,
+            producedKeys: [],
+          },
+        };
+      }
+      const stdout = flattenStdoutText(result.stdout);
+      const stderr = flattenStdoutText(result.stderr);
+      const errorMessage = result.error?.message;
+      if (errorMessage !== undefined && errorMessage.length > 0) {
+        return {
+          ok: true,
+          outcome: {
+            status: 'error',
+            stdout,
+            stderr: [...stderr, errorMessage],
+            errorMessage,
+            sandboxKeyCount,
+            producedKeys: [],
+          },
+        };
+      }
+      return {
+        ok: true,
+        outcome: {
+          status: 'ok',
+          stdout,
+          stderr,
+          sandboxKeyCount,
+          producedKeys: [],
+        },
+      };
+    }
     // RL-043 Slice C — TypeScript cells are type-stripped to JavaScript
     // BEFORE the rewriter + compose, then run through the identical JS
     // pipeline. A transpile (syntax) error short-circuits to an `error`
