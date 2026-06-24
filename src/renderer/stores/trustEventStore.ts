@@ -44,6 +44,20 @@ export interface TrustEvent {
 const TRUST_EVENT_CAP = 200;
 export const TRUST_EVENT_STORAGE_KEY = 'lingua-trust-events';
 
+/**
+ * The caller-supplied fields for a trust event — everything on {@link
+ * TrustEvent} except the store-assigned `id` + `at`. `summary` must be
+ * METADATA ONLY (never code, field values, tokens, or a share URL); the
+ * store truncates it to 200 chars but does not otherwise inspect it.
+ * Consumed by both `record` and {@link recordTrustEventBestEffort}.
+ */
+export interface TrustEventInput {
+  readonly feature: TrustFeature;
+  readonly action: string;
+  readonly sensitivity: TrustSensitivity;
+  readonly summary: string;
+}
+
 interface TrustEventState {
   readonly events: ReadonlyArray<TrustEvent>;
   /**
@@ -53,12 +67,7 @@ interface TrustEventState {
    *   - assigns a monotonic id + `Date.now()` timestamp
    *   - enforces the 200-entry FIFO cap by shifting out oldest
    */
-  readonly record: (input: {
-    readonly feature: TrustFeature;
-    readonly action: string;
-    readonly sensitivity: TrustSensitivity;
-    readonly summary: string;
-  }) => void;
+  readonly record: (input: TrustEventInput) => void;
   /** Empty the log. Used by the Privacy dashboard's local-store clear flow. */
   readonly clear: () => void;
 }
@@ -188,4 +197,19 @@ export const TRUST_EVENT_CAP_FOR_TEST = TRUST_EVENT_CAP;
 export const _sanitizeTrustEventsForTesting = sanitizePersistedEvents;
 export function _resetTrustEventCounterForTesting(): void {
   trustEventCounter = 0;
+}
+
+/**
+ * RL-096 Slice 2 reviewer hardening — trust capture is a transparency mirror,
+ * not the source of truth for the user action. If localStorage is unavailable
+ * or over quota, the egress that already succeeded (clipboard/share/update/
+ * telemetry/license) must not be reported as failed. Use this helper at
+ * outbound call sites instead of calling `record` directly.
+ */
+export function recordTrustEventBestEffort(input: TrustEventInput): void {
+  try {
+    useTrustEventStore.getState().record(input);
+  } catch {
+    // Best-effort transparency only; never break the primary action.
+  }
 }

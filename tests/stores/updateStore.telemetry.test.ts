@@ -118,4 +118,35 @@ describe('updateStore — update.checked telemetry (fold D)', () => {
     expect(trackEventMock).toHaveBeenCalledTimes(1);
     expect(trackEventMock).toHaveBeenCalledWith('update.checked', { status: 'available' });
   });
+
+  it('records a metadata-only updates trust event on a real check (RL-096 Slice 2 fold A)', async () => {
+    const { useUpdateStore } = await import('@/stores/updateStore');
+    const { useTrustEventStore } = await import('@/stores/trustEventStore');
+    useTrustEventStore.getState().clear();
+    useUpdateStore.setState({ status: 'checking', message: 'checking' });
+    useUpdateStore.setState({ status: 'not-available', message: 'current' });
+    const events = useTrustEventStore
+      .getState()
+      .events.filter((e) => e.feature === 'updates');
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      feature: 'updates',
+      action: 'checked',
+      sensitivity: 'low',
+    });
+    // Metadata only — the closed-enum outcome, never a version string.
+    expect(events[0]!.summary).toContain('no-update');
+  });
+
+  it('records no updates trust event when the transition is not a real check', async () => {
+    const { useUpdateStore } = await import('@/stores/updateStore');
+    const { useTrustEventStore } = await import('@/stores/trustEventStore');
+    useTrustEventStore.getState().clear();
+    // Never enters `checking`, so the subscribe gate filters it out.
+    useUpdateStore.setState({ status: 'unavailable', message: 'a' });
+    useUpdateStore.setState({ status: 'not-available', message: 'b' });
+    expect(
+      useTrustEventStore.getState().events.filter((e) => e.feature === 'updates')
+    ).toHaveLength(0);
+  });
 });

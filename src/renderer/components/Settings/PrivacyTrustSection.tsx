@@ -30,10 +30,68 @@ import {
   formatBytes,
   formatRelativeTimestamp,
   getLocalStoreRows,
+  latestEventAtByFeature,
   type LinguaLocalStoreKey,
   type NetworkActivityFeature,
   type NetworkActivityStatus,
 } from './privacyTrustHelpers';
+import type {
+  TrustEvent,
+  TrustFeature,
+  TrustSensitivity,
+} from '../../stores/trustEventStore';
+
+/** RL-096 Slice 2 — newest N trust events shown in the Recent activity feed. */
+const RECENT_ACTIVITY_LIMIT = 8;
+
+/** RL-096 Slice 2 fold E — sensitivity filter options (render order). */
+const SENSITIVITY_FILTER_OPTIONS = ['all', 'low', 'medium', 'high'] as const;
+
+/** RL-096 Slice 2 — sensitivity → StatusBadge tone for the feed chips. */
+const SENSITIVITY_TONE: Record<TrustSensitivity, StatusBadgeTone> = {
+  low: 'neutral',
+  medium: 'warning',
+  high: 'error',
+};
+
+/**
+ * RL-096 Slice 2 fold F — Network rows deep-link to the Settings tab that
+ * owns the matching control. Only features with a real destination appear
+ * here; the rest render as plain text. Tab ids mirror `RAIL_ITEMS` in
+ * `SettingsModal` (telemetry consent + license live under Account; the
+ * update check under General; dependency detection under Editor).
+ */
+const FEATURE_SETTINGS_TAB: Partial<Record<NetworkActivityFeature, string>> = {
+  telemetry: 'account',
+  updates: 'general',
+  license: 'account',
+  dependencies: 'editor',
+};
+
+function navigateToSettingsTab(tabId: string): void {
+  window.dispatchEvent(
+    new CustomEvent('lingua-settings-navigate-tab', { detail: tabId })
+  );
+}
+
+/**
+ * i18n key for a trust feature's display label in the Recent activity feed.
+ * Trust features (which include `share-link`) are a superset of the Network
+ * table features, so this is a dedicated map rather than a reuse of
+ * `networkFeatureLabel`.
+ */
+function trustFeatureLabel(feature: TrustFeature): string {
+  return `settings.privacy.recent.feature.${feature}`;
+}
+
+/**
+ * i18n key for a captured action verb. Known actions get a localized label;
+ * an unrecognized action falls back to its raw (closed-enum) string via the
+ * caller's `defaultValue`.
+ */
+function trustActionLabel(action: string): string {
+  return `settings.privacy.recent.action.${action}`;
+}
 
 /**
  * RL-096 Slice 1 — Privacy + Trust Dashboard root component.
@@ -84,6 +142,15 @@ export function PrivacyTrustSection() {
     return latest;
   });
 
+  // RL-096 Slice 2 — the live trust-event log drives both the Network
+  // table's real "last call" timestamps and the Recent activity feed.
+  const trustEvents = useTrustEventStore((s) => s.events);
+  // RL-096 Slice 2 fold E — Recent-activity sensitivity filter. `all`
+  // shows every captured event; the others narrow to one severity.
+  const [sensitivityFilter, setSensitivityFilter] = useState<
+    'all' | TrustSensitivity
+  >('all');
+
   // Refresh trigger — bumped after every Clear so the size estimates
   // re-read localStorage. Cheap because the audited key list is tiny.
   const [, setRefreshTick] = useState(0);
@@ -108,15 +175,29 @@ export function PrivacyTrustSection() {
   const localRows = getLocalStoreRows();
 
   const networkRows = useMemo(() => {
+    // RL-096 Slice 2 — derive the per-feature "last call" from the live
+    // trust log instead of the Slice-1 hardcoded nulls.
+    const lastAt = latestEventAtByFeature(trustEvents);
     return buildNetworkActivityRows({
       telemetryConsent,
       licenseStatus: deriveLicenseStatus(licenseToken),
-      capsuleExportLastAt: null,
-      telemetryLastAt: null,
-      updateCheckLastAt: null,
+      capsuleExportLastAt: lastAt['capsule-export'] ?? null,
+      telemetryLastAt: lastAt.telemetry ?? null,
+      updateCheckLastAt: lastAt.updates ?? null,
+      licenseVerifyLastAt: lastAt.license ?? null,
       dependencyInstallLastAt,
     });
-  }, [telemetryConsent, licenseToken, dependencyInstallLastAt]);
+  }, [telemetryConsent, licenseToken, dependencyInstallLastAt, trustEvents]);
+
+  // RL-096 Slice 2 — newest-first slice of the trust log for the Recent
+  // activity feed, narrowed by the fold-E sensitivity filter.
+  const recentEvents = useMemo(() => {
+    const filtered =
+      sensitivityFilter === 'all'
+        ? trustEvents
+        : trustEvents.filter((event) => event.sensitivity === sensitivityFilter);
+    return [...filtered].reverse().slice(0, RECENT_ACTIVITY_LIMIT);
+  }, [trustEvents, sensitivityFilter]);
 
   const previewResult: RedactionPreviewResult = useMemo(() => {
     return applyRedactionPreview(pasteInput);
@@ -270,7 +351,20 @@ export function PrivacyTrustSection() {
                   data-testid={`privacy-network-row-${row.feature}`}
                 >
                   <td className="px-3 py-2 text-body-sm text-fg-base">
-                    {t(networkFeatureLabel(row.feature))}
+                    {FEATURE_SETTINGS_TAB[row.feature] ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigateToSettingsTab(FEATURE_SETTINGS_TAB[row.feature]!)
+                        }
+                        data-testid={`privacy-network-deeplink-${row.feature}`}
+                        className="text-left text-accent transition-colors hover:underline"
+                      >
+                        {t(networkFeatureLabel(row.feature))}
+                      </button>
+                    ) : (
+                      t(networkFeatureLabel(row.feature))
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <NetworkStatusChip status={row.status} />
@@ -278,13 +372,61 @@ export function PrivacyTrustSection() {
                   <td className="px-3 py-2 text-body-sm text-fg-muted">
                     {row.lastCallAt === null
                       ? t('settings.privacy.network.lastCall.never')
-                      : formatRelativeTimestamp(row.lastCallAt)}
+                      : formatRelativeTimestamp(row.lastCallAt, undefined, t)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        eyebrow={t('settings.privacy.recent.title')}
+        description={t('settings.privacy.recent.hint')}
+      >
+        {/* RL-096 Slice 2 fold E — narrow the feed by captured sensitivity. */}
+        <div
+          role="group"
+          aria-label={t('settings.privacy.recent.filterLabel')}
+          data-testid="privacy-recent-sensitivity-filter"
+          className="mb-3 flex w-fit overflow-hidden rounded-sm border border-border-subtle"
+        >
+          {SENSITIVITY_FILTER_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setSensitivityFilter(option)}
+              data-testid={`privacy-recent-filter-${option}`}
+              aria-pressed={sensitivityFilter === option}
+              className={
+                'px-2 py-0.5 font-mono text-eyebrow ' +
+                (sensitivityFilter === option
+                  ? 'bg-bg-panel-alt text-fg-base'
+                  : 'text-fg-muted hover:bg-bg-panel-alt')
+              }
+            >
+              {t(`settings.privacy.recent.filter.${option}`)}
+            </button>
+          ))}
+        </div>
+        {recentEvents.length === 0 ? (
+          <p
+            data-testid="privacy-recent-empty"
+            className="rounded-lg border border-border-subtle bg-bg-inset px-3 py-4 text-body-sm text-fg-muted"
+          >
+            {t('settings.privacy.recent.empty')}
+          </p>
+        ) : (
+          <ul
+            data-testid="privacy-recent-list"
+            className="divide-y divide-border-subtle overflow-hidden rounded-lg border border-border-subtle bg-bg-inset"
+          >
+            {recentEvents.map((event) => (
+              <RecentActivityRow key={event.id} event={event} />
+            ))}
+          </ul>
+        )}
       </SettingsSection>
 
       {confirmKey ? (
@@ -352,6 +494,39 @@ function RedactionPreviewBlock({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * RL-096 Slice 2 — a single Recent-activity feed row. Renders the feature
+ * label + localized action + sensitivity-toned badge + relative time, with
+ * the (metadata-only) summary on its own line. The summary is rendered as a
+ * dynamic value — it never carries code, field values, or a share URL by
+ * construction at the capture sites.
+ */
+function RecentActivityRow({ event }: { readonly event: TrustEvent }) {
+  const { t } = useTranslation();
+  return (
+    <li
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2"
+      data-testid={`privacy-recent-row-${event.id}`}
+      data-feature={event.feature}
+      data-sensitivity={event.sensitivity}
+    >
+      <span className="font-mono text-body-sm text-fg-base">
+        {t(trustFeatureLabel(event.feature))}
+      </span>
+      <span className="text-body-sm text-fg-muted">
+        {t(trustActionLabel(event.action), { defaultValue: event.action })}
+      </span>
+      <StatusBadge tone={SENSITIVITY_TONE[event.sensitivity]}>
+        {t(`settings.privacy.recent.sensitivity.${event.sensitivity}`)}
+      </StatusBadge>
+      <span className="ml-auto font-mono text-caption text-fg-subtle">
+        {formatRelativeTimestamp(event.at, undefined, t)}
+      </span>
+      <span className="w-full text-caption text-fg-muted">{event.summary}</span>
+    </li>
   );
 }
 

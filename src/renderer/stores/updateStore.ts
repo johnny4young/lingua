@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { getActiveAppLanguage } from '../i18n';
 import { translateCommon } from '../../shared/i18n/runtime';
 import { trackEvent } from '../utils/telemetry';
+import { recordTrustEventBestEffort } from './trustEventStore';
 
 type UpdateStore = UpdateState & {
   initialized: boolean;
@@ -97,4 +98,13 @@ useUpdateStore.subscribe((next, prev) => {
   const status = resolveCheckedStatus(next.status);
   if (status === null) return;
   void trackEvent('update.checked', { status });
+  // RL-096 Slice 2 fold A — mirror the update-check egress into the local
+  // trust log so the Privacy dashboard's `updates` row shows a real last
+  // call. Metadata only (closed-enum outcome status); no version strings.
+  recordTrustEventBestEffort({
+    feature: 'updates',
+    action: 'checked',
+    sensitivity: 'low',
+    summary: `Update check: ${status}`,
+  });
 });

@@ -96,9 +96,13 @@ describe('resolveTelemetryBase + trackEvent', () => {
  */
 describe('readEndpoint URL validation (fold F)', () => {
   const initialSettings = useSettingsStore.getState();
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
     useSettingsStore.setState(initialSettings, true);
+    fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 204 }));
     const { _resetEndpointCacheForTesting } = await import('@/utils/telemetry');
     _resetEndpointCacheForTesting();
   });
@@ -169,5 +173,75 @@ describe('readEndpoint URL validation (fold F)', () => {
     await trackEvent('app.launched', { platform: 'darwin' });
     await trackEvent('overlay.opened', { overlayId: 'whats-new' });
     expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // RL-096 Slice 2 fold B — coalesced telemetry trust capture.
+  it('records a coalesced telemetry trust event when telemetry actually sends', async () => {
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http://localhost:8787/telemetry');
+    const {
+      trackEvent,
+      _resetEndpointCacheForTesting,
+      _resetTelemetryTrustThrottleForTesting,
+    } = await import('@/utils/telemetry');
+    const { useTrustEventStore, _resetTrustEventCounterForTesting } = await import(
+      '@/stores/trustEventStore'
+    );
+    _resetEndpointCacheForTesting();
+    _resetTelemetryTrustThrottleForTesting();
+    _resetTrustEventCounterForTesting();
+    useTrustEventStore.getState().clear();
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+
+    const telemetryEvents = () =>
+      useTrustEventStore.getState().events.filter((e) => e.feature === 'telemetry');
+
+    await trackEvent('app.launched', { platform: 'darwin' });
+    await trackEvent('overlay.opened', { overlayId: 'whats-new' });
+    // Two sends inside the coalesce window → exactly one trust event.
+    expect(telemetryEvents()).toHaveLength(1);
+    expect(telemetryEvents()[0]).toMatchObject({
+      feature: 'telemetry',
+      action: 'event_sent',
+      sensitivity: 'low',
+    });
+
+    // Simulate the coalesce window elapsing → the next send records again.
+    _resetTelemetryTrustThrottleForTesting();
+    await trackEvent('app.launched', { platform: 'darwin' });
+    expect(telemetryEvents()).toHaveLength(2);
+  });
+
+  it('records no telemetry trust event when telemetry is gated off', async () => {
+    const { trackEvent, _resetTelemetryTrustThrottleForTesting } = await import(
+      '@/utils/telemetry'
+    );
+    const { useTrustEventStore } = await import('@/stores/trustEventStore');
+    _resetTelemetryTrustThrottleForTesting();
+    useTrustEventStore.getState().clear();
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'declined' });
+    await trackEvent('app.launched', { platform: 'darwin' });
+    expect(
+      useTrustEventStore.getState().events.filter((e) => e.feature === 'telemetry')
+    ).toHaveLength(0);
+  });
+
+  it('still sends telemetry when local trust capture storage fails', async () => {
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http://localhost:8787/telemetry');
+    const {
+      trackEvent,
+      _resetEndpointCacheForTesting,
+      _resetTelemetryTrustThrottleForTesting,
+    } = await import('@/utils/telemetry');
+    const { useTrustEventStore } = await import('@/stores/trustEventStore');
+    _resetEndpointCacheForTesting();
+    _resetTelemetryTrustThrottleForTesting();
+    vi.spyOn(useTrustEventStore.getState(), 'record').mockImplementation(() => {
+      throw new Error('quota exceeded');
+    });
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+
+    await trackEvent('app.launched', { platform: 'darwin' });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

@@ -7,6 +7,7 @@ import {
 } from '../../shared/telemetry';
 import { useLicenseStore } from '../stores/licenseStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 
 /**
  * Telemetry emitter (RL-065). Never fires without:
@@ -46,6 +47,36 @@ export function _resetEndpointCacheForTesting(): void {
   cachedEndpoint = UNRESOLVED;
   cachedKillSwitch = UNRESOLVED;
   invalidEndpointWarned = false;
+}
+
+/**
+ * RL-096 Slice 2 fold B — coalesce window for the `telemetry` trust event.
+ * One record per minute is enough for the Privacy dashboard's "last call"
+ * read while keeping the cap-200 trust log from filling with telemetry rows.
+ */
+export const TELEMETRY_TRUST_THROTTLE_MS = 60_000;
+let lastTelemetryTrustRecordMs = Number.NEGATIVE_INFINITY;
+
+/**
+ * Record a coalesced `telemetry` trust event. Called from
+ * `emitTelemetryEvent` only after the consent + endpoint guard passes, so
+ * it fires exactly when telemetry actually leaves the app. Summary is
+ * metadata only — never the event name or properties.
+ */
+function recordTelemetrySendTrustEvent(now: number = Date.now()): void {
+  if (now - lastTelemetryTrustRecordMs < TELEMETRY_TRUST_THROTTLE_MS) return;
+  lastTelemetryTrustRecordMs = now;
+  recordTrustEventBestEffort({
+    feature: 'telemetry',
+    action: 'event_sent',
+    sensitivity: 'low',
+    summary: 'Telemetry event sent',
+  });
+}
+
+/** Test-only: reset the telemetry trust-event coalesce window. */
+export function _resetTelemetryTrustThrottleForTesting(): void {
+  lastTelemetryTrustRecordMs = Number.NEGATIVE_INFINITY;
 }
 
 function warnInvalidEndpointOnce(raw: string, reason: 'parse' | 'scheme' | 'plaintext'): void {
@@ -143,6 +174,14 @@ export async function emitTelemetryEvent(
   // place to audit when the privacy contract changes.
   const endpoint = resolveEndpoint();
   if (!isTelemetryEnabled() || !endpoint) return;
+
+  // RL-096 Slice 2 fold B — mirror the outbound telemetry into the local
+  // trust log so the Privacy dashboard's `telemetry` row shows a real last
+  // call. Coalesced (<=1 / TELEMETRY_TRUST_THROTTLE_MS) because telemetry is
+  // high-frequency and would otherwise churn the cap-200 trust log. `record`
+  // is a local store write (no network, no telemetry) so there is no
+  // recursion back into this function.
+  recordTelemetrySendTrustEvent();
 
   const payload: TelemetryEvent = {
     event,

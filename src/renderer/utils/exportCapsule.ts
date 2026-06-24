@@ -33,6 +33,7 @@ import {
   type RunCapsuleV1,
 } from '../../shared/runCapsule';
 import { trackEvent } from './telemetry';
+import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 
 export type CapsuleExportTrigger =
   | 'settings-export'
@@ -77,6 +78,16 @@ export async function exportCapsuleToClipboard(
   }
   try {
     await navigator.clipboard.writeText(json);
+    // RL-096 Slice 2 fold D — record the egress in the local trust log
+    // ONLY after the clipboard write succeeds (a rejected write means
+    // nothing left the app). Summary is METADATA ONLY — the capsule
+    // language + size bucket, never the capsule body or any field value.
+    recordTrustEventBestEffort({
+      feature: 'capsule-export',
+      action: 'exported',
+      sensitivity: 'medium',
+      summary: `${sanitised.tab.language} capsule exported (${sizeBucket})`,
+    });
     return { ok: true, json };
   } catch {
     return { ok: false, reason: 'clipboard-rejected', json };

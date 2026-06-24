@@ -120,4 +120,98 @@ describe('PrivacyTrustSection', () => {
       })
     );
   });
+
+  // RL-096 Slice 2 — Recent activity feed + live Network last-call.
+  it('shows the empty state when no trust events are captured', () => {
+    render(<PrivacyTrustSection />);
+    expect(screen.getByTestId('privacy-recent-empty')).toBeTruthy();
+    expect(screen.queryByTestId('privacy-recent-list')).toBeNull();
+  });
+
+  it('renders captured events newest-first in the Recent activity feed', () => {
+    const record = useTrustEventStore.getState().record;
+    record({
+      feature: 'capsule-export',
+      action: 'exported',
+      sensitivity: 'medium',
+      summary: 'JavaScript capsule exported (small)',
+    });
+    record({
+      feature: 'share-link',
+      action: 'created',
+      sensitivity: 'medium',
+      summary: 'Share link created (button, small)',
+    });
+    render(<PrivacyTrustSection />);
+    const list = screen.getByTestId('privacy-recent-list');
+    const rows = list.querySelectorAll('[data-testid^="privacy-recent-row-"]');
+    expect(rows).toHaveLength(2);
+    // Newest (share-link) first.
+    expect(rows[0]!.getAttribute('data-feature')).toBe('share-link');
+    expect(rows[1]!.getAttribute('data-feature')).toBe('capsule-export');
+  });
+
+  it('filters the feed by sensitivity (fold E)', () => {
+    const record = useTrustEventStore.getState().record;
+    record({ feature: 'telemetry', action: 'event_sent', sensitivity: 'low', summary: 'a' });
+    record({ feature: 'capsule-export', action: 'exported', sensitivity: 'medium', summary: 'b' });
+    render(<PrivacyTrustSection />);
+    expect(
+      screen.getByTestId('privacy-recent-list').querySelectorAll(
+        '[data-testid^="privacy-recent-row-"]'
+      )
+    ).toHaveLength(2);
+
+    fireEvent.click(screen.getByTestId('privacy-recent-filter-medium'));
+    const rows = screen
+      .getByTestId('privacy-recent-list')
+      .querySelectorAll('[data-testid^="privacy-recent-row-"]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.getAttribute('data-sensitivity')).toBe('medium');
+
+    // Filtering to a sensitivity with no events shows the empty state.
+    fireEvent.click(screen.getByTestId('privacy-recent-filter-high'));
+    expect(screen.getByTestId('privacy-recent-empty')).toBeTruthy();
+  });
+
+  it('derives the Network table last-call from the trust log', () => {
+    useTrustEventStore.getState().record({
+      feature: 'capsule-export',
+      action: 'exported',
+      sensitivity: 'medium',
+      summary: 'JavaScript capsule exported (small)',
+    });
+    render(<PrivacyTrustSection />);
+    const row = screen.getByTestId('privacy-network-row-capsule-export');
+    // The last-call cell is no longer the "Never" placeholder.
+    expect(row.textContent).not.toContain('Never');
+  });
+
+  it('localizes relative times in the Recent activity feed', async () => {
+    await i18next.changeLanguage('es');
+    useTrustEventStore.getState().record({
+      feature: 'telemetry',
+      action: 'event_sent',
+      sensitivity: 'low',
+      summary: 'Telemetry event sent',
+    });
+    render(<PrivacyTrustSection />);
+    expect(screen.getByTestId('privacy-recent-list').textContent).toContain('hace');
+    expect(screen.getByTestId('privacy-recent-list').textContent).not.toContain('ago');
+  });
+
+  it('deep-links Network rows to the owning Settings tab (fold F)', () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    render(<PrivacyTrustSection />);
+    // telemetry → account (PrivacySection consent toggle lives there).
+    const telemetryLink = screen.getByTestId('privacy-network-deeplink-telemetry');
+    fireEvent.click(telemetryLink);
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'lingua-settings-navigate-tab', detail: 'account' })
+    );
+    // updates → general; a feature with no destination renders no button.
+    expect(screen.getByTestId('privacy-network-deeplink-updates')).toBeTruthy();
+    expect(screen.queryByTestId('privacy-network-deeplink-capsule-export')).toBeNull();
+    dispatchSpy.mockRestore();
+  });
 });

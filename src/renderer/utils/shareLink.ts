@@ -35,6 +35,7 @@ import {
 } from '../../shared/sharePayload';
 import type { FileTab } from '../types';
 import { trackEvent } from './telemetry';
+import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 
 /**
  * Surface that initiated the share. Used by `share.created` telemetry
@@ -182,6 +183,18 @@ export function trackShareCreated(args: {
   readonly sizeBucket: ShareSizeBucket;
 }): void {
   void trackEvent('share.created', args);
+  // RL-096 Slice 2 fold D — record the egress in the local trust log only
+  // when a usable link was actually produced. Summary is METADATA ONLY
+  // (trigger + size bucket); the share URL encodes the payload and must
+  // NEVER reach the trust log.
+  if (args.status === 'success') {
+    recordTrustEventBestEffort({
+      feature: 'share-link',
+      action: 'created',
+      sensitivity: 'medium',
+      summary: `Share link created (${args.trigger}, ${args.sizeBucket})`,
+    });
+  }
 }
 
 /**
@@ -193,6 +206,17 @@ export function trackShareOpened(args: {
   readonly sizeBucket: ShareSizeBucket;
 }): void {
   void trackEvent('share.opened', args);
+  // RL-096 Slice 2 fold D — the inbound (decode/import) side of sharing.
+  // Recorded only on a successful decode so the trust log reflects data
+  // that actually entered the workspace. Metadata only (size bucket).
+  if (args.status === 'success') {
+    recordTrustEventBestEffort({
+      feature: 'share-link',
+      action: 'opened',
+      sensitivity: 'medium',
+      summary: `Share link opened (${args.sizeBucket})`,
+    });
+  }
 }
 
 /**

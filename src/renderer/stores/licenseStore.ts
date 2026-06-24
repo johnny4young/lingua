@@ -25,6 +25,7 @@
 import { readLicenseBridge } from './licenseBridge';
 import { createWebStore } from './licenseWebStore';
 import { createDesktopStore } from './licenseDesktopStore';
+import { registerLicenseTrustCapture } from './licenseTrustCapture';
 
 function createLicenseStore() {
   const bridge = readLicenseBridge();
@@ -32,6 +33,10 @@ function createLicenseStore() {
 }
 
 export const useLicenseStore = createLicenseStore();
+
+// RL-096 Slice 2 fold C — wire license-verify trust capture (logic extracted
+// to keep this facade thin; see licenseTrustCapture.ts).
+registerLicenseTrustCapture(useLicenseStore);
 
 // Public API re-export — unchanged import path for the existing consumers.
 export type {

@@ -8,6 +8,8 @@
  * action calls `removeItem` directly from the component handler.
  */
 
+import type { TrustEvent, TrustFeature } from '../../stores/trustEventStore';
+
 /**
  * Closed list of localStorage keys Lingua owns. Auditing only what
  * we know we created keeps the table honest — third-party keys
@@ -142,6 +144,11 @@ export function buildNetworkActivityRows(args: {
   readonly telemetryLastAt: number | null;
   readonly updateCheckLastAt: number | null;
   /**
+   * RL-096 Slice 2 fold C — most recent successful license verify
+   * (active / grace). Surfaced as the `license` row's `lastCallAt`.
+   */
+  readonly licenseVerifyLastAt?: number | null;
+  /**
    * RL-025 Slice B — most recent dependency install start. The
    * dashboard surfaces this as the `dependencies` row's
    * `lastCallAt` so the audit table honestly reports the most
@@ -169,7 +176,7 @@ export function buildNetworkActivityRows(args: {
         args.licenseStatus === 'pro' || args.licenseStatus === 'grace'
           ? 'enabled'
           : 'disabled',
-      lastCallAt: null,
+      lastCallAt: args.licenseVerifyLastAt ?? null,
     },
     {
       feature: 'capsule-export',
@@ -249,23 +256,69 @@ export function buildNetworkActivityRows(args: {
 }
 
 /**
- * Format a Unix timestamp as a localised "X minutes ago" style
- * relative label. Falls back to a localeable date string for older
- * timestamps. Returns the empty string for `null`.
+ * RL-096 Slice 2 — reduce the trust-event log to the most recent `at`
+ * per feature. Pure; the dashboard feeds the result into
+ * {@link buildNetworkActivityRows} so each Network row shows a real
+ * "last call" derived from the captured events instead of a hardcoded
+ * `null`. Features with no recorded event are simply absent from the map.
+ */
+export function latestEventAtByFeature(
+  events: ReadonlyArray<TrustEvent>
+): Partial<Record<TrustFeature, number>> {
+  const latest: Partial<Record<TrustFeature, number>> = {};
+  for (const event of events) {
+    const prev = latest[event.feature];
+    if (prev === undefined || event.at > prev) {
+      latest[event.feature] = event.at;
+    }
+  }
+  return latest;
+}
+
+/**
+ * Injectable translator for {@link formatRelativeTimestamp} — maps an i18n
+ * key + `{ count }` to a localized string (call sites pass i18next's `t`).
+ * Keeping it injectable lets the helper stay pure + unit-testable without an
+ * i18n runtime; when omitted, the helper falls back to a terse English
+ * `Xs/Xm/Xh ago`.
+ */
+export type RelativeTimestampTranslator = (
+  key: string,
+  options: { readonly count: number }
+) => string;
+
+function formatRelativeUnit(
+  unit: 'seconds' | 'minutes' | 'hours',
+  count: number,
+  translate?: RelativeTimestampTranslator
+): string {
+  if (translate) {
+    return translate(`settings.privacy.relative.${unit}`, { count });
+  }
+  const suffix = unit === 'seconds' ? 's' : unit === 'minutes' ? 'm' : 'h';
+  return `${count}${suffix} ago`;
+}
+
+/**
+ * Format a Unix timestamp as a localised "X minutes ago" style relative
+ * label via the optional {@link RelativeTimestampTranslator}. Falls back to a
+ * localeable date string for older timestamps. Returns the empty string for
+ * `null`.
  */
 export function formatRelativeTimestamp(
   at: number | null,
-  now: number = Date.now()
+  now: number = Date.now(),
+  translate?: RelativeTimestampTranslator
 ): string {
   if (at === null) return '';
   const deltaMs = now - at;
   if (deltaMs < 0) return new Date(at).toLocaleString();
   const seconds = Math.floor(deltaMs / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 60) return formatRelativeUnit('seconds', seconds, translate);
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return formatRelativeUnit('minutes', minutes, translate);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return formatRelativeUnit('hours', hours, translate);
   return new Date(at).toLocaleDateString();
 }
 
