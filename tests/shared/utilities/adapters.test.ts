@@ -31,6 +31,12 @@ import { slugifyAdapter } from '../../../src/shared/utilities/slugify';
 import { jsonMinifyAdapter } from '../../../src/shared/utilities/jsonMinify';
 import { textStatsAdapter } from '../../../src/shared/utilities/textStats';
 import {
+  UUID_ADAPTER_MAX_COUNT,
+  uuidAdapter,
+} from '../../../src/shared/utilities/uuid';
+import { loremIpsumAdapter } from '../../../src/shared/utilities/loremIpsum';
+import { stringInspectAdapter } from '../../../src/shared/utilities/stringInspect';
+import {
   UTILITY_ADAPTER_REGISTRY,
   listAdapters,
 } from '../../../src/shared/utilities/registry';
@@ -39,7 +45,7 @@ import enCommon from '../../../src/renderer/i18n/locales/en/common.json';
 import esCommon from '../../../src/renderer/i18n/locales/es/common.json';
 
 describe('UTILITY_ADAPTER_REGISTRY', () => {
-  it('exposes all 20 closed-enum adapters', () => {
+  it('exposes all 23 closed-enum adapters', () => {
     expect(Object.keys(UTILITY_ADAPTER_REGISTRY).sort()).toEqual([
       'base64-decode',
       'base64-encode',
@@ -52,15 +58,18 @@ describe('UTILITY_ADAPTER_REGISTRY', () => {
       'json-minify',
       'jwt-decode',
       'line-sort',
+      'lorem-ipsum',
       'number-base',
       'regex-replace',
       'slugify',
       'string-case',
+      'string-inspect',
       'text-stats',
       'timestamp',
       'url-decode',
       'url-encode',
       'url-parse',
+      'uuid',
     ]);
   });
 });
@@ -660,6 +669,156 @@ describe('textStatsAdapter (RL-099 Slice 6 fold C)', () => {
     expect(textStatsAdapter.parseOptions(['unexpected'])).toBeNull();
     expect(textStatsAdapter.parseOptions('unexpected')).toBeNull();
     expect(textStatsAdapter.parseOptions(undefined)).toEqual({});
+  });
+});
+
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/u;
+
+describe('uuidAdapter (RL-099 Slice 7)', () => {
+  it('emits the default count of v4 ids, one per line', async () => {
+    const result = await uuidAdapter.run('', uuidAdapter.defaultOptions());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const lines = result.value.split('\n');
+    expect(lines).toHaveLength(3);
+    for (const line of lines) expect(line).toMatch(UUID_V4);
+  });
+
+  it('honours the format option (v7 / ulid)', async () => {
+    const v7 = await uuidAdapter.run('', { format: 'v7', count: '1', hyphens: true });
+    const ulid = await uuidAdapter.run('', { format: 'ulid', count: '1', hyphens: true });
+    expect(v7.ok && v7.value).toMatch(UUID_V7);
+    expect(ulid.ok && ulid.value).toMatch(ULID);
+  });
+
+  it('strips hyphens when hyphens is false (fold B)', async () => {
+    const result = await uuidAdapter.run('', { format: 'v4', count: '1', hyphens: false });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).not.toContain('-');
+    expect(result.value).toMatch(/^[0-9a-f]{32}$/iu);
+  });
+
+  it('ignores the chained input (generator/source step)', async () => {
+    const result = await uuidAdapter.run('SOME UPSTREAM VALUE', uuidAdapter.defaultOptions());
+    expect(result.ok && result.value).not.toContain('SOME UPSTREAM VALUE');
+  });
+
+  it('clamps the count: 0 / non-numeric → empty, over-cap → MAX', async () => {
+    const zero = await uuidAdapter.run('', { format: 'v4', count: '0', hyphens: true });
+    const junk = await uuidAdapter.run('', { format: 'v4', count: 'abc', hyphens: true });
+    const over = await uuidAdapter.run('', { format: 'v4', count: '500', hyphens: true });
+    expect(zero.ok && zero.value).toBe('');
+    expect(junk.ok && junk.value).toBe('');
+    expect(over.ok ? over.value.split('\n') : []).toHaveLength(UUID_ADAPTER_MAX_COUNT);
+  });
+
+  it('parseOptions round-trips valid blobs and rejects malformed', () => {
+    expect(uuidAdapter.parseOptions({ format: 'v7', count: '5', hyphens: false })).toEqual({
+      format: 'v7',
+      count: '5',
+      hyphens: false,
+    });
+    expect(uuidAdapter.parseOptions(null)).toEqual(uuidAdapter.defaultOptions());
+    expect(uuidAdapter.parseOptions({ format: 'v9' })).toBeNull();
+    expect(uuidAdapter.parseOptions({ count: 5 })).toBeNull();
+    expect(uuidAdapter.parseOptions({ hyphens: 'yes' })).toBeNull();
+    expect(uuidAdapter.parseOptions([])).toBeNull();
+  });
+});
+
+describe('loremIpsumAdapter (RL-099 Slice 7)', () => {
+  it('opens with the classic phrase by default', async () => {
+    const result = await loremIpsumAdapter.run('', loremIpsumAdapter.defaultOptions());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.startsWith('Lorem ipsum dolor sit amet')).toBe(true);
+  });
+
+  it('emits an exact word count in words mode', async () => {
+    const result = await loremIpsumAdapter.run('', {
+      unit: 'words',
+      count: '10',
+      startWithClassic: false,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.split(' ')).toHaveLength(10);
+  });
+
+  it('emits paragraphs separated by a blank line', async () => {
+    const result = await loremIpsumAdapter.run('', {
+      unit: 'paragraphs',
+      count: '2',
+      startWithClassic: false,
+    });
+    expect(result.ok && result.value.split('\n\n')).toHaveLength(2);
+  });
+
+  it('count 0 yields an empty string and ignores input', async () => {
+    const zero = await loremIpsumAdapter.run('UPSTREAM', {
+      unit: 'words',
+      count: '0',
+      startWithClassic: false,
+    });
+    expect(zero.ok && zero.value).toBe('');
+    const some = await loremIpsumAdapter.run('UPSTREAM', loremIpsumAdapter.defaultOptions());
+    expect(some.ok && some.value).not.toContain('UPSTREAM');
+  });
+
+  it('parseOptions rejects malformed blobs', () => {
+    expect(
+      loremIpsumAdapter.parseOptions({ unit: 'words', count: '3', startWithClassic: true })
+    ).toEqual({ unit: 'words', count: '3', startWithClassic: true });
+    expect(loremIpsumAdapter.parseOptions({ unit: 'lines' })).toBeNull();
+    expect(loremIpsumAdapter.parseOptions({ count: 3 })).toBeNull();
+    expect(loremIpsumAdapter.parseOptions({ startWithClassic: 'true' })).toBeNull();
+  });
+});
+
+describe('stringInspectAdapter (RL-099 Slice 7)', () => {
+  async function run(input: string): Promise<string> {
+    const result = await stringInspectAdapter.run(input, {});
+    expect(result.ok).toBe(true);
+    return result.ok ? result.value : '';
+  }
+
+  it('reports zeros for empty input', async () => {
+    const value = await run('');
+    expect(value).toContain('Graphemes: 0');
+    expect(value).toContain('Code points: 0');
+    expect(value).toContain('UTF-16 units: 0');
+    expect(value).toContain('UTF-8 bytes: 0');
+    expect(value).toContain('Warnings: zero-width 0, bidi-control 0');
+  });
+
+  it('counts plain ASCII consistently across all axes', async () => {
+    const value = await run('hello');
+    expect(value).toContain('Graphemes: 5');
+    expect(value).toContain('Code points: 5');
+    expect(value).toContain('UTF-16 units: 5');
+    expect(value).toContain('UTF-8 bytes: 5');
+  });
+
+  it('separates graphemes from code points for a ZWJ emoji', async () => {
+    // Family emoji: one grapheme cluster, multiple code points / UTF-16 units.
+    const value = await run('\u{1F468}\u200D\u{1F469}\u200D\u{1F467}');
+    expect(value).toContain('Graphemes: 1');
+    expect(value).not.toContain('Code points: 1');
+  });
+
+  it('flags zero-width and bidi-control code points (fold E)', async () => {
+    expect(await run('a\u200Bb')).toContain('Warnings: zero-width 1, bidi-control 0');
+    // BiDi range nests inside zero-width — precedence counts it as bidi.
+    expect(await run('\u202E')).toContain('Warnings: zero-width 0, bidi-control 1');
+  });
+
+  it('parseOptions accepts empty options and rejects arrays', () => {
+    expect(stringInspectAdapter.parseOptions(undefined)).toEqual({});
+    expect(stringInspectAdapter.parseOptions({})).toEqual({});
+    expect(stringInspectAdapter.parseOptions([])).toBeNull();
   });
 });
 

@@ -61,6 +61,40 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
     await expect(output).toHaveText('apple\nbanana\ncherry');
   });
 
+  test('runs a generator (lorem-ipsum) feeding a transform (text-stats) (EN)', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Shift+G');
+    await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
+
+    await page.getByTestId('utility-pipeline-list-create').click();
+
+    // Step 1 — a Slice 7 generator: it ignores the chained input and
+    // emits placeholder text (source-step semantics).
+    await page.getByTestId('utility-pipeline-editor-add-step').click();
+    await page
+      .getByTestId('utility-pipeline-step-utility')
+      .first()
+      .selectOption('lorem-ipsum');
+
+    // Step 2 — a transform that consumes the generator's output.
+    await page.getByTestId('utility-pipeline-editor-add-step').click();
+    await page
+      .getByTestId('utility-pipeline-step-utility')
+      .nth(1)
+      .selectOption('text-stats');
+
+    // Input is intentionally left blank: the generator is the source, so
+    // the downstream text-stats still reports a non-empty word count.
+    await page.getByTestId('utility-pipeline-editor-run').click();
+
+    const output = page.getByTestId('utility-pipeline-result-output').last();
+    await expect(output).toContainText('Words:');
+  });
+
   test('localizes the Pipelines panel in Spanish (tuteo)', async ({ page }) => {
     await seedSession(page, { language: 'es', primeProLicense: true });
     await gotoApp(page);

@@ -71,6 +71,14 @@ export const UTILITY_ADAPTER_IDS = [
   'slugify',
   'json-minify',
   'text-stats',
+  // RL-099 Slice 7 — generator-style holdouts. `uuid` + `lorem-ipsum`
+  // are generators (they ignore the chained input and emit fresh data);
+  // `string-inspect` is a transform. Their pure logic is shared with the
+  // renderer panels via `src/shared/utilities/{uuid,loremIpsum,stringInspect}.ts`
+  // (the renderer utils now re-export — fold A, no drift).
+  'uuid',
+  'lorem-ipsum',
+  'string-inspect',
 ] as const;
 export type UtilityAdapterId = (typeof UTILITY_ADAPTER_IDS)[number];
 

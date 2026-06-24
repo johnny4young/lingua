@@ -209,7 +209,7 @@ describe('runUtilityCommand', () => {
 });
 
 describe('runListUtilitiesCommand', () => {
-  it('lists all 20 adapter ids in plain mode', () => {
+  it('lists all 23 adapter ids in plain mode', () => {
     const { io, state } = createFakeIo();
     const code = runListUtilitiesCommand({ json: false, quiet: false }, io);
     expect(code).toBe(CLI_EXIT_CODES.ok);
@@ -235,6 +235,10 @@ describe('runListUtilitiesCommand', () => {
     expect(state.stdout).toContain('slugify');
     expect(state.stdout).toContain('json-minify');
     expect(state.stdout).toContain('text-stats');
+    // RL-099 Slice 7 — generator-style holdouts.
+    expect(state.stdout).toContain('uuid');
+    expect(state.stdout).toContain('lorem-ipsum');
+    expect(state.stdout).toContain('string-inspect');
   });
 
   it('emits a structured JSON list with --json', () => {
@@ -244,7 +248,7 @@ describe('runListUtilitiesCommand', () => {
     const parsed = JSON.parse(state.stdout) as {
       utilities: Array<{ id: string; inputKind: string; outputKind: string; optionKeys: string[] }>;
     };
-    expect(parsed.utilities).toHaveLength(20);
+    expect(parsed.utilities).toHaveLength(23);
     const jsonFormat = parsed.utilities.find((u) => u.id === 'json-format');
     expect(jsonFormat?.optionKeys).toEqual(['indent']);
     // RL-099 Slice 4 — the hash adapter surfaces its algorithm option.

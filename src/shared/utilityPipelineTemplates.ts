@@ -38,6 +38,9 @@ export const PIPELINE_TEMPLATE_IDS = [
   'base64-decode-json',
   'humanize-timestamp',
   'convert-color',
+  // RL-099 Slice 7 (fold D) — surface the new `string-inspect` adapter
+  // from the empty-state gallery.
+  'inspect-hidden-chars',
 ] as const;
 export type PipelineTemplateId = (typeof PIPELINE_TEMPLATE_IDS)[number];
 
@@ -133,6 +136,16 @@ export const PIPELINE_TEMPLATES: readonly PipelineTemplate[] = [
     descriptionKey: 'utilityPipeline.template.convertColor.description',
     steps: [{ utilityId: 'color-convert' }],
     sampleInput: '#3366ff',
+  },
+  {
+    id: 'inspect-hidden-chars',
+    nameKey: 'utilityPipeline.template.inspectHiddenChars.name',
+    descriptionKey: 'utilityPipeline.template.inspectHiddenChars.description',
+    // The sample input hides a zero-width space (U+200B) between the two
+    // words, so the report's Warnings line reads `zero-width 1` out of the
+    // box — the adapter's headline signal.
+    steps: [{ utilityId: 'string-inspect' }],
+    sampleInput: 'hello\u200Bworld',
   },
 ];
 

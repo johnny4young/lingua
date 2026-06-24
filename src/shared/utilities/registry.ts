@@ -28,12 +28,15 @@ import { jsonFormatAdapter } from './jsonFormat';
 import { jsonMinifyAdapter } from './jsonMinify';
 import { jwtDecodeAdapter } from './jwtDecode';
 import { lineSortAdapter } from './lineSort';
+import { loremIpsumAdapter } from './loremIpsum';
 import { numberBaseAdapter } from './numberBase';
 import { regexReplaceAdapter } from './regexReplace';
 import { slugifyAdapter } from './slugify';
 import { stringCaseAdapter } from './stringCase';
+import { stringInspectAdapter } from './stringInspect';
 import { textStatsAdapter } from './textStats';
 import { timestampAdapter } from './timestamp';
+import { uuidAdapter } from './uuid';
 import type { UtilityAdapter, UtilityAdapterId } from './types';
 import { urlParseAdapter } from './urlParse';
 import { urlDecodeAdapter, urlEncodeAdapter } from './urlComponent';
@@ -67,6 +70,10 @@ export const UTILITY_ADAPTER_REGISTRY: Readonly<
   slugify: slugifyAdapter as UtilityAdapter<unknown>,
   'json-minify': jsonMinifyAdapter as UtilityAdapter<unknown>,
   'text-stats': textStatsAdapter as UtilityAdapter<unknown>,
+  // RL-099 Slice 7 — generator-style holdouts (uuid / lorem / inspect).
+  uuid: uuidAdapter as UtilityAdapter<unknown>,
+  'lorem-ipsum': loremIpsumAdapter as UtilityAdapter<unknown>,
+  'string-inspect': stringInspectAdapter as UtilityAdapter<unknown>,
 };
 
 export function getAdapter(id: string): UtilityAdapter<unknown> | undefined {

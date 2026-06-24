@@ -99,8 +99,9 @@ describe('UtilityPipelinePanel', () => {
   it('shows the template gallery in the empty state (RL-099 Slice 5)', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('pipeline-template-gallery')).toBeTruthy();
-    // One card per catalog template (8 after fold E).
-    expect(screen.getAllByTestId('pipeline-template-card')).toHaveLength(8);
+    // One card per catalog template (9 after RL-099 Slice 7 fold D added
+    // the inspect-hidden-chars starter).
+    expect(screen.getAllByTestId('pipeline-template-card')).toHaveLength(9);
   });
 
   it('Use template creates + selects a pipeline, seeds the sample input, fires telemetry', async () => {
