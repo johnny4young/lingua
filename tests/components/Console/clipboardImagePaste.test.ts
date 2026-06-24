@@ -61,14 +61,56 @@ describe('extractClipboardImageFile', () => {
 });
 
 describe('readPastedImageFile', () => {
-  it('rejects an image over the 2 MiB cap and reports its byte length', async () => {
+  it('falls back to too-large when an over-cap image cannot be resized to fit', async () => {
     const big = pngFile(MAX_PASTED_IMAGE_BYTES + 1);
-    const result = await readPastedImageFile(big);
+    // Inject a resize that cannot fit the cap (the real canvas resize is
+    // DOM-only; the e2e covers the success path in Chromium).
+    const result = await readPastedImageFile(big, async () => null);
     expect(result).toEqual({
       ok: false,
       reason: 'too-large',
       byteLength: MAX_PASTED_IMAGE_BYTES + 1,
     });
+  });
+
+  it('falls back to too-large instead of throwing when the resize path fails', async () => {
+    const big = pngFile(MAX_PASTED_IMAGE_BYTES + 1);
+    await expect(
+      readPastedImageFile(big, async () => {
+        throw new Error('canvas failed');
+      })
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'too-large',
+      byteLength: MAX_PASTED_IMAGE_BYTES + 1,
+    });
+  });
+
+  it('downscales an over-cap image to fit and flags it resized', async () => {
+    const big = pngFile(MAX_PASTED_IMAGE_BYTES + 1);
+    const result = await readPastedImageFile(big, async () => ({
+      dataUri: 'data:image/jpeg;base64,/9j/resized',
+      mime: 'image/jpeg',
+      byteLength: 1234,
+    }));
+    expect(result).toEqual({
+      ok: true,
+      dataUri: 'data:image/jpeg;base64,/9j/resized',
+      mime: 'image/jpeg',
+      byteLength: 1234,
+      resized: true,
+    });
+  });
+
+  it('does not attempt a resize for an image already within the cap', async () => {
+    let resizeCalls = 0;
+    const result = await readPastedImageFile(pngFile(16), async () => {
+      resizeCalls += 1;
+      return null;
+    });
+    expect(resizeCalls).toBe(0);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.resized).toBeUndefined();
   });
 
   it('reads a small image into a validated data:image URI', async () => {

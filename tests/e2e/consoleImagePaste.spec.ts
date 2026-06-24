@@ -74,6 +74,41 @@ async function pasteImageAndExpectRendered(
   return img.first();
 }
 
+// Build + paste a >2 MiB PNG so the paste trips the cap and must be
+// downscaled. Random-noise pixels keep PNG incompressible → large file;
+// opaque (alpha 255) so the resize re-encodes to JPEG (fold C).
+async function pasteOversizedImage(page: import('@playwright/test').Page) {
+  await page.evaluate(async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2000;
+    canvas.height = 2000;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no 2d context');
+    const image = ctx.createImageData(canvas.width, canvas.height);
+    for (let i = 0; i < image.data.length; i += 4) {
+      image.data[i] = Math.floor(Math.random() * 256);
+      image.data[i + 1] = Math.floor(Math.random() * 256);
+      image.data[i + 2] = Math.floor(Math.random() * 256);
+      image.data[i + 3] = 255;
+    }
+    ctx.putImageData(image, 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/png')
+    );
+    if (!blob) throw new Error('toBlob failed');
+    const file = new File([blob], 'big.png', { type: 'image/png' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.dispatchEvent(
+      new ClipboardEvent('paste', {
+        clipboardData: dt,
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+  });
+}
+
 test.describe('Console image clipboard paste (RL-044)', () => {
   test('pasting an image renders it inline in the console (EN)', async ({ page }) => {
     const consoleErrors: string[] = [];
@@ -101,5 +136,26 @@ test.describe('Console image clipboard paste (RL-044)', () => {
     await gotoApp(page);
     await waitForConsole(page);
     await pasteImageAndExpectRendered(page, TINY_PNG);
+  });
+
+  test('an oversized image is resized to fit and renders as a JPEG (fold B)', async ({
+    page,
+  }) => {
+    // Real-canvas resize path (jsdom can't run it): a >2 MiB PNG must be
+    // downscaled + re-encoded to JPEG before rendering inline.
+    test.setTimeout(60000);
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await waitForConsole(page);
+
+    await pasteOversizedImage(page);
+
+    const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
+    await expect(img.first()).toBeVisible({ timeout: 30000 });
+    // Opaque source → resize re-encodes to JPEG (fold C); a non-resized
+    // paste would keep the source PNG mime.
+    await expect(img.first()).toHaveAttribute('src', /^data:image\/jpeg/);
+    // The resized toast (not the plain "added") confirms the resize branch.
+    await expect(page.getByText('Large image resized to fit')).toBeVisible();
   });
 });

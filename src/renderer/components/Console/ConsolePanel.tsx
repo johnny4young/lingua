@@ -397,12 +397,18 @@ export function ConsolePanel() {
             content: `[image ${result.mime}]`,
             payload: [{ kind: 'image', src: result.dataUri, mime: result.mime }],
           });
+          // RL-044 — a resized paste gets its own toast + telemetry status
+          // (fold A) so the user knows it was downscaled and adoption is
+          // measurable; `byteLength` is already the POST-resize size, so the
+          // bucket reflects what actually landed (fold D).
           useUIStore.getState().pushStatusNotice({
             tone: 'success',
-            messageKey: 'console.imagePaste.pasted',
+            messageKey: result.resized
+              ? 'console.imagePaste.resized'
+              : 'console.imagePaste.pasted',
           });
           void trackEvent('runtime.image_clipboard_pasted', {
-            status: 'pasted',
+            status: result.resized ? 'resized' : 'pasted',
             sizeBucket: bucketCapsuleSize(result.byteLength),
           });
           return;
@@ -417,6 +423,12 @@ export function ConsolePanel() {
             sizeBucket: bucketCapsuleSize(result.byteLength),
           });
         } else if (result.reason === 'unreadable') {
+          // RL-044 — surface the unreadable failure instead of dropping it
+          // silently (it previously emitted telemetry but no user notice).
+          useUIStore.getState().pushStatusNotice({
+            tone: 'warning',
+            messageKey: 'console.imagePaste.unreadable',
+          });
           void trackEvent('runtime.image_clipboard_pasted', {
             status: 'rejected-unreadable',
             sizeBucket: bucketCapsuleSize(result.byteLength),

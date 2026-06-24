@@ -641,10 +641,12 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<4mb',
   '>=4mb',
 ]);
-// RL-044 next slice — mirror of `IMAGE_CLIPBOARD_PASTE_STATUSES` in
-// `src/shared/telemetry.ts`. Parity test asserts alignment.
+// RL-044 — mirror of `IMAGE_CLIPBOARD_PASTE_STATUSES` in
+// `src/shared/telemetry.ts`. Parity test asserts alignment. `'resized'`
+// = an over-cap image was downscaled to fit before appending.
 export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
   'pasted',
+  'resized',
   'rejected-oversized',
   'rejected-unreadable',
 ]);
@@ -918,6 +920,8 @@ export const PIPELINE_TEMPLATE_IDS_SET = new Set([
   'base64-decode-json',
   'humanize-timestamp',
   'convert-color',
+  // RL-099 Slice 7 — string-inspect template gallery starter.
+  'inspect-hidden-chars',
 ]);
 // RL-025 Slice B — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
 // DEPENDENCY_INSTALL_FAILURE_REASONS from

@@ -1062,15 +1062,17 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<4mb',
   '>=4mb',
 ]);
-// RL-044 next slice — closed enum backing the
-// `runtime.image_clipboard_pasted` event. `'pasted'` = an image was
-// read from the clipboard and appended as a rich console entry;
-// `'rejected-oversized'` = the image exceeded `MAX_PASTED_IMAGE_BYTES`
-// (2 MiB) and was dropped with a toast; `'rejected-unreadable'` = the
-// File read failed or the resulting data URI failed `validateImageSrc`.
+// RL-044 — closed enum backing the `runtime.image_clipboard_pasted`
+// event. `'pasted'` = an image was read from the clipboard and appended
+// as a rich console entry; `'resized'` = the image exceeded
+// `MAX_PASTED_IMAGE_BYTES` (2 MiB) and was downscaled to fit before
+// appending; `'rejected-oversized'` = it exceeded the cap AND the
+// downscale could not get it under; `'rejected-unreadable'` = the File
+// read failed or the resulting data URI failed `validateImageSrc`.
 // Mirrored in `update-server/src/telemetry.ts` with a parity test.
 export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
   'pasted',
+  'resized',
   'rejected-oversized',
   'rejected-unreadable',
 ]);
@@ -1457,6 +1459,8 @@ export const PIPELINE_TEMPLATE_IDS_SET = new Set([
   'base64-decode-json',
   'humanize-timestamp',
   'convert-color',
+  // RL-099 Slice 7 — string-inspect template gallery starter.
+  'inspect-hidden-chars',
 ]);
 export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
   'invalid-specifier',

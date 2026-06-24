@@ -545,7 +545,12 @@ describe('runtime.mode_changed value validator (RL-019 Slice 1 + Slice 3)', () =
 
 describe('runtime.image_clipboard_pasted value validator (RL-044 next slice)', () => {
   it('accepts the closed status enum + a CAPSULE_SIZE_BUCKETS value', () => {
-    for (const status of ['pasted', 'rejected-oversized', 'rejected-unreadable']) {
+    for (const status of [
+      'pasted',
+      'resized',
+      'rejected-oversized',
+      'rejected-unreadable',
+    ]) {
       const { event } = redactForTelemetry(
         buildEvent({
           event: 'runtime.image_clipboard_pasted',

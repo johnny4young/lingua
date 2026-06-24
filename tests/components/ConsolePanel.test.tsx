@@ -19,6 +19,14 @@ const { mockTrackEvent, mockTrackOutputOriginClicked } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn(),
   mockTrackOutputOriginClicked: vi.fn(),
 }));
+// RL-044 — controllable `readPastedImageFile` so tests can drive the
+// resized / unreadable handler branches that jsdom cannot reach through a
+// real paste (no `createImageBitmap`; image bytes always yield a valid
+// `data:image/` URI). Defaults to the real reader so the existing paste
+// tests are unaffected.
+const { mockReadPastedImageFile } = vi.hoisted(() => ({
+  mockReadPastedImageFile: vi.fn(),
+}));
 
 let mockTabs: FileTab[] = [];
 let mockActiveTabId: string | null = null;
@@ -158,6 +166,18 @@ vi.mock('lucide-react', () => ({
   // for the "Open details" chip in place of the old Unicode glyph.
   Maximize2: () => null,
 }));
+
+vi.mock('../../src/renderer/components/Console/clipboardImagePaste', async (
+  importActual
+) => {
+  const actual = await importActual<
+    typeof import('../../src/renderer/components/Console/clipboardImagePaste')
+  >();
+  // Real reader by default (existing tests); `clearAllMocks` keeps this
+  // implementation, individual tests override with `mockResolvedValueOnce`.
+  mockReadPastedImageFile.mockImplementation(actual.readPastedImageFile);
+  return { ...actual, readPastedImageFile: mockReadPastedImageFile };
+});
 
 import { ConsolePanel } from '../../src/renderer/components/Console/ConsolePanel';
 
@@ -313,6 +333,56 @@ describe('ConsolePanel', () => {
       expect(mockAddEntry).not.toHaveBeenCalled();
       expect(mockPushStatusNotice).toHaveBeenCalledWith(
         expect.objectContaining({ messageKey: 'console.imagePaste.tooLarge' })
+      );
+    });
+
+    it('appends a resized image with the resized toast + resized telemetry', async () => {
+      mockReadPastedImageFile.mockResolvedValueOnce({
+        ok: true,
+        dataUri: 'data:image/jpeg;base64,/9j/resized',
+        mime: 'image/jpeg',
+        byteLength: 1000,
+        resized: true,
+      });
+      render(<ConsolePanel />);
+      await act(async () => {
+        dispatchImagePaste({ bytes: 2 * 1024 * 1024 + 1 });
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      await vi.waitFor(() => expect(mockAddEntry).toHaveBeenCalledTimes(1));
+      expect(mockAddEntry.mock.calls[0]![0].payload?.[0]).toMatchObject({
+        kind: 'image',
+        mime: 'image/jpeg',
+      });
+      expect(mockPushStatusNotice).toHaveBeenCalledWith(
+        expect.objectContaining({ messageKey: 'console.imagePaste.resized' })
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'runtime.image_clipboard_pasted',
+        expect.objectContaining({ status: 'resized' })
+      );
+    });
+
+    it('surfaces a toast (no longer silent) when an image is unreadable', async () => {
+      mockReadPastedImageFile.mockResolvedValueOnce({
+        ok: false,
+        reason: 'unreadable',
+        byteLength: 64,
+      });
+      render(<ConsolePanel />);
+      await act(async () => {
+        dispatchImagePaste({ bytes: 32 });
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      await vi.waitFor(() =>
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'runtime.image_clipboard_pasted',
+          expect.objectContaining({ status: 'rejected-unreadable' })
+        )
+      );
+      expect(mockAddEntry).not.toHaveBeenCalled();
+      expect(mockPushStatusNotice).toHaveBeenCalledWith(
+        expect.objectContaining({ messageKey: 'console.imagePaste.unreadable' })
       );
     });
   });

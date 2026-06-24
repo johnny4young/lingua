@@ -541,6 +541,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'pasted',
       'rejected-oversized',
       'rejected-unreadable',
+      'resized',
     ]);
   });
 
@@ -1147,6 +1148,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'hash-base64',
       'html-decode',
       'humanize-timestamp',
+      'inspect-hidden-chars',
       'slugify',
       'url-decode-json',
     ]);
