@@ -422,3 +422,111 @@ describe('ImportPreviewOverlay — collection arm (RL-100 Slice 3)', () => {
     });
   });
 });
+
+describe('ImportPreviewOverlay — Postman variables (RL-100 Slice 4)', () => {
+  const postmanColl = JSON.stringify({
+    info: {
+      name: 'Demo',
+      schema:
+        'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+    },
+    item: [
+      {
+        name: 'List',
+        request: { method: 'GET', url: '{{baseUrl}}/users?key={{apiKey}}' },
+      },
+    ],
+  });
+  const envSource = JSON.stringify({
+    _postman_variable_scope: 'environment',
+    values: [
+      { key: 'baseUrl', value: 'https://api.dev', enabled: true },
+      { key: 'apiKey', value: 'supersecret', enabled: true },
+    ],
+  });
+
+  it('renders the variables section for a Postman collection (fold B)', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.click(screen.getByTestId('import-preview-paste'));
+    await user.paste(postmanColl);
+    await waitFor(() => {
+      expect(screen.queryByTestId('import-preview-variables')).toBeTruthy();
+    });
+    expect(screen.getByTestId('import-preview-variables-environment')).toBeTruthy();
+    expect(screen.getByTestId('import-preview-variables-globals')).toBeTruthy();
+    expect(screen.getByLabelText('Environment')).toBeTruthy();
+    expect(screen.getByLabelText('Globals')).toBeTruthy();
+  });
+
+  it('does not render the variables section for a cURL import', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.click(screen.getByTestId('import-preview-paste'));
+    await user.paste('curl https://example.com');
+    await waitFor(() => {
+      expect(screen.queryByTestId('import-preview-body')).toBeTruthy();
+    });
+    expect(screen.queryByTestId('import-preview-variables')).toBeNull();
+  });
+
+  it('resolves variables from a pasted environment, redacting secrets (folds A + E)', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.click(screen.getByTestId('import-preview-paste'));
+    await user.paste(postmanColl);
+    await waitFor(() => {
+      expect(screen.queryByTestId('import-preview-variables')).toBeTruthy();
+    });
+    await user.click(
+      screen.getByTestId('import-preview-variables-environment-paste')
+    );
+    await user.paste(envSource);
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('import-preview-collection-variables-env')
+      ).toBeTruthy();
+    });
+    expect(
+      screen.getByTestId('import-preview-variables-environment-ok')
+    ).toBeTruthy();
+    const requests = screen.getByTestId('import-preview-collection-requests');
+    expect(requests.textContent).toContain('<redacted>');
+    expect(requests.textContent).not.toContain('supersecret');
+  });
+
+  it('shows a per-slot parse error for a malformed environment source', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.click(screen.getByTestId('import-preview-paste'));
+    await user.paste(postmanColl);
+    await waitFor(() => {
+      expect(screen.queryByTestId('import-preview-variables')).toBeTruthy();
+    });
+    await user.click(
+      screen.getByTestId('import-preview-variables-globals-paste')
+    );
+    await user.paste('not json');
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('import-preview-variables-globals-error')
+      ).toBeTruthy();
+    });
+    // The collection preview itself stays intact.
+    expect(screen.getByTestId('import-preview-body')).toBeTruthy();
+  });
+
+  it('renders the variables section in Spanish with tuteo copy', async () => {
+    await i18next.changeLanguage('es');
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.click(screen.getByTestId('import-preview-paste'));
+    await user.paste(postmanColl);
+    await waitFor(() => {
+      expect(screen.queryByTestId('import-preview-variables')).toBeTruthy();
+    });
+    const section = screen.getByTestId('import-preview-variables');
+    expect(section.textContent).toMatch(/agrega/i); // tuteo, not "agregá"
+    expect(section.textContent).not.toMatch(/agregá/);
+  });
+});

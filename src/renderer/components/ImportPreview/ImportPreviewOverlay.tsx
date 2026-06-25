@@ -42,6 +42,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, FileUp } from 'lucide-react';
 import { detectImporter } from '../../../shared/importers/registry';
+import {
+  parsePostmanVariableExport,
+  type PostmanVariableSlotStatus,
+  type PostmanVariableSourceStatus,
+} from '../../../shared/importers/postmanImporter';
 import type { ImporterId } from '../../../shared/importers/types';
 import { useImportPreview } from '../../hooks/useImportPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -78,8 +83,15 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     closeRef.current = onClose;
   }, [onClose]);
 
-  const { state, previewSource, confirm, reset, trackCancelled, warnings } =
-    useImportPreview();
+  const {
+    state,
+    previewSource,
+    setVariableSource,
+    confirm,
+    reset,
+    trackCancelled,
+    warnings,
+  } = useImportPreview();
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
   const clipboardConsent = useSettingsStore(
     (s) => s.importPreviewClipboardOnFocusConsent
@@ -212,7 +224,53 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         }
         return;
       }
-      // First file wins — surface a notice if the user dropped more.
+      // Fold C — multiple files: detect a Postman collection + route any
+      // environment/globals exports into the variable slots. Falls back to
+      // first-file-wins when no collection+variables combo is present.
+      if (files.length > 1) {
+        const entries = await Promise.all(
+          files.map(async (f) => ({
+            file: f,
+            text: await f.text().catch(() => null),
+          }))
+        );
+        const readable = entries.filter(
+          (e): e is { file: File; text: string } => e.text !== null
+        );
+        const primary = readable.find((e) => detectImporter(e.text) !== null);
+        const variableExports = readable.filter(
+          (e) => e !== primary && parsePostmanVariableExport(e.text).ok
+        );
+        if (
+          primary &&
+          detectImporter(primary.text) === 'postman-collection' &&
+          variableExports.length > 0
+        ) {
+          setPasteValue(primary.text);
+          previewSource(primary.text);
+          let envFilled = false;
+          let globalsFilled = false;
+          for (const entry of variableExports) {
+            const parsed = parsePostmanVariableExport(entry.text);
+            if (!parsed.ok) continue;
+            let slot: 'environment' | 'globals' =
+              parsed.export.scope === 'globals' ? 'globals' : 'environment';
+            // Two same-scope exports: spill the second into the free slot.
+            if (slot === 'environment' && envFilled) slot = 'globals';
+            else if (slot === 'globals' && globalsFilled) slot = 'environment';
+            if (slot === 'environment') envFilled = true;
+            else globalsFilled = true;
+            setVariableSource(slot, entry.text);
+          }
+          pushStatusNotice({
+            tone: 'info',
+            messageKey: 'importPreview.notice.variablesFromDrop',
+            values: { count: variableExports.length },
+          });
+          return;
+        }
+      }
+      // First readable file wins — surface a notice if the user dropped more.
       const file = files[0]!;
       if (files.length > 1) {
         pushStatusNotice({
@@ -234,7 +292,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         });
       }
     },
-    [previewSource, pushStatusNotice]
+    [previewSource, setVariableSource, pushStatusNotice]
   );
 
   const handleConfirm = useCallback(() => {
@@ -436,6 +494,14 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           {previewed ? (
             <div className="grid gap-2">
               <ImportPreviewBody preview={previewed} />
+              {importerId === 'postman-collection' &&
+              previewed.kind === 'http-collection' ? (
+                <PostmanVariablesSection
+                  sources={state.variableSources}
+                  status={state.variableStatus}
+                  onSet={setVariableSource}
+                />
+              ) : null}
               {warnings.length > 0 ? (
                 <div
                   data-testid="import-preview-warnings"
@@ -496,5 +562,127 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         </section>
       </div>
     </ModalShell>
+  );
+}
+
+/**
+ * RL-100 Slice 4 fold B — optional environment + globals variable sources for
+ * a Postman collection import. Each slot accepts a paste or a file; providing
+ * one re-runs the preview with the merged variables (env > globals >
+ * collection). Rendered only for `postman-collection`.
+ */
+function PostmanVariablesSection({
+  sources,
+  status,
+  onSet,
+}: {
+  sources?: { environment?: string; globals?: string };
+  status?: PostmanVariableSourceStatus;
+  onSet: (slot: 'environment' | 'globals', raw: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <section
+      data-testid="import-preview-variables"
+      className="grid gap-2 rounded-md border border-border-subtle bg-bg-inset p-3"
+    >
+      <div className="text-eyebrow font-bold uppercase tracking-wider text-fg-subtle">
+        {t('importPreview.variables.title')}
+      </div>
+      <p className="text-caption text-fg-subtle">
+        {t('importPreview.variables.hint')}
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <VariableSlot
+          slot="environment"
+          value={sources?.environment ?? ''}
+          status={status?.environment}
+          onSet={onSet}
+        />
+        <VariableSlot
+          slot="globals"
+          value={sources?.globals ?? ''}
+          status={status?.globals}
+          onSet={onSet}
+        />
+      </div>
+    </section>
+  );
+}
+
+function VariableSlot({
+  slot,
+  value,
+  status,
+  onSet,
+}: {
+  slot: 'environment' | 'globals';
+  value: string;
+  status?: PostmanVariableSlotStatus;
+  onSet: (slot: 'environment' | 'globals', raw: string) => void;
+}) {
+  const { t } = useTranslation();
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const label =
+    slot === 'environment'
+      ? t('importPreview.variables.environmentLabel')
+      : t('importPreview.variables.globalsLabel');
+  return (
+    <div className="grid gap-1" data-testid={`import-preview-variables-${slot}`}>
+      <span className="text-eyebrow font-semibold uppercase tracking-[0.1em] text-fg-subtle">
+        {label}
+      </span>
+      <textarea
+        data-testid={`import-preview-variables-${slot}-paste`}
+        value={value}
+        onChange={(event) => onSet(slot, event.target.value)}
+        placeholder={t('importPreview.variables.pastePlaceholder')}
+        aria-label={label}
+        rows={2}
+        spellCheck={false}
+        className="min-h-[52px] resize-none rounded-md border border-border-default bg-bg-panel p-2 font-mono text-eyebrow text-fg-base outline-none focus:border-border-strong"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          data-testid={`import-preview-variables-${slot}-file`}
+          className="button-ghost text-eyebrow"
+        >
+          {t('importPreview.variables.fileCta')}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json,.postman_environment.json,.postman_globals.json,application/json"
+          className="sr-only"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            if (file) {
+              const text = await file.text().catch(() => null);
+              if (text !== null) onSet(slot, text);
+            }
+            event.target.value = '';
+          }}
+        />
+        {status ? (
+          status.ok ? (
+            <span
+              data-testid={`import-preview-variables-${slot}-ok`}
+              className="text-micro text-success-fg"
+            >
+              {t('importPreview.variables.applied', { count: status.count })}
+            </span>
+          ) : (
+            <span
+              data-testid={`import-preview-variables-${slot}-error`}
+              className="text-micro text-error-fg"
+            >
+              {t(`importPreview.variables.reject.${status.reason}`)}
+            </span>
+          )
+        ) : null}
+      </div>
+    </div>
   );
 }

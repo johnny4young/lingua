@@ -50,9 +50,11 @@ import type {
   LinguanbImporterPreview,
   LinguanbImporterResult,
 } from '../../shared/importers/linguanbImporter';
-import type {
-  CollectionImporterPreview,
-  CollectionImporterResult,
+import {
+  previewPostmanWithVariables,
+  type CollectionImporterPreview,
+  type CollectionImporterResult,
+  type PostmanVariableSourceStatus,
 } from '../../shared/importers/postmanImporter';
 import type {
   ImporterId,
@@ -108,6 +110,19 @@ export interface ImportPreviewState {
   rejectDetail?: string;
   /** Size of the source input at the time of preview (bytes). */
   sourceBytes: number;
+  /**
+   * RL-100 Slice 4 — the raw primary source, retained so a later
+   * environment/globals change can re-run the Postman preview with the
+   * merged variables. Only set when `phase === 'previewed'`.
+   */
+  source?: string;
+  /**
+   * RL-100 Slice 4 (fold B) — the optional Postman environment / globals
+   * exports the user supplied. Only meaningful for `postman-collection`.
+   */
+  variableSources?: { environment?: string; globals?: string };
+  /** RL-100 Slice 4 — per-slot parse status for the variable sources. */
+  variableStatus?: PostmanVariableSourceStatus;
 }
 
 export interface ConfirmResult {
@@ -131,6 +146,13 @@ export interface UseImportPreviewResult {
   state: ImportPreviewState;
   /** Run the preview pass against pasted text. */
   previewSource: (source: string) => void;
+  /**
+   * RL-100 Slice 4 (fold B) — set/clear an optional Postman
+   * environment/globals export and re-run the collection preview with the
+   * merged variables. No-op unless the active importer is a Postman
+   * collection. An empty string clears that slot.
+   */
+  setVariableSource: (slot: 'environment' | 'globals', raw: string) => void;
   /** Commit the previewed import; on success closes the overlay. */
   confirm: () => ConfirmResult | null;
   /** Reset the hook back to idle. */
@@ -208,8 +230,50 @@ export function useImportPreview(): UseImportPreviewResult {
       importerId,
       preview: widened,
       sourceBytes,
+      source,
     });
   }, []);
+
+  const setVariableSource = useCallback(
+    (slot: 'environment' | 'globals', raw: string) => {
+      setState((prev) => {
+        // Only a previewed Postman collection accepts variable sources.
+        if (
+          prev.phase !== 'previewed' ||
+          prev.importerId !== 'postman-collection' ||
+          prev.source === undefined
+        ) {
+          return prev;
+        }
+        // Merge the new slot value; drop blank slots so an emptied input
+        // clears that source from the resolution.
+        const merged = { ...prev.variableSources, [slot]: raw };
+        const cleaned: { environment?: string; globals?: string } = {};
+        if (merged.environment && merged.environment.trim().length > 0) {
+          cleaned.environment = merged.environment;
+        }
+        if (merged.globals && merged.globals.trim().length > 0) {
+          cleaned.globals = merged.globals;
+        }
+        const { outcome, variableStatus } = previewPostmanWithVariables(
+          prev.source,
+          cleaned
+        );
+        // The collection already previewed cleanly; re-running with extra
+        // variables cannot make it un-parseable, but guard defensively.
+        if (!outcome.ok) {
+          return { ...prev, variableSources: cleaned, variableStatus };
+        }
+        return {
+          ...prev,
+          preview: outcome.preview as AnyImporterPreview,
+          variableSources: cleaned,
+          variableStatus,
+        };
+      });
+    },
+    []
+  );
 
   const confirm = useCallback((): ConfirmResult | null => {
     if (state.phase !== 'previewed' || !state.importerId || !state.preview) {
@@ -474,7 +538,15 @@ export function useImportPreview(): UseImportPreviewResult {
     [state]
   );
 
-  return { state, previewSource, confirm, reset, trackCancelled, warnings };
+  return {
+    state,
+    previewSource,
+    setVariableSource,
+    confirm,
+    reset,
+    trackCancelled,
+    warnings,
+  };
 }
 
 /**

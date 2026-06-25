@@ -392,7 +392,43 @@ function CollectionPreviewBand({
             </StatusBadge>
           </span>
         ) : null}
+        {counts.variablesResolvedFromEnv !== undefined &&
+        counts.variablesResolvedFromEnv > 0 ? (
+          <span
+            data-testid="import-preview-collection-variables-env"
+            className="inline-flex"
+          >
+            <StatusBadge tone="info">
+              {t('importPreview.collection.variablesFromEnv', {
+                count: counts.variablesResolvedFromEnv,
+              })}
+            </StatusBadge>
+          </span>
+        ) : null}
       </section>
+
+      {preview.unresolvedVariableNames &&
+      preview.unresolvedVariableNames.length > 0 ? (
+        <section
+          className="grid gap-1"
+          data-testid="import-preview-collection-unresolved"
+        >
+          <div className="text-eyebrow font-bold uppercase tracking-wider text-fg-subtle">
+            {t('importPreview.collection.unresolvedTitle')}
+          </div>
+          <ul role="list" className="flex flex-wrap gap-1">
+            {preview.unresolvedVariableNames.map((name) => (
+              <li
+                key={name}
+                data-unresolved-var={name}
+                className="rounded bg-warning-bg px-1.5 py-0.5 font-mono text-micro text-warning-fg"
+              >
+                {`{{${name}}}`}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="grid gap-1">
         <div className="text-eyebrow font-bold uppercase tracking-wider text-fg-subtle">
@@ -442,9 +478,9 @@ function CollectionRequestRow({
         </span>
         <span
           className="truncate font-mono text-micro text-fg-subtle"
-          title={request.url}
+          title={request.displayUrl ?? request.url}
         >
-          {request.url}
+          {request.displayUrl ?? request.url}
         </span>
       </div>
       {sensitiveCount > 0 ? (

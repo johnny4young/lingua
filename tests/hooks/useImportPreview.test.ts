@@ -414,3 +414,93 @@ describe('import notebook warning telemetry helpers', () => {
     expect(bucketImportVariableCount(25)).toBe('>10');
   });
 });
+
+describe('useImportPreview — Postman environment/globals sources (RL-100 Slice 4)', () => {
+  const collectionWithVar = JSON.stringify({
+    info: {
+      name: 'Vars',
+      schema:
+        'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+    },
+    item: [
+      {
+        name: 'List',
+        request: { method: 'GET', url: '{{baseUrl}}/users?key={{apiKey}}' },
+      },
+    ],
+  });
+  const envSource = JSON.stringify({
+    _postman_variable_scope: 'environment',
+    values: [
+      { key: 'baseUrl', value: 'https://api.dev', enabled: true },
+      { key: 'apiKey', value: 'supersecret', enabled: true },
+    ],
+  });
+
+  it('merges an environment source and re-previews with the resolved values', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(collectionWithVar);
+    });
+    act(() => {
+      result.current.setVariableSource('environment', envSource);
+    });
+    const preview = result.current.state.preview;
+    expect(preview?.kind).toBe('http-collection');
+    if (preview?.kind !== 'http-collection') throw new Error('expected collection');
+    expect(preview.counts.variablesResolvedFromEnv).toBe(2);
+    expect(result.current.state.variableStatus?.environment).toMatchObject({
+      ok: true,
+      count: 2,
+    });
+    // The display URL redacts the sensitive apiKey value (fold E).
+    expect(preview.requests[0]?.displayUrl).toContain('<redacted>');
+    expect(preview.requests[0]?.url).toContain('supersecret');
+  });
+
+  it('confirm imports the REAL resolved URL (not the redacted display URL)', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(collectionWithVar);
+    });
+    act(() => {
+      result.current.setVariableSource('environment', envSource);
+    });
+    act(() => {
+      result.current.confirm();
+    });
+    const { requests } = useWorkspaceToolStore.getState();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toContain('supersecret');
+    expect(requests[0]?.url).not.toContain('<redacted>');
+  });
+
+  it('surfaces a per-slot parse error without breaking the collection preview', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(collectionWithVar);
+    });
+    act(() => {
+      result.current.setVariableSource('globals', 'not json');
+    });
+    expect(result.current.state.phase).toBe('previewed');
+    expect(result.current.state.variableStatus?.globals).toMatchObject({
+      ok: false,
+      reason: 'not-json',
+    });
+  });
+
+  it('is a no-op for a non-Postman importer', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource('curl https://example.com');
+    });
+    expect(result.current.state.importerId).toBe('curl-http');
+    act(() => {
+      result.current.setVariableSource('environment', envSource);
+    });
+    // Still a cURL preview; no variable status attached.
+    expect(result.current.state.importerId).toBe('curl-http');
+    expect(result.current.state.variableStatus).toBeUndefined();
+  });
+});

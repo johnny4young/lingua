@@ -9,7 +9,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_IMPORT_REQUESTS,
+  isSensitiveVariableKey,
+  parsePostmanVariableExport,
   postmanImporterAdapter,
+  previewPostmanWithVariables,
   type CollectionImporterPreview,
   type CollectionImporterResult,
 } from '../../../src/shared/importers/postmanImporter';
@@ -673,5 +676,210 @@ describe('postmanImporterAdapter.import', () => {
     // Original Authorization value round-trips on import (redaction is
     // display-only).
     expect(result.requests[0]?.headers[0]?.value).toBe('Bearer secret');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RL-100 Slice 4 — environment / globals variable resolution
+// ---------------------------------------------------------------------------
+
+function variableExport(
+  values: Array<{ key: string; value: string; enabled?: boolean }>,
+  scope?: 'environment' | 'globals'
+): string {
+  return JSON.stringify({
+    ...(scope ? { _postman_variable_scope: scope } : {}),
+    name: 'Vars',
+    values,
+  });
+}
+
+describe('parsePostmanVariableExport (Slice 4)', () => {
+  it('parses enabled key/value entries and reports the scope', () => {
+    const out = parsePostmanVariableExport(
+      variableExport(
+        [
+          { key: 'baseUrl', value: 'https://api.dev', enabled: true },
+          { key: 'token', value: 'secret123', enabled: true },
+        ],
+        'environment'
+      )
+    );
+    expect(out.ok).toBe(true);
+    if (!out.ok) throw new Error('expected ok');
+    expect(out.export.scope).toBe('environment');
+    expect(out.export.map.get('baseUrl')).toBe('https://api.dev');
+    expect(out.export.count).toBe(2);
+  });
+
+  it('skips disabled entries', () => {
+    const out = parsePostmanVariableExport(
+      variableExport([
+        { key: 'a', value: '1', enabled: true },
+        { key: 'b', value: '2', enabled: false },
+      ])
+    );
+    expect(out.ok).toBe(true);
+    if (!out.ok) throw new Error('expected ok');
+    expect(out.export.map.has('b')).toBe(false);
+    expect(out.export.count).toBe(1);
+  });
+
+  it('detects the globals scope', () => {
+    const out = parsePostmanVariableExport(
+      variableExport([{ key: 'g', value: '1', enabled: true }], 'globals')
+    );
+    expect(out.ok && out.export.scope).toBe('globals');
+  });
+
+  it('rejects non-JSON, wrong-shape, empty, and a collection', () => {
+    expect(parsePostmanVariableExport('not json')).toMatchObject({
+      ok: false,
+      reason: 'not-json',
+    });
+    expect(parsePostmanVariableExport('{"foo":1}')).toMatchObject({
+      ok: false,
+      reason: 'wrong-shape',
+    });
+    expect(parsePostmanVariableExport('')).toMatchObject({
+      ok: false,
+      reason: 'wrong-shape',
+    });
+    expect(
+      parsePostmanVariableExport(JSON.stringify({ info: {}, item: [] }))
+    ).toMatchObject({ ok: false, reason: 'is-collection' });
+  });
+});
+
+describe('isSensitiveVariableKey (Slice 4 fold E)', () => {
+  it('flags secret-like key names', () => {
+    for (const key of [
+      'token',
+      'apiKey',
+      'api_key',
+      'authToken',
+      'password',
+      'clientSecret',
+      'accessKey',
+      'bearer',
+    ]) {
+      expect(isSensitiveVariableKey(key)).toBe(true);
+    }
+  });
+
+  it('does not flag plain key names', () => {
+    for (const key of ['baseUrl', 'host', 'version', 'userId', 'page']) {
+      expect(isSensitiveVariableKey(key)).toBe(false);
+    }
+  });
+});
+
+describe('previewPostmanWithVariables (Slice 4)', () => {
+  const coll = collection(
+    [leaf('Get user', { method: 'GET', url: '{{baseUrl}}/users?key={{apiKey}}' })],
+    { variable: [{ key: 'baseUrl', value: 'https://fallback.example' }] }
+  );
+  const envSource = variableExport(
+    [
+      { key: 'baseUrl', value: 'https://api.dev', enabled: true },
+      { key: 'apiKey', value: 'supersecret', enabled: true },
+    ],
+    'environment'
+  );
+
+  it('merges env vars with env > collection precedence into the real URL', () => {
+    const { outcome } = previewPostmanWithVariables(coll, {
+      environment: envSource,
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) throw new Error('expected ok');
+    const req = outcome.preview.requests[0]!;
+    expect(req.url).toContain('https://api.dev'); // env overrode the fallback
+    expect(req.url).toContain('supersecret'); // resolved from env
+  });
+
+  it('counts env-sourced resolutions (fold A)', () => {
+    const { outcome } = previewPostmanWithVariables(coll, {
+      environment: envSource,
+    });
+    if (!outcome.ok) throw new Error('expected ok');
+    expect(outcome.preview.counts.variablesResolvedFromEnv).toBe(2);
+  });
+
+  it('redacts a sensitive env value in the display URL, keeps the real URL (fold E)', () => {
+    const { outcome } = previewPostmanWithVariables(coll, {
+      environment: envSource,
+    });
+    if (!outcome.ok) throw new Error('expected ok');
+    const req = outcome.preview.requests[0]!;
+    expect(req.url).toContain('supersecret');
+    expect(req.displayUrl).toBeDefined();
+    expect(req.displayUrl).toContain('<redacted>');
+    expect(req.displayUrl).not.toContain('supersecret');
+    // Non-sensitive baseUrl stays visible in the redacted display URL.
+    expect(req.displayUrl).toContain('https://api.dev');
+  });
+
+  it('redacts sensitive env values that flow through collection variables', () => {
+    const c = collection(
+      [leaf('R', { method: 'GET', url: '{{baseUrl}}/users' })],
+      { variable: [{ key: 'baseUrl', value: 'https://api.dev?key={{apiKey}}' }] }
+    );
+    const { outcome } = previewPostmanWithVariables(c, {
+      environment: variableExport([
+        { key: 'apiKey', value: 'supersecret', enabled: true },
+      ]),
+    });
+    if (!outcome.ok) throw new Error('expected ok');
+    const req = outcome.preview.requests[0]!;
+    expect(outcome.preview.counts.variablesResolvedFromEnv).toBe(1);
+    expect(req.url).toContain('supersecret');
+    expect(req.displayUrl).toContain('<redacted>');
+    expect(req.displayUrl).not.toContain('supersecret');
+  });
+
+  it('lists still-unresolved variable names (fold D)', () => {
+    const c = collection([
+      leaf('R', { method: 'GET', url: '{{baseUrl}}/{{missing}}' }),
+    ]);
+    const { outcome } = previewPostmanWithVariables(c, {
+      environment: variableExport([
+        { key: 'baseUrl', value: 'https://x', enabled: true },
+      ]),
+    });
+    if (!outcome.ok) throw new Error('expected ok');
+    expect(outcome.preview.unresolvedVariableNames).toContain('missing');
+    expect(outcome.preview.unresolvedVariableNames).not.toContain('baseUrl');
+  });
+
+  it('applies globals below environment precedence', () => {
+    const c = collection([leaf('R', { method: 'GET', url: '{{a}}-{{b}}' })]);
+    const { outcome } = previewPostmanWithVariables(c, {
+      environment: variableExport([{ key: 'a', value: 'ENV', enabled: true }]),
+      globals: variableExport([
+        { key: 'a', value: 'GLOB', enabled: true },
+        { key: 'b', value: 'GB', enabled: true },
+      ]),
+    });
+    if (!outcome.ok) throw new Error('expected ok');
+    // env wins for `a`; globals supplies `b`.
+    expect(outcome.preview.requests[0]!.url).toBe('ENV-GB');
+  });
+
+  it('reports per-slot parse status; a malformed slot is ignored, not fatal', () => {
+    const { outcome, variableStatus } = previewPostmanWithVariables(coll, {
+      environment: envSource,
+      globals: 'not json',
+    });
+    expect(outcome.ok).toBe(true);
+    expect(variableStatus.environment).toMatchObject({ ok: true, count: 2 });
+    expect(variableStatus.globals).toMatchObject({ ok: false, reason: 'not-json' });
+  });
+
+  it('leaves variablesResolvedFromEnv undefined when no source is supplied', () => {
+    const outcome = postmanImporterAdapter.preview(coll);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) throw new Error('expected ok');
+    expect(outcome.preview.counts.variablesResolvedFromEnv).toBeUndefined();
   });
 });

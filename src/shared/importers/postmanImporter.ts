@@ -5,9 +5,9 @@
  * a flat list of Lingua `HttpRequestV1`-shaped requests. Folders are
  * flattened depth-first and their names prefix the request label
  * (`Folder / Sub / Request`). The adapter is intentionally lossy —
- * Postman's scripting, auth helpers, environment variables, and
- * non-text body modes have no HTTP-workspace equivalent, so each is
- * surfaced as a closed-enum `ImporterLossyWarning` rather than
+ * Postman's scripting, auth helpers, unprovided environment/globals
+ * variables, and non-text body modes have no HTTP-workspace equivalent, so
+ * each is surfaced as a closed-enum `ImporterLossyWarning` rather than
  * silently dropped.
  *
  * Design boundaries (per the 2026-05-28 plan):
@@ -61,6 +61,15 @@ export interface ParsedCollectionRequest {
   readonly url: string;
   readonly headers: ReadonlyArray<HttpRequestHeader>;
   readonly body?: HttpRequestBody;
+  /**
+   * RL-100 Slice 4 fold E — a display-only copy of `url` with values
+   * sourced from a SENSITIVE-named environment/globals variable (token,
+   * apiKey, secret, …) replaced by `<redacted>`. Present only when such a
+   * substitution actually landed in the URL; the preview band renders
+   * `displayUrl ?? url` while `url` (the real resolved value) round-trips
+   * on confirm into the HTTP workspace.
+   */
+  readonly displayUrl?: string;
 }
 
 /** Source family — drives the preview badge + telemetry importer id. */
@@ -102,7 +111,23 @@ export interface CollectionImporterPreview {
      * counted here — they surface via `postman-dynamic-variable`.
      */
     readonly variablesUnresolved?: number;
+    /**
+     * RL-100 Slice 4 fold A — how many distinct provided environment /
+     * globals keys contributed to resolved request values (including through
+     * collection variables that reference env/globals keys). Drives the
+     * "N from environment" preview chip. Undefined when no
+     * environment/globals source was supplied.
+     */
+    readonly variablesResolvedFromEnv?: number;
   };
+  /**
+   * RL-100 Slice 4 fold D — the distinct `{{tokens}}` still unresolved
+   * after the merge (collection + environment + globals), sorted and
+   * capped for display. The preview lists these so the user knows exactly
+   * which variables their environment is missing. Mirrors
+   * `counts.variablesUnresolved` (the count) with the actual names.
+   */
+  readonly unresolvedVariableNames?: ReadonlyArray<string>;
   readonly warnings: ReadonlyArray<ImporterLossyWarning>;
 }
 
@@ -443,6 +468,28 @@ interface VariableResolution {
   readonly unresolvedTokens: Set<string>;
   /** Distinct dynamic `{{$...}}` placeholders left literal. */
   readonly dynamicTokens: Set<string>;
+  /**
+   * RL-100 Slice 4 — keys whose winning value came from a provided
+   * environment / globals export (they override collection defaults).
+   * Empty when no env/globals source was supplied.
+   */
+  readonly envKeys: ReadonlySet<string>;
+  /** Subset of {@link envKeys} whose name is secret-like (fold E redaction). */
+  readonly sensitiveEnvKeys: ReadonlySet<string>;
+  /**
+   * Display-only flattened map where sensitive env/globals values are replaced
+   * before transitive expansion, so collection variables that reference a
+   * secret env key do not leak that secret in the preview URL.
+   */
+  readonly displayMap: ReadonlyMap<string, string>;
+  /**
+   * For each merged variable key, the env/globals keys that contribute to its
+   * flattened value. This keeps the fold-A count honest when a collection
+   * variable references an environment value transitively.
+   */
+  readonly envDependencyMap: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Distinct env/globals keys that contributed to resolved request values. */
+  readonly resolvedFromEnvKeys: Set<string>;
 }
 
 /**
@@ -465,6 +512,101 @@ function parseCollectionVariables(raw: unknown): Map<string, string> {
     map.set(key, e.value);
   }
   return map;
+}
+
+// ---------------------------------------------------------------------------
+// RL-100 Slice 4 — environment / globals variable sources
+// ---------------------------------------------------------------------------
+
+/** Closed reject reasons for a provided environment / globals export. */
+export type PostmanVariableExportReject =
+  | 'not-json'
+  | 'wrong-shape'
+  | 'oversized'
+  | 'is-collection';
+
+/** A parsed Postman environment / globals export. */
+export interface PostmanVariableExport {
+  /** Enabled `key -> value` entries. */
+  readonly map: ReadonlyMap<string, string>;
+  /** Declared scope when present (`_postman_variable_scope`). */
+  readonly scope: 'environment' | 'globals' | 'unknown';
+  /** Distinct enabled keys parsed. */
+  readonly count: number;
+}
+
+/** Discriminated outcome of {@link parsePostmanVariableExport}. */
+export type PostmanVariableExportOutcome =
+  | { readonly ok: true; readonly export: PostmanVariableExport }
+  | { readonly ok: false; readonly reason: PostmanVariableExportReject };
+
+/**
+ * Heuristic: does a variable KEY name denote a secret? Used by fold E to
+ * redact env-sourced values substituted into a request URL in the preview.
+ * Name-based (the value is never inspected), mirroring the header-name
+ * redaction precedent from the cURL importer.
+ */
+const SENSITIVE_VARIABLE_KEY_PATTERN =
+  /(token|secret|password|passwd|api[_-]?key|apikey|auth|bearer|credential|private[_-]?key|access[_-]?key|client[_-]?secret)/i;
+
+export function isSensitiveVariableKey(key: string): boolean {
+  return SENSITIVE_VARIABLE_KEY_PATTERN.test(key);
+}
+
+/**
+ * Parse a Postman environment / globals export. The shape is
+ * `{ values: [{ key, value, enabled }], _postman_variable_scope?:
+ * 'environment' | 'globals', name? }` — a `values` array and NO collection
+ * `item`. Disabled entries (`enabled: false`) are skipped; keys are trimmed;
+ * a later duplicate key wins. Detection is shape-based (file extension is not
+ * trusted); a collection pasted into the variables slot rejects with
+ * `is-collection` so the user gets a precise diagnostic instead of a silent
+ * no-op.
+ */
+export function parsePostmanVariableExport(
+  raw: string
+): PostmanVariableExportOutcome {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    return { ok: false, reason: 'wrong-shape' };
+  }
+  if (utf8ByteLength(raw) > MAX_COLLECTION_BYTES) {
+    return { ok: false, reason: 'oversized' };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: 'not-json' };
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, reason: 'wrong-shape' };
+  }
+  const root = parsed as Record<string, unknown>;
+  // A collection (has `item`) is not a variable export — reject precisely.
+  if (Array.isArray(root.item)) {
+    return { ok: false, reason: 'is-collection' };
+  }
+  if (!Array.isArray(root.values)) {
+    return { ok: false, reason: 'wrong-shape' };
+  }
+  const map = new Map<string, string>();
+  for (const entry of root.values) {
+    if (entry === null || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    // Postman environment entries mark inactive rows `enabled: false`.
+    if (e.enabled === false) continue;
+    const key = typeof e.key === 'string' ? e.key.trim() : '';
+    if (key.length === 0) continue;
+    if (typeof e.value !== 'string') continue;
+    map.set(key, e.value);
+  }
+  const scopeRaw =
+    typeof root._postman_variable_scope === 'string'
+      ? root._postman_variable_scope
+      : '';
+  const scope: PostmanVariableExport['scope'] =
+    scopeRaw === 'environment' || scopeRaw === 'globals' ? scopeRaw : 'unknown';
+  return { ok: true, export: { map, scope, count: map.size } };
 }
 
 /**
@@ -507,6 +649,50 @@ function flattenVariableMap(map: Map<string, string>): Map<string, string> {
 }
 
 /**
+ * Fold A — discover which env/globals keys flow into each merged variable key,
+ * including transitive collection references. Example:
+ * `baseUrl = https://x?key={{apiKey}}` and env `apiKey = secret` means a
+ * request using `{{baseUrl}}` was environment-assisted even though the direct
+ * request token was collection-scoped.
+ */
+function collectEnvDependencies(
+  key: string,
+  map: ReadonlyMap<string, string>,
+  envKeys: ReadonlySet<string>,
+  stack: ReadonlySet<string>
+): Set<string> {
+  const deps = new Set<string>();
+  if (envKeys.has(key)) deps.add(key);
+  const raw = map.get(key);
+  if (raw === undefined || !raw.includes('{{')) return deps;
+  raw.replace(VARIABLE_TOKEN_PATTERN, (_match, rawToken: string) => {
+    const token = rawToken.trim();
+    if (isDynamicVariableToken(token) || !map.has(token) || stack.has(token)) {
+      return _match;
+    }
+    const nextStack = new Set(stack);
+    nextStack.add(token);
+    for (const dep of collectEnvDependencies(token, map, envKeys, nextStack)) {
+      deps.add(dep);
+    }
+    return _match;
+  });
+  return deps;
+}
+
+function buildEnvDependencyMap(
+  map: ReadonlyMap<string, string>,
+  envKeys: ReadonlySet<string>
+): Map<string, ReadonlySet<string>> {
+  const out = new Map<string, ReadonlySet<string>>();
+  for (const key of map.keys()) {
+    const deps = collectEnvDependencies(key, map, envKeys, new Set([key]));
+    if (deps.size > 0) out.set(key, deps);
+  }
+  return out;
+}
+
+/**
  * Substitute every `{{token}}` in `text` against the resolution map,
  * recording each token as resolved / unresolved / dynamic on the
  * shared accumulator. Unresolved + dynamic tokens are left literal so
@@ -523,12 +709,88 @@ function resolveVariables(text: string, resolution: VariableResolution): string 
     const value = resolution.map.get(token);
     if (value !== undefined) {
       resolution.resolvedKeys.add(token);
+      const envDependencies = resolution.envDependencyMap.get(token);
+      if (envDependencies) {
+        for (const envKey of envDependencies) {
+          resolution.resolvedFromEnvKeys.add(envKey);
+        }
+      }
       recordLiteralVariableTokens(value, resolution);
       return value;
     }
     resolution.unresolvedTokens.add(token);
     return match;
   });
+}
+
+/**
+ * RL-100 Slice 4 fold E — display-only resolution: substitute `{{tokens}}`
+ * as `resolveVariables` does, EXCEPT a token whose key is a sensitive
+ * env/globals key resolves to `<redacted>` instead of its real value.
+ * Pure — never mutates the resolution accumulator (it runs alongside the
+ * real pass purely to build the redacted preview string).
+ */
+export const REDACTED_VARIABLE_PLACEHOLDER = '<redacted>';
+
+function resolveTextForDisplay(
+  text: string,
+  resolution: VariableResolution
+): string {
+  if (text.length === 0 || !text.includes('{{')) return text;
+  return text.replace(VARIABLE_TOKEN_PATTERN, (match, rawToken: string) => {
+    const token = rawToken.trim();
+    if (isDynamicVariableToken(token)) return match;
+    if (resolution.sensitiveEnvKeys.has(token)) {
+      return REDACTED_VARIABLE_PLACEHOLDER;
+    }
+    const value = resolution.displayMap.get(token);
+    return value !== undefined ? value : match;
+  });
+}
+
+/**
+ * RL-100 Slice 4 — build the per-import variable resolution from the
+ * collection's own `variable[]` plus optional environment / globals maps.
+ * Precedence is Postman's: environment > globals > collection. `envKeys`
+ * records which keys the env/globals layers supplied so fold A can count
+ * env-sourced resolutions and fold E can target sensitive ones.
+ */
+function buildVariableResolution(
+  collectionRaw: unknown,
+  options?: {
+    readonly environment?: ReadonlyMap<string, string>;
+    readonly globals?: ReadonlyMap<string, string>;
+  }
+): VariableResolution {
+  const collection = parseCollectionVariables(collectionRaw);
+  const globals = options?.globals ?? new Map<string, string>();
+  const environment = options?.environment ?? new Map<string, string>();
+  // Later entries overwrite earlier → environment wins over globals wins
+  // over collection defaults.
+  const merged = new Map<string, string>([
+    ...collection,
+    ...globals,
+    ...environment,
+  ]);
+  const envKeys = new Set<string>([...globals.keys(), ...environment.keys()]);
+  const sensitiveEnvKeys = new Set<string>(
+    [...envKeys].filter((key) => isSensitiveVariableKey(key))
+  );
+  const displaySeed = new Map<string, string>(merged);
+  for (const key of sensitiveEnvKeys) {
+    displaySeed.set(key, REDACTED_VARIABLE_PLACEHOLDER);
+  }
+  return {
+    map: flattenVariableMap(merged),
+    resolvedKeys: new Set<string>(),
+    unresolvedTokens: new Set<string>(),
+    dynamicTokens: new Set<string>(),
+    envKeys,
+    sensitiveEnvKeys,
+    displayMap: flattenVariableMap(displaySeed),
+    envDependencyMap: buildEnvDependencyMap(merged, envKeys),
+    resolvedFromEnvKeys: new Set<string>(),
+  };
 }
 
 /**
@@ -650,6 +912,8 @@ function mapRequestItem(
   // header keyed entirely on an unknown var is unusable).
   const resolution = state.variables;
   const resolvedUrl = resolveVariables(url, resolution);
+  // Fold E — a display-only URL with sensitive env-sourced values redacted.
+  const displayUrl = resolveTextForDisplay(url, resolution);
   const resolvedHeaders = headers
     .map((h) => ({
       ...h,
@@ -678,6 +942,9 @@ function mapRequestItem(
     name: label.slice(0, 120),
     method,
     url: resolvedUrl,
+    // Only carry a redacted display URL when a sensitive env value actually
+    // landed in it (so the common case stays a plain string).
+    ...(displayUrl !== resolvedUrl ? { displayUrl } : {}),
     headers: resolvedHeaders,
     ...(resolvedBody ? { body: resolvedBody } : {}),
   };
@@ -710,8 +977,19 @@ function scanItemScripts(
 // Preview
 // ---------------------------------------------------------------------------
 
+/**
+ * RL-100 Slice 4 — optional environment / globals variable maps merged into
+ * the collection's own variables. When present, fold A counts env-sourced
+ * resolutions and fold E redacts sensitive env values in the preview URL.
+ */
+interface PostmanVariableOptions {
+  readonly environment?: ReadonlyMap<string, string>;
+  readonly globals?: ReadonlyMap<string, string>;
+}
+
 function previewPostman(
-  source: string
+  source: string,
+  variableOptions?: PostmanVariableOptions
 ): ImporterPreviewOutcome<CollectionImporterPreview> {
   if (typeof source !== 'string' || source.trim().length === 0) {
     return { ok: false, reason: 'empty-input' };
@@ -755,12 +1033,7 @@ function previewPostman(
     folders: 0,
     truncated: 0,
     warnings: new Set<ImporterLossyWarning>(),
-    variables: {
-      map: flattenVariableMap(parseCollectionVariables(root.variable)),
-      resolvedKeys: new Set<string>(),
-      unresolvedTokens: new Set<string>(),
-      dynamicTokens: new Set<string>(),
-    },
+    variables: buildVariableResolution(root.variable, variableOptions),
   };
   scanItemScripts(root.event, state.warnings);
   walkItems(root.item, '', state, root.auth);
@@ -784,6 +1057,11 @@ function previewPostman(
       ? info.name.trim().slice(0, 120)
       : 'Imported collection';
 
+  // Fold D — the actual still-unresolved token names (sorted + capped).
+  const unresolvedVariableNames = [...state.variables.unresolvedTokens]
+    .sort()
+    .slice(0, MAX_UNRESOLVED_VARIABLE_NAMES);
+
   const preview: CollectionImporterPreview = {
     kind: 'http-collection',
     source: 'postman',
@@ -795,10 +1073,76 @@ function previewPostman(
       truncated: state.truncated,
       variablesResolved: state.variables.resolvedKeys.size,
       variablesUnresolved: state.variables.unresolvedTokens.size,
+      // Fold A — only meaningful once an env/globals source is supplied.
+      ...(variableOptions !== undefined
+        ? { variablesResolvedFromEnv: state.variables.resolvedFromEnvKeys.size }
+        : {}),
     },
+    ...(unresolvedVariableNames.length > 0 ? { unresolvedVariableNames } : {}),
     warnings: [...state.warnings],
   };
   return { ok: true, preview, warnings: preview.warnings };
+}
+
+/**
+ * RL-100 Slice 4 fold D — cap on how many unresolved token names ride in the
+ * preview (the count `variablesUnresolved` is always exact; this list is for
+ * display). A pathological collection cannot bloat the preview payload.
+ */
+const MAX_UNRESOLVED_VARIABLE_NAMES = 30;
+
+/**
+ * Per-slot parse status for the optional variable sources, surfaced to the
+ * overlay so each input can show an inline ok/error.
+ */
+export type PostmanVariableSlotStatus =
+  | { readonly ok: true; readonly count: number; readonly scope: PostmanVariableExport['scope'] }
+  | { readonly ok: false; readonly reason: PostmanVariableExportReject };
+
+export interface PostmanVariableSourceStatus {
+  readonly environment?: PostmanVariableSlotStatus;
+  readonly globals?: PostmanVariableSlotStatus;
+}
+
+/**
+ * RL-100 Slice 4 — preview a Postman collection WITH optional environment /
+ * globals exports merged into variable resolution (precedence env > globals >
+ * collection). Parses each provided slot, threads the maps into the core
+ * preview, and returns the per-slot parse status alongside the outcome so the
+ * overlay can show an inline ok/error per input. A slot that fails to parse is
+ * simply omitted from the merge (the collection still imports).
+ */
+export function previewPostmanWithVariables(
+  source: string,
+  sources: { readonly environment?: string; readonly globals?: string }
+): {
+  readonly outcome: ImporterPreviewOutcome<CollectionImporterPreview>;
+  readonly variableStatus: PostmanVariableSourceStatus;
+} {
+  const variableStatus: {
+    environment?: PostmanVariableSlotStatus;
+    globals?: PostmanVariableSlotStatus;
+  } = {};
+  const options: { environment?: ReadonlyMap<string, string>; globals?: ReadonlyMap<string, string> } =
+    {};
+
+  for (const slot of ['environment', 'globals'] as const) {
+    const raw = sources[slot];
+    if (raw === undefined || raw.trim().length === 0) continue;
+    const parsed = parsePostmanVariableExport(raw);
+    if (parsed.ok) {
+      options[slot] = parsed.export.map;
+      variableStatus[slot] = {
+        ok: true,
+        count: parsed.export.count,
+        scope: parsed.export.scope,
+      };
+    } else {
+      variableStatus[slot] = { ok: false, reason: parsed.reason };
+    }
+  }
+
+  return { outcome: previewPostman(source, options), variableStatus };
 }
 
 // ---------------------------------------------------------------------------
