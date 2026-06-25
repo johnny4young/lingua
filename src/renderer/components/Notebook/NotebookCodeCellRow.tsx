@@ -4,13 +4,12 @@
  * Layout:
  *   - Header: language badge + cell index + status pill + action row
  *     (Run cell / Move up / Move down / Delete cell).
- *   - Body: source `<textarea>` (auto-grow to content height).
+ *   - Body: active Monaco editor, or a cheap static colorized preview.
  *   - Outputs: stdout (foreground) + stderr (error tone) inline below
  *     the source.
  *
- * Slice A intentionally uses a textarea instead of Monaco. Slice B+
- * promotes to a virtualized Monaco editor — the surface contract
- * (source string, language, run handler) stays unchanged.
+ * Slice G promotes code cells to a mount-virtualized Monaco editor — the
+ * surface contract (source string, language, run handler) stays unchanged.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -34,6 +33,7 @@ import { languageBadgeTone, languageLabel } from '../../utils/languageMeta';
 import { ResultHeader } from '../ui/ResultHeader';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
+import { NotebookCellEditor } from './NotebookCellEditor';
 import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
 
 export interface NotebookCodeCellRowProps {
@@ -66,6 +66,14 @@ export interface NotebookCodeCellRowProps {
    * Drives the left accent bar + the Command/Edit mode label.
    */
   readonly isActive: boolean;
+  /**
+   * RL-043 Slice (Monaco cells) — command-mode "enter edit" signal. The
+   * view bumps a `{ cellId, nonce }` request (Jupyter Enter / run-and-
+   * advance / insert-below); when this cell's nonce changes the row mounts
+   * its Monaco editor. `null` when no request targets this cell. The nonce
+   * (not a boolean) lets a repeat-Enter on the already-active cell re-arm.
+   */
+  readonly editRequestNonce?: number | null;
   readonly canMoveUp: boolean;
   readonly canMoveDown: boolean;
   readonly disabled: boolean;
@@ -163,6 +171,7 @@ export function NotebookCodeCellRow({
   varFlow,
   executionOrder = null,
   isActive,
+  editRequestNonce = null,
   canMoveUp,
   canMoveDown,
   disabled,
@@ -177,12 +186,12 @@ export function NotebookCodeCellRow({
   onLanguageChange,
 }: NotebookCodeCellRowProps) {
   const { t } = useTranslation();
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const shellRef = useRef<HTMLElement | null>(null);
   const label = languageLabel(cell.language);
-  // Signal-Slate — derived mode for the active cell. EDIT when the caret
-  // is in the textarea; COMMAND when focus sits on the shell. We track it
-  // off textarea focus so the header label + accent bar reflect reality.
+  // Signal-Slate — derived mode for the active cell. EDIT when the live
+  // Monaco editor is mounted (the caret is in the cell); COMMAND when only
+  // the static view shows and focus sits on the shell. The header label +
+  // accent bar read off this.
   const [editing, setEditing] = useState(false);
   const mode: 'command' | 'edit' = editing ? 'edit' : 'command';
 
@@ -314,12 +323,25 @@ export function NotebookCodeCellRow({
   const usesKeys = varFlow?.uses ?? [];
   const producesKeys = varFlow?.produces ?? [];
 
+  // RL-043 Slice (Monaco cells) — command-mode "enter edit" requests
+  // (Jupyter Enter / run-and-advance / insert-below) flow in as a bumped
+  // nonce; mount the Monaco editor in response (it focuses itself on mount).
+  // Match NotebookMarkdownCellRow: depend ONLY on the nonce.
+  //   - Do NOT gate on `disabled` / `status`: `disabled` is the GLOBAL
+  //     `isAnyCellRunning`, so gating it makes Shift+Enter advance fail to
+  //     open the next cell whenever ANY cell is running (the next cell is
+  //     not the one running). Advancing into a cell mid-run must still open
+  //     it — Monaco mounts read-only via the `disabled` prop.
+  //   - Do NOT put `disabled` / `status` in the deps: a later run-status
+  //     change would otherwise re-fire this effect on a stale nonce and
+  //     re-open a cell the user had escaped out of.
+  // The flip is deferred a frame so React's set-state-in-effect rule stays
+  // quiet without changing the visible command-mode flow.
   useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 600)}px`;
-  }, [source]);
+    if (editRequestNonce === null) return undefined;
+    const frame = requestAnimationFrame(() => setEditing(true));
+    return () => cancelAnimationFrame(frame);
+  }, [editRequestNonce]);
 
   return (
     <article
@@ -332,9 +354,9 @@ export function NotebookCodeCellRow({
       data-cell-mode={isActive ? mode : undefined}
       data-active={isActive ? 'true' : undefined}
       // Command mode lives on the shell: a `tabIndex=-1` element that
-      // takes focus when the user Escapes out of the textarea or
-      // navigates with j/k. The notebook's container `onKeyDown` reads
-      // command-mode keys here (textareas swallow their own keys).
+      // takes focus when the user Escapes out of the editor or navigates
+      // with j/k. The notebook's container `onKeyDown` reads command-mode
+      // keys here (editable descendants swallow their own keys).
       tabIndex={-1}
       onMouseDown={() => onActivate(cell.id)}
       onFocus={() => onActivate(cell.id)}
@@ -522,63 +544,48 @@ export function NotebookCodeCellRow({
           </button>
         </div>
       </header>
-      <textarea
-        ref={textareaRef}
+      {/* RL-043 Slice (Monaco cells) — the body is a Monaco editor while
+          editing and a cheap colorized static view otherwise, so a large
+          notebook never mounts more than ~1 editor. The run / Esc keybinds
+          and the draft-flush-before-run contract are preserved through the
+          callbacks below. A plain Enter inside Monaco inserts a newline. */}
+      <NotebookCellEditor
+        cellId={cell.id}
+        language={cell.language}
         value={source}
-        onChange={(event) => handleSourceChange(event.target.value)}
-        onFocus={() => setEditing(true)}
+        editing={editing}
+        disabled={disabled || status === 'running'}
+        ariaLabel={t('notebook.cell.codeEditorLabel')}
+        placeholder={t('notebook.cell.codeSourcePlaceholder', {
+          language: label,
+        })}
+        onChange={handleSourceChange}
+        onRequestEdit={() => {
+          if (disabled || status === 'running') return;
+          onActivate(cell.id);
+          setEditing(true);
+        }}
         onBlur={() => {
           setEditing(false);
           flushPendingSource();
         }}
-        onKeyDown={(event) => {
-          // Esc drops out of EDIT mode into COMMAND mode: flush the
-          // draft, then move focus to the shell so the container's
-          // command-mode keybinds take over. This is the Jupyter
-          // muscle-memory toggle (Esc = command, Enter = edit).
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            event.stopPropagation();
-            flushPendingSource();
-            setEditing(false);
-            shellRef.current?.focus();
-            return;
-          }
-          if (event.key !== 'Enter') return;
-          // Jupyter-parity run keybinds (the muscle memory every
-          // notebook user expects):
-          //   Cmd/Ctrl+Enter — run in place, keep focus here.
-          //   Shift+Enter    — run, then advance to the next cell
-          //                    (create one if this is the last).
-          //   Alt+Enter      — run, then insert a fresh cell below.
-          // A plain Enter falls through to the textarea (newline).
-          const runInPlace = event.metaKey || event.ctrlKey;
-          const advance = event.shiftKey;
-          const insertBelow = event.altKey;
-          if (!runInPlace && !advance && !insertBelow) return;
-          event.preventDefault();
-          event.stopPropagation();
+        onRunInPlace={() => {
           if (disabled || status === 'running') return;
-          // PERF-003 — flush the pending debounced draft before the run
-          // so `useNotebookRun` (which reads source from the persisted
-          // store) sees the latest text typed <debounce ago.
-          if (advance) {
-            runWithFlush(onRunAndAdvance ?? onRunCell);
-          } else if (insertBelow) {
-            runWithFlush(onRunAndInsertBelow ?? onRunCell);
-          } else {
-            runWithFlush(onRunCell);
-          }
+          runWithFlush(onRunCell);
         }}
-        disabled={disabled || status === 'running'}
-        data-testid="notebook-code-cell-source"
-        spellCheck={false}
-        placeholder={t('notebook.cell.codeSourcePlaceholder', {
-          language: label,
-        })}
-        title={t('notebook.cell.codeSourceShortcutHint')}
-        rows={3}
-        className="min-h-[64px] resize-none rounded border border-border/60 bg-background p-2 font-mono text-body-sm text-foreground outline-none focus:border-border-strong disabled:cursor-not-allowed"
+        onRunAdvance={() => {
+          if (disabled || status === 'running') return;
+          runWithFlush(onRunAndAdvance ?? onRunCell);
+        }}
+        onRunInsertBelow={() => {
+          if (disabled || status === 'running') return;
+          runWithFlush(onRunAndInsertBelow ?? onRunCell);
+        }}
+        onEscape={() => {
+          flushPendingSource();
+          setEditing(false);
+          shellRef.current?.focus();
+        }}
       />
       {hasOutputs ? (
         <div className="overflow-hidden rounded border border-border/40 bg-background-elevated/50">

@@ -254,6 +254,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // 3-way parity test cross-imports the canonical
   // NOTEBOOK_CELL_STATUSES tuple from
   // src/renderer/runtime/notebookSession.ts.
+  // RL-043 Slice (Monaco cells) fold E — cell editor mounted. Closed-enum
+  // `{ language }` mirrored from src/shared/telemetry.ts. Sorts before
+  // `cell_executed`.
+  'notebook.cell_editor_mounted',
   'notebook.cell_executed',
   // RL-043 Slice C fold E — notebook cell language switch. Closed-enum
   // `{ to }` mirrored from src/shared/telemetry.ts.
@@ -435,6 +439,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-039 Slice B fold B — mirror of src/shared/telemetry.ts.
   'recipe.opened': ['language'],
   'recipe.test_run': ['language', 'status'],
+  // RL-043 Slice (Monaco cells) fold E — mirror of src/shared/telemetry.ts.
+  'notebook.cell_editor_mounted': ['language'],
   // RL-043 Slice A fold B — mirror of src/shared/telemetry.ts.
   'notebook.cell_executed': ['language', 'status'],
   // RL-043 Slice C fold E — mirror of src/shared/telemetry.ts.
@@ -1597,6 +1603,12 @@ function isAllowedValue(
       if (key === 'status')
         return typeof value === 'string' && RECIPE_RUN_STATUSES_SET.has(value);
       return false;
+    case 'notebook.cell_editor_mounted':
+      return (
+        key === 'language' &&
+        typeof value === 'string' &&
+        NOTEBOOK_CELL_LANGUAGES_SET.has(value)
+      );
     case 'notebook.cell_executed':
       if (key === 'language')
         return typeof value === 'string' && NOTEBOOK_CELL_LANGUAGES_SET.has(value);

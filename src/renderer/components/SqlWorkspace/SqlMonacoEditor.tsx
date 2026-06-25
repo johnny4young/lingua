@@ -46,6 +46,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { configureMonaco } from '../../monaco';
 import { defineCustomThemes } from '../Editor/editorThemes';
+import { getSatelliteEditorOptions } from '../Editor/editorOptions';
 import { quoteSqlIdentifier } from './sqlResultFormatters';
 
 // Ensure the worker environment + the `sql` contribution are registered
@@ -255,21 +256,7 @@ export function SqlMonacoEditor({
           if (next !== undefined) onChange(next);
         }}
         onMount={handleMount}
-        options={{
-          ariaLabel,
-          lineNumbers: 'on',
-          minimap: { enabled: false },
-          wordWrap: 'off',
-          scrollBeyondLastLine: false,
-          tabSize: 2,
-          insertSpaces: true,
-          fontSize,
-          fontFamily,
-          padding: { top: 8 },
-          automaticLayout: true,
-          renderLineHighlight: 'line',
-          overviewRulerLanes: 0,
-        }}
+        options={getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel })}
       />
     </div>
   );

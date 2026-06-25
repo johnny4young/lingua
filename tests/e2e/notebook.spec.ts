@@ -10,9 +10,30 @@
  * fix is what makes the assertion below pass.
  */
 
+import type { Locator, Page } from '@playwright/test';
 import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
+
+/**
+ * RL-043 Slice (Monaco cells): a code cell is a static colorized view until
+ * edited, and the editing surface is a real Monaco editor (no
+ * `notebook-code-cell-source` textarea). This clicks the cell to mount its
+ * Monaco editor, selects all, and inserts the code via `insertText` —
+ * which dispatches an input event, bypassing Monaco's auto-close /
+ * auto-indent keydown handlers so brackets and newlines land verbatim.
+ */
+async function editCell(page: Page, row: Locator, code: string): Promise<void> {
+  const staticView = row.getByTestId('notebook-code-cell-static');
+  if ((await staticView.count()) > 0) {
+    await staticView.click();
+  }
+  const editor = row.locator('.monaco-editor').first();
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.insertText(code);
+}
 
 test.describe('Notebook foundation — Mod+Alt+N binding', () => {
   test('opens a fresh notebook tab with seeded cells (EN)', async ({ page }) => {
@@ -71,9 +92,7 @@ test.describe('Notebook — cross-cell variable sharing (Slice B)', () => {
     // Cell 1 — a destructuring declaration (the case the column-zero
     // regex could not capture and the AST rewriter now handles).
     const firstRow = page.getByTestId('notebook-code-cell-row').first();
-    await firstRow
-      .getByTestId('notebook-code-cell-source')
-      .fill('const { shared } = { shared: 42 };');
+    await editCell(page, firstRow, 'const { shared } = { shared: 42 };');
     await firstRow.getByTestId('notebook-code-cell-run').click();
     await expect(firstRow.getByTestId('notebook-code-cell-status')).toContainText(
       'Ok'
@@ -88,9 +107,7 @@ test.describe('Notebook — cross-cell variable sharing (Slice B)', () => {
     await page.getByTestId('notebook-toolbar-add-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
     const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
-    await secondRow
-      .getByTestId('notebook-code-cell-source')
-      .fill("console.log('shared is', shared * 2);");
+    await editCell(page, secondRow, "console.log('shared is', shared * 2);");
     await secondRow.getByTestId('notebook-code-cell-run').click();
     await expect(
       secondRow.getByTestId('notebook-code-cell-status')
@@ -116,9 +133,11 @@ test.describe('Notebook — cross-cell variable sharing (Slice B)', () => {
     // `structuredClone` of the result would throw on the function and drop
     // the WHOLE delta — the JSON cascade keeps `data`, drops `helper`.
     const firstRow = page.getByTestId('notebook-code-cell-row').first();
-    await firstRow
-      .getByTestId('notebook-code-cell-source')
-      .fill('const data = [4, 5, 6];\nfunction helper(n) { return n; }');
+    await editCell(
+      page,
+      firstRow,
+      'const data = [4, 5, 6];\nfunction helper(n) { return n; }'
+    );
     await firstRow.getByTestId('notebook-code-cell-run').click();
     await expect(firstRow.getByTestId('notebook-code-cell-status')).toContainText(
       'Ok'
@@ -130,9 +149,7 @@ test.describe('Notebook — cross-cell variable sharing (Slice B)', () => {
     await page.getByTestId('notebook-toolbar-add-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
     const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
-    await secondRow
-      .getByTestId('notebook-code-cell-source')
-      .fill("console.log('first is', data[0]);");
+    await editCell(page, secondRow, "console.log('first is', data[0]);");
     await secondRow.getByTestId('notebook-code-cell-run').click();
     await expect(
       secondRow.getByTestId('notebook-code-cell-status')
@@ -162,9 +179,11 @@ test.describe('Notebook — TypeScript cells (Slice C)', () => {
     await firstRow
       .getByTestId('notebook-code-cell-language')
       .selectOption('typescript');
-    await firstRow
-      .getByTestId('notebook-code-cell-source')
-      .fill('const doubled: number = 21 * 2;\nconsole.log(doubled);');
+    await editCell(
+      page,
+      firstRow,
+      'const doubled: number = 21 * 2;\nconsole.log(doubled);'
+    );
     await firstRow.getByTestId('notebook-code-cell-run').click();
     await expect(
       firstRow.getByTestId('notebook-code-cell-status')
@@ -181,9 +200,7 @@ test.describe('Notebook — TypeScript cells (Slice C)', () => {
     await page.getByTestId('notebook-toolbar-add-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
     const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
-    await secondRow
-      .getByTestId('notebook-code-cell-source')
-      .fill("console.log('doubled is', doubled + 1);");
+    await editCell(page, secondRow, "console.log('doubled is', doubled + 1);");
     await secondRow.getByTestId('notebook-code-cell-run').click();
     await expect(
       secondRow.getByTestId('notebook-code-cell-status')
@@ -206,9 +223,7 @@ test.describe('Notebook — TypeScript cells (Slice C)', () => {
     await firstRow
       .getByTestId('notebook-code-cell-language')
       .selectOption('typescript');
-    await firstRow
-      .getByTestId('notebook-code-cell-source')
-      .fill('const broken: number = ;');
+    await editCell(page, firstRow, 'const broken: number = ;');
     await firstRow.getByTestId('notebook-code-cell-run').click();
     await expect(
       firstRow.getByTestId('notebook-code-cell-status')
@@ -240,9 +255,7 @@ test.describe('Notebook — Python cells (Slice F)', () => {
       firstRow.getByTestId('notebook-code-cell-python-hint')
     ).toBeVisible();
 
-    await firstRow
-      .getByTestId('notebook-code-cell-source')
-      .fill('print("hello from python")');
+    await editCell(page, firstRow, 'print("hello from python")');
     await firstRow.getByTestId('notebook-code-cell-run').click();
 
     // First run boots Pyodide — allow generous headroom over the default
@@ -273,5 +286,51 @@ test.describe('Notebook — export (Slice D)', () => {
     await page.getByTestId('notebook-export-ipynb').click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.ipynb$/);
+  });
+});
+
+test.describe('Notebook — Monaco cells + mount-virtualization (Slice G)', () => {
+  test('mounts at most one Monaco editor across a multi-cell notebook (fold F)', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    // Two code cells, neither edited yet — every cell is a static colorized
+    // view, so NO Monaco editor is mounted.
+    await page.getByTestId('notebook-toolbar-add-code').click();
+    await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
+    await expect(page.locator('.monaco-editor')).toHaveCount(0);
+
+    // Editing the first cell mounts exactly one Monaco editor.
+    await page.getByTestId('notebook-code-cell-static').first().click();
+    await expect(page.locator('.monaco-editor')).toHaveCount(1);
+
+    // Editing the second cell still leaves exactly one — the first cell's
+    // editor disposes on blur (the mount-virtualization promise: a 200-cell
+    // notebook never accumulates editors).
+    await page.getByTestId('notebook-code-cell-static').first().click();
+    await expect(page.locator('.monaco-editor')).toHaveCount(1);
+  });
+
+  test('a Monaco cell runs the code typed into it', async ({ page }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    const firstRow = page.getByTestId('notebook-code-cell-row').first();
+    await editCell(page, firstRow, "console.log('from monaco');");
+    await firstRow.getByTestId('notebook-code-cell-run').click();
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-status')
+    ).toContainText('Ok');
+    await expect(
+      firstRow.getByTestId('notebook-code-cell-outputs')
+    ).toContainText('from monaco');
   });
 });

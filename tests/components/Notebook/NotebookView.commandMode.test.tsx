@@ -8,7 +8,7 @@
  * mocked at the runner so these tests exercise wiring, not execution.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,6 +19,11 @@ vi.mock('../../../src/renderer/runners', () => ({
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
 }));
+// RL-043 Slice (Monaco cells) — cells host Monaco; jsdom needs the mock.
+vi.mock('@monaco-editor/react', async () => {
+  const m = await import('../../__fixtures__/monacoEditorMock');
+  return m.makeMonacoEditorMock();
+});
 
 import { initI18n } from '../../../src/renderer/i18n';
 import { NotebookView } from '../../../src/renderer/components/Notebook/NotebookView';
@@ -29,6 +34,11 @@ import {
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { runnerManager } from '../../../src/renderer/runners';
 import type { NotebookCellV1 } from '../../../src/shared/notebook';
+import {
+  cellMockHarness,
+  resetMonacoCellHarness,
+  ESCAPE_CHORD,
+} from '../../__fixtures__/monacoEditorMock';
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 const mockStop = runnerManager.stop as unknown as ReturnType<typeof vi.fn>;
@@ -77,6 +87,7 @@ describe('<NotebookView /> command mode', () => {
     await initI18n();
   });
   beforeEach(async () => {
+    resetMonacoCellHarness();
     resetNotebookStoreForTests();
     useEditorStore.setState({
       tabs: [
@@ -103,16 +114,18 @@ describe('<NotebookView /> command mode', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('Esc in a code textarea drops to command mode (blur + shell focus)', async () => {
+  it('Esc in the cell editor drops to command mode (blur + shell focus)', async () => {
     seed([codeCell('c1'), codeCell('c2')]);
     render(<NotebookView tabId={TAB_ID} />);
-    const textarea = screen.getAllByTestId('notebook-code-cell-source')[0]!;
-    textarea.focus();
-    // Edit mode while typing.
+    // Enter edit mode on c1 (mounts the mocked Monaco).
+    fireEvent.mouseDown(screen.getAllByTestId('notebook-code-cell-static')[0]!);
     await waitFor(() =>
       expect(shell('c1').getAttribute('data-cell-mode')).toBe('edit')
     );
-    fireEvent.keyDown(textarea, { key: 'Escape' });
+    // Monaco's Esc command (fold G) routes to the row's command-mode drop.
+    act(() => {
+      cellMockHarness.commands.get(ESCAPE_CHORD)?.();
+    });
     await waitFor(() =>
       expect(shell('c1').getAttribute('data-cell-mode')).toBe('command')
     );
@@ -123,11 +136,12 @@ describe('<NotebookView /> command mode', () => {
     render(<NotebookView tabId={TAB_ID} />);
     shell('c1').focus();
     fireEvent.keyDown(screen.getByTestId('notebook-cells'), { key: 'Enter' });
+    // The cell mounts its editor (the mock renders the source textarea);
+    // Monaco owns the real caret focus, untestable through the mock.
     await waitFor(() =>
-      expect(document.activeElement).toBe(
-        screen.getByTestId('notebook-code-cell-source')
-      )
+      expect(screen.queryByTestId('notebook-code-cell-source')).toBeTruthy()
     );
+    expect(shell('c1').getAttribute('data-cell-mode')).toBe('edit');
   });
 
   it('j / k navigate the active cell down / up', () => {
@@ -283,7 +297,9 @@ describe('<NotebookView /> command mode', () => {
   it('does not fire command keybinds while typing in a textarea', () => {
     seed([codeCell('c1'), codeCell('c2')], 'c1');
     render(<NotebookView tabId={TAB_ID} />);
-    const textarea = screen.getAllByTestId('notebook-code-cell-source')[0]!;
+    // Enter edit mode on c1 so the editor's textarea is the keydown target.
+    fireEvent.mouseDown(screen.getAllByTestId('notebook-code-cell-static')[0]!);
+    const textarea = screen.getByTestId('notebook-code-cell-source');
     textarea.focus();
     // `j` typed in the textarea must NOT move the active cell.
     fireEvent.keyDown(textarea, { key: 'j' });

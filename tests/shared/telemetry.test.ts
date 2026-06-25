@@ -135,6 +135,9 @@ describe('TELEMETRY_EVENTS', () => {
       // anything whose lowercased name contains 'source' — same
       // precedent as `runtime.workflow_mode_changed { trigger }`.
       'language_scorecard_viewed',
+      // RL-043 Slice (Monaco cells) fold E — cell editor mounted. Sorts
+      // before `cell_executed` (`cell_e-ditor` < `cell_e-xecuted`).
+      'notebook.cell_editor_mounted',
       // RL-043 Slice A fold B — notebook cell execution. Sorts
       // between `language_scorecard_viewed` and
       // `onboarding.first_run_completed` because `n-o-t-e-b` <

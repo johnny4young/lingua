@@ -496,6 +496,13 @@ export const TELEMETRY_EVENTS = [
   // update-server with a 3-way parity test cross-importing the
   // canonical `NOTEBOOK_CELL_STATUSES` tuple from
   // `src/renderer/runtime/notebookSession.ts`.
+  // RL-043 Slice (Monaco cells) fold E — a notebook cell's Monaco editor
+  // was mounted (the user entered edit mode on a cell). Closed-enum
+  // `{ language }` where `language` ∈ `NOTEBOOK_CELL_LANGUAGES_SET`. Lets us
+  // later measure whether Monaco-backed cells slow large-notebook editing
+  // before committing to virtualization/perf work. NO cell source on the
+  // wire. Sorts before `cell_executed` (`cell_e-ditor` < `cell_e-xecuted`).
+  'notebook.cell_editor_mounted',
   'notebook.cell_executed',
   // RL-043 Slice C fold E — a notebook cell's language was switched via
   // the per-cell selector. Closed-enum `{ to }` where `to` ∈
@@ -872,6 +879,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // (Slice C: JavaScript + TypeScript runnable; Python schema-only),
   // `status` ∈ NOTEBOOK_CELL_STATUSES_SET
   // (`'ok' / 'error' / 'stopped'`).
+  // RL-043 Slice (Monaco cells) fold E — `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET.
+  'notebook.cell_editor_mounted': ['language'],
   'notebook.cell_executed': ['language', 'status'],
   // RL-043 Slice C fold E — `to` ∈ NOTEBOOK_CELL_LANGUAGES_SET.
   'notebook.cell_language_changed': ['to'],
@@ -2037,6 +2046,12 @@ function isAllowedValue(
       if (key === 'status')
         return typeof value === 'string' && RECIPE_RUN_STATUSES_SET.has(value);
       return false;
+    case 'notebook.cell_editor_mounted':
+      return (
+        key === 'language' &&
+        typeof value === 'string' &&
+        NOTEBOOK_CELL_LANGUAGES_SET.has(value)
+      );
     case 'notebook.cell_executed':
       if (key === 'language')
         return typeof value === 'string' && NOTEBOOK_CELL_LANGUAGES_SET.has(value);

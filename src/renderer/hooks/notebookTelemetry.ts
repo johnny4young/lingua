@@ -30,6 +30,18 @@ export function trackNotebookCellExecuted(
 }
 
 /**
+ * RL-043 Slice (Monaco cells) fold E — fire when a cell's Monaco editor
+ * mounts (the user entered edit mode). `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET;
+ * an adoption + perf signal (do Monaco-backed cells slow large notebooks?).
+ * NO cell source on the wire.
+ */
+export function trackNotebookCellEditorMounted(
+  language: NotebookCellLanguage
+): void {
+  void trackEvent('notebook.cell_editor_mounted', { language });
+}
+
+/**
  * RL-043 Slice C fold E — fire when the user switches a cell's language
  * via the per-cell selector. `to` ∈ NOTEBOOK_CELL_LANGUAGES_SET; an
  * adoption signal for TypeScript cells. NO cell source on the wire.

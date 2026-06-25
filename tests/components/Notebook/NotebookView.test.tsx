@@ -23,6 +23,11 @@ vi.mock('../../../src/renderer/runners', () => ({
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
 }));
+// RL-043 Slice (Monaco cells) — cells now host Monaco; jsdom needs the mock.
+vi.mock('@monaco-editor/react', async () => {
+  const m = await import('../../__fixtures__/monacoEditorMock');
+  return m.makeMonacoEditorMock();
+});
 
 import { initI18n } from '../../../src/renderer/i18n';
 import { NotebookView } from '../../../src/renderer/components/Notebook/NotebookView';
@@ -34,6 +39,25 @@ import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { runnerManager } from '../../../src/renderer/runners';
 import type { NotebookCellV1 } from '../../../src/shared/notebook';
+import {
+  cellMockHarness,
+  resetMonacoCellHarness,
+  RUN_IN_PLACE_CHORD,
+  RUN_ADVANCE_CHORD,
+  RUN_INSERT_CHORD,
+} from '../../__fixtures__/monacoEditorMock';
+
+/**
+ * RL-043 Slice (Monaco cells): a code cell is a static colorized view until
+ * edited. This enters edit mode on the last code cell (mounting the mocked
+ * Monaco, which captures the run keybind commands) and fires one.
+ */
+function runLastCodeCellKeybind(chord: number) {
+  fireEvent.mouseDown(screen.getAllByTestId('notebook-code-cell-static').at(-1)!);
+  act(() => {
+    cellMockHarness.commands.get(chord)?.();
+  });
+}
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 
@@ -62,6 +86,7 @@ describe('<NotebookView />', () => {
     await initI18n();
   });
   beforeEach(async () => {
+    resetMonacoCellHarness();
     resetNotebookStoreForTests();
     useEditorStore.setState({
       tabs: [
@@ -140,10 +165,10 @@ describe('<NotebookView />', () => {
       .getNotebookForTab(TAB_ID)!
       .cells.filter((cell) => cell.kind === 'code');
     expect(codeCells.at(-1)).toMatchObject({ language: 'python' });
-    const lastSource = screen
-      .getAllByTestId('notebook-code-cell-source')
-      .at(-1) as HTMLTextAreaElement;
-    expect(lastSource.getAttribute('placeholder')).toContain('Python');
+    // The new empty cell is a static view showing the language-aware
+    // placeholder copy until it is edited.
+    const lastStatic = screen.getAllByTestId('notebook-code-cell-static').at(-1)!;
+    expect(lastStatic.textContent).toContain('Python');
   });
 
   it('deletes a cell via the row action', async () => {
@@ -289,10 +314,7 @@ describe('<NotebookView />', () => {
       stderr: [],
     });
     render(<NotebookView tabId={TAB_ID} />);
-    fireEvent.keyDown(screen.getByTestId('notebook-code-cell-source'), {
-      key: 'Enter',
-      metaKey: true,
-    });
+    runLastCodeCellKeybind(RUN_IN_PLACE_CHORD);
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
   });
 
@@ -307,10 +329,7 @@ describe('<NotebookView />', () => {
     // Seed notebook has one code cell (the last cell). Shift+Enter on
     // it runs + appends a new code cell below.
     const before = screen.getAllByTestId('notebook-code-cell-row').length;
-    fireEvent.keyDown(screen.getByTestId('notebook-code-cell-source'), {
-      key: 'Enter',
-      shiftKey: true,
-    });
+    runLastCodeCellKeybind(RUN_ADVANCE_CHORD);
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(screen.getAllByTestId('notebook-code-cell-row').length).toBe(
@@ -328,10 +347,7 @@ describe('<NotebookView />', () => {
     });
     render(<NotebookView tabId={TAB_ID} />);
     const before = screen.getAllByTestId('notebook-code-cell-row').length;
-    fireEvent.keyDown(screen.getByTestId('notebook-code-cell-source'), {
-      key: 'Enter',
-      altKey: true,
-    });
+    runLastCodeCellKeybind(RUN_INSERT_CHORD);
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(screen.getAllByTestId('notebook-code-cell-row').length).toBe(
@@ -358,11 +374,11 @@ describe('<NotebookView />', () => {
     ]);
     render(<NotebookView tabId={TAB_ID} />);
 
+    fireEvent.mouseDown(
+      screen.getAllByTestId('notebook-code-cell-static').at(-1)!
+    );
     await act(async () => {
-      fireEvent.keyDown(screen.getByTestId('notebook-code-cell-source'), {
-        key: 'Enter',
-        shiftKey: true,
-      });
+      cellMockHarness.commands.get(RUN_ADVANCE_CHORD)?.();
     });
 
     // RL-043 Slice F — Python runs now, so Shift+Enter executes the cell
@@ -412,7 +428,9 @@ describe('<NotebookView />', () => {
     ]);
     render(<NotebookView tabId={TAB_ID} />);
 
-    screen.getAllByTestId('notebook-code-cell-source')[0]!.focus();
+    // Activate the first code cell (the seed already selects it, but make the
+    // intent explicit) so Run above targets the range through it.
+    fireEvent.mouseDown(screen.getAllByTestId('notebook-code-cell-row')[0]!);
     const user = userEvent.setup();
     await user.click(screen.getByTestId('notebook-toolbar-run-above'));
 

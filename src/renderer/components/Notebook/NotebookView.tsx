@@ -296,18 +296,20 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [removeCell, tabId]
   );
 
-  // Jupyter-parity run keybinds. Focus is moved imperatively after
-  // the next paint (the target cell may have just been created), so
-  // we avoid a setState-in-effect cascade — the focus is a DOM side
-  // effect, not React state.
-  const focusCellSoon = useCallback((cellId: string) => {
-    requestAnimationFrame(() => {
-      const el = document.querySelector<HTMLTextAreaElement>(
-        `[data-cell-id="${cellId}"] [data-testid="notebook-code-cell-source"]`
-      );
-      el?.focus();
-    });
-  }, []);
+  // Jupyter-parity run keybinds. RL-043 Slice (Monaco cells): a code cell
+  // no longer has an always-mounted textarea to focus, so "advance into
+  // edit mode" routes through the edit-request mechanism — select the cell
+  // and bump its edit nonce, which mounts its Monaco editor (it focuses
+  // itself on mount). Works for a just-created cell too: `addCell` updates
+  // the store synchronously, so the target row exists by the time React
+  // re-renders with the bumped nonce.
+  const focusCellSoon = useCallback(
+    (cellId: string) => {
+      setActiveCell(tabId, cellId);
+      requestEditMode(cellId);
+    },
+    [requestEditMode, setActiveCell, tabId]
+  );
 
   // Focus a cell SHELL (command mode) after the next paint — used after
   // a structural edit so focus follows the active cell back into command
@@ -962,6 +964,9 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                     varFlow={varFlow}
                     executionOrder={cellExecutionOrderMap?.[cell.id] ?? null}
                     isActive={isActive}
+                    editRequestNonce={
+                      editRequest?.cellId === cell.id ? editRequest.nonce : null
+                    }
                     canMoveUp={canMoveUp}
                     canMoveDown={canMoveDown}
                     disabled={disabled}

@@ -3273,6 +3273,7 @@
   "notebook.cell.delete": "Delete cell",
   "notebook.cell.editMarkdown": "Edit markdown",
   "notebook.cell.previewMarkdown": "Preview markdown",
+  "notebook.cell.codeEditorLabel": "Code cell editor",
   "notebook.cell.codeSourcePlaceholder": "// Write {{language}} here. Cmd/Ctrl+Enter runs in place; Shift+Enter runs + moves on; Alt+Enter runs + adds a cell.",
   "notebook.cell.codeSourceShortcutHint": "Cmd/Ctrl+Enter runs in place. Shift+Enter runs and moves on. Alt+Enter runs and inserts a cell.",
   "notebook.cell.markdownSourcePlaceholder": "Write markdown — paragraphs, headings, lists, and fenced code blocks.",

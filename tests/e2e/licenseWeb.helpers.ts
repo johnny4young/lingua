@@ -74,6 +74,14 @@ const KNOWN_BENIGN_CONSOLE_ERROR_PATTERNS: RegExp[] = [
   /Service worker is disabled because the context is sandboxed/i,
   /Failed to read the '(localStorage|sessionStorage|serviceWorker)' property from 'Window'.*sandboxed/i,
   /document is sandboxed and lacks the 'allow-same-origin'/i,
+  // RL-043 Slice (Monaco cells) — a notebook code cell mounts a Monaco
+  // editor only while focused and disposes it on blur (mount-virtualization).
+  // When an editor disposes while its TS worker is mid-analysis, Monaco
+  // logs its internal `CancellationError` (literal message "Canceled") to
+  // the console. It is framework noise from a deliberate disposal, never
+  // propagated to app code (so it cannot be caught/suppressed there) and
+  // invisible to users. Exact-match so a real app "...Canceled" stays caught.
+  /^(Error: )?Canceled$/,
 ];
 
 function trackConsoleErrors(page: Page): string[] {

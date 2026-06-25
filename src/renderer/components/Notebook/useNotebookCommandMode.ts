@@ -3,25 +3,26 @@
  *
  * The notebook now mirrors Jupyter's two-mode keyboard model:
  *
- *   - EDIT mode: the caret is inside a cell's `<textarea>`; typing edits
- *     source. The only structural keybinds that fire here are the
- *     RUN family (Cmd/Ctrl+Enter, Shift+Enter, Alt+Enter) handled
- *     inside each cell row — everything else is a plain keystroke.
+ *   - EDIT mode: the caret is inside a cell editor (Monaco for code,
+ *     textarea for markdown); typing edits source. The only structural
+ *     keybinds that fire here are the RUN family (Cmd/Ctrl+Enter,
+ *     Shift+Enter, Alt+Enter) handled inside each cell row — everything
+ *     else is a plain keystroke.
  *   - COMMAND mode: focus sits on the cell SHELL (a `tabIndex=-1`
- *     element), not the textarea. Single-letter keybinds (j/k/a/b/dd/
+ *     element), not the editor. Single-letter keybinds (j/k/a/b/dd/
  *     z/m/y) drive navigation + structural edits. No keystroke ever
  *     mutates source here.
  *
- * Esc (from a textarea) drops to command mode (blur → focus the shell).
- * Enter (in command mode) enters edit mode (focus the textarea / open
- * the markdown editor). This hook owns the *derived* mode + the
+ * Esc (from an editor) drops to command mode (blur → focus the shell).
+ * Enter (in command mode) enters edit mode (mount/focus the cell editor).
+ * This hook owns the *derived* mode + the
  * imperative focus moves; the authoritative active-cell id stays in the
  * notebook store so selection survives re-render.
  *
  * Keybinds are dispatched from the cells-container `onKeyDown`. Because
- * a focused textarea swallows its own keys (the cell row's run handler
- * is the only escape hatch), the container handler only ever sees keys
- * while focus is on a cell shell — i.e. command mode. We still guard
+ * focused editable descendants swallow their own keys (the cell row's run
+ * handler is the only escape hatch), the container handler only ever sees
+ * keys while focus is on a cell shell — i.e. command mode. We still guard
  * defensively against an editable target so a stray bubble can't fire a
  * structural op mid-type.
  */
@@ -65,9 +66,9 @@ export interface NotebookCommandModeActions {
   /** Move active selection to a cell by id. */
   readonly setActiveCell: (cellId: string) => void;
   /**
-   * Signal a cell to swap into its editor (markdown rows start in
-   * preview, so command-mode Enter must flip them before focus lands).
-   * Code rows ignore this — their textarea is always mounted.
+   * Signal a cell to swap into its editor. Markdown rows start in
+   * preview, and code rows now mount Monaco only while editing, so
+   * command-mode Enter must flip the target before focus lands.
    */
   readonly requestEdit: (cellId: string) => void;
 }
@@ -83,7 +84,7 @@ export interface UseNotebookCommandModeParams {
 export interface UseNotebookCommandModeResult {
   /**
    * `onKeyDown` for the cells container. Handles every command-mode
-   * keybind; never fires while a textarea owns focus. This is the only
+   * keybind; never fires while an editor owns focus. This is the only
    * surface the view wires — selection + edit/command focus moves are
    * driven internally via the `actions` callbacks.
    */
@@ -109,10 +110,10 @@ function focusShell(cellId: string): void {
 }
 
 /**
- * Imperatively focus a cell's EDITOR (edit mode). For code cells the
- * textarea always exists; for markdown cells the row swaps to its editor
- * when it sees the `requestEdit` signal (see `onEnterEditMode`), so by
- * the time this runs after paint the textarea is mounted.
+ * Imperatively focus a cell's EDITOR (edit mode). Markdown rows swap to a
+ * textarea when they see the `requestEdit` signal; code rows mount Monaco
+ * and focus themselves in `onMount`. The code-cell textarea selector remains
+ * for component tests that mock Monaco with a textarea.
  */
 function focusEditor(cellId: string): void {
   requestAnimationFrame(() => {
@@ -144,8 +145,8 @@ export function useNotebookCommandMode({
   const enterEditMode = useCallback(
     (cellId: string) => {
       actions.setActiveCell(cellId);
-      // Flip markdown rows into their editor first; the focus move runs
-      // on the next frame, by which point the textarea is mounted.
+      // Flip the row into its editor first. Markdown focus is applied on
+      // the next frame; Monaco code cells focus themselves when mounted.
       actions.requestEdit(cellId);
       focusEditor(cellId);
     },
@@ -177,7 +178,7 @@ export function useNotebookCommandMode({
   const handleContainerKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLElement>) => {
       // Never intercept while focus is in an editable surface: that is
-      // EDIT mode, where keystrokes belong to the textarea (and the run
+      // EDIT mode, where keystrokes belong to the editor (and the run
       // family is handled inside the cell row). This is the hard line
       // that keeps single-letter keybinds out of typed source.
       const target = event.target as HTMLElement | null;

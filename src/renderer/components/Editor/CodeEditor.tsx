@@ -28,6 +28,7 @@ import { useSmartPaste } from '../../hooks/useSmartPaste';
 import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
+import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { notifyDependencyDetectionPaste } from '../../hooks/useDependencyDetection';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
@@ -36,30 +37,6 @@ import { VimStatusBar } from './VimStatusBar';
 import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
 
 configureMonaco();
-
-// ---------------------------------------------------------------------------
-// monaco-vim lazy loader (RL-037)
-// ---------------------------------------------------------------------------
-//
-// The chunk is fetched at most once per session — even rapid toggle on /
-// off cycles share the same in-flight promise. Failures fall through to
-// `null` so the gate in `CodeEditor` simply skips the init call instead
-// of bricking the editor; the user can re-flip the toggle to retry.
-
-type MonacoVimModule = typeof import('monaco-vim');
-type VimAdapter = ReturnType<MonacoVimModule['initVimMode']>;
-
-let monacoVimPromise: Promise<MonacoVimModule | null> | null = null;
-
-function loadMonacoVim(): Promise<MonacoVimModule | null> {
-  if (monacoVimPromise) return monacoVimPromise;
-  monacoVimPromise = import('monaco-vim').catch((error: unknown) => {
-    console.warn('Failed to load monaco-vim chunk', error);
-    monacoVimPromise = null;
-    return null;
-  });
-  return monacoVimPromise;
-}
 
 // ---------------------------------------------------------------------------
 // Component

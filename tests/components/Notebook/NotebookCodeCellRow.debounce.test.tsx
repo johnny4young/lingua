@@ -11,6 +11,11 @@
  *   - a pending edit flushes on unmount;
  *   - switching the row to a different cell flushes the previous cell's
  *     pending edit onto the cell it was typed into (never the new one).
+ *
+ * RL-043 Slice (Monaco cells): the editor surface is now Monaco. The
+ * `@monaco-editor/react` mock renders a `notebook-code-cell-source`
+ * textarea while editing, so these tests first click the static cell to
+ * enter edit mode, then drive the same draft/flush contract through it.
  */
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -20,6 +25,16 @@ import { initI18n } from '../../../src/renderer/i18n';
 import { NotebookCodeCellRow } from '../../../src/renderer/components/Notebook/NotebookCodeCellRow';
 import { getNotebookCellAutoSaveDebounceMs } from '../../../src/renderer/components/Notebook/notebookCellEditorTiming';
 import type { NotebookCodeCellV1 } from '../../../src/shared/notebook';
+import {
+  cellMockHarness,
+  resetMonacoCellHarness,
+  RUN_IN_PLACE_CHORD,
+} from '../../__fixtures__/monacoEditorMock';
+
+vi.mock('@monaco-editor/react', async () => {
+  const m = await import('../../__fixtures__/monacoEditorMock');
+  return m.makeMonacoEditorMock();
+});
 
 function makeCell(overrides: Partial<NotebookCodeCellV1> = {}): NotebookCodeCellV1 {
   return {
@@ -32,25 +47,33 @@ function makeCell(overrides: Partial<NotebookCodeCellV1> = {}): NotebookCodeCell
   };
 }
 
-function renderRow(
+function rowProps(
   cell: NotebookCodeCellV1,
-  onSourceChange: (cellId: string, source: string) => void
+  onSourceChange: (cellId: string, source: string) => void,
+  extra: Record<string, unknown> = {}
 ) {
-  return render(
-    <NotebookCodeCellRow
-      cell={cell}
-      cellIndex={0}
-      status="idle"
-      canMoveUp={false}
-      canMoveDown={false}
-      disabled={false}
-      onSourceChange={onSourceChange}
-      onRunCell={vi.fn()}
-      onMoveUp={vi.fn()}
-      onMoveDown={vi.fn()}
-      onDelete={vi.fn()}
-    />
-  );
+  return {
+    cell,
+    cellIndex: 0,
+    status: 'idle' as const,
+    isActive: true,
+    canMoveUp: false,
+    canMoveDown: false,
+    disabled: false,
+    onActivate: vi.fn(),
+    onSourceChange,
+    onRunCell: vi.fn(),
+    onMoveUp: vi.fn(),
+    onMoveDown: vi.fn(),
+    onDelete: vi.fn(),
+    onLanguageChange: vi.fn(),
+    ...extra,
+  };
+}
+
+/** Click the static cell view to mount the Monaco editor (edit mode). */
+function enterEdit() {
+  fireEvent.mouseDown(screen.getByTestId('notebook-code-cell-static'));
 }
 
 const DEBOUNCE_MS = getNotebookCellAutoSaveDebounceMs();
@@ -62,6 +85,7 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
   });
 
   beforeEach(() => {
+    resetMonacoCellHarness();
     vi.useFakeTimers();
   });
 
@@ -71,14 +95,13 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
 
   it('does not persist on a keystroke and persists once after the debounce settles', () => {
     const onSourceChange = vi.fn();
-    renderRow(makeCell({ source: '' }), onSourceChange);
+    render(<NotebookCodeCellRow {...rowProps(makeCell({ source: '' }), onSourceChange)} />);
+    enterEdit();
 
     fireEvent.change(screen.getByTestId('notebook-code-cell-source'), {
       target: { value: 'console.log(1)' },
     });
 
-    // The keystroke writes only local state — the persisted store is
-    // untouched until the quiet window elapses.
     expect(onSourceChange).not.toHaveBeenCalled();
 
     act(() => {
@@ -91,7 +114,8 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
 
   it('collapses rapid edits into a single persist of the latest text', () => {
     const onSourceChange = vi.fn();
-    renderRow(makeCell({ source: '' }), onSourceChange);
+    render(<NotebookCodeCellRow {...rowProps(makeCell({ source: '' }), onSourceChange)} />);
+    enterEdit();
 
     const textarea = screen.getByTestId('notebook-code-cell-source');
     fireEvent.change(textarea, { target: { value: 'a' } });
@@ -112,7 +136,10 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
 
   it('flushes the latest draft on unmount before the debounce settles', () => {
     const onSourceChange = vi.fn();
-    const { unmount } = renderRow(makeCell({ source: '' }), onSourceChange);
+    const { unmount } = render(
+      <NotebookCodeCellRow {...rowProps(makeCell({ source: '' }), onSourceChange)} />
+    );
+    enterEdit();
 
     fireEvent.change(screen.getByTestId('notebook-code-cell-source'), {
       target: { value: 'late()' },
@@ -129,24 +156,16 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
     const onRunCell = vi.fn();
     render(
       <NotebookCodeCellRow
-        cell={makeCell({ source: '' })}
-        cellIndex={0}
-        status="idle"
-        canMoveUp={false}
-        canMoveDown={false}
-        disabled={false}
-        onSourceChange={onSourceChange}
-        onRunCell={onRunCell}
-        onMoveUp={vi.fn()}
-        onMoveDown={vi.fn()}
-        onDelete={vi.fn()}
+        {...rowProps(makeCell({ source: '' }), onSourceChange, { onRunCell })}
       />
     );
+    enterEdit();
 
-    const textarea = screen.getByTestId('notebook-code-cell-source');
-    fireEvent.change(textarea, { target: { value: '1 + 1' } });
-    // Cmd+Enter <debounce after the last keystroke must flush first.
-    fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
+    fireEvent.change(screen.getByTestId('notebook-code-cell-source'), {
+      target: { value: '1 + 1' },
+    });
+    // Cmd/Ctrl+Enter <debounce after the last keystroke must flush first.
+    act(() => cellMockHarness.commands.get(RUN_IN_PLACE_CHORD)?.());
 
     expect(onSourceChange).toHaveBeenCalledTimes(1);
     expect(onSourceChange).toHaveBeenLastCalledWith('cell-a', '1 + 1');
@@ -155,7 +174,12 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
 
   it('flushes a pending edit onto the cell it was typed into when the row rebinds to another cell', () => {
     const onSourceChange = vi.fn();
-    const { rerender } = renderRow(makeCell({ id: 'cell-a', source: '' }), onSourceChange);
+    const { rerender } = render(
+      <NotebookCodeCellRow
+        {...rowProps(makeCell({ id: 'cell-a', source: '' }), onSourceChange)}
+      />
+    );
+    enterEdit();
 
     // Type into cell-a but do NOT let the debounce settle.
     fireEvent.change(screen.getByTestId('notebook-code-cell-source'), {
@@ -165,17 +189,7 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
     // Rebind the row to a different cell inside the quiet window.
     rerender(
       <NotebookCodeCellRow
-        cell={makeCell({ id: 'cell-b', source: 'b-source' })}
-        cellIndex={0}
-        status="idle"
-        canMoveUp={false}
-        canMoveDown={false}
-        disabled={false}
-        onSourceChange={onSourceChange}
-        onRunCell={vi.fn()}
-        onMoveUp={vi.fn()}
-        onMoveDown={vi.fn()}
-        onDelete={vi.fn()}
+        {...rowProps(makeCell({ id: 'cell-b', source: 'b-source' }), onSourceChange)}
       />
     );
 

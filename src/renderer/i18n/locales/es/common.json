@@ -3273,6 +3273,7 @@
   "notebook.cell.delete": "Elimina la celda",
   "notebook.cell.editMarkdown": "Edita el markdown",
   "notebook.cell.previewMarkdown": "Previsualiza el markdown",
+  "notebook.cell.codeEditorLabel": "Editor de celda de código",
   "notebook.cell.codeSourcePlaceholder": "// Escribe {{language}} aquí. Cmd/Ctrl+Enter ejecuta en el sitio; Shift+Enter ejecuta y avanza; Alt+Enter ejecuta y agrega una celda.",
   "notebook.cell.codeSourceShortcutHint": "Cmd/Ctrl+Enter ejecuta en el sitio. Shift+Enter ejecuta y avanza. Alt+Enter ejecuta e inserta una celda.",
   "notebook.cell.markdownSourcePlaceholder": "Escribe markdown — párrafos, encabezados, listas y bloques de código.",

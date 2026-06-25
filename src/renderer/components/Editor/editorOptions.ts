@@ -11,6 +11,49 @@ interface EditorOptionInput {
   minimap: boolean;
 }
 
+/**
+ * RL-043 Slice (Monaco cells) fold A — shared option builder for the
+ * "satellite" Monaco surfaces that are NOT the main code editor: the SQL
+ * workspace editor and the notebook cell editor. These surfaces want a
+ * leaner config than the full `getEditorOptions` (no glyph margin, no
+ * smooth-caret animation, no overview ruler) but must stay font/tab
+ * consistent with it. Centralizing the shape here stops the SQL and
+ * notebook editors from drifting apart option-by-option over time.
+ *
+ * `ariaLabel` is required (each satellite owns its own accessible name).
+ * Returned `as const` so the Monaco-option literal types survive the
+ * function boundary (mirrors `getEditorOptions`); a caller that needs a
+ * per-surface tweak spreads it into an inline `options={{ ...base, ... }}`
+ * literal, which the editor prop contextually re-types.
+ */
+export interface SatelliteEditorOptionInput {
+  fontSize: number;
+  fontFamily: string;
+  ariaLabel: string;
+}
+
+export function getSatelliteEditorOptions({
+  fontSize,
+  fontFamily,
+  ariaLabel,
+}: SatelliteEditorOptionInput) {
+  return {
+    ariaLabel,
+    fontSize,
+    fontFamily,
+    lineNumbers: 'on',
+    minimap: { enabled: false },
+    wordWrap: 'off',
+    scrollBeyondLastLine: false,
+    tabSize: 2,
+    insertSpaces: true,
+    padding: { top: 8, bottom: 8 },
+    automaticLayout: true,
+    renderLineHighlight: 'line',
+    overviewRulerLanes: 0,
+  } as const;
+}
+
 export function getEditorOptions({
   fontSize,
   fontFamily,
