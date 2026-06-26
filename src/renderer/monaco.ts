@@ -30,6 +30,25 @@ import { getLanguageSupportDescriptor } from './languageSupport/registry';
 type MonacoWorkerFactory = new () => Worker;
 
 const WORKER_RUNTIME_LIBS = ['es2022', 'webworker'];
+const NODE_TYPE_DEFINITION_ROOT_MARKER = 'node_modules/@types/node/';
+const NODE_TYPE_DEFINITION_ROOT_URI = 'file:///node_modules/@types/node/';
+// Lazy (NOT eager): @types/node is ~2.4 MB of raw .d.ts across ~126 files.
+// Eager-globbing it would inline all of that into whatever chunk imports this
+// module (loaded at first editor mount, even for a Python-only user) and into
+// the web bundle, where the Node runner cannot even run. Each entry is a
+// `() => Promise<string>` instead, so the type chunk only downloads the first
+// time `applyTypeScriptDefaults` runs, off the initial path.
+const NODE_TYPE_DEFINITION_MODULES = import.meta.glob<string>(
+  [
+    '../../node_modules/@types/node/**/*.d.ts',
+    '!../../node_modules/@types/node/ts5.6/**/*.d.ts',
+    '!../../node_modules/@types/node/ts5.7/**/*.d.ts',
+  ],
+  {
+    import: 'default',
+    query: '?raw',
+  }
+);
 
 const workerFactories: Record<string, MonacoWorkerFactory> = {
   json: JsonWorker,
@@ -48,6 +67,7 @@ function getWorkerFactory(label: string): MonacoWorkerFactory {
 }
 
 let configured = false;
+let nodeTypeDefinitionsRegistered = false;
 
 /**
  * Per-language registration cache, keyed by Monaco language id. The value is the
@@ -192,6 +212,53 @@ export function prefetchLanguage(languageId: string): void {
   }
 }
 
+type MonacoLanguageDefaultsWithExtraLib = {
+  addExtraLib?: (content: string, filePath?: string) => unknown;
+};
+
+type MonacoTypeScriptDefaultsWithExtraLib = {
+  javascriptDefaults: MonacoLanguageDefaultsWithExtraLib;
+  typescriptDefaults: MonacoLanguageDefaultsWithExtraLib;
+};
+
+function nodeTypeDefinitionUri(modulePath: string): string | null {
+  const markerIndex = modulePath.indexOf(NODE_TYPE_DEFINITION_ROOT_MARKER);
+  if (markerIndex === -1) return null;
+  const relativePath = modulePath.slice(
+    markerIndex + NODE_TYPE_DEFINITION_ROOT_MARKER.length
+  );
+  return `${NODE_TYPE_DEFINITION_ROOT_URI}${relativePath}`;
+}
+
+async function registerNodeTypeDefinitions(
+  ts: MonacoTypeScriptDefaultsWithExtraLib
+): Promise<void> {
+  if (nodeTypeDefinitionsRegistered) return;
+  const jsAddExtraLib = ts.javascriptDefaults.addExtraLib;
+  const tsAddExtraLib = ts.typescriptDefaults.addExtraLib;
+  if (typeof jsAddExtraLib !== 'function' || typeof tsAddExtraLib !== 'function') {
+    return;
+  }
+  // Claim the one-shot flag up front so a second editor mount arriving while
+  // the type chunk is still downloading does not start a duplicate pass.
+  nodeTypeDefinitionsRegistered = true;
+
+  for (const [modulePath, loadContent] of Object.entries(NODE_TYPE_DEFINITION_MODULES).sort(
+    ([left], [right]) => left.localeCompare(right)
+  )) {
+    const filePath = nodeTypeDefinitionUri(modulePath);
+    if (!filePath) continue;
+    try {
+      const content = await loadContent();
+      jsAddExtraLib(content, filePath);
+      tsAddExtraLib(content, filePath);
+    } catch {
+      // Best-effort: a .d.ts chunk that fails to load just leaves that
+      // built-in module untyped; the editor stays usable.
+    }
+  }
+}
+
 /**
  * Configure TypeScript/JavaScript language defaults. Must be called inside a
  * MonacoEditor beforeMount callback where the monaco instance is fully
@@ -228,6 +295,12 @@ export function applyTypeScriptDefaults(m: Monaco): void {
   ts.typescriptDefaults.setEagerModelSync(true);
   ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
   ts.typescriptDefaults.setCompilerOptions(compilerOptions);
+
+  // Fire-and-forget: the Node typings download lazily off the first-mount path
+  // (see NODE_TYPE_DEFINITION_MODULES). beforeMount is synchronous, so we do
+  // not block editor creation on the type chunk; intellisense for crypto/fs/etc
+  // lights up a tick after the editor appears.
+  void registerNodeTypeDefinitions(ts);
 }
 
 /**

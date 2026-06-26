@@ -36,17 +36,19 @@
  *   - Fold F — module-resolution helper: `resolveNodeCwd()` walks
  *     up from the saved tab's `filePath` directory looking for
  *     `node_modules/`; if found, that dir is the cwd.
- *   - Fold G — `package.json#type` awareness: when the resolved cwd
- *     contains a `package.json` declaring `"type": "module"`, the
- *     runner switches the `-e` invocation to
- *     `--input-type=module`.
+ *   - Fold G — module-mode selection: explicit ESM/CJS extensions,
+ *     source syntax (`import` / `export` / top-level `await` /
+ *     `import.meta`), and the nearest `package.json#type` pick the
+ *     `--input-type` mode used by inline snippets and temp files.
  */
 
 import { ipcMain, app } from 'electron';
+import { parse } from 'acorn';
+import type { Node as AcornNode, Program as AcornProgram } from 'acorn';
 import * as childProc from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import {
@@ -84,6 +86,30 @@ const KILL_ESCALATION_DELAY_MS = 200;
  * defends with a sensible default if the IPC was malformed.
  */
 const DEFAULT_NODE_TIMEOUT_MS = 30_000;
+const NODE_DETECT_TIMEOUT_MS = 5_000;
+
+/**
+ * Packaged GUI launches can inherit a narrower PATH than the user's terminal:
+ * macOS apps opened through Finder/LaunchServices are the common failure case,
+ * but Linux desktop files and Windows shortcuts can also miss shell-managed
+ * version managers. Keep the first probe as plain `node` for normal PATH-aware
+ * launches, then walk common absolute install locations without evaluating
+ * shell startup files.
+ */
+const DARWIN_SYSTEM_NODE_FALLBACK_PATHS = [
+  '/opt/homebrew/bin/node',
+  '/usr/local/bin/node',
+  '/opt/local/bin/node',
+  '/usr/bin/node',
+] as const;
+const LINUX_SYSTEM_NODE_FALLBACK_PATHS = [
+  '/usr/local/bin/node',
+  '/usr/bin/node',
+  '/bin/node',
+  '/snap/bin/node',
+  '/opt/node/bin/node',
+  '/opt/nodejs/bin/node',
+] as const;
 
 const RUNTIME_STDOUT_TRUNCATION_MARKER = '\n[stdout truncated]';
 const RUNTIME_STDERR_TRUNCATION_MARKER = '\n[stderr truncated]';
@@ -108,6 +134,8 @@ export type NodeRunKind =
 
 export interface NodeDetectResult {
   installed: boolean;
+  /** Binary used for future runs; absolute when resolved via GUI fallbacks. */
+  binary?: string;
   version?: string;
   error?: string;
 }
@@ -144,6 +172,231 @@ export interface NodeRunResult {
 let cachedDetect: NodeDetectResult | null = null;
 const activeNodeRuns = new Map<string, () => void>();
 
+function envValue(
+  key: string,
+  userEnv?: Record<string, string>
+): string | undefined {
+  return userEnv?.[key] || process.env[key];
+}
+
+function homeDirForNodeCandidates(userEnv?: Record<string, string>): string {
+  return (
+    envValue('HOME', userEnv) ||
+    envValue('USERPROFILE', userEnv) ||
+    homedir()
+  );
+}
+
+function normalizeVersionLabel(label: string): [number, number, number] | null {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(label);
+  if (!match) return null;
+  return [
+    Number.parseInt(match[1] ?? '0', 10),
+    Number.parseInt(match[2] ?? '0', 10),
+    Number.parseInt(match[3] ?? '0', 10),
+  ];
+}
+
+function compareVersionLabels(a: string, b: string): number {
+  const parsedA = normalizeVersionLabel(a);
+  const parsedB = normalizeVersionLabel(b);
+  if (!parsedA && !parsedB) return a.localeCompare(b);
+  if (!parsedA) return -1;
+  if (!parsedB) return 1;
+  const [majorA, minorA, patchA] = parsedA;
+  const [majorB, minorB, patchB] = parsedB;
+  for (const [left, right] of [
+    [majorA, majorB],
+    [minorA, minorB],
+    [patchA, patchB],
+  ] as const) {
+    const delta = left - right;
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
+function installedNodeVersionCandidates(
+  root: string,
+  nodePathFromVersion: (version: string) => string
+): string[] {
+  if (!existsSync(root)) return [];
+  try {
+    return readdirSync(root)
+      .filter((entry) => normalizeVersionLabel(entry) !== null)
+      .sort((a, b) => compareVersionLabels(b, a))
+      .map(nodePathFromVersion);
+  } catch {
+    return [];
+  }
+}
+
+function nvmDefaultNodeCandidate(root: string): string | null {
+  const aliasPath = path.join(root, 'alias', 'default');
+  if (!existsSync(aliasPath)) return null;
+  try {
+    const alias = readFileSync(aliasPath, 'utf-8').trim();
+    if (!alias || alias === 'node' || alias === 'stable') return null;
+    const version = alias.startsWith('v') ? alias : `v${alias}`;
+    return path.join(root, 'versions', 'node', version, 'bin', 'node');
+  } catch {
+    return null;
+  }
+}
+
+function appendNodeExecutable(directory: string | undefined): string | null {
+  if (!directory) return null;
+  return path.join(
+    directory,
+    process.platform === 'win32' ? 'node.exe' : 'node'
+  );
+}
+
+function posixNodeBinaryCandidates(
+  userEnv?: Record<string, string>
+): Array<string | null> {
+  const home = homeDirForNodeCandidates(userEnv);
+  const nvmRoot = envValue('NVM_DIR', userEnv) || path.join(home, '.nvm');
+  const xdgDataHome = envValue('XDG_DATA_HOME', userEnv) || path.join(home, '.local', 'share');
+  const fnmRoots = [
+    envValue('FNM_DIR', userEnv),
+    path.join(xdgDataHome, 'fnm'),
+    path.join(home, '.local', 'share', 'fnm'),
+    path.join(home, 'Library', 'Application Support', 'fnm'),
+    path.join(home, '.fnm'),
+  ].filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+  const nodenvRoot = envValue('NODENV_ROOT', userEnv) || path.join(home, '.nodenv');
+
+  return [
+    path.join(home, '.volta', 'bin', 'node'),
+    ...fnmRoots.map((root) => path.join(root, 'aliases', 'default', 'bin', 'node')),
+    nvmDefaultNodeCandidate(nvmRoot),
+    path.join(home, '.asdf', 'shims', 'node'),
+    path.join(home, '.local', 'share', 'mise', 'shims', 'node'),
+    path.join(nodenvRoot, 'shims', 'node'),
+    path.join(home, '.nodebrew', 'current', 'bin', 'node'),
+    path.join(home, '.local', 'bin', 'node'),
+    ...(process.platform === 'darwin' ? DARWIN_SYSTEM_NODE_FALLBACK_PATHS : []),
+    ...(process.platform === 'linux' ? LINUX_SYSTEM_NODE_FALLBACK_PATHS : []),
+    ...fnmRoots.flatMap((root) =>
+      installedNodeVersionCandidates(
+        path.join(root, 'node-versions'),
+        (version) => path.join(root, 'node-versions', version, 'installation', 'bin', 'node')
+      )
+    ),
+    ...installedNodeVersionCandidates(
+      path.join(nvmRoot, 'versions', 'node'),
+      (version) => path.join(nvmRoot, 'versions', 'node', version, 'bin', 'node')
+    ),
+    ...installedNodeVersionCandidates(
+      path.join(nodenvRoot, 'versions'),
+      (version) => path.join(nodenvRoot, 'versions', version, 'bin', 'node')
+    ),
+  ];
+}
+
+function windowsNodeBinaryCandidates(
+  userEnv?: Record<string, string>
+): Array<string | null> {
+  const home = homeDirForNodeCandidates(userEnv);
+  const appData = envValue('APPDATA', userEnv);
+  const localAppData = envValue('LOCALAPPDATA', userEnv);
+  const programFiles = envValue('ProgramFiles', userEnv);
+  const programFilesX86 = envValue('ProgramFiles(x86)', userEnv);
+  const programData = envValue('ProgramData', userEnv) || 'C:\\ProgramData';
+  const chocolateyInstall = envValue('ChocolateyInstall', userEnv);
+  const nvmHome = envValue('NVM_HOME', userEnv) || (appData ? path.join(appData, 'nvm') : undefined);
+  const nvmSymlink = envValue('NVM_SYMLINK', userEnv);
+  const fnmRoots = [
+    envValue('FNM_DIR', userEnv),
+    localAppData ? path.join(localAppData, 'fnm') : undefined,
+    appData ? path.join(appData, 'fnm') : undefined,
+  ].filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+
+  return [
+    appendNodeExecutable(nvmSymlink),
+    appendNodeExecutable(localAppData ? path.join(localAppData, 'Volta', 'bin') : undefined),
+    appendNodeExecutable(programFiles ? path.join(programFiles, 'nodejs') : undefined),
+    appendNodeExecutable(programFilesX86 ? path.join(programFilesX86, 'nodejs') : undefined),
+    appendNodeExecutable(localAppData ? path.join(localAppData, 'Programs', 'nodejs') : undefined),
+    appendNodeExecutable(chocolateyInstall ? path.join(chocolateyInstall, 'bin') : undefined),
+    appendNodeExecutable(path.join(programData, 'chocolatey', 'bin')),
+    appendNodeExecutable(path.join(home, 'scoop', 'shims')),
+    appendNodeExecutable(path.join(programData, 'scoop', 'shims')),
+    appendNodeExecutable(localAppData ? path.join(localAppData, 'mise', 'shims') : undefined),
+    appendNodeExecutable(path.join(home, '.asdf', 'shims')),
+    appendNodeExecutable(localAppData ? path.join(localAppData, 'Nodist', 'bin') : undefined),
+    appendNodeExecutable(programFiles ? path.join(programFiles, 'Nodist', 'bin') : undefined),
+    ...fnmRoots.flatMap((root) => [
+      path.join(root, 'aliases', 'default', 'node.exe'),
+      path.join(root, 'aliases', 'default', 'bin', 'node.exe'),
+      ...installedNodeVersionCandidates(
+        path.join(root, 'node-versions'),
+        (version) => path.join(root, 'node-versions', version, 'installation', 'node.exe')
+      ),
+      ...installedNodeVersionCandidates(
+        path.join(root, 'node-versions'),
+        (version) => path.join(root, 'node-versions', version, 'installation', 'bin', 'node.exe')
+      ),
+    ]),
+    ...(nvmHome
+      ? installedNodeVersionCandidates(
+          nvmHome,
+          (version) => path.join(nvmHome, version, 'node.exe')
+        )
+      : []),
+  ];
+}
+
+function nodeBinaryCandidates(userEnv?: Record<string, string>): string[] {
+  const candidates =
+    process.platform === 'win32'
+      ? windowsNodeBinaryCandidates(userEnv)
+      : posixNodeBinaryCandidates(userEnv);
+  const seen = new Set<string>();
+
+  return candidates.filter((candidate): candidate is string => {
+    if (typeof candidate !== 'string' || candidate.length === 0) return false;
+    if (seen.has(candidate)) return false;
+    seen.add(candidate);
+    return existsSync(candidate);
+  });
+}
+
+async function probeNodeBinary(
+  binary: string,
+  env: NodeJS.ProcessEnv
+): Promise<NodeDetectResult | null> {
+  try {
+    const { stdout } = await execFileAsync(binary, ['--version'], {
+      env,
+      // A hung PATH shim (rustup-style proxy, corporate wrapper) must not
+      // wedge the detect IPC promise forever. Matches the LSP launchers'
+      // 5s probe convention.
+      timeout: NODE_DETECT_TIMEOUT_MS,
+    });
+    return {
+      installed: true,
+      binary,
+      version: stdout.trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function envWithNodeBinary(env: NodeJS.ProcessEnv, binary: string): NodeJS.ProcessEnv {
+  if (!path.isAbsolute(binary)) return env;
+  const nodeDir = path.dirname(binary);
+  const currentPath = env.PATH ?? '';
+  const pathParts = currentPath.split(path.delimiter).filter(Boolean);
+  if (pathParts.includes(nodeDir)) return env;
+  return {
+    ...env,
+    PATH: [nodeDir, ...pathParts].join(path.delimiter),
+  };
+}
+
 /**
  * Probe the local `node` binary. Result cached per main-process
  * lifetime so each Run does not re-spawn the detector. Cache
@@ -157,17 +410,17 @@ export async function detectNode(
 ): Promise<NodeDetectResult> {
   const cacheable = userEnv === undefined;
   if (cacheable && !force && cachedDetect) return cachedDetect;
-  let result: NodeDetectResult;
-  try {
-    const { stdout } = await execFileAsync('node', ['--version'], {
-      env: resolveNodeRunEnv(userEnv),
-      // A hung PATH shim (rustup-style proxy, corporate wrapper) must not
-      // wedge the detect IPC promise forever. Matches the LSP launchers'
-      // 5s probe convention.
-      timeout: 5_000,
-    });
-    result = { installed: true, version: stdout.trim() };
-  } catch {
+  const env = resolveNodeRunEnv(userEnv);
+  let result = await probeNodeBinary('node', env);
+
+  if (!result) {
+    for (const candidate of nodeBinaryCandidates(userEnv)) {
+      result = await probeNodeBinary(candidate, env);
+      if (result) break;
+    }
+  }
+
+  if (!result) {
     result = {
       installed: false,
       error: 'Node.js is not installed. Install it from https://nodejs.org',
@@ -263,32 +516,134 @@ export function resolveNodeCwd(filePath?: string): string {
 }
 
 /**
- * RL-019 Slice 2 fold G — pick the `-e` input type (CommonJS vs
- * ESM) based on the cwd's `package.json#type`. ESM uses
- * `--input-type=module` so dynamic imports + top-level await work
- * out of the box.
+ * RL-019 Slice 2 fold G — pick the source input type (CommonJS vs
+ * ESM). Saved extension wins for the explicit Node suffixes
+ * (`.mjs` / `.mts` / `.cjs` / `.cts`), then we sniff the inline
+ * source for syntax that cannot run in CommonJS, then fall back to
+ * the nearest `package.json#type`. ESM uses `--input-type=module`
+ * so static imports, `import.meta`, and top-level await work from a
+ * Scratchpad tab without asking users to add a package.json.
  */
-function pickInputType(cwd: string): 'commonjs' | 'module' {
-  const pkgPath = path.join(cwd, 'package.json');
-  if (!existsSync(pkgPath)) return 'commonjs';
-  try {
-    const raw = readFileSync(pkgPath, 'utf-8');
-    const json = JSON.parse(raw) as { type?: unknown };
-    if (json.type === 'module') return 'module';
-  } catch {
-    // Malformed package.json — fall back to CJS (the historical Node default).
+type NodeInputType = 'commonjs' | 'module';
+
+function inputTypeFromFileExtension(filePath?: string): NodeInputType | null {
+  if (!filePath) return null;
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.mjs' || ext === '.mts') return 'module';
+  if (ext === '.cjs' || ext === '.cts') return 'commonjs';
+  return null;
+}
+
+function packageTypeFromNearestPackageJson(startDir: string): NodeInputType | null {
+  let dir = startDir;
+  for (let depth = 0; depth < 8; depth += 1) {
+    const pkgPath = path.join(dir, 'package.json');
+    if (existsSync(pkgPath)) {
+      try {
+        const raw = readFileSync(pkgPath, 'utf-8');
+        const json = JSON.parse(raw) as { type?: unknown };
+        if (json.type === 'module') return 'module';
+        if (json.type === 'commonjs') return 'commonjs';
+      } catch {
+        // Malformed package.json — keep walking so a parent package can still
+        // provide a valid declaration; otherwise fall back below.
+      }
+      return null;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
-  return 'commonjs';
+  return null;
+}
+
+function isAcornNode(value: unknown): value is AcornNode {
+  return isRecord(value) && typeof value.type === 'string';
+}
+
+function isFunctionScope(node: AcornNode): boolean {
+  return (
+    node.type === 'FunctionDeclaration' ||
+    node.type === 'FunctionExpression' ||
+    node.type === 'ArrowFunctionExpression'
+  );
+}
+
+function nodeContainsModuleOnlyExpression(node: AcornNode): boolean {
+  if (node.type === 'AwaitExpression') return true;
+  if (node.type === 'MetaProperty') {
+    const meta = (node as AcornNode & { meta?: { name?: unknown } }).meta;
+    const property = (node as AcornNode & { property?: { name?: unknown } }).property;
+    if (meta?.name === 'import' && property?.name === 'meta') return true;
+  }
+  if (isFunctionScope(node)) return false;
+
+  for (const value of Object.values(node as unknown as Record<string, unknown>)) {
+    if (Array.isArray(value)) {
+      if (value.some((entry) => isAcornNode(entry) && nodeContainsModuleOnlyExpression(entry))) {
+        return true;
+      }
+    } else if (isAcornNode(value) && nodeContainsModuleOnlyExpression(value)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function sourceRequiresModuleInput(source: string): boolean {
+  try {
+    const program = parse(source, {
+      allowHashBang: true,
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    }) as AcornProgram;
+    return program.body.some((statement) => {
+      if (
+        statement.type === 'ImportDeclaration' ||
+        statement.type === 'ExportAllDeclaration' ||
+        statement.type === 'ExportDefaultDeclaration' ||
+        statement.type === 'ExportNamedDeclaration'
+      ) {
+        return true;
+      }
+      return nodeContainsModuleOnlyExpression(statement);
+    });
+  } catch {
+    // If Acorn cannot parse the source (incomplete code, TS syntax before the
+    // renderer transpiles, etc.), do not guess module mode. Node will surface
+    // the real syntax/runtime error from the selected fallback mode.
+    return false;
+  }
+}
+
+function sourceLooksCommonJs(source: string): boolean {
+  return /\b(?:require\s*\(|module\.exports\b|exports\.\w+\b|__dirname\b|__filename\b)/.test(
+    source
+  );
+}
+
+function pickInputType(
+  cwd: string,
+  source: string,
+  filePath?: string
+): NodeInputType {
+  const extensionInputType = inputTypeFromFileExtension(filePath);
+  if (extensionInputType) return extensionInputType;
+  if (sourceRequiresModuleInput(source)) return 'module';
+  if (sourceLooksCommonJs(source)) return 'commonjs';
+  const packageStartDir = filePath ? path.dirname(filePath) : cwd;
+  return packageTypeFromNearestPackageJson(packageStartDir) ?? 'commonjs';
 }
 
 async function spawnNode(
   source: string,
-  options: NodeRunOptions
+  options: NodeRunOptions,
+  nodeBinary = 'node'
 ): Promise<NodeRunResult> {
   const timeoutMs = clampTimeout(options.timeoutMs);
   const cwd = resolveNodeCwd(options.filePath);
-  const inputType = pickInputType(cwd);
-  const env = resolveNodeRunEnv(options.userEnv);
+  const inputType = pickInputType(cwd, source, options.filePath);
+  const env = envWithNodeBinary(resolveNodeRunEnv(options.userEnv), nodeBinary);
   const markers = truncationMarkers(options.messages);
 
   // Decide between inline `-e` invocation and temp-file fallback.
@@ -318,7 +673,7 @@ async function spawnNode(
     let stoppedByUser = false;
     let escalationTimer: NodeJS.Timeout | null = null;
 
-    const child = childProc.spawn('node', args, {
+    const child = childProc.spawn(nodeBinary, args, {
       cwd,
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -492,7 +847,7 @@ async function runNodeCode(
       timeoutMs: clampTimeout(options.timeoutMs),
     };
   }
-  return spawnNode(source, options);
+  return spawnNode(source, options, detect.binary ?? 'node');
 }
 
 export function stopNodeRun(runId: unknown): { stopped: boolean } {

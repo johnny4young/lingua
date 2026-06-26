@@ -17,35 +17,44 @@ coverage.
 
 ## Local setup
 
-The Electron Stagewright package is not published yet, so this repo points at
-Johnny's local checkout:
-
-```bash
-pnpm --dir "$HOME/Personal/github/electron-stagewright" \
-  --filter @electron-stagewright/core build
-```
-
-Codex user MCP config is set in `~/.codex/config.toml`:
+Electron Stagewright is published as `@electron-stagewright/core`, and the
+default launch transport needs Playwright available beside it. Match the
+upstream MCP-client docs by launching the server with `npx` and both packages:
 
 ```toml
 [mcp_servers.electron-stagewright]
-command = "node"
+command = "npx"
 args = [
-  "/abs/path/to/electron-stagewright/packages/core/dist/cli.js",
+  "--prefix",
+  "/tmp",
+  "-y",
+  "--package",
+  "@electron-stagewright/core",
+  "--package",
+  "playwright",
+  "electron-stagewright",
   "--screenshot-dir",
   "/abs/path/to/lingua/output/stagewright/screenshots"
 ]
 ```
+
+The `--prefix /tmp` guard keeps `npx` from treating Lingua's transitive
+`@playwright/test` dependency as the Playwright peer for the temporary
+Electron Stagewright install. Without it, `electron_launch` can fail with
+`TRANSPORT_UNSUPPORTED` because `@electron-stagewright/core` cannot resolve
+`playwright` from its own package tree.
 
 The repo root also has:
 
 - `.mcp.example.json` — tracked template for MCP-compatible hosts.
 - `.mcp.json` — ignored local config with the same working absolute paths.
 
-If the checkout moves, update `~/.codex/config.toml` and the local `.mcp.json`,
-or run the smoke with:
+For Electron Stagewright development, you can still force a local checkout:
 
 ```bash
+pnpm --dir "$HOME/Personal/github/electron-stagewright" \
+  --filter @electron-stagewright/core build
+
 ELECTRON_STAGEWRIGHT_CLI=/abs/path/to/electron-stagewright/packages/core/dist/cli.js \
   pnpm run smoke:desktop:stagewright
 ```
@@ -82,8 +91,9 @@ When the MCP tools are available in a future Codex session, prefer this flow:
    tool calls; the script owns main/preload sync plus the renderer dev server.
    For manual MCP sessions, mirror that setup before launching.
 2. Launch from the repo root so Electron reads `package.json#main` and app
-   metadata:
-   `electron_launch({ main: "/abs/path/to/lingua", cwd: "/abs/path/to/lingua", env: { LINGUA_RENDERER_URL: "http://localhost:5174/" } })`.
+   metadata. Also pass the repo's Electron binary, because the published MCP
+   server runs from an `npx` temp install rather than Lingua's `node_modules`:
+   `electron_launch({ main: "/abs/path/to/lingua", executablePath: "$(node -p 'require(\"electron\")')", cwd: "/abs/path/to/lingua", env: { LINGUA_RENDERER_URL: "http://localhost:5174/" } })`.
 3. Inspect with `electron_snapshot` or `electron_find` before interacting.
 4. Prefer `electron_expect_*` tools over manual read/compare/retry loops.
 5. End every pass with `electron_console_logs({ type: "error" })`.

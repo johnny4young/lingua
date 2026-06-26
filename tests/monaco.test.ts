@@ -4,12 +4,14 @@ const loaderConfig = vi.fn();
 const jsSetCompilerOptions = vi.fn();
 const jsSetDiagnosticsOptions = vi.fn();
 const jsSetEagerModelSync = vi.fn();
+const jsAddExtraLib = vi.fn();
 const registerCompletionItemProvider = vi.fn();
 const registerHoverProvider = vi.fn();
 const registerSignatureHelpProvider = vi.fn();
 const tsSetCompilerOptions = vi.fn();
 const tsSetDiagnosticsOptions = vi.fn();
 const tsSetEagerModelSync = vi.fn();
+const tsAddExtraLib = vi.fn();
 
 class MockEditorWorker {}
 class MockJsonWorker {}
@@ -45,11 +47,13 @@ const monacoMock = {
     registerSignatureHelpProvider,
     typescript: {
       javascriptDefaults: {
+        addExtraLib: jsAddExtraLib,
         setCompilerOptions: jsSetCompilerOptions,
         setDiagnosticsOptions: jsSetDiagnosticsOptions,
         setEagerModelSync: jsSetEagerModelSync,
       },
       typescriptDefaults: {
+        addExtraLib: tsAddExtraLib,
         setCompilerOptions: tsSetCompilerOptions,
         setDiagnosticsOptions: tsSetDiagnosticsOptions,
         setEagerModelSync: tsSetEagerModelSync,
@@ -195,6 +199,30 @@ describe('applyTypeScriptDefaults', () => {
         strict: true,
         target: 9,
       })
+    );
+    // RL review: the Node typings register lazily (eager:false), so
+    // addExtraLib fires after the type chunk resolves — await it rather than
+    // asserting synchronously.
+    await vi.waitFor(
+      () => {
+        expect(jsAddExtraLib).toHaveBeenCalledWith(
+          expect.stringContaining('declare module "crypto"'),
+          'file:///node_modules/@types/node/crypto.d.ts'
+        );
+        expect(tsAddExtraLib).toHaveBeenCalledWith(
+          expect.stringContaining('declare module "crypto"'),
+          'file:///node_modules/@types/node/crypto.d.ts'
+        );
+        expect(jsAddExtraLib).toHaveBeenCalledWith(
+          expect.stringContaining('reference path="crypto.d.ts"'),
+          'file:///node_modules/@types/node/index.d.ts'
+        );
+        expect(tsAddExtraLib).toHaveBeenCalledWith(
+          expect.stringContaining('reference path="crypto.d.ts"'),
+          'file:///node_modules/@types/node/index.d.ts'
+        );
+      },
+      { timeout: 20_000 }
     );
   });
 });

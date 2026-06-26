@@ -106,7 +106,10 @@ export class NodeRunner implements LanguageRunner {
       const result = await esbuild.transform(code, {
         loader: 'tsx',
         target: 'es2022',
-        format: 'cjs',
+        // Preserve ESM syntax so the main-process runner can select
+        // `--input-type=module` for static imports, exports, import.meta, and
+        // top-level await instead of forcing every TypeScript tab through CJS.
+        format: 'esm',
         sourcemap: false,
       });
       return { js: result.code };

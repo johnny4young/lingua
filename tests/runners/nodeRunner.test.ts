@@ -70,7 +70,7 @@ describe('NodeRunner', () => {
     expect(result.error).toBeUndefined();
     expect(esbuildTransformMock).toHaveBeenCalledWith(
       'const value: number = 1;',
-      expect.objectContaining({ loader: 'tsx', format: 'cjs' })
+      expect.objectContaining({ loader: 'tsx', format: 'esm' })
     );
     expect(node.run).toHaveBeenCalledWith(
       'const value = 1;\n',

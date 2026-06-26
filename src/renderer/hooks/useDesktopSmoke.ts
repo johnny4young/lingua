@@ -8,6 +8,7 @@ import { useUIStore } from '../stores/uiStore';
 import type { BuiltInLanguage, FileTab } from '../types';
 import { extensionForLanguage } from '../utils/languageMeta';
 import { desktopSmokeApi } from '../utils/desktopSmoke';
+import type { RuntimeMode } from '../../shared/runtimeModes';
 
 /**
  * RL-078 timeout-shaped smoke cases set `expectFailure` so the
@@ -22,6 +23,7 @@ type SmokeCase = {
   language: BuiltInLanguage;
   fileName: string;
   content: string;
+  runtimeMode?: RuntimeMode;
   expectText?: string;
   expectFailure?: RegExp;
   /**
@@ -53,6 +55,16 @@ const SMOKE_CASES: SmokeCase[] = [
     fileName: 'smoke-typescript.ts',
     content: 'const label: string = "smoke-typescript";\nconsole.log(label);\n',
     expectText: 'smoke-typescript',
+  },
+  {
+    caseId: 'node-esm-import',
+    language: 'javascript',
+    runtimeMode: 'node',
+    fileName: 'smoke-node-esm-import.js',
+    content:
+      "import { randomInt } from 'crypto';\nconst value = randomInt(36 ** 6).toString(36).padStart(6, '0');\nconsole.log(`node-esm-import:${value.length}`);\n",
+    expectText: 'node-esm-import:6',
+    timeoutMs: 20_000,
   },
   {
     caseId: 'python',
@@ -174,12 +186,18 @@ function waitForUi(ms = 220): Promise<void> {
   });
 }
 
-function createSmokeTab(language: BuiltInLanguage, fileName: string, content: string): FileTab {
+function createSmokeTab(
+  language: BuiltInLanguage,
+  fileName: string,
+  content: string,
+  runtimeMode?: RuntimeMode
+): FileTab {
   const tab = createDefaultTab(language);
   return {
     ...tab,
     name: fileName || `smoke.${extensionForLanguage(language)}`,
     content,
+    runtimeMode: runtimeMode ?? tab.runtimeMode,
   };
 }
 
@@ -335,7 +353,12 @@ export function useDesktopSmoke(enabled: boolean) {
           useEditorStore.setState({ tabs: [], activeTabId: null });
 
           const editorInteractionStartedAt = performance.now();
-          const tab = createSmokeTab(smokeCase.language, smokeCase.fileName, smokeCase.content);
+          const tab = createSmokeTab(
+            smokeCase.language,
+            smokeCase.fileName,
+            smokeCase.content,
+            smokeCase.runtimeMode
+          );
           const { addTab } = useEditorStore.getState();
           addTab(tab);
           if (typeof smokeCase.maxLoopIterations === 'number') {

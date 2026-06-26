@@ -1,9 +1,17 @@
 {
   "mcpServers": {
     "electron-stagewright": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/abs/path/to/electron-stagewright/packages/core/dist/cli.js",
+        "--prefix",
+        "/tmp",
+        "-y",
+        "--package",
+        "@electron-stagewright/core",
+        "--package",
+        "playwright",
+        "electron-stagewright",
+        "--allow-eval",
         "--screenshot-dir",
         "/abs/path/to/lingua/output/stagewright/screenshots"
       ]

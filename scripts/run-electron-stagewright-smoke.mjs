@@ -3,13 +3,17 @@
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
+const electronExecutablePath = require('electron');
 const viteBin = path.join(repoRoot, 'node_modules', 'vite', 'bin', 'vite.js');
 const esbuildBin = path.join(repoRoot, 'node_modules', 'esbuild', 'bin', 'esbuild');
 const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.mts');
@@ -18,20 +22,46 @@ const builtPreloadPath = path.join(repoRoot, '.vite', 'build', 'preload.js');
 const artifactDir = path.join(repoRoot, 'output', 'stagewright', 'desktop-smoke');
 const smokeUserDataDir = path.join(artifactDir, 'user-data');
 const defaultRendererUrl = 'http://localhost:5174';
-// Default to the sibling-repo layout (../electron-stagewright) so the script is
-// portable instead of baking in one machine's home path. Override with
-// ELECTRON_STAGEWRIGHT_CLI or --stagewright-cli when the checkout lives elsewhere.
-const defaultStagewrightCli = path.resolve(
-  repoRoot,
-  '..',
+// Match the published Electron Stagewright MCP docs: use npx with both the
+// core package and Playwright available, because Playwright is an optional
+// peer for the default launch transport. The npm prefix stays outside the
+// Lingua repo so npm does not treat the transitive @playwright/test copy as a
+// satisfying local package while leaving Electron Stagewright unable to resolve
+// the Playwright peer from its own temp package tree. A local checkout can
+// still be forced with ELECTRON_STAGEWRIGHT_CLI or --stagewright-cli.
+const defaultStagewrightCommand = 'npx';
+const defaultStagewrightNpxPrefix = process.env.ELECTRON_STAGEWRIGHT_NPX_PREFIX ?? os.tmpdir();
+const defaultStagewrightArgs = [
+  '--prefix',
+  defaultStagewrightNpxPrefix,
+  '-y',
+  '--package',
+  '@electron-stagewright/core',
+  '--package',
+  'playwright',
   'electron-stagewright',
-  'packages',
-  'core',
-  'dist',
-  'cli.js'
-);
+];
 const serverReadyTimeoutMs = 30_000;
 const shutdownTimeoutMs = 5_000;
+
+function stagewrightCommandFromCli(cliPath) {
+  return {
+    command: 'node',
+    args: [cliPath],
+    localCli: cliPath,
+  };
+}
+
+function defaultStagewrightCommandSpec() {
+  if (process.env.ELECTRON_STAGEWRIGHT_CLI) {
+    return stagewrightCommandFromCli(process.env.ELECTRON_STAGEWRIGHT_CLI);
+  }
+  return {
+    command: defaultStagewrightCommand,
+    args: defaultStagewrightArgs,
+    localCli: null,
+  };
+}
 
 function parseArgs(argv) {
   const options = {
@@ -39,7 +69,7 @@ function parseArgs(argv) {
     reuseServer: false,
     syncMain: true,
     timeoutMs: 60_000,
-    stagewrightCli: process.env.ELECTRON_STAGEWRIGHT_CLI ?? defaultStagewrightCli,
+    stagewright: defaultStagewrightCommandSpec(),
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -79,12 +109,12 @@ function parseArgs(argv) {
     }
 
     if (arg.startsWith('--stagewright-cli=')) {
-      options.stagewrightCli = arg.slice('--stagewright-cli='.length);
+      options.stagewright = stagewrightCommandFromCli(arg.slice('--stagewright-cli='.length));
       continue;
     }
 
     if (arg === '--stagewright-cli') {
-      options.stagewrightCli = argv[index + 1] ?? '';
+      options.stagewright = stagewrightCommandFromCli(argv[index + 1] ?? '');
       index += 1;
       continue;
     }
@@ -95,7 +125,7 @@ function parseArgs(argv) {
   if (!options.rendererUrl) {
     throw new Error('--renderer-url requires a value');
   }
-  if (!options.stagewrightCli) {
+  if (options.stagewright.localCli === '') {
     throw new Error('--stagewright-cli requires a value');
   }
   if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0) {
@@ -413,10 +443,10 @@ class McpClient {
 }
 
 async function runStagewrightSmoke(options, rendererUrl) {
-  if (!(await exists(options.stagewrightCli))) {
+  if (options.stagewright.localCli && !(await exists(options.stagewright.localCli))) {
     throw new Error(
       [
-        `electron-stagewright CLI was not found at ${options.stagewrightCli}.`,
+        `electron-stagewright CLI was not found at ${options.stagewright.localCli}.`,
         'Build it in your electron-stagewright checkout with:',
         '  pnpm --filter @electron-stagewright/core build',
         'then set ELECTRON_STAGEWRIGHT_CLI=/abs/path/to/packages/core/dist/cli.js',
@@ -425,11 +455,15 @@ async function runStagewrightSmoke(options, rendererUrl) {
     );
   }
 
-  const client = new McpClient('node', [
-    options.stagewrightCli,
+  const stagewrightArgs = [
+    ...options.stagewright.args,
     '--screenshot-dir',
     artifactDir,
-  ]);
+  ];
+  console.log(
+    `[stagewright-smoke] Starting Electron Stagewright MCP via ${options.stagewright.command} ${stagewrightArgs.join(' ')}`
+  );
+  const client = new McpClient(options.stagewright.command, stagewrightArgs);
   let sessionId = null;
 
   try {
@@ -453,6 +487,7 @@ async function runStagewrightSmoke(options, rendererUrl) {
       'electron_launch',
       {
         main: repoRoot,
+        executablePath: electronExecutablePath,
         cwd: repoRoot,
         env: {
           LINGUA_RENDERER_URL: rendererUrl,
@@ -509,6 +544,7 @@ async function runStagewrightSmoke(options, rendererUrl) {
       generatedAt: new Date().toISOString(),
       rendererUrl,
       appEntryPath: repoRoot,
+      electronExecutablePath,
       sessionId,
       app: info.app ?? null,
       versions: info.versions ?? null,

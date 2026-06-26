@@ -83,6 +83,7 @@ function createChildProcess() {
 
 describe('main node runner', () => {
   let tempRoot: string;
+  let savedHome: string | undefined;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -92,10 +93,16 @@ describe('main node runner', () => {
     mocks.execFileAsync.mockResolvedValue({ stdout: 'v24.11.1\n', stderr: '' });
     mocks.spawn.mockReset();
     mocks.getPath.mockReturnValue('/tmp/lingua-node-test');
+    savedHome = process.env.HOME;
     tempRoot = await mkdtemp(path.join(os.tmpdir(), 'lingua-node-runner-'));
   });
 
   afterEach(async () => {
+    if (savedHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = savedHome;
+    }
     await rm(tempRoot, { recursive: true, force: true });
   });
 
@@ -176,6 +183,133 @@ describe('main node runner', () => {
     );
     expect(child.stdin.write).toHaveBeenCalledWith('hello\n');
     expect(child.stdin.end).toHaveBeenCalled();
+  });
+
+  it('runs unsaved JavaScript import snippets as ESM without package config', async () => {
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const source =
+      "import { randomInt } from 'crypto';\nconsole.log(randomInt(36 ** 6));";
+    const promise = run({}, source, {});
+
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    child.emit('close', 0);
+    await expect(promise).resolves.toMatchObject({ kind: 'success' });
+
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      'node',
+      ['--input-type=module', '-e', source],
+      expect.any(Object)
+    );
+  });
+
+  it('runs top-level await snippets as ESM without package config', async () => {
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const source = 'console.log(await Promise.resolve(42));';
+    const promise = run({}, source, {});
+
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    child.emit('close', 0);
+    await expect(promise).resolves.toMatchObject({ kind: 'success' });
+
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      'node',
+      ['--input-type=module', '-e', source],
+      expect.any(Object)
+    );
+  });
+
+  it('lets explicit CommonJS extensions override package ESM defaults', async () => {
+    const project = path.join(tempRoot, 'project');
+    await mkdir(project, { recursive: true });
+    await writeFile(path.join(project, 'package.json'), '{"type":"module"}', 'utf-8');
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const promise = run({}, "const fs = require('node:fs'); console.log(Boolean(fs));", {
+      filePath: path.join(project, 'index.cjs'),
+    });
+
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    child.emit('close', 0);
+    await expect(promise).resolves.toMatchObject({ kind: 'success' });
+
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      'node',
+      [
+        '--input-type=commonjs',
+        '-e',
+        "const fs = require('node:fs'); console.log(Boolean(fs));",
+      ],
+      expect.objectContaining({ cwd: project })
+    );
+  });
+
+  it('falls back to a user-level fnm Node binary when GUI PATH cannot find node', async () => {
+    process.env.HOME = tempRoot;
+    const fallbackNode = path.join(
+      tempRoot,
+      '.local',
+      'share',
+      'fnm',
+      'aliases',
+      'default',
+      'bin',
+      'node'
+    );
+    await mkdir(path.dirname(fallbackNode), { recursive: true });
+    await writeFile(fallbackNode, '');
+    mocks.execFileAsync.mockImplementation(async (command: string) => {
+      if (command === 'node') throw new Error('ENOENT');
+      if (command === fallbackNode) {
+        return { stdout: 'v24.15.0\n', stderr: '' };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+
+    const { detectNode, registerNodeJSHandlers } = await import(
+      '../../src/main/node-runner'
+    );
+
+    await expect(detectNode(undefined, true)).resolves.toMatchObject({
+      installed: true,
+      binary: fallbackNode,
+      version: 'v24.15.0',
+    });
+
+    registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const promise = run({}, 'console.log(process.version)', {});
+
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    child.emit('close', 0);
+    await expect(promise).resolves.toMatchObject({ kind: 'success' });
+
+    const spawnOptions = mocks.spawn.mock.calls[0]?.[2] as
+      | { env?: NodeJS.ProcessEnv }
+      | undefined;
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      fallbackNode,
+      ['--input-type=commonjs', '-e', 'console.log(process.version)'],
+      expect.any(Object)
+    );
+    expect(spawnOptions?.env?.PATH?.split(path.delimiter)[0]).toBe(
+      path.dirname(fallbackNode)
+    );
   });
 
   it.runIf(process.platform !== 'win32')(
