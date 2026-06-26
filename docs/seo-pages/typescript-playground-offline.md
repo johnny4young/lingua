@@ -25,14 +25,19 @@ execution of the transpiled output.
 - Format-on-save uses Prettier Standalone for `.ts` / `.tsx`.
 - Project Search and Quick Open index your TypeScript codebase so
   fuzzy-finding symbols and files is fast.
+- Desktop Node mode runs `.ts` / `.js` on your local Node toolchain —
+  `import` and top-level `await` execute as ES modules, with Node
+  built-in types (`crypto`, `fs`, …) resolved in the editor.
+- Cell-based notebooks run TypeScript cells, share variables across
+  cells, and import/export Jupyter `.ipynb` (plus the native
+  `.linguanb`).
 
 ## What doesn't work today
 
-- No Node.js runtime mode yet — the Worker sandbox does not expose
-  Node built-ins. This is tracked as RL-019 (desktop Node mode).
-- No debugger — RL-027.
-- No `npm install` yet; imports resolve to the bundled TypeScript
-  runtime only. Dependency management is tracked as RL-025.
+- The in-browser Worker stays sandboxed and does not expose Node
+  built-ins — use the desktop Node mode (above) when you need them.
+- No `npm install` yet; in-editor imports resolve to the bundled
+  TypeScript runtime only.
 
 ## Pricing
 

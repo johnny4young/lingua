@@ -23,6 +23,13 @@ and the runners for JS, TS, and Python run in Workers so no network
 trip is needed. Go and Rust compile via your local toolchain.
 
 Built-in goodies:
+- HTTP request workspace (reusable environments, secret-aware
+  `{{variables}}`, cURL + Postman import) and a DuckDB-powered SQL
+  workspace with a Monaco SQL editor
+- Cell-based notebooks that run TypeScript and Python, share variables
+  across cells, and import/export Jupyter `.ipynb`
+- Smart paste (share links, run capsules, cURL, stack traces, large
+  JSON) plus inline lint with quick-fixes for JS/TS
 - JSON formatter, regex tester, Base64 / URL / UUID / hash / timestamp
   / JWT tools, color converter, diff viewer
 - Format-on-save via Prettier, gofmt, rustfmt, ruff (falls back to
@@ -41,7 +48,9 @@ available without a credit card — Settings → License inside the app.
 Honest limitations today:
 - Go and Rust need their toolchains installed locally — web build
   surfaces that as "desktop only"
-- No debugger yet (planned), no LSP beyond Monaco's built-in JS/TS
+- The debugger is JS/TS only (preview); rich language intelligence for
+  Python, Rust, and Go relies on the local LSP (rust-analyzer / gopls),
+  and the web build keeps those languages validate-only
 - Opt-in telemetry is off by default; crash reporting is opt-in too
 
 Happy to answer anything about the runner architecture, the
@@ -60,8 +69,9 @@ Rust in one offline-first app.
 **Description**:
 
 Lingua replaces the half-dozen browser tabs that sit alongside your
-usual code runner. One app, five languages, built-in developer
-utilities, offline-first, and source-available.
+usual code runner. One app, five languages, notebooks, HTTP and SQL
+workspaces, built-in developer utilities, offline-first, and
+source-available.
 
 **First comment (maker)**:
 
@@ -159,10 +169,13 @@ Python story is deliberately first-class:
 - Inline result magic comments (`#=>`) show values next to the line
   that produced them
 
+Newer Python surface:
+- Cell-based notebooks run Python cells, share variables across cells,
+  and import/export Jupyter `.ipynb` (plus the native `.linguanb`)
+
 What's not there yet:
 - No `pip install` of arbitrary packages — `micropip`-available
   packages only, same as Pyodide itself
-- No Jupyter notebook mode (planned)
 
 Python is in the Free tier. Source-available; download at
 https://linguacode.dev.

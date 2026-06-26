@@ -6,6 +6,26 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-06-26
+
+### Added
+- **HTTP + SQL workspace**: A full-screen HTTP request workspace — reusable environments with secret-aware `{{variable}}` interpolation (URL, headers, and the auth tab), name-based header redaction in history and exports, cURL import, and each response captured as a run capsule — plus a DuckDB-WASM SQL workspace with a Monaco SQL editor (syntax highlighting, schema autocomplete, run-selection) and opt-in OPFS table persistence so tables survive a reload.
+- **Notebooks grow up**: Cell-based notebooks now run TypeScript and Python cells, share variables across cells for real, edit code in a Monaco editor (only the focused cell mounts an editor, so a 200-cell notebook stays responsive), and export/import losslessly to the native `.linguanb` document as well as Jupyter `.ipynb`.
+- **Compare two run capsules**: A side-by-side capsule diff shows Code, Input, and Output differences between two saved runs.
+- **Importers — Postman**: Import a Postman collection and have its collection-level and environment/globals `{{variables}}` resolve into runnable requests (with secret-named values redacted in the preview), instead of landing as literal placeholders.
+- **Utility pipelines**: Chain utility adapters into a saved, one-click workflow — the adapter vocabulary grew to 23, with a starter template gallery and the ability to save a pipeline run as a capsule. Single-shot utilities stay free; pipelines are Pro.
+- **Persistent status bar**: A bottom status bar surfaces language, lint error/warning counts, cursor position, indentation, the Git branch, and run status, with click-throughs to the next problem.
+- **Privacy + Trust dashboard**: Settings → Privacy now captures live trust events from the capsule-export, share-link, update-check, telemetry, and license surfaces, with per-feature "last network call" timestamps and a sensitivity-filtered activity feed.
+- **Language scorecard per platform**: A Web | Desktop filter resolves each language capability for the selected platform, with per-platform Markdown export.
+- **Paste images into the console**: Paste a screenshot into the console; an oversized image is downscaled to fit instead of being rejected.
+
+### Changed
+- **Design system**: Closed the type, radius, shadow, and color scales across the UI for a more consistent surface.
+
+### Fixed
+- **Node.js is found across version managers**: A packaged app launched from Finder/Dock inherits a minimal PATH, so a shell-managed Node (fnm, nvm, Volta, asdf, mise, nodenv, nodebrew) or a system install was invisible and every run reported "Node.js is not installed". Detection now probes the PATH first, then known version-manager and system install locations on macOS, Linux, and Windows. Snippets that use `import` or top-level `await` run as ES modules, and the editor resolves Node built-in types (`crypto`, `fs`, …) so they no longer show a spurious "cannot find module" error.
+- **Console Details popover no longer clipped**: The rich-output Details popover (table / object / array / chart / image / HTML) now portals to the document body, so it centers and scrolls instead of collapsing inside the console strip.
+
 ## [0.7.0] — 2026-06-14
 
 ### Added

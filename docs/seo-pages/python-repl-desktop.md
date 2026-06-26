@@ -25,13 +25,15 @@ desktop app or the web build.
   produced them.
 - Loop protection guards against runaway loops before they lock the
   renderer — see `languageCapabilities` for the safety model.
+- Cell-based notebooks run Python cells, share variables across cells,
+  and import/export Jupyter `.ipynb` (plus the native `.linguanb`).
 
 ## What doesn't work today
 
 - Arbitrary `pip install` of packages that need native extensions —
   same limitation Pyodide has today.
-- No Jupyter notebook mode yet. That's tracked as RL-043.
-- No debugger — RL-027.
+- No step debugger for Python yet — the debugger preview covers
+  JavaScript and TypeScript only.
 
 ## Pricing
 

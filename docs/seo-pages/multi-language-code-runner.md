@@ -1,6 +1,6 @@
 ---
 title: "Multi-Language Code Runner — Lingua"
-description: "Run JavaScript, TypeScript, Python, Go, and Rust in one offline-first desktop app. Monaco editor, built-in dev utilities, source-available."
+description: "Run JavaScript, TypeScript, Python, Go, and Rust in one offline-first desktop app with notebooks, HTTP/SQL workspaces, and dev utilities. Source-available."
 canonical: "https://linguacode.dev/multi-language-code-runner/"
 ogImage: "/assets/og/multi-language-code-runner.png"
 language: multi
@@ -28,6 +28,11 @@ Shared machinery:
 - Monaco editor with fuzzy Quick Open, project-wide search, and
   Go-to-Symbol.
 - Inline `//=>` or `#=>` magic comments for per-line result surfacing.
+- HTTP request and DuckDB-powered SQL workspaces, plus cell-based
+  notebooks that run TypeScript and Python, share variables across
+  cells, and import/export Jupyter `.ipynb`.
+- Smart paste (share links, run capsules, cURL, stack traces, large
+  JSON) and inline lint with quick-fixes for JavaScript and TypeScript.
 - Format-on-save: Prettier (JS/TS/JSON/CSS), gofmt, rustfmt, ruff
   (with black fallback).
 - Built-in developer utilities — JSON formatter, regex tester, Base64,
@@ -40,10 +45,11 @@ Shared machinery:
 
 - Go and Rust need local toolchains — the web build surfaces both as
   "desktop only" honestly.
-- No Jupyter-style notebook mode yet (RL-043).
-- No debugger yet (RL-027).
-- No LSP beyond Monaco's built-in JavaScript / TypeScript services
-  (RL-026).
+- The debugger is JavaScript / TypeScript only (preview); the other
+  languages don't have step debugging yet.
+- Rich language intelligence for Python, Rust, and Go relies on the
+  local LSP (rust-analyzer / gopls); the web build keeps those
+  languages validate-only.
 
 ## Pricing
 
