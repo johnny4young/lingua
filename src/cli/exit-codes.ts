@@ -6,7 +6,7 @@
  * forbidden — the snapshot test in `tests/cli/parseArgs.test.ts`
  * pins the map.
  *
- * Per PLAN.md § RL-098 Slice 1 scope (line 11118):
+ * Per the RL-098 Slice 1 scope:
  *
  *   - `0` ok
  *   - `1` user input error (bad args, unknown id, missing file, bad shape)

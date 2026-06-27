@@ -235,7 +235,7 @@ Open a successor ADR when **any** of these becomes true:
   carries the runtime-deps array; Slice B can hang an
   `acceptsHostEnv: boolean` capability flag on the same descriptor
   if needed.
-- `PLAN.md` RL-011 — flips from `Planned` to `Partial` once this
+- RL-011 in the internal plan — flips from `Planned` to `Partial` once this
   ADR lands, with the implementation slices unblocked.
 
 ## Reviewers

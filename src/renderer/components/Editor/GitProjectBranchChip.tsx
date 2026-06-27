@@ -6,7 +6,7 @@
  *   "Persistent status bar." That bar does not yet exist in
  *   Lingua. Building it would be a larger scope (a dedicated 24px
  *   bottom strip with lint counts, cursor pos, encoding, indent,
- *   git, run status — see PLAN.md § RL-112). Instead, this slice
+ *   git, run status — see RL-112). Instead, this slice
  *   ships a small chip mounted to the RIGHT of the editor-tabs
  *   chrome — single source of truth for the branch name AT THE
  *   PROJECT LEVEL, complementing the per-tab `<GitStatusPill>`

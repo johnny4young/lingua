@@ -161,7 +161,7 @@ All three must agree with the registry's `active` entry.
 the signature on every outstanding token minted with the old key. Server-
 verified tiers recover automatically: clients receive a `refreshedToken` on
 their next `/licenses/status` call (or ride the 24h offline grace window per
-`LICENSING_ADR.md` Decision 4). Tokens that never re-sync (offline/lifetime
+the internal licensing ADR Decision 4). Tokens that never re-sync (offline/lifetime
 issuance) must be re-issued to the customer — plan support comms before
 rotating.
 
@@ -236,7 +236,7 @@ no available fix and the risk is assessed acceptable for a release:
 3. If no patched version exists, raise the gate threshold for that single run
    only via `node scripts/assert-prod-audit.mjs --level critical` in a
    dedicated commit whose message records the vendored exception, and open a
-   tracking entry in `docs/BACKLOG.md`. Never weaken the default `high`
+   tracking entry in the internal backlog. Never weaken the default `high`
    threshold in CI without that paper trail. `critical` production advisories
    remain release-blocking under this procedure; they need a patched dependency
    or a separate maintainer-approved incident exception.

@@ -9,7 +9,7 @@
  * editor bundle.
  *
  * Acceptance criterion: the resulting HTML never includes a working
- * remote-image fetch (PLAN.md scope: "no remote image fetch"). We
+ * remote-image fetch (scope: "no remote image fetch"). We
  * strip `src` and `srcset` from image-capable tags, leaving alt text
  * in place so users still see the placeholder structure.
  */

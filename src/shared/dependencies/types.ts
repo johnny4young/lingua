@@ -15,8 +15,8 @@
  */
 
 /**
- * Closed enum mirroring the classification states described in
- * `docs/PLAN.md § RL-025`. Adapters return one of these per detected
+ * Closed enum mirroring the classification states described in the
+ * RL-025 scope. Adapters return one of these per detected
  * specifier. The renderer's panel renders a status pill per row.
  */
 export type DependencyStatus =
@@ -30,7 +30,7 @@ export type DependencyStatus =
 /**
  * Closed enum of language ids the registry targets in Slice A. Other
  * languages are intentionally `Planned` — adding them is a separate
- * adapter slice each (see `docs/DEPENDENCY_MANAGER_ADR.md`).
+ * adapter slice each (see the internal dependency-manager ADR).
  */
 export type DependencyAdapterLanguage = 'javascript' | 'typescript' | 'python';
 

@@ -1,8 +1,8 @@
 # Pricing one-pager
 
-Mirror of [PLAN.md](../PLAN.md) Section 13 in plain-language form for press and
-partner outreach. Update this file in the same commit as any pricing
-change in [PLAN.md](../PLAN.md). Live source on https://linguacode.dev/pricing.
+Plain-language pricing summary for press and partner outreach. Update
+this file in the same commit as any pricing change. Live source on
+https://linguacode.dev/pricing.
 
 ## English
 

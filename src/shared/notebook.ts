@@ -6,8 +6,7 @@
  * slices add disk persistence (Slice B), reactive dataflow (Slice
  * C), and full export to script / markdown / HTML (Slice D).
  *
- * Design notes (from the 2026-05-20 research triage in
- * `docs/PLAN.md § RL-043`):
+ * Design notes (from the 2026-05-20 research triage for RL-043):
  *
  *   - Notebooks live as a distinct tab kind in `editorStore`. They
  *     are NOT overloaded onto plain file tabs — the per-tab `kind`

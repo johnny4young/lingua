@@ -11,7 +11,7 @@
  * Slice 2+ Python / Go / Rust adapters to plug in (each language's
  * adapter implements this same `(type, payload) => void` shape).
  *
- * Reference: docs/PLAN.md RL-027 Slice 1 and docs/DEBUGGER_ADR.md.
+ * Reference: RL-027 Slice 1 and docs/DEBUGGER_ADR.md.
  */
 
 type DebuggerControlMessage =

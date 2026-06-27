@@ -36,7 +36,7 @@ import { createMigrate } from './persistence/migrationRegistry';
  * Every mutator returns a new state object so React subscribers
  * re-render correctly.
  *
- * Reference: `docs/PLAN.md` RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
+ * Reference: RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
  */
 
 export const DEBUGGER_STORAGE_KEY = 'lingua-debugger-state';

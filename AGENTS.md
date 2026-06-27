@@ -7,35 +7,20 @@ transparently — edit this file, not the symlink.
 
 ## Read on arrival
 
-Before making non-trivial changes, open these files (in order). The
-planning files in `docs/` are intentionally split by cost — load the
-cheapest one that answers your current question, not `PLAN.md` by
-default. **All planning state lives in `docs/*.md` committed to git;
-do not rely on `.claude/plans/*` or any other machine-local state.**
+Before making non-trivial changes, open these files (in order).
 
 1. This file — routing, skill preferences, landmines, UI validation,
    commit rules.
 2. `docs/ROADMAP.md` — canonical `Status` + priority for every
    `RL-XXX`. The cheapest planning doc and the first one you read
    when deciding what to pick next. Never invent new RL ids.
-3. `docs/SPRINT-PLAN.md` — per-commit execution detail for the
-   currently-active iters. Read this when executing an approved iter.
-4. `docs/PLAN.md` — deep scope + acceptance criteria + historical
-   reasoning. Large; load a single `### RL-XXX` section via grep,
-   not the whole file. When this and ROADMAP disagree on status,
-   ROADMAP wins.
-5. `docs/BACKLOG.md` — pre-commitment raw ideas. Read when capturing
-   something new; never pick implementation work from here.
-6. `docs/ARCHIVED.md` — compact archive policy + shipped-ticket index.
-   Read when checking where closed slice detail went or closing a
-   shipped iter without bloating active planning docs.
-7. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge,
+3. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge,
    and watch-state model.
-8. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM,
+4. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM,
    browser interpreter, WebContainer, desktop native, hybrid) owns
    each capability today. Do not propose WASM-first migrations
    outside the promotion rules there.
-9. `src/renderer/README.md` — renderer folder map and state ownership.
+5. `src/renderer/README.md` — renderer folder map and state ownership.
 
 ## Routing
 
@@ -47,7 +32,7 @@ do not rely on `.claude/plans/*` or any other machine-local state.**
 
 - Do not describe plugin support as a finished user-facing extension system until the typing and UI flows go beyond the built-in language set.
 - If a change touches shortcuts, execution behavior, or workflow behavior, update the related docs in the same change.
-- Treat `docs/ROADMAP.md` as the local current-state/backlog document, not as a speculative roadmap. `docs/PLAN.md` is deep reference only.
+- Treat `docs/ROADMAP.md` as the local current-state/backlog document, not as a speculative roadmap.
 - **Vite env consumers — audit ALL THREE configs.** When a slice introduces a new consumer of `import.meta.env.VITE_*` (renderer / web) or of a build-time `process.env.LINGUA_*` (main `define`), it must be wired into every Vite config that reaches a packaged surface, not only the one where the bug first showed up. Concretely:
   - `vite.web.config.mts` and `vite.renderer.config.mts` need `envDir: __dirname` so repo-root `.env` / `.env.production` actually substitute `import.meta.env.VITE_*` defines into their bundles.
   - `vite.main.config.mts` needs the function form of `defineConfig` calling `loadEnv(mode, __dirname, '')` because main reads from `process.env` at config-load time, BEFORE Vite's automatic env loading runs.
@@ -132,7 +117,7 @@ through to Electron smoke. Never skip both tiers silently.
   the same tsc pass so `pnpm test` alone enforces it.
 - Web builds: `pnpm run build:web`. Desktop dev: `pnpm run dev:desktop`.
 - Keep scope tight. If a review surfaces something out of scope, flag
-  it in `docs/PLAN.md` rather than expanding the current slice.
+  it in the internal plan rather than expanding the current slice.
 
 ## Copy style — Spanish locale
 

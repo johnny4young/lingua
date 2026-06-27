@@ -11,7 +11,7 @@
  *
  * Hold-back exemptions live in HELD_BACK below — packages with a
  * documented reason to stay on a previous major (cross-link the
- * justification to docs/PLAN.md whenever an entry is added).
+ * justification to the internal plan whenever an entry is added).
  */
 
 import { execFileSync } from 'node:child_process';
@@ -31,7 +31,7 @@ const PNPM_LOCK_PATH = resolve(ROOT, 'pnpm-lock.yaml');
 const PNPM_WORKSPACE_PATH = resolve(ROOT, 'pnpm-workspace.yaml');
 
 // Documented hold-backs: package -> reason. When you add an entry,
-// also append a bullet to docs/PLAN.md under the matching maintenance
+// also append a bullet to the internal plan under the matching maintenance
 // entry so the next sweep reviewer sees the why.
 const HELD_BACK: Record<string, string> = {
   '@electron/fuses':

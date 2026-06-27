@@ -144,7 +144,7 @@ users who never flip it on.
 
 ## Cross-links
 
-- RL-037 in `PLAN.md` — this ADR flips the Vim-mode portion of that
+- RL-037 in the internal plan — this ADR flips the Vim-mode portion of that
   item to "design accepted".
-- RL-057 (custom shortcut editor) in `PLAN.md` — referenced by the
+- RL-057 (custom shortcut editor) in the internal plan — referenced by the
   `Ctrl/Cmd+P` conflict resolution.

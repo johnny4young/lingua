@@ -23,8 +23,8 @@
  *
  * Slice 1 ships the schema + builder + sanitiser + parser + a single
  * consumer (Settings → Account "Export latest run"). Import preview,
- * list view, and auto-capsule belong to Slices 2/3+. See
- * `docs/PLAN.md § RL-094` for the full sequence and
+ * list view, and auto-capsule belong to Slices 2/3+. See the
+ * RL-094 scope for the full sequence and
  * `docs/CAPSULE_TEST_MATRIX.md` for the test matrix.
  */
 

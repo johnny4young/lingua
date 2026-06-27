@@ -3,7 +3,7 @@
 > Operator-oriented walkthrough of the JS/TS debugger that ships in
 > Slice 1 (instrument + worker protocol) and Slice 1.5 (user-facing
 > surface). Read alongside [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) for
-> the design rationale and [`PLAN.md` RL-027](./PLAN.md) for the
+> the design rationale; RL-027 in the internal plan owns the
 > ticket-level scope and status.
 
 ## What the user sees

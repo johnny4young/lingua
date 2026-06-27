@@ -19,7 +19,7 @@
  * contains the current line OR the current step mode dictates a stop;
  * otherwise the yield function fast-paths to `Promise.resolve()`.
  *
- * Reference: `docs/PLAN.md` RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
+ * Reference: RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
  *
  * RL-144 (AUDIT-24): trust boundary for the `new AsyncFunction(...)`
  * eval below. The renderer/main thread is already trusted and hands

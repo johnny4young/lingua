@@ -471,7 +471,7 @@ describe('verifyJwt', () => {
     // A dedicated forged-token test that exercises the importKey curve
     // rejection (where the token header falsely claims ES256 but the
     // signature is over a P-384 key) is tracked as a follow-up in
-    // docs/BACKLOG.md — that scenario is adversarial rather than a
+    // the internal backlog — that scenario is adversarial rather than a
     // realistic paste mistake.
     const { privateJwk: p384Private, publicJwk: p384Public } = await generateEcdsaJwkPair('ES384');
     const signed = await signJwt('{}', '{"sub":"x"}', JSON.stringify(p384Private), 'ES384');

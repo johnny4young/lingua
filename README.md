@@ -9,7 +9,7 @@
 **Marketing site:** [linguacode.dev](https://linguacode.dev) — downloads, pricing, press kit, language-specific landing pages.
 **Web app:** [app.linguacode.dev](https://app.linguacode.dev) — the in-browser build.
 
-The marketing site lives in a separate repo (`johnny4young/lingua-marketing`); see [`docs/MARKETING_SITE_ADR.md`](./docs/MARKETING_SITE_ADR.md) for the rationale.
+The marketing site lives in a separate repo (`johnny4young/lingua-marketing`) and auto-deploys to [linguacode.dev](https://linguacode.dev) via Cloudflare Pages.
 
 ## Pricing and licensing
 
@@ -103,7 +103,7 @@ Contributor and operator entry points:
 
 - [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) — clone/install, dev/test/smoke/build commands, Pro testing, automation/delivery.
 - [`docs/USAGE.md`](./docs/USAGE.md) — keyboard shortcuts, deep links, plugin manifest format, browser-only limitations, update behavior.
-- [`docs/ROADMAP.md`](./docs/ROADMAP.md), [`docs/SPRINT-PLAN.md`](./docs/SPRINT-PLAN.md), [`docs/ARCHIVED.md`](./docs/ARCHIVED.md), and [`docs/BACKLOG.md`](./docs/BACKLOG.md) — live planning state, active pull order, closed-ticket archive policy, and raw idea capture.
+- [`docs/ROADMAP.md`](./docs/ROADMAP.md) — live planning state, status board, and active pull order.
 - [`AGENTS.md`](./AGENTS.md) — canonical guidance for any agent (Claude Code, Cursor, Codex, Aider) working in this repo. `CLAUDE.md` is a symlink pointing to it.
 - [`RELEASE.md`](./RELEASE.md) — release operator checklist (preconditions, release steps, validation gate, rollback plan).
 
@@ -111,7 +111,7 @@ Architecture and decision records:
 
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — process model, IPC filesystem bridge, watch-state, project lifecycle.
 - [`docs/CAPABILITY_MATRIX.md`](./docs/CAPABILITY_MATRIX.md) — which execution class owns each capability today, with promotion rules.
-- [`docs/README.md`](./docs/README.md) — full ADR index (build system, debugger, env vars, language packs, Tauri spike, Vim mode, Vite upgrade, marketing site, runtime assets).
+- [`docs/README.md`](./docs/README.md) — full ADR index (build system, debugger, env vars, language packs, Tauri spike, Vim mode, runtime assets).
 - [`src/renderer/README.md`](./src/renderer/README.md) — renderer folder map, state ownership, styling rules.
 
 Public-release and security:
@@ -122,7 +122,6 @@ Public-release and security:
 
 Launch and product collateral:
 
-- [`docs/MARKETING_SITE_ADR.md`](./docs/MARKETING_SITE_ADR.md) — separate-repo decision for [linguacode.dev](https://linguacode.dev), Cloudflare Pages auto-deploy.
 - [`docs/press-kit/`](./docs/press-kit/) — Phase 2 launch asset boilerplate (en + es) — product descriptions, pricing one-pager, founder bio, Show HN / Product Hunt / subreddit drafts.
 - [`docs/seo-pages/`](./docs/seo-pages/) — SEO landing page scaffolds (five language-intent pages) consumed by `linguacode.dev`.
 - [`docs/lessons/`](./docs/lessons/) — first-slice guided lesson scaffolds (en + es).
@@ -131,13 +130,13 @@ Launch and product collateral:
 
 Project-specific acronyms used throughout this repository:
 
-- **ADR** — Architecture Decision Record. Markdown files under [`docs/`](./docs/) that capture the _why_ behind a design choice (e.g. [`MARKETING_SITE_ADR.md`](./docs/MARKETING_SITE_ADR.md)).
+- **ADR** — Architecture Decision Record. Markdown files under [`docs/`](./docs/) that capture the _why_ behind a design choice (e.g. [`docs/RUNTIME_MODES_ADR.md`](./docs/RUNTIME_MODES_ADR.md)).
 - **IPC** — Inter-Process Communication. Electron's main ↔ renderer message bridge that backs the filesystem, language toolchains, and license verification. See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 - **WASM** — WebAssembly. The bytecode format used to run Go through the desktop bridge and to host the Python (Pyodide) runtime in both desktop and web builds.
 - **JWT** — JSON Web Token. Wire shape of Lingua's offline-verifiable Ed25519-signed license tokens.
 - **JWK** — JSON Web Key. Public-key encoding embedded at build time (`VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK`) and used by the renderer to verify those tokens.
 - **SEO** — Search Engine Optimization. Discoverability scaffolding for the language-intent landing pages under [`docs/seo-pages/`](./docs/seo-pages/), consumed by [linguacode.dev](https://linguacode.dev).
-- **RL-XXX** — RunLang ticket ID. Legacy prefix kept after the rename from RunLang to Lingua; every roadmap item is tracked as `RL-NNN` across [`docs/ROADMAP.md`](./docs/ROADMAP.md), [`docs/PLAN.md`](./docs/PLAN.md), and [`docs/SPRINT-PLAN.md`](./docs/SPRINT-PLAN.md).
+- **RL-XXX** — RunLang ticket ID. Legacy prefix kept after the rename from RunLang to Lingua; every roadmap item is tracked as `RL-NNN` in [`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ## License
 

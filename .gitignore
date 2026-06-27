@@ -72,3 +72,21 @@ Thumbs.db
 .agents/skills/lingua-ship/
 prod-keypair.json
 default.profraw
+
+# Internal planning/strategy + agent workflow — local, never committed (public repo)
+.agents/
+/docs/PLAN.md
+/docs/BACKLOG.md
+/docs/SPRINT-PLAN.md
+/docs/ARCHIVED.md
+/docs/ANTI_FEATURES.md
+/docs/WORK_PROPOSAL.md
+/docs/WORLD_CLASS_PLAN.md
+/docs/WORLD_CLASS_TICKETS.md
+/docs/WORLD_CLASS_TO_RL_PROPOSAL.md
+/docs/PROJECT_AUDIT_2026_05_24.md
+/docs/LICENSING_ADR.md
+/docs/MARKETING_SITE_ADR.md
+/docs/AI_BRIDGE_ADR.md
+/docs/DEPENDENCY_MANAGER_ADR.md
+/docs/VITE_UPGRADE_ADR.md

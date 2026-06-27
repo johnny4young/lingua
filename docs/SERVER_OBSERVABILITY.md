@@ -204,6 +204,5 @@ When rotation expands, this section becomes the rotation source of truth and the
 
 - Runbooks: [`docs/runbooks/`](./runbooks/)
 - Privacy posture (what we do / don't log): [`PRIVACY.md`](../PRIVACY.md)
-- Licensing decision record: [`docs/LICENSING_ADR.md`](./LICENSING_ADR.md)
 - Release operator checklist: [`RELEASE.md`](../RELEASE.md)
 - Public-release security sign-off: [`docs/RELEASE_SECURITY.md`](./RELEASE_SECURITY.md)

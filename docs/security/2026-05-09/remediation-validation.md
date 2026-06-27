@@ -6,8 +6,7 @@ can reproduce the same checks.
 
 Historical note: the command blocks below are the exact validation evidence
 from 2026-05-09. Current repo commands use `pnpm` and are documented in
-[`DEVELOPMENT.md`](../../DEVELOPMENT.md) and
-[`SPRINT-PLAN.md`](../../SPRINT-PLAN.md).
+[`DEVELOPMENT.md`](../../DEVELOPMENT.md).
 
 ## Current Equivalent Commands
 

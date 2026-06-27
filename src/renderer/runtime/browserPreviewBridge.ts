@@ -13,7 +13,7 @@
  * Mirrors the pattern in `debuggerWorkerBridge.ts` (RL-027 Slice 1)
  * so a follow-up reviewer recognises the shape.
  *
- * Reference: docs/PLAN.md RL-019 Slice 3 and
+ * Reference: RL-019 Slice 3 and
  * docs/RUNTIME_MODES_ADR.md § Decision 6.
  */
 

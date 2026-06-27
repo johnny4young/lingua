@@ -22,11 +22,11 @@ directly from this directory.
 
 1. **Nothing can be more than one hop from reality.** If a feature is
    not shipped, do not claim it. Use the phrase "Lingua today" and
-   anchor to the [PLAN.md](../PLAN.md) RL entries.
+   anchor to `Done` rows in [`ROADMAP.md`](../ROADMAP.md).
 2. **Match the posture in `LICENSE`.** Source-available commercial —
    never claim "open source" or "MIT".
-3. **Pricing matches [PLAN.md](../PLAN.md) Section 13** (Free,
-   Monthly, Pro, Education). If any of these change, update this kit
+3. **Pricing matches the published tiers** (Free, Monthly, Pro,
+   Education). If any of these change, update this kit
    in the same commit.
 4. **Spanish mirror**: every customer-facing string file ships `en`
    and `es` variants in the same file, delimited by `## English` /

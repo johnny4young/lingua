@@ -200,7 +200,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       debugger: 'planned',
     },
     notes: {
-      lsp: 'Pyright-in-a-worker is planned; see docs/BACKLOG.md.',
+      lsp: 'Pyright-in-a-worker is planned.',
       desktopRuntime:
         'Desktop runs the same Pyodide renderer worker as web (no native subprocess yet).',
       packages:

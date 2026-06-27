@@ -3,8 +3,8 @@
  *
  * Per-tab session that keeps a long-lived sandbox object so cell N
  * can read variables declared in cells 1..N-1 WITHOUT polluting
- * the worker's `globalThis`. The 2026-05-20 research triage in
- * `docs/PLAN.md § RL-043` explicitly rejected raw `globalThis.eval()`
+ * the worker's `globalThis`. The 2026-05-20 research triage for
+ * RL-043 explicitly rejected raw `globalThis.eval()`
  * because it would bypass the runner instrumentation, timeout,
  * debugger, console, and stop contracts that already exist.
  *

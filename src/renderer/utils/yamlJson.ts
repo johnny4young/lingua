@@ -10,7 +10,7 @@
  * direction (YAML → JSON) also reports `hadComments` because js-yaml
  * v4 does not preserve comments — the panel renders an explicit
  * "comments were dropped" notice when the input contains any `#`-line
- * outside a quoted scalar, which satisfies the PLAN.md scope bullet
+ * outside a quoted scalar, which satisfies the scope bullet
  * "preserve comments when possible; explicit diagnostic when losing
  * them".
  */

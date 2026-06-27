@@ -98,7 +98,7 @@ through staging before the GitHub Release is promoted.
 
 **P1-4 — Product-tier copy drift in older launch collateral.**
 
-`docs/LICENSING_ADR.md` defines the current public copy as Free, Monthly, Pro,
+The internal licensing ADR defines the current public copy as Free, Monthly, Pro,
 and Education. Resolved on 2026-05-07 by aligning README, LICENSE, press kit,
 SEO page scaffolds, renderer tier labels, email labels, and guard tests while
 leaving legacy backend slugs intact for token compatibility.

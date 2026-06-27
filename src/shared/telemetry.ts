@@ -117,7 +117,7 @@ export const TELEMETRY_EVENTS = [
   // RL-093 Slice 3 fold F — adoption signal for the floating ↔ bottom
   // surface choice. Closed-enum payload `{ surface }` where `surface`
   // is `'floating'` or `'bottom'`. Mirrored on update-server (deferred
-  // to a follow-up — see RL-093 Slice 3 Status Update in PLAN.md).
+  // to a follow-up — see the RL-093 Slice 3 Status Update).
   'runtime.variable_inspector_surface_changed',
   // RL-044 Slice 1B — rich console payload rendered. Fires at most once
   // per console entry first-render so adoption per payload kind is

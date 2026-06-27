@@ -4,7 +4,7 @@
  * Cloudflare Worker hosted at `licenses.linguacode.dev`. Sibling of the
  * `update-server/` worker (which proxies GitHub Releases for Squirrel).
  * Source-of-truth for license issuance, device tracking, trial minting,
- * and renewal token refresh — see docs/LICENSING_ADR.md Decision 2.
+ * and renewal token refresh — see the internal licensing ADR Decision 2.
  *
  * Slice 1 shipped the router skeleton + D1 schema + 501 stubs.
  * Slice 2 promotes /webhooks/polar + /licenses/{activate,status,

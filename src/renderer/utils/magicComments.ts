@@ -231,8 +231,8 @@ export function extractTimeoutMagicComment(
 // directive text. We accept this false-positive because the privacy
 // posture (over-suppress) is the safer side of the tradeoff. If a
 // future slice needs string-literal-aware detection, swap this for a
-// tokenised scan (acorn / Babel AST) — see `docs/BACKLOG.md`
-// `[security] [ux] 2026-05-22` for the open question.
+// tokenised scan (acorn / Babel AST) — the internal backlog
+// `[security] [ux] 2026-05-22` tracks the open question.
 const ORIGIN_OFF_DIRECTIVE_RE =
   /(?:\/\/|#)\s*@origin\s*:?\s*off\b/i;
 

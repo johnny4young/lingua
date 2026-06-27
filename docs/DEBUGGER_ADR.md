@@ -51,7 +51,7 @@ Out of scope for the MVP:
 - Time-travel debugging.
 - Conditional breakpoints (can land as a post-MVP slice).
 - Logpoints / tracepoints — **promoted 2026-05-21 to a planned post-MVP slice**.
-  See `RL-027 Slice 1.5c` in `PLAN.md` for the full scope; the decision to keep
+  See `RL-027 Slice 1.5c` in the internal plan for the full scope; the decision to keep
   them outside the MVP was about budget, not about feature merit. Slice 1.5c
   shares the dynamic-Function security review with Slice 1.5b (watch
   expressions) so both unlock together once that review lands.
@@ -150,7 +150,7 @@ existing RL-037 editable shortcut mapper.
 
 ## Cross-links
 
-- RL-027 in `PLAN.md` — this ADR flips it from `Planned` to
+- RL-027 in the internal plan — this ADR flips it from `Planned` to
   `Partial` with the note "MVP design accepted; first slice still
   to ship".
 - RL-011 Slice D and RL-038 Slice B are hard dependencies for the

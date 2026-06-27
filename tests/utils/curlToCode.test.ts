@@ -1,6 +1,6 @@
 /**
  * RL-070 — Unit tests for the cURL → Code helper. The 10-invocation
- * fixture required by the PLAN.md acceptance criteria lives below
+ * fixture required by the RL-070 acceptance criteria lives below
  * (bare GET, GET with query, POST JSON, POST form, PUT, DELETE, basic
  * auth, custom header stack, line continuation, cookie). Each fixture
  * is pinned against the primary target (fetch) with spot checks

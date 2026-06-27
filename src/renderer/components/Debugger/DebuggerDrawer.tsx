@@ -38,7 +38,7 @@ const debuggerDangerButton =
  *
  * Hides itself otherwise so the existing layout is undisturbed.
  *
- * Reference: docs/PLAN.md RL-027 Slice 1 and docs/DEBUGGER_ADR.md.
+ * Reference: RL-027 Slice 1 and docs/DEBUGGER_ADR.md.
  */
 export function DebuggerDrawer({
   activeTabId,

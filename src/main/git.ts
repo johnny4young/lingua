@@ -883,7 +883,7 @@ export async function watchRepoHead(
  * Uses `shell.openPath` (same primitive `fs:reveal-in-finder` uses)
  * rather than probing for an installed Source Control GUI client.
  * Cross-platform SC-client detection is brittle (different bundle
- * ids on Linux / Windows, fingerprinting risk per `ANTI_FEATURES.md`
+ * ids on Linux / Windows, fingerprinting risk per anti-feature
  * §A-008) — opening the working tree in Finder / Explorer is the
  * generic action a developer expects.
  */

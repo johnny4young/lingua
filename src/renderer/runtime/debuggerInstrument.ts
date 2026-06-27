@@ -89,7 +89,7 @@ interface AwaitableDebugTargets {
  *
  * # Reference
  *
- * `docs/PLAN.md` RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
+ * RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
  */
 
 export interface InstrumentResult {

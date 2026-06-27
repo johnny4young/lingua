@@ -127,7 +127,7 @@ Before tagging a real release:
 ### 1.6 Update the marketing site CTAs
 
 The marketing site lives in a separate repo (`lingua-marketing`,
-Astro + Cloudflare Pages — see `docs/MARKETING_SITE_ADR.md`). The
+Astro + Cloudflare Pages). The
 Download CTAs there must point to the R2 mirror, not GitHub:
 
 - macOS: `https://downloads.linguacode.dev/latest/lingua-darwin-arm64.dmg`

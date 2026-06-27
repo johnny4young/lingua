@@ -20,7 +20,7 @@
  * has no `package.json`. Without this guard `npm install <name>`
  * silently creates a `package.json` next to a one-off scratchpad,
  * which violates the "no silent installs" line in
- * `docs/DEPENDENCY_MANAGER_ADR.md`.
+ * the internal dependency-manager ADR.
  *
  * Fold C — pre-flight integrity check: before spawning we re-run
  * the Slice A resolver against the batch and drop any specifier

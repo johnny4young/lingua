@@ -6,7 +6,7 @@
  * These re-based budgets ratchet the achieved sizes so the shell components
  * cannot regrow toward a monolith; the residual reduction to the original
  * targets (a useAppBootstrap hook + EditorArea extraction) is tracked in
- * docs/BACKLOG.md.
+ * the internal backlog.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

@@ -6,7 +6,7 @@ This repository uses a draft-first manual release process, with the release tag 
 
 - CI is green on `main`
 - The release preflight passes locally: `pnpm run release:preflight`. It runs the release-blocking gates the way CI runs them — license-key rotation with an absent `.env` (so a gitignored dev key cannot mask a CI failure), the R2 web-runtime mirror readiness probe (public access + CORS), changelog/version, production audit, third-party licenses, performance budget, compliance artifacts, and the production web build — so breakage surfaces here instead of after a signed build and a published draft. The gate list is pinned to this workflow by `tests/scripts/releasePreflight.test.ts`.
-- No open P0 incidents in `docs/PLAN.md`
+- No open P0 incidents in the internal plan
 - Release tag will be a stable tag in the form `vX.Y.Z`
 - `package.json` `version` and root [`CHANGELOG.md`](./CHANGELOG.md) have both been bumped to the target version in a merged commit
 - GitHub Actions secrets are configured:
@@ -109,4 +109,4 @@ This repository uses a draft-first manual release process, with the release tag 
 - Draft-first publishing
 - macOS artifacts are ZIP-only in the active path
 - The checklist above is the acceptance gate for RL-016. Any change to the gate must update this file and `tests/docs/releaseChecklist.test.ts` in the same commit.
-- Marketing site at [linguacode.dev](https://linguacode.dev) lives in a separate repo (`johnny4young/lingua-marketing`) with an independent deploy cadence; see [`docs/MARKETING_SITE_ADR.md`](./docs/MARKETING_SITE_ADR.md). Releases of this repo do not redeploy the marketing site, and content fixes there do not require a release tag here.
+- Marketing site at [linguacode.dev](https://linguacode.dev) lives in a separate repo (`johnny4young/lingua-marketing`) with an independent deploy cadence. Releases of this repo do not redeploy the marketing site, and content fixes there do not require a release tag here.

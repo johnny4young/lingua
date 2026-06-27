@@ -242,7 +242,7 @@ export const KNOWN_PRODUCT_IDS: ReadonlySet<string> = new Set<PolarProductId>([
  * slug, which the webhook handlers translate to
  * `{ ok: true, ignored: 'unknown-product' }`.
  *
- * Documented in `docs/LICENSING_ADR.md` Decision 2 and
+ * Documented in the internal licensing ADR Decision 2 and
  * `license-server/README.md` "Maintainer-side prerequisites".
  */
 export function resolveProductSku(

@@ -86,12 +86,12 @@ describe('ROADMAP — RL-011 archive membership (fold B, 2026-05-12)', () => {
 
   it('RL-011 is NOT listed in any §4 active-backlog table row', () => {
     // §4 active-backlog rows for `RL-XXX` have the canonical shape:
-    //   `| [`RL-XXX`](./PLAN.md#…) | <title> | `<status>` | … |`
+    //   `| [`RL-XXX`](<href>) | <title> | `<status>` | … |`
     // A row for RL-011 in §4 would mean the close-out got reverted
     // or someone reintroduced it as Partial. The ADR's "Workers do
     // not receive env vars" decision would need to be repealed
     // before reopening the ticket, so failing here is intentional.
-    const activeRowPattern = /\|\s*\[`RL-011`\]\(\.\/PLAN\.md#rl-011[^)]*\)\s*\|/u;
+    const activeRowPattern = /\|\s*\[`RL-011`\]\([^)]+\)\s*\|/u;
     expect(roadmap).not.toMatch(activeRowPattern);
   });
 });

@@ -39,7 +39,7 @@ describe('renderMarkdownPreview', () => {
     expect(result.html).not.toContain('alert(1)');
   });
 
-  it('strips remote image src so no fetch is triggered (PLAN.md AC)', async () => {
+  it('strips remote image src so no fetch is triggered (AC)', async () => {
     const md = '![alt](https://example.com/img.png)';
     const result = await renderMarkdownPreview(md, { gfm: true });
     expect(result.ok).toBe(true);

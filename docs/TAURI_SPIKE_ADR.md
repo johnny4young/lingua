@@ -154,7 +154,7 @@ work starts.
 - `CAPABILITY_MATRIX.md` (RL-030) — unchanged. Tauri would not move
   any capability into a different execution class; it would only swap
   the shell.
-- `PLAN.md` — RL-035 flips to Done with this ADR as the artifact.
+- The internal plan — RL-035 flips to Done with this ADR as the artifact.
 
 ## Reviewers
 

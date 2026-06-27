@@ -9,8 +9,7 @@ used to fix the findings; it is not a replacement for `SECURITY.md`,
 
 Historical note: command blocks in this packet are preserved as the validation
 evidence from 2026-05-09. Current repo commands use `pnpm`; see
-[`DEVELOPMENT.md`](../../DEVELOPMENT.md) and
-[`SPRINT-PLAN.md`](../../SPRINT-PLAN.md) for the live validation matrix, and
+[`DEVELOPMENT.md`](../../DEVELOPMENT.md) for the live validation matrix, and
 [`remediation-validation.md`](./remediation-validation.md#current-equivalent-commands)
 for the equivalent current command block.
 

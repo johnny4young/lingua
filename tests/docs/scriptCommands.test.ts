@@ -13,16 +13,13 @@ const FIRST_PARTY_PACKAGE_PATHS = [
 ];
 const CHANGELOG_PATH = resolve(__dirname, '../../CHANGELOG.md');
 const GITIGNORE_PATH = resolve(__dirname, '../../.gitignore');
-const VITE_UPGRADE_ADR_PATH = resolve(__dirname, '../../docs/VITE_UPGRADE_ADR.md');
 const DEVELOPMENT_PATH = resolve(__dirname, '../../docs/DEVELOPMENT.md');
 const CURRENT_OPERATOR_DOC_PATHS = [
   'README.md',
   'RELEASE.md',
   'docs/DEVELOPMENT.md',
-  'docs/SPRINT-PLAN.md',
   'docs/ROADMAP.md',
   'docs/README.md',
-  'docs/ARCHIVED.md',
   'docs/PUBLIC_READINESS_AUDIT.md',
   'docs/PUBLIC_RELEASE_CHECKLIST.md',
   'docs/TEST_PLAN.md',
@@ -48,9 +45,6 @@ describe('Script naming docs guard', () => {
   const release = existsSync(RELEASE_PATH) ? readFileSync(RELEASE_PATH, 'utf-8') : '';
   const changelog = existsSync(CHANGELOG_PATH) ? readFileSync(CHANGELOG_PATH, 'utf-8') : '';
   const gitignore = existsSync(GITIGNORE_PATH) ? readFileSync(GITIGNORE_PATH, 'utf-8') : '';
-  const viteUpgradeAdr = existsSync(VITE_UPGRADE_ADR_PATH)
-    ? readFileSync(VITE_UPGRADE_ADR_PATH, 'utf-8')
-    : '';
   const development = existsSync(DEVELOPMENT_PATH)
     ? readFileSync(DEVELOPMENT_PATH, 'utf-8')
     : '';
@@ -203,7 +197,7 @@ describe('Script naming docs guard', () => {
       expect(workflow).not.toMatch(/node-version:\s*['"]24(?:\.\d+\.\d+)?['"]/u);
     }
 
-    const policyDocs = `${readme}\n${changelog}\n${viteUpgradeAdr}`;
+    const policyDocs = `${readme}\n${changelog}`;
     expect(policyDocs).toContain('24.x');
     expect(policyDocs).toContain('24.X.Y');
     expect(policyDocs).not.toMatch(/\b24\.\d+\.\d+\b/u);

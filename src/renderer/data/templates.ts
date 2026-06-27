@@ -468,7 +468,7 @@ export function getTemplatesForLanguage(language: Language): Template[] {
 /**
  * Generated file names intentionally stay stable and source-language based.
  * Phase 3 localizes visible UI copy, but filenames remain non-localized per
- * the delivery rules in docs/PLAN.md.
+ * the internal delivery rules.
  */
 export function resolveTemplateFileStem(template: Template): string {
   return template.fileStem;
