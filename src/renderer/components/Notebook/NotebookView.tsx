@@ -8,13 +8,24 @@
  *   - Cell list: scrollable column of `<NotebookMarkdownCellRow>` +
  *     `<NotebookCodeCellRow>` interspersed in user-defined order.
  *
- * Slice A intentionally renders cells as plain elements (no
- * virtualization). 200-cell cap on the schema means the worst-case
- * mount cost stays bounded; Slice B+ swaps in
- * `@tanstack/react-virtual` once cell editors promote to Monaco.
+ * Slice G mount-virtualized the Monaco editor (only the active cell
+ * hosts a live editor). Slice H windows the ROW COUNT via the shared
+ * `useListWindow` hook: only the rows whose vertical band intersects the
+ * viewport (plus an overscan margin) mount, with two spacer `<li>`s
+ * preserving the scrollbar geometry. In jsdom (`clientHeight === 0`) the
+ * windower degrades to the full list, so component tests render every
+ * cell. Programmatic activation (command-mode nav, run progress) scrolls
+ * the target row into the window before focusing it.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CodeXml,
@@ -44,6 +55,7 @@ import {
 import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useNotebookRun } from '../../hooks/useNotebookRun';
+import { useListWindow } from '../../hooks/useListWindow';
 import {
   trackNotebookCellLanguageChanged,
   trackNotebookExported,
@@ -165,6 +177,67 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     (s) => s.notebooks[tabId]?.activeCellId ?? null
   );
   const setActiveCell = useNotebookStore((s) => s.setActiveCell);
+  // RL-043 Slice H fold B — per-tab cell-list scroll persistence.
+  const setNotebookScrollTop = useNotebookStore((s) => s.setNotebookScrollTop);
+
+  // RL-043 Slice H — window the cell ROW count. The scrolling <section>
+  // is the viewport; `useListWindow` mounts only the rows whose vertical
+  // band intersects it (plus an 800px overscan tuned for tall cells). The
+  // hook must run unconditionally (rules of hooks), so it reads an empty
+  // key list before the notebook is created — `computeWindow` returns an
+  // empty window for a zero-length list, which is harmless.
+  const cellsScrollRef = useRef<HTMLElement | null>(null);
+  const cellKeys = useMemo(
+    () => notebook?.cells.map((cell) => cell.id) ?? [],
+    [notebook]
+  );
+  const { listWindow, measureRef, scrollToIndex } = useListWindow({
+    scrollRef: cellsScrollRef,
+    keys: cellKeys,
+    // Fold E — tuned for tall notebook cells (editor + outputs) vs. the
+    // console's 28px ANSI rows.
+    estimate: 120,
+    overscanPx: 800,
+  });
+
+  // Fold B — restore this tab's remembered scroll offset ONCE, after the
+  // first layout, then hand control to the user. A layout effect runs
+  // before paint so the restore is invisible. We restore per `tabId` (not
+  // on every render) so the windower's own scroll tracking isn't fought.
+  const notebookReady = Boolean(notebook);
+  const restoredScrollForTabRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!notebookReady) return;
+    if (restoredScrollForTabRef.current === tabId) return;
+    restoredScrollForTabRef.current = tabId;
+    const element = cellsScrollRef.current;
+    if (!element) return;
+    const remembered = useNotebookStore.getState().notebookScrollTop[tabId] ?? 0;
+    if (remembered > 0) element.scrollTop = remembered;
+  }, [notebookReady, tabId]);
+
+  // Fold B — persist the scroll offset as the user scrolls, throttled to
+  // one write per animation frame so a flick-scroll doesn't thrash the
+  // store. This coexists with the windower's own (separate) rAF scroll
+  // listener; both read the same `scrollTop` independently.
+  const scrollPersistRafRef = useRef<number | null>(null);
+  const handleCellsScroll = useCallback(() => {
+    if (scrollPersistRafRef.current !== null) return;
+    scrollPersistRafRef.current = requestAnimationFrame(() => {
+      scrollPersistRafRef.current = null;
+      const element = cellsScrollRef.current;
+      if (element) setNotebookScrollTop(tabId, element.scrollTop);
+    });
+  }, [setNotebookScrollTop, tabId]);
+  useEffect(
+    () => () => {
+      if (scrollPersistRafRef.current !== null) {
+        cancelAnimationFrame(scrollPersistRafRef.current);
+        scrollPersistRafRef.current = null;
+      }
+    },
+    []
+  );
 
   const codeCellsCount = useMemo(
     () => notebook?.cells.filter(isNotebookCodeCell).length ?? 0,
@@ -277,16 +350,22 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [setCellLanguage, tabId]
   );
 
+  const getLiveNotebookCells = useCallback(
+    () => useNotebookStore.getState().notebooks[tabId]?.notebook.cells ?? null,
+    [tabId]
+  );
+
   const handleMove = useCallback(
     (cellId: string, direction: 'up' | 'down') => {
-      if (!notebook) return;
-      const idx = notebook.cells.findIndex((c) => c.id === cellId);
+      const cells = getLiveNotebookCells();
+      if (!cells) return;
+      const idx = cells.findIndex((c) => c.id === cellId);
       if (idx === -1) return;
       const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-      if (targetIdx < 0 || targetIdx >= notebook.cells.length) return;
+      if (targetIdx < 0 || targetIdx >= cells.length) return;
       moveCell(tabId, idx, targetIdx);
     },
-    [moveCell, notebook, tabId]
+    [getLiveNotebookCells, moveCell, tabId]
   );
 
   const handleDelete = useCallback(
@@ -296,6 +375,42 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [removeCell, tabId]
   );
 
+  // RL-043 Slice H fold C — stable per-cell handlers so the memoized rows
+  // see referentially-equal props and a keystroke in one cell does not
+  // re-render every other mounted row. These replace the inline arrows the
+  // row map used to pass (which changed identity every render).
+  const handleActivate = useCallback(
+    (cellId: string) => setActiveCell(tabId, cellId),
+    [setActiveCell, tabId]
+  );
+  const handleSourceChange = useCallback(
+    (cellId: string, source: string) => updateCellSource(tabId, cellId, source),
+    [tabId, updateCellSource]
+  );
+  const handleRunCell = useCallback(
+    (cellId: string) => void runCell(tabId, cellId),
+    [runCell, tabId]
+  );
+  const handleMoveUp = useCallback(
+    (cellId: string) => handleMove(cellId, 'up'),
+    [handleMove]
+  );
+  const handleMoveDown = useCallback(
+    (cellId: string) => handleMove(cellId, 'down'),
+    [handleMove]
+  );
+
+  // RL-043 Slice H — read a cell's current index off the LIVE store rather
+  // than closing over `notebook`, so the focus helpers below keep empty /
+  // minimal dep lists (closing over `notebook` would rebuild them — and the
+  // memoized command-mode actions — on every keystroke). Returns -1 when
+  // the cell is gone.
+  const cellIndexOf = useCallback(
+    (cellId: string): number =>
+      getLiveNotebookCells()?.findIndex((c) => c.id === cellId) ?? -1,
+    [getLiveNotebookCells]
+  );
+
   // Jupyter-parity run keybinds. RL-043 Slice (Monaco cells): a code cell
   // no longer has an always-mounted textarea to focus, so "advance into
   // edit mode" routes through the edit-request mechanism — select the cell
@@ -303,27 +418,53 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // itself on mount). Works for a just-created cell too: `addCell` updates
   // the store synchronously, so the target row exists by the time React
   // re-renders with the bumped nonce.
+  //
+  // Slice H — the active cell hosts the live editor, but a windowed off-
+  // screen row is UNMOUNTED, so we must scroll it into the window BEFORE
+  // focusing (the editor / shell only exists once the recompute mounts it).
+  // `scrollToIndex` seeds the internal scrollTop synchronously, so one frame
+  // lets the window recompute + mount the row, and a second frame lets the
+  // freshly-mounted editor settle before we set the active cell + edit
+  // request that drive its focus-on-mount.
   const focusCellSoon = useCallback(
     (cellId: string) => {
-      setActiveCell(tabId, cellId);
-      requestEditMode(cellId);
+      const idx = cellIndexOf(cellId);
+      if (idx >= 0) scrollToIndex(idx);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (cellIndexOf(cellId) === -1) return;
+          setActiveCell(tabId, cellId);
+          requestEditMode(cellId);
+        });
+      });
     },
-    [requestEditMode, setActiveCell, tabId]
+    [cellIndexOf, requestEditMode, scrollToIndex, setActiveCell, tabId]
   );
 
   // Focus a cell SHELL (command mode) after the next paint — used after
   // a structural edit so focus follows the active cell back into command
-  // mode rather than getting orphaned on a removed element.
-  const focusShellSoon = useCallback((cellId: string) => {
-    requestAnimationFrame(() => {
-      // The shell carries `data-cell-id` + the `data-notebook-cell-shell`
-      // marker on one node; the combined attribute selector matches it.
-      const el = document.querySelector<HTMLElement>(
-        `[data-cell-id="${cellId}"][data-notebook-cell-shell="true"]`
-      );
-      el?.focus();
-    });
-  }, []);
+  // mode rather than getting orphaned on a removed element. Slice H: scroll
+  // the target into the window first (double rAF: one frame for the window-
+  // recompute render to mount the row, one to query + focus it), since an
+  // off-screen shell is unmounted and `querySelector` would miss it.
+  const focusShellSoon = useCallback(
+    (cellId: string) => {
+      const idx = cellIndexOf(cellId);
+      if (idx >= 0) scrollToIndex(idx);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (cellIndexOf(cellId) === -1) return;
+          // The shell carries `data-cell-id` + the `data-notebook-cell-shell`
+          // marker on one node; the combined attribute selector matches it.
+          const el = document.querySelector<HTMLElement>(
+            `[data-cell-id="${cellId}"][data-notebook-cell-shell="true"]`
+          );
+          el?.focus();
+        });
+      });
+    },
+    [cellIndexOf, scrollToIndex]
+  );
 
   // Insert a code cell ABOVE / BELOW the given cell + focus the new one
   // in edit mode (Jupyter `a` / `b`). The engine `addCell` only inserts
@@ -332,15 +473,16 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // lands it at the anchor's original index, which is "above" it.
   const insertCodeRelative = useCallback(
     (anchorCellId: string, position: 'above' | 'below') => {
-      if (!notebook) return;
-      if (notebook.cells.length >= MAX_CELLS_PER_NOTEBOOK) {
+      const cells = getLiveNotebookCells();
+      if (!cells) return;
+      if (cells.length >= MAX_CELLS_PER_NOTEBOOK) {
         pushStatusNotice({
           tone: 'warning',
           messageKey: 'notebook.notice.tooManyCells',
         });
         return;
       }
-      const idx = notebook.cells.findIndex((c) => c.id === anchorCellId);
+      const idx = cells.findIndex((c) => c.id === anchorCellId);
       if (idx === -1) return;
       const newId = addCell(tabId, anchorCellId, {
         kind: 'code',
@@ -357,8 +499,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [
       addCell,
       focusCellSoon,
+      getLiveNotebookCells,
       moveCell,
-      notebook,
       preferredCodeLanguage,
       pushStatusNotice,
       tabId,
@@ -368,26 +510,25 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const handleRunAndAdvance = useCallback(
     (cellId: string) => {
       void runCell(tabId, cellId);
-      if (!notebook) return;
-      const idx = notebook.cells.findIndex((c) => c.id === cellId);
+      const cells = getLiveNotebookCells();
+      if (!cells) return;
+      const idx = cells.findIndex((c) => c.id === cellId);
       if (idx === -1) return;
-      const nextCodeCell = notebook.cells
-        .slice(idx + 1)
-        .find(isNotebookCodeCell);
+      const nextCodeCell = cells.slice(idx + 1).find(isNotebookCodeCell);
       if (nextCodeCell) {
         focusCellSoon(nextCodeCell.id);
         return;
       }
       // Last cell — create a fresh code cell below to keep the flow
       // going, mirroring Jupyter's Shift+Enter at the bottom.
-      if (notebook.cells.length >= MAX_CELLS_PER_NOTEBOOK) {
+      if (cells.length >= MAX_CELLS_PER_NOTEBOOK) {
         pushStatusNotice({
           tone: 'warning',
           messageKey: 'notebook.notice.tooManyCells',
         });
         return;
       }
-      const currentCell = notebook.cells[idx];
+      const currentCell = cells[idx];
       const language =
         currentCell && isNotebookCodeCell(currentCell)
           ? currentCell.language
@@ -401,7 +542,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [
       addCell,
       focusCellSoon,
-      notebook,
+      getLiveNotebookCells,
       preferredCodeLanguage,
       pushStatusNotice,
       runCell,
@@ -412,15 +553,16 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const handleRunAndInsertBelow = useCallback(
     (cellId: string) => {
       void runCell(tabId, cellId);
-      if (!notebook) return;
-      if (notebook.cells.length >= MAX_CELLS_PER_NOTEBOOK) {
+      const cells = getLiveNotebookCells();
+      if (!cells) return;
+      if (cells.length >= MAX_CELLS_PER_NOTEBOOK) {
         pushStatusNotice({
           tone: 'warning',
           messageKey: 'notebook.notice.tooManyCells',
         });
         return;
       }
-      const currentCell = notebook.cells.find((cell) => cell.id === cellId);
+      const currentCell = cells.find((cell) => cell.id === cellId);
       const language =
         currentCell && isNotebookCodeCell(currentCell)
           ? currentCell.language
@@ -434,7 +576,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [
       addCell,
       focusCellSoon,
-      notebook,
+      getLiveNotebookCells,
       preferredCodeLanguage,
       pushStatusNotice,
       runCell,
@@ -554,9 +696,23 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     clearAllOutputs(tabId);
   }, [clearAllOutputs, tabId]);
 
+  // Fold F — kick off the whole-notebook run, then scroll the FIRST code
+  // cell (where progress begins) into view so a long notebook surfaces its
+  // running cell instead of leaving the user staring at an off-screen row.
+  const handleRunAll = useCallback(() => {
+    void runAll(tabId);
+    const firstCodeIdx =
+      notebook?.cells.findIndex(isNotebookCodeCell) ?? -1;
+    if (firstCodeIdx >= 0) scrollToIndex(firstCodeIdx);
+  }, [notebook, runAll, scrollToIndex, tabId]);
+
   const handleRunFromHere = useCallback(() => {
-    if (activeCellId) void runFromHere(tabId, activeCellId);
-  }, [activeCellId, runFromHere, tabId]);
+    if (!activeCellId) return;
+    void runFromHere(tabId, activeCellId);
+    // Fold F — bring the cell the run starts at into view.
+    const idx = cellIndexOf(activeCellId);
+    if (idx >= 0) scrollToIndex(idx);
+  }, [activeCellId, cellIndexOf, runFromHere, scrollToIndex, tabId]);
 
   // Signal-Slate — command-mode keyboard actions. Each maps a Jupyter
   // command-mode keybind onto the engine API; the `useNotebookCommandMode`
@@ -601,10 +757,20 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       runAndAdvance: (cellId: string) => handleRunAndAdvance(cellId),
       runAndInsertBelow: (cellId: string) => handleRunAndInsertBelow(cellId),
       interrupt: () => stop(),
-      setActiveCell: (cellId: string) => setActiveCell(tabId, cellId),
+      setActiveCell: (cellId: string) => {
+        // Slice H — j/k command-mode navigation routes through here. Scroll
+        // the target row into the window FIRST (synchronously seeds the
+        // internal scrollTop), so the recompute mounts its shell before the
+        // command-mode hook's own next-frame `focusShell` queries for it —
+        // an off-screen unmounted shell would otherwise never receive focus.
+        const idx = cellIndexOf(cellId);
+        if (idx >= 0) scrollToIndex(idx);
+        setActiveCell(tabId, cellId);
+      },
       requestEdit: (cellId: string) => requestEditMode(cellId),
     }),
     [
+      cellIndexOf,
       focusShellSoon,
       handleDelete,
       handleMove,
@@ -613,6 +779,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       insertCodeRelative,
       requestEditMode,
       runCell,
+      scrollToIndex,
       setActiveCell,
       stop,
       tabId,
@@ -744,7 +911,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
           </button>
           <button
             type="button"
-            onClick={() => runAll(tabId)}
+            onClick={handleRunAll}
             disabled={disabled || lastCodeCellId === null}
             data-testid="notebook-toolbar-run-all"
             className={cn(
@@ -904,8 +1071,10 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       </header>
 
       <section
+        ref={cellsScrollRef}
         data-testid="notebook-cells"
         onKeyDown={handleContainerKeyDown}
+        onScroll={handleCellsScroll}
         className="min-h-0 overflow-y-auto px-4 py-3"
       >
         {notebook.cells.length === 0 ? (
@@ -919,21 +1088,77 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             </div>
           </div>
         ) : (
-          <ul role="list" className="grid gap-3">
-            {notebook.cells.map((cell, idx) => {
-              const status: NotebookCellRunStatus =
-                cellRunStatusMap?.[cell.id] ?? 'idle';
-              const durationMs = cellDurationMsMap?.[cell.id];
-              const varFlow = cellVarFlowMap?.[cell.id];
-              const canMoveUp = idx > 0;
-              const canMoveDown = idx < notebook.cells.length - 1;
-              const isActive = activeCellId === cell.id;
-              if (isNotebookMarkdownCell(cell)) {
+          // RL-043 Slice H — windowed cell list. Only rows in
+          // `[startIndex, endIndex]` mount; two aria-hidden spacer <li>s
+          // hold the scrollbar geometry. The inter-row gap lives in each
+          // row's `pb-3` (border box) so the windower measures it exactly —
+          // hence no `gap-3` on the <ul>. In jsdom the windower degrades to
+          // the full list and both spacers collapse to 0 (omitted).
+          <ul role="list">
+            {listWindow.topSpacer > 0 ? (
+              <li aria-hidden="true" style={{ height: listWindow.topSpacer }} />
+            ) : null}
+            {notebook.cells
+              .slice(listWindow.startIndex, listWindow.endIndex + 1)
+              .map((cell, i) => {
+                const idx = listWindow.startIndex + i;
+                const status: NotebookCellRunStatus =
+                  cellRunStatusMap?.[cell.id] ?? 'idle';
+                const durationMs = cellDurationMsMap?.[cell.id];
+                const varFlow = cellVarFlowMap?.[cell.id];
+                const canMoveUp = idx > 0;
+                const canMoveDown = idx < notebook.cells.length - 1;
+                const isActive = activeCellId === cell.id;
+                // Slice H a11y — windowing drops off-screen rows from the
+                // DOM, so each mounted row reports the TRUE list size + its
+                // 1-based position to assistive tech via aria-setsize /
+                // aria-posinset (the W3C pattern for virtualized lists);
+                // otherwise a screen reader would see only the mounted slice.
+                if (isNotebookMarkdownCell(cell)) {
+                  return (
+                    <li
+                      key={cell.id}
+                      ref={measureRef(cell.id)}
+                      className="pb-3"
+                      aria-setsize={notebook.cells.length}
+                      aria-posinset={idx + 1}
+                    >
+                      <NotebookMarkdownCellRow
+                        cell={cell}
+                        cellIndex={idx}
+                        isActive={isActive}
+                        editRequestNonce={
+                          editRequest?.cellId === cell.id
+                            ? editRequest.nonce
+                            : null
+                        }
+                        canMoveUp={canMoveUp}
+                        canMoveDown={canMoveDown}
+                        disabled={disabled}
+                        onActivate={handleActivate}
+                        onSourceChange={handleSourceChange}
+                        onMoveUp={handleMoveUp}
+                        onMoveDown={handleMoveDown}
+                        onDelete={handleDelete}
+                      />
+                    </li>
+                  );
+                }
                 return (
-                  <li key={cell.id}>
-                    <NotebookMarkdownCellRow
+                  <li
+                    key={cell.id}
+                    ref={measureRef(cell.id)}
+                    className="pb-3"
+                    aria-setsize={notebook.cells.length}
+                    aria-posinset={idx + 1}
+                  >
+                    <NotebookCodeCellRow
                       cell={cell}
                       cellIndex={idx}
+                      status={status}
+                      durationMs={durationMs}
+                      varFlow={varFlow}
+                      executionOrder={cellExecutionOrderMap?.[cell.id] ?? null}
                       isActive={isActive}
                       editRequestNonce={
                         editRequest?.cellId === cell.id
@@ -943,48 +1168,25 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                       canMoveUp={canMoveUp}
                       canMoveDown={canMoveDown}
                       disabled={disabled}
-                      onActivate={(cellId) => setActiveCell(tabId, cellId)}
-                      onSourceChange={(cellId, source) =>
-                        updateCellSource(tabId, cellId, source)
-                      }
-                      onMoveUp={(cellId) => handleMove(cellId, 'up')}
-                      onMoveDown={(cellId) => handleMove(cellId, 'down')}
+                      onActivate={handleActivate}
+                      onSourceChange={handleSourceChange}
+                      onRunCell={handleRunCell}
+                      onRunAndAdvance={handleRunAndAdvance}
+                      onRunAndInsertBelow={handleRunAndInsertBelow}
+                      onMoveUp={handleMoveUp}
+                      onMoveDown={handleMoveDown}
                       onDelete={handleDelete}
+                      onLanguageChange={handleLanguageChange}
                     />
                   </li>
                 );
-              }
-              return (
-                <li key={cell.id}>
-                  <NotebookCodeCellRow
-                    cell={cell}
-                    cellIndex={idx}
-                    status={status}
-                    durationMs={durationMs}
-                    varFlow={varFlow}
-                    executionOrder={cellExecutionOrderMap?.[cell.id] ?? null}
-                    isActive={isActive}
-                    editRequestNonce={
-                      editRequest?.cellId === cell.id ? editRequest.nonce : null
-                    }
-                    canMoveUp={canMoveUp}
-                    canMoveDown={canMoveDown}
-                    disabled={disabled}
-                    onActivate={(cellId) => setActiveCell(tabId, cellId)}
-                    onSourceChange={(cellId, source) =>
-                      updateCellSource(tabId, cellId, source)
-                    }
-                    onRunCell={(cellId) => void runCell(tabId, cellId)}
-                    onRunAndAdvance={handleRunAndAdvance}
-                    onRunAndInsertBelow={handleRunAndInsertBelow}
-                    onMoveUp={(cellId) => handleMove(cellId, 'up')}
-                    onMoveDown={(cellId) => handleMove(cellId, 'down')}
-                    onDelete={handleDelete}
-                    onLanguageChange={handleLanguageChange}
-                  />
-                </li>
-              );
-            })}
+              })}
+            {listWindow.bottomSpacer > 0 ? (
+              <li
+                aria-hidden="true"
+                style={{ height: listWindow.bottomSpacer }}
+              />
+            ) : null}
           </ul>
         )}
         {lastCellId !== null ? (

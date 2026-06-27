@@ -13,7 +13,7 @@
  * preview.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
 import type { NotebookMarkdownCellV1 } from '../../../shared/notebook';
@@ -47,7 +47,7 @@ export interface NotebookMarkdownCellRowProps {
   onDelete: (cellId: string) => void;
 }
 
-export function NotebookMarkdownCellRow({
+function NotebookMarkdownCellRowImpl({
   cell,
   cellIndex,
   isActive,
@@ -245,3 +245,11 @@ export function NotebookMarkdownCellRow({
     </article>
   );
 }
+
+/**
+ * RL-043 Slice H fold C — memoized so the windowed cell list skips
+ * re-rendering markdown rows whose props are unchanged when a sibling cell
+ * edits. All handler props are stable `useCallback`s in the view, so the
+ * default shallow comparison is enough.
+ */
+export const NotebookMarkdownCellRow = memo(NotebookMarkdownCellRowImpl);

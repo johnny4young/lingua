@@ -6,7 +6,7 @@
  * auto-scroll still pins the latest line, and that a chart scrolled out of
  * the window unmounts (releasing its Vega canvas) and remounts on
  * scroll-back. The pure offset math is unit-tested in
- * `tests/components/Console/listWindow.test.ts`.
+ * `tests/hooks/useListWindow.test.ts`.
  *
  * Uses the test-only console seeding hook (`window.__linguaE2e`) on the
  * rich-console fixture route, which mounts `<ConsolePanel>` in a bounded

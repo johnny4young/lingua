@@ -126,6 +126,14 @@ interface NotebookTabState {
 export interface NotebookState {
   /** Per-tabId notebook state. Persisted via `partialize`. */
   readonly notebooks: Readonly<Record<string, NotebookTabState>>;
+  /**
+   * RL-043 Slice H fold B — last-known scroll position (px from top) of
+   * each tab's cell list, keyed by `tabId`. TRANSIENT session UI state:
+   * excluded from `partialize` so a reload starts at the top rather than
+   * restoring a stale offset against a possibly-changed notebook. Lets the
+   * windowed cell list restore its scroll on a tab switch within a session.
+   */
+  readonly notebookScrollTop: Readonly<Record<string, number>>;
 
   // -------- mutations -----------------------------------------------------
 
@@ -224,6 +232,12 @@ export interface NotebookState {
   restartNotebookSession: (tabId: string) => void;
   /** Set the active cell. */
   setActiveCell: (tabId: string, cellId: string | null) => void;
+  /**
+   * RL-043 Slice H fold B — record the cell list's scroll position for a
+   * tab so a later tab switch can restore it. No-op when the value is
+   * unchanged. Transient (not persisted).
+   */
+  setNotebookScrollTop: (tabId: string, top: number) => void;
 
   // -------- selectors -----------------------------------------------------
 
@@ -233,8 +247,11 @@ export interface NotebookState {
   getActiveCellId: (tabId: string) => string | null;
 }
 
-function createInitialState(): Pick<NotebookState, 'notebooks'> {
-  return { notebooks: {} };
+function createInitialState(): Pick<
+  NotebookState,
+  'notebooks' | 'notebookScrollTop'
+> {
+  return { notebooks: {}, notebookScrollTop: {} };
 }
 
 function isNotebookCellRunStatus(
@@ -327,7 +344,12 @@ export const useNotebookStore = create<NotebookState>()(
           if (!state.notebooks[tabId]) return state;
           const { [tabId]: _drop, ...rest } = state.notebooks;
           void _drop;
-          return { notebooks: rest };
+          // Drop the tab's remembered scroll offset in lockstep so it can't
+          // outlive the notebook (RL-043 Slice H fold B).
+          const { [tabId]: _dropScroll, ...restScroll } =
+            state.notebookScrollTop;
+          void _dropScroll;
+          return { notebooks: rest, notebookScrollTop: restScroll };
         }),
 
       renameNotebookForTab: (tabId, title) =>
@@ -847,6 +869,18 @@ export const useNotebookStore = create<NotebookState>()(
               ...state.notebooks,
               [tabId]: { ...slice, activeCellId: cellId },
             },
+          };
+        }),
+
+      setNotebookScrollTop: (tabId, top) =>
+        set((state) => {
+          if (typeof tabId !== 'string' || tabId.length === 0) return state;
+          if (typeof top !== 'number' || !Number.isFinite(top) || top < 0) {
+            return state;
+          }
+          if (state.notebookScrollTop[tabId] === top) return state;
+          return {
+            notebookScrollTop: { ...state.notebookScrollTop, [tabId]: top },
           };
         }),
 

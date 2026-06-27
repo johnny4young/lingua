@@ -12,7 +12,7 @@
  * surface contract (source string, language, run handler) stays unchanged.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowDown,
@@ -163,7 +163,7 @@ function outputStatusKey(status: NotebookCellRunStatus): string {
   }
 }
 
-export function NotebookCodeCellRow({
+function NotebookCodeCellRowImpl({
   cell,
   cellIndex,
   status,
@@ -657,3 +657,14 @@ export function NotebookCodeCellRow({
     </article>
   );
 }
+
+/**
+ * RL-043 Slice H fold C — memoized so the windowed cell list only re-renders
+ * the rows whose props actually change. Every handler the view passes is a
+ * stable `useCallback`, and the per-cell data props (cell, status, latency,
+ * var-flow, execution order, active/move flags) are referentially stable
+ * across an unrelated sibling's edit, so the default shallow-prop comparison
+ * is sufficient — a keystroke in one cell no longer re-renders every other
+ * mounted row.
+ */
+export const NotebookCodeCellRow = memo(NotebookCodeCellRowImpl);

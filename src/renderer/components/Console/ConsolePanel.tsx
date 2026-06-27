@@ -25,7 +25,7 @@ import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRenderer } from './ConsoleEntryRenderer';
 import { OutputLineBadge } from './OutputLineBadge';
 import { richKindBucket } from './richConsoleFormat';
-import { useListWindow } from './useListWindow';
+import { useListWindow } from '../../hooks/useListWindow';
 
 interface AnsiSpan {
   text: string;

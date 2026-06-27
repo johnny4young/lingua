@@ -334,3 +334,60 @@ test.describe('Notebook — Monaco cells + mount-virtualization (Slice G)', () =
     ).toContainText('from monaco');
   });
 });
+
+test.describe('Notebook — row virtualization (Slice H)', () => {
+  test('a large notebook mounts only a viewport-sized slice of rows', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+
+    // Grow the notebook well past a viewport's worth of cells via the
+    // toolbar add-code button (the seam other notebook e2e tests already
+    // drive). The seeded notebook starts with 1 markdown + 1 code cell.
+    const TARGET_CODE_CELLS = 60;
+    const addCode = page.getByTestId('notebook-toolbar-add-code');
+    for (let i = 1; i < TARGET_CODE_CELLS; i += 1) {
+      await addCode.click();
+    }
+
+    // Scroll back to the top so the window sits at the start of the list,
+    // away from the just-appended cells at the bottom.
+    await page
+      .getByTestId('notebook-cells')
+      .evaluate((el) => {
+        el.scrollTop = 0;
+      });
+
+    // The store holds 60 code cells, but the windower only mounts the rows
+    // whose band intersects the viewport (plus overscan) — far fewer than
+    // the total. We poll because the window recomputes on the next frame
+    // after the scroll.
+    await expect
+      .poll(
+        async () =>
+          page.getByTestId('notebook-code-cell-row').count(),
+        { timeout: 5_000 }
+      )
+      .toBeLessThan(TARGET_CODE_CELLS);
+
+    const renderedRows = await page
+      .getByTestId('notebook-code-cell-row')
+      .count();
+    // Sanity floor: at least some rows are mounted (the window is not empty).
+    expect(renderedRows).toBeGreaterThan(0);
+    // Upper bound: a viewport + 800px overscan over ~120px estimated rows
+    // is comfortably under half the list; lock a generous ceiling so the
+    // assertion is robust to viewport height without being a no-op.
+    expect(renderedRows).toBeLessThan(40);
+
+    // Slice G's invariant still holds: at most one Monaco editor is mounted
+    // across the whole (now windowed) notebook.
+    await expect(page.locator('.monaco-editor')).toHaveCount(0);
+    await page.getByTestId('notebook-code-cell-static').first().click();
+    await expect(page.locator('.monaco-editor')).toHaveCount(1);
+  });
+});

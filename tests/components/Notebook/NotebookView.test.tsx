@@ -429,10 +429,19 @@ describe('<NotebookView />', () => {
     render(<NotebookView tabId={TAB_ID} />);
 
     // Activate the first code cell (the seed already selects it, but make the
-    // intent explicit) so Run above targets the range through it.
-    fireEvent.mouseDown(screen.getAllByTestId('notebook-code-cell-row')[0]!);
+    // intent explicit) so Run above targets the range through it. Use the
+    // store action directly instead of relying on row focus timing: the full
+    // suite can still have queued async focus updates from earlier notebook
+    // tests, and this assertion is about the toolbar's active-cell target.
+    act(() => {
+      useNotebookStore.getState().setActiveCell(TAB_ID, 'cell-one');
+    });
     const user = userEvent.setup();
-    await user.click(screen.getByTestId('notebook-toolbar-run-above'));
+    const runAboveButton = screen.getByTestId(
+      'notebook-toolbar-run-above'
+    ) as HTMLButtonElement;
+    await waitFor(() => expect(runAboveButton.disabled).toBe(false));
+    await user.click(runAboveButton);
 
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
   });
