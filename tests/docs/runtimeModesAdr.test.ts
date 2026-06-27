@@ -109,7 +109,7 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
   });
 
   it('cross-references the adjacent docs the slice depends on', () => {
-    for (const pointer of ['CAPABILITY_MATRIX.md', 'ROADMAP.md', 'DEBUGGER_ADR.md']) {
+    for (const pointer of ['CAPABILITY_MATRIX.md', 'DEBUGGER_ADR.md']) {
       expect(adr).toContain(pointer);
     }
   });

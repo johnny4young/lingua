@@ -12,6 +12,7 @@ const ROOT = resolve(__dirname, '../..');
 // carries no internal-doc filename token.
 const INTERNAL_ONLY_DOCS = new Set(
   [
+    'ROADMAP',
     'PLAN',
     'BACKLOG',
     'SPRINT-PLAN',
@@ -271,12 +272,6 @@ describe('public documentation hygiene', () => {
       expect(validationRecord).toContain(command);
     }
     expect(findings).toContain('web-runtime/');
-  });
-
-  it('README points planning readers at the canonical roadmap', () => {
-    const readme = readFileSync(resolve(ROOT, 'README.md'), 'utf-8');
-
-    expect(readme, 'README must reference docs/ROADMAP.md').toContain('docs/ROADMAP.md');
   });
 
   it('keeps the renderer reference aligned with current major folders and stores', () => {

@@ -1,9 +1,8 @@
 # Launch copy drafts
 
 Pre-written posts for Phase 2 distribution. Every draft here has been
-cross-checked against the `Done` rows in [`ROADMAP.md`](../ROADMAP.md) — no claim should
-outrun the actual implementation. Edit in this file, then commit, then
-post.
+cross-checked against shipped reality — no claim should outrun the
+actual implementation. Edit in this file, then commit, then post.
 
 ## Show HN
 

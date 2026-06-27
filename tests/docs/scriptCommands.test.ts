@@ -18,7 +18,6 @@ const CURRENT_OPERATOR_DOC_PATHS = [
   'README.md',
   'RELEASE.md',
   'docs/DEVELOPMENT.md',
-  'docs/ROADMAP.md',
   'docs/README.md',
   'docs/PUBLIC_READINESS_AUDIT.md',
   'docs/PUBLIC_RELEASE_CHECKLIST.md',

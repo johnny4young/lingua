@@ -6,12 +6,9 @@ are not part of this repo.
 
 ## Planning
 
-| File                                 | Role                                                                                                                                                 | Read when                                                                                                                  |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| [`ROADMAP.md`](./ROADMAP.md)         | Canonical status + priority for every `RL-XXX` ticket. One compact table.                                                                            | You need to know _what is the current state_ or _what to pick next_. **This is the cheapest file — always read it first.** |
-
-Deep per-ticket scope, sprint sequencing, raw idea capture, and shipped-history
-archiving are tracked in internal planning docs that are not part of this repo.
+Canonical status + priority for every `RL-XXX` ticket, deep per-ticket scope,
+sprint sequencing, raw idea capture, and shipped-history archiving are tracked
+in internal planning docs that are not part of this repo.
 
 ## Reading order (new contributors)
 
@@ -23,24 +20,22 @@ archiving are tracked in internal planning docs that are not part of this repo.
    owns each capability today. Don't propose WASM-first migrations outside
    the promotion rules listed there.
 4. [`USAGE.md`](./USAGE.md) — end-user product reference (keyboard shortcuts, deep links, plugin format, browser-only limitations, update behavior).
-5. [`ROADMAP.md`](./ROADMAP.md) — what is in progress right now and what
-   the next ticket is.
-6. [`TEST_PLAN.md`](./TEST_PLAN.md) — test strategy, coverage targets,
+5. [`TEST_PLAN.md`](./TEST_PLAN.md) — test strategy, coverage targets,
    how unit / component / Playwright / desktop smoke tests divide labor.
-7. [`A11Y.md`](./A11Y.md) — accessibility quality gate: automated
+6. [`A11Y.md`](./A11Y.md) — accessibility quality gate: automated
    axe-core scans, keyboard-only flow tests, focus restoration, plus
    a manual screen-reader checklist for VoiceOver / NVDA.
-8. [`PERFORMANCE.md`](./PERFORMANCE.md) — bundle/runtime budgets,
+7. [`PERFORMANCE.md`](./PERFORMANCE.md) — bundle/runtime budgets,
    local report commands, CI performance logs, and desktop smoke
    runtime/memory metrics folded into `runtimeObservability`.
-9. [`RECOVERY.md`](./RECOVERY.md) — error boundaries, safe-mode
+8. [`RECOVERY.md`](./RECOVERY.md) — error boundaries, safe-mode
     boot (`?safe-mode=1`), boot-loop counter / factory mode, the
     Recovery surface in Settings → Account, and the manual recovery
     folder paths per platform.
-10. [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) —
+9. [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) —
     current public-source readiness, release/security gaps, and the
     pre-publication action queue.
-11. [`CLI_USAGE.md`](./CLI_USAGE.md) — RL-098 Slice 1 CLI surface
+10. [`CLI_USAGE.md`](./CLI_USAGE.md) — RL-098 Slice 1 CLI surface
     (`lingua utility`, `lingua capsule validate`, `lingua list
     utilities`); install/uninstall, exit-code contract, CI tips.
 
@@ -68,8 +63,7 @@ only superseded by a new ADR that names the one it replaces.
 | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Contributor workflow (dev/test/smoke/build commands, Pro testing locally)                                                                | [`DEVELOPMENT.md`](./DEVELOPMENT.md)                                                             |
 | Keyboard shortcuts, deep links, plugin manifest format, browser-only limitations                                                         | [`USAGE.md`](./USAGE.md)                                                                         |
-| The list of pending work                                                                                                                 | [`ROADMAP.md`](./ROADMAP.md)                                                                     |
-| What a slice actually shipped                                                                                                            | `ROADMAP.md` §6 for closed membership; deep landed detail lives in the internal plan / archive |
+| The list of pending work, or what a slice actually shipped                                                                               | Internal planning docs (not part of this repo)                                                  |
 | How two subsystems talk                                                                                                                  | [`ARCHITECTURE.md`](./ARCHITECTURE.md)                                                           |
 | Whether a capability is web, desktop, or hybrid                                                                                          | [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md)                                                 |
 | Why a non-obvious decision was made                                                                                                      | the matching `*_ADR.md`                                                                          |
@@ -129,7 +123,7 @@ docs.
 ## Conventions
 
 - Use Markdown. Keep line length loose (reflowable by editors).
-- Every RL id in any doc must match an `RL-XXX` row in `ROADMAP.md`.
+- Every RL id in any doc must match a tracked `RL-XXX` ticket; never invent new ids.
 - When an ADR supersedes another, add a `> Supersedes ADR-XXX` banner
   at the top of the new one and a `> Superseded by ADR-YYY` banner at
   the top of the old one.

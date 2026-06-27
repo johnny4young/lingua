@@ -11,16 +11,13 @@ Before making non-trivial changes, open these files (in order).
 
 1. This file — routing, skill preferences, landmines, UI validation,
    commit rules.
-2. `docs/ROADMAP.md` — canonical `Status` + priority for every
-   `RL-XXX`. The cheapest planning doc and the first one you read
-   when deciding what to pick next. Never invent new RL ids.
-3. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge,
+2. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge,
    and watch-state model.
-4. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM,
+3. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM,
    browser interpreter, WebContainer, desktop native, hybrid) owns
    each capability today. Do not propose WASM-first migrations
    outside the promotion rules there.
-5. `src/renderer/README.md` — renderer folder map and state ownership.
+4. `src/renderer/README.md` — renderer folder map and state ownership.
 
 ## Routing
 
@@ -32,7 +29,7 @@ Before making non-trivial changes, open these files (in order).
 
 - Do not describe plugin support as a finished user-facing extension system until the typing and UI flows go beyond the built-in language set.
 - If a change touches shortcuts, execution behavior, or workflow behavior, update the related docs in the same change.
-- Treat `docs/ROADMAP.md` as the local current-state/backlog document, not as a speculative roadmap.
+- Never invent new `RL-XXX` ticket ids; reuse the ids already referenced in the codebase and docs.
 - **Vite env consumers — audit ALL THREE configs.** When a slice introduces a new consumer of `import.meta.env.VITE_*` (renderer / web) or of a build-time `process.env.LINGUA_*` (main `define`), it must be wired into every Vite config that reaches a packaged surface, not only the one where the bug first showed up. Concretely:
   - `vite.web.config.mts` and `vite.renderer.config.mts` need `envDir: __dirname` so repo-root `.env` / `.env.production` actually substitute `import.meta.env.VITE_*` defines into their bundles.
   - `vite.main.config.mts` needs the function form of `defineConfig` calling `loadEnv(mode, __dirname, '')` because main reads from `process.env` at config-load time, BEFORE Vite's automatic env loading runs.

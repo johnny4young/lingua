@@ -43,7 +43,6 @@ path documented in `README.md` and `RELEASE.md`.
 
 - Public setup, licensing, privacy, security, and release docs should stay in
   root-level or `docs/` Markdown files.
-- Canonical planning state lives in `docs/ROADMAP.md`.
 - Do not add machine-local absolute links.
 - Do not describe plugin support as a finished third-party extension ecosystem
   until the UI and runtime model support that claim.

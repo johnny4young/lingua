@@ -75,6 +75,7 @@ default.profraw
 
 # Internal planning/strategy + agent workflow — local, never committed (public repo)
 .agents/
+/docs/ROADMAP.md
 /docs/PLAN.md
 /docs/BACKLOG.md
 /docs/SPRINT-PLAN.md

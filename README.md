@@ -103,7 +103,6 @@ Contributor and operator entry points:
 
 - [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) — clone/install, dev/test/smoke/build commands, Pro testing, automation/delivery.
 - [`docs/USAGE.md`](./docs/USAGE.md) — keyboard shortcuts, deep links, plugin manifest format, browser-only limitations, update behavior.
-- [`docs/ROADMAP.md`](./docs/ROADMAP.md) — live planning state, status board, and active pull order.
 - [`AGENTS.md`](./AGENTS.md) — canonical guidance for any agent (Claude Code, Cursor, Codex, Aider) working in this repo. `CLAUDE.md` is a symlink pointing to it.
 - [`RELEASE.md`](./RELEASE.md) — release operator checklist (preconditions, release steps, validation gate, rollback plan).
 
@@ -136,7 +135,7 @@ Project-specific acronyms used throughout this repository:
 - **JWT** — JSON Web Token. Wire shape of Lingua's offline-verifiable Ed25519-signed license tokens.
 - **JWK** — JSON Web Key. Public-key encoding embedded at build time (`VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK`) and used by the renderer to verify those tokens.
 - **SEO** — Search Engine Optimization. Discoverability scaffolding for the language-intent landing pages under [`docs/seo-pages/`](./docs/seo-pages/), consumed by [linguacode.dev](https://linguacode.dev).
-- **RL-XXX** — RunLang ticket ID. Legacy prefix kept after the rename from RunLang to Lingua; every roadmap item is tracked as `RL-NNN` in [`docs/ROADMAP.md`](./docs/ROADMAP.md).
+- **RL-XXX** — RunLang ticket ID. Legacy prefix kept after the rename from RunLang to Lingua; planning items are tracked as `RL-NNN` throughout the codebase and docs.
 
 ## License
 

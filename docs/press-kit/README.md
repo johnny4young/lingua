@@ -22,7 +22,7 @@ directly from this directory.
 
 1. **Nothing can be more than one hop from reality.** If a feature is
    not shipped, do not claim it. Use the phrase "Lingua today" and
-   anchor to `Done` rows in [`ROADMAP.md`](../ROADMAP.md).
+   anchor every claim to features that have actually shipped.
 2. **Match the posture in `LICENSE`.** Source-available commercial —
    never claim "open source" or "MIT".
 3. **Pricing matches the published tiers** (Free, Monthly, Pro,

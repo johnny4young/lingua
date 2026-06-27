@@ -355,8 +355,8 @@ a row before it lands a backend.
 - The internal plan § RL-019 — ticket scope and per-slice acceptance.
 - `CAPABILITY_MATRIX.md` — three new rows tracking per-mode
   availability per execution class.
-- `ROADMAP.md` § 4b — RL-019 is closed in full after Slice 2.
-- The internal sprint plan § N — Iter 24 / RL-019 per-commit detail.
+- The internal plan § RL-019 — closed in full after Slice 2; per-slice
+  status and the Iter 24 per-commit detail live there.
 - `DEBUGGER_ADR.md` § Coupled invariants — the debugger surface
   consumes `tab.runtimeMode` once Slice 2 lands a Node debugger
   backend.
