@@ -30,3 +30,31 @@ condition = "AND"
 regexTarget = "line"
 paths = ['''README\.md''']
 regexes = ['''Commercial license-key infrastructure''']
+
+[[allowlists]]
+description = "cURL importer tests use admin:hunter2 / secret-token as local parser fixtures."
+condition = "AND"
+regexTarget = "match"
+paths = ['''tests/shared/importers/curlImporter\.test\.ts''']
+regexes = ['''admin:hunter2''', '''secret-token''']
+
+[[allowlists]]
+description = "Redaction-preview test uses an sk-test- dummy key it asserts is redacted."
+condition = "AND"
+regexTarget = "match"
+paths = ['''tests/utils/redactionPreview\.test\.ts''']
+regexes = ['''sk-test-[A-Za-z0-9]+''']
+
+[[allowlists]]
+description = "Planning docs show curl -u admin:hunter2 as a cURL-import example, not a credential."
+condition = "AND"
+regexTarget = "match"
+paths = ['''docs/(ROADMAP|PLAN|SPRINT-PLAN)\.md''']
+regexes = ['''admin:hunter2''']
+
+[[allowlists]]
+description = "Project-audit prose Compare/Variables is a false positive for generic-api-key."
+condition = "AND"
+regexTarget = "match"
+paths = ['''docs/PROJECT_AUDIT_2026_05_24\.md''']
+regexes = ['''Compare/Variables''']
