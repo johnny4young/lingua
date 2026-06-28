@@ -13,6 +13,7 @@ import { useRecipeStore } from './stores/recipeStore';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
+import { LiveAnnouncer } from './components/a11y/LiveAnnouncer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
@@ -408,6 +409,7 @@ function AppChrome({
       />
       <FactoryRecoveryNotice />
       <StatusNoticeBanner />
+      <LiveAnnouncer />
       <FirstRunConsentModal />
       <NativeExecutionWarning />
     </>

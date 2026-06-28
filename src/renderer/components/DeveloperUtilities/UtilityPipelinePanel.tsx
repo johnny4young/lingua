@@ -42,6 +42,7 @@ import { useUtilityPipelineStore } from '../../stores/utilityPipelineStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import {
@@ -135,6 +136,7 @@ export function UtilityPipelinePanel() {
 
 function UtilityPipelinePanelUnlocked() {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   const pipelines = useUtilityPipelineStore(state => state.pipelines);
   const activePipelineId = useUtilityPipelineStore(state => state.activePipelineId);
   const isExecuting = useUtilityPipelineStore(state => state.isExecutingActive);
@@ -332,6 +334,15 @@ function UtilityPipelinePanelUnlocked() {
       const outcome = await run(activePipeline, runInput);
       if (outcome) {
         trackUtilityPipelineExecuted(outcome);
+        // UX Sweep T4 — announce the run result to screen readers; the
+        // streaming result table conveys it to sighted users only.
+        const okCount = outcome.results.filter((result) => result.status === 'ok').length;
+        announce(
+          t('utilityPipeline.run.announce', {
+            ok: okCount,
+            count: outcome.results.length,
+          })
+        );
         setCapsuleRunSnapshot({
           pipelineId: runPipelineId,
           pipelineName: runPipelineName,
@@ -343,7 +354,7 @@ function UtilityPipelinePanelUnlocked() {
     } finally {
       useUtilityPipelineStore.getState().setIsExecutingActive(false);
     }
-  }, [activePipeline, activeInput, run]);
+  }, [activePipeline, activeInput, run, t, announce]);
 
   // Fold A — EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory

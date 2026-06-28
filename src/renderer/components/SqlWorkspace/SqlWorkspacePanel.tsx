@@ -39,6 +39,7 @@ import {
   type DuckDbEngineHandle,
 } from '../../runtime/duckdbClient';
 import { buildSqlResponseCapsule } from '../../runtime/sqlResponseCapsule';
+import { useAnnounce } from '../../hooks/useAnnounce';
 import {
   trackSqlQueryExecuted,
   trackSqlStorageMode,
@@ -80,6 +81,7 @@ export interface SqlWorkspacePanelProps {
 
 export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   // Persisted layout. Storage key isolated to this surface so it
   // does not clobber the HTTP workspace's layout.
   const layout = useDefaultLayout({
@@ -279,6 +281,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         // A fresh run is always the newest entry — show it in the grid.
         setSelectedResponseIndex(0);
         trackSqlQueryExecuted(response);
+        // UX Sweep T4 — announce the outcome to screen readers; the result
+        // grid only conveys it visually.
+        announce(
+          response.status === 'success'
+            ? t('sqlWorkspace.run.announce', { count: response.rowCount })
+            : t('sqlWorkspace.run.announceError')
+        );
 
         // Fold G — capsule auto-attach. Build a RunCapsuleV1 for the
         // execution and stash it on the ExecutionHistoryEntry so the
@@ -316,7 +325,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         useWorkspaceSqlStore.getState().setIsExecutingActive(false);
       }
     },
-    [queryTimeoutMs]
+    [queryTimeoutMs, t, announce]
   );
 
   // Schema/table browser — `SHOW TABLES` introspection plus a cheap

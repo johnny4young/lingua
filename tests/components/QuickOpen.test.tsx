@@ -111,6 +111,14 @@ describe('QuickOpen', () => {
     expect(screen.getByText('src/tree-only.ts')).toBeTruthy();
   });
 
+  it('exposes the result count as a polite live region (UX Sweep T4)', () => {
+    render(<QuickOpen onClose={vi.fn()} />);
+    const count = screen.getByTestId('quick-open-result-count');
+    expect(count.getAttribute('role')).toBe('status');
+    expect(count.getAttribute('aria-live')).toBe('polite');
+    expect(count.getAttribute('aria-atomic')).toBe('true');
+  });
+
   it('groups files by source with eyebrow headers when the search is empty', () => {
     useProjectIndexStore.setState({
       rootId: 'root-proj',

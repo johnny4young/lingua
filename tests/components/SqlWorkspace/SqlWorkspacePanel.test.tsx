@@ -21,6 +21,7 @@ import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { useSessionStore } from '../../../src/renderer/stores/sessionStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
+import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
 import {
   __setDuckDbEngineFactoryForTests,
   mapArrowTable,
@@ -153,6 +154,7 @@ beforeEach(() => {
     sqlWorkspacePersistTables: false,
   });
   useUIStore.setState({ statusNotice: null });
+  useAnnouncerStore.setState({ message: '', nonce: 0 });
   __setDuckDbEngineFactoryForTests(() => Promise.resolve(happyPathEngine()));
 });
 
@@ -202,6 +204,8 @@ describe('SqlWorkspacePanel', () => {
       expect(latestCapsule?.tab.language).toBe('sql');
       expect(latestCapsule?.environment.runner).toBe('duckdb-wasm');
     });
+    // UX Sweep T4 — a successful run is announced to screen readers.
+    expect(useAnnouncerStore.getState().message).toMatch(/returned/i);
   });
 
   it('renders the result table after a successful run', async () => {
@@ -241,6 +245,8 @@ describe('SqlWorkspacePanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sql-result-preview-error-sql-error')).toBeTruthy();
     });
+    // UX Sweep T4 — a failed run announces the failure, not a row count.
+    expect(useAnnouncerStore.getState().message).toMatch(/failed/i);
   });
 
   it('renames a query via double-click input', async () => {

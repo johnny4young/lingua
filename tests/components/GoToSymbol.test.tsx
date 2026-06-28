@@ -97,6 +97,12 @@ describe('GoToSymbol', () => {
     expect(screen.getByText('openFile')).toBeTruthy();
     expect(screen.getByText('12:3')).toBeTruthy();
     expect(screen.getByText('30:1')).toBeTruthy();
+
+    // UX Sweep T4 — the symbol count is a polite live region.
+    const count = screen.getByTestId('go-to-symbol-result-count');
+    expect(count.getAttribute('role')).toBe('status');
+    expect(count.getAttribute('aria-live')).toBe('polite');
+    expect(count.getAttribute('aria-atomic')).toBe('true');
   });
 
   it('queues a tabId-scoped reveal on select and closes the overlay', async () => {

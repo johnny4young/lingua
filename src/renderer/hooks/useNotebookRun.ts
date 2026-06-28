@@ -36,9 +36,11 @@ import {
   runNotebookCell,
   type NotebookCellRunOutcome,
 } from '../runtime/notebookSession';
+import i18next from 'i18next';
 import { runnerManager } from '../runners';
 import { useNotebookStore } from '../stores/notebookStore';
 import { useUIStore } from '../stores/uiStore';
+import { useAnnounce } from './useAnnounce';
 import { trackNotebookCellExecuted } from './notebookTelemetry';
 
 /**
@@ -89,6 +91,7 @@ export interface UseNotebookRunResult {
 export function useNotebookRun(): UseNotebookRunResult {
   const [isAnyCellRunning, setIsAnyCellRunning] = useState(false);
   const stopRequestedRef = useRef(false);
+  const announce = useAnnounce();
 
   const runCellInternal = useCallback(
     async (
@@ -235,9 +238,21 @@ export function useNotebookRun(): UseNotebookRunResult {
   const runCell = useCallback(
     async (tabId: string, cellId: string): Promise<void> => {
       stopRequestedRef.current = false;
-      await runCellInternal(tabId, cellId);
+      const outcome = await runCellInternal(tabId, cellId);
+      // UX Sweep T4 — announce the cell-run result to screen readers; the
+      // `[N]` stamp + output region only convey it visually. Resolve the
+      // copy off the global i18next instance so the hook stays render-light.
+      if (outcome) {
+        announce(
+          outcome.status === 'ok'
+            ? i18next.t('notebook.cell.announce.ok')
+            : outcome.status === 'stopped'
+              ? i18next.t('notebook.cell.announce.stopped')
+              : i18next.t('notebook.cell.announce.error')
+        );
+      }
     },
-    [runCellInternal]
+    [runCellInternal, announce]
   );
 
   /**
@@ -271,6 +286,8 @@ export function useNotebookRun(): UseNotebookRunResult {
       if (startIdx === -1 || stopIdx === -1) return;
       let ranRunnableCell = false;
       let skippedUnsupportedCodeCell = false;
+      let runCount = 0;
+      let terminalStatus: NotebookCellRunOutcome['status'] | null = null;
       setIsAnyCellRunning(true);
       try {
         for (let i = startIdx; i <= stopIdx; i += 1) {
@@ -286,6 +303,8 @@ export function useNotebookRun(): UseNotebookRunResult {
           ranRunnableCell = true;
           const outcome = await runCellInternal(tabId, cell.id);
           if (outcome === null) break;
+          runCount += 1;
+          terminalStatus = outcome.status;
           if (outcome.status === 'error' || outcome.status === 'stopped') break;
         }
         if (!ranRunnableCell && skippedUnsupportedCodeCell) {
@@ -294,11 +313,20 @@ export function useNotebookRun(): UseNotebookRunResult {
             messageKey: 'notebook.notice.languageNotSupported',
           });
         }
+        if (runCount > 0 && terminalStatus) {
+          announce(
+            terminalStatus === 'ok'
+              ? i18next.t('notebook.range.announce.ok', { count: runCount })
+              : terminalStatus === 'stopped'
+                ? i18next.t('notebook.range.announce.stopped', { count: runCount })
+                : i18next.t('notebook.range.announce.error', { count: runCount })
+          );
+        }
       } finally {
         setIsAnyCellRunning(false);
       }
     },
-    [runCellInternal]
+    [runCellInternal, announce]
   );
 
   const runAll = useCallback(

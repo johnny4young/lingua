@@ -38,6 +38,7 @@ import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
+import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
 import { createBlankPipeline, createBlankStep } from '../../../src/shared/utilityPipeline';
 
 function setFreeTier() {
@@ -73,6 +74,7 @@ beforeEach(() => {
   useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'declined' });
   useUIStore.setState({ statusNotice: null });
   useExecutionHistoryStore.getState().clear();
+  useAnnouncerStore.setState({ message: '', nonce: 0 });
   mockTrackEvent.mockClear();
   setProTier();
 });
@@ -189,6 +191,9 @@ describe('UtilityPipelinePanel', () => {
       .map(el => el.textContent ?? '');
     expect(outputs[0]).toContain('{"a":1}');
     expect(outputs[1]).toContain('"a": 1');
+
+    // UX Sweep T4 — the run result is announced to screen readers.
+    expect(useAnnouncerStore.getState().message).toContain('2 of 2 steps succeeded');
   });
 
   it('cascades skipped status when an upstream step fails', async () => {

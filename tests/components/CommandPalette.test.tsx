@@ -289,6 +289,22 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('Snippets')).toBeNull();
   });
 
+  it('exposes the result count as a polite live region (UX Sweep T4)', () => {
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    const count = screen.getByTestId('command-palette-result-count');
+    expect(count.getAttribute('role')).toBe('status');
+    expect(count.getAttribute('aria-live')).toBe('polite');
+    expect(count.getAttribute('aria-atomic')).toBe('true');
+  });
+
   it('keeps Restore last session visible for a pending ask-mode snapshot after savedTabs changes', () => {
     useSessionStore.setState({
       savedTabs: [
