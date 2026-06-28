@@ -2077,6 +2077,7 @@
   "fileTree.placeholder.file": "filename.rs",
   "fileTree.placeholder.folder": "folder-name",
   "fileTree.empty": "Empty project",
+  "fileTree.ariaLabel": "{{name}} file tree",
   "fileTree.emptyDirectory": "Empty",
   "fileTree.openDifferent": "Open different folder",
   "fileTree.depthLimitReached": "Folder nested too deep (max {{max}} levels)",

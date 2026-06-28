@@ -2077,6 +2077,7 @@
   "fileTree.placeholder.file": "nombre-archivo.rs",
   "fileTree.placeholder.folder": "nombre-carpeta",
   "fileTree.empty": "Proyecto vacío",
+  "fileTree.ariaLabel": "Árbol de archivos de {{name}}",
   "fileTree.emptyDirectory": "Vacío",
   "fileTree.openDifferent": "Abrir otra carpeta",
   "fileTree.depthLimitReached": "Carpeta demasiado anidada (máx {{max}} niveles)",

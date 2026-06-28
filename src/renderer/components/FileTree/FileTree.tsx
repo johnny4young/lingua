@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   ChevronsDownUp,
   FileArchive,
@@ -25,6 +26,26 @@ import { FileTreeOpenTabs } from './FileTreeOpenTabs';
 import type { CreationTarget } from './fileTreeTypes';
 
 // ------------------------------------------------------------------ main FileTree
+
+/**
+ * UX Sweep T7 — flatten the tree into the rows that are CURRENTLY visible
+ * (respecting each directory's expanded state), in display order, each
+ * tagged with its parent path. This is the model the ArrowUp/Down/Left
+ * keyboard navigation steps through.
+ */
+function flattenVisibleTree(
+  nodes: readonly ProjectFileTreeNode[],
+  parentPath = ''
+): Array<{ node: ProjectFileTreeNode; parentPath: string }> {
+  const out: Array<{ node: ProjectFileTreeNode; parentPath: string }> = [];
+  for (const node of nodes) {
+    out.push({ node, parentPath });
+    if (node.isDirectory && node.isExpanded && node.children) {
+      out.push(...flattenVisibleTree(node.children, node.path));
+    }
+  }
+  return out;
+}
 
 interface FileTreeProps {
   onNavigate?: () => void;
@@ -125,6 +146,71 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     }
     return dirtyTabKey(currentProject.rootId, activeTabRelativePath);
   }, [currentProject, activeTabRootId, activeTabRelativePath]);
+
+  // UX Sweep T7 — the flat list of visible rows + the keyboard navigator.
+  const visibleNodes = useMemo(() => flattenVisibleTree(nodes), [nodes]);
+
+  const focusTreeRow = (path: string | undefined) => {
+    if (!path) return;
+    requestAnimationFrame(() => {
+      // Quoted attribute selector needs no CSS.escape (absent in some
+      // jsdom); just guard `"`/`\` so a pathological name can't break it.
+      const safe = path.replace(/["\\]/g, '\\$&');
+      document
+        .querySelector<HTMLElement>(`[data-tree-row="${safe}"]`)
+        ?.focus();
+    });
+  };
+
+  const handleTreeKeyDown = (
+    nodePath: string,
+    event: ReactKeyboardEvent<HTMLElement>
+  ) => {
+    const idx = visibleNodes.findIndex((entry) => entry.node.path === nodePath);
+    if (idx === -1) return;
+    const entry = visibleNodes[idx]!;
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        focusTreeRow(visibleNodes[Math.min(idx + 1, visibleNodes.length - 1)]?.node.path);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        focusTreeRow(visibleNodes[Math.max(idx - 1, 0)]?.node.path);
+        break;
+      case 'Home':
+        event.preventDefault();
+        focusTreeRow(visibleNodes[0]?.node.path);
+        break;
+      case 'End':
+        event.preventDefault();
+        focusTreeRow(visibleNodes[visibleNodes.length - 1]?.node.path);
+        break;
+      case 'ArrowRight':
+        // Collapsed dir → expand; expanded dir → step into the first child.
+        if (entry.node.isDirectory) {
+          event.preventDefault();
+          if (!entry.node.isExpanded) {
+            void useProjectStore.getState().expandDirectory(entry.node.path);
+          } else {
+            focusTreeRow(visibleNodes[idx + 1]?.node.path);
+          }
+        }
+        break;
+      case 'ArrowLeft':
+        // Expanded dir → collapse; otherwise → jump to the parent row.
+        if (entry.node.isDirectory && entry.node.isExpanded) {
+          event.preventDefault();
+          useProjectStore.getState().collapseDirectory(entry.node.path);
+        } else if (entry.parentPath) {
+          event.preventDefault();
+          focusTreeRow(entry.parentPath);
+        }
+        break;
+      default:
+        break;
+    }
+  };
 
   // When a project is persisted but nodes haven't been loaded yet, reload tree
   useEffect(() => {
@@ -266,7 +352,11 @@ export function FileTree({ onNavigate }: FileTreeProps) {
       </div>
 
       {/* Tree */}
-      <div className="flex-1 overflow-y-auto py-1">
+      <div
+        className="flex-1 overflow-y-auto py-1"
+        role="tree"
+        aria-label={t('fileTree.ariaLabel', { name: currentProject.name })}
+      >
         {/* Inline creation at root level */}
         {creating && creating.parentPath === '' && (
           <div className="px-2 py-0.5">
@@ -303,6 +393,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
               setCreating({ parentPath: n.path, kind: 'dir' });
               if (!n.isExpanded) useProjectStore.getState().expandDirectory(n.path);
             }}
+            onTreeKeyDown={handleTreeKeyDown}
           />
         ))}
 
