@@ -1,4 +1,5 @@
 import { Download } from 'lucide-react';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useUpdateStore } from '../../stores/updateStore';
@@ -25,6 +26,22 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const filename = activeTab?.name ?? t('chrome.filename.untitled');
   const isDirty = activeTab?.isDirty === true;
+
+  // UX Sweep T5 — the license badge opens Settings AND lands on the
+  // Account/License tab (it used to dump the user on General). Two rAFs let
+  // SettingsModal mount, paint, and run the effect that registers its
+  // navigate-tab listener before the event fires; dispatching earlier can
+  // race the mount and be lost.
+  const handleOpenLicenseSettings = useCallback(() => {
+    onOpenSettings?.();
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.dispatchEvent(
+          new CustomEvent('lingua-settings-navigate-tab', { detail: 'account' })
+        );
+      });
+    });
+  }, [onOpenSettings]);
 
   return (
     <div
@@ -73,7 +90,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
             {t('chrome.unsaved.label')}
           </span>
         ) : null}
-        <LicenseBadge onClick={onOpenSettings} />
+        <LicenseBadge onClick={handleOpenLicenseSettings} />
         <UpdateReadyChip onClick={onOpenSettings} />
       </div>
       <div className="w-[166px] shrink-0" aria-hidden="true" />

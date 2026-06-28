@@ -119,6 +119,13 @@ describe('QuickOpen', () => {
     expect(count.getAttribute('aria-atomic')).toBe('true');
   });
 
+  it('uses the shared focus ring on bespoke result rows (UX Sweep T5)', () => {
+    render(<QuickOpen onClose={vi.fn()} />);
+
+    const row = screen.getByRole('button', { name: /tree-only\.ts/ });
+    expect(row.className).toContain('focus-ring');
+  });
+
   it('groups files by source with eyebrow headers when the search is empty', () => {
     useProjectIndexStore.setState({
       rootId: 'root-proj',

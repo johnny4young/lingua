@@ -347,7 +347,11 @@ export function FileTreeNode({
               style={{ paddingLeft: `${(depth + 2) * 12 + 4}px` }}
             >
               <FileTreeInlineInput
-                placeholder={creating.kind === 'file' ? 'filename.rs' : 'folder-name'}
+                placeholder={
+                  creating.kind === 'file'
+                    ? t('fileTree.placeholder.file')
+                    : t('fileTree.placeholder.folder')
+                }
                 onConfirm={onCreateConfirm}
                 onCancel={onCancelCreate}
               />

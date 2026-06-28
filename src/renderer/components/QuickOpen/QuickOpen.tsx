@@ -312,9 +312,9 @@ function renderQuickOpenResults(
       onClick={() => void select(file)}
       onMouseEnter={() => setSelectedIndex(index)}
       data-result-index={index}
-      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors ${
+      className={`focus-ring flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors ${
         index === selectedIndex
-          ? 'border-slate-300 bg-slate-100'
+          ? 'border-accent/40 bg-primary-soft'
           : 'border-transparent hover:bg-bg-panel-alt'
       }`}
     >

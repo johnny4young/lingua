@@ -371,14 +371,19 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                   <button
                     key={snippet.id}
                     type="button"
+                    // UX Sweep T5 — aria-current conveys the selection to
+                    // assistive tech (it was color-only), and the active
+                    // styling uses theme tokens instead of hardcoded light
+                    // slate, which was invisible in the dark theme.
+                    aria-current={isActive ? 'true' : undefined}
                     onClick={() => {
                       setSelectedSnippetId(snippet.id);
                       setIsCreatingNew(false);
                     }}
                     className={
                       isActive
-                        ? 'flex w-full flex-col rounded-lg border border-slate-300 bg-slate-100 px-3 py-[9px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70'
-                        : 'flex w-full flex-col rounded-lg border border-transparent px-3 py-[9px] text-left hover:bg-bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70'
+                        ? 'focus-ring flex w-full flex-col rounded-lg border border-accent/40 bg-primary-soft px-3 py-[9px] text-left'
+                        : 'focus-ring flex w-full flex-col rounded-lg border border-transparent px-3 py-[9px] text-left hover:bg-bg-inset'
                     }
                   >
                     <span className="truncate text-body font-medium text-fg-base">
