@@ -206,6 +206,24 @@ describe('UtilityPipelinePanel', () => {
     });
   });
 
+  it('reveals the hover-only row actions for keyboard users and rings them (UX Sweep T1 fold B)', () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'one' });
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    render(<UtilityPipelinePanel />);
+
+    for (const testId of [
+      'utility-pipeline-list-duplicate',
+      'utility-pipeline-list-delete',
+    ]) {
+      const button = screen.getByTestId(testId);
+      expect(button.className).toContain('focus-ring');
+      // Hover-only actions must also surface when a keyboard user focuses
+      // into the row, otherwise they are invisible to Tab navigation.
+      expect(button.className).toContain('group-focus-within:opacity-100');
+      expect(button.className).toContain('focus-visible:opacity-100');
+    }
+  });
+
   // RL-099 Slice 3 fold A — explicit Save-as-capsule button.
   it('disables Save-as-capsule before a run completes', async () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });

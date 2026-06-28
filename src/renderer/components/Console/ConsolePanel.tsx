@@ -647,7 +647,7 @@ export function ConsolePanel() {
                 <button
                   onClick={() => toggleFilter(type)}
                   data-active={active ? 'true' : 'false'}
-                  className={`console-filter-chip rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
+                  className={`console-filter-chip focus-ring rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
                     active
                       ? `border-border-strong/90 bg-bg-panel-alt ${TYPE_BADGE[type]}`
                       : 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
@@ -674,7 +674,7 @@ export function ConsolePanel() {
                   onClick={() => togglePayloadKindFilter(kind)}
                   data-active={hidden ? 'false' : 'true'}
                   data-testid={`console-payload-chip-${kind}`}
-                  className={`console-filter-chip rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
+                  className={`console-filter-chip focus-ring rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
                     hidden
                       ? 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
                       : 'border-border-strong/90 bg-bg-panel-alt text-foreground'

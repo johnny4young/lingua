@@ -293,7 +293,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
       <div className="border-t border-border/70 p-2">
         <button
           onClick={() => openProject()}
-          className="flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-body-sm text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
+          className="focus-ring flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-body-sm text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
         >
           <OpenFolderIcon size={12} />
           {t('fileTree.openDifferent')}

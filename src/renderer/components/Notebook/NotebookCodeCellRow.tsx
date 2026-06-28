@@ -507,7 +507,7 @@ function NotebookCodeCellRowImpl({
             onClick={() => runWithFlush(onRunCell)}
             disabled={disabled || status === 'running'}
             data-testid="notebook-code-cell-run"
-            className="inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-eyebrow font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-eyebrow font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Play size={9} aria-hidden="true" />
             {t('notebook.cell.runCell')}
@@ -518,7 +518,7 @@ function NotebookCodeCellRowImpl({
             disabled={!canMoveUp || disabled}
             aria-label={t('notebook.cell.moveUp')}
             data-testid="notebook-code-cell-move-up"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowUp size={11} aria-hidden="true" />
           </button>
@@ -528,7 +528,7 @@ function NotebookCodeCellRowImpl({
             disabled={!canMoveDown || disabled}
             aria-label={t('notebook.cell.moveDown')}
             data-testid="notebook-code-cell-move-down"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowDown size={11} aria-hidden="true" />
           </button>
@@ -538,7 +538,7 @@ function NotebookCodeCellRowImpl({
             disabled={disabled}
             aria-label={t('notebook.cell.delete')}
             data-testid="notebook-code-cell-delete"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 size={11} aria-hidden="true" />
           </button>

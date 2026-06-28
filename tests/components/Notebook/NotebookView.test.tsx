@@ -122,6 +122,22 @@ describe('<NotebookView />', () => {
     expect(screen.getAllByTestId(/^notebook-(code|markdown)-cell-row$/)).toHaveLength(2);
   });
 
+  it('gives every cell-row action button the shared focus ring (UX Sweep T1)', () => {
+    render(<NotebookView tabId={TAB_ID} />);
+    for (const testId of [
+      'notebook-code-cell-run',
+      'notebook-code-cell-move-up',
+      'notebook-code-cell-move-down',
+      'notebook-code-cell-delete',
+      'notebook-markdown-cell-toggle-edit',
+      'notebook-markdown-cell-move-up',
+      'notebook-markdown-cell-move-down',
+      'notebook-markdown-cell-delete',
+    ]) {
+      expect(screen.getByTestId(testId).className).toContain('focus-ring');
+    }
+  });
+
   it('renders the not-found state when the notebook is missing', () => {
     render(<NotebookView tabId="does-not-exist" />);
     expect(screen.getByTestId('notebook-view-empty')).toBeTruthy();

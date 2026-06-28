@@ -71,6 +71,11 @@ export function FileTreeNode({
 }: FileTreeNodeProps) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
+  // UX Sweep T1 fold B — keyboard users never trigger the mouse-only
+  // hover state, so the row actions (New / Delete) were unreachable by
+  // Tab. Track focus-within so the same affordances mount + reveal when
+  // a keyboard user focuses into the row.
+  const [focusWithin, setFocusWithin] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [contextMenu, setContextMenu] = useState<
     { top: number; left: number } | null
@@ -196,13 +201,19 @@ export function FileTreeNode({
         className={`group flex items-center gap-1 rounded-xl border-l-2 px-1.5 py-1 text-body-sm transition-colors ${
           isActiveFile
             ? 'border-primary bg-primary-soft'
-            : hovered
+            : hovered || focusWithin
               ? 'border-transparent bg-surface-strong/78'
               : 'border-transparent hover:bg-surface-strong/58'
         }`}
         style={{ paddingLeft: `${indent + 4}px` }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onFocus={() => setFocusWithin(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setFocusWithin(false);
+          }
+        }}
         onContextMenu={handleContextMenu}
       >
         {node.isDirectory ? (
@@ -214,7 +225,7 @@ export function FileTreeNode({
                 : 'fileTree.actions.expandFolder',
               { name: node.name }
             )}
-            className="shrink-0 text-muted hover:text-foreground"
+            className="focus-ring shrink-0 rounded text-muted hover:text-foreground"
           >
             {node.isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
@@ -231,7 +242,7 @@ export function FileTreeNode({
                 : 'fileTree.actions.expandFolder',
               { name: node.name }
             )}
-            className="shrink-0"
+            className="focus-ring shrink-0 rounded"
           >
             {node.isExpanded ? (
               <FolderOpen size={13} className="text-warning" />
@@ -252,7 +263,7 @@ export function FileTreeNode({
         ) : (
           <Tooltip content={node.path}>
             <button
-              className={`flex-1 truncate text-left hover:text-foreground ${
+              className={`focus-ring flex-1 truncate rounded text-left hover:text-foreground ${
                 isActiveFile ? 'text-foreground' : 'text-foreground/88'
               }`}
               onClick={() => (node.isDirectory ? handleToggle() : onFileClick(node))}
@@ -282,7 +293,7 @@ export function FileTreeNode({
           </span>
         )}
 
-        {hovered && !renaming && (
+        {(hovered || focusWithin) && !renaming && (
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             {node.isDirectory && onNewFileIn && (
               <Tooltip content={t('fileTree.actions.newFile')}>
@@ -291,7 +302,7 @@ export function FileTreeNode({
                     event.stopPropagation();
                     onNewFileIn(node);
                   }}
-                  className="rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
+                  className="focus-ring rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
                   aria-label={t('fileTree.actions.newFile')}
                 >
                   <FilePlus size={11} />
@@ -305,7 +316,7 @@ export function FileTreeNode({
                     event.stopPropagation();
                     onNewDirIn(node);
                   }}
-                  className="rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
+                  className="focus-ring rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
                   aria-label={t('fileTree.actions.newFolder')}
                 >
                   <FolderPlus size={11} />
@@ -318,7 +329,7 @@ export function FileTreeNode({
                   event.stopPropagation();
                   onDelete(node);
                 }}
-                className="rounded-lg p-1 text-muted hover:bg-error/10 hover:text-error"
+                className="focus-ring rounded-lg p-1 text-muted hover:bg-error/10 hover:text-error"
                 aria-label={t('dialogs.actions.delete')}
               >
                 <Trash2 size={11} />

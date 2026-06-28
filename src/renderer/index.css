@@ -762,6 +762,22 @@
   }
 }
 
+/* Shared keyboard focus indicator — UX Sweep T1. Bespoke interactive
+   controls (chips, tree rows, status-bar segments, cell-row actions) that
+   are NOT one of the .button-* / design-system primitives must carry this
+   so a keyboard user always sees focus. Reuses the exact ring recipe of the
+   .button-* family (ring-2, ring-ring/50, no offset). The ring is not
+   animated, so it needs no motion guard.
+
+   Declared as a Tailwind v4 `@utility` (not a plain @layer-components class)
+   so it can be both `@apply focus-ring`'d from other component rules
+   (.panel-chip, .um-control, .settings-rail-row) AND used as a `focus-ring`
+   className on bespoke JSX controls — Tailwind v4 only resolves @apply
+   against registered utilities, not against sibling component classes. */
+@utility focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50;
+}
+
 @layer components {
   /* Layout shells */
   .app-shell {
@@ -827,6 +843,7 @@
   .button-danger {
     @apply inline-flex items-center justify-center gap-2 rounded-lg border border-error/25 bg-error/12 px-3 py-1.5 text-control font-medium tracking-[0.01em] text-error transition-colors duration-150 hover:bg-error/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
   }
+
   .field-shell {
     @apply w-full rounded-4xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-body-md text-foreground outline-none transition-all duration-200 placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;
   }
@@ -1646,7 +1663,7 @@
   /* Panel chips row — Stdin · Historial · Comparar · Variables. Each
      chip lives below the tab strip and toggles the bottom drawer. */
   .panel-chip {
-    @apply inline-flex h-6 items-center gap-1.5 rounded-full border border-transparent px-2.5 text-caption font-medium leading-none text-fg-muted transition-colors duration-150;
+    @apply focus-ring inline-flex h-6 items-center gap-1.5 rounded-full border border-transparent px-2.5 text-caption font-medium leading-none text-fg-muted transition-colors duration-150;
   }
   .panel-chip:disabled {
     @apply cursor-not-allowed opacity-50;
@@ -1781,7 +1798,7 @@
   }
 
   .um-control {
-    @apply w-full rounded-xl border border-border/80 bg-bg-inset/60 px-3 py-2.5 text-body-md text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55;
+    @apply focus-ring w-full rounded-xl border border-border/80 bg-bg-inset/60 px-3 py-2.5 text-body-md text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55;
   }
 
   textarea.um-control {
@@ -1864,7 +1881,7 @@
   }
 
   .settings-rail-row {
-    @apply grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
+    @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
   }
 
   .settings-rail-row:hover {

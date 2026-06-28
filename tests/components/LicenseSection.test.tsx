@@ -109,6 +109,8 @@ describe('LicenseSection', () => {
     render(<LicenseSection />);
     expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Monthly');
     expect(screen.getByTestId('license-clear')).toBeTruthy();
+    // UX Sweep T1 — the bespoke Remove-license button carries the focus ring.
+    expect(screen.getByTestId('license-clear').className).toContain('focus-ring');
   });
 
   it('disables the Apply button when the input is empty or whitespace-only', () => {
@@ -479,6 +481,8 @@ describe('LicenseSection', () => {
       expect(currentRemove.title).toContain('Remove license');
       const otherRemove = screen.getByTestId('license-device-remove-dev_d2') as HTMLButtonElement;
       expect(otherRemove.disabled).toBe(false);
+      // UX Sweep T1 — device-remove buttons carry the shared focus ring.
+      expect(otherRemove.className).toContain('focus-ring');
     } finally {
       localStorage.removeItem('lingua-device-id');
     }
@@ -764,6 +768,10 @@ describe('LicenseSection', () => {
         expect(screen.getByTestId('license-key-fingerprint').textContent).toBe(PROD_THUMBPRINT),
       );
       expect(screen.getByTestId('license-key-fingerprint-copy')).toBeTruthy();
+      // UX Sweep T1 — the fingerprint Copy button carries the focus ring.
+      expect(
+        screen.getByTestId('license-key-fingerprint-copy').className
+      ).toContain('focus-ring');
     });
 
     it('copies the thumbprint and pushes the success notice', async () => {

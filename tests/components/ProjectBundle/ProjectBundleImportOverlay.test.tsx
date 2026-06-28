@@ -50,6 +50,13 @@ describe('RL-024 — ProjectBundleImportOverlay', () => {
     expect(cta.disabled).toBe(true);
   });
 
+  it('gives the drop-zone affordance a visible keyboard focus ring (UX Sweep T1)', () => {
+    render(<ProjectBundleImportOverlay onClose={vi.fn()} />);
+    expect(
+      screen.getByTestId('project-bundle-import-open-file').className
+    ).toContain('focus-ring');
+  });
+
   it('previews a valid bundle, enables Import, and forwards the bytes on confirm', async () => {
     render(<ProjectBundleImportOverlay onClose={vi.fn()} />);
     const input = screen.getByTestId('project-bundle-import-file-input');

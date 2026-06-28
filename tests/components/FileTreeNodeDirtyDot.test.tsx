@@ -138,6 +138,32 @@ describe('FileTreeNode — dirty dot', () => {
     ).toBe('Cambios sin guardar');
   });
 
+  it('carries the shared focus ring on the name button (UX Sweep T1)', () => {
+    setProject('root-proj', '/proj');
+    renderNode(makeFile({ path: 'src/main.ts' }));
+
+    const nameButton = screen.getByRole('button', { name: 'main.ts' });
+    expect(nameButton.className).toContain('focus-ring');
+  });
+
+  it('reveals the row delete action when a keyboard user focuses into the row (UX Sweep T1 fold B)', () => {
+    setProject('root-proj', '/proj');
+    renderNode(makeFile({ path: 'src/main.ts' }));
+
+    // Before focus the hover-only action group is unmounted, so a keyboard
+    // user cannot reach Delete.
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+
+    // Focusing the name button bubbles onFocus to the row, flipping the
+    // focus-within state and mounting the action group.
+    const nameButton = screen.getByRole('button', { name: 'main.ts' });
+    fireEvent.focus(nameButton);
+
+    const deleteButton = screen.getByRole('button', { name: 'Delete' });
+    expect(deleteButton).toBeTruthy();
+    expect(deleteButton.className).toContain('focus-ring');
+  });
+
   it('opens the reveal context menu from the keyboard and invokes the desktop IPC', async () => {
     const user = userEvent.setup();
     const revealInFinder = vi.fn().mockResolvedValue(true);

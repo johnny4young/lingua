@@ -162,7 +162,7 @@ function NotebookMarkdownCellRowImpl({
             aria-label={t(editing ? 'notebook.cell.previewMarkdown' : 'notebook.cell.editMarkdown')}
             data-testid="notebook-markdown-cell-toggle-edit"
             aria-pressed={editing}
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil size={11} aria-hidden="true" />
           </button>
@@ -172,7 +172,7 @@ function NotebookMarkdownCellRowImpl({
             disabled={!canMoveUp || disabled}
             aria-label={t('notebook.cell.moveUp')}
             data-testid="notebook-markdown-cell-move-up"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowUp size={11} aria-hidden="true" />
           </button>
@@ -182,7 +182,7 @@ function NotebookMarkdownCellRowImpl({
             disabled={!canMoveDown || disabled}
             aria-label={t('notebook.cell.moveDown')}
             data-testid="notebook-markdown-cell-move-down"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowDown size={11} aria-hidden="true" />
           </button>
@@ -192,7 +192,7 @@ function NotebookMarkdownCellRowImpl({
             disabled={disabled}
             aria-label={t('notebook.cell.delete')}
             data-testid="notebook-markdown-cell-delete"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 size={11} aria-hidden="true" />
           </button>

@@ -47,6 +47,10 @@ describe('KeyboardShortcutsModal', () => {
     expect(screen.getByText('Navigation')).toBeTruthy();
     // A concrete combo label for save
     expect(screen.getByTestId('file-save-combo-0').getAttribute('aria-label')).toBe('Ctrl+S');
+    // UX Sweep T1 — the per-row Edit affordance carries the focus ring.
+    expect(
+      screen.getByTestId('shortcut-edit-view-toggle-sidebar').className
+    ).toContain('focus-ring');
   });
 
   it('filters visible shortcuts as the user types in the search field', async () => {

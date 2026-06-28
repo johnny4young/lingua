@@ -117,6 +117,16 @@ describe('FileTreeEmptyState', () => {
       />
     );
 
+    // UX Sweep T1 — the bespoke recent-project row and open-tab row carry
+    // the shared visible focus ring (the Create/Open CTAs use button-* which
+    // already include it).
+    expect(
+      screen.getByRole('button', { name: 'demo-project' }).className
+    ).toContain('focus-ring');
+    expect(
+      screen.getByRole('button', { name: /main\.ts/ }).className
+    ).toContain('focus-ring');
+
     await user.click(screen.getByRole('button', { name: 'Create project' }));
     await user.click(screen.getByRole('button', { name: 'Open folder' }));
     await user.click(screen.getByRole('button', { name: 'demo-project' }));

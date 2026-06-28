@@ -314,7 +314,7 @@ export function LicenseSection() {
                   type="button"
                   onClick={() => void handleClear()}
                   disabled={isClearing || isApplying}
-                  className="rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60"
+                  className="focus-ring rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60"
                   data-testid="license-clear"
                 >
                   {t('license.clear')}
@@ -347,7 +347,7 @@ export function LicenseSection() {
                   type="button"
                   onClick={() => void handleCopyFingerprint()}
                   data-testid="license-key-fingerprint-copy"
-                  className="rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base"
+                  className="focus-ring rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base"
                 >
                   {t('license.keyFingerprint.copy')}
                 </button>

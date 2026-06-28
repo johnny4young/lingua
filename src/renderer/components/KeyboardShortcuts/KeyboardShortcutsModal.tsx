@@ -173,7 +173,7 @@ function ShortcutRow({
               <button
                 type="button"
                 onClick={onCancelRecording}
-                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
+                className="focus-ring rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.cancelAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.cancel')}
@@ -183,7 +183,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onStartRecording}
                 data-testid={`shortcut-edit-${shortcut.id}`}
-                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
+                className="focus-ring rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.editAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.edit')}
@@ -194,7 +194,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onReset}
                 data-testid={`shortcut-reset-${shortcut.id}`}
-                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
+                className="focus-ring rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.resetSingleAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.reset')}

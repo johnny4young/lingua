@@ -54,6 +54,12 @@ describe('SettingsModal', () => {
     expect(screen.getByText('No disponible')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cerrar configuración' })).toBeTruthy();
 
+    // UX Sweep T1 — rail tabs carry the .settings-rail-row class, which now
+    // bakes in the shared .focus-ring (the ring itself is verified live).
+    expect(
+      screen.getByTestId('settings-tab-appearance').className
+    ).toContain('settings-rail-row');
+
     // Switch to Apariencia → Diseño (Layout) lives here.
     const appearanceTab = screen.getByTestId('settings-tab-appearance');
     fireEvent.click(appearanceTab);

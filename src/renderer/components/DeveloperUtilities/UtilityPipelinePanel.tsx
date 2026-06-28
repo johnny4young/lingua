@@ -564,7 +564,7 @@ function UtilityPipelinePanelUnlocked() {
                   }}
                   aria-label={t('utilityPipeline.list.duplicateAria', { name: p.name })}
                   data-testid="utility-pipeline-list-duplicate"
-                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-foreground group-hover:opacity-100"
+                  className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
                 >
                   <CopyIcon size={10} aria-hidden="true" />
                 </button>
@@ -576,7 +576,7 @@ function UtilityPipelinePanelUnlocked() {
                   }}
                   aria-label={t('utilityPipeline.list.deleteAria', { name: p.name })}
                   data-testid="utility-pipeline-list-delete"
-                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100"
+                  className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
                 >
                   <Trash2 size={10} aria-hidden="true" />
                 </button>

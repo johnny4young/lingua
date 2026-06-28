@@ -280,7 +280,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
                   data-row-key={row.key}
                   onClick={() => void openMatch(row)}
                   onMouseEnter={() => setSelectedMatchKey(row.key)}
-                  className={`flex w-full items-start gap-3 rounded-4xl px-3 py-2 text-left transition-colors ${
+                  className={`focus-ring flex w-full items-start gap-3 rounded-4xl px-3 py-2 text-left transition-colors ${
                     isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/68'
                   }`}
                 >

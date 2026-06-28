@@ -105,6 +105,11 @@ describe('ProjectSearch', () => {
     });
     expect(screen.getByText('7:3')).toBeTruthy();
     expect(screen.getByText('needle')).toBeTruthy();
+    // UX Sweep T1 — the bespoke match-row button carries the focus ring.
+    // (The file-group header also has data-row-key, so target the button.)
+    const matchRow = document.querySelector('button[data-row-key]');
+    expect(matchRow).not.toBeNull();
+    expect(matchRow!.className).toContain('focus-ring');
   });
 
   it('opens the target file when a match is clicked and closes the overlay', async () => {

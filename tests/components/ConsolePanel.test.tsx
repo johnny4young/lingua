@@ -244,6 +244,15 @@ describe('ConsolePanel', () => {
     expect(screen.getByText('Output will appear here...')).toBeTruthy();
   });
 
+  it('gives the filter chips the shared keyboard focus ring (UX Sweep T1)', () => {
+    render(<ConsolePanel />);
+    // The payload-kind chips render unconditionally and share the same
+    // bespoke chip className as the log-type chips.
+    expect(
+      screen.getByTestId('console-payload-chip-table').className
+    ).toContain('focus-ring');
+  });
+
   // RL-044 next slice — image clipboard paste into the console.
   describe('image clipboard paste', () => {
     function dispatchImagePaste(opts: {
