@@ -7,7 +7,7 @@
  */
 
 import type { PropsWithChildren } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlWorkspacePanel } from '../../../src/renderer/components/SqlWorkspace';
@@ -528,5 +528,272 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
     expect(
       useEditorStore.getState().tabs.filter((t) => t.kind === 'sql').length
     ).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RL-097 (SQL import) — keyboard-only import flow + preview modal a11y.
+// ---------------------------------------------------------------------------
+
+/**
+ * An import-capable engine: implements `registerFile` / `dropFile` and
+ * canned responses for the preview (`LIMIT`), count, and CREATE TABLE
+ * paths. `createCalls` records each CREATE TABLE statement so the test
+ * can assert the edited table name reached the DDL.
+ */
+function importEngine(
+  createCalls: string[],
+  existingTables: readonly string[] = [],
+  options: { readonly createDelay?: Promise<void> } = {}
+): DuckDbEngineHandle {
+  return {
+    registerFile: async () => undefined,
+    dropFile: async () => undefined,
+    connect: async () => ({
+      query: async (sql: string) => {
+        if (/CREATE TABLE/i.test(sql)) {
+          createCalls.push(sql);
+          if (options.createDelay) await options.createDelay;
+          return mapArrowTable(arrowTable([], []));
+        }
+        if (/count\(\*\)/i.test(sql)) {
+          return mapArrowTable(
+            arrowTable([{ name: 'n', type: 'BIGINT' }], [{ n: 3n }])
+          );
+        }
+        if (/SHOW TABLES/i.test(sql)) {
+          return mapArrowTable(
+            arrowTable(
+              [{ name: 'name', type: 'VARCHAR' }],
+              existingTables.map((name) => ({ name }))
+            )
+          );
+        }
+        if (/PRAGMA table_info/i.test(sql)) {
+          return mapArrowTable(
+            arrowTable([{ name: 'cid', type: 'INTEGER' }], [{ cid: 0 }])
+          );
+        }
+        // The preview sample read (read_csv_auto … LIMIT 10).
+        return mapArrowTable(
+          arrowTable(
+            [
+              { name: 'id', type: 'INTEGER' },
+              { name: 'label', type: 'VARCHAR' },
+            ],
+            [
+              { id: 1, label: 'one' },
+              { id: 2, label: 'two' },
+            ]
+          )
+        );
+      },
+      close: async () => undefined,
+    }),
+    terminate: async () => undefined,
+  };
+}
+
+function csvFile(name = 'Sales Data.csv'): File {
+  return new File(['id,label\n1,one\n2,two\n'], name, { type: 'text/csv' });
+}
+
+describe('SqlWorkspacePanel — file import (RL-097)', () => {
+  it('keyboard path: Import button is a real focusable button with an aria-label', () => {
+    render(<SqlWorkspacePanel />);
+    const button = screen.getByTestId('sql-workspace-import');
+    expect(button.tagName).toBe('BUTTON');
+    expect(button.getAttribute('aria-label')).toBeTruthy();
+  });
+
+  it('keyboard path: activating Import → picking a file opens the preview dialog with columns + rows', async () => {
+    const createCalls: string[] = [];
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(importEngine(createCalls)));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+
+    // Focus the toolbar Import button and activate it by keyboard.
+    const importButton = screen.getByTestId('sql-workspace-import');
+    importButton.focus();
+    expect(document.activeElement).toBe(importButton);
+    // Simulate the file selection the native dialog would deliver.
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile());
+
+    // The preview dialog appears with role=dialog + an accessible name.
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toBeTruthy();
+    expect(dialog.getAttribute('aria-labelledby')).toBeTruthy();
+    const labelEl = document.getElementById(
+      dialog.getAttribute('aria-labelledby')!
+    );
+    expect(labelEl?.textContent?.length).toBeGreaterThan(0);
+
+    // Detected columns + sample rows render.
+    const columns = screen.getByTestId('sql-import-modal-columns');
+    expect(columns.textContent).toContain('id');
+    expect(columns.textContent).toContain('label');
+    expect(screen.getByTestId('sql-import-modal-sample').textContent).toContain(
+      'one'
+    );
+    // Pre-filled, sanitized table name from "Sales Data.csv".
+    expect(
+      (screen.getByTestId('sql-import-modal-name') as HTMLInputElement).value
+    ).toBe('sales_data');
+  });
+
+  it('keyboard path: editing the name then Confirm imports under the edited name', async () => {
+    const createCalls: string[] = [];
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(importEngine(createCalls)));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile());
+    await screen.findByRole('dialog');
+
+    const nameInput = screen.getByTestId('sql-import-modal-name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'custom_table');
+    await user.click(screen.getByTestId('sql-import-modal-confirm'));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    const createStmt = createCalls.find((q) => /CREATE TABLE/i.test(q));
+    expect(createStmt).toContain('"custom_table"');
+  });
+
+  it('invalid name disables Import + shows the inline hint', async () => {
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(importEngine([])));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile());
+    await screen.findByRole('dialog');
+
+    const nameInput = screen.getByTestId('sql-import-modal-name');
+    await user.clear(nameInput);
+    await user.type(nameInput, '1bad name');
+
+    expect(
+      (screen.getByTestId('sql-import-modal-confirm') as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+    expect(nameInput.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('dedupes suggested names and blocks editing back to an existing table', async () => {
+    const createCalls: string[] = [];
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve(importEngine(createCalls, ['sales_data']))
+    );
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+
+    await user.click(screen.getByTestId('sql-schema-browser-refresh'));
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId('sql-schema-browser-table')
+          .getAttribute('data-table-name')
+      ).toBe('sales_data')
+    );
+
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile());
+    await screen.findByRole('dialog');
+
+    const nameInput = screen.getByTestId(
+      'sql-import-modal-name'
+    ) as HTMLInputElement;
+    expect(nameInput.value).toBe('sales_data_2');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'sales_data');
+
+    expect(
+      (screen.getByTestId('sql-import-modal-confirm') as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+    expect(screen.getByTestId('sql-import-modal-name-hint').textContent).toContain(
+      'already exists'
+    );
+    expect(createCalls.filter((q) => /CREATE TABLE/i.test(q))).toHaveLength(0);
+  });
+
+  it('Esc / cancel closes the modal and fires no import', async () => {
+    const createCalls: string[] = [];
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(importEngine(createCalls)));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile());
+    await screen.findByRole('dialog');
+
+    // Put focus inside the dialog (where it lands on open) so Escape
+    // routes through ModalShell's keydown handler, then press it.
+    const nameInput = screen.getByTestId('sql-import-modal-name');
+    nameInput.focus();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(createCalls.filter((q) => /CREATE TABLE/i.test(q))).toHaveLength(0);
+  });
+
+  it('keeps the modal open and disables Cancel while Confirm is importing', async () => {
+    const createCalls: string[] = [];
+    let releaseCreate!: () => void;
+    const createDelay = new Promise<void>((resolve) => {
+      releaseCreate = resolve;
+    });
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve(importEngine(createCalls, [], { createDelay }))
+    );
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile());
+    const dialog = await screen.findByRole('dialog');
+    await user.click(screen.getByTestId('sql-import-modal-confirm'));
+    await waitFor(() =>
+      expect(createCalls.filter((q) => /CREATE TABLE/i.test(q))).toHaveLength(1)
+    );
+
+    const cancel = screen.getByTestId(
+      'sql-import-modal-cancel'
+    ) as HTMLButtonElement;
+    expect(cancel.disabled).toBe(true);
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBe(dialog);
+
+    releaseCreate();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it('rejects an unsupported file type with a specific notice and no dialog', async () => {
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(importEngine([])));
+    render(<SqlWorkspacePanel />);
+
+    // `fireEvent.change` bypasses the input's `accept` filter (which the
+    // OS dialog enforces) so we can prove the runtime guard ALSO rejects a
+    // type that slipped through — defence in depth.
+    const txt = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+    const input = screen.getByTestId(
+      'sql-workspace-import-input'
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [txt] } });
+
+    await waitFor(() => {
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'sqlWorkspace.import.errorUnsupported'
+      );
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('the schema-browser "+" import button is a real button with an aria-label', () => {
+    render(<SqlWorkspacePanel />);
+    const plus = screen.getByTestId('sql-schema-browser-import');
+    expect(plus.tagName).toBe('BUTTON');
+    expect(plus.getAttribute('aria-label')).toBeTruthy();
   });
 });

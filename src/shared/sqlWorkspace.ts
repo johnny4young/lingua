@@ -121,6 +121,208 @@ export type SqlStorageMode = 'opfs' | 'memory';
 /** Closed enum of {@link SqlStorageMode} values — source of truth. */
 export const SQL_STORAGE_MODES: readonly SqlStorageMode[] = ['opfs', 'memory'];
 
+// ---------------------------------------------------------------------------
+// RL-097 (SQL import) — file → DuckDB table import helpers.
+//
+// Pure, side-effect-free helpers shared by the renderer import flow and
+// its unit tests. The renderer's `duckdbClient` registers the file bytes
+// and runs `read_csv_auto` / `read_json_auto` / `read_parquet`; these
+// helpers own the format detection, identifier sanitisation, and the
+// collision de-duper so all the messy string logic stays unit-testable
+// outside the DuckDB engine.
+// ---------------------------------------------------------------------------
+
+/**
+ * Closed enum of file formats the SQL import flow accepts. Each maps to
+ * a DuckDB `read_*` reader in `duckdbClient.importFileAsTable`:
+ *
+ *   - `'csv'`     → `read_csv_auto`  (UTF-8 text buffer)
+ *   - `'json'`    → `read_json_auto` (JSON array OR newline-delimited)
+ *   - `'parquet'` → `read_parquet`   (binary columnar buffer)
+ *
+ * Parquet is statically linked into the bundled `@duckdb/duckdb-wasm`
+ * MVP WASM (verified: the `read_parquet` / `parquet_scan` symbols are
+ * present in `duckdb-mvp.wasm`), so no runtime extension load is needed.
+ *
+ * INVARIANT: the renderer must never advertise, accept, or run a format
+ * outside this list — adding one requires verifying the reader exists in
+ * the shipped WASM bundle first.
+ */
+export type SqlImportFormat = 'csv' | 'json' | 'parquet';
+
+/**
+ * Source of truth for the accepted import formats. Drives the file
+ * picker `accept` predicate AND the accept-attribute string, so the two
+ * can never drift. Iteration order is irrelevant.
+ */
+export const SUPPORTED_IMPORT_FORMATS: readonly SqlImportFormat[] = [
+  'csv',
+  'json',
+  'parquet',
+];
+
+/**
+ * Hard cap on the byte size of an imported file. 25 MiB. Enforced
+ * BEFORE the file bytes are read into memory so an oversized drop is
+ * rejected cheaply (the `File.size` check), never after a multi-hundred-
+ * MB `arrayBuffer()` has already blown the renderer heap. Mirrors the
+ * size discipline of the result-preview caps above.
+ */
+export const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Map of file extension → import format. Lower-cased extension WITHOUT
+ * the leading dot. `.jsonl` / `.ndjson` route to `'json'` because
+ * `read_json_auto` handles newline-delimited JSON as well as arrays.
+ */
+const IMPORT_EXTENSION_MAP: Readonly<Record<string, SqlImportFormat>> = {
+  csv: 'csv',
+  json: 'json',
+  jsonl: 'json',
+  ndjson: 'json',
+  parquet: 'parquet',
+  pq: 'parquet',
+};
+
+/**
+ * Map of MIME type → import format, used as a fallback when a file has
+ * no usable extension (a drag-drop of a blob, or a renamed file). Kept
+ * deliberately small — only the MIME types browsers reliably set for
+ * these formats. `application/x-ndjson` covers newline-delimited JSON.
+ */
+const IMPORT_MIME_MAP: Readonly<Record<string, SqlImportFormat>> = {
+  'text/csv': 'csv',
+  'application/csv': 'csv',
+  'application/json': 'json',
+  'text/json': 'json',
+  'application/x-ndjson': 'json',
+  'application/x-parquet': 'parquet',
+  'application/vnd.apache.parquet': 'parquet',
+};
+
+/**
+ * Native file-picker `accept` string for the SQL import inputs. Mirrors
+ * the extension + MIME maps above so the keyboard picker advertises the
+ * same formats `detectImportFormat` accepts at runtime.
+ */
+export const SQL_IMPORT_FILE_ACCEPT =
+  '.csv,.json,.jsonl,.ndjson,.parquet,.pq,text/csv,application/csv,application/json,text/json,application/x-ndjson,application/x-parquet,application/vnd.apache.parquet';
+
+/**
+ * Detect the import format for a file from its name (extension first)
+ * and, failing that, its MIME type. Returns `null` when neither yields a
+ * supported format — the caller surfaces an "unsupported file" notice and
+ * imports nothing. Pure: no IO, no engine.
+ *
+ *   - `data.CSV`            → `'csv'`   (case-insensitive)
+ *   - `events.jsonl`        → `'json'`
+ *   - `blob` + `text/csv`   → `'csv'`   (extension-less, MIME fallback)
+ *   - `notes.txt`           → `null`    (unsupported)
+ */
+export function detectImportFormat(
+  fileName: string,
+  mimeType?: string | null
+): SqlImportFormat | null {
+  const dot = fileName.lastIndexOf('.');
+  if (dot !== -1 && dot < fileName.length - 1) {
+    const ext = fileName.slice(dot + 1).toLowerCase();
+    const byExt = IMPORT_EXTENSION_MAP[ext];
+    if (byExt !== undefined) return byExt;
+  }
+  if (typeof mimeType === 'string' && mimeType.length > 0) {
+    // MIME types can carry a `; charset=…` suffix — match on the base.
+    const base = mimeType.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+    const byMime = IMPORT_MIME_MAP[base];
+    if (byMime !== undefined) return byMime;
+  }
+  return null;
+}
+
+/**
+ * Derive a valid DuckDB table identifier from a file name. The result is
+ * always non-empty and safe to splice into `CREATE TABLE <ident> AS …`
+ * after double-quote escaping at the call site.
+ *
+ * Transform (in order):
+ *
+ *   1. Strip the directory path + the file extension (`a/b/Sales.csv`
+ *      → `Sales`).
+ *   2. Lower-case.
+ *   3. Replace every run of non `[a-z0-9_]` characters with a single
+ *      `_` (spaces, dots, unicode, punctuation all collapse).
+ *   4. Trim leading/trailing `_`.
+ *   5. Prefix `t_` when the result is empty OR starts with a digit
+ *      (DuckDB identifiers may not begin with a digit).
+ *
+ * Examples:
+ *
+ *   - `Q1 Sales.csv`     → `q1_sales`
+ *   - `2024-report.json` → `t_2024_report`
+ *   - `café data.csv`    → `caf_data`
+ *   - `🙂.csv`           → `t_table`  (nothing survives → fallback)
+ *
+ * The result is NOT collision-checked here — pair it with
+ * {@link dedupeTableName} against the live table set.
+ */
+export function sanitizeTableName(fileName: string): string {
+  // Strip any directory component first so a path separator never leaks
+  // into the identifier.
+  const base = fileName.split(/[\\/]/).pop() ?? fileName;
+  const dot = base.lastIndexOf('.');
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  let cleaned = stem
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  if (cleaned.length === 0) cleaned = 'table';
+  if (/^[0-9]/.test(cleaned)) cleaned = `t_${cleaned}`;
+  return cleaned;
+}
+
+/**
+ * Resolve a collision-free table name given the set of names already in
+ * the database. Returns `name` unchanged when free; otherwise appends
+ * the lowest available `_N` suffix starting at `_2`:
+ *
+ *   - `sales` (free)              → `sales`
+ *   - `sales` (taken)             → `sales_2`
+ *   - `sales`, `sales_2` (taken)  → `sales_3`
+ *
+ * Comparison is case-insensitive because DuckDB identifiers are
+ * case-insensitive unless quoted-and-mixed; this avoids `Sales` and
+ * `sales` silently clobbering one another. The returned name preserves
+ * the lower-cased form produced by {@link sanitizeTableName}.
+ */
+export function dedupeTableName(
+  name: string,
+  existingNames: Iterable<string>
+): string {
+  const taken = new Set<string>();
+  for (const existing of existingNames) {
+    taken.add(existing.toLowerCase());
+  }
+  if (!taken.has(name.toLowerCase())) return name;
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${name}_${suffix}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+}
+
+/**
+ * Validate a user-edited table name from the import preview modal.
+ * Mirrors the contract DuckDB enforces on an unquoted identifier so the
+ * modal can disable Import + show an inline hint live, BEFORE a bad name
+ * reaches `CREATE TABLE`:
+ *
+ *   - non-empty after trimming
+ *   - matches `^[A-Za-z_][A-Za-z0-9_]*$`
+ *
+ * Returns `true` only for a name safe to splice into the DDL.
+ */
+export function isValidTableName(name: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name.trim());
+}
+
 /** UTF-8 byte count helper. Matches `utf8ByteLength` in httpWorkspace.ts. */
 export function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;

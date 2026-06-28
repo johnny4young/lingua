@@ -18,8 +18,10 @@ import {
   executeQuery,
   getResolvedSqlStorageMode,
   getResolvedSqlStorageRequestMode,
+  importFileAsTable,
   isOpfsStorageAvailable,
   mapArrowTable,
+  previewImportFile,
   type ArrowTableLike,
   type DuckDbConnection,
   type DuckDbEngineHandle,
@@ -355,5 +357,226 @@ describe('OPFS persistence (RL-097 Slice 3)', () => {
 
   it('clearPersistedSqlDatabase resolves without throwing when OPFS unavailable', async () => {
     await expect(clearPersistedSqlDatabase()).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RL-097 (SQL import) — previewImportFile + importFileAsTable.
+// ---------------------------------------------------------------------------
+
+interface ImportEngineLog {
+  registered: Array<{ name: string; bytes: Uint8Array }>;
+  dropped: string[];
+  queries: string[];
+}
+
+/**
+ * A registerFile-capable mock engine. `respond` maps each SQL string to
+ * an Arrow table; defaults to an empty result. Records register / drop /
+ * query calls so the import tests can assert the file lifecycle.
+ */
+function importEngine(
+  respond: (sql: string) => ArrowTableLike,
+  log: ImportEngineLog
+): DuckDbEngineHandle {
+  return {
+    registerFile: async (name, bytes) => {
+      log.registered.push({ name, bytes });
+    },
+    dropFile: async (name) => {
+      log.dropped.push(name);
+    },
+    connect: async (): Promise<DuckDbConnection> => ({
+      query: async (sql) => {
+        log.queries.push(sql);
+        return mapArrowTable(respond(sql));
+      },
+      close: async () => undefined,
+    }),
+    terminate: async () => undefined,
+  };
+}
+
+function emptyLog(): ImportEngineLog {
+  return { registered: [], dropped: [], queries: [] };
+}
+
+describe('previewImportFile', () => {
+  it('registers the file, reads a sample + count, then drops the file', async () => {
+    const log = emptyLog();
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve(
+        importEngine((sql) => {
+          if (/count\(\*\)/i.test(sql)) {
+            return arrowTableFrom([{ name: 'n', type: 'BIGINT' }], [{ n: 42n }]);
+          }
+          return arrowTableFrom(
+            [
+              { name: 'id', type: 'INTEGER' },
+              { name: 'name', type: 'VARCHAR' },
+            ],
+            [
+              { id: 1, name: 'a' },
+              { id: 2, name: 'b' },
+            ]
+          );
+        }, log)
+      )
+    );
+    const preview = await previewImportFile({
+      fileName: 'data.csv',
+      format: 'csv',
+      bytes: new Uint8Array([1, 2, 3]),
+    });
+    expect(preview.columns).toEqual(['id', 'name']);
+    expect(preview.sampleRows).toEqual([
+      [1, 'a'],
+      [2, 'b'],
+    ]);
+    // BIGINT count comes back stringified by mapArrowTable → parsed to 42.
+    expect(preview.rowCount).toBe(42);
+    expect(log.registered).toHaveLength(1);
+    // The reader call uses read_csv_auto against the registered name.
+    expect(log.queries.some((q) => q.includes('read_csv_auto'))).toBe(true);
+    // The virtual file is dropped on settle — no leak after a preview.
+    expect(log.dropped).toEqual([log.registered[0]!.name]);
+  });
+
+  it('uses read_json_auto / read_parquet for the matching format', async () => {
+    for (const [format, reader] of [
+      ['json', 'read_json_auto'],
+      ['parquet', 'read_parquet'],
+    ] as const) {
+      const log = emptyLog();
+      __setDuckDbEngineFactoryForTests(() =>
+        Promise.resolve(
+          importEngine((sql) => {
+            if (/count\(\*\)/i.test(sql)) {
+              return arrowTableFrom([{ name: 'n', type: 'BIGINT' }], [{ n: 1n }]);
+            }
+            return arrowTableFrom([{ name: 'a', type: 'INTEGER' }], [{ a: 1 }]);
+          }, log)
+        )
+      );
+      await previewImportFile({
+        fileName: `x.${format}`,
+        format,
+        bytes: new Uint8Array([1]),
+      });
+      expect(log.queries.some((q) => q.includes(reader))).toBe(true);
+    }
+  });
+
+  it('drops the file even when the read throws (malformed source)', async () => {
+    const log = emptyLog();
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve({
+        registerFile: async (name: string, bytes: Uint8Array) => {
+          log.registered.push({ name, bytes });
+        },
+        dropFile: async (name: string) => {
+          log.dropped.push(name);
+        },
+        connect: async () => ({
+          query: async () => {
+            throw new Error('Invalid Input Error: malformed CSV');
+          },
+          close: async () => undefined,
+        }),
+        terminate: async () => undefined,
+      })
+    );
+    await expect(
+      previewImportFile({
+        fileName: 'bad.csv',
+        format: 'csv',
+        bytes: new Uint8Array([1]),
+      })
+    ).rejects.toThrow(/malformed/);
+    expect(log.registered).toHaveLength(1);
+    expect(log.dropped).toEqual([log.registered[0]!.name]);
+  });
+});
+
+describe('importFileAsTable', () => {
+  it('CREATE TABLE with the (escaped) edited name, then counts + drops', async () => {
+    const log = emptyLog();
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve(
+        importEngine((sql) => {
+          if (/count\(\*\)/i.test(sql)) {
+            return arrowTableFrom([{ name: 'n', type: 'BIGINT' }], [{ n: 7n }]);
+          }
+          // CREATE TABLE returns an empty result set.
+          return arrowTableFrom([], []);
+        }, log)
+      )
+    );
+    const result = await importFileAsTable({
+      fileName: 'Sales.csv',
+      tableName: 'my_sales',
+      format: 'csv',
+      bytes: new Uint8Array([1, 2]),
+    });
+    expect(result).toEqual({ table: 'my_sales', rowCount: 7 });
+    const createStmt = log.queries.find((q) => /CREATE TABLE/i.test(q));
+    expect(createStmt).toContain('"my_sales"');
+    expect(createStmt).toContain('read_csv_auto');
+    expect(log.dropped).toEqual([log.registered[0]!.name]);
+  });
+
+  it('throws and creates no table when the DDL fails (file still dropped)', async () => {
+    const log = emptyLog();
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve({
+        registerFile: async (name: string, bytes: Uint8Array) => {
+          log.registered.push({ name, bytes });
+        },
+        dropFile: async (name: string) => {
+          log.dropped.push(name);
+        },
+        connect: async () => ({
+          query: async (sql: string) => {
+            log.queries.push(sql);
+            throw new Error('Conversion Error: malformed JSON');
+          },
+          close: async () => undefined,
+        }),
+        terminate: async () => undefined,
+      })
+    );
+    await expect(
+      importFileAsTable({
+        fileName: 'bad.json',
+        tableName: 'bad',
+        format: 'json',
+        bytes: new Uint8Array([1]),
+      })
+    ).rejects.toThrow(/malformed JSON/);
+    // No count query ran — the CREATE failed first.
+    expect(log.queries.filter((q) => /count\(\*\)/i.test(q))).toHaveLength(0);
+    expect(log.dropped).toEqual([log.registered[0]!.name]);
+  });
+
+  it('issues a CHECKPOINT after a persistent import (fold A durability)', async () => {
+    const log = emptyLog();
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve(
+        importEngine((sql) => {
+          if (/count\(\*\)/i.test(sql)) {
+            return arrowTableFrom([{ name: 'n', type: 'BIGINT' }], [{ n: 1n }]);
+          }
+          return arrowTableFrom([], []);
+        }, log)
+      )
+    );
+    __setResolvedSqlStorageModeForTests('opfs');
+    await importFileAsTable({
+      fileName: 'x.csv',
+      tableName: 't',
+      format: 'csv',
+      bytes: new Uint8Array([1]),
+    });
+    expect(log.queries).toContain('CHECKPOINT');
   });
 });

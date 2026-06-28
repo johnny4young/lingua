@@ -289,6 +289,11 @@ describe('TELEMETRY_EVENTS', () => {
       'sql.query_executed',
       // RL-097 Slice 3 (SQL OPFS) fold F — SQL workspace storage backing.
       'sql.storage_mode',
+      // RL-097 (SQL import) fold B — file imported as a DuckDB table.
+      // Closed-enum `{ format, source }` from `SQL_IMPORT_FORMATS_SET` +
+      // `SQL_IMPORT_SOURCES_SET`. Sorts between `sql.storage_mode`
+      // (sql.s) and `template_project_applied` (te) alphabetically.
+      'sql.table_imported',
       // RL-103 Slice 1 fold B — curated project template applied.
       // Closed-enum `{ templateId, language }` from
       // `TEMPLATE_PROJECT_IDS` + language pack id. Sorts between

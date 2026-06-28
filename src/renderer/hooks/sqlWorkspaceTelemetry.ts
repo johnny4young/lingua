@@ -16,10 +16,19 @@
 
 import {
   bucketSqlDuration,
+  type SqlImportFormat,
   type SqlResponseV1,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
 import { trackEvent } from '../utils/telemetry';
+
+/**
+ * RL-097 (SQL import) fold B — where the import was initiated:
+ *
+ *   - `'drop'`   — file dragged onto the schema-browser drop zone.
+ *   - `'picker'` — the keyboard-accessible Import button → native dialog.
+ */
+export type SqlImportSource = 'drop' | 'picker';
 
 let lastStorageModeTelemetryKey: string | null = null;
 
@@ -61,4 +70,18 @@ export function trackSqlStorageMode(
 
 export function __resetSqlStorageModeTelemetryForTests(): void {
   lastStorageModeTelemetryKey = null;
+}
+
+/**
+ * RL-097 (SQL import) fold B — fires once per successful file import.
+ * Carries ONLY the two closed-enum tokens: the detected file `format`
+ * and the `source` that initiated the import. NO file name, NO column
+ * names, NO row values reach the wire. Mirrored on update-server with
+ * a parity test.
+ */
+export function trackSqlTableImported(
+  format: SqlImportFormat,
+  source: SqlImportSource
+): void {
+  void trackEvent('sql.table_imported', { format, source });
 }

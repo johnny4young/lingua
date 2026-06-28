@@ -7,15 +7,22 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_IMPORT_BYTES,
   MAX_QUERY_BYTES,
   MAX_RESULT_PREVIEW_BYTES,
   MAX_RESULT_ROWS,
   SQL_QUERY_STATUSES,
   SQL_DURATION_BUCKETS,
+  SQL_IMPORT_FILE_ACCEPT,
+  SUPPORTED_IMPORT_FORMATS,
   bucketSqlDuration,
   createBlankSqlQuery,
+  dedupeTableName,
+  detectImportFormat,
+  isValidTableName,
   parseSqlQuery,
   parseSqlResponse,
+  sanitizeTableName,
   utf8ByteLength,
   type SqlQueryV1,
   type SqlResponseV1,
@@ -217,5 +224,126 @@ describe('createBlankSqlQuery', () => {
   it('accepts a custom now timestamp', () => {
     const q = createBlankSqlQuery({ id: 'x', now: '2026-01-01T00:00:00.000Z' });
     expect(q.createdAt).toBe('2026-01-01T00:00:00.000Z');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RL-097 (SQL import) — shared import helpers.
+// ---------------------------------------------------------------------------
+
+describe('detectImportFormat', () => {
+  it('detects by extension (case-insensitive)', () => {
+    expect(detectImportFormat('data.csv')).toBe('csv');
+    expect(detectImportFormat('data.CSV')).toBe('csv');
+    expect(detectImportFormat('events.json')).toBe('json');
+    expect(detectImportFormat('events.jsonl')).toBe('json');
+    expect(detectImportFormat('events.ndjson')).toBe('json');
+    expect(detectImportFormat('cube.parquet')).toBe('parquet');
+    expect(detectImportFormat('cube.pq')).toBe('parquet');
+  });
+
+  it('falls back to MIME when the extension is absent', () => {
+    expect(detectImportFormat('blob', 'text/csv')).toBe('csv');
+    expect(detectImportFormat('blob', 'application/json')).toBe('json');
+    expect(detectImportFormat('blob', 'application/x-ndjson')).toBe('json');
+  });
+
+  it('ignores a MIME charset suffix', () => {
+    expect(detectImportFormat('blob', 'text/csv; charset=utf-8')).toBe('csv');
+  });
+
+  it('returns null for an unsupported type', () => {
+    expect(detectImportFormat('notes.txt')).toBeNull();
+    expect(detectImportFormat('notes')).toBeNull();
+    expect(detectImportFormat('notes', 'text/plain')).toBeNull();
+  });
+
+  it('every supported format maps from at least one extension', () => {
+    for (const format of SUPPORTED_IMPORT_FORMATS) {
+      expect(detectImportFormat(`x.${format}`)).toBe(format);
+    }
+  });
+
+  it('keeps the picker accept string aligned with extension aliases', () => {
+    expect(SQL_IMPORT_FILE_ACCEPT).toContain('.pq');
+    expect(SQL_IMPORT_FILE_ACCEPT).toContain('application/vnd.apache.parquet');
+  });
+});
+
+describe('sanitizeTableName', () => {
+  it('strips extension + lower-cases + collapses non-identifier runs', () => {
+    expect(sanitizeTableName('Q1 Sales.csv')).toBe('q1_sales');
+    expect(sanitizeTableName('My-Report.JSON')).toBe('my_report');
+  });
+
+  it('prefixes t_ when the result would start with a digit', () => {
+    expect(sanitizeTableName('2024-report.json')).toBe('t_2024_report');
+    expect(sanitizeTableName('9.csv')).toBe('t_9');
+  });
+
+  it('collapses non-ascii to underscores and trims', () => {
+    expect(sanitizeTableName('café data.csv')).toBe('caf_data');
+    expect(sanitizeTableName('  spaced  .csv')).toBe('spaced');
+  });
+
+  it('falls back to a default when nothing survives', () => {
+    expect(sanitizeTableName('🙂.csv')).toBe('table');
+    expect(sanitizeTableName('___.csv')).toBe('table');
+  });
+
+  it('strips directory components', () => {
+    expect(sanitizeTableName('a/b/Sales.csv')).toBe('sales');
+    expect(sanitizeTableName('C:\\data\\Sales.csv')).toBe('sales');
+  });
+
+  it('always produces a valid identifier', () => {
+    for (const name of ['2024.csv', '🙂.json', 'a b c.parquet', '__.csv']) {
+      expect(isValidTableName(sanitizeTableName(name))).toBe(true);
+    }
+  });
+});
+
+describe('dedupeTableName', () => {
+  it('returns the name unchanged when free', () => {
+    expect(dedupeTableName('sales', [])).toBe('sales');
+    expect(dedupeTableName('sales', ['other'])).toBe('sales');
+  });
+
+  it('appends _2 on the first collision', () => {
+    expect(dedupeTableName('sales', ['sales'])).toBe('sales_2');
+  });
+
+  it('appends the lowest free _N for chained collisions', () => {
+    expect(dedupeTableName('sales', ['sales', 'sales_2'])).toBe('sales_3');
+    expect(dedupeTableName('sales', ['sales', 'sales_2', 'sales_4'])).toBe(
+      'sales_3'
+    );
+  });
+
+  it('compares case-insensitively', () => {
+    expect(dedupeTableName('sales', ['SALES'])).toBe('sales_2');
+  });
+});
+
+describe('isValidTableName', () => {
+  it('accepts valid identifiers', () => {
+    expect(isValidTableName('sales')).toBe(true);
+    expect(isValidTableName('_x')).toBe(true);
+    expect(isValidTableName('t1_2')).toBe(true);
+    expect(isValidTableName('  trimmed  ')).toBe(true);
+  });
+
+  it('rejects empty, digit-leading, and special-char names', () => {
+    expect(isValidTableName('')).toBe(false);
+    expect(isValidTableName('   ')).toBe(false);
+    expect(isValidTableName('1table')).toBe(false);
+    expect(isValidTableName('my table')).toBe(false);
+    expect(isValidTableName('drop;table')).toBe(false);
+  });
+});
+
+describe('MAX_IMPORT_BYTES', () => {
+  it('is the documented 25 MiB cap', () => {
+    expect(MAX_IMPORT_BYTES).toBe(25 * 1024 * 1024);
   });
 });
