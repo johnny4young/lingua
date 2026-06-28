@@ -13,6 +13,7 @@ import { X } from 'lucide-react';
 import { createDefaultTab, useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useAnnounce } from '../../hooks/useAnnounce';
 import { GuidedTourContext } from './guidedTourContext';
 import { GUIDED_TOUR_SELECTORS, waitForGuidedTourSelector } from './guidedTourSelectors';
 import {
@@ -197,6 +198,11 @@ function GuidedTourRuntime({
   // tour opens and restore focus to the trigger when it closes.
   const dialogRef = useRef<HTMLElement>(null);
   const tourReturnFocusRef = useRef<HTMLElement | null>(null);
+  // UX Sweep T8 — the layer used to wrap the whole card in aria-live, which
+  // re-announced the buttons + checkbox on every step. Announce only the new
+  // step's title + body (the open is handled by focus + aria-describedby).
+  const announce = useAnnounce();
+  const previousStepIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     controlsRef.current = controls;
@@ -256,6 +262,23 @@ function GuidedTourRuntime({
       }
     };
   }, [tourActive]);
+
+  // Announce step changes politely. The initial open is read by the dialog's
+  // accessible name + description when focus lands on it, so only subsequent
+  // navigation (Next/Back) needs an announcement.
+  useEffect(() => {
+    if (activeStepIndex === null) {
+      previousStepIndexRef.current = null;
+      return;
+    }
+    const previousIndex = previousStepIndexRef.current;
+    previousStepIndexRef.current = activeStepIndex;
+    if (previousIndex === null) return;
+    const step = tourSteps[activeStepIndex];
+    if (step) {
+      announce(`${step.title}. ${step.text}`);
+    }
+  }, [activeStepIndex, tourSteps, announce]);
 
   // Escape skips the tour; Tab is trapped inside the dialog.
   const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
@@ -462,7 +485,7 @@ function GuidedTourRuntime({
     <GuidedTourContext.Provider value={contextValue}>
       {children}
       {activeStep ? (
-        <div className="guided-tour-layer" aria-live="polite">
+        <div className="guided-tour-layer">
           <div className="guided-tour-overlay" />
           {targetRect ? (
             <div
@@ -473,6 +496,7 @@ function GuidedTourRuntime({
           ) : null}
           <section
             ref={dialogRef}
+            aria-describedby="guided-tour-text"
             aria-labelledby="guided-tour-title"
             aria-modal="true"
             className="guided-tour-step"
@@ -494,7 +518,9 @@ function GuidedTourRuntime({
                 <X aria-hidden="true" size={18} strokeWidth={2} />
               </button>
             </header>
-            <div className="guided-tour-text">{activeStep.text}</div>
+            <div id="guided-tour-text" className="guided-tour-text">
+              {activeStep.text}
+            </div>
             <footer className="guided-tour-footer">
               <label
                 className="guided-tour-dont-show-again"

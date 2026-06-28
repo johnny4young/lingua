@@ -56,6 +56,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
 
 import { GuidedTourProvider } from '../../src/renderer/components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from '../../src/renderer/components/GuidedTour/guidedTourContext';
+import { useAnnouncerStore } from '../../src/renderer/stores/announcerStore';
 
 const FOCUSABLE = [
   'a[href]',
@@ -102,6 +103,7 @@ function renderTour() {
 describe('GuidedTour focus management (UX Sweep T8)', () => {
   beforeEach(async () => {
     settingsState.setSuppressTourAutoStart.mockClear();
+    useAnnouncerStore.setState({ message: '', nonce: 0 });
     // jsdom does not implement scrollIntoView; the step highlighter calls it.
     Element.prototype.scrollIntoView = vi.fn();
     await i18next.changeLanguage('en');
@@ -155,5 +157,24 @@ describe('GuidedTour focus management (UX Sweep T8)', () => {
     const last = focusables[focusables.length - 1]!;
     fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(last);
+  });
+
+  it('announces step changes politely but stays silent on open', async () => {
+    renderTour();
+    fireEvent.click(screen.getByTestId('trigger'));
+    await screen.findByRole('dialog');
+    // Open is read via the dialog name + description, not the live region.
+    expect(useAnnouncerStore.getState().message).toBe('');
+
+    fireEvent.click(screen.getByRole('button', { name: i18next.t('tour.buttons.next') }));
+    await waitFor(() =>
+      expect(useAnnouncerStore.getState().message).toContain(
+        i18next.t('tour.step.run.title')
+      )
+    );
+    // The body is announced, not the control labels.
+    expect(useAnnouncerStore.getState().message).not.toBe(
+      i18next.t('tour.buttons.next')
+    );
   });
 });
