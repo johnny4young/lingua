@@ -48,6 +48,13 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Secret material — belt-and-suspenders so a new worker/package dir without
+# its own .gitignore cannot slip a credentials file into a now-public repo.
+*.dev.vars
+.dev.vars
+*.p12
+*.pfx
+
 # Editor
 .idea/
 .vscode/*
