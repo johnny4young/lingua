@@ -272,8 +272,11 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
       onClose={onClose}
       size="max-w-4xl"
       labelledById="capsule-import-title"
-      headerClose="button"
-      closeLabel={t('capsuleImport.overlay.close')}
+      // UX Sweep T3 — `esc` (not the `button` X) so ModalShell seeds initial
+      // focus on the first body control (the paste textarea) rather than the
+      // close button: a keyboard user lands on the primary input. The Esc
+      // keycap hint stays in the header; the footer Cancel + scrim still close.
+      headerClose="esc"
       header={
         <div className="min-w-0">
           <h2

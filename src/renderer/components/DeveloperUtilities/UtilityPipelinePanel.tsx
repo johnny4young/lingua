@@ -26,7 +26,15 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
@@ -412,9 +420,32 @@ function UtilityPipelinePanelUnlocked() {
   // Fold G — Import-from-clipboard auto-detect (gated on the existing
   // `utilitiesClipboardOnFocusConsent` three-state from RL-069 Slice 3).
   const importTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // UX Sweep T3 — the button that opens the import panel, so focus can
+  // return to it when the panel is dismissed.
+  const importTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [importTextareaValue, setImportTextareaValue] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [importWarning, setImportWarning] = useState<string | null>(null);
+
+  // UX Sweep T3 — close the inline import panel and return focus to its
+  // trigger, so a keyboard user is not stranded inside a now-gone panel.
+  const closeImportPanel = useCallback(() => {
+    setImportOpen(false);
+    setImportWarning(null);
+    importTriggerRef.current?.focus();
+  }, []);
+
+  // Escape dismisses the import panel WITHOUT bubbling to the Developer
+  // Utilities overlay (which would otherwise close the whole surface).
+  const handleImportKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeImportPanel();
+    },
+    [closeImportPanel]
+  );
 
   const handleImportOpen = useCallback(async () => {
     setImportOpen(true);
@@ -440,6 +471,7 @@ function UtilityPipelinePanelUnlocked() {
       setImportOpen(false);
       setImportTextareaValue('');
       setImportWarning(null);
+      importTriggerRef.current?.focus();
     } else {
       const detail = outcome.detail ? ` — ${outcome.detail}` : '';
       setImportWarning(`${t(`utilityPipeline.import.reject.${camel(outcome.reason)}`)}${detail}`);
@@ -482,6 +514,7 @@ function UtilityPipelinePanelUnlocked() {
           </span>
           <div className="flex items-center gap-1">
             <button
+              ref={importTriggerRef}
               type="button"
               onClick={handleImportOpen}
               aria-label={t('utilityPipeline.list.import')}
@@ -594,6 +627,7 @@ function UtilityPipelinePanelUnlocked() {
         {importOpen ? (
           <div
             data-testid="utility-pipeline-import-panel"
+            onKeyDown={handleImportKeyDown}
             className="mt-2 grid gap-2 rounded border border-border/60 bg-surface/40 p-2"
           >
             <textarea
@@ -613,10 +647,7 @@ function UtilityPipelinePanelUnlocked() {
             <div className="flex justify-end gap-1">
               <button
                 type="button"
-                onClick={() => {
-                  setImportOpen(false);
-                  setImportWarning(null);
-                }}
+                onClick={closeImportPanel}
                 data-testid="utility-pipeline-import-cancel"
                 className="inline-flex h-6 items-center rounded border border-border/60 bg-surface/40 px-2 text-eyebrow text-muted hover:text-foreground"
               >

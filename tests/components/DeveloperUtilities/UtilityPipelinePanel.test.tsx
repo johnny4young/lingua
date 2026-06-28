@@ -96,6 +96,31 @@ describe('UtilityPipelinePanel', () => {
     expect(screen.getByText(/no pipelines yet/i)).toBeTruthy();
   });
 
+  it('import panel: Escape dismisses it, returns focus to the trigger, and does not bubble (UX Sweep T3)', async () => {
+    const user = userEvent.setup();
+    // Stands in for the Developer Utilities overlay's own Escape handler.
+    const parentKeyDown = vi.fn();
+    render(
+      <div onKeyDown={parentKeyDown}>
+        <UtilityPipelinePanel />
+      </div>
+    );
+
+    const trigger = screen.getByTestId('utility-pipeline-list-import');
+    await user.click(trigger);
+    const textarea = await screen.findByTestId('utility-pipeline-import-textarea');
+    await waitFor(() => expect(document.activeElement).toBe(textarea));
+
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.queryByTestId('utility-pipeline-import-panel')).toBeNull()
+    );
+    // Focus returns to the trigger, not the document body.
+    expect(document.activeElement).toBe(trigger);
+    // stopPropagation kept the overlay above from closing on the same Esc.
+    expect(parentKeyDown).not.toHaveBeenCalled();
+  });
+
   it('shows the template gallery in the empty state (RL-099 Slice 5)', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('pipeline-template-gallery')).toBeTruthy();

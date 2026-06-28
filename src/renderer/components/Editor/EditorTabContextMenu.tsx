@@ -46,6 +46,14 @@ export function EditorTabContextMenu({
 }: EditorTabContextMenuProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  // UX Sweep T3 — remember what was focused before the menu opened
+  // (the triggering tab, for Shift+F10 / ContextMenu key) so focus can
+  // return there on close instead of falling to the document body.
+  const previouslyFocusedRef = useRef<HTMLElement | null>(
+    typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+  );
 
   useEffect(() => {
     const onDocClick = (event: MouseEvent) => {
@@ -68,10 +76,26 @@ export function EditorTabContextMenu({
 
   // Focus the first available action on open so keyboard users can
   // continue with arrows/Enter after Shift+F10 or the ContextMenu key.
+  // On close, return focus to the triggering tab — but only if focus was
+  // simply lost (Escape / outside-click). An action that moves focus
+  // itself (Rename opens an input) must keep it, so the restore no-ops
+  // when something already grabbed focus.
   useEffect(() => {
+    const previouslyFocused = previouslyFocusedRef.current;
     ref.current
       ?.querySelector<HTMLButtonElement>('button[role="menuitem"]:not(:disabled)')
       ?.focus();
+    return () => {
+      if (!previouslyFocused || !document.contains(previouslyFocused)) return;
+      requestAnimationFrame(() => {
+        if (document.activeElement && document.activeElement !== document.body) return;
+        try {
+          previouslyFocused.focus({ preventScroll: true });
+        } catch {
+          // Detached node during strict-mode double-mount — ignore.
+        }
+      });
+    };
   }, []);
 
   const wrap = (action: () => void) => () => {

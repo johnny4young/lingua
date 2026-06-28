@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const mockSetActiveTab = vi.fn();
@@ -51,10 +51,21 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
     selector ? selector(mockState) : mockState,
 }));
 
-vi.mock('lucide-react', () => ({
-  Loader2: (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>loading</span>,
-  X: () => <span>x</span>,
-}));
+vi.mock('lucide-react', () => {
+  // Icons used by the overflow popover + tab-kind glyphs. Rendered as
+  // inert spans so the overflow path (which mounts ChevronDown) doesn't
+  // explode on an undefined component.
+  const Stub = () => <span aria-hidden="true" />;
+  return {
+    Loader2: (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>loading</span>,
+    X: () => <span>x</span>,
+    ChevronDown: Stub,
+    Database: Stub,
+    Globe: Stub,
+    BookOpen: Stub,
+    Wrench: Stub,
+  };
+});
 
 import { EditorTabs } from '../../src/renderer/components/Editor/EditorTabs';
 
@@ -189,6 +200,25 @@ describe('EditorTabs', () => {
     );
   });
 
+  it('returns focus to the triggering tab when the context menu closes (UX Sweep T3)', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    const activeTab = screen.getByRole('button', { name: 'Go main.go' });
+    await act(async () => {
+      activeTab.focus();
+    });
+    await user.keyboard('{Shift>}{F10}{/Shift}');
+    expect(screen.getByTestId('editor-tab-context-menu')).toBeTruthy();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.queryByTestId('editor-tab-context-menu')).toBeNull()
+    );
+    // Focus was on a menuitem; on close it returns to the tab, not body.
+    await waitFor(() => expect(document.activeElement).toBe(activeTab));
+  });
+
   it('routes context menu actions through the matching store helpers', async () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
@@ -258,5 +288,78 @@ describe('EditorTabs', () => {
     // assertion — what matters is that AT LEAST one survives.
     expect(screen.queryByTestId('editor-tab-rename-input')).toBeNull();
     expect(screen.queryAllByText('untitled.js').length).toBeGreaterThan(0);
+  });
+
+  describe('overflow popover keyboard + focus (UX Sweep T3)', () => {
+    const manyTabs = Array.from({ length: 7 }, (_, index) => ({
+      id: `ov-${index}`,
+      name: `file-${index}.js`,
+      language: 'javascript',
+      content: '',
+      isDirty: false,
+    }));
+
+    beforeEach(() => {
+      mockState.tabs = manyTabs as typeof mockState.tabs;
+      mockState.activeTabId = 'ov-0';
+    });
+
+    afterEach(() => {
+      mockState.tabs = mockTabs;
+      mockState.activeTabId = 'tab-go';
+    });
+
+    it('moves focus into the menu (the active row) when the overflow opens', async () => {
+      const user = userEvent.setup();
+      render(<EditorTabs />);
+
+      await user.click(screen.getByTestId('editor-tabs-overflow'));
+      // The active tab's row is the focus seed so ↑↓ has a starting point.
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByTestId('editor-tabs-overflow-item-ov-0')
+        )
+      );
+    });
+
+    it('implements the ↑↓ roving the footer advertises', async () => {
+      const user = userEvent.setup();
+      render(<EditorTabs />);
+
+      await user.click(screen.getByTestId('editor-tabs-overflow'));
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByTestId('editor-tabs-overflow-item-ov-0')
+        )
+      );
+      await user.keyboard('{ArrowDown}');
+      expect(document.activeElement).toBe(
+        screen.getByTestId('editor-tabs-overflow-item-ov-1')
+      );
+      await user.keyboard('{End}');
+      expect(document.activeElement).toBe(
+        screen.getByTestId('editor-tabs-overflow-item-ov-6')
+      );
+    });
+
+    it('returns focus to the overflow trigger on Escape', async () => {
+      const user = userEvent.setup();
+      render(<EditorTabs />);
+
+      const trigger = screen.getByTestId('editor-tabs-overflow');
+      await user.click(trigger);
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByTestId('editor-tabs-overflow-item-ov-0')
+        )
+      );
+      await user.keyboard('{Escape}');
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId('editor-tabs-overflow-item-ov-0')
+        ).toBeNull()
+      );
+      expect(document.activeElement).toBe(trigger);
+    });
   });
 });

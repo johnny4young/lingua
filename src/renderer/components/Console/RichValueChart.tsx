@@ -23,6 +23,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RichOutputChart } from '../../../shared/richOutput';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -68,6 +69,10 @@ export function RichValueChart({ payload }: RichValueChartProps) {
   const rootRef = useRef<HTMLSpanElement | null>(null);
   const containerRef = useRef<HTMLSpanElement | null>(null);
   const vegaResultRef = useRef<VegaResult | null>(null);
+  // UX Sweep T3 — the actions menu trigger + popover, for focus
+  // management (focus into the menu on open, back to the trigger on close).
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLSpanElement | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [showMenu, setShowMenu] = useState(false);
   const canExportChart = useEntitlement('EXECUTION_HISTORY');
@@ -124,6 +129,9 @@ export function RichValueChart({ payload }: RichValueChartProps) {
       if (event.key === 'Escape') {
         event.preventDefault();
         setShowMenu(false);
+        // UX Sweep T3 — return focus to the trigger so a keyboard user
+        // is not dropped to the document body when the menu closes.
+        menuTriggerRef.current?.focus();
       }
     };
     const handlePointerDown = (event: MouseEvent) => {
@@ -138,6 +146,38 @@ export function RichValueChart({ payload }: RichValueChartProps) {
       document.removeEventListener('mousedown', handlePointerDown);
     };
   }, [showMenu]);
+
+  // UX Sweep T3 — move focus to the first action when the menu opens so
+  // arrow keys have a starting point and a keyboard user is inside the menu.
+  useEffect(() => {
+    if (!showMenu) return;
+    menuRef.current
+      ?.querySelector<HTMLButtonElement>('button[role="menuitem"]:not(:disabled)')
+      ?.focus();
+  }, [showMenu]);
+
+  // UX Sweep T3 — ↑↓ / Home / End roving across the menu actions.
+  const handleMenuKeyDown = useCallback((event: ReactKeyboardEvent<HTMLSpanElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const buttons = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        'button[role="menuitem"]:not(:disabled)'
+      )
+    );
+    if (buttons.length === 0) return;
+    event.preventDefault();
+    const currentIndex = buttons.findIndex((button) => button === document.activeElement);
+    const lastIndex = buttons.length - 1;
+    const nextIndex =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? lastIndex
+          : event.key === 'ArrowDown'
+            ? (currentIndex + 1 + buttons.length) % buttons.length
+            : (currentIndex - 1 + buttons.length) % buttons.length;
+    buttons[nextIndex]?.focus();
+  }, []);
 
   const handleExport = useCallback(
     async (format: 'svg' | 'png') => {
@@ -164,6 +204,9 @@ export function RichValueChart({ payload }: RichValueChartProps) {
         // Export failures are non-fatal; the chart stays rendered.
       } finally {
         setShowMenu(false);
+        // UX Sweep T3 — activating an item (keyboard Enter) also returns
+        // focus to the trigger so a keyboard user is not dropped to body.
+        menuTriggerRef.current?.focus();
       }
     },
     [canExportChart, t]
@@ -185,6 +228,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
       </span>
       <span className="absolute right-0 top-0 z-10">
         <button
+          ref={menuTriggerRef}
           type="button"
           onClick={() => setShowMenu((s) => !s)}
           aria-label={t('console.rich.chartActionsMenu')}
@@ -197,8 +241,11 @@ export function RichValueChart({ payload }: RichValueChartProps) {
         </button>
         {showMenu && (
           <span
+            ref={menuRef}
             role="menu"
-            className="absolute right-0 top-full mt-1 flex min-w-40 flex-col rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-md"
+            tabIndex={-1}
+            onKeyDown={handleMenuKeyDown}
+            className="absolute right-0 top-full mt-1 flex min-w-40 flex-col rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-md outline-none"
             data-testid="console-rich-chart-menu"
           >
             {canExportChart ? (

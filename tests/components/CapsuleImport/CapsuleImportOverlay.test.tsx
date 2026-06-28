@@ -68,10 +68,18 @@ beforeEach(() => {
 });
 
 describe('CapsuleImportOverlay', () => {
-  it('renders the title + close button + empty state initially', () => {
+  it('renders the title + empty state initially', () => {
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     expect(screen.getByTestId('capsule-import-overlay')).toBeTruthy();
     expect(screen.getByTestId('capsule-import-empty')).toBeTruthy();
+  });
+
+  it('seeds initial focus on the paste textarea, not a close button (UX Sweep T3)', async () => {
+    render(<CapsuleImportOverlay onClose={() => undefined} />);
+    const textarea = screen.getByTestId('capsule-import-paste-textarea');
+    // ModalShell focuses the first focusable in DOM order on the next frame;
+    // with headerClose="esc" that is the paste textarea, not the header X.
+    await waitFor(() => expect(document.activeElement).toBe(textarea));
   });
 
   it('decodes a valid paste payload and unlocks the confirm button', () => {

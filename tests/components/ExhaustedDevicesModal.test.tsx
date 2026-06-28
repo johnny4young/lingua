@@ -9,7 +9,7 @@
  * `LicenseSection.test.tsx`.
  */
 
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -199,6 +199,34 @@ describe('ExhaustedDevicesModal', () => {
     const discard = screen.getByTestId('license-exhausted-cancel');
     expect(discard.textContent).toBe('Discard license');
     expect(discard.textContent).not.toBe('Cancel');
+  });
+
+  it('Escape dismisses only this modal (non-destructive) and does not leak to the Settings overlay', async () => {
+    seedExhaustedState();
+    vi.spyOn(useLicenseStore.getState(), 'revalidate').mockResolvedValue(exhaustedStatus());
+    const clearSpy = vi
+      .spyOn(useLicenseStore.getState(), 'clearLicense')
+      .mockResolvedValue({ kind: 'free' });
+
+    const onClose = vi.fn();
+    // The Settings overlay closes on a window-level Escape listener; here a
+    // React parent handler stands in for "the surface above this modal".
+    const parentKeyDown = vi.fn();
+    render(
+      <div onKeyDown={parentKeyDown}>
+        <ExhaustedDevicesModal onClose={onClose} />
+      </div>
+    );
+
+    fireEvent.keyDown(screen.getByTestId('license-exhausted-modal'), {
+      key: 'Escape',
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // Esc DISMISSES (keeps the cached token) — it must NOT discard the license.
+    expect(clearSpy).not.toHaveBeenCalled();
+    // stopPropagation kept the event from reaching the surface above.
+    expect(parentKeyDown).not.toHaveBeenCalled();
   });
 
   it('disables Retry while a Remove is in flight to avoid concurrent activate races', async () => {

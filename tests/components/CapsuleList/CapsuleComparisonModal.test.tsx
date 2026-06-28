@@ -189,6 +189,24 @@ describe('CapsuleComparisonModal', () => {
     );
   });
 
+  it('exposes the scroll panes as focusable, labelled regions (UX Sweep T3)', () => {
+    const older = capsule({ id: 'o', content: 'console.log(1)', stdout: 'a' });
+    const newer = capsule({ id: 'n', content: 'console.log(2)', stdout: 'b' });
+    render(<CapsuleComparisonModal capsules={[older, newer]} onClose={vi.fn()} />);
+
+    for (const testid of [
+      'capsule-compare-pane-older',
+      'capsule-compare-pane-newer',
+      'capsule-compare-diff-list',
+    ]) {
+      const region = screen.getByTestId(testid);
+      // Keyboard users can Tab into the region and scroll it with arrows.
+      expect(region.getAttribute('tabindex')).toBe('0');
+      expect(region.getAttribute('role')).toBe('region');
+      expect(region.getAttribute('aria-label')?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
   it('disables a section tab whose both sides are empty (no stdin)', () => {
     const older = capsule({ id: 'o', content: 'a' });
     const newer = capsule({ id: 'n', content: 'b' });
