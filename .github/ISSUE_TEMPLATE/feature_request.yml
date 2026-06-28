@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an idea or improvement for Lingua.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Please search existing issues and the roadmap first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and what is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like Lingua to do? Sketch the behavior or UI if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface does this affect?
+      multiple: true
+      options:
+        - Desktop app
+        - Web app
+        - A specific language runner
+        - Developer utilities
+        - Editor / UX
+        - Other
