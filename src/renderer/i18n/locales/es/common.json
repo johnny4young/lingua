@@ -3413,5 +3413,9 @@
   "license.clearConfirm.cancel": "Cancelar",
   "snippets.notice.deleted": "Eliminaste el snippet \"{{label}}\".",
   "console.notice.cleared_one": "Limpiaste {{count}} entrada de la consola.",
-  "console.notice.cleared_other": "Limpiaste {{count}} entradas de la consola."
+  "console.notice.cleared_other": "Limpiaste {{count}} entradas de la consola.",
+  "console.run.announce.ok_one": "Ejecución terminada. {{count}} mensaje en la consola.",
+  "console.run.announce.ok_other": "Ejecución terminada. {{count}} mensajes en la consola.",
+  "console.run.announce.error": "La ejecución falló. Revisa la consola para ver los detalles.",
+  "console.run.announce.stopped": "Ejecución detenida."
 }

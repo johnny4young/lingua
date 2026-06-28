@@ -3413,5 +3413,9 @@
   "license.clearConfirm.cancel": "Cancel",
   "snippets.notice.deleted": "Deleted snippet \"{{label}}\".",
   "console.notice.cleared_one": "Cleared {{count}} console entry.",
-  "console.notice.cleared_other": "Cleared {{count}} console entries."
+  "console.notice.cleared_other": "Cleared {{count}} console entries.",
+  "console.run.announce.ok_one": "Run finished. {{count}} console message.",
+  "console.run.announce.ok_other": "Run finished. {{count}} console messages.",
+  "console.run.announce.error": "Run failed. Check the console for details.",
+  "console.run.announce.stopped": "Run stopped."
 }
