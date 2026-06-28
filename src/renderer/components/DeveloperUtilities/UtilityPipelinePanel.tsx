@@ -57,6 +57,7 @@ import { trackUtilityPipelineExecuted } from '../../hooks/utilityPipelineTelemet
 import { buildPipelineCapsule } from '../../runtime/pipelineCapsule';
 import { UtilityPipelineStepRow } from './UtilityPipelineStepRow';
 import { PipelineTemplateGallery } from './PipelineTemplateGallery';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { cn } from '../../utils/cn';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
@@ -140,6 +141,8 @@ function UtilityPipelinePanelUnlocked() {
 
   const { state: runState, run, reset: resetRun } = useUtilityPipelineRun();
   const [capsuleRunSnapshot, setCapsuleRunSnapshot] = useState<CapsuleRunSnapshot | null>(null);
+  // UX Sweep T2 — id of the pipeline pending a delete confirmation.
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   // Per-step result map keyed by step id so the panel can render the
   // status badge regardless of which step is rendered.
   const stepResultMap = useMemo(() => {
@@ -205,14 +208,18 @@ function UtilityPipelinePanelUnlocked() {
     useUtilityPipelineStore.getState().updatePipeline(id, { name });
   }, []);
 
-  const handleDelete = useCallback(
-    (id: string) => {
-      const ok = window.confirm(t('utilityPipeline.list.deleteConfirm'));
-      if (!ok) return;
-      useUtilityPipelineStore.getState().deletePipeline(id);
-    },
-    [t]
-  );
+  // UX Sweep T2 — the native `window.confirm` had no danger styling,
+  // no focus management, and could not be translated mid-string; route
+  // the pipeline delete through the shared ConfirmDialog instead.
+  const handleDelete = useCallback((id: string) => {
+    setPendingDeleteId(id);
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (pendingDeleteId === null) return;
+    useUtilityPipelineStore.getState().deletePipeline(pendingDeleteId);
+    setPendingDeleteId(null);
+  }, [pendingDeleteId]);
 
   const handleDuplicate = useCallback(
     (id: string) => {
@@ -797,6 +804,20 @@ function UtilityPipelinePanelUnlocked() {
           </ol>
         )}
       </aside>
+
+      {pendingDeleteId !== null ? (
+        <ConfirmDialog
+          testId="utility-pipeline-delete-confirm"
+          title={t('utilityPipeline.list.deleteConfirm.title')}
+          body={t('utilityPipeline.list.deleteConfirm.body', {
+            name: pipelines.find((p) => p.id === pendingDeleteId)?.name ?? '',
+          })}
+          confirmLabel={t('utilityPipeline.list.deleteConfirm.confirm')}
+          cancelLabel={t('utilityPipeline.list.deleteConfirm.cancel')}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      ) : null}
     </div>
   );
 }

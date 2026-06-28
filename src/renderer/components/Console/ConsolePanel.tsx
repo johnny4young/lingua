@@ -359,6 +359,7 @@ export function ConsolePanel() {
     showTimestamps,
     addEntry,
     clear,
+    restore,
     toggleFilter,
     togglePayloadKindFilter,
     toggleTimestamps,
@@ -588,6 +589,36 @@ export function ConsolePanel() {
     [isRunning, run]
   );
 
+  // UX Sweep T2 fold B — console clear is recoverable: snapshot the
+  // cleared state, clear, then offer an Undo toast that restores it.
+  // Skip the toast when there was nothing to clear so an empty console
+  // never surfaces a meaningless Undo.
+  const handleClearConsole = useCallback(() => {
+    const state = useConsoleStore.getState();
+    if (state.entries.length === 0) {
+      clear();
+      return;
+    }
+    const snapshot = {
+      entries: state.entries,
+      collapsedEntries: state.collapsedEntries,
+      hiddenPayloadKinds: state.hiddenPayloadKinds,
+    };
+    const clearedCount = snapshot.entries.length;
+    clear();
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: 'console.notice.cleared',
+      values: { count: clearedCount },
+      actions: [
+        {
+          labelKey: 'common.undo',
+          onClick: () => restore(snapshot),
+        },
+      ],
+    });
+  }, [clear, restore]);
+
   const [comparison, setComparison] = useState<
     [ExecutionHistoryEntry, ExecutionHistoryEntry] | null
   >(null);
@@ -708,7 +739,11 @@ export function ConsolePanel() {
             onRerun={handleReplayHistoryEntry}
             onCompare={canUseExecutionHistory ? handleCompareEntries : undefined}
           />
-          <IconButton onClick={clear} tooltip={t('console.actions.clear')} tone="danger">
+          <IconButton
+            onClick={handleClearConsole}
+            tooltip={t('console.actions.clear')}
+            tone="danger"
+          >
             <Trash2 size={13} />
           </IconButton>
         </div>

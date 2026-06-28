@@ -900,13 +900,16 @@ test.describe('Keyboard shortcuts modal', () => {
     );
     await expect(goToSymbolRow).toContainText(/⇧|Shift/);
 
+    // No overrides yet, so Sublime applies directly (no confirm dialog).
     await page.getByTestId('shortcut-preset-select').selectOption('sublime');
 
     // After Sublime applies, the row's combo includes R (Mod+R).
     await expect(goToSymbolRow).toContainText('R');
 
-    // Reset to restore default combos and confirm the round-trip.
+    // Reset to restore default combos. Sublime seeded overrides, so the
+    // switch now confirms first (UX Sweep T2 preset wipe guard).
     await page.getByTestId('shortcut-preset-select').selectOption('default');
+    await page.getByTestId('shortcut-preset-confirm-confirm').click();
     await expect(goToSymbolRow).toContainText(/⇧|Shift/);
 
     await page.getByRole('button', { name: /close keyboard shortcuts/i }).click();

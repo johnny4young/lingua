@@ -99,6 +99,57 @@ describe('executionHistoryStore — capsule browse surface (RL-094 Slice 3)', ()
     expect(useExecutionHistoryStore.getState().entries).toBe(before);
   });
 
+  // UX Sweep T2 fold E — restoreCapsule backs the capsule-delete undo.
+  it('restoreCapsule re-attaches a cleared capsule to the same run row', () => {
+    const first = recordCapsule('javascript');
+    recordCapsule('typescript');
+
+    const removed = first.lastCapsule!;
+    useExecutionHistoryStore.getState().clearCapsule(first.id);
+    expect(
+      useExecutionHistoryStore.getState().capsuleEntries()
+    ).toHaveLength(1);
+
+    useExecutionHistoryStore.getState().restoreCapsule(first.id, removed);
+    const entries = useExecutionHistoryStore.getState().capsuleEntries();
+    expect(entries).toHaveLength(2);
+    const target = entries.find((entry) => entry.id === first.id);
+    expect(target?.lastCapsule).toBe(removed);
+  });
+
+  it('restoreCapsule is a no-op when the row already has a capsule', () => {
+    const first = recordCapsule('javascript');
+    const before = useExecutionHistoryStore.getState().entries;
+    // The row still has its capsule — restore must not replace it.
+    useExecutionHistoryStore
+      .getState()
+      .restoreCapsule(first.id, makeCapsule('python'));
+    expect(useExecutionHistoryStore.getState().entries).toBe(before);
+  });
+
+  it('restoreCapsule reapplies the tier-aware LRU cap', () => {
+    const removedEntry = recordCapsule('javascript');
+    const removedCapsule = removedEntry.lastCapsule!;
+    useExecutionHistoryStore.getState().clearCapsule(removedEntry.id);
+
+    for (let i = 0; i < CAPSULE_LRU_CAP; i += 1) {
+      recordCapsule(`new-${i}`);
+    }
+    expect(
+      useExecutionHistoryStore.getState().capsuleEntries()
+    ).toHaveLength(CAPSULE_LRU_CAP);
+
+    useExecutionHistoryStore
+      .getState()
+      .restoreCapsule(removedEntry.id, removedCapsule);
+
+    const state = useExecutionHistoryStore.getState();
+    expect(state.capsuleEntries()).toHaveLength(CAPSULE_LRU_CAP);
+    expect(
+      state.entries.find((entry) => entry.id === removedEntry.id)?.lastCapsule
+    ).toBeUndefined();
+  });
+
   it('Free tier retains only CAPSULE_LRU_CAP capsules (fold A)', () => {
     mockTier = 'free';
     for (let i = 0; i < CAPSULE_LRU_CAP + 3; i += 1) {

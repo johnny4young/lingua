@@ -75,6 +75,53 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
   });
 
+  // UX Sweep T2 fold B — restore() backs the clear-undo toast.
+  it('restore re-instates a cleared snapshot (entries + collapsed + filters)', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'First' });
+    useConsoleStore.getState().addEntry({ type: 'error', content: 'Second' });
+    useConsoleStore.getState().togglePayloadKindFilter('table');
+
+    const snapshot = {
+      entries: useConsoleStore.getState().entries,
+      collapsedEntries: useConsoleStore.getState().collapsedEntries,
+      hiddenPayloadKinds: useConsoleStore.getState().hiddenPayloadKinds,
+    };
+
+    useConsoleStore.getState().clear();
+    expect(useConsoleStore.getState().entries).toHaveLength(0);
+    expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
+
+    useConsoleStore.getState().restore(snapshot);
+    const restored = useConsoleStore.getState();
+    expect(restored.entries).toHaveLength(2);
+    expect(restored.entries[0].content).toBe('First');
+    expect(restored.collapsedEntries).toHaveLength(2);
+    expect(restored.hiddenPayloadKinds.has('table')).toBe(true);
+  });
+
+  it('restore keeps entries emitted after the clear', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'Before clear' });
+    const snapshot = {
+      entries: useConsoleStore.getState().entries,
+      collapsedEntries: useConsoleStore.getState().collapsedEntries,
+      hiddenPayloadKinds: useConsoleStore.getState().hiddenPayloadKinds,
+    };
+
+    useConsoleStore.getState().clear();
+    useConsoleStore.getState().addEntry({ type: 'info', content: 'After clear' });
+    useConsoleStore.getState().restore(snapshot);
+
+    const restored = useConsoleStore.getState();
+    expect(restored.entries.map((entry) => entry.content)).toEqual([
+      'Before clear',
+      'After clear',
+    ]);
+    expect(restored.collapsedEntries.map((row) => row.entry.content)).toEqual([
+      'Before clear',
+      'After clear',
+    ]);
+  });
+
   it('should assign unique IDs to each entry', () => {
     useConsoleStore.getState().addEntry({ type: 'log', content: 'A' });
     useConsoleStore.getState().addEntry({ type: 'log', content: 'B' });

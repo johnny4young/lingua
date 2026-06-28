@@ -206,6 +206,31 @@ describe('UtilityPipelinePanel', () => {
     });
   });
 
+  it('deletes a pipeline only after the ConfirmDialog is confirmed (UX Sweep T2)', async () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'doomed' });
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+
+    await user.click(screen.getByTestId('utility-pipeline-list-delete'));
+
+    // The native window.confirm is gone; a ConfirmDialog gates the delete.
+    expect(screen.getByTestId('utility-pipeline-delete-confirm')).toBeTruthy();
+    expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(1);
+
+    // Cancel aborts with no mutation.
+    await user.click(screen.getByTestId('utility-pipeline-delete-confirm-cancel'));
+    expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(1);
+    expect(screen.queryByTestId('utility-pipeline-delete-confirm')).toBeNull();
+
+    // Re-open and confirm — the pipeline is deleted.
+    await user.click(screen.getByTestId('utility-pipeline-list-delete'));
+    await user.click(screen.getByTestId('utility-pipeline-delete-confirm-confirm'));
+    await waitFor(() => {
+      expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(0);
+    });
+  });
+
   it('reveals the hover-only row actions for keyboard users and rings them (UX Sweep T1 fold B)', () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'one' });
     useUtilityPipelineStore.getState().createPipeline(pipeline);

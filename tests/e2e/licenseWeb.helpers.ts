@@ -487,6 +487,9 @@ export async function clearLicense(page: Page): Promise<void> {
     await openSettingsTab(page, 'account');
   }
   await page.getByTestId('license-clear').click();
+  // UX Sweep T2 fold C — Remove license now routes through a confirm
+  // dialog before dropping Pro -> Free.
+  await page.getByTestId('license-clear-confirm-confirm').click();
   await expect(page.getByTestId('license-status-pill')).toContainText(/Free|Gratis/i);
 }
 

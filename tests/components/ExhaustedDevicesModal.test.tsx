@@ -171,7 +171,7 @@ describe('ExhaustedDevicesModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('Cancel calls clearLicense and closes the modal', async () => {
+  it('Discard license calls clearLicense and closes the modal', async () => {
     const user = userEvent.setup();
     seedExhaustedState();
     vi.spyOn(useLicenseStore.getState(), 'revalidate').mockResolvedValue(exhaustedStatus());
@@ -186,6 +186,19 @@ describe('ExhaustedDevicesModal', () => {
 
     await waitFor(() => expect(clearSpy).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('labels the discard button truthfully (UX Sweep T2 relabel)', () => {
+    seedExhaustedState();
+    vi.spyOn(useLicenseStore.getState(), 'revalidate').mockResolvedValue(exhaustedStatus());
+
+    render(<ExhaustedDevicesModal onClose={vi.fn()} />);
+    // The button that calls clearLicense() must NOT read "Cancel" — that
+    // implied "keep things as they are" while it actually discards the
+    // license and drops the user to Free.
+    const discard = screen.getByTestId('license-exhausted-cancel');
+    expect(discard.textContent).toBe('Discard license');
+    expect(discard.textContent).not.toBe('Cancel');
   });
 
   it('disables Retry while a Remove is in flight to avoid concurrent activate races', async () => {

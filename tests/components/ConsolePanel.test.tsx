@@ -10,6 +10,7 @@ import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 // ---------------------------------------------------------------------------
 
 const mockClear = vi.fn();
+const mockRestore = vi.fn();
 const mockToggleFilter = vi.fn();
 const mockToggleTimestamps = vi.fn();
 const mockAddEntry = vi.fn();
@@ -89,18 +90,31 @@ function collapseForMock(
   return rows;
 }
 
-vi.mock('../../src/renderer/stores/consoleStore', () => ({
-  useConsoleStore: () => ({
+function consoleStoreSnapshot() {
+  return {
     ...mockState,
     collapsedEntries: collapseForMock(mockState.entries),
     clear: mockClear,
+    restore: mockRestore,
     toggleFilter: mockToggleFilter,
     togglePayloadKindFilter: vi.fn(),
     clearPayloadKindFilters: vi.fn(),
     toggleTimestamps: mockToggleTimestamps,
     addEntry: mockAddEntry,
-  }),
-}));
+  };
+}
+
+vi.mock('../../src/renderer/stores/consoleStore', () => {
+  // Callable as a hook AND via `getState()` — UX Sweep T2's clear-undo
+  // handler reads `useConsoleStore.getState()` to snapshot before clear.
+  const useConsoleStore = (() => consoleStoreSnapshot()) as (() => ReturnType<
+    typeof consoleStoreSnapshot
+  >) & {
+    getState: () => ReturnType<typeof consoleStoreSnapshot>;
+  };
+  useConsoleStore.getState = consoleStoreSnapshot;
+  return { useConsoleStore };
+});
 
 vi.mock('../../src/renderer/hooks/useRunner', () => ({
   useRunner: () => ({
@@ -836,12 +850,47 @@ describe('ConsolePanel', () => {
     expect(mockToggleFilter).toHaveBeenCalledWith('log');
   });
 
-  it('clicking clear button calls the clear action', async () => {
+  it('clicking clear on an empty console clears without an undo toast', async () => {
     const user = userEvent.setup();
     render(<ConsolePanel />);
     const clearButton = screen.getByRole('button', { name: 'Clear console' });
     await user.click(clearButton);
     expect(mockClear).toHaveBeenCalledTimes(1);
+    // Nothing to undo, so no toast is pushed (UX Sweep T2 fold B).
+    expect(mockPushStatusNotice).not.toHaveBeenCalled();
+  });
+
+  it('clearing a non-empty console offers an Undo that restores it (fold B)', async () => {
+    const user = userEvent.setup();
+    resetState({
+      entries: [
+        {
+          id: 'e1',
+          type: 'log',
+          content: 'hello',
+          timestamp: Date.now(),
+        },
+      ],
+    });
+    render(<ConsolePanel />);
+    const clearButton = screen.getByRole('button', { name: 'Clear console' });
+    await user.click(clearButton);
+
+    expect(mockClear).toHaveBeenCalledTimes(1);
+    expect(mockPushStatusNotice).toHaveBeenCalledTimes(1);
+    const notice = mockPushStatusNotice.mock.calls[0]![0];
+    expect(notice.messageKey).toBe('console.notice.cleared');
+    const undo = notice.actions?.find(
+      (a: { labelKey: string }) => a.labelKey === 'common.undo'
+    );
+    expect(undo).toBeTruthy();
+
+    // Invoking Undo restores the snapshot captured before the clear.
+    undo!.onClick();
+    expect(mockRestore).toHaveBeenCalledTimes(1);
+    const restored = mockRestore.mock.calls[0]![0];
+    expect(restored.entries).toHaveLength(1);
+    expect(restored.entries[0].id).toBe('e1');
   });
 
   it('replays a history snapshot in a new tab without appending history', async () => {

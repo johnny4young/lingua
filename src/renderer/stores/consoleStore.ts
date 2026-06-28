@@ -102,6 +102,32 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
     // stale filter state from a previous session.
     set({ entries: [], collapsedEntries: [], hiddenPayloadKinds: new Set() }),
 
+  restore: (snapshot) =>
+    // UX Sweep T2 fold B — Undo for a console clear. Copy the arrays /
+    // set so the caller's stashed snapshot stays immutable if the store
+    // mutates later. Preserve entries that arrived after the clear; a
+    // running program can keep logging while the Undo toast is visible.
+    set((state) => {
+      const restoredEntryIds = new Set(snapshot.entries.map((entry) => entry.id));
+      const liveEntries = state.entries.filter(
+        (entry) => !restoredEntryIds.has(entry.id)
+      );
+      const restoredCollapsedIds = new Set(
+        snapshot.collapsedEntries.map((row) => row.entry.id)
+      );
+      const liveCollapsedEntries = state.collapsedEntries.filter(
+        (row) => !restoredCollapsedIds.has(row.entry.id)
+      );
+      return {
+        entries: [...snapshot.entries, ...liveEntries],
+        collapsedEntries: [
+          ...snapshot.collapsedEntries,
+          ...liveCollapsedEntries,
+        ],
+        hiddenPayloadKinds: new Set(snapshot.hiddenPayloadKinds),
+      };
+    }),
+
   toggleFilter: (type: ConsoleEntryType) =>
     set((state) => {
       const next = new Set(state.activeFilters);

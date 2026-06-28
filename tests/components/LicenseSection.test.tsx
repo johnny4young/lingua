@@ -231,11 +231,44 @@ describe('LicenseSection', () => {
     const spy = vi.spyOn(useLicenseStore.getState(), 'clearLicense').mockResolvedValue({ kind: 'free' });
     render(<LicenseSection />);
 
+    // UX Sweep T2 fold C — Remove now routes through a confirm dialog.
     await user.click(screen.getByTestId('license-clear'));
+    expect(spy).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId('license-clear-confirm-confirm'));
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.cleared')
     );
+  });
+
+  it('does NOT clear the license when the Remove confirm is cancelled', async () => {
+    const user = userEvent.setup();
+    stubStatus(
+      {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'user@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      'existing.token'
+    );
+    const spy = vi.spyOn(useLicenseStore.getState(), 'clearLicense');
+    render(<LicenseSection />);
+
+    await user.click(screen.getByTestId('license-clear'));
+    await user.click(screen.getByTestId('license-clear-confirm-cancel'));
+    expect(spy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('license-clear-confirm')).toBeNull();
   });
 
   it('pushes a failure notice when Remove cannot clear the persisted license', async () => {
@@ -266,6 +299,7 @@ describe('LicenseSection', () => {
     render(<LicenseSection />);
 
     await user.click(screen.getByTestId('license-clear'));
+    await user.click(screen.getByTestId('license-clear-confirm-confirm'));
 
     await waitFor(() =>
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.clearFailed')
@@ -309,6 +343,8 @@ describe('LicenseSection', () => {
     expect(apply.disabled).toBe(false);
 
     await user.click(clear);
+    // Confirm the destructive action before the clear promise starts.
+    await user.click(screen.getByTestId('license-clear-confirm-confirm'));
 
     await waitFor(() => expect(clear.disabled).toBe(true));
     expect(apply.disabled).toBe(true);

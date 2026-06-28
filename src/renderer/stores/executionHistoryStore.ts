@@ -161,6 +161,30 @@ function resolveCapsuleCap(): number {
     : CAPSULE_LRU_CAP;
 }
 
+function pruneCapsulesToCap(
+  entries: readonly ExecutionHistoryEntry[]
+): ExecutionHistoryEntry[] {
+  const cap = resolveCapsuleCap();
+  const withCapsule: ExecutionHistoryEntry[] = [];
+  let keptCapsules = 0;
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const entry = entries[i]!;
+    if (entry.lastCapsule !== undefined) {
+      if (keptCapsules < cap) {
+        withCapsule.unshift(entry);
+        keptCapsules += 1;
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { lastCapsule: _evicted, ...rest } = entry;
+        withCapsule.unshift(rest);
+      }
+    } else {
+      withCapsule.unshift(entry);
+    }
+  }
+  return withCapsule;
+}
+
 export const MAX_HISTORY_ENTRIES = 50;
 
 /**
@@ -243,6 +267,15 @@ export interface ExecutionHistoryState {
    * No-op when `id` is unknown or the entry has no capsule.
    */
   clearCapsule: (id: string) => void;
+  /**
+   * UX Sweep T2 fold E — re-attach a `lastCapsule` that `clearCapsule`
+   * previously stripped, so the undo toast can restore a removed
+   * capsule on the run row it came from. No-op when `id` is unknown or
+   * the entry already carries a capsule (double-undo guard). The run
+   * row itself never left the `entries` array, so this restores it to
+   * its exact prior position in the browse list.
+   */
+  restoreCapsule: (id: string, capsule: RunCapsuleV1) => void;
   byLanguage: (language: string) => readonly ExecutionHistoryEntry[];
   /**
    * RL-020 Slice 4 — return only the entries recorded against this
@@ -308,25 +341,7 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       // strip it from the rest. Idempotent across records. The cap is
       // resolved per-record (RL-094 Slice 3 fold A) so a license tier
       // change takes effect on the next run without a store reset.
-      const cap = resolveCapsuleCap();
-      const withCapsule: ExecutionHistoryEntry[] = [];
-      let keptCapsules = 0;
-      for (let i = trimmed.length - 1; i >= 0; i -= 1) {
-        const e = trimmed[i]!;
-        if (e.lastCapsule !== undefined) {
-          if (keptCapsules < cap) {
-            withCapsule.unshift(e);
-            keptCapsules += 1;
-          } else {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { lastCapsule: _evicted, ...rest } = e;
-            withCapsule.unshift(rest);
-          }
-        } else {
-          withCapsule.unshift(e);
-        }
-      }
-      return { entries: withCapsule };
+      return { entries: pruneCapsulesToCap(trimmed) };
     });
     return entry;
   },
@@ -371,6 +386,18 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
         return rest;
       });
       return changed ? { entries } : state;
+    });
+  },
+
+  restoreCapsule: (id, capsule) => {
+    set((state) => {
+      let changed = false;
+      const entries = state.entries.map((entry) => {
+        if (entry.id !== id || entry.lastCapsule !== undefined) return entry;
+        changed = true;
+        return { ...entry, lastCapsule: capsule };
+      });
+      return changed ? { entries: pruneCapsulesToCap(entries) } : state;
     });
   },
 

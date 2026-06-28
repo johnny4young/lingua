@@ -158,7 +158,11 @@ export function ExhaustedDevicesModal({ onClose }: ExhaustedDevicesModalProps) {
             disabled={pendingRemovalId !== null || isRetrying}
             data-testid="license-exhausted-cancel"
           >
-            {t('license.devices.exhaustedModal.cancel')}
+            {/* UX Sweep T2 — this button calls clearLicense(), which
+                discards the license and drops the user to Free. Labelling
+                it Cancel was a lie (Cancel implies "keep things as they
+                are"); it is relabelled to name what it actually does. */}
+            {t('license.devices.exhaustedModal.discard')}
           </button>
           <button
             type="button"

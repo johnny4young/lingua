@@ -16,6 +16,7 @@ import {
   mkdir,
   readFile,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -1130,16 +1131,16 @@ describe('app:confirm-close-tab', () => {
 });
 
 describe('fs:delete confirmation dialog', () => {
-  it('localizes folder deletion copy in Spanish', async () => {
+  it('localizes folder deletion copy in Spanish and aborts on cancel', async () => {
     const { rootId } = mintFor(tmpRoot);
     const folder = path.join(tmpRoot, 'demo-folder');
     await mkdir(folder);
 
     showMessageBox.mockResolvedValue({ response: 1 }); // user cancels
-    await invoke('fs:delete', rootId, 'demo-folder', true, 'es');
+    const result = await invoke('fs:delete', rootId, 'demo-folder', true, 'es');
 
+    expect(result).toBe(false);
     expect(showMessageBox).toHaveBeenCalledWith(
-      undefined,
       expect.objectContaining({
         buttons: ['Eliminar', 'Cancelar'],
         title: 'Confirmar eliminación',
@@ -1148,6 +1149,26 @@ describe('fs:delete confirmation dialog', () => {
           'Esto eliminará permanentemente la carpeta y todo su contenido. Esta acción no se puede deshacer.',
       })
     );
+    await expect(stat(folder)).resolves.toBeTruthy();
+  });
+
+  it('deletes a file after the native confirmation is accepted', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const file = path.join(tmpRoot, 'doomed.txt');
+    await writeFile(file, 'bye');
+
+    const result = await invoke('fs:delete', rootId, 'doomed.txt', false);
+
+    expect(result).toBe(true);
+    expect(showMessageBox).toHaveBeenCalledWith(
+      expect.objectContaining({
+        buttons: ['Delete', 'Cancel'],
+        title: 'Confirm Delete',
+        message: 'Delete "doomed.txt"?',
+        detail: 'This action cannot be undone.',
+      })
+    );
+    await expect(stat(file)).rejects.toThrow();
   });
 });
 
