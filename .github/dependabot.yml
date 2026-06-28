@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # Keep GitHub Actions SHA pins current (low-noise, security-relevant).
+  # npm version bumps are intentionally NOT enabled here — Dependabot
+  # security updates (enabled in repo settings) still open PRs for
+  # vulnerable npm dependencies without flooding the queue with routine
+  # version bumps.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a defect in Lingua (desktop or web).
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please search existing issues first, and never paste secrets or license tokens.
+  - type: input
+    id: version
+    attributes:
+      label: Lingua version
+      description: From Settings → About (or the What's New overlay), e.g. 0.8.0.
+      placeholder: "0.8.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build
+      options:
+        - Desktop (macOS)
+        - Desktop (Windows)
+        - Desktop (Linux)
+        - Web (app.linguacode.dev)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A minimal, ordered list of steps. Include a small code snippet if relevant.
+      placeholder: |
+        1. Open a new JavaScript file
+        2. Paste ...
+        3. Press Cmd/Ctrl+Enter
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language runner involved (if any)
+      multiple: true
+      options:
+        - JavaScript
+        - TypeScript
+        - Python
+        - Go
+        - Rust
+        - Ruby
+        - Not language-specific
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console errors / logs
+      description: Paste any errors from the in-app console or DevTools. Redact anything sensitive.
+      render: shell
