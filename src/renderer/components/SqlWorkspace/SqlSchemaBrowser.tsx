@@ -17,13 +17,30 @@ import {
   ChevronRight,
   Cpu,
   Database,
+  FilePlus2,
   HardDrive,
   RefreshCw,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
-import type { SqlStorageMode } from '../../../shared/sqlWorkspace';
+import {
+  SQL_IMPORT_FILE_ACCEPT,
+  detectImportFormat,
+  type SqlStorageMode,
+} from '../../../shared/sqlWorkspace';
+import { useFileDropZone } from '../../hooks/useFileDropZone';
+import type { SqlImportSource } from '../../hooks/sqlWorkspaceTelemetry';
+
+/** Accept predicate for drag-drop — mirrors the picker's detection. */
+function acceptImportItem(item: File | DataTransferItem): boolean {
+  if (item instanceof File) {
+    return detectImportFormat(item.name, item.type) !== null;
+  }
+  // DataTransferItem during dragover exposes only the MIME type.
+  if (item.type.trim().length === 0) return true;
+  return detectImportFormat('', item.type) !== null;
+}
 
 /**
  * One discovered session table. `columnCount` is optional — the
@@ -66,6 +83,16 @@ export interface SqlSchemaBrowserProps {
    * next to the persistent chip. `null` hides it.
    */
   storageUsageLabel?: string | null;
+  /**
+   * RL-097 (SQL import) fold F — import a dropped or picked file as a
+   * table. `source` tells the caller whether the file came from the
+   * keyboard-accessible picker or a drag-drop, for telemetry. Optional so
+   * isolated renders need not wire it; when omitted, the import
+   * affordances are hidden.
+   */
+  onImportFile?: (file: File, source: SqlImportSource) => void;
+  /** True while an import preview/import is already in flight. */
+  isImportBusy?: boolean;
 }
 
 export function SqlSchemaBrowser({
@@ -77,9 +104,25 @@ export function SqlSchemaBrowser({
   storageMode = 'memory',
   persistRequested = false,
   storageUsageLabel = null,
+  onImportFile,
+  isImportBusy = false,
 }: SqlSchemaBrowserProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+
+  // RL-097 (SQL import) fold F — the import affordance. A real <button>
+  // opens a hidden <input type="file"> via `.click()`, so the import is
+  // fully keyboard-operable (Enter/Space on the button → native dialog,
+  // which is itself keyboard-accessible). Drag-drop is an ADDITIVE mouse
+  // path layered over the same `onImportFile` callback.
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const handlePickImport = () => fileInputRef.current?.click();
+  const { state: dropState, handlers: dropHandlers } = useFileDropZone({
+    onFile: (file) => {
+      if (!isImportBusy) onImportFile?.(file, 'drop');
+    },
+    accept: (item) => !isImportBusy && acceptImportItem(item),
+  });
 
   // RL-097 Slice 3 (SQL OPFS) — the chip label depends on BOTH the
   // resolved mode and whether persistence was requested: in-memory while
@@ -123,6 +166,19 @@ export function SqlSchemaBrowser({
             </span>
           ) : null}
         </button>
+        {onImportFile ? (
+          <button
+            type="button"
+            onClick={handlePickImport}
+            disabled={isImportBusy}
+            aria-label={t('sqlWorkspace.schema.import')}
+            title={t('sqlWorkspace.schema.import')}
+            data-testid="sql-schema-browser-import"
+            className="focus-ring inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-panel-alt text-fg-subtle transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FilePlus2 size={11} aria-hidden="true" />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onRefresh}
@@ -130,7 +186,7 @@ export function SqlSchemaBrowser({
           aria-label={t('sqlWorkspace.schema.refresh')}
           title={t('sqlWorkspace.schema.refresh')}
           data-testid="sql-schema-browser-refresh"
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-panel-alt text-fg-subtle transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50"
+          className="focus-ring inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-panel-alt text-fg-subtle transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw
             size={11}
@@ -138,6 +194,23 @@ export function SqlSchemaBrowser({
             className={isLoading ? 'animate-spin' : undefined}
           />
         </button>
+        {onImportFile ? (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={SQL_IMPORT_FILE_ACCEPT}
+            disabled={isImportBusy}
+            aria-label={t('sqlWorkspace.schema.import')}
+            data-testid="sql-schema-browser-import-input"
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onImportFile(file, 'picker');
+              // Reset so picking the same file twice still fires change.
+              event.target.value = '';
+            }}
+          />
+        ) : null}
       </header>
       {/* RL-097 Slice 3 (SQL OPFS) — storage-backing chip. Always
           visible (even collapsed) so the persistence state is never
@@ -168,6 +241,32 @@ export function SqlSchemaBrowser({
       </div>
       {collapsed ? null : (
         <div className="max-h-[34vh] overflow-y-auto px-1.5 pb-2">
+          {/* RL-097 (SQL import) fold F — additive drag-drop target.
+              The keyboard path is the header "+" button → native picker;
+              this drop zone is a mouse-only convenience. The hint names
+              the keyboard alternative so a keyboard user is never stranded
+              looking for a drop affordance. */}
+          {onImportFile ? (
+            <div
+              data-testid="sql-schema-browser-dropzone"
+              data-drop-state={dropState}
+              aria-hidden="true"
+              className={cn(
+                'mb-1.5 flex items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-caption transition-colors',
+                dropState === 'over'
+                  ? 'border-accent bg-accent-soft text-accent'
+                  : dropState === 'error'
+                    ? 'border-error/60 bg-error/8 text-error'
+                    : 'border-border-subtle text-fg-subtle'
+              )}
+              {...dropHandlers}
+            >
+              <FilePlus2 size={11} aria-hidden="true" className="shrink-0" />
+              <span className="min-w-0 leading-snug">
+                {t('sqlWorkspace.import.dropHint')}
+              </span>
+            </div>
+          ) : null}
           {tables.length === 0 ? (
             <p
               data-testid="sql-schema-browser-empty"

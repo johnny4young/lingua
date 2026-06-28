@@ -170,6 +170,20 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                 className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
             </div>
+            {/* UX Sweep T4 — announce the filtered result count to screen
+                readers while a query is active (covers the zero state); the
+                visible list/empty message conveys it to sighted users. */}
+            <span
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              data-testid="changelog-search-result-count"
+              className="sr-only"
+            >
+              {query.trim().length > 0
+                ? t('whatsNew.search.resultCount', { count: filteredEntries.length })
+                : ''}
+            </span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">

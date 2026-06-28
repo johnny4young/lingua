@@ -189,7 +189,7 @@ export function ProjectBundleImportOverlay({
             onClick={handlePickFile}
             data-testid="project-bundle-import-open-file"
             className={cn(
-              'flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-body-sm text-fg-subtle transition-colors',
+              'focus-ring flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-body-sm text-fg-subtle transition-colors',
               'hover:border-border-strong hover:text-fg-base',
               isDragOver && 'border-accent bg-accent/10 text-fg-base'
             )}

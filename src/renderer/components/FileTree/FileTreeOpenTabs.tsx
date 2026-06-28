@@ -103,7 +103,7 @@ export function FileTreeOpenTabs({ onNavigate }: FileTreeOpenTabsProps) {
                 ? `${tab.name} · ${t('fileTree.dirtyDot.label')}`
                 : tab.name
             }
-            className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-body-sm transition-colors ${
+            className={`focus-ring flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-body-sm transition-colors ${
               tab.id === activeTabId
                 ? 'bg-surface-strong/88 text-foreground'
                 : 'text-muted hover:bg-surface-strong/62 hover:text-foreground'

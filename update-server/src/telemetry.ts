@@ -235,6 +235,12 @@ export const TELEMETRY_EVENT_NAMES = [
   // mirrored from src/shared/telemetry.ts. Parity test cross-imports
   // SQL_STORAGE_MODES_SET.
   'sql.storage_mode',
+  // RL-097 (SQL import) fold B — file imported as a DuckDB table.
+  // Closed-enum `{ format, source }` where `format` ∈
+  // SQL_IMPORT_FORMATS_SET and `source` ∈ SQL_IMPORT_SOURCES_SET,
+  // mirrored from src/shared/telemetry.ts. Parity test cross-imports
+  // both sets. NO file name / column names / row values on the wire.
+  'sql.table_imported',
   // RL-099 Slice 1 fold F — utility pipeline execution. Closed-enum
   // `{ stepCount, status }` mirrored from src/shared/telemetry.ts.
   // Parity test cross-imports PIPELINE_RUN_STATUSES_SET.
@@ -432,6 +438,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
   // RL-097 Slice 3 (SQL OPFS) fold F — mirror of src/shared/telemetry.ts.
   'sql.storage_mode': ['mode', 'requested'],
+  // RL-097 (SQL import) fold B — mirror of src/shared/telemetry.ts.
+  'sql.table_imported': ['format', 'source'],
   // RL-099 Slice 1 fold F — mirror of src/shared/telemetry.ts.
   'utility.pipeline_executed': ['stepCount', 'status'],
   // RL-099 Slice 5 fold A — mirror of src/shared/telemetry.ts.
@@ -915,6 +923,13 @@ export const SQL_DURATION_BUCKETS_SET = new Set([
 // Source of truth is `SQL_STORAGE_MODES` in
 // `src/shared/sqlWorkspace.ts`; parity test cross-imports it.
 export const SQL_STORAGE_MODES_SET = new Set(['opfs', 'memory']);
+// RL-097 (SQL import) fold B — mirror of SQL_IMPORT_FORMATS_SET. Source
+// of truth is `SUPPORTED_IMPORT_FORMATS` in
+// `src/shared/sqlWorkspace.ts`; parity test cross-imports it.
+export const SQL_IMPORT_FORMATS_SET = new Set(['csv', 'json', 'parquet']);
+// RL-097 (SQL import) fold B — mirror of SQL_IMPORT_SOURCES_SET. Parity
+// test cross-imports the shared set.
+export const SQL_IMPORT_SOURCES_SET = new Set(['drop', 'picker']);
 // RL-099 Slice 1 fold F — mirror of PIPELINE_RUN_STATUSES_SET. Source
 // of truth lives in `src/shared/utilityPipeline.ts`; duplicated here
 // so the worker validator can stay free of renderer-only imports.
@@ -1579,6 +1594,12 @@ function isAllowedValue(
         typeof value === 'string' &&
         SQL_STORAGE_MODES_SET.has(value)
       );
+    case 'sql.table_imported':
+      if (key === 'format')
+        return typeof value === 'string' && SQL_IMPORT_FORMATS_SET.has(value);
+      if (key === 'source')
+        return typeof value === 'string' && SQL_IMPORT_SOURCES_SET.has(value);
+      return false;
     case 'utility.pipeline_executed':
       if (key === 'stepCount')
         return (

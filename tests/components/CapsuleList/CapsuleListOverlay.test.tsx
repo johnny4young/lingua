@@ -39,6 +39,7 @@ import {
   type ExecutionHistoryEntry,
 } from '../../../src/renderer/stores/executionHistoryStore';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
+import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { _resetCapsuleListSurfaceForTesting } from '../../../src/renderer/components/CapsuleList/capsuleListSurface';
 import {
   FIXTURE_MINIMAL_JS,
@@ -147,6 +148,36 @@ describe('CapsuleListOverlay — Pro tier', () => {
       useExecutionHistoryStore.getState().capsuleEntries()
     ).toHaveLength(1);
     expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(1);
+  });
+
+  it('delete offers an Undo that restores the capsule (fold E)', () => {
+    useUIStore.setState({ statusNotice: null });
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+
+    // Newest first → row 0 is the typescript entry (e2).
+    fireEvent.click(screen.getAllByTestId('capsule-list-row-delete')[0]!);
+    expect(
+      useExecutionHistoryStore.getState().capsuleEntries()
+    ).toHaveLength(1);
+
+    const notice = useUIStore.getState().statusNotice;
+    expect(notice?.messageKey).toBe('capsuleList.notice.capsuleRemoved');
+    const undo = notice?.actions?.find((a) => a.labelKey === 'common.undo');
+    expect(undo).toBeTruthy();
+
+    // Undo re-attaches the capsule to the same run row (e2), restoring
+    // it to the browse list at its prior position (newest first).
+    undo!.onClick();
+    const restored = useExecutionHistoryStore.getState().capsuleEntries();
+    expect(restored).toHaveLength(2);
+    expect(restored[0]!.id).toBe('e2');
+
+    // A second undo is a no-op (the row already has a capsule again).
+    undo!.onClick();
+    expect(
+      useExecutionHistoryStore.getState().capsuleEntries()
+    ).toHaveLength(2);
   });
 
   it('opens a capsule source in a new tab and closes (explicit, no replay)', () => {

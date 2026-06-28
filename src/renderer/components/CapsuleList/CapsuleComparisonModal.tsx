@@ -309,7 +309,12 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                     </div>
                     <pre
                       data-testid="capsule-compare-pane-older"
-                      className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-body-sm leading-5 text-foreground"
+                      // UX Sweep T3 — focusable scroll region so a keyboard
+                      // user can Tab in and scroll long code with the arrows.
+                      tabIndex={0}
+                      role="region"
+                      aria-label={t('capsule.compare.olderPaneRegion')}
+                      className="focus-ring m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-body-sm leading-5 text-foreground"
                     >
                       {active.olderText}
                     </pre>
@@ -320,7 +325,10 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                     </div>
                     <pre
                       data-testid="capsule-compare-pane-newer"
-                      className="m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-body-sm leading-5 text-foreground"
+                      tabIndex={0}
+                      role="region"
+                      aria-label={t('capsule.compare.newerPaneRegion')}
+                      className="focus-ring m-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-body-sm leading-5 text-foreground"
                     >
                       {active.newerText}
                     </pre>
@@ -342,7 +350,10 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                   ) : null}
                   <div
                     data-testid="capsule-compare-diff-list"
-                    className="max-h-[28vh] overflow-y-auto px-3 py-2"
+                    tabIndex={0}
+                    role="region"
+                    aria-label={t('capsule.compare.diffRegion')}
+                    className="focus-ring max-h-[28vh] overflow-y-auto px-3 py-2"
                   >
                     {active.diff.map((segment, index) => (
                       <DiffLine key={index} segment={segment} />

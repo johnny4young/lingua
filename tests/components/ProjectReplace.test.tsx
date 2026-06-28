@@ -189,7 +189,7 @@ describe('ProjectReplace', () => {
     await user.click(screen.getByTestId('project-replace-apply-all'));
     expect(screen.getByTestId('project-replace-confirm')).toBeTruthy();
 
-    await user.click(screen.getByTestId('project-replace-confirm-apply'));
+    await user.click(screen.getByTestId('project-replace-confirm-confirm'));
 
     await waitFor(() => {
       expect(mockApplyReplaceInFile).toHaveBeenCalledTimes(2);
@@ -318,7 +318,7 @@ describe('ProjectReplace', () => {
       expect(screen.getByTestId('project-replace-apply-all')).toBeTruthy();
     });
     await user.click(screen.getByTestId('project-replace-apply-all'));
-    await user.click(screen.getByTestId('project-replace-confirm-apply'));
+    await user.click(screen.getByTestId('project-replace-confirm-confirm'));
 
     await waitFor(() => {
       expect(mockSetTabContentFromDisk).toHaveBeenCalledWith(
@@ -353,7 +353,7 @@ describe('ProjectReplace', () => {
       expect(screen.getByTestId('project-replace-apply-all')).toBeTruthy();
     });
     await user.click(screen.getByTestId('project-replace-apply-all'));
-    await user.click(screen.getByTestId('project-replace-confirm-apply'));
+    await user.click(screen.getByTestId('project-replace-confirm-confirm'));
 
     expect(mockApplyReplaceInFile).not.toHaveBeenCalled();
     expect(mockPushStatusNotice).toHaveBeenCalledWith(

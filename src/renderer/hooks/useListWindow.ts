@@ -4,17 +4,23 @@ import type { RefObject } from 'react';
 /**
  * RL-123 / AUDIT-03 Slice 2 — hand-rolled variable-height list windower.
  *
- * The console renders only the rows whose vertical band intersects the
+ * The list renders only the rows whose vertical band intersects the
  * viewport (plus an overscan margin), padding the rest with two spacer
  * divs so the scrollbar geometry matches the full list. Rows that scroll
- * out of the window unmount, which releases their `<RichValueChart>` Vega
- * canvases for free (the chart finalize()s its view on unmount).
+ * out of the window unmount, which releases their per-row resources for
+ * free (the console's `<RichValueChart>` finalize()s its Vega view on
+ * unmount; a notebook code cell drops its Monaco editor — RL-043 Slice H).
  *
- * We hand-roll instead of pulling `react-window` because console rows are
- * variable height (one ANSI line vs. a rich table vs. a chart), the dep
- * delta is avoidable, and the only hard part — the offset math — is the
- * pure {@link computeWindow} function, which is fully unit-tested without a
- * DOM.
+ * We hand-roll instead of pulling `react-window` because rows are variable
+ * height (one ANSI line vs. a rich table vs. a chart; a one-line markdown
+ * cell vs. a tall editor), the dep delta is avoidable, and the only hard
+ * parts — the offset math — are the pure {@link computeWindow} and
+ * {@link offsetForIndex} functions, both fully unit-tested without a DOM.
+ *
+ * RL-043 Slice H promoted this hook out of `components/Console/` into the
+ * shared `hooks/` folder so the notebook can window its cell rows too, and
+ * added {@link UseListWindowResult.scrollToIndex} for programmatic
+ * row-into-view scrolls (Jupyter command-mode navigation).
  */
 
 /**
@@ -117,6 +123,32 @@ export function computeWindow({
   };
 }
 
+/**
+ * Pixel top-offset of row `index` — the sum of measured heights for rows
+ * `[0, index)`, falling back to `estimate` for any unmeasured (`undefined`
+ * / `<= 0`) entry. Pure, so it is unit-testable without a DOM and shares
+ * the exact height model {@link computeWindow} uses, keeping
+ * {@link UseListWindowResult.scrollToIndex} consistent with the window
+ * math.
+ *
+ * Clamps `index` into `[0, heights.length]`: a negative index yields 0, an
+ * index past the end yields the total content height (the bottom edge of
+ * the last row). RL-043 Slice H.
+ */
+export function offsetForIndex(
+  heights: ReadonlyArray<number | undefined>,
+  index: number,
+  estimate: number
+): number {
+  const clamped = Math.max(0, Math.min(index, heights.length));
+  let offset = 0;
+  for (let i = 0; i < clamped; i += 1) {
+    const value = heights[i];
+    offset += typeof value === 'number' && value > 0 ? value : estimate;
+  }
+  return offset;
+}
+
 /** Options for {@link useListWindow}. */
 export interface UseListWindowOptions {
   /** Ref to the scrolling container element. */
@@ -145,6 +177,15 @@ export interface UseListWindowResult {
   measureRef: (key: string) => (element: HTMLElement | null) => void;
   /** Imperatively pin the container to the bottom (sticky auto-scroll). */
   scrollToBottom: () => void;
+  /**
+   * RL-043 Slice H — imperatively scroll row `index` into view. Computes
+   * the row's top offset from the same measured-height cache the window
+   * math uses (see {@link offsetForIndex}), scrolls the container there
+   * instantly, and immediately seeds the internal `scrollTop` so the window
+   * recomputes on the next render without waiting for the throttled scroll
+   * listener — critical so a just-activated off-screen row mounts promptly.
+   */
+  scrollToIndex: (index: number) => void;
 }
 
 const DEFAULT_ESTIMATE = 28;
@@ -266,7 +307,15 @@ export function useListWindow({
         const element = entry.target as HTMLElement;
         const key = elementKeyRef.current.get(element);
         if (key === undefined) continue;
-        const height = entry.contentRect.height;
+        // RL-043 Slice H — measure the BORDER box, not the content box, so
+        // per-row padding/border (notebook rows carry a `pb-3` gap) is
+        // counted exactly and the offset math matches the initial
+        // `getBoundingClientRect().height` (also a border box) read below.
+        // Falls back to `contentRect.height` where `borderBoxSize` is
+        // unavailable. (Console rows have no padding/border, so this is a
+        // no-op for them.)
+        const height =
+          entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
         if (height > 0 && heightsRef.current.get(key) !== height) {
           heightsRef.current.set(key, height);
           changed = true;
@@ -324,6 +373,33 @@ export function useListWindow({
     if (element) element.scrollTop = element.scrollHeight;
   }, [scrollRef]);
 
+  // RL-043 Slice H — imperatively scroll a row into view. Uses the same
+  // measured-height cache + `estimate` the window math reads, so the target
+  // offset is consistent with the rendered geometry.
+  const scrollToIndex = useCallback(
+    (index: number) => {
+      const element = scrollRef.current;
+      if (!element) return;
+      // Imperative scroll handler reads the live height cache on demand; it
+      // runs in an event/effect path, not during render.
+      const heights = keys.map((key) => heightsRef.current.get(key));
+      const offset = offsetForIndex(heights, index, estimate);
+      if (typeof element.scrollTo === 'function') {
+        element.scrollTo({ top: offset, behavior: 'auto' });
+      } else {
+        // jsdom / older runtimes lack `scrollTo`; set the position directly.
+        element.scrollTop = offset;
+      }
+      // Seed the internal scroll position immediately so the window
+      // recomputes on the next render rather than waiting for the
+      // rAF-throttled scroll listener — a just-activated off-screen row must
+      // mount before focus is attempted.
+      setScrollTop(offset);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keySignature is the stable digest of `keys`.
+    [scrollRef, keySignature, estimate]
+  );
+
   const listWindow = useMemo(() => {
     // eslint-disable-next-line react-hooks/refs -- intentional read of the measurement cache during render; `measureVersion` invalidates this memo whenever a cached height changes, so the derived window stays correct.
     const heights = keys.map((key) => heightsRef.current.get(key));
@@ -339,5 +415,5 @@ export function useListWindow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keySignature, count, scrollTop, viewportHeight, overscanPx, estimate, measureVersion]);
 
-  return { listWindow, measureRef, scrollToBottom };
+  return { listWindow, measureRef, scrollToBottom, scrollToIndex };
 }

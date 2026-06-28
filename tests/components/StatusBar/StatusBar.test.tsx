@@ -166,6 +166,8 @@ describe('StatusBar', () => {
       const segment = screen.getByTestId(id);
       expect(segment.tagName).toBe('BUTTON');
       expect(segment.hasAttribute('disabled')).toBe(false);
+      // UX Sweep T1 — every segment carries the shared visible focus ring.
+      expect(segment.className).toContain('focus-ring');
     }
   });
 

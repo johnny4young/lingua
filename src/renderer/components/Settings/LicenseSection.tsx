@@ -7,6 +7,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { getOrMintDeviceId } from '../../services/deviceFingerprint';
 import { writeToClipboard } from '../../utils/clipboard';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { DeviceList } from './DeviceList';
 import { EducationCta } from './EducationCta';
@@ -118,6 +119,9 @@ export function LicenseSection() {
   const [draft, setDraft] = useState('');
   const [isApplying, setIsApplying] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  // UX Sweep T2 fold C — whether the remove-license confirm is open.
+  // Removing the token drops the user Pro->Free, so it confirms first.
+  const [confirmClear, setConfirmClear] = useState(false);
   const [pendingRemovalId, setPendingRemovalId] = useState<string | null>(null);
   // Modal-open is local to this component because the modal is owned by
   // the License section's lifecycle: a paste fails with `devices-exhausted`
@@ -274,7 +278,7 @@ export function LicenseSection() {
     );
   };
 
-  const handleClear = async () => {
+  const runClear = async () => {
     if (isClearing) return;
     setIsClearing(true);
     try {
@@ -312,9 +316,9 @@ export function LicenseSection() {
               {token ? (
                 <button
                   type="button"
-                  onClick={() => void handleClear()}
+                  onClick={() => setConfirmClear(true)}
                   disabled={isClearing || isApplying}
-                  className="rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60"
+                  className="focus-ring rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60"
                   data-testid="license-clear"
                 >
                   {t('license.clear')}
@@ -347,7 +351,7 @@ export function LicenseSection() {
                   type="button"
                   onClick={() => void handleCopyFingerprint()}
                   data-testid="license-key-fingerprint-copy"
-                  className="rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base"
+                  className="focus-ring rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base"
                 >
                   {t('license.keyFingerprint.copy')}
                 </button>
@@ -446,6 +450,21 @@ export function LicenseSection() {
       ) : null}
 
       {showExhaustedModal ? <ExhaustedDevicesModal onClose={handleExhaustedModalClose} /> : null}
+
+      {confirmClear ? (
+        <ConfirmDialog
+          testId="license-clear-confirm"
+          title={t('license.clearConfirm.title')}
+          body={t('license.clearConfirm.body')}
+          confirmLabel={t('license.clearConfirm.confirm')}
+          cancelLabel={t('license.clearConfirm.cancel')}
+          onConfirm={() => {
+            setConfirmClear(false);
+            void runClear();
+          }}
+          onCancel={() => setConfirmClear(false)}
+        />
+      ) : null}
     </SettingsSection>
   );
 }

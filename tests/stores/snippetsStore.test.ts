@@ -48,6 +48,61 @@ describe('snippetsStore', () => {
     expect(useSnippetsStore.getState().snippets).toHaveLength(0);
   });
 
+  it('restoreSnippet re-inserts a removed snippet at the given index', () => {
+    const store = useSnippetsStore.getState();
+    store.addSnippet({ language: 'python', label: 'A', description: '', code: 'a' });
+    store.addSnippet({ language: 'python', label: 'B', description: '', code: 'b' });
+    store.addSnippet({ language: 'python', label: 'C', description: '', code: 'c' });
+
+    const middle = useSnippetsStore.getState().snippets[1]!;
+    useSnippetsStore.getState().removeSnippet(middle.id);
+    expect(
+      useSnippetsStore.getState().snippets.map((s) => s.label)
+    ).toEqual(['A', 'C']);
+
+    useSnippetsStore.getState().restoreSnippet(middle, 1, 3);
+    const after = useSnippetsStore.getState().snippets;
+    expect(after.map((s) => s.label)).toEqual(['A', 'B', 'C']);
+    expect(after[1]!.id).toBe(middle.id);
+  });
+
+  it('restoreSnippet is a no-op when the id already exists', () => {
+    const store = useSnippetsStore.getState();
+    store.addSnippet({ language: 'python', label: 'A', description: '', code: 'a' });
+    const existing = useSnippetsStore.getState().snippets[0]!;
+
+    useSnippetsStore.getState().restoreSnippet(existing, 0, 1);
+    expect(useSnippetsStore.getState().snippets).toHaveLength(1);
+  });
+
+  it('restoreSnippet clamps an out-of-range index into the list', () => {
+    const store = useSnippetsStore.getState();
+    store.addSnippet({ language: 'python', label: 'A', description: '', code: 'a' });
+    const removed = useSnippetsStore.getState().snippets[0]!;
+    useSnippetsStore.getState().removeSnippet(removed.id);
+
+    // Index 99 is well past the end; it must still land in-range.
+    useSnippetsStore.getState().restoreSnippet(removed, 99, 1);
+    expect(useSnippetsStore.getState().snippets).toHaveLength(1);
+    expect(useSnippetsStore.getState().snippets[0]!.id).toBe(removed.id);
+  });
+
+  it('restoreSnippet does not exceed the pre-delete count after a replacement', () => {
+    const store = useSnippetsStore.getState();
+    store.addSnippet({ language: 'python', label: 'A', description: '', code: 'a' });
+    store.addSnippet({ language: 'python', label: 'B', description: '', code: 'b' });
+    const removed = useSnippetsStore.getState().snippets[0]!;
+    useSnippetsStore.getState().removeSnippet(removed.id);
+    store.addSnippet({ language: 'python', label: 'C', description: '', code: 'c' });
+
+    useSnippetsStore.getState().restoreSnippet(removed, 0, 2);
+
+    expect(useSnippetsStore.getState().snippets.map((s) => s.label)).toEqual([
+      'B',
+      'C',
+    ]);
+  });
+
   it('should update a snippet', () => {
     useSnippetsStore.getState().addSnippet({
       language: 'typescript',

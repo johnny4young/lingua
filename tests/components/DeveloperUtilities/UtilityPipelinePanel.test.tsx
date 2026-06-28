@@ -38,6 +38,7 @@ import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
+import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
 import { createBlankPipeline, createBlankStep } from '../../../src/shared/utilityPipeline';
 
 function setFreeTier() {
@@ -73,6 +74,7 @@ beforeEach(() => {
   useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'declined' });
   useUIStore.setState({ statusNotice: null });
   useExecutionHistoryStore.getState().clear();
+  useAnnouncerStore.setState({ message: '', nonce: 0 });
   mockTrackEvent.mockClear();
   setProTier();
 });
@@ -94,6 +96,31 @@ describe('UtilityPipelinePanel', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('utility-pipeline-panel')).toBeTruthy();
     expect(screen.getByText(/no pipelines yet/i)).toBeTruthy();
+  });
+
+  it('import panel: Escape dismisses it, returns focus to the trigger, and does not bubble (UX Sweep T3)', async () => {
+    const user = userEvent.setup();
+    // Stands in for the Developer Utilities overlay's own Escape handler.
+    const parentKeyDown = vi.fn();
+    render(
+      <div onKeyDown={parentKeyDown}>
+        <UtilityPipelinePanel />
+      </div>
+    );
+
+    const trigger = screen.getByTestId('utility-pipeline-list-import');
+    await user.click(trigger);
+    const textarea = await screen.findByTestId('utility-pipeline-import-textarea');
+    await waitFor(() => expect(document.activeElement).toBe(textarea));
+
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.queryByTestId('utility-pipeline-import-panel')).toBeNull()
+    );
+    // Focus returns to the trigger, not the document body.
+    expect(document.activeElement).toBe(trigger);
+    // stopPropagation kept the overlay above from closing on the same Esc.
+    expect(parentKeyDown).not.toHaveBeenCalled();
   });
 
   it('shows the template gallery in the empty state (RL-099 Slice 5)', () => {
@@ -164,6 +191,9 @@ describe('UtilityPipelinePanel', () => {
       .map(el => el.textContent ?? '');
     expect(outputs[0]).toContain('{"a":1}');
     expect(outputs[1]).toContain('"a": 1');
+
+    // UX Sweep T4 — the run result is announced to screen readers.
+    expect(useAnnouncerStore.getState().message).toContain('2 of 2 steps succeeded');
   });
 
   it('cascades skipped status when an upstream step fails', async () => {
@@ -204,6 +234,53 @@ describe('UtilityPipelinePanel', () => {
     await waitFor(() => {
       expect(useUtilityPipelineStore.getState().pipelines[0]?.name).toBe('renamed pipeline');
     });
+  });
+
+  it('deletes a pipeline only after the ConfirmDialog is confirmed (UX Sweep T2)', async () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'doomed' });
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+
+    await user.click(screen.getByTestId('utility-pipeline-list-delete'));
+
+    // The native window.confirm is gone; a ConfirmDialog gates the delete.
+    expect(screen.getByTestId('utility-pipeline-delete-confirm')).toBeTruthy();
+    expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(1);
+
+    // Cancel aborts with no mutation.
+    await user.click(screen.getByTestId('utility-pipeline-delete-confirm-cancel'));
+    expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(1);
+    expect(screen.queryByTestId('utility-pipeline-delete-confirm')).toBeNull();
+
+    // Re-open and confirm — the pipeline is deleted.
+    await user.click(screen.getByTestId('utility-pipeline-list-delete'));
+    await user.click(screen.getByTestId('utility-pipeline-delete-confirm-confirm'));
+    await waitFor(() => {
+      expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(0);
+    });
+  });
+
+  it('reveals the hover-only row actions for keyboard users and rings them (UX Sweep T1 fold B)', () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'one' });
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    render(<UtilityPipelinePanel />);
+
+    expect(screen.getByTestId('utility-pipeline-list-row').className).toContain(
+      'focus-ring'
+    );
+
+    for (const testId of [
+      'utility-pipeline-list-duplicate',
+      'utility-pipeline-list-delete',
+    ]) {
+      const button = screen.getByTestId(testId);
+      expect(button.className).toContain('focus-ring');
+      // Hover-only actions must also surface when a keyboard user focuses
+      // into the row, otherwise they are invisible to Tab navigation.
+      expect(button.className).toContain('group-focus-within:opacity-100');
+      expect(button.className).toContain('focus-visible:opacity-100');
+    }
   });
 
   // RL-099 Slice 3 fold A — explicit Save-as-capsule button.

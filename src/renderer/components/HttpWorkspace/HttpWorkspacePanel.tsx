@@ -30,6 +30,7 @@ import {
 } from '../../../shared/httpEnvironment';
 import { executeHttpRequest } from '../../runtime/httpClient';
 import { buildHttpResponseCapsule } from '../../runtime/httpResponseCapsule';
+import { useAnnounce } from '../../hooks/useAnnounce';
 import { trackHttpRequestExecuted } from '../../hooks/httpWorkspaceTelemetry';
 import { EmptyState } from '../ui/EmptyState';
 import { HttpRequestList } from './HttpRequestList';
@@ -53,6 +54,7 @@ export interface HttpWorkspacePanelProps {
 
 export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   // Persisted layout per the resizable-panels convention used
   // throughout AppLayout. Storage key isolated to this surface so a
   // future SQL workspace (Slice 2) can have its own layout sibling.
@@ -256,6 +258,23 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         .recordResponse(requestToSend.id, response);
       const resolvedCount = findResolvedVariables(requestToSend, env).length;
       trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
+      // UX Sweep T4 — announce the response to screen readers; the status
+      // pill + response panes only convey it visually. HTTP 4xx/5xx are
+      // still real responses, so announce their status instead of flattening
+      // them into a generic failure. Some servers omit statusText, so fall
+      // back to a status-only phrasing to avoid a dangling "Response 200 .".
+      if (response.status > 0) {
+        announce(
+          response.statusText.trim()
+            ? t('httpWorkspace.run.announce', {
+                status: response.status,
+                statusText: response.statusText,
+              })
+            : t('httpWorkspace.run.announceStatus', { status: response.status })
+        );
+      } else {
+        announce(t('httpWorkspace.run.announceError'));
+      }
       let capsule;
       try {
         const appInfo = getBundledAppInfo();
@@ -293,7 +312,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     } finally {
       useWorkspaceToolStore.getState().setIsExecutingActive(false);
     }
-  }, [sensitiveHttpHeaders]);
+  }, [sensitiveHttpHeaders, t, announce]);
 
   const handleSelectEnvironment = useCallback((id: string | null) => {
     useWorkspaceToolStore.getState().setActiveEnvironment(id);

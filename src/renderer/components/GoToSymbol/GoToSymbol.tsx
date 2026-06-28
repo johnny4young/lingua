@@ -196,7 +196,13 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
           <span>
             <Kbd>↵</Kbd> {t('goToSymbol.hint.open')}
           </span>
-          <span className="ml-auto">
+          <span
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            data-testid="go-to-symbol-result-count"
+            className="ml-auto"
+          >
             {t('goToSymbol.count', { count: filtered.length })}
           </span>
         </div>

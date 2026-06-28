@@ -6,6 +6,7 @@ import { SnippetsModal } from '../../src/renderer/components/Snippets';
 import { useEditorStore } from '@/stores/editorStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useSnippetsStore } from '@/stores/snippetsStore';
+import { useUIStore } from '@/stores/uiStore';
 
 describe('SnippetsModal', () => {
   beforeEach(async () => {
@@ -145,6 +146,98 @@ describe('SnippetsModal', () => {
 
     expect(useSnippetsStore.getState().snippets).toHaveLength(0);
     expect(screen.getByText('No snippets saved yet.')).toBeTruthy();
+  });
+
+  it('delete offers an Undo that restores the snippet at its index (fold B)', async () => {
+    const user = userEvent.setup();
+    useUIStore.setState({ statusNotice: null });
+
+    // Three snippets; delete the MIDDLE one so the restore index matters.
+    useSnippetsStore.getState().addSnippet({
+      label: 'First',
+      description: '',
+      language: 'python',
+      code: 'a',
+    });
+    useSnippetsStore.getState().addSnippet({
+      label: 'Middle',
+      description: '',
+      language: 'python',
+      code: 'b',
+    });
+    useSnippetsStore.getState().addSnippet({
+      label: 'Last',
+      description: '',
+      language: 'python',
+      code: 'c',
+    });
+    const middleId = useSnippetsStore.getState().snippets[1]!.id;
+
+    render(<SnippetsModal onClose={vi.fn()} />);
+
+    // Select the middle snippet, then delete it. The list button's
+    // accessible name includes the language badge, so match by prefix.
+    await user.click(screen.getByRole('button', { name: /^Middle/ }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(
+      useSnippetsStore.getState().snippets.map((s) => s.label)
+    ).toEqual(['First', 'Last']);
+
+    const notice = useUIStore.getState().statusNotice;
+    expect(notice?.messageKey).toBe('snippets.notice.deleted');
+    const undo = notice?.actions?.find((a) => a.labelKey === 'common.undo');
+    expect(undo).toBeTruthy();
+
+    // Undo restores the middle snippet at index 1 with its original id.
+    undo!.onClick();
+    const restored = useSnippetsStore.getState().snippets;
+    expect(restored.map((s) => s.label)).toEqual(['First', 'Middle', 'Last']);
+    expect(restored[1]!.id).toBe(middleId);
+
+    // A second undo is a no-op (no duplicate).
+    undo!.onClick();
+    expect(useSnippetsStore.getState().snippets).toHaveLength(3);
+  });
+
+  it('Undo does not exceed the pre-delete snippet count after adding a replacement', async () => {
+    const user = userEvent.setup();
+    useUIStore.setState({ statusNotice: null });
+
+    useSnippetsStore.getState().addSnippet({
+      label: 'Old',
+      description: '',
+      language: 'python',
+      code: 'old',
+    });
+    useSnippetsStore.getState().addSnippet({
+      label: 'Keep',
+      description: '',
+      language: 'python',
+      code: 'keep',
+    });
+
+    render(<SnippetsModal onClose={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /^Old/ }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    const undo = useUIStore
+      .getState()
+      .statusNotice?.actions?.find((a) => a.labelKey === 'common.undo');
+    expect(undo).toBeTruthy();
+
+    useSnippetsStore.getState().addSnippet({
+      label: 'Replacement',
+      description: '',
+      language: 'python',
+      code: 'replacement',
+    });
+    undo!.onClick();
+
+    expect(useSnippetsStore.getState().snippets.map((s) => s.label)).toEqual([
+      'Keep',
+      'Replacement',
+    ]);
   });
 
   it('uses localized draft copy and fallback filename in Spanish', async () => {

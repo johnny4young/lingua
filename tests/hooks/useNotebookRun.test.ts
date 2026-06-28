@@ -4,6 +4,9 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18next from 'i18next';
+import { initI18n } from '../../src/renderer/i18n';
+import { useAnnouncerStore } from '../../src/renderer/stores/announcerStore';
 
 vi.mock('../../src/renderer/runners', () => ({
   runnerManager: {
@@ -82,7 +85,7 @@ function seedSingleCodeCellNotebook(
 }
 
 describe('useNotebookRun', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetNotebookSessionsForTests();
     resetNotebookStoreForTests();
     mockExecute.mockReset();
@@ -90,6 +93,9 @@ describe('useNotebookRun', () => {
     mockTrack.mockReset();
     localStorage.clear();
     useUIStore.setState({ statusNotice: null });
+    useAnnouncerStore.setState({ message: '', nonce: 0 });
+    initI18n('en');
+    await i18next.changeLanguage('en');
   });
   afterEach(() => {
     resetNotebookSessionsForTests();
@@ -120,6 +126,8 @@ describe('useNotebookRun', () => {
     if (cell.kind === 'code') {
       expect(cell.outputs.map((o) => o.text)).toContain('hi');
     }
+    // UX Sweep T4 — a successful single-cell run is announced to AT.
+    expect(useAnnouncerStore.getState().message).toMatch(/successfully/i);
   });
 
   it('runCell records error status when the runner returns an error', async () => {
@@ -137,6 +145,7 @@ describe('useNotebookRun', () => {
     expect(
       useNotebookStore.getState().getCellRunStatus('tab-2', jsCellId)
     ).toBe('error');
+    expect(useAnnouncerStore.getState().message).toMatch(/failed/i);
   });
 
   it('runCell records stopped status when the runner cancels', async () => {
@@ -154,6 +163,7 @@ describe('useNotebookRun', () => {
     expect(
       useNotebookStore.getState().getCellRunStatus('tab-3', jsCellId)
     ).toBe('stopped');
+    expect(useAnnouncerStore.getState().message).toMatch(/stopped/i);
   });
 
   it('runCell emits a closed-enum telemetry payload', async () => {
@@ -201,6 +211,8 @@ describe('useNotebookRun', () => {
     });
     // Second cell never runs.
     expect(mockExecute).toHaveBeenCalledTimes(1);
+    // UX Sweep T4 reviewer fix — range runs also announce their terminal outcome.
+    expect(useAnnouncerStore.getState().message).toMatch(/failed after 1 cell/i);
   });
 
   it('runAll runs a Python-only notebook through the python runner (Slice F)', async () => {
@@ -222,6 +234,9 @@ describe('useNotebookRun', () => {
     expect(
       useNotebookStore.getState().getCellRunStatus('tab-python', 'cell-1')
     ).toBe('ok');
+    expect(useAnnouncerStore.getState().message).toMatch(
+      /1 cell ran successfully/i
+    );
   });
 
   it('runAll surfaces a notice when every code cell is an unsupported language', async () => {

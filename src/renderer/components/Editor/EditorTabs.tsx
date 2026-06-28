@@ -1,5 +1,5 @@
 import { BookOpen, ChevronDown, Database, Globe, Loader2, Wrench, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
@@ -504,15 +504,27 @@ function TabsOverflowDropdown({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // UX Sweep T3 — close the popover and return focus to the chevron
+  // trigger, so a keyboard user who Escapes (or selects) lands back on
+  // the tab strip instead of having focus dumped to the document body.
+  const closeToTrigger = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     const onClickAway = (event: MouseEvent) => {
       if (containerRef.current?.contains(event.target as Node)) return;
+      // Mouse click elsewhere — close, but leave focus where the user
+      // clicked rather than yanking it back to the trigger.
       setOpen(false);
     };
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') closeToTrigger();
     };
     window.addEventListener('mousedown', onClickAway);
     window.addEventListener('keydown', onKey);
@@ -520,7 +532,46 @@ function TabsOverflowDropdown({
       window.removeEventListener('mousedown', onClickAway);
       window.removeEventListener('keydown', onKey);
     };
+  }, [open, closeToTrigger]);
+
+  // UX Sweep T3 — move focus into the menu on open (the active tab's row
+  // if present, else the first), so the ↑↓ navigation the footer
+  // advertises actually has a starting point.
+  useEffect(() => {
+    if (!open) return;
+    const menu = menuRef.current;
+    if (!menu) return;
+    const target =
+      menu.querySelector<HTMLButtonElement>(
+        'button[role="menuitem"][data-active="true"]'
+      ) ?? menu.querySelector<HTMLButtonElement>('button[role="menuitem"]');
+    target?.focus();
   }, [open]);
+
+  // UX Sweep T3 — implement the ↑↓ / Home / End roving the footer legend
+  // promises (it was previously decorative). Mirrors the tab context
+  // menu's keyboard pattern.
+  const handleMenuKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const buttons = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        'button[role="menuitem"]:not(:disabled)'
+      )
+    );
+    if (buttons.length === 0) return;
+    event.preventDefault();
+    const currentIndex = buttons.findIndex((button) => button === document.activeElement);
+    const lastIndex = buttons.length - 1;
+    const nextIndex =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? lastIndex
+          : event.key === 'ArrowDown'
+            ? (currentIndex + 1 + buttons.length) % buttons.length
+            : (currentIndex - 1 + buttons.length) % buttons.length;
+    buttons[nextIndex]?.focus();
+  }, []);
 
   const dirtyCount = tabs.filter(tab => tab.isDirty).length;
 
@@ -533,6 +584,7 @@ function TabsOverflowDropdown({
         })}
       >
         <button
+          ref={triggerRef}
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
@@ -550,8 +602,12 @@ function TabsOverflowDropdown({
       </Tooltip>
       {open ? (
         <div
+          ref={menuRef}
           role="menu"
-          className="dropdown-rich absolute right-0 top-[calc(100%+0.4rem)] z-50 w-[340px] max-h-[400px] flex-col overflow-hidden"
+          tabIndex={-1}
+          aria-label={t('editorTabs.overflow.ariaLabel', { count: hiddenCount })}
+          onKeyDown={handleMenuKeyDown}
+          className="dropdown-rich absolute right-0 top-[calc(100%+0.4rem)] z-50 w-[340px] max-h-[400px] flex-col overflow-hidden outline-none"
           style={{ display: 'flex' }}
         >
           <div className="min-h-0 flex-1 overflow-y-auto p-1">
@@ -569,10 +625,11 @@ function TabsOverflowDropdown({
                   <button
                     type="button"
                     role="menuitem"
+                    data-active={isActive}
                     data-testid={`editor-tabs-overflow-item-${tab.id}`}
                     onClick={() => {
                       onSelect(tab.id);
-                      setOpen(false);
+                      closeToTrigger();
                     }}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >

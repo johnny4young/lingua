@@ -109,6 +109,8 @@ describe('LicenseSection', () => {
     render(<LicenseSection />);
     expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Monthly');
     expect(screen.getByTestId('license-clear')).toBeTruthy();
+    // UX Sweep T1 — the bespoke Remove-license button carries the focus ring.
+    expect(screen.getByTestId('license-clear').className).toContain('focus-ring');
   });
 
   it('disables the Apply button when the input is empty or whitespace-only', () => {
@@ -229,11 +231,44 @@ describe('LicenseSection', () => {
     const spy = vi.spyOn(useLicenseStore.getState(), 'clearLicense').mockResolvedValue({ kind: 'free' });
     render(<LicenseSection />);
 
+    // UX Sweep T2 fold C — Remove now routes through a confirm dialog.
     await user.click(screen.getByTestId('license-clear'));
+    expect(spy).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId('license-clear-confirm-confirm'));
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.cleared')
     );
+  });
+
+  it('does NOT clear the license when the Remove confirm is cancelled', async () => {
+    const user = userEvent.setup();
+    stubStatus(
+      {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'user@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      'existing.token'
+    );
+    const spy = vi.spyOn(useLicenseStore.getState(), 'clearLicense');
+    render(<LicenseSection />);
+
+    await user.click(screen.getByTestId('license-clear'));
+    await user.click(screen.getByTestId('license-clear-confirm-cancel'));
+    expect(spy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('license-clear-confirm')).toBeNull();
   });
 
   it('pushes a failure notice when Remove cannot clear the persisted license', async () => {
@@ -264,6 +299,7 @@ describe('LicenseSection', () => {
     render(<LicenseSection />);
 
     await user.click(screen.getByTestId('license-clear'));
+    await user.click(screen.getByTestId('license-clear-confirm-confirm'));
 
     await waitFor(() =>
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.clearFailed')
@@ -307,6 +343,8 @@ describe('LicenseSection', () => {
     expect(apply.disabled).toBe(false);
 
     await user.click(clear);
+    // Confirm the destructive action before the clear promise starts.
+    await user.click(screen.getByTestId('license-clear-confirm-confirm'));
 
     await waitFor(() => expect(clear.disabled).toBe(true));
     expect(apply.disabled).toBe(true);
@@ -479,6 +517,8 @@ describe('LicenseSection', () => {
       expect(currentRemove.title).toContain('Remove license');
       const otherRemove = screen.getByTestId('license-device-remove-dev_d2') as HTMLButtonElement;
       expect(otherRemove.disabled).toBe(false);
+      // UX Sweep T1 — device-remove buttons carry the shared focus ring.
+      expect(otherRemove.className).toContain('focus-ring');
     } finally {
       localStorage.removeItem('lingua-device-id');
     }
@@ -764,6 +804,10 @@ describe('LicenseSection', () => {
         expect(screen.getByTestId('license-key-fingerprint').textContent).toBe(PROD_THUMBPRINT),
       );
       expect(screen.getByTestId('license-key-fingerprint-copy')).toBeTruthy();
+      // UX Sweep T1 — the fingerprint Copy button carries the focus ring.
+      expect(
+        screen.getByTestId('license-key-fingerprint-copy').className
+      ).toContain('focus-ring');
     });
 
     it('copies the thumbprint and pushes the success notice', async () => {

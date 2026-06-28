@@ -67,8 +67,8 @@ function nextIndent(current: IndentConfig): IndentConfig {
 }
 
 const SEGMENT_CLASS =
-  'flex h-full items-center gap-1 border-l border-border/60 px-2 text-fg-muted ' +
-  'hover:text-fg-base focus-visible:outline-none focus-visible:text-fg-base';
+  'focus-ring flex h-full items-center gap-1 border-l border-border/60 px-2 text-fg-muted ' +
+  'hover:text-fg-base focus-visible:text-fg-base';
 
 export function StatusBar() {
   const showStatusBar = useSettingsStore((state) => state.showStatusBar);
@@ -271,7 +271,7 @@ function StatusBarContent() {
       <button
         type="button"
         data-testid="status-bar-run"
-        className="ml-auto flex h-full items-center border-l border-border/60 px-2 text-fg-muted focus-visible:outline-none focus-visible:text-fg-base"
+        className="focus-ring ml-auto flex h-full items-center border-l border-border/60 px-2 text-fg-muted focus-visible:text-fg-base"
         title={t('statusBar.run.tooltip')}
         aria-label={t('statusBar.run.tooltip')}
       >

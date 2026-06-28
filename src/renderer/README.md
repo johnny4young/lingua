@@ -52,6 +52,7 @@ The renderer is intentionally split by feature instead of by component type.
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
 | [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`                                       | Owns shell composition, panel layout, sidebar/drawer behavior  |
 | [`components/Chrome/`](components/Chrome)                 | `AppChrome.tsx`                                       | App-level chrome frame and shell wrapper primitives            |
+| [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `ResultPanel.tsx` | Owns Monaco, tabs, inline result surface, completion providers |
 | [`components/ErrorBoundary/`](components/ErrorBoundary)   | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
@@ -96,6 +97,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | editor split (RL-128) — action factories: [editorTabActions.ts](stores/editorTabActions.ts) (create/restore/remove/focus/duplicate), [editorWorkspaceActions.ts](stores/editorWorkspaceActions.ts) (notebook + SQL/HTTP openers), [editorContentActions.ts](stores/editorContentActions.ts) (buffer/exec-state/timeout/recipe-clear), [editorModeActions.ts](stores/editorModeActions.ts) (runtime/workflow mode + capability toggles), [editorSaveActions.ts](stores/editorSaveActions.ts) (open/save/save-as), [editorCloseActions.ts](stores/editorCloseActions.ts) (close + bulk + rename) | `(set, get) => Pick<EditorState, …>` slices spread into `useEditorStore` |
 | [resultStore.ts](stores/resultStore.ts)     | inline results, diagnostics, run timing, compare snapshots, variable scope |
 | [consoleStore.ts](stores/consoleStore.ts)   | console entries and runtime output filters                        |
+| [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
 | [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, transient run state, active cell |
 | [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) | per-tab dependency detection cache, install state, streamed install logs |
@@ -213,6 +215,7 @@ If you add a new global class, place it in the closest subsection instead of app
 - Promote a pattern to `index.css` only when it is reused across surfaces and has stable semantics.
 - Prefer semantic class names such as `surface-panel`, `status-pill`, or `field-shell` over screen-specific names.
 - Keep shared presentational components in `components/ui` dumb; product logic stays in feature folders.
+- Every bespoke interactive control (chips, tree rows, status-bar segments, cell-row icon buttons, drop-zones, anything not built from the `.button-*` design-system classes) MUST carry a visible keyboard focus indicator. Reuse the shared `.focus-ring` class (defined in [index.css](index.css) beside the `.button-*` family) — or one of the `.button-*` / `.field-shell` primitives, which already include the ring — instead of hand-rolling a focus style. This keeps keyboard focus visible and consistent everywhere; do not invent a second ring recipe.
 
 ## Common change paths
 

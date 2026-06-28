@@ -234,7 +234,15 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
       }
       footerLegend={<ModalFooterLegend navigate open select={false} close={false} />}
       trailing={
-        <span className="font-mono text-caption text-fg-subtle">
+        // UX Sweep T4 — polite live region so the result count is announced
+        // to screen readers as the query narrows (covers the empty state too).
+        <span
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          data-testid="quick-open-result-count"
+          className="font-mono text-caption text-fg-subtle"
+        >
           {t('quickOpen.count', { count: filtered.length })}
         </span>
       }

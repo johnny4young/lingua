@@ -41,6 +41,7 @@ import {
   OPFS_SQL_DB_PATH,
   utf8ByteLength,
   type SqlColumnMetadata,
+  type SqlImportFormat,
   type SqlQueryStatus,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
@@ -89,10 +90,27 @@ export interface DuckDbConnection {
  * Minimal surface the wrapper depends on. Lets `duckdbClient.test.ts`
  * inject a mock without standing up the whole DuckDB engine. The
  * production loader resolves to the real instance.
+ *
+ * RL-097 (SQL import) — `registerFile` / `dropFile` are OPTIONAL on the
+ * handle so the existing in-memory test stubs (which only implement
+ * `connect` + `terminate`) keep type-checking. The import helpers fall
+ * back gracefully (and tests opt in by implementing them).
  */
 export interface DuckDbEngineHandle {
   connect: () => Promise<DuckDbConnection>;
   terminate: () => Promise<void>;
+  /**
+   * Register a virtual file from a byte buffer so `read_csv_auto` /
+   * `read_json_auto` / `read_parquet` can read it by `name`. Maps onto
+   * `AsyncDuckDB.registerFileBuffer`. Re-registering the same name
+   * overwrites it.
+   */
+  registerFile?: (name: string, data: Uint8Array) => Promise<void>;
+  /**
+   * Drop a previously-registered virtual file. Maps onto
+   * `AsyncDuckDB.dropFile`. Best-effort — a missing name resolves.
+   */
+  dropFile?: (name: string) => Promise<void>;
 }
 
 /**
@@ -480,6 +498,17 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
           },
         };
       },
+      // RL-097 (SQL import) — virtual-file registration surface. DuckDB's
+      // `read_*` table functions read by registered `name`; the import
+      // helpers register the file bytes here, run the reader, then drop
+      // the file. `registerFileBuffer` accepts both text (CSV/JSON) and
+      // binary (Parquet) payloads.
+      registerFile: async (name: string, data: Uint8Array) => {
+        await db.registerFileBuffer(name, data);
+      },
+      dropFile: async (name: string) => {
+        await db.dropFile(name);
+      },
       terminate: async () => {
         try {
           await db.terminate();
@@ -811,4 +840,212 @@ export async function executeQuery(
       /* defensive: closing twice should not propagate */
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// RL-097 (SQL import) — file → DuckDB table.
+//
+// `previewImportFile` registers the file bytes and reads a 10-row sample
+// + a total count WITHOUT creating a table, so the preview modal can show
+// the user exactly what they're about to import. `importFileAsTable`
+// registers the bytes (idempotent if the preview already did) and runs
+// `CREATE TABLE … AS SELECT * FROM read_*(…)`. Both DROP the registered
+// virtual file on settle (success OR failure) so a cancelled / errored
+// import never leaves a phantom file pinned in the engine.
+// ---------------------------------------------------------------------------
+
+/** Number of rows shown in the import preview modal's sample table. */
+export const IMPORT_PREVIEW_SAMPLE_ROWS = 10;
+
+/**
+ * Map an import format to its DuckDB reader call against a registered
+ * virtual file `name`. The name is single-quote-escaped because it is
+ * spliced into a SQL string literal (the file name, NOT an identifier).
+ */
+function readerExpression(format: SqlImportFormat, name: string): string {
+  const escaped = name.replace(/'/g, "''");
+  switch (format) {
+    case 'csv':
+      return `read_csv_auto('${escaped}')`;
+    case 'json':
+      return `read_json_auto('${escaped}')`;
+    case 'parquet':
+      return `read_parquet('${escaped}')`;
+  }
+}
+
+/**
+ * Register a defensive COPY of the bytes. `AsyncDuckDB.registerFileBuffer`
+ * postMessages the buffer to the worker with the underlying ArrayBuffer as
+ * a transferable, which DETACHES the original `Uint8Array` on the main
+ * thread. The import flow registers the same file twice (preview then
+ * import), so handing the worker a fresh copy each time keeps the caller's
+ * buffer alive for the second registration. A 25 MiB cap (fold E) bounds
+ * the copy cost.
+ */
+async function registerFileCopy(
+  engine: DuckDbEngineHandle,
+  name: string,
+  bytes: Uint8Array
+): Promise<void> {
+  // `slice()` returns a new Uint8Array backed by a fresh ArrayBuffer, so
+  // the worker transfer detaches the copy, never the caller's buffer.
+  await engine.registerFile!(name, bytes.slice());
+}
+
+/**
+ * A stable, collision-resistant virtual file name for the engine's file
+ * registry. The user-supplied file name is never used directly (it could
+ * collide or carry odd characters); the registered name only needs to be
+ * unique per registration and match the reader call.
+ */
+function virtualFileName(format: SqlImportFormat): string {
+  const id =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `lingua_import_${id}.${format}`;
+}
+
+/** Outcome of {@link previewImportFile}. */
+export interface ImportPreview {
+  /** Column names in result order. */
+  columns: string[];
+  /** Up to {@link IMPORT_PREVIEW_SAMPLE_ROWS} sample rows, column-ordered. */
+  sampleRows: unknown[][];
+  /** Total row count in the source file (NOT just the sample). */
+  rowCount: number;
+}
+
+/** Outcome of {@link importFileAsTable}. */
+export interface ImportResult {
+  /** The table name actually created (the de-collided, validated name). */
+  table: string;
+  /** Total rows inserted into the new table. */
+  rowCount: number;
+}
+
+/**
+ * Register `bytes` as a virtual file and read a sample + total count for
+ * the import preview modal — WITHOUT creating a table. The registered
+ * file is dropped before this resolves, so a preview leaves no engine
+ * state behind. Throws on a parse / read failure (the caller maps it to
+ * the `errorParse` notice); the file is still dropped via `finally`.
+ */
+export async function previewImportFile(args: {
+  fileName: string;
+  format: SqlImportFormat;
+  bytes: Uint8Array;
+}): Promise<ImportPreview> {
+  const engine = await getDuckDbEngine();
+  if (typeof engine.registerFile !== 'function') {
+    throw new Error('This SQL engine cannot register files for import.');
+  }
+  const name = virtualFileName(args.format);
+  await registerFileCopy(engine, name, args.bytes);
+  const connection = await engine.connect();
+  try {
+    const reader = readerExpression(args.format, name);
+    const sample = await connection.query(
+      `SELECT * FROM ${reader} LIMIT ${IMPORT_PREVIEW_SAMPLE_ROWS}`
+    );
+    const countResult = await connection.query(
+      `SELECT count(*) AS n FROM ${reader}`
+    );
+    const columns = sample.columns.map((column) => column.name);
+    const sampleRows: unknown[][] = sample.rows.map((row) =>
+      columns.map((column) => row[column] ?? null)
+    );
+    const rowCount = readCountValue(countResult.rows[0]?.['n']);
+    return { columns, sampleRows, rowCount };
+  } finally {
+    try {
+      await connection.close();
+    } catch {
+      /* defensive */
+    }
+    try {
+      await engine.dropFile?.(name);
+    } catch {
+      /* best-effort — a leaked virtual file is harmless and small */
+    }
+  }
+}
+
+/**
+ * Register `bytes` as a virtual file and create a table from it via
+ * `CREATE TABLE <ident> AS SELECT * FROM read_*(…)`. `tableName` MUST be
+ * a pre-validated, collision-free identifier (see `isValidTableName` /
+ * `dedupeTableName` in shared) — it is double-quote-escaped and spliced
+ * as the table identifier. Returns the created table + its row count.
+ * Throws on a parse / DDL failure (so no table is created and the caller
+ * surfaces `errorParse`); the virtual file is dropped via `finally`
+ * either way.
+ *
+ * When persistent (OPFS), a best-effort CHECKPOINT flushes the new table
+ * to disk so it survives a reload — mirroring `executeQuery`'s fold-A
+ * durability pass.
+ */
+export async function importFileAsTable(args: {
+  fileName: string;
+  tableName: string;
+  format: SqlImportFormat;
+  bytes: Uint8Array;
+}): Promise<ImportResult> {
+  const engine = await getDuckDbEngine();
+  if (typeof engine.registerFile !== 'function') {
+    throw new Error('This SQL engine cannot register files for import.');
+  }
+  const name = virtualFileName(args.format);
+  await registerFileCopy(engine, name, args.bytes);
+  const connection = await engine.connect();
+  // Double-quote-escape the validated identifier so a reserved word or
+  // mixed-case name still produces valid DDL.
+  const ident = `"${args.tableName.replace(/"/g, '""')}"`;
+  try {
+    const reader = readerExpression(args.format, name);
+    await connection.query(`CREATE TABLE ${ident} AS SELECT * FROM ${reader}`);
+    const countResult = await connection.query(
+      `SELECT count(*) AS n FROM ${ident}`
+    );
+    const rowCount = readCountValue(countResult.rows[0]?.['n']);
+    if (resolvedStorageMode === 'opfs') {
+      try {
+        await connection.query('CHECKPOINT');
+      } catch {
+        /* durability is best-effort; the table already exists */
+      }
+    }
+    return { table: args.tableName, rowCount };
+  } finally {
+    try {
+      await connection.close();
+    } catch {
+      /* defensive */
+    }
+    try {
+      await engine.dropFile?.(name);
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
+/**
+ * Coerce a DuckDB `count(*)` cell into a finite number. DuckDB returns
+ * `BIGINT` counts, which `mapArrowTable` stringifies; this parses the
+ * string (or number) back to a safe integer, falling back to `0`.
+ */
+function readCountValue(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.trunc(value));
+  }
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+  }
+  return 0;
 }

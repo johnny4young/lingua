@@ -12,6 +12,7 @@ import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { useSessionStore } from '../../../src/renderer/stores/sessionStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
+import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
 import {
   createBlankHttpRequest,
   type HttpResponseV1,
@@ -56,7 +57,7 @@ vi.mock('../../../src/renderer/runtime/httpClient', async (importOriginal) => {
   };
 });
 
-function makeResponse(): HttpResponseV1 {
+function makeResponse(overrides: Partial<HttpResponseV1> = {}): HttpResponseV1 {
   return {
     version: 1,
     kind: 'success',
@@ -72,6 +73,7 @@ function makeResponse(): HttpResponseV1 {
     tooLarge: false,
     redactedHeaders: [],
     recordedAt: '2026-05-26T00:00:00.000Z',
+    ...overrides,
   };
 }
 
@@ -83,6 +85,7 @@ describe('HttpWorkspacePanel', () => {
     useSettingsStore.setState({ sensitiveHttpHeaders: [] });
     executeHttpRequestMock.mockReset();
     executeHttpRequestMock.mockResolvedValue(makeResponse());
+    useAnnouncerStore.setState({ message: '', nonce: 0 });
   });
 
   it('sends the current editor draft even before the debounce settles', async () => {
@@ -120,6 +123,56 @@ describe('HttpWorkspacePanel', () => {
       expect(latestCapsule?.tab.language).toBe('http');
       expect(latestCapsule?.environment.runner).toBe('http-client');
     });
+    // UX Sweep T4 — the response is announced to screen readers.
+    expect(useAnnouncerStore.getState().message).toMatch(/Response 200/i);
+  });
+
+  it('announces non-2xx HTTP responses with their status code (UX Sweep T4)', async () => {
+    const user = userEvent.setup();
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({
+        kind: 'client-error',
+        status: 404,
+        statusText: 'Not Found',
+      })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-list-create'));
+    await user.type(
+      screen.getByTestId('http-request-editor-url'),
+      'https://api.example.com/missing'
+    );
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    await waitFor(() => {
+      expect(useAnnouncerStore.getState().message).toMatch(
+        /Response 404 Not Found/i
+      );
+    });
+  });
+
+  it('announces a transport failure (status 0) as a generic failure, not a 0 status (UX Sweep T4)', async () => {
+    const user = userEvent.setup();
+    // A network/timeout/cors error has no HTTP status — the runtime sets
+    // status 0. The announcer must NOT read out "Response 0"; it falls back
+    // to the generic failure phrasing.
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({ kind: 'network-error', status: 0, statusText: '' })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-list-create'));
+    await user.type(
+      screen.getByTestId('http-request-editor-url'),
+      'https://api.example.com/unreachable'
+    );
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    await waitFor(() => {
+      expect(useAnnouncerStore.getState().message).toMatch(/Request failed/i);
+    });
+    expect(useAnnouncerStore.getState().message).not.toMatch(/Response 0/i);
   });
 
   // ---- RL-097 Slice 3a — environment interpolation + secret redaction ----

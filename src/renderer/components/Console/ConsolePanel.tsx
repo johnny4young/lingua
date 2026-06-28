@@ -25,7 +25,7 @@ import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRenderer } from './ConsoleEntryRenderer';
 import { OutputLineBadge } from './OutputLineBadge';
 import { richKindBucket } from './richConsoleFormat';
-import { useListWindow } from './useListWindow';
+import { useListWindow } from '../../hooks/useListWindow';
 
 interface AnsiSpan {
   text: string;
@@ -359,6 +359,7 @@ export function ConsolePanel() {
     showTimestamps,
     addEntry,
     clear,
+    restore,
     toggleFilter,
     togglePayloadKindFilter,
     toggleTimestamps,
@@ -588,6 +589,36 @@ export function ConsolePanel() {
     [isRunning, run]
   );
 
+  // UX Sweep T2 fold B — console clear is recoverable: snapshot the
+  // cleared state, clear, then offer an Undo toast that restores it.
+  // Skip the toast when there was nothing to clear so an empty console
+  // never surfaces a meaningless Undo.
+  const handleClearConsole = useCallback(() => {
+    const state = useConsoleStore.getState();
+    if (state.entries.length === 0) {
+      clear();
+      return;
+    }
+    const snapshot = {
+      entries: state.entries,
+      collapsedEntries: state.collapsedEntries,
+      hiddenPayloadKinds: state.hiddenPayloadKinds,
+    };
+    const clearedCount = snapshot.entries.length;
+    clear();
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: 'console.notice.cleared',
+      values: { count: clearedCount },
+      actions: [
+        {
+          labelKey: 'common.undo',
+          onClick: () => restore(snapshot),
+        },
+      ],
+    });
+  }, [clear, restore]);
+
   const [comparison, setComparison] = useState<
     [ExecutionHistoryEntry, ExecutionHistoryEntry] | null
   >(null);
@@ -647,7 +678,7 @@ export function ConsolePanel() {
                 <button
                   onClick={() => toggleFilter(type)}
                   data-active={active ? 'true' : 'false'}
-                  className={`console-filter-chip rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
+                  className={`console-filter-chip focus-ring rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
                     active
                       ? `border-border-strong/90 bg-bg-panel-alt ${TYPE_BADGE[type]}`
                       : 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
@@ -674,7 +705,7 @@ export function ConsolePanel() {
                   onClick={() => togglePayloadKindFilter(kind)}
                   data-active={hidden ? 'false' : 'true'}
                   data-testid={`console-payload-chip-${kind}`}
-                  className={`console-filter-chip rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
+                  className={`console-filter-chip focus-ring rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
                     hidden
                       ? 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
                       : 'border-border-strong/90 bg-bg-panel-alt text-foreground'
@@ -708,7 +739,11 @@ export function ConsolePanel() {
             onRerun={handleReplayHistoryEntry}
             onCompare={canUseExecutionHistory ? handleCompareEntries : undefined}
           />
-          <IconButton onClick={clear} tooltip={t('console.actions.clear')} tone="danger">
+          <IconButton
+            onClick={handleClearConsole}
+            tooltip={t('console.actions.clear')}
+            tone="danger"
+          >
             <Trash2 size={13} />
           </IconButton>
         </div>

@@ -457,6 +457,13 @@ export const TELEMETRY_EVENTS = [
   // content, table names, or row values reach the wire. Mirrored on
   // update-server with parity test.
   'sql.storage_mode',
+  // RL-097 (SQL import) fold B — file imported as a DuckDB table. Fires
+  // once per successful import. Closed-enum `{ format, source }` where
+  // `format` ∈ SQL_IMPORT_FORMATS_SET (`'csv' / 'json' / 'parquet'`) and
+  // `source` ∈ SQL_IMPORT_SOURCES_SET (`'drop' / 'picker'`). NO file
+  // name, NO column names, NO row values reach the wire. Mirrored on
+  // update-server with parity test.
+  'sql.table_imported',
   // RL-099 Slice 1 fold F — utility pipeline execution. Fires once
   // per Run against a stored utility pipeline. Closed-enum
   // `{ stepCount, status }` where `stepCount` reuses
@@ -862,6 +869,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-097 Slice 3 (SQL OPFS) fold F — `mode` + `requested` ∈
   // SQL_STORAGE_MODES_SET. No database content on the wire.
   'sql.storage_mode': ['mode', 'requested'],
+  // RL-097 (SQL import) fold B — `format` ∈ SQL_IMPORT_FORMATS_SET,
+  // `source` ∈ SQL_IMPORT_SOURCES_SET. No file name, column names, or
+  // row values on the wire.
+  'sql.table_imported': ['format', 'source'],
   // RL-099 Slice 1 fold F — `stepCount` ∈ DEPENDENCY_COUNT_BUCKETS_SET,
   // `status` ∈ PIPELINE_RUN_STATUSES_SET. No step contents, utility
   // ids, or input/output values on the wire.
@@ -1456,6 +1467,17 @@ export const SQL_DURATION_BUCKETS_SET = new Set([
   '<30s',
   '>=30s',
 ]);
+// RL-097 (SQL import) fold B — closed enum for `format` on
+// `sql.table_imported`. The renderer-side source of truth is
+// `SUPPORTED_IMPORT_FORMATS` in `src/shared/sqlWorkspace.ts`; duplicated
+// here so the validator stays in shared code without importing the
+// workspace module. Mirrored on update-server with parity test.
+export const SQL_IMPORT_FORMATS_SET = new Set(['csv', 'json', 'parquet']);
+// RL-097 (SQL import) fold B — closed enum for `source` on
+// `sql.table_imported`: `'drop'` (drag-drop) vs `'picker'` (the
+// keyboard-accessible Import button → native file dialog). Mirrored on
+// update-server with parity test.
+export const SQL_IMPORT_SOURCES_SET = new Set(['drop', 'picker']);
 // RL-099 Slice 1 fold F — closed enum for `status` on
 // `utility.pipeline_executed`. Source of truth lives in
 // `src/shared/utilityPipeline.ts` (`PIPELINE_RUN_STATUSES`);
@@ -2097,6 +2119,12 @@ function isAllowedValue(
         typeof value === 'string' &&
         SQL_STORAGE_MODES_SET.has(value)
       );
+    case 'sql.table_imported':
+      if (key === 'format')
+        return typeof value === 'string' && SQL_IMPORT_FORMATS_SET.has(value);
+      if (key === 'source')
+        return typeof value === 'string' && SQL_IMPORT_SOURCES_SET.has(value);
+      return false;
     case 'utility.pipeline_executed':
       if (key === 'stepCount')
         return (

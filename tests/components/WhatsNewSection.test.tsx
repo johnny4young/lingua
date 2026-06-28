@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { initI18n } from '../../src/renderer/i18n';
@@ -70,5 +70,19 @@ describe('WhatsNewSection', () => {
       );
     });
     expect(screen.getByText('stable', { selector: 'strong' })).toBeTruthy();
+  });
+
+  it('announces the search result count via a polite live region (UX Sweep T4)', async () => {
+    render(<WhatsNewSection entries={entries} onClose={() => {}} />);
+    const region = screen.getByTestId('changelog-search-result-count');
+    expect(region.getAttribute('role')).toBe('status');
+    expect(region.getAttribute('aria-live')).toBe('polite');
+    // Silent until the user types a query.
+    expect(region.textContent).toBe('');
+
+    fireEvent.change(screen.getByTestId('changelog-search'), {
+      target: { value: '0.2.0' },
+    });
+    await waitFor(() => expect(region.textContent).toMatch(/matching release/));
   });
 });

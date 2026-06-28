@@ -1,14 +1,19 @@
 /**
  * RL-123 / AUDIT-03 Slice 2 — pure windowing math.
  *
- * `computeWindow` is the only non-trivial part of the console windower, and
- * jsdom cannot measure layout, so it is extracted as a pure function and
- * exhaustively tested here. The React hook (`useListWindow`) is exercised
- * end-to-end by `tests/e2e/consoleWindowing.spec.ts` in real Chromium.
+ * `computeWindow` and `offsetForIndex` are the only non-trivial parts of the
+ * windower, and jsdom cannot measure layout, so they are extracted as pure
+ * functions and exhaustively tested here. The React hook (`useListWindow`)
+ * is exercised end-to-end by `tests/e2e/consoleWindowing.spec.ts` (console)
+ * and `tests/e2e/notebook.spec.ts` (notebook rows, RL-043 Slice H) in real
+ * Chromium.
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeWindow } from '../../../src/renderer/components/Console/useListWindow';
+import {
+  computeWindow,
+  offsetForIndex,
+} from '../../src/renderer/hooks/useListWindow';
 
 const BASE = { overscanPx: 0, estimate: 28 };
 
@@ -140,5 +145,55 @@ describe('computeWindow (RL-123 Slice 2)', () => {
     expect(result.endIndex).toBe(9);
     expect(result.startIndex).toBeLessThanOrEqual(9);
     expect(result.bottomSpacer).toBe(0);
+  });
+});
+
+describe('offsetForIndex (RL-043 Slice H)', () => {
+  it('returns 0 for index 0 and for an empty list', () => {
+    expect(offsetForIndex([], 0, 120)).toBe(0);
+    expect(offsetForIndex([20, 20, 20], 0, 120)).toBe(0);
+    // Empty list, any positive index still clamps to the (zero) total.
+    expect(offsetForIndex([], 5, 120)).toBe(0);
+  });
+
+  it('sums measured heights for rows before the index', () => {
+    const heights = [10, 20, 30, 40];
+    expect(offsetForIndex(heights, 1, 120)).toBe(10);
+    expect(offsetForIndex(heights, 2, 120)).toBe(30);
+    expect(offsetForIndex(heights, 3, 120)).toBe(60);
+  });
+
+  it('falls back to the estimate for unmeasured rows', () => {
+    const heights: Array<number | undefined> = [undefined, undefined, undefined];
+    // Three unmeasured rows before index 3 => 3 * estimate.
+    expect(offsetForIndex(heights, 3, 120)).toBe(360);
+    expect(offsetForIndex(heights, 1, 120)).toBe(120);
+  });
+
+  it('mixes measured + estimated rows (estimate fills the gaps)', () => {
+    // Row 0 measured (50), row 1 unmeasured (=> estimate 120), row 2
+    // measured (30). Offset of row 3 = 50 + 120 + 30 = 200.
+    const heights: Array<number | undefined> = [50, undefined, 30];
+    expect(offsetForIndex(heights, 3, 120)).toBe(200);
+    expect(offsetForIndex(heights, 2, 120)).toBe(170);
+    expect(offsetForIndex(heights, 1, 120)).toBe(50);
+  });
+
+  it('treats a non-positive measured height as unmeasured (uses estimate)', () => {
+    // A 0 / negative reading (content-visibility-skipped row) must not
+    // collapse the offset; it falls back to the estimate like `undefined`.
+    const heights: Array<number | undefined> = [0, -5, 40];
+    expect(offsetForIndex(heights, 2, 120)).toBe(240);
+    expect(offsetForIndex(heights, 3, 120)).toBe(280);
+  });
+
+  it('clamps an out-of-range index to the bounds', () => {
+    const heights = [20, 30, 40];
+    // Negative index => 0.
+    expect(offsetForIndex(heights, -3, 120)).toBe(0);
+    // Index past the end => total content height (the bottom edge).
+    expect(offsetForIndex(heights, 99, 120)).toBe(90);
+    // Exactly at length => total too.
+    expect(offsetForIndex(heights, 3, 120)).toBe(90);
   });
 });

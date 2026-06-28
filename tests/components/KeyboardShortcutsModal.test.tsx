@@ -47,6 +47,10 @@ describe('KeyboardShortcutsModal', () => {
     expect(screen.getByText('Navigation')).toBeTruthy();
     // A concrete combo label for save
     expect(screen.getByTestId('file-save-combo-0').getAttribute('aria-label')).toBe('Ctrl+S');
+    // UX Sweep T1 — the per-row Edit affordance carries the focus ring.
+    expect(
+      screen.getByTestId('shortcut-edit-view-toggle-sidebar').className
+    ).toContain('focus-ring');
   });
 
   it('filters visible shortcuts as the user types in the search field', async () => {
@@ -163,11 +167,57 @@ describe('KeyboardShortcutsModal', () => {
     const user = userEvent.setup();
     render(<KeyboardShortcutsModal onClose={vi.fn()} />);
 
+    // No overrides present (clean beforeEach), so the wipe is harmless and
+    // applies immediately without a confirm dialog.
     await user.selectOptions(screen.getByTestId('shortcut-preset-select'), 'sublime');
 
     const state = useSettingsStore.getState();
     expect(state.keymapPreset).toBe('sublime');
     expect(state.shortcutOverrides['nav-go-to-symbol']?.[0].tokens).toEqual(['Mod', 'R']);
+    // No confirm dialog when there was nothing to lose.
+    expect(screen.queryByTestId('shortcut-preset-confirm')).toBeNull();
+  });
+
+  it('does NOT confirm a preset change on mount or a no-op same-preset selection', async () => {
+    const user = userEvent.setup();
+    // Start on a preset with overrides present.
+    useSettingsStore.getState().applyKeymapPreset('sublime');
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    // Mount alone never fires the confirm.
+    expect(screen.queryByTestId('shortcut-preset-confirm')).toBeNull();
+
+    // Re-selecting the SAME preset is a no-op and must not confirm.
+    await user.selectOptions(screen.getByTestId('shortcut-preset-select'), 'sublime');
+    expect(screen.queryByTestId('shortcut-preset-confirm')).toBeNull();
+  });
+
+  it('confirms before wiping overrides when switching to a different preset', async () => {
+    const user = userEvent.setup();
+    // Seed real custom overrides (keymapPreset flips to default).
+    useSettingsStore
+      .getState()
+      .setShortcutOverride('view-toggle-sidebar', [{ tokens: ['Mod', 'Shift', 'B'] }]);
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    await user.selectOptions(screen.getByTestId('shortcut-preset-select'), 'sublime');
+
+    // The change is gated behind the confirm — store is untouched so far.
+    expect(screen.getByTestId('shortcut-preset-confirm')).toBeTruthy();
+    expect(useSettingsStore.getState().keymapPreset).toBe('default');
+    expect(
+      useSettingsStore.getState().shortcutOverrides['view-toggle-sidebar']
+    ).toBeTruthy();
+
+    // Cancel aborts with no mutation.
+    await user.click(screen.getByTestId('shortcut-preset-confirm-cancel'));
+    expect(useSettingsStore.getState().keymapPreset).toBe('default');
+    expect(screen.queryByTestId('shortcut-preset-confirm')).toBeNull();
+
+    // Re-open and confirm — now the preset applies.
+    await user.selectOptions(screen.getByTestId('shortcut-preset-select'), 'sublime');
+    await user.click(screen.getByTestId('shortcut-preset-confirm-confirm'));
+    expect(useSettingsStore.getState().keymapPreset).toBe('sublime');
   });
 
   it('reset-all clears every override', async () => {
@@ -206,6 +256,51 @@ describe('KeyboardShortcutsModal', () => {
 
     render(<KeyboardShortcutsModal onClose={vi.fn()} />);
     expect(screen.getByTestId('shortcut-export').hasAttribute('disabled')).toBe(false);
+  });
+
+  it('imports immediately when there are no overrides to overwrite', async () => {
+    const user = userEvent.setup();
+    const selectFile = vi.fn().mockResolvedValue({ canceled: true });
+    (window as unknown as { lingua: { fs: { selectFile: typeof selectFile } } }).lingua = {
+      ...(window as unknown as { lingua: object }).lingua,
+      fs: { selectFile },
+    } as never;
+
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+    await user.click(screen.getByTestId('shortcut-import'));
+
+    // No overrides → clean seed → no confirm, picker opens directly.
+    expect(screen.queryByTestId('shortcut-import-confirm')).toBeNull();
+    expect(selectFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirms before an import overwrites existing overrides', async () => {
+    const user = userEvent.setup();
+    const selectFile = vi.fn().mockResolvedValue({ canceled: true });
+    (window as unknown as { lingua: { fs: { selectFile: typeof selectFile } } }).lingua = {
+      ...(window as unknown as { lingua: object }).lingua,
+      fs: { selectFile },
+    } as never;
+
+    useSettingsStore
+      .getState()
+      .setShortcutOverride('view-toggle-sidebar', [{ tokens: ['Mod', 'Shift', 'B'] }]);
+
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+    await user.click(screen.getByTestId('shortcut-import'));
+
+    // The picker must NOT open until the user confirms the overwrite.
+    expect(screen.getByTestId('shortcut-import-confirm')).toBeTruthy();
+    expect(selectFile).not.toHaveBeenCalled();
+
+    // Cancel aborts — picker stays closed.
+    await user.click(screen.getByTestId('shortcut-import-confirm-cancel'));
+    expect(selectFile).not.toHaveBeenCalled();
+
+    // Confirm proceeds to the picker.
+    await user.click(screen.getByTestId('shortcut-import'));
+    await user.click(screen.getByTestId('shortcut-import-confirm-confirm'));
+    expect(selectFile).toHaveBeenCalledTimes(1);
   });
 
   it('fires onClose when the close affordance is clicked', async () => {

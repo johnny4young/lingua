@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLicenseStore } from '../../stores/licenseStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -121,8 +122,20 @@ export function ExhaustedDevicesModal({ onClose }: ExhaustedDevicesModalProps) {
     onClose();
   };
 
+  // UX Sweep T3 — this modal is nested inside the Settings overlay, whose
+  // Escape is handled by a global window keydown listener that closes the
+  // WHOLE Settings surface. Handle Escape locally (dismiss just this modal,
+  // non-destructively) and stop propagation so the global listener never
+  // sees it — same mechanic the shared ConfirmDialog uses.
+  const handleEscape = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  };
+
   return (
-    <OverlayBackdrop>
+    <OverlayBackdrop onKeyDown={handleEscape}>
       <OverlayCard
         role="dialog"
         aria-modal="true"
@@ -158,7 +171,11 @@ export function ExhaustedDevicesModal({ onClose }: ExhaustedDevicesModalProps) {
             disabled={pendingRemovalId !== null || isRetrying}
             data-testid="license-exhausted-cancel"
           >
-            {t('license.devices.exhaustedModal.cancel')}
+            {/* UX Sweep T2 — this button calls clearLicense(), which
+                discards the license and drops the user to Free. Labelling
+                it Cancel was a lie (Cancel implies "keep things as they
+                are"); it is relabelled to name what it actually does. */}
+            {t('license.devices.exhaustedModal.discard')}
           </button>
           <button
             type="button"

@@ -27,6 +27,20 @@ interface SnippetsState {
    */
   addSnippet: (snippet: Omit<Snippet, 'id' | 'createdAt'>) => string | null;
   removeSnippet: (id: string) => void;
+  /**
+   * UX Sweep T2 fold B — re-insert a previously-removed snippet at its
+   * original list index so the undo toast can restore it verbatim
+   * (same id, same `createdAt`). `maxCountAfterRestore` is the list
+   * length before deletion; undo may restore grandfathered snippets up to
+   * that count, but it must not exceed it if the user created a
+   * replacement before pressing Undo. A no-op when a snippet with that id
+   * already exists (double-undo guard); the index is clamped into range.
+   */
+  restoreSnippet: (
+    snippet: Snippet,
+    index: number,
+    maxCountAfterRestore: number
+  ) => void;
   updateSnippet: (
     id: string,
     updates: Partial<Pick<Snippet, 'label' | 'description' | 'code' | 'language'>>
@@ -72,6 +86,16 @@ export const useSnippetsStore = create<SnippetsState>()(
 
       removeSnippet: (id) =>
         set((state) => ({ snippets: state.snippets.filter((s) => s.id !== id) })),
+
+      restoreSnippet: (snippet, index, maxCountAfterRestore) =>
+        set((state) => {
+          if (state.snippets.some((s) => s.id === snippet.id)) return state;
+          if (state.snippets.length + 1 > maxCountAfterRestore) return state;
+          const clamped = Math.max(0, Math.min(index, state.snippets.length));
+          const next = state.snippets.slice();
+          next.splice(clamped, 0, snippet);
+          return { snippets: next };
+        }),
 
       updateSnippet: (id, updates) =>
         set((state) => ({

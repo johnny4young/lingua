@@ -791,7 +791,15 @@ export function CommandPalette({
       }
       footerLegend={<ModalFooterLegend navigate select close={false} />}
       trailing={
-        <span className="font-mono text-caption text-fg-subtle">
+        // UX Sweep T4 — polite live region announcing the result count as
+        // the query narrows, so screen-reader users hear matches/empty.
+        <span
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          data-testid="command-palette-result-count"
+          className="font-mono text-caption text-fg-subtle"
+        >
           {t('commandPalette.results.count', { count: filtered.length })}
         </span>
       }

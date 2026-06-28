@@ -122,6 +122,42 @@ describe('<NotebookView />', () => {
     expect(screen.getAllByTestId(/^notebook-(code|markdown)-cell-row$/)).toHaveLength(2);
   });
 
+  it('gives every cell-row action button the shared focus ring (UX Sweep T1)', () => {
+    render(<NotebookView tabId={TAB_ID} />);
+    for (const testId of [
+      'notebook-code-cell-run',
+      'notebook-code-cell-move-up',
+      'notebook-code-cell-move-down',
+      'notebook-code-cell-delete',
+      'notebook-markdown-cell-toggle-edit',
+      'notebook-markdown-cell-move-up',
+      'notebook-markdown-cell-move-down',
+      'notebook-markdown-cell-delete',
+      'notebook-toolbar-run-all',
+      'notebook-toolbar-stop',
+      'notebook-toolbar-shortcuts',
+    ]) {
+      expect(screen.getByTestId(testId).className).toContain('focus-ring');
+    }
+  });
+
+
+  it('gives the code-output collapse toggle the shared focus ring (UX Sweep T1)', () => {
+    seedNotebookCells([
+      {
+        kind: 'code',
+        id: 'cell-output',
+        language: 'javascript',
+        source: 'console.log(1)',
+        outputs: [{ kind: 'text', stream: 'stdout', text: '1' }],
+      },
+    ]);
+    render(<NotebookView tabId={TAB_ID} />);
+    expect(screen.getByTestId('notebook-code-cell-output-toggle').className).toContain(
+      'focus-ring'
+    );
+  });
+
   it('renders the not-found state when the notebook is missing', () => {
     render(<NotebookView tabId="does-not-exist" />);
     expect(screen.getByTestId('notebook-view-empty')).toBeTruthy();
@@ -429,10 +465,19 @@ describe('<NotebookView />', () => {
     render(<NotebookView tabId={TAB_ID} />);
 
     // Activate the first code cell (the seed already selects it, but make the
-    // intent explicit) so Run above targets the range through it.
-    fireEvent.mouseDown(screen.getAllByTestId('notebook-code-cell-row')[0]!);
+    // intent explicit) so Run above targets the range through it. Use the
+    // store action directly instead of relying on row focus timing: the full
+    // suite can still have queued async focus updates from earlier notebook
+    // tests, and this assertion is about the toolbar's active-cell target.
+    act(() => {
+      useNotebookStore.getState().setActiveCell(TAB_ID, 'cell-one');
+    });
     const user = userEvent.setup();
-    await user.click(screen.getByTestId('notebook-toolbar-run-above'));
+    const runAboveButton = screen.getByTestId(
+      'notebook-toolbar-run-above'
+    ) as HTMLButtonElement;
+    await waitFor(() => expect(runAboveButton.disabled).toBe(false));
+    await user.click(runAboveButton);
 
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
   });

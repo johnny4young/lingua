@@ -17,6 +17,7 @@ import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
 import { useDirtyTabPaths, dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { useProjectBundle } from '../../hooks/useProjectBundle';
 import { IconButton } from '../ui/chrome';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import { FileTreeNode } from './FileTreeNode';
@@ -27,6 +28,11 @@ import type { CreationTarget } from './fileTreeTypes';
 
 interface FileTreeProps {
   onNavigate?: () => void;
+}
+
+function shouldUseRendererDeleteConfirm(): boolean {
+  const platform = window.lingua?.platform;
+  return platform === undefined || platform === 'web';
 }
 
 export function FileTree({ onNavigate }: FileTreeProps) {
@@ -71,6 +77,13 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   const { exportProjectBundle } = useProjectBundle();
 
   const [creating, setCreating] = useState<CreationTarget>(null);
+  // UX Sweep T2 BLOCKER #1 — the entry pending a delete confirmation.
+  // Web FSA delete has no trash, so web uses the shared renderer
+  // ConfirmDialog. Desktop still delegates the final confirmation to
+  // main-process IPC, keeping the host-filesystem trust boundary there.
+  const [pendingDelete, setPendingDelete] = useState<ProjectFileTreeNode | null>(
+    null
+  );
 
   // RL-024 Slice 1 folds B + E — discovered-file count for the
   // header badge and a smart-truncated tooltip path. Memoised on the
@@ -136,7 +149,18 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     onNavigate?.();
   };
 
-  const handleDelete = async (node: ProjectFileTreeNode) => {
+  const handleDelete = (node: ProjectFileTreeNode) => {
+    if (shouldUseRendererDeleteConfirm()) {
+      setPendingDelete(node);
+      return;
+    }
+    void deleteEntry(node.path, node.isDirectory);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    const node = pendingDelete;
+    setPendingDelete(null);
     await deleteEntry(node.path, node.isDirectory);
   };
 
@@ -293,7 +317,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
       <div className="border-t border-border/70 p-2">
         <button
           onClick={() => openProject()}
-          className="flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-body-sm text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
+          className="focus-ring flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-body-sm text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
         >
           <OpenFolderIcon size={12} />
           {t('fileTree.openDifferent')}
@@ -305,6 +329,23 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           PERF-001 — it owns its own narrowed `tabs` projection so a
           keystroke in the editor does not re-render the explorer tree. */}
       <FileTreeOpenTabs onNavigate={onNavigate} />
+
+      {pendingDelete ? (
+        <ConfirmDialog
+          testId="file-tree-delete-confirm"
+          title={t('fileTree.delete.confirm.title')}
+          body={t(
+            pendingDelete.isDirectory
+              ? 'fileTree.delete.confirm.body.directory'
+              : 'fileTree.delete.confirm.body.file',
+            { name: pendingDelete.name }
+          )}
+          confirmLabel={t('fileTree.delete.confirm.confirm')}
+          cancelLabel={t('fileTree.delete.confirm.cancel')}
+          onConfirm={() => void handleConfirmDelete()}
+          onCancel={() => setPendingDelete(null)}
+        />
+      ) : null}
     </div>
   );
 }

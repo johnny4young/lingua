@@ -14,14 +14,14 @@
  * store-side collapse + hash bench below locks the de-render work the windower
  * builds on; the windowing bound itself (only a viewport-sized slice mounts,
  * not all 500 rows) is locked by the second bench here and unit-tested in
- * `tests/components/Console/listWindow.test.ts`.
+ * `tests/hooks/useListWindow.test.ts`.
  *
  * CI gets a 1.5x multiplier per the pattern in `consoleOutputBadge.bench.test.ts`.
  */
 
 import { describe, it, expect } from 'vitest';
 import { useConsoleStore } from '@/stores/consoleStore';
-import { computeWindow } from '@/components/Console/useListWindow';
+import { computeWindow } from '@/hooks/useListWindow';
 
 const IS_CI = process.env.CI === 'true';
 const CI_MULTIPLIER = 1.5;

@@ -6,6 +6,7 @@ import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useSnippetsStore } from '../../stores/snippetsStore';
+import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../types';
 import {
   extensionForLanguage,
@@ -189,6 +190,17 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
       return;
     }
 
+    // UX Sweep T2 fold B — snippet delete is recoverable, so it deletes
+    // optimistically and offers an Undo toast rather than blocking on a
+    // confirm. Stash the snippet AND its index in the persisted store
+    // array so Undo re-inserts it verbatim at the same position.
+    const storeSnippets = useSnippetsStore.getState().snippets;
+    const removed = storeSnippets.find((s) => s.id === selectedSnippet.id);
+    const removedIndex = storeSnippets.findIndex(
+      (s) => s.id === selectedSnippet.id
+    );
+    const maxCountAfterRestore = storeSnippets.length;
+
     removeSnippet(selectedSnippet.id);
     const remainingSnippets = sortedSnippets.filter(
       (snippet) => snippet.id !== selectedSnippet.id
@@ -197,6 +209,35 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
     setIsCreatingNew(remainingSnippets.length === 0);
     if (remainingSnippets.length === 0) {
       setDraft(EMPTY_SNIPPET_DRAFT);
+    }
+
+    if (removed) {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: 'snippets.notice.deleted',
+        values: { label: removed.label || t('snippets.detail.fallbackHeading') },
+        actions: [
+          {
+            labelKey: 'common.undo',
+            onClick: () => {
+              // Re-insert at the original index. `restoreSnippet` no-ops
+              // if the snippet already exists (e.g. a re-create raced the
+              // toast) or if the user filled the freed slot before Undo,
+              // so a double-undo can never duplicate it or bypass the cap.
+              useSnippetsStore
+                .getState()
+                .restoreSnippet(removed, removedIndex, maxCountAfterRestore);
+              const restored = useSnippetsStore
+                .getState()
+                .snippets.some((snippet) => snippet.id === removed.id);
+              if (restored) {
+                setSelectedSnippetId(removed.id);
+                setIsCreatingNew(false);
+              }
+            },
+          },
+        ],
+      });
     }
   };
 

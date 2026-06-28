@@ -13,7 +13,7 @@
  * preview.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
 import type { NotebookMarkdownCellV1 } from '../../../shared/notebook';
@@ -47,7 +47,7 @@ export interface NotebookMarkdownCellRowProps {
   onDelete: (cellId: string) => void;
 }
 
-export function NotebookMarkdownCellRow({
+function NotebookMarkdownCellRowImpl({
   cell,
   cellIndex,
   isActive,
@@ -162,7 +162,7 @@ export function NotebookMarkdownCellRow({
             aria-label={t(editing ? 'notebook.cell.previewMarkdown' : 'notebook.cell.editMarkdown')}
             data-testid="notebook-markdown-cell-toggle-edit"
             aria-pressed={editing}
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil size={11} aria-hidden="true" />
           </button>
@@ -172,7 +172,7 @@ export function NotebookMarkdownCellRow({
             disabled={!canMoveUp || disabled}
             aria-label={t('notebook.cell.moveUp')}
             data-testid="notebook-markdown-cell-move-up"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowUp size={11} aria-hidden="true" />
           </button>
@@ -182,7 +182,7 @@ export function NotebookMarkdownCellRow({
             disabled={!canMoveDown || disabled}
             aria-label={t('notebook.cell.moveDown')}
             data-testid="notebook-markdown-cell-move-down"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowDown size={11} aria-hidden="true" />
           </button>
@@ -192,7 +192,7 @@ export function NotebookMarkdownCellRow({
             disabled={disabled}
             aria-label={t('notebook.cell.delete')}
             data-testid="notebook-markdown-cell-delete"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 size={11} aria-hidden="true" />
           </button>
@@ -245,3 +245,11 @@ export function NotebookMarkdownCellRow({
     </article>
   );
 }
+
+/**
+ * RL-043 Slice H fold C — memoized so the windowed cell list skips
+ * re-rendering markdown rows whose props are unchanged when a sibling cell
+ * edits. All handler props are stable `useCallback`s in the view, so the
+ * default shallow comparison is enough.
+ */
+export const NotebookMarkdownCellRow = memo(NotebookMarkdownCellRowImpl);

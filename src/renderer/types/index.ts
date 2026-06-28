@@ -483,6 +483,20 @@ export type ConsolePayloadKindBucket =
 
 export type ConsolePayloadKindFilter = ConsolePayloadKindBucket | 'errorish';
 
+/**
+ * UX Sweep T2 fold B — the slice of console state that `clear()` wipes,
+ * captured so the Undo toast can put it back without losing rows that
+ * arrived after the clear. Holds the three fields `clear()` resets
+ * (`entries`, `collapsedEntries`, `hiddenPayloadKinds`); the filter set
+ * and timestamp toggle are not touched by clear and so are not part of
+ * the snapshot.
+ */
+export interface ConsoleClearSnapshot {
+  entries: ConsoleEntry[];
+  collapsedEntries: CollapsedConsoleRow[];
+  hiddenPayloadKinds: Set<ConsolePayloadKindFilter>;
+}
+
 export interface ConsoleState {
   entries: ConsoleEntry[];
   /**
@@ -505,6 +519,14 @@ export interface ConsoleState {
   showTimestamps: boolean;
   addEntry: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => void;
   clear: () => void;
+  /**
+   * UX Sweep T2 fold B — re-instate a {@link ConsoleClearSnapshot} that
+   * `clear()` previously wiped, for the Undo toast. Rows emitted after the
+   * clear are appended after the restored snapshot instead of being
+   * dropped, so Undo cannot erase new runtime output. No-op-safe:
+   * restoring an empty snapshot keeps any current rows.
+   */
+  restore: (snapshot: ConsoleClearSnapshot) => void;
   toggleFilter: (type: ConsoleEntryType) => void;
   togglePayloadKindFilter: (kind: ConsolePayloadKindFilter) => void;
   clearPayloadKindFilters: () => void;

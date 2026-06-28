@@ -12,7 +12,7 @@
  * surface contract (source string, language, run handler) stays unchanged.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowDown,
@@ -163,7 +163,7 @@ function outputStatusKey(status: NotebookCellRunStatus): string {
   }
 }
 
-export function NotebookCodeCellRow({
+function NotebookCodeCellRowImpl({
   cell,
   cellIndex,
   status,
@@ -507,7 +507,7 @@ export function NotebookCodeCellRow({
             onClick={() => runWithFlush(onRunCell)}
             disabled={disabled || status === 'running'}
             data-testid="notebook-code-cell-run"
-            className="inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-eyebrow font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-eyebrow font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Play size={9} aria-hidden="true" />
             {t('notebook.cell.runCell')}
@@ -518,7 +518,7 @@ export function NotebookCodeCellRow({
             disabled={!canMoveUp || disabled}
             aria-label={t('notebook.cell.moveUp')}
             data-testid="notebook-code-cell-move-up"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowUp size={11} aria-hidden="true" />
           </button>
@@ -528,7 +528,7 @@ export function NotebookCodeCellRow({
             disabled={!canMoveDown || disabled}
             aria-label={t('notebook.cell.moveDown')}
             data-testid="notebook-code-cell-move-down"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowDown size={11} aria-hidden="true" />
           </button>
@@ -538,7 +538,7 @@ export function NotebookCodeCellRow({
             disabled={disabled}
             aria-label={t('notebook.cell.delete')}
             data-testid="notebook-code-cell-delete"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 size={11} aria-hidden="true" />
           </button>
@@ -618,7 +618,7 @@ export function NotebookCodeCellRow({
                       : t('notebook.cell.collapseOutput')
                   }
                   data-testid="notebook-code-cell-output-toggle"
-                  className="inline-flex h-5 w-5 items-center justify-center rounded text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="focus-ring inline-flex h-5 w-5 items-center justify-center rounded text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base"
                 >
                   {outputsCollapsed ? (
                     <ChevronRight size={12} aria-hidden="true" />
@@ -657,3 +657,14 @@ export function NotebookCodeCellRow({
     </article>
   );
 }
+
+/**
+ * RL-043 Slice H fold C — memoized so the windowed cell list only re-renders
+ * the rows whose props actually change. Every handler the view passes is a
+ * stable `useCallback`, and the per-cell data props (cell, status, latency,
+ * var-flow, execution order, active/move flags) are referentially stable
+ * across an unrelated sibling's edit, so the default shallow-prop comparison
+ * is sufficient — a keystroke in one cell no longer re-renders every other
+ * mounted row.
+ */
+export const NotebookCodeCellRow = memo(NotebookCodeCellRowImpl);

@@ -47,6 +47,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { asRelativePath } from '../../../shared/fs/brandedIds';
 import { joinAbsolute } from '../../utils/filePath';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { handleCloseOnEscape } from '../ui/keyboard';
 import { trackEvent } from '../../utils/telemetry';
 import { bucketDependencyCount } from '../../../shared/dependencies/types';
@@ -508,47 +509,20 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
       </OverlayCard>
 
       {confirmOpen ? (
-        <OverlayBackdrop align="center" onClose={() => setConfirmOpen(false)}>
-          <OverlayCard
-            role="alertdialog"
-            aria-modal="true"
-            aria-label={t('projectReplace.confirm.title', {
-              fileCount: installableFileCount,
-            })}
-            className="w-full max-w-md"
-            data-testid="project-replace-confirm"
-          >
-            <header className="px-4 py-3 text-body font-semibold text-foreground">
-              {t('projectReplace.confirm.title', {
-                fileCount: installableFileCount,
-              })}
-            </header>
-            <p className="px-4 py-2 text-body-sm text-muted">
-              {t('projectReplace.confirm.body', {
-                count: totalMatches,
-                fileCount: installableFileCount,
-              })}
-            </p>
-            <footer className="flex items-center justify-end gap-2 px-4 py-3">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                className="rounded-md border border-border/70 bg-surface/40 px-3 py-1 text-caption text-foreground hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                data-testid="project-replace-confirm-cancel"
-              >
-                {t('projectReplace.confirm.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleApplyToAll()}
-                className="rounded-md border border-border/70 bg-primary/40 px-3 py-1 text-caption font-medium text-foreground hover:bg-primary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                data-testid="project-replace-confirm-apply"
-              >
-                {t('projectReplace.applyToAll.button')}
-              </button>
-            </footer>
-          </OverlayCard>
-        </OverlayBackdrop>
+        <ConfirmDialog
+          testId="project-replace-confirm"
+          title={t('projectReplace.confirm.title', {
+            fileCount: installableFileCount,
+          })}
+          body={t('projectReplace.confirm.body', {
+            count: totalMatches,
+            fileCount: installableFileCount,
+          })}
+          confirmLabel={t('projectReplace.applyToAll.button')}
+          cancelLabel={t('projectReplace.confirm.cancel')}
+          onConfirm={() => void handleApplyToAll()}
+          onCancel={() => setConfirmOpen(false)}
+        />
       ) : null}
     </OverlayBackdrop>
   );

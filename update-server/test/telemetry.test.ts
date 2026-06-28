@@ -558,6 +558,41 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
+  it('SQL_IMPORT_FORMATS_SET + SQL_IMPORT_SOURCES_SET stay in sync with shared (RL-097 SQL import fold B)', async () => {
+    // Closed-enum parity for the `sql.table_imported.{format,source}`
+    // fields. Source-regex (not import) so the worker bundle stays free
+    // of a renderer/shared import.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const extract = (source: string, name: string): string[] => {
+      const re = new RegExp(`${name}\\s*=\\s*new\\s+Set\\(\\s*\\[([^\\]]+)\\]\\s*\\)`, 'u');
+      const match = source.match(re);
+      expect(match, `${name} not found`).not.toBeNull();
+      return [...(match![1] ?? '').matchAll(/'([^']+)'/gu)]
+        .map((m) => m[1]!)
+        .sort();
+    };
+    expect(extract(workerSource, 'SQL_IMPORT_FORMATS_SET')).toEqual(
+      extract(sharedSource, 'SQL_IMPORT_FORMATS_SET')
+    );
+    expect(extract(workerSource, 'SQL_IMPORT_FORMATS_SET')).toEqual([
+      'csv',
+      'json',
+      'parquet',
+    ]);
+    expect(extract(workerSource, 'SQL_IMPORT_SOURCES_SET')).toEqual(
+      extract(sharedSource, 'SQL_IMPORT_SOURCES_SET')
+    );
+    expect(extract(workerSource, 'SQL_IMPORT_SOURCES_SET')).toEqual([
+      'drop',
+      'picker',
+    ]);
+  });
+
   it('PROJECT_BUNDLE_* enums stay in sync across worker, shared, and projectBundle (RL-024 Slice 3)', async () => {
     // 3-way closed-enum parity for the project zip bundle events. The
     // status enums live in worker + shared telemetry; the reject-reason

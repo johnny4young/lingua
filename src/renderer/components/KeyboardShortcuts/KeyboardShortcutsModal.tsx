@@ -30,6 +30,7 @@ import { joinAbsolute } from '../../utils/filePath';
 import { notifyBlockedFamily } from '../../utils/blockedPath';
 import type { RootId } from '../../../shared/fs/brandedIds';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Eyebrow } from '../ui/primitives';
 
 const NON_EDITABLE_SHORTCUTS: ReadonlySet<string> = new Set(['overlay-close']);
@@ -173,7 +174,7 @@ function ShortcutRow({
               <button
                 type="button"
                 onClick={onCancelRecording}
-                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
+                className="focus-ring rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.cancelAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.cancel')}
@@ -183,7 +184,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onStartRecording}
                 data-testid={`shortcut-edit-${shortcut.id}`}
-                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
+                className="focus-ring rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.editAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.edit')}
@@ -194,7 +195,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onReset}
                 data-testid={`shortcut-reset-${shortcut.id}`}
-                className="rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
+                className="focus-ring rounded-lg border border-transparent px-1.5 py-0.5 text-caption text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.resetSingleAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.reset')}
@@ -211,6 +212,10 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [recordingId, setRecordingId] = useState<string | null>(null);
+  // UX Sweep T2 — the preset id awaiting a wipe confirmation, and
+  // whether the import-overwrite confirm is open.
+  const [pendingPresetId, setPendingPresetId] = useState<string | null>(null);
+  const [confirmImport, setConfirmImport] = useState(false);
   const platform = resolveShortcutDisplayPlatform(
     window.lingua?.platform ?? 'unknown',
     window.navigator?.platform
@@ -344,7 +349,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     }
   }, [overrides, pushStatusNotice]);
 
-  const handleImport = useCallback(async () => {
+  const runImport = useCallback(async () => {
     const selectFile = window.lingua?.fs?.selectFile;
     const revokeRoot = window.lingua?.fs?.revokeRoot;
     if (!selectFile) {
@@ -398,6 +403,40 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     }
   }, [pushStatusNotice, resetShortcutOverrides, setShortcutOverride]);
 
+  // UX Sweep T2 — importing a preset wipes the user's existing
+  // per-shortcut overrides. Confirm before that overwrite, but only
+  // when there is something to lose; with no overrides the import is
+  // a clean seed and the confirm would be friction with no payoff.
+  const handleImport = useCallback(() => {
+    if (hasOverrides) {
+      setConfirmImport(true);
+      return;
+    }
+    void runImport();
+  }, [hasOverrides, runImport]);
+
+  // UX Sweep T2 — applying a keymap preset replaces ALL per-shortcut
+  // overrides with the preset's set. Confirm only when overrides exist
+  // AND the chosen preset actually differs from the active one, so the
+  // dialog never fires on a no-op re-selection (and never on mount —
+  // this only runs from the select's onChange).
+  const handleSelectPreset = useCallback(
+    (presetId: string) => {
+      if (hasOverrides && presetId !== keymapPreset) {
+        setPendingPresetId(presetId);
+        return;
+      }
+      applyKeymapPreset(presetId);
+    },
+    [applyKeymapPreset, hasOverrides, keymapPreset]
+  );
+
+  const handleConfirmPreset = useCallback(() => {
+    if (pendingPresetId === null) return;
+    applyKeymapPreset(pendingPresetId);
+    setPendingPresetId(null);
+  }, [applyKeymapPreset, pendingPresetId]);
+
   return (
     <OverlayBackdrop onClose={onClose}>
       <OverlayCard
@@ -435,7 +474,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               <span>{t('shortcuts.preset.label')}</span>
               <select
                 value={keymapPreset}
-                onChange={(event) => applyKeymapPreset(event.target.value)}
+                onChange={(event) => handleSelectPreset(event.target.value)}
                 data-testid="shortcut-preset-select"
                 className="rounded-xl border border-border/80 bg-background-elevated/88 px-2.5 py-1.5 text-body-sm text-foreground outline-none focus:border-primary/50"
               >
@@ -561,6 +600,41 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
           </div>
         </footer>
       </OverlayCard>
+
+      {pendingPresetId !== null ? (
+        <ConfirmDialog
+          testId="shortcut-preset-confirm"
+          title={t('shortcuts.editor.presetConfirm.title')}
+          body={t('shortcuts.editor.presetConfirm.body', {
+            count: Object.keys(overrides).length,
+            preset: t(
+              KEYMAP_PRESETS.find((p) => p.id === pendingPresetId)?.labelKey ??
+                'shortcuts.preset.label'
+            ),
+          })}
+          confirmLabel={t('shortcuts.editor.presetConfirm.confirm')}
+          cancelLabel={t('shortcuts.editor.presetConfirm.cancel')}
+          onConfirm={handleConfirmPreset}
+          onCancel={() => setPendingPresetId(null)}
+        />
+      ) : null}
+
+      {confirmImport ? (
+        <ConfirmDialog
+          testId="shortcut-import-confirm"
+          title={t('shortcuts.editor.importConfirm.title')}
+          body={t('shortcuts.editor.importConfirm.body', {
+            count: Object.keys(overrides).length,
+          })}
+          confirmLabel={t('shortcuts.editor.importConfirm.confirm')}
+          cancelLabel={t('shortcuts.editor.importConfirm.cancel')}
+          onConfirm={() => {
+            setConfirmImport(false);
+            void runImport();
+          }}
+          onCancel={() => setConfirmImport(false)}
+        />
+      ) : null}
     </OverlayBackdrop>
   );
 }

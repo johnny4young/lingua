@@ -172,7 +172,7 @@ function DeviceRow({
             : t('license.devices.remove')
         }
         className={cn(
-          'shrink-0 rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60'
+          'focus-ring shrink-0 rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60'
         )}
       >
         {isPending ? t('license.devices.removing') : t('license.devices.remove')}

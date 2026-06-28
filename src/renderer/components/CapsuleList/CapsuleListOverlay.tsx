@@ -113,6 +113,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   // the same caveat `RecentRunsPill` documents for `byTabId`.
   const allEntries = useExecutionHistoryStore((s) => s.entries);
   const clearCapsule = useExecutionHistoryStore((s) => s.clearCapsule);
+  const restoreCapsule = useExecutionHistoryStore((s) => s.restoreCapsule);
   const capsuleEntries = useMemo<readonly ExecutionHistoryEntry[]>(() => {
     const out: ExecutionHistoryEntry[] = [];
     for (let i = allEntries.length - 1; i >= 0; i -= 1) {
@@ -323,13 +324,31 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
 
   const handleDelete = useCallback(
     (entry: ExecutionHistoryEntry) => {
+      // UX Sweep T2 fold E — removing a capsule only strips `lastCapsule`
+      // from a run row that stays in the history; it is fully
+      // recoverable, so it deletes optimistically and offers an Undo
+      // toast instead of confirming. Stash the capsule so Undo can
+      // re-attach it to the same row (its array position never moved).
+      const removed = entry.lastCapsule;
       clearCapsule(entry.id);
       pushStatusNotice({
-        tone: 'success',
+        tone: 'info',
         messageKey: 'capsuleList.notice.capsuleRemoved',
+        actions: removed
+          ? [
+              {
+                labelKey: 'common.undo',
+                onClick: () => {
+                  // restoreCapsule no-ops if the row already has a
+                  // capsule again, so a double-undo is harmless.
+                  restoreCapsule(entry.id, removed);
+                },
+              },
+            ]
+          : undefined,
       });
     },
-    [clearCapsule, pushStatusNotice]
+    [clearCapsule, restoreCapsule, pushStatusNotice]
   );
 
   const handleUpgrade = useCallback(() => {

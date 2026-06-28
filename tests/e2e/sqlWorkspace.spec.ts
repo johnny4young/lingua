@@ -49,4 +49,43 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     ).toBeVisible();
     await expect(page.getByTestId('sql-workspace-panel')).toBeVisible();
   });
+
+  // RL-097 (SQL import) — import a small CSV via the keyboard-accessible
+  // picker and assert the new table shows in the schema browser. Drives
+  // the REAL bundled DuckDB-WASM engine end-to-end (read_csv_auto).
+  test('imports a CSV via the picker and lists the new table (EN)', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+S');
+    await expect(page.getByTestId('sql-workspace-panel')).toBeVisible();
+
+    // Set a file on the hidden import input the toolbar Import button
+    // opens. The native dialog is keyboard-accessible, so this mirrors the
+    // keyboard-only path without a mouse click on the picker.
+    await page.getByTestId('sql-workspace-import-input').setInputFiles({
+      name: 'people.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('id,name\n1,Ada\n2,Linus\n'),
+    });
+
+    // The preview modal opens — role=dialog with a pre-filled table name.
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(page.getByTestId('sql-import-modal-name')).toHaveValue('people');
+    await expect(page.getByTestId('sql-import-modal-columns')).toContainText(
+      'name'
+    );
+
+    // Confirm the import, then the modal closes.
+    await page.getByTestId('sql-import-modal-confirm').click();
+    await expect(dialog).toBeHidden();
+
+    // The new table appears in the schema browser.
+    await expect(
+      page.locator('[data-testid="sql-schema-browser-table"][data-table-name="people"]')
+    ).toBeVisible();
+  });
 });

@@ -65,7 +65,7 @@ export function FileTreeEmptyState({
               <button
                 key={project.id}
                 onClick={() => onOpenRecentProject(project)}
-                className="flex w-full items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-body-sm text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
+                className="focus-ring flex w-full items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-body-sm text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
                 title={project.rootPath}
               >
                 <Folder size={12} className="shrink-0 text-warning" />

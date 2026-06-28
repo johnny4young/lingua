@@ -26,7 +26,15 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
@@ -34,6 +42,7 @@ import { useUtilityPipelineStore } from '../../stores/utilityPipelineStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import {
@@ -57,6 +66,7 @@ import { trackUtilityPipelineExecuted } from '../../hooks/utilityPipelineTelemet
 import { buildPipelineCapsule } from '../../runtime/pipelineCapsule';
 import { UtilityPipelineStepRow } from './UtilityPipelineStepRow';
 import { PipelineTemplateGallery } from './PipelineTemplateGallery';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { cn } from '../../utils/cn';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
@@ -126,6 +136,7 @@ export function UtilityPipelinePanel() {
 
 function UtilityPipelinePanelUnlocked() {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   const pipelines = useUtilityPipelineStore(state => state.pipelines);
   const activePipelineId = useUtilityPipelineStore(state => state.activePipelineId);
   const isExecuting = useUtilityPipelineStore(state => state.isExecutingActive);
@@ -140,6 +151,8 @@ function UtilityPipelinePanelUnlocked() {
 
   const { state: runState, run, reset: resetRun } = useUtilityPipelineRun();
   const [capsuleRunSnapshot, setCapsuleRunSnapshot] = useState<CapsuleRunSnapshot | null>(null);
+  // UX Sweep T2 — id of the pipeline pending a delete confirmation.
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   // Per-step result map keyed by step id so the panel can render the
   // status badge regardless of which step is rendered.
   const stepResultMap = useMemo(() => {
@@ -205,14 +218,18 @@ function UtilityPipelinePanelUnlocked() {
     useUtilityPipelineStore.getState().updatePipeline(id, { name });
   }, []);
 
-  const handleDelete = useCallback(
-    (id: string) => {
-      const ok = window.confirm(t('utilityPipeline.list.deleteConfirm'));
-      if (!ok) return;
-      useUtilityPipelineStore.getState().deletePipeline(id);
-    },
-    [t]
-  );
+  // UX Sweep T2 — the native `window.confirm` had no danger styling,
+  // no focus management, and could not be translated mid-string; route
+  // the pipeline delete through the shared ConfirmDialog instead.
+  const handleDelete = useCallback((id: string) => {
+    setPendingDeleteId(id);
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (pendingDeleteId === null) return;
+    useUtilityPipelineStore.getState().deletePipeline(pendingDeleteId);
+    setPendingDeleteId(null);
+  }, [pendingDeleteId]);
 
   const handleDuplicate = useCallback(
     (id: string) => {
@@ -317,6 +334,15 @@ function UtilityPipelinePanelUnlocked() {
       const outcome = await run(activePipeline, runInput);
       if (outcome) {
         trackUtilityPipelineExecuted(outcome);
+        // UX Sweep T4 — announce the run result to screen readers; the
+        // streaming result table conveys it to sighted users only.
+        const okCount = outcome.results.filter((result) => result.status === 'ok').length;
+        announce(
+          t('utilityPipeline.run.announce', {
+            ok: okCount,
+            count: outcome.results.length,
+          })
+        );
         setCapsuleRunSnapshot({
           pipelineId: runPipelineId,
           pipelineName: runPipelineName,
@@ -328,7 +354,7 @@ function UtilityPipelinePanelUnlocked() {
     } finally {
       useUtilityPipelineStore.getState().setIsExecutingActive(false);
     }
-  }, [activePipeline, activeInput, run]);
+  }, [activePipeline, activeInput, run, t, announce]);
 
   // Fold A — EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory
@@ -405,9 +431,32 @@ function UtilityPipelinePanelUnlocked() {
   // Fold G — Import-from-clipboard auto-detect (gated on the existing
   // `utilitiesClipboardOnFocusConsent` three-state from RL-069 Slice 3).
   const importTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // UX Sweep T3 — the button that opens the import panel, so focus can
+  // return to it when the panel is dismissed.
+  const importTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [importTextareaValue, setImportTextareaValue] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [importWarning, setImportWarning] = useState<string | null>(null);
+
+  // UX Sweep T3 — close the inline import panel and return focus to its
+  // trigger, so a keyboard user is not stranded inside a now-gone panel.
+  const closeImportPanel = useCallback(() => {
+    setImportOpen(false);
+    setImportWarning(null);
+    importTriggerRef.current?.focus();
+  }, []);
+
+  // Escape dismisses the import panel WITHOUT bubbling to the Developer
+  // Utilities overlay (which would otherwise close the whole surface).
+  const handleImportKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeImportPanel();
+    },
+    [closeImportPanel]
+  );
 
   const handleImportOpen = useCallback(async () => {
     setImportOpen(true);
@@ -433,6 +482,7 @@ function UtilityPipelinePanelUnlocked() {
       setImportOpen(false);
       setImportTextareaValue('');
       setImportWarning(null);
+      importTriggerRef.current?.focus();
     } else {
       const detail = outcome.detail ? ` — ${outcome.detail}` : '';
       setImportWarning(`${t(`utilityPipeline.import.reject.${camel(outcome.reason)}`)}${detail}`);
@@ -475,6 +525,7 @@ function UtilityPipelinePanelUnlocked() {
           </span>
           <div className="flex items-center gap-1">
             <button
+              ref={importTriggerRef}
               type="button"
               onClick={handleImportOpen}
               aria-label={t('utilityPipeline.list.import')}
@@ -540,7 +591,7 @@ function UtilityPipelinePanelUnlocked() {
                   }
                 }}
                 className={cn(
-                  'group flex items-center gap-1 rounded px-2 py-1.5 text-body-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  'focus-ring group flex items-center gap-1 rounded px-2 py-1.5 text-body-sm cursor-pointer',
                   isActive
                     ? 'bg-background-elevated text-foreground'
                     : 'text-muted hover:bg-surface-strong/60 hover:text-foreground'
@@ -564,7 +615,7 @@ function UtilityPipelinePanelUnlocked() {
                   }}
                   aria-label={t('utilityPipeline.list.duplicateAria', { name: p.name })}
                   data-testid="utility-pipeline-list-duplicate"
-                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-foreground group-hover:opacity-100"
+                  className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
                 >
                   <CopyIcon size={10} aria-hidden="true" />
                 </button>
@@ -576,7 +627,7 @@ function UtilityPipelinePanelUnlocked() {
                   }}
                   aria-label={t('utilityPipeline.list.deleteAria', { name: p.name })}
                   data-testid="utility-pipeline-list-delete"
-                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100"
+                  className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
                 >
                   <Trash2 size={10} aria-hidden="true" />
                 </button>
@@ -587,6 +638,7 @@ function UtilityPipelinePanelUnlocked() {
         {importOpen ? (
           <div
             data-testid="utility-pipeline-import-panel"
+            onKeyDown={handleImportKeyDown}
             className="mt-2 grid gap-2 rounded border border-border/60 bg-surface/40 p-2"
           >
             <textarea
@@ -606,10 +658,7 @@ function UtilityPipelinePanelUnlocked() {
             <div className="flex justify-end gap-1">
               <button
                 type="button"
-                onClick={() => {
-                  setImportOpen(false);
-                  setImportWarning(null);
-                }}
+                onClick={closeImportPanel}
                 data-testid="utility-pipeline-import-cancel"
                 className="inline-flex h-6 items-center rounded border border-border/60 bg-surface/40 px-2 text-eyebrow text-muted hover:text-foreground"
               >
@@ -797,6 +846,20 @@ function UtilityPipelinePanelUnlocked() {
           </ol>
         )}
       </aside>
+
+      {pendingDeleteId !== null ? (
+        <ConfirmDialog
+          testId="utility-pipeline-delete-confirm"
+          title={t('utilityPipeline.list.deleteConfirm.title')}
+          body={t('utilityPipeline.list.deleteConfirm.body', {
+            name: pipelines.find((p) => p.id === pendingDeleteId)?.name ?? '',
+          })}
+          confirmLabel={t('utilityPipeline.list.deleteConfirm.confirm')}
+          cancelLabel={t('utilityPipeline.list.deleteConfirm.cancel')}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      ) : null}
     </div>
   );
 }

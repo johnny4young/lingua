@@ -1388,9 +1388,14 @@ export function registerFileSystemHandlers(): void {
         'delete'
       );
 
+      // Security hardening — the renderer uses the shared ConfirmDialog
+      // for the web FSA adapter, but desktop deletes must still enforce the
+      // confirmation inside main. The IPC bridge is the trust boundary for
+      // host-file mutations; a compromised or buggy renderer must not be
+      // able to invoke fs:delete without a main-owned user prompt.
       const win = BrowserWindow.fromWebContents(event.sender);
-      const { response } = await dialog.showMessageBox(win!, {
-        type: 'warning',
+      const dialogOptions = {
+        type: 'warning' as const,
         buttons: [
           t(language, 'dialogs.actions.delete'),
           t(language, 'dialogs.actions.cancel'),
@@ -1404,7 +1409,10 @@ export function registerFileSystemHandlers(): void {
         detail: isDirectory
           ? t(language, 'dialogs.delete.detail.directory')
           : t(language, 'dialogs.delete.detail.file'),
-      });
+      };
+      const { response } = win
+        ? await dialog.showMessageBox(win, dialogOptions)
+        : await dialog.showMessageBox(dialogOptions);
 
       if (response !== 0) return false; // user cancelled
 
