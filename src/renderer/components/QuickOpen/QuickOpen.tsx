@@ -38,6 +38,12 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const labelId = useId();
+  // UX Sweep T6 — combobox/listbox semantics: the input is the combobox,
+  // the results are its listbox, and aria-activedescendant points at the
+  // active option so a screen reader announces the highlighted row as the
+  // user arrows through (focus stays in the input).
+  const listboxId = useId();
+  const optionId = (index: number) => `${listboxId}-opt-${index}`;
 
   const { t } = useTranslation();
   const { tabs, setActiveTab, openFile } = useEditorStore();
@@ -228,6 +234,13 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
             }}
             onKeyDown={handleKeyDown}
             placeholder={t('quickOpen.placeholder')}
+            role="combobox"
+            aria-expanded={filtered.length > 0}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              filtered.length > 0 ? optionId(activeSelectedIndex) : undefined
+            }
             className="min-w-0 flex-1 bg-transparent text-body text-fg-base outline-none placeholder:text-fg-subtle"
           />
         </>
@@ -247,7 +260,12 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
         </span>
       }
     >
-      <div ref={listRef}>
+      <div
+        ref={listRef}
+        id={listboxId}
+        role="listbox"
+        aria-label={t('shortcuts.item.quickOpen.label')}
+      >
         {filtered.length === 0 ? (
           <EmptyState
             className="py-10"
@@ -270,7 +288,8 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
             activeSelectedIndex,
             setSelectedIndex,
             select,
-            t
+            t,
+            optionId
           )
         )}
       </div>
@@ -303,12 +322,19 @@ function renderQuickOpenResults(
   selectedIndex: number,
   setSelectedIndex: (index: number) => void,
   select: (file: FileResult) => Promise<void>,
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: (key: string, options?: Record<string, unknown>) => string,
+  optionId: (index: number) => string
 ) {
   const isEmptyQuery = query.trim().length === 0;
   const renderRow = (file: FileResult, index: number) => (
     <button
       key={file.path}
+      id={optionId(index)}
+      role="option"
+      aria-selected={index === selectedIndex}
+      // The combobox input is the single tab stop; options are reached via
+      // the arrow keys + aria-activedescendant, not the Tab sequence.
+      tabIndex={-1}
       onClick={() => void select(file)}
       onMouseEnter={() => setSelectedIndex(index)}
       data-result-index={index}

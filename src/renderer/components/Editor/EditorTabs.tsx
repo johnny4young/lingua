@@ -15,6 +15,42 @@ interface ContextMenuState {
   anchor: { top: number; left: number };
 }
 
+const VISIBLE_TAB_CAP = 5;
+
+/**
+ * Pick the tabs that stay in the strip (the rest collapse into the `+N`
+ * overflow). The handoff caps the strip at five, but a priority set
+ * (every kind-bearing workspace/notebook tab + the active tab) is always
+ * kept visible; remaining slots fill with code tabs in original order so
+ * the strip never reshuffles. Extracted to module scope so the component
+ * holds it as a `const` the arrow-key handler can safely close over.
+ */
+function computeVisibleTabs(
+  tabs: readonly FileTab[],
+  activeTabId: string | null
+): FileTab[] {
+  if (tabs.length <= VISIBLE_TAB_CAP) return [...tabs];
+  const isPriority = (tab: FileTab) =>
+    tab.id === activeTabId ||
+    tab.kind === 'sql' ||
+    tab.kind === 'http' ||
+    tab.kind === 'notebook' ||
+    tab.kind === 'utilities';
+  const pinnedIds = new Set(tabs.filter(isPriority).map(tab => tab.id));
+  // If the priority set alone exceeds the cap, keep all of it — dropping a
+  // workspace tab or the active tab would be worse than a slightly longer strip.
+  const remainingSlots = Math.max(0, VISIBLE_TAB_CAP - pinnedIds.size);
+  let filled = 0;
+  return tabs.filter(tab => {
+    if (pinnedIds.has(tab.id)) return true;
+    if (filled < remainingSlots) {
+      filled += 1;
+      return true;
+    }
+    return false;
+  });
+}
+
 /**
  * Editor tab strip aligned with the DS canonical
  * (lingua/project/components/signal-tabs-editor.jsx). Active tabs
@@ -45,6 +81,26 @@ export function EditorTabs() {
 
   if (tabs.length === 0) return null;
 
+  // UX Sweep T6 — roving-tabindex arrow navigation across the visible tab
+  // strip. Selection follows focus (automatic activation), matching the
+  // click/Enter behavior and the `tabIndex={isActive ? 0 : -1}` roving below.
+  // Focus the target after the roving tabindex updates on the next frame.
+  const moveFocusToTab = (targetTab: FileTab | undefined) => {
+    if (!targetTab) return;
+    setActiveTab(targetTab.id);
+    requestAnimationFrame(() => {
+      // Escape only `"`/`\` for the quoted attribute-value selector; a quoted
+      // attribute selector needs no CSS.escape for dots etc. (and CSS.escape
+      // is absent in some jsdom versions), so this stays test-safe.
+      const safeId = targetTab.id.replace(/["\\]/g, '\\$&');
+      document
+        .querySelector<HTMLElement>(
+          `[data-tab-id="${safeId}"] [data-testid="editor-tab-activation"]`
+        )
+        ?.focus();
+    });
+  };
+
   const handleActivationKey = (event: KeyboardEvent<HTMLDivElement>, tabId: string) => {
     if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
       event.preventDefault();
@@ -54,6 +110,27 @@ export function EditorTabs() {
         tabId,
         anchor: { top: rect.bottom + 4, left: rect.left + 8 },
       });
+      return;
+    }
+    if (
+      event.key === 'ArrowRight' ||
+      event.key === 'ArrowLeft' ||
+      event.key === 'Home' ||
+      event.key === 'End'
+    ) {
+      event.preventDefault();
+      const currentIndex = visibleTabs.findIndex((tab) => tab.id === tabId);
+      if (currentIndex === -1) return;
+      const lastIndex = visibleTabs.length - 1;
+      const targetIndex =
+        event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? lastIndex
+            : event.key === 'ArrowRight'
+              ? (currentIndex + 1) % visibleTabs.length
+              : (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
+      moveFocusToTab(visibleTabs[targetIndex]);
       return;
     }
     if (event.key === 'Enter' || event.key === ' ') {
@@ -92,32 +169,10 @@ export function EditorTabs() {
   // visible, and fill the remaining slots with code tabs in their
   // original order. Original strip order is always preserved so the
   // tabs don't reshuffle as priority changes.
-  const VISIBLE_TAB_CAP = 5;
-  let visibleTabs: FileTab[];
-  if (tabs.length <= VISIBLE_TAB_CAP) {
-    visibleTabs = [...tabs];
-  } else {
-    const isPriority = (tab: FileTab) =>
-      tab.id === activeTabId ||
-      tab.kind === 'sql' ||
-      tab.kind === 'http' ||
-      tab.kind === 'notebook' ||
-      tab.kind === 'utilities';
-    const pinnedIds = new Set(tabs.filter(isPriority).map(tab => tab.id));
-    // If the priority set alone exceeds the cap, keep all of it —
-    // dropping a workspace tab or the active tab would be worse than
-    // a slightly longer strip.
-    const remainingSlots = Math.max(0, VISIBLE_TAB_CAP - pinnedIds.size);
-    let filled = 0;
-    visibleTabs = tabs.filter(tab => {
-      if (pinnedIds.has(tab.id)) return true;
-      if (filled < remainingSlots) {
-        filled += 1;
-        return true;
-      }
-      return false;
-    });
-  }
+  // UX Sweep T6 — `const` (computed in a module helper) rather than a
+  // reassigned `let`, so the arrow-key handler can close over it without
+  // tripping the "reassign after render" hazard.
+  const visibleTabs = computeVisibleTabs(tabs, activeTabId);
   const hiddenTabCount = tabs.length - visibleTabs.length;
 
   return (

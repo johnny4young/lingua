@@ -122,8 +122,24 @@ describe('QuickOpen', () => {
   it('uses the shared focus ring on bespoke result rows (UX Sweep T5)', () => {
     render(<QuickOpen onClose={vi.fn()} />);
 
-    const row = screen.getByRole('button', { name: /tree-only\.ts/ });
+    const row = screen.getByRole('option', { name: /tree-only\.ts/ });
     expect(row.className).toContain('focus-ring');
+  });
+
+  it('exposes combobox + listbox semantics with aria-activedescendant (UX Sweep T6)', () => {
+    render(<QuickOpen onClose={vi.fn()} />);
+    const input = screen.getByRole('combobox');
+    const listbox = screen.getByRole('listbox');
+    expect(input.getAttribute('aria-controls')).toBe(listbox.id);
+
+    // The active option is referenced by aria-activedescendant and carries
+    // aria-selected, so a screen reader announces it while focus stays in
+    // the input.
+    const activeId = input.getAttribute('aria-activedescendant');
+    expect(activeId).toBeTruthy();
+    const activeOption = document.getElementById(activeId as string);
+    expect(activeOption?.getAttribute('role')).toBe('option');
+    expect(activeOption?.getAttribute('aria-selected')).toBe('true');
   });
 
   it('groups files by source with eyebrow headers when the search is empty', () => {

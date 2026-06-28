@@ -1,5 +1,5 @@
 import { Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
@@ -149,6 +149,11 @@ export function CommandPalette({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // UX Sweep T6 — combobox/listbox semantics; aria-activedescendant points
+  // at the active option so the highlighted command is announced while focus
+  // stays in the search input.
+  const listboxId = useId();
+  const optionId = (index: number) => `${listboxId}-opt-${index}`;
 
   const addTab = useEditorStore((state) => state.addTab);
   const openFileFromDisk = useEditorStore((state) => state.openFileFromDisk);
@@ -770,6 +775,13 @@ export function CommandPalette({
             onKeyDown={handleKeyDown}
             placeholder={t('commandPalette.search.placeholder')}
             aria-label={t('shortcuts.item.commandPalette.label')}
+            role="combobox"
+            aria-expanded={filtered.length > 0}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              filtered.length > 0 ? optionId(visibleSelectedIndex) : undefined
+            }
             className="min-w-0 flex-1 bg-transparent text-body text-fg-base outline-none placeholder:text-fg-subtle"
           />
           {query && (
@@ -810,6 +822,8 @@ export function CommandPalette({
         selectedIndex={visibleSelectedIndex}
         listRef={listRef}
         onHoverIndex={setSelectedIndex}
+        listboxId={listboxId}
+        optionId={optionId}
       />
     </ModalShell>
   );

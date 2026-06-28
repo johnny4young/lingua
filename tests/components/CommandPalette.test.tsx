@@ -305,6 +305,27 @@ describe('CommandPalette', () => {
     expect(count.getAttribute('aria-atomic')).toBe('true');
   });
 
+  it('exposes combobox + listbox semantics with aria-activedescendant (UX Sweep T6)', () => {
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    const input = screen.getByRole('combobox');
+    const listbox = screen.getByRole('listbox');
+    expect(input.getAttribute('aria-controls')).toBe(listbox.id);
+
+    const activeId = input.getAttribute('aria-activedescendant');
+    expect(activeId).toBeTruthy();
+    const activeOption = document.getElementById(activeId as string);
+    expect(activeOption?.getAttribute('role')).toBe('option');
+    expect(activeOption?.getAttribute('aria-selected')).toBe('true');
+  });
+
   it('keeps Restore last session visible for a pending ask-mode snapshot after savedTabs changes', () => {
     useSessionStore.setState({
       savedTabs: [
@@ -440,7 +461,7 @@ describe('CommandPalette', () => {
     const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
     fireEvent.change(input, { target: { value: 'compare' } });
     fireEvent.click(
-      screen.getByRole('button', {
+      screen.getByRole('option', {
         name: /Toggle compare with last stable run/i,
       })
     );
@@ -504,7 +525,7 @@ describe('CommandPalette', () => {
     const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
     fireEvent.change(input, { target: { value: 'share link' } });
     fireEvent.click(
-      screen.getByRole('button', {
+      screen.getByRole('option', {
         name: /Copy share link/i,
       })
     );
@@ -576,7 +597,7 @@ describe('CommandPalette', () => {
 
     const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
     fireEvent.change(input, { target: { value: 'dependencies' } });
-    fireEvent.click(screen.getByRole('button', { name: /Show dependencies/i }));
+    fireEvent.click(screen.getByRole('option', { name: /Show dependencies/i }));
 
     expect(onClose).toHaveBeenCalled();
     expect(useUIStore.getState()).toMatchObject({
@@ -692,7 +713,7 @@ describe('CommandPalette', () => {
     const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
     fireEvent.change(input, { target: { value: 'variables' } });
     fireEvent.click(
-      screen.getByRole('button', {
+      screen.getByRole('option', {
         name: /Toggle variable inspector/i,
       })
     );
