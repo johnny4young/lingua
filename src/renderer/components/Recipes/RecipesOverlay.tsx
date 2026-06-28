@@ -241,7 +241,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
             autoFocus
             spellCheck={false}
             role="combobox"
-            aria-controls={listboxId}
+            aria-controls={filtered.length > 0 ? listboxId : undefined}
             aria-expanded={filtered.length > 0}
             aria-activedescendant={
               filtered.length > 0

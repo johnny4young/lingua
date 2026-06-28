@@ -6,7 +6,7 @@
  * dialog, Escape skips the tour and restores focus to the trigger, and Tab
  * is trapped inside the dialog.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 
@@ -101,12 +101,24 @@ function renderTour() {
 }
 
 describe('GuidedTour focus management (UX Sweep T8)', () => {
+  // jsdom does not implement scrollIntoView; the step highlighter calls it.
+  // Capture and restore around each test so the stub does not leak globally.
+  let originalScrollIntoView: typeof Element.prototype.scrollIntoView | undefined;
+
   beforeEach(async () => {
     settingsState.setSuppressTourAutoStart.mockClear();
     useAnnouncerStore.setState({ message: '', nonce: 0 });
-    // jsdom does not implement scrollIntoView; the step highlighter calls it.
+    originalScrollIntoView = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = vi.fn();
     await i18next.changeLanguage('en');
+  });
+
+  afterEach(() => {
+    if (originalScrollIntoView) {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    } else {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
   });
 
   it('moves focus into the dialog when the tour opens', async () => {
