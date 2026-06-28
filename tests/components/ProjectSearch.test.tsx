@@ -61,6 +61,7 @@ describe('ProjectSearch', () => {
     useProjectSearchStore.setState({
       query: '',
       rootId: null,
+      resultsQuery: '',
       status: 'idle',
       results: [],
       totalMatches: 0,
@@ -140,6 +141,41 @@ describe('ProjectSearch', () => {
     await waitFor(() => {
       expect(useAnnouncerStore.getState().message).toContain('1 match in 1 file');
     });
+  });
+
+  it('does not re-announce stale results while a new query is debouncing', async () => {
+    mockSearchInFiles
+      .mockResolvedValueOnce([
+        {
+          relativePath: 'src/main.ts',
+          matches: [
+            {
+              line: 7,
+              column: 3,
+              preview: 'const needle = 1;',
+              matchStart: 6,
+              matchEnd: 12,
+            },
+          ],
+        },
+      ])
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    useAnnouncerStore.setState({ message: '', nonce: 0 });
+
+    const user = userEvent.setup();
+    render(<ProjectSearch onClose={vi.fn()} />);
+    const input = screen.getByPlaceholderText('Search across the project...');
+    await user.type(input, 'needle');
+
+    await waitFor(() => {
+      expect(useAnnouncerStore.getState().message).toContain('1 match in 1 file');
+    });
+    const settledNonce = useAnnouncerStore.getState().nonce;
+
+    await user.type(input, 'x');
+
+    expect(useProjectSearchStore.getState().query).toBe('needlex');
+    expect(useAnnouncerStore.getState().nonce).toBe(settledNonce);
   });
 
   it('announces the no-match state to screen readers (UX Sweep T13)', async () => {

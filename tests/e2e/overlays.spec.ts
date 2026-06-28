@@ -48,9 +48,9 @@ test.describe('Command palette', () => {
     ).toBeVisible();
 
     await paletteInput(page).fill('layout');
-    await expect(page.getByRole('button', { name: /Layout: Horizontal Split/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Layout: Vertical Split/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Layout: Editor Only/i })).toBeVisible();
+    await expect(page.getByRole('option', { name: /Layout: Horizontal Split/i })).toBeVisible();
+    await expect(page.getByRole('option', { name: /Layout: Vertical Split/i })).toBeVisible();
+    await expect(page.getByRole('option', { name: /Layout: Editor Only/i })).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(paletteInput(page)).toBeHidden();

@@ -646,12 +646,18 @@ describe('useRunner', () => {
     it('announces a coalesced output summary after a successful run', async () => {
       mockPrepareRunner.mockResolvedValue({
         runner: {
-          execute: vi.fn().mockResolvedValue({
-            stdout: [{ type: 'log', args: ['ok'] }],
-            stderr: [],
-            executionTime: 9,
-            error: null,
-          } satisfies ExecutionResult),
+          execute: vi.fn().mockImplementation(async () => {
+            useConsoleStore.getState().addEntry({
+              type: 'warn',
+              content: 'unrelated concurrent console noise',
+            });
+            return {
+              stdout: [{ type: 'log', args: ['ok'] }],
+              stderr: [],
+              executionTime: 9,
+              error: null,
+            } satisfies ExecutionResult;
+          }),
         },
       });
 
@@ -673,8 +679,9 @@ describe('useRunner', () => {
         await hook.current.run();
       });
 
+      expect(useConsoleStore.getState().entries.length).toBeGreaterThan(3);
       const expected = i18next.t('console.run.announce.ok', {
-        count: useConsoleStore.getState().entries.length,
+        count: 3,
       });
       expect(useAnnouncerStore.getState().message).toBe(expected);
       expect(useAnnouncerStore.getState().nonce).toBe(1);

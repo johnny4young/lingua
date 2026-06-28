@@ -193,7 +193,10 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           if (!entry.node.isExpanded) {
             void useProjectStore.getState().expandDirectory(entry.node.path);
           } else {
-            focusTreeRow(visibleNodes[idx + 1]?.node.path);
+            const firstChild = visibleNodes[idx + 1];
+            if (firstChild?.parentPath === entry.node.path) {
+              focusTreeRow(firstChild.node.path);
+            }
           }
         }
         break;

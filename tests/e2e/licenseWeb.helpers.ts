@@ -458,7 +458,7 @@ export async function openPaletteAction(
 ): Promise<void> {
   await openCommandPalette(page);
   await paletteInput(page).fill(query);
-  await page.getByRole('button', { name: actionName }).click();
+  await page.getByRole('option', { name: actionName }).click();
 }
 
 // -----------------------------------------------------------------------------

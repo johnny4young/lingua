@@ -81,6 +81,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   const search = useProjectSearchStore((state) => state.search);
   const clear = useProjectSearchStore((state) => state.clear);
   const status = useProjectSearchStore((state) => state.status);
+  const resultsQuery = useProjectSearchStore((state) => state.resultsQuery);
   const results = useProjectSearchStore((state) => state.results);
   const totalMatches = useProjectSearchStore((state) => state.totalMatches);
   const error = useProjectSearchStore((state) => state.error);
@@ -208,13 +209,16 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   };
 
   const hasQuery = query.trim().length > 0;
-  const showEmptyState = status === 'ready' && results.length === 0 && hasQuery;
+  const resultsSettledForQuery = resultsQuery === query;
+  const showEmptyState =
+    status === 'ready' && resultsSettledForQuery && results.length === 0 && hasQuery;
 
   // UX Sweep T13 — the match count is shown only visually. Announce the settled
   // result count / empty / error to screen readers so a non-sighted user knows
   // the search resolved. Loading is intentionally silent to avoid per-keystroke
   // spam during the debounced search.
   useEffect(() => {
+    if (!resultsSettledForQuery) return;
     if (status === 'error') {
       announce(t('projectSearch.error', { message: error ?? '' }));
     } else if (status === 'ready' && hasQuery) {
@@ -227,7 +231,17 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
             })
       );
     }
-  }, [status, totalMatches, results.length, error, query, hasQuery, announce, t]);
+  }, [
+    status,
+    totalMatches,
+    results.length,
+    error,
+    query,
+    hasQuery,
+    resultsSettledForQuery,
+    announce,
+    t,
+  ]);
   const showNoProject = !currentProject;
 
   return (

@@ -198,7 +198,8 @@ function announceRunSummary(summary: ManualExecutionSummary): void {
     announce(i18next.t('console.run.announce.error'));
     return;
   }
-  const outputCount = useConsoleStore.getState().entries.length;
+  const outputCount =
+    summary.consoleEntryCount ?? useConsoleStore.getState().entries.length;
   announce(i18next.t('console.run.announce.ok', { count: outputCount }));
 }
 

@@ -25,6 +25,7 @@ const nodes = [
       { name: 'b.ts', path: 'src/b.ts', isDirectory: false, language: 'typescript' as const },
     ],
   },
+  { name: 'empty', path: 'empty', isDirectory: true, isExpanded: true, children: [] },
   { name: 'readme.md', path: 'readme.md', isDirectory: false, language: 'markdown' as const },
 ];
 
@@ -124,6 +125,14 @@ describe('FileTree keyboard navigation (UX Sweep T7)', () => {
     child.focus();
     fireEvent.keyDown(child, { key: 'ArrowLeft' });
     await waitFor(() => expect(document.activeElement).toBe(row('src')));
+  });
+
+  it('ArrowRight on an expanded empty directory does not jump to the next sibling', async () => {
+    render(<FileTree />);
+    const empty = row('empty');
+    empty.focus();
+    fireEvent.keyDown(empty, { key: 'ArrowRight' });
+    await waitFor(() => expect(document.activeElement).toBe(empty));
   });
 
   it('F2 starts an inline rename', () => {
