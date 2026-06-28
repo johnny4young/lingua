@@ -539,7 +539,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           disabled={importBusy}
           aria-label={t('sqlWorkspace.import.buttonAria')}
           data-testid="sql-workspace-import"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-bg-panel-alt px-2.5 py-1 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50"
+          className="focus-ring inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-bg-panel-alt px-2.5 py-1 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-50"
         >
           {sqlImport.isPreviewing ? (
             <Loader2 size={13} aria-hidden="true" className="animate-spin" />

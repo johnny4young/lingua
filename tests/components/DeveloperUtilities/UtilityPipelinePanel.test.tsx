@@ -261,6 +261,10 @@ describe('UtilityPipelinePanel', () => {
     useUtilityPipelineStore.getState().createPipeline(pipeline);
     render(<UtilityPipelinePanel />);
 
+    expect(screen.getByTestId('utility-pipeline-list-row').className).toContain(
+      'focus-ring'
+    );
+
     for (const testId of [
       'utility-pipeline-list-duplicate',
       'utility-pipeline-list-delete',

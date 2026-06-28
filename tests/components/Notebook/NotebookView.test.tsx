@@ -133,9 +133,29 @@ describe('<NotebookView />', () => {
       'notebook-markdown-cell-move-up',
       'notebook-markdown-cell-move-down',
       'notebook-markdown-cell-delete',
+      'notebook-toolbar-run-all',
+      'notebook-toolbar-stop',
+      'notebook-toolbar-shortcuts',
     ]) {
       expect(screen.getByTestId(testId).className).toContain('focus-ring');
     }
+  });
+
+
+  it('gives the code-output collapse toggle the shared focus ring (UX Sweep T1)', () => {
+    seedNotebookCells([
+      {
+        kind: 'code',
+        id: 'cell-output',
+        language: 'javascript',
+        source: 'console.log(1)',
+        outputs: [{ kind: 'text', stream: 'stdout', text: '1' }],
+      },
+    ]);
+    render(<NotebookView tabId={TAB_ID} />);
+    expect(screen.getByTestId('notebook-code-cell-output-toggle').className).toContain(
+      'focus-ring'
+    );
   });
 
   it('renders the not-found state when the notebook is missing', () => {

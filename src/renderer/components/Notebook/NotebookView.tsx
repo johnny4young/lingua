@@ -915,7 +915,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             disabled={disabled || lastCodeCellId === null}
             data-testid="notebook-toolbar-run-all"
             className={cn(
-              'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-caption font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+              'focus-ring inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-caption font-medium transition-colors duration-150',
               disabled
                 ? 'border-border/40 bg-surface/40 text-muted'
                 : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
@@ -939,7 +939,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={stop}
             disabled={!isAnyCellRunning}
             data-testid="notebook-toolbar-stop"
-            className="inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Square size={11} aria-hidden="true" />
             {t('notebook.toolbar.stop')}
@@ -1031,7 +1031,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               title={t('notebook.command.shortcutsTitle')}
               data-testid="notebook-toolbar-shortcuts"
               className={cn(
-                'inline-flex h-[28px] w-[28px] items-center justify-center rounded-lg border text-caption transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                'focus-ring inline-flex h-[28px] w-[28px] items-center justify-center rounded-lg border text-caption transition-colors duration-150',
                 shortcutsOpen
                   ? 'border-primary/60 bg-primary/10 text-foreground'
                   : 'border-transparent text-muted hover:bg-surface-strong/60 hover:text-foreground'

@@ -604,6 +604,7 @@ describe('SqlWorkspacePanel — file import (RL-097)', () => {
     const button = screen.getByTestId('sql-workspace-import');
     expect(button.tagName).toBe('BUTTON');
     expect(button.getAttribute('aria-label')).toBeTruthy();
+    expect(button.className).toContain('focus-ring');
   });
 
   it('keyboard path: activating Import → picking a file opens the preview dialog with columns + rows', async () => {
@@ -623,6 +624,15 @@ describe('SqlWorkspacePanel — file import (RL-097)', () => {
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toBeTruthy();
     expect(dialog.getAttribute('aria-labelledby')).toBeTruthy();
+    expect(screen.getByTestId('sql-import-modal-confirm').className).toContain(
+      'focus-ring'
+    );
+    expect(screen.getByTestId('sql-import-modal-cancel').className).toContain(
+      'focus-ring'
+    );
+    expect(screen.getByTestId('sql-import-modal-name').className).toContain(
+      'focus-ring'
+    );
     const labelEl = document.getElementById(
       dialog.getAttribute('aria-labelledby')!
     );
@@ -795,5 +805,6 @@ describe('SqlWorkspacePanel — file import (RL-097)', () => {
     const plus = screen.getByTestId('sql-schema-browser-import');
     expect(plus.tagName).toBe('BUTTON');
     expect(plus.getAttribute('aria-label')).toBeTruthy();
+    expect(plus.className).toContain('focus-ring');
   });
 });

@@ -580,7 +580,7 @@ function UtilityPipelinePanelUnlocked() {
                   }
                 }}
                 className={cn(
-                  'group flex items-center gap-1 rounded px-2 py-1.5 text-body-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  'focus-ring group flex items-center gap-1 rounded px-2 py-1.5 text-body-sm cursor-pointer',
                   isActive
                     ? 'bg-background-elevated text-foreground'
                     : 'text-muted hover:bg-surface-strong/60 hover:text-foreground'

@@ -618,7 +618,7 @@ function NotebookCodeCellRowImpl({
                       : t('notebook.cell.collapseOutput')
                   }
                   data-testid="notebook-code-cell-output-toggle"
-                  className="inline-flex h-5 w-5 items-center justify-center rounded text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="focus-ring inline-flex h-5 w-5 items-center justify-center rounded text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base"
                 >
                   {outputsCollapsed ? (
                     <ChevronRight size={12} aria-hidden="true" />

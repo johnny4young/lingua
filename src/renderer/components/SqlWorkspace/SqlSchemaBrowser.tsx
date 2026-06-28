@@ -174,7 +174,7 @@ export function SqlSchemaBrowser({
             aria-label={t('sqlWorkspace.schema.import')}
             title={t('sqlWorkspace.schema.import')}
             data-testid="sql-schema-browser-import"
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-panel-alt text-fg-subtle transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-panel-alt text-fg-subtle transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FilePlus2 size={11} aria-hidden="true" />
           </button>
@@ -186,7 +186,7 @@ export function SqlSchemaBrowser({
           aria-label={t('sqlWorkspace.schema.refresh')}
           title={t('sqlWorkspace.schema.refresh')}
           data-testid="sql-schema-browser-refresh"
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-panel-alt text-fg-subtle transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50"
+          className="focus-ring inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-panel-alt text-fg-subtle transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw
             size={11}
