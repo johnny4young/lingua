@@ -277,6 +277,8 @@ export interface ManualExecutionSummary {
   executionTime: number | null;
   diagnosticsCount: number;
   message: string;
+  /** Number of console entries emitted by this execution orchestrator. */
+  consoleEntryCount?: number;
 }
 
 /**
@@ -295,6 +297,11 @@ export async function executeTabManually(
   lifecycle: ManualExecutionLifecycle = {}
 ): Promise<ManualExecutionSummary> {
   const { addEntry, clear } = useConsoleStore.getState();
+  let consoleEntryCount = 0;
+  const addRunEntry: typeof addEntry = (entry) => {
+    consoleEntryCount += 1;
+    addEntry(entry);
+  };
   const {
     clear: clearResults,
     clearVisibleResults,
@@ -324,7 +331,7 @@ export async function executeTabManually(
     setExecutionSource('manual');
     setIsAutoRunning(false);
     setDiagnostics([]);
-    addEntry({
+    addRunEntry({
       type: 'info',
       content: `${name} is editable, but Lingua does not run or lint this file type yet.`,
     });
@@ -346,7 +353,7 @@ export async function executeTabManually(
     setIsAutoRunning(false);
     setIsManualRunning(true);
     lifecycle.setIsRunning?.(true);
-    addEntry({ type: 'info', content: `Validating ${name}...` });
+    addRunEntry({ type: 'info', content: `Validating ${name}...` });
 
     try {
       const validation = validateDocument(language, content);
@@ -357,7 +364,7 @@ export async function executeTabManually(
       setExecutionTime(validation.executionTime);
       const hasErrors = validation.diagnostics.some((item) => item.severity === 'error');
 
-      addEntry({
+      addRunEntry({
         type: hasErrors ? 'error' : 'info',
         content:
           validation.diagnostics.length === 0
@@ -381,7 +388,7 @@ export async function executeTabManually(
   }
 
   if (!runnerManager.isSupported(language)) {
-    addEntry({
+    addRunEntry({
       type: 'error',
       content: `Runner for ${language} is not available yet. Coming in a future update.`,
     });
@@ -401,7 +408,7 @@ export async function executeTabManually(
   setIsAutoRunning(false);
   setIsManualRunning(true);
   setDiagnostics([]);
-  addEntry({
+  addRunEntry({
     type: 'info',
     content: debugRequested
       ? (i18next.t('runner.debuggingFile', { name }) as string)
@@ -414,7 +421,7 @@ export async function executeTabManually(
     lifecycle.setIsInitializing?.(true);
     const message = getInitializationMessage(language);
     lifecycle.setLoadingMessage?.(message);
-    addEntry({ type: 'info', content: message });
+    addRunEntry({ type: 'info', content: message });
   }
 
   let runnerPrepared = false;
@@ -442,7 +449,7 @@ export async function executeTabManually(
 
     const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner) {
-      addEntry({ type: 'error', content: `Failed to initialize ${language} runner.` });
+      addRunEntry({ type: 'error', content: `Failed to initialize ${language} runner.` });
       return {
         mode: 'run',
         ok: false,
@@ -462,7 +469,7 @@ export async function executeTabManually(
     const compilationMessage = getCompilationMessage(language);
     if (compilationLoadingMessage && compilationMessage) {
       lifecycle.setLoadingMessage?.(compilationLoadingMessage);
-      addEntry(compilationMessage);
+      addRunEntry(compilationMessage);
     }
 
     const streamedStdout: ConsoleOutput[] = [];
@@ -479,7 +486,7 @@ export async function executeTabManually(
       // RL-044 Slice 1B — forward the additive rich payload alongside
       // the legacy text content so the console renderer can dispatch
       // even on the streamed path (manual Run, hot scratchpad).
-      addEntry(
+      addRunEntry(
         visibleOutput.payload
           ? {
               type: visibleOutput.type,
@@ -613,7 +620,7 @@ export async function executeTabManually(
       const cancelledOutputs =
         streamedConsoleCount > 0 ? [] : [...result.stdout, ...result.stderr];
       for (const output of cancelledOutputs) {
-        addEntry(
+        addRunEntry(
           output.payload
             ? {
                 type: output.type,
@@ -630,7 +637,7 @@ export async function executeTabManually(
               }
         );
       }
-      addEntry({
+      addRunEntry({
         type: 'warn',
         content: message,
         executionTime: result.executionTime,
@@ -678,7 +685,7 @@ export async function executeTabManually(
         ? consoleEntries.slice(result.stdout.length + result.stderr.length)
         : consoleEntries;
     for (const entry of entriesToAdd) {
-      addEntry(entry);
+      addRunEntry(entry);
     }
 
     // RL-020 Slice 7 fold G — `runner.executed.status` enum widens
@@ -776,6 +783,7 @@ export async function executeTabManually(
       executionTime: result.executionTime,
       diagnosticsCount: diagnostics.length,
       message: result.error?.message ?? `Completed ${name}`,
+      consoleEntryCount,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -828,7 +836,7 @@ export async function executeTabManually(
       setError({
         message: `Failed to initialize ${language} runner: ${message}`,
       });
-      addEntry({
+      addRunEntry({
         type: 'error',
         content: `Failed to initialize ${language} runner: ${message}`,
       });
@@ -843,7 +851,7 @@ export async function executeTabManually(
 
     setDiagnostics([]);
     setError({ message });
-    addEntry({
+    addRunEntry({
       type: 'error',
       content: `Unexpected error: ${message}`,
     });

@@ -1,7 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 import i18next from 'i18next';
-import { executeTabManually } from '../runtime/executeTabManually';
+import {
+  executeTabManually,
+  type ManualExecutionSummary,
+} from '../runtime/executeTabManually';
 import { runnerManager } from '../runners';
+import { announce } from '../stores/announcerStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useNativeExecutionGateStore } from '../stores/nativeExecutionGateStore';
@@ -96,9 +100,14 @@ export function useRunner() {
       } else {
         editor.setTabExecutionState(activeTab.id, 'success');
       }
+      // UX Sweep T9 — console output is silent to screen readers. Announce a
+      // single coalesced run summary (not one message per line) via the shared
+      // live region, mirroring the notebook / HTTP / SQL run announcements.
+      announceRunSummary(summary);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       editor.setTabExecutionState(activeTab.id, 'error', oneLineTooltip(message));
+      announce(i18next.t('console.run.announce.error'));
       throw err;
     } finally {
       setRunMode(null);
@@ -171,6 +180,27 @@ export function useRunner() {
 function oneLineTooltip(message: string): string | null {
   const firstLine = message.split('\n')[0]?.trim();
   return firstLine && firstLine.length > 0 ? firstLine.slice(0, 160) : null;
+}
+
+/**
+ * UX Sweep T9 — coalesced screen-reader summary for a finished run. Only
+ * explicit `run`-mode executions announce, so scratchpad live-eval (`view`)
+ * cannot spam the live region. Resolved off the global i18next instance so
+ * this stays callable from the non-render run path.
+ */
+function announceRunSummary(summary: ManualExecutionSummary): void {
+  if (summary.mode !== 'run') return;
+  if (summary.cancelled) {
+    announce(i18next.t('console.run.announce.stopped'));
+    return;
+  }
+  if (!summary.ok) {
+    announce(i18next.t('console.run.announce.error'));
+    return;
+  }
+  const outputCount =
+    summary.consoleEntryCount ?? useConsoleStore.getState().entries.length;
+  announce(i18next.t('console.run.announce.ok', { count: outputCount }));
 }
 
 function pushNotebookRunNotice(): void {

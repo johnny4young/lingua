@@ -150,6 +150,28 @@ describe('EditorTabs', () => {
     expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
   });
 
+  it('moves between tabs with the arrow keys (roving tabindex) (UX Sweep T6)', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    const goTab = screen.getByRole('button', { name: 'Go main.go' });
+    await act(async () => {
+      goTab.focus();
+    });
+
+    // ArrowLeft from the (last) Go tab moves to the JS tab: selection follows
+    // focus, and focus lands on the JS tab's activation element.
+    await user.keyboard('{ArrowLeft}');
+    expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
+    const jsTab = screen.getByRole('button', { name: 'JS untitled.js' });
+    await waitFor(() => expect(document.activeElement).toBe(jsTab));
+
+    // Home jumps to the first tab; End to the last.
+    mockSetActiveTab.mockClear();
+    await user.keyboard('{End}');
+    expect(mockSetActiveTab).toHaveBeenCalledWith('tab-go');
+  });
+
   it('shows the tab filename in the shared tooltip layer', async () => {
     const user = userEvent.setup();
     render(<EditorTabs />);

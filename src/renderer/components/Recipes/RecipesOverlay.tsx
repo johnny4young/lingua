@@ -83,6 +83,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
   const { t, i18n } = useTranslation();
   const locale: 'en' | 'es' = i18n.language?.startsWith('es') ? 'es' : 'en';
   const titleId = useId();
+  const listboxId = useId();
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
@@ -223,6 +224,11 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
       >
         {/* TOP — search + language chips */}
         <div className="grid gap-2 px-1.5 pb-2.5 pt-1.5">
+          {/*
+            UX Sweep T11 — the list is a listbox driven by this search input, so
+            wire the combobox pattern: the input owns aria-activedescendant so a
+            screen reader announces the active recipe as Arrow keys move it.
+          */}
           <input
             type="text"
             value={search}
@@ -234,6 +240,15 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
             data-testid="recipes-search-input"
             autoFocus
             spellCheck={false}
+            role="combobox"
+            aria-controls={filtered.length > 0 ? listboxId : undefined}
+            aria-expanded={filtered.length > 0}
+            aria-activedescendant={
+              filtered.length > 0
+                ? `${listboxId}-opt-${effectiveActiveIdx}`
+                : undefined
+            }
+            aria-autocomplete="list"
             className="rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-body-sm text-fg-base outline-none focus:border-border-strong"
           />
           <div
@@ -273,7 +288,12 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
               {t('recipes.overlay.empty')}
             </div>
           ) : (
-            <ul role="listbox" className="grid gap-1.5">
+            <ul
+              role="listbox"
+              id={listboxId}
+              aria-label={t('recipes.overlay.title')}
+              className="grid gap-1.5"
+            >
               {filtered.map((recipe, idx) => {
                 const entry = progressEntries[recipe.id];
                 const isActive = idx === effectiveActiveIdx;
@@ -281,6 +301,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
                 return (
                   <li
                     key={recipe.id}
+                    id={`${listboxId}-opt-${idx}`}
                     role="option"
                     aria-selected={isActive}
                     data-testid="recipes-list-row"

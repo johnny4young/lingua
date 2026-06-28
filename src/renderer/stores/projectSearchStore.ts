@@ -27,6 +27,8 @@ interface ProjectSearchState {
   query: string;
   /** Capability id of the project the current results belong to. */
   rootId: string | null;
+  /** Query string that produced the currently settled results/error. */
+  resultsQuery: string;
   status: ProjectSearchStatus;
   results: ProjectSearchResult[];
   totalMatches: number;
@@ -58,6 +60,7 @@ function userFacingSearchError(error: unknown): string {
 export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
   query: '',
   rootId: null,
+  resultsQuery: '',
   status: 'idle',
   results: [],
   totalMatches: 0,
@@ -74,6 +77,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
       set({
         query,
         rootId,
+        resultsQuery: query,
         status: 'idle',
         results: [],
         totalMatches: 0,
@@ -90,6 +94,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
       set({
         query,
         rootId,
+        resultsQuery: query,
         status: 'ready',
         results: [],
         totalMatches: 0,
@@ -112,6 +117,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
         matches: result.matches,
       }));
       set({
+        resultsQuery: query,
         status: 'ready',
         results: projectResults,
         totalMatches: sumMatches(projectResults),
@@ -120,6 +126,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
     } catch (err) {
       if (get().requestId !== requestId) return;
       set({
+        resultsQuery: query,
         status: 'error',
         results: [],
         totalMatches: 0,
@@ -132,6 +139,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
     set({
       query: '',
       rootId: null,
+      resultsQuery: '',
       status: 'idle',
       results: [],
       totalMatches: 0,

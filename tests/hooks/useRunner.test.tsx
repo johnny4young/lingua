@@ -1,6 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18next from 'i18next';
 import { useRunner } from '@/hooks/useRunner';
+import { useAnnouncerStore } from '@/stores/announcerStore';
 import { useConsoleStore } from '@/stores/consoleStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
@@ -40,6 +42,7 @@ describe('useRunner', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    useAnnouncerStore.setState({ message: '', nonce: 0 });
     useConsoleStore.setState(initialConsoleState, true);
     useEditorStore.setState(initialEditorState, true);
     useExecutionHistoryStore.setState(initialExecutionHistoryState, true);
@@ -635,5 +638,124 @@ describe('useRunner', () => {
         }),
       ])
     );
+  });
+
+  // UX Sweep T9 — the console is silent to screen readers; a finished run must
+  // push exactly one coalesced summary into the shared live region.
+  describe('screen-reader run summary (UX Sweep T9)', () => {
+    it('announces a coalesced output summary after a successful run', async () => {
+      mockPrepareRunner.mockResolvedValue({
+        runner: {
+          execute: vi.fn().mockImplementation(async () => {
+            useConsoleStore.getState().addEntry({
+              type: 'warn',
+              content: 'unrelated concurrent console noise',
+            });
+            return {
+              stdout: [{ type: 'log', args: ['ok'] }],
+              stderr: [],
+              executionTime: 9,
+              error: null,
+            } satisfies ExecutionResult;
+          }),
+        },
+      });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-ok',
+            name: 'main.js',
+            language: 'javascript',
+            content: 'console.log("ok")',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-ok',
+      });
+
+      const { result: hook } = renderHook(() => useRunner());
+      await act(async () => {
+        await hook.current.run();
+      });
+
+      expect(useConsoleStore.getState().entries.length).toBeGreaterThan(3);
+      const expected = i18next.t('console.run.announce.ok', {
+        count: 3,
+      });
+      expect(useAnnouncerStore.getState().message).toBe(expected);
+      expect(useAnnouncerStore.getState().nonce).toBe(1);
+    });
+
+    it('announces a failure summary when the run errors', async () => {
+      mockPrepareRunner.mockResolvedValue({
+        runner: {
+          execute: vi.fn().mockResolvedValue({
+            stdout: [],
+            stderr: [{ type: 'error', args: ['boom'] }],
+            executionTime: 3,
+            error: { message: 'Boom', line: 1, column: 1 },
+          } satisfies ExecutionResult),
+        },
+      });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-err',
+            name: 'main.js',
+            language: 'javascript',
+            content: 'throw new Error("Boom")',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-err',
+      });
+
+      const { result: hook } = renderHook(() => useRunner());
+      await act(async () => {
+        await hook.current.run();
+      });
+
+      expect(useAnnouncerStore.getState().message).toBe(
+        i18next.t('console.run.announce.error')
+      );
+    });
+
+    it('announces a stopped summary when execution is cancelled', async () => {
+      mockPrepareRunner.mockResolvedValue({
+        runner: {
+          execute: vi.fn().mockResolvedValue({
+            stdout: [],
+            stderr: [],
+            executionTime: 0,
+            cancelled: true,
+            error: { message: 'Execution stopped by user.' },
+          } satisfies ExecutionResult),
+        },
+      });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-stop',
+            name: 'main.js',
+            language: 'javascript',
+            content: 'while (true) {}',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-stop',
+      });
+
+      const { result: hook } = renderHook(() => useRunner());
+      await act(async () => {
+        await hook.current.run();
+      });
+
+      expect(useAnnouncerStore.getState().message).toBe(
+        i18next.t('console.run.announce.stopped')
+      );
+    });
   });
 });

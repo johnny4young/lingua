@@ -9,6 +9,7 @@ import {
   type ProjectSearchResult,
 } from '../../stores/projectSearchStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useAnnounce } from '../../hooks/useAnnounce';
 import { PLAINTEXT_LANGUAGE, languageFromPath } from '../../utils/language';
 import { joinAbsolute } from '../../utils/filePath';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -65,6 +66,7 @@ function MatchPreview({ match }: { match: ProjectSearchMatch }) {
 
 export function ProjectSearch({ onClose }: ProjectSearchProps) {
   const { t } = useTranslation();
+  const announce = useAnnounce();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [selectedMatchKey, setSelectedMatchKey] = useState<string | null>(null);
@@ -79,6 +81,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   const search = useProjectSearchStore((state) => state.search);
   const clear = useProjectSearchStore((state) => state.clear);
   const status = useProjectSearchStore((state) => state.status);
+  const resultsQuery = useProjectSearchStore((state) => state.resultsQuery);
   const results = useProjectSearchStore((state) => state.results);
   const totalMatches = useProjectSearchStore((state) => state.totalMatches);
   const error = useProjectSearchStore((state) => state.error);
@@ -206,7 +209,39 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   };
 
   const hasQuery = query.trim().length > 0;
-  const showEmptyState = status === 'ready' && results.length === 0 && hasQuery;
+  const resultsSettledForQuery = resultsQuery === query;
+  const showEmptyState =
+    status === 'ready' && resultsSettledForQuery && results.length === 0 && hasQuery;
+
+  // UX Sweep T13 — the match count is shown only visually. Announce the settled
+  // result count / empty / error to screen readers so a non-sighted user knows
+  // the search resolved. Loading is intentionally silent to avoid per-keystroke
+  // spam during the debounced search.
+  useEffect(() => {
+    if (!resultsSettledForQuery) return;
+    if (status === 'error') {
+      announce(t('projectSearch.error', { message: error ?? '' }));
+    } else if (status === 'ready' && hasQuery) {
+      announce(
+        results.length === 0
+          ? t('projectSearch.empty.noMatch', { query })
+          : t('projectSearch.count', {
+              count: totalMatches,
+              files: results.length,
+            })
+      );
+    }
+  }, [
+    status,
+    totalMatches,
+    results.length,
+    error,
+    query,
+    hasQuery,
+    resultsSettledForQuery,
+    announce,
+    t,
+  ]);
   const showNoProject = !currentProject;
 
   return (

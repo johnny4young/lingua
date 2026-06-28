@@ -1,5 +1,13 @@
 import { History } from 'lucide-react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   type ExecutionHistoryEntry,
@@ -65,6 +73,27 @@ function compareHistoryEntries(older: ExecutionHistoryEntry, newer: ExecutionHis
   return older.id.localeCompare(newer.id);
 }
 
+// UX Sweep T12 — focusable descendants of the popover, for the Tab trap.
+const POPOVER_FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getPopoverFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(POPOVER_FOCUSABLE_SELECTOR)
+  ).filter(
+    (el) =>
+      !el.hasAttribute('disabled') &&
+      el.getAttribute('aria-hidden') !== 'true' &&
+      el.tabIndex !== -1
+  );
+}
+
 export function ExecutionHistoryPopover({
   onRerun,
   onCompare,
@@ -85,6 +114,10 @@ export function ExecutionHistoryPopover({
   // existing selection-reset hygiene below).
   const [thisTabOnly, setThisTabOnly] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // UX Sweep T12 — focus management: the popover declared role=dialog but
+  // never moved focus in, trapped Tab, or restored focus on close.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const popoverId = useId();
   // Apply the fold C filter at the source so every downstream
   // computation (compare candidates, list render, empty state)
@@ -108,6 +141,55 @@ export function ExecutionHistoryPopover({
     setOpen(false);
     resetEphemeralState();
   }, [resetEphemeralState]);
+
+  // UX Sweep T12 — move focus into the popover on open and restore it to the
+  // trigger on close. (Escape / outside-click dismissal is handled below.)
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const frame = requestAnimationFrame(() => {
+      const root = dialogRef.current;
+      if (!root) return;
+      (getPopoverFocusable(root)[0] ?? root).focus({ preventScroll: true });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      const previous = returnFocusRef.current;
+      if (previous && document.contains(previous)) {
+        try {
+          previous.focus({ preventScroll: true });
+        } catch {
+          // Detached node during a fast close — ignore.
+        }
+      }
+    };
+  }, [open]);
+
+  // Trap Tab within the popover so keyboard focus cannot escape behind it.
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') return;
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusable = getPopoverFocusable(root);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      root.focus({ preventScroll: true });
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === root || !root.contains(active))) {
+      event.preventDefault();
+      last?.focus({ preventScroll: true });
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first?.focus({ preventScroll: true });
+    }
+  };
 
   // Refresh relative timestamps every 30s while the popover is visible — the
   // store itself never changes purely because of clock drift, so we drive
@@ -228,10 +310,13 @@ export function ExecutionHistoryPopover({
       </IconButton>
       {enabled && open ? (
         <div
+          ref={dialogRef}
           id={popoverId}
           role="dialog"
           aria-label={t('executionHistory.title')}
           data-testid="execution-history-popover"
+          onKeyDown={handleDialogKeyDown}
+          tabIndex={-1}
           className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,90vw)] overflow-hidden rounded-2xl border border-border/80 bg-background-elevated/96 shadow-[var(--shadow-lg)]"
         >
           <header className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3">

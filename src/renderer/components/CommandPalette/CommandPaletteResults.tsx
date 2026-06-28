@@ -43,6 +43,10 @@ interface CommandPaletteResultsProps {
   selectedIndex: number;
   listRef: RefObject<HTMLDivElement | null>;
   onHoverIndex: (index: number) => void;
+  /** id for the listbox container (the combobox input's aria-controls). */
+  listboxId: string;
+  /** Stable per-row option id, for the input's aria-activedescendant. */
+  optionId: (index: number) => string;
 }
 
 export function CommandPaletteResults({
@@ -51,12 +55,19 @@ export function CommandPaletteResults({
   selectedIndex,
   listRef,
   onHoverIndex,
+  listboxId,
+  optionId,
 }: CommandPaletteResultsProps) {
   const { t } = useTranslation();
   const isEmptyQuery = query.trim().length === 0;
 
   return (
-    <div ref={listRef}>
+    <div
+      ref={listRef}
+      id={listboxId}
+      role="listbox"
+      aria-label={t('shortcuts.item.commandPalette.label')}
+    >
       {commands.length === 0 ? (
         <div className="px-4 py-10">
           <EmptyState
@@ -66,10 +77,10 @@ export function CommandPaletteResults({
           />
         </div>
       ) : isEmptyQuery ? (
-        renderGrouped(commands, t, selectedIndex, onHoverIndex)
+        renderGrouped(commands, t, selectedIndex, onHoverIndex, optionId)
       ) : (
         commands.map((command, index) =>
-          renderEntry(command, index, selectedIndex, onHoverIndex)
+          renderEntry(command, index, selectedIndex, onHoverIndex, optionId)
         )
       )}
     </div>
@@ -80,13 +91,20 @@ function renderEntry(
   command: CommandEntry,
   index: number,
   selectedIndex: number,
-  onHoverIndex: (index: number) => void
+  onHoverIndex: (index: number) => void,
+  optionId: (index: number) => string
 ) {
   const isActive = index === selectedIndex;
   return (
     <button
       key={command.id}
       type="button"
+      id={optionId(index)}
+      role="option"
+      aria-selected={isActive}
+      // The combobox input is the single tab stop; options are reached via
+      // the arrow keys + aria-activedescendant, not the Tab sequence.
+      tabIndex={-1}
       onClick={command.action}
       onMouseEnter={() => onHoverIndex(index)}
       data-result-index={index}
@@ -128,7 +146,8 @@ function renderGrouped(
   commands: CommandEntry[],
   t: (key: string) => string,
   selectedIndex: number,
-  onHoverIndex: (index: number) => void
+  onHoverIndex: (index: number) => void,
+  optionId: (index: number) => string
 ) {
   // Bucket commands by category while preserving the original index in
   // the flat list so keyboard navigation (which is index-based on the
@@ -154,7 +173,7 @@ function renderGrouped(
         {t(SECTION_LABEL_KEY[category])}
       </p>,
       ...bucket.map(({ command, index }) =>
-        renderEntry(command, index, selectedIndex, onHoverIndex)
+        renderEntry(command, index, selectedIndex, onHoverIndex, optionId)
       ),
     ];
   });

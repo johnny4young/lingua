@@ -52,6 +52,12 @@ interface FileTreeNodeProps {
   onDelete: (node: ProjectFileTreeNode) => void;
   onNewFileIn?: (node: ProjectFileTreeNode) => void;
   onNewDirIn?: (node: ProjectFileTreeNode) => void;
+  /**
+   * UX Sweep T7 — the tree keyboard navigator, owned by `FileTree` (it
+   * holds the flat visible-node list + parent links). Each row's name
+   * button delegates Arrow/Home/End to it, passing its own path.
+   */
+  onTreeKeyDown?: (nodePath: string, event: ReactKeyboardEvent<HTMLElement>) => void;
 }
 
 const EMPTY_DIRTY_SET: ReadonlySet<string> = new Set<string>();
@@ -68,6 +74,7 @@ export function FileTreeNode({
   onDelete,
   onNewFileIn,
   onNewDirIn,
+  onTreeKeyDown,
 }: FileTreeNodeProps) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
@@ -180,6 +187,27 @@ export function FileTreeNode({
   };
 
   const handleNameKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    // UX Sweep T7 — F2 starts an inline rename from the keyboard (the
+    // rename UI was previously double-click only).
+    if (event.key === 'F2') {
+      event.preventDefault();
+      setRenaming(true);
+      return;
+    }
+    // UX Sweep T7 — Arrow/Home/End move between rows; delegate to the
+    // tree-level navigator (it owns the flat visible-node list).
+    if (
+      onTreeKeyDown &&
+      (event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown' ||
+        event.key === 'ArrowLeft' ||
+        event.key === 'ArrowRight' ||
+        event.key === 'Home' ||
+        event.key === 'End')
+    ) {
+      onTreeKeyDown(node.path, event);
+      return;
+    }
     if (
       event.key !== 'ContextMenu' &&
       !(event.shiftKey && event.key === 'F10')
@@ -195,7 +223,12 @@ export function FileTreeNode({
   };
 
   return (
-    <div>
+    <div
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-expanded={node.isDirectory ? node.isExpanded : undefined}
+      aria-selected={isActiveFile || undefined}
+    >
       <div
         data-active={isActiveFile ? 'true' : undefined}
         className={`group flex items-center gap-1 rounded-xl border-l-2 px-1.5 py-1 text-body-sm transition-colors ${
@@ -263,6 +296,7 @@ export function FileTreeNode({
         ) : (
           <Tooltip content={node.path}>
             <button
+              data-tree-row={node.path}
               className={`focus-ring flex-1 truncate rounded text-left hover:text-foreground ${
                 isActiveFile ? 'text-foreground' : 'text-foreground/88'
               }`}
@@ -340,14 +374,18 @@ export function FileTreeNode({
       </div>
 
       {node.isDirectory && node.isExpanded && node.children && (
-        <div>
+        <div role="group">
           {creating && creating.parentPath === node.path && (
             <div
               className="px-2 py-0.5"
               style={{ paddingLeft: `${(depth + 2) * 12 + 4}px` }}
             >
               <FileTreeInlineInput
-                placeholder={creating.kind === 'file' ? 'filename.rs' : 'folder-name'}
+                placeholder={
+                  creating.kind === 'file'
+                    ? t('fileTree.placeholder.file')
+                    : t('fileTree.placeholder.folder')
+                }
                 onConfirm={onCreateConfirm}
                 onCancel={onCancelCreate}
               />
@@ -367,6 +405,7 @@ export function FileTreeNode({
               onDelete={onDelete}
               onNewFileIn={onNewFileIn}
               onNewDirIn={onNewDirIn}
+              onTreeKeyDown={onTreeKeyDown}
             />
           ))}
           {node.children.length === 0 && (

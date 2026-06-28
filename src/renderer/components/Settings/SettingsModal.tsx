@@ -791,7 +791,9 @@ export function SettingsModal({
                 >
                   <Keyboard size={12} />
                   {t('settings.shortcuts.modal.cta')}
-                  <Kbd className="ml-2">⌘/</Kbd>
+                  {/* UX Sweep T5 — no global keybinding opens this modal
+                      (no `keyboard-shortcuts` combo in the catalog), so the
+                      advertised Cmd+/ keycap was misleading; removed. */}
                 </button>
               </div>
             </SettingsSection>

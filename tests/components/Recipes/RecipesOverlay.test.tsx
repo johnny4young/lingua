@@ -54,6 +54,30 @@ describe('RecipesOverlay', () => {
     });
   });
 
+  it('wires the combobox aria-activedescendant to the active recipe (UX Sweep T11)', async () => {
+    const user = userEvent.setup();
+    render(<RecipesOverlay onClose={() => {}} />);
+    const input = screen.getByTestId('recipes-search-input');
+    expect(input.getAttribute('role')).toBe('combobox');
+    const listboxId = input.getAttribute('aria-controls');
+    expect(listboxId).toBeTruthy();
+    expect(document.getElementById(listboxId!)?.getAttribute('role')).toBe('listbox');
+
+    // The first option is active on open; its id matches aria-activedescendant.
+    const firstActive = input.getAttribute('aria-activedescendant');
+    expect(firstActive).toBe(`${listboxId}-opt-0`);
+    expect(document.getElementById(firstActive!)?.getAttribute('aria-selected')).toBe(
+      'true'
+    );
+
+    // ArrowDown advances the active descendant to the next option.
+    input.focus();
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => {
+      expect(input.getAttribute('aria-activedescendant')).toBe(`${listboxId}-opt-1`);
+    });
+  });
+
   it('shows empty state when nothing matches', async () => {
     const user = userEvent.setup();
     render(<RecipesOverlay onClose={() => {}} />);

@@ -36,8 +36,21 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { useUtilityPipelineStore } from '../../stores/utilityPipelineStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -137,6 +150,13 @@ export function UtilityPipelinePanel() {
 function UtilityPipelinePanelUnlocked() {
   const { t } = useTranslation();
   const announce = useAnnounce();
+  // UX Sweep T10 — register a keyboard sensor so steps can be reordered with
+  // the keyboard (focus the grip, Space to lift, Arrow Up/Down to move, Space
+  // to drop, Esc to cancel), not just with a pointer drag.
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
   const pipelines = useUtilityPipelineStore(state => state.pipelines);
   const activePipelineId = useUtilityPipelineStore(state => state.activePipelineId);
   const isExecuting = useUtilityPipelineStore(state => state.isExecutingActive);
@@ -574,24 +594,21 @@ function UtilityPipelinePanelUnlocked() {
         <ul role="list" className="flex-1 overflow-y-auto">
           {pipelines.map(p => {
             const isActive = p.id === activePipelineId;
+            // UX Sweep T10 — the row used to be role=button while nesting an
+            // editable name input + action buttons, which is invalid (a button
+            // cannot contain interactive content). The row is now a plain
+            // listitem; the always-editable name input is the selection
+            // affordance (focus follows selection, as is idiomatic for a
+            // single-select sidebar list), and the actions are siblings.
             return (
               <li
                 key={p.id}
-                role="button"
-                tabIndex={0}
                 data-testid="utility-pipeline-list-row"
                 data-pipeline-id={p.id}
                 data-active={isActive}
                 aria-current={isActive ? 'true' : undefined}
-                onClick={() => handleSelect(p.id)}
-                onKeyDown={event => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    handleSelect(p.id);
-                  }
-                }}
                 className={cn(
-                  'focus-ring group flex items-center gap-1 rounded px-2 py-1.5 text-body-sm cursor-pointer',
+                  'group flex items-center gap-1 rounded px-2 py-1.5 text-body-sm',
                   isActive
                     ? 'bg-background-elevated text-foreground'
                     : 'text-muted hover:bg-surface-strong/60 hover:text-foreground'
@@ -601,18 +618,15 @@ function UtilityPipelinePanelUnlocked() {
                   type="text"
                   value={p.name}
                   data-testid="utility-pipeline-list-name"
+                  aria-label={t('utilityPipeline.list.nameAria')}
                   onChange={event => handleRename(p.id, event.target.value)}
-                  onClick={event => event.stopPropagation()}
-                  onKeyDown={event => event.stopPropagation()}
+                  onFocus={() => handleSelect(p.id)}
                   placeholder={t('utilityPipeline.list.renamePlaceholder')}
-                  className="min-w-0 flex-1 truncate bg-transparent text-body-sm outline-none focus:ring-0"
+                  className="focus-ring min-w-0 flex-1 truncate cursor-pointer rounded bg-transparent px-1 text-body-sm"
                 />
                 <button
                   type="button"
-                  onClick={event => {
-                    event.stopPropagation();
-                    handleDuplicate(p.id);
-                  }}
+                  onClick={() => handleDuplicate(p.id)}
                   aria-label={t('utilityPipeline.list.duplicateAria', { name: p.name })}
                   data-testid="utility-pipeline-list-duplicate"
                   className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
@@ -621,10 +635,7 @@ function UtilityPipelinePanelUnlocked() {
                 </button>
                 <button
                   type="button"
-                  onClick={event => {
-                    event.stopPropagation();
-                    handleDelete(p.id);
-                  }}
+                  onClick={() => handleDelete(p.id)}
                   aria-label={t('utilityPipeline.list.deleteAria', { name: p.name })}
                   data-testid="utility-pipeline-list-delete"
                   className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
@@ -730,7 +741,11 @@ function UtilityPipelinePanelUnlocked() {
                 {t('utilityPipeline.editor.emptyPipeline')}
               </div>
             ) : (
-              <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
                 <SortableContext
                   items={activePipeline.steps.map(step => step.id)}
                   strategy={verticalListSortingStrategy}

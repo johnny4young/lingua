@@ -236,6 +236,33 @@ describe('UtilityPipelinePanel', () => {
     });
   });
 
+  it('selects a pipeline when its name input is focused (UX Sweep T10)', async () => {
+    useUtilityPipelineStore.getState().createPipeline(
+      createBlankPipeline({ id: 'p1', name: 'first' })
+    );
+    useUtilityPipelineStore.getState().createPipeline(
+      createBlankPipeline({ id: 'p2', name: 'second' })
+    );
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+
+    const inputs = screen.getAllByTestId(
+      'utility-pipeline-list-name'
+    ) as HTMLInputElement[];
+    const firstInput = inputs.find((i) => i.value === 'first')!;
+    const secondInput = inputs.find((i) => i.value === 'second')!;
+
+    // Focus follows selection: focusing a row's name input activates it.
+    await user.click(secondInput);
+    await waitFor(() => {
+      expect(useUtilityPipelineStore.getState().activePipelineId).toBe('p2');
+    });
+    await user.click(firstInput);
+    await waitFor(() => {
+      expect(useUtilityPipelineStore.getState().activePipelineId).toBe('p1');
+    });
+  });
+
   it('deletes a pipeline only after the ConfirmDialog is confirmed (UX Sweep T2)', async () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'doomed' });
     useUtilityPipelineStore.getState().createPipeline(pipeline);
@@ -266,7 +293,12 @@ describe('UtilityPipelinePanel', () => {
     useUtilityPipelineStore.getState().createPipeline(pipeline);
     render(<UtilityPipelinePanel />);
 
-    expect(screen.getByTestId('utility-pipeline-list-row').className).toContain(
+    // UX Sweep T10 — the row is no longer a button; the name input is the
+    // focusable selection affordance and carries the focus ring.
+    const row = screen.getByTestId('utility-pipeline-list-row');
+    expect(row.getAttribute('role')).toBeNull();
+    expect(row.getAttribute('tabindex')).toBeNull();
+    expect(screen.getByTestId('utility-pipeline-list-name').className).toContain(
       'focus-ring'
     );
 

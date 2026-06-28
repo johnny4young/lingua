@@ -1,9 +1,11 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../../src/renderer/i18n';
 import { AppChrome } from '../../../src/renderer/components/Chrome';
+import { SettingsModal } from '../../../src/renderer/components/Settings/SettingsModal';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useUpdateStore } from '../../../src/renderer/stores/updateStore';
 
@@ -27,10 +29,45 @@ function seedTab(opts: { name: string; isDirty?: boolean } = { name: 'main.js' }
   });
 }
 
+function AppChromeSettingsHarness({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  return (
+    <>
+      <AppChrome
+        onOpenSettings={() => {
+          onOpenSettings();
+          setSettingsOpen(true);
+        }}
+      />
+      {settingsOpen ? (
+        <SettingsModal
+          onClose={() => setSettingsOpen(false)}
+          onOpenWhatsNew={() => {}}
+          onStartGuidedTour={() => {}}
+        />
+      ) : null}
+    </>
+  );
+}
+
 describe('AppChrome', () => {
   beforeEach(async () => {
     initI18n('en');
     await i18next.changeLanguage('en');
+    window.lingua = {
+      ...window.lingua,
+      platform: 'darwin',
+      getAppInfo: vi.fn().mockResolvedValue({
+        productName: 'Lingua',
+        version: '0.1.0',
+        buildDate: '2026-04-16T01:23:45.000Z',
+        licenseType: 'MIT',
+        repositoryUrl: 'https://github.com/johnny4young/lingua',
+        websiteUrl: null,
+        licenseUrl: 'https://github.com/johnny4young/lingua/blob/main/LICENSE',
+      }),
+      openExternal: vi.fn().mockResolvedValue(true),
+    } as LinguaAPI;
   });
 
   afterEach(() => {
@@ -91,6 +128,25 @@ describe('AppChrome', () => {
 
     await user.click(chip);
     expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
+
+  it('license badge opens Settings and navigates to the Account tab (UX Sweep T5)', async () => {
+    seedTab();
+    const user = userEvent.setup();
+    const onOpenSettings = vi.fn();
+    render(<AppChromeSettingsHarness onOpenSettings={onOpenSettings} />);
+
+    await user.click(screen.getByTestId('license-badge'));
+
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+    // This mounts the real SettingsModal after the badge click. The deferred
+    // navigate event must wait long enough for SettingsModal to register its
+    // listener; otherwise the click opens Settings but leaves users on General.
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-tab-account').getAttribute('aria-selected')).toBe(
+        'true'
+      );
+    });
   });
 
   it('reflects the Spanish locale for filename fallback', async () => {

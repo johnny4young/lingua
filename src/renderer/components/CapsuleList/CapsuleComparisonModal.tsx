@@ -1,5 +1,12 @@
 import { X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { DIFF_MAX_INPUT_CHARS, type DiffSegment } from '../../utils/diff';
 import type { RunCapsuleStatus, RunCapsuleV1 } from '../../../shared/runCapsule';
@@ -108,6 +115,10 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
     capsules: [RunCapsuleV1, RunCapsuleV1];
     section: SectionKey;
   } | null>(null);
+  // UX Sweep T11 — ids + ref for the section tablist so it implements the ARIA
+  // tab keyboard pattern (roving tabindex + arrow keys + tab/panel wiring).
+  const tablistBaseId = useId();
+  const tablistRef = useRef<HTMLDivElement>(null);
 
   // Escape closes — `OverlayBackdrop` only handles the backdrop click.
   // Mirror `ExecutionComparisonModal`: attach a window listener while
@@ -161,6 +172,45 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
       : undefined;
   const activeSection: SectionKey = pickedEntry?.key ?? firstNonEmpty;
   const active = sections.find((entry) => entry.key === activeSection)!.section;
+
+  const tabId = (key: SectionKey) => `${tablistBaseId}-tab-${key}`;
+  const panelId = `${tablistBaseId}-panel`;
+
+  // ARIA tab keyboard pattern: Arrow/Home/End move between the enabled
+  // (non-empty) section tabs, with selection following focus.
+  const handleTabKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    currentKey: SectionKey
+  ) => {
+    const enabled = sections
+      .filter((entry) => !entry.section.empty)
+      .map((entry) => entry.key);
+    const current = enabled.indexOf(currentKey);
+    if (current === -1 || enabled.length === 0) return;
+
+    let nextIndex: number;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (current + 1) % enabled.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (current - 1 + enabled.length) % enabled.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = enabled.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const nextKey = enabled[nextIndex];
+    if (!nextKey || !capsules) return;
+    setPick({ capsules, section: nextKey });
+    tablistRef.current
+      ?.querySelector<HTMLButtonElement>(
+        `[data-testid="capsule-compare-tab-${nextKey}"]`
+      )
+      ?.focus();
+  };
 
   return (
     <OverlayBackdrop onClose={onClose}>
@@ -265,6 +315,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
           <>
             {/* fold A — section tab bar. */}
             <div
+              ref={tablistRef}
               role="tablist"
               aria-label={t('capsule.compare.title')}
               data-testid="capsule-compare-tabs"
@@ -277,11 +328,15 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                     key={key}
                     type="button"
                     role="tab"
+                    id={tabId(key)}
                     aria-selected={isActive}
+                    aria-controls={panelId}
+                    tabIndex={isActive ? 0 : -1}
                     disabled={section.empty}
                     onClick={() => setPick({ capsules, section: key })}
+                    onKeyDown={(event) => handleTabKeyDown(event, key)}
                     data-testid={`capsule-compare-tab-${key}`}
-                    className={`rounded-md px-3 py-1 text-caption font-semibold uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    className={`focus-ring rounded-md px-3 py-1 text-caption font-semibold uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                       isActive
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted hover:text-foreground'
@@ -293,6 +348,12 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
               })}
             </div>
 
+            {/* UX Sweep T11 — the active section content is this tab's panel. */}
+            <div
+              role="tabpanel"
+              id={panelId}
+              aria-labelledby={tabId(activeSection)}
+            >
             {active.empty ? (
               <p
                 data-testid="capsule-compare-section-empty"
@@ -370,6 +431,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                 </div>
               </>
             )}
+            </div>
           </>
         )}
       </OverlayCard>

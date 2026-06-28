@@ -130,6 +130,21 @@ describe('SnippetsModal', () => {
     expect(useSnippetsStore.getState().snippets[0].id).toBe(snippetId);
   });
 
+  it('marks the selected snippet row with aria-current (UX Sweep T5)', () => {
+    useSnippetsStore.getState().addSnippet({
+      label: 'Console',
+      description: 'Logging helper',
+      language: 'javascript',
+      code: 'console.log(1);',
+    });
+    render(<SnippetsModal onClose={vi.fn()} />);
+    // The first snippet auto-selects on mount; its row conveys selection
+    // via aria-current and the shared focus-ring utility, not color alone.
+    const row = screen.getByRole('button', { name: /Console/ });
+    expect(row.getAttribute('aria-current')).toBe('true');
+    expect(row.className).toContain('focus-ring');
+  });
+
   it('can delete an existing snippet', async () => {
     const user = userEvent.setup();
 

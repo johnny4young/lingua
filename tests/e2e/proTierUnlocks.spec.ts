@@ -132,9 +132,9 @@ test.describe('Pro tier unlocks — seeded Pro session', () => {
     // status + duration). It's a Pro-only command — on Free the command
     // is absent, not merely disabled.
     await expect(
-      page.getByRole('button', { name: /Recent: JavaScript · ok · .* ms/i })
+      page.getByRole('option', { name: /Recent: JavaScript · ok · .* ms/i })
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: /Re-run last execution/i })).toBeVisible();
+    await expect(page.getByRole('option', { name: /Re-run last execution/i })).toBeVisible();
     await page.keyboard.press('Escape');
   });
 

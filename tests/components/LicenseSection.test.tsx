@@ -164,12 +164,22 @@ describe('LicenseSection', () => {
     await user.click(screen.getByTestId('license-apply'));
 
     // Draft survives so the user can fix it
-    expect((screen.getByTestId('license-input') as HTMLTextAreaElement).value).toBe('garbage');
+    const input = screen.getByTestId('license-input') as HTMLTextAreaElement;
+    expect(input.value).toBe('garbage');
     const notice = useUIStore.getState().statusNotice;
     expect(notice?.messageKey).toBe('license.notice.invalid.malformed');
     expect(notice?.tone).toBe('error');
     // Crucially: the raw developer message never reaches the banner.
     expect(notice?.detail).toBeUndefined();
+
+    // UX Sweep T14 — the input reflects the rejected state inline.
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    const inlineError = screen.getByTestId('license-input-error');
+    expect(input.getAttribute('aria-describedby')).toBe(inlineError.id);
+    // Editing clears the invalid state.
+    await user.type(input, 'x');
+    expect(input.getAttribute('aria-invalid')).toBe('false');
+    expect(screen.queryByTestId('license-input-error')).toBeNull();
   });
 
   it('maps each invalid reason code to its own user-facing i18n key', async () => {
