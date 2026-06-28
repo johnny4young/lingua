@@ -3108,6 +3108,7 @@
   "utilityPipeline.list.export": "Export pipeline as JSON",
   "utilityPipeline.list.empty": "No pipelines yet.",
   "utilityPipeline.list.renamePlaceholder": "Untitled pipeline",
+  "utilityPipeline.list.nameAria": "Pipeline name",
   "utilityPipeline.list.deleteConfirm.title": "Delete pipeline?",
   "utilityPipeline.list.deleteConfirm.body": "This permanently deletes the pipeline \"{{name}}\" and its steps. This cannot be undone.",
   "utilityPipeline.list.deleteConfirm.confirm": "Delete pipeline",
