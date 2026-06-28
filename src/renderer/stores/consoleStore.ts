@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  CollapsedConsoleRow,
   ConsoleState,
   ConsoleEntry,
   ConsoleEntryType,
@@ -51,6 +52,32 @@ function consoleEntryHash(
   return stableEqualityHash(
     JSON.stringify([entry.type, entry.line ?? null, entry.content, payloadShape])
   );
+}
+
+/**
+ * Fold a flat entry list into the collapsed view, merging runs of
+ * consecutive entries that share an `equalityHash` into one row with a
+ * `repeatCount`. This is the authoritative derivation; `addEntry` keeps an
+ * incremental fast-path for the hot push, but `restore` recomputes from the
+ * merged list so the snapshot/live boundary collapses correctly when the
+ * last restored entry and the first live entry are identical (PR #8).
+ */
+function collapseConsoleEntries(
+  entries: readonly ConsoleEntry[]
+): CollapsedConsoleRow[] {
+  const rows: CollapsedConsoleRow[] = [];
+  for (const entry of entries) {
+    const last = rows[rows.length - 1];
+    if (last && last.entry.equalityHash === entry.equalityHash) {
+      rows[rows.length - 1] = {
+        entry: last.entry,
+        repeatCount: last.repeatCount + 1,
+      };
+    } else {
+      rows.push({ entry, repeatCount: 1 });
+    }
+  }
+  return rows;
 }
 
 export const useConsoleStore = create<ConsoleState>((set) => ({
@@ -112,18 +139,14 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
       const liveEntries = state.entries.filter(
         (entry) => !restoredEntryIds.has(entry.id)
       );
-      const restoredCollapsedIds = new Set(
-        snapshot.collapsedEntries.map((row) => row.entry.id)
-      );
-      const liveCollapsedEntries = state.collapsedEntries.filter(
-        (row) => !restoredCollapsedIds.has(row.entry.id)
-      );
+      const mergedEntries = [...snapshot.entries, ...liveEntries];
       return {
-        entries: [...snapshot.entries, ...liveEntries],
-        collapsedEntries: [
-          ...snapshot.collapsedEntries,
-          ...liveCollapsedEntries,
-        ],
+        entries: mergedEntries,
+        // Recompute the collapsed view from the merged entries (not by
+        // concatenating the two precomputed lists) so a restored entry and
+        // an identical live entry at the boundary collapse into one row
+        // instead of two — keeps collapsedEntries the true view of entries.
+        collapsedEntries: collapseConsoleEntries(mergedEntries),
         hiddenPayloadKinds: new Set(snapshot.hiddenPayloadKinds),
       };
     }),

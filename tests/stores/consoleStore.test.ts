@@ -122,6 +122,29 @@ describe('consoleStore', () => {
     ]);
   });
 
+  it('restore re-collapses an identical entry across the snapshot/live boundary (PR #8)', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'A' });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'dup' });
+    const snapshot = {
+      entries: useConsoleStore.getState().entries,
+      collapsedEntries: useConsoleStore.getState().collapsedEntries,
+      hiddenPayloadKinds: useConsoleStore.getState().hiddenPayloadKinds,
+    };
+
+    useConsoleStore.getState().clear();
+    // An identical entry logged after the clear must merge with the
+    // restored snapshot's trailing identical entry, not sit as a 2nd row.
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'dup' });
+    useConsoleStore.getState().restore(snapshot);
+
+    const restored = useConsoleStore.getState();
+    expect(restored.entries).toHaveLength(3); // A, dup(snap), dup(live)
+    expect(restored.collapsedEntries).toHaveLength(2); // A, dup(x2)
+    const dupRow = restored.collapsedEntries[1];
+    expect(dupRow.entry.content).toBe('dup');
+    expect(dupRow.repeatCount).toBe(2);
+  });
+
   it('should assign unique IDs to each entry', () => {
     useConsoleStore.getState().addEntry({ type: 'log', content: 'A' });
     useConsoleStore.getState().addEntry({ type: 'log', content: 'B' });

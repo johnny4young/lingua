@@ -251,15 +251,17 @@ export function detectImportFormat(
  *   3. Replace every run of non `[a-z0-9_]` characters with a single
  *      `_` (spaces, dots, unicode, punctuation all collapse).
  *   4. Trim leading/trailing `_`.
- *   5. Prefix `t_` when the result is empty OR starts with a digit
- *      (DuckDB identifiers may not begin with a digit).
+ *   5. Fall back to `table` when nothing survives (the result is empty).
+ *   6. Prefix `t_` when the result starts with a digit (DuckDB
+ *      identifiers may not begin with a digit). The `table` fallback
+ *      never starts with a digit, so it is returned as-is.
  *
  * Examples:
  *
  *   - `Q1 Sales.csv`     → `q1_sales`
  *   - `2024-report.json` → `t_2024_report`
  *   - `café data.csv`    → `caf_data`
- *   - `🙂.csv`           → `t_table`  (nothing survives → fallback)
+ *   - `🙂.csv`           → `table`  (nothing survives → fallback)
  *
  * The result is NOT collision-checked here — pair it with
  * {@link dedupeTableName} against the live table set.

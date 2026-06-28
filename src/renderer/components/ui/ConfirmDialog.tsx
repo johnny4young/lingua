@@ -25,7 +25,11 @@
  */
 
 import { useEffect, useId, useRef } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type {
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  ReactNode,
+} from 'react';
 import { cn } from '../../utils/cn';
 
 /**
@@ -41,7 +45,7 @@ export interface ConfirmDialogProps {
    * can interpolate emphasis, but it must contain no untranslated
    * literals.
    */
-  readonly body: React.ReactNode;
+  readonly body: ReactNode;
   /** Translated label for the danger-styled confirm button. */
   readonly confirmLabel: string;
   /** Translated label for the safe cancel button (receives initial focus). */
@@ -181,7 +185,7 @@ export function ConfirmDialog({
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-overlay/70 p-4 backdrop-blur-xl"
-      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onCancel();
