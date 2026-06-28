@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { computeLicenseJwkThumbprint } from '../../../shared/license';
 import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
@@ -117,6 +117,10 @@ function tierLabel(t: ReturnType<typeof useTranslation>['t'], status: LicenseSta
 export function LicenseSection() {
   const { t } = useTranslation();
   const [draft, setDraft] = useState('');
+  // UX Sweep T14 — reflect a rejected paste on the input itself (aria-invalid
+  // + an inline message), not only via the transient toast.
+  const [applyErrorKey, setApplyErrorKey] = useState<string | null>(null);
+  const applyErrorId = useId();
   const [isApplying, setIsApplying] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   // UX Sweep T2 fold C — whether the remove-license confirm is open.
@@ -198,6 +202,7 @@ export function LicenseSection() {
           setExhaustedModalOpen(true);
           return;
         }
+        setApplyErrorKey(invalidReasonMessageKey(next));
         pushStatusNotice({
           tone: 'error',
           messageKey: invalidReasonMessageKey(next),
@@ -208,6 +213,7 @@ export function LicenseSection() {
         return;
       }
       setDraft('');
+      setApplyErrorKey(null);
       if (next.kind === 'active' || next.kind === 'grace') {
         // Read the post-apply `serverSync` flag imperatively so we see
         // whatever value the store just wrote inside `setLicenseToken`.
@@ -374,10 +380,29 @@ export function LicenseSection() {
                 placeholder={t('license.paste.placeholder')}
                 value={draft}
                 spellCheck={false}
-                onChange={event => setDraft(event.target.value)}
+                onChange={event => {
+                  setDraft(event.target.value);
+                  // Editing clears the rejected-token state.
+                  if (applyErrorKey) setApplyErrorKey(null);
+                }}
                 data-testid="license-input"
-                className="min-h-20 w-full rounded-md border border-border-default bg-bg-base px-3 py-2 font-mono text-body-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
+                aria-invalid={applyErrorKey !== null}
+                aria-describedby={applyErrorKey ? applyErrorId : undefined}
+                className={`min-h-20 w-full rounded-md border bg-bg-base px-3 py-2 font-mono text-body-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle ${
+                  applyErrorKey
+                    ? 'border-error/70 focus:border-error'
+                    : 'border-border-default focus:border-accent/55'
+                }`}
               />
+              {applyErrorKey ? (
+                <p
+                  id={applyErrorId}
+                  data-testid="license-input-error"
+                  className="w-full text-body-sm text-error"
+                >
+                  {t(applyErrorKey)}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void handleApply()}

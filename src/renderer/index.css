@@ -1948,3 +1948,22 @@
     box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-success-fg) 14%, transparent);
   }
 }
+
+/* ============================================================ */
+/* UX Sweep T14 — WCAG 2.3.3: honor prefers-reduced-motion.     */
+/* The run-button pulse, spinners, shell fade-in, rise-in, and  */
+/* the cursor/console pulse all animated unconditionally. This  */
+/* global guard collapses non-essential animation + transition  */
+/* for users who asked the OS to reduce motion. Loading         */
+/* spinners still render — they just stop rotating.             */
+/* ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

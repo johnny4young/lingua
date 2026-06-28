@@ -2834,7 +2834,7 @@
   "httpWorkspace.editor.params.add": "Agregar param",
   "httpWorkspace.editor.params.name.placeholder": "Clave",
   "httpWorkspace.editor.params.value.placeholder": "Valor",
-  "httpWorkspace.editor.params.enabledAria": "Activar el param {{name}}",
+  "httpWorkspace.editor.params.enabledAria": "Activar o desactivar el param {{name}}",
   "httpWorkspace.editor.params.remove.aria": "Quitar param",
   "httpWorkspace.editor.auth.label": "Auth",
   "httpWorkspace.editor.auth.kind.label": "Esquema de auth",
