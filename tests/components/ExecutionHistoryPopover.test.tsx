@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,6 +37,28 @@ describe('ExecutionHistoryPopover', () => {
     expect(
       screen.getByText('No runs recorded yet. Run a file to populate the history.')
     ).toBeTruthy();
+  });
+
+  it('moves focus into the popover on open and restores it on close (UX Sweep T12)', async () => {
+    const user = userEvent.setup();
+    render(<ExecutionHistoryPopover />);
+    const toggle = screen.getByTestId('execution-history-toggle');
+    toggle.focus();
+    await user.click(toggle);
+
+    const dialog = await screen.findByTestId('execution-history-popover');
+    await waitFor(() => {
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    });
+
+    // Escape dismisses and returns focus to the trigger.
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByTestId('execution-history-popover')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(toggle);
+    });
   });
 
   it('lists recorded runs newest-first and formats the duration', async () => {
