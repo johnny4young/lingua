@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +53,27 @@ const BUTTON_LABEL_KEYS: Record<GuidedTourButtonKind, string> = {
   next: 'tour.buttons.next',
   skip: 'tour.buttons.skip',
 };
+
+// UX Sweep T8 — focusable descendants of the tour dialog, for the Tab trap.
+const TOUR_FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getTourFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(TOUR_FOCUSABLE_SELECTOR)
+  ).filter(
+    (el) =>
+      !el.hasAttribute('disabled') &&
+      el.getAttribute('aria-hidden') !== 'true' &&
+      el.tabIndex !== -1
+  );
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -170,6 +192,11 @@ function GuidedTourRuntime({
   const [targetRect, setTargetRect] = useState<GuidedTourTargetRect | null>(null);
   const activeStepIndexRef = useRef<number | null>(null);
   const controlsRef = useRef(controls);
+  // UX Sweep T8 — focus management for the tour dialog (it declared
+  // role=dialog + aria-modal but trapped nothing). Focus the dialog when the
+  // tour opens and restore focus to the trigger when it closes.
+  const dialogRef = useRef<HTMLElement>(null);
+  const tourReturnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     controlsRef.current = controls;
@@ -204,6 +231,65 @@ function GuidedTourRuntime({
     setTargetRect(null);
     controlsRef.current.closeOverlay();
   }, []);
+
+  // UX Sweep T8 — capture the trigger when the tour opens, move focus into
+  // the dialog, and restore focus to the trigger when it closes.
+  const tourActive = activeStepIndex !== null;
+  useEffect(() => {
+    if (!tourActive) return;
+    tourReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const frame = requestAnimationFrame(() => {
+      dialogRef.current?.focus({ preventScroll: true });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      const previous = tourReturnFocusRef.current;
+      if (previous && document.contains(previous)) {
+        try {
+          previous.focus({ preventScroll: true });
+        } catch {
+          // Detached node during a fast close — ignore.
+        }
+      }
+    };
+  }, [tourActive]);
+
+  // Escape skips the tour; Tab is trapped inside the dialog.
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelTour();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusable = getTourFocusable(root);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      root.focus({ preventScroll: true });
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    // `active === root` covers Shift+Tab while the dialog container itself
+    // holds focus (the on-open target), which would otherwise escape backward.
+    if (
+      event.shiftKey &&
+      (active === first || active === root || !root.contains(active))
+    ) {
+      event.preventDefault();
+      last?.focus({ preventScroll: true });
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first?.focus({ preventScroll: true });
+    }
+  };
 
   const completeTour = useCallback(() => {
     setHasCompletedTour(true);
@@ -386,11 +472,14 @@ function GuidedTourRuntime({
             />
           ) : null}
           <section
+            ref={dialogRef}
             aria-labelledby="guided-tour-title"
             aria-modal="true"
             className="guided-tour-step"
+            onKeyDown={handleDialogKeyDown}
             role="dialog"
             style={panelStyle}
+            tabIndex={-1}
           >
             <header className="guided-tour-header">
               <h2 id="guided-tour-title" className="guided-tour-title">
