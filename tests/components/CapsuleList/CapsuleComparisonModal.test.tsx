@@ -189,6 +189,47 @@ describe('CapsuleComparisonModal', () => {
     );
   });
 
+  it('moves between section tabs with the keyboard (UX Sweep T11)', async () => {
+    const older = capsule({
+      id: 'o',
+      content: 'console.log(1)',
+      stdin: 'older-input',
+      stdout: 'older-output',
+    });
+    const newer = capsule({
+      id: 'n',
+      content: 'console.log(2)',
+      stdin: 'newer-input',
+      stdout: 'newer-output',
+    });
+
+    render(<CapsuleComparisonModal capsules={[older, newer]} onClose={vi.fn()} />);
+    const user = userEvent.setup();
+
+    const codeTab = screen.getByTestId('capsule-compare-tab-code');
+    const inputTab = screen.getByTestId('capsule-compare-tab-input');
+
+    // Roving tabindex: only the active tab is in the Tab order.
+    expect(codeTab.getAttribute('tabindex')).toBe('0');
+    expect(inputTab.getAttribute('tabindex')).toBe('-1');
+
+    // The tab controls a tabpanel labelled by the active tab.
+    const panelId = codeTab.getAttribute('aria-controls');
+    const panel = document.getElementById(panelId!);
+    expect(panel?.getAttribute('role')).toBe('tabpanel');
+    expect(panel?.getAttribute('aria-labelledby')).toBe(codeTab.getAttribute('id'));
+
+    // ArrowRight moves to the next tab with selection following focus.
+    codeTab.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(document.activeElement).toBe(inputTab);
+    expect(inputTab.getAttribute('tabindex')).toBe('0');
+    expect(codeTab.getAttribute('tabindex')).toBe('-1');
+    expect(screen.getByTestId('capsule-compare-pane-older').textContent).toBe(
+      'older-input'
+    );
+  });
+
   it('exposes the scroll panes as focusable, labelled regions (UX Sweep T3)', () => {
     const older = capsule({ id: 'o', content: 'console.log(1)', stdout: 'a' });
     const newer = capsule({ id: 'n', content: 'console.log(2)', stdout: 'b' });
