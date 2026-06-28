@@ -638,6 +638,18 @@ describe('SqlWorkspacePanel — file import (RL-097)', () => {
     );
     expect(labelEl?.textContent?.length).toBeGreaterThan(0);
 
+    expect(
+      (screen.getByTestId('sql-workspace-import') as HTMLButtonElement).disabled
+    ).toBe(true);
+    expect(
+      (screen.getByTestId('sql-workspace-import-input') as HTMLInputElement)
+        .disabled
+    ).toBe(true);
+    expect(
+      (screen.getByTestId('sql-schema-browser-import') as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+
     // Detected columns + sample rows render.
     const columns = screen.getByTestId('sql-import-modal-columns');
     expect(columns.textContent).toContain('id');

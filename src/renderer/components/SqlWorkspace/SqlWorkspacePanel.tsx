@@ -405,7 +405,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     existingTableNames,
     onImported: () => void handleRefreshTables(),
   });
-  const importBusy = sqlImport.isPreviewing || sqlImport.isImporting;
+  const importBusy =
+    sqlImport.isPreviewing || sqlImport.isImporting || sqlImport.modal !== null;
 
   // The keyboard-operable primary "Import data" toolbar control: a real
   // <button> that opens the hidden <input type="file"> via `.click()`. The

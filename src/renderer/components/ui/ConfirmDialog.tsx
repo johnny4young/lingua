@@ -160,7 +160,13 @@ export function ConfirmDialog({
     const last = focusable[focusable.length - 1];
     const active = document.activeElement;
 
-    if (event.shiftKey && (active === first || !root.contains(active))) {
+    if (!root.contains(active)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first)?.focus({ preventScroll: true });
+      return;
+    }
+
+    if (event.shiftKey && active === first) {
       event.preventDefault();
       last?.focus({ preventScroll: true });
       return;

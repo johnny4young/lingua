@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfirmDialog } from '../../src/renderer/components/ui/ConfirmDialog';
 
@@ -99,6 +99,33 @@ describe('ConfirmDialog', () => {
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(parentKeyDown).not.toHaveBeenCalled();
+  });
+
+
+  it('redirects forward Tab back inside when focus is outside the dialog root', async () => {
+    render(
+      <>
+        <button type="button" data-testid="outside-trigger">
+          Outside
+        </button>
+        <ConfirmDialog
+          {...baseProps}
+          testId="my-confirm"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      </>
+    );
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+
+    screen.getByTestId('outside-trigger').focus();
+    expect(document.activeElement).toBe(screen.getByTestId('outside-trigger'));
+
+    const scrim = screen.getByTestId('my-confirm').parentElement!;
+    fireEvent.keyDown(scrim, { key: 'Tab' });
+
+    expect(document.activeElement).toBe(cancel);
   });
 
   it('cancels on a scrim click', async () => {
