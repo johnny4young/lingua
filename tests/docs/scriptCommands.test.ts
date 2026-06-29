@@ -157,6 +157,9 @@ describe('Script naming docs guard', () => {
       'check:i18n',
       'check:i18n:copy',
       'format',
+      // Desktop bundle build (main + preload + renderer via Vite) that
+      // electron-builder then packages — the Forge-free build step.
+      'build:desktop-bundles',
       'package:desktop',
       'make:desktop',
       'make:desktop:mac',

@@ -123,12 +123,13 @@ reference for what each command owns.
 | `check:i18n` | Validates locale shape and key parity. |
 | `check:i18n:copy` | Flags obvious hardcoded renderer copy in touched files. |
 | `format` | Runs Prettier over source, JSON, Markdown, and CSS files. |
-| `package:desktop` | Builds unpacked Electron desktop packages. |
-| `make:desktop` | Builds platform installers with Electron Forge. |
-| `make:desktop:mac` | Builds macOS installers/artifacts. |
-| `make:desktop:linux` | Builds Linux installers/artifacts. |
-| `make:desktop:win` | Builds Windows installers/artifacts. |
-| `publish:desktop` | Publishes Electron Forge artifacts through the configured makers. |
+| `build:desktop-bundles` | Builds the main/preload/renderer Vite output into `.vite/` for electron-builder to package. |
+| `package:desktop` | Builds an unpacked desktop app (`electron-builder --dir`, ad-hoc signed). |
+| `make:desktop` | Builds installers for the host platform with electron-builder. |
+| `make:desktop:mac` | Builds macOS installers/artifacts (dmg + zip). |
+| `make:desktop:linux` | Builds Linux installers/artifacts (AppImage). |
+| `make:desktop:win` | Builds Windows installers/artifacts (NSIS). |
+| `publish:desktop` | Builds and publishes installers + the auto-update feed to GitHub Releases. |
 | `prepare` | Rebuilds the CLI bundle after install/pull. |
 
 ## i18n contributor workflow

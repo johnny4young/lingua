@@ -112,13 +112,15 @@ describe('RL-083 — runtime-assets.lock.json integrity', () => {
   it('keeps Ruby JS bindings paired with the version-specific WASM package', async () => {
     const pkg = JSON.parse(await readFile(packageJsonPath, 'utf8')) as {
       dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
     };
 
-    expect(pkg.dependencies?.['@ruby/3.4-wasm-wasi']).toBe(
-      RUNTIME_ASSETS.ruby.version
-    );
-    expect(pkg.dependencies?.['@ruby/wasm-wasi']).toBe(
-      RUNTIME_ASSETS.ruby.version
-    );
+    // The runtime-asset packages are build-time copy sources (copyRuntimeAssetsPlugin
+    // copies them into the renderer bundle), so they live in devDependencies — the
+    // electron-builder migration keeps only runtime-externalized modules in
+    // dependencies. Accept either section to stay pinned to the same version.
+    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+    expect(allDeps['@ruby/3.4-wasm-wasi']).toBe(RUNTIME_ASSETS.ruby.version);
+    expect(allDeps['@ruby/wasm-wasi']).toBe(RUNTIME_ASSETS.ruby.version);
   });
 });
