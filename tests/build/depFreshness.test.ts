@@ -34,9 +34,9 @@ const PNPM_WORKSPACE_PATH = resolve(ROOT, 'pnpm-workspace.yaml');
 // also append a bullet to the internal plan under the matching maintenance
 // entry so the next sweep reviewer sees the why.
 const HELD_BACK: Record<string, string> = {
-  '@electron/fuses':
-    'Held at v1 because @electron-forge/plugin-fuses@7.11.1 peer-requires ^1.0.0. ' +
-    'Unlocks when Forge ships a Vite-8-aware release (also unblocks RL-033 follow-up).',
+  // No current hold-backs. (The former @electron/fuses pin was removed with the
+  // Electron Forge maker/fuses toolchain when desktop moved to electron-builder,
+  // which manages fuses via electron-builder.yml electronFuses.)
 };
 
 function caretMajor(spec: string | undefined): number | null {

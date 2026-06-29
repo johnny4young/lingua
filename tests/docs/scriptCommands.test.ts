@@ -95,7 +95,6 @@ describe('Script naming docs guard', () => {
       'dev:desktop:sync',
       'dev:desktop:pro',
       'dev:desktop:prod',
-      'dev:desktop:forge',
       'build:web',
       // RL-098 Slice 1 — CLI bundle (lingua utility, lingua capsule validate)
       'build:cli',
@@ -157,6 +156,9 @@ describe('Script naming docs guard', () => {
       'check:i18n',
       'check:i18n:copy',
       'format',
+      // Desktop bundle build (main + preload + renderer via Vite) that
+      // electron-builder then packages — the Forge-free build step.
+      'build:desktop-bundles',
       'package:desktop',
       'make:desktop',
       'make:desktop:mac',
@@ -180,7 +182,7 @@ describe('Script naming docs guard', () => {
     expect(scripts).not.toHaveProperty('test:smoke:license-web');
     expect(scripts).not.toHaveProperty('test:smoke:license-web:unit');
     expect(scripts['smoke:desktop:packaged']).toContain('--offline');
-    expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out/make');
+    expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out-builder');
     expect(scripts['check:update-feed']).toContain('validate-update-feed.mjs');
     expect(scripts['check:r2-mirror']).toContain('check-r2-mirror.mjs');
   });

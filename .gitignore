@@ -7,6 +7,7 @@ yarn.lock
 
 # Build output
 out/
+out-builder/
 dist/
 .vite/
 .playwright-cli/

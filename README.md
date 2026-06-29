@@ -32,7 +32,7 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 
 ## Current capabilities
 
-- Desktop app (Electron Forge + Vite + React 19 + TypeScript) and a parallel web build for browser-based usage.
+- Desktop app (Electron + Vite + React 19 + TypeScript, packaged with electron-builder and auto-updating from GitHub Releases) and a parallel web build for browser-based usage.
 - Monaco-powered editor with tabs, templates, inline execution results, magic-comment value surfacing, command palette, quick open, project-wide search, and snippet library.
 - Built-in runners for JavaScript, TypeScript, Python (Pyodide), Go (compiled locally to WASM), Rust (`rustc` native subprocess on desktop), and Ruby (hybrid: bundled `@ruby/wasm-wasi` worker everywhere, system `ruby` subprocess on desktop when preferred).
 - Validate-only modes for JSON, YAML, `.env`, CSV, Dockerfile, `.editorconfig`, `.gitignore`, `Makefile`; view-only handling for TOML and INI/config files.

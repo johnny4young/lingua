@@ -48,19 +48,6 @@ export default defineConfig(({ mode }) => {
 
   return {
     define: {
-      __LINGUA_UPDATE_URL__: JSON.stringify(
-        process.env.LINGUA_UPDATE_URL ||
-          env.LINGUA_UPDATE_URL ||
-          // RL-061 Slice 5 — point at the custom domain wired in
-          // `update-server/wrangler.toml`. The previous workers.dev
-          // URL leaked the account subdomain `lingua-license-server`
-          // and (post Slice 5) is disabled because `workers_dev` is
-          // not declared in wrangler.toml. The renderer service
-          // (`src/renderer/services/webUpdateServer.ts`) defaults to
-          // the same custom domain, keeping desktop autoupdater
-          // and web update banner pointed at one canonical origin.
-          'https://updates.linguacode.dev',
-      ),
       // RL-059 main-side bridge — embed the same Ed25519 public key the
       // renderer uses, so packaged builds can verify license tokens in
       // main without crossing the renderer boundary. Empty string means
@@ -77,7 +64,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       minify: false,
       rollupOptions: {
-        external: ['electron', 'electron-squirrel-startup'],
+        external: ['electron', 'electron-updater'],
         output: {
           format: 'cjs',
           entryFileNames: 'main.js',

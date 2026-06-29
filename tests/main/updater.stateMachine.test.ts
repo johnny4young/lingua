@@ -1,14 +1,17 @@
 /**
- * State-machine guards for `src/main/updater.ts`. Locks in two
- * regressions reported in production:
+ * State-machine guards for `src/main/updater.ts` (electron-updater engine).
+ * Locks in two regressions reported in production:
  *
  * 1. The hourly `setInterval` poll fired `checkForUpdates()` after a
- *    download had already landed. Squirrel emits `checking-for-update`
+ *    download had already landed. The updater emits `checking-for-update`
  *    before `update-not-available`; both transitions must preserve the
  *    terminal `'downloaded'` state.
- * 2. The `updates:restart` IPC handler used to return `false`
- *    silently when `updateState.status !== 'downloaded'`, masking the
- *    above regression.
+ * 2. The `updates:restart` IPC handler used to return `false` silently
+ *    when `updateState.status !== 'downloaded'`, masking the above.
+ *
+ * The feed itself is read from electron-builder's generated `app-update.yml`
+ * (the GitHub publish provider), so there is no feed URL to configure or
+ * gate on — "disabled" now means an unpackaged / unsupported build.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -38,23 +41,19 @@ function restoreProcessPlatform(): void {
 }
 
 async function loadUpdaterHarness({
-  updateURL = 'https://updates.example.com',
+  packaged = true,
   platform = 'darwin' as NodeJS.Platform,
 }: {
-  updateURL?: string;
+  packaged?: boolean;
   platform?: NodeJS.Platform;
 } = {}): Promise<UpdaterHarness> {
   vi.resetModules();
   vi.doUnmock('electron');
-  vi.unstubAllGlobals();
+  vi.doUnmock('electron-updater');
 
-  // CI fix: `src/main/updater.ts` gates on `SUPPORTED_PLATFORMS =
-  // new Set(['darwin', 'win32'])` and reads `process.platform`
-  // directly. Without the stub the Linux CI runner hits the
-  // `'unavailable'` early-return and the autoUpdater handlers are
-  // never registered. Defaults to `'darwin'` so every existing test
-  // body keeps working unchanged; tests that exercise the unsupported
-  // path can pass `platform: 'linux'` explicitly.
+  // The updater gates on SUPPORTED_PLATFORMS (darwin/win32/linux) and reads
+  // `process.platform` directly. Defaults to 'darwin' so existing test bodies
+  // keep working; the unsupported-path test passes an unknown platform.
   stubProcessPlatform(platform);
 
   const autoUpdaterHandlers = new Map<string, Handler>();
@@ -64,18 +63,10 @@ async function loadUpdaterHarness({
 
   vi.doMock('electron', () => ({
     app: {
-      isPackaged: true,
+      isPackaged: packaged,
       isReady: () => true,
       once: vi.fn(),
       getVersion: () => '0.3.0',
-    },
-    autoUpdater: {
-      on: (event: string, handler: Handler) => {
-        autoUpdaterHandlers.set(event, handler);
-      },
-      setFeedURL: vi.fn(),
-      checkForUpdates,
-      quitAndInstall,
     },
     BrowserWindow: { getAllWindows: () => [] },
     ipcMain: {
@@ -85,7 +76,17 @@ async function loadUpdaterHarness({
     },
   }));
 
-  vi.stubGlobal('__LINGUA_UPDATE_URL__', updateURL);
+  vi.doMock('electron-updater', () => ({
+    autoUpdater: {
+      autoDownload: false,
+      autoInstallOnAppQuit: false,
+      on: (event: string, handler: Handler) => {
+        autoUpdaterHandlers.set(event, handler);
+      },
+      checkForUpdates,
+      quitAndInstall,
+    },
+  }));
 
   const { registerUpdater } = await import('../../src/main/updater');
   registerUpdater();
@@ -106,7 +107,7 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
   vi.doUnmock('electron');
-  vi.unstubAllGlobals();
+  vi.doUnmock('electron-updater');
   restoreProcessPlatform();
 });
 
@@ -123,19 +124,18 @@ describe('updater state-machine guards', () => {
     expect(harness.ipcHandlers.get('updates:restart')).toBeTypeOf('function');
   });
 
+  it('supports Linux now that electron-updater handles AppImage updates', async () => {
+    const harness = await loadUpdaterHarness({ platform: 'linux' as NodeJS.Platform });
+    expect(await harness.getState()).toMatchObject({ status: 'idle', enabled: true });
+  });
+
   it('preserves the terminal downloaded status across the full hourly poll sequence', async () => {
     const harness = await loadUpdaterHarness();
     const updateDownloaded = harness.autoUpdaterHandlers.get('update-downloaded')!;
     const checkingForUpdate = harness.autoUpdaterHandlers.get('checking-for-update')!;
     const updateNotAvailable = harness.autoUpdaterHandlers.get('update-not-available')!;
 
-    updateDownloaded(
-      undefined,
-      'v0.4.0 release notes',
-      'v0.4.0',
-      undefined,
-      'https://updates.example.com/darwin/0.4.0'
-    );
+    updateDownloaded({ version: '0.4.0', releaseName: 'v0.4.0', releaseNotes: 'notes' });
     expect(await harness.getState()).toMatchObject({
       status: 'downloaded',
       releaseName: 'v0.4.0',
@@ -155,13 +155,7 @@ describe('updater state-machine guards', () => {
     const updateDownloaded = harness.autoUpdaterHandlers.get('update-downloaded')!;
     const check = harness.ipcHandlers.get('updates:check')!;
 
-    updateDownloaded(
-      undefined,
-      'v0.4.0 release notes',
-      'v0.4.0',
-      undefined,
-      'https://updates.example.com/darwin/0.4.0'
-    );
+    updateDownloaded({ version: '0.4.0', releaseName: 'v0.4.0', releaseNotes: 'notes' });
 
     const result = await check();
 
@@ -179,7 +173,7 @@ describe('updater state-machine guards', () => {
     const checkingForUpdate = harness.autoUpdaterHandlers.get('checking-for-update')!;
     const updateNotAvailable = harness.autoUpdaterHandlers.get('update-not-available')!;
 
-    updateAvailable();
+    updateAvailable({ version: '0.4.0', releaseName: 'v0.4.0' });
     checkingForUpdate();
     updateNotAvailable();
 
@@ -198,8 +192,8 @@ describe('updater state-machine guards', () => {
     expect(harness.quitAndInstall).toHaveBeenCalledOnce();
   });
 
-  it('updates:restart short-circuits when updates are disabled', async () => {
-    const harness = await loadUpdaterHarness({ updateURL: 'http://updates.example.com' });
+  it('updates:restart short-circuits when updates are disabled (unpackaged build)', async () => {
+    const harness = await loadUpdaterHarness({ packaged: false });
     const restart = harness.ipcHandlers.get('updates:restart')!;
 
     expect(await harness.getState()).toMatchObject({

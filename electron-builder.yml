@@ -1,0 +1,83 @@
+appId: com.lingua.app
+productName: Lingua
+executableName: lingua
+copyright: Copyright © Lingua contributors
+# package.json pins electron with a caret range; electron-builder needs the exact
+# release to fetch its platform binaries. Keep in sync with the electron devDep.
+electronVersion: 42.3.3
+# Auto-update feed + installers both live on GitHub Releases. electron-builder
+# embeds this provider into the packaged app-update.yml, so electron-updater
+# fetches latest*.yml + the installer straight from the repo's Releases. No
+# Cloudflare Worker, no R2, no GitHub Pages. (Releases allow 2 GB assets, so the
+# 100 MB GitHub Pages cap that forces some projects onto a generic+Pages feed
+# does not apply here.)
+publish:
+  provider: github
+  owner: johnny4young
+  repo: lingua
+directories:
+  output: out-builder
+  # default is build/, which the root .gitignore excludes; use a tracked dir so
+  # the macOS entitlements plist ships in the repo.
+  buildResources: build-resources
+# main/preload/renderer are built separately by scripts/build-desktop-bundles.mjs
+# into .vite/ (package.json "main" -> .vite/build/main.js); electron-builder only
+# packages the already-built output.
+files:
+  - .vite/build/**
+  - .vite/renderer/**
+  - package.json
+# Flat, predictable artifact names on every platform (avoids scoped-name nesting
+# that slips past non-recursive upload globs in CI).
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+asar: true
+# .node addons cannot be dlopen'd from inside app.asar. Lingua has no native
+# addons today; kept defensively so a future one is unpacked automatically.
+asarUnpack:
+  - '**/*.node'
+# Deep-link scheme (lingua://) — replaces the Forge packagerConfig.protocols.
+protocols:
+  - name: Lingua
+    schemes:
+      - lingua
+# Mirror the Electron fuses the Forge FusesPlugin set.
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+# Target formats are dictated by electron-updater's auto-install support: mac
+# updates from a zip (Squirrel.Mac), windows needs an NSIS installer, linux needs
+# an AppImage. mac also ships a dmg for the first manual download.
+mac:
+  icon: assets/icon.icns
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  entitlements: build-resources/entitlements.mac.plist
+  entitlementsInherit: build-resources/entitlements.mac.plist
+  # Notarization is opt-in at the workflow level: the release job enables it via
+  # -c.mac.notarize=true only when the Apple secrets are present (electron-builder
+  # reads APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID from the env).
+  notarize: false
+win:
+  icon: assets/icon.ico
+  target:
+    - nsis
+nsis:
+  # Per-user install (no UAC elevation) so the silent electron-updater install
+  # works without a prompt; one-click keeps the manual download a double-click
+  # installer too.
+  oneClick: true
+  perMachine: false
+linux:
+  icon: assets/icon.png
+  category: Development
+  maintainer: johnny4young <asesordeprogramacion@gmail.com>
+  target:
+    - AppImage

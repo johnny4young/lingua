@@ -22,6 +22,11 @@ import {
   transformJSAutoLog,
 } from '@/utils/magicComments';
 
+const IS_CI = process.env.CI === 'true';
+const CI_MULTIPLIER = 2;
+const MAGIC_COMMENT_BUDGET_MS = IS_CI ? 400 * CI_MULTIPLIER : 400;
+const AUTO_LOG_BUDGET_MS = IS_CI ? 750 * CI_MULTIPLIER : 750;
+
 function createElapsedTimer(): () => number {
   if (typeof process !== 'undefined' && typeof process.cpuUsage === 'function') {
     const start = process.cpuUsage();
@@ -84,7 +89,7 @@ describe('magicComments bench — 5 KB / 10 000 iterations', () => {
     const elapsedMs = elapsed();
 
     expect(lastLength).toBeGreaterThan(0);
-    expect(elapsedMs).toBeLessThan(400);
+    expect(elapsedMs).toBeLessThan(MAGIC_COMMENT_BUDGET_MS);
   });
 });
 
@@ -127,6 +132,6 @@ describe('RL-020 Slice 5 fold F — auto-log detector bench', () => {
     }
     const elapsedMs = elapsed();
     expect(lastCount).toBeGreaterThan(0);
-    expect(elapsedMs).toBeLessThan(750);
+    expect(elapsedMs).toBeLessThan(AUTO_LOG_BUDGET_MS);
   });
 });

@@ -287,10 +287,9 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
     '--sourcemap',
     '--outfile=.vite/build/main.js',
     '--external:electron',
-    '--external:electron-squirrel-startup',
+    '--external:electron-updater',
     '--define:MAIN_WINDOW_VITE_DEV_SERVER_URL=' + JSON.stringify(rendererUrl),
     '--define:MAIN_WINDOW_VITE_NAME=' + JSON.stringify('main_window'),
-    '--define:__LINGUA_UPDATE_URL__=' + JSON.stringify(process.env.LINGUA_UPDATE_URL ?? 'https://lingua-update-server.johnny4young.workers.dev'),
     '--define:__LINGUA_LICENSE_PUBLIC_KEY_JWK__=' + JSON.stringify(
       process.env.LINGUA_LICENSE_PUBLIC_KEY_JWK ??
         process.env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK ??

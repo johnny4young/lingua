@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!--
+      Hardened-runtime entitlements for Lingua, kept minimal. allow-jit +
+      allow-unsigned-executable-memory are required so the bundled WebAssembly
+      runtimes (Pyodide for Python, @ruby/wasm-wasi for Ruby, DuckDB-WASM, Go
+      WASM) and V8's JIT can allocate executable memory under the hardened
+      runtime. disable-library-validation lets the runtime load the Electron
+      framework / helpers whose signature differs from the app's (and is needed
+      for ad-hoc builds). allow-dyld-environment-variables is intentionally NOT
+      granted — Lingua does not rely on DYLD_* injection, and omitting it keeps
+      the hardened runtime tighter.
+    -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

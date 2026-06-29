@@ -122,4 +122,9 @@ jobs:
           node-version: '24.x'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test -- tests/ipc/permissions.test.ts
+      # Do not route through `pnpm test -- <file>` here: pnpm expands that to
+      # `vitest run -- <file>`, and Vitest treats the path after `--` as a
+      # positional arg to ignore, accidentally running the full suite on the
+      # Windows-only runner. Keep this job narrowly scoped to the path-hardening
+      # coverage it exists to provide.
+      - run: pnpm exec vitest run tests/ipc/permissions.test.ts
