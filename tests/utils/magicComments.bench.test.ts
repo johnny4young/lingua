@@ -22,6 +22,10 @@ import {
   transformJSAutoLog,
 } from '@/utils/magicComments';
 
+const IS_CI = process.env.CI === 'true';
+const CI_MULTIPLIER = 2;
+const MAGIC_COMMENT_BUDGET_MS = IS_CI ? 400 * CI_MULTIPLIER : 400;
+
 function createElapsedTimer(): () => number {
   if (typeof process !== 'undefined' && typeof process.cpuUsage === 'function') {
     const start = process.cpuUsage();
@@ -84,7 +88,7 @@ describe('magicComments bench — 5 KB / 10 000 iterations', () => {
     const elapsedMs = elapsed();
 
     expect(lastLength).toBeGreaterThan(0);
-    expect(elapsedMs).toBeLessThan(400);
+    expect(elapsedMs).toBeLessThan(MAGIC_COMMENT_BUDGET_MS);
   });
 });
 

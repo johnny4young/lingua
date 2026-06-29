@@ -82,6 +82,8 @@ describe('release workflow', () => {
 
   it('verifies macOS, Windows, and Linux artifacts before publishing', () => {
     expect(workflow).toContain('Verify macOS artifacts');
+    expect(workflow).toContain('latest-mac.yml does not reference a macOS .zip update asset');
+    expect(workflow).toContain('latest-mac.yml references missing macOS .zip asset');
     expect(workflow).toContain('Verify Windows artifacts');
     expect(workflow).toContain('Verify Linux artifacts');
   });

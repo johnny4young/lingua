@@ -21,6 +21,10 @@
 import { describe, it, expect } from 'vitest';
 import { isLikelyComplete } from '#src/shared/autoRunGating';
 
+const IS_CI = process.env.CI === 'true';
+const CI_MULTIPLIER = 2;
+const BUDGET_MS = IS_CI ? 750 * CI_MULTIPLIER : 750;
+
 function createElapsedTimer(): () => number {
   if (typeof process !== 'undefined' && typeof process.cpuUsage === 'function') {
     const start = process.cpuUsage();
@@ -79,9 +83,11 @@ describe('autoRunGating bench — 5 KB / 5 000 iterations', () => {
     // The sample buffer always ends on a blank line, so the gate
     // should clear.
     expect(last.ready).toBe(true);
-    // Hard CPU-time budget. 750 ms x 5000 calls = 150 us / call,
+    // Hard CPU-time budget. Local: 750 ms x 5000 calls = 150 us / call,
     // comfortably under the perceptible threshold and with enough
-    // headroom that shared CI runners do not fail from contention.
-    expect(elapsedMs).toBeLessThan(750);
+    // headroom that shared CI runners do not fail from contention. CI gets a
+    // 2x multiplier like the other perf benches because the full Vitest matrix
+    // runs these CPU micro-benches under noisy shared-runner contention.
+    expect(elapsedMs).toBeLessThan(BUDGET_MS);
   });
 });

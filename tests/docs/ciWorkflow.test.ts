@@ -25,7 +25,7 @@ describe('CI workflow', () => {
     expect(workflow).toContain('windows-path-hardening:');
     expect(workflow).toMatch(/windows-path-hardening:[\s\S]*?runs-on:\s*windows-latest/u);
     expect(workflow).toMatch(
-      /windows-path-hardening:[\s\S]*?pnpm test -- tests\/ipc\/permissions\.test\.ts/u
+      /windows-path-hardening:[\s\S]*?pnpm exec vitest run tests\/ipc\/permissions\.test\.ts/u
     );
   });
 

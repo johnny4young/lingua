@@ -202,15 +202,34 @@ jobs:
             find out-builder -maxdepth 1 -type f -print || true
             exit 1
           fi
-          # The .zip is the artifact electron-updater installs from on macOS
-          # (latest-mac.yml references it). A dmg-only release cannot auto-update.
-          if ! find out-builder -maxdepth 1 -type f -name '*.zip' -print -quit | grep -q .; then
-            echo "::error::Expected a macOS .zip (the electron-updater auto-update artifact) in out-builder"
-            find out-builder -maxdepth 1 -type f -print || true
-            exit 1
-          fi
           test -f out-builder/latest-mac.yml || { echo "::error::Missing out-builder/latest-mac.yml update manifest"; exit 1; }
-          echo "Verified macOS dmg + zip + latest-mac.yml"
+          node --input-type=module <<'NODE'
+          import { existsSync, readFileSync } from 'node:fs';
+          import path from 'node:path';
+
+          const manifest = readFileSync(path.join('out-builder', 'latest-mac.yml'), 'utf8');
+          const zipRefs = [
+            ...manifest.matchAll(/^\s*(?:path|url):\s*["']?([^"'\r\n#]+?\.zip)["']?\s*$/gmu),
+          ].map((match) => match[1]);
+
+          if (zipRefs.length === 0) {
+            console.error('::error::latest-mac.yml does not reference a macOS .zip update asset');
+            process.exit(1);
+          }
+
+          const missingRefs = zipRefs.filter((ref) => {
+            const artifactName = path.basename(ref);
+            return !existsSync(path.join('out-builder', artifactName));
+          });
+
+          if (missingRefs.length > 0) {
+            console.error(
+              `::error::latest-mac.yml references missing macOS .zip asset(s): ${missingRefs.join(', ')}`
+            );
+            process.exit(1);
+          }
+          NODE
+          echo "Verified macOS dmg + latest-mac.yml referenced zip"
 
       # Packaged smoke against the produced app: boots, loads the renderer
       # chunks, and runs the vendored Pyodide runtime offline. Skippable via the
