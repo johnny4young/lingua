@@ -202,6 +202,13 @@ jobs:
             find out-builder -maxdepth 1 -type f -print || true
             exit 1
           fi
+          # The .zip is the artifact electron-updater installs from on macOS
+          # (latest-mac.yml references it). A dmg-only release cannot auto-update.
+          if ! find out-builder -maxdepth 1 -type f -name '*.zip' -print -quit | grep -q .; then
+            echo "::error::Expected a macOS .zip (the electron-updater auto-update artifact) in out-builder"
+            find out-builder -maxdepth 1 -type f -print || true
+            exit 1
+          fi
           test -f out-builder/latest-mac.yml || { echo "::error::Missing out-builder/latest-mac.yml update manifest"; exit 1; }
           echo "Verified macOS dmg + zip + latest-mac.yml"
 
