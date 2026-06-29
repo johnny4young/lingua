@@ -373,9 +373,6 @@ function EditorArea() {
         <div className="min-w-0 flex-1 overflow-hidden">
           <EditorTabs />
         </div>
-        {/* RL-112 fold A — the project-wide branch indicator moved into the
-            persistent status bar's Git segment (mounted at the bottom of the
-            shell). `<GitProjectBranchChip>` is no longer mounted here. */}
       </div>
       <PanelChipsRow />
       <div className="min-h-0 flex-1">

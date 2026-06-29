@@ -25,7 +25,6 @@
     "src/renderer/plugins/*.ts",
     // Operational scripts are invoked directly by package.json / CI.
     "scripts/**/*.mjs",
-    "forge.config.ts",
     "vite.main.config.mts",
     "vite.preload.config.mts",
     "vite.renderer.config.mts",
@@ -51,11 +50,6 @@
     "@ruby/3.4-wasm-wasi",
     // Consumed via `@import 'tailwindcss'` in src/renderer/index.css
     // through @tailwindcss/postcss; CSS imports are outside knip's model.
-    "tailwindcss",
-    // Required at runtime by the Windows Squirrel boot path in main.
-    "electron-squirrel-startup",
-    // Referenced by string name in forge.config.ts `publishers` —
-    // knip's electron-forge plugin does not parse the publishers array.
-    "@electron-forge/publisher-github"
+    "tailwindcss"
   ]
 }

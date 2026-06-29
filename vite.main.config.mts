@@ -17,12 +17,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // `.env.production` is invisible unless we load it explicitly here.
 //
 // `dev:desktop:pro` and `dev:desktop:prod` injected the var via
-// process.env so this gap was hidden during dev. Packaged
-// `make:desktop` builds invoke Forge directly without that wrapper, so
-// `process.env.LINGUA_LICENSE_PUBLIC_KEY_JWK` was empty and the main
-// bundle baked an empty string — every paste in production failed with
+// process.env so this gap was hidden during dev. Packaged builds run
+// `scripts/build-desktop-bundles.mjs` and then electron-builder without that
+// wrapper, so `process.env.LINGUA_LICENSE_PUBLIC_KEY_JWK` was empty and the
+// main bundle baked an empty string — every paste in production failed with
 // `no-public-key` from the main verifier.
 export default defineConfig(({ mode }) => {
+  const isProductionBuild = mode === 'production';
   const env = loadEnv(mode, __dirname, '');
   const publicKeyJwk =
     process.env.LINGUA_LICENSE_PUBLIC_KEY_JWK ||
@@ -61,8 +62,13 @@ export default defineConfig(({ mode }) => {
       ...getSharedBuildDefines(),
     },
     build: {
-      sourcemap: true,
-      minify: false,
+      // Keep desktop release bundles smaller and avoid shipping main-process
+      // source maps with packaged apps. Development builds keep sourcemaps and
+      // readable output for stack traces while `make:desktop` / package builds
+      // run through Vite's production mode before electron-builder packages
+      // `.vite/`.
+      sourcemap: !isProductionBuild,
+      minify: isProductionBuild ? 'esbuild' : false,
       rollupOptions: {
         external: ['electron', 'electron-updater'],
         output: {

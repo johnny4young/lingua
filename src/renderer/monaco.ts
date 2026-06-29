@@ -32,6 +32,8 @@ type MonacoWorkerFactory = new () => Worker;
 const WORKER_RUNTIME_LIBS = ['es2022', 'webworker'];
 const NODE_TYPE_DEFINITION_ROOT_MARKER = 'node_modules/@types/node/';
 const NODE_TYPE_DEFINITION_ROOT_URI = 'file:///node_modules/@types/node/';
+const UNDICI_TYPE_DEFINITION_ROOT_MARKER = 'node_modules/undici-types/';
+const UNDICI_TYPE_DEFINITION_ROOT_URI = 'file:///node_modules/undici-types/';
 // Lazy (NOT eager): @types/node is ~2.4 MB of raw .d.ts across ~126 files.
 // Eager-globbing it would inline all of that into whatever chunk imports this
 // module (loaded at first editor mount, even for a Python-only user) and into
@@ -44,6 +46,17 @@ const NODE_TYPE_DEFINITION_MODULES = import.meta.glob<string>(
     '!../../node_modules/@types/node/ts5.6/**/*.d.ts',
     '!../../node_modules/@types/node/ts5.7/**/*.d.ts',
   ],
+  {
+    import: 'default',
+    query: '?raw',
+  }
+);
+// @types/node v25 references the `undici-types` package for fetch/WebSocket/
+// MessageEvent declarations. Register those files beside the Node definitions
+// so Monaco's TypeScript worker can resolve bare `undici-types` imports instead
+// of surfacing phantom missing-module diagnostics in JS/TS tabs.
+const UNDICI_TYPE_DEFINITION_MODULES = import.meta.glob<string>(
+  ['../../node_modules/undici-types/**/*.d.ts'],
   {
     import: 'default',
     query: '?raw',
@@ -221,13 +234,24 @@ type MonacoTypeScriptDefaultsWithExtraLib = {
   typescriptDefaults: MonacoLanguageDefaultsWithExtraLib;
 };
 
-function nodeTypeDefinitionUri(modulePath: string): string | null {
-  const markerIndex = modulePath.indexOf(NODE_TYPE_DEFINITION_ROOT_MARKER);
-  if (markerIndex === -1) return null;
-  const relativePath = modulePath.slice(
-    markerIndex + NODE_TYPE_DEFINITION_ROOT_MARKER.length
-  );
-  return `${NODE_TYPE_DEFINITION_ROOT_URI}${relativePath}`;
+function typeDefinitionUri(modulePath: string): string | null {
+  for (const { marker, uri } of [
+    {
+      marker: NODE_TYPE_DEFINITION_ROOT_MARKER,
+      uri: NODE_TYPE_DEFINITION_ROOT_URI,
+    },
+    {
+      marker: UNDICI_TYPE_DEFINITION_ROOT_MARKER,
+      uri: UNDICI_TYPE_DEFINITION_ROOT_URI,
+    },
+  ] as const) {
+    const markerIndex = modulePath.indexOf(marker);
+    if (markerIndex === -1) continue;
+    const relativePath = modulePath.slice(markerIndex + marker.length);
+    return `${uri}${relativePath}`;
+  }
+
+  return null;
 }
 
 async function registerNodeTypeDefinitions(
@@ -243,10 +267,15 @@ async function registerNodeTypeDefinitions(
   // the type chunk is still downloading does not start a duplicate pass.
   nodeTypeDefinitionsRegistered = true;
 
-  for (const [modulePath, loadContent] of Object.entries(NODE_TYPE_DEFINITION_MODULES).sort(
+  const typeDefinitionModules = {
+    ...NODE_TYPE_DEFINITION_MODULES,
+    ...UNDICI_TYPE_DEFINITION_MODULES,
+  };
+
+  for (const [modulePath, loadContent] of Object.entries(typeDefinitionModules).sort(
     ([left], [right]) => left.localeCompare(right)
   )) {
-    const filePath = nodeTypeDefinitionUri(modulePath);
+    const filePath = typeDefinitionUri(modulePath);
     if (!filePath) continue;
     try {
       const content = await loadContent();

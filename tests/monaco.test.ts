@@ -221,10 +221,18 @@ describe('applyTypeScriptDefaults', () => {
           expect.stringContaining('reference path="crypto.d.ts"'),
           'file:///node_modules/@types/node/index.d.ts'
         );
+        expect(jsAddExtraLib).toHaveBeenCalledWith(
+          expect.stringContaining("export * from './fetch'"),
+          'file:///node_modules/undici-types/index.d.ts'
+        );
+        expect(tsAddExtraLib).toHaveBeenCalledWith(
+          expect.stringContaining("export * from './fetch'"),
+          'file:///node_modules/undici-types/index.d.ts'
+        );
       },
       { timeout: 20_000 }
     );
-  });
+  }, 25_000);
 });
 
 describe('registerLanguageOnce', () => {
