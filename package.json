@@ -23,7 +23,7 @@
     "smoke:desktop": "node ./scripts/run-desktop-smoke.mjs",
     "smoke:desktop:stagewright": "node ./scripts/run-electron-stagewright-smoke.mjs",
     "smoke:desktop:offline": "node ./scripts/run-desktop-smoke.mjs --offline",
-    "smoke:desktop:packaged": "node ./scripts/run-desktop-smoke.mjs --offline --against-packaged out/make",
+    "smoke:desktop:packaged": "node ./scripts/run-desktop-smoke.mjs --offline --against-packaged out-builder",
     "build:runtime-assets": "node --experimental-strip-types ./scripts/build-runtime-asset-manifest.mjs --write",
     "check:runtime-assets": "node --experimental-strip-types ./scripts/build-runtime-asset-manifest.mjs",
     "sbom:release": "node ./scripts/write-release-compliance-artifacts.mjs",

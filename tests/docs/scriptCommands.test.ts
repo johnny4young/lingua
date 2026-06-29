@@ -183,7 +183,7 @@ describe('Script naming docs guard', () => {
     expect(scripts).not.toHaveProperty('test:smoke:license-web');
     expect(scripts).not.toHaveProperty('test:smoke:license-web:unit');
     expect(scripts['smoke:desktop:packaged']).toContain('--offline');
-    expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out/make');
+    expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out-builder');
     expect(scripts['check:update-feed']).toContain('validate-update-feed.mjs');
     expect(scripts['check:r2-mirror']).toContain('check-r2-mirror.mjs');
   });

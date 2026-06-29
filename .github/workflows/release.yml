@@ -38,6 +38,9 @@ env:
   RELEASE_TAG: ${{ inputs.release_tag }}
   RELEASE_REF: refs/tags/${{ inputs.release_tag }}
   TARGET_REF: refs/heads/main
+  # Lift the Node heap so Vite/Rollup can bundle Monaco + Pyodide + plugins
+  # without an out-of-memory GC death-spiral during the desktop bundle build.
+  NODE_OPTIONS: --max-old-space-size=4096
 
 # Never run two releases of the same tag concurrently; let an in-flight
 # release finish rather than cancel it mid-publish.
@@ -99,14 +102,9 @@ jobs:
             echo "Created tag ${RELEASE_TAG} at ${target_sha}"
           fi
 
-  # RL-080 Slice 2 — release-blocking production dependency audit.
-  # The stable Electron Forge 7 build toolchain still carries
-  # dev-only audit findings that cannot be fixed without npm
-  # overrides or alpha Forge packages. Gate the releasable dependency
-  # graph, then keep the full graph visible as advisory output so the
-  # release does not hide build-tool drift. The run block uses only
-  # static pnpm commands plus the already-validated RELEASE_TAG env
-  # value, so there is no script-injection surface.
+  # Release-blocking compliance + security gates. The run blocks use only
+  # static pnpm commands plus the already-validated RELEASE_TAG env value, so
+  # there is no script-injection surface.
   security-audit:
     name: Security audit (release-blocking)
     runs-on: ubuntu-latest
@@ -115,9 +113,6 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.RELEASE_REF }}
-          # The audit/compliance gates only need the working tree.
-          # Skip the full-history fetch the platform builds do —
-          # keeps this fail-fast job under a minute on a cold cache.
           fetch-depth: 1
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -137,289 +132,89 @@ jobs:
           name: compliance-artifacts
           path: output/release-compliance/*
           if-no-files-found: error
-      # RL-143 — fail closed when the embedded license-signing public key
-      # is undocumented in docs/security/license-key-registry.json, not
-      # active, drifted between .env and .env.production, or older than
-      # the rotation SLA. Every build job and deploy-web depend on this
-      # job, so one step covers desktop + web releases.
+      # Fail closed when the embedded license-signing public key is undocumented,
+      # not active, drifted between .env and .env.production, or past the rotation
+      # SLA. Every build job and deploy-web depend on this job.
       - name: Assert license-key rotation policy
         run: pnpm run check:license-rotation
-      # RL-145 — same fixture-tested wrapper the PR CI uses, so the blocking
-      # production-graph gate is one mechanism across PR + release instead of
-      # a second inline expression that can drift.
       - name: Run blocking production audit
         run: pnpm run check:prod-audit
       - name: Run advisory full audit
         run: pnpm audit --audit-level high
         continue-on-error: true
 
-  infra-readiness:
-    name: Infra readiness (release-blocking)
-    runs-on: ubuntu-latest
-    needs: prepare-release-tag
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ env.RELEASE_REF }}
-          fetch-depth: 1
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: '24.x'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      # Probe the public R2 mirror (public access + CORS for the web app
-      # origin) BEFORE the expensive build + publish jobs. The v0.7.0 release
-      # only discovered a misconfigured bucket at deploy/mirror time — after a
-      # 4-minute signed macOS build and a published draft Release. Fail fast
-      # here in seconds instead. Needs only the public base URL (no R2 write
-      # creds); skips cleanly when no R2 mirror is configured for this release.
-      - name: Assert R2 web-runtime mirror readiness
-        shell: bash
-        env:
-          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
-        run: |
-          if [[ -z "${R2_PUBLIC_BASE:-}" ]]; then
-            echo "::warning::R2_PUBLIC_BASE not configured — skipping web-runtime mirror readiness (no R2 mirror in this release)."
-            exit 0
-          fi
-          pnpm run check:release-infra
-
   build-macos:
     name: Build macOS
     runs-on: macos-latest
-    needs: [prepare-release-tag, security-audit, infra-readiness]
+    needs: [prepare-release-tag, security-audit]
     if: ${{ inputs.release_macos }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
-
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '24.x'
           cache: 'pnpm'
-
       - run: pnpm install --frozen-lockfile
 
-      - name: Validate macOS signing inputs
-        shell: bash
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
-          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-        run: |
-          set -euo pipefail
-          missing=()
-          for var in APPLE_ID APPLE_ID_PASSWORD APPLE_TEAM_ID APPLE_SIGNING_IDENTITY APPLE_CERT_P12_BASE64 APPLE_CERT_PASSWORD; do
-            if [[ -z "${!var:-}" ]]; then
-              missing+=("$var")
-            fi
-          done
+      - name: Build desktop bundles
+        run: pnpm run build:desktop-bundles
 
-          if (( ${#missing[@]} > 0 )); then
-            echo "::error::Missing required macOS release secrets: ${missing[*]}"
-            exit 1
-          fi
-
-          echo "macOS signing: enabled"
-          echo "macOS notarization: enabled"
-
-      - name: Import macOS signing certificate
+      # electron-builder owns code-signing, notarization, and stapling. When the
+      # Apple secrets are present it imports the p12 into its own throwaway
+      # keychain (no ambiguity with the runner's keychain), signs with the
+      # hardened runtime + entitlements, notarizes via notarytool, and staples —
+      # failing the build if any step fails. Without the secrets it falls back to
+      # an ad-hoc signature (builds complete but are not Gatekeeper-distributable).
+      - name: Build and sign macOS installers
         shell: bash
         env:
           APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
           APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-        run: |
-          set -euo pipefail
-          KEYCHAIN_PATH="$RUNNER_TEMP/lingua-signing.keychain-db"
-          CERT_PATH="$RUNNER_TEMP/lingua-signing.p12"
-          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
-
-          echo "$APPLE_CERT_P12_BASE64" | base64 --decode > "$CERT_PATH"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERT_PATH" \
-            -k "$KEYCHAIN_PATH" \
-            -P "$APPLE_CERT_PASSWORD" \
-            -T /usr/bin/codesign \
-            -T /usr/bin/security \
-            -T /usr/bin/productbuild
-          security list-keychains -d user -s "$KEYCHAIN_PATH"
-          security default-keychain -d user -s "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          echo "APPLE_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
-
-      - name: Verify macOS signing identity
-        shell: bash
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: |
-          set -euo pipefail
-          identity_log="$RUNNER_TEMP/lingua-codesigning-identities.txt"
-          security find-identity -v -p codesigning "$APPLE_KEYCHAIN_PATH" | tee "$identity_log"
-
-          if ! grep -F -- "$APPLE_SIGNING_IDENTITY" "$identity_log" >/dev/null; then
-            echo "::error::APPLE_SIGNING_IDENTITY was not found in the imported macOS signing keychain"
-            exit 1
-          fi
-
-          echo "Verified imported macOS signing identity"
-
-      - name: Build macOS artifacts
-        run: pnpm run make:desktop:mac
-        env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # Lift the Node.js heap so Vite/Rollup can finish bundling
-          # Monaco + Pyodide + i18n + plugins without an out-of-memory
-          # GC death-spiral. Same fix the web job uses
-          # (.github/workflows/deploy-web.yml). macos-14 runners ship
-          # with 7 GB RAM, so 4 GB leaves headroom for the OS and the
-          # parallel notarize subprocess. Forge swallows the Vite OOM
-          # exception and exits 0 without writing the ZIP if this is
-          # missing, which masks the failure until
-          # Verify macOS artifacts runs.
-          NODE_OPTIONS: --max-old-space-size=4096
-          # v0.5.0 mac release regressed after the npm->pnpm migration:
-          # codesign / notarytool throw during "Finalizing package" and
-          # Forge swallows the exception, exiting 0 without writing the
-          # ZIP (caught only by Verify macOS artifacts). Enable the
-          # signing + notarization debug namespaces so the real
-          # codesign / notarytool stderr prints inline instead of being
-          # hidden. Narrow this back once mac signing is green again.
-          DEBUG: 'electron-*,@electron/*,electron-osx-sign*,@electron/notarize*'
+        run: |
+          set -euo pipefail
+          if [[ -n "${APPLE_CERT_P12_BASE64:-}" && -n "${APPLE_CERT_PASSWORD:-}" \
+                && -n "${APPLE_ID:-}" && -n "${APPLE_ID_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" ]]; then
+            echo "macOS signing + notarization: enabled"
+            echo "$APPLE_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/lingua-cert.p12"
+            export CSC_LINK="$RUNNER_TEMP/lingua-cert.p12"
+            export CSC_KEY_PASSWORD="$APPLE_CERT_PASSWORD"
+            # electron-builder reads these for notarytool.
+            export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_ID_PASSWORD"
+            npx electron-builder --mac --publish never -c.mac.notarize=true
+          else
+            echo "::warning::Apple signing secrets are not all set — building an ad-hoc-signed (non-distributable) macOS build."
+            npx electron-builder --mac --publish never -c.mac.identity=-
+          fi
 
       - name: Verify macOS artifacts
         shell: bash
         run: |
           set -euo pipefail
-          if ! find out/make -type f -name '*.zip' -print -quit | grep -q .; then
-            echo "::error::Expected at least one macOS ZIP artifact in out/make"
-            find out -maxdepth 5 -print || true
+          if ! find out-builder -maxdepth 1 -type f -name '*.dmg' -print -quit | grep -q .; then
+            echo "::error::Expected a macOS .dmg in out-builder"
+            find out-builder -maxdepth 1 -type f -print || true
             exit 1
           fi
-          echo "Verified macOS ZIP artifacts in out/make"
+          test -f out-builder/latest-mac.yml || { echo "::error::Missing out-builder/latest-mac.yml update manifest"; exit 1; }
+          echo "Verified macOS dmg + zip + latest-mac.yml"
 
-      # RL-139 / AUDIT-19 — fail closed if the published darwin .zip name
-      # cannot be matched by the update feed (update-server/src/darwinAsset.ts).
-      # The worker matcher is unit-tested; this asserts the actual built
-      # artifact honors the same contract, so a maker/name change can never
-      # again silently strand macOS auto-update (an unmatched asset returns
-      # 204, which Squirrel.Mac reads as "up to date"). RELEASE_TAG is the
-      # validated workflow_dispatch input; the script re-validates it is
-      # semver and strips the leading v.
-      - name: Assert darwin update-asset name
-        shell: bash
-        run: node ./scripts/assert-darwin-update-asset.mjs --root out/make --version "$RELEASE_TAG"
-
-      - name: Verify macOS signing
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_bundle="$(find out -type d -name 'Lingua.app' -print -quit)"
-          if [[ -z "${app_bundle:-}" ]]; then
-            echo "::error::Could not find Lingua.app for macOS signing verification"
-            exit 1
-          fi
-
-          codesign --verify --deep --strict --verbose=2 "$app_bundle"
-          codesign -dv --verbose=4 "$app_bundle" 2>&1 | tee /tmp/lingua-codesign.txt
-
-          echo "macOS signing verification: passed"
-          {
-            echo "### macOS signing"
-            echo "- App bundle: \`$app_bundle\`"
-            echo "- Verification: passed"
-            echo "- Identity:"
-            echo '```'
-            grep '^Authority=' /tmp/lingua-codesign.txt || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # RL-139 / AUDIT-19 — fail closed if the signed app was not also
-      # notarized + stapled. `Verify macOS signing` above proves the
-      # Developer ID signature; this proves Apple notarization, which
-      # Gatekeeper (and Squirrel.Mac on auto-update) require. The
-      # `Validate macOS signing inputs` step already hard-fails the job
-      # without the Apple secrets, so notarization is always expected
-      # here — verify it unconditionally rather than warn.
-      - name: Verify macOS notarization
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_bundle="$(find out -type d -name 'Lingua.app' -print -quit)"
-          if [[ -z "${app_bundle:-}" ]]; then
-            echo "::error::Could not find Lingua.app for macOS notarization verification"
-            exit 1
-          fi
-
-          # Deterministic hard gate: the stapled notarization ticket must
-          # be present and valid on the bundle. Captured to a log so the
-          # evidence survives in the run summary, not just the raw log.
-          stapler_log="$RUNNER_TEMP/lingua-stapler.txt"
-          xcrun stapler validate "$app_bundle" 2>&1 | tee "$stapler_log"
-
-          # Confirming hard gate: Gatekeeper accepts the bundle for
-          # execution. --verbose surfaces the source (Notarized Developer
-          # ID) in the log and the run summary.
-          spctl_log="$RUNNER_TEMP/lingua-spctl.txt"
-          spctl --assess --type execute --verbose=4 "$app_bundle" 2>&1 | tee "$spctl_log"
-
-          echo "macOS notarization verification: passed"
-          {
-            echo "### macOS notarization"
-            echo "- App bundle: \`$app_bundle\`"
-            echo "- Stapler:"
-            echo '```'
-            cat "$stapler_log"
-            echo '```'
-            echo "- Gatekeeper:"
-            echo '```'
-            cat "$spctl_log"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # RL-080 Slice 3 — packaged macOS smoke gate. Runs the smoke
-      # harness against the actual `Lingua.app` produced by
-      # `make:desktop:mac` (the one signed + verified above), proving
-      # the binary boots, the renderer chunks load, and the vendored
-      # Pyodide runtime executes offline. Reduced to a 2-runtime-case
-      # subset (javascript + python) plus the offline no-CDN assertion
-      # so the step stays under ~2 minutes; the full 9-case matrix
-      # already runs against the dev server in `pnpm run smoke:desktop`.
-      # Bloqueante — a failure aborts the release before publish runs.
-      # Run block uses only static pnpm / bash commands; no github.event
-      # interpolation.
+      # Packaged smoke against the produced app: boots, loads the renderer
+      # chunks, and runs the vendored Pyodide runtime offline. Skippable via the
+      # release_skip_packaged_smoke input when debugging the harness.
       - name: Packaged desktop smoke
         if: ${{ !inputs.release_skip_packaged_smoke }}
         shell: bash
         env:
-          # First-boot of a freshly notarized .app on macos-14 (M1, 7 GB)
-          # adds Gatekeeper ticket validation + JIT warm-up + Pyodide
-          # WASM init latency on top of the regular smoke duration.
-          # 180s (the script default) timed out; 360s covers the slow
-          # first launch with comfortable headroom. Local
-          # `pnpm run smoke:desktop:packaged` keeps the 180s default.
           LINGUA_SMOKE_TIMEOUT_MS: '360000'
-        run: |
-          set -euo pipefail
-          pnpm run smoke:desktop:packaged
+        run: pnpm run smoke:desktop:packaged
 
-      # Always upload the packaged smoke artifacts so timeout/crash
-      # diagnostics survive runner teardown. progress.json names the
-      # last case the renderer reached; the PNGs capture the window
-      # state at each step.
       - name: Upload packaged smoke artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -432,183 +227,125 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: macos-artifacts
-          path: out/make/**/*
+          path: |
+            out-builder/*.dmg
+            out-builder/*.zip
+            out-builder/*.blockmap
+            out-builder/latest-mac.yml
           if-no-files-found: error
 
   build-windows:
     name: Build Windows
     runs-on: windows-latest
-    needs: [prepare-release-tag, security-audit, infra-readiness]
+    needs: [prepare-release-tag, security-audit]
     if: ${{ inputs.release_windows }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
-
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '24.x'
           cache: 'pnpm'
-
       - run: pnpm install --frozen-lockfile
 
-      - name: Validate Windows signing inputs
+      - name: Build desktop bundles
+        run: pnpm run build:desktop-bundles
+
+      # Authenticode signing is gated on the cert secrets: present -> signed NSIS,
+      # absent -> unsigned NSIS (no cascading failure, so a missing cert never
+      # blocks a macOS/Linux/web release).
+      - name: Build and sign Windows installer
         shell: bash
         env:
           WIN_CERT_FILE: ${{ secrets.WIN_CERT_FILE }}
           WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
         run: |
           set -euo pipefail
-          missing=()
-          for var in WIN_CERT_FILE WIN_CERT_PASSWORD; do
-            if [[ -z "${!var:-}" ]]; then
-              missing+=("$var")
-            fi
-          done
-
-          if (( ${#missing[@]} > 0 )); then
-            echo "::error::Missing required Windows release secrets: ${missing[*]}"
-            exit 1
+          if [[ -n "${WIN_CERT_FILE:-}" && -n "${WIN_CERT_PASSWORD:-}" ]]; then
+            echo "Windows signing: enabled"
+            echo "$WIN_CERT_FILE" | base64 --decode > "$RUNNER_TEMP/lingua-cert.pfx"
+            export CSC_LINK="$RUNNER_TEMP/lingua-cert.pfx"
+            export CSC_KEY_PASSWORD="$WIN_CERT_PASSWORD"
+            npx electron-builder --win --publish never
+          else
+            echo "::warning::WIN_CERT_FILE/WIN_CERT_PASSWORD not set — building an unsigned Windows installer."
+            npx electron-builder --win --publish never
           fi
-
-          echo "Windows signing: enabled"
-
-      - name: Materialize Windows signing certificate
-        shell: pwsh
-        env:
-          WIN_CERT_FILE: ${{ secrets.WIN_CERT_FILE }}
-        run: |
-          $certPath = Join-Path $env:RUNNER_TEMP 'lingua-signing.pfx'
-          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WIN_CERT_FILE))
-          "WIN_CERT_FILE=$certPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "Windows signing certificate written to runner temp path"
-
-      - name: Build Windows artifacts
-        run: pnpm run make:desktop:win
-        env:
-          WIN_CERT_FILE: ${{ env.WIN_CERT_FILE }}
-          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
-          # Same heap lift as the macOS + web bundling jobs — Vite/
-          # Rollup needs more than the Node default to finish the
-          # renderer bundle. Windows runners ship with more RAM than
-          # mac so we could go higher, but 4 GB matches the macOS
-          # cap and is comfortably above the ~2 GB the renderer
-          # bundle actually consumes.
-          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Verify Windows artifacts
         shell: bash
         run: |
           set -euo pipefail
-          if ! find out/make -type f \( -name '*.exe' -o -name '*.nupkg' -o -name 'RELEASES' \) -print -quit | grep -q .; then
-            echo "::error::Expected Windows installer/update artifacts in out/make"
+          if ! find out-builder -maxdepth 1 -type f -name '*.exe' -print -quit | grep -q .; then
+            echo "::error::Expected a Windows .exe installer in out-builder"
             exit 1
           fi
-          echo "Verified Windows release artifacts in out/make"
-
-      - name: Verify Windows signing
-        shell: pwsh
-        run: |
-          $exe = Get-ChildItem -Path out/make -Recurse -Filter *.exe | Select-Object -First 1
-          if (-not $exe) {
-            Write-Error 'Could not find a Windows executable for signing verification'
-            exit 1
-          }
-
-          $signature = Get-AuthenticodeSignature $exe.FullName
-          if ($signature.Status -ne 'Valid') {
-            Write-Error "Windows signing verification failed with status: $($signature.Status)"
-            exit 1
-          }
-
-          Write-Host "Windows signing verification: $($signature.Status)"
-          @"
-          ### Windows signing
-          - Executable: `$($exe.FullName)`
-          - Verification: $($signature.Status)
-          - Signer: $($signature.SignerCertificate.Subject)
-          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          test -f out-builder/latest.yml || { echo "::error::Missing out-builder/latest.yml update manifest"; exit 1; }
+          echo "Verified Windows installer + latest.yml"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-artifacts
-          path: out/make/**/*
+          path: |
+            out-builder/*.exe
+            out-builder/*.blockmap
+            out-builder/latest.yml
           if-no-files-found: error
 
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
-    needs: [prepare-release-tag, security-audit, infra-readiness]
+    needs: [prepare-release-tag, security-audit]
     if: ${{ inputs.release_linux }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
-
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '24.x'
           cache: 'pnpm'
-
       - run: pnpm install --frozen-lockfile
 
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm fakeroot xvfb
+      - name: Build desktop bundles
+        run: pnpm run build:desktop-bundles
 
-      - name: Report Linux signing state
-        run: |
-          echo "Linux signing: not configured"
-
-      - name: Build Linux artifacts
-        run: pnpm run make:desktop:linux
-        env:
-          # Same heap lift as the macOS + Windows + web bundling
-          # jobs — Vite/Rollup needs more than the Node default to
-          # finish the renderer bundle.
-          NODE_OPTIONS: --max-old-space-size=4096
+      - name: Build Linux AppImage
+        run: npx electron-builder --linux --publish never
 
       - name: Verify Linux artifacts
         shell: bash
         run: |
           set -euo pipefail
-          if ! find out/make -type f \( -name '*.deb' -o -name '*.rpm' \) -print -quit | grep -q .; then
-            echo "::error::Expected Linux package artifacts in out/make"
+          if ! find out-builder -maxdepth 1 -type f -name '*.AppImage' -print -quit | grep -q .; then
+            echo "::error::Expected a Linux .AppImage in out-builder"
             exit 1
           fi
-          echo "Verified Linux release artifacts in out/make"
-
-      - name: Validate Linux package install smoke
-        run: node ./scripts/validate-linux-release-artifacts.mjs
+          test -f out-builder/latest-linux.yml || { echo "::error::Missing out-builder/latest-linux.yml update manifest"; exit 1; }
+          echo "Verified Linux AppImage + latest-linux.yml"
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-artifacts
-          path: out/make/**/*
-          if-no-files-found: error
-
-      - name: Upload Linux package validation
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: linux-package-validation
-          path: output/linux-release-validation/**/*
+          path: |
+            out-builder/*.AppImage
+            out-builder/*.blockmap
+            out-builder/latest-linux.yml
           if-no-files-found: error
 
   publish:
     name: Publish GitHub Release
     needs: [build-macos, build-windows, build-linux]
-    # `always()` so a skipped build (release_macos=false etc.) does
-    # not cancel publish, but still require every selected platform
-    # build to succeed so a failed macOS/Windows/Linux job cannot
-    # produce a partial draft release.
+    # `always()` so a skipped build (release_macos=false etc.) does not cancel
+    # publish, but still require every SELECTED platform build to succeed so a
+    # failed build can never produce a partial draft release.
     if: >-
       ${{
         always() &&
@@ -629,15 +366,21 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: out/make
+          path: out-builder
           merge-multiple: true
 
       - name: Verify downloaded release payload
         shell: bash
         run: |
           set -euo pipefail
-          if ! find out/make -type f -print -quit | grep -q .; then
-            echo "::error::No release artifacts were downloaded into out/make"
+          if ! find out-builder -type f -print -quit | grep -q .; then
+            echo "::error::No release artifacts were downloaded into out-builder"
+            exit 1
+          fi
+          # electron-updater needs at least one latest*.yml feed manifest on the
+          # release; without it the published build cannot auto-update.
+          if ! find out-builder -maxdepth 1 -type f -name 'latest*.yml' -print -quit | grep -q .; then
+            echo "::error::No electron-updater latest*.yml feed manifest found in the payload"
             exit 1
           fi
           echo "Verified downloaded release payload"
@@ -646,77 +389,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node ./scripts/prepare-release-payload.mjs --root out/make --write-checksums
+          cd out-builder
+          : > SHA256SUMS.txt
+          shopt -s nullglob
+          for f in *.dmg *.zip *.exe *.AppImage; do
+            shasum -a 256 "$f" >> SHA256SUMS.txt
+          done
           {
             echo "### Release checksums"
-            echo "- Generated: \`out/make/SHA256SUMS.txt\`"
+            echo '```'
+            cat SHA256SUMS.txt
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-
-      # RL-139 / AUDIT-19 — Linux deb/rpm are integrity-checked via
-      # SHA256SUMS.txt, not code-signed (Squirrel auto-update is macOS /
-      # Windows only). When a Linux build was selected, assert both
-      # packages actually landed in the manifest so a maker regression
-      # that produces zero packages cannot publish a Linux-less "Linux"
-      # release.
-      - name: Assert Linux packages are checksummed
-        if: ${{ inputs.release_linux }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          sums="out/make/SHA256SUMS.txt"
-          for ext in deb rpm; do
-            if ! grep -qiE "\.${ext}([[:space:]]|\$)" "$sums"; then
-              echo "::error::No .${ext} entry found in ${sums}; the Linux build produced no ${ext} package"
-              exit 1
-            fi
-          done
-          echo "Verified .deb and .rpm entries in ${sums}"
-
-      # RL-080 Slice 2 — re-verify SHA256SUMS.txt against the
-      # public release payload as a defensive sanity check. The helper
-      # recomputes each hash against the file that will actually be
-      # uploaded, and it requires manifest entries to use the public
-      # asset basename because GitHub Release and R2 uploads flatten
-      # paths. If the manifest generation step left a stale or corrupted
-      # entry behind, this step catches it before the draft release is
-      # published. The run block uses only static node invocations — no
-      # github.event interpolation.
-      - name: Verify release checksums
-        shell: bash
-        run: |
-          set -euo pipefail
-          node ./scripts/prepare-release-payload.mjs --root out/make --verify-checksums
-          {
-            echo "### Release checksum verification"
-            echo "- Re-verified \`SHA256SUMS.txt\` against the downloaded payload."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Collect release assets
-        id: collect
-        shell: bash
-        run: |
-          set -euo pipefail
-          node ./scripts/prepare-release-payload.mjs \
-            --root out/make \
-            --github-output "$GITHUB_OUTPUT" \
-            --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Publish draft GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          ASSETS: ${{ steps.collect.outputs.assets }}
         run: |
           set -euo pipefail
-          mapfile -t assets <<< "$ASSETS"
+          # Installers + blockmaps + the electron-updater feed manifests + the
+          # checksum file. The latest*.yml files are what the packaged app reads
+          # from this Release to auto-update.
+          shopt -s nullglob
+          mapfile -t assets < <(printf '%s\n' \
+            out-builder/*.dmg out-builder/*.zip out-builder/*.exe out-builder/*.AppImage \
+            out-builder/*.blockmap out-builder/latest*.yml out-builder/SHA256SUMS.txt)
 
           if release_is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq .isDraft 2>/dev/null)"; then
             if [[ "${release_is_draft}" != "true" ]]; then
               echo "::error::Release ${RELEASE_TAG} already exists and is not a draft; refusing to clobber published assets."
               exit 1
             fi
-
             echo "Draft release ${RELEASE_TAG} already exists; uploading assets in place."
             gh release upload "${RELEASE_TAG}" --clobber "${assets[@]}"
           else
@@ -728,297 +433,13 @@ jobs:
               "${assets[@]}"
           fi
 
-  mirror-r2:
-    name: Mirror release artifacts to Cloudflare R2
-    needs: [publish]
-    # `publish` is conditional on at least one desktop build. When the
-    # operator triggers a web-only release, `publish` is skipped and
-    # there is nothing to mirror. When R2 secrets are not configured
-    # (first release after the r2-release-mirror-setup runbook is
-    # followed, or a fork without the bucket), the job still runs but
-    # reports `skipped — R2 secrets not configured` in the summary so
-    # the release does not block on an infrastructure gap.
-    if: >-
-      ${{
-        always() &&
-        needs.publish.result == 'success'
-      }}
-    runs-on: ubuntu-latest
-    # `contents: write` (not `read`) so the GITHUB_TOKEN carries push
-    # access: GitHub's `GET /releases` list only includes DRAFT releases
-    # for callers with push access. The R2 mirror runs while the release
-    # is still a human-reviewed draft (draft-first publishing), so the
-    # `check-r2-mirror` parity step must be able to list the draft to
-    # compare its assets against the bucket. With `read`, the draft is
-    # invisible and the step fails with a spurious 404.
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ env.RELEASE_REF }}
-          fetch-depth: 1
-
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: '24.x'
-          cache: 'pnpm'
-
-      # Every `${{ secrets.* }}` interpolation lives ONLY inside an
-      # `env:` block — never inside a `run:` body. Step bodies read the
-      # values via `$VAR` so a forged secret cannot inject shell. The
-      # `RELEASE_TAG` env was validated by the prepare-release-tag job
-      # against `^v[0-9]+\.[0-9]+\.[0-9]+$` so it is safe to interpolate
-      # into shell commands.
-      - name: Detect R2 secret availability
-        id: r2_secrets
-        shell: bash
-        env:
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
-        run: |
-          set -euo pipefail
-          missing=()
-          for var in R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_ENDPOINT R2_PUBLIC_BASE; do
-            if [[ -z "${!var:-}" ]]; then
-              missing+=("$var")
-            fi
-          done
-          if (( ${#missing[@]} > 0 )); then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            {
-              echo "### R2 mirror sync"
-              echo ""
-              echo "skipped — R2 secrets not configured: ${missing[*]}"
-              echo ""
-              echo "Follow docs/runbooks/r2-release-mirror-setup.md to enable the public download mirror."
-            } >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::R2 mirror skipped — secrets missing: ${missing[*]}. Marketing-site download CTAs cannot be public until this is configured."
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Download publish artifacts
-        if: steps.r2_secrets.outputs.configured == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          path: out/make
-          merge-multiple: true
-
-      - name: Verify mirror payload exists
-        if: steps.r2_secrets.outputs.configured == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! find out/make -type f -print -quit | grep -q .; then
-            echo "::error::No artifacts to mirror to R2 — the publish job uploaded nothing."
-            exit 1
-          fi
-
-      - name: Prepare R2 mirror payload
-        if: steps.r2_secrets.outputs.configured == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          node ./scripts/prepare-release-payload.mjs \
-            --root out/make \
-            --write-checksums \
-            --verify-checksums
-
-      # AWS CLI ships in ubuntu-latest by default. R2 is S3-compatible
-      # via `--endpoint-url`; no extra install needed. The scoped R2
-      # token is bucket-bound, so a compromised runner token cannot
-      # touch other Cloudflare resources.
-      - name: Upload artifacts to R2 (tag prefix)
-        if: steps.r2_secrets.outputs.configured == 'true'
-        shell: bash
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          set -euo pipefail
-          BUCKET="lingua-releases"
-
-          mapfile -t assets < <(node ./scripts/prepare-release-payload.mjs --root out/make --print-assets)
-          asset_count="${#assets[@]}"
-          if (( asset_count == 0 )); then
-            echo "::error::No mirror-eligible assets found under out/make"
-            exit 1
-          fi
-
-          echo "Mirroring ${asset_count} asset(s) to s3://${BUCKET}/${RELEASE_TAG}/"
-          for src in "${assets[@]}"; do
-            name="$(basename "$src")"
-            # `--copy-props none` keeps aws-cli from preserving
-            # object tagging on the destination object. Cloudflare R2
-            # does not implement `GetObjectTagging` / `PutObjectTagging`
-            # — the call returns `NotImplemented` and breaks every
-            # operation that defaults to copying tags. Local uploads
-            # don't need tags either, so the flag is safe everywhere.
-            aws s3 cp "$src" "s3://${BUCKET}/${RELEASE_TAG}/${name}" \
-              --endpoint-url "${R2_ENDPOINT}" \
-              --copy-props none \
-              --no-progress
-          done
-
-      - name: Refresh latest/ prefix
-        if: steps.r2_secrets.outputs.configured == 'true'
-        shell: bash
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          set -euo pipefail
-          BUCKET="lingua-releases"
-
-          mapfile -t assets < <(node ./scripts/prepare-release-payload.mjs --root out/make --print-assets)
-
-          # Rewrite `latest/` from the local payload instead of copying
-          # R2 objects to other R2 objects. R2's CopyObject compatibility
-          # does not implement the tagging directives aws-cli emits for
-          # some sync paths, which can leave `latest/` half-populated.
-          # Clearing first preserves the old `sync --delete` semantics:
-          # stale filenames disappear before the new release files land.
-          #
-          # The brief window during refresh is acceptable — the previous
-          # `latest/` is the prior version, which is still a valid
-          # (older) download until the clear starts.
-          aws s3 rm "s3://${BUCKET}/latest/" \
-            --endpoint-url "${R2_ENDPOINT}" \
-            --recursive
-
-          for src in "${assets[@]}"; do
-            name="$(basename "$src")"
-            aws s3 cp "$src" "s3://${BUCKET}/latest/${name}" \
-              --endpoint-url "${R2_ENDPOINT}" \
-              --copy-props none \
-              --no-progress
-          done
-
-      - name: Write manifest.json at bucket root
-        if: steps.r2_secrets.outputs.configured == 'true'
-        shell: bash
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
-        run: |
-          set -euo pipefail
-          BUCKET="lingua-releases"
-          manifest_path="$(mktemp --suffix=.json)"
-
-          find_one() {
-            find out/make -type f -name "$1" -print -quit || true
-          }
-
-          mac_dmg="$(find_one '*-darwin-arm64.dmg' || find_one '*.dmg')"
-          mac_zip="$(find_one '*-darwin-*.zip' || find_one '*.zip')"
-          win_setup="$(find_one '*setup*.exe' || find_one '*.exe')"
-          win_nupkg="$(find_one '*.nupkg')"
-          win_releases="$(find_one 'RELEASES')"
-          linux_deb="$(find_one '*.deb')"
-          linux_rpm="$(find_one '*.rpm')"
-          checksums="$(find_one 'SHA256SUMS.txt')"
-          sbom="$(find_one 'lingua-sbom.cyclonedx.json')"
-          licenses="$(find_one 'THIRD_PARTY_LICENSE_REPORT.md')"
-
-          asset_url() {
-            local file="$1"
-            if [[ -z "$file" ]]; then echo "null"; return; fi
-            local name; name="$(basename "$file")"
-            printf '"%s/%s/%s"' "${R2_PUBLIC_BASE%/}" "${RELEASE_TAG}" "${name}"
-          }
-
-          cat > "${manifest_path}" <<EOF
-          {
-            "latest": "${RELEASE_TAG}",
-            "channel": "stable",
-            "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "publicBase": "${R2_PUBLIC_BASE%/}",
-            "assets": {
-              "macos": {
-                "dmg": $(asset_url "$mac_dmg"),
-                "zip": $(asset_url "$mac_zip")
-              },
-              "windows": {
-                "setup": $(asset_url "$win_setup"),
-                "nupkg": $(asset_url "$win_nupkg"),
-                "releases": $(asset_url "$win_releases")
-              },
-              "linux": {
-                "deb": $(asset_url "$linux_deb"),
-                "rpm": $(asset_url "$linux_rpm")
-              },
-              "checksums": $(asset_url "$checksums"),
-              "sbom": $(asset_url "$sbom"),
-              "thirdPartyLicenses": $(asset_url "$licenses")
-            }
-          }
-          EOF
-
-          cat "${manifest_path}"
-          aws s3 cp "${manifest_path}" "s3://${BUCKET}/manifest.json" \
-            --endpoint-url "${R2_ENDPOINT}" \
-            --copy-props none \
-            --content-type 'application/json' \
-            --cache-control 'public, max-age=300' \
-            --no-progress
-
-      - name: Validate R2 mirror parity
-        if: steps.r2_secrets.outputs.configured == 'true'
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
-        run: |
-          set -euo pipefail
-          node ./scripts/check-r2-mirror.mjs --release-tag "${RELEASE_TAG}"
-
-      - name: Summarise R2 mirror sync
-        if: steps.r2_secrets.outputs.configured == 'true'
-        shell: bash
-        env:
-          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
-        run: |
-          {
-            echo "### R2 mirror sync"
-            echo ""
-            echo "- Bucket: lingua-releases"
-            echo "- Tag prefix: ${RELEASE_TAG}/"
-            echo "- Public base: ${R2_PUBLIC_BASE}"
-            echo "- Manifest: ${R2_PUBLIC_BASE%/}/manifest.json"
-            echo "- Latest prefix: ${R2_PUBLIC_BASE%/}/latest/"
-            echo "- Parity validated via check:r2-mirror (evidence attached)."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload R2 mirror validation evidence
-        if: always() && steps.r2_secrets.outputs.configured == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: r2-mirror-validation
-          path: output/r2-mirror-validation/*
-          if-no-files-found: ignore
-
   deploy-web:
     name: Deploy web bundle to Cloudflare Pages
     needs: [publish, security-audit]
-    # Always runs when release_web is enabled, even if publish was
-    # skipped (web-only release path: release_macos/windows/linux all
-    # false → publish is skipped → web still deploys). The
-    # `security-audit` need keeps web-only releases behind the same
-    # release-blocking production dependency audit as desktop releases.
-    # If any desktop platform was selected, require the publish job to
-    # have succeeded before deploying the matching web build.
+    # Always runs when release_web is enabled, even if publish was skipped
+    # (web-only release path). The security-audit need keeps web-only releases
+    # behind the same release-blocking audit. If any desktop platform was
+    # selected, require publish to have succeeded first.
     if: >-
       ${{
         always() &&
@@ -1033,29 +454,19 @@ jobs:
       contents: read
     uses: ./.github/workflows/deploy-web.yml
     with:
-      # Workflow-level `env:` (`env.RELEASE_REF`) is NOT accessible
-      # inside the `with:` block of a reusable workflow call — GitHub
-      # rejects the workflow at parse time with "Unrecognized
-      # named-value: 'env'". Inline the same expression we use in the
-      # `env:` block (`refs/tags/${{ inputs.release_tag }}`) so the
-      # value is computed from the workflow inputs instead.
       ref: refs/tags/${{ inputs.release_tag }}
     secrets: inherit
 
   notify-marketing:
     name: Trigger lingua-marketing sync
-    needs: [publish, mirror-r2]
-    # Only fire when the GitHub Release was actually published AND the
-    # R2 mirror finished writing the new manifest.json. The marketing
-    # build fetches that manifest, so triggering before mirror-r2
-    # completes would have it pick up the previous release. A web-only
-    # release leaves the R2 mirror untouched (publish is skipped), so
-    # there is also nothing new for marketing to sync.
+    needs: [publish]
+    # Fire once the GitHub Release was published. The marketing repo reads the
+    # latest CHANGELOG.md from lingua@main and the public GitHub Release for its
+    # download CTAs, so there is nothing else to wait on.
     if: >-
       ${{
         always() &&
         needs.publish.result == 'success' &&
-        needs['mirror-r2'].result == 'success' &&
         (inputs.release_macos || inputs.release_windows || inputs.release_linux)
       }}
     runs-on: ubuntu-latest
@@ -1064,15 +475,14 @@ jobs:
     steps:
       - name: Dispatch sync-content workflow on lingua-marketing
         env:
-          # Fine-grained PAT with `Actions: Write` on
-          # johnny4young/lingua-marketing. The default `GITHUB_TOKEN`
-          # cannot dispatch workflows in another repo.
+          # Fine-grained PAT with `Actions: Write` on johnny4young/lingua-marketing.
+          # The default GITHUB_TOKEN cannot dispatch workflows in another repo.
           GH_TOKEN: ${{ secrets.MARKETING_SYNC_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           if [[ -z "${GH_TOKEN:-}" ]]; then
-            echo "::warning::MARKETING_SYNC_TOKEN secret is not set on this repo. Skipping cross-repo trigger — lingua-marketing's daily 12:00 UTC cron will pick up ${RELEASE_TAG} on the next run."
+            echo "::warning::MARKETING_SYNC_TOKEN secret is not set on this repo. Skipping cross-repo trigger — lingua-marketing's daily cron will pick up ${RELEASE_TAG} on the next run."
             exit 0
           fi
           echo "Dispatching sync-content workflow on johnny4young/lingua-marketing@main for ${RELEASE_TAG}…"
@@ -1082,5 +492,4 @@ jobs:
           {
             echo "### Marketing sync trigger"
             echo "- Dispatched \`sync-content.yml\` on \`johnny4young/lingua-marketing@main\`."
-            echo "- It will read the latest \`CHANGELOG.md\` from lingua@main and open / update PR \`bot/sync-content\`."
           } >> "$GITHUB_STEP_SUMMARY"
