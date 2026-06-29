@@ -13,9 +13,6 @@ importers:
 
   .:
     dependencies:
-      electron-squirrel-startup:
-        specifier: ^1.0.1
-        version: 1.0.1
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9
@@ -2778,9 +2775,6 @@ packages:
 
   electron-publish@26.15.3:
     resolution: {integrity: sha512-g/2bn8YTavY4cuS5F+jOS7zmZbXXBV8KZ8yHKfJjFPoKtzBqrpCdNPxBd3tqdBwP7BVd0lGzf7Bk2s0KesWZ4Q==}
-
-  electron-squirrel-startup@1.0.1:
-    resolution: {integrity: sha512-sTfFIHGku+7PsHLJ7v0dRcZNkALrV+YEozINTW8X1nM//e5O3L+rfYuvSW00lmGHnYmUjARZulD8F2V8ISI9RA==}
 
   electron-to-chromium@1.5.370:
     resolution: {integrity: sha512-D5tSHJReAb/Kf3Hu9F/GO4lJuSWzEWHwvQ/kKSUP7pimNgvxkSKj+gUQhHpKKACwrin7rS3byU7IxreF56rl5g==}
@@ -7928,12 +7922,6 @@ snapshots:
       fs-extra: 10.1.0
       lazy-val: 1.0.5
       mime: 2.6.0
-    transitivePeerDependencies:
-      - supports-color
-
-  electron-squirrel-startup@1.0.1:
-    dependencies:
-      debug: 2.6.9
     transitivePeerDependencies:
       - supports-color
 

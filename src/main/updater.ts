@@ -1,37 +1,12 @@
-import { app, autoUpdater, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
+import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
 
-const SUPPORTED_PLATFORMS = new Set(['darwin', 'win32']);
+// electron-updater auto-installs from the platform's updater-native format:
+// macOS (zip / Squirrel.Mac), Windows (NSIS), and Linux (AppImage). The feed
+// itself is read from the `app-update.yml` electron-builder bakes in from the
+// GitHub `publish` provider, so there is no feed URL to configure here.
+const SUPPORTED_PLATFORMS = new Set(['darwin', 'win32', 'linux']);
 const UPDATE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
-
-declare const __LINGUA_UPDATE_URL__: string;
-
-/**
- * Resolve the auto-update feed URL from the build-time `__LINGUA_UPDATE_URL__`
- * define. Returns `null` when the configured base is missing, malformed, or
- * uses a non-HTTPS scheme so the updater fails closed instead of fetching
- * release manifests over plaintext or from an unintended origin.
- */
-export function resolveUpdateFeedUrl(
-  base: string | undefined,
-  platform: string,
-  version: string
-): string | null {
-  if (typeof base !== 'string' || base.length === 0) return null;
-
-  let parsed: URL;
-  try {
-    parsed = new URL(base);
-  } catch {
-    return null;
-  }
-
-  if (parsed.protocol !== 'https:') return null;
-
-  const trimmedBase = base.replace(/\/+$/u, '');
-  const safePlatform = encodeURIComponent(platform);
-  const safeVersion = encodeURIComponent(version);
-  return `${trimmedBase}/update/${safePlatform}/${safeVersion}`;
-}
 
 let updateState: UpdateState = {
   status: 'unavailable',
@@ -76,6 +51,25 @@ function markCheckingForUpdates(): void {
   });
 }
 
+/** UpdateInfo carries `version` plus an optional human `releaseName`. */
+function resolveReleaseName(info: UpdateInfo): string {
+  return info.releaseName?.trim() || info.version;
+}
+
+/** electron-updater release notes can be a string, a per-version array, or null. */
+function resolveReleaseNotes(info: UpdateInfo): string | undefined {
+  const notes = info.releaseNotes;
+  if (typeof notes === 'string' && notes.length > 0) return notes;
+  if (Array.isArray(notes)) {
+    const joined = notes
+      .map((entry) => entry.note ?? '')
+      .filter((note) => note.length > 0)
+      .join('\n\n');
+    return joined.length > 0 ? joined : undefined;
+  }
+  return undefined;
+}
+
 function startUpdater(): void {
   if (!app.isPackaged) {
     setUpdateState({
@@ -104,25 +98,27 @@ function startUpdater(): void {
     message: 'Automatic updates are enabled for this packaged build.',
   });
 
+  // Download in the background and stage the install for the next quit; the
+  // user still gets an explicit "Restart to update" affordance.
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
   autoUpdater.on('checking-for-update', markCheckingForUpdates);
 
-  autoUpdater.on('update-available', () => {
+  autoUpdater.on('update-available', (info: UpdateInfo) => {
     setUpdateState({
       status: 'available',
       message: 'Update available. Downloading...',
+      releaseName: resolveReleaseName(info),
       lastCheckedAt: isoNow(),
     });
   });
 
   autoUpdater.on('update-not-available', () => {
-    // Once we have an update staged ('available' = in-flight download,
-    // 'downloaded' = ready to install), Squirrel's "no new update"
-    // response is relative to the STAGED version, not the running
-    // binary. Letting it overwrite the terminal state means the
-    // hourly poll quietly strands the user on the old build: the
-    // Restart-to-update affordance disables, and `releaseName` is
-    // left dangling so Settings reads "UP TO DATE / vN" while the
-    // running UI is still vN-1. Preserve the terminal state.
+    // Once an update is staged ('available' = in-flight download, 'downloaded'
+    // = ready to install), a later "no new update" response is relative to the
+    // STAGED version, not the running binary. Overwriting the terminal state
+    // would strand the user on the old build, so preserve it.
     if (isTerminalOrInFlightUpdateStatus(updateState.status)) {
       setUpdateState({ lastCheckedAt: isoNow() });
       return;
@@ -137,18 +133,24 @@ function startUpdater(): void {
     });
   });
 
-  autoUpdater.on('update-downloaded', (_event, releaseNotes, releaseName, _releaseDate, updateURL) => {
+  autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    setUpdateState({
+      status: 'available',
+      message: `Downloading update... ${Math.round(progress.percent)}%`,
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
     setUpdateState({
       status: 'downloaded',
       message: 'An update has been downloaded and is ready to install.',
-      releaseName,
-      releaseNotes,
-      updateURL,
+      releaseName: resolveReleaseName(info),
+      releaseNotes: resolveReleaseNotes(info),
       lastCheckedAt: isoNow(),
     });
   });
 
-  autoUpdater.on('error', (error) => {
+  autoUpdater.on('error', (error: Error) => {
     setUpdateState({
       status: 'error',
       message: error?.message || 'Automatic update failed.',
@@ -156,25 +158,20 @@ function startUpdater(): void {
     });
   });
 
-  const feedURL = resolveUpdateFeedUrl(
-    __LINGUA_UPDATE_URL__,
-    process.platform,
-    app.getVersion()
-  );
-  if (!feedURL) {
-    setUpdateState({
-      status: 'unavailable',
-      supported: false,
-      enabled: false,
-      message: 'Automatic updates are disabled (invalid update endpoint).',
+  // Initial check shortly after launch, then every hour. checkForUpdates()
+  // rejects on a transient network/feed error — funnel that into the error
+  // state instead of an unhandled rejection.
+  const runCheck = () => {
+    void autoUpdater.checkForUpdates()?.catch((error: unknown) => {
+      setUpdateState({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+        lastCheckedAt: isoNow(),
+      });
     });
-    return;
-  }
-  autoUpdater.setFeedURL({ url: feedURL });
-
-  // Initial check shortly after launch, then every hour
-  setTimeout(() => autoUpdater.checkForUpdates(), 10_000);
-  setInterval(() => autoUpdater.checkForUpdates(), UPDATE_INTERVAL_MS);
+  };
+  setTimeout(runCheck, 10_000);
+  setInterval(runCheck, UPDATE_INTERVAL_MS);
 }
 
 export function registerUpdater(): void {
@@ -197,13 +194,10 @@ export function registerUpdater(): void {
       return updateState;
     });
     ipcMain.handle('updates:restart', async () => {
-      // Defensive recovery: even when local `updateState.status` is
-      // not 'downloaded' (e.g. it was lost to a future state-machine
-      // bug), `autoUpdater.quitAndInstall()` is safe to call — Squirrel
-      // no-ops when no staged install exists. We attempt the install
-      // and only short-circuit when the platform clearly cannot
-      // perform one. Returning `false` silently from the prior code
-      // path masked exactly the kind of regression we just fixed.
+      // Defensive recovery: even when local `updateState.status` is not
+      // 'downloaded' (e.g. lost to a future state-machine bug),
+      // `quitAndInstall()` is safe — electron-updater no-ops when no staged
+      // install exists. Only short-circuit when updates are disabled outright.
       if (!updateState.enabled) return false;
       try {
         autoUpdater.quitAndInstall();
