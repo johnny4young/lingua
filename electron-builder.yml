@@ -40,7 +40,14 @@ protocols:
   - name: Lingua
     schemes:
       - lingua
-# Mirror the Electron fuses the Forge FusesPlugin set.
+# Mirror the Electron fuses the Forge FusesPlugin set. Forge set only these six
+# and left grantFileProtocolExtraPrivileges at the Electron default (enabled).
+# The first electron-builder cut over-hardened it to false, which strips the
+# file:// protocol of the privileges loadFile needs to read the renderer
+# index.html out of app.asar — the packaged app then failed with
+# ERR_FILE_NOT_FOUND and never rendered (the smoke gate then timed out and hung).
+# Keep it enabled to match the working Forge build. asar integrity validation
+# stays on; it was never the cause.
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true
@@ -48,7 +55,7 @@ electronFuses:
   enableNodeCliInspectArguments: false
   enableEmbeddedAsarIntegrityValidation: true
   onlyLoadAppFromAsar: true
-  grantFileProtocolExtraPrivileges: false
+  grantFileProtocolExtraPrivileges: true
 # Target formats are dictated by electron-updater's auto-install support: mac
 # updates from a zip (Squirrel.Mac), windows needs an NSIS installer, linux needs
 # an AppImage. mac also ships a dmg for the first manual download.
