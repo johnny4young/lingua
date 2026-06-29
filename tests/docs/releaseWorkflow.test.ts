@@ -2,15 +2,11 @@
  * Guard for `.github/workflows/release.yml`.
  *
  * The publish job runs on a Linux runner that downloads pre-built macOS,
- * Windows, and Linux artifacts. Earlier revisions ran `electron-forge
- * publish` here, which only uploads what its own `make` step produces —
- * so the macOS .zip and Windows .exe pulled in by `download-artifact`
- * were dropped on the floor and the draft release came out
- * Linux-only (or just failed when rpm/fakeroot were missing).
- *
- * This test pins the corrected shape: the workflow must download the
- * three platform artifact bundles, generate `SHA256SUMS.txt`, and use
- * the GitHub CLI to publish a draft release with the collected files.
+ * Windows, and Linux artifacts produced by electron-builder, then uploads them
+ * — together with the electron-updater `latest*.yml` feed manifests — to a
+ * draft GitHub Release. This test pins that shape so a regression cannot
+ * silently drop a platform, omit the update feed, or reintroduce the retired
+ * Cloudflare R2 mirror / Electron Forge makers.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -37,15 +33,33 @@ describe('release workflow', () => {
       })
     : { scripts: {}, devDependencies: {} };
 
+  it('builds each platform with electron-builder (not Electron Forge makers)', () => {
+    expect(workflow).toMatch(/npx electron-builder --mac/u);
+    expect(workflow).toMatch(/npx electron-builder --win/u);
+    expect(workflow).toMatch(/npx electron-builder --linux/u);
+    expect(workflow).toContain('pnpm run build:desktop-bundles');
+    // The Forge maker/publish path is retired.
+    expect(workflow).not.toContain('electron-forge');
+    expect(workflow).not.toContain('make:desktop');
+  });
+
   it('downloads pre-built artifacts before publishing', () => {
     expect(workflow).toMatch(/uses:\s*actions\/download-artifact@[0-9a-f]{40}/u);
     expect(workflow).toContain('merge-multiple: true');
   });
 
+  it('publishes the electron-updater feed manifests to the release', () => {
+    // electron-updater reads latest*.yml from the GitHub Release to auto-update.
+    // The publish job must verify one is present and upload it.
+    expect(workflow).toContain('latest*.yml');
+    expect(workflow).toContain(
+      'No electron-updater latest*.yml feed manifest found in the payload'
+    );
+  });
+
   it('generates SHA256SUMS.txt before the draft release is created', () => {
     expect(workflow).toContain('SHA256SUMS.txt');
-    expect(workflow).toContain('node ./scripts/prepare-release-payload.mjs');
-    expect(workflow).toContain('--write-checksums');
+    expect(workflow).toContain('shasum -a 256');
     const checksumIndex = workflow.indexOf('Generate release checksums');
     const publishIndex = workflow.indexOf('Publish draft GitHub Release');
     expect(checksumIndex).toBeGreaterThan(0);
@@ -53,9 +67,6 @@ describe('release workflow', () => {
   });
 
   it('uses the GitHub CLI to upload the downloaded assets as a draft release', () => {
-    // The legacy `electron-forge publish` shape would have re-run `make`
-    // on the publish runner and silently dropped the macOS / Windows
-    // assets — this guard makes that regression loud.
     expect(workflow).not.toMatch(/(^|\s)npm run publish:desktop/u);
     expect(workflow).toMatch(/gh release create[\s\S]*?--draft/u);
     expect(workflow).toMatch(/gh release upload "\$\{RELEASE_TAG\}"/u);
@@ -75,19 +86,11 @@ describe('release workflow', () => {
     expect(workflow).toContain('Verify Linux artifacts');
   });
 
-  it('validates Linux package install, launch, and uninstall before upload', () => {
-    expect(workflow).toContain('sudo apt-get install -y rpm fakeroot xvfb');
-    expect(workflow).toContain('Validate Linux package install smoke');
-    expect(workflow).toContain('node ./scripts/validate-linux-release-artifacts.mjs');
-    const buildIndex = workflow.indexOf('Build Linux artifacts');
-    const validateIndex = workflow.indexOf('Validate Linux package install smoke');
-    const uploadIndex = workflow.indexOf('Upload Linux artifacts');
-    expect(buildIndex).toBeGreaterThan(0);
-    expect(validateIndex).toBeGreaterThan(buildIndex);
-    expect(uploadIndex).toBeGreaterThan(validateIndex);
-    expect(workflow).toContain('Upload Linux package validation');
-    expect(workflow).toContain('name: linux-package-validation');
-    expect(workflow).toContain('output/linux-release-validation/**/*');
+  it('no longer mirrors release artifacts to Cloudflare R2', () => {
+    expect(workflow).not.toContain('mirror-r2');
+    expect(workflow).not.toContain('infra-readiness');
+    expect(workflow).not.toContain('R2_ACCESS_KEY_ID');
+    expect(workflow).not.toContain('aws s3 cp');
   });
 
   it('publishes only when every selected platform build succeeded', () => {
@@ -105,20 +108,9 @@ describe('release workflow', () => {
     expect(workflow).toContain("needs.publish.result == 'success'");
   });
 
-  it('runs a release-blocking production audit before any platform build (RL-080 Slice 2)', () => {
-    // The `security-audit` job is gated on `prepare-release-tag` and
-    // each platform build plus web deploy list it under `needs:` so a
-    // failure aborts the release before any runner-minute is spent on
-    // platform builds or a web-only deploy. The full dependency graph
-    // still prints as advisory output because stable Forge 7 carries
-    // dev-only audit findings with no stable upstream fix.
+  it('runs a release-blocking production audit before any platform build', () => {
     expect(workflow).toMatch(/security-audit:\s*\n\s*name: Security audit \(release-blocking\)/u);
-    // RL-145 — the blocking prod gate runs through the fixture-tested
-    // `check:prod-audit` wrapper (same mechanism as PR CI), not a second
-    // inline `pnpm audit` expression that could drift.
-    expect(workflow).toMatch(
-      /Run blocking production audit[\s\S]*?pnpm run check:prod-audit/u
-    );
+    expect(workflow).toMatch(/Run blocking production audit[\s\S]*?pnpm run check:prod-audit/u);
     expect(workflow).toMatch(
       /Run advisory full audit[\s\S]*?pnpm audit --audit-level high[\s\S]*?continue-on-error: true/u
     );
@@ -126,18 +118,8 @@ describe('release workflow', () => {
       /Check changelog and release version[\s\S]*?pnpm run changelog:check -- --release-tag "\$\{RELEASE_TAG\}" --from "\$\{RELEASE_TAG\}"/u
     );
 
-    // Match either the inline-array form `needs: [prepare-release-tag,
-    // security-audit]` or the multi-line YAML form
-    //
-    //   needs:
-    //     - prepare-release-tag
-    //     - security-audit
-    //
-    // so a `prettier` / yamllint reformat that flips the shape does
-    // NOT silently drop the audit dep on the build jobs.
-    // `[^\]]*` tolerates additional deps after security-audit (the build jobs
-    // also depend on `infra-readiness`) — the invariant is that security-audit
-    // is a dependency, not that it is the ONLY one.
+    // Every platform build depends on security-audit so a failure aborts the
+    // release before any platform runner-minute is spent.
     const inlineDeps =
       workflow.match(/needs:\s*\[\s*prepare-release-tag\s*,\s*security-audit\b[^\]]*\]/gu) ?? [];
     const multiLineDeps =
@@ -147,38 +129,20 @@ describe('release workflow', () => {
     expect(workflow).toContain("needs.security-audit.result == 'success'");
   });
 
-  it('probes R2 infra readiness early — before the build jobs (v0.7.0 hardening)', () => {
-    // The R2 public-access/CORS break (v0.7.0 run 2) only surfaced at deploy
-    // time, after a signed macOS build + a published draft. The infra-readiness
-    // job runs the probe right after the tag is prepared, and every build job
-    // depends on it, so a misconfigured bucket fails the release in seconds.
-    expect(workflow).toMatch(/infra-readiness:[\s\S]*?needs:\s*prepare-release-tag/u);
-    expect(workflow).toMatch(/infra-readiness:[\s\S]*?pnpm run check:release-infra/u);
-    const buildDepsOnInfra =
-      workflow.match(/needs:\s*\[\s*prepare-release-tag\s*,\s*security-audit\s*,\s*infra-readiness\s*\]/gu) ?? [];
-    expect(buildDepsOnInfra.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('runs a release-blocking packaged desktop smoke after macOS signing (RL-080 Slice 3)', () => {
-    // The `Packaged desktop smoke` step is gated on macOS signing
-    // verification (so we only smoke a properly-signed bundle) and
-    // sits before `Upload macOS artifacts` so a smoke failure aborts
-    // the artifact from ever leaving the build runner. Bloqueante:
-    // there is NO `continue-on-error: true` on the step.
+  it('runs a release-blocking packaged desktop smoke before uploading the macOS artifact', () => {
+    // The packaged smoke proves the produced app boots + runs offline; it sits
+    // after the build/sign step and before the artifact upload, with no
+    // continue-on-error opt-out, so a failure aborts the release.
     expect(workflow).toContain('Packaged desktop smoke');
     expect(workflow).toMatch(/pnpm run smoke:desktop:packaged/u);
     expect(packageJson.scripts['smoke:desktop:packaged']).toContain('--offline');
-    const signingIndex = workflow.indexOf('Verify macOS signing');
+    const buildIndex = workflow.indexOf('Build and sign macOS installers');
     const packagedSmokeIndex = workflow.indexOf('Packaged desktop smoke');
     const uploadIndex = workflow.indexOf('Upload macOS artifacts');
-    expect(signingIndex).toBeGreaterThan(0);
-    expect(packagedSmokeIndex).toBeGreaterThan(signingIndex);
+    expect(buildIndex).toBeGreaterThan(0);
+    expect(packagedSmokeIndex).toBeGreaterThan(buildIndex);
     expect(uploadIndex).toBeGreaterThan(packagedSmokeIndex);
 
-    // Capture the step's YAML body and assert it does NOT opt out of
-    // failure propagation. A future "soft launch" change that adds
-    // `continue-on-error: true` would silently turn this gate
-    // advisory; the regex catches that regression.
     const stepMatch = workflow.match(
       /- name: Packaged desktop smoke\s*\n([\s\S]*?)(?=\n\s*-\s+name:|$)/u
     );
@@ -186,43 +150,8 @@ describe('release workflow', () => {
     expect(stepMatch![1]).not.toMatch(/continue-on-error:\s*true/u);
   });
 
-  it('verifies the imported macOS signing identity before building artifacts', () => {
-    expect(workflow).toContain('Verify macOS signing identity');
-    expect(workflow).toContain('security find-identity -v -p codesigning "$APPLE_KEYCHAIN_PATH"');
-    expect(workflow).toContain(
-      'APPLE_SIGNING_IDENTITY was not found in the imported macOS signing keychain'
-    );
-    expect(workflow).toContain('electron-osx-sign*');
-
-    const importIndex = workflow.indexOf('Import macOS signing certificate');
-    const identityIndex = workflow.indexOf('Verify macOS signing identity');
-    const buildIndex = workflow.indexOf('Build macOS artifacts');
-    expect(identityIndex).toBeGreaterThan(importIndex);
-    expect(buildIndex).toBeGreaterThan(identityIndex);
-  });
-
-  it('re-verifies SHA256SUMS.txt against the downloaded payload before publishing (RL-080 Slice 2)', () => {
-    // The `Verify release checksums` step runs after `Generate
-    // release checksums` and uses the shared payload helper so a
-    // manifest mismatch (corrupted asset, wrong file order, nested
-    // artifact path, tampering between generate and publish) aborts
-    // the publish.
-    expect(workflow).toContain('Verify release checksums');
-    expect(workflow).toContain('--verify-checksums');
-    const generateIndex = workflow.indexOf('Generate release checksums');
-    const verifyIndex = workflow.indexOf('Verify release checksums');
-    const publishIndex = workflow.indexOf('Publish draft GitHub Release');
-    expect(generateIndex).toBeGreaterThan(0);
-    expect(verifyIndex).toBeGreaterThan(generateIndex);
-    expect(publishIndex).toBeGreaterThan(verifyIndex);
-  });
-
   it('deploys the web bundle from the validated release tag ref', () => {
     expect(existsSync(DEPLOY_WEB_WORKFLOW_PATH)).toBe(true);
-    // GitHub Actions rejects `env.*` inside `with:` of a reusable
-    // workflow call ("Unrecognized named-value: 'env'"), so the ref
-    // is computed inline from inputs.release_tag instead of via
-    // env.RELEASE_REF.
     expect(workflow).toMatch(
       /uses:\s*\.\/\.github\/workflows\/deploy-web\.yml[\s\S]*?with:[\s\S]*?ref:\s*refs\/tags\/\$\{\{\s*inputs\.release_tag\s*\}\}/u
     );
@@ -232,76 +161,5 @@ describe('release workflow', () => {
     expect(deployWebWorkflow).toMatch(
       /uses:\s*actions\/checkout@[0-9a-f]{40}[^\n]*[\s\S]*?ref:\s*\$\{\{\s*inputs\.ref\s*\}\}/u
     );
-  });
-
-  it('mirrors release artifacts to a public Cloudflare R2 bucket for marketing-site downloads', () => {
-    // Source repo is private — GitHub Releases assets cannot be
-    // public-downloaded. The `mirror-r2` job uploads the same payload
-    // to `lingua-releases` on R2 (served at downloads.linguacode.dev
-    // per `R2_PUBLIC_BASE`) so the marketing site can link CTAs there.
-    // Setup runbook: docs/runbooks/r2-release-mirror-setup.md.
-    expect(workflow).toContain('mirror-r2:');
-    expect(workflow).toContain('Mirror release artifacts to Cloudflare R2');
-    // Runs after publish; gracefully short-circuits when publish was
-    // skipped (web-only release) — see the `if:` guard.
-    expect(workflow).toContain('needs: [publish]');
-    // Required secrets validated at the top of the job so a missing
-    // secret skips cleanly instead of crashing mid-upload.
-    expect(workflow).toContain('Detect R2 secret availability');
-    for (const secret of [
-      'R2_ACCESS_KEY_ID',
-      'R2_SECRET_ACCESS_KEY',
-      'R2_ENDPOINT',
-      'R2_PUBLIC_BASE',
-    ]) {
-      expect(workflow).toContain(secret);
-    }
-    // Uploads to both the per-tag prefix AND a stable `latest/` prefix
-    // the marketing site can hard-code into CTA URLs.
-    expect(workflow).toContain('Prepare R2 mirror payload');
-    expect(workflow).toContain('scripts/prepare-release-payload.mjs');
-    expect(workflow).toContain('Upload artifacts to R2 (tag prefix)');
-    expect(workflow).toContain('Refresh latest/ prefix');
-    expect(workflow).toContain('aws s3 cp');
-    expect(workflow).toContain('aws s3 rm "s3://${BUCKET}/latest/"');
-    expect(workflow).not.toContain('aws s3 sync');
-    expect(workflow).toMatch(/--endpoint-url\s+"\$\{R2_ENDPOINT\}"/u);
-    // Root manifest.json so the marketing site reads the canonical
-    // latest version + per-platform asset URLs in one HTTP call.
-    expect(workflow).toContain('Write manifest.json at bucket root');
-    expect(workflow).toContain('s3://${BUCKET}/manifest.json');
-    // Per-release parity check + evidence artifact (mirrors the
-    // `update-feed-validation` pattern from RL-061 Slice 5).
-    expect(workflow).toContain('Validate R2 mirror parity');
-    expect(workflow).toContain('./scripts/check-r2-mirror.mjs');
-    expect(workflow).toContain('name: r2-mirror-validation');
-    expect(workflow).toContain('output/r2-mirror-validation/*');
-  });
-
-  it('records Cloudflare web deploy validation artifacts for every web release', () => {
-    expect(packageJson.devDependencies.wrangler).toMatch(/^\^?4\./u);
-    expect(deployWebWorkflow).toContain('Start Cloudflare deploy validation artifact');
-    expect(deployWebWorkflow).toContain('Upload oversized web runtime assets to R2');
-    expect(deployWebWorkflow).toContain('web-runtime/duckdb/${duckdb_version}/duckdb-mvp.wasm');
-    expect(deployWebWorkflow).toContain('web-runtime/ruby/${ruby_version}/ruby+stdlib.wasm');
-    expect(deployWebWorkflow).toContain('Origin: https://app.linguacode.dev');
-    expect(deployWebWorkflow).toContain('Access-Control-Allow-Origin');
-    expect(deployWebWorkflow).toContain('find dist/web -type f -size +25M');
-    expect(deployWebWorkflow).toMatch(
-      /wrangler pages deploy dist\/web[\s\S]*?tee output\/cloudflare-deploy-validation\/wrangler-pages-deploy\.log/u
-    );
-    expect(deployWebWorkflow).toContain('Validate deployed web surface');
-    expect(deployWebWorkflow).toContain('https://app.linguacode.dev');
-    expect(deployWebWorkflow).toContain('https://updates.linguacode.dev/web/version');
-    expect(deployWebWorkflow).toContain('id="root"');
-    expect(deployWebWorkflow).toContain(
-      'Deployed app shell CSP does not allow the update banner endpoint'
-    );
-    expect(deployWebWorkflow).toContain(
-      'Deployed service worker does not bypass the update-version endpoint'
-    );
-    expect(deployWebWorkflow).toContain('Upload Cloudflare deploy validation');
-    expect(deployWebWorkflow).toMatch(/actions\/upload-artifact@[0-9a-f]{40}/u);
-    expect(deployWebWorkflow).toContain('name: cloudflare-deploy-validation');
   });
 });

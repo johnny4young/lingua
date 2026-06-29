@@ -95,7 +95,6 @@ describe('Script naming docs guard', () => {
       'dev:desktop:sync',
       'dev:desktop:pro',
       'dev:desktop:prod',
-      'dev:desktop:forge',
       'build:web',
       // RL-098 Slice 1 — CLI bundle (lingua utility, lingua capsule validate)
       'build:cli',

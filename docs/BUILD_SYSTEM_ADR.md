@@ -1,10 +1,20 @@
 # ADR — Desktop build system (RL-034)
 
-| Status | Accepted |
+| Status | Superseded (2026-06-28) — migrated to electron-builder |
 | ------ | -------- |
-| Decision | Stay on Electron Forge. |
-| Date | 2026-04-19 |
-| Revisit | When Vite-major upgrades under RL-033 produce recurring Forge-specific friction, or when packaging/signing requirements outgrow what the Forge makers ship today. |
+| Decision | Originally: stay on Electron Forge. Superseded: package with electron-builder + auto-update via electron-updater against GitHub Releases. |
+| Date | 2026-04-19 (superseded 2026-06-28) |
+| Revisit | n/a — superseded. |
+
+> **Superseded 2026-06-28.** Desktop packaging moved off the Electron Forge
+> makers to **electron-builder** (mac dmg+zip, win NSIS, linux AppImage) with
+> **electron-updater** reading the auto-update feed from **GitHub Releases**.
+> `@electron-forge/plugin-vite` is retained only as the bundler inside
+> `scripts/build-desktop-bundles.mjs`; the Forge makers, publisher, CLI, and
+> fuses plugin are gone (fuses are now set via `electron-builder.yml`
+> `electronFuses`). The Cloudflare update Worker + R2 release mirror leave the
+> desktop path; licensing stays on Cloudflare. The original 2026-04-19 analysis
+> below is kept for the record.
 
 ## Context
 

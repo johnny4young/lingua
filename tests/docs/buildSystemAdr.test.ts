@@ -19,9 +19,13 @@ describe('BUILD_SYSTEM_ADR.md', () => {
 
   const adr = existsSync(ADR_PATH) ? readFileSync(ADR_PATH, 'utf-8') : '';
 
-  it('records an accepted decision', () => {
-    expect(adr).toMatch(/Status\s*\|\s*Accepted/i);
-    expect(adr).toMatch(/Decision\s*\|\s*Stay on Electron Forge/i);
+  it('records the superseding migration to electron-builder', () => {
+    // RL-034 originally accepted Electron Forge; superseded 2026-06-28 by the
+    // electron-builder + electron-updater + GitHub Releases migration.
+    expect(adr).toMatch(/Status\s*\|\s*Superseded/i);
+    expect(adr).toMatch(/electron-builder/i);
+    // The original analysis is retained for the record.
+    expect(adr).toMatch(/Stay on Electron Forge/i);
   });
 
   it('scores the three options on every axis the RL-034 scope names', () => {
