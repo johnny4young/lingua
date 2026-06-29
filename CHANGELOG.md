@@ -6,6 +6,20 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-06-28
+
+### Added
+- **Accessibility overhaul**: A sweep across the app brings full keyboard operability and screen-reader support — roving arrow-key navigation and ARIA semantics for the file tree, editor tab strip, command palette, quick-open, recipes, and capsule-comparison surfaces; focus management and traps for the guided tour, overlays, menus, and the execution-history popover; live-region announcements for console run summaries, project-search results, and other dynamic state; and a reduced-motion guard that quiets non-essential animation for people who prefer it.
+- **Safer destructive actions**: Irreversible operations — file and folder delete, pipeline delete, remove license, keymap and theme import overwrite, and replace-in-files — now route through a shared confirmation dialog, and recoverable deletes (snippets, capsules, clear console) offer an Undo toast that restores the item in place. The web file delete, previously unconfirmed, now always asks first.
+- **Import data files as DuckDB tables**: Load CSV, JSON, and Parquet files directly into the SQL workspace as queryable tables.
+
+### Changed
+- **Desktop packaging and auto-update**: Desktop builds now ship through electron-builder as native installers for every platform — macOS (signed and notarized `.dmg` / `.zip`), Windows (NSIS installer), and Linux (AppImage) — and auto-update through GitHub Releases. Linux desktop builds auto-update for the first time.
+- **Large notebooks stay responsive**: The notebook cell list is windowed, so a notebook with hundreds of cells mounts only the rows near the viewport while preserving scroll position and the row count screen readers announce.
+
+### Fixed
+- Accessibility follow-ups from the audit: focus-visible rings on bespoke controls, guided-tour announcements scoped to step changes, pipeline list semantics with keyboard step reordering, recipe combobox and capsule-comparison tab roles, and clearer license invalid-state feedback.
+
 ## [0.8.0] — 2026-06-26
 
 ### Added
