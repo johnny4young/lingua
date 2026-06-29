@@ -19,6 +19,9 @@ describe('check-third-party-licenses', () => {
       ok: true,
     });
     expect(reviewLicenseEntry({ ...baseEntry, license: 'MPL-2.0' })).toEqual({ ok: true });
+    expect(reviewLicenseEntry({ ...baseEntry, license: 'BlueOak-1.0.0' })).toEqual({
+      ok: true,
+    });
   });
 
   it('rejects missing, unreviewed, and blocked license expressions', () => {
@@ -26,9 +29,9 @@ describe('check-third-party-licenses', () => {
       ok: false,
       reason: 'missing license metadata',
     });
-    expect(reviewLicenseEntry({ ...baseEntry, license: 'BlueOak-1.0.0' })).toMatchObject({
+    expect(reviewLicenseEntry({ ...baseEntry, license: 'LicenseRef-Reviewed-Later' })).toMatchObject({
       ok: false,
-      reason: 'unreviewed license expression: BlueOak-1.0.0',
+      reason: 'unreviewed license expression: LicenseRef-Reviewed-Later',
     });
     expect(reviewLicenseEntry({ ...baseEntry, license: 'GPL-3.0-only' })).toMatchObject({
       ok: false,

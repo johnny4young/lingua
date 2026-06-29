@@ -10,6 +10,10 @@ export const APPROVED_LICENSE_EXPRESSIONS = [
   '(WTFPL OR MIT)',
   '0BSD',
   'Apache-2.0',
+  // OSI-approved permissive license. Surfaced by sax@1.6.0 through
+  // electron-updater's builder-util-runtime dependency in the desktop updater
+  // migration.
+  'BlueOak-1.0.0',
   'BSD-2-Clause',
   'BSD-3-Clause',
   'CC0-1.0',
