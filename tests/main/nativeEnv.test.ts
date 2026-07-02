@@ -97,6 +97,22 @@ describe('buildNativeRunnerEnv', () => {
     expect('BAD' in env).toBe(false);
   });
 
+  it('drops dynamic-loader injection keys from the user env tier', () => {
+    const env = buildNativeRunnerEnv(COMMON_TOOLCHAIN_KEYS, {
+      LD_PRELOAD: '/tmp/evil.so',
+      ld_preload: '/tmp/evil-lowercase.so',
+      DYLD_INSERT_LIBRARIES: '/tmp/evil.dylib',
+      NODE_OPTIONS: '--require /tmp/evil.js',
+      SAFE: 'kept',
+    });
+
+    expect('LD_PRELOAD' in env).toBe(false);
+    expect('ld_preload' in env).toBe(false);
+    expect('DYLD_INSERT_LIBRARIES' in env).toBe(false);
+    expect('NODE_OPTIONS' in env).toBe(false);
+    expect(env.SAFE).toBe('kept');
+  });
+
   it('lets user env shadow allowlisted host keys (when allowlist permits it)', () => {
     process.env.PATH = '/usr/bin';
 

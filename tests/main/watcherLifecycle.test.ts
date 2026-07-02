@@ -24,6 +24,11 @@ import path from 'node:path';
 
 interface FakeWatcher {
   close: ReturnType<typeof vi.fn>;
+  // Real fs.FSWatcher is an EventEmitter; the handler registers an
+  // 'error' listener so an async watcher failure cannot crash main.
+  on: ReturnType<typeof vi.fn>;
+  /** Test seam — invoke the registered 'error' listener. */
+  emitError: (error: unknown) => void;
 }
 
 type WatchCallback = (eventType: string, filename: string | Buffer | null) => void;
@@ -85,14 +90,29 @@ let tmpRoot: string;
 let altRoot: string;
 
 interface FakeSender {
+  id: number;
   isDestroyed: () => boolean;
   send: ReturnType<typeof vi.fn>;
+  // The watch-start handler registers a one-time 'destroyed' listener to
+  // tie watcher lifecycle to the sender (B14). Capture it so tests can
+  // fire it and assert the watchers are torn down.
+  once: ReturnType<typeof vi.fn>;
+  emitDestroyed: () => void;
 }
 
+let nextSenderId = 1;
 function makeSender(): FakeSender {
+  const destroyedListeners: Array<() => void> = [];
   return {
+    id: nextSenderId++,
     isDestroyed: () => false,
     send: vi.fn(),
+    once: vi.fn((event: string, listener: () => void) => {
+      if (event === 'destroyed') destroyedListeners.push(listener);
+    }),
+    emitDestroyed: () => {
+      for (const listener of destroyedListeners) listener();
+    },
   };
 }
 
@@ -120,7 +140,16 @@ beforeEach(async () => {
   watchCallbacks.length = 0;
   watchImpl.mockImplementation((_path, _options, callback: WatchCallback) => {
     watchCallbacks.push(callback);
-    const fake: FakeWatcher = { close: vi.fn() };
+    const errorListeners: Array<(error: unknown) => void> = [];
+    const fake: FakeWatcher = {
+      close: vi.fn(),
+      on: vi.fn((event: string, listener: (error: unknown) => void) => {
+        if (event === 'error') errorListeners.push(listener);
+      }),
+      emitError: (error: unknown) => {
+        for (const listener of errorListeners) listener(error);
+      },
+    };
     fakeWatcherInstances.push(fake);
     return fake;
   });
@@ -171,6 +200,65 @@ describe('fs:watch-start happy path', () => {
     // Neither was closed by the other registration.
     expect(fakeWatcherInstances[0].close).not.toHaveBeenCalled();
     expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+  });
+
+  it('an async watcher error deregisters the watcher and emits fs:watcher-failed instead of crashing', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const sender = makeSender();
+    const id = await invoke('fs:watch-start', sender, rootId, '');
+    expect(typeof id).toBe('string');
+    const fake = fakeWatcherInstances[0];
+
+    // Simulate the async EPERM/ENOSPC an FSWatcher emits after registration.
+    fake.emitError(Object.assign(new Error('EPERM'), { code: 'EPERM' }));
+
+    // The watcher was closed + a typed diagnostic reached the renderer.
+    expect(fake.close).toHaveBeenCalledTimes(1);
+    const failedEvents = sender.send.mock.calls.filter(
+      ([channel]) => channel === 'fs:watcher-failed'
+    );
+    expect(failedEvents).toHaveLength(1);
+
+    // The registration slot was freed: re-watching the same target does
+    // NOT stop a stale watcher (there is none to stop).
+    const idB = await invoke('fs:watch-start', sender, rootId, '');
+    expect(idB).not.toBe(id);
+    expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+  });
+
+  it('disposes a sender-owned watcher when the webContents is destroyed (B14)', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const sender = makeSender();
+    await invoke('fs:watch-start', sender, rootId, '');
+    const fake = fakeWatcherInstances[0];
+
+    // Window close / renderer reload → the sender's 'destroyed' fires.
+    sender.emitDestroyed();
+
+    expect(fake.close).toHaveBeenCalledTimes(1);
+    // The slot is freed: re-watching the same target does not stop a
+    // stale watcher (there is none left to stop).
+    const idB = await invoke('fs:watch-start', sender, rootId, '');
+    expect(typeof idB).toBe('string');
+    expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+  });
+
+  it('installs the destroyed listener at most once per sender across multiple watch-starts', async () => {
+    const { rootId: rootA } = mintFor(tmpRoot);
+    const { rootId: rootB } = mintFor(altRoot);
+    const sender = makeSender();
+    await invoke('fs:watch-start', sender, rootA, '');
+    await invoke('fs:watch-start', sender, rootB, '');
+
+    const destroyedRegistrations = sender.once.mock.calls.filter(
+      ([event]) => event === 'destroyed'
+    );
+    expect(destroyedRegistrations).toHaveLength(1);
+
+    // One destroyed event tears down BOTH watchers the sender owns.
+    sender.emitDestroyed();
+    expect(fakeWatcherInstances[0].close).toHaveBeenCalledTimes(1);
+    expect(fakeWatcherInstances[1].close).toHaveBeenCalledTimes(1);
   });
 
   it('watch-stop closes the watcher and frees the registration slot', async () => {
@@ -371,6 +459,8 @@ describe('before-quit cleanup', () => {
         close: vi.fn(() => {
           throw new Error('close failed');
         }),
+        on: vi.fn(),
+        emitError: () => {},
       };
       fakeWatcherInstances.push(fake);
       return fake;

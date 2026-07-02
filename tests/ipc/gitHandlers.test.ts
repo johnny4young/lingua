@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   revealRepo: vi.fn(),
   watchRepoHead: vi.fn(),
   pathIntersectsApprovedScope: vi.fn(),
+  pathInsideApprovedScope: vi.fn(),
   isPathBlocked: vi.fn(),
 }));
 
@@ -43,6 +44,7 @@ vi.mock('../../src/main/git', () => ({
 
 vi.mock('../../src/main/ipc/fileSystem', () => ({
   pathIntersectsApprovedScope: mocks.pathIntersectsApprovedScope,
+  pathInsideApprovedScope: mocks.pathInsideApprovedScope,
 }));
 
 vi.mock('../../src/main/ipc/permissions', () => ({
@@ -83,11 +85,18 @@ beforeEach(() => {
   mocks.revealRepo.mockReset();
   mocks.watchRepoHead.mockReset();
   mocks.pathIntersectsApprovedScope.mockReset();
+  mocks.pathInsideApprovedScope.mockReset();
   mocks.isPathBlocked.mockReset();
   // Default: nothing blocked, approval decided per-test.
   mocks.isPathBlocked.mockReturnValue(false);
   mocks.pathIntersectsApprovedScope.mockImplementation(
     async (candidate: string) => candidate === APPROVED
+  );
+  // Containment-only gate for file-content reads: inside the approved
+  // root (or the root itself), never the ancestor arm.
+  mocks.pathInsideApprovedScope.mockImplementation(
+    async (candidate: string) =>
+      candidate === APPROVED || candidate.startsWith(`${APPROVED}/`)
   );
   registerGitHandlers();
 });
@@ -129,6 +138,61 @@ describe('git IPC approved-scope gate', () => {
       truncated: false,
     });
     expect(mocks.getFileDiff).not.toHaveBeenCalled();
+  });
+
+  it('git:diff refuses a file outside the approved subtree even when the repoRoot passes the ancestor gate', async () => {
+    // Monorepo case: the repo toplevel is an ANCESTOR of the approved
+    // project, so the root gate passes — but the requested file lives in a
+    // sibling package outside the approved scope and must not be read.
+    const REPO_TOPLEVEL = '/home/user/projects';
+    mocks.pathIntersectsApprovedScope.mockResolvedValue(true);
+    const diff = handlerFor('git:diff');
+    await expect(
+      diff({}, REPO_TOPLEVEL, `${REPO_TOPLEVEL}/other-package/.env`)
+    ).resolves.toEqual({
+      originalContent: '',
+      modifiedContent: '',
+      truncated: false,
+    });
+    expect(mocks.getFileDiff).not.toHaveBeenCalled();
+  });
+
+  it('git:status refuses a file outside the approved subtree', async () => {
+    const REPO_TOPLEVEL = '/home/user/projects';
+    mocks.pathIntersectsApprovedScope.mockResolvedValue(true);
+    const status = handlerFor('git:status');
+    await expect(
+      status({}, REPO_TOPLEVEL, `${REPO_TOPLEVEL}/secrets.json`)
+    ).resolves.toEqual({ status: 'unknown' });
+    expect(mocks.getFileStatus).not.toHaveBeenCalled();
+  });
+
+  it('git:diff refuses a denylisted file even inside the approved root', async () => {
+    mocks.isPathBlocked.mockImplementation(
+      (candidate: string) => candidate === `${APPROVED}/.ssh/id_rsa`
+    );
+    const diff = handlerFor('git:diff');
+    await expect(diff({}, APPROVED, '.ssh/id_rsa')).resolves.toEqual({
+      originalContent: '',
+      modifiedContent: '',
+      truncated: false,
+    });
+    expect(mocks.getFileDiff).not.toHaveBeenCalled();
+  });
+
+  it('git:diff resolves a relative filePath against the repoRoot and forwards it', async () => {
+    mocks.getFileDiff.mockResolvedValue({
+      originalContent: 'a',
+      modifiedContent: 'b',
+      truncated: false,
+    });
+    const diff = handlerFor('git:diff');
+    await expect(diff({}, APPROVED, 'src/a.ts')).resolves.toEqual({
+      originalContent: 'a',
+      modifiedContent: 'b',
+      truncated: false,
+    });
+    expect(mocks.getFileDiff).toHaveBeenCalledWith(APPROVED, 'src/a.ts');
   });
 
   it('git:reveal returns false for an unapproved repoRoot', async () => {

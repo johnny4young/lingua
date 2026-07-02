@@ -235,6 +235,61 @@ describe('composeNotebookCellSource', () => {
     const composed = await composeNotebookCellSource('void 0;', sandbox);
     expect(composed).not.toContain(`const k${MAX_NOTEBOOK_SANDBOX_KEYS + 1} =`);
   });
+
+  it('re-running a cell that re-declares a sandbox key does not throw (regression)', async () => {
+    // First run put `x` in the sandbox; the second run of the SAME cell
+    // must not inject `const x = 1;` next to the user's `let x = 1` —
+    // that was a guaranteed `Identifier 'x' has already been declared`
+    // on every second Run.
+    const source = 'let x = 1;';
+    const composed = await composeNotebookCellSource(source, { x: 1 });
+    expect(composed).not.toContain('const x = 1;');
+    const AsyncFunction = Object.getPrototypeOf(async function () {})
+      .constructor as new (body: string) => () => Promise<{
+      sessionDelta: Record<string, unknown>;
+    }>;
+    const result = await new AsyncFunction(composed)();
+    expect(result.sessionDelta).toMatchObject({ x: 1 });
+  });
+
+  it('a later cell re-declaring a sandbox name shadows the pull-in instead of throwing', async () => {
+    const composed = await composeNotebookCellSource('const y = 2;', {
+      y: 1,
+      z: 3,
+    });
+    // `y` is declared by the cell → no pull-in; `z` still flows in.
+    expect(composed).not.toContain('const y = 1;');
+    expect(composed).toContain('const z = 3;');
+    const AsyncFunction = Object.getPrototypeOf(async function () {})
+      .constructor as new (body: string) => () => Promise<{
+      sessionDelta: Record<string, unknown>;
+    }>;
+    const result = await new AsyncFunction(composed)();
+    expect(result.sessionDelta).toMatchObject({ y: 2 });
+  });
+
+  it('skips pull-ins for cell-declared functions, classes, and destructured bindings', async () => {
+    const source = [
+      'function fn() { return 1; }',
+      'class Klass {}',
+      'const { a, ...rest } = { a: 1, b: 2 };',
+      'let pending;',
+    ].join('\n');
+    const composed = await composeNotebookCellSource(source, {
+      fn: 'stale',
+      Klass: 'stale',
+      a: 'stale',
+      rest: 'stale',
+      pending: 'stale',
+      keep: 'fresh',
+    });
+    expect(composed).not.toContain('const fn = "stale";');
+    expect(composed).not.toContain('const Klass = "stale";');
+    expect(composed).not.toContain('const a = "stale";');
+    expect(composed).not.toContain('const rest = "stale";');
+    expect(composed).not.toContain('const pending = "stale";');
+    expect(composed).toContain('const keep = "fresh";');
+  });
 });
 
 describe('transpileTypescriptCell (RL-043 Slice C)', () => {

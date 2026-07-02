@@ -132,6 +132,26 @@ export const RUBY_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
+ * Env keys the RL-011 user tier may never set when it arrives over IPC.
+ * Running native code is already the user's own machine and their own
+ * opt-in — this is not a privilege boundary — but a COMPROMISED renderer
+ * should not get a free dynamic-loader injection primitive layered onto
+ * every spawned toolchain binary. Loader-injection keys are categorically
+ * different from ordinary env config: they change what code the OS loads
+ * into the child before main() runs. `PATH` stays allowed — resolving a
+ * project-local toolchain is a legitimate user need.
+ */
+const USER_ENV_DENYLIST = new Set([
+  'LD_PRELOAD',
+  'LD_AUDIT',
+  'LD_LIBRARY_PATH',
+  'DYLD_INSERT_LIBRARIES',
+  'DYLD_LIBRARY_PATH',
+  'DYLD_FRAMEWORK_PATH',
+  'NODE_OPTIONS',
+]);
+
+/**
  * Build the env passed to `child_process.spawn` / `execFile` for a
  * native runner subprocess. Layering, in order:
  *
@@ -165,6 +185,7 @@ export function buildNativeRunnerEnv(
   if (userEnv) {
     for (const [key, value] of Object.entries(userEnv)) {
       if (typeof value !== 'string') continue;
+      if (USER_ENV_DENYLIST.has(key.toUpperCase())) continue;
       out[key] = value;
     }
   }
