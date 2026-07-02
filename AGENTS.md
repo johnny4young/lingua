@@ -34,6 +34,7 @@ Before making non-trivial changes, open these files (in order).
   - `vite.web.config.mts` and `vite.renderer.config.mts` need `envDir: __dirname` so repo-root `.env` / `.env.production` actually substitute `import.meta.env.VITE_*` defines into their bundles.
   - `vite.main.config.mts` needs the function form of `defineConfig` calling `loadEnv(mode, __dirname, '')` because main reads from `process.env` at config-load time, BEFORE Vite's automatic env loading runs.
   - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `pnpm run make:desktop` build and a paste, not just the dev launchers. RL-061 Slice 2.5 fixed only the web symptom; Slice 3 surfaced the renderer + main gaps when the production .app rejected every paste with `no-public-key`.
+  - **This landmine is now partially mechanized**: `tests/build/envDefineWiring.test.ts` fails CI when a `__LINGUA_*__` define is consumed by a surface whose config never provides it, when `envDir` drifts off the repo root in the renderer/web configs, or when `vite.main.config.mts` stops using the shared four-source cascade (`build/resolveEnv.mts`). New env-sourced main defines MUST go through `resolveBuildTimeEnvVar`. The packaged-build validation advice above still applies for anything the resolved-config check cannot see (dev-launcher injection, electron-builder packaging).
 
 ## UI verification — MANDATORY when the diff touches user-facing surfaces
 
