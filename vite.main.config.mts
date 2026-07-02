@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
+import { loadRepoRootEnv, resolveBuildTimeEnvVar } from './build/resolveEnv.mts';
 
 // Seed VITE_LINGUA_APP_VERSION from package.json before Vite reads
 // process.env. RL-061 Slice 5.
@@ -24,28 +25,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // `no-public-key` from the main verifier.
 export default defineConfig(({ mode }) => {
   const isProductionBuild = mode === 'production';
-  const env = loadEnv(mode, __dirname, '');
-  const publicKeyJwk =
-    process.env.LINGUA_LICENSE_PUBLIC_KEY_JWK ||
-    process.env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK ||
-    env.LINGUA_LICENSE_PUBLIC_KEY_JWK ||
-    env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK ||
-    '';
+  // Four-source cascade (process.env NAME / VITE_NAME, then repo-root
+  // .env files NAME / VITE_NAME) via the shared helper — a variable
+  // resolved here behaves identically to any future one, instead of
+  // each define hand-copying the cascade. See build/resolveEnv.mts.
+  const env = loadRepoRootEnv(mode, __dirname);
+  const publicKeyJwk = resolveBuildTimeEnvVar(env, 'LINGUA_LICENSE_PUBLIC_KEY_JWK');
 
   // RL-061 Slice 3.5 — license-server base URL for the main-side
-  // wrappers in `src/main/licenseServer.ts`. Same loadEnv source as
-  // the public key so packaged `make:desktop` builds pick up
+  // wrappers in `src/main/licenseServer.ts`. Same sources as the
+  // public key so packaged `make:desktop` builds pick up
   // `licenses.linguacode.dev` from `.env.production` without any
   // wrapper script. Runtime `process.env.LINGUA_LICENSE_SERVER_URL`
   // overrides the baked value for dev launchers
   // (`scripts/dev-desktop-prod.mjs`) that need to point at a
   // localhost mock without rebuilding main.
-  const licenseServerUrl =
-    process.env.LINGUA_LICENSE_SERVER_URL ||
-    process.env.VITE_LINGUA_LICENSE_SERVER_URL ||
-    env.LINGUA_LICENSE_SERVER_URL ||
-    env.VITE_LINGUA_LICENSE_SERVER_URL ||
-    '';
+  const licenseServerUrl = resolveBuildTimeEnvVar(env, 'LINGUA_LICENSE_SERVER_URL');
 
   return {
     define: {
