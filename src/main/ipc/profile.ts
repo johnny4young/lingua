@@ -8,7 +8,8 @@
  * falls back to an inline confirm step inside the section UI.
  */
 
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { dialog, BrowserWindow } from 'electron';
+import { typedHandle } from './typedHandle';
 import { translateCommon } from '../../shared/i18n/runtime';
 
 export interface ConfirmReplaceCounts {
@@ -29,7 +30,7 @@ function sanitizeCount(raw: unknown): number {
 }
 
 export function registerProfileHandlers(): void {
-  ipcMain.handle(
+  typedHandle(
     'profile:confirm-replace',
     async (event, rawCounts: unknown, language?: string) => {
       // RL-089 — `counts` arrives over IPC; coerce to safe finite

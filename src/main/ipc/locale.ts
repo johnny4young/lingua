@@ -1,7 +1,8 @@
-import { app, ipcMain } from 'electron';
+import { app } from 'electron';
+import { typedHandle } from './typedHandle';
 
 export function registerLocaleHandlers(): void {
-  ipcMain.handle('app:get-system-languages', () =>
+  typedHandle('app:get-system-languages', () =>
     app.getPreferredSystemLanguages()
   );
 }

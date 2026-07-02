@@ -14,7 +14,8 @@
  * rejects writes.
  */
 
-import { ipcMain, dialog, BrowserWindow, app, shell } from 'electron';
+import { dialog, BrowserWindow, app, shell } from 'electron';
+import { typedHandle } from './typedHandle';
 import {
   mkdir as mkdirFs,
   readFile,
@@ -537,7 +538,7 @@ export function registerFileSystemHandlers(): void {
 
   // ---------------------------------------------------------------- pickers
 
-  ipcMain.handle('fs:select-directory', async () => {
+  typedHandle('fs:select-directory', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
     });
@@ -554,7 +555,7 @@ export function registerFileSystemHandlers(): void {
     return { canceled: false, rootId, rootPath } as const;
   });
 
-  ipcMain.handle('fs:select-file', async () => {
+  typedHandle('fs:select-file', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: OPEN_FILE_FILTERS.map((filter) => ({
@@ -597,7 +598,7 @@ export function registerFileSystemHandlers(): void {
     } as const;
   });
 
-  ipcMain.handle(
+  typedHandle(
     'fs:save-dialog',
     async (_event, defaultName: string, defaultDir?: string) => {
       const result = await dialog.showSaveDialog({
@@ -622,7 +623,7 @@ export function registerFileSystemHandlers(): void {
   // actionable, localized denial (and a privacy-safe `fs.blocked` telemetry
   // signal that names only the family, never the path) when a reopen or pick is
   // refused by the denylist. Mints no capability; performs no disk write.
-  ipcMain.handle('fs:classify-blocked-path', (_event, absolutePath: string) => {
+  typedHandle('fs:classify-blocked-path', (_event, absolutePath: string) => {
     if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
       return { family: null } as const;
     }
@@ -638,7 +639,7 @@ export function registerFileSystemHandlers(): void {
    * longer resolves on disk fails loudly instead of silently minting a
    * token that subsequent operations would reject anyway.
    */
-  ipcMain.handle('fs:reopen-root', async (_event, absolutePath: string) => {
+  typedHandle('fs:reopen-root', async (_event, absolutePath: string) => {
     if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
       return { ok: false, error: 'not-found' } as const;
     }
@@ -678,7 +679,7 @@ export function registerFileSystemHandlers(): void {
    * previously approved project root. This keeps saved tabs/recent
    * files ergonomic without reopening a whole parent directory.
    */
-  ipcMain.handle('fs:reopen-file', async (_event, absolutePath: string) => {
+  typedHandle('fs:reopen-file', async (_event, absolutePath: string) => {
     if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
       return { ok: false, error: 'not-found' } as const;
     }
@@ -711,13 +712,13 @@ export function registerFileSystemHandlers(): void {
     return { ok: true, rootId, rootPath, fileRelativePath } as const;
   });
 
-  ipcMain.handle('fs:revoke-root', (_event, rootId: RootId) => {
+  typedHandle('fs:revoke-root', (_event, rootId: RootId) => {
     return revokeRoot(rootId);
   });
 
   // ------------------------------------------------------- close confirmations
 
-  ipcMain.handle(
+  typedHandle(
     'app:confirm-close',
     async (event, dirtyFileNames: string[], language?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -738,7 +739,7 @@ export function registerFileSystemHandlers(): void {
     }
   );
 
-  ipcMain.handle(
+  typedHandle(
     'app:confirm-close-tab',
     async (event, fileName: string, language?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -761,7 +762,7 @@ export function registerFileSystemHandlers(): void {
 
   // --------------------------------------------------------------- readdir
 
-  ipcMain.handle(
+  typedHandle(
     'fs:readdir',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(
@@ -783,7 +784,7 @@ export function registerFileSystemHandlers(): void {
           return {
             name: e.name,
             isDirectory: e.isDirectory(),
-            relativePath: joinRelative(relativePath, e.name),
+            relativePath: asRelativePath(joinRelative(relativePath, e.name)),
           };
         });
     }
@@ -798,7 +799,7 @@ export function registerFileSystemHandlers(): void {
    * entries are skipped to avoid cycles. Total result size is capped so a
    * pathological project cannot starve the IPC channel.
    */
-  ipcMain.handle(
+  typedHandle(
     'fs:listAllFiles',
     async (
       _event,
@@ -860,7 +861,7 @@ export function registerFileSystemHandlers(): void {
    * Capability-resolved root + relative path, same hidden-entry filter,
    * binary skip, size budget, and per-file / total match caps as before.
    */
-  ipcMain.handle(
+  typedHandle(
     'fs:searchInFiles',
     async (
       _event,
@@ -1093,7 +1094,7 @@ export function registerFileSystemHandlers(): void {
     await walk(rootAbsolutePath, rootRelativePath);
   }
 
-  ipcMain.handle(
+  typedHandle(
     'fs:replaceInFiles',
     async (
       _event,
@@ -1289,7 +1290,7 @@ export function registerFileSystemHandlers(): void {
     }
   );
 
-  ipcMain.handle(
+  typedHandle(
     'fs:applyReplaceInFile',
     async (
       _event,
@@ -1411,7 +1412,7 @@ export function registerFileSystemHandlers(): void {
 
   // ------------------------------------------------------------------ stat
 
-  ipcMain.handle('fs:stat', async (_event, rootId: RootId, relativePath: string) => {
+  typedHandle('fs:stat', async (_event, rootId: RootId, relativePath: string) => {
     const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
     const s = await statAsync(absolutePath);
     return {
@@ -1425,14 +1426,14 @@ export function registerFileSystemHandlers(): void {
 
   // ------------------------------------------------------------------ read
 
-  ipcMain.handle('fs:read', async (_event, rootId: RootId, relativePath: string) => {
+  typedHandle('fs:read', async (_event, rootId: RootId, relativePath: string) => {
     const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
     return readFile(absolutePath, 'utf-8');
   });
 
   // ----------------------------------------------------------------- write
 
-  ipcMain.handle(
+  typedHandle(
     'fs:write',
     async (_event, rootId: RootId, relativePath: string, content: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
@@ -1443,7 +1444,7 @@ export function registerFileSystemHandlers(): void {
 
   // ---------------------------------------------------------------- delete
 
-  ipcMain.handle(
+  typedHandle(
     'fs:delete',
     async (
       event,
@@ -1497,7 +1498,7 @@ export function registerFileSystemHandlers(): void {
 
   // ---------------------------------------------------------------- rename
 
-  ipcMain.handle(
+  typedHandle(
     'fs:rename',
     async (_event, rootId: RootId, relativeOldPath: string, newName: string) => {
       assertSafeEntryName(newName, 'name for rename');
@@ -1516,13 +1517,13 @@ export function registerFileSystemHandlers(): void {
         throw new CapabilityError(verify.error);
       }
       await renameFs(oldAbsolute, newAbsolute);
-      return newRelative;
+      return asRelativePath(newRelative);
     }
   );
 
   // ----------------------------------------------------------------- mkdir
 
-  ipcMain.handle(
+  typedHandle(
     'fs:mkdir',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
@@ -1533,7 +1534,7 @@ export function registerFileSystemHandlers(): void {
 
   // ----------------------------------------------------------------- touch (create empty file)
 
-  ipcMain.handle(
+  typedHandle(
     'fs:touch',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
@@ -1553,7 +1554,7 @@ export function registerFileSystemHandlers(): void {
   // renderer can't be turned into an information-disclosure side
   // channel. We resolve with `'read'` permission because we are not
   // writing anything; the read denylist still applies.
-  ipcMain.handle(
+  typedHandle(
     'fs:reveal-in-finder',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
@@ -1587,7 +1588,7 @@ export function registerFileSystemHandlers(): void {
    * surface `too-many-files` as a clean outcome instead of letting
    * `packBundle` throw.
    */
-  ipcMain.handle(
+  typedHandle(
     'fs:exportBundle',
     async (
       event,
@@ -1701,7 +1702,7 @@ export function registerFileSystemHandlers(): void {
    * On success it `rememberApprovedRoot`s the target so the renderer's
    * existing `openProject(rootPath)` → `fs:reopen-root` path adopts it.
    */
-  ipcMain.handle(
+  typedHandle(
     'fs:importBundle',
     async (
       _event,
@@ -1773,7 +1774,7 @@ export function registerFileSystemHandlers(): void {
 
   // --------------------------------------------------------------- watch
 
-  ipcMain.handle(
+  typedHandle(
     'fs:watch-start',
     async (event, rootId: RootId, relativePath: RelativePath = asRelativePath('')) => {
       const { absolutePath } = await resolveOrThrow(
@@ -1892,7 +1893,7 @@ export function registerFileSystemHandlers(): void {
     }
   );
 
-  ipcMain.handle('fs:watch-stop', (_event, watchId: string) => {
+  typedHandle('fs:watch-stop', (_event, watchId: string) => {
     // Boundary cast: the renderer hands back the opaque token main
     // returned from `fs:watch-start`. Branding the raw IPC string here is
     // the sanctioned mint point; `stopWatcherById` is a no-op for any

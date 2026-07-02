@@ -7,7 +7,7 @@
  *   missing binaries with actionable messages without crashing the save path
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
@@ -225,7 +225,7 @@ export function resetFormatterAvailabilityCache(): void {
 }
 
 export function registerFormatterHandlers(): void {
-  ipcMain.handle('format:gofmt', async (_event, source: unknown) => {
+  typedHandle('format:gofmt', async (_event, source: unknown) => {
     if (typeof source !== 'string') {
       return {
         available: true,
@@ -235,7 +235,7 @@ export function registerFormatterHandlers(): void {
     }
     return formatWithGofmt(source);
   });
-  ipcMain.handle('format:rustfmt', async (_event, source: unknown) => {
+  typedHandle('format:rustfmt', async (_event, source: unknown) => {
     if (typeof source !== 'string') {
       return {
         available: true,
@@ -245,7 +245,7 @@ export function registerFormatterHandlers(): void {
     }
     return formatWithRustfmt(source);
   });
-  ipcMain.handle('format:python', async (_event, source: unknown) => {
+  typedHandle('format:python', async (_event, source: unknown) => {
     if (typeof source !== 'string') {
       return {
         available: true,

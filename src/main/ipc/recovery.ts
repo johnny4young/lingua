@@ -16,7 +16,8 @@
  * the reveal-folder button.
  */
 
-import { ipcMain, dialog, BrowserWindow, app, shell } from 'electron';
+import { dialog, BrowserWindow, app, shell } from 'electron';
+import { typedHandle } from './typedHandle';
 import { translateCommon } from '../../shared/i18n/runtime';
 
 export type ResetScope =
@@ -41,7 +42,7 @@ const t = (
 ) => translateCommon(language ?? 'en', key, options);
 
 export function registerRecoveryHandlers(): void {
-  ipcMain.handle(
+  typedHandle(
     'recovery:confirm-reset',
     async (event, rawScope: unknown, language?: string) => {
       const scope =
@@ -71,7 +72,7 @@ export function registerRecoveryHandlers(): void {
     }
   );
 
-  ipcMain.handle('recovery:reveal-folder', async () => {
+  typedHandle('recovery:reveal-folder', async () => {
     if (typeof app?.getPath !== 'function' || typeof shell?.openPath !== 'function') {
       return { ok: false, reason: 'unsupported' } as const;
     }
