@@ -160,3 +160,47 @@ export function payloadAsJsonString(payload: RichOutputPayload): string {
     return String(payload);
   }
 }
+
+/**
+ * Render a serialized `ScopeValue` (a rich-table cell, a Map/Set entry,
+ * an object/array member) to a compact one-line string. Extracted from
+ * the popover so the console grid AND the notebook cell table render
+ * cells identically. Pure — no React, no i18n.
+ */
+export function scopeValueToString(value: ScopeValue): string {
+  switch (value.kind) {
+    case 'primitive':
+      return value.repr;
+    case 'function':
+      return `ƒ ${value.name}`;
+    case 'object': {
+      const sample = value.entries
+        .slice(0, 3)
+        .map((entry) => `${entry.key}: …`)
+        .join(', ');
+      return `${value.previewType}{${sample}${value.entries.length > 3 ? ', …' : ''}}`;
+    }
+    case 'array': {
+      const sample = value.entries
+        .slice(0, 3)
+        .map((entry) => {
+          switch (entry.value.kind) {
+            case 'primitive':
+              return entry.value.repr;
+            case 'function':
+              return 'ƒ';
+            case 'object':
+              return entry.value.previewType + '{}';
+            case 'array':
+              return `[${entry.value.length}]`;
+            case 'error':
+              return '!';
+          }
+        })
+        .join(', ');
+      return `[${sample}${value.length > 3 ? ', …' : ''}]`;
+    }
+    case 'error':
+      return value.message;
+  }
+}
