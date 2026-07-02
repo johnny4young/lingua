@@ -100,7 +100,20 @@ async function invoke(
 ): Promise<unknown> {
   const handler = handlers.get(channel);
   if (!handler) throw new Error(`No handler registered for ${channel}`);
-  return handler({ sender: { isDestroyed: () => false, send: vi.fn() } }, ...args);
+  return handler(
+    {
+      sender: {
+        id: 1,
+        isDestroyed: () => false,
+        send: vi.fn(),
+        // watch-start ties watcher lifecycle to the sender via a one-time
+        // 'destroyed' listener (B14); this suite never fires it, so a
+        // no-op capture is enough.
+        once: vi.fn(),
+      },
+    },
+    ...args
+  );
 }
 
 function mintFor(rootPath: string): { rootId: string; rootPath: string } {

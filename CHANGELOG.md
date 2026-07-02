@@ -14,6 +14,7 @@ The format follows Keep a Changelog and groups changes by release.
 ### Fixed
 - **Notebooks: re-running a JS/TS cell no longer throws** `Identifier 'x' has already been declared`. Sandbox pull-ins now skip names the cell itself re-declares at top level.
 - **File watcher no longer crashes the app**: an asynchronous `FSWatcher` error (e.g. deleting the watched folder on Windows) is caught and surfaced as a degraded-watcher notice instead of taking down the main process.
+- **File watchers no longer leak**: a project watcher is disposed when its window is closed (macOS keeps the app alive) or the renderer reloads, instead of surviving to the next session.
 - **Language servers**: restarting rust-analyzer / gopls no longer spawns a duplicate orphaned server, and stopping one no longer emits an unhandled promise rejection.
 - **Dependency install**: cancelling or timing out `npm install` now terminates the whole process tree (node-gyp, postinstall) instead of leaving orphaned builds holding `node_modules` locks.
 - **License (web)**: removing a license during an in-flight revalidation no longer silently resurrects it, including across browser tabs.

@@ -141,7 +141,7 @@ conviene confirmar cuál es el canal activo o añadir el hash.
 | B11 | Media | `openFile`: doble clic abría el mismo archivo dos veces | ✅ Corregido |
 | B12 | Media | Opens concurrentes filtraban watcher/capability; `watchStop` sin `.catch()` abortaba el open | ✅ Corregido |
 | B13 | Media | `applyWatchChanges` commiteaba un árbol derivado de snapshot stale | 📋 Documentado |
-| B14 | Media | Watchers del bridge fs no atados al ciclo de vida del sender (fuga en macOS/reload) | 📋 Documentado |
+| B14 | Media | Watchers del bridge fs no atados al ciclo de vida del sender (fuga en macOS/reload) | ✅ Corregido |
 | B15 | Media | Runners Node/Ruby: temp dir creado fuera de región protegida → fuga + rechazo crudo | ✅ Corregido |
 | B16 | Media | Cierre "sucio" sin fallback para renderer muerto → ventana imposible de cerrar | ✅ Corregido |
 
@@ -205,12 +205,19 @@ real; el fix propuesto es resolver la ruta de `npm.cmd` o invocar vía
 `cmd.exe /c` con argv fijo. No se aplicó aquí por no poder verificarlo
 end-to-end en este entorno.
 
-**B13/B14 — Snapshots stale del árbol y fuga de watchers fs
-(documentados).** Ambos son mejoras de robustez en `projectStore` y en
-el ciclo de vida del bridge fs; se dejan documentados con el fix
-propuesto (commit por directorio sobre estado fresco; atar el watcher
-al evento `destroyed` del sender como ya hace git) para un slice
-dedicado con su propia cobertura de tests.
+**B14 — Fuga de watchers fs por sender (corregido).** Los watchers del
+bridge fs solo se limpiaban en `before-quit` y en `fs:watch-stop`
+explícito; al cerrar la ventana en macOS (la app sigue viva) o al
+recargar el renderer, el watcher recursivo del proyecto quedaba vivo y
+un `rootId` nuevo nunca deduplicaba contra el viejo. *Fix:* registro por
+sender (`watcherIdsBySender`) + listener `destroyed` idempotente que
+llama `stopWatchersForSender`, exactamente el patrón del watcher de git.
+2 tests nuevos en `watcherLifecycle.test.ts`.
+
+**B13 — Snapshot stale del árbol (documentado).** Mejora de robustez en
+`projectStore` (commit por directorio sobre estado fresco); se deja
+documentado con el fix propuesto para un slice dedicado con su propia
+cobertura de tests.
 
 ---
 
@@ -460,8 +467,9 @@ Mantener Education gratuito y agresivo — profesores = distribución.
 ×2 launchers), B4 (npm process tree), B6 (revalidate race + cross-tab),
 B7 (save race), B8 (replace-all frozen params), B9 (git watch-head
 race), B10 (LSP shutdown rejection ×2), B11 (openFile double-open), B12
-(project open best-effort retirement), B15 (temp-dir leak node/ruby),
-B16 (render-process-gone force-close).
+(project open best-effort retirement), B14 (fs watcher sender
+lifecycle), B15 (temp-dir leak node/ruby), B16 (render-process-gone
+force-close).
 
 **Rendimiento:** P1 (Monaco lazy ×2 aristas), P2 (shell re-render),
 P5 (caché Go/Rust), P8 parcial (`useUIStore` selectivo).

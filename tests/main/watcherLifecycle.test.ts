@@ -90,14 +90,29 @@ let tmpRoot: string;
 let altRoot: string;
 
 interface FakeSender {
+  id: number;
   isDestroyed: () => boolean;
   send: ReturnType<typeof vi.fn>;
+  // The watch-start handler registers a one-time 'destroyed' listener to
+  // tie watcher lifecycle to the sender (B14). Capture it so tests can
+  // fire it and assert the watchers are torn down.
+  once: ReturnType<typeof vi.fn>;
+  emitDestroyed: () => void;
 }
 
+let nextSenderId = 1;
 function makeSender(): FakeSender {
+  const destroyedListeners: Array<() => void> = [];
   return {
+    id: nextSenderId++,
     isDestroyed: () => false,
     send: vi.fn(),
+    once: vi.fn((event: string, listener: () => void) => {
+      if (event === 'destroyed') destroyedListeners.push(listener);
+    }),
+    emitDestroyed: () => {
+      for (const listener of destroyedListeners) listener();
+    },
   };
 }
 
@@ -209,6 +224,41 @@ describe('fs:watch-start happy path', () => {
     const idB = await invoke('fs:watch-start', sender, rootId, '');
     expect(idB).not.toBe(id);
     expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+  });
+
+  it('disposes a sender-owned watcher when the webContents is destroyed (B14)', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const sender = makeSender();
+    await invoke('fs:watch-start', sender, rootId, '');
+    const fake = fakeWatcherInstances[0];
+
+    // Window close / renderer reload → the sender's 'destroyed' fires.
+    sender.emitDestroyed();
+
+    expect(fake.close).toHaveBeenCalledTimes(1);
+    // The slot is freed: re-watching the same target does not stop a
+    // stale watcher (there is none left to stop).
+    const idB = await invoke('fs:watch-start', sender, rootId, '');
+    expect(typeof idB).toBe('string');
+    expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+  });
+
+  it('installs the destroyed listener at most once per sender across multiple watch-starts', async () => {
+    const { rootId: rootA } = mintFor(tmpRoot);
+    const { rootId: rootB } = mintFor(altRoot);
+    const sender = makeSender();
+    await invoke('fs:watch-start', sender, rootA, '');
+    await invoke('fs:watch-start', sender, rootB, '');
+
+    const destroyedRegistrations = sender.once.mock.calls.filter(
+      ([event]) => event === 'destroyed'
+    );
+    expect(destroyedRegistrations).toHaveLength(1);
+
+    // One destroyed event tears down BOTH watchers the sender owns.
+    sender.emitDestroyed();
+    expect(fakeWatcherInstances[0].close).toHaveBeenCalledTimes(1);
+    expect(fakeWatcherInstances[1].close).toHaveBeenCalledTimes(1);
   });
 
   it('watch-stop closes the watcher and frees the registration slot', async () => {

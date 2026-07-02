@@ -74,11 +74,37 @@ interface WatcherEntry {
   rootId: RootId;
   watchedPath: string;
   targetKey: string;
+  /** webContents id that created the watcher, for lifecycle cleanup. */
+  senderId?: number;
   stop: () => void;
 }
 
 const watchers = new Map<WatchId, WatcherEntry>();
 const watcherIdsByTarget = new Map<string, WatchId>();
+// RL-146 hardening (B14) — tie each watcher to the webContents that
+// created it so a window close (macOS keeps the app alive with no
+// window) or a renderer reload does not leak the recursive project
+// watcher. Without this, `before-quit` was the ONLY cleanup for these
+// handles, and a reload mints a fresh rootId that never dedups against
+// the previous session's watcher. Mirrors the git HEAD watcher registry.
+const watcherIdsBySender = new Map<number, Set<WatchId>>();
+const senderDestroyedListenerInstalled = new Set<number>();
+
+function rememberWatcherForSender(senderId: number, watchId: WatchId): void {
+  let ids = watcherIdsBySender.get(senderId);
+  if (!ids) {
+    ids = new Set();
+    watcherIdsBySender.set(senderId, ids);
+  }
+  ids.add(watchId);
+}
+
+function forgetWatcherForSender(senderId: number, watchId: WatchId): void {
+  const ids = watcherIdsBySender.get(senderId);
+  if (!ids) return;
+  ids.delete(watchId);
+  if (ids.size === 0) watcherIdsBySender.delete(senderId);
+}
 
 interface FilesystemApprovalsFile {
   version: 1;
@@ -361,11 +387,30 @@ function stopWatcherById(watchId: WatchId): boolean {
   entry.stop();
   watchers.delete(watchId);
   watcherIdsByTarget.delete(entry.targetKey);
+  if (entry.senderId !== undefined) {
+    forgetWatcherForSender(entry.senderId, watchId);
+  }
   // RL-087 — drop the per-watcher burst tracker entry so a long
   // session that opens + closes many projects under inotify load
   // does not accumulate dead UUIDs in the map.
   nullFilenameBursts.delete(watchId);
   return true;
+}
+
+/**
+ * Tear down every watcher a webContents owns. Wired to the sender's
+ * `destroyed` lifecycle event so a window close / reload does not leak
+ * fs.watch handles into the next session.
+ */
+function stopWatchersForSender(senderId: number): void {
+  const ids = watcherIdsBySender.get(senderId);
+  if (!ids) return;
+  // Copy first — stopWatcherById mutates the set via forgetWatcherForSender.
+  for (const watchId of [...ids]) {
+    stopWatcherById(watchId);
+  }
+  watcherIdsBySender.delete(senderId);
+  senderDestroyedListenerInstalled.delete(senderId);
 }
 
 /**
@@ -383,6 +428,8 @@ export function stopAllWatchers(): void {
   }
   watchers.clear();
   watcherIdsByTarget.clear();
+  watcherIdsBySender.clear();
+  senderDestroyedListenerInstalled.clear();
   // Clear burst tracker too for parity with `stopWatcherById`.
   // Moot in the `before-quit` path but matters when `stopAllWatchers`
   // is reused for tests.
@@ -1803,13 +1850,29 @@ export function registerFileSystemHandlers(): void {
         return { ok: false, diagnostic } as const;
       }
 
+      const senderId = event.sender.id;
       watchers.set(watchId, {
         rootId,
         watchedPath: absolutePath,
         targetKey,
+        senderId,
         stop: () => watcher.close(),
       });
       watcherIdsByTarget.set(targetKey, watchId);
+      rememberWatcherForSender(senderId, watchId);
+
+      // Tie the watcher to the sender's lifecycle so a window close
+      // (macOS keeps the app alive) or a renderer reload disposes it
+      // instead of leaking the recursive fs.watch. Install the listener
+      // AT MOST ONCE per sender id — every watch-start on the same
+      // sender otherwise queues another `destroyed` listener. Mirrors
+      // the git HEAD watcher registry.
+      if (!senderDestroyedListenerInstalled.has(senderId)) {
+        senderDestroyedListenerInstalled.add(senderId);
+        event.sender.once('destroyed', () => {
+          stopWatchersForSender(senderId);
+        });
+      }
 
       // A recursive FSWatcher can also fail asynchronously long after
       // registration (EPERM on Windows when the watched folder is deleted
