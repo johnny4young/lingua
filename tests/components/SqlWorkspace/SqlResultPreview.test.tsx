@@ -1,6 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Capture downloads instead of exercising the DOM Blob/anchor path.
+const { downloadSpy } = vi.hoisted(() => ({ downloadSpy: vi.fn() }));
+vi.mock('../../../src/renderer/utils/downloadTextFile', () => ({
+  downloadTextFile: downloadSpy,
+}));
+
 import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/SqlResultPreview';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
@@ -29,6 +36,7 @@ function firstColumnCells(): string[] {
 
 describe('SqlResultPreview', () => {
   beforeEach(() => {
+    downloadSpy.mockClear();
     useUIStore.setState({ statusNotice: null });
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -216,6 +224,87 @@ describe('SqlResultPreview', () => {
         />
       );
       expect(screen.queryByTestId('sql-run-history')).toBeNull();
+    });
+  });
+
+  describe('result export', () => {
+    it('exports the on-screen rows to a CSV file with a success notice', async () => {
+      const user = userEvent.setup();
+      render(
+        <SqlResultPreview
+          response={response({
+            rows: [{ a: 1 }, { a: 2 }],
+            rowCount: 2,
+          })}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+        />
+      );
+
+      // Menu is closed until the trigger is clicked.
+      expect(screen.queryByTestId('sql-result-preview-export-menu')).toBeNull();
+      await user.click(screen.getByTestId('sql-result-preview-export'));
+      expect(screen.getByTestId('sql-result-preview-export-menu')).toBeTruthy();
+
+      await user.click(screen.getByTestId('sql-result-preview-export-csv'));
+
+      expect(downloadSpy).toHaveBeenCalledTimes(1);
+      const [content, filename, mime] = downloadSpy.mock.calls[0]!;
+      expect(content).toContain('a');
+      expect(content).toContain('1');
+      expect(content).toContain('2');
+      expect(filename).toMatch(/^lingua-sql-\d{8}-\d{6}\.csv$/);
+      expect(mime).toContain('text/csv');
+      // The menu closes after a pick.
+      expect(screen.queryByTestId('sql-result-preview-export-menu')).toBeNull();
+
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'success',
+        messageKey: 'sqlWorkspace.action.exportedCsv',
+      });
+    });
+
+    it('exports JSON with a .json extension', async () => {
+      const user = userEvent.setup();
+      render(
+        <SqlResultPreview
+          response={response()}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+        />
+      );
+      await user.click(screen.getByTestId('sql-result-preview-export'));
+      await user.click(screen.getByTestId('sql-result-preview-export-json'));
+
+      const [, filename, mime] = downloadSpy.mock.calls[0]!;
+      expect(filename).toMatch(/\.json$/);
+      expect(mime).toContain('application/json');
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'sqlWorkspace.action.exportedJson',
+      });
+    });
+
+    it('discloses when the export uses a truncated preview', async () => {
+      const user = userEvent.setup();
+      render(
+        <SqlResultPreview
+          response={response({
+            status: 'too-large',
+            rowCount: 20,
+            tooLarge: true,
+          })}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+        />
+      );
+      await user.click(screen.getByTestId('sql-result-preview-export'));
+      await user.click(screen.getByTestId('sql-result-preview-export-markdown'));
+
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'success',
+        messageKey: 'sqlWorkspace.action.exportedMarkdownPreview',
+        values: { shown: 1, total: 20 },
+      });
     });
   });
 });
