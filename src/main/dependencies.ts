@@ -37,6 +37,10 @@ import type {
   DependencyInstallOutcome,
 } from '../shared/dependencies/types';
 import { NODE_TOOLCHAIN_KEYS, buildNativeRunnerEnv } from './runners/nativeEnv';
+import {
+  detachedSpawnOptions,
+  killProcessTree,
+} from './runners/processTree';
 import { resolveNodeCwd } from './node-runner';
 
 // This is intentionally npm-name strict, not package-manager generic:
@@ -191,7 +195,7 @@ const KILL_ESCALATION_DELAY_MS = 200;
  * (then SIGKILL) and resolve the pending run as `'cancelled'`.
  */
 interface ActiveInstall {
-  readonly kill: (signal: NodeJS.Signals) => void;
+  readonly kill: (signal: 'SIGTERM' | 'SIGKILL') => void;
   readonly markCancelled: () => void;
 }
 const activeInstalls = new Map<string, ActiveInstall>();
@@ -357,6 +361,11 @@ export async function installJsDependencyBatch(
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
+      // Process-group leader on POSIX so cancel/timeout can fell the whole
+      // tree. npm regularly spawns grandchildren (node-gyp, postinstall
+      // scripts, compilers); a plain child.kill() leaves them running and
+      // holding node_modules locks after the UI reports "cancelled".
+      ...detachedSpawnOptions(),
     });
   } catch {
     for (const name of toInstall) statuses[name] = 'failed';
@@ -381,17 +390,9 @@ export async function installJsDependencyBatch(
     };
     const overallTimer = setTimeout(() => {
       if (settled) return;
-      try {
-        child.kill('SIGTERM');
-      } catch {
-        /* already gone */
-      }
+      killProcessTree(child, 'SIGTERM');
       killTimer = setTimeout(() => {
-        try {
-          child.kill('SIGKILL');
-        } catch {
-          /* already gone */
-        }
+        killProcessTree(child, 'SIGKILL');
       }, KILL_ESCALATION_DELAY_MS);
       finalize('timed-out', 'timeout', -1, { keepKillTimer: true });
     }, NPM_INSTALL_TIMEOUT_MS);
@@ -433,11 +434,7 @@ export async function installJsDependencyBatch(
 
     activeInstalls.set(runId, {
       kill: (signal) => {
-        try {
-          child.kill(signal);
-        } catch {
-          /* already gone */
-        }
+        killProcessTree(child, signal);
       },
       markCancelled: () => {
         cancelled = true;

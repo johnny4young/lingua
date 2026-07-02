@@ -7,7 +7,7 @@ import { useDependencyDetectionStore } from './dependencyDetectionStore';
 import { useRecipeStore } from './recipeStore';
 import { useResultStore } from './resultStore';
 import { useUIStore } from './uiStore';
-import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { currentEffectiveTier } from './licenseSelectors';
 import { withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';
@@ -64,6 +64,22 @@ export function createSaveActions(
 
       const content = await window.lingua.fs.read(asRootId(rootId), asRelativePath(relativePath));
       const filePath = displayPath ?? relativePath;
+
+      // Re-check the dedup + budget AFTER the disk read: a double-click on
+      // the file tree fires two openFile calls that both pass the checks
+      // above while neither tab exists yet, opening the same file twice
+      // (and double-charging the Free tab budget).
+      const tabsAfterRead = get().tabs;
+      const existingAfterRead = tabsAfterRead.find(
+        t => t.rootId === rootId && t.relativePath === relativePath
+      );
+      if (existingAfterRead) {
+        set({ activeTabId: existingAfterRead.id });
+        return;
+      }
+      if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabsAfterRead) + 1)) {
+        return;
+      }
 
       const newTab: FileTab = {
         id: crypto.randomUUID(),
@@ -188,7 +204,19 @@ export function createSaveActions(
       if (!savedTab) return false;
 
       set(state => ({
-        tabs: state.tabs.map(t => (t.id === id ? savedTab : t)),
+        tabs: state.tabs.map(t => {
+          if (t.id !== id) return t;
+          // Keystrokes that landed while the save (format + disk write)
+          // was in flight must survive: committing the pre-save snapshot
+          // verbatim would revert the text AND clear isDirty, so closing
+          // the tab afterwards silently drops that work. Adopt the saved
+          // metadata (path, rootId, language) but keep the newer content
+          // marked dirty so the close-guard still fires.
+          if (t.content !== tab.content) {
+            return { ...savedTab, content: t.content, isDirty: true };
+          }
+          return savedTab;
+        }),
       }));
 
       // RL-020 Slice 8 — Save-As that changed the language invalidates

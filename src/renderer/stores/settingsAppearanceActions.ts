@@ -1,7 +1,7 @@
 import type { SettingsState } from '../types';
-import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
-import { isDarkEditorTheme } from '../components/Settings/settingsOptions';
+import { isDarkEditorTheme } from '../utils/editorThemeCatalog';
 import { DEFAULT_KEYMAP_PRESET_ID, findKeymapPreset } from '../data/keymapPresets';
 import { DEFAULT_THEME_PACK_ID, findThemePack } from '../data/themePacks';
 import { DEFAULT_EDITOR_FONT_FAMILY } from './settingsDefaults';

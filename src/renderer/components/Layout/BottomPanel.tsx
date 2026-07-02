@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import {
   Boxes,
   Bug,
@@ -18,7 +18,6 @@ import { VariableInspectorPanel } from '../Editor/VariableInspectorPanel';
 import { DependenciesPanel } from '../Dependencies/DependenciesPanel';
 import { useDependenciesPanelAvailable } from '../Dependencies/useDependenciesPanelAvailable';
 import { useGitDiffTabAvailable } from '../Editor/useGitDiffTabAvailable';
-import { GitDiffPanel } from '../Editor/GitDiffPanel';
 import { RecipeRunPanel } from '../Recipes/RecipeRunPanel';
 import { getRecipeById } from '../../data/recipes';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
@@ -31,6 +30,16 @@ import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { cn } from '../../utils/cn';
+
+// Lazy so the `DiffEditor` import inside GitDiffPanel does not drag the
+// full monaco chunk into the INITIAL bundle — the git-diff tab is
+// conditional (desktop, repo detected, tab opened), and `manualChunks`
+// groups @monaco-editor/react with monaco-editor itself, so this single
+// static edge was enough to ship ~3.8 MB of editor JS on cold load.
+const GitDiffPanel = lazy(async () => {
+  const module = await import('../Editor/GitDiffPanel');
+  return { default: module.GitDiffPanel };
+});
 
 /**
  * RL-131 (AUDIT-11) — the bottom console/debugger/preview/stdin/variables/
@@ -432,7 +441,9 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
         ) : effectiveTab === 'dependencies' ? (
           <DependenciesPanel />
         ) : effectiveTab === 'git-diff' ? (
-          <GitDiffPanel />
+          <Suspense fallback={null}>
+            <GitDiffPanel />
+          </Suspense>
         ) : effectiveTab === 'recipe' ? (
           <RecipeRunPanel />
         ) : (
