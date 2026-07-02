@@ -35,6 +35,8 @@ import {
   ArrowUp,
   Bookmark,
   CheckCircle2,
+  ChevronDown,
+  Download,
   FileJson,
   FileSpreadsheet,
   FileText,
@@ -43,9 +45,10 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
+import { downloadTextFile } from '../../utils/downloadTextFile';
 import type {
   SqlColumnMetadata,
   SqlQueryStatus,
@@ -184,6 +187,54 @@ export function SqlResultPreview({
     copyToClipboard(md, copyNoticeFor(response, 'markdown'));
   }, [response, displayRows]);
 
+  // Export = same WYSIWYG contract as Copy (the filtered / sorted /
+  // capped rows on screen), but written to a downloaded file instead of
+  // the clipboard — the natural flow for a result too large to paste.
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!exportMenuRef.current?.contains(event.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExportMenuOpen(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [exportMenuOpen]);
+
+  const handleExport = useCallback(
+    (format: ExportFormat) => {
+      setExportMenuOpen(false);
+      if (!response) return;
+      const content =
+        format === 'json'
+          ? JSON.stringify(displayRows, null, 2)
+          : format === 'csv'
+            ? rowsToCsv(response.columns, displayRows)
+            : rowsToMarkdownTable(response.columns, displayRows);
+      downloadTextFile(
+        content,
+        buildExportFilename(format),
+        EXPORT_MIME_TYPES[format]
+      );
+      const notice = exportNoticeFor(response, format);
+      useUIStore.getState().pushStatusNotice({
+        tone: 'success',
+        messageKey: notice.messageKey,
+        values: notice.values,
+      });
+    },
+    [response, displayRows]
+  );
+
   if (response === null) {
     return (
       <div
@@ -273,6 +324,48 @@ export function SqlResultPreview({
               label={t('sqlWorkspace.action.copyAsMarkdown')}
               icon={<FileText size={11} aria-hidden="true" />}
             />
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => setExportMenuOpen((open) => !open)}
+                data-testid="sql-result-preview-export"
+                title={t('sqlWorkspace.action.export')}
+                aria-label={t('sqlWorkspace.action.export')}
+                aria-haspopup="menu"
+                aria-expanded={exportMenuOpen}
+                className="inline-flex h-6 items-center gap-0.5 rounded-md border border-border-default bg-bg-panel-alt px-1.5 text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                <Download size={11} aria-hidden="true" />
+                <ChevronDown size={10} aria-hidden="true" />
+              </button>
+              {exportMenuOpen ? (
+                <div
+                  role="menu"
+                  data-testid="sql-result-preview-export-menu"
+                  className="absolute right-0 top-[calc(100%+0.25rem)] z-50 min-w-[9rem] overflow-hidden rounded-md border border-border-default bg-bg-panel py-1 shadow-lg"
+                >
+                  {EXPORT_FORMATS.map((format) => (
+                    <button
+                      key={format.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleExport(format.id)}
+                      data-testid={`sql-result-preview-export-${format.id}`}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-body-sm text-fg-muted transition-colors hover:bg-bg-panel-alt hover:text-fg-base focus-visible:bg-bg-panel-alt focus-visible:text-fg-base focus-visible:outline-none"
+                    >
+                      {format.id === 'csv' ? (
+                        <FileSpreadsheet size={12} aria-hidden="true" />
+                      ) : format.id === 'json' ? (
+                        <FileJson size={12} aria-hidden="true" />
+                      ) : (
+                        <FileText size={12} aria-hidden="true" />
+                      )}
+                      {t(format.labelKey)}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </>
         ) : null}
       </span>
@@ -665,6 +758,65 @@ function renderCell(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+type ExportFormat = 'csv' | 'json' | 'markdown';
+
+// Module-level so the JSX literal labels never trip the renderer-copy
+// guard and the menu order stays a single source of truth.
+const EXPORT_FORMATS: ReadonlyArray<{ id: ExportFormat; labelKey: string }> = [
+  { id: 'csv', labelKey: 'sqlWorkspace.action.exportAsCsv' },
+  { id: 'json', labelKey: 'sqlWorkspace.action.exportAsJson' },
+  { id: 'markdown', labelKey: 'sqlWorkspace.action.exportAsMarkdown' },
+];
+
+const EXPORT_MIME_TYPES: Record<ExportFormat, string> = {
+  csv: 'text/csv;charset=utf-8',
+  json: 'application/json;charset=utf-8',
+  markdown: 'text/markdown;charset=utf-8',
+};
+
+const EXPORT_EXTENSIONS: Record<ExportFormat, string> = {
+  csv: 'csv',
+  json: 'json',
+  markdown: 'md',
+};
+
+function buildExportFilename(format: ExportFormat): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const stamp =
+    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+    `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `lingua-sql-${stamp}.${EXPORT_EXTENSIONS[format]}`;
+}
+
+const EXPORT_SUCCESS_KEYS: Record<ExportFormat, string> = {
+  csv: 'sqlWorkspace.action.exportedCsv',
+  json: 'sqlWorkspace.action.exportedJson',
+  markdown: 'sqlWorkspace.action.exportedMarkdown',
+};
+
+const EXPORT_PREVIEW_SUCCESS_KEYS: Record<ExportFormat, string> = {
+  csv: 'sqlWorkspace.action.exportedCsvPreview',
+  json: 'sqlWorkspace.action.exportedJsonPreview',
+  markdown: 'sqlWorkspace.action.exportedMarkdownPreview',
+};
+
+function exportNoticeFor(
+  response: SqlResponseV1,
+  format: ExportFormat
+): { messageKey: string; values?: Record<string, string | number> } {
+  if (response.tooLarge) {
+    return {
+      messageKey: EXPORT_PREVIEW_SUCCESS_KEYS[format],
+      values: {
+        shown: response.rows.length,
+        total: response.rowCount,
+      },
+    };
+  }
+  return { messageKey: EXPORT_SUCCESS_KEYS[format] };
 }
 
 type CopyFormat = 'csv' | 'json' | 'markdown';
