@@ -2871,6 +2871,7 @@
   "httpWorkspace.editor.body.tooLarge": "El body del request supera el cap de 1 MiB.",
   "httpWorkspace.editor.send.label": "Enviar",
   "httpWorkspace.editor.send.shortcutHint": "Cmd+Enter",
+  "httpWorkspace.editor.stop.label": "Detener",
   "httpWorkspace.response.loading": "Enviando request…",
   "httpWorkspace.response.empty.title": "Sin respuesta aún",
   "httpWorkspace.response.empty.body": "Toca Enviar o presiona Cmd+Enter para ejecutar el request.",

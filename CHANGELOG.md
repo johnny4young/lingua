@@ -6,7 +6,13 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
-## [0.9.0] — 2026-06-28
+### Security
+- **HTTP workspace: API keys under a custom header name no longer leak into shared capsules.** An `apiKey` auth with a non-baseline header name (e.g. `X-Custom-Auth`) had its value written in clear into run capsules / share-links / CLI replay; the capsule serializer now redacts the auth-injected header unconditionally.
+
+### Fixed
+- **HTTP workspace**: editing the URL bar no longer deletes disabled ("commented out") query-param rows; you can now cancel an in-flight request (Send becomes Stop); and a stale settle can no longer clobber a newer request's execution state (per-request tracking).
+- **SQL workspace**: the table browser + autocomplete now populate on open and refresh after a schema change (with OPFS persistence, tables from a previous session were invisible until a manual Refresh); Copy CSV/JSON/Markdown now copies exactly the filtered/sorted rows shown in the grid instead of the full raw result; and a name collision on import is reported honestly instead of as a generic "parse error".
+- **Notebook workspace**: editing a markdown cell no longer serializes every notebook to storage on each keystroke (debounced like code cells), which also stops re-rendering sibling cells while you type.
 
 ### Added
 - **Accessibility overhaul**: A sweep across the app brings full keyboard operability and screen-reader support — roving arrow-key navigation and ARIA semantics for the file tree, editor tab strip, command palette, quick-open, recipes, and capsule-comparison surfaces; focus management and traps for the guided tour, overlays, menus, and the execution-history popover; live-region announcements for console run summaries, project-search results, and other dynamic state; and a reduced-motion guard that quiets non-essential animation for people who prefer it.

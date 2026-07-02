@@ -160,4 +160,36 @@ describe('buildHttpResponseCapsule (RL-097 Slice 1 fold A bridge)', () => {
     expect(capsule.source.content).toContain('X-Custom-Token: <redacted>');
     expect(capsule.source.content).not.toContain('plain-text');
   });
+
+  it('redacts an apiKey auth value even under a CUSTOM header name not in any list (leak regression)', async () => {
+    const capsule = await buildHttpResponseCapsule({
+      ...ARGS,
+      request: makeReq({
+        auth: {
+          kind: 'apiKey',
+          apiKeyHeader: 'X-Custom-Auth',
+          apiKeyValue: 'super-secret-key',
+        },
+      }),
+      response: makeRes(),
+      // The user did NOT list X-Custom-Auth as sensitive — the auth
+      // injection must redact it on its own.
+      userSensitiveHeaders: [],
+    });
+    expect(capsule.source.content).toContain('X-Custom-Auth: <redacted>');
+    expect(capsule.source.content).not.toContain('super-secret-key');
+  });
+
+  it('redacts a Bearer token injected via the Auth tab (no manual header row)', async () => {
+    const capsule = await buildHttpResponseCapsule({
+      ...ARGS,
+      request: makeReq({
+        auth: { kind: 'bearer', token: 'sk-bearer-secret' },
+      }),
+      response: makeRes(),
+      userSensitiveHeaders: [],
+    });
+    expect(capsule.source.content).toContain('Authorization: <redacted>');
+    expect(capsule.source.content).not.toContain('sk-bearer-secret');
+  });
 });

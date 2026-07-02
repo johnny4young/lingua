@@ -341,7 +341,7 @@ describe('createLicenseRuntime', () => {
     expect(b.getSnapshot().deviceId).toBe(a.getSnapshot().deviceId);
   });
 
-  it.skipIf(process.platform === 'win32')(
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'applyToken propagates a disk-write failure WITHOUT mutating the cache so disk + memory stay in sync',
     async () => {
       const { createLicenseRuntime, readPersistedLicense, resolveLicensePath } = await import(
@@ -377,7 +377,7 @@ describe('createLicenseRuntime', () => {
     }
   );
 
-  it.skipIf(process.platform === 'win32')(
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'clear propagates a disk-failure WITHOUT mutating the cache so the renderer can resync to the truth',
     async () => {
       const { createLicenseRuntime, readPersistedLicense, resolveLicensePath } = await import(
