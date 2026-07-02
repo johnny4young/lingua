@@ -142,6 +142,9 @@ vi.mock('lucide-react', () => ({
   Cpu: () => null,
   Layers: () => null,
   Globe: () => null,
+  // F-4 — RuntimeModeSelector consumes Zap/Rabbit for deno/bun.
+  Zap: () => null,
+  Rabbit: () => null,
   // RL-020 Slice 2 — WorkflowModeSegment consumes Sparkles for the
   // Scratchpad icon (Play + Bug are already declared above).
   Sparkles: () => null,
