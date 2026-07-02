@@ -46,6 +46,7 @@ const PANEL_LOADERS = {
   'qr-code': named(() => import('./panels/QrCodePanel'), 'QrCodePanel'),
   'backslash-escape': named(() => import('./panels/BackslashEscapePanel'), 'BackslashEscapePanel'),
   'random-string': named(() => import('./panels/RandomStringPanel'), 'RandomStringPanel'),
+  'mock-data': named(() => import('./panels/MockDataPanel'), 'MockDataPanel'),
   'base64-image': named(() => import('./panels/Base64ImagePanel'), 'Base64ImagePanel'),
   'lorem-ipsum': named(() => import('./panels/LoremIpsumPanel'), 'LoremIpsumPanel'),
   'svg-to-css': named(() => import('./panels/SvgToCssPanel'), 'SvgToCssPanel'),
