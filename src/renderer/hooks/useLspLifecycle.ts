@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import * as monacoNs from 'monaco-editor/esm/vs/editor/editor.api.js';
 import { useEditorStore } from '../stores/editorStore';
 import type {
   LspLanguageStatus,
@@ -37,7 +36,24 @@ import { LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER } from './useLanguageIntellig
  *      back below `'available'`.
  */
 
-function severityFor(severity: 'error' | 'warning' | 'info'): number {
+type MonacoApi = typeof import('monaco-editor/esm/vs/editor/editor.api.js');
+
+/**
+ * Lazily-imported Monaco accessor (same pattern as `useDocumentSymbols`).
+ * This hook mounts in AppChrome on every build, but only the diagnostics
+ * effect — which runs exclusively after a desktop LSP reaches
+ * `'available'` — touches Monaco. A static top-level import here was the
+ * edge that pulled the entire ~3.8 MB monaco chunk into the INITIAL web
+ * bundle; keep the import inside the effect so cold loads stay lean.
+ */
+async function resolveMonaco(): Promise<MonacoApi> {
+  return import('monaco-editor/esm/vs/editor/editor.api.js');
+}
+
+function severityFor(
+  monacoNs: MonacoApi,
+  severity: 'error' | 'warning' | 'info'
+): number {
   switch (severity) {
     case 'error':
       return monacoNs.MarkerSeverity.Error;
@@ -91,9 +107,12 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
   const bootRequested = store((state) => state.bootRequested);
   const status = store((state) => state.status);
   const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
-  const tabs = useEditorStore((state) => state.tabs);
-
-  const hasMatchingTab = tabs.some((tab) => tab.language === language);
+  // Fold to a primitive INSIDE the selector: subscribing to `state.tabs`
+  // would re-render this hook's host (AppChrome — the whole shell) on
+  // every keystroke, because updateContent rebuilds the tabs array.
+  const hasMatchingTab = useEditorStore((state) =>
+    state.tabs.some((tab) => tab.language === language)
+  );
 
   // Effect 1 — boot trigger
   useEffect(() => {
@@ -140,28 +159,37 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
     if (status.kind !== 'available') return;
     const adapter = getAdapter();
     if (!adapter) return;
-    const unsubscribe = adapter.subscribeDiagnostics((uri, diagnostics) => {
-      const model = monacoNs.editor.getModels().find((m) => m.uri.toString() === uri);
-      if (!model) return;
-      monacoNs.editor.setModelMarkers(
-        model,
-        LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
-        diagnostics.map((diagnostic) => ({
-          startLineNumber: diagnostic.line,
-          startColumn: diagnostic.column,
-          endLineNumber: diagnostic.endLine ?? diagnostic.line,
-          endColumn: diagnostic.endColumn ?? diagnostic.column + 1,
-          message: diagnostic.message,
-          severity: severityFor(diagnostic.severity),
-          source: diagnosticSource,
-        }))
-      );
+    let disposed = false;
+    let unsubscribe: (() => void) | null = null;
+    let monacoApi: MonacoApi | null = null;
+    void resolveMonaco().then((monacoNs) => {
+      if (disposed) return;
+      monacoApi = monacoNs;
+      unsubscribe = adapter.subscribeDiagnostics((uri, diagnostics) => {
+        const model = monacoNs.editor.getModels().find((m) => m.uri.toString() === uri);
+        if (!model) return;
+        monacoNs.editor.setModelMarkers(
+          model,
+          LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
+          diagnostics.map((diagnostic) => ({
+            startLineNumber: diagnostic.line,
+            startColumn: diagnostic.column,
+            endLineNumber: diagnostic.endLine ?? diagnostic.line,
+            endColumn: diagnostic.endColumn ?? diagnostic.column + 1,
+            message: diagnostic.message,
+            severity: severityFor(monacoNs, diagnostic.severity),
+            source: diagnosticSource,
+          }))
+        );
+      });
     });
     return () => {
-      unsubscribe();
-      for (const model of monacoNs.editor.getModels()) {
+      disposed = true;
+      unsubscribe?.();
+      if (!monacoApi) return;
+      for (const model of monacoApi.editor.getModels()) {
         if (model.getLanguageId() === language) {
-          monacoNs.editor.setModelMarkers(
+          monacoApi.editor.setModelMarkers(
             model,
             LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
             []

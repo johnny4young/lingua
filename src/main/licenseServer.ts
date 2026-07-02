@@ -94,9 +94,35 @@ function getBaseUrl(): string | null {
   for (const candidate of candidates) {
     if (typeof candidate !== 'string') continue;
     const trimmed = candidate.trim().replace(/\/$/, '');
-    if (trimmed.length > 0) return trimmed;
+    if (trimmed.length === 0) continue;
+    if (!isAllowedLicenseServerUrl(trimmed)) continue;
+    return trimmed;
   }
   return null;
+}
+
+/**
+ * `status()` sends the signed license token as an `Authorization: Bearer`
+ * header, and this fetch runs in main — the renderer CSP does not apply
+ * here. Enforce HTTPS so a misconfigured build/env var can never leak the
+ * token over cleartext; loopback hosts stay allowed for the dev launchers
+ * that point at a localhost mock.
+ */
+function isAllowedLicenseServerUrl(candidate: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol === 'https:') return true;
+  if (parsed.protocol !== 'http:') return false;
+  return (
+    parsed.hostname === 'localhost' ||
+    parsed.hostname === '127.0.0.1' ||
+    parsed.hostname === '[::1]' ||
+    parsed.hostname === '::1'
+  );
 }
 
 /**

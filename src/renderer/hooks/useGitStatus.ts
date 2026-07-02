@@ -54,7 +54,15 @@ function shouldQueryFor(tab: FileTab): boolean {
 }
 
 export function useGitStatus(): void {
-  const tabs = useEditorStore((state) => state.tabs);
+  // Fold to a primitive: subscribing to `state.tabs` re-renders this
+  // hook's host (AppChrome) AND tears down / re-subscribes the watcher
+  // effect below on every keystroke (updateContent rebuilds the array).
+  // Only the set of open file paths matters for (re)priming; the live
+  // tab list — including the content-based magic-comment suppression —
+  // is read imperatively at event time via getState().
+  const tabFilePathsKey = useEditorStore((state) =>
+    state.tabs.map((tab) => tab.filePath ?? '').join('\n')
+  );
   const posture = useGitStore((state) => state.posture);
   const currentProjectRootId = useProjectStore(
     (state) => state.currentProject?.rootId ?? null
@@ -152,7 +160,7 @@ export function useGitStatus(): void {
 
     // On posture change, prime the cache for every currently-open
     // tab whose filePath is under the new repoRoot.
-    for (const tab of tabs) {
+    for (const tab of useEditorStore.getState().tabs) {
       if (!shouldQueryFor(tab)) continue;
       enqueue(tab.filePath as string);
     }
@@ -166,7 +174,9 @@ export function useGitStatus(): void {
       // to compare with the open tab list. The tab's `filePath` is
       // an absolute path; we match via `endsWith(relativePath)` for
       // safety (the project root may differ slightly in normalization).
-      for (const tab of tabs) {
+      // Read the live tab list at event time so the content-based
+      // suppression check sees the current buffer.
+      for (const tab of useEditorStore.getState().tabs) {
         if (!shouldQueryFor(tab)) continue;
         const filePath = tab.filePath as string;
         if (event.relativePath && filePath.endsWith(event.relativePath)) {
@@ -178,14 +188,17 @@ export function useGitStatus(): void {
     return () => {
       unsubscribe();
     };
-  }, [posture?.available, posture?.repoRoot, tabs, currentProjectRootId]);
+  }, [posture?.available, posture?.repoRoot, tabFilePathsKey, currentProjectRootId]);
 
   // Evict cached status entries for closed tabs so the byFile map
-  // stays bounded. This runs every render because `tabs` is the
-  // dep; the `evictFile` action is a no-op when the key is absent.
+  // stays bounded. Re-runs when the set of open paths changes; the
+  // `evictFile` action is a no-op when the key is absent.
   useEffect(() => {
     const openPaths = new Set(
-      tabs.map((tab) => tab.filePath).filter((p): p is string => Boolean(p))
+      useEditorStore
+        .getState()
+        .tabs.map((tab) => tab.filePath)
+        .filter((p): p is string => Boolean(p))
     );
     const { byFile, evictFile } = useGitStore.getState();
     for (const filePath of byFile.keys()) {
@@ -193,5 +206,5 @@ export function useGitStatus(): void {
         evictFile(filePath);
       }
     }
-  }, [tabs]);
+  }, [tabFilePathsKey]);
 }
