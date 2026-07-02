@@ -93,6 +93,14 @@ interface BuildCommandPaletteModelArgs {
    */
   onToggleStatusBar?: () => void;
   /**
+   * F-5 — fires the "Benchmark this tab" action, which re-runs the active
+   * tab's code N times and reports timing stats to the console. Optional;
+   * the caller wires it only when the active tab is a worker-runner
+   * language AND the effective tier holds the `BENCHMARK` entitlement, so
+   * the command stays hidden for Free users and non-benchmarkable tabs.
+   */
+  onBenchmarkActiveTab?: () => void;
+  /**
    * RL-112 fold C — fires the "Focus status bar" action, moving keyboard
    * focus to the bar's first segment via `focusStatusBar()`. Optional;
    * surfaced only when wired AND the bar is currently visible (the caller
@@ -695,6 +703,7 @@ export function buildCommandPaletteModel({
   inlineLintActiveIssueCount = 0,
   onPastePlainText,
   onToggleStatusBar,
+  onBenchmarkActiveTab,
   onFocusStatusBar,
   savedSessionTabCount = 0,
   onReplayEntry,
@@ -1532,6 +1541,23 @@ export function buildCommandPaletteModel({
             ['status', 'bar', 'toggle', 'show', 'hide', 'estado', 'barra', 'cursor', 'lint'],
             () => {
               onToggleStatusBar();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // F-5 — benchmark the active tab. Wired only when the tab is a
+    // worker-runner language AND the tier holds `BENCHMARK`, so the entry
+    // stays hidden otherwise.
+    ...(onBenchmarkActiveTab
+      ? [
+          buildActionCommand(
+            'action-benchmark-tab',
+            translate('command.benchmark'),
+            translate('command.benchmarkDescription'),
+            ['benchmark', 'profile', 'perf', 'performance', 'timing', 'speed', 'medir', 'rendimiento'],
+            () => {
+              onBenchmarkActiveTab();
               onClose();
             }
           ),
