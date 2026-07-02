@@ -13,13 +13,14 @@
  * preview.
  */
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
 import type { NotebookMarkdownCellV1 } from '../../../shared/notebook';
 import { RecipeMarkdown } from '../Recipes/recipeMarkdown';
 import { StatusBadge } from '../ui/StatusBadge';
 import { cn } from '../../utils/cn';
+import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
 
 export interface NotebookMarkdownCellRowProps {
   readonly cell: NotebookMarkdownCellV1;
@@ -67,13 +68,77 @@ function NotebookMarkdownCellRowImpl({
   const shellRef = useRef<HTMLElement | null>(null);
   const mode: 'command' | 'edit' = editing ? 'edit' : 'command';
 
+  // PERF — debounce the persisted-store write, mirroring the code cell.
+  // Previously every keystroke called `onSourceChange` → serialize ALL
+  // notebooks to localStorage + rebuild `notebook.cells` (re-render of
+  // every mounted sibling row). Now the store only sees a write after a
+  // quiet window (or on blur / Esc / unmount, which markdown already
+  // uses to leave edit mode).
+  const [draft, setDraft] = useState<string>(cell.source);
+  const latestDraftRef = useRef<string>(cell.source);
+  const lastSavedRef = useRef<string>(cell.source);
+  const pendingTargetIdRef = useRef<string>(cell.id);
+  const onSourceChangeRef = useRef(onSourceChange);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    onSourceChangeRef.current = onSourceChange;
+  }, [onSourceChange]);
+
+  const flushDraft = useCallback(() => {
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    const latest = latestDraftRef.current;
+    if (latest !== lastSavedRef.current) {
+      onSourceChangeRef.current(pendingTargetIdRef.current, latest);
+      lastSavedRef.current = latest;
+    }
+  }, []);
+
+  const handleDraftChange = useCallback(
+    (next: string) => {
+      setDraft(next);
+      latestDraftRef.current = next;
+      pendingTargetIdRef.current = cell.id;
+      if (debounceRef.current !== null) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null;
+        flushDraft();
+      }, getNotebookCellAutoSaveDebounceMs());
+    },
+    [cell.id, flushDraft]
+  );
+
+  // Adopt an external change to `cell.source` (reorder / rehydrate / a
+  // different cell rebinding to this row), flushing the pending draft to
+  // the previous cell first so it lands where it was typed.
+  const lastCellIdRef = useRef<string>(cell.id);
+  useEffect(() => {
+    if (lastCellIdRef.current !== cell.id) {
+      flushDraft();
+      lastCellIdRef.current = cell.id;
+    }
+    if (cell.source !== lastSavedRef.current) {
+      setDraft(cell.source);
+      latestDraftRef.current = cell.source;
+      lastSavedRef.current = cell.source;
+      pendingTargetIdRef.current = cell.id;
+    }
+  }, [cell.id, cell.source, flushDraft]);
+
+  // Flush on unmount (tab close, cell delete) so a sub-debounce edit
+  // still persists.
+  useEffect(() => () => flushDraft(), [flushDraft]);
+
   useEffect(() => {
     if (!editing) return;
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 400)}px`;
-  }, [cell.source, editing]);
+  }, [draft, editing]);
 
   // Signal-Slate — command-mode Enter flips this preview into its editor.
   // The parent bumps `editRequestNonce`; we open edit mode + focus the
@@ -201,8 +266,8 @@ function NotebookMarkdownCellRowImpl({
       {editing ? (
         <textarea
           ref={textareaRef}
-          value={cell.source}
-          onChange={(event) => onSourceChange(cell.id, event.target.value)}
+          value={draft}
+          onChange={(event) => handleDraftChange(event.target.value)}
           onKeyDown={(event) => {
             // Esc renders the markdown back to preview + drops into
             // command mode (focus the shell), matching the code cell's
@@ -210,12 +275,14 @@ function NotebookMarkdownCellRowImpl({
             if (event.key === 'Escape') {
               event.preventDefault();
               event.stopPropagation();
-              if (cell.source.length > 0) setEditing(false);
+              flushDraft();
+              if (draft.length > 0) setEditing(false);
               shellRef.current?.focus();
             }
           }}
           onBlur={() => {
-            if (cell.source.length > 0) setEditing(false);
+            flushDraft();
+            if (draft.length > 0) setEditing(false);
           }}
           disabled={disabled}
           data-testid="notebook-markdown-cell-source"

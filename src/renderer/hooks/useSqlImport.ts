@@ -227,13 +227,22 @@ export function useSqlImport({
         values: { name: result.table, count: result.rowCount },
       });
       onImported();
-    } catch {
+    } catch (err) {
       // The DDL threw — no table was created (the helper dropped the
       // virtual file). Keep the modal open so the user can adjust + retry.
+      // Classify a name collision honestly instead of blaming the file:
+      // a table persisted in OPFS from a previous session can collide
+      // even when the (possibly stale) pre-flight list missed it.
+      const message = err instanceof Error ? err.message : String(err ?? '');
+      const isCollision = /already exists/i.test(message);
       pushStatusNotice({
         tone: 'error',
-        messageKey: 'sqlWorkspace.import.errorParse',
-        values: { format: FORMAT_LABEL[current.format] },
+        messageKey: isCollision
+          ? 'sqlWorkspace.import.nameTaken'
+          : 'sqlWorkspace.import.errorParse',
+        ...(isCollision
+          ? {}
+          : { values: { format: FORMAT_LABEL[current.format] } }),
       });
     } finally {
       setIsImporting(false);

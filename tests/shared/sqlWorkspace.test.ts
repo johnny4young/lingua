@@ -22,6 +22,7 @@ import {
   isValidTableName,
   parseSqlQuery,
   parseSqlResponse,
+  queryChangesSchema,
   sanitizeTableName,
   utf8ByteLength,
   type SqlQueryV1,
@@ -345,5 +346,32 @@ describe('isValidTableName', () => {
 describe('MAX_IMPORT_BYTES', () => {
   it('is the documented 25 MiB cap', () => {
     expect(MAX_IMPORT_BYTES).toBe(25 * 1024 * 1024);
+  });
+});
+
+describe('queryChangesSchema', () => {
+  it('detects schema-changing DDL statements', () => {
+    expect(queryChangesSchema('CREATE TABLE t (id INT)')).toBe(true);
+    expect(queryChangesSchema('drop table t')).toBe(true);
+    expect(queryChangesSchema('ALTER TABLE t ADD COLUMN c INT')).toBe(true);
+    expect(queryChangesSchema("ATTACH 'x.db'")).toBe(true);
+    expect(queryChangesSchema('TRUNCATE t')).toBe(true);
+  });
+
+  it('returns false for pure DML / queries', () => {
+    expect(queryChangesSchema('SELECT * FROM t')).toBe(false);
+    expect(queryChangesSchema('INSERT INTO t VALUES (1)')).toBe(false);
+    expect(queryChangesSchema('UPDATE t SET c = 1')).toBe(false);
+    expect(queryChangesSchema('')).toBe(false);
+  });
+
+  it('ignores DDL keywords that appear only inside comments', () => {
+    expect(queryChangesSchema('SELECT 1 -- CREATE TABLE nope')).toBe(false);
+    expect(queryChangesSchema('/* DROP TABLE x */ SELECT 1')).toBe(false);
+  });
+
+  it('does not match a substring of a larger identifier', () => {
+    expect(queryChangesSchema('SELECT createdate FROM t')).toBe(false);
+    expect(queryChangesSchema('SELECT * FROM altered_view')).toBe(false);
   });
 });

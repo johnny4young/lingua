@@ -21,6 +21,7 @@ import {
   DEFAULT_API_KEY_HEADER,
   paramsToUrl,
   parseHttpRequest,
+  reconcileParamsWithUrl,
   urlToParams,
   type HttpRequestV1,
 } from '../../src/shared/httpWorkspace';
@@ -103,6 +104,46 @@ describe('urlToParams / paramsToUrl — two-way sync', () => {
     const params = urlToParams('https://x.dev/s?a=1&b=two');
     const url = paramsToUrl('https://x.dev/s', params);
     expect(urlToParams(url)).toEqual(params);
+  });
+});
+
+describe('reconcileParamsWithUrl — URL edits keep disabled rows', () => {
+  it('preserves disabled ("commented out") rows when the URL is edited (regression)', () => {
+    const prev = [
+      { key: 'q', value: 'hi', enabled: true },
+      { key: 'debug', value: '1', enabled: false },
+    ];
+    // User edits the URL bar; the enabled `q` becomes `bye`, the disabled
+    // `debug` row is NOT in the URL but must survive.
+    const next = reconcileParamsWithUrl('https://x.dev/s?q=bye', prev);
+    expect(next).toEqual([
+      { key: 'q', value: 'bye', enabled: true },
+      { key: 'debug', value: '1', enabled: false },
+    ]);
+  });
+
+  it('keeps multiple disabled rows in order after the URL-derived rows', () => {
+    const prev = [
+      { key: 'a', value: '1', enabled: false },
+      { key: 'b', value: '2', enabled: true },
+      { key: 'c', value: '3', enabled: false },
+    ];
+    expect(reconcileParamsWithUrl('https://x.dev?b=2&d=4', prev)).toEqual([
+      { key: 'b', value: '2', enabled: true },
+      { key: 'd', value: '4', enabled: true },
+      { key: 'a', value: '1', enabled: false },
+      { key: 'c', value: '3', enabled: false },
+    ]);
+  });
+
+  it('returns only the disabled rows when the URL loses its query string', () => {
+    const prev = [
+      { key: 'q', value: 'hi', enabled: true },
+      { key: 'debug', value: '1', enabled: false },
+    ];
+    expect(reconcileParamsWithUrl('https://x.dev/s', prev)).toEqual([
+      { key: 'debug', value: '1', enabled: false },
+    ]);
   });
 });
 

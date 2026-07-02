@@ -107,6 +107,44 @@ describe('HttpWorkspacePanel', () => {
     ).toBe('https://api.example.com/users');
   });
 
+  it('cancelling an in-flight request records no response and clears execution state', async () => {
+    const user = userEvent.setup();
+    // A send that never settles until we resolve it — models an in-flight
+    // request the user cancels.
+    let resolveSend: ((value: ReturnType<typeof makeResponse>) => void) | null =
+      null;
+    executeHttpRequestMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSend = resolve;
+        })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-list-create'));
+    await user.type(
+      screen.getByTestId('http-request-editor-url'),
+      'https://api.example.com/slow'
+    );
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    // The Send button flipped to Stop while in flight.
+    const stopButton = await screen.findByTestId('http-request-editor-stop');
+    const reqId = useWorkspaceToolStore.getState().requests[0]!.id;
+    expect(useWorkspaceToolStore.getState().executingRequestId).toBe(reqId);
+
+    // Cancel, then let the (now-aborted) send settle late.
+    await user.click(stopButton);
+    resolveSend?.(makeResponse());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // No response recorded, execution state cleared, ready to retry.
+    expect(
+      useWorkspaceToolStore.getState().responsesByRequestId[reqId]
+    ).toBeUndefined();
+    expect(useWorkspaceToolStore.getState().executingRequestId).toBeNull();
+  });
+
   it('records an HTTP response capsule as the latest exportable capsule', async () => {
     const user = userEvent.setup();
     render(<HttpWorkspacePanel />);
@@ -244,7 +282,7 @@ describe('HttpWorkspacePanel', () => {
       useWorkspaceToolStore.getState().responsesByRequestId[reqId]
     ).toBeUndefined();
     // The execution flag is reset (the user can retry after fixing).
-    expect(useWorkspaceToolStore.getState().isExecutingActive).toBe(false);
+    expect(useWorkspaceToolStore.getState().executingRequestId).toBeNull();
   });
 
   it('PRIVACY: a resolved secret never reaches the recorded response or the capsule', async () => {
@@ -482,7 +520,7 @@ describe('HttpWorkspacePanel', () => {
     expect(
       useWorkspaceToolStore.getState().responsesByRequestId[reqId]
     ).toBeUndefined();
-    expect(useWorkspaceToolStore.getState().isExecutingActive).toBe(false);
+    expect(useWorkspaceToolStore.getState().executingRequestId).toBeNull();
   });
 });
 

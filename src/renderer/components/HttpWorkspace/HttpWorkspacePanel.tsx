@@ -9,7 +9,7 @@
 
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
 import { SendHorizontal } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -69,7 +69,13 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   });
   const requests = useWorkspaceToolStore((state) => state.requests);
   const activeRequestId = useWorkspaceToolStore((state) => state.activeRequestId);
-  const isExecuting = useWorkspaceToolStore((state) => state.isExecutingActive);
+  const executingRequestId = useWorkspaceToolStore(
+    (state) => state.executingRequestId
+  );
+  // The active request's Send button is busy only while THAT request is
+  // the one in flight (per-request execution tracking).
+  const isExecuting =
+    executingRequestId !== null && executingRequestId === activeRequestId;
   const responsesByRequestId = useWorkspaceToolStore(
     (state) => state.responsesByRequestId
   );
@@ -83,6 +89,10 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     (state) => state.activeEnvironmentId
   );
   const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
+  // AbortController for the in-flight send. Held in a ref (not state) so
+  // Stop / supersede can reach it without re-rendering; the `finally`
+  // compares identity to avoid a stale settle clearing a newer send.
+  const abortRef = useRef<AbortController | null>(null);
   // Which response in the active request's history the preview shows.
   // 0 = newest (the default, which the live preview lands on). Reset to
   // newest whenever the active request changes or a new run records.
@@ -221,7 +231,17 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   //   - `maskSecretsForCapsule` keeps secret tokens as `{{key}}` in the
   //     capsule source so the export never carries the resolved value.
   const handleSend = useCallback(async (requestToSend: HttpRequestV1) => {
-    if (useWorkspaceToolStore.getState().isExecutingActive) return;
+    // Block a duplicate send of the SAME request; a different request
+    // may still start (per-request execution model). Abort any prior
+    // in-flight send so only one request executes at a time.
+    if (
+      useWorkspaceToolStore.getState().executingRequestId === requestToSend.id
+    ) {
+      return;
+    }
+    abortRef.current?.abort('superseded');
+    const controller = new AbortController();
+    abortRef.current = controller;
     const env = useWorkspaceToolStore.getState().getActiveEnvironment() ?? null;
 
     // Block the send when a referenced `{{var}}` has no binding in the
@@ -240,13 +260,19 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       return;
     }
 
-    useWorkspaceToolStore.getState().setIsExecutingActive(true);
+    useWorkspaceToolStore.getState().setExecutingRequestId(requestToSend.id);
     try {
       // Resolve EVERY var (secret + non-secret) into the outbound request.
       const outbound = interpolateRequest(requestToSend, env);
       const raw = await executeHttpRequest(outbound, {
         userSensitiveHeaders: sensitiveHttpHeaders,
+        signal: controller.signal,
       });
+      // User cancelled (Stop) or a newer send superseded this one: leave
+      // the previous response visible and skip recording entirely.
+      if (controller.signal.aborted) {
+        return;
+      }
       // Scrub any echoed secret value out of the response BEFORE it is
       // recorded or capsuled. No-op when there are no secrets.
       const response = maskSecretValuesInResponse(
@@ -310,9 +336,20 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
       });
     } finally {
-      useWorkspaceToolStore.getState().setIsExecutingActive(false);
+      // Only clear execution state if THIS send is still the current one
+      // (a superseding send installed its own controller + id already).
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        useWorkspaceToolStore.getState().setExecutingRequestId(null);
+      }
     }
   }, [sensitiveHttpHeaders, t, announce]);
+
+  // Cancel the in-flight request (Stop button). Leaves the previous
+  // response on screen; the aborted send skips recording.
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort('cancelled');
+  }, []);
 
   const handleSelectEnvironment = useCallback((id: string | null) => {
     useWorkspaceToolStore.getState().setActiveEnvironment(id);
@@ -351,6 +388,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               request={activeRequest}
               onPatch={handlePatch}
               onSend={handleSend}
+              onStop={handleStop}
               isExecuting={isExecuting}
               environments={environments}
               activeEnvironmentId={activeEnvironmentId}
