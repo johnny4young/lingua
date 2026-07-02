@@ -30,6 +30,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **Lighter app-shell boot**: Monaco (~3.8 MB / ~987 KB gzip) is no longer executed as part of the shell startup path — the LSP lifecycle hook and the Git diff panel now load it on demand, so it runs with the editor/diff surface that needs it instead of before the shell paints (and not at all on non-editor web surfaces).
 - **Faster typing**: the app shell no longer re-renders on every keystroke (the LSP, Git-status, auto-run, and dependency-detection hooks were subscribing to the whole tab list).
 - **Faster native runs**: Go and Rust toolchain detection is cached per session, saving one to two process spawns per run.
+- **Editor tab strip no longer re-renders every row on each keystroke**: each tab row is memoized, so typing in the active file re-renders only that tab's row (its Git status pill, glyph, and status dot) instead of the whole strip — the win grows with the number of open tabs.
 
 ## [0.9.0] — 2026-06-28
 
