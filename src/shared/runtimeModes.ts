@@ -24,7 +24,7 @@
 
 import { isJavaScriptFamily } from './languageFamilies';
 
-export const RUNTIME_MODES = ['worker', 'node', 'browser-preview'] as const;
+export const RUNTIME_MODES = ['worker', 'node', 'browser-preview', 'deno', 'bun'] as const;
 export type RuntimeMode = (typeof RUNTIME_MODES)[number];
 
 const RUNTIME_MODE_SET: ReadonlySet<string> = new Set(RUNTIME_MODES);
@@ -60,7 +60,14 @@ export function defaultRuntimeModeFor(language: string | undefined): RuntimeMode
  */
 export function isRuntimeModeImplemented(mode: RuntimeMode): boolean {
   return (
-    mode === 'worker' || mode === 'browser-preview' || mode === 'node'
+    mode === 'worker' ||
+    mode === 'browser-preview' ||
+    mode === 'node' ||
+    // F-4 — Deno / Bun desktop backends (src/main/altJsRuntimes.ts). Like
+    // `node`, the UI still renders these disabled when the detector cannot
+    // find the binary on PATH; that is a platform gate, not an impl gate.
+    mode === 'deno' ||
+    mode === 'bun'
   );
 }
 

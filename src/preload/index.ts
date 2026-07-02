@@ -82,6 +82,25 @@ contextBridge.exposeInMainWorld('lingua', {
     closeStdin: (runId: string) => typedInvoke('node:stdin-close', runId),
   },
 
+  // F-4 — desktop Deno child-spawn IPC. Runs TS/JS directly; sandboxed
+  // to the temp dir via --allow-read. Web adapter omits this surface.
+  deno: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) =>
+      typedInvoke('deno:detect', userEnv, force),
+    run: (source: string, options?: AltJsRunInvokeOptions) =>
+      typedInvoke('deno:run', source, options),
+    stop: (runId: string) => typedInvoke('deno:stop', runId),
+  },
+
+  // F-4 — desktop Bun child-spawn IPC. Same shape as deno.
+  bun: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) =>
+      typedInvoke('bun:detect', userEnv, force),
+    run: (source: string, options?: AltJsRunInvokeOptions) =>
+      typedInvoke('bun:run', source, options),
+    stop: (runId: string) => typedInvoke('bun:stop', runId),
+  },
+
   // Formatter IPC — gofmt / rustfmt / python pipe source via stdin
   format: {
     gofmt: (source: string) => typedInvoke('format:gofmt', source),

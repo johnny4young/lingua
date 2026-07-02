@@ -7,6 +7,7 @@ import { RubyRunner } from './ruby';
 import { RustRunner } from './rust';
 import { BrowserPreviewRunner } from './browserPreview';
 import { NodeRunner } from './nodeRunner';
+import { AltJsRunner } from './altJsRunner';
 import { pluginRegistry } from '../plugins';
 import { LANGUAGE_PACKS } from '../../shared/languagePacks';
 import type { RuntimeMode } from '../../shared/runtimeModes';
@@ -66,6 +67,11 @@ export class RunnerManager {
     // (web builds surface a clear renderer-side error instead of
     // crashing the manager registration on import).
     ['node', new NodeRunner()],
+    // F-4 — Deno / Bun desktop runtimes. Same self-gating: each runner
+    // checks `window.lingua.deno` / `.bun` inside `.execute()` and surfaces
+    // a desktop-only error on the web build.
+    ['deno', new AltJsRunner('deno')],
+    ['bun', new AltJsRunner('bun')],
   ]);
   private runtimeModeInitializing: Map<string, Promise<void>> = new Map();
 

@@ -12,6 +12,7 @@ import {
 import type { Snippet } from '../../stores/snippetsStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import type { FileTab, Language, LayoutPreset } from '../../types';
+import type { RuntimeMode } from '../../../shared/runtimeModes';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import {
@@ -153,13 +154,13 @@ interface BuildCommandPaletteModelArgs {
    * implementation-status guard and emits the
    * `runtime.mode_changed` telemetry.
    */
-  onSetRuntimeMode?: (mode: 'worker' | 'node' | 'browser-preview') => void;
+  onSetRuntimeMode?: (mode: RuntimeMode) => void;
   /**
    * Active tab's current runtime mode; used to highlight the
    * "currently selected" entry. `null` for non-JS/TS tabs, which
    * also suppresses the three runtime-mode entries entirely.
    */
-  activeRuntimeMode?: 'worker' | 'node' | 'browser-preview' | null;
+  activeRuntimeMode?: RuntimeMode | null;
   /**
    * RL-020 Slice 3 fold E — fires when the user activates the "Pin
    * watch on current line" palette action. The caller in `App.tsx`
@@ -1679,6 +1680,27 @@ export function buildCommandPaletteModel({
             ['runtime', 'mode', 'browser', 'preview', 'iframe', 'dom'],
             () => {
               onSetRuntimeMode('browser-preview');
+              onClose();
+            }
+          ),
+          // F-4 — Deno / Bun desktop runtimes.
+          buildActionCommand(
+            'action-runtime-mode-deno',
+            translate('commandPalette.action.runtimeMode.deno.label'),
+            translate('commandPalette.action.runtimeMode.deno.description'),
+            ['runtime', 'mode', 'deno', 'desktop', 'ts', 'sandbox'],
+            () => {
+              onSetRuntimeMode('deno');
+              onClose();
+            }
+          ),
+          buildActionCommand(
+            'action-runtime-mode-bun',
+            translate('commandPalette.action.runtimeMode.bun.label'),
+            translate('commandPalette.action.runtimeMode.bun.description'),
+            ['runtime', 'mode', 'bun', 'desktop', 'ts', 'fast'],
+            () => {
+              onSetRuntimeMode('bun');
               onClose();
             }
           ),

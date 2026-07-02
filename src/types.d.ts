@@ -785,6 +785,19 @@ interface LinguaAPI {
     closeStdin: (runId: string) => Promise<{ closed: boolean }>;
   };
 
+  // F-4 — desktop Deno / Bun child-spawn IPC. Optional; web adapter omits
+  // them (desktop-only). Callers MUST check `window.lingua.deno` / `.bun`.
+  deno?: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) => Promise<AltJsDetectResult>;
+    run: (source: string, options?: AltJsRunInvokeOptions) => Promise<AltJsRunResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
+  };
+  bun?: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) => Promise<AltJsDetectResult>;
+    run: (source: string, options?: AltJsRunInvokeOptions) => Promise<AltJsRunResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
+  };
+
   // RL-042 Slice 6 — desktop Ruby child-spawn IPC. Optional because
   // the web build's adapter (src/web/adapter.ts) deliberately omits
   // this surface — the renderer falls back to the @ruby/wasm-wasi
