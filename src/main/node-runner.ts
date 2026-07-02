@@ -52,16 +52,16 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import {
-  MAX_NATIVE_STDERR_BYTES,
-  truncateBytes,
-} from '../shared/runnerLimits';
+import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
 import {
   NODE_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
   combinedAllowlist,
 } from './runners/nativeEnv';
-import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import {
+  spawnNativeRun,
+  type SpawnNativeRunResult,
+} from './runners/spawnNativeRun';
 
 const execFileAsync = promisify(childProc.execFile);
 
@@ -677,164 +677,97 @@ async function spawnNode(
     }
   }
 
-  return await new Promise<NodeRunResult>((resolve) => {
-    const start = Date.now();
-    let stdout = '';
-    let stderr = '';
-    let stdoutTruncated = false;
-    let stderrTruncated = false;
-    let resolved = false;
-    let kind: NodeRunKind = 'success';
-    let killedByTimer = false;
-    let stoppedByUser = false;
-    let escalationTimer: NodeJS.Timeout | null = null;
+  // Parent-owned Stop: an AbortController lets `node:stop` terminate the
+  // exact child backing this run. The shared spawn helper owns the
+  // SIGTERM→SIGKILL escalation once the signal aborts.
+  const controller = new AbortController();
+  if (options.runId) {
+    activeNodeRuns.set(options.runId, () => controller.abort());
+  }
 
-    const child = childProc.spawn(nodeBinary, args, {
+  try {
+    const run = await spawnNativeRun({
+      command: nodeBinary,
+      args,
       cwd,
       env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      // Process-group leader on POSIX so timeout/Stop can fell the whole
-      // tree (user code that forks/spawns) via killProcessTree, not just
-      // the direct child. See src/main/runners/processTree.ts.
-      ...detachedSpawnOptions(),
+      timeoutMs,
+      killEscalationMs: KILL_ESCALATION_DELAY_MS,
+      maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
+      stdoutTruncationMarker: markers.stdout,
+      stderrTruncationMarker: markers.stderr,
+      // Slice 6 stdin forwarding — always managed for Node (write when
+      // non-empty, then close so `process.stdin` reads hit EOF).
+      stdin: { data: options.stdin },
+      signal: controller.signal,
     });
 
-    const terminateChild = (nextKind: 'timeout' | 'stopped') => {
-      if (resolved) return;
-      if (nextKind === 'timeout') {
-        killedByTimer = true;
-      } else {
-        stoppedByUser = true;
-      }
-      kind = nextKind;
-      killProcessTree(child, 'SIGTERM');
-      if (escalationTimer === null) {
-        escalationTimer = setTimeout(() => {
-          killProcessTree(child, 'SIGKILL');
-        }, KILL_ESCALATION_DELAY_MS);
-      }
-    };
-
-    if (options.runId) {
-      activeNodeRuns.set(options.runId, () => terminateChild('stopped'));
+    // Clean up the temp entry file (large-source fallback) before
+    // resolving so a fast follow-up run does not race the teardown.
+    if (cleanupTempDir) {
+      await rm(cleanupTempDir, { recursive: true, force: true }).catch(() => {});
     }
 
-    // Stdin: Slice 6 forwarding. Empty / undefined closes
-    // immediately so user code that reads stdin without an end
-    // handler hits EOF on first read.
-    //
-    // The write/end below is wrapped in try/catch for the SYNCHRONOUS
-    // already-destroyed case, but an EPIPE from a child that exits while
-    // the buffer flushes is delivered ASYNCHRONOUSLY as a stream 'error'
-    // event — without this listener it becomes an uncaught exception that
-    // crashes the main process. Mirrors formatters.ts. Best-effort stdin:
-    // the child not reading it is a normal outcome, never an error.
-    child.stdin.on('error', () => {
-      // EPIPE / ERR_STREAM_DESTROYED — child exited before consuming stdin.
-    });
-    try {
-      if (options.stdin && options.stdin.length > 0) {
-        child.stdin.write(options.stdin);
-      }
-      child.stdin.end();
-    } catch {
-      // stdin may already be closed if the child crashed during boot —
-      // safe to ignore.
-    }
+    return mapNodeRunResult(run, timeoutMs);
+  } finally {
+    if (options.runId) activeNodeRuns.delete(options.runId);
+  }
+}
 
-    child.stdout.on('data', (chunk: Buffer) => {
-      if (stdoutTruncated) return;
-      stdout += chunk.toString();
-      if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
-        stdout = truncateBytes(
-          stdout,
-          MAX_NATIVE_STDERR_BYTES,
-          markers.stdout
-        );
-        stdoutTruncated = true;
-      }
-    });
-
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (stderrTruncated) return;
-      stderr += chunk.toString();
-      if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
-        stderr = truncateBytes(
-          stderr,
-          MAX_NATIVE_STDERR_BYTES,
-          markers.stderr
-        );
-        stderrTruncated = true;
-      }
-    });
-
-    // Parent-owned timeout. Mirrors RL-078's pattern for the worker
-    // runners — main owns the kill timer; the worker / subprocess
-    // never schedules its own.
-    const killTimer: NodeJS.Timeout = setTimeout(() => {
-      terminateChild('timeout');
-    }, timeoutMs);
-
-    const finish = async (result: NodeRunResult) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(killTimer);
-      if (escalationTimer !== null) clearTimeout(escalationTimer);
-      if (options.runId) activeNodeRuns.delete(options.runId);
-      if (cleanupTempDir) {
-        await rm(cleanupTempDir, { recursive: true, force: true }).catch(() => {});
-      }
-      resolve(result);
+/**
+ * Map the neutral `spawnNativeRun` result into a `NodeRunResult`. Owns
+ * the runner-specific `kind` classification and the user-facing error
+ * strings (timeout copy, exit-code fallback, ENOENT → missing-binary)
+ * that tests pin verbatim.
+ */
+function mapNodeRunResult(
+  run: SpawnNativeRunResult,
+  timeoutMs: number
+): NodeRunResult {
+  if (run.spawnError) {
+    // `error` fires on spawn failure (e.g. ENOENT when `node` is not on
+    // PATH). We surface this as `missing-binary` so the renderer can
+    // render the right copy. The detector usually catches this earlier,
+    // but the race window can produce a detector cache hit followed by a
+    // `node` removal — defense in depth.
+    const message = run.spawnError.message || 'Failed to spawn node';
+    const missing: NodeRunKind =
+      /ENOENT/.test(message) || /not found/i.test(message)
+        ? 'missing-binary'
+        : 'error';
+    return {
+      kind: missing,
+      stdout: run.stdout,
+      stderr: run.stderr || message,
+      exitCode: -1,
+      executionTime: run.executionTime,
+      error: message,
+      timeoutMs,
     };
+  }
 
-    child.on('close', (code: number | null) => {
-      const exitCode = code ?? -1;
-      const executionTime = Date.now() - start;
-      // Determine kind. The timer-kill path wins (kind already set
-      // to 'timeout' above). The user-stop path wins as well. A
-      // non-zero exit without either kill path is a runtime error.
-      if (!killedByTimer && !stoppedByUser && exitCode !== 0) {
-        kind = 'error';
-      }
-      const errorText =
-        kind === 'timeout'
-          ? `Run timed out after ${Math.round(timeoutMs / 1000)}s`
-          : kind === 'error'
-            ? stderr || `Process exited with code ${exitCode}`
-            : undefined;
-      void finish({
-        kind,
-        stdout,
-        stderr,
-        exitCode,
-        executionTime,
-        error: errorText,
-        timeoutMs,
-      });
-    });
-
-    child.on('error', (err: Error) => {
-      // `error` fires on spawn failure (e.g. ENOENT when `node` is
-      // not on PATH). We surface this as `missing-binary` so the
-      // renderer can render the right copy. The detector usually
-      // catches this earlier, but the race window can produce a
-      // detector cache hit followed by a `node` removal — defense
-      // in depth.
-      const executionTime = Date.now() - start;
-      const message = err.message || 'Failed to spawn node';
-      const missing: NodeRunKind =
-        /ENOENT/.test(message) || /not found/i.test(message) ? 'missing-binary' : 'error';
-      void finish({
-        kind: missing,
-        stdout,
-        stderr: stderr || message,
-        exitCode: -1,
-        executionTime,
-        error: message,
-        timeoutMs,
-      });
-    });
-  });
+  // The timer-kill path wins ('timeout'); the user-stop path wins
+  // ('stopped'). A non-zero exit without either kill path is a runtime
+  // error.
+  let kind: NodeRunKind = 'success';
+  if (run.timedOut) kind = 'timeout';
+  else if (run.killed) kind = 'stopped';
+  else if (run.exitCode !== 0) kind = 'error';
+  const errorText =
+    kind === 'timeout'
+      ? `Run timed out after ${Math.round(timeoutMs / 1000)}s`
+      : kind === 'error'
+        ? run.stderr || `Process exited with code ${run.exitCode}`
+        : undefined;
+  return {
+    kind,
+    stdout: run.stdout,
+    stderr: run.stderr,
+    exitCode: run.exitCode,
+    executionTime: run.executionTime,
+    error: errorText,
+    timeoutMs,
+  };
 }
 
 function clampTimeout(timeoutMs: number | undefined): number {

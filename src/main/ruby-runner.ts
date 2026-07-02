@@ -51,11 +51,11 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
 import {
-  MAX_NATIVE_STDERR_BYTES,
-  truncateBytes,
-} from '../shared/runnerLimits';
-import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+  spawnNativeRun,
+  type SpawnNativeRunResult,
+} from './runners/spawnNativeRun';
 import {
   RUBY_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -346,152 +346,91 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
   }
   const args = [tempFile];
 
-  return await new Promise<RubyRunResult>((resolve) => {
-    const start = Date.now();
-    let stdout = '';
-    let stderr = '';
-    let stdoutTruncated = false;
-    let stderrTruncated = false;
-    let resolved = false;
-    let kind: RubyRunKind = 'success';
-    let killedByTimer = false;
-    let stoppedByUser = false;
-    let escalationTimer: NodeJS.Timeout | null = null;
+  // Parent-owned Stop: an AbortController lets `ruby:stop` terminate the
+  // exact child. The shared spawn helper owns the SIGTERM→SIGKILL
+  // escalation once the signal aborts.
+  const controller = new AbortController();
+  if (options.runId) {
+    activeRubyRuns.set(options.runId, () => controller.abort());
+  }
 
-    const child = childProc.spawn('ruby', args, {
+  try {
+    const run = await spawnNativeRun({
+      command: 'ruby',
+      args,
       cwd,
       env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      // Process-group leader on POSIX so timeout/Stop can fell the whole
-      // tree (user code that forks/spawns) via killProcessTree, not just
-      // the direct child. See src/main/runners/processTree.ts.
-      ...detachedSpawnOptions(),
+      timeoutMs,
+      killEscalationMs: KILL_ESCALATION_DELAY_MS,
+      maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
+      stdoutTruncationMarker: markers.stdout,
+      stderrTruncationMarker: markers.stderr,
+      // Forward the pre-set stdin buffer (Slice 6). Empty / undefined
+      // closes immediately so `gets` hits EOF on first read.
+      stdin: { data: options.stdin },
+      signal: controller.signal,
     });
 
-    const terminateChild = (nextKind: 'timeout' | 'stopped') => {
-      if (resolved) return;
-      if (nextKind === 'timeout') {
-        killedByTimer = true;
-      } else {
-        stoppedByUser = true;
-      }
-      kind = nextKind;
-      killProcessTree(child, 'SIGTERM');
-      if (escalationTimer === null) {
-        escalationTimer = setTimeout(() => {
-          killProcessTree(child, 'SIGKILL');
-        }, KILL_ESCALATION_DELAY_MS);
-      }
+    const result = mapRubyRunResult(run, timeoutMs);
+    // Resolve the IPC promise before async tempdir cleanup so a fast
+    // follow-up run cannot be delayed behind filesystem teardown. Cleanup
+    // failures are non-fatal because the temp directory is disposable.
+    void rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    return result;
+  } finally {
+    if (options.runId) activeRubyRuns.delete(options.runId);
+  }
+}
+
+/**
+ * Map the neutral `spawnNativeRun` result into a `RubyRunResult`. Owns
+ * the runner-specific `kind` classification and the user-facing error
+ * strings (timeout copy, exit-code fallback, ENOENT → missing-binary)
+ * that tests pin verbatim.
+ */
+function mapRubyRunResult(
+  run: SpawnNativeRunResult,
+  timeoutMs: number
+): RubyRunResult {
+  if (run.spawnError) {
+    // `error` fires on spawn failure (e.g. ENOENT when `ruby` is not on
+    // PATH). Surface as `missing-binary` so the renderer renders the
+    // right copy + falls back to the WASM worker.
+    const message = run.spawnError.message || 'Failed to spawn ruby';
+    const missing: RubyRunKind =
+      /ENOENT/.test(message) || /not found/i.test(message)
+        ? 'missing-binary'
+        : 'error';
+    return {
+      kind: missing,
+      stdout: run.stdout,
+      stderr: run.stderr || message,
+      exitCode: -1,
+      executionTime: run.executionTime,
+      error: message,
+      timeoutMs,
     };
+  }
 
-    if (options.runId) {
-      activeRubyRuns.set(options.runId, () => terminateChild('stopped'));
-    }
-
-    // Stdin: forward the pre-set buffer (Slice 6 fold-style — same as
-    // Node + Pyodide). Empty / undefined closes immediately so user
-    // code that reads stdin without an end handler hits EOF on first
-    // `gets` call (stock Ruby behavior).
-    //
-    // The try/catch covers the SYNCHRONOUS already-destroyed throw, but an
-    // EPIPE from a child that exits while the buffer flushes arrives
-    // ASYNCHRONOUSLY as a stream 'error' event — without this listener it
-    // is an uncaught exception that crashes the main process. Mirrors
-    // formatters.ts / node-runner.ts.
-    child.stdin.on('error', () => {
-      // EPIPE / ERR_STREAM_DESTROYED — child exited before consuming stdin.
-    });
-    try {
-      if (options.stdin && options.stdin.length > 0) {
-        child.stdin.write(options.stdin);
-      }
-      child.stdin.end();
-    } catch {
-      // stdin may already be closed if the child crashed during boot.
-    }
-
-    child.stdout.on('data', (chunk: Buffer) => {
-      if (stdoutTruncated) return;
-      stdout += chunk.toString();
-      if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
-        stdout = truncateBytes(stdout, MAX_NATIVE_STDERR_BYTES, markers.stdout);
-        stdoutTruncated = true;
-      }
-    });
-
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (stderrTruncated) return;
-      stderr += chunk.toString();
-      if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
-        stderr = truncateBytes(stderr, MAX_NATIVE_STDERR_BYTES, markers.stderr);
-        stderrTruncated = true;
-      }
-    });
-
-    // Parent-owned timeout. Mirrors RL-078's pattern for worker
-    // runners — main owns the kill timer; subprocess never schedules
-    // its own.
-    const killTimer: NodeJS.Timeout = setTimeout(() => {
-      terminateChild('timeout');
-    }, timeoutMs);
-
-    const finish = (result: RubyRunResult) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(killTimer);
-      if (escalationTimer !== null) clearTimeout(escalationTimer);
-      if (options.runId) activeRubyRuns.delete(options.runId);
-      // Resolve the IPC promise before async tempdir cleanup so a fast
-      // follow-up run cannot be delayed behind filesystem teardown. Cleanup
-      // failures are non-fatal because the temp directory is disposable.
-      resolve(result);
-      void rm(tempDir, { recursive: true, force: true }).catch(() => {});
-    };
-
-    child.on('close', (code: number | null) => {
-      const exitCode = code ?? -1;
-      const executionTime = Date.now() - start;
-      if (!killedByTimer && !stoppedByUser && exitCode !== 0) {
-        kind = 'error';
-      }
-      const errorText =
-        kind === 'timeout'
-          ? `Run timed out after ${Math.round(timeoutMs / 1000)}s`
-          : kind === 'error'
-            ? stderr || `Process exited with code ${exitCode}`
-            : undefined;
-      void finish({
-        kind,
-        stdout,
-        stderr,
-        exitCode,
-        executionTime,
-        error: errorText,
-        timeoutMs,
-      });
-    });
-
-    child.on('error', (err: Error) => {
-      // `error` fires on spawn failure (e.g. ENOENT when `ruby` is not
-      // on PATH). Surface as `missing-binary` so the renderer renders
-      // the right copy + falls back to the WASM worker.
-      const executionTime = Date.now() - start;
-      const message = err.message || 'Failed to spawn ruby';
-      const missing: RubyRunKind =
-        /ENOENT/.test(message) || /not found/i.test(message)
-          ? 'missing-binary'
-          : 'error';
-      void finish({
-        kind: missing,
-        stdout,
-        stderr: stderr || message,
-        exitCode: -1,
-        executionTime,
-        error: message,
-        timeoutMs,
-      });
-    });
-  });
+  let kind: RubyRunKind = 'success';
+  if (run.timedOut) kind = 'timeout';
+  else if (run.killed) kind = 'stopped';
+  else if (run.exitCode !== 0) kind = 'error';
+  const errorText =
+    kind === 'timeout'
+      ? `Run timed out after ${Math.round(timeoutMs / 1000)}s`
+      : kind === 'error'
+        ? run.stderr || `Process exited with code ${run.exitCode}`
+        : undefined;
+  return {
+    kind,
+    stdout: run.stdout,
+    stderr: run.stderr,
+    exitCode: run.exitCode,
+    executionTime: run.executionTime,
+    error: errorText,
+    timeoutMs,
+  };
 }
 
 function clampTimeout(timeoutMs: number | undefined): number {

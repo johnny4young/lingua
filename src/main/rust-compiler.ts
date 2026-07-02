@@ -16,7 +16,7 @@
  */
 
 import { typedHandle } from './ipc/typedHandle';
-import { execFile, spawn } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -31,7 +31,7 @@ import {
   buildNativeRunnerEnv,
   combinedAllowlist,
 } from './runners/nativeEnv';
-import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import { spawnNativeRun } from './runners/spawnNativeRun';
 
 const execFileAsync = promisify(execFile);
 
@@ -203,89 +203,45 @@ async function runRustCode(
     }
 
     // --- Execute ---
-    return await new Promise<RustRunResult>((resolve) => {
-      const start = Date.now();
-      let stdout = '';
-      let stderr = '';
-      let stdoutTruncated = false;
-      let stderrTruncated = false;
-      let escalationTimer: NodeJS.Timeout | null = null;
-
-      // Process-group leader on POSIX so the timeout can fell the whole
-      // tree (user binaries that fork/spawn), with SIGTERM → SIGKILL
-      // escalation — spawn's built-in `timeout` option only ever sent a
-      // single SIGTERM, which a signal-ignoring binary survives forever.
-      const child = spawn(binaryFile, [], {
-        env: mergedEnv,
-        ...detachedSpawnOptions(),
-      });
-
-      const killTimer = setTimeout(() => {
-        killProcessTree(child, 'SIGTERM');
-        escalationTimer = setTimeout(() => {
-          killProcessTree(child, 'SIGKILL');
-        }, KILL_ESCALATION_DELAY_MS);
-      }, RUST_RUN_TIMEOUT_MS);
-
-      const clearKillTimers = () => {
-        clearTimeout(killTimer);
-        if (escalationTimer !== null) clearTimeout(escalationTimer);
-      };
-
-      child.stdout.on('data', (chunk: Buffer) => {
-        if (stdoutTruncated) return;
-        stdout += chunk.toString();
-        if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
-          stdout = truncateBytes(
-            stdout,
-            MAX_NATIVE_STDERR_BYTES,
-            markers.stdout
-          );
-          stdoutTruncated = true;
-        }
-      });
-
-      child.stderr.on('data', (chunk: Buffer) => {
-        if (stderrTruncated) return;
-        stderr += chunk.toString();
-        if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
-          stderr = truncateBytes(
-            stderr,
-            MAX_NATIVE_STDERR_BYTES,
-            markers.stderr
-          );
-          stderrTruncated = true;
-        }
-      });
-
-      child.on('close', (code: number | null) => {
-        clearKillTimers();
-        const exitCode = code ?? -1;
-        resolve({
-          success: exitCode === 0,
-          stdout,
-          stderr,
-          exitCode,
-          executionTime: Date.now() - start,
-          error:
-            exitCode !== 0
-              ? stderr || `Process exited with code ${exitCode}`
-              : undefined,
-        });
-      });
-
-      child.on('error', (err: Error) => {
-        clearKillTimers();
-        resolve({
-          success: false,
-          stdout,
-          stderr: err.message,
-          exitCode: -1,
-          executionTime: Date.now() - start,
-          error: err.message,
-        });
-      });
+    // Process-group leader on POSIX so the timeout can fell the whole
+    // tree (user binaries that fork/spawn), with SIGTERM → SIGKILL
+    // escalation — spawn's built-in `timeout` option only ever sent a
+    // single SIGTERM, which a signal-ignoring binary survives forever.
+    // No stdin management here: a freshly-compiled binary is not fed
+    // input, so we leave the child's stdin untouched.
+    const run = await spawnNativeRun({
+      command: binaryFile,
+      args: [],
+      env: mergedEnv,
+      timeoutMs: RUST_RUN_TIMEOUT_MS,
+      killEscalationMs: KILL_ESCALATION_DELAY_MS,
+      maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
+      stdoutTruncationMarker: markers.stdout,
+      stderrTruncationMarker: markers.stderr,
     });
+
+    if (run.spawnError) {
+      return {
+        success: false,
+        stdout: run.stdout,
+        stderr: run.spawnError.message,
+        exitCode: -1,
+        executionTime: run.executionTime,
+        error: run.spawnError.message,
+      };
+    }
+
+    return {
+      success: run.exitCode === 0,
+      stdout: run.stdout,
+      stderr: run.stderr,
+      exitCode: run.exitCode,
+      executionTime: run.executionTime,
+      error:
+        run.exitCode !== 0
+          ? run.stderr || `Process exited with code ${run.exitCode}`
+          : undefined,
+    };
   } finally {
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
