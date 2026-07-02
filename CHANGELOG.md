@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- **Build-time env wiring is now gated in CI**: the four-source env cascade for main-process defines lives in one shared helper (`build/resolveEnv.mts`), and a new drift test fails when a `__LINGUA_*__` define is consumed by a surface whose Vite config never provides it, or when `envDir` drifts off the repo root — the class of regression behind the RL-061 `no-public-key` production incident, previously only catchable with a manual packaged-build audit. (Internal; no user-facing behavior change.)
+
 ## [0.9.0] — 2026-06-28
 
 ### Added
