@@ -2850,6 +2850,7 @@
   "httpWorkspace.editor.auth.apiKey.header": "Header",
   "httpWorkspace.editor.auth.apiKey.value": "Value",
   "httpWorkspace.editor.copyCurl.label": "Copy as cURL",
+  "httpWorkspace.editor.copyAs.label": "Copy as…",
   "httpWorkspace.editor.copyCurl.copied": "Copied the request as a cURL command.",
   "httpWorkspace.editor.copyCurl.failed": "Could not copy to the clipboard.",
   "httpWorkspace.editor.method.label": "Method",

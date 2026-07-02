@@ -21,7 +21,7 @@
  *     `onPatch` — no explicit Save button.
  */
 
-import { Copy, Loader2, Plus, SendHorizontal, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, Loader2, Plus, SendHorizontal, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -39,6 +39,12 @@ import {
   type HttpRequestHeader,
   type HttpRequestV1,
 } from '../../../shared/httpWorkspace';
+import {
+  HTTP_CODEGEN_TARGETS,
+  HTTP_CODEGEN_LABELS,
+  generateHttpCode,
+  type HttpCodegenTarget,
+} from '../../../shared/httpCodegen';
 import {
   maskSecretsForCapsule,
   type HttpEnvironmentV1,
@@ -82,6 +88,20 @@ export interface HttpRequestEditorProps {
 }
 
 const NO_ENVIRONMENTS: ReadonlyArray<HttpEnvironmentV1> = [];
+
+// Copy-as menu formats. Labels are library / tool names (cURL, fetch,
+// axios, requests) — proper nouns, not translatable UI copy — so they
+// live as constants rather than i18n keys.
+const COPY_FORMATS: ReadonlyArray<{
+  id: 'curl' | HttpCodegenTarget;
+  label: string;
+}> = [
+  { id: 'curl', label: 'cURL' },
+  ...HTTP_CODEGEN_TARGETS.map((target) => ({
+    id: target,
+    label: HTTP_CODEGEN_LABELS[target],
+  })),
+];
 
 export function HttpRequestEditor({
   request,
@@ -301,18 +321,49 @@ export function HttpRequestEditor({
   // raw draft is printed verbatim — the "clipboard is the user's own
   // surface" philosophy still holds for manually-typed values; env
   // secrets are the documented exception.
-  const handleCopyCurl = useCallback(async () => {
-    const draft = buildDraftRequest();
-    const forCurl = activeEnv ? maskSecretsForCapsule(draft, activeEnv) : draft;
-    const command = buildCurlCommand(forCurl);
-    const ok = await writeToClipboard(command);
-    useUIStore.getState().pushStatusNotice({
-      tone: ok ? 'success' : 'warning',
-      messageKey: ok
-        ? 'httpWorkspace.editor.copyCurl.copied'
-        : 'httpWorkspace.editor.copyCurl.failed',
-    });
-  }, [buildDraftRequest, activeEnv]);
+  // Copy the request as a snippet in the chosen format. `'curl'` uses the
+  // shell builder; the others go through the code generators. Secret env
+  // vars are masked to `{{key}}` (never resolved into the clipboard) for
+  // every format, identically to the cURL path.
+  const copyAs = useCallback(
+    async (format: 'curl' | HttpCodegenTarget) => {
+      const draft = buildDraftRequest();
+      const masked = activeEnv ? maskSecretsForCapsule(draft, activeEnv) : draft;
+      const snippet =
+        format === 'curl'
+          ? buildCurlCommand(masked)
+          : generateHttpCode(masked, format);
+      const ok = await writeToClipboard(snippet);
+      useUIStore.getState().pushStatusNotice({
+        tone: ok ? 'success' : 'warning',
+        messageKey: ok
+          ? 'httpWorkspace.editor.copyCurl.copied'
+          : 'httpWorkspace.editor.copyCurl.failed',
+      });
+    },
+    [buildDraftRequest, activeEnv]
+  );
+
+  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
+  const copyMenuRef = useRef<HTMLDivElement | null>(null);
+  // Close the copy menu on outside click / Escape.
+  useEffect(() => {
+    if (!copyMenuOpen) return;
+    const onPointerDown = (event: PointerEvent): void => {
+      if (!copyMenuRef.current?.contains(event.target as Node)) {
+        setCopyMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setCopyMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [copyMenuOpen]);
 
   // Flush on unmount so an edit typed <500 ms before the editor
   // unmounts (tab close, panel teardown) still lands on its request.
@@ -565,18 +616,46 @@ export function HttpRequestEditor({
           onPaste={handleUrlPaste}
           className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-3 font-mono text-body-sm text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
         />
-        {/* Copy as cURL — ghost icon button, sits left of Send. */}
-        <button
-          type="button"
-          onClick={handleCopyCurl}
-          disabled={url.trim().length === 0}
-          data-testid="http-request-editor-copy-curl"
-          aria-label={t('httpWorkspace.editor.copyCurl.label')}
-          title={t('httpWorkspace.editor.copyCurl.label')}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-subtle text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Copy size={14} aria-hidden="true" />
-        </button>
+        {/* Copy-as menu — cURL + code snippets (fetch / axios / Python). */}
+        <div ref={copyMenuRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setCopyMenuOpen((open) => !open)}
+            disabled={url.trim().length === 0}
+            data-testid="http-request-editor-copy-menu"
+            aria-haspopup="menu"
+            aria-expanded={copyMenuOpen}
+            aria-label={t('httpWorkspace.editor.copyAs.label')}
+            title={t('httpWorkspace.editor.copyAs.label')}
+            className="inline-flex h-8 items-center justify-center gap-0.5 rounded-md border border-border-subtle px-2 text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Copy size={14} aria-hidden="true" />
+            <ChevronDown size={12} aria-hidden="true" />
+          </button>
+          {copyMenuOpen ? (
+            <div
+              role="menu"
+              data-testid="http-request-editor-copy-menu-list"
+              className="absolute right-0 top-9 z-20 min-w-[180px] overflow-hidden rounded-md border border-border-subtle bg-bg-base py-1 shadow-lg"
+            >
+              {COPY_FORMATS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="menuitem"
+                  data-testid={`http-request-editor-copy-${id}`}
+                  onClick={() => {
+                    setCopyMenuOpen(false);
+                    void copyAs(id);
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-body-sm text-fg-base hover:bg-bg-inset focus-visible:bg-bg-inset focus-visible:outline-none"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         {/* FASE 3 — Send is the SLATE accent primary per the proto
             (httpWs `Btn variant="primary"`, `bg: D.acc / fg: D.onAcc`).
             Green stays reserved for SQL Run / success states. Label +

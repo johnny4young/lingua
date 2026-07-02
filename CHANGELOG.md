@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Added
+- **HTTP workspace — Copy as code**: the request's Copy button is now a "Copy as…" menu that generates a runnable snippet in cURL, JavaScript `fetch`, JavaScript `axios`, or Python `requests`, matching the exact wire request (composed headers + injected auth + default Content-Type). Environment secrets stay as `{{placeholders}}`, never resolved into the clipboard — same guarantee as Copy as cURL.
+
 ## [0.9.0] — 2026-06-28
 
 ### Added
