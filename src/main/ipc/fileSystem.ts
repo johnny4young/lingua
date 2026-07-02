@@ -212,6 +212,29 @@ export async function pathIntersectsApprovedScope(
   return false;
 }
 
+/**
+ * Stricter, containment-only variant of `pathIntersectsApprovedScope` for
+ * consumers that read FILE CONTENTS off disk (git:status / git:diff). The
+ * path must BE an approved root/file or live INSIDE an approved root. The
+ * ancestor arm is intentionally absent: a repo toplevel sitting above the
+ * approved project is a legitimate repoRoot argument, but being an ancestor
+ * must never be enough to read arbitrary sibling files outside the approved
+ * subtree (unversioned monorepo secrets included).
+ */
+export async function pathInsideApprovedScope(
+  absolutePath: string
+): Promise<boolean> {
+  await loadFilesystemApprovals();
+  const normalized = normalizeApprovalPath(absolutePath);
+  if (approvedRoots.has(normalized) || approvedFiles.has(normalized)) {
+    return true;
+  }
+  for (const root of approvedRoots) {
+    if (isPathWithinProject(normalized, root)) return true;
+  }
+  return false;
+}
+
 export function _resetFilesystemApprovalsForTests(): void {
   filesystemApprovalsLoaded = false;
   approvedRoots = new Set();
@@ -1787,6 +1810,21 @@ export function registerFileSystemHandlers(): void {
         stop: () => watcher.close(),
       });
       watcherIdsByTarget.set(targetKey, watchId);
+
+      // A recursive FSWatcher can also fail asynchronously long after
+      // registration (EPERM on Windows when the watched folder is deleted
+      // or renamed, deferred ENOSPC/EMFILE). Without an 'error' listener
+      // that emission becomes an uncaught exception that takes down the
+      // whole main process — the registration try/catch above only covers
+      // synchronous failures. Mirror the git HEAD watcher's posture:
+      // close + deregister + typed diagnostic to the renderer.
+      watcher.on('error', (error) => {
+        stopWatcherById(watchId);
+        const diagnostic = buildWatcherDiagnostic(error, rootId, relativePath);
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('fs:watcher-failed', diagnostic);
+        }
+      });
       return watchId;
     }
   );

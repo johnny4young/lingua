@@ -28,21 +28,24 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
 });
 
 /**
- * Wire a `storage` listener that calls `revalidate()` when another tab
+ * Wire a `storage` listener that re-reads persisted state when another tab
  * mutates `lingua-license` in localStorage. Zustand's persist middleware
- * already syncs the in-memory state across tabs via the same event, but
- * does not run our server roundtrip — this listener closes that gap so
- * a paste in tab A reaches D1 from tab B's perspective on the next
- * interaction.
+ * does NOT sync in-memory state across tabs on its own — without an
+ * explicit `rehydrate()` this tab would revalidate with its stale
+ * in-memory token and re-persist a license the other tab just removed.
+ * `rehydrate()` re-fires `onRehydrateStorage`, which runs the server
+ * roundtrip when a token is present, so a paste in tab A reaches D1 from
+ * tab B's perspective too.
  */
-function attachCrossTabListener(store: { getState: () => LicenseState }): void {
+function attachCrossTabListener(store: {
+  getState: () => LicenseState;
+  persist: { rehydrate: () => Promise<void> | void };
+}): void {
   if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
   window.addEventListener('storage', (event) => {
     if (event.key !== 'lingua-license') return;
-    // Defer through a microtask so Zustand's persist sync runs first
-    // and our revalidate sees the just-rehydrated token.
     queueMicrotask(() => {
-      void store.getState().revalidate();
+      void store.persist.rehydrate();
     });
   });
 }

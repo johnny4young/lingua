@@ -6,6 +6,27 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Security
+- **Git read-only layer no longer escapes the filesystem sandbox**: the `git:status` / `git:diff` handlers now gate each requested file — not just the repo root — against the approved-scope containment check and the filesystem denylist, so a compromised renderer can no longer read unversioned files (`.env`, secrets in sibling packages) outside the approved subtree in the monorepo case.
+- **License-server URL must be HTTPS**: a misconfigured `LINGUA_LICENSE_SERVER_URL` can no longer send the signed license token over cleartext HTTP; only `https:` (and loopback for development) is accepted.
+- **Native-runner env hardening**: dynamic-loader injection keys (`LD_PRELOAD`, `DYLD_INSERT_LIBRARIES`, `NODE_OPTIONS`, …) are stripped from the user-supplied env tier as defense in depth; `PATH` stays allowed.
+
+### Fixed
+- **Notebooks: re-running a JS/TS cell no longer throws** `Identifier 'x' has already been declared`. Sandbox pull-ins now skip names the cell itself re-declares at top level.
+- **File watcher no longer crashes the app**: an asynchronous `FSWatcher` error (e.g. deleting the watched folder on Windows) is caught and surfaced as a degraded-watcher notice instead of taking down the main process.
+- **Language servers**: restarting rust-analyzer / gopls no longer spawns a duplicate orphaned server, and stopping one no longer emits an unhandled promise rejection.
+- **Dependency install**: cancelling or timing out `npm install` now terminates the whole process tree (node-gyp, postinstall) instead of leaving orphaned builds holding `node_modules` locks.
+- **License (web)**: removing a license during an in-flight revalidation no longer silently resurrects it, including across browser tabs.
+- **Editor**: keystrokes typed while a save is in flight are no longer discarded; double-clicking a file in the tree no longer opens it twice.
+- **Replace in files**: "Replace all" freezes the confirmed query/replacement, so editing the inputs while the queue drains can no longer rewrite the remaining files with a half-typed search.
+- **Native runners**: a failed temp-file write no longer leaks the temp directory or escapes as a raw IPC rejection.
+- **Window close**: a crashed renderer no longer leaves the window (and the updater's install-on-quit) blocked forever.
+
+### Performance
+- **Lighter app-shell boot**: Monaco (~3.8 MB / ~987 KB gzip) is no longer executed as part of the shell startup path — the LSP lifecycle hook and the Git diff panel now load it on demand, so it runs with the editor/diff surface that needs it instead of before the shell paints (and not at all on non-editor web surfaces).
+- **Faster typing**: the app shell no longer re-renders on every keystroke (the LSP, Git-status, auto-run, and dependency-detection hooks were subscribing to the whole tab list).
+- **Faster native runs**: Go and Rust toolchain detection is cached per session, saving one to two process spawns per run.
+
 ## [0.9.0] — 2026-06-28
 
 ### Added

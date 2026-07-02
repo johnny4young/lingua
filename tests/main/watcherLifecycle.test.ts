@@ -24,6 +24,11 @@ import path from 'node:path';
 
 interface FakeWatcher {
   close: ReturnType<typeof vi.fn>;
+  // Real fs.FSWatcher is an EventEmitter; the handler registers an
+  // 'error' listener so an async watcher failure cannot crash main.
+  on: ReturnType<typeof vi.fn>;
+  /** Test seam — invoke the registered 'error' listener. */
+  emitError: (error: unknown) => void;
 }
 
 type WatchCallback = (eventType: string, filename: string | Buffer | null) => void;
@@ -120,7 +125,16 @@ beforeEach(async () => {
   watchCallbacks.length = 0;
   watchImpl.mockImplementation((_path, _options, callback: WatchCallback) => {
     watchCallbacks.push(callback);
-    const fake: FakeWatcher = { close: vi.fn() };
+    const errorListeners: Array<(error: unknown) => void> = [];
+    const fake: FakeWatcher = {
+      close: vi.fn(),
+      on: vi.fn((event: string, listener: (error: unknown) => void) => {
+        if (event === 'error') errorListeners.push(listener);
+      }),
+      emitError: (error: unknown) => {
+        for (const listener of errorListeners) listener(error);
+      },
+    };
     fakeWatcherInstances.push(fake);
     return fake;
   });
@@ -170,6 +184,30 @@ describe('fs:watch-start happy path', () => {
     expect(fakeWatcherInstances).toHaveLength(2);
     // Neither was closed by the other registration.
     expect(fakeWatcherInstances[0].close).not.toHaveBeenCalled();
+    expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+  });
+
+  it('an async watcher error deregisters the watcher and emits fs:watcher-failed instead of crashing', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const sender = makeSender();
+    const id = await invoke('fs:watch-start', sender, rootId, '');
+    expect(typeof id).toBe('string');
+    const fake = fakeWatcherInstances[0];
+
+    // Simulate the async EPERM/ENOSPC an FSWatcher emits after registration.
+    fake.emitError(Object.assign(new Error('EPERM'), { code: 'EPERM' }));
+
+    // The watcher was closed + a typed diagnostic reached the renderer.
+    expect(fake.close).toHaveBeenCalledTimes(1);
+    const failedEvents = sender.send.mock.calls.filter(
+      ([channel]) => channel === 'fs:watcher-failed'
+    );
+    expect(failedEvents).toHaveLength(1);
+
+    // The registration slot was freed: re-watching the same target does
+    // NOT stop a stale watcher (there is none to stop).
+    const idB = await invoke('fs:watch-start', sender, rootId, '');
+    expect(idB).not.toBe(id);
     expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
   });
 
@@ -371,6 +409,8 @@ describe('before-quit cleanup', () => {
         close: vi.fn(() => {
           throw new Error('close failed');
         }),
+        on: vi.fn(),
+        emitError: () => {},
       };
       fakeWatcherInstances.push(fake);
       return fake;

@@ -44,6 +44,20 @@ export function createWebRevalidate(
         return FREE_STATUS;
       }
 
+      // Every branch below sits behind one or more awaits (local verify,
+      // server status, activation). If the user removed the license or
+      // applied a different token while this run was in flight, the
+      // stored token no longer matches the one we started from — writing
+      // the stale result would resurrect the removed license (or clobber
+      // the newly applied one), and persist middleware would re-save it.
+      // The desktop store guards the same race with `bootstrapApplied`;
+      // this is the web equivalent.
+      const tokenAtStart = token;
+      const commit: typeof set = (partial) => {
+        if (get().token !== tokenAtStart) return;
+        set(partial);
+      };
+
       let activeToken = token;
       let localStatus = await runVerifyWeb(token);
       if (localStatus.kind === 'invalid') {
@@ -62,7 +76,7 @@ export function createWebRevalidate(
             // build has no license server configured (dev mode) so we
             // don't dead-end the user at an unreachable RecoveryCta.
             const issuedTo = isLicenseServerEnabled() ? decodeIssuedTo(token) : null;
-            set({
+            commit({
               token: null,
               status: localStatus,
               lastVerifiedAt: Date.now(),
@@ -75,7 +89,7 @@ export function createWebRevalidate(
         } else {
           // Stored token failed local verification (key rotation, tampering,
           // or signature corruption) — wipe regardless of server reachability.
-          set({
+          commit({
             token: null,
             status: localStatus,
             lastVerifiedAt: Date.now(),
@@ -88,7 +102,7 @@ export function createWebRevalidate(
       }
 
       if (!isLicenseServerEnabled()) {
-        set({
+        commit({
           token: activeToken,
           status: localStatus,
           lastVerifiedAt: Date.now(),
@@ -126,7 +140,7 @@ export function createWebRevalidate(
 
         const finalStatus = serverStatusKindToStatus(result.status, activeStatus);
         if (finalStatus.kind === 'invalid') {
-          set({
+          commit({
             token: null,
             status: finalStatus,
             lastVerifiedAt: Date.now(),
@@ -152,7 +166,7 @@ export function createWebRevalidate(
           });
 
           if (activation.ok) {
-            set({
+            commit({
               token: activeToken,
               status: finalStatus,
               lastVerifiedAt: Date.now(),
@@ -164,7 +178,7 @@ export function createWebRevalidate(
           }
 
           if (isTransientServerFailure(activation.reason)) {
-            set({
+            commit({
               token: activeToken,
               status: finalStatus,
               lastVerifiedAt: Date.now(),
@@ -181,7 +195,7 @@ export function createWebRevalidate(
               reason: activation.reason,
             };
           const keepToken = activation.reason === 'exhausted';
-          set({
+          commit({
             token: keepToken ? activeToken : null,
             status: invalid,
             lastVerifiedAt: Date.now(),
@@ -192,7 +206,7 @@ export function createWebRevalidate(
           return invalid;
         }
 
-        set({
+        commit({
           token: activeToken,
           status: finalStatus,
           lastVerifiedAt: Date.now(),
@@ -204,7 +218,7 @@ export function createWebRevalidate(
       }
 
       if (isTransientServerFailure(result.reason)) {
-        set({
+        commit({
           token: activeToken,
           status: localStatus,
           lastVerifiedAt: Date.now(),
@@ -224,7 +238,7 @@ export function createWebRevalidate(
         result.reason === 'unknown-license' || result.reason === 'revoked'
           ? decodeIssuedTo(activeToken)
           : null;
-      set({
+      commit({
         token: invalid.kind === 'invalid' && result.reason !== 'exhausted' ? null : activeToken,
         status: invalid,
         lastVerifiedAt: Date.now(),
