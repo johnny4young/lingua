@@ -14,7 +14,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let mockTier = 'free';
-vi.mock('@/hooks/useEntitlement', () => ({
+// The store reads currentEffectiveTier from stores/licenseSelectors now
+// (the non-React tier reader moved out of the hooks layer to break the
+// stores → hooks import edge). Mock it there.
+vi.mock('@/stores/licenseSelectors', () => ({
   currentEffectiveTier: () => mockTier,
 }));
 

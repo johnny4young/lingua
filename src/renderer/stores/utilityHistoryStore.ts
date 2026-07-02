@@ -7,7 +7,7 @@ import {
   DEVELOPER_UTILITIES,
   type DeveloperUtilityId,
 } from '../data/developerUtilities';
-import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 

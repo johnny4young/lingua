@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { isDarkEditorTheme } from '../components/Settings/settingsOptions';
+import { isDarkEditorTheme } from '../utils/editorThemeCatalog';
 import { useSettingsStore } from '../stores/settingsStore';
 import { applyAppTheme } from '../utils/appTheme';
 

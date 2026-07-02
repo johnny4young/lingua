@@ -4,7 +4,7 @@ import { useNotebookStore } from './notebookStore';
 import { useSettingsStore } from './settingsStore';
 import { useUtilityHistoryStore } from './utilityHistoryStore';
 import { findDeveloperUtility, type DeveloperUtilityId } from '../data/developerUtilities';
-import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled, isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';

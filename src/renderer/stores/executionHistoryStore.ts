@@ -24,7 +24,7 @@
 
 import { create } from 'zustand';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
-import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
 
 export type ExecutionStatus = 'ok' | 'error';

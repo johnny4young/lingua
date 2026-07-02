@@ -103,6 +103,63 @@ export default tseslint.config(
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
+  // Layer freeze — stores must not import from the hooks or components
+  // layers. The documented direction (src/renderer/README.md) is "hooks
+  // coordinate stores", never the reverse; a store → hooks edge creates a
+  // latent Zustand init-order cycle that breaks at runtime, not compile
+  // time. Non-React helpers stores need (tier selectors, theme catalog)
+  // live under stores/ or utils/ instead.
+  {
+    files: ['src/renderer/stores/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['*/hooks/*', '**/hooks/**'],
+              message:
+                'Stores must not import from the hooks layer (latent init-order cycle). Move the non-React helper into stores/ (see licenseSelectors.ts) or utils/.',
+            },
+            {
+              group: ['*/components/*', '**/components/**'],
+              message:
+                'Stores must not import from the components layer. Move the shared helper into utils/ (see editorThemeCatalog.ts) or shared/.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Layer freeze — src/shared must stay environment-agnostic: no Electron,
+  // no React, no renderer state. It is consumed by main, renderer, web,
+  // workers, AND the CLI bundle.
+  {
+    files: ['src/shared/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'electron', message: 'src/shared is environment-agnostic — Electron is off-limits.' },
+            { name: 'react', message: 'src/shared is environment-agnostic — React is off-limits.' },
+            { name: 'react-dom', message: 'src/shared is environment-agnostic — React DOM is off-limits.' },
+            { name: 'zustand', message: 'src/shared is environment-agnostic — Zustand stores are renderer-only.' },
+          ],
+          patterns: [
+            {
+              group: ['*/renderer/*', '**/renderer/**'],
+              message: 'src/shared must not depend on renderer code.',
+            },
+            {
+              group: ['*/main/*', '**/main/**'],
+              message: 'src/shared must not depend on main-process code.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // RL-098 Slice 1 — the CLI must stay React-free + Electron-free
   // so the bundled CJS at `dist/cli/lingua.cjs` stays small instead
   // of pulling in multi-megabyte app surfaces. Forbid imports from

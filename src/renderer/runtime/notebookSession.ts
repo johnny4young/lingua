@@ -326,21 +326,65 @@ export async function rewriteTopLevelDeclarationsForSession(
 }
 
 /**
+ * Collect the names a cell's TOP-LEVEL statements declare (variables —
+ * initialized or not — plus function and class declarations). Used by
+ * `composeNotebookCellSource` to skip sandbox pull-ins the cell itself
+ * re-declares: the pull-in `const NAME = …;` lands in the SAME block as
+ * the user's source, so without this exclusion re-running `let x = 1`
+ * after `x` entered the sandbox throws
+ * `SyntaxError: Identifier 'x' has already been declared` on the second
+ * run of every cell. Parse failures return an empty set — the run
+ * pipeline surfaces the user's syntax error on execution.
+ */
+export async function collectTopLevelDeclaredNames(
+  source: string
+): Promise<ReadonlySet<string>> {
+  const declared = new Set<string>();
+  const ts = await loadTypescript();
+  const sourceFile = ts.createSourceFile(
+    'notebook-cell.js',
+    source,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ false,
+    ts.ScriptKind.JS
+  );
+  for (const statement of sourceFile.statements) {
+    if (ts.isVariableStatement(statement)) {
+      const names: string[] = [];
+      for (const declaration of statement.declarationList.declarations) {
+        collectBindingNames(ts, declaration.name, names);
+      }
+      for (const name of names) declared.add(name);
+    } else if (
+      (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) &&
+      statement.name
+    ) {
+      declared.add(statement.name.text);
+    }
+  }
+  return declared;
+}
+
+/**
  * Compose the JavaScript source for one cell run. The output is the
  * BODY of an `AsyncFunction` invoked by the JS worker
  * (`new AsyncFunction(...)(...)`).
  *
  * Cell-N reads of cell-1's declarations resolve via the pull-in
  * step at the top of the composed body: every existing sandbox key
- * is injected as `const KEY = <JSON literal>;`. After the user's
- * source runs, the rewriter's `_sessionDelta` object is returned
- * and merged into the per-tab sandbox by the renderer.
+ * is injected as `const KEY = <JSON literal>;`. Keys the cell itself
+ * re-declares at top level are skipped — the user's declaration wins
+ * (and injecting both would be a SyntaxError, see
+ * `collectTopLevelDeclaredNames`). After the user's source runs, the
+ * rewriter's `_sessionDelta` object is returned and merged into the
+ * per-tab sandbox by the renderer.
  */
 export async function composeNotebookCellSource(
   userSource: string,
   sandbox: Readonly<Record<string, unknown>>
 ): Promise<string> {
   const rewritten = await rewriteTopLevelDeclarationsForSession(userSource);
+  const declaredInCell = await collectTopLevelDeclaredNames(userSource);
   // Pull-ins: emit `const KEY = <JSON literal>;` for every existing
   // sandbox key. Each key is a `[A-Za-z_$][\w$]*` slug (rewriter only
   // accepts these). JSON.stringify the value so primitives + plain
@@ -349,6 +393,7 @@ export async function composeNotebookCellSource(
   const seen = new Set<string>();
   for (const key of Object.keys(sandbox)) {
     if (!/^[A-Za-z_$][\w$]*$/.test(key)) continue;
+    if (declaredInCell.has(key)) continue;
     if (seen.has(key)) continue;
     seen.add(key);
     if (seen.size > MAX_NOTEBOOK_SANDBOX_KEYS) break;
