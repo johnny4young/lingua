@@ -6,7 +6,12 @@ import { OverlayBackdrop, Tooltip } from '../ui/chrome';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { writeToClipboard } from '../../utils/clipboard';
-import { typeIcon, payloadAsJsonString } from './richConsoleFormat';
+import {
+  typeIcon,
+  payloadAsJsonString,
+  scopeValueToString,
+} from './richConsoleFormat';
+import { RichTableGrid } from './RichTableGrid';
 import { RichValueError } from './RichValueError';
 import { RichValueHtml } from './RichValueHtml';
 import { RichValueImage } from './RichValueImage';
@@ -221,38 +226,7 @@ function PreviewBody({ payload }: { payload: RichOutputPayload }) {
 }
 
 function PreviewTable({ payload }: { payload: Extract<RichOutputPayload, { kind: 'table' }> }) {
-  const { t } = useTranslation();
-  return (
-    <div className="overflow-auto">
-      <table className="min-w-full border-collapse text-caption">
-        <thead>
-          <tr className="border-b border-border-subtle/60 text-fg-subtle">
-            {payload.columns.map((col) => (
-              <th key={col} className="px-2 py-1 text-left font-bold">
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {payload.rows.map((row, rIdx) => (
-            <tr key={rIdx} className="border-b border-border-subtle/30">
-              {row.map((cell, cIdx) => (
-                <td key={cIdx} className="px-2 py-1 align-top text-foreground">
-                  {scopeValueToString(cell)}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {payload.truncatedRowCount !== undefined && (
-        <p className="mt-2 text-eyebrow text-fg-subtle">
-          {t('console.rich.moreCount', { count: payload.truncatedRowCount })}
-        </p>
-      )}
-    </div>
-  );
+  return <RichTableGrid payload={payload} />;
 }
 
 function PreviewMap({ payload }: { payload: Extract<RichOutputPayload, { kind: 'map' }> }) {
@@ -340,40 +314,3 @@ function PreviewArray({
 }
 
 /** Linear stringification of a ScopeValue cell. Bounded to one line. */
-function scopeValueToString(value: import('../../../shared/scopeSnapshot').ScopeValue): string {
-  switch (value.kind) {
-    case 'primitive':
-      return value.repr;
-    case 'function':
-      return `ƒ ${value.name}`;
-    case 'object': {
-      const sample = value.entries
-        .slice(0, 3)
-        .map((entry) => `${entry.key}: …`)
-        .join(', ');
-      return `${value.previewType}{${sample}${value.entries.length > 3 ? ', …' : ''}}`;
-    }
-    case 'array': {
-      const sample = value.entries
-        .slice(0, 3)
-        .map((entry) => {
-          switch (entry.value.kind) {
-            case 'primitive':
-              return entry.value.repr;
-            case 'function':
-              return 'ƒ';
-            case 'object':
-              return entry.value.previewType + '{}';
-            case 'array':
-              return `[${entry.value.length}]`;
-            case 'error':
-              return '!';
-          }
-        })
-        .join(', ');
-      return `[${sample}${value.length > 3 ? ', …' : ''}]`;
-    }
-    case 'error':
-      return value.message;
-  }
-}
