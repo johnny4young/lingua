@@ -27,10 +27,11 @@
  *     `onDidDispose` hook — no leak across SQL-workspace mounts.
  *
  * Folds wired here:
- *   - **A**: `sql` completion provider over the live table names + a
- *     small common-keyword set. (Column-name completion is OUT OF SCOPE
- *     — the schema only exposes `columnCount`, not column names; a
- *     `DESCRIBE`/`PRAGMA table_info` introspection is a future follow-up.)
+ *   - **A**: `sql` completion provider over the live table names, their
+ *     column names (with the SQL type shown as the completion detail),
+ *     and a small common-keyword set. The columns arrive from the panel's
+ *     single `information_schema.columns` probe; the same latest-value ref
+ *     that keeps table names fresh keeps columns fresh too.
  *   - **B**: tuned editor options (line numbers on, no minimap, no word
  *     wrap, 2-space tabs, line highlight, no overview ruler).
  *   - **C**: Shift+Alt+F → `onFormatShortcut()`.
@@ -102,6 +103,13 @@ const SQL_KEYWORD_SUGGESTIONS: readonly string[] = [
   'UNION ALL',
 ];
 
+/**
+ * A column name that is a plain lower/upper identifier can be inserted
+ * verbatim (`table.col`); anything else (spaces, quotes, leading digit,
+ * punctuation) gets a quoted identifier so the completion stays valid.
+ */
+const SAFE_BARE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 export interface SqlMonacoEditorProps {
   /**
    * Controlled buffer text. The parent owns this; the editor reconciles
@@ -122,9 +130,13 @@ export interface SqlMonacoEditorProps {
   /**
    * Live session tables (fold A). Read through a ref inside the
    * completion provider so newly-introspected tables appear without
-   * re-registering the provider.
+   * re-registering the provider. Each table's optional `columns` (name +
+   * SQL type) feed column-name completion items alongside the table names.
    */
-  tables: ReadonlyArray<{ name: string }>;
+  tables: ReadonlyArray<{
+    name: string;
+    columns?: ReadonlyArray<{ name: string; type: string }>;
+  }>;
   /** Accessible name for the editor textarea. */
   ariaLabel: string;
 }
@@ -221,13 +233,59 @@ export function SqlMonacoEditor({
           detail: 'table',
           range,
         }));
+        // Column suggestions, deduped by name (case-insensitive). A column
+        // can live in more than one table; the first occurrence's type wins
+        // for the detail label and we note the extra owners. Simple bare
+        // identifiers insert unquoted for a clean `table.col`; anything with
+        // spaces/quotes/reserved shapes falls back to a quoted identifier.
+        const columnDetails = new Map<
+          string,
+          { label: string; type: string; tables: string[] }
+        >();
+        for (const table of tablesRef.current) {
+          for (const column of table.columns ?? []) {
+            const key = column.name.toLowerCase();
+            const existing = columnDetails.get(key);
+            if (existing) {
+              if (!existing.tables.includes(table.name)) {
+                existing.tables.push(table.name);
+              }
+            } else {
+              columnDetails.set(key, {
+                label: column.name,
+                type: column.type,
+                tables: [table.name],
+              });
+            }
+          }
+        }
+        const columnSuggestions = Array.from(columnDetails.values()).map(
+          (column) => ({
+            label: column.label,
+            kind: monaco.languages.CompletionItemKind.Field,
+            insertText: SAFE_BARE_IDENTIFIER.test(column.label)
+              ? column.label
+              : quoteSqlIdentifier(column.label),
+            detail:
+              column.tables.length > 1
+                ? `${column.type} · ${column.tables.join(', ')}`
+                : `${column.type} · ${column.tables[0]}`,
+            range,
+          })
+        );
         const keywordSuggestions = SQL_KEYWORD_SUGGESTIONS.map((keyword) => ({
           label: keyword,
           kind: monaco.languages.CompletionItemKind.Keyword,
           insertText: keyword,
           range,
         }));
-        return { suggestions: [...tableSuggestions, ...keywordSuggestions] };
+        return {
+          suggestions: [
+            ...tableSuggestions,
+            ...columnSuggestions,
+            ...keywordSuggestions,
+          ],
+        };
       },
     };
     disposables.push(

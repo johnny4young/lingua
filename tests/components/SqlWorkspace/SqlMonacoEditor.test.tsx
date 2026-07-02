@@ -8,11 +8,21 @@ import { SqlMonacoEditor } from '../../../src/renderer/components/SqlWorkspace/S
 // commands, and completion-provider disposal on unmount.
 // ---------------------------------------------------------------------------
 
+interface CompletionItem {
+  label: string;
+  kind: number;
+  insertText: string;
+  detail?: string;
+}
+
 interface Harness {
   commands: { run?: () => void; format?: () => void };
   selectedRangeText: string | null;
   disposeCount: number;
   didDispose: (() => void) | null;
+  completionProvider:
+    | { provideCompletionItems: (m: unknown, p: unknown) => { suggestions: CompletionItem[] } }
+    | null;
 }
 
 const harness: Harness = {
@@ -20,6 +30,7 @@ const harness: Harness = {
   selectedRangeText: null,
   disposeCount: 0,
   didDispose: null,
+  completionProvider: null,
 };
 
 const FAKE_KEYMOD = { CtrlCmd: 1 << 11, Shift: 1 << 10, Alt: 1 << 9 };
@@ -58,12 +69,18 @@ vi.mock('@monaco-editor/react', () => {
       KeyCode: FAKE_KEYCODE,
       editor: { defineTheme: vi.fn() },
       languages: {
-        CompletionItemKind: { Struct: 5, Keyword: 17 },
-        registerCompletionItemProvider: () => ({
-          dispose: () => {
-            harness.disposeCount += 1;
-          },
-        }),
+        CompletionItemKind: { Struct: 5, Field: 4, Keyword: 17 },
+        registerCompletionItemProvider: (
+          _lang: string,
+          provider: Harness['completionProvider']
+        ) => {
+          harness.completionProvider = provider;
+          return {
+            dispose: () => {
+              harness.disposeCount += 1;
+            },
+          };
+        },
       },
     };
     onMount?.(editor, monaco);
@@ -89,6 +106,17 @@ function resetHarness() {
   harness.selectedRangeText = null;
   harness.disposeCount = 0;
   harness.didDispose = null;
+  harness.completionProvider = null;
+}
+
+/** Invoke the captured completion provider with a stub model/position. */
+function runCompletions() {
+  const model = {
+    getWordUntilPosition: () => ({ startColumn: 1, endColumn: 1 }),
+  };
+  const position = { lineNumber: 1, column: 1 };
+  return harness.completionProvider?.provideCompletionItems(model, position)
+    .suggestions ?? [];
 }
 
 describe('SqlMonacoEditor', () => {
@@ -148,6 +176,47 @@ describe('SqlMonacoEditor', () => {
     );
     act(() => harness.commands.format?.());
     expect(onFormatShortcut).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers table, column, and keyword completions', () => {
+    render(
+      <SqlMonacoEditor
+        value=""
+        onChange={vi.fn()}
+        onRunShortcut={vi.fn()}
+        onFormatShortcut={vi.fn()}
+        tables={[
+          {
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'INTEGER' },
+              { name: 'user name', type: 'VARCHAR' },
+            ],
+          },
+          { name: 'orders', columns: [{ name: 'id', type: 'BIGINT' }] },
+        ]}
+        ariaLabel="SQL query editor"
+      />
+    );
+    const suggestions = runCompletions();
+    const byLabel = (label: string) =>
+      suggestions.find((s) => s.label === label);
+
+    // Table name → quoted identifier, Struct kind.
+    expect(byLabel('users')).toMatchObject({ kind: 5, insertText: '"users"' });
+
+    // Simple column → bare insert, Field kind; the detail carries the type.
+    const idCol = byLabel('id');
+    expect(idCol).toMatchObject({ kind: 4, insertText: 'id' });
+    // `id` lives in both tables → deduped to one entry naming both owners.
+    expect(idCol?.detail).toContain('users');
+    expect(idCol?.detail).toContain('orders');
+
+    // Column with a space → quoted identifier.
+    expect(byLabel('user name')?.insertText).toBe('"user name"');
+
+    // Keywords still present.
+    expect(byLabel('SELECT')).toMatchObject({ kind: 17 });
   });
 
   it('disposes the completion provider when the editor disposes', () => {

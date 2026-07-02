@@ -51,7 +51,11 @@ import { EmptyState } from '../ui/EmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
 import { SqlResultPreview } from './SqlResultPreview';
-import { SqlSchemaBrowser, type SqlSchemaTable } from './SqlSchemaBrowser';
+import {
+  SqlSchemaBrowser,
+  type SqlSchemaColumn,
+  type SqlSchemaTable,
+} from './SqlSchemaBrowser';
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
 
 /**
@@ -328,10 +332,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [queryTimeoutMs, t, announce]
   );
 
-  // Schema/table browser — `SHOW TABLES` introspection plus a cheap
-  // per-table column count via `PRAGMA table_info`. Uses the same lazy
-  // engine singleton; opens a single connection, runs the probes,
-  // closes. Failures push a notice but never crash the panel.
+  // Schema/table browser — `SHOW TABLES` introspection plus a SINGLE
+  // `information_schema.columns` probe that yields every table's column
+  // names + SQL types in one round-trip (replacing the old N-per-table
+  // `PRAGMA table_info` loop). The columns drive the count chip, the
+  // expandable column list, AND the editor's column-name autocomplete.
+  // Uses the same lazy engine singleton; opens a single connection, runs
+  // the probes, closes. Failures push a notice but never crash the panel.
   const handleRefreshTables = useCallback(async () => {
     setIsLoadingTables(true);
     let engine: DuckDbEngineHandle;
@@ -366,25 +373,41 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         const value = row['name'];
         if (typeof value === 'string') names.push(value);
       }
-      // Cheap per-table column count. `PRAGMA table_info` returns one row
-      // per column; the row count IS the column count. A failure on a
-      // single table (e.g. a view we can't introspect) leaves its count
-      // undefined rather than aborting the whole refresh.
-      const tables: SqlSchemaTable[] = [];
-      for (const name of names) {
-        let columnCount: number | undefined;
-        try {
-          const info = await connection.query(
-            `PRAGMA table_info('${name.replace(/'/g, "''")}')`
-          );
-          columnCount = info.rows.length;
-        } catch {
-          columnCount = undefined;
-        }
-        tables.push(
-          columnCount !== undefined ? { name, columnCount } : { name }
+      // Single-round-trip column introspection. `information_schema.columns`
+      // returns one row per (table, column); grouping in JS by `table_name`
+      // (ordered by `ordinal_position`) rebuilds each table's column list
+      // without an N-query PRAGMA loop. A failure here leaves every table's
+      // columns undefined rather than aborting the whole refresh — the
+      // table names still render, just without the count chip / autocomplete.
+      const columnsByTable = new Map<string, SqlSchemaColumn[]>();
+      try {
+        const columnRows = await connection.query(
+          'SELECT table_name, column_name, data_type ' +
+            'FROM information_schema.columns ' +
+            "WHERE table_schema NOT IN ('information_schema', 'pg_catalog') " +
+            'ORDER BY table_name, ordinal_position'
         );
+        for (const row of columnRows.rows) {
+          const tableName = row['table_name'];
+          const columnName = row['column_name'];
+          const dataType = row['data_type'];
+          if (typeof tableName !== 'string' || typeof columnName !== 'string') {
+            continue;
+          }
+          const list = columnsByTable.get(tableName) ?? [];
+          list.push({
+            name: columnName,
+            type: typeof dataType === 'string' ? dataType : 'UNKNOWN',
+          });
+          columnsByTable.set(tableName, list);
+        }
+      } catch {
+        // Leave the map empty — tables render name-only.
       }
+      const tables: SqlSchemaTable[] = names.map((name) => {
+        const columns = columnsByTable.get(name);
+        return columns !== undefined ? { name, columns } : { name };
+      });
       setSchemaTables(tables);
     } catch (err) {
       useUIStore.getState().pushStatusNotice({

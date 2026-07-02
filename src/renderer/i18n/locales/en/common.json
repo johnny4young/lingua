@@ -3034,6 +3034,8 @@
   "sqlWorkspace.schema.insertTitle": "Insert SELECT for {{name}}",
   "sqlWorkspace.schema.columnCount_one": "{{count}} col",
   "sqlWorkspace.schema.columnCount_other": "{{count}} cols",
+  "sqlWorkspace.schema.expandColumns": "Show columns for {{name}}",
+  "sqlWorkspace.schema.collapseColumns": "Hide columns for {{name}}",
   "sqlWorkspace.grid.sortBy": "Sort by {{name}}",
   "sqlWorkspace.grid.filterPlaceholder": "Filter rows…",
   "sqlWorkspace.grid.filterAria": "Filter result rows",
