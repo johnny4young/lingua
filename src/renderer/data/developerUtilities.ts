@@ -47,6 +47,7 @@ export type DeveloperUtilityId =
   | 'qr-code'
   | 'backslash-escape'
   | 'random-string'
+  | 'mock-data'
   | 'base64-image'
   | 'lorem-ipsum'
   | 'svg-to-css'
@@ -294,6 +295,28 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     // RL-069 Slice 2 — pure generator. No `detect`; the toolbar hides
     // the ⚡ Apply button so the existing "Generate" control stays
     // the single canonical action.
+  },
+  {
+    id: 'mock-data',
+    titleKey: 'utilities.tool.mockData.titleLabel',
+    actionLabelKey: 'utilities.tool.mockData.label',
+    descriptionKey: 'utilities.tool.mockData.description',
+    keywords: [
+      'mock',
+      'fake',
+      'faker',
+      'sample',
+      'seed',
+      'fixture',
+      'dataset',
+      'json',
+      'csv',
+      'ndjson',
+      'generate',
+      'test data',
+    ],
+    // Pure generator. No `detect`; the toolbar hides the ⚡ Apply button
+    // so the "Generate" control stays the single canonical action.
   },
   {
     id: 'base64-image',

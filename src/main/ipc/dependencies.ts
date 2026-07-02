@@ -16,7 +16,7 @@
  *     `runId`.
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './typedHandle';
 import {
   cancelJsDependencyInstall,
   installJsDependencyBatch,
@@ -29,7 +29,7 @@ import {
 export const INSTALL_LOG_CHANNEL = 'dependencies:js:install:log';
 
 export function registerDependencyHandlers(): void {
-  ipcMain.handle(
+  typedHandle(
     'dependencies:js:resolve',
     async (
       _event,
@@ -43,7 +43,7 @@ export function registerDependencyHandlers(): void {
     }
   );
 
-  ipcMain.handle(
+  typedHandle(
     'dependencies:js:install',
     async (
       event,
@@ -83,7 +83,7 @@ export function registerDependencyHandlers(): void {
     }
   );
 
-  ipcMain.handle(
+  typedHandle(
     'dependencies:js:install:cancel',
     async (_event, rawRunId: unknown): Promise<{ cancelled: boolean }> => {
       if (typeof rawRunId !== 'string' || rawRunId.length === 0) {

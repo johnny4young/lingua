@@ -19,6 +19,16 @@ export type LicenseRemoveDeviceResult =
   | { ok: true; removed: boolean; snapshot: LicenseSnapshot }
   | { ok: false; reason: string; message?: string; issues?: string[] };
 
+// NOTE (typed IPC contract): these handlers intentionally stay on raw
+// `ipcMain.handle` rather than `typedHandle`. Binding them to the contract
+// surfaced a real, pre-existing drift the contract exposed: main's license
+// types (`src/main/license.ts`, built on the canonical 6-tier
+// `src/shared/license.ts` `LicenseTier`) are WIDER than the renderer-facing
+// ambient `LicenseStatus` in `src/types.d.ts` (4 tiers — missing `trial` /
+// `education`). Reconciling that is a deliberate change to the renderer's
+// license type model (exhaustive tier switches, gating), not a mechanical
+// wrap, so it is tracked as a follow-up. The channels remain covered by the
+// contract + drift test by name, and the preload→renderer side is typed.
 export function registerLicenseHandlers(runtime: LicenseRuntime): void {
   ipcMain.handle('license:get-state', async () => runtime.getSnapshot());
 

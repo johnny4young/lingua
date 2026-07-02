@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { typedHandle } from './typedHandle';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -81,7 +82,7 @@ async function ensureArtifactDir(): Promise<string | null> {
 export function registerDesktopSmokeHandlers(): void {
   // Read-only config is safe to expose even when the smoke is disabled; callers
   // use `enabled` to decide whether to continue the scripted run.
-  ipcMain.handle('desktop-smoke:get-config', async () => {
+  typedHandle('desktop-smoke:get-config', async () => {
     const launchedAtMs = getLaunchedAtMs();
 
     return {
@@ -96,14 +97,14 @@ export function registerDesktopSmokeHandlers(): void {
   // Offline blocking evidence is only meaningful during the offline smoke. A
   // disabled run gets an empty list instead of stale state from a previous app
   // launch.
-  ipcMain.handle('desktop-smoke:get-offline-blocks', async () => {
+  typedHandle('desktop-smoke:get-offline-blocks', async () => {
     if (!isDesktopSmokeEnabled() || !isOfflineSmokeRequested()) {
       return [];
     }
     return getBlockedOfflineSmokeUrls();
   });
 
-  ipcMain.handle('desktop-smoke:get-memory-snapshot', async () => {
+  typedHandle('desktop-smoke:get-memory-snapshot', async () => {
     if (!isDesktopSmokeEnabled()) {
       return { ok: false, reason: 'smoke-disabled' };
     }
@@ -131,12 +132,15 @@ export function registerDesktopSmokeHandlers(): void {
         pid: metric.pid,
         workingSetSizeBytes: metric.memory.workingSetSize * 1024,
         peakWorkingSetSizeBytes: metric.memory.peakWorkingSetSize * 1024,
-        privateBytes: metric.memory.privateBytes,
+        // Electron types `privateBytes` as optional (deprecated field);
+        // the snapshot contract promises a number, so coalesce a missing
+        // reading to 0 rather than leaking `undefined` across the wire.
+        privateBytes: metric.memory.privateBytes ?? 0,
       })),
     };
   });
 
-  ipcMain.handle('desktop-smoke:capture', async (event, name: string) => {
+  typedHandle('desktop-smoke:capture', async (event, name: string) => {
     if (!isDesktopSmokeEnabled()) {
       return null;
     }
@@ -157,7 +161,7 @@ export function registerDesktopSmokeHandlers(): void {
     return filePath;
   });
 
-  ipcMain.handle('desktop-smoke:write-json-artifact', async (_event, name: string, payload: unknown) => {
+  typedHandle('desktop-smoke:write-json-artifact', async (_event, name: string, payload: unknown) => {
     if (!isDesktopSmokeEnabled()) {
       return null;
     }

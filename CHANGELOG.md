@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- **Typed IPC contract**: the entire preload↔main boundary now derives from a single source of truth (`src/shared/ipcContract.ts`). The preload bridge routes through typed helpers (`typedInvoke` / `typedSend` / `typedOn`) instead of hand-written `as Promise<X>` casts, and main handlers register through `typedHandle`, which binds each handler's return type to the contract. A renamed channel or drifted payload is now a compile error, and a drift test keeps the contract in lockstep with the registered handlers. (Internal refactor; no user-facing behavior change.)
+
 ### Security
 - **HTTP workspace: API keys under a custom header name no longer leak into shared capsules.** An `apiKey` auth with a non-baseline header name (e.g. `X-Custom-Auth`) had its value written in clear into run capsules / share-links / CLI replay; the capsule serializer now redacts the auth-injected header unconditionally.
 - **Git read-only layer no longer escapes the filesystem sandbox**: the `git:status` / `git:diff` handlers now gate each requested file — not just the repo root — against the approved-scope containment check and the filesystem denylist, so a compromised renderer can no longer read unversioned files (`.env`, secrets in sibling packages) outside the approved subtree in the monorepo case.

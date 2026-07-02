@@ -15,7 +15,7 @@
  * `unset` on any parse / filesystem failure, biasing toward not sending.
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './typedHandle';
 import { chmod, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -69,7 +69,7 @@ export async function readConsentMirror(mirrorPath: string): Promise<ConsentValu
 }
 
 export function registerConsentHandlers(mirrorPath: string): void {
-  ipcMain.handle('consent:set', async (_event, value: unknown) => {
+  typedHandle('consent:set', async (_event, value: unknown) => {
     if (!isConsentValue(value)) {
       return { ok: false as const, reason: 'invalid-value' };
     }

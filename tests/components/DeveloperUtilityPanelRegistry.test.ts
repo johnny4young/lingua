@@ -64,6 +64,7 @@ describe('DeveloperUtilityPanel registry', () => {
       'qr-code': 'QrCodePanel.tsx',
       'backslash-escape': 'BackslashEscapePanel.tsx',
       'random-string': 'RandomStringPanel.tsx',
+      'mock-data': 'MockDataPanel.tsx',
       'base64-image': 'Base64ImagePanel.tsx',
       'lorem-ipsum': 'LoremIpsumPanel.tsx',
       'svg-to-css': 'SvgToCssPanel.tsx',
@@ -96,7 +97,7 @@ describe('DeveloperUtilityPanel registry', () => {
     // RL-099 Slice 1 — `utility-pipelines` is treated as a generator
     // because the pipeline editor owns its own input surface and
     // doesn't share the ⚡ Apply contract with the rest of the catalog.
-    const generators = new Set(['random-string', 'lorem-ipsum', 'utility-pipelines']);
+    const generators = new Set(['random-string', 'mock-data', 'lorem-ipsum', 'utility-pipelines']);
     const panelFileByCatalogId: Record<string, string> = {
       json: 'JsonUtilityPanel.tsx',
       base64: 'Base64UtilityPanel.tsx',
