@@ -14,6 +14,8 @@ The format follows Keep a Changelog and groups changes by release.
 - **SQL workspace**: the table browser + autocomplete now populate on open and refresh after a schema change (with OPFS persistence, tables from a previous session were invisible until a manual Refresh); Copy CSV/JSON/Markdown now copies exactly the filtered/sorted rows shown in the grid instead of the full raw result; and a name collision on import is reported honestly instead of as a generic "parse error".
 - **Notebook workspace**: editing a markdown cell no longer serializes every notebook to storage on each keystroke (debounced like code cells), which also stops re-rendering sibling cells while you type.
 
+## [0.9.0] — 2026-06-28
+
 ### Added
 - **Accessibility overhaul**: A sweep across the app brings full keyboard operability and screen-reader support — roving arrow-key navigation and ARIA semantics for the file tree, editor tab strip, command palette, quick-open, recipes, and capsule-comparison surfaces; focus management and traps for the guided tour, overlays, menus, and the execution-history popover; live-region announcements for console run summaries, project-search results, and other dynamic state; and a reduced-motion guard that quiets non-essential animation for people who prefer it.
 - **Safer destructive actions**: Irreversible operations — file and folder delete, pipeline delete, remove license, keymap and theme import overwrite, and replace-in-files — now route through a shared confirmation dialog, and recoverable deletes (snippets, capsules, clear console) offer an Undo toast that restores the item in place. The web file delete, previously unconfirmed, now always asks first.
