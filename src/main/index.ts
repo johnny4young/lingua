@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import path from 'node:path';
 import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
 import {
@@ -132,7 +133,7 @@ ipcMain.on('app:force-close', () => {
   app.quit();
 });
 
-ipcMain.handle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
+typedHandle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
 ipcMain.on('app:deep-link-renderer-ready', () => {
   markDeepLinkRendererReady(deepLinkState, true);
 });

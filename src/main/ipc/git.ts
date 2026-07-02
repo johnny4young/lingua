@@ -21,7 +21,7 @@
  * explicit feature gate.
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './typedHandle';
 import {
   detectGit,
   getFileDiff,
@@ -125,7 +125,7 @@ function disposeAllForSender(senderId: number): void {
 }
 
 export function registerGitHandlers(): void {
-  ipcMain.handle(
+  typedHandle(
     'git:detect',
     async (_event, rawFolderPath: unknown): Promise<GitDetectResult> => {
       const folderPath =
@@ -142,7 +142,7 @@ export function registerGitHandlers(): void {
     }
   );
 
-  ipcMain.handle(
+  typedHandle(
     'git:status',
     async (
       _event,
@@ -162,7 +162,7 @@ export function registerGitHandlers(): void {
     }
   );
 
-  ipcMain.handle(
+  typedHandle(
     'git:diff',
     async (
       _event,
@@ -186,7 +186,7 @@ export function registerGitHandlers(): void {
   // boolean so the renderer can push a localized error notice on
   // false. Input validation lives in `revealRepo` (existence probe
   // + path normalization).
-  ipcMain.handle(
+  typedHandle(
     'git:reveal',
     async (_event, rawRepoRoot: unknown): Promise<boolean> => {
       if (typeof rawRepoRoot !== 'string' || rawRepoRoot.length === 0) {
@@ -203,7 +203,7 @@ export function registerGitHandlers(): void {
   // `git:on-head-changed` events to the renderer that called us.
   // Returns the resolved initial state so the renderer can warm its
   // store without waiting for the first watch event.
-  ipcMain.handle(
+  typedHandle(
     'git:watch-head',
     async (event, rawRepoRoot: unknown): Promise<{ ok: boolean }> => {
       if (typeof rawRepoRoot !== 'string' || rawRepoRoot.length === 0) {
@@ -270,7 +270,7 @@ export function registerGitHandlers(): void {
 
   // RL-102 Slice 2 — stop a HEAD watcher. Idempotent on a missing
   // key; the renderer hook calls this on every cleanup pass.
-  ipcMain.handle(
+  typedHandle(
     'git:unwatch-head',
     async (event, rawRepoRoot: unknown): Promise<{ ok: boolean }> => {
       if (typeof rawRepoRoot !== 'string' || rawRepoRoot.length === 0) {

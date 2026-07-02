@@ -376,6 +376,38 @@ The bridge is defined in [`src/preload/index.ts`](../src/preload/index.ts).
 
 The handlers are registered from [`src/main/index.ts`](../src/main/index.ts), mainly through [`src/main/ipc/fileSystem.ts`](../src/main/ipc/fileSystem.ts).
 
+### Typed IPC contract (single source of truth)
+
+Every request/response channel — not just the fs ones — is declared once in
+[`src/shared/ipcContract.ts`](../src/shared/ipcContract.ts) as
+`IpcInvokeContract` (channel → `{ args, result }`), with `IpcPushContract`
+and `IpcSendContract` for the fire-and-forget streams. Two thin helpers bind
+both ends to that map:
+
+- preload calls go through `typedInvoke` / `typedSend` / `typedOn`
+  ([`src/preload/ipcTyped.ts`](../src/preload/ipcTyped.ts)) — no more
+  `ipcRenderer.invoke('chan', …) as Promise<X>` casts; the channel name is a
+  contract key and the result type is derived.
+- main handlers register through `typedHandle`
+  ([`src/main/ipc/typedHandle.ts`](../src/main/ipc/typedHandle.ts)), which
+  binds the handler's **return type** to the contract result. Handler
+  arguments stay `unknown` — they arrive from an untrusted renderer and each
+  handler validates them itself.
+
+The payoff: a renamed channel or a payload whose shape drifts between main
+and the renderer is now a **compile error**, and
+[`tests/shared/ipcContract.test.ts`](../tests/shared/ipcContract.test.ts)
+fails if a handler is registered for a channel absent from the contract (or
+vice versa).
+
+Two documented exceptions stay on raw `ipcMain.handle`: the generic LSP
+registrar (it builds channel names dynamically, so it cannot pass a literal
+contract key) and the `license:*` handlers (binding them surfaced a real,
+pre-existing drift — main's 6-tier license types vs the renderer-facing
+4-tier ambient types — whose reconciliation is a deliberate follow-up, not a
+mechanical wrap). Both are still covered by the contract + drift test by
+name.
+
 ### Why IPC is used here
 
 The renderer intentionally does **not** touch Node's file system directly.
