@@ -17,6 +17,7 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getBundledAppInfo } from '../../../shared/appInfo';
 import {
+  applyCaptureRules,
   createBlankHttpRequest,
   type HttpRequestV1,
 } from '../../../shared/httpWorkspace';
@@ -25,6 +26,7 @@ import {
   findResolvedVariables,
   findUnresolvedVariables,
   interpolateRequest,
+  looksSecret,
   maskSecretsForCapsule,
   maskSecretValuesInResponse,
 } from '../../../shared/httpEnvironment';
@@ -50,6 +52,53 @@ export interface HttpWorkspacePanelProps {
    * selection.
    */
   tabId?: string;
+}
+
+/**
+ * T2 — apply a request's resolved capture writes to the ACTIVE
+ * environment. Upserts by variable key (existing key → value updated;
+ * new key → appended, secret-by-default via the `looksSecret`
+ * heuristic). Surfaces a warning when there is no active environment to
+ * receive the writes, and a success summary otherwise. Reads the store
+ * live via `getState()` so a switch during the in-flight request never
+ * writes to a stale environment.
+ */
+function applyCapturesToActiveEnvironment(
+  writes: ReadonlyArray<{ targetVariable: string; value: string }>
+): void {
+  if (writes.length === 0) return;
+  const store = useWorkspaceToolStore.getState();
+  const envId = store.activeEnvironmentId;
+  if (envId === null) {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'warning',
+      messageKey: 'httpWorkspace.capture.noEnvironment',
+    });
+    return;
+  }
+  store.updateEnvironmentVariables(envId, (variables) => {
+    const next = variables.slice();
+    for (const write of writes) {
+      const idx = next.findIndex((v) => v.key === write.targetVariable);
+      if (idx >= 0) {
+        next[idx] = { ...next[idx]!, value: write.value };
+      } else {
+        next.push({
+          id: crypto.randomUUID(),
+          key: write.targetVariable,
+          value: write.value,
+          secret: looksSecret(write.targetVariable),
+        });
+      }
+    }
+    return next;
+  });
+  const envName = store.environments.find((e) => e.id === envId)?.name ?? '';
+  useUIStore.getState().pushStatusNotice({
+    tone: 'success',
+    messageKey: 'httpWorkspace.capture.applied',
+    values: { count: writes.length, env: envName },
+  });
 }
 
 export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
@@ -282,6 +331,18 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       useWorkspaceToolStore
         .getState()
         .recordResponse(requestToSend.id, response);
+      // T2 — request chaining. On a successful response, apply the
+      // request's capture rules: extract values from the RAW response
+      // (real values, before secret-masking) and upsert them into the
+      // ACTIVE environment so the next request can interpolate them via
+      // `{{VAR}}`. A brand-new captured token is not yet a known secret,
+      // so extracting from `raw` (not the masked `response`) is what
+      // yields the real value to store.
+      if (response.kind === 'success' && requestToSend.captures?.length) {
+        applyCapturesToActiveEnvironment(
+          applyCaptureRules(raw, requestToSend.captures)
+        );
+      }
       const resolvedCount = findResolvedVariables(requestToSend, env).length;
       trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
       // UX Sweep T4 — announce the response to screen readers; the status
