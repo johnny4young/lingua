@@ -185,6 +185,58 @@ describe('main node runner', () => {
     expect(child.stdin.end).toHaveBeenCalled();
   });
 
+  it('F-7: keeps stdin open in interactive mode and streams writes by runId', async () => {
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+
+    const mod = await import('../../src/main/node-runner');
+    mod.registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const promise = run({}, 'process.stdin.resume()', {
+      runId: 'run-int',
+      timeoutMs: 5_000,
+      stdin: 'first\n',
+      interactive: true,
+    });
+
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    // Initial buffer written, but stdin is NOT closed while interactive.
+    expect(child.stdin.write).toHaveBeenCalledWith('first\n');
+    expect(child.stdin.end).not.toHaveBeenCalled();
+
+    // A later write routes to the same child by runId.
+    expect(mod.writeNodeStdin('run-int', 'second\n')).toEqual({ written: true });
+    expect(child.stdin.write).toHaveBeenCalledWith('second\n');
+
+    // Unknown runId is a quiet no-op.
+    expect(mod.writeNodeStdin('nope', 'x')).toEqual({ written: false });
+
+    // Closing ends the stream and deregisters it.
+    expect(mod.closeNodeStdin('run-int')).toEqual({ closed: true });
+    expect(child.stdin.end).toHaveBeenCalled();
+    expect(mod.writeNodeStdin('run-int', 'after')).toEqual({ written: false });
+
+    child.emit('close', 0);
+    await expect(promise).resolves.toMatchObject({ kind: 'success' });
+  });
+
+  it('F-7: non-interactive runs close stdin immediately and reject stream writes', async () => {
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+
+    const mod = await import('../../src/main/node-runner');
+    mod.registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const promise = run({}, 'console.log(1)', { runId: 'run-plain', timeoutMs: 5_000 });
+
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    expect(child.stdin.end).toHaveBeenCalled();
+    expect(mod.writeNodeStdin('run-plain', 'x')).toEqual({ written: false });
+
+    child.emit('close', 0);
+    await expect(promise).resolves.toMatchObject({ kind: 'success' });
+  });
+
   it('runs unsaved JavaScript import snippets as ESM without package config', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);

@@ -142,6 +142,8 @@ interface NodeRunInvokeOptions {
   filePath?: string;
   userEnv?: Record<string, string>;
   stdin?: string;
+  /** F-7 — keep stdin open for `node.writeStdin` streaming. */
+  interactive?: boolean;
   messages?: NativeRunnerMessages;
 }
 
@@ -184,11 +186,37 @@ interface RubyRunInvokeOptions {
   filePath?: string;
   userEnv?: Record<string, string>;
   stdin?: string;
+  /** F-7 — keep stdin open for `ruby.writeStdin` streaming. */
+  interactive?: boolean;
   messages?: NativeRunnerMessages;
 }
 
 interface RubyRunResult {
   kind: RubyRunKind;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executionTime: number;
+  error?: string;
+  timeoutMs: number;
+}
+
+// F-4 — Deno / Bun desktop runtime IPC shapes. Both runtimes share one
+// generic backend (src/main/altJsRuntimes.ts), so they share these types.
+type AltJsRunKind = 'success' | 'error' | 'timeout' | 'stopped' | 'missing-binary';
+interface AltJsDetectResult {
+  installed: boolean;
+  version?: string;
+  error?: string;
+}
+interface AltJsRunInvokeOptions {
+  runId?: string;
+  timeoutMs?: number;
+  language?: string;
+  userEnv?: Record<string, string>;
+}
+interface AltJsRunResult {
+  kind: AltJsRunKind;
   stdout: string;
   stderr: string;
   exitCode: number;
@@ -752,6 +780,9 @@ interface LinguaAPI {
       options?: NodeRunInvokeOptions
     ) => Promise<NodeRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    // F-7 — interactive stdin.
+    writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
+    closeStdin: (runId: string) => Promise<{ closed: boolean }>;
   };
 
   // RL-042 Slice 6 — desktop Ruby child-spawn IPC. Optional because
@@ -769,6 +800,9 @@ interface LinguaAPI {
       options?: RubyRunInvokeOptions
     ) => Promise<RubyRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    // F-7 — interactive stdin.
+    writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
+    closeStdin: (runId: string) => Promise<{ closed: boolean }>;
   };
 
   format: {

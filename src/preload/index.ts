@@ -59,6 +59,10 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (source: string, options?: RubyRunInvokeOptions) =>
       typedInvoke('ruby:run', source, options),
     stop: (runId: string) => typedInvoke('ruby:stop', runId),
+    // F-7 — interactive stdin: stream input to a live run + close it.
+    writeStdin: (runId: string, data: string) =>
+      typedInvoke('ruby:stdin-write', runId, data),
+    closeStdin: (runId: string) => typedInvoke('ruby:stdin-close', runId),
   },
 
   // RL-019 Slice 2 — desktop Node child-spawn IPC. Distinct from the
@@ -72,6 +76,10 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (source: string, options?: NodeRunInvokeOptions) =>
       typedInvoke('node:run', source, options),
     stop: (runId: string) => typedInvoke('node:stop', runId),
+    // F-7 — interactive stdin: stream input to a live run + close it.
+    writeStdin: (runId: string, data: string) =>
+      typedInvoke('node:stdin-write', runId, data),
+    closeStdin: (runId: string) => typedInvoke('node:stdin-close', runId),
   },
 
   // Formatter IPC — gofmt / rustfmt / python pipe source via stdin
