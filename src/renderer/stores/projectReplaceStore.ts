@@ -80,7 +80,22 @@ interface ProjectReplaceState {
   preview: (rootId: string) => Promise<void>;
   applyToFile: (
     relativePath: string,
-    options?: { readonly via?: 'ipc' | 'monaco' }
+    options?: {
+      readonly via?: 'ipc' | 'monaco';
+      /**
+       * Frozen search params captured when the user CONFIRMED the apply.
+       * `applyToAll` passes these so the queue never re-reads the live
+       * (still-editable) inputs mid-run — without it, typing the next
+       * search while the queue drains rewrites the remaining files with
+       * a half-typed query that was never previewed.
+       */
+      readonly params?: {
+        readonly query: string;
+        readonly replacement: string;
+        readonly regex: boolean;
+        readonly caseSensitive: boolean;
+      };
+    }
   ) => Promise<{ ok: boolean; replaced: number }>;
   applyToAll: () => Promise<{ ok: number; failed: number; replaced: number }>;
   clear: () => void;
@@ -204,8 +219,9 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
     },
 
     applyToFile: async (relativePath, options) => {
-      const { rootId, query, replacement, regex, caseSensitive, applying } =
-        get();
+      const { rootId, applying } = get();
+      const { query, replacement, regex, caseSensitive } =
+        options?.params ?? get();
       if (!rootId || query.length === 0) {
         return { ok: false, replaced: 0 };
       }
@@ -261,7 +277,12 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
     },
 
     applyToAll: async () => {
-      const { results } = get();
+      const { results, query, replacement, regex, caseSensitive } = get();
+      // Snapshot the params the user actually confirmed. The inputs stay
+      // editable while the queue drains, and each applyToFile hop awaits
+      // an IPC write — reading the live store per file would apply a
+      // half-typed follow-up query to the remaining files.
+      const frozenParams = { query, replacement, regex, caseSensitive };
       const eligible = results.filter(
         (r) => !r.regexTimedOut && r.matches.length > 0
       );
@@ -277,7 +298,9 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
 
       for (let i = 0; i < eligible.length; i += 1) {
         const entry = eligible[i]!;
-        const result = await get().applyToFile(entry.relativePath);
+        const result = await get().applyToFile(entry.relativePath, {
+          params: frozenParams,
+        });
         if (result.ok) {
           okCount += 1;
           totalReplaced += result.replaced;

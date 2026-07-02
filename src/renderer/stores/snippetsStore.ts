@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
 import { createMigrate } from './persistence/migrationRegistry';
-import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { currentEffectiveTier } from './licenseSelectors';
 import { withinSnippetBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';

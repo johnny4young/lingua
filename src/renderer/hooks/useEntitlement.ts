@@ -1,4 +1,5 @@
 import { useLicenseStore } from '../stores/licenseStore';
+import { tierFromStatus } from '../stores/licenseSelectors';
 import {
   type Entitlement,
   isEntitled,
@@ -21,22 +22,11 @@ export function useEffectiveTier(): LicenseTier {
 }
 
 /**
- * Non-hook reader for stores and imperative code that cannot take a hook
- * dependency. Returns the same value as `useEffectiveTier` snapshotted at
- * the moment of the call.
+ * Re-export of the non-hook tier reader. The implementation lives with the
+ * stores (`stores/licenseSelectors.ts`) so store modules never import from
+ * the hooks layer; imperative component/hook code can keep using this path.
  */
-export function currentEffectiveTier(): LicenseTier {
-  return tierFromStatus(useLicenseStore.getState().status);
-}
-
-type StatusLike = ReturnType<typeof useLicenseStore.getState>['status'];
-
-function tierFromStatus(status: StatusLike): LicenseTier {
-  if (status.kind === 'active' || status.kind === 'grace') {
-    return status.verification.payload.tier;
-  }
-  return 'free';
-}
+export { currentEffectiveTier } from '../stores/licenseSelectors';
 
 /**
  * Return whether the current license tier grants a given entitlement.

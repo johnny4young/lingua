@@ -4,7 +4,7 @@ import { useProjectStore } from './projectStore';
 import { useDependencyDetectionStore } from './dependencyDetectionStore';
 import { useRecipeStore } from './recipeStore';
 import { useNotebookStore } from './notebookStore';
-import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { currentEffectiveTier } from './licenseSelectors';
 import { isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';

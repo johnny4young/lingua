@@ -1,5 +1,5 @@
 import type { SettingsState } from '../types';
-import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { currentEffectiveTier } from './licenseSelectors';
 import {
   DEFAULT_KEYMAP_PRESET_ID,
   findKeymapPreset,

@@ -8,11 +8,29 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Security
 - **HTTP workspace: API keys under a custom header name no longer leak into shared capsules.** An `apiKey` auth with a non-baseline header name (e.g. `X-Custom-Auth`) had its value written in clear into run capsules / share-links / CLI replay; the capsule serializer now redacts the auth-injected header unconditionally.
+- **Git read-only layer no longer escapes the filesystem sandbox**: the `git:status` / `git:diff` handlers now gate each requested file — not just the repo root — against the approved-scope containment check and the filesystem denylist, so a compromised renderer can no longer read unversioned files (`.env`, secrets in sibling packages) outside the approved subtree in the monorepo case.
+- **License-server URL must be HTTPS**: a misconfigured `LINGUA_LICENSE_SERVER_URL` can no longer send the signed license token over cleartext HTTP; only `https:` (and loopback for development) is accepted.
+- **Native-runner env hardening**: dynamic-loader injection keys (`LD_PRELOAD`, `DYLD_INSERT_LIBRARIES`, `NODE_OPTIONS`, …) are stripped from the user-supplied env tier as defense in depth; `PATH` stays allowed.
 
 ### Fixed
 - **HTTP workspace**: editing the URL bar no longer deletes disabled ("commented out") query-param rows; you can now cancel an in-flight request (Send becomes Stop); and a stale settle can no longer clobber a newer request's execution state (per-request tracking).
 - **SQL workspace**: the table browser + autocomplete now populate on open and refresh after a schema change (with OPFS persistence, tables from a previous session were invisible until a manual Refresh); Copy CSV/JSON/Markdown now copies exactly the filtered/sorted rows shown in the grid instead of the full raw result; and a name collision on import is reported honestly instead of as a generic "parse error".
 - **Notebook workspace**: editing a markdown cell no longer serializes every notebook to storage on each keystroke (debounced like code cells), which also stops re-rendering sibling cells while you type.
+- **Notebooks: re-running a JS/TS cell no longer throws** `Identifier 'x' has already been declared`. Sandbox pull-ins now skip names the cell itself re-declares at top level.
+- **File watcher no longer crashes the app**: an asynchronous `FSWatcher` error (e.g. deleting the watched folder on Windows) is caught and surfaced as a degraded-watcher notice instead of taking down the main process.
+- **File watchers no longer leak**: a project watcher is disposed when its window is closed (macOS keeps the app alive) or the renderer reloads, instead of surviving to the next session.
+- **Language servers**: restarting rust-analyzer / gopls no longer spawns a duplicate orphaned server, and stopping one no longer emits an unhandled promise rejection.
+- **Dependency install**: cancelling or timing out `npm install` now terminates the whole process tree (node-gyp, postinstall) instead of leaving orphaned builds holding `node_modules` locks.
+- **License (web)**: removing a license during an in-flight revalidation no longer silently resurrects it, including across browser tabs.
+- **Editor**: keystrokes typed while a save is in flight are no longer discarded; double-clicking a file in the tree no longer opens it twice.
+- **Replace in files**: "Replace all" freezes the confirmed query/replacement, so editing the inputs while the queue drains can no longer rewrite the remaining files with a half-typed search.
+- **Native runners**: a failed temp-file write no longer leaks the temp directory or escapes as a raw IPC rejection.
+- **Window close**: a crashed renderer no longer leaves the window (and the updater's install-on-quit) blocked forever.
+
+### Performance
+- **Lighter app-shell boot**: Monaco (~3.8 MB / ~987 KB gzip) is no longer executed as part of the shell startup path — the LSP lifecycle hook and the Git diff panel now load it on demand, so it runs with the editor/diff surface that needs it instead of before the shell paints (and not at all on non-editor web surfaces).
+- **Faster typing**: the app shell no longer re-renders on every keystroke (the LSP, Git-status, auto-run, and dependency-detection hooks were subscribing to the whole tab list).
+- **Faster native runs**: Go and Rust toolchain detection is cached per session, saving one to two process spawns per run.
 
 ## [0.9.0] — 2026-06-28
 
