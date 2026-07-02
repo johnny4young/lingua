@@ -107,6 +107,14 @@ describe('buildCommandPaletteModel', () => {
     expect(benchmark).toBeDefined();
     benchmark?.action();
     expect(onBenchmarkActiveTab).toHaveBeenCalledTimes(1);
+
+    const onExplainLastError = vi.fn();
+    const withExplain = buildCommandPaletteModel({ ...baseOptions, onExplainLastError });
+    expect(buildCommandPaletteModel(baseOptions).some((c) => c.id === 'action-explain-last-error')).toBe(false);
+    const explain = withExplain.find((c) => c.id === 'action-explain-last-error');
+    expect(explain).toBeDefined();
+    explain?.action();
+    expect(onExplainLastError).toHaveBeenCalledTimes(1);
   });
 
   it('translates action labels through the provided t function', async () => {

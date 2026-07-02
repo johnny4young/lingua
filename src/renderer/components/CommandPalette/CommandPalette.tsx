@@ -28,6 +28,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useUpdateStore } from '../../stores/updateStore';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { runBenchmark, BENCHMARK_DEFAULT_ITERATIONS } from '../../runtime/benchmarkRun';
+import { explainError, formatExplanation } from '../../../shared/errorExplainer';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import {
   getActiveEditorCursorLine,
@@ -189,6 +190,7 @@ export function CommandPalette({
   const { snippets } = useSnippetsStore();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const canBenchmark = useEntitlement('BENCHMARK');
+  const canExplainError = useEntitlement('LOCAL_AI');
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
   // RL-094 Slice 1 fold B — read the latest capsule (newest-first walk
   // inside the store). Recomputes when `entries` changes; the
@@ -341,6 +343,25 @@ export function CommandPalette({
                     stdev: fmt(stats.stdev),
                   }),
                 });
+              });
+            }
+          : undefined,
+      // F-2 — explain the last run error via the offline explainer. Gated
+      // on LOCAL_AI and on there actually being an error to explain.
+      onExplainLastError:
+        canExplainError && useResultStore.getState().error
+          ? () => {
+              const runError = useResultStore.getState().error;
+              if (!runError) return;
+              const explanation = explainError({
+                message: runError.message,
+                language: activeTab?.language,
+              });
+              const console = useConsoleStore.getState();
+              useUIStore.getState().openBottomPanel('console');
+              console.addEntry({
+                type: 'info',
+                content: `${t('command.explainError')}\n\n${formatExplanation(explanation)}`,
               });
             }
           : undefined,

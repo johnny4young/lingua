@@ -101,6 +101,14 @@ interface BuildCommandPaletteModelArgs {
    */
   onBenchmarkActiveTab?: () => void;
   /**
+   * F-2 — fires the "Explain last error" action, which runs the offline
+   * error explainer against the most recent run error and reports the
+   * explanation to the console. Optional; the caller wires it only when
+   * there is an error to explain AND the effective tier holds the
+   * `LOCAL_AI` entitlement, so the command stays hidden otherwise.
+   */
+  onExplainLastError?: () => void;
+  /**
    * RL-112 fold C — fires the "Focus status bar" action, moving keyboard
    * focus to the bar's first segment via `focusStatusBar()`. Optional;
    * surfaced only when wired AND the bar is currently visible (the caller
@@ -704,6 +712,7 @@ export function buildCommandPaletteModel({
   onPastePlainText,
   onToggleStatusBar,
   onBenchmarkActiveTab,
+  onExplainLastError,
   onFocusStatusBar,
   savedSessionTabCount = 0,
   onReplayEntry,
@@ -1558,6 +1567,22 @@ export function buildCommandPaletteModel({
             ['benchmark', 'profile', 'perf', 'performance', 'timing', 'speed', 'medir', 'rendimiento'],
             () => {
               onBenchmarkActiveTab();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // F-2 — explain the last run error. Wired only when there is an error
+    // to explain AND the tier holds LOCAL_AI.
+    ...(onExplainLastError
+      ? [
+          buildActionCommand(
+            'action-explain-last-error',
+            translate('command.explainError'),
+            translate('command.explainErrorDescription'),
+            ['explain', 'error', 'why', 'fix', 'diagnose', 'explicar', 'error', 'ayuda'],
+            () => {
+              onExplainLastError();
               onClose();
             }
           ),

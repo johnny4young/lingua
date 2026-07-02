@@ -1322,6 +1322,8 @@
   "command.toggleStatusBar": "Toggle status bar",
   "command.benchmark": "Benchmark this tab",
   "command.benchmarkDescription": "Run the active file repeatedly and report timing statistics",
+  "command.explainError": "Explain last error",
+  "command.explainErrorDescription": "Break down the most recent run error and suggest fixes (offline)",
   "benchmark.console.start": "Benchmarking {{name}} · {{count}} runs…",
   "benchmark.console.report": "Benchmark · {{runs}} runs\nmean {{mean}} · median {{median}}\nmin {{min}} · max {{max}} · p95 {{p95}}\nstdev {{stdev}}",
   "benchmark.console.runError": "Benchmark aborted — the code errored: {{message}}",
