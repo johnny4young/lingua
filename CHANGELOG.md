@@ -6,11 +6,10 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 ### Added
 - **HTTP workspace — Copy as code**: the request's Copy button is now a "Copy as…" menu that generates a runnable snippet in cURL, JavaScript `fetch`, JavaScript `axios`, or Python `requests`, matching the exact wire request (composed headers + injected auth + default Content-Type). Environment secrets stay as `{{placeholders}}`, never resolved into the clipboard — same guarantee as Copy as cURL.
 - **SQL workspace — column-aware schema browser + autocomplete**: the schema browser now expands each table to list its columns with SQL types, and the query editor's autocomplete offers column names (typed detail, de-duplicated across tables) alongside table names and keywords. Introspection is a single `information_schema.columns` probe per refresh instead of one `PRAGMA table_info` per table.
-=======
+
 ### Changed
 - **Typed IPC contract**: the entire preload↔main boundary now derives from a single source of truth (`src/shared/ipcContract.ts`). The preload bridge routes through typed helpers (`typedInvoke` / `typedSend` / `typedOn`) instead of hand-written `as Promise<X>` casts, and main handlers register through `typedHandle`, which binds each handler's return type to the contract. A renamed channel or drifted payload is now a compile error, and a drift test keeps the contract in lockstep with the registered handlers. (Internal refactor; no user-facing behavior change.)
 - **Build-time env wiring is now gated in CI**: the four-source env cascade for main-process defines lives in one shared helper (`build/resolveEnv.mts`), and a new drift test fails when a `__LINGUA_*__` define is consumed by a surface whose Vite config never provides it, or when `envDir` drifts off the repo root — the class of regression behind the RL-061 `no-public-key` production incident, previously only catchable with a manual packaged-build audit. (Internal; no user-facing behavior change.)
@@ -40,7 +39,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **Lighter app-shell boot**: Monaco (~3.8 MB / ~987 KB gzip) is no longer executed as part of the shell startup path — the LSP lifecycle hook and the Git diff panel now load it on demand, so it runs with the editor/diff surface that needs it instead of before the shell paints (and not at all on non-editor web surfaces).
 - **Faster typing**: the app shell no longer re-renders on every keystroke (the LSP, Git-status, auto-run, and dependency-detection hooks were subscribing to the whole tab list).
 - **Faster native runs**: Go and Rust toolchain detection is cached per session, saving one to two process spawns per run.
->>>>>>> origin/main
+- **Editor tab strip no longer re-renders every row on each keystroke**: each tab row is memoized, so typing in the active file re-renders only that tab's row (its Git status pill, glyph, and status dot) instead of the whole strip — the win grows with the number of open tabs.
 
 ## [0.9.0] — 2026-06-28
 

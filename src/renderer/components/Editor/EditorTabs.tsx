@@ -1,5 +1,5 @@
 import { BookOpen, ChevronDown, Database, Globe, Loader2, Wrench, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
@@ -79,79 +79,122 @@ export function EditorTabs() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
 
-  if (tabs.length === 0) return null;
+  // Perf (roadmap T4) — the row callbacks below are memoized so the
+  // per-tab `EditorTabItem` (also memoized) is not re-rendered on every
+  // content keystroke. Because `updateContent` produces a NEW `tabs`
+  // array each edit, this parent still re-renders, but the expensive row
+  // subtrees (GitStatusPill, glyphs, tooltips) skip re-render unless the
+  // row's own tab object, active state, or rename state changed. The
+  // handlers read the latest visibleTabs / activeTabId through refs so
+  // their identity stays stable across those parent re-renders.
+  const visibleTabsRef = useRef<FileTab[]>([]);
+  const activeTabIdRef = useRef<string | null>(activeTabId);
 
   // UX Sweep T6 — roving-tabindex arrow navigation across the visible tab
   // strip. Selection follows focus (automatic activation), matching the
   // click/Enter behavior and the `tabIndex={isActive ? 0 : -1}` roving below.
   // Focus the target after the roving tabindex updates on the next frame.
-  const moveFocusToTab = (targetTab: FileTab | undefined) => {
-    if (!targetTab) return;
-    setActiveTab(targetTab.id);
-    requestAnimationFrame(() => {
-      // Escape only `"`/`\` for the quoted attribute-value selector; a quoted
-      // attribute selector needs no CSS.escape for dots etc. (and CSS.escape
-      // is absent in some jsdom versions), so this stays test-safe.
-      const safeId = targetTab.id.replace(/["\\]/g, '\\$&');
-      document
-        .querySelector<HTMLElement>(
-          `[data-tab-id="${safeId}"] [data-testid="editor-tab-activation"]`
-        )
-        ?.focus();
-    });
-  };
+  const moveFocusToTab = useCallback(
+    (targetTab: FileTab | undefined) => {
+      if (!targetTab) return;
+      setActiveTab(targetTab.id);
+      requestAnimationFrame(() => {
+        // Escape only `"`/`\` for the quoted attribute-value selector; a quoted
+        // attribute selector needs no CSS.escape for dots etc. (and CSS.escape
+        // is absent in some jsdom versions), so this stays test-safe.
+        const safeId = targetTab.id.replace(/["\\]/g, '\\$&');
+        document
+          .querySelector<HTMLElement>(
+            `[data-tab-id="${safeId}"] [data-testid="editor-tab-activation"]`
+          )
+          ?.focus();
+      });
+    },
+    [setActiveTab]
+  );
 
-  const handleActivationKey = (event: KeyboardEvent<HTMLDivElement>, tabId: string) => {
-    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+  const handleActivationKey = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>, tabId: string) => {
+      const visibleTabs = visibleTabsRef.current;
+      if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+        event.preventDefault();
+        const rect = event.currentTarget.getBoundingClientRect();
+        setActiveTab(tabId);
+        setContextMenu({
+          tabId,
+          anchor: { top: rect.bottom + 4, left: rect.left + 8 },
+        });
+        return;
+      }
+      if (
+        event.key === 'ArrowRight' ||
+        event.key === 'ArrowLeft' ||
+        event.key === 'Home' ||
+        event.key === 'End'
+      ) {
+        event.preventDefault();
+        const currentIndex = visibleTabs.findIndex((tab) => tab.id === tabId);
+        if (currentIndex === -1) return;
+        const lastIndex = visibleTabs.length - 1;
+        const targetIndex =
+          event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? lastIndex
+              : event.key === 'ArrowRight'
+                ? (currentIndex + 1) % visibleTabs.length
+                : (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
+        moveFocusToTab(visibleTabs[targetIndex]);
+        return;
+      }
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        setActiveTab(tabId);
+        return;
+      }
+      if (event.key === 'F2' && tabId === activeTabIdRef.current) {
+        event.preventDefault();
+        setRenamingTabId(tabId);
+      }
+    },
+    [setActiveTab, moveFocusToTab]
+  );
+
+  const handleContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>, tabId: string) => {
       event.preventDefault();
-      const rect = event.currentTarget.getBoundingClientRect();
       setActiveTab(tabId);
       setContextMenu({
         tabId,
-        anchor: { top: rect.bottom + 4, left: rect.left + 8 },
+        anchor: { top: event.clientY, left: event.clientX },
       });
-      return;
-    }
-    if (
-      event.key === 'ArrowRight' ||
-      event.key === 'ArrowLeft' ||
-      event.key === 'Home' ||
-      event.key === 'End'
-    ) {
-      event.preventDefault();
-      const currentIndex = visibleTabs.findIndex((tab) => tab.id === tabId);
-      if (currentIndex === -1) return;
-      const lastIndex = visibleTabs.length - 1;
-      const targetIndex =
-        event.key === 'Home'
-          ? 0
-          : event.key === 'End'
-            ? lastIndex
-            : event.key === 'ArrowRight'
-              ? (currentIndex + 1) % visibleTabs.length
-              : (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
-      moveFocusToTab(visibleTabs[targetIndex]);
-      return;
-    }
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      setActiveTab(tabId);
-      return;
-    }
-    if (event.key === 'F2' && tabId === activeTabId) {
-      event.preventDefault();
-      setRenamingTabId(tabId);
-    }
-  };
+    },
+    [setActiveTab]
+  );
 
-  const handleContextMenu = (event: ReactMouseEvent<HTMLDivElement>, tabId: string) => {
-    event.preventDefault();
-    setActiveTab(tabId);
-    setContextMenu({
-      tabId,
-      anchor: { top: event.clientY, left: event.clientX },
-    });
-  };
+  const handleCloseTab = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>, tabId: string) => {
+      event.stopPropagation();
+      void closeTab(tabId);
+    },
+    [closeTab]
+  );
+
+  const handleStartRename = useCallback((tabId: string) => {
+    setRenamingTabId(tabId);
+  }, []);
+
+  const handleCommitRename = useCallback(
+    (tabId: string, next: string) => {
+      renameTab(tabId, next);
+      setRenamingTabId(null);
+    },
+    [renameTab]
+  );
+
+  const handleCancelRename = useCallback(() => {
+    setRenamingTabId(null);
+  }, []);
 
   const closeContextMenu = () => setContextMenu(null);
 
@@ -174,6 +217,17 @@ export function EditorTabs() {
   // tripping the "reassign after render" hazard.
   const visibleTabs = computeVisibleTabs(tabs, activeTabId);
   const hiddenTabCount = tabs.length - visibleTabs.length;
+  // Keep the refs current (after commit) so the memoized arrow-key
+  // handler reads the latest visible ordering + active id at event time
+  // without being recreated on every render. A keyboard event always
+  // fires after the effect has committed, so the refs are never stale
+  // for the interaction that reads them.
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+    visibleTabsRef.current = visibleTabs;
+  });
+
+  if (tabs.length === 0) return null;
 
   return (
     <>
@@ -182,115 +236,23 @@ export function EditorTabs() {
         aria-label={t('editorTabs.ariaLabel')}
         className="relative flex h-[34px] items-stretch overflow-hidden bg-surface-strong/72"
       >
-        {visibleTabs.map((tab, index) => {
-          const isActive = tab.id === activeTabId;
-          const isRenaming = renamingTabId === tab.id;
-          // MOV.02 (FASE 3) — workspace + notebook tabs carry a neutral
-          // marker language ('sql' / 'http') whose shortLabel resolves
-          // to "TXT", which would mislead a screen-reader user. Prefix
-          // the accessible label with the kind code instead so the tab
-          // announces "SQL …" / "HTTP …" / "NB …" to match the glyph.
-          const tabLabel = `${tabKindShortCode(tab) ?? languageShortLabel(tab.language)} ${tab.name}`;
-
-          return (
-            <Tooltip key={tab.id} content={resolveTabTooltip(tab, t)} disabled={isRenaming}>
-              <div
-                data-tab-id={tab.id}
-                data-active={isActive}
-                data-execution-state={tab.executionState ?? 'idle'}
-                onContextMenu={event => handleContextMenu(event, tab.id)}
-                className={cn(
-                  'group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/60 px-3 text-body-sm transition-colors',
-                  isActive
-                    ? // Active: panel bg + 2px top accent + matching bottom border so the
-                      // tab visually merges with the editor surface below.
-                      '-mb-px bg-background-elevated text-foreground border-t-2 border-t-primary'
-                    : 'cursor-pointer border-t-2 border-t-transparent bg-surface-strong/72 text-muted hover:bg-surface-strong hover:text-foreground'
-                )}
-              >
-                <div
-                  role="button"
-                  tabIndex={isActive ? 0 : -1}
-                  aria-current={isActive ? 'page' : undefined}
-                  aria-label={tabLabel}
-                  data-testid="editor-tab-activation"
-                  onClick={() => !isRenaming && setActiveTab(tab.id)}
-                  onKeyDown={event => handleActivationKey(event, tab.id)}
-                  className="flex h-full min-w-0 flex-1 items-center gap-2"
-                >
-                  {/* MOV.02 (FASE 3) — workspace + notebook tabs lead with
-                      a kind glyph (Database / Globe / BookOpen) instead of
-                      the language code chip, which would otherwise read
-                      "TXT" for the neutral 'sql' / 'http' marker languages.
-                      Code tabs keep the uppercase DS language chip. The
-                      mono face on the chip is set inline so the filename
-                      span remains the only `.font-mono` element legacy
-                      callers query. */}
-                  {tab.kind === 'sql' ||
-                  tab.kind === 'http' ||
-                  tab.kind === 'notebook' ||
-                  tab.kind === 'utilities' ? (
-                    <TabKindGlyph kind={tab.kind} />
-                  ) : (
-                    <TabLanguageChip language={tab.language} />
-                  )}
-                  {isRenaming ? (
-                    <RenameInput
-                      initialName={tab.name}
-                      placeholder={t('editorTabs.rename.placeholder')}
-                      ariaLabel={t('editorTabs.rename.ariaLabel', { name: tab.name })}
-                      onCommit={next => {
-                        renameTab(tab.id, next);
-                        setRenamingTabId(null);
-                      }}
-                      onCancel={() => setRenamingTabId(null)}
-                    />
-                  ) : (
-                    <span
-                      data-testid="editor-tab-filename"
-                      onDoubleClick={() => setRenamingTabId(tab.id)}
-                      className={cn(
-                        'min-w-0 flex-1 truncate font-mono text-caption leading-none',
-                        tab.executionState === 'error' && 'text-error/95'
-                      )}
-                    >
-                      {tab.name}
-                    </span>
-                  )}
-                </div>
-
-                {/* RL-102 Slice 1 — Git status pill (clean / modified /
-                    untracked / unknown) inline between the filename and
-                    the execution status dot. Self-renders to null when
-                    git posture is unavailable, settings master is OFF,
-                    or the magic-comment opt-out is set on this file. */}
-                {!isRenaming && tab.filePath ? (
-                  <GitStatusPill
-                    filePath={tab.filePath}
-                    language={tab.language}
-                    content={tab.content}
-                  />
-                ) : null}
-
-                {/* Status indicator — single source per tab. Precedence:
-                    running > error > success > dirty > none.
-                    Hidden when the close button takes over on hover. */}
-                {!isRenaming ? (
-                  <TabStatusControl
-                    tab={tab}
-                    unsavedLabel={t('editorTabs.unsaved', { name: tab.name })}
-                    closeLabel={t('editorTabs.close', { name: tab.name })}
-                    onClose={event => {
-                      event.stopPropagation();
-                      void closeTab(tab.id);
-                    }}
-                  />
-                ) : null}
-                <span aria-hidden className="hidden" data-index={index} />
-              </div>
-            </Tooltip>
-          );
-        })}
+        {visibleTabs.map((tab, index) => (
+          <EditorTabItem
+            key={tab.id}
+            tab={tab}
+            index={index}
+            isActive={tab.id === activeTabId}
+            isRenaming={renamingTabId === tab.id}
+            t={t}
+            onContextMenu={handleContextMenu}
+            onActivate={setActiveTab}
+            onActivationKeyDown={handleActivationKey}
+            onStartRename={handleStartRename}
+            onCommitRename={handleCommitRename}
+            onCancelRename={handleCancelRename}
+            onClose={handleCloseTab}
+          />
+        ))}
         {/* RL-093 Slice 2 — the handoff keeps five tabs visible and
             collapses the rest into a compact +N file-list menu. */}
         {hiddenTabCount > 0 ? (
@@ -339,6 +301,148 @@ export function EditorTabs() {
     </>
   );
 }
+
+interface EditorTabItemProps {
+  tab: FileTab;
+  index: number;
+  isActive: boolean;
+  isRenaming: boolean;
+  t: TFn;
+  onContextMenu: (event: ReactMouseEvent<HTMLDivElement>, tabId: string) => void;
+  onActivate: (tabId: string) => void;
+  onActivationKeyDown: (event: KeyboardEvent<HTMLDivElement>, tabId: string) => void;
+  onStartRename: (tabId: string) => void;
+  onCommitRename: (tabId: string, next: string) => void;
+  onCancelRename: () => void;
+  onClose: (event: ReactMouseEvent<HTMLButtonElement>, tabId: string) => void;
+}
+
+/**
+ * Perf (roadmap T4) — a single tab in the strip, memoized so a content
+ * keystroke on the ACTIVE tab (which mints a new `tabs` array and
+ * re-renders the parent strip) does not re-render every sibling row's
+ * subtree (glyph, filename, GitStatusPill, status control, tooltip).
+ * With `React.memo`'s shallow prop compare, a sibling row re-renders
+ * only when its own `tab` object identity changes (its content/dirty/
+ * exec state actually changed) or its active/rename flags flip — every
+ * handler prop is a stable `useCallback` from the parent, and `tab`
+ * keeps identity for untouched tabs because `updateContent` maps only
+ * the edited tab to a new object.
+ */
+const EditorTabItem = memo(function EditorTabItem({
+  tab,
+  index,
+  isActive,
+  isRenaming,
+  t,
+  onContextMenu,
+  onActivate,
+  onActivationKeyDown,
+  onStartRename,
+  onCommitRename,
+  onCancelRename,
+  onClose,
+}: EditorTabItemProps) {
+  // MOV.02 (FASE 3) — workspace + notebook tabs carry a neutral
+  // marker language ('sql' / 'http') whose shortLabel resolves to
+  // "TXT", which would mislead a screen-reader user. Prefix the
+  // accessible label with the kind code instead so the tab announces
+  // "SQL …" / "HTTP …" / "NB …" to match the glyph.
+  const tabLabel = `${tabKindShortCode(tab) ?? languageShortLabel(tab.language)} ${tab.name}`;
+
+  return (
+    <Tooltip content={resolveTabTooltip(tab, t)} disabled={isRenaming}>
+      <div
+        data-tab-id={tab.id}
+        data-active={isActive}
+        data-execution-state={tab.executionState ?? 'idle'}
+        onContextMenu={event => onContextMenu(event, tab.id)}
+        className={cn(
+          'group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/60 px-3 text-body-sm transition-colors',
+          isActive
+            ? // Active: panel bg + 2px top accent + matching bottom border so the
+              // tab visually merges with the editor surface below.
+              '-mb-px bg-background-elevated text-foreground border-t-2 border-t-primary'
+            : 'cursor-pointer border-t-2 border-t-transparent bg-surface-strong/72 text-muted hover:bg-surface-strong hover:text-foreground'
+        )}
+      >
+        <div
+          role="button"
+          tabIndex={isActive ? 0 : -1}
+          aria-current={isActive ? 'page' : undefined}
+          aria-label={tabLabel}
+          data-testid="editor-tab-activation"
+          onClick={() => !isRenaming && onActivate(tab.id)}
+          onKeyDown={event => onActivationKeyDown(event, tab.id)}
+          className="flex h-full min-w-0 flex-1 items-center gap-2"
+        >
+          {/* MOV.02 (FASE 3) — workspace + notebook tabs lead with
+              a kind glyph (Database / Globe / BookOpen) instead of
+              the language code chip, which would otherwise read
+              "TXT" for the neutral 'sql' / 'http' marker languages.
+              Code tabs keep the uppercase DS language chip. The
+              mono face on the chip is set inline so the filename
+              span remains the only `.font-mono` element legacy
+              callers query. */}
+          {tab.kind === 'sql' ||
+          tab.kind === 'http' ||
+          tab.kind === 'notebook' ||
+          tab.kind === 'utilities' ? (
+            <TabKindGlyph kind={tab.kind} />
+          ) : (
+            <TabLanguageChip language={tab.language} />
+          )}
+          {isRenaming ? (
+            <RenameInput
+              initialName={tab.name}
+              placeholder={t('editorTabs.rename.placeholder')}
+              ariaLabel={t('editorTabs.rename.ariaLabel', { name: tab.name })}
+              onCommit={next => onCommitRename(tab.id, next)}
+              onCancel={onCancelRename}
+            />
+          ) : (
+            <span
+              data-testid="editor-tab-filename"
+              onDoubleClick={() => onStartRename(tab.id)}
+              className={cn(
+                'min-w-0 flex-1 truncate font-mono text-caption leading-none',
+                tab.executionState === 'error' && 'text-error/95'
+              )}
+            >
+              {tab.name}
+            </span>
+          )}
+        </div>
+
+        {/* RL-102 Slice 1 — Git status pill (clean / modified /
+            untracked / unknown) inline between the filename and
+            the execution status dot. Self-renders to null when
+            git posture is unavailable, settings master is OFF,
+            or the magic-comment opt-out is set on this file. */}
+        {!isRenaming && tab.filePath ? (
+          <GitStatusPill
+            filePath={tab.filePath}
+            language={tab.language}
+            content={tab.content}
+          />
+        ) : null}
+
+        {/* Status indicator — single source per tab. Precedence:
+            running > error > success > dirty > none.
+            Hidden when the close button takes over on hover. */}
+        {!isRenaming ? (
+          <TabStatusControl
+            tab={tab}
+            unsavedLabel={t('editorTabs.unsaved', { name: tab.name })}
+            closeLabel={t('editorTabs.close', { name: tab.name })}
+            onClose={event => onClose(event, tab.id)}
+          />
+        ) : null}
+        <span aria-hidden className="hidden" data-index={index} />
+      </div>
+    </Tooltip>
+  );
+});
 
 /**
  * The inline rename input. Local-state-only so the parent does not
