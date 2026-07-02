@@ -24,6 +24,23 @@
 export const LICENSE_TIERS = ['free', 'pro', 'pro_lifetime', 'team', 'trial', 'education'] as const;
 export type LicenseTier = (typeof LICENSE_TIERS)[number];
 
+/**
+ * RL-059 hardening (audit B-3) — bind a token to the Lingua product
+ * family. The signing key may issue tokens for more than one product;
+ * without this a token minted for a DIFFERENT product under the same key
+ * would satisfy the shape check and grant Lingua entitlements. Every
+ * Lingua product id is namespaced under this prefix (`lingua`,
+ * `lingua-desktop`, …), so a prefix match accepts the whole family while
+ * rejecting a foreign `productId`. Exact-match is intentionally avoided
+ * so new Lingua surfaces don't need a verifier change.
+ */
+export const LINGUA_PRODUCT_ID_PREFIX = 'lingua';
+
+/** True when a productId belongs to the Lingua product family. */
+export function isLinguaProductId(productId: string): boolean {
+  return productId.startsWith(LINGUA_PRODUCT_ID_PREFIX);
+}
+
 export interface LicensePayload {
   /** Stable server-side license row id. Present on server-minted tokens. */
   licenseId?: string;
@@ -143,6 +160,10 @@ function isValidPayload(value: unknown): value is LicensePayload {
     return false;
   }
   if (typeof candidate.productId !== 'string' || candidate.productId.length === 0) return false;
+  // Bind the token to the Lingua product family (audit B-3): a token
+  // minted for another product under the same signing key must not grant
+  // Lingua entitlements.
+  if (!isLinguaProductId(candidate.productId)) return false;
   if (typeof candidate.tier !== 'string') return false;
   if (typeof candidate.issuedTo !== 'string' || candidate.issuedTo.length === 0) return false;
   if (!isIsoTimestamp(candidate.issuedAt)) return false;
