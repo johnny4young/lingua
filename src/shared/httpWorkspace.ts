@@ -158,6 +158,38 @@ export interface HttpQueryParam {
 }
 
 /**
+ * Where a capture rule reads its value from on a successful response:
+ *   - `body-json` — parse the body as JSON and walk `path`
+ *     (`data.token`, `items[0].id`).
+ *   - `header` — case-insensitive lookup of the response header named
+ *     by `path`.
+ *   - `status` — the numeric HTTP status (path is ignored).
+ */
+export type HttpCaptureSource = 'body-json' | 'header' | 'status';
+
+/**
+ * A post-response capture: after a request succeeds, read a value out
+ * of the response and write it into the active environment variable
+ * `targetVariable`. This is what turns the workspace into a real
+ * request-chaining client (login → token → authenticated call). Rules
+ * live on the request so they persist and export with it.
+ */
+export interface HttpCaptureRule {
+  /** Opaque client-side row id (React key + drag handle). */
+  id: string;
+  source: HttpCaptureSource;
+  /**
+   * The extraction path. A JSON path for `body-json`, a header name
+   * for `header`, ignored for `status`. May be empty on a blank row.
+   */
+  path: string;
+  /** Environment variable key the extracted value is written to. */
+  targetVariable: string;
+  /** Disabled rows are inert (kept for quick toggling). */
+  enabled: boolean;
+}
+
+/**
  * Closed enum of auth schemes the Auth sub-tab supports. `'none'` is
  * the default (no header injected). Each non-none scheme injects a
  * single header on send:
@@ -218,6 +250,12 @@ export interface HttpRequestV1 {
    */
   auth?: HttpRequestAuth;
   body?: HttpRequestBody;
+  /**
+   * Optional post-response capture rules (request chaining). Absent /
+   * empty means no capture. Back-compat: requests persisted before this
+   * field existed load with no captures.
+   */
+  captures?: HttpCaptureRule[];
   /** Optional per-request timeout override. Capped at `MAX_REQUEST_TIMEOUT_MS`. */
   timeoutMs?: number;
   /** ISO timestamp (millisecond precision). */
@@ -337,6 +375,21 @@ function parseQueryParamEntry(value: unknown): HttpQueryParam | null {
   return { key, value: paramValue, enabled };
 }
 
+function isCaptureSource(value: unknown): value is HttpCaptureSource {
+  return value === 'body-json' || value === 'header' || value === 'status';
+}
+
+function parseCaptureRuleEntry(value: unknown): HttpCaptureRule | null {
+  if (!isRecord(value)) return null;
+  const { id, source, path, targetVariable, enabled } = value;
+  if (typeof id !== 'string' || id.length === 0) return null;
+  if (!isCaptureSource(source)) return null;
+  if (typeof path !== 'string') return null;
+  if (typeof targetVariable !== 'string') return null;
+  if (typeof enabled !== 'boolean') return null;
+  return { id, source, path, targetVariable, enabled };
+}
+
 function isHttpAuthKind(value: unknown): value is HttpAuthKind {
   return (
     value === 'none' ||
@@ -424,6 +477,19 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
   }
   const body = parseBody(value.body);
   if (value.body !== undefined && body === null) return null;
+  // Back-compat: `captures` is optional. Present-but-not-an-array →
+  // reject the entry; present array → drop only the invalid rows.
+  let captures: HttpCaptureRule[] | undefined;
+  if (value.captures !== undefined) {
+    if (!Array.isArray(value.captures)) return null;
+    const parsedCaptures: HttpCaptureRule[] = [];
+    for (const raw of value.captures) {
+      const parsed = parseCaptureRuleEntry(raw);
+      if (parsed === null) return null;
+      parsedCaptures.push(parsed);
+    }
+    captures = parsedCaptures;
+  }
   const createdAt = value.createdAt;
   const updatedAt = value.updatedAt;
   if (typeof createdAt !== 'string') return null;
@@ -445,6 +511,7 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     ...(queryParams !== undefined ? { queryParams } : {}),
     ...(auth !== undefined ? { auth } : {}),
     ...(body ? { body } : {}),
+    ...(captures !== undefined ? { captures } : {}),
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     createdAt,
     updatedAt,
@@ -752,6 +819,104 @@ export function composeRequestHeaders(
   }
   if (injected) out.push(injected);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Post-response capture (request chaining). Pure extraction of a value
+// from a response per a capture rule, plus a blank-rule factory.
+// ---------------------------------------------------------------------------
+
+/** A fresh, disabled-by-nothing capture rule for the Capture tab. */
+export function createBlankCaptureRule(): HttpCaptureRule {
+  return {
+    id: crypto.randomUUID(),
+    source: 'body-json',
+    path: '',
+    targetVariable: '',
+    enabled: true,
+  };
+}
+
+/**
+ * Walk a JSON body by a dot/bracket path (`data.token`, `items[0].id`,
+ * `items.0.id` — both index forms accepted). Returns the value as a
+ * string when it resolves to a JSON primitive; `null` when the body is
+ * not JSON, the path misses, or the value is an object/array (a variable
+ * can only hold a string).
+ */
+function extractJsonPath(body: string, rawPath: string): string | null {
+  let current: unknown;
+  try {
+    current = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  const keys = rawPath
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .map((key) => key.trim())
+    .filter((key) => key.length > 0);
+  if (keys.length === 0) return null;
+  for (const key of keys) {
+    if (current === null || typeof current !== 'object') return null;
+    current = (current as Record<string, unknown>)[key];
+  }
+  if (current === null || current === undefined) return null;
+  if (typeof current === 'object') return null;
+  if (typeof current === 'string') return current;
+  if (typeof current === 'number' || typeof current === 'boolean') {
+    return String(current);
+  }
+  return null;
+}
+
+/**
+ * Resolve a single capture rule against a response. `null` when the
+ * rule can't produce a value (miss, non-JSON body, no such header).
+ * Pure — the caller decides whether/where to write the value.
+ */
+export function extractCaptureValue(
+  response: HttpResponseV1,
+  rule: HttpCaptureRule
+): string | null {
+  switch (rule.source) {
+    case 'status':
+      return String(response.status);
+    case 'header': {
+      const target = rule.path.trim().toLowerCase();
+      if (target.length === 0) return null;
+      const match = response.headers.find(
+        (header) => header.name.toLowerCase() === target
+      );
+      return match ? match.value : null;
+    }
+    case 'body-json':
+      return extractJsonPath(response.body, rule.path);
+    default:
+      return null;
+  }
+}
+
+/**
+ * Resolve every enabled rule with a non-empty target that produced a
+ * value. The result is the list of `{ targetVariable, value }` writes
+ * the panel applies to the active environment. Rules that miss or that
+ * lack a target are silently skipped (the panel surfaces a summary).
+ */
+export function applyCaptureRules(
+  response: HttpResponseV1,
+  rules: ReadonlyArray<HttpCaptureRule>
+): Array<{ targetVariable: string; value: string }> {
+  const writes: Array<{ targetVariable: string; value: string }> = [];
+  for (const rule of rules) {
+    if (!rule.enabled) continue;
+    const target = rule.targetVariable.trim();
+    if (target.length === 0) continue;
+    const value = extractCaptureValue(response, rule);
+    if (value === null) continue;
+    writes.push({ targetVariable: target, value });
+  }
+  return writes;
 }
 
 // ---------------------------------------------------------------------------

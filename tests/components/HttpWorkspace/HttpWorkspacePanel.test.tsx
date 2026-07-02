@@ -733,4 +733,116 @@ describe('HttpWorkspacePanel — collection workspace (rail-driven)', () => {
     expect(useWorkspaceToolStore.getState().getRequest(reqA.id)).toBeDefined();
     expect(useWorkspaceToolStore.getState().getRequest(reqB.id)).toBeDefined();
   });
+
+  // ---- T2 — request chaining (capture response variables) ----
+
+  function seedCaptureRequest() {
+    const req = {
+      ...createBlankHttpRequest({}),
+      id: 'req-login',
+      name: 'Login',
+      method: 'POST' as const,
+      url: 'https://api.example.com/login',
+      captures: [
+        {
+          id: 'cap-1',
+          source: 'body-json' as const,
+          path: 'data.token',
+          targetVariable: 'TOKEN',
+          enabled: true,
+        },
+      ],
+    };
+    return req;
+  }
+
+  const devEnv = (variables: Array<{ key: string; value: string; secret: boolean }>) => ({
+    version: 1 as const,
+    id: 'e1',
+    name: 'Dev',
+    variables,
+    createdAt: '2026-06-16T00:00:00.000Z',
+    updatedAt: '2026-06-16T00:00:00.000Z',
+  });
+
+  it('captures a JSON body value into the active environment on success', async () => {
+    const user = userEvent.setup();
+    useWorkspaceToolStore.setState({
+      environments: [devEnv([])],
+      activeEnvironmentId: 'e1',
+      requests: [seedCaptureRequest()],
+      activeRequestId: 'req-login',
+    });
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({ body: JSON.stringify({ data: { token: 'abc.def' } }) })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalledTimes(1));
+
+    await waitFor(() => {
+      const env = useWorkspaceToolStore
+        .getState()
+        .environments.find((e) => e.id === 'e1');
+      const token = env?.variables.find((v) => v.key === 'TOKEN');
+      expect(token?.value).toBe('abc.def');
+      // A `TOKEN`-named variable is secret-by-default.
+      expect(token?.secret).toBe(true);
+    });
+  });
+
+  it('updates an existing variable in place rather than duplicating it', async () => {
+    const user = userEvent.setup();
+    useWorkspaceToolStore.setState({
+      environments: [devEnv([{ key: 'TOKEN', value: 'stale', secret: true }])],
+      activeEnvironmentId: 'e1',
+      requests: [seedCaptureRequest()],
+      activeRequestId: 'req-login',
+    });
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({ body: JSON.stringify({ data: { token: 'fresh' } }) })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalledTimes(1));
+
+    await waitFor(() => {
+      const env = useWorkspaceToolStore
+        .getState()
+        .environments.find((e) => e.id === 'e1');
+      const tokens = env?.variables.filter((v) => v.key === 'TOKEN') ?? [];
+      expect(tokens).toHaveLength(1);
+      expect(tokens[0]?.value).toBe('fresh');
+    });
+  });
+
+  it('does not capture on a non-success response', async () => {
+    const user = userEvent.setup();
+    useWorkspaceToolStore.setState({
+      environments: [devEnv([])],
+      activeEnvironmentId: 'e1',
+      requests: [seedCaptureRequest()],
+      activeRequestId: 'req-login',
+    });
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({
+        kind: 'server-error',
+        status: 500,
+        body: JSON.stringify({ data: { token: 'leaked' } }),
+      })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalledTimes(1));
+
+    // Give any (incorrect) async write a chance to land before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const env = useWorkspaceToolStore
+      .getState()
+      .environments.find((e) => e.id === 'e1');
+    expect(env?.variables.find((v) => v.key === 'TOKEN')).toBeUndefined();
+  });
 });

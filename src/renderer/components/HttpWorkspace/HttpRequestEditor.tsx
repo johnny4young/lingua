@@ -36,10 +36,12 @@ import {
   HTTP_METHODS,
   MAX_REQUEST_BODY_BYTES,
   buildCurlCommand,
+  createBlankCaptureRule,
   paramsToUrl,
   reconcileParamsWithUrl,
   urlToParams,
   utf8ByteLength,
+  type HttpCaptureRule,
   type HttpMethod,
   type HttpQueryParam,
   type HttpRequestAuth,
@@ -63,13 +65,14 @@ import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/cn';
 import { tryParseCurl } from './curlImport';
 import { HttpParamsTab } from './HttpParamsTab';
+import { HttpCaptureTab } from './HttpCaptureTab';
 import { HttpAuthTab } from './HttpAuthTab';
 import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
 import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
 
-type BuilderTab = 'params' | 'auth' | 'headers' | 'body';
+type BuilderTab = 'params' | 'auth' | 'headers' | 'body' | 'capture';
 
 export interface HttpRequestEditorProps {
   request: HttpRequestV1;
@@ -142,6 +145,9 @@ export function HttpRequestEditor({
     request.queryParams ?? urlToParams(request.url)
   );
   const [auth, setAuth] = useState<HttpRequestAuth | undefined>(request.auth);
+  const [captures, setCaptures] = useState<HttpCaptureRule[]>(
+    request.captures ?? []
+  );
   const [builderTab, setBuilderTab] = useState<BuilderTab>('params');
 
   // RL-097 Slice 3a — the active environment, resolved from props.
@@ -217,6 +223,7 @@ export function HttpRequestEditor({
     setBody(request.body);
     setParams(request.queryParams ?? urlToParams(request.url));
     setAuth(request.auth);
+    setCaptures(request.captures ?? []);
   }, [
     request.id,
     request.url,
@@ -225,6 +232,7 @@ export function HttpRequestEditor({
     request.body,
     request.queryParams,
     request.auth,
+    request.captures,
     flushPendingPatch,
   ]);
 
@@ -445,6 +453,38 @@ export function HttpRequestEditor({
     [params, applyParams]
   );
 
+  // Capture rules (request chaining). Local-state + debounced patch,
+  // mirroring the params/headers pattern.
+  const applyCaptures = useCallback(
+    (nextCaptures: HttpCaptureRule[]) => {
+      setCaptures(nextCaptures);
+      scheduleAutoSave({ captures: nextCaptures });
+    },
+    [scheduleAutoSave]
+  );
+
+  const handleAddCapture = useCallback(() => {
+    applyCaptures([...captures, createBlankCaptureRule()]);
+  }, [captures, applyCaptures]);
+
+  const handleUpdateCapture = useCallback(
+    (index: number, patch: Partial<HttpCaptureRule>) => {
+      const next = captures.slice();
+      const current = next[index];
+      if (!current) return;
+      next[index] = { ...current, ...patch };
+      applyCaptures(next);
+    },
+    [captures, applyCaptures]
+  );
+
+  const handleRemoveCapture = useCallback(
+    (index: number) => {
+      applyCaptures(captures.filter((_, i) => i !== index));
+    },
+    [captures, applyCaptures]
+  );
+
   const handleAuthChange = useCallback(
     (nextAuth: HttpRequestAuth) => {
       setAuth(nextAuth);
@@ -545,6 +585,12 @@ export function HttpRequestEditor({
     [headers]
   );
   const authActive = (auth?.kind ?? 'none') !== 'none';
+  const enabledCaptureCount = useMemo(
+    () =>
+      captures.filter((c) => c.enabled && c.targetVariable.trim().length > 0)
+        .length,
+    [captures]
+  );
 
   const builderTabs: ReadonlyArray<{ id: BuilderTab; label: string; badge?: string }> =
     useMemo(() => {
@@ -572,8 +618,21 @@ export function HttpRequestEditor({
           ...(bodyKind !== 'none' ? { badge: '•' } : {}),
         });
       }
+      tabs.push({
+        id: 'capture',
+        label: t('httpWorkspace.editor.tab.capture'),
+        ...(enabledCaptureCount > 0 ? { badge: String(enabledCaptureCount) } : {}),
+      });
       return tabs;
-    }, [t, enabledParamCount, authActive, enabledHeaderCount, supportsBody, bodyKind]);
+    }, [
+      t,
+      enabledParamCount,
+      authActive,
+      enabledHeaderCount,
+      supportsBody,
+      bodyKind,
+      enabledCaptureCount,
+    ]);
 
   // If the active sub-tab is Body but the method stops supporting a
   // body (GET/HEAD/OPTIONS), fall back to Params so the editor never
@@ -889,6 +948,15 @@ export function HttpRequestEditor({
               />
             ) : null}
           </section>
+        ) : null}
+
+        {effectiveBuilderTab === 'capture' ? (
+          <HttpCaptureTab
+            captures={captures}
+            onAdd={handleAddCapture}
+            onUpdate={handleUpdateCapture}
+            onRemove={handleRemoveCapture}
+          />
         ) : null}
       </div>
     </div>
