@@ -28,6 +28,8 @@ import {
   type NotebookCodeCellV1,
 } from '../../../shared/notebook';
 import type { NotebookCellRunStatus } from '../../stores/notebookStore';
+import { detectAutoTable, type RichOutputTable } from '../../../shared/richOutput';
+import { RichTableGrid } from '../Console/RichTableGrid';
 import { cn } from '../../utils/cn';
 import { languageBadgeTone, languageLabel } from '../../utils/languageMeta';
 import { ResultHeader } from '../ui/ResultHeader';
@@ -161,6 +163,26 @@ function outputStatusKey(status: NotebookCellRunStatus): string {
     default:
       return statusKey(status);
   }
+}
+
+/**
+ * T3 — try to upgrade a plain-text output to a rich table. Only a
+ * string that trims to a JSON array of homogeneous plain objects
+ * qualifies (a terminal-expression array, `console.log([{…}])`, or a
+ * Python `print` of a JSON list). Returns `null` for everything else —
+ * a fast `[`-prefix guard keeps the common non-array case off the
+ * `JSON.parse` path.
+ */
+function tableFromOutputText(text: string): RichOutputTable | null {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed[0] !== '[') return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  return detectAutoTable(parsed);
 }
 
 function NotebookCodeCellRowImpl({
@@ -636,20 +658,41 @@ function NotebookCodeCellRowImpl({
               data-testid="notebook-code-cell-outputs"
               className="grid gap-0.5 p-2"
             >
-              {cell.outputs.map((output, idx) => (
-                <li
-                  key={`${cell.id}-output-${idx}`}
-                  data-stream={output.stream}
-                  className={cn(
-                    'whitespace-pre-wrap break-all font-mono text-caption',
-                    output.stream === 'stderr'
-                      ? 'text-error-fg'
-                      : 'text-foreground'
-                  )}
-                >
-                  {output.text}
-                </li>
-              ))}
+              {cell.outputs.map((output, idx) => {
+                // T3 — a stdout output that is a homogeneous JSON array of
+                // objects renders as a table (mirroring the console's
+                // auto-table), instead of raw JSON text. stderr always
+                // stays plain error-toned text.
+                const table =
+                  output.stream === 'stdout'
+                    ? tableFromOutputText(output.text)
+                    : null;
+                if (table) {
+                  return (
+                    <li
+                      key={`${cell.id}-output-${idx}`}
+                      data-stream={output.stream}
+                      data-rich="table"
+                    >
+                      <RichTableGrid payload={table} />
+                    </li>
+                  );
+                }
+                return (
+                  <li
+                    key={`${cell.id}-output-${idx}`}
+                    data-stream={output.stream}
+                    className={cn(
+                      'whitespace-pre-wrap break-all font-mono text-caption',
+                      output.stream === 'stderr'
+                        ? 'text-error-fg'
+                        : 'text-foreground'
+                    )}
+                  >
+                    {output.text}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
