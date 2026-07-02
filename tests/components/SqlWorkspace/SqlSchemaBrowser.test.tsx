@@ -107,6 +107,54 @@ describe('SqlSchemaBrowser', () => {
     expect(screen.getAllByTestId('sql-schema-browser-table')).toHaveLength(2);
   });
 
+  it('expands a table to reveal its column names + types', async () => {
+    const user = userEvent.setup();
+    const onInsertTable = vi.fn();
+    render(
+      <SqlSchemaBrowser
+        tables={[
+          {
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'INTEGER' },
+              { name: 'email', type: 'VARCHAR' },
+            ],
+          },
+          { name: 'orders' },
+        ]}
+        isLoading={false}
+        onRefresh={vi.fn()}
+        onInsertTable={onInsertTable}
+        canInsert
+      />
+    );
+
+    // The count chip derives from the columns array (2 columns).
+    expect(screen.getByTestId('sql-schema-browser-col-count').textContent).toContain(
+      '2'
+    );
+    // Only the table with columns gets an expand toggle.
+    const toggles = screen.getAllByTestId('sql-schema-browser-expand');
+    expect(toggles).toHaveLength(1);
+    // Columns are hidden until expanded.
+    expect(screen.queryByTestId('sql-schema-browser-columns')).toBeNull();
+
+    await user.click(toggles[0]!);
+    const cols = screen.getAllByTestId('sql-schema-browser-column');
+    expect(cols.map((c) => c.getAttribute('data-column-name'))).toEqual([
+      'id',
+      'email',
+    ]);
+    expect(cols[0]!.textContent).toContain('INTEGER');
+
+    // Expanding does not fire the insert callback (separate control).
+    expect(onInsertTable).not.toHaveBeenCalled();
+
+    // Collapsing hides them again.
+    await user.click(toggles[0]!);
+    expect(screen.queryByTestId('sql-schema-browser-columns')).toBeNull();
+  });
+
   it('renders the storage chip per mode (RL-097 Slice 3 OPFS)', () => {
     // Persistent: opfs mode + a usage label.
     const { rerender } = render(
