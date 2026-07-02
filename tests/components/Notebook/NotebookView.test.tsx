@@ -505,6 +505,9 @@ describe('<NotebookView />', () => {
     await user.click(screen.getByTestId('notebook-markdown-cell-toggle-edit'));
     const textarea = screen.getByTestId('notebook-markdown-cell-source');
     fireEvent.change(textarea, { target: { value: '# Updated' } });
+    // The store write is debounced (like code cells); blur flushes it
+    // synchronously (markdown leaves edit mode on blur).
+    fireEvent.blur(textarea);
     const stored = useNotebookStore
       .getState()
       .getNotebookForTab(TAB_ID)!

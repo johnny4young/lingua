@@ -14,7 +14,8 @@
  * rejects writes.
  */
 
-import { ipcMain, dialog, BrowserWindow, app, shell } from 'electron';
+import { dialog, BrowserWindow, app, shell } from 'electron';
+import { typedHandle } from './typedHandle';
 import {
   mkdir as mkdirFs,
   readFile,
@@ -74,11 +75,37 @@ interface WatcherEntry {
   rootId: RootId;
   watchedPath: string;
   targetKey: string;
+  /** webContents id that created the watcher, for lifecycle cleanup. */
+  senderId?: number;
   stop: () => void;
 }
 
 const watchers = new Map<WatchId, WatcherEntry>();
 const watcherIdsByTarget = new Map<string, WatchId>();
+// RL-146 hardening (B14) — tie each watcher to the webContents that
+// created it so a window close (macOS keeps the app alive with no
+// window) or a renderer reload does not leak the recursive project
+// watcher. Without this, `before-quit` was the ONLY cleanup for these
+// handles, and a reload mints a fresh rootId that never dedups against
+// the previous session's watcher. Mirrors the git HEAD watcher registry.
+const watcherIdsBySender = new Map<number, Set<WatchId>>();
+const senderDestroyedListenerInstalled = new Set<number>();
+
+function rememberWatcherForSender(senderId: number, watchId: WatchId): void {
+  let ids = watcherIdsBySender.get(senderId);
+  if (!ids) {
+    ids = new Set();
+    watcherIdsBySender.set(senderId, ids);
+  }
+  ids.add(watchId);
+}
+
+function forgetWatcherForSender(senderId: number, watchId: WatchId): void {
+  const ids = watcherIdsBySender.get(senderId);
+  if (!ids) return;
+  ids.delete(watchId);
+  if (ids.size === 0) watcherIdsBySender.delete(senderId);
+}
 
 interface FilesystemApprovalsFile {
   version: 1;
@@ -212,6 +239,29 @@ export async function pathIntersectsApprovedScope(
   return false;
 }
 
+/**
+ * Stricter, containment-only variant of `pathIntersectsApprovedScope` for
+ * consumers that read FILE CONTENTS off disk (git:status / git:diff). The
+ * path must BE an approved root/file or live INSIDE an approved root. The
+ * ancestor arm is intentionally absent: a repo toplevel sitting above the
+ * approved project is a legitimate repoRoot argument, but being an ancestor
+ * must never be enough to read arbitrary sibling files outside the approved
+ * subtree (unversioned monorepo secrets included).
+ */
+export async function pathInsideApprovedScope(
+  absolutePath: string
+): Promise<boolean> {
+  await loadFilesystemApprovals();
+  const normalized = normalizeApprovalPath(absolutePath);
+  if (approvedRoots.has(normalized) || approvedFiles.has(normalized)) {
+    return true;
+  }
+  for (const root of approvedRoots) {
+    if (isPathWithinProject(normalized, root)) return true;
+  }
+  return false;
+}
+
 export function _resetFilesystemApprovalsForTests(): void {
   filesystemApprovalsLoaded = false;
   approvedRoots = new Set();
@@ -338,11 +388,30 @@ function stopWatcherById(watchId: WatchId): boolean {
   entry.stop();
   watchers.delete(watchId);
   watcherIdsByTarget.delete(entry.targetKey);
+  if (entry.senderId !== undefined) {
+    forgetWatcherForSender(entry.senderId, watchId);
+  }
   // RL-087 — drop the per-watcher burst tracker entry so a long
   // session that opens + closes many projects under inotify load
   // does not accumulate dead UUIDs in the map.
   nullFilenameBursts.delete(watchId);
   return true;
+}
+
+/**
+ * Tear down every watcher a webContents owns. Wired to the sender's
+ * `destroyed` lifecycle event so a window close / reload does not leak
+ * fs.watch handles into the next session.
+ */
+function stopWatchersForSender(senderId: number): void {
+  const ids = watcherIdsBySender.get(senderId);
+  if (!ids) return;
+  // Copy first — stopWatcherById mutates the set via forgetWatcherForSender.
+  for (const watchId of [...ids]) {
+    stopWatcherById(watchId);
+  }
+  watcherIdsBySender.delete(senderId);
+  senderDestroyedListenerInstalled.delete(senderId);
 }
 
 /**
@@ -360,6 +429,8 @@ export function stopAllWatchers(): void {
   }
   watchers.clear();
   watcherIdsByTarget.clear();
+  watcherIdsBySender.clear();
+  senderDestroyedListenerInstalled.clear();
   // Clear burst tracker too for parity with `stopWatcherById`.
   // Moot in the `before-quit` path but matters when `stopAllWatchers`
   // is reused for tests.
@@ -467,7 +538,7 @@ export function registerFileSystemHandlers(): void {
 
   // ---------------------------------------------------------------- pickers
 
-  ipcMain.handle('fs:select-directory', async () => {
+  typedHandle('fs:select-directory', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
     });
@@ -484,7 +555,7 @@ export function registerFileSystemHandlers(): void {
     return { canceled: false, rootId, rootPath } as const;
   });
 
-  ipcMain.handle('fs:select-file', async () => {
+  typedHandle('fs:select-file', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: OPEN_FILE_FILTERS.map((filter) => ({
@@ -527,7 +598,7 @@ export function registerFileSystemHandlers(): void {
     } as const;
   });
 
-  ipcMain.handle(
+  typedHandle(
     'fs:save-dialog',
     async (_event, defaultName: string, defaultDir?: string) => {
       const result = await dialog.showSaveDialog({
@@ -552,7 +623,7 @@ export function registerFileSystemHandlers(): void {
   // actionable, localized denial (and a privacy-safe `fs.blocked` telemetry
   // signal that names only the family, never the path) when a reopen or pick is
   // refused by the denylist. Mints no capability; performs no disk write.
-  ipcMain.handle('fs:classify-blocked-path', (_event, absolutePath: string) => {
+  typedHandle('fs:classify-blocked-path', (_event, absolutePath: string) => {
     if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
       return { family: null } as const;
     }
@@ -568,7 +639,7 @@ export function registerFileSystemHandlers(): void {
    * longer resolves on disk fails loudly instead of silently minting a
    * token that subsequent operations would reject anyway.
    */
-  ipcMain.handle('fs:reopen-root', async (_event, absolutePath: string) => {
+  typedHandle('fs:reopen-root', async (_event, absolutePath: string) => {
     if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
       return { ok: false, error: 'not-found' } as const;
     }
@@ -608,7 +679,7 @@ export function registerFileSystemHandlers(): void {
    * previously approved project root. This keeps saved tabs/recent
    * files ergonomic without reopening a whole parent directory.
    */
-  ipcMain.handle('fs:reopen-file', async (_event, absolutePath: string) => {
+  typedHandle('fs:reopen-file', async (_event, absolutePath: string) => {
     if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
       return { ok: false, error: 'not-found' } as const;
     }
@@ -641,13 +712,13 @@ export function registerFileSystemHandlers(): void {
     return { ok: true, rootId, rootPath, fileRelativePath } as const;
   });
 
-  ipcMain.handle('fs:revoke-root', (_event, rootId: RootId) => {
+  typedHandle('fs:revoke-root', (_event, rootId: RootId) => {
     return revokeRoot(rootId);
   });
 
   // ------------------------------------------------------- close confirmations
 
-  ipcMain.handle(
+  typedHandle(
     'app:confirm-close',
     async (event, dirtyFileNames: string[], language?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -668,7 +739,7 @@ export function registerFileSystemHandlers(): void {
     }
   );
 
-  ipcMain.handle(
+  typedHandle(
     'app:confirm-close-tab',
     async (event, fileName: string, language?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -691,7 +762,7 @@ export function registerFileSystemHandlers(): void {
 
   // --------------------------------------------------------------- readdir
 
-  ipcMain.handle(
+  typedHandle(
     'fs:readdir',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(
@@ -713,7 +784,7 @@ export function registerFileSystemHandlers(): void {
           return {
             name: e.name,
             isDirectory: e.isDirectory(),
-            relativePath: joinRelative(relativePath, e.name),
+            relativePath: asRelativePath(joinRelative(relativePath, e.name)),
           };
         });
     }
@@ -728,7 +799,7 @@ export function registerFileSystemHandlers(): void {
    * entries are skipped to avoid cycles. Total result size is capped so a
    * pathological project cannot starve the IPC channel.
    */
-  ipcMain.handle(
+  typedHandle(
     'fs:listAllFiles',
     async (
       _event,
@@ -790,7 +861,7 @@ export function registerFileSystemHandlers(): void {
    * Capability-resolved root + relative path, same hidden-entry filter,
    * binary skip, size budget, and per-file / total match caps as before.
    */
-  ipcMain.handle(
+  typedHandle(
     'fs:searchInFiles',
     async (
       _event,
@@ -1023,7 +1094,7 @@ export function registerFileSystemHandlers(): void {
     await walk(rootAbsolutePath, rootRelativePath);
   }
 
-  ipcMain.handle(
+  typedHandle(
     'fs:replaceInFiles',
     async (
       _event,
@@ -1219,7 +1290,7 @@ export function registerFileSystemHandlers(): void {
     }
   );
 
-  ipcMain.handle(
+  typedHandle(
     'fs:applyReplaceInFile',
     async (
       _event,
@@ -1341,7 +1412,7 @@ export function registerFileSystemHandlers(): void {
 
   // ------------------------------------------------------------------ stat
 
-  ipcMain.handle('fs:stat', async (_event, rootId: RootId, relativePath: string) => {
+  typedHandle('fs:stat', async (_event, rootId: RootId, relativePath: string) => {
     const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
     const s = await statAsync(absolutePath);
     return {
@@ -1355,14 +1426,14 @@ export function registerFileSystemHandlers(): void {
 
   // ------------------------------------------------------------------ read
 
-  ipcMain.handle('fs:read', async (_event, rootId: RootId, relativePath: string) => {
+  typedHandle('fs:read', async (_event, rootId: RootId, relativePath: string) => {
     const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
     return readFile(absolutePath, 'utf-8');
   });
 
   // ----------------------------------------------------------------- write
 
-  ipcMain.handle(
+  typedHandle(
     'fs:write',
     async (_event, rootId: RootId, relativePath: string, content: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
@@ -1373,7 +1444,7 @@ export function registerFileSystemHandlers(): void {
 
   // ---------------------------------------------------------------- delete
 
-  ipcMain.handle(
+  typedHandle(
     'fs:delete',
     async (
       event,
@@ -1427,7 +1498,7 @@ export function registerFileSystemHandlers(): void {
 
   // ---------------------------------------------------------------- rename
 
-  ipcMain.handle(
+  typedHandle(
     'fs:rename',
     async (_event, rootId: RootId, relativeOldPath: string, newName: string) => {
       assertSafeEntryName(newName, 'name for rename');
@@ -1446,13 +1517,13 @@ export function registerFileSystemHandlers(): void {
         throw new CapabilityError(verify.error);
       }
       await renameFs(oldAbsolute, newAbsolute);
-      return newRelative;
+      return asRelativePath(newRelative);
     }
   );
 
   // ----------------------------------------------------------------- mkdir
 
-  ipcMain.handle(
+  typedHandle(
     'fs:mkdir',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
@@ -1463,7 +1534,7 @@ export function registerFileSystemHandlers(): void {
 
   // ----------------------------------------------------------------- touch (create empty file)
 
-  ipcMain.handle(
+  typedHandle(
     'fs:touch',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
@@ -1483,7 +1554,7 @@ export function registerFileSystemHandlers(): void {
   // renderer can't be turned into an information-disclosure side
   // channel. We resolve with `'read'` permission because we are not
   // writing anything; the read denylist still applies.
-  ipcMain.handle(
+  typedHandle(
     'fs:reveal-in-finder',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
@@ -1517,7 +1588,7 @@ export function registerFileSystemHandlers(): void {
    * surface `too-many-files` as a clean outcome instead of letting
    * `packBundle` throw.
    */
-  ipcMain.handle(
+  typedHandle(
     'fs:exportBundle',
     async (
       event,
@@ -1631,7 +1702,7 @@ export function registerFileSystemHandlers(): void {
    * On success it `rememberApprovedRoot`s the target so the renderer's
    * existing `openProject(rootPath)` → `fs:reopen-root` path adopts it.
    */
-  ipcMain.handle(
+  typedHandle(
     'fs:importBundle',
     async (
       _event,
@@ -1703,7 +1774,7 @@ export function registerFileSystemHandlers(): void {
 
   // --------------------------------------------------------------- watch
 
-  ipcMain.handle(
+  typedHandle(
     'fs:watch-start',
     async (event, rootId: RootId, relativePath: RelativePath = asRelativePath('')) => {
       const { absolutePath } = await resolveOrThrow(
@@ -1780,18 +1851,49 @@ export function registerFileSystemHandlers(): void {
         return { ok: false, diagnostic } as const;
       }
 
+      const senderId = event.sender.id;
       watchers.set(watchId, {
         rootId,
         watchedPath: absolutePath,
         targetKey,
+        senderId,
         stop: () => watcher.close(),
       });
       watcherIdsByTarget.set(targetKey, watchId);
+      rememberWatcherForSender(senderId, watchId);
+
+      // Tie the watcher to the sender's lifecycle so a window close
+      // (macOS keeps the app alive) or a renderer reload disposes it
+      // instead of leaking the recursive fs.watch. Install the listener
+      // AT MOST ONCE per sender id — every watch-start on the same
+      // sender otherwise queues another `destroyed` listener. Mirrors
+      // the git HEAD watcher registry.
+      if (!senderDestroyedListenerInstalled.has(senderId)) {
+        senderDestroyedListenerInstalled.add(senderId);
+        event.sender.once('destroyed', () => {
+          stopWatchersForSender(senderId);
+        });
+      }
+
+      // A recursive FSWatcher can also fail asynchronously long after
+      // registration (EPERM on Windows when the watched folder is deleted
+      // or renamed, deferred ENOSPC/EMFILE). Without an 'error' listener
+      // that emission becomes an uncaught exception that takes down the
+      // whole main process — the registration try/catch above only covers
+      // synchronous failures. Mirror the git HEAD watcher's posture:
+      // close + deregister + typed diagnostic to the renderer.
+      watcher.on('error', (error) => {
+        stopWatcherById(watchId);
+        const diagnostic = buildWatcherDiagnostic(error, rootId, relativePath);
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('fs:watcher-failed', diagnostic);
+        }
+      });
       return watchId;
     }
   );
 
-  ipcMain.handle('fs:watch-stop', (_event, watchId: string) => {
+  typedHandle('fs:watch-stop', (_event, watchId: string) => {
     // Boundary cast: the renderer hands back the opaque token main
     // returned from `fs:watch-start`. Branding the raw IPC string here is
     // the sanctioned mint point; `stopWatcherById` is a no-op for any

@@ -100,6 +100,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     // The toolbar hides the ⚡ Apply button for these panels.
     const GENERATOR_IDS: ReadonlySet<DeveloperUtilityDefinition['id']> = new Set([
       'random-string',
+      'mock-data',
       'lorem-ipsum',
       // RL-099 Slice 1 — Utility Pipelines panel takes its input
       // from the user-defined first step + the pipeline editor; the

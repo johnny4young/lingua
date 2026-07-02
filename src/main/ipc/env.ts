@@ -12,12 +12,12 @@
  * secrets across the preload boundary.
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './typedHandle';
 
 export function snapshotProcessEnv(): Record<string, string> {
   return {};
 }
 
 export function registerEnvHandlers(): void {
-  ipcMain.handle('env:snapshot', () => snapshotProcessEnv());
+  typedHandle('env:snapshot', () => snapshotProcessEnv());
 }

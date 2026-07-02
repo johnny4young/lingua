@@ -173,6 +173,13 @@ function registerLanguageHandlers<L extends LspLanguage>(
   config: LanguageHandlers<L>
 ): void {
   const { language, start, restart } = config;
+  // NOTE (typed IPC contract): this factory builds channel names
+  // dynamically (`lsp:${language}:${suffix}`), so it registers via raw
+  // `ipcMain.handle` — `typedHandle` requires a literal contract key and a
+  // computed string is not one. The channels ARE in `IpcInvokeContract`
+  // (both rust + go variants) and stay covered by the drift test; only the
+  // compile-time return-type binding is unavailable here, which is the
+  // inherent trade-off of a generic multi-language registrar.
   const channel = (suffix: string) => `lsp:${language}:${suffix}`;
   const launcherLabel = language === 'rust' ? 'rust-analyzer' : 'gopls';
 

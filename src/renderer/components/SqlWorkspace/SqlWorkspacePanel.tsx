@@ -25,6 +25,7 @@ import { getBundledAppInfo } from '../../../shared/appInfo';
 import {
   SQL_IMPORT_FILE_ACCEPT,
   createBlankSqlQuery,
+  queryChangesSchema,
   type SqlQueryV1,
   type SqlResponseV1,
 } from '../../../shared/sqlWorkspace';
@@ -142,6 +143,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // is shared per session, not per query.
   const [schemaTables, setSchemaTables] = useState<SqlSchemaTable[]>([]);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
+  // Stable indirection to handleRefreshTables (defined below) so the
+  // run handler + mount effect can trigger a schema refresh without
+  // depending on a callback declared later in the component body.
+  const refreshTablesRef = useRef<() => void>(() => {});
   // Run-history selection — index into the active query's response LRU
   // (0 = newest). A fresh run / query switch resets to 0.
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
@@ -285,6 +290,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         // A fresh run is always the newest entry — show it in the grid.
         setSelectedResponseIndex(0);
         trackSqlQueryExecuted(response);
+        // A successful DDL statement (CREATE/DROP/ALTER/ATTACH...) changed
+        // the schema — refresh the table browser + autocomplete so the
+        // sidebar never lies about what exists. Routed through a ref so
+        // handleRun does not depend on handleRefreshTables (defined below).
+        if (response.status === 'success' && queryChangesSchema(queryToRun.query)) {
+          refreshTablesRef.current();
+        }
         // UX Sweep T4 — announce the outcome to screen readers; the result
         // grid only conveys it visually.
         announce(
@@ -425,6 +437,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     }
   }, []);
 
+  // Keep the ref pointed at the latest handleRefreshTables so callers
+  // above (handleRun) can trigger it without a forward dependency.
+  useEffect(() => {
+    refreshTablesRef.current = () => void handleRefreshTables();
+  }, [handleRefreshTables]);
+
   // RL-097 (SQL import) — orchestration hook. Owns the validate → read →
   // preview → confirm → import flow + every notice + the fold-B telemetry.
   // `existingTableNames` feeds the fold-C collision de-duper; a successful
@@ -509,6 +527,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             messageKey: 'sqlWorkspace.storage.unavailableNotice',
           });
         }
+        // Populate the table browser + autocomplete on open. With OPFS
+        // persistence, tables from a previous session exist in the engine
+        // but were invisible until the user pressed Refresh manually.
+        refreshTablesRef.current();
       })
       .catch(() => {
         /* swallow — user-visible retry happens via Run path */

@@ -168,23 +168,24 @@ describe('useWorkspaceToolStore (RL-097 Slice 1)', () => {
     ).toBeUndefined();
   });
 
-  it('setActiveRequest resets isExecutingActive on switch', () => {
+  it('setActiveRequest does NOT clear executingRequestId (per-request model)', () => {
     useWorkspaceToolStore.getState().createRequest(makeRequest('a', 'A'));
     useWorkspaceToolStore.getState().createRequest(makeRequest('b', 'B'));
-    // `createRequest('b')` set activeRequestId = 'b'; the
-    // `setIsExecutingActive(true)` then flips the run flag. Now
-    // switching to 'a' must reset the flag (different request).
-    useWorkspaceToolStore.getState().setIsExecutingActive(true);
+    // 'b' is executing. Switching to 'a' must leave 'b' as the executing
+    // request — the old reset-on-switch was the source of the
+    // stale-settle-clobbers-newer-send race.
+    useWorkspaceToolStore.getState().setExecutingRequestId('b');
     useWorkspaceToolStore.getState().setActiveRequest('a');
-    expect(useWorkspaceToolStore.getState().isExecutingActive).toBe(false);
+    expect(useWorkspaceToolStore.getState().executingRequestId).toBe('b');
+    expect(useWorkspaceToolStore.getState().activeRequestId).toBe('a');
   });
 
-  it('setIsExecutingActive flips the flag without re-rendering on no-op', () => {
+  it('setExecutingRequestId sets the id without re-rendering on no-op', () => {
     const before = useWorkspaceToolStore.getState();
-    useWorkspaceToolStore.getState().setIsExecutingActive(false);
+    useWorkspaceToolStore.getState().setExecutingRequestId(null);
     expect(useWorkspaceToolStore.getState()).toBe(before);
-    useWorkspaceToolStore.getState().setIsExecutingActive(true);
-    expect(useWorkspaceToolStore.getState().isExecutingActive).toBe(true);
+    useWorkspaceToolStore.getState().setExecutingRequestId('a');
+    expect(useWorkspaceToolStore.getState().executingRequestId).toBe('a');
   });
 
   it('getLatestResponse returns the most-recent response', () => {

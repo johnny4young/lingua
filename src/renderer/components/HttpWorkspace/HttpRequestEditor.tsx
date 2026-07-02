@@ -21,7 +21,15 @@
  *     `onPatch` — no explicit Save button.
  */
 
-import { ChevronDown, Copy, Loader2, Plus, SendHorizontal, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  Copy,
+  Loader2,
+  Plus,
+  SendHorizontal,
+  Square,
+  Trash2,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -29,6 +37,7 @@ import {
   MAX_REQUEST_BODY_BYTES,
   buildCurlCommand,
   paramsToUrl,
+  reconcileParamsWithUrl,
   urlToParams,
   utf8ByteLength,
   type HttpMethod,
@@ -73,6 +82,8 @@ export interface HttpRequestEditorProps {
   onPatch: (requestId: string, patch: Partial<HttpRequestV1>) => void;
   /** Send the current request. Caller disables during in-flight. */
   onSend: (request: HttpRequestV1) => void;
+  /** Cancel the in-flight request. Optional (no-op when absent). */
+  onStop?: () => void;
   isExecuting: boolean;
   /**
    * RL-097 Slice 3a — environment wiring. The selector renders in the
@@ -107,6 +118,7 @@ export function HttpRequestEditor({
   request,
   onPatch,
   onSend,
+  onStop,
   isExecuting,
   environments = NO_ENVIRONMENTS,
   activeEnvironmentId = null,
@@ -389,11 +401,14 @@ export function HttpRequestEditor({
   const handleUrlChange = useCallback(
     (nextUrl: string) => {
       setUrl(nextUrl);
-      const nextParams = urlToParams(nextUrl);
+      // Preserve disabled ("commented out") param rows: they are not in
+      // the URL, so a plain urlToParams() would drop them on the first
+      // keystroke.
+      const nextParams = reconcileParamsWithUrl(nextUrl, params);
       setParams(nextParams);
       scheduleAutoSave({ url: nextUrl, queryParams: nextParams });
     },
-    [scheduleAutoSave]
+    [params, scheduleAutoSave]
   );
 
   // Edit a param row. Rebuild the URL from the rows so the URL bar
@@ -660,22 +675,35 @@ export function HttpRequestEditor({
             (httpWs `Btn variant="primary"`, `bg: D.acc / fg: D.onAcc`).
             Green stays reserved for SQL Run / success states. Label +
             shortcut hint show inline. */}
-        <button
-          type="button"
-          onClick={sendCurrentDraft}
-          disabled={isExecuting || url.trim().length === 0}
-          data-testid="http-request-editor-send"
-          aria-label={t('httpWorkspace.editor.send.label')}
-          title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint')}`}
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isExecuting ? (
+        {isExecuting ? (
+          // In-flight → the primary button becomes Stop (cancels the
+          // request; the previous response stays on screen).
+          <button
+            type="button"
+            onClick={onStop}
+            data-testid="http-request-editor-stop"
+            aria-label={t('httpWorkspace.editor.stop.label')}
+            title={t('httpWorkspace.editor.stop.label')}
+            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border-strong bg-bg-inset px-3 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset"
+          >
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-          ) : (
+            <Square size={12} aria-hidden="true" />
+            <span>{t('httpWorkspace.editor.stop.label')}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={sendCurrentDraft}
+            disabled={url.trim().length === 0}
+            data-testid="http-request-editor-send"
+            aria-label={t('httpWorkspace.editor.send.label')}
+            title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint')}`}
+            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset disabled:cursor-not-allowed disabled:opacity-50"
+          >
             <SendHorizontal size={14} aria-hidden="true" />
-          )}
-          <span>{t('httpWorkspace.editor.send.label')}</span>
-        </button>
+            <span>{t('httpWorkspace.editor.send.label')}</span>
+          </button>
+        )}
       </div>
 
       {/* RL-097 Slice 3a folds A + C — resolution preview beneath the

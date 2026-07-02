@@ -4,7 +4,7 @@
  * The renderer-side `DesktopRubySubprocessRunner` (folded into
  * `src/renderer/runners/ruby.ts`) calls
  * `window.lingua.ruby.run(source, options)` and the preload bridge
- * forwards to `ipcMain.handle('ruby:run', ...)` registered by
+ * forwards to `typedHandle('ruby:run', ...)` registered by
  * `registerRubyHandlers()` below.
  *
  * Security posture (same shape as node-runner.ts and rust-compiler.ts):
@@ -43,7 +43,8 @@
  *     `at_exit` hooks tend to run a beat slower).
  */
 
-import { ipcMain, app } from 'electron';
+import { app } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import * as childProc from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -324,10 +325,25 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
 
   // Always write source to a tempfile + pass by path. `-e` would mangle
   // multi-line heredocs and quoting edge cases; the tempfile path is
-  // robust on all platforms.
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-ruby-'));
+  // robust on all platforms. Guarded so a failed write (disk full, tmp
+  // unwritable) neither leaks the just-created directory nor escapes as
+  // a raw IPC rejection — the renderer expects a structured RubyRunResult
+  // on every path.
+  let tempDir: string;
+  try {
+    tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-ruby-'));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return invalidRubyRunResult(`Failed to stage the run's temp dir: ${message}`);
+  }
   const tempFile = path.join(tempDir, 'script.rb');
-  await writeFile(tempFile, source, 'utf-8');
+  try {
+    await writeFile(tempFile, source, 'utf-8');
+  } catch (err) {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    const message = err instanceof Error ? err.message : String(err);
+    return invalidRubyRunResult(`Failed to stage the run's temp script: ${message}`);
+  }
   const args = [tempFile];
 
   return await new Promise<RubyRunResult>((resolve) => {
@@ -518,12 +534,12 @@ export function stopRubyRun(runId: unknown): { stopped: boolean } {
 
 /** Register all Ruby-related IPC handlers. */
 export function registerRubyHandlers(): void {
-  ipcMain.handle(
+  typedHandle(
     'ruby:detect',
     async (_event, userEnv?: unknown, force?: unknown) =>
       detectRuby(normalizeStringMap(userEnv), force === true)
   );
-  ipcMain.handle(
+  typedHandle(
     'ruby:run',
     async (_event, source: unknown, options?: unknown) => {
       if (typeof source !== 'string') {
@@ -532,7 +548,7 @@ export function registerRubyHandlers(): void {
       return runRubyCode(source, normalizeRubyRunOptions(options));
     }
   );
-  ipcMain.handle('ruby:stop', async (_event, runId?: unknown) =>
+  typedHandle('ruby:stop', async (_event, runId?: unknown) =>
     stopRubyRun(runId)
   );
 }

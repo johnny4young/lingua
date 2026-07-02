@@ -37,6 +37,7 @@ import {
   type RunCapsuleV1,
 } from '../../shared/runCapsule';
 import {
+  authInjectedHeaderName,
   composeRequestHeaders,
   isHeaderSensitive,
   type HttpRequestV1,
@@ -98,12 +99,20 @@ function serializeRequestForCapsule(
   // `composeRequestHeaders` drops disabled / empty rows and appends the
   // injected auth header (auth wins a name collision), matching the wire
   // request the cURL builder prints.
+  //
+  // The auth-injected header is redacted UNCONDITIONALLY: a custom
+  // apiKey header name is not in the baseline sensitive list, so
+  // `isHeaderSensitive` alone would let its value through into the
+  // shared capsule. Fold it into the per-header check by name.
+  const injectedAuthLc = authInjectedHeaderName(request.auth)?.toLowerCase();
   const sortedHeaders = composeRequestHeaders(request)
     .map((h) => ({
       name: h.name,
-      value: isHeaderSensitive(h.name, userSensitiveHeaders)
-        ? '<redacted>'
-        : h.value,
+      value:
+        h.name.toLowerCase() === injectedAuthLc ||
+        isHeaderSensitive(h.name, userSensitiveHeaders)
+          ? '<redacted>'
+          : h.value,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
   for (const h of sortedHeaders) {

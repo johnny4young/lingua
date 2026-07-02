@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import path from 'node:path';
 import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
 import {
@@ -132,7 +133,7 @@ ipcMain.on('app:force-close', () => {
   app.quit();
 });
 
-ipcMain.handle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
+typedHandle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
 ipcMain.on('app:deep-link-renderer-ready', () => {
   markDeepLinkRendererReady(deepLinkState, true);
 });
@@ -170,6 +171,21 @@ const createWindow = () => {
     if (forceQuit) return;
     event.preventDefault();
     window.webContents.send('app:before-close');
+  });
+
+  // The intercept above waits for the renderer's `app:force-close`
+  // answer. A crashed or killed renderer (OOM during a heavy WASM run,
+  // GPU wedge) can never answer, which would leave the window — and
+  // `app.quit()` / the updater's `quitAndInstall()` — blocked forever
+  // behind the preventDefault(). Once the renderer process is gone there
+  // are no unsaved-changes semantics left to protect; let close proceed.
+  window.webContents.on('render-process-gone', () => {
+    forceQuit = true;
+  });
+  window.webContents.on('unresponsive', () => {
+    // Unresponsive is recoverable (Electron pairs it with `responsive`),
+    // so don't flip forceQuit here — but log it for diagnosis.
+    console.warn('[lingua] renderer became unresponsive');
   });
 
   // Show window once the renderer is ready

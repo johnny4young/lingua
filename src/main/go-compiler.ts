@@ -14,7 +14,7 @@
  * 1 MiB before being surfaced to the renderer.
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import { execFile } from 'node:child_process';
 import { writeFile, readFile, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -105,8 +105,20 @@ export function resolveGoToolchainEnv(
   return buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS), userEnv);
 }
 
+/**
+ * Session cache for the default-env probe. `go:compile` calls detect on
+ * EVERY run, and the probe costs two spawns (`go version` + `go env
+ * GOROOT`) — 40–160 ms of fixed latency per run, worse behind
+ * rustup/asdf-style shims. Only successful detects are cached (and only
+ * for the default env) so installing Go mid-session is still picked up
+ * by the next run, matching the node-runner convention.
+ */
+let cachedGoDetect: GoDetectResult | null = null;
+
 /** Detect if Go is installed and return version info */
 async function detectGo(userEnv?: Record<string, string>): Promise<GoDetectResult> {
+  const cacheable = userEnv === undefined;
+  if (cacheable && cachedGoDetect) return cachedGoDetect;
   try {
     const env = resolveGoToolchainEnv(userEnv);
     // 5s probe timeout: a hung PATH shim must not wedge the detect IPC
@@ -123,17 +135,24 @@ async function detectGo(userEnv?: Record<string, string>): Promise<GoDetectResul
       timeout: 5_000,
     });
 
-    return {
+    const result: GoDetectResult = {
       installed: true,
       version,
       goRoot: goRoot.trim(),
     };
+    if (cacheable) cachedGoDetect = result;
+    return result;
   } catch {
     return {
       installed: false,
       error: 'Go is not installed. Install it from https://go.dev/dl/',
     };
   }
+}
+
+/** Test seam — drop the session detect cache between cases. */
+export function resetGoDetectCacheForTests(): void {
+  cachedGoDetect = null;
 }
 
 /**
@@ -246,11 +265,11 @@ async function compileGoToWasm(
 
 /** Register all Go-related IPC handlers */
 export function registerGoHandlers(): void {
-  ipcMain.handle('go:detect', async (_event, userEnv?: Record<string, string>) => {
+  typedHandle('go:detect', async (_event, userEnv?: Record<string, string>) => {
     return detectGo(userEnv);
   });
 
-  ipcMain.handle(
+  typedHandle(
     'go:compile',
     async (
       _event,

@@ -61,13 +61,16 @@ interface WorkspaceToolState {
   /** Currently-active request id; null when none. */
   readonly activeRequestId: string | null;
   /**
-   * Flips true when the in-flight execution of `activeRequestId`
-   * starts; back to false on settle. Used to disable the Send button
-   * + suppress concurrent Cmd+Enter triggers. NOT persisted — a
-   * crash mid-execution should leave the next session with a clean
-   * "no run in flight" state.
+   * The id of the request whose execution is currently in flight, or
+   * null when none. Tracked per-request (not a single global boolean)
+   * so switching to a different request no longer has to reset the flag
+   * — the previous design's reset-on-switch let a stale settle clobber
+   * a newer send's state (concurrent duplicate sends). The Send button
+   * for a request is disabled only while THAT request is the one in
+   * flight. NOT persisted — a crash mid-execution should leave the next
+   * session with a clean "no run in flight" state.
    */
-  readonly isExecutingActive: boolean;
+  readonly executingRequestId: string | null;
 
   /**
    * RL-097 Slice 3a — persisted HTTP environments. Each is a named bag
@@ -109,8 +112,8 @@ interface WorkspaceToolState {
   recordResponse: (requestId: string, response: HttpResponseV1) => void;
   /** Clear the history for a single request. */
   clearHistory: (requestId: string) => void;
-  /** Flip the execution flag (called by the runtime layer). */
-  setIsExecutingActive: (value: boolean) => void;
+  /** Set (or clear with null) the id of the in-flight request. */
+  setExecutingRequestId: (id: string | null) => void;
 
   // -------- selectors (cheap derived data) ---------------------------------
 
@@ -191,7 +194,7 @@ function createInitialState(): Pick<
   | 'requests'
   | 'responsesByRequestId'
   | 'activeRequestId'
-  | 'isExecutingActive'
+  | 'executingRequestId'
   | 'environments'
   | 'activeEnvironmentId'
 > {
@@ -199,7 +202,7 @@ function createInitialState(): Pick<
     requests: [],
     responsesByRequestId: {},
     activeRequestId: null,
-    isExecutingActive: false,
+    executingRequestId: null,
     environments: [],
     activeEnvironmentId: null,
   };
@@ -261,11 +264,10 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
       setActiveRequest: (id) =>
         set((state) => {
           if (state.activeRequestId === id) return state;
-          // Reset the executing flag when switching away from an
-          // in-flight request — the UI is no longer focused on it,
-          // so a stuck `true` would freeze the Send button next
-          // time the user returns.
-          return { activeRequestId: id, isExecutingActive: false };
+          // Execution state is per-request now, so switching away does
+          // NOT touch it — the previous reset-on-switch was the source
+          // of the stale-settle-clobbers-newer-send race.
+          return { activeRequestId: id };
         }),
 
       recordResponse: (requestId, response) =>
@@ -302,9 +304,9 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           return { responsesByRequestId };
         }),
 
-      setIsExecutingActive: (value) =>
+      setExecutingRequestId: (id) =>
         set((state) =>
-          state.isExecutingActive === value ? state : { isExecutingActive: value }
+          state.executingRequestId === id ? state : { executingRequestId: id }
         ),
 
       getRequest: (id) => get().requests.find((r) => r.id === id),
@@ -558,8 +560,8 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
             merged.activeEnvironmentId = null;
           }
         }
-        // Always start with a clean execution flag (see field docs).
-        merged.isExecutingActive = false;
+        // Always start with a clean execution state (see field docs).
+        merged.executingRequestId = null;
         return merged;
       },
     }
