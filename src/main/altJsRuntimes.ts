@@ -29,7 +29,7 @@
  * binaries installed.
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import { execFile, spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -328,25 +328,39 @@ export function _resetAltRuntimesForTests(): void {
   activeRuns.clear();
 }
 
+function invalidSourceResult(id: AltJsRuntimeId): AltJsRunResult {
+  return {
+    kind: 'error',
+    stdout: '',
+    stderr: `${id} runner received invalid source.`,
+    exitCode: -1,
+    executionTime: 0,
+    error: 'invalid-source',
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+  };
+}
+
 export function registerAltJsRuntimeHandlers(): void {
-  for (const id of ['deno', 'bun'] as const) {
-    ipcMain.handle(`${id}:detect`, async (_event, userEnv?: unknown, force?: unknown) =>
-      detectAltRuntime(id, normalizeStringMap(userEnv), force === true)
-    );
-    ipcMain.handle(`${id}:run`, async (_event, source: unknown, options?: unknown) => {
-      if (typeof source !== 'string') {
-        return {
-          kind: 'error' as const,
-          stdout: '',
-          stderr: `${id} runner received invalid source.`,
-          exitCode: -1,
-          executionTime: 0,
-          error: 'invalid-source',
-          timeoutMs: DEFAULT_TIMEOUT_MS,
-        } satisfies AltJsRunResult;
-      }
-      return runAltRuntime(id, source, normalizeAltRunOptions(options));
-    });
-    ipcMain.handle(`${id}:stop`, async (_event, runId?: unknown) => stopAltRun(runId));
-  }
+  // Registered under literal channel names (not a `${id}` loop) so the
+  // typed IPC contract type-checks each one and the ipcContract drift test
+  // can statically see them.
+  typedHandle('deno:detect', async (_event, userEnv?: Record<string, string>, force?: boolean) =>
+    detectAltRuntime('deno', userEnv, force === true)
+  );
+  typedHandle('deno:run', async (_event, source: string, options?: AltJsRunInvokeOptions) =>
+    typeof source === 'string'
+      ? runAltRuntime('deno', source, normalizeAltRunOptions(options))
+      : invalidSourceResult('deno')
+  );
+  typedHandle('deno:stop', async (_event, runId: string) => stopAltRun(runId));
+
+  typedHandle('bun:detect', async (_event, userEnv?: Record<string, string>, force?: boolean) =>
+    detectAltRuntime('bun', userEnv, force === true)
+  );
+  typedHandle('bun:run', async (_event, source: string, options?: AltJsRunInvokeOptions) =>
+    typeof source === 'string'
+      ? runAltRuntime('bun', source, normalizeAltRunOptions(options))
+      : invalidSourceResult('bun')
+  );
+  typedHandle('bun:stop', async (_event, runId: string) => stopAltRun(runId));
 }
