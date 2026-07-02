@@ -14,7 +14,7 @@
  * 1 MiB before being surfaced to the renderer.
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import { execFile } from 'node:child_process';
 import { writeFile, readFile, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -265,11 +265,11 @@ async function compileGoToWasm(
 
 /** Register all Go-related IPC handlers */
 export function registerGoHandlers(): void {
-  ipcMain.handle('go:detect', async (_event, userEnv?: Record<string, string>) => {
+  typedHandle('go:detect', async (_event, userEnv?: Record<string, string>) => {
     return detectGo(userEnv);
   });
 
-  ipcMain.handle(
+  typedHandle(
     'go:compile',
     async (
       _event,

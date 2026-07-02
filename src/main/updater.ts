@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
 
 // electron-updater auto-installs from the platform's updater-native format:
@@ -176,8 +177,8 @@ function startUpdater(): void {
 
 export function registerUpdater(): void {
   if (!registered) {
-    ipcMain.handle('updates:get-state', async () => updateState);
-    ipcMain.handle('updates:check', async () => {
+    typedHandle('updates:get-state', async () => updateState);
+    typedHandle('updates:check', async () => {
       if (!updateState.enabled) return updateState;
 
       try {
@@ -193,7 +194,7 @@ export function registerUpdater(): void {
 
       return updateState;
     });
-    ipcMain.handle('updates:restart', async () => {
+    typedHandle('updates:restart', async () => {
       // Defensive recovery: even when local `updateState.status` is not
       // 'downloaded' (e.g. lost to a future state-machine bug),
       // `quitAndInstall()` is safe — electron-updater no-ops when no staged

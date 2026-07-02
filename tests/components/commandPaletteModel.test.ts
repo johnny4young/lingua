@@ -502,8 +502,9 @@ describe('buildCommandPaletteModel', () => {
     // base64-image, lorem-ipsum, svg-to-css, cron-parser, html-to-jsx,
     // curl-to-code, plus the RL-068 closeout bundle (yaml-json,
     // json-csv, markdown-preview, sql-formatter) — was 29. RL-099
-    // Slice 1 bumps to 30 with `utility-pipelines`.
-    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(30);
+    // Slice 1 bumps to 30 with `utility-pipelines`; the mock-data
+    // generator bumps to 31 with `mock-data`.
+    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(31);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
     expect(urlParserAction?.label).toBe('Open URL Parser');
     expect(urlParserAction?.description).toContain('scheme, host, path, query, and fragment');
