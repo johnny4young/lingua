@@ -331,6 +331,25 @@ export function utf8ByteLength(value: string): number {
 }
 
 /**
+ * Heuristic: does the SQL text contain a schema-changing (DDL) statement?
+ * Used to auto-refresh the table browser + autocomplete after a run, so
+ * a `CREATE TABLE` / `DROP` / `ATTACH` is reflected without a manual
+ * Refresh. Line + block comments are stripped first so a keyword inside
+ * a comment does not trigger a needless refresh; false positives here
+ * are harmless (an extra `SHOW TABLES`), so the check stays deliberately
+ * permissive rather than parsing the grammar.
+ */
+export function queryChangesSchema(sql: string): boolean {
+  if (typeof sql !== 'string' || sql.length === 0) return false;
+  const withoutComments = sql
+    .replace(/--[^\n]*/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+  return /\b(create|drop|alter|attach|detach|truncate|rename)\b/i.test(
+    withoutComments
+  );
+}
+
+/**
  * Bucket a wall-clock duration into the closed-enum bucket. Used by
  * the telemetry helper + by tests verifying the bucketing contract.
  * `<0` is defensive — should never happen for a real Date.now() diff.

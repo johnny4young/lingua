@@ -144,40 +144,45 @@ export function SqlResultPreview({
     setSort((current) => nextSortState(current, column));
   }, []);
 
-  // The filtered + sorted + capped rows the table / JSON view render.
-  const displayRows = useMemo(() => {
+  // Filter + sort once, reused for the display cap and the pre-cap count
+  // (was filtered twice per render).
+  const filteredSortedRows = useMemo(() => {
     if (!response || response.rows.length === 0) return [];
-    const filtered = filterRows(response.rows, filter);
-    const sorted = sortRows(filtered, sort);
-    return sorted.slice(0, Math.max(1, rowDisplayLimit));
-  }, [response, rowDisplayLimit, filter, sort]);
+    return sortRows(filterRows(response.rows, filter), sort);
+  }, [response, filter, sort]);
+
+  // The filtered + sorted + capped rows the table / JSON view render.
+  const displayRows = useMemo(
+    () => filteredSortedRows.slice(0, Math.max(1, rowDisplayLimit)),
+    [filteredSortedRows, rowDisplayLimit]
+  );
 
   // Count of preview rows surviving the filter (before the display cap)
-  // so the filter chip can disclose "N of M" without re-filtering.
-  const filteredCount = useMemo(() => {
-    if (!response || response.rows.length === 0) return 0;
-    return filterRows(response.rows, filter).length;
-  }, [response, filter]);
+  // so the filter chip can disclose "N of M".
+  const filteredCount = filteredSortedRows.length;
 
+  // Copy = WYSIWYG: the filtered / sorted / capped rows the user actually
+  // sees in the grid, NOT the full raw result. Copying something other
+  // than what is on screen is a silent surprise.
   const handleCopyJson = useCallback(() => {
     if (!response) return;
     copyToClipboard(
-      JSON.stringify(response.rows, null, 2),
+      JSON.stringify(displayRows, null, 2),
       copyNoticeFor(response, 'json')
     );
-  }, [response]);
+  }, [response, displayRows]);
 
   const handleCopyCsv = useCallback(() => {
     if (!response) return;
-    const csv = rowsToCsv(response.columns, response.rows);
+    const csv = rowsToCsv(response.columns, displayRows);
     copyToClipboard(csv, copyNoticeFor(response, 'csv'));
-  }, [response]);
+  }, [response, displayRows]);
 
   const handleCopyMarkdown = useCallback(() => {
     if (!response) return;
-    const md = rowsToMarkdownTable(response.columns, response.rows);
+    const md = rowsToMarkdownTable(response.columns, displayRows);
     copyToClipboard(md, copyNoticeFor(response, 'markdown'));
-  }, [response]);
+  }, [response, displayRows]);
 
   if (response === null) {
     return (

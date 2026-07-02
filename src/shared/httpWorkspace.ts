@@ -607,6 +607,27 @@ export function urlToParams(url: string): HttpQueryParam[] {
 }
 
 /**
+ * Reconcile the Params table when the URL bar is edited directly.
+ *
+ * `urlToParams` alone only recovers the `enabled` rows encoded in the
+ * query string — a disabled ("commented out") row is intentionally NOT
+ * in the URL (`paramsToUrl` drops it), so re-seeding purely from the URL
+ * silently DELETES every disabled row on the first keystroke. This
+ * merges the freshly-parsed enabled rows with the disabled rows carried
+ * over from `prevParams`, so toggling a row off and then editing the URL
+ * no longer loses it. Disabled rows keep their relative order and are
+ * appended after the URL-derived rows.
+ */
+export function reconcileParamsWithUrl(
+  nextUrl: string,
+  prevParams: ReadonlyArray<HttpQueryParam>
+): HttpQueryParam[] {
+  const fromUrl = urlToParams(nextUrl);
+  const disabled = prevParams.filter((param) => !param.enabled);
+  return [...fromUrl, ...disabled];
+}
+
+/**
  * Rebuild a URL string from a base URL + query-param rows. The base is
  * taken from `url` (everything before `?`); enabled rows with a
  * non-empty key are appended as a fresh query string. Disabled rows
@@ -683,6 +704,29 @@ export function buildAuthHeader(
   const headerValue = auth.apiKeyValue ?? '';
   if (headerValue.length === 0) return null;
   return { name: headerName, value: headerValue };
+}
+
+/**
+ * The header NAME the auth config injects, regardless of whether the
+ * value is filled in yet — `'Authorization'` for bearer/basic, the
+ * custom `apiKeyHeader` (default `X-API-Key`) for apiKey, `null` for
+ * `'none'`.
+ *
+ * Security: the capsule serializer must redact the auth-injected header
+ * unconditionally. `buildAuthHeader` only returns non-null once a value
+ * is present, and `isHeaderSensitive` only knows the baseline +
+ * user-allowlisted names — so a `kind: 'apiKey'` request with a CUSTOM
+ * header name (e.g. `X-Custom-Auth`, not in the baseline) would have
+ * leaked its value in clear into share-links / CLI replay / AI prompts.
+ * This helper closes that gap by naming the injected header for callers
+ * that redact by name.
+ */
+export function authInjectedHeaderName(
+  auth: HttpRequestAuth | undefined
+): string | null {
+  if (!auth || auth.kind === 'none') return null;
+  if (auth.kind === 'bearer' || auth.kind === 'basic') return 'Authorization';
+  return (auth.apiKeyHeader ?? '').trim() || DEFAULT_API_KEY_HEADER;
 }
 
 /**
