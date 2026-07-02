@@ -102,8 +102,20 @@ export function resolveRustRunEnv(
   return buildNativeRunnerEnv(combinedAllowlist(RUST_TOOLCHAIN_KEYS), userEnv);
 }
 
+/**
+ * Session cache for the default-env probe. `rust:run` calls detect on
+ * EVERY run, so an uncached probe adds a fixed `rustc --version` spawn
+ * (slow behind rustup shims) to each execution. Only successful detects
+ * are cached (and only for the default env) so installing Rust
+ * mid-session is picked up by the next run — same convention as
+ * node-runner and go-compiler.
+ */
+let cachedRustDetect: RustDetectResult | null = null;
+
 /** Detect if Rust (rustc) is installed and return version info */
 async function detectRust(userEnv?: Record<string, string>): Promise<RustDetectResult> {
+  const cacheable = userEnv === undefined;
+  if (cacheable && cachedRustDetect) return cachedRustDetect;
   try {
     const { stdout } = await execFileAsync('rustc', ['--version'], {
       env: resolveRustRunEnv(userEnv),
@@ -111,13 +123,20 @@ async function detectRust(userEnv?: Record<string, string>): Promise<RustDetectR
       // Matches the LSP launchers' 5s probe convention.
       timeout: 5_000,
     });
-    return { installed: true, version: stdout.trim() };
+    const result: RustDetectResult = { installed: true, version: stdout.trim() };
+    if (cacheable) cachedRustDetect = result;
+    return result;
   } catch {
     return {
       installed: false,
       error: 'Rust is not installed. Install it from https://rustup.rs',
     };
   }
+}
+
+/** Test seam — drop the session detect cache between cases. */
+export function resetRustDetectCacheForTests(): void {
+  cachedRustDetect = null;
 }
 
 /** Compile and run Rust source code natively */

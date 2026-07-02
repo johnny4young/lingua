@@ -21,6 +21,7 @@
  * explicit feature gate.
  */
 
+import path from 'node:path';
 import { typedHandle } from './typedHandle';
 import {
   detectGit,
@@ -35,7 +36,10 @@ import {
   type GitHeadWatcher,
   type GitHeadWatcherDiagnostic,
 } from '../git';
-import { pathIntersectsApprovedScope } from './fileSystem';
+import {
+  pathInsideApprovedScope,
+  pathIntersectsApprovedScope,
+} from './fileSystem';
 import { isPathBlocked } from './permissions';
 
 /**
@@ -51,6 +55,33 @@ import { isPathBlocked } from './permissions';
 async function isApprovedGitScope(absolutePath: string): Promise<boolean> {
   if (isPathBlocked(absolutePath, 'read')) return false;
   return pathIntersectsApprovedScope(absolutePath);
+}
+
+/**
+ * File-level gate for the content-reading git channels (`git:status`,
+ * `git:diff`). The repoRoot gate alone is not enough: in the monorepo case
+ * the approved scope is a SUBFOLDER of the repo toplevel, so any file under
+ * the toplevel — including unversioned secrets in sibling packages or the
+ * repo root's `.env` — would pass the ancestor arm of the root gate while
+ * sitting outside what the user actually approved. Content reads therefore
+ * also require the individual file to sit inside the approved scope and to
+ * clear the filesystem denylist.
+ *
+ * `rawFilePath` may arrive relative (to `repoRoot`) or absolute; both are
+ * resolved against the repo root before the check.
+ */
+async function isApprovedGitFile(
+  repoRoot: string,
+  rawFilePath: string
+): Promise<boolean> {
+  let absoluteFile: string;
+  try {
+    absoluteFile = path.resolve(repoRoot, rawFilePath);
+  } catch {
+    return false;
+  }
+  if (isPathBlocked(absoluteFile, 'read')) return false;
+  return pathInsideApprovedScope(absoluteFile);
 }
 
 /**
@@ -158,6 +189,9 @@ export function registerGitHandlers(): void {
       if (!(await isApprovedGitScope(rawRepoRoot))) {
         return { status: 'unknown' };
       }
+      if (!(await isApprovedGitFile(rawRepoRoot, rawFilePath))) {
+        return { status: 'unknown' };
+      }
       return getFileStatus(rawRepoRoot, rawFilePath);
     }
   );
@@ -176,6 +210,9 @@ export function registerGitHandlers(): void {
         return { originalContent: '', modifiedContent: '', truncated: false };
       }
       if (!(await isApprovedGitScope(rawRepoRoot))) {
+        return { originalContent: '', modifiedContent: '', truncated: false };
+      }
+      if (!(await isApprovedGitFile(rawRepoRoot, rawFilePath))) {
         return { originalContent: '', modifiedContent: '', truncated: false };
       }
       return getFileDiff(rawRepoRoot, rawFilePath);
@@ -247,6 +284,16 @@ export function registerGitHandlers(): void {
         });
       } catch {
         return { ok: false };
+      }
+      // Re-check the registry AFTER the awaits above: two rapid calls
+      // (React StrictMode double-effect, fast re-renders) both pass the
+      // `has()` check at the top, and without this the second `set()`
+      // would overwrite the first handle — leaking a live fs.watch that
+      // fires duplicate `git rev-parse` probes forever with no way to
+      // dispose it.
+      if (headWatchers.has(key)) {
+        handle.dispose();
+        return { ok: true };
       }
       headWatchers.set(key, handle);
       rememberWatcherForSender(senderId, key);

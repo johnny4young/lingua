@@ -42,6 +42,11 @@ vi.mock('@/hooks/useEntitlement', () => ({
   currentEffectiveTier: () => 'pro',
   useEffectiveTier: () => 'pro',
 }));
+// Store-side tier checks (tab budget in editorTabActions) now read from
+// stores/licenseSelectors, not the hook — mock it there too.
+vi.mock('@/stores/licenseSelectors', () => ({
+  currentEffectiveTier: () => 'pro',
+}));
 
 beforeEach(async () => {
   await initI18n();

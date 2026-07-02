@@ -654,12 +654,27 @@ async function spawnNode(
   if (Buffer.byteLength(source, 'utf-8') <= NODE_INLINE_CODE_MAX_BYTES) {
     args = [`--input-type=${inputType}`, '-e', source];
   } else {
-    const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-node-'));
-    const ext = inputType === 'module' ? 'mjs' : 'cjs';
-    const tempFile = path.join(tempDir, `entry.${ext}`);
-    await writeFile(tempFile, source, 'utf-8');
-    args = [tempFile];
-    cleanupTempDir = tempDir;
+    // Guarded so a failed write (disk full, tmp unwritable) neither leaks
+    // the just-created directory nor escapes as a raw IPC rejection — the
+    // renderer expects a structured NodeRunResult on every path. Matches
+    // the finally { rm } posture of the rust/go compilers.
+    let tempDir: string | null = null;
+    try {
+      tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-node-'));
+      const ext = inputType === 'module' ? 'mjs' : 'cjs';
+      const tempFile = path.join(tempDir, `entry.${ext}`);
+      await writeFile(tempFile, source, 'utf-8');
+      args = [tempFile];
+      cleanupTempDir = tempDir;
+    } catch (err) {
+      if (tempDir) {
+        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      return invalidNodeRunResult(
+        `Failed to stage the run's temp entry file: ${message}`
+      );
+    }
   }
 
   return await new Promise<NodeRunResult>((resolve) => {

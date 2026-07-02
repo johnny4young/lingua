@@ -511,10 +511,15 @@ The desktop watch flow is:
 2. The main process stores a stop function in a `Map`.
 3. Node's `fs.watch` emits coarse change events.
 4. The main process forwards them as `fs:changed`.
-5. `useProjectWatchSync()` debounces the burst.
+5. `useProjectWatchSync()` debounces the burst and collects the touched
+   relative paths.
 6. Content `change` events that identify an open tab schedule a reload-from-disk notice.
-7. The renderer calls `refreshTree()` for the active project root.
-8. `refreshTree()` rebuilds the tree while preserving expanded paths.
+7. The renderer calls `applyWatchChanges(changes)` (RL-146) with the
+   collected paths, which re-reads only the affected directories and
+   patches the tree in place.
+8. When the batch cannot be scoped (null-filename burst, watcher
+   degradation), the hook falls back to the full `refreshTree()` walk,
+   which rebuilds the tree while preserving expanded paths.
 9. After the refresh, loaded open tabs whose files vanished get one debounced stale-file notice.
 
 ### Why watch IDs are opaque
@@ -530,7 +535,7 @@ That works because:
 
 This is intentionally simple. It is not trying to model multiple independent watchers under the same root, and it keeps local paths out of renderer-owned watcher state.
 
-### Why watch events trigger a full refresh instead of patching a node
+### Why watch events invalidate directories instead of being interpreted as semantic edits
 
 This is one of the most important technical choices in the feature.
 
@@ -543,16 +548,27 @@ Node's `fs.watch` is useful, but not precise enough to drive tree mutations dire
 
 So the project does **not** try to interpret the raw event stream as truth.
 
-Instead it treats watch events as an invalidation signal:
+Instead it treats watch events as an invalidation signal, at directory
+granularity:
 
-- “something changed under this root”
-- debounce
-- rebuild the relevant visible tree state from disk
+- “something changed under these directories”
+- debounce and coalesce the burst
+- re-read the affected directories from disk (`applyWatchChanges()`)
+  and patch the committed tree with what the `readdir` actually returned
+
+History: before RL-146 the invalidation was root-granular — every burst
+triggered a full `refreshTree()` walk. The incremental path replaced it
+as the hot path because full walks scaled poorly on large projects, but
+the DESIGN principle is unchanged: disk is the source of truth and the
+renderer never trusts the raw event semantics. The full walk survives
+as the fallback for events that cannot be scoped (null filenames,
+watcher degradation) and for boot/manual refresh.
 
 Why this is technically safer:
 
 - avoids platform-specific watcher logic in the renderer
-- avoids stale or partially applied local tree patches
+- avoids stale or partially applied local tree patches (every patched
+  directory reflects a real `readdir`, never an inferred edit)
 - keeps the architecture deterministic even if the event stream is noisy
 
 ### Debounce behavior

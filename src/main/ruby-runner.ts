@@ -325,10 +325,25 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
 
   // Always write source to a tempfile + pass by path. `-e` would mangle
   // multi-line heredocs and quoting edge cases; the tempfile path is
-  // robust on all platforms.
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-ruby-'));
+  // robust on all platforms. Guarded so a failed write (disk full, tmp
+  // unwritable) neither leaks the just-created directory nor escapes as
+  // a raw IPC rejection — the renderer expects a structured RubyRunResult
+  // on every path.
+  let tempDir: string;
+  try {
+    tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-ruby-'));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return invalidRubyRunResult(`Failed to stage the run's temp dir: ${message}`);
+  }
   const tempFile = path.join(tempDir, 'script.rb');
-  await writeFile(tempFile, source, 'utf-8');
+  try {
+    await writeFile(tempFile, source, 'utf-8');
+  } catch (err) {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    const message = err instanceof Error ? err.message : String(err);
+    return invalidRubyRunResult(`Failed to stage the run's temp script: ${message}`);
+  }
   const args = [tempFile];
 
   return await new Promise<RubyRunResult>((resolve) => {

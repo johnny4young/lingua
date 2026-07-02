@@ -75,11 +75,37 @@ interface WatcherEntry {
   rootId: RootId;
   watchedPath: string;
   targetKey: string;
+  /** webContents id that created the watcher, for lifecycle cleanup. */
+  senderId?: number;
   stop: () => void;
 }
 
 const watchers = new Map<WatchId, WatcherEntry>();
 const watcherIdsByTarget = new Map<string, WatchId>();
+// RL-146 hardening (B14) — tie each watcher to the webContents that
+// created it so a window close (macOS keeps the app alive with no
+// window) or a renderer reload does not leak the recursive project
+// watcher. Without this, `before-quit` was the ONLY cleanup for these
+// handles, and a reload mints a fresh rootId that never dedups against
+// the previous session's watcher. Mirrors the git HEAD watcher registry.
+const watcherIdsBySender = new Map<number, Set<WatchId>>();
+const senderDestroyedListenerInstalled = new Set<number>();
+
+function rememberWatcherForSender(senderId: number, watchId: WatchId): void {
+  let ids = watcherIdsBySender.get(senderId);
+  if (!ids) {
+    ids = new Set();
+    watcherIdsBySender.set(senderId, ids);
+  }
+  ids.add(watchId);
+}
+
+function forgetWatcherForSender(senderId: number, watchId: WatchId): void {
+  const ids = watcherIdsBySender.get(senderId);
+  if (!ids) return;
+  ids.delete(watchId);
+  if (ids.size === 0) watcherIdsBySender.delete(senderId);
+}
 
 interface FilesystemApprovalsFile {
   version: 1;
@@ -213,6 +239,29 @@ export async function pathIntersectsApprovedScope(
   return false;
 }
 
+/**
+ * Stricter, containment-only variant of `pathIntersectsApprovedScope` for
+ * consumers that read FILE CONTENTS off disk (git:status / git:diff). The
+ * path must BE an approved root/file or live INSIDE an approved root. The
+ * ancestor arm is intentionally absent: a repo toplevel sitting above the
+ * approved project is a legitimate repoRoot argument, but being an ancestor
+ * must never be enough to read arbitrary sibling files outside the approved
+ * subtree (unversioned monorepo secrets included).
+ */
+export async function pathInsideApprovedScope(
+  absolutePath: string
+): Promise<boolean> {
+  await loadFilesystemApprovals();
+  const normalized = normalizeApprovalPath(absolutePath);
+  if (approvedRoots.has(normalized) || approvedFiles.has(normalized)) {
+    return true;
+  }
+  for (const root of approvedRoots) {
+    if (isPathWithinProject(normalized, root)) return true;
+  }
+  return false;
+}
+
 export function _resetFilesystemApprovalsForTests(): void {
   filesystemApprovalsLoaded = false;
   approvedRoots = new Set();
@@ -339,11 +388,30 @@ function stopWatcherById(watchId: WatchId): boolean {
   entry.stop();
   watchers.delete(watchId);
   watcherIdsByTarget.delete(entry.targetKey);
+  if (entry.senderId !== undefined) {
+    forgetWatcherForSender(entry.senderId, watchId);
+  }
   // RL-087 — drop the per-watcher burst tracker entry so a long
   // session that opens + closes many projects under inotify load
   // does not accumulate dead UUIDs in the map.
   nullFilenameBursts.delete(watchId);
   return true;
+}
+
+/**
+ * Tear down every watcher a webContents owns. Wired to the sender's
+ * `destroyed` lifecycle event so a window close / reload does not leak
+ * fs.watch handles into the next session.
+ */
+function stopWatchersForSender(senderId: number): void {
+  const ids = watcherIdsBySender.get(senderId);
+  if (!ids) return;
+  // Copy first — stopWatcherById mutates the set via forgetWatcherForSender.
+  for (const watchId of [...ids]) {
+    stopWatcherById(watchId);
+  }
+  watcherIdsBySender.delete(senderId);
+  senderDestroyedListenerInstalled.delete(senderId);
 }
 
 /**
@@ -361,6 +429,8 @@ export function stopAllWatchers(): void {
   }
   watchers.clear();
   watcherIdsByTarget.clear();
+  watcherIdsBySender.clear();
+  senderDestroyedListenerInstalled.clear();
   // Clear burst tracker too for parity with `stopWatcherById`.
   // Moot in the `before-quit` path but matters when `stopAllWatchers`
   // is reused for tests.
@@ -1781,13 +1851,44 @@ export function registerFileSystemHandlers(): void {
         return { ok: false, diagnostic } as const;
       }
 
+      const senderId = event.sender.id;
       watchers.set(watchId, {
         rootId,
         watchedPath: absolutePath,
         targetKey,
+        senderId,
         stop: () => watcher.close(),
       });
       watcherIdsByTarget.set(targetKey, watchId);
+      rememberWatcherForSender(senderId, watchId);
+
+      // Tie the watcher to the sender's lifecycle so a window close
+      // (macOS keeps the app alive) or a renderer reload disposes it
+      // instead of leaking the recursive fs.watch. Install the listener
+      // AT MOST ONCE per sender id — every watch-start on the same
+      // sender otherwise queues another `destroyed` listener. Mirrors
+      // the git HEAD watcher registry.
+      if (!senderDestroyedListenerInstalled.has(senderId)) {
+        senderDestroyedListenerInstalled.add(senderId);
+        event.sender.once('destroyed', () => {
+          stopWatchersForSender(senderId);
+        });
+      }
+
+      // A recursive FSWatcher can also fail asynchronously long after
+      // registration (EPERM on Windows when the watched folder is deleted
+      // or renamed, deferred ENOSPC/EMFILE). Without an 'error' listener
+      // that emission becomes an uncaught exception that takes down the
+      // whole main process — the registration try/catch above only covers
+      // synchronous failures. Mirror the git HEAD watcher's posture:
+      // close + deregister + typed diagnostic to the renderer.
+      watcher.on('error', (error) => {
+        stopWatcherById(watchId);
+        const diagnostic = buildWatcherDiagnostic(error, rootId, relativePath);
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('fs:watcher-failed', diagnostic);
+        }
+      });
       return watchId;
     }
   );

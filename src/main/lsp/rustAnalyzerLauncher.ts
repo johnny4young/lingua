@@ -220,8 +220,10 @@ export class RustAnalyzerLauncher {
         // notification. We fire-and-forget because `dispose()` below
         // kills the child anyway — the request just gives rust-analyzer
         // the chance to flush state cleanly. `exit` is correctly a
-        // notification.
-        void this.process.sendRequest('shutdown');
+        // notification. The immediate `dispose()` rejects every pending
+        // request, this one included, so swallow the rejection or every
+        // stop/restart/quit emits an unhandled rejection in main.
+        this.process.sendRequest('shutdown').catch(() => {});
         this.process.sendNotification('exit');
       } catch {
         // Best-effort — the process may already be gone.
@@ -239,7 +241,17 @@ export class RustAnalyzerLauncher {
       command,
       env: buildLauncherEnv(),
       onNotification: (notification) => this.options.onNotification?.(notification),
-      onExit: (code, signal) => this.handleExit(code, signal),
+      // Ignore exits from processes this launcher no longer owns. A
+      // user-initiated restart() disposes the old child and immediately
+      // spawns a new one; without this guard the OLD child's exit event
+      // enters handleExit(), schedules a crash-recovery spawn 500 ms
+      // later, and that recovery overwrites `this.process` — leaving the
+      // restart's process alive but unreachable (duplicate diagnostics,
+      // workspace lock held, impossible to kill from the UI).
+      onExit: (code, signal) => {
+        if (this.process !== lsp) return;
+        this.handleExit(code, signal);
+      },
     });
     this.process = lsp;
     lsp.start();

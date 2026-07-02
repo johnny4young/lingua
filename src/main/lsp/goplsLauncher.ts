@@ -247,7 +247,10 @@ export class GoplsLauncher {
     if (this.process) {
       try {
         // Per LSP spec, `shutdown` is a request, `exit` a notification.
-        void this.process.sendRequest('shutdown');
+        // The immediate `dispose()` below rejects every pending request,
+        // this one included — swallow the rejection or every
+        // stop/restart/quit emits an unhandled rejection in main.
+        this.process.sendRequest('shutdown').catch(() => {});
         this.process.sendNotification('exit');
       } catch {
         // Best-effort.
@@ -268,7 +271,15 @@ export class GoplsLauncher {
       args: [],
       env: buildLauncherEnv(),
       onNotification: (notification) => this.options.onNotification?.(notification),
-      onExit: (code, signal) => this.handleExit(code, signal),
+      // Ignore exits from processes this launcher no longer owns — a
+      // restart() disposes the old child and spawns a new one, and the
+      // old child's exit event must not trigger the crash-recovery path
+      // (which would overwrite `this.process` with a duplicate, orphaned
+      // gopls). Same guard as rustAnalyzerLauncher.
+      onExit: (code, signal) => {
+        if (this.process !== lsp) return;
+        this.handleExit(code, signal);
+      },
     });
     this.process = lsp;
     lsp.start();

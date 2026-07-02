@@ -95,7 +95,11 @@ function AppChrome({
   const lastSeenVersion = useSettingsStore(s => s.lastSeenVersion);
   const setLastSeenVersion = useSettingsStore(s => s.setLastSeenVersion);
   const suppressTourAutoStart = useSettingsStore(s => s.suppressTourAutoStart);
-  const { toggleSidebar, toggleConsole } = useUIStore();
+  // Select the two stable actions individually — `useUIStore()` with no
+  // selector re-renders AppChrome (the entire shell) on EVERY ui-store
+  // write, including each of the ~134 statusNotice push/dismiss sites.
+  const toggleSidebar = useUIStore(s => s.toggleSidebar);
+  const toggleConsole = useUIStore(s => s.toggleConsole);
   const initializePlugins = usePluginStore(s => s.initialize);
   const initializeUpdates = useUpdateStore(s => s.initialize);
   const appInfo = useAppInfo();
@@ -161,12 +165,6 @@ function AppChrome({
   // `sessionRestoreReady` so a real restored session always wins
   // over the seed; safe mode short-circuits the hook entirely.
   useOnboardingChoreography({ enabled: sessionRestoreReady });
-  // RL-025 Slice A — per-tab dependency detection. The hook
-  // self-gates on the `dependencyDetectionEnabled` settings flag,
-  // debounces edits, and writes the classified result into
-  // `useDependencyDetectionStore` so the bottom-panel Dependencies
-  // tab can conditionally surface itself when count > 0.
-  useDependencyDetection();
   // RL-102 Slice 1 — Git read-only layer. The detect hook resolves
   // posture on every project root change; the status hook drives
   // per-file pill updates via the existing fs watcher. Both
@@ -254,8 +252,6 @@ function AppChrome({
     smokeEnabled,
   ]);
 
-  // Auto-run code after the configured idle debounce
-  useAutoRun();
   useProjectWatchSync();
   useProjectIndexSync();
   useWatcherDiagnosticsSync();
@@ -386,6 +382,7 @@ function AppChrome({
 
   return (
     <>
+      <KeystrokeReactiveHooks />
       {showWebUpdateBanner ? <WebUpdateBanner /> : null}
       <AppLayout
         onOpenSettings={() => openOverlay('settings')}
@@ -414,6 +411,21 @@ function AppChrome({
       <NativeExecutionWarning />
     </>
   );
+}
+
+/**
+ * Hosts the hooks that must react to every keystroke: the auto-run
+ * debounce (RL-020) and per-tab dependency detection (RL-025 Slice A).
+ * Both subscribe to the active tab's content, so their host re-renders
+ * on every keypress BY DESIGN — isolating them in a null-rendering leaf
+ * keeps that churn out of AppChrome, whose re-render would otherwise
+ * reconcile the entire shell (AppLayout, toolbar, file tree, status bar)
+ * per keystroke.
+ */
+function KeystrokeReactiveHooks() {
+  useAutoRun();
+  useDependencyDetection();
+  return null;
 }
 
 export function App() {

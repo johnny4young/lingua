@@ -235,11 +235,14 @@ export const useProjectStore = create<ProjectState>()(
         // The new root is ready; now retire the old watcher/capability. This
         // ordering prevents a transient gap where editor tabs still point at
         // a revoked root if `readdir` or `watchStart` failed above.
+        // Retirement is best-effort: a rejected watchStop/revokeRoot for the
+        // OLD project must not abort the open mid-flight (the new project is
+        // already live at this point).
         if (watchId) {
-          await window.lingua.fs.watchStop(watchId);
+          await window.lingua.fs.watchStop(watchId).catch(() => {});
         }
         if (previous && previous.rootId !== result.rootId) {
-          await window.lingua.fs.revokeRoot(previous.rootId);
+          await window.lingua.fs.revokeRoot(previous.rootId).catch(() => {});
         }
 
         const name = basenameOf(result.rootPath);
@@ -329,11 +332,12 @@ export const useProjectStore = create<ProjectState>()(
         }
 
         const { watchId, currentProject: previous } = get();
+        // Best-effort retirement — same rationale as openProject above.
         if (watchId) {
-          await window.lingua.fs.watchStop(watchId);
+          await window.lingua.fs.watchStop(watchId).catch(() => {});
         }
         if (previous && previous.rootId !== activeRootId) {
-          await window.lingua.fs.revokeRoot(previous.rootId);
+          await window.lingua.fs.revokeRoot(previous.rootId).catch(() => {});
         }
 
         const persistedRecent: RecentProject = {
