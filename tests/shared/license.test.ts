@@ -85,6 +85,28 @@ describe('decodeLicenseToken', () => {
       expect(result.signingInput.byteLength).toBeGreaterThan(0);
     }
   });
+
+  it('rejects a token minted for a foreign product (audit B-3)', async () => {
+    // A well-formed, correctly-signed token whose productId is NOT in the
+    // Lingua family must not decode — a cross-product token minted under
+    // the same signing key cannot grant Lingua entitlements.
+    const token = await signLicenseTokenForTest(
+      buildPayload({ productId: 'acme-tool' }),
+      keys.privateKey
+    );
+    const result = decodeLicenseToken(token);
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts every lingua-prefixed productId in the family', async () => {
+    for (const productId of ['lingua', 'lingua-desktop', 'lingua-web']) {
+      const token = await signLicenseTokenForTest(
+        buildPayload({ productId }),
+        keys.privateKey
+      );
+      expect(decodeLicenseToken(token).ok, productId).toBe(true);
+    }
+  });
 });
 
 describe('verifyLicenseToken', () => {
