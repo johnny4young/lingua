@@ -246,10 +246,41 @@ describe('HttpRequestEditor', () => {
       />
     );
 
+    fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
     fireEvent.click(screen.getByTestId('http-request-editor-copy-curl'));
 
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("curl 'https://x.dev/users'");
+    });
+  });
+
+  it('copies the request as a fetch snippet from the Copy-as menu', async () => {
+    vi.useRealTimers();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    const request = {
+      ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }),
+      method: 'GET' as const,
+      url: 'https://x.dev/users',
+    };
+
+    render(
+      <HttpRequestEditor
+        request={request}
+        onPatch={vi.fn()}
+        onSend={vi.fn()}
+        isExecuting={false}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
+    fireEvent.click(screen.getByTestId('http-request-editor-copy-fetch'));
+
+    await vi.waitFor(() => {
+      const snippet = writeText.mock.calls[0]?.[0] as string;
+      expect(snippet).toContain('await fetch("https://x.dev/users"');
+      expect(snippet).toContain('method: "GET"');
     });
   });
 
@@ -373,6 +404,7 @@ describe('HttpRequestEditor', () => {
         onManageEnvironment={vi.fn()}
       />
     );
+    fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
     fireEvent.click(screen.getByTestId('http-request-editor-copy-curl'));
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(
@@ -423,6 +455,7 @@ describe('HttpRequestEditor', () => {
       screen.getByTestId('http-environment-preview-chip-secret').textContent
     ).toContain('token');
 
+    fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
     fireEvent.click(screen.getByTestId('http-request-editor-copy-curl'));
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(

@@ -43,13 +43,27 @@ function acceptImportItem(item: File | DataTransferItem): boolean {
 }
 
 /**
- * One discovered session table. `columnCount` is optional — the
- * parent only computes it when cheap (a single `PRAGMA table_info`
- * per table on the same connection). `undefined` hides the chip.
+ * One column of a discovered session table — name + SQL type. Populated
+ * from the single `information_schema.columns` probe the parent runs.
+ */
+export interface SqlSchemaColumn {
+  name: string;
+  type: string;
+}
+
+/**
+ * One discovered session table. Both `columnCount` and `columns` are
+ * optional — the parent populates them from a single
+ * `information_schema.columns` probe. When `columns` is present it is
+ * the authoritative source (its length drives the count chip and its
+ * entries drive the expandable column list + editor autocomplete);
+ * `columnCount` remains a lightweight fallback for callers that only
+ * know the count. `undefined` on both hides the chip.
  */
 export interface SqlSchemaTable {
   name: string;
   columnCount?: number;
+  columns?: ReadonlyArray<SqlSchemaColumn>;
 }
 
 export interface SqlSchemaBrowserProps {
@@ -109,6 +123,20 @@ export function SqlSchemaBrowser({
 }: SqlSchemaBrowserProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+  // Per-table expand state — which tables reveal their column list. A
+  // Set keyed by table name; toggling is additive so expanding one table
+  // never collapses another. Tables without column metadata are never
+  // expandable, so stale names in the set are simply inert.
+  const [expandedTables, setExpandedTables] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  const toggleExpanded = (name: string) =>
+    setExpandedTables((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
 
   // RL-097 (SQL import) fold F — the import affordance. A real <button>
   // opens a hidden <input type="file"> via `.click()`, so the import is
@@ -276,45 +304,101 @@ export function SqlSchemaBrowser({
             </p>
           ) : (
             <ul role="list" className="flex flex-col gap-0.5">
-              {tables.map((table) => (
-                <li key={table.name}>
-                  <button
-                    type="button"
-                    onClick={() => onInsertTable(table.name)}
-                    disabled={!canInsert}
-                    data-testid="sql-schema-browser-table"
-                    data-table-name={table.name}
-                    title={t('sqlWorkspace.schema.insertTitle', {
-                      name: table.name,
-                    })}
-                    className={cn(
-                      'group flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-body-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                      canInsert
-                        ? 'text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
-                        : 'cursor-not-allowed text-fg-subtle opacity-60'
-                    )}
-                  >
-                    <Database
-                      size={11}
-                      aria-hidden="true"
-                      className="shrink-0 text-accent"
-                    />
-                    <span className="min-w-0 flex-1 truncate font-mono">
-                      {table.name}
-                    </span>
-                    {table.columnCount !== undefined ? (
-                      <span
-                        data-testid="sql-schema-browser-col-count"
-                        className="shrink-0 font-mono text-micro tabular-nums text-fg-subtle"
-                      >
-                        {t('sqlWorkspace.schema.columnCount', {
-                          count: table.columnCount,
+              {tables.map((table) => {
+                const columns = table.columns;
+                const hasColumns = columns !== undefined && columns.length > 0;
+                const columnCount =
+                  columns !== undefined ? columns.length : table.columnCount;
+                const isExpanded = hasColumns && expandedTables.has(table.name);
+                return (
+                  <li key={table.name}>
+                    <div className="flex items-center gap-0.5">
+                      {hasColumns ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(table.name)}
+                          aria-expanded={isExpanded}
+                          aria-label={t(
+                            isExpanded
+                              ? 'sqlWorkspace.schema.collapseColumns'
+                              : 'sqlWorkspace.schema.expandColumns',
+                            { name: table.name }
+                          )}
+                          data-testid="sql-schema-browser-expand"
+                          data-table-name={table.name}
+                          className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:text-fg-base"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown size={11} aria-hidden="true" />
+                          ) : (
+                            <ChevronRight size={11} aria-hidden="true" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="inline-block h-5 w-5 shrink-0" aria-hidden="true" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onInsertTable(table.name)}
+                        disabled={!canInsert}
+                        data-testid="sql-schema-browser-table"
+                        data-table-name={table.name}
+                        title={t('sqlWorkspace.schema.insertTitle', {
+                          name: table.name,
                         })}
-                      </span>
+                        className={cn(
+                          'group flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-body-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                          canInsert
+                            ? 'text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
+                            : 'cursor-not-allowed text-fg-subtle opacity-60'
+                        )}
+                      >
+                        <Database
+                          size={11}
+                          aria-hidden="true"
+                          className="shrink-0 text-accent"
+                        />
+                        <span className="min-w-0 flex-1 truncate font-mono">
+                          {table.name}
+                        </span>
+                        {columnCount !== undefined ? (
+                          <span
+                            data-testid="sql-schema-browser-col-count"
+                            className="shrink-0 font-mono text-micro tabular-nums text-fg-subtle"
+                          >
+                            {t('sqlWorkspace.schema.columnCount', {
+                              count: columnCount,
+                            })}
+                          </span>
+                        ) : null}
+                      </button>
+                    </div>
+                    {isExpanded ? (
+                      <ul
+                        role="list"
+                        data-testid="sql-schema-browser-columns"
+                        className="ml-5 flex flex-col gap-px border-l border-border-subtle pl-2 pt-0.5"
+                      >
+                        {columns!.map((column) => (
+                          <li
+                            key={column.name}
+                            data-testid="sql-schema-browser-column"
+                            data-column-name={column.name}
+                            className="flex items-center gap-2 px-2 py-0.5 text-caption"
+                          >
+                            <span className="min-w-0 flex-1 truncate font-mono text-fg-muted">
+                              {column.name}
+                            </span>
+                            <span className="shrink-0 font-mono text-micro uppercase tracking-[0.08em] text-fg-subtle">
+                              {column.type}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     ) : null}
-                  </button>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
