@@ -7,9 +7,9 @@
  * mutation lands on this module first.
  */
 
-import { ipcMain } from 'electron';
 import type { LicenseRuntime, LicenseSnapshot, LicenseStatus } from '../license';
 import type { RemoveDeviceResult } from '../licenseServer';
+import { typedHandle } from './typedHandle';
 
 export type LicenseApplyResult =
   | { ok: true; status: LicenseStatus; snapshot: LicenseSnapshot }
@@ -19,20 +19,16 @@ export type LicenseRemoveDeviceResult =
   | { ok: true; removed: boolean; snapshot: LicenseSnapshot }
   | { ok: false; reason: string; message?: string; issues?: string[] };
 
-// NOTE (typed IPC contract): these handlers intentionally stay on raw
-// `ipcMain.handle` rather than `typedHandle`. Binding them to the contract
-// surfaced a real, pre-existing drift the contract exposed: main's license
-// types (`src/main/license.ts`, built on the canonical 6-tier
-// `src/shared/license.ts` `LicenseTier`) are WIDER than the renderer-facing
-// ambient `LicenseStatus` in `src/types.d.ts` (4 tiers — missing `trial` /
-// `education`). Reconciling that is a deliberate change to the renderer's
-// license type model (exhaustive tier switches, gating), not a mechanical
-// wrap, so it is tracked as a follow-up. The channels remain covered by the
-// contract + drift test by name, and the preload→renderer side is typed.
+// RL-059 / typed IPC contract: the `license:*` handlers bind to
+// `typedHandle`, so `tsc` checks each handler's return type against the
+// contract result. This became possible once the ambient
+// `LicensePayloadShape.tier` in `src/types.d.ts` was widened to the full
+// canonical 6-tier list (matching `src/shared/license.ts`), so main's
+// snapshot type is assignable to the contract's ambient shape.
 export function registerLicenseHandlers(runtime: LicenseRuntime): void {
-  ipcMain.handle('license:get-state', async () => runtime.getSnapshot());
+  typedHandle('license:get-state', async () => runtime.getSnapshot());
 
-  ipcMain.handle('license:apply-token', async (_event, token: unknown): Promise<LicenseApplyResult> => {
+  typedHandle('license:apply-token', async (_event, token: unknown): Promise<LicenseApplyResult> => {
     if (typeof token !== 'string') {
       return { ok: false, reason: 'invalid-input', message: 'Expected a string token.' };
     }
@@ -48,7 +44,7 @@ export function registerLicenseHandlers(runtime: LicenseRuntime): void {
     }
   });
 
-  ipcMain.handle('license:clear', async (): Promise<{ ok: true; snapshot: LicenseSnapshot } | { ok: false; reason: string; message?: string }> => {
+  typedHandle('license:clear', async (): Promise<{ ok: true; snapshot: LicenseSnapshot } | { ok: false; reason: string; message?: string }> => {
     try {
       await runtime.clear();
       return { ok: true, snapshot: runtime.getSnapshot() };
@@ -61,7 +57,7 @@ export function registerLicenseHandlers(runtime: LicenseRuntime): void {
     }
   });
 
-  ipcMain.handle('license:revalidate', async (): Promise<LicenseApplyResult> => {
+  typedHandle('license:revalidate', async (): Promise<LicenseApplyResult> => {
     try {
       const status = await runtime.revalidate();
       return { ok: true, status, snapshot: runtime.getSnapshot() };
@@ -80,7 +76,7 @@ export function registerLicenseHandlers(runtime: LicenseRuntime): void {
   // wrapper-side tagged union (`RemoveDeviceResult`) is collapsed
   // into a renderer-friendly shape with a flat `snapshot` for the
   // success case so the callers do not have to refetch state.
-  ipcMain.handle(
+  typedHandle(
     'license:remove-device',
     async (_event, deviceIdToRemove: unknown): Promise<LicenseRemoveDeviceResult> => {
       if (typeof deviceIdToRemove !== 'string' || deviceIdToRemove.length === 0) {

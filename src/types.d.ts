@@ -458,7 +458,13 @@ type DesktopSmokeMemorySnapshot =
 
 interface LicensePayloadShape {
   productId: string;
-  tier: 'free' | 'pro' | 'pro_lifetime' | 'team';
+  // Canonical closed tier list — kept in lockstep with `LICENSE_TIERS`
+  // in `src/shared/license.ts`. Widened from the original 4-tier subset
+  // to the full 6 so main's snapshot type (built on the shared list) is
+  // assignable to this ambient shape, which lets the `license:*` IPC
+  // handlers bind to `typedHandle`. Gating is unaffected: entitlements
+  // are `free` vs non-free, so `trial` / `education` resolve to paid.
+  tier: 'free' | 'pro' | 'pro_lifetime' | 'team' | 'trial' | 'education';
   issuedTo: string;
   issuedAt: string;
   supportWindowEndsAt: string;
