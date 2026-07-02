@@ -3,7 +3,7 @@
  *
  * The renderer-side `NodeRunner` (`src/renderer/runners/nodeRunner.ts`)
  * calls `window.lingua.node.run(code, options)` and the preload
- * bridge forwards to `ipcMain.handle('node:run', ...)` registered
+ * bridge forwards to `typedHandle('node:run', ...)` registered
  * by `registerNodeJSHandlers()` below.
  *
  * Security posture:
@@ -42,7 +42,8 @@
  *     `--input-type` mode used by inline snippets and temp files.
  */
 
-import { ipcMain, app } from 'electron';
+import { app } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import { parse } from 'acorn';
 import type { Node as AcornNode, Program as AcornProgram } from 'acorn';
 import * as childProc from 'node:child_process';
@@ -861,12 +862,12 @@ export function stopNodeRun(runId: unknown): { stopped: boolean } {
 
 /** Register all Node-related IPC handlers. */
 export function registerNodeJSHandlers(): void {
-  ipcMain.handle(
+  typedHandle(
     'node:detect',
     async (_event, userEnv?: unknown, force?: unknown) =>
       detectNode(normalizeStringMap(userEnv), force === true)
   );
-  ipcMain.handle(
+  typedHandle(
     'node:run',
     async (_event, source: unknown, options?: unknown) => {
       if (typeof source !== 'string') {
@@ -875,7 +876,7 @@ export function registerNodeJSHandlers(): void {
       return runNodeCode(source, normalizeNodeRunOptions(options));
     }
   );
-  ipcMain.handle(
+  typedHandle(
     'node:stop',
     async (_event, runId?: unknown) =>
       stopNodeRun(runId)

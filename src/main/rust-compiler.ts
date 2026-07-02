@@ -15,7 +15,7 @@
  * flood the IPC channel.
  */
 
-import { ipcMain } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import { execFile, spawn } from 'node:child_process';
 import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -274,11 +274,11 @@ async function runRustCode(
 
 /** Register all Rust-related IPC handlers */
 export function registerRustHandlers(): void {
-  ipcMain.handle('rust:detect', async (_event, userEnv?: Record<string, string>) =>
+  typedHandle('rust:detect', async (_event, userEnv?: Record<string, string>) =>
     detectRust(userEnv)
   );
 
-  ipcMain.handle(
+  typedHandle(
     'rust:run',
     async (
       _event,

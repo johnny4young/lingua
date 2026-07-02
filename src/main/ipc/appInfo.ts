@@ -1,14 +1,15 @@
-import { app, ipcMain, shell } from 'electron';
+import { app, shell } from 'electron';
+import { typedHandle } from './typedHandle';
 import { getBundledAppInfo, normalizeExternalUrl } from '../../shared/appInfo';
 
 export function registerAppInfoHandlers(): void {
-  ipcMain.handle('app:get-info', () =>
+  typedHandle('app:get-info', () =>
     getBundledAppInfo({
       version: app.getVersion(),
     })
   );
 
-  ipcMain.handle('app:open-external', async (_event, url: unknown) => {
+  typedHandle('app:open-external', async (_event, url: unknown) => {
     const normalizedUrl = normalizeExternalUrl(url);
     if (normalizedUrl === null) {
       return false;

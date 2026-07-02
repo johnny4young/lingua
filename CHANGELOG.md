@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- **Typed IPC contract**: the entire preload↔main boundary now derives from a single source of truth (`src/shared/ipcContract.ts`). The preload bridge routes through typed helpers (`typedInvoke` / `typedSend` / `typedOn`) instead of hand-written `as Promise<X>` casts, and main handlers register through `typedHandle`, which binds each handler's return type to the contract. A renamed channel or drifted payload is now a compile error, and a drift test keeps the contract in lockstep with the registered handlers. (Internal refactor; no user-facing behavior change.)
+
 ## [0.9.0] — 2026-06-28
 
 ### Added

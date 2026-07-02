@@ -4,7 +4,7 @@
  * The renderer-side `DesktopRubySubprocessRunner` (folded into
  * `src/renderer/runners/ruby.ts`) calls
  * `window.lingua.ruby.run(source, options)` and the preload bridge
- * forwards to `ipcMain.handle('ruby:run', ...)` registered by
+ * forwards to `typedHandle('ruby:run', ...)` registered by
  * `registerRubyHandlers()` below.
  *
  * Security posture (same shape as node-runner.ts and rust-compiler.ts):
@@ -43,7 +43,8 @@
  *     `at_exit` hooks tend to run a beat slower).
  */
 
-import { ipcMain, app } from 'electron';
+import { app } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import * as childProc from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -518,12 +519,12 @@ export function stopRubyRun(runId: unknown): { stopped: boolean } {
 
 /** Register all Ruby-related IPC handlers. */
 export function registerRubyHandlers(): void {
-  ipcMain.handle(
+  typedHandle(
     'ruby:detect',
     async (_event, userEnv?: unknown, force?: unknown) =>
       detectRuby(normalizeStringMap(userEnv), force === true)
   );
-  ipcMain.handle(
+  typedHandle(
     'ruby:run',
     async (_event, source: unknown, options?: unknown) => {
       if (typeof source !== 'string') {
@@ -532,7 +533,7 @@ export function registerRubyHandlers(): void {
       return runRubyCode(source, normalizeRubyRunOptions(options));
     }
   );
-  ipcMain.handle('ruby:stop', async (_event, runId?: unknown) =>
+  typedHandle('ruby:stop', async (_event, runId?: unknown) =>
     stopRubyRun(runId)
   );
 }

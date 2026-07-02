@@ -1,4 +1,5 @@
-import { app, ipcMain } from 'electron';
+import { app } from 'electron';
+import { typedHandle } from './ipc/typedHandle';
 import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -99,8 +100,8 @@ export async function listInstalledPlugins(
 }
 
 export function registerPluginHandlers(): void {
-  ipcMain.handle('plugins:get-install-directory', async () => getPluginInstallDirectory());
-  ipcMain.handle('plugins:list', async () => listInstalledPlugins());
+  typedHandle('plugins:get-install-directory', async () => getPluginInstallDirectory());
+  typedHandle('plugins:list', async () => listInstalledPlugins());
 }
 
 export const pluginManifestHelpers = {
