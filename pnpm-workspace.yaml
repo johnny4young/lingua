@@ -27,13 +27,14 @@ allowBuilds:
   sharp: true
   workerd: true
 
-# electron-forge 7.x pulls @electron/rebuild → @electron/node-gyp, which
-# is declared as a git-URL dependency. pnpm 11 blocks exotic (git/tarball)
-# subdependencies by default as supply-chain hardening. The dep is part of
-# the official Electron toolchain, so we relax the block here.
-# TODO (Phase 2 / dep-update): after bumping @electron-forge/* to latest,
-# check whether the git node-gyp dep is gone and re-enable this guard.
-blockExoticSubdeps: false
+# T15 (D-2) — supply-chain hardening re-enabled. electron-forge 7.x pulls
+# @electron/rebuild@3.7.2 → @electron/node-gyp, which was declared as a
+# git-URL dependency, forcing pnpm to fetch an exotic codeload.github.com
+# tarball and making us relax this block. The fork now publishes to the npm
+# registry, so the `@electron/node-gyp` override above pins the registry
+# release and the git tarball is gone from the lockfile — the guard is back
+# on so a future exotic (git/tarball) subdependency fails the install.
+blockExoticSubdeps: true
 
 # Dependency overrides. pnpm does NOT read npm's top-level `overrides`
 # field, and (unlike npm) does NOT honor the `$name` self-reference, so
@@ -45,6 +46,12 @@ blockExoticSubdeps: false
 # npm-style `overrides` block stays in package.json too (npm-compat +
 # asserted by the depFreshness test).
 overrides:
+  # T15 (D-2) — @electron/rebuild@3.7.2 (pulled by @electron-forge 7.x)
+  # declared @electron/node-gyp as a git-URL dependency, forcing pnpm to
+  # fetch an exotic codeload.github.com tarball and keeping
+  # `blockExoticSubdeps` disabled above. The fork now publishes to the npm
+  # registry, so we pin it to the registry release and re-enable the guard.
+  "@electron/node-gyp": "10.2.0-electron.2"
   "monaco-editor>dompurify": "^3.4.1"
   # Electron Forge's macOS packager extracts the Electron ZIP through
   # extract-zip -> yauzl. With yauzl 2.x under Node 24.16.x, that extract
