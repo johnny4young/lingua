@@ -771,8 +771,10 @@ export function disposeNotebookSession(tabId: string): void {
   // T17 — also drop this notebook's Python kernel scope in the worker so a
   // closed notebook's namespace does not linger (memory + a reopened
   // same-id tab starting dirty). Safe when no Python cell ever ran — the
-  // runner no-ops when its worker was never created.
-  runnerManager.getPythonRunner()?.resetScope(tabId);
+  // runner no-ops when its worker was never created. Optional-chained on
+  // `getPythonRunner` itself so a partial `runnerManager` test double (some
+  // suites mock only `execute`/`stop`) is a no-op rather than a crash.
+  runnerManager.getPythonRunner?.()?.resetScope(tabId);
   const state = sessions.get(tabId);
   if (!state) return;
   state.isRunning = false;
