@@ -109,9 +109,10 @@ describe('createMigrate (per-store wrapper)', () => {
 });
 
 describe('migrationRegistry coverage', () => {
-  it('registers exactly the 15 persisted stores', () => {
+  it('registers exactly the 16 persisted stores', () => {
     expect(Object.keys(migrationRegistry).sort()).toEqual(
       [
+        'lingua-ai',
         'lingua-debugger-state',
         'lingua-env-vars',
         'lingua-lesson-progress',
