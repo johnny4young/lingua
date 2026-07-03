@@ -56,12 +56,37 @@ describe('shared/notebook closed enums', () => {
     );
   });
 
-  it('NOTEBOOK_CELL_LANGUAGES stays the closed set Slice A ships', () => {
+  it('NOTEBOOK_CELL_LANGUAGES stays the closed set (JS / TS / Python / SQL)', () => {
     expect([...NOTEBOOK_CELL_LANGUAGES]).toEqual([
       'javascript',
       'typescript',
       'python',
+      'sql',
     ]);
+  });
+
+  it('parses a SQL code cell (notebook-only language, not a global pack id)', () => {
+    const notebook = {
+      version: 1,
+      id: 'nb-sql',
+      title: 'SQL notebook',
+      cells: [
+        {
+          kind: 'code',
+          id: 'cell-sql',
+          language: 'sql',
+          source: 'SELECT 1 AS n;',
+          outputs: [],
+        },
+      ],
+    };
+    const result = parseNotebook(notebook);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const cell = result.notebook.cells[0];
+      expect(cell.kind).toBe('code');
+      if (cell.kind === 'code') expect(cell.language).toBe('sql');
+    }
   });
 
   it('NOTEBOOK_CELL_KINDS exposes both markdown and code', () => {

@@ -429,9 +429,10 @@ function NotebookCodeCellRowImpl({
             {NOTEBOOK_CELL_LANGUAGES.map((lang) => (
               // Disable any schema language the runner can't execute yet,
               // so the selector stays consistent with handleLanguageChange
-              // (view) + setCellLanguage (store). Today all three run, so
-              // this is a no-op guard that future-proofs the next language
-              // added to the schema before it is wired to a runner.
+              // (view) + setCellLanguage (store). Today all four (JS / TS /
+              // Python / SQL) run, so this is a no-op guard that
+              // future-proofs the next language added to the schema before
+              // it is wired to a runner.
               <option
                 key={lang}
                 value={lang}
@@ -502,6 +503,19 @@ function NotebookCodeCellRowImpl({
               title={t('notebook.cell.pythonIndependentHint')}
             >
               {t('notebook.cell.pythonIndependentHint')}
+            </span>
+          ) : null}
+          {/* T16 — SQL cells run on the shared DuckDB engine, so tables
+              created in one cell persist to later SQL cells (and the SQL
+              workspace). The chip truncates; the hover title carries the
+              full sentence. */}
+          {cell.language === 'sql' ? (
+            <span
+              data-testid="notebook-code-cell-sql-hint"
+              className="max-w-[14rem] truncate text-micro text-fg-subtle"
+              title={t('notebook.cell.sqlSharedHint')}
+            >
+              {t('notebook.cell.sqlSharedHint')}
             </span>
           ) : null}
         </div>

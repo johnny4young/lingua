@@ -3391,6 +3391,7 @@
   "notebook.cell.usesChip": "uses: {{names}}",
   "notebook.cell.producesChip": "→ {{names}}",
   "notebook.cell.pythonIndependentHint": "Shares state with other Python cells in this notebook (Restart kernel to clear)",
+  "notebook.cell.sqlSharedHint": "Shares tables with other SQL cells via the DuckDB engine",
   "notebook.cell.collapseOutput": "Collapse output",
   "notebook.cell.expandOutput": "Expand output",
   "notebook.cell.clearOutput": "Clear output",

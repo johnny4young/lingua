@@ -30,12 +30,14 @@ const SCRIPT_EXTENSION: Record<NotebookCellLanguage, string> = {
   javascript: 'js',
   typescript: 'ts',
   python: 'py',
+  sql: 'sql',
 };
 
 const SCRIPT_COMMENT_PREFIX: Record<NotebookCellLanguage, string> = {
   javascript: '//',
   typescript: '//',
   python: '#',
+  sql: '--',
 };
 
 export function pickNotebookExportLanguage(
