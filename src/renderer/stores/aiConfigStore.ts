@@ -14,6 +14,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 
 export interface AiConfigState {
   /** Full chat-completions URL (e.g. https://api.openai.com/v1/chat/completions). */
@@ -53,6 +54,8 @@ export const useAiConfigStore = create<AiConfigState>()(
     }),
     {
       name: 'lingua-ai',
+      version: 1,
+      migrate: createMigrate('lingua-ai'),
       // Only the three config fields persist — the actions are recreated.
       partialize: (state) => ({
         endpoint: state.endpoint,

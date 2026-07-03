@@ -64,7 +64,8 @@ export type PersistedStoreName =
   | 'lingua-lesson-progress'
   | 'lingua-utility-pipeline-state'
   | 'lingua-workspace-sql-state'
-  | 'lingua-workspace-tool-state';
+  | 'lingua-workspace-tool-state'
+  | 'lingua-ai';
 
 /**
  * Forward-migration steps per store. Empty maps are intentional: those stores
@@ -109,6 +110,8 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
   'lingua-utility-pipeline-state': {},
   'lingua-workspace-sql-state': {},
   'lingua-workspace-tool-state': {},
+  // T19 — BYO-key AI config (endpoint / apiKey / model). No shape change yet.
+  'lingua-ai': {},
 };
 
 /**
