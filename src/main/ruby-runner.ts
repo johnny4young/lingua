@@ -44,7 +44,7 @@
  */
 
 import { app } from 'electron';
-import { typedHandle } from './ipc/typedHandle';
+import { typedHandle, typedSendTo } from './ipc/typedHandle';
 import * as childProc from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -126,6 +126,13 @@ export interface RubyRunOptions {
    * `ruby:stdin-close`. Default closes stdin immediately.
    */
   interactive?: boolean;
+  /**
+   * F-7 — main-internal live-output sink. Set by the IPC handler (never
+   * from the serialized IPC payload) to stream stdout/stderr chunks to the
+   * renderer as they arrive during an interactive run. Only invoked when
+   * `interactive` is true.
+   */
+  onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   /** I18n-keyed truncation markers. */
   messages?: NativeRunnerMessages;
 }
@@ -392,6 +399,15 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
             ? (stdin) => activeRubyStdins.set(options.runId!, stdin)
             : undefined,
       },
+      // F-7 — stream live output to the renderer before buffering/truncation.
+      onStdout:
+        interactive && options.onOutput
+          ? (chunk) => options.onOutput?.('stdout', chunk)
+          : undefined,
+      onStderr:
+        interactive && options.onOutput
+          ? (chunk) => options.onOutput?.('stderr', chunk)
+          : undefined,
       signal: controller.signal,
     });
 
@@ -542,11 +558,25 @@ export function registerRubyHandlers(): void {
   );
   typedHandle(
     'ruby:run',
-    async (_event, source: unknown, options?: unknown) => {
+    async (event, source: unknown, options?: unknown) => {
       if (typeof source !== 'string') {
         return invalidRubyRunResult('Ruby runner received invalid source.');
       }
-      return runRubyCode(source, normalizeRubyRunOptions(options));
+      const normalized = normalizeRubyRunOptions(options);
+      // F-7 — stream live output to the renderer for interactive runs.
+      if (normalized.interactive && normalized.runId) {
+        const runId = normalized.runId;
+        const sender = event.sender;
+        normalized.onOutput = (stream, chunk) => {
+          if (sender.isDestroyed()) return;
+          try {
+            typedSendTo(sender, 'runtime:output-chunk', { runId, stream, chunk });
+          } catch {
+            /* sender gone */
+          }
+        };
+      }
+      return runRubyCode(source, normalized);
     }
   );
   typedHandle('ruby:stop', async (_event, runId?: unknown) =>

@@ -46,6 +46,15 @@ const JS_NOTES: Readonly<Record<RuntimeMode, string>> = {
   'browser-preview':
     'The code runs in a sandboxed browser iframe with a DOM: browser ' +
     'globals are available, Node.js built-ins are not.',
+  deno:
+    'The code runs in a Deno subprocess on the user machine: web-standard ' +
+    'APIs (fetch, Web Crypto) and the Deno.* namespace are available, Node ' +
+    'built-ins only via node: specifiers, and file/network access is ' +
+    'sandboxed behind --allow-* flags.',
+  bun:
+    'The code runs in a Bun subprocess on the user machine: the Bun.* APIs ' +
+    'plus Node.js-compatible built-ins (fs, path, process) are available; ' +
+    'browser globals (window, document) are not.',
 };
 
 /**

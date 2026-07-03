@@ -233,6 +233,51 @@ describe('main ruby runner', () => {
       expect(result.timeoutMs).toBe(5000);
     });
 
+    it('F-7: streams live stdout/stderr chunks to the sender during interactive runs', async () => {
+      await loadRunner();
+      const child = createChildProcess();
+      mocks.spawn.mockReturnValue(child);
+      const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
+      const handler = handlerFor<RubyRunHandler>('ruby:run');
+      const promise = handler({ sender }, 'STDIN.gets', {
+        runId: 'ruby-stream',
+        timeoutMs: 5000,
+        interactive: true,
+      });
+      await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+      child.stdout.emit('data', Buffer.from('live-out'));
+      child.stderr.emit('data', Buffer.from('live-err'));
+      expect(sender.send).toHaveBeenCalledWith('runtime:output-chunk', {
+        runId: 'ruby-stream',
+        stream: 'stdout',
+        chunk: 'live-out',
+      });
+      expect(sender.send).toHaveBeenCalledWith('runtime:output-chunk', {
+        runId: 'ruby-stream',
+        stream: 'stderr',
+        chunk: 'live-err',
+      });
+      child.emit('close', 0);
+      await expect(promise).resolves.toMatchObject({ kind: 'success' });
+    });
+
+    it('F-7: does not stream chunks for non-interactive runs', async () => {
+      await loadRunner();
+      const child = createChildProcess();
+      mocks.spawn.mockReturnValue(child);
+      const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
+      const handler = handlerFor<RubyRunHandler>('ruby:run');
+      const promise = handler({ sender }, 'puts 1', {
+        runId: 'ruby-batch',
+        timeoutMs: 5000,
+      });
+      await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+      child.stdout.emit('data', Buffer.from('batched'));
+      child.emit('close', 0);
+      await expect(promise).resolves.toMatchObject({ kind: 'success' });
+      expect(sender.send).not.toHaveBeenCalled();
+    });
+
     it('reports error kind for non-zero exit', async () => {
       await loadRunner();
       const child = createChildProcess();

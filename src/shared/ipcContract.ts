@@ -415,6 +415,10 @@ export interface IpcPushContract {
   'fs:watcher-degraded': WatcherDiagnostic;
   'updates:state-changed': UpdateState;
   'dependencies:js:install:log': DependencyInstallLogEvent;
+  // F-7 — live stdout/stderr chunks from an interactive Node/Ruby run,
+  // streamed as they arrive (keyed by runId) so the console REPL can echo
+  // output before the process exits.
+  'runtime:output-chunk': RuntimeOutputChunk;
   'git:on-head-changed': GitHeadChangePayload;
   'git:on-head-watcher-failed': GitHeadWatcherFailurePayload;
 }

@@ -63,6 +63,9 @@ contextBridge.exposeInMainWorld('lingua', {
     writeStdin: (runId: string, data: string) =>
       typedInvoke('ruby:stdin-write', runId, data),
     closeStdin: (runId: string) => typedInvoke('ruby:stdin-close', runId),
+    // F-7 — live output stream (consumers filter by runId).
+    onOutput: (handler: (event: RuntimeOutputChunk) => void) =>
+      typedOn('runtime:output-chunk', handler),
   },
 
   // RL-019 Slice 2 — desktop Node child-spawn IPC. Distinct from the
@@ -80,6 +83,9 @@ contextBridge.exposeInMainWorld('lingua', {
     writeStdin: (runId: string, data: string) =>
       typedInvoke('node:stdin-write', runId, data),
     closeStdin: (runId: string) => typedInvoke('node:stdin-close', runId),
+    // F-7 — live output stream (consumers filter by runId).
+    onOutput: (handler: (event: RuntimeOutputChunk) => void) =>
+      typedOn('runtime:output-chunk', handler),
   },
 
   // F-4 — desktop Deno child-spawn IPC. Runs TS/JS directly; sandboxed

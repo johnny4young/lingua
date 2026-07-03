@@ -245,6 +245,13 @@ interface NativeInstallResult {
   error?: string;
 }
 
+// F-7 — a live output chunk from an interactive run (REPL streaming).
+interface RuntimeOutputChunk {
+  runId: string;
+  stream: 'stdout' | 'stderr';
+  chunk: string;
+}
+
 // RL-026 Slice 3 + Slice 4 — desktop LSP launcher status surface.
 // `RustAnalyzerStatus` and `GoplsStatus` share the same discriminated
 // union so the renderer and preload can use a single contract; the
@@ -803,6 +810,9 @@ interface LinguaAPI {
     // F-7 — interactive stdin.
     writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
     closeStdin: (runId: string) => Promise<{ closed: boolean }>;
+    // F-7 — live stdout/stderr chunks from an interactive run. Returns an
+    // unsubscribe fn. Consumers filter by `runId`.
+    onOutput: (handler: (event: RuntimeOutputChunk) => void) => () => void;
   };
 
   // F-4 — desktop Deno / Bun child-spawn IPC. Optional; web adapter omits
@@ -836,6 +846,9 @@ interface LinguaAPI {
     // F-7 — interactive stdin.
     writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
     closeStdin: (runId: string) => Promise<{ closed: boolean }>;
+    // F-7 — live stdout/stderr chunks from an interactive run. Returns an
+    // unsubscribe fn. Consumers filter by `runId`.
+    onOutput: (handler: (event: RuntimeOutputChunk) => void) => () => void;
   };
 
   format: {

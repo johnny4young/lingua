@@ -43,7 +43,7 @@
  */
 
 import { app } from 'electron';
-import { typedHandle } from './ipc/typedHandle';
+import { typedHandle, typedSendTo } from './ipc/typedHandle';
 import { parse } from 'acorn';
 import type { Node as AcornNode, Program as AcornProgram } from 'acorn';
 import * as childProc from 'node:child_process';
@@ -164,6 +164,13 @@ export interface NodeRunOptions {
    * behavior: the buffer is written and stdin is closed immediately.
    */
   interactive?: boolean;
+  /**
+   * F-7 — main-internal live-output sink. Set by the IPC handler (never
+   * from the serialized IPC payload) to stream stdout/stderr chunks to the
+   * renderer as they arrive during an interactive run. Only invoked when
+   * `interactive` is true.
+   */
+  onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   /** I18n-keyed truncation markers. */
   messages?: NativeRunnerMessages;
 }
@@ -730,6 +737,15 @@ async function spawnNode(
             ? (stdin) => activeNodeStdins.set(options.runId!, stdin)
             : undefined,
       },
+      // F-7 — stream live output to the renderer before buffering/truncation.
+      onStdout:
+        interactive && options.onOutput
+          ? (chunk) => options.onOutput?.('stdout', chunk)
+          : undefined,
+      onStderr:
+        interactive && options.onOutput
+          ? (chunk) => options.onOutput?.('stderr', chunk)
+          : undefined,
       signal: controller.signal,
     });
 
@@ -892,11 +908,25 @@ export function registerNodeJSHandlers(): void {
   );
   typedHandle(
     'node:run',
-    async (_event, source: unknown, options?: unknown) => {
+    async (event, source: unknown, options?: unknown) => {
       if (typeof source !== 'string') {
         return invalidNodeRunResult('Node runner received invalid source.');
       }
-      return runNodeCode(source, normalizeNodeRunOptions(options));
+      const normalized = normalizeNodeRunOptions(options);
+      // F-7 — stream live output to the renderer for interactive runs.
+      if (normalized.interactive && normalized.runId) {
+        const runId = normalized.runId;
+        const sender = event.sender;
+        normalized.onOutput = (stream, chunk) => {
+          if (sender.isDestroyed()) return;
+          try {
+            typedSendTo(sender, 'runtime:output-chunk', { runId, stream, chunk });
+          } catch {
+            /* sender gone */
+          }
+        };
+      }
+      return runNodeCode(source, normalized);
     }
   );
   typedHandle(
