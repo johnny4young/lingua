@@ -1148,6 +1148,15 @@ export interface ExecutionContext {
    * capture ignore the field harmlessly.
    */
   captureStructuredResult?: boolean;
+  /**
+   * T17 — per-notebook Python kernel scope. When set (the notebook session
+   * passes the notebook's tabId), the Python worker runs the cell against a
+   * persistent namespace dedicated to that scope, so cells in one notebook
+   * share state while staying isolated from the editor scratchpad and other
+   * notebooks. Unset = the legacy shared module-`globals()` path (editor
+   * scratchpad). Only the Python runner consumes it; other runners ignore it.
+   */
+  scopeId?: string;
 }
 
 export interface ExecutionError {

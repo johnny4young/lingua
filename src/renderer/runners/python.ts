@@ -529,6 +529,10 @@ export class PythonRunner implements LanguageRunner {
         // keeps the hot path identical to pre-slice behavior.
         captureScope: context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
+        // T17 — per-notebook kernel scope. When set, the worker runs the
+        // cell against a persistent namespace dedicated to this scope
+        // (cross-cell state), isolated from the editor scratchpad's globals.
+        scopeId: context?.scopeId,
         // Slice 2 — rich console + source mapping are baseline. The
         // worker preamble unconditionally serializes payloads and
         // walks frames for origin.
@@ -556,5 +560,16 @@ export class PythonRunner implements LanguageRunner {
       this.cancelInFlight = null;
       cancel();
     }
+  }
+
+  /**
+   * T17 — Restart kernel / notebook-close. Drops a notebook's persistent
+   * Python namespace in the worker so the next run in that scope starts
+   * clean. No-op when the worker has not been created yet (nothing to
+   * reset) — Pyodide is never booted just to clear an empty scope.
+   */
+  resetScope(scopeId: string): void {
+    if (!scopeId || !this.worker) return;
+    this.worker.postMessage({ type: 'reset-scope', scopeId });
   }
 }

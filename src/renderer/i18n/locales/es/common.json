@@ -3390,7 +3390,7 @@
   "notebook.cell.latencySuffix": " · {{ms}} ms",
   "notebook.cell.usesChip": "usa: {{names}}",
   "notebook.cell.producesChip": "→ {{names}}",
-  "notebook.cell.pythonIndependentHint": "Se ejecuta de forma independiente — todavía sin variables compartidas entre celdas",
+  "notebook.cell.pythonIndependentHint": "Comparte estado con las otras celdas Python de este notebook (usa Reiniciar kernel para limpiar)",
   "notebook.cell.collapseOutput": "Contrae la salida",
   "notebook.cell.expandOutput": "Expande la salida",
   "notebook.cell.clearOutput": "Limpia la salida",

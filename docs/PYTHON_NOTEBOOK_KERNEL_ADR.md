@@ -1,6 +1,6 @@
 # Python notebook kernel — cross-cell state (T17) ADR
 
-**Status:** Proposed (design doc — implementation gated on approval)
+**Status:** Accepted — implemented (worker per-scope namespace + runner/session wiring + UI reuse of Restart kernel)
 **Roadmap item:** T17 (`docs/ROADMAP_2026_H2.md`, Tier 4)
 **Related:** RL-043 (notebook runner), RL-020 (Pyodide worker), T16 (SQL cells)
 

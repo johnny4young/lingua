@@ -555,16 +555,21 @@ export async function runNotebookCell(
   }
   session.isRunning = true;
   try {
-    // RL-043 Slice F — Python cells run through the existing Python
-    // runner (web Pyodide / desktop native) INDEPENDENTLY: no composed
-    // source, no JS sandbox injection, no structured-result channel
-    // (those serialize JS values). The per-tab JS sandbox is left
-    // untouched and `producedKeys` is empty — cross-cell Python state is
-    // a separate future slice. stdout / stderr / error / stopped map
-    // straight onto the outcome.
+    // RL-043 Slice F / T17 — Python cells run through the existing Python
+    // runner (Pyodide on web + desktop) with a per-notebook kernel scope
+    // (`scopeId: tabId`): cells in this notebook share Python state
+    // (imports, DataFrames, functions), isolated from the editor scratchpad
+    // and other notebooks. They do NOT join the JS composed-source +
+    // serialized-sandbox channel (that round-trips JS values only), so the
+    // per-tab JS sandbox is left untouched and `producedKeys` is empty.
+    // stdout / stderr / error / stopped map straight onto the outcome.
     if (request.language === 'python') {
       const result = await runnerManager.execute('python', request.source, {
         language: 'python',
+        // T17 — run this cell against the notebook's persistent Python
+        // kernel scope (keyed by tabId) so cells in this notebook share
+        // state, isolated from the editor scratchpad + other notebooks.
+        scopeId: request.tabId,
         ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}),
       });
       const sandboxKeyCount = Object.keys(session.sandbox).length;
@@ -763,6 +768,11 @@ function enforceSandboxCap(
  * change.
  */
 export function disposeNotebookSession(tabId: string): void {
+  // T17 — also drop this notebook's Python kernel scope in the worker so a
+  // closed notebook's namespace does not linger (memory + a reopened
+  // same-id tab starting dirty). Safe when no Python cell ever ran — the
+  // runner no-ops when its worker was never created.
+  runnerManager.getPythonRunner()?.resetScope(tabId);
   const state = sessions.get(tabId);
   if (!state) return;
   state.isRunning = false;

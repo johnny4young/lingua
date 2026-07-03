@@ -8,11 +8,15 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockResetScope = vi.fn();
 vi.mock('../../../src/renderer/runners', () => {
   return {
     runnerManager: {
       execute: vi.fn(),
       stop: vi.fn(),
+      // T17 — the session reaches the Python runner to reset a notebook's
+      // kernel scope on dispose / restart.
+      getPythonRunner: vi.fn(() => ({ resetScope: mockResetScope })),
     },
   };
 });
@@ -437,10 +441,20 @@ describe('runNotebookCell + session manager', () => {
     // WITHOUT the JS-only structured-result channel.
     expect(mockExecute.mock.calls[0]?.[0]).toBe('python');
     expect(mockExecute.mock.calls[0]?.[1]).toBe('print("hello")');
-    expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({ language: 'python' });
+    // T17 — the cell runs against a per-notebook kernel scope keyed by tabId.
+    expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({
+      language: 'python',
+      scopeId: 'tab-py',
+    });
     expect(mockExecute.mock.calls[0]?.[2]).not.toHaveProperty(
       'captureStructuredResult'
     );
+  });
+
+  it('T17 — disposing a notebook session resets its Python kernel scope', () => {
+    mockResetScope.mockClear();
+    disposeNotebookSession('tab-restart');
+    expect(mockResetScope).toHaveBeenCalledWith('tab-restart');
   });
 
   it('surfaces a Python runtime error on the cell outcome (Slice F)', async () => {
