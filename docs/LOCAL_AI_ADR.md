@@ -1,6 +1,6 @@
 # Local / hybrid AI — "Explain this error" (T19) ADR
 
-**Status:** Proposed — product decision required before wiring network egress
+**Status:** Accepted (2026-07-03) — decisions below are locked; wiring in progress
 **Roadmap item:** T19 / RL-031 (Tier 4)
 **Reserved entitlement:** `LOCAL_AI` (already in `src/shared/entitlements.ts`)
 
@@ -85,13 +85,22 @@ action and a preview of exactly what is sent.
 4. `PRIVACY.md` / privacy-trust Settings row updated to describe exactly what
    the AI feature sends and when.
 
-## Open questions for sign-off
+## Resolved decisions (2026-07-03 sign-off)
 
-- **Provider default:** OpenAI-compatible chat as the baseline wire shape — OK?
-  Any provider you want first-class (Anthropic-native messages API) beyond the
-  compat path?
-- **Web transport:** accept the CORS limitation on web (feature effectively
-  desktop-first, web works only with CORS-enabled endpoints), or make it
-  desktop-only in slice 1?
-- **Redaction strength:** preview-only (user decides) vs. also hard-blocking a
-  send when a high-confidence secret is detected?
+- **Provider default:** ✅ OpenAI-compatible `/chat/completions` is the baseline
+  wire shape. A provider-native adapter (e.g. Anthropic messages API) can slot
+  into the same client later without changing the request-builder core.
+- **Web transport:** ✅ accept the CORS limitation. The feature ships on **both**
+  web and desktop via `fetch`; on web it works only with CORS-enabled endpoints
+  (documented; local servers often need a CORS flag). Desktop can later route
+  through the RL-097 T7 SSRF-guarded main proxy once that transport seam is
+  wired to the renderer — a follow-up, not a blocker.
+- **Redaction strength:** **preview-only, no hard block** (implementer's call).
+  Rationale: the payload **preview** is the real consent control — the user sees
+  exactly what would leave the device and approves or cancels. Auto-redaction of
+  obvious secrets stays as defense-in-depth, and the consent surface shows a
+  visible "N secrets redacted" indicator so the user knows masking happened. A
+  hard block on a secret heuristic is rejected: it adds false-positive friction
+  (blocking legitimate sends) and false confidence (heuristics miss secrets),
+  whereas showing the user the exact payload is both honest and unbounded by
+  heuristic coverage.
