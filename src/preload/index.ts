@@ -356,6 +356,12 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('dependencies:js:install:cancel', runId),
     onInstallLogJs: (handler: (event: DependencyInstallLogEvent) => void) =>
       typedOn('dependencies:js:install:log', handler),
+    // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+    installNative: (
+      language: NativePackageLanguage,
+      specifiers: readonly string[],
+      filePath: string
+    ) => typedInvoke('dependencies:native:install', language, specifiers, filePath),
   },
 
   // RL-102 Slice 1 — Git read-only layer. Three channels:

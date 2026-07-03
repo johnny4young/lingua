@@ -115,6 +115,14 @@ describe('buildCommandPaletteModel', () => {
     expect(explain).toBeDefined();
     explain?.action();
     expect(onExplainLastError).toHaveBeenCalledTimes(1);
+
+    const onInstallNativeDependencies = vi.fn();
+    const withInstall = buildCommandPaletteModel({ ...baseOptions, onInstallNativeDependencies });
+    expect(buildCommandPaletteModel(baseOptions).some((c) => c.id === 'action-install-native-deps')).toBe(false);
+    const install = withInstall.find((c) => c.id === 'action-install-native-deps');
+    expect(install).toBeDefined();
+    install?.action();
+    expect(onInstallNativeDependencies).toHaveBeenCalledTimes(1);
   });
 
   it('translates action labels through the provided t function', async () => {

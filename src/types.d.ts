@@ -225,6 +225,26 @@ interface AltJsRunResult {
   timeoutMs: number;
 }
 
+// F-1 — Go / Rust / Ruby dependency install IPC shapes. Mirrors the
+// module types in src/shared/dependencies/nativeDependencies.ts and
+// src/main/nativeDependencyInstall.ts (ambient copy for the import-free
+// ipcContract, same pattern as the Node/Ruby types above).
+type NativePackageLanguage = 'go' | 'rust' | 'ruby';
+type NativeInstallStatus =
+  | 'success'
+  | 'error'
+  | 'timeout'
+  | 'missing-manifest'
+  | 'invalid-specifiers'
+  | 'missing-binary';
+interface NativeInstallResult {
+  status: NativeInstallStatus;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+}
+
 // RL-026 Slice 3 + Slice 4 — desktop LSP launcher status surface.
 // `RustAnalyzerStatus` and `GoplsStatus` share the same discriminated
 // union so the renderer and preload can use a single contract; the
@@ -1170,6 +1190,12 @@ interface LinguaAPI {
     onInstallLogJs: (
       handler: (event: DependencyInstallLogEvent) => void
     ) => () => void;
+    // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+    installNative: (
+      language: NativePackageLanguage,
+      specifiers: readonly string[],
+      filePath: string
+    ) => Promise<NativeInstallResult>;
   };
 
   /**

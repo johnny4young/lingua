@@ -29,6 +29,10 @@ import { useUpdateStore } from '../../stores/updateStore';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { runBenchmark, BENCHMARK_DEFAULT_ITERATIONS } from '../../runtime/benchmarkRun';
 import { explainError, formatExplanation } from '../../../shared/errorExplainer';
+import {
+  detectNativeDependencies,
+  type NativePackageLanguage,
+} from '../../../shared/dependencies/nativeDependencies';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import {
   getActiveEditorCursorLine,
@@ -191,6 +195,16 @@ export function CommandPalette({
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const canBenchmark = useEntitlement('BENCHMARK');
   const canExplainError = useEntitlement('LOCAL_AI');
+  // F-1 — Go/Rust/Ruby install: detect the active saved tab's third-party
+  // deps so the palette can offer a one-shot toolchain install.
+  const nativeDepLanguage: NativePackageLanguage | null =
+    activeTab && ['go', 'rust', 'ruby'].includes(activeTab.language)
+      ? (activeTab.language as NativePackageLanguage)
+      : null;
+  const nativeDepSpecifiers =
+    nativeDepLanguage && activeTab
+      ? detectNativeDependencies(nativeDepLanguage, activeTab.content)
+      : [];
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
   // RL-094 Slice 1 fold B — read the latest capsule (newest-first walk
   // inside the store). Recomputes when `entries` changes; the
@@ -362,6 +376,50 @@ export function CommandPalette({
               console.addEntry({
                 type: 'info',
                 content: `${t('command.explainError')}\n\n${formatExplanation(explanation)}`,
+              });
+            }
+          : undefined,
+      // F-1 — install detected Go/Rust/Ruby packages via the desktop
+      // toolchain. Wired only for a saved native-language tab with
+      // detected third-party deps and the desktop install bridge present.
+      onInstallNativeDependencies:
+        nativeDepLanguage &&
+        activeTab?.filePath &&
+        nativeDepSpecifiers.length > 0 &&
+        typeof window !== 'undefined' &&
+        window.lingua?.dependencies?.installNative
+          ? () => {
+              const language = nativeDepLanguage;
+              const filePath = activeTab.filePath;
+              const specifiers = nativeDepSpecifiers;
+              const bridge = window.lingua?.dependencies?.installNative;
+              if (!filePath || !bridge) return;
+              const store = useConsoleStore.getState();
+              useUIStore.getState().openBottomPanel('console');
+              store.addEntry({
+                type: 'info',
+                content: t('command.installNativeDeps.start', {
+                  count: specifiers.length,
+                  packages: specifiers.join(', '),
+                }),
+              });
+              void bridge(language, specifiers, filePath).then((result) => {
+                const console = useConsoleStore.getState();
+                if (result.status === 'success') {
+                  console.addEntry({
+                    type: 'result',
+                    content: t('command.installNativeDeps.success', {
+                      count: specifiers.length,
+                    }),
+                  });
+                } else {
+                  console.addEntry({
+                    type: 'error',
+                    content: t('command.installNativeDeps.failure', {
+                      reason: result.error ?? result.status,
+                    }),
+                  });
+                }
               });
             }
           : undefined,

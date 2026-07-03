@@ -16,6 +16,7 @@
  *     `runId`.
  */
 
+import path from 'node:path';
 import { typedHandle } from './typedHandle';
 import {
   cancelJsDependencyInstall,
@@ -25,6 +26,11 @@ import {
   type DependencyInstallResult,
   type DependencyResolveResult,
 } from '../dependencies';
+import { installNativeDependencies } from '../nativeDependencyInstall';
+import type { NativePackageLanguage } from '../../shared/dependencies/nativeDependencies';
+import { isPathBlocked } from './permissions';
+
+const NATIVE_INSTALL_LANGUAGES: ReadonlySet<string> = new Set(['go', 'rust', 'ruby']);
 
 export const INSTALL_LOG_CHANNEL = 'dependencies:js:install:log';
 
@@ -90,6 +96,47 @@ export function registerDependencyHandlers(): void {
         return { cancelled: false };
       }
       return { cancelled: cancelJsDependencyInstall(rawRunId) };
+    }
+  );
+
+  // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add). The
+  // cwd is the directory of the active tab's saved file; main derives it
+  // and `installNativeDependencies` refuses without the project manifest.
+  typedHandle(
+    'dependencies:native:install',
+    async (
+      _event,
+      rawLanguage: unknown,
+      rawSpecifiers: unknown,
+      rawFilePath: unknown
+    ): Promise<NativeInstallResult> => {
+      const language = rawLanguage as NativePackageLanguage;
+      if (typeof rawLanguage !== 'string' || !NATIVE_INSTALL_LANGUAGES.has(rawLanguage)) {
+        return { status: 'invalid-specifiers', stdout: '', stderr: '', exitCode: -1, error: 'Unsupported language.' };
+      }
+      const specifiers = Array.isArray(rawSpecifiers)
+        ? rawSpecifiers.filter((s): s is string => typeof s === 'string')
+        : [];
+      const filePath = typeof rawFilePath === 'string' ? rawFilePath : '';
+      if (!filePath) {
+        return {
+          status: 'missing-manifest',
+          stdout: '',
+          stderr: '',
+          exitCode: -1,
+          error: 'Save the file inside a project before installing.',
+        };
+      }
+      // Defense in depth: never operate under a denylisted path even though
+      // the cwd comes from the user's own saved tab.
+      if (isPathBlocked(filePath, 'read')) {
+        return { status: 'error', stdout: '', stderr: '', exitCode: -1, error: 'Path not permitted.' };
+      }
+      return installNativeDependencies({
+        language,
+        specifiers,
+        cwd: path.dirname(filePath),
+      });
     }
   );
 }

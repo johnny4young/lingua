@@ -377,6 +377,11 @@ export interface IpcInvokeContract {
     args: [runId: string];
     result: { cancelled: boolean };
   };
+  // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+  'dependencies:native:install': {
+    args: [language: NativePackageLanguage, specifiers: readonly string[], filePath: string];
+    result: NativeInstallResult;
+  };
 
   // -------------------------------------------------------------------- git
   'git:detect': { args: [folderPath?: string]; result: GitDetectResult };
@@ -528,6 +533,7 @@ export const IPC_INVOKE_CHANNELS = [
   'dependencies:js:resolve',
   'dependencies:js:install',
   'dependencies:js:install:cancel',
+  'dependencies:native:install',
   'git:detect',
   'git:status',
   'git:diff',

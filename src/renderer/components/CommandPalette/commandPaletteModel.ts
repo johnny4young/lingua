@@ -110,6 +110,14 @@ interface BuildCommandPaletteModelArgs {
    */
   onExplainLastError?: () => void;
   /**
+   * F-1 — fires the "Install detected packages" action for a Go / Rust /
+   * Ruby tab: detects imports/crates/gems in the active buffer and runs
+   * the toolchain install (go get / cargo add / bundle add). Optional; the
+   * caller wires it only when the active tab is a saved Go/Rust/Ruby file
+   * with detectable third-party dependencies.
+   */
+  onInstallNativeDependencies?: () => void;
+  /**
    * RL-112 fold C — fires the "Focus status bar" action, moving keyboard
    * focus to the bar's first segment via `focusStatusBar()`. Optional;
    * surfaced only when wired AND the bar is currently visible (the caller
@@ -714,6 +722,7 @@ export function buildCommandPaletteModel({
   onToggleStatusBar,
   onBenchmarkActiveTab,
   onExplainLastError,
+  onInstallNativeDependencies,
   onFocusStatusBar,
   savedSessionTabCount = 0,
   onReplayEntry,
@@ -1568,6 +1577,21 @@ export function buildCommandPaletteModel({
             ['benchmark', 'profile', 'perf', 'performance', 'timing', 'speed', 'medir', 'rendimiento'],
             () => {
               onBenchmarkActiveTab();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // F-1 — install detected Go/Rust/Ruby packages for the active tab.
+    ...(onInstallNativeDependencies
+      ? [
+          buildActionCommand(
+            'action-install-native-deps',
+            translate('command.installNativeDeps'),
+            translate('command.installNativeDepsDescription'),
+            ['install', 'dependencies', 'packages', 'go', 'rust', 'ruby', 'gem', 'crate', 'module', 'instalar'],
+            () => {
+              onInstallNativeDependencies();
               onClose();
             }
           ),
