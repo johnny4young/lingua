@@ -23,18 +23,24 @@
       - updates.linguacode.dev — RL-061 Slice 5 web update banner
         (/web/version polling); whitelisted now to avoid a follow-up CSP
         churn when the banner ships.
-      - RL-097 Slice 1 — `https:` + `wss:` on connect-src so the HTTP
-        workspace can issue user-initiated `fetch` calls to arbitrary
-        HTTPS endpoints. This is the explicit widening that makes the
-        HTTP workspace functional on web; users still cannot make
-        plain-HTTP requests (no `http:` allowed) to preserve mixed-
-        content protections. `wss:` covers future WebSocket pilots.
+      - RL-097 Slice 1 / T11 (B-2) — `https:` on connect-src is a
+        DELIBERATE, documented product exception: the web HTTP workspace
+        is a first-class feature whose entire purpose is issuing
+        user-initiated `fetch` calls to arbitrary HTTPS endpoints, so its
+        origins cannot be enumerated in an allowlist. Users still cannot
+        make plain-HTTP requests (no `http:`), preserving mixed-content
+        protections. The desktop-native SSRF-guarded proxy (RL-097 T7)
+        does NOT change this: the WEB build has no main process, so its
+        HTTP workspace must use the browser `fetch` path and therefore
+        keeps the broad `https:`. `wss:` was removed (T11) — nothing in
+        the web bundle opens a WebSocket, so an arbitrary-origin `wss:`
+        was pure attack surface with no consumer.
       - `img-src https:` lets the HTTP response preview render image
         bodies that the server returns under a recognised content-type.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev https: wss:; base-uri 'self'; form-action 'self';"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev https:; base-uri 'self'; form-action 'self';"
     />
     <!--
       RL-140 (AUDIT-20) — early TLS handshakes for the two boot-time
