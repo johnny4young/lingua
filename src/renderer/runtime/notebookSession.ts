@@ -53,6 +53,7 @@
 // into the notebook chunk (RL-043 Slice B bundle guard).
 import type * as TsTypes from 'typescript';
 import { runnerManager } from '../runners';
+import { executeQuery } from './duckdbClient';
 import {
   NOTEBOOK_CELL_LANGUAGES,
   type NotebookCellLanguage,
@@ -94,10 +95,15 @@ export type NotebookSessionRejectReason =
  * cell — it does NOT join the JS composed-source + serialized-sandbox
  * cross-cell channel (that channel only round-trips JS values). True
  * cross-cell Python state needs a persistent interpreter and stays a
- * separate future slice.
+ * separate future slice. SQL (T16) runs through the shared DuckDB-WASM
+ * engine (`executeQuery`); its result set is emitted as a JSON-array
+ * stdout entry that the rich-output layer renders as a table. It also
+ * sits outside the JS sandbox channel, but — because the DuckDB engine is
+ * a renderer-wide singleton — SQL cells DO share table state with each
+ * other and with the SQL workspace through the shared connection.
  */
 export const NOTEBOOK_RUNNABLE_LANGUAGES: ReadonlySet<NotebookCellLanguage> =
-  new Set(['javascript', 'typescript', 'python']);
+  new Set(['javascript', 'typescript', 'python', 'sql']);
 
 export function isNotebookRunnableLanguage(
   language: NotebookCellLanguage
@@ -121,6 +127,50 @@ export const MAX_NOTEBOOK_CELL_OUTPUTS = 50;
  * the cost of the pull-in injection step + the JSON serialization of the
  * delta. */
 export const MAX_NOTEBOOK_SANDBOX_KEYS = 128;
+
+/**
+ * Serialize as many leading rows as fit under the per-output text cap while
+ * keeping the payload **valid JSON** so the rich-output layer
+ * (`tableFromOutputText`) can `JSON.parse` it into a table. Slicing the
+ * serialized string to fit the cap corrupts the JSON and makes the table
+ * silently disappear, so we drop whole rows instead. Rows are homogeneous, so
+ * the average serialized size gives a close first estimate; the two bounded
+ * correction loops make the fit exact. `shownRows` is how many rows the
+ * returned JSON actually contains (0 → `[]`, when even one row exceeds the
+ * cap). Callers compare it against the full `rowCount` to decide whether a
+ * truncation note is needed.
+ */
+export function serializeRowsWithinCap(rows: Array<Record<string, unknown>>): {
+  text: string;
+  shownRows: number;
+} {
+  const full = JSON.stringify(rows);
+  if (full.length <= MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH) {
+    return { text: full, shownRows: rows.length };
+  }
+  const avgPerRow = full.length / rows.length;
+  let count = Math.min(
+    rows.length,
+    Math.max(0, Math.floor(MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH / avgPerRow))
+  );
+  // Shrink while the estimate is still over the cap.
+  while (
+    count > 0 &&
+    JSON.stringify(rows.slice(0, count)).length >
+      MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH
+  ) {
+    count -= 1;
+  }
+  // Grow while the next row still fits (the estimate can be conservative).
+  while (
+    count < rows.length &&
+    JSON.stringify(rows.slice(0, count + 1)).length <=
+      MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH
+  ) {
+    count += 1;
+  }
+  return { text: JSON.stringify(rows.slice(0, count)), shownRows: count };
+}
 
 // ---------------------------------------------------------------------------
 // Composed-source helpers
@@ -555,6 +605,74 @@ export async function runNotebookCell(
   }
   session.isRunning = true;
   try {
+    // T16 — SQL cells run through the shared DuckDB-WASM engine
+    // (`executeQuery`), INDEPENDENTLY of the JS composed-source + sandbox
+    // channel (that channel round-trips JS values only). A successful
+    // result set is emitted as a single stdout entry containing the rows
+    // as a JSON array, so the notebook's rich-output layer (RL-044 / T3)
+    // renders it as a table exactly like a homogeneous array output. DDL /
+    // DML statements with no result set emit a short status line instead.
+    // The DuckDB engine is a renderer-wide singleton, so tables created in
+    // one SQL cell are visible to later SQL cells (and to the SQL
+    // workspace) — cross-cell SQL state comes for free from the shared
+    // connection. The per-tab JS sandbox is left untouched and
+    // `producedKeys` is empty.
+    if (request.language === 'sql') {
+      const sandboxKeyCount = Object.keys(session.sandbox).length;
+      const outcome = await executeQuery(
+        request.source,
+        request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}
+      );
+      // `too-large` is a capped SUCCESS — DuckDB returned a row preview and
+      // set `tooLarge` because the full result exceeded the engine cap. Only
+      // sql-error / timeout / engine-load-failed are real failures.
+      const isSuccess =
+        outcome.status === 'success' || outcome.status === 'too-large';
+      if (!isSuccess) {
+        const errorMessage =
+          outcome.errorMessage ?? `SQL ${outcome.status}`;
+        return {
+          ok: true,
+          outcome: {
+            status: 'error',
+            stdout: [],
+            stderr: [errorMessage],
+            errorMessage,
+            sandboxKeyCount,
+            producedKeys: [],
+          },
+        };
+      }
+      const stdout: string[] = [];
+      if (outcome.rows.length > 0) {
+        // Emit the preview rows as a JSON array → the rich-output layer
+        // detects the homogeneous object array and renders a table. Drop
+        // whole rows (never slice the string) when the payload exceeds the
+        // per-output cap so the emitted text stays valid JSON.
+        const { text, shownRows } = serializeRowsWithinCap(outcome.rows);
+        stdout.push(text);
+        // `rowCount` is the full result size; `shownRows` is what survived
+        // both the engine cap and the text cap. One note covers both kinds
+        // of truncation.
+        if (shownRows < outcome.rowCount) {
+          stdout.push(
+            `Showing the first ${shownRows} of ${outcome.rowCount} rows.`
+          );
+        }
+      } else {
+        stdout.push(`Query OK — ${outcome.rowCount} row(s).`);
+      }
+      return {
+        ok: true,
+        outcome: {
+          status: 'ok',
+          stdout,
+          stderr: [],
+          sandboxKeyCount,
+          producedKeys: [],
+        },
+      };
+    }
     // RL-043 Slice F / T17 — Python cells run through the existing Python
     // runner (Pyodide on web + desktop) with a per-notebook kernel scope
     // (`scopeId: tabId`): cells in this notebook share Python state

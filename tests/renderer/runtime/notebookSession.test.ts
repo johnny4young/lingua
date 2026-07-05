@@ -21,6 +21,12 @@ vi.mock('../../../src/renderer/runners', () => {
   };
 });
 
+// T16 — the SQL cell branch calls `executeQuery` from the DuckDB client.
+// Mock just that export so the session tests never stand up the WASM engine.
+vi.mock('../../../src/renderer/runtime/duckdbClient', () => {
+  return { executeQuery: vi.fn() };
+});
+
 import {
   composeNotebookCellSource,
   disposeNotebookSession,
@@ -36,8 +42,34 @@ import {
   transpileTypescriptCell,
 } from '../../../src/renderer/runtime/notebookSession';
 import { runnerManager } from '../../../src/renderer/runners';
+import { executeQuery } from '../../../src/renderer/runtime/duckdbClient';
 import type { NotebookCellLanguage } from '../../../src/shared/notebook';
 import * as ts from 'typescript';
+
+const mockExecuteQuery = executeQuery as unknown as ReturnType<typeof vi.fn>;
+
+/** Build a DuckDbExecuteOutcome-shaped stub for the SQL cell tests. */
+function sqlOutcome(
+  overrides: Partial<{
+    status: string;
+    rows: Array<Record<string, unknown>>;
+    columns: unknown[];
+    rowCount: number;
+    tooLarge: boolean;
+    errorMessage: string;
+  }> = {}
+): unknown {
+  return {
+    status: 'success',
+    rows: [],
+    columns: [],
+    rowCount: 0,
+    durationMs: 1,
+    tooLarge: false,
+    statementCount: 1,
+    ...overrides,
+  };
+}
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 
@@ -736,5 +768,139 @@ describe('runNotebookCell + session manager', () => {
     expect(getNotebookSessionKeys('tab-dispose')).toContain('z');
     disposeNotebookSession('tab-dispose');
     expect(getNotebookSessionKeys('tab-dispose')).toEqual([]);
+  });
+});
+
+describe('runNotebookCell — SQL cells (T16)', () => {
+  beforeEach(() => {
+    resetNotebookSessionsForTests();
+    mockExecuteQuery.mockReset();
+  });
+  afterEach(() => {
+    resetNotebookSessionsForTests();
+  });
+
+  it('treats sql as a runnable language', () => {
+    expect(isNotebookRunnableLanguage('sql')).toBe(true);
+  });
+
+  it('emits a result set as a JSON-array stdout entry (table output)', async () => {
+    const rows = [
+      { n: 1, label: 'a' },
+      { n: 2, label: 'b' },
+    ];
+    mockExecuteQuery.mockResolvedValue(
+      sqlOutcome({ rows, rowCount: rows.length })
+    );
+    const result = await runNotebookCell({
+      tabId: 'tab-sql',
+      language: 'sql',
+      source: 'SELECT * FROM t;',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('ok');
+    expect(result.outcome.stdout).toHaveLength(1);
+    // The single stdout entry is the JSON array → rich-output table.
+    expect(JSON.parse(result.outcome.stdout[0]!)).toEqual(rows);
+    expect(result.outcome.stderr).toEqual([]);
+    // SQL never touches the JS sandbox.
+    expect(result.outcome.producedKeys).toEqual([]);
+    expect(getNotebookSessionKeys('tab-sql')).toEqual([]);
+  });
+
+  it('passes a per-cell timeout override through to executeQuery', async () => {
+    mockExecuteQuery.mockResolvedValue(sqlOutcome({ rowCount: 0 }));
+    await runNotebookCell({
+      tabId: 'tab-sql-timeout',
+      language: 'sql',
+      source: 'SELECT 1;',
+      timeoutMs: 1234,
+    });
+    expect(mockExecuteQuery).toHaveBeenCalledWith('SELECT 1;', {
+      timeoutMs: 1234,
+    });
+  });
+
+  it('summarises a zero-row (DDL/DML) statement instead of a table', async () => {
+    mockExecuteQuery.mockResolvedValue(sqlOutcome({ rows: [], rowCount: 0 }));
+    const result = await runNotebookCell({
+      tabId: 'tab-ddl',
+      language: 'sql',
+      source: 'CREATE TABLE t (n INT);',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('ok');
+    expect(result.outcome.stdout).toEqual(['Query OK — 0 row(s).']);
+  });
+
+  it('adds a truncation note when the result set is capped', async () => {
+    const rows = [{ n: 1 }];
+    mockExecuteQuery.mockResolvedValue(
+      // Real DuckDB contract: a capped result reports status 'too-large'
+      // (not 'success') with the preview rows + the full rowCount.
+      sqlOutcome({ status: 'too-large', rows, rowCount: 5000, tooLarge: true })
+    );
+    const result = await runNotebookCell({
+      tabId: 'tab-large',
+      language: 'sql',
+      source: 'SELECT * FROM big;',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.stdout).toHaveLength(2);
+    expect(result.outcome.stdout[1]).toContain('5000');
+  });
+
+  it('keeps the emitted rows valid JSON when the preview exceeds the text cap', async () => {
+    // A full (un-capped by the engine) result whose serialized preview is
+    // larger than MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH. The old code sliced
+    // the JSON string and appended an ellipsis, which broke JSON.parse and
+    // made the table disappear; the fix drops whole rows so the payload
+    // stays parseable.
+    const rows = Array.from({ length: 400 }, (_, i) => ({
+      id: i,
+      blob: 'x'.repeat(100),
+    }));
+    mockExecuteQuery.mockResolvedValue(
+      sqlOutcome({ rows, rowCount: rows.length })
+    );
+    const result = await runNotebookCell({
+      tabId: 'tab-wide',
+      language: 'sql',
+      source: 'SELECT * FROM wide;',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('ok');
+    // stdout[0] must parse cleanly (never a sliced, ellipsis-terminated blob).
+    const emitted = result.outcome.stdout[0]!;
+    expect(emitted.length).toBeLessThanOrEqual(16 * 1024);
+    const parsed = JSON.parse(emitted) as Array<Record<string, unknown>>;
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed.length).toBeGreaterThan(0);
+    expect(parsed.length).toBeLessThan(rows.length);
+    // Rows are emitted from the top, unchanged.
+    expect(parsed[0]).toEqual(rows[0]);
+    // A note explains that only the first N of 400 rows are shown.
+    expect(result.outcome.stdout[1]).toContain(String(rows.length));
+    expect(result.outcome.stdout[1]).toContain(String(parsed.length));
+  });
+
+  it('surfaces a SQL error as an error outcome', async () => {
+    mockExecuteQuery.mockResolvedValue(
+      sqlOutcome({ status: 'sql-error', errorMessage: 'Catalog Error: no table' })
+    );
+    const result = await runNotebookCell({
+      tabId: 'tab-err',
+      language: 'sql',
+      source: 'SELECT * FROM missing;',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('error');
+    expect(result.outcome.errorMessage).toBe('Catalog Error: no table');
+    expect(result.outcome.stderr).toEqual(['Catalog Error: no table']);
   });
 });

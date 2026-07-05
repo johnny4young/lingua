@@ -29,8 +29,6 @@
  *     the wire.
  */
 
-import { LANGUAGE_PACKS, type LanguagePackId } from './languagePacks';
-
 // ---------------------------------------------------------------------------
 // Closed enums
 // ---------------------------------------------------------------------------
@@ -55,12 +53,20 @@ export type NotebookRejectReason = (typeof NOTEBOOK_REJECT_REASONS)[number];
  * set — they're a separate cell kind. JavaScript + TypeScript share the
  * JS worker pipeline (cross-cell state); Python (RL-043 Slice F) runs
  * through the Python runner independently per cell (no cross-cell state
- * yet). All three are accepted by the `notebookSession` runner.
+ * yet); SQL (T16) runs through the shared DuckDB-WASM engine and renders
+ * its result set as a table output. All four are accepted by the
+ * `notebookSession` runner.
+ *
+ * This enum — NOT the global `LanguagePackId` registry — is the authority
+ * for what a notebook code cell may carry. `'sql'` is intentionally a
+ * notebook-only cell language: it is NOT a first-class editor file
+ * language, so it does not appear in the main editor's language menu.
  */
 export const NOTEBOOK_CELL_LANGUAGES = [
   'javascript',
   'typescript',
   'python',
+  'sql',
 ] as const;
 export type NotebookCellLanguage = (typeof NOTEBOOK_CELL_LANGUAGES)[number];
 
@@ -264,9 +270,11 @@ function parseCell(raw: unknown): NotebookCellV1 | null | CellParseReject {
     return { kind: 'markdown', id: obj.id, source: obj.source };
   }
 
-  // Code cell — language + outputs.
+  // Code cell — language + outputs. `NOTEBOOK_CELL_LANGUAGES` is the
+  // authority for the closed set of runnable cell languages (it is NOT
+  // tied to the global editor `LanguagePackId` registry — `'sql'` is a
+  // notebook-only cell language).
   if (typeof obj.language !== 'string') return null;
-  if (!isKnownLanguage(obj.language)) return 'unknown-language';
   if (!(NOTEBOOK_CELL_LANGUAGES as readonly string[]).includes(obj.language)) {
     return 'unknown-language';
   }
@@ -297,10 +305,6 @@ function parseOutput(raw: unknown): NotebookCellOutputV1 | null {
   if (obj.text.length > MAX_OUTPUT_TEXT_LENGTH) return null;
   if (obj.stream !== 'stdout' && obj.stream !== 'stderr') return null;
   return { kind: 'text', text: obj.text, stream: obj.stream };
-}
-
-function isKnownLanguage(value: string): value is LanguagePackId {
-  return LANGUAGE_PACKS.some((pack) => pack.id === value);
 }
 
 // ---------------------------------------------------------------------------
@@ -371,9 +375,10 @@ export function createBlankNotebook(opts: {
 
 /**
  * Convenience guard for store callers + UI gating. The runner executes
- * all three code-cell languages — `'javascript' | 'typescript'` (JS
- * worker, cross-cell state) and `'python'` (RL-043 Slice F, independent
- * per cell). See `notebookSession.ts`.
+ * all four code-cell languages — `'javascript' | 'typescript'` (JS
+ * worker, cross-cell state), `'python'` (RL-043 Slice F, independent per
+ * cell), and `'sql'` (T16, shared DuckDB engine, table output). See
+ * `notebookSession.ts`.
  */
 export function isNotebookCodeCell(
   cell: NotebookCellV1

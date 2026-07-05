@@ -99,12 +99,14 @@ const LANGUAGE_INFO: Record<
   javascript: { name: 'javascript', file_extension: '.js', version: 'ES2022' },
   typescript: { name: 'typescript', file_extension: '.ts', version: '5' },
   python: { name: 'python', file_extension: '.py', version: '3' },
+  sql: { name: 'sql', file_extension: '.sql', version: '' },
 };
 
 const KERNEL_DISPLAY_NAME: Record<NotebookCellLanguage, string> = {
   javascript: 'JavaScript (Lingua)',
   typescript: 'TypeScript (Lingua)',
   python: 'Python (Lingua)',
+  sql: 'SQL (Lingua)',
 };
 
 /**
