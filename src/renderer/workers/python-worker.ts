@@ -87,6 +87,15 @@ let pyodide: unknown = null;
 let appliedUserEnvKeys: string[] = [];
 let activeRunId: string | null = null;
 /**
+ * T17 — per-notebook Python namespace dicts. Keyed by `scopeId` (a notebook
+ * tabId). Each value is a PyProxy to a Python `dict` that user code runs
+ * against, so cells in one notebook share state while notebook A, notebook B,
+ * and the editor scratchpad (which uses the legacy module-`globals()` path,
+ * no scopeId) stay isolated. A `reset-scope` message (Restart kernel) or tab
+ * close destroys the proxy and drops the entry.
+ */
+const scopeNamespaces = new Map<string, { destroy?: () => void }>();
+/**
  * RL-020 Slice 9 — Pyodide globals captured before the first user
  * run executes. The variable inspector subtracts this set from
  * `globals().keys()` so only user-declared bindings (and post-boot
@@ -124,7 +133,16 @@ type PyodidePyModule = {
 };
 
 type PyodideRuntime = {
-  runPythonAsync(code: string): Promise<unknown>;
+  /**
+   * T17 — the optional `globals` runs user code against a caller-supplied
+   * namespace dict (a PyProxy) instead of the worker module `globals()`.
+   * Notebook cells pass their per-notebook scope dict so cross-cell Python
+   * state persists while staying isolated from the editor scratchpad and
+   * other notebooks. Absent `globals`, behavior is unchanged.
+   */
+  runPythonAsync(code: string, options?: { globals?: unknown }): Promise<unknown>;
+  /** T17 — synchronous eval, used to mint a fresh Python `dict()` scope proxy. */
+  runPython?(code: string): unknown;
   /**
    * RL-025 Slice C — load a Pyodide-shipped package into the
    * runtime. Used to bootstrap `micropip` before the first install.
@@ -173,6 +191,7 @@ type PyodideRuntime = {
   }) => void;
   globals: {
     set(name: string, value: unknown): void;
+    get?(name: string): unknown;
     delete?(name: string): void;
   };
 };
@@ -757,6 +776,24 @@ function classifyMicropipError(
 ctx.addEventListener('message', async (event) => {
   const msg = event.data;
 
+  if (msg.type === 'reset-scope') {
+    // T17 — Restart kernel / tab close: drop a notebook's persistent scope
+    // dict so the next run starts clean. Idempotent for an unknown scopeId.
+    const { scopeId } = msg as { scopeId?: string };
+    if (typeof scopeId === 'string' && scopeId.length > 0) {
+      const ns = scopeNamespaces.get(scopeId);
+      if (ns && typeof ns.destroy === 'function') {
+        try {
+          ns.destroy();
+        } catch {
+          /* proxy already finalized */
+        }
+      }
+      scopeNamespaces.delete(scopeId);
+    }
+    return;
+  }
+
   if (msg.type === 'init') {
     try {
       ctx.postMessage({ type: 'loading', stage: 'Loading Python runtime...' });
@@ -782,11 +819,14 @@ ctx.addEventListener('message', async (event) => {
       stdin,
       captureScope,
       scopeDepth,
+      scopeId,
     } = msg as {
       runId: string;
       code: string;
       userEnv?: Record<string, string>;
       resultTruncationMarker?: string;
+      /** T17 — per-notebook kernel scope id (notebook tabId). */
+      scopeId?: string;
       /**
        * RL-020 Slice 6 — pre-set stdin buffer. Newline-delimited;
        * `input()` consumes one line per call. Empty / undefined
@@ -1289,6 +1329,24 @@ __lingua = __lingua_types.SimpleNamespace(
     image=__lingua_image_helper,
     html=__lingua_html_helper,
 )
+
+
+def __lingua_seed_scope(ns):
+    # T17 — copy ONLY the framework helpers user code resolves by bare
+    # name (the 'print' override, the '__mc' magic runner, the '__lingua'
+    # namespace + its '__lingua_*' shims, and '__builtins__') into a
+    # per-notebook scope dict. User variables are NEVER copied, so a
+    # notebook scope stays isolated from the editor scratchpad's globals()
+    # and from other notebooks. The framework names are refreshed on every
+    # run (the preamble re-defines them), which is a harmless overwrite.
+    for __lingua_k, __lingua_v in list(globals().items()):
+        if (
+            __lingua_k == "print"
+            or __lingua_k == "__mc"
+            or __lingua_k == "__builtins__"
+            or __lingua_k.startswith("__lingua")
+        ):
+            ns[__lingua_k] = __lingua_v
       `);
 
       if (captureScope === true) {
@@ -1300,7 +1358,38 @@ __lingua = __lingua_types.SimpleNamespace(
       let errorText: string | null = null;
 
       try {
-        result = await py.runPythonAsync(code);
+        if (typeof scopeId === 'string' && scopeId.length > 0) {
+          // T17 — run user code against the notebook's persistent scope
+          // dict. Seed it with the framework helpers (refreshed each run),
+          // then execute with `globals: ns` so assignments land in — and
+          // reads resolve from — the per-notebook namespace.
+          let ns = scopeNamespaces.get(scopeId);
+          if (ns === undefined && typeof py.runPython === 'function') {
+            ns = py.runPython('dict()') as { destroy?: () => void };
+            scopeNamespaces.set(scopeId, ns);
+          }
+          const seed = py.globals.get?.('__lingua_seed_scope') as
+            | ((namespace: unknown) => void)
+            | undefined;
+          if (seed && ns !== undefined) {
+            try {
+              seed(ns);
+            } finally {
+              (seed as unknown as { destroy?: () => void }).destroy?.();
+            }
+          }
+          // Only pass `globals` when a real dict proxy exists. If `runPython`
+          // was unavailable (an odd build / a mock), `ns` is undefined —
+          // passing `{ globals: undefined }` would either throw or silently
+          // fall back to the module globals; run the legacy unscoped path
+          // explicitly instead so the call never sees an undefined globals.
+          result =
+            ns !== undefined
+              ? await py.runPythonAsync(code, { globals: ns })
+              : await py.runPythonAsync(code);
+        } else {
+          result = await py.runPythonAsync(code);
+        }
       } catch (err) {
         errorText = err instanceof Error ? err.message : String(err);
       }

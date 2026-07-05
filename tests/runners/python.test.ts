@@ -36,6 +36,12 @@ describe('PythonRunner', () => {
     // After stop, calling stop again should not throw
     expect(() => runner.stop()).not.toThrow();
   });
+
+  it('T17 — resetScope is a no-op when the worker was never created', () => {
+    const runner = new PythonRunner();
+    // Pyodide is never booted just to clear an empty scope.
+    expect(() => runner.resetScope('nb-1')).not.toThrow();
+  });
 });
 
 describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () => {
@@ -738,5 +744,25 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(entry.args?.[0]).toContain('chart rejected');
     // Rejection messages keep the text fallback; payload stays absent.
     expect(entry.payload).toBeUndefined();
+  });
+
+  it('T17 — forwards scopeId on the execute message for a notebook cell run', async () => {
+    const runner = new PythonRunner();
+    await runner.init();
+    await runner.execute('x = 1', { scopeId: 'nb-1' });
+    const executeMessage = postedMessages.find((m) => m.type === 'execute');
+    expect(executeMessage?.scopeId).toBe('nb-1');
+  });
+
+  it('T17 — resetScope posts a reset-scope message once the worker exists', async () => {
+    const runner = new PythonRunner();
+    await runner.init();
+    await runner.execute('x = 1', { scopeId: 'nb-1' });
+    postedMessages.length = 0;
+    runner.resetScope('nb-1');
+    expect(postedMessages).toContainEqual({
+      type: 'reset-scope',
+      scopeId: 'nb-1',
+    });
   });
 });

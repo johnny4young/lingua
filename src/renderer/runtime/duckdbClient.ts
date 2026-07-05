@@ -383,13 +383,49 @@ export async function getDuckDbEngine(): Promise<DuckDbEngineHandle> {
 }
 
 /**
- * Production factory. Dynamically imports `@duckdb/duckdb-wasm` so
- * the bundler emits it on the `duckdb-wasm` chunk (see
- * `vite.web.config.mts` + `vite.renderer.config.mts`). Desktop keeps
- * the WASM blob bundled; the standalone web build points the >25 MiB
- * MVP WASM at the public R2 runtime prefix because Cloudflare Pages
- * rejects oversized single assets.
+ * The runtime WASM is mirrored on R2 (it exceeds Cloudflare Pages' 25 MiB
+ * per-file cap, so it can't ship as a Pages static asset). A large,
+ * edge-uncached object can return a transient `5xx` under load, which
+ * previously failed the whole SQL engine on the very first `fetch` with no
+ * second chance. Retry transient failures — a `5xx` response or a thrown
+ * network error (offline, DNS, reset) — with exponential backoff. A `4xx`
+ * is deterministic (a Bot-Fight-Mode `403`, a `404` for a missing object)
+ * and must NOT be retried: retrying only delays the inevitable failure and
+ * hammers the origin. Exported for tests; `sleep` is injectable so specs
+ * don't wait real time.
  */
+export const DUCKDB_WASM_FETCH_MAX_RETRIES = 3;
+const DUCKDB_WASM_FETCH_BASE_DELAY_MS = 500;
+
+export async function fetchRuntimeAssetWithRetry(
+  url: string,
+  maxRetries: number = DUCKDB_WASM_FETCH_MAX_RETRIES,
+  baseDelayMs: number = DUCKDB_WASM_FETCH_BASE_DELAY_MS,
+  sleep: (ms: number) => Promise<void> = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms))
+): Promise<Response> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url);
+      // Only a transient server error is worth another attempt; any other
+      // status (2xx success, or a deterministic 4xx) is returned as-is for
+      // the caller's `response.ok` check to handle.
+      if (response.status < 500 || attempt === maxRetries) {
+        return response;
+      }
+      lastError = new Error(`${response.status} ${response.statusText}`);
+    } catch (networkError) {
+      // fetch() rejects only on a network-layer failure — always transient.
+      lastError = networkError instanceof Error ? networkError : new Error(String(networkError));
+      if (attempt === maxRetries) throw lastError;
+    }
+    await sleep(baseDelayMs * 2 ** attempt);
+  }
+  // Unreachable — the loop returns or throws — but keeps the type total.
+  throw lastError ?? new Error('Failed to fetch DuckDB runtime');
+}
+
 /**
  * Fetch the R2-mirrored DuckDB WASM, verify it against the build-time
  * expected sha256 (computed from the pnpm-lock-verified node_modules
@@ -402,7 +438,7 @@ async function fetchVerifiedWasmUrl(
   url: string,
   expectedSha256: string
 ): Promise<string> {
-  const response = await fetch(url);
+  const response = await fetchRuntimeAssetWithRetry(url);
   if (!response.ok) {
     throw new Error(
       `Failed to fetch DuckDB runtime (${response.status} ${response.statusText})`
@@ -424,6 +460,14 @@ async function fetchVerifiedWasmUrl(
   );
 }
 
+/**
+ * Production factory. Dynamically imports `@duckdb/duckdb-wasm` so
+ * the bundler emits it on the `duckdb-wasm` chunk (see
+ * `vite.web.config.mts` + `vite.renderer.config.mts`). Desktop keeps
+ * the WASM blob bundled; the standalone web build points the >25 MiB
+ * MVP WASM at the public R2 runtime prefix because Cloudflare Pages
+ * rejects oversized single assets.
+ */
 async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
   // Dynamic imports keep the chunk lazy. The browser fetches the
   // ~1 MiB JS shim first; the WASM only when DuckDB

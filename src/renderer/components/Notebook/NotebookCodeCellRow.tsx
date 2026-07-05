@@ -491,10 +491,10 @@ function NotebookCodeCellRowImpl({
               })}
             </span>
           ) : null}
-          {/* RL-043 Slice F (fold A) — Python cells run independently (no
-              cross-cell variables yet). The chip truncates; the full
-              sentence is the hover title so a user never hits a silent
-              NameError between cells without an explanation. */}
+          {/* RL-043 Slice F / T17 — Python cells share a per-notebook
+              kernel scope, so cell 2 sees cell 1's imports/vars (Restart
+              kernel clears it). The chip truncates; the full sentence is
+              the hover title. */}
           {cell.language === 'python' ? (
             <span
               data-testid="notebook-code-cell-python-hint"
