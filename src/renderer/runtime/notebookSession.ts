@@ -128,6 +128,50 @@ export const MAX_NOTEBOOK_CELL_OUTPUTS = 50;
  * delta. */
 export const MAX_NOTEBOOK_SANDBOX_KEYS = 128;
 
+/**
+ * Serialize as many leading rows as fit under the per-output text cap while
+ * keeping the payload **valid JSON** so the rich-output layer
+ * (`tableFromOutputText`) can `JSON.parse` it into a table. Slicing the
+ * serialized string to fit the cap corrupts the JSON and makes the table
+ * silently disappear, so we drop whole rows instead. Rows are homogeneous, so
+ * the average serialized size gives a close first estimate; the two bounded
+ * correction loops make the fit exact. `shownRows` is how many rows the
+ * returned JSON actually contains (0 → `[]`, when even one row exceeds the
+ * cap). Callers compare it against the full `rowCount` to decide whether a
+ * truncation note is needed.
+ */
+export function serializeRowsWithinCap(rows: Array<Record<string, unknown>>): {
+  text: string;
+  shownRows: number;
+} {
+  const full = JSON.stringify(rows);
+  if (full.length <= MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH) {
+    return { text: full, shownRows: rows.length };
+  }
+  const avgPerRow = full.length / rows.length;
+  let count = Math.min(
+    rows.length,
+    Math.max(0, Math.floor(MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH / avgPerRow))
+  );
+  // Shrink while the estimate is still over the cap.
+  while (
+    count > 0 &&
+    JSON.stringify(rows.slice(0, count)).length >
+      MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH
+  ) {
+    count -= 1;
+  }
+  // Grow while the next row still fits (the estimate can be conservative).
+  while (
+    count < rows.length &&
+    JSON.stringify(rows.slice(0, count + 1)).length <=
+      MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH
+  ) {
+    count += 1;
+  }
+  return { text: JSON.stringify(rows.slice(0, count)), shownRows: count };
+}
+
 // ---------------------------------------------------------------------------
 // Composed-source helpers
 // ---------------------------------------------------------------------------
@@ -579,7 +623,12 @@ export async function runNotebookCell(
         request.source,
         request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}
       );
-      if (outcome.status !== 'success') {
+      // `too-large` is a capped SUCCESS — DuckDB returned a row preview and
+      // set `tooLarge` because the full result exceeded the engine cap. Only
+      // sql-error / timeout / engine-load-failed are real failures.
+      const isSuccess =
+        outcome.status === 'success' || outcome.status === 'too-large';
+      if (!isSuccess) {
         const errorMessage =
           outcome.errorMessage ?? `SQL ${outcome.status}`;
         return {
@@ -597,16 +646,17 @@ export async function runNotebookCell(
       const stdout: string[] = [];
       if (outcome.rows.length > 0) {
         // Emit the preview rows as a JSON array → the rich-output layer
-        // detects the homogeneous object array and renders a table.
-        const serialized = JSON.stringify(outcome.rows);
-        stdout.push(
-          serialized.length > MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH
-            ? `${serialized.slice(0, MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH - 1)}…`
-            : serialized
-        );
-        if (outcome.tooLarge) {
+        // detects the homogeneous object array and renders a table. Drop
+        // whole rows (never slice the string) when the payload exceeds the
+        // per-output cap so the emitted text stays valid JSON.
+        const { text, shownRows } = serializeRowsWithinCap(outcome.rows);
+        stdout.push(text);
+        // `rowCount` is the full result size; `shownRows` is what survived
+        // both the engine cap and the text cap. One note covers both kinds
+        // of truncation.
+        if (shownRows < outcome.rowCount) {
           stdout.push(
-            `Showing the first ${outcome.rows.length} of ${outcome.rowCount} rows.`
+            `Showing the first ${shownRows} of ${outcome.rowCount} rows.`
           );
         }
       } else {

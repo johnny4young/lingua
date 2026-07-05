@@ -838,7 +838,9 @@ describe('runNotebookCell — SQL cells (T16)', () => {
   it('adds a truncation note when the result set is capped', async () => {
     const rows = [{ n: 1 }];
     mockExecuteQuery.mockResolvedValue(
-      sqlOutcome({ rows, rowCount: 5000, tooLarge: true })
+      // Real DuckDB contract: a capped result reports status 'too-large'
+      // (not 'success') with the preview rows + the full rowCount.
+      sqlOutcome({ status: 'too-large', rows, rowCount: 5000, tooLarge: true })
     );
     const result = await runNotebookCell({
       tabId: 'tab-large',
@@ -849,6 +851,41 @@ describe('runNotebookCell — SQL cells (T16)', () => {
     if (!result.ok) return;
     expect(result.outcome.stdout).toHaveLength(2);
     expect(result.outcome.stdout[1]).toContain('5000');
+  });
+
+  it('keeps the emitted rows valid JSON when the preview exceeds the text cap', async () => {
+    // A full (un-capped by the engine) result whose serialized preview is
+    // larger than MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH. The old code sliced
+    // the JSON string and appended an ellipsis, which broke JSON.parse and
+    // made the table disappear; the fix drops whole rows so the payload
+    // stays parseable.
+    const rows = Array.from({ length: 400 }, (_, i) => ({
+      id: i,
+      blob: 'x'.repeat(100),
+    }));
+    mockExecuteQuery.mockResolvedValue(
+      sqlOutcome({ rows, rowCount: rows.length })
+    );
+    const result = await runNotebookCell({
+      tabId: 'tab-wide',
+      language: 'sql',
+      source: 'SELECT * FROM wide;',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('ok');
+    // stdout[0] must parse cleanly (never a sliced, ellipsis-terminated blob).
+    const emitted = result.outcome.stdout[0]!;
+    expect(emitted.length).toBeLessThanOrEqual(16 * 1024);
+    const parsed = JSON.parse(emitted) as Array<Record<string, unknown>>;
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed.length).toBeGreaterThan(0);
+    expect(parsed.length).toBeLessThan(rows.length);
+    // Rows are emitted from the top, unchanged.
+    expect(parsed[0]).toEqual(rows[0]);
+    // A note explains that only the first N of 400 rows are shown.
+    expect(result.outcome.stdout[1]).toContain(String(rows.length));
+    expect(result.outcome.stdout[1]).toContain(String(parsed.length));
   });
 
   it('surfaces a SQL error as an error outcome', async () => {
