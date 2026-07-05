@@ -140,6 +140,14 @@ export async function runChatCompletion(
       } catch {
         /* body already consumed / unreadable */
       }
+      // Defense in depth: a misconfigured proxy/server can echo the request
+      // `Authorization` header back in its error body, which would reintroduce
+      // the key into the UI string. Scrub any literal occurrence of the key
+      // before it is appended so the "key never leaks" guarantee holds even on
+      // the endpoint-error path. split/join avoids regex-escaping the key.
+      if (detail && config.apiKey) {
+        detail = detail.split(config.apiKey).join('[redacted]');
+      }
       return {
         ok: false,
         kind,

@@ -100,6 +100,25 @@ describe('runChatCompletion', () => {
     }
   });
 
+  it('redacts the key from an http error body that echoes it back (proxy reflection)', async () => {
+    // Defense in depth: a misconfigured proxy can reflect the request
+    // Authorization header into its error body. The key must never reach the
+    // UI message even on the endpoint-error path.
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        'Bad gateway: rejected header Authorization: Bearer sk-secret-key-value',
+        { status: 502 }
+      )
+    ) as unknown as typeof fetch;
+    const res = await runChatCompletion(request, config, { fetchImpl });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.kind).toBe('http');
+      expect(res.message).not.toContain('sk-secret-key-value');
+      expect(res.message).toContain('[redacted]');
+    }
+  });
+
   it('surfaces a network failure', async () => {
     const fetchImpl = (async () => {
       throw new TypeError('Failed to fetch');

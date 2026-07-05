@@ -119,6 +119,12 @@ export interface ExplainErrorRequest {
   readonly preview: string;
   /** True when redaction masked at least one secret in the excerpt. */
   readonly redacted: boolean;
+  /**
+   * How many secrets redaction masked. Drives the visible "N secrets
+   * redacted" consent indicator the Local AI ADR requires (a bare boolean
+   * can't render an accurate count). 0 when nothing was masked.
+   */
+  readonly redactedCount: number;
 }
 
 const SYSTEM_PROMPT =
@@ -162,6 +168,7 @@ export function buildExplainErrorRequest(
     messages,
     preview,
     redacted: redaction.redactedCount > 0,
+    redactedCount: redaction.redactedCount,
   };
   return input.model ? { ...request, model: input.model } : request;
 }

@@ -72,6 +72,9 @@ describe('buildExplainErrorRequest', () => {
       language: 'python',
     });
     expect(req.redacted).toBe(true);
+    // The consent surface renders "N secrets redacted" from the count, so the
+    // request exposes the number — not just the boolean (Local AI ADR).
+    expect(req.redactedCount).toBe(1);
     expect(req.messages[1]!.content).not.toContain('sk-ant-abcdefghijklmnop1234');
     // The preview shows exactly what would be sent — also redacted.
     expect(req.preview).not.toContain('sk-ant-abcdefghijklmnop1234');

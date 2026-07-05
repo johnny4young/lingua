@@ -75,7 +75,7 @@ export function AiSection() {
               type="button"
               onClick={clear}
               data-testid="ai-settings-clear"
-              className="rounded border border-border px-3 py-1.5 text-caption text-fg-muted hover:text-fg"
+              className="focus-ring rounded border border-border px-3 py-1.5 text-caption text-fg-muted hover:text-fg"
             >
               {t('ai.settings.clear')}
             </button>

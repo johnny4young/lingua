@@ -723,7 +723,7 @@ function NotebookCodeCellRowImpl({
                 type="button"
                 onClick={() => setExplainOpen(true)}
                 data-testid="notebook-cell-explain-error"
-                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-micro text-fg-muted hover:text-fg"
+                className="focus-ring inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-micro text-fg-muted hover:text-fg"
               >
                 <Sparkles size={12} aria-hidden="true" />
                 {t('ai.explain.title')}
