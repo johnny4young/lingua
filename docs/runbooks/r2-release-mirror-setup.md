@@ -182,7 +182,43 @@ return a matching `Access-Control-Allow-Origin` header. If CORS was
 added after objects were already cached on the custom domain, purge the
 `downloads.linguacode.dev` cache before retrying the deploy.
 
-### 1.8 Wire the marketing-site sync trigger (optional)
+### 1.8 Cache the runtime assets at the edge (prevents transient 503s)
+
+The runtime WASM objects are large (~38 MiB DuckDB MVP, ~29 MiB Ruby
+stdlib) and are uploaded with `Cache-Control: public, max-age=31536000,
+immutable` (see the `aws s3 cp` step in `deploy-web.yml`). But an R2 custom
+domain does **not** cache at the Cloudflare edge by default — a
+`curl -sI` on a runtime URL shows `cf-cache-status: DYNAMIC`, which means
+every visitor's fetch travels all the way to the R2 origin. A 38 MiB
+uncached object fetched on every SQL-workspace open is exactly the load
+pattern that makes R2 return an intermittent `503 Service Unavailable`
+(observed in the SQL workspace as "Could not load the SQL engine").
+
+Fix: add a **Cache Rule** so the edge caches the immutable runtime prefix.
+In the Cloudflare dashboard for `linguacode.dev`:
+
+- **Rules → Cache Rules → Create rule**
+- Name: `web-runtime immutable cache`
+- When incoming requests match: `Hostname equals downloads.linguacode.dev`
+  **and** `URI Path starts with /web-runtime/`
+- Then: **Eligible for cache** = on; **Edge TTL** = *Respect origin TTL*
+  (the objects already send `max-age=31536000, immutable`).
+
+Verify with a warm second request:
+
+```bash
+curl -sI "https://downloads.linguacode.dev/web-runtime/duckdb/$(node -e "console.log(require('./node_modules/@duckdb/duckdb-wasm/package.json').version)")/duckdb-mvp.wasm" | grep -i cf-cache-status
+# expect: cf-cache-status: HIT   (not DYNAMIC)
+```
+
+Once cached, the ~300 edge PoPs absorb the load and R2 is only touched on a
+per-PoP cache miss, which removes the 503s and cuts cold-load latency. The
+client also retries transient 5xx / network errors
+(`fetchRuntimeAssetWithRetry` in `src/renderer/runtime/duckdbClient.ts`) as
+a second line of defense, but **edge caching is the durable fix** — do not
+rely on client retries alone.
+
+### 1.9 Wire the marketing-site sync trigger (optional)
 
 The `lingua-marketing` repo runs `sync-content.yml` daily at 12:00 UTC
 to pull the latest `CHANGELOG.md` into its committed `changelog.json`.

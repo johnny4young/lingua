@@ -16,6 +16,7 @@ import {
   countSqlStatements,
   estimateOriginStorageBytes,
   executeQuery,
+  fetchRuntimeAssetWithRetry,
   getResolvedSqlStorageMode,
   getResolvedSqlStorageRequestMode,
   importFileAsTable,
@@ -58,6 +59,64 @@ function mockEngine(impl: (sql: string) => Promise<ArrowTableLike>): DuckDbEngin
 
 afterEach(() => {
   __setDuckDbEngineFactoryForTests(null);
+});
+
+describe('fetchRuntimeAssetWithRetry — R2 runtime WASM fetch resilience', () => {
+  const originalFetch = globalThis.fetch;
+  const noSleep = (): Promise<void> => Promise.resolve();
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('retries a transient 5xx and returns the eventual 200', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Service Unavailable' }))
+      .mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Service Unavailable' }))
+      .mockResolvedValueOnce(new Response('wasm', { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const res = await fetchRuntimeAssetWithRetry('https://mirror/duckdb.wasm', 3, 1, noSleep);
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('does NOT retry a deterministic 4xx (Bot-Fight-Mode 403)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 403 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const res = await fetchRuntimeAssetWithRetry('https://mirror/duckdb.wasm', 3, 1, noSleep);
+    expect(res.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a thrown network error, then succeeds', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(new Response('wasm', { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const res = await fetchRuntimeAssetWithRetry('https://mirror/duckdb.wasm', 3, 1, noSleep);
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns the last 5xx after exhausting retries (caller maps it to a load error)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 503, statusText: 'Service Unavailable' }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const res = await fetchRuntimeAssetWithRetry('https://mirror/duckdb.wasm', 2, 1, noSleep);
+    expect(res.status).toBe(503);
+    expect(fetchMock).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
+  });
+
+  it('throws the network error when every attempt rejects', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('offline'));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await expect(
+      fetchRuntimeAssetWithRetry('https://mirror/duckdb.wasm', 2, 1, noSleep)
+    ).rejects.toThrow(/offline/);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe('countSqlStatements', () => {
