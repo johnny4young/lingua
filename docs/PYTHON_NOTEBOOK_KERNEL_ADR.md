@@ -43,11 +43,11 @@ runtime; give each execution scope its own Python `dict` and run user code with
 that dict as its globals. Isolation is a dictionary lookup, not a second
 interpreter.
 
-- The worker holds `Map<scopeId, PyNamespace>`. `scopeId` is:
-  - the notebook **tabId** for a notebook cell (all cells in one notebook share
-    one namespace), and
-  - a reserved `"scratchpad"` id for the editor's ad-hoc runs (preserving
-    today's behavior for non-notebook Python).
+- The worker holds `Map<scopeId, PyNamespace>`. `scopeId` is the notebook
+  **tabId** for a notebook cell (all cells in one notebook share one
+  namespace). The **editor scratchpad passes NO `scopeId`** and stays on the
+  legacy module-`globals()` path — its behavior is unchanged, and there is no
+  reserved scratchpad scope in the implementation.
 - `execute` gains an optional `scopeId`. When present, the worker seeds a fresh
   namespace dict for that id on first use (pre-populated with the same
   preamble bindings the current run installs — `print` capture, rich-media
@@ -97,13 +97,15 @@ worker (memory + a reopened same-id tab starting dirty).
 2. **Runner** (`python.ts`): thread an optional `scopeId` through `execute`
    and a `resetScope(scopeId)` method that posts `reset-scope`.
 3. **Notebook session** (`notebookSession.ts`): pass `request.tabId` as
-   `scopeId` for Python cells; drop the "independent per cell" caveat; add a
-   `restartNotebookKernel(tabId)` that calls `resetScope`. `disposeNotebookSession`
-   also resets the scope.
-4. **UI**: a "Restart kernel" affordance in the notebook toolbar (enabled when
-   the notebook has any Python cell); i18n en/es (neutral LatAm tuteo). Update
-   the Python cell hint ("shares state with other Python cells in this
-   notebook").
+   `scopeId` for Python cells; drop the "independent per cell" caveat.
+   `disposeNotebookSession(tabId)` calls `resetScope(tabId)` — and since the
+   existing **Restart kernel** store action (`restartNotebookSession`) and
+   `editorStore.removeTab` both already route through `disposeNotebookSession`,
+   restart + tab-close reset the scope for free; no new session API is added.
+4. **UI**: no new control — the notebook toolbar already has a "Restart kernel"
+   button, so T17 only wires the reset through the existing dispose path.
+   Update the Python cell hint ("shares state with other Python cells in this
+   notebook") in i18n en/es (neutral LatAm tuteo).
 5. **Docs**: flip the `CAPABILITY_MATRIX.md` notebook row + a CHANGELOG entry.
 
 ## Testing
@@ -112,7 +114,8 @@ worker (memory + a reopened same-id tab starting dirty).
   one scope share a binding; two different scopeIds do not; `reset-scope`
   clears; absent `scopeId` preserves legacy behavior.
 - **Notebook session**: `runNotebookCell` for Python passes tabId as scopeId;
-  `restartNotebookKernel` posts the reset; tab close resets.
+  the existing Restart kernel action (`restartNotebookSession` →
+  `disposeNotebookSession`) posts the reset; tab close resets.
 - **Component**: Restart-kernel button renders + i18n resolves.
 - **Web smoke** (Pro session, since notebooks are entitlement-gated): a Python
   cell defines `x`, a later cell prints `x`, Restart kernel clears it, and a

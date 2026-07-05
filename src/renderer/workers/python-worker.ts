@@ -1378,7 +1378,15 @@ def __lingua_seed_scope(ns):
               (seed as unknown as { destroy?: () => void }).destroy?.();
             }
           }
-          result = await py.runPythonAsync(code, { globals: ns });
+          // Only pass `globals` when a real dict proxy exists. If `runPython`
+          // was unavailable (an odd build / a mock), `ns` is undefined —
+          // passing `{ globals: undefined }` would either throw or silently
+          // fall back to the module globals; run the legacy unscoped path
+          // explicitly instead so the call never sees an undefined globals.
+          result =
+            ns !== undefined
+              ? await py.runPythonAsync(code, { globals: ns })
+              : await py.runPythonAsync(code);
         } else {
           result = await py.runPythonAsync(code);
         }
