@@ -20,7 +20,6 @@ import {
   ChevronDown,
   ChevronRight,
   Play,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import {
@@ -38,7 +37,7 @@ import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
 import { NotebookCellEditor } from './NotebookCellEditor';
 import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
-import { ExplainErrorDialog } from '../AI/ExplainErrorDialog';
+import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { useEntitlement } from '../../hooks/useEntitlement';
 
 export interface NotebookCodeCellRowProps {
@@ -213,11 +212,11 @@ function NotebookCodeCellRowImpl({
   const { t } = useTranslation();
   const shellRef = useRef<HTMLElement | null>(null);
   const label = languageLabel(cell.language);
-  // T19 — "Explain this error": on an errored cell, LOCAL_AI users can open the
-  // consent-gated AI dialog with the cell's error + source. Nothing is sent
-  // until the user approves the preview inside the dialog.
+  // T19 — "Explain this error": on an errored cell, LOCAL_AI users get the
+  // consent-gated AI trigger (shared ExplainErrorButton owns the dialog +
+  // open state). `canExplainError` gates the wrapper so Free users don't get
+  // an empty padded slot.
   const canExplainError = useEntitlement('LOCAL_AI');
-  const [explainOpen, setExplainOpen] = useState(false);
   // Signal-Slate — derived mode for the active cell. EDIT when the live
   // Monaco editor is mounted (the caret is in the cell); COMMAND when only
   // the static view shows and focus sits on the shell. The header label +
@@ -719,29 +718,18 @@ function NotebookCodeCellRowImpl({
           )}
           {status === 'error' && canExplainError ? (
             <div className="px-2 pb-2">
-              <button
-                type="button"
-                onClick={() => setExplainOpen(true)}
-                data-testid="notebook-cell-explain-error"
-                className="focus-ring inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-micro text-fg-muted hover:text-fg"
-              >
-                <Sparkles size={12} aria-hidden="true" />
-                {t('ai.explain.title')}
-              </button>
+              <ExplainErrorButton
+                errorMessage={cell.outputs
+                  .filter((output) => output.stream === 'stderr')
+                  .map((output) => output.text)
+                  .join('\n')}
+                code={cell.source}
+                language={cell.language}
+                testId="notebook-cell-explain-error"
+              />
             </div>
           ) : null}
         </div>
-      ) : null}
-      {explainOpen ? (
-        <ExplainErrorDialog
-          errorMessage={cell.outputs
-            .filter((output) => output.stream === 'stderr')
-            .map((output) => output.text)
-            .join('\n')}
-          code={cell.source}
-          language={cell.language}
-          onClose={() => setExplainOpen(false)}
-        />
       ) : null}
     </article>
   );

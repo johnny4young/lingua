@@ -54,6 +54,7 @@ import type {
   SqlQueryStatus,
   SqlResponseV1,
 } from '../../../shared/sqlWorkspace';
+import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader } from '../ui/ResultHeader';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
@@ -103,6 +104,11 @@ export interface SqlResultPreviewProps {
   selectedResponseIndex?: number;
   /** Select a history entry to view (by index into `responses`). */
   onSelectResponse?: (index: number) => void;
+  /**
+   * T19 — the SQL text of the shown run. Lets an errored query offer the AI
+   * "Explain this error" trigger with the query as the code context.
+   */
+  querySource?: string;
 }
 
 type ResultBodyTab = 'table' | 'json';
@@ -128,6 +134,7 @@ export function SqlResultPreview({
   responses,
   selectedResponseIndex = 0,
   onSelectResponse,
+  querySource,
 }: SqlResultPreviewProps) {
   const { t } = useTranslation();
   // Table/JSON view preference. Persists across re-runs by design — the
@@ -406,7 +413,11 @@ export function SqlResultPreview({
       {response.status === 'sql-error' ||
       response.status === 'timeout' ||
       response.status === 'engine-load-failed' ? (
-        <ErrorBand status={response.status} message={response.errorMessage} />
+        <ErrorBand
+          status={response.status}
+          message={response.errorMessage}
+          querySource={querySource}
+        />
       ) : null}
 
       {response.tooLarge ? (
@@ -573,9 +584,11 @@ function CopyButton({
 function ErrorBand({
   status,
   message,
+  querySource,
 }: {
   status: SqlResponseV1['status'];
   message: string | undefined;
+  querySource?: string;
 }) {
   const { t } = useTranslation();
   const bandKey =
@@ -609,6 +622,16 @@ function ErrorBand({
           ) : null}
           {hintKey ? (
             <p className="mt-1 text-eyebrow text-error-fg/80">{t(hintKey)}</p>
+          ) : null}
+          {status === 'sql-error' && message && querySource ? (
+            <div className="mt-2">
+              <ExplainErrorButton
+                errorMessage={message}
+                code={querySource}
+                language="sql"
+                testId="sql-explain-error"
+              />
+            </div>
           ) : null}
         </div>
       </div>

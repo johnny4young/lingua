@@ -472,6 +472,11 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               <HttpResponsePreview
                 response={activeResponse}
                 isExecuting={isExecuting}
+                requestSummary={
+                  activeRequest
+                    ? `${activeRequest.method} ${activeRequest.url}`
+                    : undefined
+                }
               />
             </div>
             <HttpResponseHistory

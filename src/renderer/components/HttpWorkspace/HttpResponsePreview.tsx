@@ -31,6 +31,7 @@ import { Loader2, SendHorizontal, X } from 'lucide-react';
 import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HttpResponseV1 } from '../../../shared/httpWorkspace';
+import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
 import { HttpStatusPill } from './HttpStatusPill';
@@ -129,11 +130,18 @@ function externalHttpUrl(value: string): string | null {
 export interface HttpResponsePreviewProps {
   response: HttpResponseV1 | undefined;
   isExecuting: boolean;
+  /**
+   * T19 — a one-line `METHOD url` summary of the active request. Lets a
+   * failed request (CORS / network / timeout) offer the AI "Explain this
+   * error" trigger with the request as the code context.
+   */
+  requestSummary?: string;
 }
 
 export function HttpResponsePreview({
   response,
   isExecuting,
+  requestSummary,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<PreviewTab>('body');
@@ -286,6 +294,18 @@ export function HttpResponsePreview({
             >
               {t('httpWorkspace.openExternal.cta')}
             </button>
+          ) : null}
+          {requestSummary ? (
+            <div className="mt-2">
+              <ExplainErrorButton
+                errorMessage={`HTTP request failed (${response.kind})${
+                  response.errorMessage ? `: ${response.errorMessage}` : ''
+                }`}
+                code={requestSummary}
+                language="http"
+                testId="http-explain-error"
+              />
+            </div>
           ) : null}
         </div>
       ) : null}

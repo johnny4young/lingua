@@ -20,6 +20,7 @@ import {
 } from './clipboardImagePaste';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
 import { EyebrowMono, MonoBadge } from '../ui/primitives';
+import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRenderer } from './ConsoleEntryRenderer';
@@ -365,6 +366,17 @@ export function ConsolePanel() {
     toggleTimestamps,
   } = useConsoleStore();
   const activeTab = useEditorStore((state) => getActiveTab(state));
+  // T19 — offer "Explain this error" when the active tab's run left an error
+  // entry. The shared button self-gates on LOCAL_AI, so here we only assemble
+  // the error text + the code context (the active tab's source).
+  const consoleErrorText = entries
+    .filter((entry) => entry.type === 'error')
+    .map((entry) => entry.content)
+    .join('\n');
+  const canExplainConsoleError =
+    consoleErrorText.length > 0 &&
+    activeTab !== null &&
+    activeTab.content.trim().length > 0;
   const originSuppressed = activeTab
     ? originSuppressedByMagicComment(
         activeTab.language ?? 'plaintext',
@@ -739,6 +751,15 @@ export function ConsolePanel() {
             onRerun={handleReplayHistoryEntry}
             onCompare={canUseExecutionHistory ? handleCompareEntries : undefined}
           />
+          {canExplainConsoleError && activeTab ? (
+            <ExplainErrorButton
+              errorMessage={consoleErrorText}
+              code={activeTab.content}
+              language={activeTab.language}
+              filename={activeTab.name}
+              testId="console-explain-error"
+            />
+          ) : null}
           <IconButton
             onClick={handleClearConsole}
             tooltip={t('console.actions.clear')}

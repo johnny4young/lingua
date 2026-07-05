@@ -697,6 +697,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             responses={activeResponses}
             selectedResponseIndex={safeResponseIndex}
             onSelectResponse={handleSelectResponse}
+            querySource={activeQuery?.query}
             canRun={activeQuery !== undefined}
             onRun={
               activeQuery ? () => void handleRun(activeQuery) : undefined
