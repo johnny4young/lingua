@@ -257,6 +257,15 @@ export class PythonDebugSession {
   /** Send a raw pdb command line and resolve when the next prompt returns. */
   sendCommand(command: string): Promise<PdbCommandResult> {
     const run = async (): Promise<PdbCommandResult> => {
+      // A command must be a single line: the engine writes `${command}\n` and
+      // waits for exactly one `(Pdb) ` prompt in reply. An embedded newline
+      // would send two pdb commands (e.g. `p x\nc` runs `p x` then a real
+      // `continue`) while only one prompt is awaited — desyncing every later
+      // request/reply. Reject before writing rather than corrupt the session.
+      // Validated ahead of the running check so it holds even before start().
+      if (/[\r\n]/u.test(command)) {
+        throw new Error('pdb command must be a single line (no newlines)');
+      }
       const child = this.child;
       if (!child || this.exited) {
         throw new Error('Debug session is not running');

@@ -51,6 +51,17 @@ describe('parsePdbLocation', () => {
   });
 });
 
+describe('sendCommand newline guard', () => {
+  // No subprocess needed: the guard runs before the running-state check, so a
+  // multi-line command is rejected even on a never-started session. This keeps
+  // a crafted `evaluate` from smuggling a second pdb command (e.g. `continue`).
+  it('rejects a command containing a newline', async () => {
+    const session = new PythonDebugSession({ scriptPath: '/tmp/none.py' });
+    await expect(session.evaluate('x\nc')).rejects.toThrow(/single line/i);
+    await expect(session.sendCommand('p 1\rq')).rejects.toThrow(/single line/i);
+  });
+});
+
 describeReal('PythonDebugSession (real pdb)', () => {
   let dir: string;
   let scriptPath: string;
