@@ -21,7 +21,11 @@ import {
 function findPython(): string | null {
   for (const candidate of ['python3', 'python']) {
     const probe = spawnSync(candidate, ['--version']);
-    if (probe.status === 0 || probe.stdout || probe.stderr) return candidate;
+    // ENOENT sets `probe.error` and leaves status null but stdout/stderr as
+    // EMPTY Buffers — which are truthy, so an `|| probe.stdout` check would
+    // falsely accept a missing interpreter and run the real-pdb tests on a
+    // python-less shard. Gate strictly on a clean exit.
+    if (!probe.error && probe.status === 0) return candidate;
   }
   return null;
 }
@@ -126,9 +130,12 @@ describeReal('PythonDebugSession (real pdb)', () => {
     expect(stepped.location?.line).toBe(5); // return total
     expect((await session.evaluate('total')).trim()).toBe('3');
 
-    // Run to completion.
+    // Run to completion. `finished` is terminal: no active pause location, and
+    // the session tears itself down instead of parking at pdb's restart prompt.
     const done = await session.continue();
     expect(done.finished).toBe(true);
+    expect(done.location).toBeNull();
+    expect(session.isRunning).toBe(false);
   });
 
   it('clears a breakpoint it set, despite path canonicalization', async () => {

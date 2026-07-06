@@ -36,6 +36,7 @@
  */
 
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
 
 /** The `(Pdb) ` prompt CPython emits when ready for the next command. */
 const PDB_PROMPT = '(Pdb) ';
@@ -44,6 +45,9 @@ const PROGRAM_FINISHED_MARKER = 'The program finished and will be restarted';
 
 /** Default per-command timeout — a command that never returns a prompt. */
 export const DEFAULT_PDB_COMMAND_TIMEOUT_MS = 15_000;
+
+/** Grace window after SIGTERM before escalating terminate() to SIGKILL. */
+const KILL_ESCALATION_DELAY_MS = 1_500;
 
 export interface PdbLocation {
   /** Absolute path of the file the interpreter is paused in. */
@@ -130,6 +134,8 @@ export class PythonDebugSession {
   private readonly listeners = new Set<PdbEventListener>();
   private exited = false;
   private exitCode: number | null = null;
+  /** Pending SIGTERM→SIGKILL escalation timer from terminate(), if armed. */
+  private killEscalationTimer: NodeJS.Timeout | null = null;
   /** Serialize commands so replies map to requests unambiguously. */
   private queue: Promise<unknown> = Promise.resolve();
   /**
@@ -191,9 +197,22 @@ export class PythonDebugSession {
     // pdb writes its prompt + most output to stdout; stderr carries the
     // debugged program's stderr, which we surface as output too.
     child.stderr.on('data', (chunk: string) => this.onData(chunk));
+    // An EPIPE / ERR_STREAM_DESTROYED from a child that exits mid-write is
+    // delivered asynchronously as a stream 'error' event; without a listener it
+    // becomes an uncaught exception that crashes the main process. Mirrors
+    // node-runner.ts / ruby-runner.ts. Best-effort stdin: the child not reading
+    // it is a normal outcome, never an error.
+    child.stdin.on('error', () => {
+      // Child exited before consuming stdin — nothing to do.
+    });
     child.on('exit', (code) => {
       this.exited = true;
       this.exitCode = code;
+      // A natural exit means the SIGKILL escalation is moot — drop the timer.
+      if (this.killEscalationTimer) {
+        clearTimeout(this.killEscalationTimer);
+        this.killEscalationTimer = null;
+      }
       // Unblock any waiter so a caller never hangs on a dead process.
       const pending = this.pendingPrompt;
       this.pendingPrompt = null;
@@ -206,14 +225,13 @@ export class PythonDebugSession {
 
   private onData(chunk: string): void {
     this.buffer += chunk;
-    if (this.buffer.endsWith(PDB_PROMPT) || this.buffer.includes(PDB_PROMPT)) {
+    // Resolve only when the buffer ENDS with the prompt — a prompt mid-buffer
+    // means more output is still streaming. (No `includes` scan: it added an
+    // O(n) walk of the whole buffer on every chunk with no behavioral gain.)
+    if (this.pendingPrompt && this.buffer.endsWith(PDB_PROMPT)) {
       const pending = this.pendingPrompt;
-      // Only resolve when the buffer currently ENDS with the prompt — a
-      // prompt mid-buffer means more output is still streaming.
-      if (pending && this.buffer.endsWith(PDB_PROMPT)) {
-        this.pendingPrompt = null;
-        pending();
-      }
+      this.pendingPrompt = null;
+      pending();
     }
   }
 
@@ -256,9 +274,16 @@ export class PythonDebugSession {
       ? raw.slice(0, -PDB_PROMPT.length)
       : raw;
     const finished = withoutPrompt.includes(PROGRAM_FINISHED_MARKER);
-    const location = parsePdbLocation(withoutPrompt);
-    if (finished) this.emit({ kind: 'finished' });
-    else if (location) this.emit({ kind: 'paused', location });
+    // `finished` is terminal: pdb would loop back to line 1 and park at a
+    // restart prompt, so there is no meaningful active pause to report and the
+    // location is dropped. Tear the subprocess down rather than leave it parked.
+    const location = finished ? null : parsePdbLocation(withoutPrompt);
+    if (finished) {
+      this.emit({ kind: 'finished' });
+      this.terminate();
+    } else if (location) {
+      this.emit({ kind: 'paused', location });
+    }
     return { output: withoutPrompt.trimEnd(), location, finished };
   }
 
@@ -279,7 +304,15 @@ export class PythonDebugSession {
         throw new Error('Debug session is not running');
       }
       const promptPromise = this.waitForPrompt();
-      child.stdin.write(`${command}\n`);
+      try {
+        child.stdin.write(`${command}\n`);
+      } catch (err) {
+        // The subprocess died between the running-state check and this write.
+        // Swallow the now-orphaned prompt wait (its timeout would otherwise
+        // reject unhandled) and fail fast instead of waiting out the timeout.
+        void promptPromise.catch(() => undefined);
+        throw err instanceof Error ? err : new Error('Failed to write pdb command');
+      }
       return promptPromise;
     };
     // Chain onto the queue so only one command is ever in flight.
@@ -331,7 +364,7 @@ export class PythonDebugSession {
     return this.exitCode;
   }
 
-  /** Quit pdb and kill the subprocess. Idempotent. */
+  /** Quit pdb and kill the subprocess (and anything it spawned). Idempotent. */
   terminate(): void {
     const child = this.child;
     if (!child || this.exited) return;
@@ -346,10 +379,16 @@ export class PythonDebugSession {
     } catch {
       /* stdin already closed */
     }
-    try {
-      child.kill('SIGTERM');
-    } catch {
-      /* already dead */
+    // Fell the whole process group, not just pdb — the debugged program may
+    // have spawned its own children (see src/main/runners/processTree.ts); the
+    // matching `detached` flag is set in defaultSpawn. SIGTERM now, then
+    // escalate to SIGKILL after a grace window (cleared by the 'exit' handler).
+    killProcessTree(child, 'SIGTERM');
+    if (this.killEscalationTimer === null) {
+      this.killEscalationTimer = setTimeout(() => {
+        killProcessTree(child, 'SIGKILL');
+      }, KILL_ESCALATION_DELAY_MS);
+      this.killEscalationTimer.unref?.();
     }
     this.listeners.clear();
   }
@@ -360,4 +399,8 @@ const defaultSpawn: SpawnPdb = (command, args, options) =>
     cwd: options.cwd,
     env: options.env,
     shell: false,
+    // Process-group leader on POSIX so terminate() can fell the whole tree
+    // (user code that forks/spawns) via killProcessTree, not just the direct
+    // pdb child. No-op on Windows. See src/main/runners/processTree.ts.
+    ...detachedSpawnOptions(),
   });
