@@ -68,7 +68,10 @@ describe('isPrivateAddress', () => {
     '::1',
     'fe80::1', // link-local
     'fc00::1', // unique-local
-    '::ffff:127.0.0.1', // IPv4-mapped loopback
+    '::ffff:127.0.0.1', // IPv4-mapped loopback (dotted form)
+    '::ffff:7f00:1', // IPv4-mapped loopback (hex form) — must not slip through
+    '::ffff:0a00:0001', // IPv4-mapped 10.0.0.1 (hex form)
+    '0:0:0:0:0:ffff:7f00:1', // fully-expanded IPv4-mapped loopback
     'not-an-ip',
   ])('flags %s as private/unsafe', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
@@ -105,6 +108,20 @@ describe('executeHttpProxyRequest — SSRF guard', () => {
       { fetchImpl, lookupImpl: publicLookup }
     );
     expect(res.kind).toBe('network-error');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('blocks a bracketed IPv6-mapped loopback URL end to end (brackets stripped)', async () => {
+    // `new URL('http://[::ffff:7f00:1]/').hostname` is `[::ffff:7f00:1]` — the
+    // guard must strip the brackets so isPrivateAddress classifies the literal,
+    // instead of treating it as a DNS name. ::ffff:7f00:1 == 127.0.0.1.
+    const fetchImpl = vi.fn(mockFetch({ status: 200 }));
+    const res = await executeHttpProxyRequest(
+      makeRequest({ url: 'http://[::ffff:7f00:1]:8080/admin' }),
+      { fetchImpl, lookupImpl: publicLookup }
+    );
+    expect(res.kind).toBe('network-error');
+    expect(res.errorMessage).toMatch(/private address/i);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -370,5 +387,83 @@ describe('executeHttpProxyRequest — redirects', () => {
     });
     expect(res.kind).toBe('network-error');
     expect(res.errorMessage).toMatch(/maximum of 3 redirects/i);
+  });
+
+  it('downgrades POST to GET and drops the body + Content-Type on a 303', async () => {
+    const calls: { method?: string; body: unknown; ctype: string | null }[] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      calls.push({
+        method: init?.method,
+        body: init?.body,
+        ctype: new Headers(init?.headers).get('content-type'),
+      });
+      if (url === 'https://api.example.com/submit') {
+        return new Response('', {
+          status: 303,
+          headers: new Headers({ location: 'https://api.example.com/result' }),
+        });
+      }
+      return new Response('{"ok":true}', { status: 200 });
+    }) as typeof fetch;
+    const res = await executeHttpProxyRequest(
+      makeRequest({
+        url: 'https://api.example.com/submit',
+        method: 'POST',
+        body: { kind: 'json', content: '{"x":1}' },
+      }),
+      { fetchImpl, lookupImpl: publicLookup }
+    );
+    expect(res.kind).toBe('success');
+    expect(calls[0]).toEqual({ method: 'POST', body: '{"x":1}', ctype: 'application/json' });
+    expect(calls[1]).toEqual({ method: 'GET', body: undefined, ctype: null });
+  });
+
+  it('downgrades POST to GET on a 302 redirect', async () => {
+    const methods: (string | undefined)[] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      methods.push(init?.method);
+      if (url === 'https://api.example.com/old') {
+        return new Response('', {
+          status: 302,
+          headers: new Headers({ location: 'https://api.example.com/new' }),
+        });
+      }
+      return new Response('ok', { status: 200 });
+    }) as typeof fetch;
+    const res = await executeHttpProxyRequest(
+      makeRequest({
+        url: 'https://api.example.com/old',
+        method: 'POST',
+        body: { kind: 'text', content: 'hi' },
+      }),
+      { fetchImpl, lookupImpl: publicLookup }
+    );
+    expect(res.kind).toBe('success');
+    expect(methods).toEqual(['POST', 'GET']);
+  });
+
+  it('preserves method + body across a 307 redirect', async () => {
+    const calls: { method?: string; body: unknown }[] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      calls.push({ method: init?.method, body: init?.body });
+      if (url === 'https://api.example.com/a') {
+        return new Response('', {
+          status: 307,
+          headers: new Headers({ location: 'https://api.example.com/b' }),
+        });
+      }
+      return new Response('ok', { status: 200 });
+    }) as typeof fetch;
+    const res = await executeHttpProxyRequest(
+      makeRequest({
+        url: 'https://api.example.com/a',
+        method: 'POST',
+        body: { kind: 'text', content: 'payload' },
+      }),
+      { fetchImpl, lookupImpl: publicLookup }
+    );
+    expect(res.kind).toBe('success');
+    expect(calls[0]).toEqual({ method: 'POST', body: 'payload' });
+    expect(calls[1]).toEqual({ method: 'POST', body: 'payload' });
   });
 });

@@ -163,15 +163,62 @@ function isPrivateIPv4(ip: string): boolean {
   );
 }
 
+/**
+ * Expand an IPv6 literal (zone already stripped, lower-cased) to its eight
+ * 16-bit hextets, or `null` if it does not parse. Handles `::` compression and
+ * a trailing dotted-quad tail (`::ffff:1.2.3.4`). Parsing to numbers — rather
+ * than string-matching one textual form — is what lets the SSRF guard classify
+ * IPv4-mapped loopback written in ANY form (`::ffff:127.0.0.1`, `::ffff:7f00:1`,
+ * or fully expanded) by the embedded IPv4 the socket actually dials.
+ */
+function ipv6Hextets(addr: string): number[] | null {
+  let s = addr;
+  const dotted = s.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/u);
+  if (dotted && dotted.index !== undefined) {
+    const v = ipv4ToInt(dotted[1]!);
+    if (v === null) return null;
+    s = `${s.slice(0, dotted.index)}${((v >>> 16) & 0xffff).toString(16)}:${(v & 0xffff).toString(16)}`;
+  }
+  const halves = s.split('::');
+  if (halves.length > 2) return null;
+  const toParts = (part: string): number[] =>
+    part === '' ? [] : part.split(':').map((h) => parseInt(h, 16));
+  const head = toParts(halves[0] ?? '');
+  const tail = halves.length === 2 ? toParts(halves[1] ?? '') : null;
+  let hextets: number[];
+  if (tail === null) {
+    hextets = head;
+  } else {
+    const fill = 8 - head.length - tail.length;
+    if (fill < 0) return null;
+    hextets = [...head, ...Array<number>(fill).fill(0), ...tail];
+  }
+  if (hextets.length !== 8) return null;
+  if (hextets.some((h) => Number.isNaN(h) || h < 0 || h > 0xffff)) return null;
+  return hextets;
+}
+
+function embeddedIPv4(hextets: number[]): string {
+  const hi = hextets[6]!;
+  const lo = hextets[7]!;
+  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+}
+
 function isPrivateIPv6(ip: string): boolean {
   const lower = ip.toLowerCase().split('%')[0] ?? ip.toLowerCase(); // strip zone id
   if (lower === '::1' || lower === '::') return true; // loopback / unspecified
-  // IPv4-mapped (::ffff:a.b.c.d) and IPv4-compatible — defer to the v4 check.
-  const mapped = lower.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/u);
-  if (mapped?.[1]) return isPrivateIPv4(mapped[1]);
-  const firstHextet = lower.split(':')[0] ?? '';
-  const head = parseInt(firstHextet || '0', 16);
-  if (Number.isNaN(head)) return true;
+  const hextets = ipv6Hextets(lower);
+  if (!hextets) return true; // unparseable → treat as unsafe
+  // IPv4-mapped (::ffff:0:0/96) in ANY textual form — the low 32 bits are the
+  // IPv4 target the socket connects to, so classify by that embedded address.
+  if (hextets.slice(0, 5).every((h) => h === 0) && hextets[5] === 0xffff) {
+    return isPrivateIPv4(embeddedIPv4(hextets));
+  }
+  // IPv4-compatible (::a.b.c.d, deprecated but still routable) — same embed.
+  if (hextets.slice(0, 6).every((h) => h === 0)) {
+    return isPrivateIPv4(embeddedIPv4(hextets));
+  }
+  const head = hextets[0]!;
   if ((head & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
   if ((head & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
   if ((head & 0xff00) === 0xff00) return true; // ff00::/8 multicast
@@ -195,11 +242,20 @@ export function isPrivateAddress(ip: string): boolean {
  * on rejection; resolves silently when the target is public (or opted in).
  */
 async function assertHostAllowed(
-  hostname: string,
+  rawHostname: string,
   allowPrivateHosts: boolean,
   lookupImpl: LookupImpl
 ): Promise<void> {
   if (allowPrivateHosts) return;
+
+  // WHATWG `URL` keeps the square brackets on an IPv6 host (`[::1]`), and
+  // `isIP('[::1]')` is 0 — so without stripping them the literal is misread as a
+  // DNS name and never reaches the IPv6 private-range check (the guard would
+  // then rely on DNS accidentally failing). Strip once, up front.
+  const hostname =
+    rawHostname.startsWith('[') && rawHostname.endsWith(']')
+      ? rawHostname.slice(1, -1)
+      : rawHostname;
 
   const literalFamily = isIP(hostname);
   if (literalFamily !== 0) {
@@ -457,6 +513,11 @@ export async function executeHttpProxyRequest(
   const requestHeaders = buildRequestHeaders(request, requestBody.body !== undefined);
 
   let currentUrl = request.url;
+  // Method + body are mutable across hops: a redirect can downgrade them (see
+  // the Fetch redirect rules applied below), so they must not be pinned to the
+  // original request for every fetch.
+  let currentMethod: string = request.method;
+  let currentBody = requestBody.body;
   let response: Response;
   try {
     for (let hop = 0; ; hop += 1) {
@@ -464,9 +525,9 @@ export async function executeHttpProxyRequest(
       await guardUrl(currentUrl, allowPrivateHosts, lookupImpl);
 
       response = await fetchImpl(currentUrl, {
-        method: request.method,
+        method: currentMethod,
         headers: requestHeaders,
-        body: requestBody.body,
+        body: currentBody,
         signal: controller.signal,
         redirect: 'manual',
       });
@@ -484,6 +545,23 @@ export async function executeHttpProxyRequest(
           start,
           recordedAt
         );
+      }
+      // Rewrite method/body per the Fetch redirect rules so the proxy never
+      // re-sends the request body to a redirect target: 303 downgrades any
+      // non-GET/HEAD method to GET; 301/302 downgrade POST to GET. 307/308
+      // preserve method + body. When the body is dropped, so is Content-Type.
+      if (
+        (response.status === 303 &&
+          currentMethod !== 'GET' &&
+          currentMethod !== 'HEAD') ||
+        ((response.status === 301 || response.status === 302) &&
+          currentMethod === 'POST')
+      ) {
+        currentMethod = 'GET';
+        if (currentBody !== undefined) {
+          currentBody = undefined;
+          requestHeaders.delete('Content-Type');
+        }
       }
       // Resolve relative Location against the current URL.
       const nextUrl = new URL(location, currentUrl);
