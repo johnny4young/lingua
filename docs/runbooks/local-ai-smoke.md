@@ -34,7 +34,9 @@ Two ways around it, below.
 
 1. `pnpm run dev:web:pro` and paste the printed token into
    **Settings → Account → License**.
-2. **Settings → Account → AI**:
+2. **Settings → Account → AI** — click **Detect local AI (Ollama)**: it
+   probes `http://localhost:11434/v1/models`, fills the endpoint + a
+   placeholder key, and lists your installed models to pick. Or fill by hand:
    - Endpoint: `http://localhost:11434/v1/chat/completions`
    - API key: anything non-empty (e.g. `ollama`)
    - Model: `qwen3-coder:latest`

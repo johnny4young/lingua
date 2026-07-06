@@ -15,12 +15,27 @@ import { Sparkles } from 'lucide-react';
 import { ExplainErrorDialog } from './ExplainErrorDialog';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import type { runChatCompletion } from '../../runtime/aiClient';
+import { runtimeNoteFor, type AiPlatform } from '../../../shared/ai/runtimeNotes';
+import type { RuntimeMode } from '../../../shared/runtimeModes';
+
+/** Web build sets `window.lingua.platform = 'web'`; desktop preload sets the OS. */
+function currentPlatform(): AiPlatform {
+  return typeof window !== 'undefined' && window.lingua?.platform === 'web'
+    ? 'web'
+    : 'desktop';
+}
 
 export interface ExplainErrorButtonProps {
   readonly errorMessage: string;
   readonly code: string;
   readonly language: string;
   readonly filename?: string;
+  /**
+   * Per-tab JS/TS runtime mode of the failing code (console surface).
+   * Surfaces without a mode omit it; the JS-family default (`worker`)
+   * matches notebook cells and fresh tabs.
+   */
+  readonly runtimeMode?: RuntimeMode;
   /** Distinguishes the trigger per surface (notebook / sql / console / http). */
   readonly testId?: string;
   /** Extra classes appended to the host surface's layout. */
@@ -34,6 +49,7 @@ export function ExplainErrorButton({
   code,
   language,
   filename,
+  runtimeMode,
   testId,
   className,
   runChatCompletionImpl,
@@ -41,6 +57,13 @@ export function ExplainErrorButton({
   const { t } = useTranslation();
   const entitled = useEntitlement('LOCAL_AI');
   const [open, setOpen] = useState(false);
+  // T19 — runtime-aware context: every surface routes through this button,
+  // so the note is derived once here instead of at each caller.
+  const runtimeNote = runtimeNoteFor({
+    language,
+    platform: currentPlatform(),
+    ...(runtimeMode ? { runtimeMode } : {}),
+  });
 
   // No entitlement → the feature does not exist for this user. Returning null
   // (rather than a disabled/upsell button) keeps the trigger invisible on
@@ -66,6 +89,7 @@ export function ExplainErrorButton({
           code={code}
           language={language}
           {...(filename ? { filename } : {})}
+          {...(runtimeNote ? { runtimeNote } : {})}
           {...(runChatCompletionImpl ? { runChatCompletionImpl } : {})}
           onClose={() => setOpen(false)}
         />

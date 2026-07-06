@@ -95,6 +95,13 @@ export interface ExplainErrorInput {
   readonly language: string;
   /** Optional file name for context. */
   readonly filename?: string;
+  /**
+   * One-sentence description of the runtime the code executed in (from
+   * `runtimeNoteFor`). Keeps the model from suggesting fixes the runtime
+   * cannot execute (e.g. pip installs under Pyodide). Included in the user
+   * content, so it is always visible in the consent preview.
+   */
+  readonly runtimeNote?: string;
   /** Redact obvious secrets before building the request. Defaults to true. */
   readonly redact?: boolean;
   /** Optional model id to request (provider-specific). */
@@ -102,7 +109,7 @@ export interface ExplainErrorInput {
 }
 
 export interface ChatMessage {
-  readonly role: 'system' | 'user';
+  readonly role: 'system' | 'user' | 'assistant';
   readonly content: string;
 }
 
@@ -131,7 +138,9 @@ const SYSTEM_PROMPT =
   'You are a concise programming assistant embedded in a code editor. ' +
   'Explain the error the user hit and suggest a concrete fix. Base your answer ' +
   'only on the code and error provided — do not invent code the user did not ' +
-  'share, and do not ask for their API keys or secrets.';
+  'share, and do not ask for their API keys or secrets. When a Runtime is ' +
+  'described, keep the fix compatible with it and do not suggest tools or ' +
+  'packages that runtime cannot run.';
 
 /**
  * Build the provider-agnostic "explain this error" request plus the consent
@@ -150,9 +159,13 @@ export function buildExplainErrorRequest(
   const errorMessage = clip(input.errorMessage, MAX_EXPLAIN_ERROR_CHARS);
   const fileLabel = input.filename ? ` (${input.filename})` : '';
 
+  const runtimeLine = input.runtimeNote
+    ? `Runtime: ${input.runtimeNote}\n`
+    : '';
   const userContent =
-    `Language: ${input.language}${fileLabel}\n\n` +
-    `Error:\n${errorMessage}\n\n` +
+    `Language: ${input.language}${fileLabel}\n` +
+    runtimeLine +
+    `\nError:\n${errorMessage}\n\n` +
     `Code:\n\`\`\`${input.language}\n${code}\n\`\`\``;
 
   const messages: ChatMessage[] = [

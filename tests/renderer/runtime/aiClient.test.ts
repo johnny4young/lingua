@@ -151,4 +151,83 @@ describe('runChatCompletion', () => {
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.kind).toBe('parse');
   });
+
+  function sseResponse(events: readonly string[]): Response {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const event of events) controller.enqueue(encoder.encode(event));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    });
+  }
+
+  it('streams SSE deltas through onChunk and resolves the full content', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+      // Streaming callers must ask the server to stream.
+      expect(JSON.parse(String(init?.body)).stream).toBe(true);
+      return sseResponse([
+        'data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n',
+        ': keep-alive comment line\n',
+        'data: [DONE]\n\n',
+      ]);
+    }) as unknown as typeof fetch;
+    const chunks: string[] = [];
+    const res = await runChatCompletion(request, config, {
+      fetchImpl,
+      onChunk: (text) => chunks.push(text),
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.content).toBe('Hello');
+    // Progressive accumulation, not deltas: each call carries text-so-far.
+    expect(chunks).toEqual(['Hel', 'Hello']);
+  });
+
+  it('falls back to plain JSON when the server ignores stream:true', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ choices: [{ message: { content: 'unstreamed' } }] })
+    ) as unknown as typeof fetch;
+    const chunks: string[] = [];
+    const res = await runChatCompletion(request, config, {
+      fetchImpl,
+      onChunk: (text) => chunks.push(text),
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.content).toBe('unstreamed');
+    // No SSE body → no progressive callbacks; the final result carries it all.
+    expect(chunks).toEqual([]);
+  });
+
+  it('reports an SSE stream that ends with no text as a parse error', async () => {
+    const fetchImpl = vi.fn(async () =>
+      sseResponse(['data: [DONE]\n\n'])
+    ) as unknown as typeof fetch;
+    const res = await runChatCompletion(request, config, {
+      fetchImpl,
+      onChunk: () => {},
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.kind).toBe('parse');
+  });
+
+  it('skips malformed SSE data lines instead of failing the stream', async () => {
+    const fetchImpl = vi.fn(async () =>
+      sseResponse([
+        'data: {not json}\n\n',
+        'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
+        'data: [DONE]\n\n',
+      ])
+    ) as unknown as typeof fetch;
+    const res = await runChatCompletion(request, config, {
+      fetchImpl,
+      onChunk: () => {},
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.content).toBe('ok');
+  });
 });

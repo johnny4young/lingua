@@ -758,6 +758,9 @@ export function ConsolePanel() {
               code={activeTab.content}
               language={activeTab.language}
               filename={activeTab.name}
+              {...(activeTab.runtimeMode
+                ? { runtimeMode: activeTab.runtimeMode }
+                : {})}
               testId="console-explain-error"
             />
           ) : null}

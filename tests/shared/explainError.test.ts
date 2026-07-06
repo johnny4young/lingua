@@ -123,4 +123,27 @@ describe('buildExplainErrorRequest', () => {
     });
     expect(req.model).toBe('gpt-4o-mini');
   });
+
+  it('includes the runtime note in the user content AND the consent preview', () => {
+    const req = buildExplainErrorRequest({
+      errorMessage: 'boom',
+      code: 'x',
+      language: 'python',
+      runtimeNote: 'Python runs on Pyodide: micropip only.',
+    });
+    expect(req.messages[1]!.content).toContain(
+      'Runtime: Python runs on Pyodide: micropip only.'
+    );
+    // Consent honesty: context added to the payload is context the user sees.
+    expect(req.preview).toContain('Runtime: Python runs on Pyodide');
+  });
+
+  it('omits the Runtime line entirely when no note is provided', () => {
+    const req = buildExplainErrorRequest({
+      errorMessage: 'boom',
+      code: 'x',
+      language: 'python',
+    });
+    expect(req.messages[1]!.content).not.toContain('Runtime:');
+  });
 });

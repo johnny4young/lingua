@@ -123,4 +123,123 @@ describe('ExplainErrorDialog (T19)', () => {
     );
     expect(screen.getByTestId('ai-explain-retry')).toBeTruthy();
   });
+
+  it('renders streamed partial text progressively before the result settles', async () => {
+    configureAi();
+    let releaseResult!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseResult = resolve;
+    });
+    const runChatCompletionImpl = vi.fn(
+      async (
+        _req: unknown,
+        _cfg: unknown,
+        options?: { onChunk?: (text: string) => void }
+      ) => {
+        options?.onChunk?.('Partial ans');
+        await gate;
+        return { ok: true as const, content: 'Partial answer, complete.' };
+      }
+    );
+    render(
+      <ExplainErrorDialog
+        {...baseProps}
+        runChatCompletionImpl={runChatCompletionImpl as never}
+      />
+    );
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    // The chunk renders while the request is still in flight.
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-explain-result').textContent).toContain(
+        'Partial ans'
+      )
+    );
+    releaseResult();
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-explain-result').textContent).toContain(
+        'Partial answer, complete.'
+      )
+    );
+  });
+
+  it('sends a follow-up turn carrying the whole conversation', async () => {
+    configureAi();
+    const runChatCompletionImpl = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, content: 'First answer.' })
+      .mockResolvedValueOnce({ ok: true, content: 'Second answer.' });
+    render(
+      <ExplainErrorDialog
+        {...baseProps}
+        runChatCompletionImpl={runChatCompletionImpl as never}
+      />
+    );
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-explain-followup-input')).toBeTruthy()
+    );
+
+    fireEvent.change(screen.getByTestId('ai-explain-followup-input'), {
+      target: { value: 'What about optional chaining?' },
+    });
+    fireEvent.click(screen.getByTestId('ai-explain-followup-send'));
+
+    await waitFor(() =>
+      expect(screen.getAllByTestId('ai-explain-result')).toHaveLength(2)
+    );
+    // The follow-up question stays visible in the transcript.
+    expect(
+      screen.getByTestId('ai-explain-followup-question').textContent
+    ).toContain('optional chaining');
+
+    // The second call re-sends the FULL conversation: initial system+user,
+    // the first assistant answer, and the new user question.
+    const secondCall = runChatCompletionImpl.mock.calls[1]![0] as {
+      messages: readonly { role: string; content: string }[];
+    };
+    expect(secondCall.messages.map((m) => m.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'user',
+    ]);
+    expect(secondCall.messages[2]!.content).toBe('First answer.');
+    expect(secondCall.messages[3]!.content).toBe(
+      'What about optional chaining?'
+    );
+  });
+
+  it('retries a failed follow-up without bouncing back to the consent preview', async () => {
+    configureAi();
+    const runChatCompletionImpl = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, content: 'First answer.' })
+      .mockResolvedValueOnce({ ok: false, kind: 'network', message: 'offline' })
+      .mockResolvedValueOnce({ ok: true, content: 'Recovered answer.' });
+    render(
+      <ExplainErrorDialog
+        {...baseProps}
+        runChatCompletionImpl={runChatCompletionImpl as never}
+      />
+    );
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-explain-followup-input')).toBeTruthy()
+    );
+    fireEvent.change(screen.getByTestId('ai-explain-followup-input'), {
+      target: { value: 'and now?' },
+    });
+    fireEvent.click(screen.getByTestId('ai-explain-followup-send'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-explain-error')).toBeTruthy()
+    );
+
+    // Retry resends the conversation directly — no preview round-trip.
+    fireEvent.click(screen.getByTestId('ai-explain-retry'));
+    await waitFor(() =>
+      expect(screen.getAllByTestId('ai-explain-result')).toHaveLength(2)
+    );
+    expect(screen.queryByTestId('ai-explain-preview')).toBeNull();
+    expect(runChatCompletionImpl).toHaveBeenCalledTimes(3);
+  });
 });

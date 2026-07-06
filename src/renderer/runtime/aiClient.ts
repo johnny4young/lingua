@@ -54,6 +54,16 @@ export interface AiChatRequest {
 export interface RunChatCompletionOptions {
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal;
+  /**
+   * Streaming: when provided the request asks for SSE (`stream: true`) and
+   * this callback receives the ACCUMULATED text after every delta, so a UI
+   * can render progressively. The resolved result still carries the full
+   * content. Servers that ignore `stream` fall back to the single-JSON
+   * parse transparently. With streaming, the timeout is a STALL deadline —
+   * it re-arms on every chunk — so a long answer that keeps flowing is
+   * never cut off mid-sentence.
+   */
+  readonly onChunk?: (textSoFar: string) => void;
   /** Test seam: override global `fetch`. */
   readonly fetchImpl?: typeof fetch;
 }
@@ -84,6 +94,57 @@ function extractContent(payload: unknown): string | null {
   return typeof content === 'string' ? content : null;
 }
 
+/** Extract the delta text from one OpenAI-compatible SSE chunk payload. */
+function extractDelta(payload: unknown): string | null {
+  if (payload === null || typeof payload !== 'object') return null;
+  const choices = (payload as { choices?: unknown }).choices;
+  if (!Array.isArray(choices) || choices.length === 0) return null;
+  const first = choices[0] as { delta?: { content?: unknown } };
+  const content = first?.delta?.content;
+  return typeof content === 'string' ? content : null;
+}
+
+/**
+ * Consume an OpenAI-compatible `text/event-stream` body, invoking `onChunk`
+ * with the accumulated text after each delta and re-arming the stall
+ * deadline via `onProgress`. Malformed data lines are skipped (keep-alives,
+ * vendor extras) — the stream fails only if it ends with no text at all.
+ */
+async function readSseStream(
+  body: ReadableStream<Uint8Array>,
+  onChunk: (textSoFar: string) => void,
+  onProgress: () => void
+): Promise<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    onProgress();
+    buffer += decoder.decode(value, { stream: true });
+    let newline: number;
+    while ((newline = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newline).replace(/\r$/, '');
+      buffer = buffer.slice(newline + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const delta = extractDelta(JSON.parse(data));
+        if (delta) {
+          text += delta;
+          onChunk(text);
+        }
+      } catch {
+        // Permissive by design: skip non-JSON keep-alive / vendor lines.
+      }
+    }
+  }
+  return text;
+}
+
 /**
  * POST an OpenAI-compatible chat completion. Always resolves to a typed
  * result; never throws. The key travels only in the `Authorization` header
@@ -108,7 +169,13 @@ export async function runChatCompletion(
     options.timeoutMs ?? DEFAULT_AI_TIMEOUT_MS,
     MAX_AI_TIMEOUT_MS
   );
-  const timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+  // Streaming re-arms this on every chunk (stall deadline); the non-streaming
+  // path arms it once, preserving the original absolute-deadline behavior.
+  let timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+  const rearmTimer = (): void => {
+    clearTimeout(timer);
+    timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+  };
   const onAbort = (): void => controller.abort(options.signal?.reason ?? 'cancelled');
   if (options.signal) {
     if (options.signal.aborted) onAbort();
@@ -125,7 +192,7 @@ export async function runChatCompletion(
       body: JSON.stringify({
         model,
         messages: request.messages,
-        stream: false,
+        stream: options.onChunk !== undefined,
       }),
       signal: controller.signal,
     });
@@ -157,6 +224,30 @@ export async function runChatCompletion(
             ? 'The AI endpoint rejected the API key.'
             : `AI endpoint returned ${response.status}${detail ? `: ${detail}` : ''}`,
       };
+    }
+
+    // SSE path: only when the caller asked to stream AND the server honored
+    // it. A server that ignores `stream: true` answers plain JSON and falls
+    // through to the single-parse below.
+    const contentType = response.headers.get('content-type') ?? '';
+    if (
+      options.onChunk &&
+      contentType.includes('text/event-stream') &&
+      response.body
+    ) {
+      const text = await readSseStream(
+        response.body,
+        options.onChunk,
+        rearmTimer
+      );
+      if (text.length === 0) {
+        return {
+          ok: false,
+          kind: 'parse',
+          message: 'AI response did not contain a completion.',
+        };
+      }
+      return { ok: true, content: text, model };
     }
 
     let payload: unknown;

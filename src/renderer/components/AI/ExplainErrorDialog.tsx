@@ -7,12 +7,23 @@
  * calls the provider client — the embodiment of the "no silent network call"
  * principle. Gated by the `LOCAL_AI` entitlement; degrades to an upsell (no
  * entitlement) or a "configure in Settings" prompt (no endpoint/key/model).
+ *
+ * UX pack additions:
+ *   - **Streaming**: the answer renders progressively as SSE deltas arrive,
+ *     so a slow local model shows words in ~1s instead of a 30s spinner.
+ *   - **Follow-up turns**: after an answer the user can ask a follow-up in
+ *     the same conversation. Each follow-up is its own explicit send; the
+ *     payload is the visible transcript plus the typed question — the
+ *     transcript IS the preview, keeping the consent contract honest.
  */
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles, X } from 'lucide-react';
-import { buildExplainErrorRequest } from '../../../shared/ai/explainError';
+import {
+  buildExplainErrorRequest,
+  type ChatMessage,
+} from '../../../shared/ai/explainError';
 import {
   runChatCompletion,
   type AiChatResult,
@@ -26,6 +37,8 @@ export interface ExplainErrorDialogProps {
   readonly code: string;
   readonly language: string;
   readonly filename?: string;
+  /** Runtime description from `runtimeNoteFor`; shown in the consent preview. */
+  readonly runtimeNote?: string;
   readonly onClose: () => void;
   /** Test seam: inject the client so component tests never hit the network. */
   readonly runChatCompletionImpl?: typeof runChatCompletion;
@@ -33,8 +46,8 @@ export interface ExplainErrorDialogProps {
 
 type Phase =
   | { readonly kind: 'preview' }
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'done'; readonly content: string }
+  | { readonly kind: 'streaming'; readonly partial: string }
+  | { readonly kind: 'done' }
   | { readonly kind: 'error'; readonly message: string };
 
 export function ExplainErrorDialog({
@@ -42,6 +55,7 @@ export function ExplainErrorDialog({
   code,
   language,
   filename,
+  runtimeNote,
   onClose,
   runChatCompletionImpl,
 }: ExplainErrorDialogProps) {
@@ -51,6 +65,12 @@ export function ExplainErrorDialog({
   const apiKey = useAiConfigStore((s) => s.apiKey);
   const model = useAiConfigStore((s) => s.model);
   const [phase, setPhase] = useState<Phase>({ kind: 'preview' });
+  // The conversation so far: the approved initial payload + every completed
+  // exchange. Follow-up sends re-transmit this whole array (chat models are
+  // stateless), which is why the transcript view doubles as the payload
+  // preview for follow-up turns.
+  const [transcript, setTranscript] = useState<readonly ChatMessage[]>([]);
+  const [followUp, setFollowUp] = useState('');
 
   const request = useMemo(
     () =>
@@ -59,23 +79,59 @@ export function ExplainErrorDialog({
         code,
         language,
         ...(filename ? { filename } : {}),
+        ...(runtimeNote ? { runtimeNote } : {}),
         ...(model ? { model } : {}),
       }),
-    [errorMessage, code, language, filename, model]
+    [errorMessage, code, language, filename, runtimeNote, model]
   );
 
   const configured = isAiConfigured({ endpoint, apiKey, model });
   const send = runChatCompletionImpl ?? runChatCompletion;
 
-  async function handleSend(): Promise<void> {
-    setPhase({ kind: 'loading' });
+  async function handleSend(messages: readonly ChatMessage[]): Promise<void> {
+    setPhase({ kind: 'streaming', partial: '' });
     const result: AiChatResult = await send(
-      { messages: request.messages, model },
-      { endpoint, apiKey, model }
+      { messages, model },
+      { endpoint, apiKey, model },
+      {
+        onChunk: (textSoFar) =>
+          setPhase({ kind: 'streaming', partial: textSoFar }),
+      }
     );
-    if (result.ok) setPhase({ kind: 'done', content: result.content });
-    else setPhase({ kind: 'error', message: result.message });
+    if (result.ok) {
+      setTranscript([
+        ...messages,
+        { role: 'assistant', content: result.content },
+      ]);
+      setPhase({ kind: 'done' });
+    } else {
+      // Keep the attempted messages so a mid-conversation retry can resend.
+      setTranscript(messages);
+      setPhase({ kind: 'error', message: result.message });
+    }
   }
+
+  function handleRetry(): void {
+    // First-attempt failure returns to the consent preview (re-approve);
+    // a failed FOLLOW-UP retries the conversation directly — the payload was
+    // already approved turn by turn and is fully visible above.
+    if (transcript.length <= request.messages.length) {
+      setPhase({ kind: 'preview' });
+    } else {
+      void handleSend(transcript);
+    }
+  }
+
+  function handleFollowUp(): void {
+    const question = followUp.trim();
+    if (question.length === 0) return;
+    setFollowUp('');
+    void handleSend([...transcript, { role: 'user', content: question }]);
+  }
+
+  // Everything after the initial [system, user] payload is a visible
+  // exchange: assistant answers + the user's follow-up questions.
+  const exchanges = transcript.slice(request.messages.length);
 
   return (
     <div
@@ -129,22 +185,42 @@ export function ExplainErrorDialog({
                 {request.preview}
               </pre>
             </div>
-          ) : phase.kind === 'loading' ? (
-            <p data-testid="ai-explain-loading" className="text-fg-muted">
-              {t('ai.explain.loading')}
-            </p>
-          ) : phase.kind === 'done' ? (
-            <ExplainErrorAnswer content={phase.content} />
           ) : (
-            <p data-testid="ai-explain-error" className="text-error">
-              {t('ai.explain.failed', { message: phase.message })}
-            </p>
+            <div className="space-y-3">
+              {exchanges.map((message, index) =>
+                message.role === 'assistant' ? (
+                  <ExplainErrorAnswer key={index} content={message.content} />
+                ) : (
+                  <p
+                    key={index}
+                    data-testid="ai-explain-followup-question"
+                    className="rounded border-l-2 border-accent bg-bg-panel-alt px-3 py-2 text-fg-muted"
+                  >
+                    {message.content}
+                  </p>
+                )
+              )}
+              {phase.kind === 'streaming' ? (
+                phase.partial.length > 0 ? (
+                  <ExplainErrorAnswer content={phase.partial} />
+                ) : (
+                  <p data-testid="ai-explain-loading" className="text-fg-muted">
+                    {t('ai.explain.loading')}
+                  </p>
+                )
+              ) : null}
+              {phase.kind === 'error' ? (
+                <p data-testid="ai-explain-error" className="text-error">
+                  {t('ai.explain.failed', { message: phase.message })}
+                </p>
+              ) : null}
+            </div>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
+        <div className="border-t border-border px-4 py-3">
           {entitled && configured && phase.kind === 'preview' ? (
-            <>
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={onClose}
@@ -154,30 +230,61 @@ export function ExplainErrorDialog({
               </button>
               <button
                 type="button"
-                onClick={() => void handleSend()}
+                onClick={() => void handleSend(request.messages)}
                 data-testid="ai-explain-send"
                 className="focus-ring rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
               >
                 {t('ai.explain.send')}
               </button>
-            </>
+            </div>
           ) : entitled && configured && phase.kind === 'error' ? (
-            <button
-              type="button"
-              onClick={() => setPhase({ kind: 'preview' })}
-              data-testid="ai-explain-retry"
-              className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
-            >
-              {t('ai.explain.retry')}
-            </button>
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={handleRetry}
+                data-testid="ai-explain-retry"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+              >
+                {t('ai.explain.retry')}
+              </button>
+            </div>
+          ) : entitled && configured && phase.kind === 'done' ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={followUp}
+                  onChange={(e) => setFollowUp(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleFollowUp();
+                  }}
+                  placeholder={t('ai.explain.followUpPlaceholder')}
+                  data-testid="ai-explain-followup-input"
+                  className="field-shell flex-1 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleFollowUp}
+                  data-testid="ai-explain-followup-send"
+                  className="focus-ring rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
+                >
+                  {t('ai.explain.followUpSend')}
+                </button>
+              </div>
+              <p className="text-micro text-fg-subtle">
+                {t('ai.explain.followUpHint')}
+              </p>
+            </div>
           ) : (
-            <button
-              type="button"
-              onClick={onClose}
-              className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
-            >
-              {t('ai.explain.close')}
-            </button>
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+              >
+                {t('ai.explain.close')}
+              </button>
+            </div>
           )}
         </div>
       </div>
