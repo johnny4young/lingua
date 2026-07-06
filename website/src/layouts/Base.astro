@@ -1,0 +1,109 @@
+---
+import '~/styles/tokens.css';
+import '~/styles/global.css';
+
+import Header from '~/components/Header.astro';
+import Footer from '~/components/Footer.astro';
+import { SITE } from '~/lib/site';
+import {
+  type Locale,
+  alternateUrls,
+  canonicalUrl as resolveCanonicalUrl,
+  getLocaleFromPath,
+  getLocaleMeta,
+} from '~/lib/i18n';
+
+interface Props {
+  title: string;
+  description?: string;
+  canonical?: string;
+  ogImage?: string;
+  jsonLd?: object | object[];
+  noindex?: boolean;
+  locale?: Locale;
+  /** When true, hide the global header/footer (used on bare pages — none right now). */
+  bare?: boolean;
+}
+
+const {
+  title,
+  description = SITE.description,
+  canonical,
+  ogImage = '/og-default.svg',
+  jsonLd,
+  noindex = false,
+  locale,
+  bare = false,
+} = Astro.props;
+
+const pageLocale = locale ?? getLocaleFromPath(Astro.url.pathname);
+const localeMeta = getLocaleMeta(pageLocale);
+const fullTitle = title.includes('Lingua') ? title : `${title} — Lingua`;
+const canonicalHref = canonical ?? resolveCanonicalUrl(pageLocale, Astro.url.pathname);
+const ogImageAbs = new URL(ogImage, SITE.url).toString();
+const alternates = alternateUrls(Astro.url.pathname);
+
+const jsonLdArray = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
+const cfAnalytics = import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN;
+---
+
+<!doctype html>
+<html lang={localeMeta.htmlLang} data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonicalHref} />
+    {alternates.map((alternate) => <link rel="alternate" hreflang={alternate.hreflang} href={alternate.href} />)}
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalHref} />
+    <meta property="og:image" content={ogImageAbs} />
+    <meta property="og:site_name" content="Lingua" />
+    <meta property="og:locale" content={localeMeta.ogLocale} />
+    {
+      alternates
+        .filter((alternate) => alternate.locale !== pageLocale && alternate.hreflang !== 'x-default')
+        .map((alternate) => (
+          <meta property="og:locale:alternate" content={getLocaleMeta(alternate.locale).ogLocale} />
+        ))
+    }
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageAbs} />
+
+    <meta name="theme-color" content="#0c1017" />
+    <meta name="generator" content={Astro.generator} />
+
+    {
+      jsonLdArray.map((doc) => (
+        <script is:inline type="application/ld+json" set:html={JSON.stringify(doc)} />
+      ))
+    }
+
+    <script is:inline src="/scripts/theme-init.js"></script>
+  </head>
+  <body>
+    {!bare && <Header locale={pageLocale} currentPath={Astro.url.pathname} />}
+    <main id="main">
+      <slot />
+    </main>
+    {!bare && <Footer locale={pageLocale} />}
+
+    {
+      cfAnalytics && (
+        <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={`{"token": "${cfAnalytics}"}`} />
+      )
+    }
+    <script is:inline src="/scripts/site.js" defer></script>
+  </body>
+</html>

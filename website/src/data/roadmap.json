@@ -1,0 +1,130 @@
+{
+  "generatedAt": "2026-07-06T04:51:22.298Z",
+  "totals": {
+    "planned": 6,
+    "inProgress": 6
+  },
+  "planned": [
+    {
+      "theme": "Editor & runtime",
+      "items": [
+        {
+          "id": "RL-023",
+          "title": "Snippet Lab + algorithm practice",
+          "scope": "Tagged snippet collections + \"compare two snippets\" + saved assertions.",
+          "status": "Planned",
+          "theme": "Editor & runtime"
+        },
+        {
+          "id": "RL-031",
+          "title": "Local AI code assistant",
+          "scope": "Desktop-local Ollama MVP first through `window.lingua.ai.*`; WebGPU, BYO keys, and hosted credits stay later phases under the internal AI bridge ADR.",
+          "status": "Planned",
+          "theme": "Editor & runtime"
+        },
+        {
+          "id": "RL-032",
+          "title": "Marketing website + docs hub",
+          "scope": "Separate marketing site at linguacode.dev with docs/download/pricing.",
+          "status": "Planned",
+          "theme": "Editor & runtime"
+        }
+      ]
+    },
+    {
+      "theme": "Execution & tooling",
+      "items": [
+        {
+          "id": "RL-048",
+          "title": "Integrated terminal (desktop)",
+          "scope": "Embed xterm.js + node-pty panel in the desktop build.",
+          "status": "Planned",
+          "theme": "Execution & tooling"
+        }
+      ]
+    },
+    {
+      "theme": "Personalization & polish",
+      "items": [
+        {
+          "id": "RL-041",
+          "title": "Static site export + publish",
+          "scope": "Export JS/TS/HTML projects as self-contained static ZIP; one-click publish to GitHub Pages.",
+          "status": "Planned",
+          "theme": "Personalization & polish"
+        },
+        {
+          "id": "RL-046",
+          "title": "Gamification + achievements",
+          "scope": "Achievement catalog, per-user progress, streaks.",
+          "status": "Planned",
+          "theme": "Personalization & polish"
+        }
+      ]
+    }
+  ],
+  "inProgress": [
+    {
+      "theme": "Editor & runtime",
+      "items": [
+        {
+          "id": "RL-024",
+          "title": "Multi-file playgrounds + starter galleries",
+          "scope": "Shipped so far: project tree/search ergonomics, replace-in-files, and project bundle export/import. Remaining: promote `fs:searchInFiles` to ripgrep, finish starter-gallery handoff with RL-103, improve binary-asset export fidelity, and keep total-uncompressed bundle caps honest. Landed details live in the internal plan notes; archive policy/index lives in the internal archive.",
+          "status": "Partial",
+          "theme": "Editor & runtime"
+        },
+        {
+          "id": "RL-036",
+          "title": "Sharing, collaboration, publish flows",
+          "scope": "Shipped so far: no-backend URL-fragment share links with privacy confirmation, Settings toggle, safe hash boot, and telemetry. Remaining: split clipboard denial vs user-cancel telemetry, Phase A2 `.linguashare` multi-file artifacts after RL-024 project primitives, and backend-gated cloud/embed/collab.",
+          "status": "Partial",
+          "theme": "Editor & runtime"
+        }
+      ]
+    },
+    {
+      "theme": "Languages",
+      "items": [
+        {
+          "id": "RL-027",
+          "title": "Debugger MVP",
+          "scope": "Shipped so far: JS/TS breakpoint UI, debugger panel, source-map-aware pauses, run/debug split, stepping controls, telemetry, and docs. Remaining: conditional-breakpoint predicate evaluation and watch-expression evaluation after a security review of worker eval patterns; logpoints remain a later extension.",
+          "status": "Partial",
+          "theme": "Languages"
+        },
+        {
+          "id": "RL-042",
+          "title": "Expand languages toward 15+",
+          "scope": "Shipped so far: Ruby web runtime and Ruby desktop native subprocess on the hybrid dispatcher, plus earlier validate-only language packs. Remaining: native execution for Java, Kotlin, Scala, Swift, C, and C++; each promotion is its own slice.",
+          "status": "Partial",
+          "theme": "Languages"
+        }
+      ]
+    },
+    {
+      "theme": "Execution & tooling",
+      "items": [
+        {
+          "id": "RL-043",
+          "title": "Notebook / cell-based execution",
+          "scope": "Shipped so far: schema + cell editor + runner-owned sessions + markdown/code cells + run controls + telemetry; cross-cell var sharing (Slice B, TS-AST rewriter + structured-result channel); TypeScript cells (C); Jupyter `.ipynb` export (D); native `.linguanb` export/import + desktop save (E); per-cell Python via Pyodide/native (F, 2026-06-23); and Monaco-backed cells with mount-virtualization (G, 2026-06-24 — the active cell hosts a live Monaco editor, others render a colorized static view so a 200-cell notebook never mounts >1 editor; inline lint + status-bar cursor + Vim parity inside the active cell); and row/scroll list virtualization (Slice H, 2026-06-27 — the cell list windows via the shared useListWindow so a 200-cell notebook mounts only a viewport-sized slice of rows; per-tab scroll persistence, run-into-view, memoized rows). Remaining: reactive dataflow, cross-cell Python (persistent interpreter), shared-globalThis worker.",
+          "status": "Partial",
+          "theme": "Execution & tooling"
+        }
+      ]
+    },
+    {
+      "theme": "Personalization & polish",
+      "items": [
+        {
+          "id": "RL-039",
+          "title": "Guided lessons + app galleries",
+          "scope": "Shipped so far: guided-tour scaffolds plus Recipes search overlay, assertion runner, 10 bundled JS recipes, persisted progress, reset UI, and telemetry. Remaining: Python and TypeScript recipes, AI hints via RL-031, user-authored recipe import/export through RL-100, lesson progression tree, and `lingua lesson validate`.",
+          "status": "Partial",
+          "theme": "Personalization & polish"
+        }
+      ]
+    }
+  ]
+}

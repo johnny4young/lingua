@@ -1,0 +1,85 @@
+---
+import Base from '~/layouts/Base.astro';
+import Hero from '~/components/Hero.astro';
+import WhyCards from '~/components/WhyCards.astro';
+import LanguageMatrix from '~/components/LanguageMatrix.astro';
+import UtilitiesStrip from '~/components/UtilitiesStrip.astro';
+import PricingTeaser from '~/components/PricingTeaser.astro';
+import PrivacyCallout from '~/components/PrivacyCallout.astro';
+import FinalCTA from '~/components/FinalCTA.astro';
+import { SITE } from '~/lib/site';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? 'en';
+const copy = t(locale);
+const description = locale === 'es'
+  ? 'Lingua ejecuta JavaScript, TypeScript, Python, Go y Rust en una app desktop offline-first. Editor Monaco, Vim mode, 29 utilidades developer y código source-available.'
+  : SITE.description;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Lingua',
+  description,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS, Windows, Linux',
+  url: `${SITE.url}${localizePath(locale, '/')}`,
+  downloadUrl: `${SITE.url}${localizePath(locale, '/releases')}`,
+  offers: [
+    { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
+    {
+      '@type': 'Offer',
+      name: 'Pro',
+      priceCurrency: 'USD',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: '5',
+        priceCurrency: 'USD',
+        billingDuration: 'P1M',
+        unitText: 'month',
+      },
+    },
+    { '@type': 'Offer', name: 'Pro Lifetime', price: '59', priceCurrency: 'USD' },
+    {
+      '@type': 'Offer',
+      name: 'Team',
+      priceCurrency: 'USD',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: '3',
+        priceCurrency: 'USD',
+        billingDuration: 'P1M',
+        unitText: 'seat per month',
+      },
+    },
+  ],
+  publisher: {
+    '@type': 'Person',
+    name: 'Johnny Young',
+    url: SITE.url,
+  },
+};
+---
+
+<Base
+  title={copy.home.title}
+  description={description}
+  locale={locale}
+  jsonLd={jsonLd}
+>
+  <Hero locale={locale} />
+
+  <div class="container">
+    <WhyCards locale={locale} />
+    <LanguageMatrix locale={locale} />
+    <UtilitiesStrip locale={locale} />
+    <PricingTeaser locale={locale} />
+    <PrivacyCallout locale={locale} />
+  </div>
+
+  <FinalCTA locale={locale} />
+</Base>

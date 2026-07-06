@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /press/lingua-press-kit.zip$
+
+Sitemap: https://linguacode.dev/sitemap-index.xml

@@ -1,0 +1,200 @@
+---
+import { Icon } from 'astro-icon/components';
+import HeroCodeRunner from './HeroCodeRunner.astro';
+import { SITE } from '~/lib/site';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale);
+const hero = copy.home.hero;
+---
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">{hero.eyebrow}</p>
+      <h1>
+        {hero.headline[0]}<br />
+        {hero.headline[1]}<br />
+        {hero.headline[2]} <span class="accent">{hero.headlineSuffix}</span> {hero.headlineEnd}
+      </h1>
+      <p class="hero-lede">{hero.lede}</p>
+
+      <div class="hero-proof" role="list" aria-label={hero.proofLabel}>
+        {
+          hero.proof.map((item) => (
+            <div role="listitem">
+              <strong>{item.value}</strong>
+              <span>{item.label}</span>
+            </div>
+          ))
+        }
+      </div>
+
+      <div class="hero-actions">
+        <a href={localizePath(locale, '/releases')} class="btn btn-primary" id="hero-download">
+          <Icon name="lucide:download" />
+          <span
+            data-os-label
+            data-os-generic={hero.os.generic}
+            data-os-macos={hero.os.macos}
+            data-os-windows={hero.os.windows}
+            data-os-linux={hero.os.linux}
+          >
+            {hero.os.generic}
+          </span>
+        </a>
+        <a href={SITE.social.githubUrl} class="btn btn-secondary" rel="external noopener">
+          <Icon name="lucide:github" />
+          {copy.common.viewOnGitHub}
+        </a>
+      </div>
+
+      <ul class="hero-bullets">
+        <li><Icon name="lucide:wifi-off" /> {hero.bullets[0]}</li>
+        <li><Icon name="lucide:shield-check" /> {hero.bullets[1]}</li>
+        <li><Icon name="lucide:terminal" /> {hero.bullets[2]}</li>
+      </ul>
+    </div>
+
+    <div class="hero-visual">
+      <HeroCodeRunner locale={locale} />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    padding-block: clamp(3rem, 8vw, 6rem) clamp(2rem, 6vw, 5rem);
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 20%, transparent), var(--color-bg) 78%),
+      linear-gradient(115deg, transparent 0 58%, color-mix(in srgb, var(--color-border) 40%, transparent) 58% 58.2%, transparent 58.2%);
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(to bottom, transparent, var(--color-bg));
+    opacity: 0.72;
+  }
+  .hero > .container {
+    position: relative;
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    align-items: center;
+  }
+  .hero-copy h1 {
+    font-size: clamp(3rem, 5.2vw, 4.4rem);
+    line-height: 1.05;
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 1rem 0 1.5rem;
+  }
+  .accent {
+    color: var(--color-accent);
+  }
+  .hero-lede {
+    color: var(--color-text-muted);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    max-width: 520px;
+    margin: 0 0 2rem;
+  }
+  .hero-proof {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    width: min(100%, 540px);
+    margin-bottom: 2rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-border);
+  }
+  .hero-proof div {
+    min-width: 0;
+    padding: 0.875rem 1rem;
+    background: color-mix(in srgb, var(--color-bg-sunken) 84%, var(--color-bg-elevated));
+  }
+  .hero-proof strong {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 1.35rem;
+    line-height: 1;
+    color: var(--color-text);
+  }
+  .hero-proof span {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--color-text-subtle);
+    font-size: var(--text-xs);
+    line-height: 1.35;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+  .hero-actions .btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .hero-bullets {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+  }
+  .hero-bullets li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .hero-bullets svg {
+    width: 14px;
+    height: 14px;
+    color: var(--color-accent);
+  }
+  .hero-visual {
+    min-width: 0;
+  }
+  @media (min-width: 1024px) {
+    .hero-grid {
+      grid-template-columns: 1.05fr 1fr;
+      gap: 4rem;
+    }
+  }
+  @media (max-width: 520px) {
+    .hero-copy h1 {
+      font-size: clamp(2.35rem, 11.5vw, 3rem);
+      line-height: 1.08;
+    }
+    .hero-copy h1 br {
+      display: none;
+    }
+    .hero-proof {
+      grid-template-columns: 1fr;
+    }
+    .hero-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .hero-actions .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>

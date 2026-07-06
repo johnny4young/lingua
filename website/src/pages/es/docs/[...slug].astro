@@ -1,0 +1,21 @@
+---
+import { getCollection, render } from 'astro:content';
+import Doc from '~/layouts/Doc.astro';
+
+export async function getStaticPaths() {
+  const locale = 'es';
+  const entries = await getCollection('docs', ({ id }) => id.startsWith(`${locale}/`));
+  return entries.map((entry) => ({
+    params: { slug: entry.id.replace(`${locale}/`, '') },
+    props: { entry, allDocs: entries },
+  }));
+}
+
+const { entry, allDocs } = Astro.props;
+const locale = 'es';
+const { Content } = await render(entry);
+---
+
+<Doc entry={entry} allDocs={allDocs} locale={locale}>
+  <Content />
+</Doc>

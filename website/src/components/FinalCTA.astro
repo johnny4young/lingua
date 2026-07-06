@@ -1,0 +1,74 @@
+---
+import { Icon } from 'astro-icon/components';
+import { SITE } from '~/lib/site';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale);
+---
+
+<section class="final">
+  <div class="container final-inner">
+    <div>
+      <h2>{copy.home.finalCta.title}</h2>
+      <p>{copy.home.finalCta.body}</p>
+    </div>
+    <div class="final-actions">
+      <a href={localizePath(locale, '/releases')} class="btn btn-primary">
+        <Icon name="lucide:download" />
+        {copy.common.download}
+      </a>
+      <a href={localizePath(locale, '/docs/getting-started')} class="btn btn-secondary">{copy.common.browseDocs}</a>
+      <a href={SITE.social.githubUrl} class="btn btn-secondary" rel="external noopener">
+        <Icon name="lucide:github" />
+        {copy.common.github}
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .final {
+    padding-block: var(--space-section-lg);
+    border-top: 1px solid var(--color-border);
+    background:
+      linear-gradient(115deg, transparent 0 64%, color-mix(in srgb, var(--color-border) 44%, transparent) 64% 64.15%, transparent 64.15%),
+      color-mix(in srgb, var(--color-bg-sunken) 70%, var(--color-bg));
+  }
+  .final-inner {
+    display: grid;
+    gap: 2rem;
+    align-items: center;
+  }
+  .final h2 {
+    font-size: var(--text-h2);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 0 0 0.75rem;
+    line-height: 1.15;
+  }
+  .final p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 1.125rem;
+  }
+  .final-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .final-actions .btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  @media (min-width: 768px) {
+    .final-inner {
+      grid-template-columns: 1fr auto;
+      gap: 3rem;
+    }
+  }
+</style>

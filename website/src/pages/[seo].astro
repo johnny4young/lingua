@@ -1,0 +1,21 @@
+---
+import { getCollection, render } from 'astro:content';
+import Seo from '~/layouts/Seo.astro';
+
+export async function getStaticPaths() {
+  const locale = 'en';
+  const entries = await getCollection('seo', ({ id }) => id.startsWith(`${locale}/`));
+  return entries.map((entry) => ({
+    params: { seo: entry.id.replace(`${locale}/`, '') },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const locale = 'en';
+const { Content } = await render(entry);
+---
+
+<Seo entry={entry} locale={locale}>
+  <Content />
+</Seo>

@@ -1,0 +1,64 @@
+---
+title: Primeros pasos
+description: Instala Lingua, ejecuta tu primer snippet en cinco lenguajes y encuentra los atajos que hacen rápido el flujo.
+order: 1
+section: guide
+---
+
+Lingua es un runner de código multi-lenguaje pensado primero para desktop. Lo instalas una vez y tienes JavaScript, TypeScript, Python, Go y Rust listos en una sola ventana con Monaco.
+
+## Descargar
+
+Ve a [linguacode.dev/releases](/es/releases) y descarga el build para tu plataforma. Cada release incluye:
+
+- macOS — `.zip` firmado por Apple y notarizado para arm64 y x64.
+- Windows — instalador `.exe` firmado con Authenticode.
+- Linux — paquetes `.deb` y `.rpm` para x86_64 y aarch64.
+
+Si quieres verificar con más cuidado, compara la descarga contra `SHA256SUMS.txt`:
+
+```bash
+shasum -a 256 -c SHA256SUMS.txt
+```
+
+## Tu primer snippet
+
+Abre Lingua. El editor inicia con una pestaña JavaScript nueva. Prueba esto:
+
+```js
+const stars = await fetch('https://api.github.com/repos/johnny4young/lingua')
+  .then((res) => res.json())
+  .then((repo) => repo.stargazers_count);
+
+console.log({ stars });
+```
+
+Presiona `Cmd/Ctrl+Enter`. El panel de resultados se actualiza inline.
+
+## Cambiar lenguaje
+
+Abre el menú de lenguaje en la tab strip (o `Cmd/Ctrl+L`) y elige otro lenguaje. La pestaña se reemplaza con un starter snippet real y ejecutable para ese lenguaje. JavaScript, TypeScript y Python funcionan en cada instalación: sus runtimes vienen dentro de Lingua.
+
+Go y Rust delegan en las toolchains que ya tienes en tu máquina. Si `go version` o `rustc --version` funciona en tu terminal, Lingua las detectará automáticamente.
+
+## Atajos útiles
+
+Unos pocos atajos para que Lingua desaparezca del camino:
+
+- `Cmd/Ctrl+P` — quick-open de snippet.
+- `Cmd/Ctrl+Shift+P` — paleta de comandos.
+- `Cmd/Ctrl+Enter` — ejecutar pestaña actual.
+- `Cmd/Ctrl+\` — alternar el panel de utilidades developer.
+
+Vim mode es opt-in: actívalo en Settings → Editor.
+
+## Offline por defecto
+
+Lingua no necesita conexión para ejecutar código en el build desktop. Pyodide viene dentro del binario, y Go/Rust usan tu toolchain local. La telemetría está desactivada por defecto; actívala desde Settings si quieres ayudar a mejorar la app.
+
+## Siguientes pasos
+
+- [Descargas](/es/releases) — artefactos para cada plataforma y checksums.
+- [Precios](/es/pricing) — los cuatro tiers y qué desbloquea cada uno.
+- [Privacidad](/es/privacy) — qué recopilamos y qué no.
+- [Código en GitHub](https://github.com/johnny4young/lingua) — issues, discusiones y archivo LICENSE.

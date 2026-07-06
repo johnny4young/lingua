@@ -1,0 +1,132 @@
+---
+import { highlight, HERO_LANGS } from '~/lib/shiki';
+import { FEATURE_SNIPPETS } from '~/lib/featureSnippets';
+import type { Locale } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const runtimeLabel = locale === 'es' ? 'Runtime' : 'Runtime';
+const runtimeCopy = {
+  javascript: locale === 'es' ? 'Web Worker · timeouts controlados por el padre' : FEATURE_SNIPPETS.javascript.runtime,
+  typescript: locale === 'es' ? 'esbuild-wasm transpila → worker JS' : FEATURE_SNIPPETS.typescript.runtime,
+  python: locale === 'es' ? 'Pyodide v0.26.4 · offline vendored en desktop' : FEATURE_SNIPPETS.python.runtime,
+  go: locale === 'es' ? 'Toolchain local de Go · env mínimo de subprocess' : FEATURE_SNIPPETS.go.runtime,
+  rust: locale === 'es' ? 'Toolchain local rustc · tmpdir limpio por run' : FEATURE_SNIPPETS.rust.runtime,
+};
+
+const cards = await Promise.all(
+  HERO_LANGS.map(async (lang) => ({
+    lang,
+    ...FEATURE_SNIPPETS[lang],
+    html: await highlight(FEATURE_SNIPPETS[lang].code, lang),
+  })),
+);
+---
+
+<div class="lang-deep-grid">
+  {
+    cards.map((card) => (
+      <article class="lang-deep">
+        <header>
+          <h3>{card.label}</h3>
+          <span class:list={['tier-chip', card.tier === 'Pro' && 'is-pro']}>{card.tier}</span>
+        </header>
+        <p class="runtime-line">
+          <span class="runtime-label">{runtimeLabel}</span>
+          {runtimeCopy[card.lang]}
+        </p>
+        <div class="code-frame" set:html={card.html} />
+      </article>
+    ))
+  }
+</div>
+
+<style>
+  .lang-deep-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .lang-deep {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-bg-sunken));
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .lang-deep header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .lang-deep h3 {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--color-text);
+  }
+  .tier-chip {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text-muted);
+    border-radius: var(--radius-sm);
+  }
+  .tier-chip.is-pro {
+    color: var(--color-accent);
+    border-color: var(--color-accent-muted);
+    background: color-mix(in srgb, var(--color-accent-muted) 22%, transparent);
+  }
+  .runtime-line {
+    margin: 0;
+    font-size: var(--text-small);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+  }
+  .runtime-label {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+    margin-right: 0.5rem;
+  }
+  .code-frame {
+    background: var(--color-bg-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem;
+    overflow-x: auto;
+    min-width: 0;
+  }
+  .code-frame :global(pre.hero-code) {
+    background: transparent !important;
+    padding: 0;
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.6;
+  }
+  .code-frame :global(pre.hero-code code) {
+    font-family: var(--font-mono);
+  }
+  @media (min-width: 720px) {
+    .lang-deep-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1100px) {
+    .lang-deep-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+</style>

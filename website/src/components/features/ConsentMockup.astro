@@ -1,0 +1,139 @@
+---
+/**
+ * The first-run telemetry consent prompt — real divs, real copy, real
+ * default state (Off). Communicates the privacy posture better than any
+ * marketing paragraph.
+ */
+import { Icon } from 'astro-icon/components';
+import type { Locale } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const isEs = locale === 'es';
+---
+
+<div class="consent-shell" role="dialog" aria-label={isEs ? 'Mockup del consentimiento de telemetría' : 'Telemetry consent prompt mockup'}>
+  <div class="consent-icon">
+    <Icon name="lucide:shield-check" />
+  </div>
+  <h4>{isEs ? '¿Enviar eventos anónimos de uso?' : 'Send anonymous usage events?'}</h4>
+  <p>
+    {isEs ? 'Desactivado por defecto. Si aceptas, Lingua envía nombres de eventos como' : 'Off by default. If you opt in, Lingua sends event names like'}
+    <code>runner.executed</code> {isEs ? 'y' : 'and'} <code>overlay.opened</code> {isEs ? 'con la versión de la app y un ID seudónimo de instalación.' : 'with the app version and a pseudonymous install ID.'}
+    <strong>{isEs ? 'Nunca tu código, nunca tus rutas de archivo.' : 'Never your code, never your file paths.'}</strong>
+  </p>
+
+  <ul class="never-list">
+    <li><Icon name="lucide:x" /> {isEs ? 'Sin código fuente ni input' : 'No source code or input'}</li>
+    <li><Icon name="lucide:x" /> {isEs ? 'Sin rutas de archivo ni nombres de proyecto' : 'No file paths or project names'}</li>
+    <li><Icon name="lucide:x" /> {isEs ? 'Sin vendor de analytics de terceros' : 'No third-party analytics vendor'}</li>
+  </ul>
+
+  <div class="consent-actions">
+    <button type="button" class="btn-tiny btn-tiny-ghost">{isEs ? 'No, mantener apagado' : 'No, keep it off'}</button>
+    <button type="button" class="btn-tiny btn-tiny-primary">{isEs ? 'Enviar eventos anónimos' : 'Send anonymous events'}</button>
+  </div>
+  <p class="footnote">{isEs ? 'Puedes cambiar esto cuando quieras en Settings → Privacy.' : 'You can change this any time in Settings → Privacy.'}</p>
+</div>
+
+<style>
+  .consent-shell {
+    position: relative;
+    border: 1px solid var(--color-accent-muted);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-bg-elevated) 96%, var(--color-bg));
+    padding: 1.5rem;
+    box-shadow:
+      0 24px 50px -16px color-mix(in srgb, black 65%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--color-accent) 10%, transparent);
+    max-width: 480px;
+  }
+  .consent-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    color: var(--color-accent);
+    margin-bottom: 1rem;
+  }
+  .consent-icon svg { width: 18px; height: 18px; }
+  .consent-shell h4 {
+    margin: 0 0 0.5rem;
+    font-size: 1.0625rem;
+    font-weight: 700;
+  }
+  .consent-shell p {
+    margin: 0 0 1rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    line-height: 1.55;
+  }
+  .consent-shell strong { color: var(--color-text); }
+  .consent-shell code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--color-accent);
+    background: var(--color-bg-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px 5px;
+  }
+  .never-list {
+    list-style: none;
+    margin: 0 0 1.25rem;
+    padding: 0.625rem 0.75rem;
+    background: var(--color-bg-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .never-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+  }
+  .never-list svg {
+    width: 13px;
+    height: 13px;
+    color: var(--color-danger);
+    flex-shrink: 0;
+  }
+  .consent-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .btn-tiny {
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+    font-weight: 600;
+    border: 1px solid transparent;
+    cursor: default;
+  }
+  .btn-tiny-ghost {
+    background: transparent;
+    color: var(--color-text);
+    border-color: var(--color-border-strong);
+  }
+  .btn-tiny-primary {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
+  }
+  .footnote {
+    margin: 0.875rem 0 0 !important;
+    color: var(--color-text-subtle) !important;
+    font-size: var(--text-xs) !important;
+  }
+</style>

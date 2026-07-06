@@ -1,0 +1,246 @@
+---
+import { Icon } from 'astro-icon/components';
+import { validateCheckoutUrl, type PaidTier } from '~/lib/polar';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale).pricing.table;
+
+type CheckoutEnvKey =
+  | 'PUBLIC_POLAR_CHECKOUT_PRO'
+  | 'PUBLIC_POLAR_CHECKOUT_PRO_LIFETIME'
+  | 'PUBLIC_POLAR_CHECKOUT_TEAM';
+type CheckoutEnvSource = 'import.meta.env' | 'process.env' | 'missing';
+type CheckoutEnvEntry = { key: CheckoutEnvKey; value: string | undefined; source: CheckoutEnvSource };
+
+function checkoutEnvValue(key: CheckoutEnvKey, importMetaValue: string | undefined): CheckoutEnvEntry {
+  if (importMetaValue?.trim()) return { key, value: importMetaValue, source: 'import.meta.env' };
+  const processValue = process.env[key];
+  if (processValue?.trim()) return { key, value: processValue, source: 'process.env' };
+  return { key, value: undefined, source: 'missing' };
+}
+
+const checkoutEnv: Record<PaidTier, CheckoutEnvEntry> = {
+  pro: checkoutEnvValue('PUBLIC_POLAR_CHECKOUT_PRO', import.meta.env.PUBLIC_POLAR_CHECKOUT_PRO),
+  pro_lifetime: checkoutEnvValue(
+    'PUBLIC_POLAR_CHECKOUT_PRO_LIFETIME',
+    import.meta.env.PUBLIC_POLAR_CHECKOUT_PRO_LIFETIME,
+  ),
+  team: checkoutEnvValue('PUBLIC_POLAR_CHECKOUT_TEAM', import.meta.env.PUBLIC_POLAR_CHECKOUT_TEAM),
+};
+
+const urls: Record<PaidTier, string | null> = {
+  pro: validateCheckoutUrl(checkoutEnv.pro.value),
+  pro_lifetime: validateCheckoutUrl(checkoutEnv.pro_lifetime.value),
+  team: validateCheckoutUrl(checkoutEnv.team.value),
+};
+
+if (process.env.CF_PAGES === '1') {
+  const statuses = (Object.keys(checkoutEnv) as PaidTier[])
+    .map((tier) => {
+      const item = checkoutEnv[tier];
+      const state = item.value ? `${urls[tier] ? 'valid' : 'invalid'}:${item.source}` : 'missing';
+      return `${item.key}=${state}`;
+    })
+    .join(', ');
+
+  console.log(`[pricing] Polar checkout env: ${statuses}`);
+}
+
+const TIER_META = {
+  free: { href: '/releases', primary: false },
+  pro: { polarTier: 'pro' as PaidTier, primary: true },
+  pro_lifetime: { polarTier: 'pro_lifetime' as PaidTier, primary: false },
+  team: { polarTier: 'team' as PaidTier, primary: false },
+} as const;
+
+function buttonForTier(tier: (typeof copy.tiers)[number]) {
+  const meta = TIER_META[tier.id];
+  if ('href' in meta && meta.href) {
+    return { label: tier.cta, href: localizePath(locale, meta.href), disabled: false, external: false };
+  }
+  if ('polarTier' in meta && meta.polarTier) {
+    const url = urls[meta.polarTier];
+    if (!url) return { label: copy.disabled, href: null, disabled: true, external: false };
+    return { label: tier.cta, href: url, disabled: false, external: true };
+  }
+  return { label: tier.cta, href: null, disabled: true, external: false };
+}
+---
+
+<div class="tier-grid">
+  {
+    copy.tiers.map((tier) => {
+      const btn = buttonForTier(tier);
+      const meta = TIER_META[tier.id];
+      return (
+        <article class:list={['tier', meta.primary && 'is-primary']}>
+          {meta.primary && <span class="primary-tag">{copy.mostPopular}</span>}
+          <header class="tier-head">
+            <h3>{tier.name}</h3>
+            <p class="tier-best-for">{tier.bestFor}</p>
+            <div class="tier-price-block">
+              <span class="tier-price">{tier.price}</span>
+              <span class="tier-cadence">{tier.cadence}</span>
+            </div>
+          </header>
+
+          <ul class="tier-features">
+            {
+              tier.features.map((f) => (
+                <li>
+                  <Icon name="lucide:check" class="check" /> {f}
+                </li>
+              ))
+            }
+          </ul>
+
+          <div class="tier-cta">
+            {btn.disabled ? (
+              <button type="button" class="btn btn-disabled" aria-disabled="true" title={copy.disabledTitle}>
+                {btn.label}
+              </button>
+            ) : btn.external ? (
+              <a href={btn.href!} class:list={['btn', meta.primary ? 'btn-primary' : 'btn-secondary']} rel="external noopener">
+                {btn.label}
+              </a>
+            ) : (
+              <a href={btn.href!} class:list={['btn', meta.primary ? 'btn-primary' : 'btn-secondary']}>
+                {btn.label}
+              </a>
+            )}
+          </div>
+        </article>
+      );
+    })
+  }
+</div>
+
+<aside id="education" class="education-note">
+  <Icon name="lucide:graduation-cap" />
+  <div>
+    <strong>{copy.educationTitle}</strong> — {copy.education}
+  </div>
+</aside>
+
+<style>
+  .tier-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin-block: 3rem 2.5rem;
+  }
+  .tier {
+    position: relative;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .tier.is-primary {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent), 0 20px 40px -20px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  }
+  .primary-tag {
+    position: absolute;
+    top: -12px;
+    left: 1.5rem;
+    padding: 0.25rem 0.75rem;
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    border-radius: 999px;
+    letter-spacing: 0;
+  }
+  .tier-head h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+  }
+  .tier-best-for {
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    margin: 0 0 1rem;
+    min-height: 2.5em;
+  }
+  .tier-price-block {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .tier-price {
+    font-family: var(--font-mono);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+  .tier-cadence {
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+  }
+  .tier-features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    flex: 1;
+  }
+  .tier-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    color: var(--color-text);
+    font-size: var(--text-small);
+    line-height: 1.5;
+  }
+  .check {
+    width: 14px;
+    height: 14px;
+    color: var(--color-accent);
+    flex-shrink: 0;
+    margin-top: 0.25rem;
+  }
+  .tier-cta .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .education-note {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-sunken);
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+  }
+  .education-note svg {
+    width: 22px;
+    height: 22px;
+    color: var(--color-accent);
+    flex-shrink: 0;
+  }
+  .education-note strong {
+    color: var(--color-text);
+  }
+  .education-note code {
+    font-size: 0.875em;
+    color: var(--color-accent);
+  }
+  @media (min-width: 900px) {
+    .tier-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+</style>

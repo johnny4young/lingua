@@ -4,6 +4,9 @@ node_modules/
 package-lock.json
 npm-shrinkwrap.json
 yarn.lock
+# Exception: website/ is a standalone npm package (see website/package.json);
+# its lockfile MUST be committed so `npm ci` is reproducible in the deploy CI.
+!website/package-lock.json
 
 # Build output
 out/

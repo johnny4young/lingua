@@ -1,0 +1,750 @@
+---
+import { Icon } from 'astro-icon/components';
+
+import Base from '~/layouts/Base.astro';
+import FinalCTA from '~/components/FinalCTA.astro';
+import { loadRoadmap } from '~/lib/roadmap';
+import { loadChangelog } from '~/lib/changelog';
+import { loadUnreleased } from '~/lib/unreleased';
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? 'en';
+const copy = t(locale).changelog;
+
+const [{ planned, inProgress, totals }, releases, unreleased] = await Promise.all([
+  loadRoadmap(),
+  loadChangelog(),
+  loadUnreleased(),
+]);
+
+const totalShipped = releases.length;
+const hasUnreleased = unreleased.commits.length >= 3;
+const hiddenCount = Math.max(0, unreleased.totalSinceBase - unreleased.commits.length);
+
+function formatDate(iso: string): string {
+  // YYYY-MM-DD — format without timezone shenanigans
+  const [y, m, d] = iso.split('-').map(Number);
+  return copy.dateLocale === 'es' ? `${d} de ${copy.months[m - 1]} de ${y}` : `${copy.months[m - 1]} ${d}, ${y}`;
+}
+---
+
+<Base
+  title={copy.title}
+  description={copy.description}
+  locale={locale}
+>
+  <article class="container section">
+    <header class="changelog-head">
+      <p class="eyebrow">{copy.eyebrow}</p>
+      <h1>{copy.heading}</h1>
+      <p class="lede">
+        {copy.ledeBefore}
+        <a href="https://github.com/johnny4young/lingua/blob/main/docs/ROADMAP.md" rel="external noopener">
+          ROADMAP.md
+        </a> {copy.ledeAfter}
+      </p>
+
+      <ul class="head-stats" aria-label={copy.aria.roadmapTotals}>
+        <li>
+          <strong>{totals.planned}</strong>
+          <span>{copy.stats.planned}</span>
+        </li>
+        <li>
+          <strong>{totals.inProgress}</strong>
+          <span>{copy.stats.inProgress}</span>
+        </li>
+        <li>
+          <strong>{totalShipped}</strong>
+          <span>{copy.stats.stableReleases}</span>
+        </li>
+      </ul>
+
+      <nav class="phase-jump" aria-label={copy.aria.jumpToPhase}>
+        <a href="#planned"><span class="dot dot-planned"></span> {copy.planned}</a>
+        <a href="#in-progress"><span class="dot dot-progress"></span> {copy.inProgress}</a>
+        {hasUnreleased && <a href="#unreleased"><span class="dot dot-brewing"></span> {copy.brewing}</a>}
+        <a href="#shipped"><span class="dot dot-shipped"></span> {copy.shipped}</a>
+      </nav>
+    </header>
+
+    <!-- PLANNED ────────────────────────────────────────────────── -->
+    <section class="phase phase-planned" id="planned">
+      <header class="phase-head">
+        <span class="phase-num">1</span>
+        <div>
+          <p class="eyebrow">{copy.phase1.eyebrow}</p>
+          <h2>{copy.phase1.title}</h2>
+          <p class="phase-lede">{copy.phase1.lede}</p>
+        </div>
+        <span class="phase-count">{totals.planned}</span>
+      </header>
+
+      <div class="theme-grid">
+        {
+          planned.map((group) => (
+            <section class="theme">
+              <header class="theme-head">
+                <h3>{group.theme}</h3>
+                <span>{group.items.length}</span>
+              </header>
+              <ul class="ticket-list">
+                {
+                  group.items.map((t) => (
+                    <li class="ticket">
+                      <span class="status-pill is-planned">{copy.planned}</span>
+                      <div>
+                        <h4>{t.title}</h4>
+                        <p>{t.scope}</p>
+                      </div>
+                    </li>
+                  ))
+                }
+              </ul>
+            </section>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- IN PROGRESS ────────────────────────────────────────────── -->
+    <section class="phase phase-progress" id="in-progress">
+      <header class="phase-head">
+        <span class="phase-num">2</span>
+        <div>
+          <p class="eyebrow">{copy.phase2.eyebrow}</p>
+          <h2>{copy.phase2.title}</h2>
+          <p class="phase-lede">{copy.phase2.lede}</p>
+        </div>
+        <span class="phase-count">{totals.inProgress}</span>
+      </header>
+
+      <div class="theme-grid">
+        {
+          inProgress.map((group) => (
+            <section class="theme">
+              <header class="theme-head">
+                <h3>{group.theme}</h3>
+                <span>{group.items.length}</span>
+              </header>
+              <ul class="ticket-list">
+                {
+                  group.items.map((t) => (
+                    <li class="ticket">
+                      <span class="status-pill is-progress">
+                        <Icon name="lucide:loader" /> {copy.inProgress}
+                      </span>
+                      <div>
+                        <h4>{t.title}</h4>
+                        <p>{t.scope}</p>
+                      </div>
+                    </li>
+                  ))
+                }
+              </ul>
+            </section>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- UNRELEASED (BREWING) ──────────────────────────────────── -->
+    {
+      hasUnreleased && (
+        <section class="phase phase-brewing" id="unreleased">
+          <header class="phase-head">
+            <span class="phase-num">~</span>
+            <div>
+              <p class="eyebrow">{copy.phaseBrewing.eyebrow}</p>
+              <h2>{copy.phaseBrewing.titlePrefix} v{unreleased.baseRef?.replace(/^v/, '')}</h2>
+              <p class="phase-lede">{copy.phaseBrewing.lede}</p>
+            </div>
+            <span class="phase-count">{unreleased.commitCount}</span>
+          </header>
+
+          <ol class="brew-list">
+            {
+              unreleased.commits.map((c) => (
+                <li class="brew">
+                  <span class={`brew-type brew-${c.type}`}>{c.typeLabel}</span>
+                  <div class="brew-body">
+                    <p class="brew-msg">
+                      {c.breaking && <span class="brew-breaking" title={copy.aria.breakingChange}>!</span>}
+                      {c.message}
+                    </p>
+                    <p class="brew-meta">
+                      {c.scope && <span class="brew-scope">{c.scope}</span>}
+                      <span class="brew-hash">{c.hash}</span>
+                      <time datetime={c.date}>{c.date}</time>
+                    </p>
+                  </div>
+                </li>
+              ))
+            }
+          </ol>
+
+          {
+            hiddenCount > 0 && (
+              <p class="brew-foot">
+                {copy.phaseBrewing.hidden(hiddenCount)} <a href="https://github.com/johnny4young/lingua/commits/main" rel="external noopener">{copy.phaseBrewing.github}</a>.
+              </p>
+            )
+          }
+        </section>
+      )
+    }
+
+    <!-- SHIPPED ────────────────────────────────────────────────── -->
+    <section class="phase phase-shipped" id="shipped">
+      <header class="phase-head">
+        <span class="phase-num">3</span>
+        <div>
+          <p class="eyebrow">{copy.phase3.eyebrow}</p>
+          <h2>{copy.phase3.title}</h2>
+          <p class="phase-lede">{copy.phase3.lede}</p>
+        </div>
+        <span class="phase-count">{totalShipped}</span>
+      </header>
+
+      <ol class="release-timeline">
+        {
+          releases.map((entry) => (
+            <li class="release" id={`v${entry.version}`}>
+              <div class="release-rail">
+                <span class="release-dot"></span>
+              </div>
+              <article class="release-body">
+                <header>
+                  <h3>
+                    <span class="ver-tag">v{entry.version}</span>
+                  </h3>
+                  <time datetime={entry.date}>{formatDate(entry.date)}</time>
+                </header>
+                {
+                  entry.sections.map((section) => (
+                    <section class="release-section">
+                      <h4>{section.heading}</h4>
+                      <ul>
+                        {section.items.map((item) => <li set:html={item} />)}
+                      </ul>
+                    </section>
+                  ))
+                }
+              </article>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+  </article>
+
+  <FinalCTA locale={locale} />
+</Base>
+
+<style>
+  .changelog-head {
+    max-width: 760px;
+    margin-bottom: 3.5rem;
+  }
+  .changelog-head h1 {
+    font-size: var(--text-display);
+    line-height: 1.05;
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 1rem 0 1.25rem;
+  }
+  .lede {
+    color: var(--color-text-muted);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    margin: 0 0 2rem;
+  }
+  .lede a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .lede code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--color-accent);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px 5px;
+  }
+
+  .head-stats {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.75rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--color-border);
+    border: 1px solid var(--color-border);
+    width: min(100%, 540px);
+  }
+  .head-stats li {
+    background: color-mix(in srgb, var(--color-bg-sunken) 84%, var(--color-bg-elevated));
+    padding: 0.875rem 1rem;
+  }
+  .head-stats strong {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    color: var(--color-text);
+    line-height: 1;
+  }
+  .head-stats span {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--color-text-subtle);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+
+  .phase-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .phase-jump a {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.7rem 1rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    border-right: 1px solid var(--color-border);
+    transition: color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+  }
+  .phase-jump a:last-child { border-right: 0; }
+  .phase-jump a:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-bg-elevated) 86%, var(--color-accent-muted));
+  }
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .dot-planned { background: var(--color-text-subtle); }
+  .dot-progress { background: var(--color-warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-warning) 25%, transparent); }
+  .dot-brewing { background: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent); }
+  .dot-shipped { background: var(--color-success); }
+
+  /* Phase shell */
+  .phase {
+    padding-block: var(--space-section-lg);
+    border-top: 1px solid var(--color-border);
+  }
+  .phase:first-of-type {
+    border-top: 0;
+    padding-top: var(--space-section);
+  }
+  .phase-head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1.25rem;
+    align-items: start;
+    margin-bottom: 2.5rem;
+    max-width: 920px;
+  }
+  .phase-num {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .phase-progress .phase-num {
+    color: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  }
+  .phase-shipped .phase-num {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  }
+  .phase-brewing .phase-num {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    font-weight: 700;
+  }
+  .phase-head h2 {
+    font-size: var(--text-h1);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 0.5rem 0 0.5rem;
+    line-height: 1.1;
+  }
+  .phase-lede {
+    color: var(--color-text-muted);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    margin: 0;
+    max-width: 640px;
+  }
+  .phase-count {
+    align-self: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-h3);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.75rem;
+    line-height: 1;
+  }
+
+  /* Theme groups */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .theme {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-bg-sunken));
+    overflow: hidden;
+    min-width: 0;
+  }
+  .theme-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg-sunken) 88%, transparent);
+  }
+  .theme-head h3 {
+    margin: 0;
+    font-size: var(--text-small);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0;
+    color: var(--color-text);
+  }
+  .theme-head span {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-subtle);
+  }
+
+  .ticket-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .ticket {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.625rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--color-border);
+    align-items: start;
+  }
+  .ticket:first-child { border-top: 0; }
+  .ticket h4 {
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+  .ticket p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    line-height: 1.55;
+  }
+
+  .status-pill {
+    align-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0;
+    padding: 0.18rem 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-subtle);
+    width: max-content;
+    line-height: 1.2;
+  }
+  .status-pill.is-planned {
+    color: var(--color-text-muted);
+  }
+  .status-pill.is-progress {
+    color: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  }
+  .status-pill svg {
+    width: 12px;
+    height: 12px;
+    animation: spin 2s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .status-pill svg { animation: none; }
+  }
+
+  @media (min-width: 720px) {
+    .ticket {
+      grid-template-columns: 130px 1fr;
+      gap: 1rem;
+      align-items: baseline;
+    }
+  }
+  @media (min-width: 980px) {
+    .theme-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  /* Brewing — git commit list */
+  .brew-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-bg-sunken));
+  }
+  .brew {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 1rem;
+    padding: 0.875rem 1rem;
+    border-top: 1px solid var(--color-border);
+    align-items: baseline;
+  }
+  .brew:first-child { border-top: 0; }
+  .brew-type {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.18rem 0;
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-subtle);
+    background: var(--color-bg-sunken);
+  }
+  .brew-type.brew-feat {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+  .brew-type.brew-fix {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+    background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  }
+  .brew-type.brew-perf {
+    color: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  }
+  .brew-body {
+    min-width: 0;
+  }
+  .brew-msg {
+    margin: 0 0 4px;
+    color: var(--color-text);
+    line-height: 1.5;
+  }
+  .brew-breaking {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+    background: var(--color-danger);
+    color: white;
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-align: center;
+    line-height: 18px;
+  }
+  .brew-meta {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    color: var(--color-text-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+  .brew-scope {
+    color: var(--color-text-muted);
+    background: var(--color-bg-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0 6px;
+  }
+  .brew-hash { color: var(--color-accent); }
+  .brew-foot {
+    margin: 1rem 0 0;
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+  }
+  .brew-foot a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* Shipped — vertical timeline */
+  .release-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .release {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 1.25rem;
+    padding-bottom: 2.5rem;
+    position: relative;
+  }
+  .release:last-child { padding-bottom: 0; }
+  .release-rail {
+    display: flex;
+    justify-content: center;
+    padding-top: 0.625rem;
+    position: relative;
+  }
+  .release-rail::before {
+    content: "";
+    position: absolute;
+    top: 1.5rem;
+    bottom: -2.5rem;
+    width: 1px;
+    background: var(--color-border);
+  }
+  .release:last-child .release-rail::before { display: none; }
+  .release-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-success);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-success) 22%, transparent);
+    z-index: 1;
+  }
+
+  .release-body {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-elevated);
+    padding: 1.25rem 1.5rem 1.5rem;
+    min-width: 0;
+  }
+  .release-body header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .release-body h3 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  .ver-tag {
+    font-family: var(--font-mono);
+    color: var(--color-accent);
+    font-weight: 700;
+  }
+  .release-body time {
+    color: var(--color-text-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+  }
+  .release-section {
+    margin-top: 1rem;
+  }
+  .release-section h4 {
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0;
+    color: var(--color-text-subtle);
+    margin: 0 0 0.5rem;
+  }
+  .release-section ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--color-text-muted);
+    line-height: 1.65;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+  .release-section :global(strong) {
+    color: var(--color-text);
+  }
+  .release-section :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--color-accent);
+    background: var(--color-bg-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px 5px;
+  }
+
+  @media (max-width: 600px) {
+    .phase-head {
+      grid-template-columns: auto 1fr;
+    }
+    .phase-count {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+    .head-stats {
+      width: 100%;
+    }
+    .release {
+      grid-template-columns: 18px 1fr;
+      gap: 0.875rem;
+    }
+    .release-body {
+      padding: 1rem 1.125rem 1.25rem;
+    }
+  }
+</style>
