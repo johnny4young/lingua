@@ -170,16 +170,26 @@ export function buildInstallCommand(
 ): InstallCommand | null {
   const safe = specifiers
     .map((s) => (typeof s === 'string' ? s.trim() : ''))
-    .filter((s) => s.length > 0 && /^[A-Za-z0-9._/@-]+$/.test(s));
+    // A specifier must START with an alphanumeric char (never `-`, so it can
+    // never be parsed as a flag by `go get` / `cargo add` / `bundle add`) and
+    // must not contain a `..` path segment. The first-char anchor plus the `--`
+    // end-of-options terminator below is defense in depth: a compromised
+    // renderer cannot inject `--path`, `-C`, `--git`, `../../x`, etc. into a
+    // package manager that would otherwise mutate the project manifest or
+    // resolve code from an attacker-chosen location.
+    .filter(
+      (s) =>
+        s.length > 0 && /^[A-Za-z0-9][A-Za-z0-9._/@-]*$/.test(s) && !s.includes('..')
+    );
   if (safe.length === 0) return null;
 
   switch (language) {
     case 'go':
-      return { binary: 'go', args: ['get', ...safe] };
+      return { binary: 'go', args: ['get', '--', ...safe] };
     case 'rust':
-      return { binary: 'cargo', args: ['add', ...safe] };
+      return { binary: 'cargo', args: ['add', '--', ...safe] };
     case 'ruby':
-      return { binary: 'bundle', args: ['add', ...safe] };
+      return { binary: 'bundle', args: ['add', '--', ...safe] };
     default: {
       const _exhaustive: never = language;
       void _exhaustive;

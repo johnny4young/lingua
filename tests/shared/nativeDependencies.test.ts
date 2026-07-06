@@ -74,19 +74,27 @@ describe('detectNativeDependencies', () => {
 });
 
 describe('buildInstallCommand', () => {
-  it('builds go get / cargo add / bundle add', () => {
+  it('builds go get / cargo add / bundle add with a -- end-of-options guard', () => {
     expect(buildInstallCommand('go', ['github.com/gin-gonic/gin'])).toEqual({
       binary: 'go',
-      args: ['get', 'github.com/gin-gonic/gin'],
+      args: ['get', '--', 'github.com/gin-gonic/gin'],
     });
     expect(buildInstallCommand('rust', ['serde', 'tokio'])).toEqual({
       binary: 'cargo',
-      args: ['add', 'serde', 'tokio'],
+      args: ['add', '--', 'serde', 'tokio'],
     });
     expect(buildInstallCommand('ruby', ['rails'])).toEqual({
       binary: 'bundle',
-      args: ['add', 'rails'],
+      args: ['add', '--', 'rails'],
     });
+  });
+
+  it('accepts versioned specifiers', () => {
+    expect(buildInstallCommand('rust', ['serde@1.0'])?.args).toEqual([
+      'add',
+      '--',
+      'serde@1.0',
+    ]);
   });
 
   it('returns null for an empty list', () => {
@@ -98,10 +106,21 @@ describe('buildInstallCommand', () => {
     expect(buildInstallCommand('go', ['$(evil)'])).toBeNull();
   });
 
+  it('rejects flag-injection and path-traversal specifiers', () => {
+    // Leading-dash tokens would be parsed as options by the package manager
+    // (e.g. `cargo add --path ../x` rewrites Cargo.toml from an attacker path).
+    for (const bad of ['--path', '-C', '-u', '--offline', '--git']) {
+      expect(buildInstallCommand('rust', [bad])).toBeNull();
+    }
+    // Path traversal is rejected even though its chars are otherwise allowed.
+    expect(buildInstallCommand('go', ['../../etc/passwd'])).toBeNull();
+    expect(buildInstallCommand('ruby', ['a/../b'])).toBeNull();
+  });
+
   it('filters unsafe entries but keeps valid ones', () => {
-    expect(buildInstallCommand('rust', ['serde', 'bad name'])).toEqual({
+    expect(buildInstallCommand('rust', ['serde', 'bad name', '--path'])).toEqual({
       binary: 'cargo',
-      args: ['add', 'serde'],
+      args: ['add', '--', 'serde'],
     });
   });
 });

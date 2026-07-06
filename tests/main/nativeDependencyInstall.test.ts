@@ -30,7 +30,7 @@ describe('installNativeDependencies', () => {
     expect(spawnImpl).toHaveBeenCalledTimes(1);
     const [binary, args, opts] = (spawnImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
     expect(binary).toBe('go');
-    expect(args).toEqual(['get', 'github.com/gin-gonic/gin']);
+    expect(args).toEqual(['get', '--', 'github.com/gin-gonic/gin']);
     expect((opts as { cwd: string }).cwd).toBe('/proj');
     child.stdout.emit('data', Buffer.from('go: downloading\n'));
     child.emit('close', 0);
@@ -38,15 +38,15 @@ describe('installNativeDependencies', () => {
   });
 
   it('plans cargo add for Rust and bundle add for Ruby', async () => {
-    for (const [language, binary, expected] of [
-      ['rust', 'cargo', ['add', 'serde']],
-      ['ruby', 'bundle', ['add', 'rails']],
+    for (const [language, binary, specifier, expected] of [
+      ['rust', 'cargo', 'serde', ['add', '--', 'serde']],
+      ['ruby', 'bundle', 'rails', ['add', '--', 'rails']],
     ] as const) {
       const child = fakeChild();
       const spawnImpl = vi.fn(() => child) as never;
       const promise = installNativeDependencies({
         language,
-        specifiers: [expected[1]!],
+        specifiers: [specifier],
         cwd: '/p',
         skipManifestCheck: true,
         spawnImpl,

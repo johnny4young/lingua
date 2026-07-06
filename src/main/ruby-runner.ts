@@ -51,7 +51,10 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
+import {
+  MAX_NATIVE_STDERR_BYTES,
+  MAX_STDIN_WRITE_BYTES,
+} from '../shared/runnerLimits';
 import {
   spawnNativeRun,
   type SpawnNativeRunResult,
@@ -519,6 +522,9 @@ export function stopRubyRun(runId: unknown): { stopped: boolean } {
 export function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId || typeof data !== 'string') return { written: false };
+  // Bound a single write so a renderer bug cannot balloon the child's stdin
+  // buffer in main-process memory if the child never reads it.
+  if (data.length > MAX_STDIN_WRITE_BYTES) return { written: false };
   const stream = activeRubyStdins.get(normalizedRunId);
   if (!stream) return { written: false };
   try {

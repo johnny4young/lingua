@@ -71,15 +71,26 @@ function snapshotsDiffer(a: SyncSnapshot, b: SyncSnapshot): boolean {
  * by an equally-timestamped remote. A conflict is recorded whenever both
  * sides hold an entry for a key and their contents differ.
  */
+/**
+ * Keys that, assigned via bracket notation, mutate the target's prototype
+ * chain instead of adding a data property. A remote snapshot is untrusted
+ * input (it comes off `transport.pull()`), so a `{"__proto__": …}` entry must
+ * never reach the merge object.
+ */
+const PROTO_POLLUTION_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function mergeSnapshots<T>(
   local: SyncSnapshot<T>,
   remote: SyncSnapshot<T>
 ): MergeResult<T> {
-  const merged: SyncSnapshot<T> = {};
+  // Null-prototype so a stray `__proto__` key can only ever be an own data
+  // property, never a prototype-chain mutation.
+  const merged: SyncSnapshot<T> = Object.create(null) as SyncSnapshot<T>;
   const conflicts: SyncConflict[] = [];
   const keys = new Set([...Object.keys(local), ...Object.keys(remote)]);
 
   for (const key of keys) {
+    if (PROTO_POLLUTION_KEYS.has(key)) continue; // drop prototype-polluting keys
     const l = local[key];
     const r = remote[key];
     if (l && !r) {
@@ -120,8 +131,9 @@ export function mergeSnapshots<T>(
  * tombstone so the other device sees the delete).
  */
 export function pruneTombstones<T>(snapshot: SyncSnapshot<T>): SyncSnapshot<T> {
-  const out: SyncSnapshot<T> = {};
+  const out: SyncSnapshot<T> = Object.create(null) as SyncSnapshot<T>;
   for (const [key, entry] of Object.entries(snapshot)) {
+    if (PROTO_POLLUTION_KEYS.has(key)) continue;
     if (!entry.deleted) out[key] = entry;
   }
   return out;

@@ -16,6 +16,21 @@ describe('mergeSnapshots', () => {
     expect(conflicts).toEqual([]);
   });
 
+  it('drops prototype-polluting keys from an untrusted remote snapshot', () => {
+    // JSON.parse produces an OWN enumerable `__proto__` property (no setter) —
+    // exactly how a malicious `transport.pull()` payload would arrive.
+    const remote = JSON.parse(
+      '{"__proto__":{"value":"polluted","updatedAt":999},"safe":{"value":1,"updatedAt":1}}'
+    ) as SyncSnapshot;
+    const { merged } = mergeSnapshots({}, remote);
+    // Object.prototype is untouched, the merge object has a null prototype, and
+    // the poisoned key never became an own property — only `safe` survives.
+    expect((({}) as Record<string, unknown>).value).toBeUndefined();
+    expect(Object.getPrototypeOf(merged)).toBeNull();
+    expect(Object.prototype.hasOwnProperty.call(merged, '__proto__')).toBe(false);
+    expect(merged.safe).toEqual({ value: 1, updatedAt: 1 });
+  });
+
   it('picks the newer entry per key (last-write-wins)', () => {
     const local: SyncSnapshot = { a: { value: 'old', updatedAt: 10 } };
     const remote: SyncSnapshot = { a: { value: 'new', updatedAt: 20 } };
