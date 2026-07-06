@@ -209,6 +209,89 @@ describe('ExplainErrorDialog (T19)', () => {
     );
   });
 
+  it('offers Apply & re-run behind a diff preview and applies on confirm', async () => {
+    configureAi();
+    const onApplyFix = vi.fn();
+    const onClose = vi.fn();
+    const runChatCompletionImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      content: 'Fix it like this:\n```python\nprint("fixed")\n```',
+    });
+    render(
+      <ExplainErrorDialog
+        {...baseProps}
+        onClose={onClose}
+        onApplyFix={onApplyFix}
+        runChatCompletionImpl={runChatCompletionImpl as never}
+      />
+    );
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-explain-apply')).toBeTruthy()
+    );
+
+    // Step 1: the apply button opens the DIFF preview — nothing applied yet.
+    fireEvent.click(screen.getByTestId('ai-explain-apply'));
+    expect(screen.getByTestId('ai-explain-apply-diff')).toBeTruthy();
+    // Old line removed, suggested line added.
+    expect(
+      screen.getAllByTestId('ai-explain-apply-diff-remove').length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByTestId('ai-explain-apply-diff-add').length
+    ).toBeGreaterThan(0);
+    expect(onApplyFix).not.toHaveBeenCalled();
+
+    // Back returns to the answer without applying.
+    fireEvent.click(screen.getByTestId('ai-explain-apply-back'));
+    expect(screen.getByTestId('ai-explain-result')).toBeTruthy();
+    expect(onApplyFix).not.toHaveBeenCalled();
+
+    // Step 2: confirm applies the suggested code and closes the dialog.
+    fireEvent.click(screen.getByTestId('ai-explain-apply'));
+    fireEvent.click(screen.getByTestId('ai-explain-apply-confirm'));
+    expect(onApplyFix).toHaveBeenCalledWith('print("fixed")');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('hides the apply button when the answer has no code block or no seam', async () => {
+    configureAi();
+    // Answer WITH code but no onApplyFix seam → no button.
+    const runChatCompletionImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      content: 'Use x.\n```js\nconst x = 1;\n```',
+    });
+    const { unmount } = render(
+      <ExplainErrorDialog
+        {...baseProps}
+        runChatCompletionImpl={runChatCompletionImpl as never}
+      />
+    );
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-explain-followup-input')).toBeTruthy()
+    );
+    expect(screen.queryByTestId('ai-explain-apply')).toBeNull();
+    unmount();
+
+    // Seam wired but answer has NO code block → no button either.
+    const noCode = vi
+      .fn()
+      .mockResolvedValue({ ok: true, content: 'Just prose, no code.' });
+    render(
+      <ExplainErrorDialog
+        {...baseProps}
+        onApplyFix={vi.fn()}
+        runChatCompletionImpl={noCode as never}
+      />
+    );
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-explain-followup-input')).toBeTruthy()
+    );
+    expect(screen.queryByTestId('ai-explain-apply')).toBeNull();
+  });
+
   it('retries a failed follow-up without bouncing back to the consent preview', async () => {
     configureAi();
     const runChatCompletionImpl = vi

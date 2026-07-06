@@ -725,6 +725,22 @@ function NotebookCodeCellRowImpl({
                   .join('\n')}
                 code={cell.source}
                 language={cell.language}
+                onApplyFix={(newCode) => {
+                  // Apply & re-run: write the suggestion through the SAME
+                  // local-draft plumbing as typing (local state + refs), then
+                  // persist immediately — bypassing the autosave debounce so
+                  // the run below sees the new source in the store — and run.
+                  setSource(newCode);
+                  latestSourceRef.current = newCode;
+                  pendingTargetIdRef.current = cell.id;
+                  if (debounceRef.current !== null) {
+                    clearTimeout(debounceRef.current);
+                    debounceRef.current = null;
+                  }
+                  onSourceChange(cell.id, newCode);
+                  lastSavedRef.current = newCode;
+                  onRunCell(cell.id);
+                }}
                 testId="notebook-cell-explain-error"
               />
             </div>

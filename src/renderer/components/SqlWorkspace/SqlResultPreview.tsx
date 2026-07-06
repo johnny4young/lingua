@@ -113,6 +113,12 @@ export interface SqlResultPreviewProps {
    * the error.
    */
   querySource?: string;
+  /**
+   * T19 apply-&-re-run: replace the active query's SQL with the AI
+   * suggestion and run it. Offered only alongside `querySource` (newest
+   * run), since applying over a historical view would be incoherent.
+   */
+  onApplyFix?: (sql: string) => void;
 }
 
 type ResultBodyTab = 'table' | 'json';
@@ -139,6 +145,7 @@ export function SqlResultPreview({
   selectedResponseIndex = 0,
   onSelectResponse,
   querySource,
+  onApplyFix,
 }: SqlResultPreviewProps) {
   const { t } = useTranslation();
   // Table/JSON view preference. Persists across re-runs by design — the
@@ -423,6 +430,7 @@ export function SqlResultPreview({
           // Only offer Explain for the newest run: the editor text can't be
           // matched to a historical response (no SQL is stored per run).
           querySource={selectedResponseIndex === 0 ? querySource : undefined}
+          onApplyFix={selectedResponseIndex === 0 ? onApplyFix : undefined}
         />
       ) : null}
 
@@ -591,10 +599,12 @@ function ErrorBand({
   status,
   message,
   querySource,
+  onApplyFix,
 }: {
   status: SqlResponseV1['status'];
   message: string | undefined;
   querySource?: string;
+  onApplyFix?: (sql: string) => void;
 }) {
   const { t } = useTranslation();
   const bandKey =
@@ -635,6 +645,7 @@ function ErrorBand({
                 errorMessage={message}
                 code={querySource}
                 language="sql"
+                {...(onApplyFix ? { onApplyFix } : {})}
                 testId="sql-explain-error"
               />
             </div>

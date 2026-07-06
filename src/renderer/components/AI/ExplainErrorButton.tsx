@@ -36,6 +36,12 @@ export interface ExplainErrorButtonProps {
    * matches notebook cells and fresh tabs.
    */
   readonly runtimeMode?: RuntimeMode;
+  /**
+   * Apply-&-re-run seam forwarded to the dialog: replace the surface's code
+   * with the AI suggestion and re-run. Omit on surfaces with nothing to
+   * patch (HTTP).
+   */
+  readonly onApplyFix?: (code: string) => void;
   /** Distinguishes the trigger per surface (notebook / sql / console / http). */
   readonly testId?: string;
   /** Extra classes appended to the host surface's layout. */
@@ -50,6 +56,7 @@ export function ExplainErrorButton({
   language,
   filename,
   runtimeMode,
+  onApplyFix,
   testId,
   className,
   runChatCompletionImpl,
@@ -90,6 +97,7 @@ export function ExplainErrorButton({
           language={language}
           {...(filename ? { filename } : {})}
           {...(runtimeNote ? { runtimeNote } : {})}
+          {...(onApplyFix ? { onApplyFix } : {})}
           {...(runChatCompletionImpl ? { runChatCompletionImpl } : {})}
           onClose={() => setOpen(false)}
         />

@@ -52,6 +52,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
 import { SqlResultPreview } from './SqlResultPreview';
+import { AskSqlButton } from './AskSqlButton';
 import {
   SqlSchemaBrowser,
   type SqlSchemaColumn,
@@ -264,6 +265,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     []
   );
 
+
   const handleRun = useCallback(
     async (queryToRun: SqlQueryV1) => {
       if (useWorkspaceSqlStore.getState().isExecutingActive) return;
@@ -342,6 +344,23 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       }
     },
     [queryTimeoutMs, t, announce]
+  );
+
+  // T19 apply-&-re-run: write the AI-suggested SQL into the active query,
+  // then run the FRESH store object (not a closed-over `activeQuery`, whose
+  // `query` field predates the patch).
+  const handleApplyFix = useCallback(
+    (sql: string) => {
+      const store = useWorkspaceSqlStore.getState();
+      const id = store.activeQueryId;
+      if (id === null) return;
+      store.updateQuery(id, { query: sql });
+      const updated = useWorkspaceSqlStore
+        .getState()
+        .queries.find((q) => q.id === id);
+      if (updated) void handleRun(updated);
+    },
+    [handleRun]
   );
 
   // Schema/table browser — `SHOW TABLES` introspection plus a SINGLE
@@ -663,6 +682,16 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
               isExecuting={isExecuting}
               tables={schemaTables}
               {...(insertSignal !== null ? { insertSignal } : {})}
+              headerExtra={
+                <AskSqlButton
+                  tables={schemaTables}
+                  // Insert-only by design: generated SQL lands in the editor
+                  // for the user to review and run — it never auto-runs.
+                  onInsert={(sql) =>
+                    handlePatch(activeQuery.id, { query: sql })
+                  }
+                />
+              }
             />
           ) : (
             <div
@@ -698,6 +727,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             selectedResponseIndex={safeResponseIndex}
             onSelectResponse={handleSelectResponse}
             querySource={activeQuery?.query}
+            onApplyFix={handleApplyFix}
             canRun={activeQuery !== undefined}
             onRun={
               activeQuery ? () => void handleRun(activeQuery) : undefined

@@ -761,6 +761,13 @@ export function ConsolePanel() {
               {...(activeTab.runtimeMode
                 ? { runtimeMode: activeTab.runtimeMode }
                 : {})}
+              onApplyFix={(newCode) => {
+                // Apply & re-run: replace the tab buffer with the AI
+                // suggestion (marks dirty, resets lifecycle dots) and run it
+                // through the same manual-run path as the Run button.
+                useEditorStore.getState().updateContent(activeTab.id, newCode);
+                void run();
+              }}
               testId="console-explain-error"
             />
           ) : null}

@@ -15,6 +15,12 @@
  *     the same conversation. Each follow-up is its own explicit send; the
  *     payload is the visible transcript plus the typed question — the
  *     transcript IS the preview, keeping the consent contract honest.
+ *   - **Apply & re-run**: when the host surface can replace its code
+ *     (notebook cell, editor tab, SQL query), the first code block of the
+ *     last answer can be applied — behind a full line-diff preview, because
+ *     applying model output is a destructive edit and the diff IS the
+ *     consent surface. Confirming applies and re-runs, closing the loop:
+ *     red → explain → apply → re-run.
  */
 
 import { useMemo, useState } from 'react';
@@ -31,6 +37,8 @@ import {
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { ExplainErrorAnswer } from './ExplainErrorAnswer';
+import { firstCodeBlock } from './answerCode';
+import { diffLines, type DiffSegment } from '../../utils/diff';
 
 export interface ExplainErrorDialogProps {
   readonly errorMessage: string;
@@ -39,6 +47,12 @@ export interface ExplainErrorDialogProps {
   readonly filename?: string;
   /** Runtime description from `runtimeNoteFor`; shown in the consent preview. */
   readonly runtimeNote?: string;
+  /**
+   * Apply-&-re-run seam: when provided, the first code block of the last
+   * answer gets an Apply action. The host replaces its code with the
+   * argument and re-runs. The dialog closes itself after invoking this.
+   */
+  readonly onApplyFix?: (code: string) => void;
   readonly onClose: () => void;
   /** Test seam: inject the client so component tests never hit the network. */
   readonly runChatCompletionImpl?: typeof runChatCompletion;
@@ -48,7 +62,31 @@ type Phase =
   | { readonly kind: 'preview' }
   | { readonly kind: 'streaming'; readonly partial: string }
   | { readonly kind: 'done' }
+  | { readonly kind: 'confirm-apply'; readonly suggested: string }
   | { readonly kind: 'error'; readonly message: string };
+
+/** One diff row in the apply confirmation, styled per ExecutionComparisonModal. */
+function ApplyDiffLine({ segment }: { readonly segment: DiffSegment }) {
+  const isAdd = segment.kind === 'add';
+  const isRemove = segment.kind === 'remove';
+  const tone = isAdd
+    ? 'bg-success/10 text-success'
+    : isRemove
+      ? 'bg-error/10 text-error'
+      : 'text-fg-muted';
+  const sigil = isAdd ? '+' : isRemove ? '−' : ' ';
+  return (
+    <div
+      className={`flex gap-2 whitespace-pre-wrap px-2 py-0.5 font-mono text-micro leading-5 ${tone}`}
+      data-testid={`ai-explain-apply-diff-${segment.kind}`}
+    >
+      <span aria-hidden="true" className="select-none opacity-60">
+        {sigil}
+      </span>
+      <span>{segment.text}</span>
+    </div>
+  );
+}
 
 export function ExplainErrorDialog({
   errorMessage,
@@ -56,6 +94,7 @@ export function ExplainErrorDialog({
   language,
   filename,
   runtimeNote,
+  onApplyFix,
   onClose,
   runChatCompletionImpl,
 }: ExplainErrorDialogProps) {
@@ -133,6 +172,19 @@ export function ExplainErrorDialog({
   // exchange: assistant answers + the user's follow-up questions.
   const exchanges = transcript.slice(request.messages.length);
 
+  // Apply-&-re-run: offered only when the host wired the seam AND the last
+  // answer actually proposes code. `code` (the current source) diffs against
+  // it in the confirmation step.
+  const lastAssistant = [...transcript]
+    .reverse()
+    .find((m) => m.role === 'assistant');
+  const suggestedCode = lastAssistant ? firstCodeBlock(lastAssistant.content) : null;
+  const applyDiff = useMemo(
+    () =>
+      phase.kind === 'confirm-apply' ? diffLines(code, phase.suggested) : [],
+    [phase, code]
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -184,6 +236,18 @@ export function ExplainErrorDialog({
               >
                 {request.preview}
               </pre>
+            </div>
+          ) : phase.kind === 'confirm-apply' ? (
+            <div className="space-y-2">
+              <p className="text-fg-muted">{t('ai.explain.applyIntro')}</p>
+              <div
+                data-testid="ai-explain-apply-diff"
+                className="max-h-[45vh] overflow-auto rounded border border-border bg-bg-panel-alt py-1"
+              >
+                {applyDiff.map((segment, index) => (
+                  <ApplyDiffLine key={index} segment={segment} />
+                ))}
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -248,6 +312,28 @@ export function ExplainErrorDialog({
                 {t('ai.explain.retry')}
               </button>
             </div>
+          ) : entitled && configured && phase.kind === 'confirm-apply' ? (
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPhase({ kind: 'done' })}
+                data-testid="ai-explain-apply-back"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+              >
+                {t('ai.explain.applyBack')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onApplyFix?.(phase.suggested);
+                  onClose();
+                }}
+                data-testid="ai-explain-apply-confirm"
+                className="focus-ring rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
+              >
+                {t('ai.explain.applyConfirm')}
+              </button>
+            </div>
           ) : entitled && configured && phase.kind === 'done' ? (
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -270,6 +356,18 @@ export function ExplainErrorDialog({
                 >
                   {t('ai.explain.followUpSend')}
                 </button>
+                {onApplyFix && suggestedCode ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPhase({ kind: 'confirm-apply', suggested: suggestedCode })
+                    }
+                    data-testid="ai-explain-apply"
+                    className="focus-ring shrink-0 rounded border border-accent px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/10"
+                  >
+                    {t('ai.explain.apply')}
+                  </button>
+                ) : null}
               </div>
               <p className="text-micro text-fg-subtle">
                 {t('ai.explain.followUpHint')}
