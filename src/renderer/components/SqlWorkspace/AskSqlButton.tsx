@@ -38,7 +38,7 @@ export function AskSqlButton({
         data-testid="ask-sql-trigger"
         aria-label={t('ai.askSql.title')}
         title={t('ai.askSql.title')}
-        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="focus-ring inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base"
       >
         <Sparkles size={11} aria-hidden="true" />
         <span>{t('ai.askSql.trigger')}</span>
