@@ -18,6 +18,16 @@ dist/
 test-results/
 Library/
 
+# Website (Astro) generated artifacts. website/ ships its own .gitignore for
+# these, but branches predating the website migration (and stray worktree
+# state after a branch switch) have no website/.gitignore — this repo-root rule
+# stops the Astro cache and the generated press-kit zip from being staged
+# there. node_modules/ and dist/ above already cover website/node_modules and
+# website/dist; the press-kit is produced by website/scripts/build-press-kit-zip.mjs.
+website/.astro/
+website/.cache/
+website/public/press/lingua-press-kit.zip
+
 # Local artifacts
 output/
 .audit/
