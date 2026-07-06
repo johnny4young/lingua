@@ -1,0 +1,52 @@
+---
+import Base from './Base.astro';
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  title: string;
+  description: string;
+  lastUpdated: string;
+  locale: Locale;
+}
+
+const { title, description, lastUpdated, locale } = Astro.props;
+const copy = t(locale);
+---
+
+<Base title={title} description={description} locale={locale}>
+  <article class="container-prose section">
+    <header class="legal-head">
+      <p class="eyebrow">{copy.legal.label}</p>
+      <h1>{title}</h1>
+      <p class="legal-meta">{copy.legal.lastUpdated} {lastUpdated}</p>
+      {copy.legal.englishAuthority && <p class="authority-note">{copy.legal.englishAuthority}</p>}
+    </header>
+    <div class="prose">
+      <slot />
+    </div>
+  </article>
+</Base>
+
+<style>
+  .legal-head {
+    margin-bottom: 3rem;
+  }
+  .legal-head h1 {
+    font-size: var(--text-h1);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 0.5rem 0;
+  }
+  .legal-meta {
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+    margin: 0;
+  }
+  .authority-note {
+    margin: 1rem 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    border-left: 2px solid var(--color-warning);
+    padding-left: 0.875rem;
+  }
+</style>

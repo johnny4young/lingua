@@ -1,0 +1,186 @@
+---
+import { Icon } from 'astro-icon/components';
+import LanguageSelect from './LanguageSelect.astro';
+import { NAV, SITE } from '~/lib/site';
+import { type Locale, localizePath, stripLocaleFromPath, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+  currentPath: string;
+}
+
+const { locale, currentPath } = Astro.props;
+const copy = t(locale);
+const path = stripLocaleFromPath(currentPath);
+function isActive(href: string): boolean {
+  if (href === '/') return path === '/';
+  return path === href || path.startsWith(`${href}/`);
+}
+---
+
+<a href="#main" class="skip-link">{copy.common.skipToContent}</a>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href={localizePath(locale, '/')} class="brand" aria-label={copy.common.homeAria}>
+      <Icon name="lucide:terminal" class="brand-mark" />
+      <span class="brand-name">Lingua</span>
+    </a>
+
+    <nav class="primary-nav" aria-label={copy.common.primaryNav}>
+      {
+        NAV.map((item) => (
+          <a href={localizePath(locale, item.href)} class:list={['nav-link', isActive(item.href) && 'is-active']}>
+            {copy.nav[item.key]}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="header-actions">
+      <a href={SITE.social.githubUrl} class="icon-link" aria-label={copy.common.sourceOnGitHub} rel="external noopener">
+        <Icon name="lucide:github" />
+      </a>
+      <LanguageSelect locale={locale} currentPath={currentPath} />
+      <button id="theme-toggle" class="icon-link" aria-label={copy.common.themeToggle}>
+        <Icon name="lucide:sun-moon" />
+      </button>
+      <a href={localizePath(locale, '/releases')} class="btn btn-primary header-cta">
+        {copy.common.download}
+      </a>
+      <button id="nav-toggle" class="icon-link nav-toggle" aria-label={copy.common.openMenu} aria-expanded="false">
+        <Icon name="lucide:menu" />
+      </button>
+    </div>
+  </div>
+
+  <nav id="mobile-nav" class="mobile-nav" hidden aria-label={copy.common.mobilePrimaryNav}>
+    {NAV.map((item) => <a href={localizePath(locale, item.href)} class="mobile-nav-link">{copy.nav[item.key]}</a>)}
+    <div class="mobile-language">
+      <LanguageSelect locale={locale} currentPath={currentPath} compact />
+    </div>
+    <a href={SITE.social.githubUrl} class="mobile-nav-link">{copy.common.github}</a>
+    <a href={localizePath(locale, '/releases')} class="btn btn-primary mobile-cta">{copy.common.downloadForDesktop}</a>
+  </nav>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    height: 64px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .brand-mark {
+    width: 22px;
+    height: 22px;
+    color: var(--color-accent);
+  }
+  .brand-name {
+    font-size: 1.125rem;
+  }
+  .primary-nav {
+    display: none;
+    gap: 1.5rem;
+    margin-left: 2rem;
+    flex: 1;
+  }
+  .nav-link {
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    font-weight: 500;
+    position: relative;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .nav-link:hover, .nav-link.is-active {
+    color: var(--color-text);
+  }
+  .nav-link.is-active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -22px;
+    height: 1px;
+    background: var(--color-accent);
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .icon-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+  }
+  .icon-link:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-bg-elevated) 86%, var(--color-accent-muted));
+  }
+  .icon-link svg {
+    width: 18px;
+    height: 18px;
+  }
+  .header-cta {
+    padding: 0.5rem 1rem;
+  }
+  .nav-toggle {
+    display: inline-flex;
+  }
+  .mobile-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    gap: 0.5rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+  }
+  .mobile-nav-link {
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    color: var(--color-text);
+  }
+  .mobile-nav-link:hover {
+    background: var(--color-bg);
+  }
+  .mobile-cta {
+    margin-top: 0.5rem;
+    justify-content: center;
+  }
+  .mobile-language {
+    padding: 0.25rem 0.75rem;
+  }
+  @media (min-width: 768px) {
+    .primary-nav {
+      display: flex;
+    }
+    .nav-toggle {
+      display: none;
+    }
+    .mobile-nav {
+      display: none !important;
+    }
+  }
+</style>

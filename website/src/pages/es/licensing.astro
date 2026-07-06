@@ -1,0 +1,94 @@
+---
+import Legal from '~/layouts/Legal.astro';
+---
+
+<Legal
+  title="Licencias"
+  description="Free, Pro, Pro Lifetime, Team y Education. Tokens Ed25519 verificados offline. Source-available bajo la Licencia Comercial de Lingua."
+  lastUpdated="2026-05-04"
+  locale="es"
+>
+  <p>
+    Lingua es un producto comercial source-available. El repositorio en
+    <a href="https://github.com/johnny4young/lingua" rel="external noopener">github.com/johnny4young/lingua</a>
+    se publica bajo la Licencia Comercial de Lingua; consulta el archivo <code>LICENSE</code> en
+    la raíz del repositorio para el texto completo.
+  </p>
+
+  <h2>Alcance por tier</h2>
+  <h3>Free</h3>
+  <p>
+    1 pestaña abierta a la vez. Hasta 5 snippets guardados. Runners de JavaScript, TypeScript y
+    Python. Editor Monaco con resaltado de sintaxis y editor de atajos. No requiere licencia:
+    Free es la instalación por defecto.
+  </p>
+
+  <h3>Pro</h3>
+  <p>
+    Todo lo de Free, más pestañas y snippets ilimitados, runners de Go y Rust, las 29 utilidades
+    developer y format-on-save en cada lenguaje soportado. Pro es una suscripción de $5/mes que
+    incluye cada actualización mientras siga activa. Cancélala cuando quieras para detener la
+    próxima renovación.
+  </p>
+
+  <h3>Pro Lifetime</h3>
+  <p>
+    Todo lo de Pro mientras el producto exista, con cada actualización futura incluida, más
+    soporte prioritario por email. Pago único de $59, sin factura recurrente.
+  </p>
+
+  <h3>Team</h3>
+  <p>
+    Todo lo de Pro Lifetime, más gestión de asientos y facturación. $3 por asiento por mes.
+  </p>
+
+  <h3 id="education">Education</h3>
+  <p>
+    Pro gratis durante un año, renovable. Abre Lingua, ve a <em>Settings → License → Licencia
+    educativa</em> e ingresa tu email académico. Aceptamos cualquier dominio <code>.edu</code>
+    más <code>.ac.uk</code>, <code>.edu.mx</code>, <code>.edu.au</code>, <code>.edu.ca</code>,
+    <code>.edu.br</code> y <code>.ac.in</code>. Te llega un email de confirmación con un magic
+    link; al pulsarlo, el token llega por email y se pega solo en la app. Renueva desde la
+    misma pantalla al final del año con el mismo email.
+  </p>
+
+  <h3 id="trial">Trial</h3>
+  <p>
+    14 días con todas las funciones Pro, sin tarjeta de crédito. Abre Lingua, ve a <em>Settings →
+    License → Prueba Lingua Pro gratis 14 días</em>, ingresa tu email y haz clic en <em>Start
+    Trial</em>. El token se activa automáticamente, sin pegado manual. Un trial por email y por
+    dispositivo.
+  </p>
+
+  <h2>Cómo funcionan las licencias</h2>
+  <p>
+    Los tiers pagos emiten un token firmado con Ed25519 y verificado offline contra una llave
+    pública incluida en el binario desktop. Lingua no hace phone-home para validar. El token se
+    vincula a un conjunto pequeño de dispositivos (actualmente tres para Pro). Cuando compres una
+    máquina nueva, desactiva la anterior desde Settings → License; el cupo se libera de inmediato.
+  </p>
+
+  <h2>Disponibilidad del código fuente</h2>
+  <p>
+    El código de la app desktop se publica para evaluación, revisión de contributors y
+    transparencia sobre lo que corre en tu máquina. Puedes compilar la app desde fuente para uso
+    personal no comercial. Uso en producción o comercial requiere una licencia paga válida. No
+    puedes redistribuir tokens Pro ni endpoints del servidor de licencias.
+  </p>
+  <p>
+    La licencia es source-available, no open source: permite leer, compilar y auditar sin entregar
+    el derecho a redistribuir funciones comerciales.
+  </p>
+
+  <h2>Reembolsos y transferencias</h2>
+  <p>
+    Reembolsos durante los primeros 14 días después de la compra, sin preguntas. Las transferencias
+    entre máquinas tuyas son ilimitadas. Transferir un token a otra persona no está permitido;
+    compra un asiento Team.
+  </p>
+
+  <h2>Contacto</h2>
+  <p>
+    Para licencias o educación: <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a>.
+  </p>
+</Legal>

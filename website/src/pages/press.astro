@@ -1,0 +1,129 @@
+---
+import Base from '~/layouts/Base.astro';
+import { Icon } from 'astro-icon/components';
+import { SITE } from '~/lib/site';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? 'en';
+const copy = t(locale).press;
+---
+
+<Base
+  title={copy.title}
+  description={copy.description}
+  locale={locale}
+>
+  <article class="container-narrow section">
+    <header class="press-head">
+      <p class="eyebrow">{copy.eyebrow}</p>
+      <h1>{copy.heading}</h1>
+      <p class="lede">{copy.lede}</p>
+      <div class="press-actions">
+        <a href="/press/lingua-press-kit.zip" class="btn btn-primary" download>
+          <Icon name="lucide:download" />
+          {copy.downloadZip}
+        </a>
+        <a href={`mailto:${SITE.press.contactEmail}`} class="btn btn-secondary">
+          <Icon name="lucide:mail" />
+          {copy.contact}
+        </a>
+      </div>
+    </header>
+
+    {copy.sections.map((section) => (
+      <section class="press-section">
+        <h2>{section.title}</h2>
+        <p>{section.body}</p>
+      </section>
+    ))}
+
+    <section class="press-section">
+      <h2>{copy.pricing.title}</h2>
+      <p>
+        {copy.pricing.bodyStart} <a href={localizePath(locale, '/pricing')}>{copy.pricing.link}</a> {copy.pricing.bodyEnd}
+      </p>
+    </section>
+
+    <section class="press-section">
+      <h2>{copy.constraints.title}</h2>
+      <p>{copy.constraints.intro}</p>
+      <ul>
+        {copy.constraints.items.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section class="press-section brand-pending">
+      <h2>{copy.brand.title}</h2>
+      <p>{copy.brand.body}</p>
+    </section>
+
+    <hr />
+
+    <p class="press-meta">
+      {copy.contactMetaStart} <a href={`mailto:${SITE.press.contactEmail}`}>{SITE.press.contactEmail}</a>.
+      {copy.contactMetaEnd}
+    </p>
+  </article>
+</Base>
+
+<style>
+  .press-head {
+    margin-bottom: 3rem;
+  }
+  .press-head h1 {
+    font-size: var(--text-display);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 1rem 0 1rem;
+    line-height: 1.05;
+  }
+  .lede {
+    color: var(--color-text-muted);
+    font-size: 1.125rem;
+    margin: 0 0 2rem;
+  }
+  .press-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .press-actions .btn svg { width: 16px; height: 16px; }
+  .press-section {
+    margin-block: 2.5rem;
+  }
+  .press-section h2 {
+    font-size: var(--text-h3);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 700;
+    margin: 0 0 1rem;
+    color: var(--color-accent);
+  }
+  .press-section p, .press-section li {
+    color: var(--color-text);
+    line-height: 1.7;
+  }
+  .press-section ul {
+    padding-left: 1.5rem;
+  }
+  .press-section a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .brand-pending {
+    border-left: 2px solid var(--color-warning);
+    padding-left: 1.25rem;
+    color: var(--color-text-muted);
+  }
+  .brand-pending h2 {
+    color: var(--color-warning);
+  }
+  .press-meta {
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+  }
+</style>

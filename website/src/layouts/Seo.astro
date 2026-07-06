@@ -1,0 +1,82 @@
+---
+import Base from './Base.astro';
+import { SITE } from '~/lib/site';
+import type { CollectionEntry } from 'astro:content';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  entry: CollectionEntry<'seo'>;
+  locale: Locale;
+}
+
+const { entry, locale } = Astro.props;
+const { title, description, language } = entry.data;
+const copy = t(locale);
+// Front-matter `ogImage` paths point at per-page PNGs that don't exist yet
+// (per-page OG generation is a P1 task). Fall back to the global default in Base.
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Lingua',
+  description,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS, Windows, Linux',
+  url: `${SITE.url}${localizePath(locale, `/${entry.id.replace(/^(en|es)\//, '')}`)}`,
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+    description: copy.seo.offerDescription,
+  },
+  publisher: {
+    '@type': 'Person',
+    name: 'Johnny Young',
+    url: SITE.url,
+  },
+  softwareHelp: {
+    '@type': 'CreativeWork',
+    url: `${SITE.url}${localizePath(locale, '/docs/getting-started')}`,
+  },
+};
+---
+
+<Base
+  title={title}
+  description={description}
+  locale={locale}
+  jsonLd={jsonLd}
+>
+  <article class="container-prose section">
+    <p class="eyebrow language-tag">{language}</p>
+    <div class="prose seo-prose">
+      <slot />
+    </div>
+    <hr />
+    <div class="seo-cta">
+      <a href={localizePath(locale, '/releases')} class="btn btn-primary">{copy.seo.download}</a>
+      <a href={localizePath(locale, '/pricing')} class="btn btn-secondary">{copy.seo.pricing}</a>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .language-tag {
+    text-transform: uppercase;
+  }
+  .seo-prose :global(h1) {
+    font-size: var(--text-display);
+    letter-spacing: var(--tracking-tight);
+    line-height: 1.05;
+    margin: 0.5rem 0 2rem;
+  }
+  /* Make the "What doesn't work today" section visually prominent — honesty surface. */
+  .seo-prose :global(h2:nth-of-type(2)) {
+    color: var(--color-warning);
+  }
+  .seo-cta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+</style>

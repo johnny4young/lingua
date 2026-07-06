@@ -1,0 +1,144 @@
+---
+import Base from '~/layouts/Base.astro';
+import { type Locale, localizePath } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale: Locale = Astro.props.locale ?? 'en';
+---
+
+<Base
+  title="Thanks for your purchase"
+  description="Payment received. Your Lingua license token is on its way to your inbox."
+  locale={locale}
+  noindex
+>
+  <article class="container-prose section thanks">
+    <header class="thanks-head">
+      <p class="eyebrow">Order confirmed</p>
+      <h1>Thanks — your purchase is in.</h1>
+      <p class="lede">
+        Payment cleared with our processor. The license token is being minted now and will arrive
+        by email within a few minutes.
+      </p>
+    </header>
+
+    <p class="reference" data-checkout-reference hidden>
+      Reference: <code data-checkout-id></code>
+    </p>
+
+    <section class="next">
+      <h2>What happens next</h2>
+      <ol>
+        <li>
+          <strong>Check your email.</strong> The license token is sent from
+          <code>hello@linguacode.dev</code>. If it does not land in 10 minutes, look in spam, then
+          email us — we can resend.
+        </li>
+        <li>
+          <strong>Open Lingua.</strong> No license yet? <a href={localizePath(locale, '/releases')}>Download the latest build</a>
+          for macOS, Windows or Linux.
+        </li>
+        <li>
+          <strong>Paste the token.</strong> In the app go to <em>Settings → License → Paste a license token</em>.
+          Activation is offline — Lingua verifies the Ed25519 signature against a public key
+          embedded in the binary, no phone-home.
+        </li>
+      </ol>
+    </section>
+
+    <section class="meta">
+      <h2>Good to know</h2>
+      <ul>
+        <li>
+          <strong>Refunds.</strong> 14 days from purchase, no questions asked. Reply to the receipt
+          or email <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a> with this
+          reference number.
+        </li>
+        <li>
+          <strong>Devices.</strong> A paid token activates on a small set of machines (currently
+          three for Pro). Manage them from <em>Settings → License</em> in the app — see <a href={localizePath(locale, '/licensing')}>licensing</a>
+          for the full policy.
+        </li>
+        <li>
+          <strong>Lost the email?</strong> Email <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a>
+          from the address you bought with and we'll resend the token.
+        </li>
+      </ul>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .thanks {
+    color: var(--color-text);
+  }
+  .thanks-head {
+    margin-bottom: 2.5rem;
+  }
+  .thanks-head h1 {
+    font-size: var(--text-h1);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 0.5rem 0 1rem;
+  }
+  .lede {
+    color: var(--color-text-muted);
+    font-size: 1.125rem;
+    margin: 0;
+  }
+  .reference {
+    margin: 0 0 2.5rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+  }
+  .reference code {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 0.125rem 0.375rem;
+    color: var(--color-text);
+  }
+  .next,
+  .meta {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .next h2,
+  .meta h2 {
+    font-size: var(--text-h3);
+    font-weight: 700;
+    margin: 0 0 1rem;
+  }
+  .next ol,
+  .meta ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+  .next li,
+  .meta li {
+    margin: 0.75rem 0;
+    line-height: 1.6;
+  }
+  .next a,
+  .meta a {
+    color: var(--color-text);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .next a:hover,
+  .meta a:hover {
+    color: var(--color-text-muted);
+  }
+  .next code,
+  .meta code {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 0.05rem 0.3rem;
+    font-size: 0.9em;
+  }
+</style>

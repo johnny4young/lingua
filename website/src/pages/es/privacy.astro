@@ -1,0 +1,66 @@
+---
+import Legal from '~/layouts/Legal.astro';
+---
+
+<Legal
+  title="Privacidad"
+  description="Qué recopila Lingua, qué nunca recopila y cómo revocar consentimiento. La telemetría está desactivada por defecto."
+  lastUpdated="2026-05-04"
+  locale="es"
+>
+  <p>
+    Lingua trata tu código y tu filesystem como privados. La instalación por defecto no lee nada,
+    no envía nada y no pide nada.
+  </p>
+
+  <h2>Qué nunca recopilamos</h2>
+  <ul>
+    <li><strong>Tu código fuente.</strong> Los snippets se quedan en tu máquina. El historial de ejecución opcional guarda snapshots solo localmente: nunca salen del dispositivo.</li>
+    <li><strong>Tu filesystem.</strong> No transmitimos rutas de proyecto, nombres de archivo ni listados de directorios.</li>
+    <li><strong>Tu input.</strong> No registramos teclas, contenido del clipboard ni historial de comandos.</li>
+    <li><strong>Identificadores personales.</strong> No se envía email, nombre, ubicación derivada de IP ni fingerprint de dispositivo sin consentimiento explícito.</li>
+  </ul>
+
+  <h2>Qué recopilamos si das consentimiento</h2>
+  <p>
+    La telemetría está <strong>desactivada por defecto</strong>. El prompt de primera ejecución
+    explica qué se envía si decides activarla:
+  </p>
+  <ul>
+    <li>Nombres de eventos anónimos, por ejemplo <code>overlay.opened</code>, <code>runner.executed</code> o <code>feature.blocked</code>.</li>
+    <li>La versión de Lingua y la plataforma (<code>darwin-arm64</code>, <code>win32-x64</code>, <code>linux-x64</code>).</li>
+    <li>Un ID seudónimo de instalación generado localmente, sin vínculo con datos personales.</li>
+  </ul>
+  <p>
+    Los eventos se envían a un endpoint propio. No hay vendor de analytics de terceros en la app
+    desktop. Puedes revocar consentimiento en cualquier momento desde Settings → Privacy; la
+    revocación detiene la transmisión de inmediato y descarta eventos locales pendientes.
+  </p>
+
+  <h2>Reportes de crash</h2>
+  <p>
+    Los reportes de crash usan el mismo consentimiento opt-in. Incluyen stack trace y versión de
+    Lingua; no incluyen tu código, tu input ni rutas de archivos.
+  </p>
+
+  <h2>Este sitio</h2>
+  <p>
+    <a href="https://linguacode.dev">linguacode.dev</a> es un sitio estático en Cloudflare Pages.
+    No ejecutamos scripts de analytics de terceros. Si agregamos Cloudflare Web Analytics, será de
+    primera parte, sin cookies y sin enviar datos a otro vendor.
+  </p>
+
+  <h2>La versión web</h2>
+  <p>
+    <a href="https://app.linguacode.dev">app.linguacode.dev</a> usa el mismo renderer que la app
+    desktop. Pyodide se descarga una vez desde <code>cdn.jsdelivr.net</code> en la primera carga y
+    luego se sirve desde cache de Service Worker.
+  </p>
+
+  <h2>Contacto</h2>
+  <p>
+    ¿Preguntas sobre privacidad? Escribe a
+    <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a>. El código de la telemetría está
+    en el <a href="https://github.com/johnny4young/lingua" rel="external noopener">repositorio principal</a>.
+  </p>
+</Legal>

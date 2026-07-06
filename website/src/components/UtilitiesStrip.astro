@@ -1,0 +1,130 @@
+---
+import { Icon } from 'astro-icon/components';
+import { UTILITIES } from '~/lib/utilities';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale).home.utilities;
+---
+
+<section class="utils-strip" id="utilities">
+  <header class="utils-head">
+    <p class="eyebrow">{copy.eyebrow}</p>
+    <h2>{copy.title}</h2>
+    <p class="utils-lede">{copy.lede}</p>
+  </header>
+
+  <ul class="utils-grid" role="list" aria-label={copy.aria}>
+    {
+      UTILITIES.map((u) => (
+        <li>
+          <a class="util-cell" href={localizePath(locale, `/docs/utilities#${u.id}`)} title={`${u.name[locale]} (${u.category})`}>
+            <Icon name={`lucide:${u.icon}`} class="util-icon" />
+            <span class="util-name">{u.name[locale]}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<style>
+  .utils-strip {
+    padding-block: var(--space-section);
+  }
+  .utils-head {
+    max-width: 760px;
+    margin-bottom: 2.5rem;
+  }
+  .utils-head h2 {
+    font-size: var(--text-h2);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 700;
+    margin: 0.75rem 0 1rem;
+  }
+  .utils-lede {
+    color: var(--color-text-muted);
+    margin: 0;
+    max-width: 600px;
+  }
+
+  /* Dense grid — fits all 29 panels without horizontal scroll.
+     Mobile 2-col → small tablet 3-col → tablet 4-col → desktop 5-col → wide 6-col.
+     At 6 cols × 5 rows = 30 cells (one trailing empty cell, fine). */
+  .utils-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .util-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 48px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-bg-elevated) 90%, var(--color-bg-sunken));
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+    overflow: hidden;
+  }
+  .util-cell:hover {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-bg-elevated) 78%, var(--color-accent-muted));
+    color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  .util-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--color-accent);
+    flex-shrink: 0;
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .util-cell:hover .util-icon {
+    transform: rotate(-6deg) scale(1.08);
+  }
+  .util-name {
+    font-size: 0.8125rem;
+    line-height: 1.2;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  @media (min-width: 520px) {
+    .utils-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 720px) {
+    .utils-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 960px) {
+    .utils-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1180px) {
+    .utils-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+</style>

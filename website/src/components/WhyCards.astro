@@ -1,0 +1,79 @@
+---
+import { Icon } from 'astro-icon/components';
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale);
+const CARDS = copy.home.why.cards;
+---
+
+<section class="why">
+  <header class="why-head">
+    <p class="eyebrow">{copy.home.why.eyebrow}</p>
+    <h2>{copy.home.why.title}</h2>
+  </header>
+
+  <div class="why-grid">
+    {
+      CARDS.map((c) => (
+        <article class="card why-card">
+          <Icon name={`lucide:${c.icon}`} class="why-icon" />
+          <h3>{c.title}</h3>
+          <p>{c.body}</p>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .why {
+    padding-block: var(--space-section);
+  }
+  .why-head {
+    max-width: 760px;
+    margin-bottom: 2.5rem;
+  }
+  .why-head h2 {
+    font-size: var(--text-h2);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 700;
+    margin: 0.75rem 0 0;
+    line-height: 1.2;
+  }
+  .why-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .why-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+  }
+  .why-card p {
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+  .why-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--color-accent);
+    margin-bottom: 1rem;
+  }
+  @media (min-width: 768px) {
+    .why-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1100px) {
+    .why-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+</style>

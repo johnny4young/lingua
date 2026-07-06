@@ -1,0 +1,130 @@
+---
+import { Icon } from 'astro-icon/components';
+import Base from '~/layouts/Base.astro';
+import PricingTable from '~/components/PricingTable.astro';
+import FaqAccordion from '~/components/FaqAccordion.astro';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? 'en';
+const copy = t(locale).pricing;
+const FAQ = copy.faq;
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ.map(({ q, a }) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a.replace(/<[^>]+>/g, '') },
+    })),
+  },
+];
+---
+
+<Base
+  title={copy.title}
+  description={copy.description}
+  locale={locale}
+  jsonLd={jsonLd}
+>
+  <article class="container section">
+    <header class="pricing-head">
+      <p class="eyebrow">{copy.eyebrow}</p>
+      <h1>{copy.heading}</h1>
+      <p class="pricing-lede">{copy.lede}</p>
+    </header>
+
+    <aside class="trial-callout" aria-label="Trial">
+      <Icon name="lucide:sparkles" />
+      <span>{copy.trialCallout.text}</span>
+      <a href={`${localizePath(locale, '/licensing')}#trial`}>{copy.trialCallout.linkText}</a>
+    </aside>
+
+    <PricingTable locale={locale} />
+
+    <section class="faq-section">
+      <h2>{copy.faqHeading}</h2>
+      <FaqAccordion items={FAQ} />
+    </section>
+
+    <p class="footnote">
+      {copy.footnoteStart} <a href={localizePath(locale, '/licensing')}>{copy.footnoteLink}</a>
+      {' '}{copy.footnoteEnd}
+    </p>
+  </article>
+</Base>
+
+<style>
+  .pricing-head {
+    max-width: 720px;
+    margin-bottom: 1.5rem;
+  }
+  .pricing-head h1 {
+    font-size: var(--text-display);
+    line-height: 1.05;
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 1rem 0;
+  }
+  .pricing-lede {
+    color: var(--color-text-muted);
+    font-size: 1.125rem;
+    margin: 0;
+    max-width: 600px;
+  }
+  .trial-callout {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin: 1.5rem 0 2rem;
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    font-size: var(--text-small);
+    line-height: 1.4;
+  }
+  .trial-callout svg {
+    flex: 0 0 auto;
+    color: var(--color-accent);
+    width: 1.05em;
+    height: 1.05em;
+  }
+  .trial-callout a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+  }
+  @media (max-width: 480px) {
+    .trial-callout {
+      flex-wrap: wrap;
+      border-radius: 12px;
+    }
+  }
+  .faq-section {
+    margin-top: 4rem;
+  }
+  .faq-section h2 {
+    font-size: var(--text-h2);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 700;
+    margin: 0 0 1.5rem;
+  }
+  .footnote {
+    margin-top: 3rem;
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+  }
+  .footnote a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

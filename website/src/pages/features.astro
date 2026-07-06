@@ -1,0 +1,541 @@
+---
+import { Icon } from 'astro-icon/components';
+
+import Base from '~/layouts/Base.astro';
+import LanguageDeepDive from '~/components/features/LanguageDeepDive.astro';
+import EditorMockup from '~/components/features/EditorMockup.astro';
+import EnvVarsMockup from '~/components/features/EnvVarsMockup.astro';
+import HistoryDiffMockup from '~/components/features/HistoryDiffMockup.astro';
+import SecurityMockup from '~/components/features/SecurityMockup.astro';
+import ConsentMockup from '~/components/features/ConsentMockup.astro';
+import UtilitiesStrip from '~/components/UtilitiesStrip.astro';
+import FinalCTA from '~/components/FinalCTA.astro';
+import { type Locale, localizePath } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? 'en';
+const isEs = locale === 'es';
+
+const sections = [
+  { id: 'languages',  label: isEs ? 'Lenguajes' : 'Languages' },
+  { id: 'editor',     label: isEs ? 'Editor' : 'Editor' },
+  { id: 'workflow',   label: isEs ? 'Flujo' : 'Workflow' },
+  { id: 'utilities',  label: isEs ? 'Utilidades' : 'Utilities' },
+  { id: 'privacy',    label: isEs ? 'Privacidad y seguridad' : 'Privacy & security' },
+  { id: 'distro',     label: isEs ? 'Distribución' : 'Distribution' },
+];
+---
+
+<Base
+  title={isEs ? 'Funciones — Lingua' : 'Features — Lingua'}
+  description={isEs
+    ? 'Todo lo que Lingua hace hoy: cinco runners, editor Monaco con Vim mode, 29 utilidades, env vars por capas, binarios firmados y privacidad auditable.'
+    : 'Everything Lingua does today. Five language runners, a Monaco editor with Vim mode, a 29-panel utility shelf, three-tier env vars, signed binaries, and a privacy posture you can audit.'}
+  locale={locale}
+>
+  <article class="container section">
+    <header class="features-head">
+      <p class="eyebrow">{isEs ? 'Funciones' : 'Features'}</p>
+      <h1>{isEs ? 'Todo lo que hace Lingua. Sin adornos.' : 'Everything Lingua does. Honestly.'}</h1>
+      <p class="lede">
+        {isEs
+          ? 'Cada línea de esta página corresponde a comportamiento que ya se distribuye en el binario desktop. Donde todavía no estamos, lo decimos. Screenshots y videos cortos llegan con v0.3; hasta entonces, cada visual aquí representa la UI real renderizada en HTML.'
+          : "Every line below maps to behavior shipping in the desktop binary today. Where we're not there yet, we say so. Screenshots and short demo videos land with v0.3 — until then, every visual on this page is the actual UI rendered in HTML."}
+      </p>
+
+      <nav class="section-jump" aria-label={isEs ? 'Saltar a sección' : 'Jump to section'}>
+        {
+          sections.map((s) => (
+            <a href={`#${s.id}`}>
+              {s.label}
+              <Icon name="lucide:arrow-down" />
+            </a>
+          ))
+        }
+      </nav>
+    </header>
+
+    <!-- LANGUAGES ───────────────────────────────────────────────── -->
+    <section class="feat-section" id="languages">
+      <header class="sec-head">
+        <span class="sec-num">01</span>
+        <div>
+          <p class="eyebrow">{isEs ? 'Lenguajes' : 'Languages'}</p>
+          <h2>{isEs ? 'Cinco runners. Una ventana.' : 'Five runners. One window.'}</h2>
+          <p class="sec-lede">
+            {isEs
+              ? 'Cada lenguaje tiene su runner con defaults adecuados. JS / TS / Python vienen con Lingua. Go y Rust usan las toolchains que ya tienes en tu máquina.'
+              : 'Each language has its own runner with the right defaults. JS / TS / Python ship with Lingua. Go and Rust use the toolchains already on your machine.'}
+          </p>
+        </div>
+      </header>
+      <LanguageDeepDive locale={locale} />
+      <p class="sec-foot">
+        <Icon name="lucide:circle-alert" />
+        {isEs
+          ? 'Ruby, Java, Kotlin, Scala, Swift, C y C++ están registrados pero todavía no se ejecutan dentro de Lingua. No pretendemos lo contrario.'
+          : "Ruby, Java, Kotlin, Scala, Swift, C, and C++ are tracked but not yet runnable from inside Lingua. We don't pretend otherwise."}
+      </p>
+    </section>
+
+    <!-- EDITOR ──────────────────────────────────────────────────── -->
+    <section class="feat-section" id="editor">
+      <header class="sec-head">
+        <span class="sec-num">02</span>
+        <div>
+          <p class="eyebrow">Editor</p>
+          <h2>{isEs ? 'Monaco, con lo que realmente usas.' : 'Monaco, with the things you actually use.'}</h2>
+          <p class="sec-lede">
+            {isEs
+              ? 'El editor que impulsa VS Code, conectado como espera un developer senior: modo Vim que no pelea con la app, paleta de comandos real y atajos personalizables.'
+              : "The editor that powers VS Code, wired up the way a senior dev expects: vim mode that doesn't fight the host, a real command palette, customizable shortcuts."}
+          </p>
+        </div>
+      </header>
+
+      <div class="split">
+        <ul class="bullet-list">
+          <li>
+            <strong>Monaco editor</strong> {isEs ? 'con resaltado de sintaxis e IntelliSense en cada lenguaje soportado.' : 'with full syntax highlighting and IntelliSense across every supported language.'}
+          </li>
+          <li>
+            <strong>Vim mode</strong> {isEs ? 'vía' : 'via'} <code>monaco-vim</code> — {isEs ? 'opt-in desde Settings → Editor. Comandos modales, registers, marks y la status line que esperas.' : "opt-in from Settings → Editor. Modal commands, registers, marks, and the status line you'd expect."}
+          </li>
+          <li>
+            <strong>{isEs ? 'Paleta de comandos' : 'Command palette'}</strong> (<kbd>⌘ ⇧ P</kbd>) {isEs ? 'alcanza cada acción: runners, utilidades, settings y cambio de lenguaje.' : 'reaches every action — runners, utilities, settings, language switch.'}
+          </li>
+          <li>
+            <strong>{isEs ? 'Atajos personalizados' : 'Custom shortcuts'}</strong> {isEs ? 'con editor dentro de la app. Exporta e importa como JSON.' : 'with an in-app editor. Export and import as JSON.'}
+          </li>
+          <li>
+            <strong>Format on save</strong> {isEs ? 'por lenguaje: prettier / ruff / gofmt / rustfmt donde esté disponible.' : 'per language: prettier / ruff / gofmt / rustfmt where available.'}
+          </li>
+        </ul>
+        <div class="split-visual">
+          <EditorMockup locale={locale} />
+        </div>
+      </div>
+    </section>
+
+    <!-- WORKFLOW ────────────────────────────────────────────────── -->
+    <section class="feat-section" id="workflow">
+      <header class="sec-head">
+        <span class="sec-num">03</span>
+        <div>
+          <p class="eyebrow">{isEs ? 'Flujo' : 'Workflow'}</p>
+          <h2>{isEs ? 'Snippets, historial y un modelo sano de env.' : 'Snippets, history, and a sane env model.'}</h2>
+          <p class="sec-lede">
+            {isEs
+              ? 'La infraestructura alrededor del editor evita que un scratchpad se convierta en desorden después de la tercera pestaña.'
+              : 'The plumbing around the editor is what keeps a scratchpad from becoming a mess after the third tab.'}
+          </p>
+        </div>
+      </header>
+
+      <div class="workflow-grid">
+        <article class="workflow-card">
+          <header>
+            <Icon name="lucide:history" />
+            <h3>{isEs ? 'Historial de ejecución con diff' : 'Execution history with diff'}</h3>
+          </header>
+          <p>
+            {isEs
+              ? 'Cada ejecución se captura localmente. Compara runs consecutivos lado a lado, restaura una versión anterior o borra el historial con un atajo. Los snapshots son opt-in y nunca salen del dispositivo.'
+              : 'Every run is captured locally. Compare consecutive runs side-by-side, restore an old version, or clear the history with one keystroke. Snapshots are opt-in and never transmitted off the device.'}
+          </p>
+          <HistoryDiffMockup locale={locale} />
+        </article>
+
+        <article class="workflow-card">
+          <header>
+            <Icon name="lucide:settings-2" />
+            <h3>{isEs ? 'Variables de entorno en tres capas' : 'Three-tier environment variables'}</h3>
+          </header>
+          <p>
+            {isEs
+              ? 'Globales abajo, overrides de proyecto en medio y valores de pestaña arriba. La última escritura gana. El env efectivo se calcula al ejecutar: sin herencia oculta ni ruleta de archivos'
+              : 'Globals at the bottom, project overrides in the middle, tab values on top. Last write wins. The effective env is computed at run time — no hidden inheritance, no'}
+            <code>.env</code>{isEs ? '.' : ' file roulette.'}
+          </p>
+          <EnvVarsMockup locale={locale} />
+        </article>
+
+        <article class="workflow-card span-2">
+          <header>
+            <Icon name="lucide:bookmark" />
+            <h3>{isEs ? 'Snippets, proyectos y quick-open' : 'Snippets, projects, and quick-open'}</h3>
+          </header>
+          <ul class="bullet-list inline">
+            <li>
+              <strong>Snippets</strong> — {isEs ? 'guarda cualquier cosa que deba sobrevivir al cierre de la pestaña. Free limita a 5; Pro quita el límite.' : 'save anything that survives the next tab close. Free tier caps at 5; Pro lifts the cap.'}
+            </li>
+            <li>
+              <strong>Project root</strong> — {isEs ? 'apunta Lingua a una carpeta y quick-open' : 'point Lingua at a folder and quick-open'}
+              (<kbd>⌘ P</kbd>) {isEs ? 'la indexa en background.' : 'indexes it in the background.'}
+            </li>
+            <li>
+              <strong>Project search</strong> — {isEs ? 'busca por contenido en todo el árbol, limitado al root activo.' : 'find by content across the whole tree, scoped to the active root.'}
+            </li>
+            <li>
+              <strong>Theme presets</strong> — {isEs ? 'importa / exporta tu tema del editor. Vienen tres presets oscuros y uno claro.' : 'import / export your editor theme. Three dark presets and one light ship in-box.'}
+            </li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- UTILITIES ──────────────────────────────────────────────── -->
+    <section class="feat-section" id="utilities">
+      <header class="sec-head">
+        <span class="sec-num">04</span>
+        <div>
+          <p class="eyebrow">{isEs ? 'Utilidades' : 'Utilities'}</p>
+          <h2>{isEs ? 'Los 29 paneles que reemplazan tus tabs del navegador.' : 'The 29 panels that replace your browser tabs.'}</h2>
+          <p class="sec-lede">
+            {isEs
+              ? 'Formateador JSON, tester regex, decodificador JWT, hash, parser cron, conversor de color y veintitrés más. Todo integrado, accesible por teclado y offline.'
+              : 'JSON formatter, regex tester, JWT decoder, hash, cron parser, color converter — and twenty-three more. All built in, all keyboard-reachable, all offline.'}
+          </p>
+        </div>
+      </header>
+      <UtilitiesStrip locale={locale} />
+    </section>
+
+    <!-- PRIVACY & SECURITY ─────────────────────────────────────── -->
+    <section class="feat-section" id="privacy">
+      <header class="sec-head">
+        <span class="sec-num">05</span>
+        <div>
+          <p class="eyebrow">{isEs ? 'Privacidad y seguridad' : 'Privacy & security'}</p>
+          <h2>{isEs ? 'Los detalles aburridos que necesitas para confiar.' : 'The boring details you need to trust this.'}</h2>
+          <p class="sec-lede">
+            {isEs
+              ? 'Lingua ejecuta el código que escribes. Lo tomamos en serio: tanto en lo que nunca recopilamos como en cómo el runtime contiene tus snippets.'
+              : 'Lingua executes whatever code you write. We take that seriously — both with what we never collect, and with how the runtime contains your snippets.'}
+          </p>
+        </div>
+      </header>
+
+      <div class="privacy-grid">
+        <div class="privacy-copy">
+          <h3>{isEs ? 'Telemetría desactivada por defecto' : 'Telemetry off by default'}</h3>
+          <p>
+            {isEs
+              ? 'Nada sale de tu dispositivo hasta que das consentimiento explícito en el prompt inicial. Incluso activada, los payloads son nombres de eventos anónimos con la versión de la app: nunca tu código, nunca rutas de archivos, nunca un vendor de terceros.'
+              : 'Nothing leaves your device until you explicitly opt in from the first-run prompt below. Even when on, payloads are anonymous event names with the app version — never your code, never your file paths, never a third-party vendor.'}
+          </p>
+          <h3>{isEs ? 'Ejecución en sandbox' : 'Sandboxed execution'}</h3>
+          <p>
+            {isEs
+              ? 'JS/TS/Python corren en workers con timeouts controlados por el padre y salida limitada. Los subprocesses Go/Rust heredan un env mínimo (PATH, HOME, LANG, TMPDIR). El IPC de filesystem usa un registro de capacidades: el renderer solo toca rutas bajo roots aprobados.'
+              : 'JS/TS/Python run in workers with parent-owned timeouts and capped output. Go/Rust subprocesses inherit a minimal env (PATH, HOME, LANG, TMPDIR). Filesystem IPC uses a capability registry — the renderer can only touch paths under approved roots.'}
+          </p>
+          <h3>{isEs ? 'CSP estricta' : 'Strict CSP'}</h3>
+          <p>
+            {isEs
+              ? 'El renderer desktop trae una CSP que bloquea scripts remotos e imports de módulos no aprobados. Todo lo que Lingua necesita en runtime viene empaquetado, incluido'
+              : 'The desktop renderer ships with a CSP that blocks unapproved remote script and module imports. Anything Lingua needs at runtime is bundled — including'}
+            <a href={localizePath(locale, '/security')}>Pyodide v0.26.4</a>, {isEs ? 'con integridad fijada en' : 'integrity-pinned in'}
+            <code>runtime-assets.lock.json</code>.
+          </p>
+        </div>
+        <ConsentMockup locale={locale} />
+      </div>
+    </section>
+
+    <!-- DISTRIBUTION ───────────────────────────────────────────── -->
+    <section class="feat-section" id="distro">
+      <header class="sec-head">
+        <span class="sec-num">06</span>
+        <div>
+          <p class="eyebrow">{isEs ? 'Distribución' : 'Distribution'}</p>
+          <h2>{isEs ? 'Builds verificables, licencias offline.' : 'Verifiable builds, offline licensing.'}</h2>
+          <p class="sec-lede">
+            {isEs
+              ? 'Cada release está firmada, notarizada cuando el sistema lo exige, acompañada de checksums y bloqueada por'
+              : 'Every release is signed, notarized where the OS demands it, checksummed, and gated on a release-blocking'}
+            <code>npm audit</code>. {isEs ? 'Las licencias se verifican offline: sin phone-home al iniciar.' : 'License keys verify offline — no phone-home check at launch.'}
+          </p>
+        </div>
+      </header>
+
+      <SecurityMockup locale={locale} />
+
+      <ul class="bullet-list two-col">
+        <li>
+          <strong>{isEs ? 'Canal estable, releases draft-first' : 'Stable channel, draft-first releases'}</strong> — {isEs ? 'las releases se crean como draft, pasan smoke test sobre un build empaquetado y luego se promueven. Ningún binario llega sin ese gate.' : 'releases are drafted, smoke-tested on a packaged build, then promoted. No binary reaches you without that gate.'}
+        </li>
+        <li>
+          <strong>SHA256SUMS.txt</strong> {isEs ? 'se publica junto a cada release. Verifica antes de instalar.' : 'ships next to every release. Verify before you install (the snippet on the left).'}
+        </li>
+        <li>
+          <strong>{isEs ? 'Verificación offline de licencias' : 'Offline license verification'}</strong> — {isEs ? 'los tokens Pro están firmados con Ed25519 y se verifican contra una llave pública embebida. Sin cuenta, sin check de servidor.' : 'Pro tokens are Ed25519-signed and verified against an embedded public key. No account, no server check.'}
+        </li>
+        <li>
+          <strong>Auto-updates</strong> {isEs ? 'se mantienen en el mismo canal firmado. Puedes desactivarlas por instalación.' : 'stay on the same signed channel. You can disable them per install.'}
+        </li>
+        <li>
+          <strong>Source-available</strong> {isEs ? 'bajo la Licencia Comercial de Lingua. Compílalo tú mismo si quieres auditar lo que corre en tu máquina.' : 'under the Lingua Commercial License. Build it yourself if you want to audit what runs on your machine.'}
+        </li>
+        <li>
+          <strong>{isEs ? 'Pipeline de release auditable' : 'Auditable release pipeline'}</strong> — {isEs ? 'cada paso vive en' : 'every step lives in'}
+          <code>.github/workflows/release.yml</code> {isEs ? 'en el repo público.' : 'on the public repo.'}
+        </li>
+      </ul>
+    </section>
+  </article>
+
+  <FinalCTA locale={locale} />
+</Base>
+
+<style>
+  .features-head {
+    max-width: 760px;
+    margin-bottom: 3.5rem;
+  }
+  .features-head h1 {
+    font-size: var(--text-display);
+    line-height: 1.05;
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 1rem 0 1.25rem;
+  }
+  .lede {
+    color: var(--color-text-muted);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    margin: 0 0 2rem;
+  }
+
+  .section-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    margin-top: 1.5rem;
+  }
+  .section-jump a {
+    flex: 1 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 0.65rem 1rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    border-right: 1px solid var(--color-border);
+    transition: color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+    white-space: nowrap;
+  }
+  .section-jump a:last-child { border-right: 0; }
+  .section-jump a svg { width: 12px; height: 12px; opacity: 0.5; }
+  .section-jump a:hover {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent-muted) 14%, transparent);
+  }
+  .section-jump a:hover svg { opacity: 1; color: var(--color-accent); }
+
+  /* Section composition */
+  .feat-section {
+    padding-block: var(--space-section-lg);
+    border-top: 1px solid var(--color-border);
+  }
+  .feat-section:first-of-type { border-top: 0; padding-top: var(--space-section); }
+
+  .sec-head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.25rem;
+    margin-bottom: 2.5rem;
+    max-width: 820px;
+  }
+  .sec-num {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent-muted);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    align-self: start;
+    background: color-mix(in srgb, var(--color-accent-muted) 18%, transparent);
+  }
+  .sec-head h2 {
+    font-size: var(--text-h1);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 0.5rem 0 0.75rem;
+    line-height: 1.1;
+  }
+  .sec-head .sec-lede {
+    color: var(--color-text-muted);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    margin: 0;
+    max-width: 640px;
+  }
+
+  .sec-foot {
+    margin-top: 1.75rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sec-foot svg {
+    width: 14px;
+    height: 14px;
+    color: var(--color-warning);
+  }
+
+  /* Editor section */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    align-items: start;
+  }
+  .bullet-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .bullet-list li {
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    padding-left: 1rem;
+    border-left: 2px solid var(--color-border);
+  }
+  .bullet-list strong {
+    color: var(--color-text);
+    font-weight: 600;
+  }
+  .bullet-list code,
+  .feat-section code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--color-accent);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px 5px;
+  }
+  .bullet-list kbd {
+    font-family: var(--font-mono);
+    font-size: 0.78em;
+    color: var(--color-text);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+    box-shadow: 0 1px 0 var(--color-border-strong);
+  }
+  .bullet-list.inline {
+    gap: 0.625rem;
+  }
+  .bullet-list.inline li {
+    border-left: 0;
+    padding-left: 0;
+    padding-bottom: 0.625rem;
+    border-bottom: 1px dashed var(--color-border);
+  }
+  .bullet-list.inline li:last-child { border-bottom: 0; padding-bottom: 0; }
+  .bullet-list.two-col {
+    margin-top: 2rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Workflow grid */
+  .workflow-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .workflow-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-bg-sunken));
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .workflow-card header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+  .workflow-card header svg {
+    width: 18px;
+    height: 18px;
+    color: var(--color-accent);
+  }
+  .workflow-card h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+  .workflow-card > p {
+    margin: 0;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+  }
+
+  /* Privacy section */
+  .privacy-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    align-items: start;
+  }
+  .privacy-copy h3 {
+    font-size: 1.125rem;
+    margin: 0 0 0.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+  .privacy-copy h3:not(:first-child) { margin-top: 1.75rem; }
+  .privacy-copy p {
+    margin: 0;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+  }
+  .privacy-copy a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* Responsive */
+  @media (min-width: 720px) {
+    .bullet-list.two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 960px) {
+    .split {
+      grid-template-columns: 0.85fr 1.15fr;
+      gap: 3rem;
+    }
+    .workflow-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .workflow-card.span-2 { grid-column: 1 / -1; }
+    .workflow-card.span-2 .bullet-list.inline { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 2rem; }
+    .workflow-card.span-2 .bullet-list.inline li { border-bottom: 1px dashed var(--color-border); }
+    .privacy-grid {
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 3.5rem;
+    }
+  }
+</style>

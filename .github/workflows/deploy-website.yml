@@ -1,0 +1,75 @@
+name: Deploy website (Cloudflare Pages)
+
+# The marketing site (linguacode.dev) lives in website/ as a standalone Astro
+# package (npm, --ignore-workspace from the pnpm root). It vendors content from
+# the repo ROOT — no cross-repo clone, no LINGUA_REPO_TOKEN — and deploys to
+# Cloudflare Pages.
+#
+# Triggers: changes under website/, changes to the content sources the site
+# vendors (CHANGELOG.md, docs/**), a published release (refresh changelog +
+# version badge), and manual dispatch.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'CHANGELOG.md'
+      - 'docs/**'
+      - '.github/workflows/deploy-website.yml'
+  release:
+    types: [published]
+
+# Read-only: the build reads the repo and the deploy uses Cloudflare secrets;
+# no GitHub write scope is needed.
+permissions:
+  contents: read
+
+# Serialize website deploys; never cancel an in-flight publish.
+concurrency:
+  group: deploy-website
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      # fetch-depth 0: the sync reads `git log` since the latest stable tag to
+      # build unreleased.json, so it needs full history + tags.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Install (standalone npm package)
+        run: npm ci --no-audit --no-fund
+
+      # Vendor content + preprocess data from the repo root. docs/ROADMAP.md is
+      # local-only (gitignored), so the checkout omits it; the sync tolerates
+      # that and keeps the committed roadmap.json.
+      - name: Sync content from the repo root
+        run: npm run sync:content
+
+      - name: Type-check Astro
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 pages deploy dist \
+            --project-name lingua-website \
+            --branch main

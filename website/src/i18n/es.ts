@@ -1,0 +1,446 @@
+export const es = {
+  common: {
+    languageSelect: 'Idioma',
+    themeToggle: 'Cambiar tema',
+    skipToContent: 'Saltar al contenido',
+    homeAria: 'Inicio de Lingua',
+    primaryNav: 'Navegación principal',
+    mobilePrimaryNav: 'Navegación móvil',
+    openMenu: 'Abrir menú',
+    github: 'GitHub',
+    sourceOnGitHub: 'Código en GitHub',
+    download: 'Descargar',
+    downloadLingua: 'Descargar Lingua',
+    downloadForDesktop: 'Descargar para desktop',
+    viewOnGitHub: 'Ver en GitHub',
+    browseDocs: 'Ver documentación',
+    seePricing: 'Ver precios',
+    seeFullComparison: 'Ver comparación completa',
+    comingSoon: 'Próximo',
+    external: 'externo',
+  },
+  nav: {
+    features: 'Funciones',
+    pricing: 'Precios',
+    docs: 'Docs',
+    releases: 'Descargas',
+    changelog: 'Cambios',
+  },
+  footer: {
+    product: 'Producto',
+    resources: 'Recursos',
+    company: 'Compañía',
+    tagline: 'Runner multi-lenguaje para tu escritorio.',
+    meta: 'Source-available. Telemetría desactivada por defecto. Creado por un desarrollador independiente.',
+    copyright: 'Lingua. Source-available bajo la Licencia Comercial de Lingua.',
+    links: {
+      home: 'Inicio',
+      features: 'Funciones',
+      pricing: 'Precios',
+      releases: 'Descargas',
+      changelog: 'Cambios',
+      gettingStarted: 'Primeros pasos',
+      source: 'Código en GitHub',
+      runInBrowser: 'Abrir en navegador',
+      privacy: 'Privacidad',
+      security: 'Seguridad',
+      licensing: 'Licencias',
+      terms: 'Términos',
+      press: 'Prensa',
+    },
+  },
+  home: {
+    title: 'Lingua — runner multi-lenguaje para tu escritorio',
+    hero: {
+      eyebrow: 'Runner multi-lenguaje · Desktop y web',
+      headline: ['Ejecuta JS, TS,', 'Python, Go y Rust', 'en'],
+      headlineSuffix: 'una sola',
+      headlineEnd: 'ventana Monaco.',
+      lede:
+        'Lingua es el playground que usan developers senior cuando quieren probar un script de 10 líneas en cinco lenguajes sin crear un proyecto. Desktop-first, source-available y claro sobre qué corre en cada entorno.',
+      proofLabel: 'Datos del producto Lingua',
+      proof: [
+        { value: '5', label: 'lenguajes ejecutables' },
+        { value: '29', label: 'utilidades developer' },
+        { value: '0', label: 'telemetría antes del consentimiento' },
+      ],
+      bullets: [
+        'Pyodide incluido — Python corre offline.',
+        'Telemetría desactivada por defecto.',
+        'Modo Vim, paleta de comandos y 29 utilidades.',
+      ],
+      os: {
+        generic: 'Descargar Lingua',
+        macos: 'Descargar para macOS',
+        windows: 'Descargar para Windows',
+        linux: 'Descargar para Linux',
+      },
+    },
+    heroCode: {
+      context: 'scratch local',
+    },
+    why: {
+      eyebrow: 'Por qué Lingua',
+      title: 'Tres cosas que puedes verificar antes de confiar en la instalación.',
+      cards: [
+        {
+          icon: 'package',
+          title: 'Cinco lenguajes, un binario',
+          body: 'JavaScript, TypeScript, Python, Go y Rust viven en la misma ventana con Monaco. Sin crear un proyecto solo para validar una idea.',
+        },
+        {
+          icon: 'wifi-off',
+          title: 'Python sin internet',
+          body: 'Pyodide v0.26.4 viene dentro del binario desktop. Abre Lingua en un avión, escribe Python y ejecuta. La versión web hace lo mismo después de la primera carga.',
+        },
+        {
+          icon: 'shield-check',
+          title: 'Telemetría desactivada por defecto',
+          body: 'Nada sale de tu máquina hasta que das consentimiento. Nunca transmitimos tu código. La página de privacidad explica exactamente qué se recopila si la activas.',
+        },
+        {
+          icon: 'git-compare',
+          title: 'Historial de ejecución con diffs',
+          body: 'Las ejecuciones anteriores quedan cerca del editor, para que un scratchpad rápido también muestre qué cambió entre intentos.',
+        },
+      ],
+    },
+    languageMatrix: {
+      eyebrow: 'Matriz de lenguajes',
+      title: 'Soporte honesto para 12 lenguajes.',
+      lede:
+        'Cinco lenguajes se ejecutan hoy. Siete más sirven para abrir, leer y flujos cercanos al lint, pero todavía no son ejecutables.',
+      columns: {
+        language: 'Lenguaje',
+        status: 'Estado',
+        runtime: 'Runtime',
+        tier: 'Acceso',
+      },
+      runnable: 'Ejecutable',
+      viewOnly: 'Solo vista',
+      statuses: {
+        runnable: 'ejecutable',
+        viewOnly: 'solo vista',
+      },
+      access: {
+        free: 'Free',
+        pro: 'Pro',
+        allTiers: 'Todos los tiers',
+      },
+      notes: {
+        js: 'Runtime en Worker',
+        ts: 'esbuild-wasm → Worker',
+        py: 'Pyodide v0.26.4 incluido',
+        go: 'Toolchain local de Go',
+        rust: 'Toolchain local de Rust',
+        monaco: 'Vista de sintaxis Monaco',
+      },
+      aria: 'Soporte de lenguajes de Lingua',
+    },
+    utilities: {
+      eyebrow: 'Utilidades developer',
+      title: '29 paneles integrados.',
+      lede:
+        'Las pestañas del navegador que suelen rodear a un runner — formateador JSON, regex, JWT, diff, hash, cron, color y más — ya viven dentro de Lingua.',
+      aria: 'Utilidades developer integradas',
+    },
+    pricingTeaser: {
+      eyebrow: 'Precios',
+      title: 'Cuatro tiers, sin el protocolo de una página de precios.',
+      lede:
+        'En el home solo importa la forma: Free es útil, Pro desbloquea runners pesados, Lifetime es para pagar una vez y Team funciona por asientos.',
+      tiers: [
+        { name: 'Free', price: '$0', tag: 'Por defecto', desc: 'Una pestaña, cinco snippets, JS / TS / Python / Ruby, utilidades de una sola acción. Sin licencia.' },
+        { name: 'Pro', price: '$5 / mes', tag: 'Suscripción', desc: 'Pestañas y snippets ilimitados, Go y Rust, más workflows de utilidades.' },
+        { name: 'Pro Lifetime', price: '$59 una vez', tag: 'Pago único', desc: 'Desbloqueo Pro perpetuo, sin factura recurrente y con todas las actualizaciones futuras incluidas.' },
+        { name: 'Team', price: '$3 / asiento / mes', tag: 'Por asiento', desc: 'Asientos de equipo, facturación y manejo de licencias para organizaciones.' },
+      ],
+    },
+    privacyCallout: {
+      title: 'Telemetría desactivada por defecto. Nunca leemos tu código.',
+      bodyStart:
+        'Nada sale de tu máquina hasta que das consentimiento desde Settings. Si la activas, los payloads se limitan a eventos anónimos: sin código fuente ni rutas de proyecto. Lee la',
+      link: 'página de privacidad',
+      bodyEnd: 'para ver qué contiene cada evento.',
+    },
+    finalCta: {
+      title: 'Lánzale tu próximo script de 10 líneas.',
+      body: 'Una instalación. Cinco lenguajes. Ningún proyecto que crear.',
+    },
+  },
+  pricing: {
+    title: 'Precios — Lingua',
+    description:
+      'Free, Pro a $5/mes, Pro Lifetime a $59 una vez y Team a $3/asiento/mes. Licencias verificadas offline. Pro gratis para estudiantes y docentes verificados.',
+    eyebrow: 'Precios',
+    heading: 'Cuatro tiers. Paga solo por lo que necesitas.',
+    lede:
+      'Pro es una suscripción de $5/mes. Pro Lifetime es $59 una vez con todas las actualizaciones futuras incluidas. Team es $3/asiento/mes con facturación. Free cubre scratchpads de archivo único para siempre. Las licencias se verifican offline.',
+    trialCallout: {
+      text: '¿Primera vez? Prueba Pro gratis 14 días — sin tarjeta de crédito.',
+      linkText: 'Cómo empezar →',
+    },
+    faqHeading: 'Preguntas frecuentes',
+    footnoteStart: 'Lingua es source-available, no open source. Consulta la',
+    footnoteLink: 'página de licencias',
+    footnoteEnd: 'para ver el alcance exacto de lo que puedes hacer con el código.',
+    table: {
+      mostPopular: 'Más popular',
+      disabled: 'Checkout próximamente',
+      disabledTitle: 'La URL de checkout de Polar no está configurada — define PUBLIC_POLAR_CHECKOUT_* en Cloudflare Pages',
+      educationTitle: 'Educación',
+      education:
+        'Pro gratis durante un año, renovable. Abre Lingua → Settings → License → Licencia educativa, ingresa tu email académico (cualquier dominio .edu más .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br y .ac.in) y confirma con el magic link que te enviamos. El token llega por email y se pega solo en la app.',
+      tiers: [
+        {
+          id: 'free',
+          name: 'Free',
+          price: '$0',
+          cadence: 'para siempre',
+          bestFor: 'Probar Lingua y usar scratchpads simples',
+          features: [
+            '1 pestaña abierta a la vez',
+            'Hasta 5 snippets guardados',
+            'Runners de JavaScript, TypeScript, Python y Ruby',
+            'Todas las utilidades de una sola acción',
+            'Editor Monaco + resaltado de sintaxis',
+            'Editor de atajos de teclado',
+          ],
+          cta: 'Descargar Lingua',
+        },
+        {
+          id: 'pro',
+          name: 'Pro',
+          price: '$5',
+          cadence: '/ mes',
+          bestFor: 'Developers con trabajo multi-lenguaje real',
+          features: [
+            'Todo lo de Free',
+            'Pestañas y snippets ilimitados',
+            'Runners de Go y Rust',
+            'Workflows de utilidades: pipelines, historial guardado, automatización del portapapeles',
+            'Format-on-save en cada lenguaje',
+            'Cada actualización mientras estés suscrito',
+          ],
+          cta: 'Comprar Pro',
+        },
+        {
+          id: 'pro_lifetime',
+          name: 'Pro Lifetime',
+          price: '$59',
+          cadence: 'una vez',
+          bestFor: 'Paga una vez y conserva soporte',
+          features: ['Todo lo de Pro', 'Cada actualización futura incluida', 'Soporte prioritario por email'],
+          cta: 'Comprar Pro Lifetime',
+        },
+        {
+          id: 'team',
+          name: 'Team',
+          price: '$3',
+          cadence: '/ asiento / mes',
+          bestFor: 'Equipos y agencias',
+          features: ['Todo lo de Pro Lifetime', 'Gestión de asientos', 'Facturación'],
+          cta: 'Comprar Team',
+        },
+      ],
+    },
+    faq: [
+      {
+        q: '¿Cuál es la política de reembolso?',
+        a: 'Todos los tiers pagos tienen reembolso durante los primeros 14 días desde la compra inicial, sin preguntas. Escribe a <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a> con tu número de orden. Pro y Team también pueden cancelarse en cualquier momento para detener la próxima renovación.',
+      },
+      {
+        q: '¿Lingua funciona offline?',
+        a: 'En desktop, sí: completamente. Pyodide viene incluido en el binario, JavaScript y TypeScript corren en un Web Worker, y Go y Rust usan tus toolchains locales. La verificación de licencia es offline por diseño (tokens firmados con Ed25519). La versión web en <a href="https://app.linguacode.dev">app.linguacode.dev</a> necesita red en la primera carga; las siguientes ejecuciones quedan cacheadas.',
+      },
+      {
+        q: '¿Puedo probar Pro antes de pagar?',
+        a: 'Sí: 14 días, sin tarjeta de crédito. Abre Lingua, ve a <em>Settings → License → Prueba Lingua Pro gratis 14 días</em>, ingresa tu email y haz clic en <em>Start Trial</em>. El token se activa automáticamente, sin pegado manual. Un trial por email y por dispositivo.',
+      },
+      {
+        q: '¿Cómo funciona el programa educativo?',
+        a: 'Estudiantes y docentes verificados reciben Pro gratis durante un año, renovable. Abre Lingua → <em>Settings → License → Licencia educativa</em>, ingresa tu email académico (cualquier dominio <code>.edu</code> más <code>.ac.uk</code>, <code>.edu.mx</code>, <code>.edu.au</code>, <code>.edu.ca</code>, <code>.edu.br</code> y <code>.ac.in</code>) y confirma con el magic link que te enviamos. El token llega por email y se pega solo en la app.',
+      },
+      {
+        q: '¿Puedo mover mi licencia entre máquinas?',
+        a: 'Sí. Una licencia Pro se vincula a un conjunto pequeño de dispositivos (actualmente tres). Cuando compres una máquina nueva, desactiva la anterior desde Settings → License; el cupo se libera de inmediato. Sin phone-home ni espera por servidor.',
+      },
+      {
+        q: '¿Qué pasa si una release Pro Lifetime llega a fin de vida?',
+        a: 'Pro Lifetime te da acceso a cada release estable futura. Si algún día cerramos el producto o una plataforma específica, tu token seguirá desbloqueando la última release que te soportó: la podrás usar para siempre, offline. Source-available también significa que puedes compilarla tú mismo.',
+      },
+    ],
+  },
+  docs: {
+    label: 'Docs',
+    navLabel: 'Navegación de docs',
+    titleSuffix: 'docs de Lingua',
+    comingSoon: [
+      { id: 'languages', title: 'Lenguajes' },
+      { id: 'keyboard-shortcuts', title: 'Atajos de teclado' },
+      { id: 'licensing-and-pro', title: 'Licencias y Pro' },
+      { id: 'offline-mode', title: 'Modo offline' },
+      { id: 'privacy-and-telemetry', title: 'Privacidad y telemetría' },
+      { id: 'troubleshooting', title: 'Solución de problemas' },
+    ],
+  },
+  seo: {
+    download: 'Descargar Lingua',
+    pricing: 'Ver precios',
+    offerDescription: 'Tier Free con upgrades pagos a Pro / Pro Lifetime / Team',
+  },
+  legal: {
+    label: 'Legal',
+    lastUpdated: 'Última actualización',
+    englishAuthority:
+      'Esta traducción se ofrece como referencia. La versión en inglés es la versión autoritativa para términos legales y de licencia.',
+  },
+  releases: {
+    title: 'Descargas — Lingua',
+    description: (version: string, date: string) =>
+      `Última release estable de Lingua: v${version}, publicada el ${date}. Descargas para macOS, Windows y Linux con SHA256SUMS.txt.`,
+    eyebrow: 'Descargas',
+    stablePublished: 'Canal estable · publicada el',
+    whatsNew: (version: string) => `Novedades en v${version}`,
+    fullChangelog: 'Changelog completo →',
+    older: (count: number) => `Releases anteriores (${count})`,
+    viewInChangelog: (version: string) => `Ver notas de v${version} →`,
+    zeroReleasesError: 'El manifest de releases vino vacío — no se publica una página de descargas vacía.',
+    dates: {
+      locale: 'es-CO',
+      long: { year: 'numeric', month: 'long', day: 'numeric' } as Intl.DateTimeFormatOptions,
+      short: { year: 'numeric', month: 'short', day: 'numeric' } as Intl.DateTimeFormatOptions,
+    },
+    downloadMatrix: {
+      verifySummary: 'Verificar descarga',
+      downloadAlongside: 'Descarga',
+      thenRun: 'junto al binario y ejecuta:',
+      verifyNote:
+        'macOS y Linux incluyen shasum. En Windows usa certutil -hashfile <file> SHA256 y compara el resultado con el listado.',
+      checksumsLabel: 'Archivo de checksums',
+      comingSoon: 'Próximamente',
+      arch: {
+        arm64: 'Apple Silicon / arm64',
+        x64: 'Intel / x64',
+        universal: 'Universal',
+      },
+    },
+  },
+  changelog: {
+    title: 'Roadmap y changelog — Lingua',
+    description:
+      'Qué está planeado, qué está en progreso y qué ya se publicó. Cada línea apunta a un ticket público o a una release estable.',
+    eyebrow: 'Roadmap y changelog',
+    heading: 'Planeado. En progreso. Publicado.',
+    ledeBefore: 'Tres fases de trabajo, en ese orden. Las primeras dos vienen del',
+    ledeAfter:
+      'público del repo principal: cambian cuando los tickets avanzan. La tercera es el historial real de releases leído desde CHANGELOG.md en cada build.',
+    planned: 'Planeado',
+    inProgress: 'En progreso',
+    brewing: 'En preparación',
+    shipped: 'Publicado',
+    stats: {
+      planned: 'planeados',
+      inProgress: 'en progreso',
+      stableReleases: 'releases estables',
+    },
+    aria: {
+      roadmapTotals: 'Totales del roadmap',
+      jumpToPhase: 'Saltar a fase',
+      breakingChange: 'Cambio incompatible',
+    },
+    phase1: {
+      eyebrow: 'Fase 1',
+      title: 'Planeado',
+      lede: 'Especificado, acotado y esperando turno. Cada ticket tiene criterios de aceptación escritos contra el codebase antes de empezar.',
+    },
+    phase2: {
+      eyebrow: 'Fase 2',
+      title: 'En progreso',
+      lede: 'Slices ya publicados, con más por venir. Lo listado aquí tiene código funcionando en el binario actual; todavía no es una historia cerrada.',
+    },
+    phaseBrewing: {
+      eyebrow: 'En preparación',
+      titlePrefix: 'Desde',
+      lede:
+        'Commits visibles para usuarios que están en main pero aún no se empaquetan en una release estable. Leído directamente desde git log, sin edición de marketing.',
+      hidden: (count: number) => `Además hay ${count} commits de infraestructura / docs / tests ocultos en esta vista. Revisa el log completo en`,
+      github: 'GitHub',
+    },
+    phase3: {
+      eyebrow: 'Fase 3',
+      title: 'Publicado',
+      lede: 'Releases estables en el canal público. Leído desde CHANGELOG.md en cada build; nunca escrito a mano.',
+    },
+    dateLocale: 'es',
+    months: [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
+    ],
+  },
+  press: {
+    title: 'Kit de prensa — Lingua',
+    description:
+      'Descripciones, bio del fundador, resumen de precios y ZIP del press kit. Para periodistas y partners que escriben sobre Lingua.',
+    eyebrow: 'Prensa',
+    heading: 'Kit de prensa',
+    lede:
+      'Todo lo necesario para escribir sobre Lingua con precisión. Copy listo en tres extensiones, bio del fundador y contacto. Los assets de marca llegan con v0.3; hasta entonces esta página y el ZIP contienen el mismo texto.',
+    downloadZip: 'Descargar press kit (ZIP)',
+    contact: 'Contacto de prensa',
+    contactMetaStart: 'Contacto de prensa —',
+    contactMetaEnd: 'Para acceso embargado antes de una release, por favor avisa con al menos 72 horas.',
+    sections: [
+      {
+        title: 'Sobre Lingua — 25 palabras',
+        body: 'Lingua es un runner desktop multi-lenguaje: JavaScript, TypeScript, Python, Go y Rust en una app offline-first con Monaco.',
+      },
+      {
+        title: 'Sobre Lingua — 50 palabras',
+        body: 'Lingua es un runner desktop comercial para developers que trabajan con varios lenguajes en un mismo día. JavaScript, TypeScript, Python, Go y Rust corren en una app offline-first con Monaco Editor, utilidades developer integradas, snippets y templates. Es source-available y los tiers pagos se desbloquean con licencias verificadas offline.',
+      },
+      {
+        title: 'Sobre Lingua — 150 palabras',
+        body: 'Lingua es un runner desktop comercial y multi-lenguaje. JavaScript, TypeScript, Python, Go y Rust son ciudadanos de primera clase, cada uno con su runner, templates y panel de resultados inline, dentro de la misma app offline-first con Monaco. Las utilidades developer (formateador JSON, tester regex, Base64, UUID, hash, conversor de timestamps, decodificador JWT, conversor de color y diff viewer) vienen integradas, así que reemplaza varias pestañas de navegador alrededor del runner. Snippets, indexación de proyecto, quick-open, búsqueda de proyecto y atajos personalizables mantienen el flujo rápido. Los tiers pagos (Pro mensual, Pro Lifetime y Team por asiento) se desbloquean con una licencia firmada y verificada offline, sin phone-home. El acceso educativo es gratis para estudiantes y docentes verificados. El repositorio es source-available para evaluación y revisión bajo la Licencia Comercial de Lingua.',
+      },
+      {
+        title: 'Bio del fundador — 40 palabras',
+        body: 'Soy Johnny Young, el desarrollador independiente detrás de Lingua. Construí la app después de muchas tardes alternando entre tabs para snippets de Go, TypeScript, Python y Rust. Lingua los reúne en una app desktop con Monaco.',
+      },
+      {
+        title: 'Bio del fundador — 100 palabras',
+        body: 'Soy Johnny Young, el desarrollador independiente detrás de Lingua. Empecé a construir tooling multi-lenguaje porque quería una app desktop capaz de ejecutar un snippet de Go, una función de Python, una prueba de TypeScript y un benchmark de Rust sin abrir cinco playgrounds web distintos. Lingua es el resultado: un runner con Monaco que trata cada lenguaje como ciudadano de primera clase, incluye utilidades developer y se mantiene offline-first para funcionar incluso en un avión. Lo publico como producto comercial source-available: los tiers pagos se desbloquean con licencias verificadas offline y el acceso educativo es gratuito.',
+      },
+    ],
+    pricing: {
+      title: 'Precios',
+      bodyStart: 'Cuatro tiers: Free, Pro a $5/mes, Pro Lifetime a $59 una vez y Team a $3/asiento/mes. Education es gratis para estudiantes y docentes verificados. Consulta la',
+      link: 'página completa de precios',
+      bodyEnd: 'para ver qué desbloquea cada tier.',
+    },
+    constraints: {
+      title: 'Límites honestos',
+      intro: 'Puntos que conviene mencionar en publicaciones, por precisión con los lectores:',
+      items: [
+        'Lingua es source-available, no open source. No lo describas como MIT, Apache o GPL.',
+        'Las licencias se verifican offline: no hay phone-home ni chequeo de cuenta al iniciar.',
+        'Cinco lenguajes se ejecutan hoy. Siete más están registrados pero todavía no se publican como ejecutables.',
+        'La app desktop funciona completamente offline. La versión web necesita red para la primera carga.',
+      ],
+    },
+    brand: {
+      title: 'Assets de marca',
+      body: 'Logo, icono monocromático, tokens de color y especificación tipográfica llegan con Lingua v0.3. Actualizaremos esta página y el ZIP el día que estén listos.',
+    },
+  },
+} as const;

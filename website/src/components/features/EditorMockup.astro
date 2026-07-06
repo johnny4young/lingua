@@ -1,0 +1,308 @@
+---
+/**
+ * Composed UI mockup of Lingua's editor surface — Monaco shell + Vim status
+ * line + a small command-palette overlay. Built with real divs (no fake
+ * screenshot), real Lucide icons, real keyboard hints. Replace with a real
+ * screenshot/MP4 when RL-064 ships them.
+ */
+import { Icon } from 'astro-icon/components';
+import type { Locale } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const isEs = locale === 'es';
+---
+
+<div class="editor-shell">
+  <div class="chrome">
+    <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="tab-strip">
+      <span class="tab is-active"><Icon name="lucide:braces" /> snippet.ts</span>
+      <span class="tab"><Icon name="lucide:braces" /> probe.py</span>
+      <span class="tab"><Icon name="lucide:braces" /> bench.go</span>
+      <span class="tab tab-add" aria-hidden="true">+</span>
+    </div>
+    <span class="run-shortcut">⌘ ⏎</span>
+  </div>
+
+  <div class="body" aria-hidden="true">
+    <div class="gutter">
+      <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span>
+    </div>
+    <div class="lines">
+      <div><span class="kw">type</span> <span class="ty">Tier</span> = <span class="str">'free'</span> | <span class="str">'pro'</span> | <span class="str">'team'</span>;</div>
+      <div><span class="kw">const</span> <span class="vr">tier</span>: <span class="ty">Tier</span> = <span class="str">'pro'</span>;</div>
+      <div></div>
+      <div><span class="kw">if</span> (tier === <span class="str">'pro'</span>) &#123;</div>
+      <div>  <span class="vr">console</span>.log(<span class="str">'unlocked'</span>);</div>
+      <div>&#125;</div>
+      <div><span class="cursor" aria-hidden="true">|</span></div>
+    </div>
+  </div>
+
+  <div class="status">
+    <span class="status-mode">— INSERT —</span>
+    <span class="status-cell"><Icon name="lucide:braces" /> TypeScript</span>
+    <span class="status-cell"><Icon name="lucide:terminal" /> vim</span>
+    <span class="status-cell status-right">UTF-8 · LF · 2 spaces</span>
+  </div>
+
+  <div class="palette">
+    <div class="palette-input">
+      <Icon name="lucide:search" />
+      <span class="palette-query">format</span>
+      <span class="palette-caret" aria-hidden="true">▌</span>
+    </div>
+    <ul class="palette-list">
+      <li class="is-active">
+        <Icon name="lucide:wand-sparkles" />
+        <span class="palette-name">{isEs ? 'Formatear documento' : 'Format Document'}</span>
+        <kbd>⇧⌥ F</kbd>
+      </li>
+      <li>
+        <Icon name="lucide:wand-sparkles" />
+        <span class="palette-name">{isEs ? 'Formatear selección' : 'Format Selection'}</span>
+        <kbd>⌘ K F</kbd>
+      </li>
+      <li>
+        <Icon name="lucide:braces" />
+        <span class="palette-name">{isEs ? 'Formateador JSON' : 'JSON Formatter'}</span>
+        <kbd>util</kbd>
+      </li>
+      <li>
+        <Icon name="lucide:database" />
+        <span class="palette-name">{isEs ? 'Formateador SQL' : 'SQL Formatter'}</span>
+        <kbd>util</kbd>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<style>
+  .editor-shell {
+    position: relative;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-sunken);
+    overflow: hidden;
+    box-shadow:
+      0 30px 60px -32px color-mix(in srgb, black 65%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--color-text) 6%, transparent);
+    min-height: 380px;
+  }
+  .chrome {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem 0.5rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    background:
+      linear-gradient(to bottom, color-mix(in srgb, var(--color-bg-elevated) 96%, var(--color-text)), var(--color-bg-elevated));
+  }
+  .dots { display: inline-flex; gap: 6px; }
+  .dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--color-border-strong);
+  }
+  .tab-strip {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+    overflow-x: hidden;
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-subtle);
+    white-space: nowrap;
+  }
+  .tab svg { width: 12px; height: 12px; opacity: 0.7; }
+  .tab.is-active {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-accent-muted) 38%, transparent);
+  }
+  .tab.is-active svg { color: var(--color-accent); opacity: 1; }
+  .tab-add { color: var(--color-text-subtle); padding-inline: 0.5rem; }
+  .run-shortcut {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-subtle);
+    padding: 0.2rem 0.45rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .body {
+    display: grid;
+    grid-template-columns: 38px 1fr;
+    padding: 0.875rem 0;
+    background:
+      linear-gradient(to right, color-mix(in srgb, var(--color-border) 30%, transparent) 1px, transparent 1px),
+      var(--color-bg-sunken);
+    background-size: 56px 100%;
+    background-position: 38px 0;
+    min-height: 200px;
+  }
+  .gutter {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 4px;
+    text-align: right;
+    padding-right: 10px;
+    color: var(--color-text-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    border-right: 1px solid var(--color-border);
+    user-select: none;
+  }
+  .gutter span { display: block; }
+  .lines {
+    padding: 4px 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .lines > div { white-space: pre; }
+  .kw { color: #c084fc; }
+  .ty { color: #67e8f9; }
+  .str { color: #fbbf24; }
+  .vr { color: #e5e7eb; }
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.05em;
+    background: var(--color-accent);
+    transform: translateY(0.18em);
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+
+  .status {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    height: 26px;
+    padding: 0;
+    background: var(--color-accent-muted);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+  }
+  .status-mode {
+    padding: 0 0.65rem;
+    background: var(--color-accent);
+    color: var(--color-accent-ink, #04161b);
+    font-weight: 700;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+  }
+  .status-cell {
+    padding: 0 0.65rem;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: color-mix(in srgb, var(--color-text) 92%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--color-bg-sunken) 35%, transparent);
+  }
+  .status-cell svg { width: 11px; height: 11px; opacity: 0.85; }
+  .status-right {
+    margin-left: auto;
+    border-right: 0;
+    color: color-mix(in srgb, var(--color-text) 75%, transparent);
+  }
+
+  .palette {
+    position: absolute;
+    left: 50%;
+    top: 38%;
+    transform: translateX(-50%);
+    width: min(86%, 360px);
+    border: 1px solid var(--color-accent-muted);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-bg-elevated) 96%, var(--color-bg));
+    box-shadow:
+      0 24px 50px -16px color-mix(in srgb, black 70%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--color-accent) 12%, transparent);
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+  }
+  .palette-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+  }
+  .palette-input svg { width: 14px; height: 14px; }
+  .palette-query {
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .palette-caret {
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    margin-left: -4px;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  .palette-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+    max-height: 168px;
+    overflow: hidden;
+  }
+  .palette-list li {
+    display: grid;
+    grid-template-columns: 18px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    color: var(--color-text);
+    font-size: 0.8rem;
+  }
+  .palette-list li svg {
+    width: 14px;
+    height: 14px;
+    color: var(--color-text-muted);
+  }
+  .palette-list li.is-active {
+    background: color-mix(in srgb, var(--color-accent-muted) 35%, transparent);
+  }
+  .palette-list li.is-active svg { color: var(--color-accent); }
+  .palette-list .palette-name { font-family: var(--font-sans); }
+  .palette-list kbd {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--color-text-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+  }
+
+  @media (max-width: 520px) {
+    .palette { width: 92%; top: 36%; }
+    .body { min-height: 180px; }
+    .editor-shell { min-height: 360px; }
+  }
+</style>

@@ -1,0 +1,44 @@
+Lingua Marketing Commercial License - Personal and Evaluation Use
+
+Copyright (c) 2026 johnny4young
+
+This repository contains the source code and public content for the Lingua
+marketing website at https://linguacode.dev.
+
+The source is made available so people can inspect, audit, and suggest
+improvements to the public website. It is not an open-source license.
+
+You may:
+
+- Read, inspect, and copy the source for personal evaluation.
+- Build and run the website locally for non-commercial evaluation.
+- Modify the source for your own local, non-commercial evaluation.
+- Submit patches or pull requests to this repository.
+
+You may not, without prior written permission from the copyright holder:
+
+- Redistribute, publish, sell, sublicense, or host modified or unmodified
+  versions of this website.
+- Use this website source to provide a competing hosted service or marketing
+  site.
+- Remove copyright, license, or attribution notices.
+- Use Lingua names, marks, screenshots, press assets, or product copy in a way
+  that suggests endorsement or affiliation.
+
+Contributions
+
+By submitting a pull request, patch, issue comment, or other contribution, you
+grant the copyright holder a perpetual, worldwide, royalty-free license to use,
+copy, modify, publish, distribute, and sublicense that contribution as part of
+Lingua, this website, and related commercial products.
+
+No Warranty
+
+The software and content in this repository are provided "as is", without
+warranty of any kind, express or implied, including but not limited to the
+warranties of merchantability, fitness for a particular purpose, and
+noninfringement. In no event shall the authors or copyright holders be liable
+for any claim, damages, or other liability arising from use of this repository.
+
+Commercial licensing, product tiers, and paid use of Lingua are documented at
+https://linguacode.dev.

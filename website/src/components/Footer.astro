@@ -1,0 +1,162 @@
+---
+import { Icon } from 'astro-icon/components';
+import { FOOTER_NAV, SITE } from '~/lib/site';
+import { type Locale, isExternalPath, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale);
+const year = new Date().getFullYear();
+
+function hrefFor(href: string): string {
+  return isExternalPath(href) ? href : localizePath(locale, href);
+}
+---
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a href={localizePath(locale, '/')} class="brand" aria-label={copy.common.homeAria}>
+        <Icon name="lucide:terminal" class="brand-mark" />
+        <span class="brand-name">Lingua</span>
+      </a>
+      <p class="footer-tag">{copy.footer.tagline}</p>
+      <p class="footer-meta">{copy.footer.meta}</p>
+    </div>
+
+    <div class="footer-cols">
+      <div>
+        <h3>{copy.footer.product}</h3>
+        <ul>
+          {FOOTER_NAV.product.map((l) => <li><a href={hrefFor(l.href)}>{copy.footer.links[l.key]}</a></li>)}
+        </ul>
+      </div>
+      <div>
+        <h3>{copy.footer.resources}</h3>
+        <ul>
+          {FOOTER_NAV.resources.map((l) => (
+            <li>
+              <a href={hrefFor(l.href)} rel={'external' in l && l.external ? 'external noopener' : undefined}>
+                {copy.footer.links[l.key]}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <h3>{copy.footer.company}</h3>
+        <ul>
+          {FOOTER_NAV.legal.map((l) => <li><a href={hrefFor(l.href)}>{copy.footer.links[l.key]}</a></li>)}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="container footer-bottom">
+    <p>&copy; {year} {copy.footer.copyright}</p>
+    <a href={SITE.social.githubUrl} class="footer-icon" aria-label={copy.common.github} rel="external noopener">
+      <Icon name="lucide:github" />
+    </a>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: var(--space-section-lg);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-sunken);
+  }
+  .footer-inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    padding-block: var(--space-section);
+  }
+  .footer-brand {
+    max-width: 320px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+  }
+  .brand-mark {
+    width: 22px;
+    height: 22px;
+    color: var(--color-accent);
+  }
+  .brand-name {
+    font-size: 1.125rem;
+  }
+  .footer-tag {
+    color: var(--color-text);
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+  }
+  .footer-meta {
+    color: var(--color-text-muted);
+    margin: 0;
+    font-size: var(--text-small);
+  }
+  .footer-cols {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2rem;
+  }
+  .footer-cols h3 {
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+    margin: 0 0 1rem;
+  }
+  .footer-cols ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .footer-cols a {
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .footer-cols a:hover {
+    color: var(--color-accent);
+  }
+  .footer-bottom {
+    border-top: 1px solid var(--color-border);
+    padding-block: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--text-xs);
+    color: var(--color-text-subtle);
+  }
+  .footer-bottom p {
+    margin: 0;
+  }
+  .footer-icon {
+    color: var(--color-text-subtle);
+  }
+  .footer-icon:hover {
+    color: var(--color-accent);
+  }
+  .footer-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  @media (min-width: 768px) {
+    .footer-inner {
+      grid-template-columns: 1fr 2fr;
+    }
+  }
+</style>

@@ -1,0 +1,70 @@
+---
+import Legal from '~/layouts/Legal.astro';
+---
+
+<Legal
+  title="Seguridad"
+  description="Firma de código, notarización, checksums SHA256, ejecución en sandbox y cómo reportar una vulnerabilidad."
+  lastUpdated="2026-05-04"
+  locale="es"
+>
+  <p>
+    Lingua ejecuta código no confiable en tu máquina. Lo tomamos en serio. Aquí está lo que hace
+    el pipeline de release para asegurar que el binario instalado sea el que construimos, y lo que
+    hace el runtime para contener tus snippets.
+  </p>
+
+  <h2>Binarios firmados y notarizados</h2>
+  <ul>
+    <li><strong>macOS</strong> — firmado con certificado Apple Developer ID y notarizado con el servicio de Apple. Gatekeeper no debería advertirte.</li>
+    <li><strong>Windows</strong> — firmado con certificado Authenticode. La reputación de SmartScreen crece con cada release.</li>
+    <li><strong>Linux</strong> — paquetes <code>.deb</code> y <code>.rpm</code> con firma de maintainer.</li>
+  </ul>
+
+  <h2>Checksums SHA256</h2>
+  <p>
+    Cada release incluye un archivo <code>SHA256SUMS.txt</code> junto a los binarios. Verifica
+    antes de instalar:
+  </p>
+  <pre><code>shasum -a 256 -c SHA256SUMS.txt</code></pre>
+  <p>
+    El archivo de checksums se genera en el workflow de release después de construir cada binario.
+    El workflow corre en CI público con pasos auditables.
+  </p>
+
+  <h2>Auditoría de dependencias bloqueante</h2>
+  <p>
+    Cada ejecución del pipeline de release corre
+    <code>npm audit --omit=dev --audit-level=high</code> como gate bloqueante. Una vulnerabilidad
+    alta o crítica en una dependencia de runtime detiene la release.
+  </p>
+
+  <h2>Runtime Python vendored</h2>
+  <p>
+    Pyodide v0.26.4 viene dentro del binario desktop con hashes de integridad fijados en
+    <code>runtime-assets.lock.json</code>. La app desktop no carga Python desde CDN. La versión web
+    en <a href="https://app.linguacode.dev">app.linguacode.dev</a> cachea Pyodide con Service
+    Worker en la primera carga y lo sirve localmente después.
+  </p>
+
+  <h2>Ejecución en sandbox</h2>
+  <ul>
+    <li>JavaScript y TypeScript corren dentro de un Web Worker con timeouts y buffers de salida controlados por el padre; un loop infinito no bloquea el renderer.</li>
+    <li>Python corre en un worker dedicado de Pyodide con los mismos límites de timeout y salida.</li>
+    <li>Los subprocesses de Go y Rust heredan un entorno mínimo (<code>PATH</code>, <code>HOME</code>, <code>LANG</code>, <code>TMPDIR</code>); el entorno completo del host no se expone al snippet.</li>
+    <li>El IPC de filesystem usa un registro basado en capacidades: el renderer solo puede operar sobre rutas bajo un root de proyecto aprobado explícitamente por el proceso principal.</li>
+  </ul>
+
+  <h2>Content Security Policy estricta</h2>
+  <p>
+    El renderer desktop incluye una CSP que bloquea scripts remotos e imports de módulos no
+    aprobados. Todo lo que Lingua necesita en runtime viene empaquetado.
+  </p>
+
+  <h2>Reportar una vulnerabilidad</h2>
+  <p>
+    Escribe a <a href="mailto:security@linguacode.dev">security@linguacode.dev</a> con los
+    detalles. Intentamos confirmar recepción en 72 horas. Por favor danos 90 días antes de hacer
+    divulgación pública.
+  </p>
+</Legal>

@@ -1,0 +1,265 @@
+---
+import { Icon } from 'astro-icon/components';
+import {
+  type Release,
+  type ReleaseAsset,
+  groupAssetsByPlatform,
+  findChecksumsAsset,
+  formatBytes,
+  isSidecarAsset,
+} from '~/lib/releases';
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  release: Release;
+  /** Render the verify-snippet block under the grid (latest only). */
+  showVerify?: boolean;
+  locale: Locale;
+}
+
+const { release, showVerify = true, locale } = Astro.props;
+const copy = t(locale).releases.downloadMatrix;
+const grouped = groupAssetsByPlatform(release);
+const checksums = findChecksumsAsset(release);
+
+const PLATFORMS = [
+  { id: 'macos' as const,   label: 'macOS',   icon: 'apple' },
+  { id: 'windows' as const, label: 'Windows', icon: 'monitor' },
+  { id: 'linux' as const,   label: 'Linux',   icon: 'terminal' },
+];
+
+function archLabel(arch: string): string {
+  switch (arch) {
+    case 'arm64': return copy.arch.arm64;
+    case 'x64': return copy.arch.x64;
+    case 'universal': return copy.arch.universal;
+    default: return arch;
+  }
+}
+
+function downloadableAssets(assets: ReleaseAsset[]): ReleaseAsset[] {
+  return assets.filter((a) => !isSidecarAsset(a));
+}
+---
+
+<div class="download-matrix">
+  {
+    PLATFORMS.map((p) => {
+      const assets = downloadableAssets(grouped[p.id]);
+      return (
+        <article class={`platform-card${assets.length === 0 ? ' is-empty' : ''}`}>
+          <header>
+            <Icon name={`lucide:${p.icon}`} class="platform-icon" />
+            <h3>{p.label}</h3>
+          </header>
+          {
+            assets.length > 0 ? (
+              <ul>
+                {
+                  assets.map((a) => (
+                    <li>
+                      <a href={a.downloadUrl} class="asset-link" rel="external noopener">
+                        <span class="asset-meta">
+                          <span class="asset-arch">{archLabel(a.arch)}</span>
+                          <span class="asset-name">{a.name}</span>
+                        </span>
+                        <span class="asset-size">{formatBytes(a.sizeBytes)}</span>
+                      </a>
+                    </li>
+                  ))
+                }
+              </ul>
+            ) : (
+              <div class="coming-soon">
+                <Icon name="lucide:clock" class="coming-soon-icon" />
+                <span>{copy.comingSoon}</span>
+              </div>
+            )
+          }
+        </article>
+      );
+    })
+  }
+</div>
+
+{
+  checksums && (
+    <p class="checksums-link">
+      <Icon name="lucide:file-check" />
+      <a href={checksums.downloadUrl} rel="external noopener">{checksums.name}</a>
+      <span class="checksums-meta">{formatBytes(checksums.sizeBytes)}</span>
+    </p>
+  )
+}
+
+{
+  showVerify && checksums && (
+    <details class="verify-details">
+      <summary>{copy.verifySummary}</summary>
+      <p>{copy.downloadAlongside} <code>{checksums.name}</code> {copy.thenRun}</p>
+      <pre><code>shasum -a 256 -c {checksums.name}</code></pre>
+      <p class="verify-note">{copy.verifyNote}</p>
+    </details>
+  )
+}
+
+<style>
+  .download-matrix {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin-block: 2rem 1rem;
+  }
+  .platform-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-elevated);
+    overflow: hidden;
+  }
+  .platform-card.is-empty {
+    background: var(--color-bg-sunken);
+    border-style: dashed;
+  }
+  .platform-card header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-sunken);
+  }
+  .platform-card.is-empty header {
+    border-bottom-color: transparent;
+    background: transparent;
+  }
+  .platform-card h3 {
+    font-size: 1rem;
+    margin: 0;
+    font-weight: 600;
+  }
+  .platform-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--color-accent);
+  }
+  .platform-card.is-empty .platform-icon {
+    color: var(--color-text-subtle);
+  }
+  .platform-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .asset-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1.25rem;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text);
+    transition: background var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  .platform-card ul li:first-child .asset-link {
+    border-top: 0;
+  }
+  .asset-link:hover {
+    background: var(--color-bg-sunken);
+    color: var(--color-accent);
+  }
+  .asset-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  .asset-arch {
+    font-weight: 600;
+    font-size: var(--text-small);
+  }
+  .asset-name {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-subtle);
+  }
+  .asset-size {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-subtle);
+    white-space: nowrap;
+  }
+  .coming-soon {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+    font-family: var(--font-mono);
+  }
+  .coming-soon-icon {
+    width: 14px;
+    height: 14px;
+  }
+  .checksums-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    margin: 0.5rem 0 1.5rem;
+  }
+  .checksums-link svg {
+    width: 14px;
+    height: 14px;
+    color: var(--color-accent);
+  }
+  .checksums-link a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-family: var(--font-mono);
+  }
+  .checksums-meta {
+    color: var(--color-text-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+  .verify-details {
+    margin-top: 1rem;
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius);
+    background: var(--color-bg-elevated);
+  }
+  .verify-details summary {
+    cursor: pointer;
+    padding: 0.875rem 1.25rem;
+    font-weight: 600;
+    color: var(--color-text);
+    list-style: none;
+  }
+  .verify-details summary::-webkit-details-marker { display: none; }
+  .verify-details > p, .verify-details > pre {
+    margin: 0;
+    padding: 0 1.25rem 1rem;
+  }
+  .verify-details pre {
+    background: var(--color-bg-sunken);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-size: var(--text-small);
+    color: var(--color-accent);
+  }
+  .verify-note {
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    padding-bottom: 1.25rem !important;
+  }
+  @media (min-width: 768px) {
+    .download-matrix {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+</style>

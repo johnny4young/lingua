@@ -1,0 +1,172 @@
+---
+import Base from '~/layouts/Base.astro';
+import DownloadMatrix from '~/components/DownloadMatrix.astro';
+import { fetchLatestRelease, fetchOlderReleaseSummaries } from '~/lib/releases';
+import { findEntryForVersion, excerpt } from '~/lib/changelog';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? 'en';
+const copy = t(locale).releases;
+const latest = await fetchLatestRelease();
+if (!latest) {
+  throw new Error(copy.zeroReleasesError);
+}
+const older = await fetchOlderReleaseSummaries(5, { excludeVersion: latest.version });
+
+const latestEntry = await findEntryForVersion(latest.version);
+const latestNotes = latestEntry ? excerpt(latestEntry, 4) : [];
+
+const publishedDate = new Date(latest.publishedAt).toLocaleDateString(copy.dates.locale, copy.dates.long);
+---
+
+<Base
+  title={copy.title}
+  description={copy.description(latest.version, publishedDate)}
+  locale={locale}
+>
+  <article class="container section">
+    <header class="releases-head">
+      <p class="eyebrow">{copy.eyebrow}</p>
+      <h1>Lingua v{latest.version}</h1>
+      <p class="release-meta">{copy.stablePublished} {publishedDate}</p>
+    </header>
+
+    <DownloadMatrix release={latest} showVerify={true} locale={locale} />
+
+    {
+      latestNotes.length > 0 && (
+        <section class="notes">
+          <h2>{copy.whatsNew(latest.version)}</h2>
+          <ul>
+            {latestNotes.map((n) => <li set:html={n} />)}
+          </ul>
+          <p>
+            <a href={localizePath(locale, `/changelog#v${latest.version}`)} class="more-link">{copy.fullChangelog}</a>
+          </p>
+        </section>
+      )
+    }
+
+    {
+      older.length > 0 && (
+        <details class="older">
+          <summary>{copy.older(older.length)}</summary>
+          <ul class="older-list">
+            {
+              older.map((entry) => (
+                <li>
+                  <header>
+                    <h3>v{entry.version}</h3>
+                    <span>{new Date(`${entry.date}T00:00:00Z`).toLocaleDateString(copy.dates.locale, copy.dates.short)}</span>
+                  </header>
+                  {
+                    entry.notesExcerpt.length > 0 && (
+                      <ul class="older-notes">
+                        {entry.notesExcerpt.map((n) => <li set:html={n} />)}
+                      </ul>
+                    )
+                  }
+                  <p>
+                    <a href={localizePath(locale, entry.changelogAnchor)} class="more-link">{copy.viewInChangelog(entry.version)}</a>
+                  </p>
+                </li>
+              ))
+            }
+          </ul>
+        </details>
+      )
+    }
+  </article>
+</Base>
+
+<style>
+  .releases-head {
+    margin-bottom: 1rem;
+  }
+  .releases-head h1 {
+    font-size: var(--text-display);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 800;
+    margin: 1rem 0 0.5rem;
+    line-height: 1.05;
+  }
+  .release-meta {
+    color: var(--color-text-muted);
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+  }
+  .notes {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .notes h2 {
+    font-size: var(--text-h3);
+    margin: 0 0 1rem;
+    font-weight: 700;
+  }
+  .notes ul {
+    color: var(--color-text);
+    line-height: 1.7;
+    padding-left: 1.25rem;
+  }
+  .more-link {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .older {
+    margin-top: 3rem;
+    border-top: 1px solid var(--color-border);
+    padding-top: 2rem;
+  }
+  .older summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1.125rem;
+    list-style: none;
+    color: var(--color-text);
+  }
+  .older summary::-webkit-details-marker { display: none; }
+  .older-list {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+  .older-list > li {
+    padding: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg-elevated);
+  }
+  .older-list header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.75rem;
+  }
+  .older-list header h3 {
+    font-size: 1.125rem;
+    margin: 0;
+    font-family: var(--font-mono);
+  }
+  .older-list header span {
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+    font-family: var(--font-mono);
+  }
+  .older-notes {
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    padding-left: 1.25rem;
+    line-height: 1.6;
+  }
+</style>

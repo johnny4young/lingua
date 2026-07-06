@@ -14,6 +14,9 @@ export default tseslint.config(
       '.claude/',
       'node_modules/',
       '*.config.*',
+      // The marketing site is a standalone Astro package with its own
+      // toolchain (npm, its own tsconfig/eslint); the root lint never owns it.
+      'website/',
     ],
   },
   js.configs.recommended,

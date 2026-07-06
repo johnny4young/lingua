@@ -1,0 +1,213 @@
+---
+import { highlight, HERO_LANGS } from '~/lib/shiki';
+import { HERO_SNIPPETS } from '~/lib/heroSnippets';
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale);
+
+const panels = await Promise.all(
+  HERO_LANGS.map(async (lang) => ({
+    lang,
+    label: HERO_SNIPPETS[lang].label,
+    html: await highlight(HERO_SNIPPETS[lang].code, lang),
+  })),
+);
+---
+
+<div class="hero-runner" data-hero-runner>
+  <div class="hero-chrome">
+    <div class="window-dots" aria-hidden="true">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="tab-strip" role="tablist" aria-label={copy.home.languageMatrix.columns.language}>
+      {
+        panels.map((p, i) => (
+          <button
+            type="button"
+            role="tab"
+            class:list={['hero-tab', i === 0 && 'is-active']}
+            aria-selected={i === 0 ? 'true' : 'false'}
+            aria-controls={`hero-panel-${p.lang}`}
+            id={`hero-tab-${p.lang}`}
+            data-lang={p.lang}
+          >
+            {p.label}
+          </button>
+        ))
+      }
+    </div>
+    <span class="run-hint" aria-hidden="true">{copy.home.heroCode.context}</span>
+  </div>
+
+  <div class="hero-body">
+    {
+      panels.map((p, i) => (
+        <div
+          class:list={['hero-panel', i === 0 && 'is-active']}
+          role="tabpanel"
+          id={`hero-panel-${p.lang}`}
+          aria-labelledby={`hero-tab-${p.lang}`}
+          data-lang={p.lang}
+          hidden={i !== 0}
+          set:html={p.html}
+        />
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .hero-runner {
+    position: relative;
+    isolation: isolate;
+    min-width: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-sunken);
+    overflow: hidden;
+    box-shadow:
+      0 32px 70px -32px color-mix(in srgb, black 70%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--color-text) 7%, transparent);
+  }
+  .hero-runner::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: var(--color-accent);
+    z-index: 2;
+  }
+  .hero-chrome {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem 0.625rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    background:
+      linear-gradient(to bottom, color-mix(in srgb, var(--color-bg-elevated) 96%, var(--color-text)), var(--color-bg-elevated));
+  }
+  .window-dots {
+    display: inline-flex;
+    gap: 0.375rem;
+    margin-right: 0.25rem;
+  }
+  .window-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--color-border-strong);
+  }
+  .tab-strip {
+    display: flex;
+    gap: 0.125rem;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-strip::-webkit-scrollbar { display: none; }
+  .hero-tab {
+    padding: 0.45rem 0.875rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    color: var(--color-text-subtle);
+    transition: color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+    white-space: nowrap;
+  }
+  .hero-tab:hover {
+    color: var(--color-text);
+  }
+  .hero-tab.is-active {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-accent-muted) 44%, transparent);
+  }
+  .run-hint {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-subtle);
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+  .hero-body {
+    position: relative;
+    min-height: 214px;
+    padding: 1.5rem 1.5rem 1.5rem 1.75rem;
+    background:
+      linear-gradient(to right, color-mix(in srgb, var(--color-border) 35%, transparent) 1px, transparent 1px),
+      var(--color-bg-sunken);
+    background-size: 64px 100%;
+  }
+  .hero-panel {
+    opacity: 0;
+    transition: opacity var(--duration) var(--ease-out);
+    position: relative;
+  }
+  .hero-panel.is-active {
+    opacity: 1;
+  }
+  .hero-panel:not(:first-child) {
+    position: absolute;
+    inset: 1.5rem;
+  }
+  .hero-panel :global(pre.hero-code) {
+    background: transparent !important;
+    padding: 0;
+    margin: 0;
+    max-width: 100%;
+    font-size: var(--text-small);
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .hero-panel :global(pre.hero-code code) {
+    font-family: var(--font-mono);
+  }
+  .hero-panel :global(.line) {
+    display: inline-block;
+    min-height: 1.7em;
+    animation: line-in 420ms var(--ease-out) both;
+  }
+  .hero-panel :global(.line:nth-child(2)) {
+    animation-delay: 80ms;
+  }
+  .hero-panel :global(.line:nth-child(3)) {
+    animation-delay: 160ms;
+  }
+  @keyframes line-in {
+    from {
+      opacity: 0;
+      transform: translateX(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @media (min-width: 768px) {
+    .hero-body {
+      padding: 2rem 2rem 2rem 2.25rem;
+      min-height: 238px;
+    }
+  }
+  @media (max-width: 520px) {
+    .hero-chrome {
+      padding-inline: 0.75rem;
+    }
+    .run-hint {
+      display: none;
+    }
+    .hero-body {
+      min-height: 204px;
+      padding: 1.25rem;
+    }
+    .hero-panel :global(pre.hero-code) {
+      font-size: 0.78rem;
+    }
+  }
+</style>
