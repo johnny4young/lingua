@@ -49,7 +49,7 @@ Most users haven't received the auto-update yet. Pull the bad release before the
    ```bash
    wrangler tail --format=pretty | grep '"route":"update.feed"'
    ```
-5. Communicate to users via the marketing site banner (`lingua-marketing` repo, separate deploy):
+5. Communicate to users via the marketing site banner (edit `website/`, deploys via `deploy-website.yml`):
    - "We rolled back release vX.Y.Z. Please skip this update."
 
 ### Path B — late rollback (>30 min after publish, many users updated)

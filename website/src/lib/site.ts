@@ -10,7 +10,6 @@ export const SITE = {
   tagline: 'Multi-language code runner for your desktop.',
   description:
     'Lingua runs JavaScript, TypeScript, Python, Go, and Rust in one offline-first desktop app. Monaco editor, Vim mode, 29 built-in dev utilities. Source-available.',
-  marketingRepo: 'lingua-marketing',
   contactEmail: 'hello@linguacode.dev',
   securityEmail: 'security@linguacode.dev',
   press: {

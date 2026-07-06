@@ -39,7 +39,7 @@ npm audit --audit-level=moderate
 ## Build and deploy
 
 Pushes to `main` deploy automatically to Cloudflare Pages. PRs get preview
-deploys at `<sha>.lingua-marketing.pages.dev`. The CF Pages project is
+deploys at `<sha>.lingua-website.pages.dev`. The CF Pages project is
 configured with:
 
 - Build command: `npm run build`

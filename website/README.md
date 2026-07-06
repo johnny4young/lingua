@@ -1,12 +1,13 @@
-# lingua-marketing
+# Lingua marketing site (`website/`)
 
-[![CI](https://github.com/johnny4young/lingua-marketing/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnny4young/lingua-marketing/actions/workflows/ci.yml)
 [![License: source-available](https://img.shields.io/badge/license-source--available-informational)](LICENSE)
 [![Deployed on Cloudflare Pages](https://img.shields.io/badge/deploy-Cloudflare%20Pages-f38020)](https://linguacode.dev)
 
-The marketing site for Lingua at [linguacode.dev](https://linguacode.dev). Built with Astro 6 + Tailwind v4, deployed to Cloudflare Pages.
+The marketing site for Lingua at [linguacode.dev](https://linguacode.dev). Built with Astro + Tailwind v4, deployed to Cloudflare Pages.
 
-The desktop/web app lives at [app.linguacode.dev](https://app.linguacode.dev) and is **not** part of this repo.
+This is a **standalone package inside the main [`lingua`](../) repo** — it has its own `package.json` / `package-lock.json` and is installed on its own (npm, not the repo's pnpm). Content (changelog, roadmap, press-kit, SEO pages) is vendored locally from the repo root by `scripts/sync-from-main.mjs` — no cross-repo sync. Deploys run from the root workflow [`.github/workflows/deploy-website.yml`](../.github/workflows/deploy-website.yml).
+
+The desktop/web app lives at [app.linguacode.dev](https://app.linguacode.dev) and is built from the repo root, not from here.
 
 ## Audience and constraints
 

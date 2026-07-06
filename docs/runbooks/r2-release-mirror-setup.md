@@ -126,8 +126,8 @@ Before tagging a real release:
 
 ### 1.6 Update the marketing site CTAs
 
-The marketing site lives in a separate repo (`lingua-marketing`,
-Astro + Cloudflare Pages). The
+The marketing site lives in this repo under `website/` (Astro +
+Cloudflare Pages). The
 Download CTAs there must point to the R2 mirror, not GitHub:
 
 - macOS: `https://downloads.linguacode.dev/latest/lingua-darwin-arm64.dmg`
@@ -218,28 +218,18 @@ client also retries transient 5xx / network errors
 a second line of defense, but **edge caching is the durable fix** — do not
 rely on client retries alone.
 
-### 1.9 Wire the marketing-site sync trigger (optional)
+### 1.9 Marketing-site refresh on release
 
-The `lingua-marketing` repo runs `sync-content.yml` daily at 12:00 UTC
-to pull the latest `CHANGELOG.md` into its committed `changelog.json`.
-That cron is enough on its own — but it can be up to 24h stale right
-after a release. The release workflow's `notify-marketing` job will
-dispatch the same workflow immediately after `mirror-r2` succeeds, so
-the marketing site reflects the new release within minutes of a
-publish instead of by noon UTC the next day.
+The marketing site lives in this repo under `website/` and deploys via
+`deploy-website.yml`, which triggers on a published release (as well as on
+`website/` and content-source changes). A release therefore refreshes the
+site's changelog + version automatically — no cross-repo sync, no PAT, no
+extra secret.
 
-To enable it, set one more secret on **this** repo:
-
-```bash
-# Fine-grained PAT scoped to johnny4young/lingua-marketing with:
-#   Permissions → Actions: Read and write
-#   Permissions → Metadata: Read
-# (Do not grant `Contents` — the dispatch endpoint only needs Actions.)
-gh secret set MARKETING_SYNC_TOKEN --body '<the-pat>'
-```
-
-Without this secret, `notify-marketing` logs a warning and exits 0 —
-releases still publish; the daily cron is the backstop.
+Historically this used a `MARKETING_SYNC_TOKEN` PAT to dispatch a
+`sync-content.yml` workflow in a separate `lingua-marketing` repo; that whole
+cross-repo path is retired (the site moved into `website/`, vendoring content
+locally from the repo root).
 
 ---
 
