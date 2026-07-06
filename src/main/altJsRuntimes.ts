@@ -22,15 +22,18 @@
  * documented here so the trust posture is explicit.
  *
  * Wiring status: this module ships the tested execution backend and its
- * IPC handlers. Exposing Deno / Bun as selectable per-tab runtime modes
- * (the `RuntimeMode` enum, the toolbar selector, telemetry parity) is a
- * follow-up slice — that surface has a wide blast radius across guarded
- * enums and is left to land with a desktop smoke that has the real
- * binaries installed.
+ * IPC handlers, and the renderer exposes Deno / Bun through the same
+ * runtime-mode surface as Worker / Node / Browser Preview. Each renderer
+ * runner still self-gates on bridge availability and binary detection so
+ * web builds and hosts without the toolchain degrade with actionable errors.
  */
 
 import { typedHandle } from './ipc/typedHandle';
-import { execFile, spawn } from 'node:child_process';
+import {
+  execFile,
+  spawn,
+  type ChildProcessWithoutNullStreams,
+} from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -184,12 +187,29 @@ async function spawnAltRuntime(
     let stoppedByUser = false;
     let escalationTimer: NodeJS.Timeout | null = null;
 
-    const child = spawn(config.binary, config.runArgs(entryFile, tempDir), {
-      cwd: tempDir,
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      ...detachedSpawnOptions(),
-    });
+    let child: ChildProcessWithoutNullStreams;
+    try {
+      child = spawn(config.binary, config.runArgs(entryFile, tempDir), {
+        cwd: tempDir,
+        env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...detachedSpawnOptions(),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      void rm(tempDir, { recursive: true, force: true }).finally(() => {
+        resolve({
+          kind: 'error',
+          stdout,
+          stderr: message,
+          exitCode: -1,
+          executionTime: Date.now() - start,
+          error: message,
+          timeoutMs,
+        });
+      });
+      return;
+    }
 
     const terminate = (next: 'timeout' | 'stopped') => {
       if (resolved) return;

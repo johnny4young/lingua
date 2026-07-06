@@ -10,6 +10,9 @@
  *     main process.
  *   - `browser-preview` — iframe-isolated context with DOM. Slice 3
  *     ships the preview pane.
+ *   - `deno` / `bun` — desktop child-process alternatives for JS/TS.
+ *     They execute TypeScript directly when the matching binary is on
+ *     PATH and otherwise surface a detector-gated unavailable state.
  *
  * `defaultRuntimeModeFor(language)` returns `'worker'` for JS/TS and
  * `null` for every other language. Non-JS/TS tabs intentionally
@@ -19,7 +22,7 @@
  *
  * `isRuntimeModeImplemented(mode)` gates writes from the UI / the
  * keyboard cycle helper / the command palette. All three RL-019
- * modes are implemented as of 2026-05-14.
+ * RL-019 modes plus the F-4 Deno / Bun extension are implemented.
  */
 
 import { isJavaScriptFamily } from './languageFamilies';

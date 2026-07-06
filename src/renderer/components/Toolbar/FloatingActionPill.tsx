@@ -13,8 +13,9 @@
  *   2. Lang chip     — language pill + label + chevron. Click to
  *                      switch active tab's language (creates a new
  *                      tab in that language to preserve current code).
- *   3. Runtime chip  — Worker / Node / Browser preview. Only rendered
- *                      when the language has runtime modes (JS/TS).
+ *   3. Runtime chip  — Worker / Node / Browser preview / Deno / Bun.
+ *                      Only rendered when the language has runtime modes
+ *                      (JS/TS).
  *   4. Run button    — split: left fires run/debug/scratchpad; chevron
  *                      opens the workflow dropdown. Pulses with
  *                      `run-pulse` while `isRunning === true`.
@@ -177,8 +178,9 @@ export function FloatingActionPill({
             button were merged into a single mode-aware action button at
             the end of the pill (see "Mode-aware action button" below). */}
 
-        {/* 2. Runtime chip — "what engine": Worker / Node / Browser preview.
-                Only visible for languages that have runtime modes (JS/TS). */}
+        {/* 2. Runtime chip — "what engine": Worker / Node / Browser preview /
+                Deno / Bun. Only visible for languages that have runtime modes
+                (JS/TS). */}
         {supportsRuntimeModes ? (
           <FloatingActionPillRuntimeSegment
             openMenu={openMenu}

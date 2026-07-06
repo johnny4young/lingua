@@ -62,6 +62,8 @@
   "actionPill.mode.worker": "Isolated Web Worker — the fast default.",
   "actionPill.mode.node": "Runs against the desktop Node runtime.",
   "actionPill.mode.browser": "Sandboxed iframe preview with DOM.",
+  "actionPill.mode.deno": "Runs JS/TS through desktop Deno when available.",
+  "actionPill.mode.bun": "Runs JS/TS through desktop Bun when available.",
   "actionPill.workflow.scratchpad": "Auto-log variables and inline results on every change.",
   "actionPill.workflow.run": "Run the file once and surface the output.",
   "actionPill.workflow.debug": "Step-through debugger with breakpoints in the editor.",

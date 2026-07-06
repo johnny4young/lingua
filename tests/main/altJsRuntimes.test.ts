@@ -131,6 +131,21 @@ describe('F-4: Deno & Bun runtimes', () => {
     await expect(promise).resolves.toMatchObject({ kind: 'error', exitCode: 1 });
   });
 
+  it('maps synchronous spawn throws to an error result instead of rejecting IPC', async () => {
+    mocks.execFileAsync.mockResolvedValue({ stdout: 'deno 2\n', stderr: '' });
+    mocks.spawn.mockImplementation(() => {
+      throw new TypeError('bad spawn options');
+    });
+    const { registerAltJsRuntimeHandlers } = await import('../../src/main/altJsRuntimes');
+    registerAltJsRuntimeHandlers();
+    const run = handlerFor<RunHandler>('deno:run');
+    await expect(run({}, 'console.log(1)', { timeoutMs: 5_000 })).resolves.toMatchObject({
+      kind: 'error',
+      stderr: 'bad spawn options',
+      error: 'bad spawn options',
+    });
+  });
+
   it('stop terminates an active run by runId', async () => {
     mocks.execFileAsync.mockResolvedValue({ stdout: 'deno 2\n', stderr: '' });
     const child = createChild();

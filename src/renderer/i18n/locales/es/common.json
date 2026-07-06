@@ -62,6 +62,8 @@
   "actionPill.mode.worker": "Worker web aislado, el modo r\u00e1pido por defecto.",
   "actionPill.mode.node": "Ejecuta con el entorno Node de escritorio.",
   "actionPill.mode.browser": "Vista previa aislada en iframe con DOM.",
+  "actionPill.mode.deno": "Ejecuta JS/TS con Deno de escritorio cuando est\u00e9 disponible.",
+  "actionPill.mode.bun": "Ejecuta JS/TS con Bun de escritorio cuando est\u00e9 disponible.",
   "actionPill.workflow.scratchpad": "Auto-log de variables y resultados inline en cada cambio.",
   "actionPill.workflow.run": "Ejecuta el archivo una vez y muestra el output.",
   "actionPill.workflow.debug": "Depurador paso a paso con breakpoints en el editor.",

@@ -15,10 +15,12 @@ import { cn } from '../../utils/cn';
 /**
  * RL-019 Slice 1 — explicit per-tab JS/TS runtime mode selector.
  *
- * Renders only when the active tab is a JS/TS buffer. Three options:
+ * Renders only when the active tab is a JS/TS buffer. Five options:
  *   - Worker — Slice 1, enabled.
  *   - Node — Slice 2, enabled in desktop.
  *   - Browser preview — Slice 3, enabled.
+ *   - Deno — F-4, enabled in desktop when the binary is on PATH.
+ *   - Bun — F-4, enabled in desktop when the binary is on PATH.
  *
  * Behaviour:
  *   - Click an enabled option → calls `setTabRuntimeMode` which
