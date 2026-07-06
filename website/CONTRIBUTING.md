@@ -41,7 +41,8 @@ npm audit --audit-level=moderate
 Deploys run from the repo-root workflow `.github/workflows/deploy-website.yml` —
 on a push to `main` touching `website/` (or the content sources it vendors), on
 a published release, and on manual dispatch. It builds here and uploads to the
-Cloudflare Pages project that serves linguacode.dev, configured with:
+Cloudflare Pages project `lingua-web` (which serves linguacode.dev), configured
+with:
 
 - Build command: `npm run build`
 - Build output: `dist`
