@@ -1,3 +1,7 @@
-name = "lingua-website"
+# Cloudflare Pages project that owns linguacode.dev + www.linguacode.dev.
+# Named `lingua-marketing` for historical reasons (predates the site moving
+# into website/); it is just the Cloudflare project id, unrelated to the
+# retired lingua-marketing repo.
+name = "lingua-marketing"
 compatibility_date = "2024-09-01"
 pages_build_output_dir = "dist"

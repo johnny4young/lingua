@@ -11,8 +11,8 @@
 
 Both web surfaces build and deploy **from this repo** to Cloudflare Pages (two separate deploys, two Pages projects):
 
-- **Web app** → [app.linguacode.dev](https://app.linguacode.dev): the Vite `dist/web` build, deployed by [`.github/workflows/deploy-web.yml`](./.github/workflows/deploy-web.yml) (Pages project `lingua-web`).
-- **Marketing site** → [linguacode.dev](https://linguacode.dev): a standalone Astro package under [`website/`](./website), deployed by [`.github/workflows/deploy-website.yml`](./.github/workflows/deploy-website.yml) (Pages project `lingua-website`).
+- **Web app** → [app.linguacode.dev](https://app.linguacode.dev): the Vite `dist/web` build, deployed by [`.github/workflows/deploy-web.yml`](./.github/workflows/deploy-web.yml).
+- **Marketing site** → [linguacode.dev](https://linguacode.dev): a standalone Astro package under [`website/`](./website), deployed by [`.github/workflows/deploy-website.yml`](./.github/workflows/deploy-website.yml).
 
 ## Pricing and licensing
 
