@@ -1,18 +1,19 @@
 /**
- * Build-time release fetcher backed by the public R2 mirror at
- * `downloads.linguacode.dev`. Throws on persistent failure so the build fails
- * loudly rather than shipping a stale or empty downloads page.
+ * Build-time release fetcher backed by the public GitHub Releases API for
+ * `johnny4young/lingua`. Throws on persistent failure so the build fails loudly
+ * rather than shipping a stale or empty downloads page.
  *
- * The marketing site is the only consumer; the lingua source repo is private,
- * so direct `github.com/.../releases/download/...` links cannot work. R2 is the
- * public download surface, with the root `manifest.json` as the single source
- * of truth for the latest release. Older releases come from the committed
- * `changelog.json` (no download buttons — there are no public binaries for
- * pre-mirror versions).
+ * The lingua repo is public, so the latest release + its assets come straight
+ * from `api.github.com/.../releases/latest`, and download links point at
+ * `github.com/.../releases/download/...`. (Historically this read an R2 mirror
+ * because the repo was private; the R2 bucket now only hosts the oversized web
+ * WASM runtime, not release binaries.) Asset sizes come from the API response —
+ * no HEAD probes needed. Older releases still come from the committed
+ * `changelog.json` (history without download buttons).
  *
- * Asset filenames are parsed for platform/arch — same logic as the old
- * GitHub-Releases path so future build-system changes don't silently break the
- * download grid. Sizes are pulled via HEAD requests against R2 at build time.
+ * Asset filenames are parsed for platform/arch so a build-system change can't
+ * silently break the download grid; electron-updater metadata
+ * (`*.blockmap`, `latest-*.yml`) is filtered out.
  */
 
 import { loadChangelog } from './changelog';
@@ -73,14 +74,8 @@ function isOfflineMode(): boolean {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Filename inference (kept from the previous GitHub-Releases path)
+// Filename inference for platform / arch / format
 // ────────────────────────────────────────────────────────────────────────────
-
-function basename(url: string): string {
-  const path = url.split('?')[0].split('#')[0];
-  const parts = path.split('/').filter(Boolean);
-  return parts[parts.length - 1] ?? url;
-}
 
 function inferPlatformAndArch(name: string): { platform: Platform; arch: Arch; format: Format } {
   const lower = name.toLowerCase();
@@ -129,29 +124,24 @@ function inferPlatformAndArch(name: string): { platform: Platform; arch: Arch; f
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// R2 manifest parsing
+// GitHub Releases API
 // ────────────────────────────────────────────────────────────────────────────
 
-interface R2Manifest {
-  latest: string;
-  channel?: string;
-  publishedAt?: string;
-  publicBase?: string;
-  assets: unknown;
+const GITHUB_REPO = 'johnny4young/lingua';
+
+interface GithubRelease {
+  tag_name: string;
+  published_at: string | null;
+  html_url: string;
+  draft: boolean;
+  prerelease: boolean;
+  assets: { name: string; browser_download_url: string; size: number }[];
 }
 
-function collectAssetUrls(node: unknown, out: string[]): void {
-  if (typeof node === 'string') {
-    if (/^https?:\/\//.test(node)) out.push(node);
-    return;
-  }
-  if (Array.isArray(node)) {
-    for (const item of node) collectAssetUrls(item, out);
-    return;
-  }
-  if (node && typeof node === 'object') {
-    for (const value of Object.values(node)) collectAssetUrls(value, out);
-  }
+/** electron-updater / build metadata that should not surface as a user download. */
+function isMetadataAsset(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.blockmap') || lower.endsWith('.yml') || lower.endsWith('.yaml');
 }
 
 async function fetchWithRetry(url: string, init?: RequestInit): Promise<Response> {
@@ -169,32 +159,6 @@ async function fetchWithRetry(url: string, init?: RequestInit): Promise<Response
     }
   }
   throw new Error(`fetch failed after ${RETRY_DELAYS_MS.length + 1} attempts: ${url} — ${(lastErr as Error)?.message ?? lastErr}`);
-}
-
-async function headSize(url: string): Promise<number | null> {
-  try {
-    // Node `fetch` advertises gzip by default; R2 then omits `content-length`
-    // on HEAD for compressible content (text, JSON). Force identity so the
-    // header is always the real byte count.
-    const res = await fetchWithRetry(url, {
-      method: 'HEAD',
-      headers: { 'Accept-Encoding': 'identity' },
-    });
-    const len = res.headers.get('content-length');
-    return len ? Number.parseInt(len, 10) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function buildAssetsFromUrls(urls: string[]): Promise<ReleaseAsset[]> {
-  const seen = new Set<string>();
-  const unique = urls.filter((u) => (seen.has(u) ? false : (seen.add(u), true)));
-  const sizes = await Promise.all(unique.map((u) => headSize(u)));
-  return unique.map((url, i) => {
-    const name = basename(url);
-    return { name, downloadUrl: url, sizeBytes: sizes[i], ...inferPlatformAndArch(name) };
-  });
 }
 
 function normalizeVersion(tag: string): string {
@@ -236,37 +200,45 @@ async function offlineLatest(): Promise<Release | null> {
 export async function fetchLatestRelease(): Promise<Release | null> {
   if (isOfflineMode()) return offlineLatest();
 
-  const manifestUrl = `${downloadsBase()}/manifest.json`;
-  let manifest: R2Manifest;
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  // A token (CI passes GITHUB_TOKEN) lifts the 60-req/hour unauthenticated
+  // limit; unauthenticated still works fine for an occasional build.
+  const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let gh: GithubRelease;
   try {
-    const res = await fetchWithRetry(manifestUrl, {
-      headers: { Accept: 'application/json' },
-    });
-    manifest = (await res.json()) as R2Manifest;
+    const res = await fetchWithRetry(apiUrl, { headers });
+    gh = (await res.json()) as GithubRelease;
   } catch (err) {
-    throw new Error(`Could not load R2 release manifest from ${manifestUrl}: ${(err as Error).message}`);
+    throw new Error(`Could not load the latest GitHub release from ${apiUrl}: ${(err as Error).message}`);
   }
 
-  if (!manifest.latest) {
-    throw new Error(`R2 manifest at ${manifestUrl} has no "latest" field`);
+  if (!gh.tag_name) {
+    throw new Error(`GitHub release response from ${apiUrl} has no tag_name`);
   }
 
-  const urls: string[] = [];
-  collectAssetUrls(manifest.assets, urls);
-  if (urls.length === 0) {
-    throw new Error(`R2 manifest at ${manifestUrl} has no asset URLs`);
-  }
-
-  const assets = await buildAssetsFromUrls(urls);
-  const version = normalizeVersion(manifest.latest);
+  const version = normalizeVersion(gh.tag_name);
+  const assets: ReleaseAsset[] = (gh.assets ?? [])
+    .filter((a) => !isMetadataAsset(a.name))
+    .map((a) => ({
+      name: a.name,
+      downloadUrl: a.browser_download_url,
+      sizeBytes: typeof a.size === 'number' ? a.size : null,
+      ...inferPlatformAndArch(a.name),
+    }));
 
   return {
-    tag: manifest.latest.startsWith('v') ? manifest.latest : `v${version}`,
+    tag: gh.tag_name,
     version,
-    publishedAt: manifest.publishedAt ?? new Date().toISOString(),
+    publishedAt: gh.published_at ?? new Date().toISOString(),
     htmlUrl: changelogAnchor(version),
     assets,
-    channel: manifest.channel ?? 'stable',
+    channel: 'stable',
   };
 }
 
