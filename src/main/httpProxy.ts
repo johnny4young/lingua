@@ -62,6 +62,20 @@ import {
 /** Max redirect hops the proxy follows before giving up. */
 export const MAX_REDIRECTS = 10;
 
+/**
+ * Credential-bearing request headers browsers drop when a redirect crosses
+ * origins (Fetch §"HTTP-redirect fetch"). The renderer client this engine
+ * replaces gets this for free from the browser; the main-process proxy must
+ * mirror it so a public→public redirect cannot forward the user's
+ * `Authorization` / `Cookie` to an unintended host. Lower-cased for
+ * `Headers.delete` (case-insensitive, but keep the list canonical).
+ */
+const CROSS_ORIGIN_STRIP_HEADERS = [
+  'authorization',
+  'cookie',
+  'proxy-authorization',
+] as const;
+
 /** Node's `dns.lookup` result shape (subset we consume). */
 interface LookupAddress {
   address: string;
@@ -472,7 +486,15 @@ export async function executeHttpProxyRequest(
         );
       }
       // Resolve relative Location against the current URL.
-      currentUrl = new URL(location, currentUrl).toString();
+      const nextUrl = new URL(location, currentUrl);
+      // Strip credential headers once the chain leaves the current origin, so
+      // a redirect to a different (even public) host cannot exfiltrate the
+      // user's Authorization / Cookie. Deleted in place, so once dropped they
+      // stay dropped for every subsequent hop.
+      if (nextUrl.origin !== new URL(currentUrl).origin) {
+        for (const name of CROSS_ORIGIN_STRIP_HEADERS) requestHeaders.delete(name);
+      }
+      currentUrl = nextUrl.toString();
       // Drain the redirect body so the socket can be reused.
       try {
         await response.body?.cancel();

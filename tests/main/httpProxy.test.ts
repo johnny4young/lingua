@@ -309,6 +309,50 @@ describe('executeHttpProxyRequest — redirects', () => {
     expect(res.errorMessage).toMatch(/private address 10\.0\.0\.5/);
   });
 
+  it('strips credential headers on a cross-origin redirect', async () => {
+    const authByCall: (string | null)[] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      authByCall.push(headers.get('authorization'));
+      if (url === 'https://api.example.com/users') {
+        return new Response('', {
+          status: 302,
+          headers: new Headers({ location: 'https://other.example.com/landing' }),
+        });
+      }
+      return new Response('{"final":true}', { status: 200 });
+    }) as typeof fetch;
+    const res = await executeHttpProxyRequest(
+      makeRequest({ auth: { kind: 'bearer', token: 'secret' } }),
+      { fetchImpl, lookupImpl: publicLookup }
+    );
+    expect(res.kind).toBe('success');
+    // First hop (original origin) carries the token; the cross-origin hop does not.
+    expect(authByCall[0]).toBe('Bearer secret');
+    expect(authByCall[1]).toBeNull();
+  });
+
+  it('keeps credential headers on a same-origin redirect', async () => {
+    const authByCall: (string | null)[] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      authByCall.push(new Headers(init?.headers).get('authorization'));
+      if (url === 'https://api.example.com/users') {
+        return new Response('', {
+          status: 302,
+          headers: new Headers({ location: 'https://api.example.com/v2/users' }),
+        });
+      }
+      return new Response('{"final":true}', { status: 200 });
+    }) as typeof fetch;
+    const res = await executeHttpProxyRequest(
+      makeRequest({ auth: { kind: 'bearer', token: 'secret' } }),
+      { fetchImpl, lookupImpl: publicLookup }
+    );
+    expect(res.kind).toBe('success');
+    expect(authByCall[0]).toBe('Bearer secret');
+    expect(authByCall[1]).toBe('Bearer secret');
+  });
+
   it('gives up after the redirect cap', async () => {
     const fetchImpl = (async (url: string) => {
       // Always redirect to a fresh public URL.
