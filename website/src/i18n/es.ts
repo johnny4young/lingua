@@ -65,6 +65,7 @@ export const es = {
         { value: '0', label: 'telemetría antes del consentimiento' },
       ],
       bullets: [
+        'IA local-first — explica errores y aplica fixes, opt-in y con tu clave.',
         'Pyodide incluido — Python corre offline.',
         'Telemetría desactivada por defecto.',
         'Modo Vim, paleta de comandos y 29 utilidades.',
@@ -102,6 +103,34 @@ export const es = {
           icon: 'git-compare',
           title: 'Historial de ejecución con diffs',
           body: 'Las ejecuciones anteriores quedan cerca del editor, para que un scratchpad rápido también muestre qué cambió entre intentos.',
+        },
+      ],
+    },
+    ai: {
+      eyebrow: 'Asistencia con IA · Pro',
+      title: 'IA que nunca envía tu código sin permiso.',
+      lede:
+        'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
+      cards: [
+        {
+          icon: 'wand-sparkles',
+          title: 'Explica este error',
+          body: 'Cuando algo falla — una celda de notebook, la consola, una consulta SQL, una petición HTTP — un clic explica qué salió mal y transmite un fix, sabiendo dónde corrió tu código. Haz preguntas de seguimiento en el mismo hilo.',
+        },
+        {
+          icon: 'refresh-cw',
+          title: 'Aplicar y re-ejecutar',
+          body: 'Cuando la respuesta propone un fix, lo aplicas detrás de una vista de diff completa — reemplazar tu código nunca pasa a ciegas — y Lingua lo vuelve a ejecutar. Error → explicar → aplicar → verde.',
+        },
+        {
+          icon: 'database',
+          title: 'Pídele SQL a la IA',
+          body: 'Describe una consulta en lenguaje natural y obtén SQL de DuckDB. Solo se envía el esquema en vivo — nunca tus filas — y revisas la consulta antes de ejecutarla.',
+        },
+        {
+          icon: 'lock',
+          title: 'Local-first y privado',
+          body: 'Un modelo local significa que el código nunca sale de tu dispositivo. Los secretos evidentes se ocultan antes de la vista previa, y la clave vive solo en Configuración — nunca en exportaciones, cápsulas, enlaces para compartir ni telemetría.',
         },
       ],
     },

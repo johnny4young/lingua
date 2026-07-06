@@ -1,0 +1,90 @@
+---
+import { Icon } from 'astro-icon/components';
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale);
+const AI = copy.home.ai;
+---
+
+<section class="ai">
+  <header class="ai-head">
+    <p class="eyebrow">{AI.eyebrow}</p>
+    <h2>{AI.title}</h2>
+    <p class="ai-lede">{AI.lede}</p>
+  </header>
+
+  <div class="ai-grid">
+    {
+      AI.cards.map((c) => (
+        <article class="card ai-card">
+          <Icon name={`lucide:${c.icon}`} class="ai-icon" />
+          <h3>{c.title}</h3>
+          <p>{c.body}</p>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .ai {
+    padding-block: var(--space-section);
+  }
+  .ai-head {
+    max-width: 820px;
+    margin-bottom: 2.5rem;
+  }
+  .ai-head h2 {
+    font-size: var(--text-h2);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 700;
+    margin: 0.75rem 0 0;
+    line-height: 1.2;
+  }
+  .ai-lede {
+    color: var(--color-text-muted);
+    margin: 1rem 0 0;
+    line-height: 1.65;
+    font-size: 1.05rem;
+  }
+  .ai-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .ai-card {
+    position: relative;
+    border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+  }
+  .ai-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+  }
+  .ai-card p {
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+  .ai-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--color-accent);
+    margin-bottom: 1rem;
+  }
+  @media (min-width: 768px) {
+    .ai-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1100px) {
+    .ai-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+</style>
