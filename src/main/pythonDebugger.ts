@@ -129,12 +129,20 @@ export class PythonDebugSession {
     PythonDebugSessionOptions;
   private child: ChildProcessWithoutNullStreams | null = null;
   private buffer = '';
-  /** Resolver for the in-flight command's prompt wait, if any. */
-  private pendingPrompt: (() => void) | null = null;
+  /**
+   * Settles the in-flight command's prompt wait, if any. Called with no
+   * argument to resolve on a prompt (or exit), or with an Error to reject —
+   * e.g. a spawn failure the wait should surface instead of hanging.
+   */
+  private pendingPrompt: ((error?: Error) => void) | null = null;
   private readonly listeners = new Set<PdbEventListener>();
   private exited = false;
   private exitCode: number | null = null;
-  /** Pending SIGTERM→SIGKILL escalation timer from terminate(), if armed. */
+  /** A spawn / process-level error (e.g. missing python), surfaced to waiters. */
+  private processError: Error | null = null;
+  /** True once the debugged program ran to completion (a terminal state). */
+  private finished = false;
+  /** Pending SIGTERM→SIGKILL escalation timer, if armed. */
   private killEscalationTimer: NodeJS.Timeout | null = null;
   /** Serialize commands so replies map to requests unambiguously. */
   private queue: Promise<unknown> = Promise.resolve();
@@ -205,7 +213,24 @@ export class PythonDebugSession {
     child.stdin.on('error', () => {
       // Child exited before consuming stdin — nothing to do.
     });
+    // A spawn failure (e.g. `python3` not installed) surfaces here, NOT on
+    // stdin. Without a 'error' listener it is an uncaught exception that crashes
+    // Electron's main process; capture it and reject the pending start()/command
+    // instead of leaving the caller to wait out the timeout.
+    child.on('error', (err) => {
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.processError = error;
+      this.exited = true;
+      this.exitCode = null;
+      const pending = this.pendingPrompt;
+      this.pendingPrompt = null;
+      pending?.(error);
+      this.emit({ kind: 'exited', code: null });
+    });
     child.on('exit', (code) => {
+      // Skip a duplicate 'exited' if the 'error' handler (or a terminal
+      // finished/timeout path) already flipped `exited` and emitted.
+      const shouldEmit = !this.exited;
       this.exited = true;
       this.exitCode = code;
       // A natural exit means the SIGKILL escalation is moot — drop the timer.
@@ -217,7 +242,7 @@ export class PythonDebugSession {
       const pending = this.pendingPrompt;
       this.pendingPrompt = null;
       pending?.();
-      this.emit({ kind: 'exited', code });
+      if (shouldEmit) this.emit({ kind: 'exited', code });
     });
 
     return this.waitForPrompt();
@@ -239,30 +264,42 @@ export class PythonDebugSession {
   private waitForPrompt(): Promise<PdbCommandResult> {
     return new Promise<PdbCommandResult>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        this.pendingPrompt = null;
-        reject(
-          new Error(
-            `pdb command timed out after ${this.options.commandTimeoutMs}ms`
-          )
+        const error = new Error(
+          `pdb command timed out after ${this.options.commandTimeoutMs}ms`
         );
+        // A command that never returns a prompt means the debugged program is
+        // wedged (e.g. an infinite loop under `continue`). Tear the subprocess
+        // down rather than leave it running behind a rejected command.
+        this.processError = error;
+        this.exited = true;
+        this.pendingPrompt = null;
+        this.killDebuggerProcess();
+        reject(error);
       }, this.options.commandTimeoutMs);
 
-      const settle = (): void => {
+      const settle = (error?: Error): void => {
         clearTimeout(timeout);
+        if (error) {
+          reject(error);
+          return;
+        }
         const raw = this.buffer;
         this.buffer = '';
         resolve(this.buildResult(raw));
       };
 
+      // A spawn/process error already recorded takes precedence over any buffered
+      // output — surface it instead of resolving an empty/partial result.
+      if (this.processError) {
+        settle(this.processError);
+        return;
+      }
       if (this.buffer.endsWith(PDB_PROMPT)) {
         settle();
         return;
       }
       if (this.exited) {
-        clearTimeout(timeout);
-        const raw = this.buffer;
-        this.buffer = '';
-        resolve(this.buildResult(raw));
+        settle();
         return;
       }
       this.pendingPrompt = settle;
@@ -280,11 +317,49 @@ export class PythonDebugSession {
     const location = finished ? null : parsePdbLocation(withoutPrompt);
     if (finished) {
       this.emit({ kind: 'finished' });
-      this.terminate();
+      this.closeFinishedSession();
     } else if (location) {
       this.emit({ kind: 'paused', location });
     }
     return { output: withoutPrompt.trimEnd(), location, finished };
+  }
+
+  /**
+   * Program ran to completion. pdb would return to its prompt and restart the
+   * target on the next `continue`; treat completion as terminal for the engine
+   * so no restartable pdb process lingers behind a finished session. Listeners
+   * are left intact so a subscriber still sees the natural `exited` event.
+   */
+  private closeFinishedSession(): void {
+    const child = this.child;
+    if (!child || this.exited) return;
+    this.finished = true;
+    this.exited = true;
+    try {
+      child.stdin.write('q\n');
+    } catch {
+      /* stdin already closed */
+    }
+    this.killDebuggerProcess();
+  }
+
+  /**
+   * Fell the pdb process AND anything it spawned (user code may fork children),
+   * SIGTERM now and escalate to SIGKILL after a grace window. See
+   * `src/main/runners/processTree.ts`; the matching `detached` flag is set in
+   * `defaultSpawn`. Idempotent — the escalation timer is armed at most once and
+   * cleared by the 'exit' handler.
+   */
+  private killDebuggerProcess(): void {
+    const child = this.child;
+    if (!child) return;
+    killProcessTree(child, 'SIGTERM');
+    if (this.killEscalationTimer === null) {
+      this.killEscalationTimer = setTimeout(() => {
+        killProcessTree(child, 'SIGKILL');
+      }, KILL_ESCALATION_DELAY_MS);
+      this.killEscalationTimer.unref?.();
+    }
   }
 
   /** Send a raw pdb command line and resolve when the next prompt returns. */
@@ -300,6 +375,9 @@ export class PythonDebugSession {
         throw new Error('pdb command must be a single line (no newlines)');
       }
       const child = this.child;
+      if (this.finished) {
+        throw new Error('Debug session has finished');
+      }
       if (!child || this.exited) {
         throw new Error('Debug session is not running');
       }
@@ -379,17 +457,7 @@ export class PythonDebugSession {
     } catch {
       /* stdin already closed */
     }
-    // Fell the whole process group, not just pdb — the debugged program may
-    // have spawned its own children (see src/main/runners/processTree.ts); the
-    // matching `detached` flag is set in defaultSpawn. SIGTERM now, then
-    // escalate to SIGKILL after a grace window (cleared by the 'exit' handler).
-    killProcessTree(child, 'SIGTERM');
-    if (this.killEscalationTimer === null) {
-      this.killEscalationTimer = setTimeout(() => {
-        killProcessTree(child, 'SIGKILL');
-      }, KILL_ESCALATION_DELAY_MS);
-      this.killEscalationTimer.unref?.();
-    }
+    this.killDebuggerProcess();
     this.listeners.clear();
   }
 }

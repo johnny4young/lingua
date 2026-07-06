@@ -66,9 +66,25 @@ describe('sendCommand newline guard', () => {
   });
 });
 
+describe('process lifecycle guards', () => {
+  // No real python needed: a missing binary makes the child emit an async
+  // 'error' event. Without a listener that is an uncaught exception that crashes
+  // the main process; start() must reject cleanly instead.
+  it('rejects start when the python binary cannot be spawned', async () => {
+    const session = new PythonDebugSession({
+      scriptPath: '/tmp/none.py',
+      pythonPath: 'definitely-not-lingua-python',
+      commandTimeoutMs: 250,
+    });
+    await expect(session.start()).rejects.toThrow(/ENOENT|not found|spawn/i);
+    expect(session.isRunning).toBe(false);
+  });
+});
+
 describeReal('PythonDebugSession (real pdb)', () => {
   let dir: string;
   let scriptPath: string;
+  let loopPath: string;
   const sessions: PythonDebugSession[] = [];
 
   beforeAll(() => {
@@ -88,6 +104,8 @@ describeReal('PythonDebugSession (real pdb)', () => {
       ].join('\n'),
       'utf-8'
     );
+    loopPath = join(dir, 'loop.py');
+    writeFileSync(loopPath, 'while True:\n    pass\n', 'utf-8');
   });
 
   afterEach(() => {
@@ -136,6 +154,8 @@ describeReal('PythonDebugSession (real pdb)', () => {
     expect(done.finished).toBe(true);
     expect(done.location).toBeNull();
     expect(session.isRunning).toBe(false);
+    // A command after completion rejects rather than restarting the target.
+    await expect(session.continue()).rejects.toThrow(/finished|not running/i);
   });
 
   it('clears a breakpoint it set, despite path canonicalization', async () => {
@@ -157,6 +177,21 @@ describeReal('PythonDebugSession (real pdb)', () => {
     const done = await session.continue(); // no breakpoints → run to end
     expect(done.finished).toBe(true);
     expect(done.output).toContain('result 3');
+    expect(session.isRunning).toBe(false);
+  });
+
+  it('terminates a session when a command times out', async () => {
+    const session = new PythonDebugSession({
+      scriptPath: loopPath,
+      pythonPath: pythonPath!,
+      commandTimeoutMs: 250,
+    });
+    sessions.push(session);
+    await session.start();
+    // `continue` never returns a prompt (infinite loop) → times out, and the
+    // wedged subprocess is torn down instead of left running.
+    await expect(session.continue()).rejects.toThrow(/timed out/i);
+    expect(session.isRunning).toBe(false);
   });
 
   it('terminate() stops a running session', async () => {
