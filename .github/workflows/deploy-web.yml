@@ -219,10 +219,13 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # Cloudflare Pages project `lingua-app` owns app.linguacode.dev. (The
+        # marketing site deploys separately to the `lingua-web` project via
+        # deploy-website.yml.)
         run: |
           set -euo pipefail
           pnpm exec wrangler pages deploy dist/web \
-            --project-name lingua-web \
+            --project-name lingua-app \
             --branch main \
             2>&1 | tee output/cloudflare-deploy-validation/wrangler-pages-deploy.log
 

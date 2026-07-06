@@ -68,8 +68,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # Cloudflare Pages project `lingua-web` owns linguacode.dev +
+        # www.linguacode.dev. (The app build deploys separately to the
+        # `lingua-app` project via deploy-web.yml.)
         run: |
           set -euo pipefail
           npx --yes wrangler@4 pages deploy dist \
-            --project-name lingua-website \
+            --project-name lingua-web \
             --branch main

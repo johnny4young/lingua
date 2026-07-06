@@ -1,3 +1,6 @@
-name = "lingua-website"
+# Cloudflare Pages project that owns linguacode.dev + www.linguacode.dev
+# (the marketing site). The app build deploys separately to the `lingua-app`
+# project via .github/workflows/deploy-web.yml.
+name = "lingua-web"
 compatibility_date = "2024-09-01"
 pages_build_output_dir = "dist"
