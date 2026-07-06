@@ -65,6 +65,7 @@ export const en = {
         { value: '0', label: 'telemetry before consent' },
       ],
       bullets: [
+        'Local-first AI — explain errors, apply fixes, opt-in and BYO-key.',
         'Pyodide vendored — Python runs offline.',
         'Telemetry off by default.',
         'Vim mode, command palette, 29 dev utilities.',
@@ -102,6 +103,34 @@ export const en = {
           icon: 'git-compare',
           title: 'Execution history with diffs',
           body: 'Past runs stay close to the editor, so a quick scratchpad can still show what changed between attempts.',
+        },
+      ],
+    },
+    ai: {
+      eyebrow: 'AI assistance · Pro',
+      title: 'AI that never sends your code without asking.',
+      lede:
+        'Opt-in, bring-your-own-key, and local-first. Point it at a local model (Ollama, LM Studio) and your code never leaves the machine — or use any OpenAI-compatible endpoint. Lingua ships no default key and makes no background calls; every request shows you the exact payload first.',
+      cards: [
+        {
+          icon: 'wand-sparkles',
+          title: 'Explain this error',
+          body: 'When a run fails — a notebook cell, the console, a SQL query, an HTTP request — one click explains what went wrong and streams a fix, aware of where your code actually ran. Ask follow-up questions in the same thread.',
+        },
+        {
+          icon: 'refresh-cw',
+          title: 'Apply & re-run',
+          body: 'When the answer proposes a fix, apply it behind a full diff preview — replacing your code never happens blind — and Lingua re-runs it. Error → explain → apply → green.',
+        },
+        {
+          icon: 'database',
+          title: 'Ask AI for SQL',
+          body: 'Describe a query in plain English and get DuckDB SQL back. Only the live schema is sent — never your rows — and you review the query before it runs.',
+        },
+        {
+          icon: 'lock',
+          title: 'Local-first & private',
+          body: 'A local model means code never leaves your device. Obvious secrets are redacted before the preview, and the key lives only in Settings — never in exports, capsules, share links, or telemetry.',
         },
       ],
     },
