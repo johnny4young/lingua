@@ -82,7 +82,32 @@ export default defineConfig(({ command }) => {
 
   return {
     base,
-    plugins: [react(), copyRuntimeAssetsPlugin({ exclude: useExternalWebRuntime ? ['ruby'] : [] })],
+    plugins: [
+      react(),
+      copyRuntimeAssetsPlugin({ exclude: useExternalWebRuntime ? ['ruby'] : [] }),
+      // Dev-only: widen the web CSP's `connect-src` so a local OpenAI-compatible
+      // AI server (Ollama on :11434, LM Studio on :1234, …) can be reached
+      // directly from the dev browser for the "Explain this error" feature.
+      // Gated on `command === 'serve'`, so it runs ONLY under `dev:web` /
+      // `dev:web:pro` — a production `vite build` never sees it and the shipped
+      // CSP stays `https:`-only. See docs/runbooks/local-ai-smoke.md.
+      ...(command === 'serve'
+        ? [
+            {
+              name: 'lingua-dev-local-ai-csp',
+              transformIndexHtml(html: string): string {
+                // Anchor on `connect-src 'self'` so the real directive is
+                // matched, not the CSP explainer comment that also mentions
+                // "connect-src". Appends local AI origins before the `;`.
+                return html.replace(
+                  /(connect-src 'self'[^;]*?)(;)/,
+                  '$1 http://localhost:* http://127.0.0.1:*$2'
+                );
+              },
+            },
+          ]
+        : []),
+    ],
     define: {
       ...getSharedBuildDefines(),
       // The web build self-hosts Pyodide under dist/web/pyodide via the
