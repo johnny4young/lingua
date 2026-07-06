@@ -266,6 +266,31 @@ describe('executeHttpProxyRequest — failure branches', () => {
     expect(res.errorMessage).toMatch(/failed to fetch/i);
   });
 
+  it('returns a network-error instead of throwing when global fetch is unavailable', async () => {
+    const globalObject = globalThis as typeof globalThis & {
+      fetch?: typeof fetch;
+    };
+    const originalFetch = Object.getOwnPropertyDescriptor(globalObject, 'fetch');
+    try {
+      Object.defineProperty(globalObject, 'fetch', {
+        configurable: true,
+        writable: true,
+        value: undefined,
+      });
+      const res = await executeHttpProxyRequest(makeRequest(), {
+        lookupImpl: publicLookup,
+      });
+      expect(res.kind).toBe('network-error');
+      expect(res.errorMessage).toMatch(/fetch is not available/i);
+    } finally {
+      if (originalFetch) {
+        Object.defineProperty(globalObject, 'fetch', originalFetch);
+      } else {
+        Reflect.deleteProperty(globalObject, 'fetch');
+      }
+    }
+  });
+
   it('rejects an oversized request body before sending', async () => {
     const fetchImpl = vi.fn(mockFetch({ status: 200 }));
     const res = await executeHttpProxyRequest(
@@ -347,6 +372,58 @@ describe('executeHttpProxyRequest — redirects', () => {
     // First hop (original origin) carries the token; the cross-origin hop does not.
     expect(authByCall[0]).toBe('Bearer secret');
     expect(authByCall[1]).toBeNull();
+  });
+
+  it('strips baseline, configured, and custom auth secrets on a cross-origin redirect', async () => {
+    const headersByCall: Array<{
+      manualApiKey: string | null;
+      configuredSecret: string | null;
+      customAuth: string | null;
+    }> = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      headersByCall.push({
+        manualApiKey: headers.get('x-api-key'),
+        configuredSecret: headers.get('x-session-token'),
+        customAuth: headers.get('x-custom-auth'),
+      });
+      if (url === 'https://api.example.com/users') {
+        return new Response('', {
+          status: 302,
+          headers: new Headers({ location: 'https://other.example.com/landing' }),
+        });
+      }
+      return new Response('{"final":true}', { status: 200 });
+    }) as typeof fetch;
+    const res = await executeHttpProxyRequest(
+      makeRequest({
+        headers: [
+          { name: 'X-API-Key', value: 'manual-key', enabled: true },
+          { name: 'X-Session-Token', value: 'session-token', enabled: true },
+        ],
+        auth: {
+          kind: 'apiKey',
+          apiKeyHeader: 'X-Custom-Auth',
+          apiKeyValue: 'auth-key',
+        },
+      }),
+      {
+        fetchImpl,
+        lookupImpl: publicLookup,
+        userSensitiveHeaders: ['x-session-token'],
+      }
+    );
+    expect(res.kind).toBe('success');
+    expect(headersByCall[0]).toEqual({
+      manualApiKey: 'manual-key',
+      configuredSecret: 'session-token',
+      customAuth: 'auth-key',
+    });
+    expect(headersByCall[1]).toEqual({
+      manualApiKey: null,
+      configuredSecret: null,
+      customAuth: null,
+    });
   });
 
   it('keeps credential headers on a same-origin redirect', async () => {

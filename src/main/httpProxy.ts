@@ -50,6 +50,7 @@ import {
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
+  authInjectedHeaderName,
   composeRequestHeaders,
   isHeaderSensitive,
   utf8ByteLength,
@@ -63,11 +64,10 @@ import {
 export const MAX_REDIRECTS = 10;
 
 /**
- * Credential-bearing request headers browsers drop when a redirect crosses
- * origins (Fetch §"HTTP-redirect fetch"). The renderer client this engine
- * replaces gets this for free from the browser; the main-process proxy must
- * mirror it so a public→public redirect cannot forward the user's
- * `Authorization` / `Cookie` to an unintended host. Lower-cased for
+ * Credential-bearing request headers browsers either own or treat specially
+ * when a redirect crosses origins. The main-process proxy must strip these,
+ * plus Lingua's user-configured sensitive headers, so a public→public redirect
+ * cannot forward secrets to an unintended host. Lower-cased for
  * `Headers.delete` (case-insensitive, but keep the list canonical).
  */
 const CROSS_ORIGIN_STRIP_HEADERS = [
@@ -406,6 +406,25 @@ function buildRequestHeaders(request: HttpRequestV1, willSendBody: boolean): Hea
   return headers;
 }
 
+function addHeaderName(out: Set<string>, name: string | null | undefined): void {
+  const normalized = name?.trim().toLowerCase();
+  if (normalized) out.add(normalized);
+}
+
+function crossOriginStripHeaderNames(
+  request: HttpRequestV1,
+  userAllowlist: readonly string[]
+): string[] {
+  const names = new Set<string>(CROSS_ORIGIN_STRIP_HEADERS);
+  addHeaderName(names, authInjectedHeaderName(request.auth));
+  for (const entry of composeRequestHeaders(request)) {
+    if (isHeaderSensitive(entry.name, userAllowlist)) {
+      addHeaderName(names, entry.name);
+    }
+  }
+  return [...names];
+}
+
 function buildRequestBody(
   request: HttpRequestV1
 ): { ok: true; body?: string } | { ok: false; message: string } {
@@ -462,6 +481,12 @@ function failure(
   };
 }
 
+function resolveFetchImpl(fetchImpl: typeof fetch | undefined): typeof fetch | null {
+  if (fetchImpl) return fetchImpl;
+  if (typeof globalThis.fetch !== 'function') return null;
+  return globalThis.fetch.bind(globalThis);
+}
+
 // ---------------------------------------------------------------------------
 // Executor
 // ---------------------------------------------------------------------------
@@ -481,10 +506,20 @@ export async function executeHttpProxyRequest(
   const allowPrivateHosts = options.allowPrivateHosts ?? false;
   const bodyCap = options.maxResponseBodyBytes ?? MAX_RESPONSE_BODY_BYTES;
   const maxRedirects = options.maxRedirects ?? MAX_REDIRECTS;
-  const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
+  const fetchImpl = resolveFetchImpl(options.fetchImpl);
   const lookupImpl: LookupImpl =
     options.lookupImpl ??
     ((hostname) => dnsLookup(hostname, { all: true }));
+
+  if (!fetchImpl) {
+    return failure(
+      request,
+      'network-error',
+      'Fetch is not available in this runtime',
+      start,
+      recordedAt
+    );
+  }
 
   const requestBody = buildRequestBody(request);
   if (!requestBody.ok) {
@@ -511,6 +546,10 @@ export async function executeHttpProxyRequest(
   };
 
   const requestHeaders = buildRequestHeaders(request, requestBody.body !== undefined);
+  const stripHeadersOnCrossOriginRedirect = crossOriginStripHeaderNames(
+    request,
+    allowlist
+  );
 
   let currentUrl = request.url;
   // Method + body are mutable across hops: a redirect can downgrade them (see
@@ -567,10 +606,16 @@ export async function executeHttpProxyRequest(
       const nextUrl = new URL(location, currentUrl);
       // Strip credential headers once the chain leaves the current origin, so
       // a redirect to a different (even public) host cannot exfiltrate the
-      // user's Authorization / Cookie. Deleted in place, so once dropped they
-      // stay dropped for every subsequent hop.
+      // user's Authorization / Cookie / API-key style secrets. Deleted in
+      // place, so once dropped they stay dropped for every subsequent hop.
       if (nextUrl.origin !== new URL(currentUrl).origin) {
-        for (const name of CROSS_ORIGIN_STRIP_HEADERS) requestHeaders.delete(name);
+        for (const name of stripHeadersOnCrossOriginRedirect) {
+          try {
+            requestHeaders.delete(name);
+          } catch {
+            /* ignore names the runtime would not accept as headers anyway */
+          }
+        }
       }
       currentUrl = nextUrl.toString();
       // Drain the redirect body so the socket can be reused.
