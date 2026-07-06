@@ -123,15 +123,35 @@ export function spawnNativeRun(
     let killed = false;
     let escalationTimer: NodeJS.Timeout | null = null;
 
-    const child = childProc.spawn(command, args, {
-      cwd,
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      // Process-group leader on POSIX so timeout/Stop can fell the whole
-      // tree (user code that forks/spawns) via killProcessTree, not just
-      // the direct child. See src/main/runners/processTree.ts.
-      ...detachedSpawnOptions(),
-    });
+    let child: childProc.ChildProcessWithoutNullStreams;
+    try {
+      child = childProc.spawn(command, args, {
+        cwd,
+        env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        // Process-group leader on POSIX so timeout/Stop can fell the whole
+        // tree (user code that forks/spawns) via killProcessTree, not just
+        // the direct child. See src/main/runners/processTree.ts.
+        ...detachedSpawnOptions(),
+      });
+    } catch (err) {
+      // `spawn()` can throw SYNCHRONOUSLY for invalid args/options (e.g. a
+      // command containing a null byte) — distinct from the ASYNC 'error' event
+      // it emits for ENOENT. Honor the documented "never rejects" contract:
+      // resolve the same structured spawnError shape the async path produces so
+      // an IPC caller can't turn this into an unhandled rejection.
+      const spawnError = err instanceof Error ? err : new Error(String(err));
+      resolve({
+        stdout,
+        stderr,
+        exitCode: -1,
+        executionTime: Date.now() - start,
+        timedOut,
+        killed,
+        spawnError,
+      });
+      return;
+    }
 
     const terminate = (reason: 'timeout' | 'stopped') => {
       if (resolved) return;
