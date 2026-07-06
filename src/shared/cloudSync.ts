@@ -66,12 +66,6 @@ function snapshotsDiffer(a: SyncSnapshot, b: SyncSnapshot): boolean {
 }
 
 /**
- * Merge two snapshots with last-write-wins per key. On a timestamp tie the
- * LOCAL entry wins, so a just-made local edit is never silently clobbered
- * by an equally-timestamped remote. A conflict is recorded whenever both
- * sides hold an entry for a key and their contents differ.
- */
-/**
  * Keys that, assigned via bracket notation, mutate the target's prototype
  * chain instead of adding a data property. A remote snapshot is untrusted
  * input (it comes off `transport.pull()`), so a `{"__proto__": …}` entry must
@@ -79,6 +73,12 @@ function snapshotsDiffer(a: SyncSnapshot, b: SyncSnapshot): boolean {
  */
 const PROTO_POLLUTION_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
+/**
+ * Merge two snapshots with last-write-wins per key. On a timestamp tie the
+ * LOCAL entry wins, so a just-made local edit is never silently clobbered
+ * by an equally-timestamped remote. A conflict is recorded whenever both
+ * sides hold an entry for a key and their contents differ.
+ */
 export function mergeSnapshots<T>(
   local: SyncSnapshot<T>,
   remote: SyncSnapshot<T>

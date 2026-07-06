@@ -31,7 +31,6 @@ import {
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { resolveUserEnvForRunner } from './env';
-import { trackEvent } from '../utils/telemetry';
 import { runnerStoppedResult, type TranslateFn } from './limits';
 
 const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
@@ -135,7 +134,6 @@ export class AltJsRunner implements LanguageRunner {
         })
         .then((reply) => {
           if (resolved) return;
-          void trackEvent('runtime.mode_changed', { mode: this.id, language });
 
           if (reply.kind === 'success' && !settings.nodeRunnerFirstRunNoticeShown) {
             useUIStore.getState().pushStatusNotice({
