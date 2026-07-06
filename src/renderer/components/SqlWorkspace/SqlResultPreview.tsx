@@ -105,8 +105,12 @@ export interface SqlResultPreviewProps {
   /** Select a history entry to view (by index into `responses`). */
   onSelectResponse?: (index: number) => void;
   /**
-   * T19 — the SQL text of the shown run. Lets an errored query offer the AI
-   * "Explain this error" trigger with the query as the code context.
+   * T19 — the current editor text of the active query, used as the code
+   * context for the AI "Explain this error" trigger. A recorded response does
+   * NOT store the SQL that produced it, so a historical run being viewed can't
+   * be reconstructed; the trigger is therefore only offered for the newest run
+   * (`selectedResponseIndex === 0`), where this editor text is what produced
+   * the error.
    */
   querySource?: string;
 }
@@ -416,7 +420,9 @@ export function SqlResultPreview({
         <ErrorBand
           status={response.status}
           message={response.errorMessage}
-          querySource={querySource}
+          // Only offer Explain for the newest run: the editor text can't be
+          // matched to a historical response (no SQL is stored per run).
+          querySource={selectedResponseIndex === 0 ? querySource : undefined}
         />
       ) : null}
 

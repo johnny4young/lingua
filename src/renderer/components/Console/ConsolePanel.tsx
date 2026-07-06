@@ -368,11 +368,12 @@ export function ConsolePanel() {
   const activeTab = useEditorStore((state) => getActiveTab(state));
   // T19 — offer "Explain this error" when the active tab's run left an error
   // entry. The shared button self-gates on LOCAL_AI, so here we only assemble
-  // the error text + the code context (the active tab's source).
-  const consoleErrorText = entries
-    .filter((entry) => entry.type === 'error')
-    .map((entry) => entry.content)
-    .join('\n');
+  // the error text + the code context (the active tab's source). Use only the
+  // MOST RECENT error entry: buildExplainErrorRequest clips from the start, so
+  // joining every error in the history would let older ones truncate away the
+  // one the user just hit.
+  const consoleErrorText =
+    entries.filter((entry) => entry.type === 'error').at(-1)?.content ?? '';
   const canExplainConsoleError =
     consoleErrorText.length > 0 &&
     activeTab !== null &&
