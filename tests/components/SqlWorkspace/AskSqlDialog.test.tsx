@@ -121,6 +121,40 @@ describe('AskSqlDialog (T19 NL→SQL)', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('aborts an in-flight SQL request when the dialog closes', async () => {
+    configureAi();
+    const onClose = vi.fn();
+    let signal: AbortSignal | undefined;
+    const impl = vi.fn(
+      async (
+        _req: unknown,
+        _cfg: unknown,
+        options?: { signal?: AbortSignal }
+      ) => {
+        signal = options?.signal;
+        return new Promise<never>(() => {});
+      }
+    );
+    render(
+      <AskSqlDialog
+        tables={tables}
+        onInsert={() => {}}
+        onClose={onClose}
+        runChatCompletionImpl={impl as never}
+      />
+    );
+    fireEvent.change(screen.getByTestId('ask-sql-question'), {
+      target: { value: 'count orders' },
+    });
+    fireEvent.click(screen.getByTestId('ask-sql-send'));
+    await waitFor(() => expect(impl).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByTestId('ask-sql-close'));
+
+    expect(signal?.aborted).toBe(true);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('offers Ask again instead of Insert when the answer has no SQL block', async () => {
     configureAi();
     const impl = vi

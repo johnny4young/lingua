@@ -23,7 +23,7 @@
  *     red → explain → apply → re-run.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles, X } from 'lucide-react';
 import {
@@ -104,6 +104,7 @@ export function ExplainErrorDialog({
   const apiKey = useAiConfigStore((s) => s.apiKey);
   const model = useAiConfigStore((s) => s.model);
   const [phase, setPhase] = useState<Phase>({ kind: 'preview' });
+  const activeControllerRef = useRef<AbortController | null>(null);
   // The conversation so far: the approved initial payload + every completed
   // exchange. Follow-up sends re-transmit this whole array (chat models are
   // stateless), which is why the transcript view doubles as the payload
@@ -127,26 +128,58 @@ export function ExplainErrorDialog({
   const configured = isAiConfigured({ endpoint, apiKey, model });
   const send = runChatCompletionImpl ?? runChatCompletion;
 
+  useEffect(
+    () => () => {
+      activeControllerRef.current?.abort('dialog-unmounted');
+      activeControllerRef.current = null;
+    },
+    []
+  );
+
+  function abortActiveRequest(reason: string): void {
+    activeControllerRef.current?.abort(reason);
+    activeControllerRef.current = null;
+  }
+
+  function handleClose(): void {
+    abortActiveRequest('dialog-closed');
+    onClose();
+  }
+
   async function handleSend(messages: readonly ChatMessage[]): Promise<void> {
+    abortActiveRequest('superseded');
+    const controller = new AbortController();
+    activeControllerRef.current = controller;
     setPhase({ kind: 'streaming', partial: '' });
-    const result: AiChatResult = await send(
-      { messages, model },
-      { endpoint, apiKey, model },
-      {
-        onChunk: (textSoFar) =>
-          setPhase({ kind: 'streaming', partial: textSoFar }),
+    try {
+      const result: AiChatResult = await send(
+        { messages, model },
+        { endpoint, apiKey, model },
+        {
+          signal: controller.signal,
+          onChunk: (textSoFar) => {
+            if (!controller.signal.aborted) {
+              setPhase({ kind: 'streaming', partial: textSoFar });
+            }
+          },
+        }
+      );
+      if (controller.signal.aborted) return;
+      if (result.ok) {
+        setTranscript([
+          ...messages,
+          { role: 'assistant', content: result.content },
+        ]);
+        setPhase({ kind: 'done' });
+      } else {
+        // Keep the attempted messages so a mid-conversation retry can resend.
+        setTranscript(messages);
+        setPhase({ kind: 'error', message: result.message });
       }
-    );
-    if (result.ok) {
-      setTranscript([
-        ...messages,
-        { role: 'assistant', content: result.content },
-      ]);
-      setPhase({ kind: 'done' });
-    } else {
-      // Keep the attempted messages so a mid-conversation retry can resend.
-      setTranscript(messages);
-      setPhase({ kind: 'error', message: result.message });
+    } finally {
+      if (activeControllerRef.current === controller) {
+        activeControllerRef.current = null;
+      }
     }
   }
 
@@ -201,7 +234,7 @@ export function ExplainErrorDialog({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label={t('ai.explain.close')}
             data-testid="ai-explain-close"
             className="focus-ring rounded p-1 text-fg-subtle hover:text-fg"
@@ -287,7 +320,7 @@ export function ExplainErrorDialog({
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
               >
                 {t('ai.explain.cancel')}
@@ -326,7 +359,7 @@ export function ExplainErrorDialog({
                 type="button"
                 onClick={() => {
                   onApplyFix?.(phase.suggested);
-                  onClose();
+                  handleClose();
                 }}
                 data-testid="ai-explain-apply-confirm"
                 className="focus-ring rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
@@ -377,7 +410,7 @@ export function ExplainErrorDialog({
             <div className="flex items-center justify-end">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
               >
                 {t('ai.explain.close')}

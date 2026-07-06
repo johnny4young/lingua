@@ -162,6 +162,36 @@ describe('ExplainErrorDialog (T19)', () => {
     );
   });
 
+  it('aborts an in-flight request when the dialog closes', async () => {
+    configureAi();
+    const onClose = vi.fn();
+    let signal: AbortSignal | undefined;
+    const runChatCompletionImpl = vi.fn(
+      async (
+        _req: unknown,
+        _cfg: unknown,
+        options?: { signal?: AbortSignal }
+      ) => {
+        signal = options?.signal;
+        return new Promise<never>(() => {});
+      }
+    );
+    render(
+      <ExplainErrorDialog
+        {...baseProps}
+        onClose={onClose}
+        runChatCompletionImpl={runChatCompletionImpl as never}
+      />
+    );
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await waitFor(() => expect(runChatCompletionImpl).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByTestId('ai-explain-close'));
+
+    expect(signal?.aborted).toBe(true);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('sends a follow-up turn carrying the whole conversation', async () => {
     configureAi();
     const runChatCompletionImpl = vi

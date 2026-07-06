@@ -58,6 +58,27 @@ describe('runChatCompletion', () => {
     expect(res.ok).toBe(true);
   });
 
+  it('trims endpoint, key, and model before sending', async () => {
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe('https://api.example.com/v1/chat/completions');
+      const headers = new Headers(init?.headers);
+      expect(headers.get('authorization')).toBe('Bearer sk-secret-key-value');
+      const body = JSON.parse(String(init?.body));
+      expect(body.model).toBe('gpt-4o-mini');
+      return jsonResponse({ choices: [{ message: { content: 'ok' } }] });
+    }) as unknown as typeof fetch;
+    const res = await runChatCompletion(
+      request,
+      {
+        endpoint: '  https://api.example.com/v1/chat/completions  ',
+        apiKey: '  sk-secret-key-value  ',
+        model: '  gpt-4o-mini  ',
+      },
+      { fetchImpl }
+    );
+    expect(res.ok).toBe(true);
+  });
+
   it('rejects a missing key as a config error (no network call)', async () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch;
     const res = await runChatCompletion(request, { ...config, apiKey: '' }, { fetchImpl });
@@ -73,6 +94,40 @@ describe('runChatCompletion', () => {
     });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.kind).toBe('config');
+  });
+
+  it('rejects a non-loopback plain-http endpoint before sending the key', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const res = await runChatCompletion(
+      request,
+      {
+        ...config,
+        endpoint: 'http://api.example.com/v1/chat/completions',
+      },
+      { fetchImpl }
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.kind).toBe('config');
+      expect(res.message).toContain('Plain HTTP');
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('allows loopback plain-http endpoints for local AI servers', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      expect(url).toBe('http://127.0.0.1:11434/v1/chat/completions');
+      return jsonResponse({ choices: [{ message: { content: 'local ok' } }] });
+    }) as unknown as typeof fetch;
+    const res = await runChatCompletion(
+      request,
+      {
+        ...config,
+        endpoint: 'http://127.0.0.1:11434/v1/chat/completions',
+      },
+      { fetchImpl }
+    );
+    expect(res.ok).toBe(true);
   });
 
   it('classifies 401 as auth and never echoes the key', async () => {
@@ -186,6 +241,20 @@ describe('runChatCompletion', () => {
     if (res.ok) expect(res.content).toBe('Hello');
     // Progressive accumulation, not deltas: each call carries text-so-far.
     expect(chunks).toEqual(['Hel', 'Hello']);
+  });
+
+  it('processes a final SSE data line without a trailing newline', async () => {
+    const fetchImpl = vi.fn(async () =>
+      sseResponse(['data: {"choices":[{"delta":{"content":"done"}}]}'])
+    ) as unknown as typeof fetch;
+    const chunks: string[] = [];
+    const res = await runChatCompletion(request, config, {
+      fetchImpl,
+      onChunk: (text) => chunks.push(text),
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.content).toBe('done');
+    expect(chunks).toEqual(['done']);
   });
 
   it('falls back to plain JSON when the server ignores stream:true', async () => {

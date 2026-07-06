@@ -1,6 +1,6 @@
 # Local / hybrid AI — "Explain this error" (T19) ADR
 
-**Status:** Accepted (2026-07-03) — decisions below are locked; wiring in progress
+**Status:** Accepted (2026-07-03) — initial T19 wiring shipped
 **Roadmap item:** T19 / RL-031 (Tier 4)
 **Reserved entitlement:** `LOCAL_AI` (already in `src/shared/entitlements.ts`)
 
@@ -63,7 +63,7 @@ action and a preview of exactly what is sent.
 - **Silent/auto "explain on every error."** Rejected outright — violates the
   no-silent-network principle.
 
-## This slice (ships now, no network)
+## Implemented slices
 
 - `src/shared/ai/explainError.ts`:
   - `redactSecretsFromCode(code)` — mask secret-looking assignments + token
@@ -71,19 +71,28 @@ action and a preview of exactly what is sent.
   - `buildExplainErrorRequest(input)` — build the provider-agnostic
     `{ messages }` request AND the human-readable **preview** of exactly what
     would be sent (the consent surface consumes this). Pure; performs no I/O.
-- Unit tests for redaction + request/preview construction.
+- `src/renderer/runtime/aiClient.ts`: POST to the configured OpenAI-compatible
+  endpoint, parse JSON or streaming SSE responses, enforce a timeout, and
+  return typed failure envelopes without ever echoing the API key.
+- Settings → AI: endpoint + key + model entry in an isolated `lingua-ai`
+  persist boundary, plus "Detect local AI (Ollama)" for loopback servers.
+- Error surfaces: notebook cells, the editor console, SQL results, and HTTP
+  failures can open the consent dialog. The answer renders as structured
+  Markdown, supports streaming + follow-up questions, and offers Apply & re-run
+  where the host surface can safely replace code behind a diff preview.
+- SQL workspace: "Ask AI" sends only the live schema and typed question, then
+  inserts the generated SQL for user review; it never auto-runs generated SQL.
 
-## Following slices (gated on approval of this ADR)
+## Follow-up transport work
 
-1. Provider client: POST the request to the user endpoint (desktop via T7
-   proxy; web via `fetch`), stream/parse the completion. Never throws; typed
-   failure envelope like `httpClient.ts`.
-2. Settings → AI: endpoint + key entry (local-only storage), model field, a
-   "test connection" affordance.
-3. Error-surface "Explain" button + the consent preview modal + the result
-   panel; i18n (en/es); `LOCAL_AI` gating + upsell.
-4. `PRIVACY.md` / privacy-trust Settings row updated to describe exactly what
-   the AI feature sends and when.
+- Desktop currently allows loopback local AI servers directly from the
+  renderer CSP. Remote desktop endpoints should move through the RL-097 T7
+  SSRF-guarded main proxy before they are enabled broadly.
+- The web build keeps the documented CORS limitation: remote HTTPS providers
+  work only when their CORS policy allows the Lingua origin, while production
+  web blocks plain-http localhost.
+- `PRIVACY.md` / the privacy-trust Settings row should be kept aligned any
+  time a new AI surface changes what payload can leave the device.
 
 ## Resolved decisions (2026-07-03 sign-off)
 

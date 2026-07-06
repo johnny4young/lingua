@@ -10,7 +10,7 @@
  * themselves (generated SQL never auto-runs).
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles, X } from 'lucide-react';
 import {
@@ -55,6 +55,7 @@ export function AskSqlDialog({
   const apiKey = useAiConfigStore((s) => s.apiKey);
   const model = useAiConfigStore((s) => s.model);
   const [phase, setPhase] = useState<Phase>({ kind: 'ask' });
+  const activeControllerRef = useRef<AbortController | null>(null);
   const [question, setQuestion] = useState('');
 
   const schemaText = useMemo(() => formatSchemaForPrompt(tables), [tables]);
@@ -72,19 +73,51 @@ export function AskSqlDialog({
   const send = runChatCompletionImpl ?? runChatCompletion;
   const canSend = question.trim().length > 0;
 
+  useEffect(
+    () => () => {
+      activeControllerRef.current?.abort('dialog-unmounted');
+      activeControllerRef.current = null;
+    },
+    []
+  );
+
+  function abortActiveRequest(reason: string): void {
+    activeControllerRef.current?.abort(reason);
+    activeControllerRef.current = null;
+  }
+
+  function handleClose(): void {
+    abortActiveRequest('dialog-closed');
+    onClose();
+  }
+
   async function handleSend(): Promise<void> {
+    abortActiveRequest('superseded');
+    const controller = new AbortController();
+    activeControllerRef.current = controller;
     setPhase({ kind: 'streaming', partial: '' });
     const messages: readonly ChatMessage[] = request.messages;
-    const result: AiChatResult = await send(
-      { messages, model },
-      { endpoint, apiKey, model },
-      {
-        onChunk: (textSoFar) =>
-          setPhase({ kind: 'streaming', partial: textSoFar }),
+    try {
+      const result: AiChatResult = await send(
+        { messages, model },
+        { endpoint, apiKey, model },
+        {
+          signal: controller.signal,
+          onChunk: (textSoFar) => {
+            if (!controller.signal.aborted) {
+              setPhase({ kind: 'streaming', partial: textSoFar });
+            }
+          },
+        }
+      );
+      if (controller.signal.aborted) return;
+      if (result.ok) setPhase({ kind: 'done', content: result.content });
+      else setPhase({ kind: 'error', message: result.message });
+    } finally {
+      if (activeControllerRef.current === controller) {
+        activeControllerRef.current = null;
       }
-    );
-    if (result.ok) setPhase({ kind: 'done', content: result.content });
-    else setPhase({ kind: 'error', message: result.message });
+    }
   }
 
   const generatedSql =
@@ -106,7 +139,7 @@ export function AskSqlDialog({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label={t('ai.explain.close')}
             data-testid="ask-sql-close"
             className="focus-ring rounded p-1 text-fg-subtle hover:text-fg"
@@ -166,7 +199,7 @@ export function AskSqlDialog({
             <>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
               >
                 {t('ai.explain.cancel')}
@@ -196,7 +229,7 @@ export function AskSqlDialog({
                   type="button"
                   onClick={() => {
                     onInsert(generatedSql);
-                    onClose();
+                    handleClose();
                   }}
                   data-testid="ask-sql-insert"
                   className="focus-ring rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
@@ -217,7 +250,7 @@ export function AskSqlDialog({
           ) : (
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
             >
               {t('ai.explain.close')}

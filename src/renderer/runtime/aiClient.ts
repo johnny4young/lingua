@@ -68,21 +68,51 @@ export interface RunChatCompletionOptions {
   readonly fetchImpl?: typeof fetch;
 }
 
-/** Validate the endpoint is a well-formed http(s) URL. */
-function validateConfig(config: AiProviderConfig): string | null {
-  if (!config.apiKey || config.apiKey.trim().length === 0) {
-    return 'No API key configured.';
-  }
+type NormalizedAiProviderConfig =
+  | {
+      readonly ok: true;
+      readonly endpoint: string;
+      readonly apiKey: string;
+      readonly model?: string;
+    }
+  | {
+      readonly ok: false;
+      readonly message: string;
+    };
+
+function isLoopbackHostname(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]'
+  );
+}
+
+/** Validate and normalize the endpoint/key/model before a network request. */
+function normalizeConfig(config: AiProviderConfig): NormalizedAiProviderConfig {
+  const endpoint = config.endpoint.trim();
+  const apiKey = config.apiKey.trim();
+  const model = config.model?.trim();
+
+  if (apiKey.length === 0) return { ok: false, message: 'No API key configured.' };
+
   let url: URL;
   try {
-    url = new URL(config.endpoint);
+    url = new URL(endpoint);
   } catch {
-    return 'AI endpoint is not a valid URL.';
+    return { ok: false, message: 'AI endpoint is not a valid URL.' };
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    return 'AI endpoint must be an http(s) URL.';
+    return { ok: false, message: 'AI endpoint must be an http(s) URL.' };
   }
-  return null;
+  if (url.protocol === 'http:' && !isLoopbackHostname(url.hostname)) {
+    return {
+      ok: false,
+      message:
+        'Plain HTTP AI endpoints are limited to localhost/loopback. Use HTTPS for remote providers.',
+    };
+  }
+  return model ? { ok: true, endpoint, apiKey, model } : { ok: true, endpoint, apiKey };
 }
 
 function extractContent(payload: unknown): string | null {
@@ -119,6 +149,22 @@ async function readSseStream(
   const decoder = new TextDecoder();
   let buffer = '';
   let text = '';
+
+  const processLine = (line: string): void => {
+    if (!line.startsWith('data:')) return;
+    const data = line.slice(5).trim();
+    if (data === '[DONE]') return;
+    try {
+      const delta = extractDelta(JSON.parse(data));
+      if (delta) {
+        text += delta;
+        onChunk(text);
+      }
+    } catch {
+      // Permissive by design: skip non-JSON keep-alive / vendor lines.
+    }
+  };
+
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -128,20 +174,11 @@ async function readSseStream(
     while ((newline = buffer.indexOf('\n')) !== -1) {
       const line = buffer.slice(0, newline).replace(/\r$/, '');
       buffer = buffer.slice(newline + 1);
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (data === '[DONE]') continue;
-      try {
-        const delta = extractDelta(JSON.parse(data));
-        if (delta) {
-          text += delta;
-          onChunk(text);
-        }
-      } catch {
-        // Permissive by design: skip non-JSON keep-alive / vendor lines.
-      }
+      processLine(line);
     }
   }
+  buffer += decoder.decode();
+  if (buffer.length > 0) processLine(buffer.replace(/\r$/, ''));
   return text;
 }
 
@@ -155,10 +192,12 @@ export async function runChatCompletion(
   config: AiProviderConfig,
   options: RunChatCompletionOptions = {}
 ): Promise<AiChatResult> {
-  const configError = validateConfig(config);
-  if (configError) return { ok: false, kind: 'config', message: configError };
+  const normalizedConfig = normalizeConfig(config);
+  if (!normalizedConfig.ok) {
+    return { ok: false, kind: 'config', message: normalizedConfig.message };
+  }
 
-  const model = request.model ?? config.model;
+  const model = request.model?.trim() || normalizedConfig.model;
   if (!model) {
     return { ok: false, kind: 'config', message: 'No model configured.' };
   }
@@ -183,11 +222,11 @@ export async function runChatCompletion(
   }
 
   try {
-    const response = await fetchImpl(config.endpoint, {
+    const response = await fetchImpl(normalizedConfig.endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
+        Authorization: `Bearer ${normalizedConfig.apiKey}`,
       },
       body: JSON.stringify({
         model,
@@ -212,8 +251,8 @@ export async function runChatCompletion(
       // the key into the UI string. Scrub any literal occurrence of the key
       // before it is appended so the "key never leaks" guarantee holds even on
       // the endpoint-error path. split/join avoids regex-escaping the key.
-      if (detail && config.apiKey) {
-        detail = detail.split(config.apiKey).join('[redacted]');
+      if (detail) {
+        detail = detail.split(normalizedConfig.apiKey).join('[redacted]');
       }
       return {
         ok: false,
