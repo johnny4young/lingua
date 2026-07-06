@@ -33,7 +33,7 @@ This keeps the cache warm so users who haven't yet updated continue to see the l
 
 If the incident is highly visible (GitHub status page widely shared) and the degradation lasts >2h:
 
-1. Add a banner to the marketing site (`lingua-marketing` repo) reading:
+1. Add a banner to the marketing site (`website/` in this repo) reading:
    "GitHub-side issue is delaying our auto-update feed. Lingua continues to work fine; we'll resume regular updates once GitHub is healthy."
 2. Pin the banner until GitHub status is green for 30+ minutes.
 

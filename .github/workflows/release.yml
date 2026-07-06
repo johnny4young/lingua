@@ -483,39 +483,9 @@ jobs:
       ref: refs/tags/${{ inputs.release_tag }}
     secrets: inherit
 
-  notify-marketing:
-    name: Trigger lingua-marketing sync
-    needs: [publish]
-    # Fire once the GitHub Release was published. The marketing repo reads the
-    # latest CHANGELOG.md from lingua@main and the public GitHub Release for its
-    # download CTAs, so there is nothing else to wait on.
-    if: >-
-      ${{
-        always() &&
-        needs.publish.result == 'success' &&
-        (inputs.release_macos || inputs.release_windows || inputs.release_linux)
-      }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Dispatch sync-content workflow on lingua-marketing
-        env:
-          # Fine-grained PAT with `Actions: Write` on johnny4young/lingua-marketing.
-          # The default GITHUB_TOKEN cannot dispatch workflows in another repo.
-          GH_TOKEN: ${{ secrets.MARKETING_SYNC_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -z "${GH_TOKEN:-}" ]]; then
-            echo "::warning::MARKETING_SYNC_TOKEN secret is not set on this repo. Skipping cross-repo trigger — lingua-marketing's daily cron will pick up ${RELEASE_TAG} on the next run."
-            exit 0
-          fi
-          echo "Dispatching sync-content workflow on johnny4young/lingua-marketing@main for ${RELEASE_TAG}…"
-          gh workflow run sync-content.yml \
-            --repo johnny4young/lingua-marketing \
-            --ref main
-          {
-            echo "### Marketing sync trigger"
-            echo "- Dispatched \`sync-content.yml\` on \`johnny4young/lingua-marketing@main\`."
-          } >> "$GITHUB_STEP_SUMMARY"
+  # The marketing site (website/) redeploys on release automatically: its
+  # deploy-website.yml workflow triggers on `release: published`, so no
+  # cross-repo dispatch is needed here. The old notify-marketing job that poked
+  # a separate lingua-marketing repo via a MARKETING_SYNC_TOKEN PAT was removed
+  # when the site moved into website/ (content is now vendored locally from the
+  # repo root — no cross-repo sync).
