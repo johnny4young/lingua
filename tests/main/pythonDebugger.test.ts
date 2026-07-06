@@ -131,6 +131,19 @@ describeReal('PythonDebugSession (real pdb)', () => {
     expect(done.finished).toBe(true);
   });
 
+  it('clears a breakpoint it set, despite path canonicalization', async () => {
+    const session = newSession();
+    await session.start();
+    await session.setBreakpoint(4);
+    const cleared = await session.clearBreakpoint(4);
+    // Regression: clearBreakpoint used to build `cl <rawPath>:4`, but pdb tracks
+    // the breakpoint under its own canonical path (macOS resolves /var →
+    // /private/var), so the raw path missed it entirely and the breakpoint
+    // stayed live. Clearing by the number pdb assigned at set time is path-safe.
+    expect(cleared.output).toMatch(/Deleted breakpoint/iu);
+    expect(cleared.output).not.toMatch(/no breakpoints/iu);
+  });
+
   it('surfaces program stdout before the program finishes', async () => {
     const session = newSession();
     await session.start();

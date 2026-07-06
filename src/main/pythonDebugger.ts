@@ -132,6 +132,14 @@ export class PythonDebugSession {
   private exitCode: number | null = null;
   /** Serialize commands so replies map to requests unambiguously. */
   private queue: Promise<unknown> = Promise.resolve();
+  /**
+   * Maps a source line to the breakpoint number pdb assigned when it was set.
+   * `clear` by number is path-independent — pdb canonicalizes file paths
+   * (macOS resolves `/var`→`/private/var`, symlinks, `..`), so a
+   * `clear <file>:<line>` built from the caller's raw path can miss the very
+   * breakpoint `b <line>` created against pdb's canonical path.
+   */
+  private readonly breakpointNumbers = new Map<number, number>();
 
   constructor(options: PythonDebugSessionOptions) {
     this.options = {
@@ -280,11 +288,22 @@ export class PythonDebugSession {
     return result;
   }
 
-  setBreakpoint(line: number): Promise<PdbCommandResult> {
-    return this.sendCommand(`b ${line}`);
+  async setBreakpoint(line: number): Promise<PdbCommandResult> {
+    const result = await this.sendCommand(`b ${line}`);
+    // pdb acknowledges with `Breakpoint N at <canonical-file>:<line>`; capture N
+    // so the breakpoint can later be cleared by number (path-independent).
+    const match = /^Breakpoint (\d+) at /mu.exec(result.output);
+    if (match) this.breakpointNumbers.set(line, Number(match[1]));
+    return result;
   }
-  clearBreakpoint(line: number): Promise<PdbCommandResult> {
-    return this.sendCommand(`cl ${this.options.scriptPath}:${line}`);
+  async clearBreakpoint(line: number): Promise<PdbCommandResult> {
+    const bpNumber = this.breakpointNumbers.get(line);
+    // Clear by the assigned number when known (survives path canonicalization);
+    // fall back to file:line only if the breakpoint wasn't set via this session.
+    const target = bpNumber != null ? String(bpNumber) : `${this.options.scriptPath}:${line}`;
+    const result = await this.sendCommand(`cl ${target}`);
+    this.breakpointNumbers.delete(line);
+    return result;
   }
   continue(): Promise<PdbCommandResult> {
     return this.sendCommand('c');
