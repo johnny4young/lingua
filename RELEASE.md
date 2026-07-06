@@ -109,4 +109,6 @@ This repository uses a draft-first manual release process, with the release tag 
 - Draft-first publishing
 - macOS artifacts are ZIP-only in the active path
 - The checklist above is the acceptance gate for RL-016. Any change to the gate must update this file and `tests/docs/releaseChecklist.test.ts` in the same commit.
-- Marketing site at [linguacode.dev](https://linguacode.dev) lives in this repo under `website/` (a standalone Astro package). Its `deploy-website.yml` workflow redeploys on a published release (to refresh the changelog + version), on `website/` changes, and on manual dispatch. Content is vendored locally from the repo root — there is no cross-repo sync.
+- Both public web surfaces deploy from this repo to Cloudflare Pages (two separate deploys), and a release refreshes **both**:
+  - **Web app** ([app.linguacode.dev](https://app.linguacode.dev), Pages project `lingua-web`) — `deploy-web.yml`, invoked by this release pipeline via `workflow_call` after the security gate.
+  - **Marketing site** ([linguacode.dev](https://linguacode.dev), Pages project `lingua-website`) — a standalone Astro package under `website/`; its `deploy-website.yml` triggers on the published release (also on `website/` changes and manual dispatch). Content is vendored locally from the repo root — no cross-repo sync.

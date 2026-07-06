@@ -9,7 +9,10 @@
 **Marketing site:** [linguacode.dev](https://linguacode.dev) — downloads, pricing, press kit, language-specific landing pages.
 **Web app:** [app.linguacode.dev](https://app.linguacode.dev) — the in-browser build.
 
-The marketing site lives in this repo under [`website/`](./website) — a standalone Astro package that deploys to [linguacode.dev](https://linguacode.dev) via Cloudflare Pages (see [`.github/workflows/deploy-website.yml`](./.github/workflows/deploy-website.yml)).
+Both web surfaces build and deploy **from this repo** to Cloudflare Pages (two separate deploys, two Pages projects):
+
+- **Web app** → [app.linguacode.dev](https://app.linguacode.dev): the Vite `dist/web` build, deployed by [`.github/workflows/deploy-web.yml`](./.github/workflows/deploy-web.yml) (Pages project `lingua-web`).
+- **Marketing site** → [linguacode.dev](https://linguacode.dev): a standalone Astro package under [`website/`](./website), deployed by [`.github/workflows/deploy-website.yml`](./.github/workflows/deploy-website.yml) (Pages project `lingua-website`).
 
 ## Pricing and licensing
 
