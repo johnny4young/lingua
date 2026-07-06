@@ -54,6 +54,7 @@ import type {
   SqlQueryStatus,
   SqlResponseV1,
 } from '../../../shared/sqlWorkspace';
+import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader } from '../ui/ResultHeader';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
@@ -103,6 +104,21 @@ export interface SqlResultPreviewProps {
   selectedResponseIndex?: number;
   /** Select a history entry to view (by index into `responses`). */
   onSelectResponse?: (index: number) => void;
+  /**
+   * T19 — the current editor text of the active query, used as the code
+   * context for the AI "Explain this error" trigger. A recorded response does
+   * NOT store the SQL that produced it, so a historical run being viewed can't
+   * be reconstructed; the trigger is therefore only offered for the newest run
+   * (`selectedResponseIndex === 0`), where this editor text is what produced
+   * the error.
+   */
+  querySource?: string;
+  /**
+   * T19 apply-&-re-run: replace the active query's SQL with the AI
+   * suggestion and run it. Offered only alongside `querySource` (newest
+   * run), since applying over a historical view would be incoherent.
+   */
+  onApplyFix?: (sql: string) => void;
 }
 
 type ResultBodyTab = 'table' | 'json';
@@ -128,6 +144,8 @@ export function SqlResultPreview({
   responses,
   selectedResponseIndex = 0,
   onSelectResponse,
+  querySource,
+  onApplyFix,
 }: SqlResultPreviewProps) {
   const { t } = useTranslation();
   // Table/JSON view preference. Persists across re-runs by design — the
@@ -406,7 +424,14 @@ export function SqlResultPreview({
       {response.status === 'sql-error' ||
       response.status === 'timeout' ||
       response.status === 'engine-load-failed' ? (
-        <ErrorBand status={response.status} message={response.errorMessage} />
+        <ErrorBand
+          status={response.status}
+          message={response.errorMessage}
+          // Only offer Explain for the newest run: the editor text can't be
+          // matched to a historical response (no SQL is stored per run).
+          querySource={selectedResponseIndex === 0 ? querySource : undefined}
+          onApplyFix={selectedResponseIndex === 0 ? onApplyFix : undefined}
+        />
       ) : null}
 
       {response.tooLarge ? (
@@ -573,9 +598,13 @@ function CopyButton({
 function ErrorBand({
   status,
   message,
+  querySource,
+  onApplyFix,
 }: {
   status: SqlResponseV1['status'];
   message: string | undefined;
+  querySource?: string;
+  onApplyFix?: (sql: string) => void;
 }) {
   const { t } = useTranslation();
   const bandKey =
@@ -609,6 +638,17 @@ function ErrorBand({
           ) : null}
           {hintKey ? (
             <p className="mt-1 text-eyebrow text-error-fg/80">{t(hintKey)}</p>
+          ) : null}
+          {status === 'sql-error' && message && querySource ? (
+            <div className="mt-2">
+              <ExplainErrorButton
+                errorMessage={message}
+                code={querySource}
+                language="sql"
+                {...(onApplyFix ? { onApplyFix } : {})}
+                testId="sql-explain-error"
+              />
+            </div>
           ) : null}
         </div>
       </div>

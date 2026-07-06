@@ -24,7 +24,13 @@
  */
 
 import { Loader2, Play, Wand2 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import {
@@ -62,6 +68,11 @@ export interface SqlQueryEditorProps {
    * autocomplete. Empty until the user runs a `SHOW TABLES` refresh.
    */
   tables: ReadonlyArray<SqlSchemaTable>;
+  /**
+   * T19 — optional extra header control (the Ask-AI trigger). A slot
+   * rather than a baked-in button so the editor stays AI-agnostic.
+   */
+  headerExtra?: ReactNode;
 }
 
 export function SqlQueryEditor({
@@ -71,6 +82,7 @@ export function SqlQueryEditor({
   isExecuting,
   insertSignal,
   tables,
+  headerExtra,
 }: SqlQueryEditorProps) {
   const { t } = useTranslation();
   const [text, setText] = useState<string>(query.query);
@@ -266,6 +278,7 @@ export function SqlQueryEditor({
                 size: sizeBytes.toLocaleString(),
               })}
         </span>
+        {headerExtra}
         <button
           type="button"
           onClick={handleFormat}

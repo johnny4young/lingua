@@ -34,6 +34,7 @@ import { ExecutionHistorySection } from './ExecutionHistorySection';
 import { LanguagesSection } from './LanguagesSection';
 import { LayoutSection } from './LayoutSection';
 import { LicenseSection } from './LicenseSection';
+import { AiSection } from './AiSection';
 import { PluginsSection } from './PluginsSection';
 import { PrivacySection } from './PrivacySection';
 import { RecoverySection } from './RecoverySection';
@@ -216,7 +217,7 @@ const RAIL_ITEMS: readonly RailItem[] = [
     labelKey: 'settings.tabs.account',
     icon: Key,
     kbdToken: '5',
-    keywords: ['license', 'pro', 'trial', 'privacy', 'account', 'cuenta'],
+    keywords: ['license', 'pro', 'trial', 'privacy', 'account', 'cuenta', 'ai', 'openai', 'llm'],
   },
   {
     id: 'shortcuts',
@@ -757,6 +758,7 @@ export function SettingsModal({
         return (
           <div className="space-y-6">
             <LicenseSection />
+            <AiSection />
             <RunCapsulesSection />
             <PrivacySection />
           </div>

@@ -19,10 +19,19 @@
       http://localhost:5173 in dev). The web build keeps jsdelivr
       until Slice 2 completes the first-party hosting decision; see
       docs/RUNTIME_ASSETS_ADR.md.
+
+      T19 / RL-031 — connect-src additionally allows plain-http
+      localhost/127.0.0.1 (any port) so the desktop app can reach a
+      LOCAL AI server (Ollama, LM Studio, llama.cpp) for the
+      explain-error feature — the local-first AI path. Remote https AI
+      endpoints stay blocked on desktop by design until they route
+      through the RL-097 T7 SSRF-guarded main proxy (see
+      docs/LOCAL_AI_ADR.md); loopback-only keeps the audited RL-140
+      no-exfil posture intact.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev; base-uri 'self'; form-action 'self';"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev http://localhost:* http://127.0.0.1:*; base-uri 'self'; form-action 'self';"
     />
     <!--
       RL-140 (AUDIT-20) — early TLS handshakes to the two first-party

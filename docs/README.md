@@ -52,6 +52,7 @@ only superseded by a new ADR that names the one it replaces.
 | [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md)             | Environment variables for execution contexts (global / project / tab tiers)                                                                                 | `RL-011`                                                   |
 | [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md)   | Declarative language-pack registry                                                                                                                          | `RL-038`                                                   |
 | [`PYTHON_NOTEBOOK_KERNEL_ADR.md`](./PYTHON_NOTEBOOK_KERNEL_ADR.md) | Per-notebook Python kernel state — namespace-dict scope on the shared Pyodide worker, isolation model, Restart kernel | `T17`                                                      |
+| [`LOCAL_AI_ADR.md`](./LOCAL_AI_ADR.md)             | Local/hybrid AI — BYO-key AI assistance, strict consent + no-silent-network posture, redaction, local config, transport follow-ups | `T19` / `RL-031`                                           |
 | [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) | Vendoring + integrity-locking runtime assets; Pyodide same-origin posture; `VITE_LINGUA_WEB_RUNTIME_BASE` / R2-hosted oversized web WASM for DuckDB/Ruby; per-surface CSP rules | `RL-083`                                                   |
 | [`RUNTIME_MODES_ADR.md`](./RUNTIME_MODES_ADR.md)   | Per-tab JS/TS runtime modes (Worker / desktop Node / Browser preview); Worker default, desktop Node subprocess contract, iframe preview sandbox             | `RL-019`                                                   |
 | [`STATUS_NOTICE_PRIORITY_ADR.md`](./STATUS_NOTICE_PRIORITY_ADR.md) | Priority field on `StatusNotice` so onboarding / choreographed toasts cannot be clobbered by routine `'normal'` pushes; errors always win | `RL-101` Slice 1.5                                          |
@@ -103,6 +104,7 @@ docs.
 | [`electron-stagewright-desktop-validation.md`](./runbooks/electron-stagewright-desktop-validation.md) | Running the lightweight Electron Stagewright MCP desktop UI check before falling back to the full native smoke matrix. |
 | [`github-degraded.md`](./runbooks/github-degraded.md) | GitHub API, Releases, or webhook paths are degraded and operators need fallback steps. |
 | [`license-recovery.md`](./runbooks/license-recovery.md) | Helping a licensed user recover or re-link a license/device. |
+| [`local-ai-smoke.md`](./runbooks/local-ai-smoke.md) | Smoke-testing the "Explain this error" AI feature against a real local model (Ollama / LM Studio) on the web build. |
 | [`r2-release-mirror-setup.md`](./runbooks/r2-release-mirror-setup.md) | Provisioning or validating the public R2 release-download mirror. |
 | [`refund-handling.md`](./runbooks/refund-handling.md) | Processing a refund while keeping license and audit records coherent. |
 | [`telemetry-pipeline.md`](./runbooks/telemetry-pipeline.md) | Debugging or validating telemetry ingestion and privacy controls. |

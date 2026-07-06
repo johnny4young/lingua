@@ -37,6 +37,8 @@ import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
 import { NotebookCellEditor } from './NotebookCellEditor';
 import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
+import { ExplainErrorButton } from '../AI/ExplainErrorButton';
+import { useEntitlement } from '../../hooks/useEntitlement';
 
 export interface NotebookCodeCellRowProps {
   readonly cell: NotebookCodeCellV1;
@@ -210,6 +212,11 @@ function NotebookCodeCellRowImpl({
   const { t } = useTranslation();
   const shellRef = useRef<HTMLElement | null>(null);
   const label = languageLabel(cell.language);
+  // T19 — "Explain this error": on an errored cell, LOCAL_AI users get the
+  // consent-gated AI trigger (shared ExplainErrorButton owns the dialog +
+  // open state). `canExplainError` gates the wrapper so Free users don't get
+  // an empty padded slot.
+  const canExplainError = useEntitlement('LOCAL_AI');
   // Signal-Slate — derived mode for the active cell. EDIT when the live
   // Monaco editor is mounted (the caret is in the cell); COMMAND when only
   // the static view shows and focus sits on the shell. The header label +
@@ -709,6 +716,35 @@ function NotebookCodeCellRowImpl({
               })}
             </ul>
           )}
+          {status === 'error' && canExplainError ? (
+            <div className="px-2 pb-2">
+              <ExplainErrorButton
+                errorMessage={cell.outputs
+                  .filter((output) => output.stream === 'stderr')
+                  .map((output) => output.text)
+                  .join('\n')}
+                code={cell.source}
+                language={cell.language}
+                onApplyFix={(newCode) => {
+                  // Apply & re-run: write the suggestion through the SAME
+                  // local-draft plumbing as typing (local state + refs), then
+                  // persist immediately — bypassing the autosave debounce so
+                  // the run below sees the new source in the store — and run.
+                  setSource(newCode);
+                  latestSourceRef.current = newCode;
+                  pendingTargetIdRef.current = cell.id;
+                  if (debounceRef.current !== null) {
+                    clearTimeout(debounceRef.current);
+                    debounceRef.current = null;
+                  }
+                  onSourceChange(cell.id, newCode);
+                  lastSavedRef.current = newCode;
+                  onRunCell(cell.id);
+                }}
+                testId="notebook-cell-explain-error"
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </article>
