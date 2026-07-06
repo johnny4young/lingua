@@ -17,8 +17,14 @@ import {
 } from '#src/shared/runtimeModes';
 
 describe('RUNTIME_MODES enum', () => {
-  it('has exactly three modes in the expected order', () => {
-    expect([...RUNTIME_MODES]).toEqual(['worker', 'node', 'browser-preview']);
+  it('has exactly the expected modes in order', () => {
+    expect([...RUNTIME_MODES]).toEqual([
+      'worker',
+      'node',
+      'browser-preview',
+      'deno',
+      'bun',
+    ]);
   });
 });
 
@@ -115,12 +121,14 @@ describe('parity with telemetry RUNTIME_MODE_VALUES', () => {
 });
 
 describe('cycleRuntimeMode (fold D)', () => {
-  it('cycles through worker → node → browser-preview after Slice 2', () => {
-    // Slice 2 made node the second implemented mode. The cycle now
-    // walks all three modes (worker → node → browser-preview →
-    // worker) since every option is implemented.
+  it('cycles through every implemented mode in order', () => {
+    // All five modes are implemented (worker, node, browser-preview, and
+    // the F-4 deno/bun desktop runtimes), so the cycle walks the full
+    // RUNTIME_MODES order and wraps back to worker.
     expect(cycleRuntimeMode('worker')).toBe('node');
     expect(cycleRuntimeMode('node')).toBe('browser-preview');
-    expect(cycleRuntimeMode('browser-preview')).toBe('worker');
+    expect(cycleRuntimeMode('browser-preview')).toBe('deno');
+    expect(cycleRuntimeMode('deno')).toBe('bun');
+    expect(cycleRuntimeMode('bun')).toBe('worker');
   });
 });

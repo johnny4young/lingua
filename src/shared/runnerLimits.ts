@@ -26,6 +26,13 @@
 /** Cap on aggregated subprocess stderr / stdout captured in main. */
 export const MAX_NATIVE_STDERR_BYTES = 1024 * 1024;
 
+/**
+ * Cap on a single interactive-stdin write forwarded to a native run (F-7).
+ * Bounds how much a renderer can push into a child's stdin buffer in one IPC
+ * call if the child never reads it. Generous for line-oriented REPL input.
+ */
+export const MAX_STDIN_WRITE_BYTES = 256 * 1024;
+
 /** Cap on toolchain compile output captured in main. */
 export const MAX_COMPILE_OUTPUT_BYTES = 1024 * 1024;
 

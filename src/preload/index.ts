@@ -59,6 +59,13 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (source: string, options?: RubyRunInvokeOptions) =>
       typedInvoke('ruby:run', source, options),
     stop: (runId: string) => typedInvoke('ruby:stop', runId),
+    // F-7 — interactive stdin: stream input to a live run + close it.
+    writeStdin: (runId: string, data: string) =>
+      typedInvoke('ruby:stdin-write', runId, data),
+    closeStdin: (runId: string) => typedInvoke('ruby:stdin-close', runId),
+    // F-7 — live output stream (consumers filter by runId).
+    onOutput: (handler: (event: RuntimeOutputChunk) => void) =>
+      typedOn('runtime:output-chunk', handler),
   },
 
   // RL-019 Slice 2 — desktop Node child-spawn IPC. Distinct from the
@@ -72,6 +79,32 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (source: string, options?: NodeRunInvokeOptions) =>
       typedInvoke('node:run', source, options),
     stop: (runId: string) => typedInvoke('node:stop', runId),
+    // F-7 — interactive stdin: stream input to a live run + close it.
+    writeStdin: (runId: string, data: string) =>
+      typedInvoke('node:stdin-write', runId, data),
+    closeStdin: (runId: string) => typedInvoke('node:stdin-close', runId),
+    // F-7 — live output stream (consumers filter by runId).
+    onOutput: (handler: (event: RuntimeOutputChunk) => void) =>
+      typedOn('runtime:output-chunk', handler),
+  },
+
+  // F-4 — desktop Deno child-spawn IPC. Runs TS/JS directly; sandboxed
+  // to the temp dir via --allow-read. Web adapter omits this surface.
+  deno: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) =>
+      typedInvoke('deno:detect', userEnv, force),
+    run: (source: string, options?: AltJsRunInvokeOptions) =>
+      typedInvoke('deno:run', source, options),
+    stop: (runId: string) => typedInvoke('deno:stop', runId),
+  },
+
+  // F-4 — desktop Bun child-spawn IPC. Same shape as deno.
+  bun: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) =>
+      typedInvoke('bun:detect', userEnv, force),
+    run: (source: string, options?: AltJsRunInvokeOptions) =>
+      typedInvoke('bun:run', source, options),
+    stop: (runId: string) => typedInvoke('bun:stop', runId),
   },
 
   // Formatter IPC — gofmt / rustfmt / python pipe source via stdin
@@ -329,6 +362,12 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('dependencies:js:install:cancel', runId),
     onInstallLogJs: (handler: (event: DependencyInstallLogEvent) => void) =>
       typedOn('dependencies:js:install:log', handler),
+    // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+    installNative: (
+      language: NativePackageLanguage,
+      specifiers: readonly string[],
+      filePath: string
+    ) => typedInvoke('dependencies:native:install', language, specifiers, filePath),
   },
 
   // RL-102 Slice 1 — Git read-only layer. Three channels:

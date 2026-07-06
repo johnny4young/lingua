@@ -44,14 +44,17 @@
  */
 
 import { app } from 'electron';
-import { typedHandle } from './ipc/typedHandle';
+import { typedHandle, typedSendTo } from './ipc/typedHandle';
 import * as childProc from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
+import {
+  MAX_NATIVE_STDERR_BYTES,
+  MAX_STDIN_WRITE_BYTES,
+} from '../shared/runnerLimits';
 import {
   spawnNativeRun,
   type SpawnNativeRunResult,
@@ -119,6 +122,20 @@ export interface RubyRunOptions {
   userEnv?: Record<string, string>;
   /** Stdin buffer. Empty / undefined closes stdin immediately. */
   stdin?: string;
+  /**
+   * F-7 — interactive stdin. When `true` (and a `runId` is present) the
+   * child's stdin stays open after the initial buffer so the renderer can
+   * stream input via `ruby:stdin-write` and close it with
+   * `ruby:stdin-close`. Default closes stdin immediately.
+   */
+  interactive?: boolean;
+  /**
+   * F-7 — main-internal live-output sink. Set by the IPC handler (never
+   * from the serialized IPC payload) to stream stdout/stderr chunks to the
+   * renderer as they arrive during an interactive run. Only invoked when
+   * `interactive` is true.
+   */
+  onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   /** I18n-keyed truncation markers. */
   messages?: NativeRunnerMessages;
 }
@@ -136,6 +153,8 @@ export interface RubyRunResult {
 
 let cachedDetect: RubyDetectResult | null = null;
 const activeRubyRuns = new Map<string, () => void>();
+/** F-7 — open stdin streams for in-flight interactive Ruby runs. */
+const activeRubyStdins = new Map<string, NodeJS.WritableStream>();
 
 /**
  * Fold A — parse a `ruby --version` line into structured fields.
@@ -248,6 +267,7 @@ function normalizeRubyRunOptions(value: unknown): RubyRunOptions {
     filePath: typeof value.filePath === 'string' ? value.filePath : undefined,
     userEnv: normalizeStringMap(value.userEnv),
     stdin: typeof value.stdin === 'string' ? value.stdin : undefined,
+    interactive: value.interactive === true,
     messages: normalizeNativeMessages(value.messages),
   };
 }
@@ -354,6 +374,12 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
     activeRubyRuns.set(options.runId, () => controller.abort());
   }
 
+  // F-7 — interactive mode keeps stdin open so the renderer can stream further
+  // input via `ruby:stdin-write`. Requires a runId to key the stream registry;
+  // without one there is no way to route later writes, so it falls back to the
+  // request/response close-immediately posture.
+  const interactive = options.interactive === true && Boolean(options.runId);
+
   try {
     const run = await spawnNativeRun({
       command: 'ruby',
@@ -365,9 +391,26 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
       maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
       stdoutTruncationMarker: markers.stdout,
       stderrTruncationMarker: markers.stderr,
-      // Forward the pre-set stdin buffer (Slice 6). Empty / undefined
-      // closes immediately so `gets` hits EOF on first read.
-      stdin: { data: options.stdin },
+      // Forward the pre-set stdin buffer (Slice 6). Empty / undefined closes
+      // immediately so `gets` hits EOF on first read. F-7 interactive runs keep
+      // stdin open and register the stream for a later `ruby:stdin-write`.
+      stdin: {
+        data: options.stdin,
+        keepOpen: interactive,
+        onStream:
+          interactive && options.runId
+            ? (stdin) => activeRubyStdins.set(options.runId!, stdin)
+            : undefined,
+      },
+      // F-7 — stream live output to the renderer before buffering/truncation.
+      onStdout:
+        interactive && options.onOutput
+          ? (chunk) => options.onOutput?.('stdout', chunk)
+          : undefined,
+      onStderr:
+        interactive && options.onOutput
+          ? (chunk) => options.onOutput?.('stderr', chunk)
+          : undefined,
       signal: controller.signal,
     });
 
@@ -378,7 +421,11 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
     void rm(tempDir, { recursive: true, force: true }).catch(() => {});
     return result;
   } finally {
-    if (options.runId) activeRubyRuns.delete(options.runId);
+    if (options.runId) {
+      activeRubyRuns.delete(options.runId);
+      // F-7 — drop the interactive stdin registration once the run ends.
+      activeRubyStdins.delete(options.runId);
+    }
   }
 }
 
@@ -471,6 +518,43 @@ export function stopRubyRun(runId: unknown): { stopped: boolean } {
   return { stopped: true };
 }
 
+/** F-7 — write a chunk to an interactive Ruby run's stdin. */
+export function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
+  const normalizedRunId = normalizeRunId(runId);
+  if (!normalizedRunId || typeof data !== 'string') return { written: false };
+  // Bound a single write so a renderer bug cannot balloon the child's stdin
+  // buffer in main-process memory if the child never reads it.
+  if (data.length > MAX_STDIN_WRITE_BYTES) return { written: false };
+  const stream = activeRubyStdins.get(normalizedRunId);
+  if (!stream) return { written: false };
+  try {
+    stream.write(data);
+    return { written: true };
+  } catch {
+    return { written: false };
+  }
+}
+
+/** F-7 — close an interactive Ruby run's stdin (EOF). */
+export function closeRubyStdin(runId: unknown): { closed: boolean } {
+  const normalizedRunId = normalizeRunId(runId);
+  if (!normalizedRunId) return { closed: false };
+  const stream = activeRubyStdins.get(normalizedRunId);
+  if (!stream) return { closed: false };
+  try {
+    stream.end();
+  } catch {
+    // Already closed — success.
+  }
+  activeRubyStdins.delete(normalizedRunId);
+  return { closed: true };
+}
+
+/** Test seam — clear interactive Ruby stdin registry. */
+export function _resetRubyStdinsForTests(): void {
+  activeRubyStdins.clear();
+}
+
 /** Register all Ruby-related IPC handlers. */
 export function registerRubyHandlers(): void {
   typedHandle(
@@ -480,15 +564,36 @@ export function registerRubyHandlers(): void {
   );
   typedHandle(
     'ruby:run',
-    async (_event, source: unknown, options?: unknown) => {
+    async (event, source: unknown, options?: unknown) => {
       if (typeof source !== 'string') {
         return invalidRubyRunResult('Ruby runner received invalid source.');
       }
-      return runRubyCode(source, normalizeRubyRunOptions(options));
+      const normalized = normalizeRubyRunOptions(options);
+      // F-7 — stream live output to the renderer for interactive runs.
+      if (normalized.interactive && normalized.runId) {
+        const runId = normalized.runId;
+        const sender = event.sender;
+        normalized.onOutput = (stream, chunk) => {
+          if (sender.isDestroyed()) return;
+          try {
+            typedSendTo(sender, 'runtime:output-chunk', { runId, stream, chunk });
+          } catch {
+            /* sender gone */
+          }
+        };
+      }
+      return runRubyCode(source, normalized);
     }
   );
   typedHandle('ruby:stop', async (_event, runId?: unknown) =>
     stopRubyRun(runId)
+  );
+  // F-7 — interactive stdin channels.
+  typedHandle('ruby:stdin-write', async (_event, runId: string, data: string) =>
+    writeRubyStdin(runId, data)
+  );
+  typedHandle('ruby:stdin-close', async (_event, runId: string) =>
+    closeRubyStdin(runId)
   );
 }
 

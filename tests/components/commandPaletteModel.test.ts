@@ -71,6 +71,60 @@ describe('buildCommandPaletteModel', () => {
     expect(restartCommand?.description).toContain('Restart now');
   });
 
+  it('surfaces the benchmark action only when onBenchmarkActiveTab is wired', () => {
+    const baseOptions = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    const withoutBenchmark = buildCommandPaletteModel(baseOptions);
+    expect(withoutBenchmark.some((c) => c.id === 'action-benchmark-tab')).toBe(false);
+
+    const onBenchmarkActiveTab = vi.fn();
+    const withBenchmark = buildCommandPaletteModel({
+      ...baseOptions,
+      onBenchmarkActiveTab,
+    });
+    const benchmark = withBenchmark.find((c) => c.id === 'action-benchmark-tab');
+    expect(benchmark).toBeDefined();
+    benchmark?.action();
+    expect(onBenchmarkActiveTab).toHaveBeenCalledTimes(1);
+
+    const onExplainLastError = vi.fn();
+    const withExplain = buildCommandPaletteModel({ ...baseOptions, onExplainLastError });
+    expect(buildCommandPaletteModel(baseOptions).some((c) => c.id === 'action-explain-last-error')).toBe(false);
+    const explain = withExplain.find((c) => c.id === 'action-explain-last-error');
+    expect(explain).toBeDefined();
+    explain?.action();
+    expect(onExplainLastError).toHaveBeenCalledTimes(1);
+
+    const onInstallNativeDependencies = vi.fn();
+    const withInstall = buildCommandPaletteModel({ ...baseOptions, onInstallNativeDependencies });
+    expect(buildCommandPaletteModel(baseOptions).some((c) => c.id === 'action-install-native-deps')).toBe(false);
+    const install = withInstall.find((c) => c.id === 'action-install-native-deps');
+    expect(install).toBeDefined();
+    install?.action();
+    expect(onInstallNativeDependencies).toHaveBeenCalledTimes(1);
+  });
+
   it('translates action labels through the provided t function', async () => {
     await i18next.changeLanguage('es');
     try {

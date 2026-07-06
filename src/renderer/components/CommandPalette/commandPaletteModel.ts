@@ -12,6 +12,7 @@ import {
 import type { Snippet } from '../../stores/snippetsStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import type { FileTab, Language, LayoutPreset } from '../../types';
+import type { RuntimeMode } from '../../../shared/runtimeModes';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import {
@@ -93,6 +94,30 @@ interface BuildCommandPaletteModelArgs {
    */
   onToggleStatusBar?: () => void;
   /**
+   * F-5 — fires the "Benchmark this tab" action, which re-runs the active
+   * tab's code N times and reports timing stats to the console. Optional;
+   * the caller wires it only when the active tab is a worker-runner
+   * language AND the effective tier holds the `BENCHMARK` entitlement, so
+   * the command stays hidden for Free users and non-benchmarkable tabs.
+   */
+  onBenchmarkActiveTab?: () => void;
+  /**
+   * F-2 — fires the "Explain last error" action, which runs the offline
+   * error explainer against the most recent run error and reports the
+   * explanation to the console. Optional; the caller wires it only when
+   * there is an error to explain AND the effective tier holds the
+   * `LOCAL_AI` entitlement, so the command stays hidden otherwise.
+   */
+  onExplainLastError?: () => void;
+  /**
+   * F-1 — fires the "Install detected packages" action for a Go / Rust /
+   * Ruby tab: detects imports/crates/gems in the active buffer and runs
+   * the toolchain install (go get / cargo add / bundle add). Optional; the
+   * caller wires it only when the active tab is a saved Go/Rust/Ruby file
+   * with detectable third-party dependencies.
+   */
+  onInstallNativeDependencies?: () => void;
+  /**
    * RL-112 fold C — fires the "Focus status bar" action, moving keyboard
    * focus to the bar's first segment via `focusStatusBar()`. Optional;
    * surfaced only when wired AND the bar is currently visible (the caller
@@ -137,13 +162,13 @@ interface BuildCommandPaletteModelArgs {
    * implementation-status guard and emits the
    * `runtime.mode_changed` telemetry.
    */
-  onSetRuntimeMode?: (mode: 'worker' | 'node' | 'browser-preview') => void;
+  onSetRuntimeMode?: (mode: RuntimeMode) => void;
   /**
    * Active tab's current runtime mode; used to highlight the
    * "currently selected" entry. `null` for non-JS/TS tabs, which
    * also suppresses the three runtime-mode entries entirely.
    */
-  activeRuntimeMode?: 'worker' | 'node' | 'browser-preview' | null;
+  activeRuntimeMode?: RuntimeMode | null;
   /**
    * RL-020 Slice 3 fold E — fires when the user activates the "Pin
    * watch on current line" palette action. The caller in `App.tsx`
@@ -695,6 +720,9 @@ export function buildCommandPaletteModel({
   inlineLintActiveIssueCount = 0,
   onPastePlainText,
   onToggleStatusBar,
+  onBenchmarkActiveTab,
+  onExplainLastError,
+  onInstallNativeDependencies,
   onFocusStatusBar,
   savedSessionTabCount = 0,
   onReplayEntry,
@@ -1537,6 +1565,54 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
+    // F-5 — benchmark the active tab. Wired only when the tab is a
+    // worker-runner language AND the tier holds `BENCHMARK`, so the entry
+    // stays hidden otherwise.
+    ...(onBenchmarkActiveTab
+      ? [
+          buildActionCommand(
+            'action-benchmark-tab',
+            translate('command.benchmark'),
+            translate('command.benchmarkDescription'),
+            ['benchmark', 'profile', 'perf', 'performance', 'timing', 'speed', 'medir', 'rendimiento'],
+            () => {
+              onBenchmarkActiveTab();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // F-1 — install detected Go/Rust/Ruby packages for the active tab.
+    ...(onInstallNativeDependencies
+      ? [
+          buildActionCommand(
+            'action-install-native-deps',
+            translate('command.installNativeDeps'),
+            translate('command.installNativeDepsDescription'),
+            ['install', 'dependencies', 'packages', 'go', 'rust', 'ruby', 'gem', 'crate', 'module', 'instalar'],
+            () => {
+              onInstallNativeDependencies();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // F-2 — explain the last run error. Wired only when there is an error
+    // to explain AND the tier holds LOCAL_AI.
+    ...(onExplainLastError
+      ? [
+          buildActionCommand(
+            'action-explain-last-error',
+            translate('command.explainError'),
+            translate('command.explainErrorDescription'),
+            ['explain', 'error', 'why', 'fix', 'diagnose', 'explicar', 'error', 'ayuda'],
+            () => {
+              onExplainLastError();
+              onClose();
+            }
+          ),
+        ]
+      : []),
     // RL-112 fold C — focus the status bar's first segment. Surfaced only
     // when wired AND the bar is visible (the caller gates on `showStatusBar`).
     ...(onFocusStatusBar
@@ -1628,6 +1704,27 @@ export function buildCommandPaletteModel({
             ['runtime', 'mode', 'browser', 'preview', 'iframe', 'dom'],
             () => {
               onSetRuntimeMode('browser-preview');
+              onClose();
+            }
+          ),
+          // F-4 — Deno / Bun desktop runtimes.
+          buildActionCommand(
+            'action-runtime-mode-deno',
+            translate('commandPalette.action.runtimeMode.deno.label'),
+            translate('commandPalette.action.runtimeMode.deno.description'),
+            ['runtime', 'mode', 'deno', 'desktop', 'ts', 'sandbox'],
+            () => {
+              onSetRuntimeMode('deno');
+              onClose();
+            }
+          ),
+          buildActionCommand(
+            'action-runtime-mode-bun',
+            translate('commandPalette.action.runtimeMode.bun.label'),
+            translate('commandPalette.action.runtimeMode.bun.description'),
+            ['runtime', 'mode', 'bun', 'desktop', 'ts', 'fast'],
+            () => {
+              onSetRuntimeMode('bun');
               onClose();
             }
           ),

@@ -43,7 +43,7 @@
  */
 
 import { app } from 'electron';
-import { typedHandle } from './ipc/typedHandle';
+import { typedHandle, typedSendTo } from './ipc/typedHandle';
 import { parse } from 'acorn';
 import type { Node as AcornNode, Program as AcornProgram } from 'acorn';
 import * as childProc from 'node:child_process';
@@ -52,7 +52,10 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
+import {
+  MAX_NATIVE_STDERR_BYTES,
+  MAX_STDIN_WRITE_BYTES,
+} from '../shared/runnerLimits';
 import {
   NODE_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -155,6 +158,22 @@ export interface NodeRunOptions {
   userEnv?: Record<string, string>;
   /** Stdin buffer (Slice 6). Empty / undefined closes stdin. */
   stdin?: string;
+  /**
+   * F-7 — interactive stdin. When `true` the child's stdin stays OPEN
+   * after the initial `stdin` buffer is written, so the renderer can
+   * stream further lines via `node:stdin-write` (keyed by `runId`) and
+   * close it with `node:stdin-close`. Requires a `runId`; ignored
+   * otherwise. Default (`false`/undefined) keeps the request/response
+   * behavior: the buffer is written and stdin is closed immediately.
+   */
+  interactive?: boolean;
+  /**
+   * F-7 — main-internal live-output sink. Set by the IPC handler (never
+   * from the serialized IPC payload) to stream stdout/stderr chunks to the
+   * renderer as they arrive during an interactive run. Only invoked when
+   * `interactive` is true.
+   */
+  onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   /** I18n-keyed truncation markers. */
   messages?: NativeRunnerMessages;
 }
@@ -172,6 +191,13 @@ export interface NodeRunResult {
 
 let cachedDetect: NodeDetectResult | null = null;
 const activeNodeRuns = new Map<string, () => void>();
+/**
+ * F-7 — open stdin streams for in-flight interactive runs, keyed by
+ * `runId`. Populated only when a run is started with `interactive: true`;
+ * cleared when the child exits. `node:stdin-write` / `node:stdin-close`
+ * look the stream up here.
+ */
+const activeNodeStdins = new Map<string, NodeJS.WritableStream>();
 
 function envValue(
   key: string,
@@ -478,6 +504,7 @@ function normalizeNodeRunOptions(value: unknown): NodeRunOptions {
     filePath: typeof value.filePath === 'string' ? value.filePath : undefined,
     userEnv: normalizeStringMap(value.userEnv),
     stdin: typeof value.stdin === 'string' ? value.stdin : undefined,
+    interactive: value.interactive === true,
     messages: normalizeNativeMessages(value.messages),
   };
 }
@@ -685,6 +712,12 @@ async function spawnNode(
     activeNodeRuns.set(options.runId, () => controller.abort());
   }
 
+  // F-7 — interactive mode keeps stdin open so the renderer can stream further
+  // input via `node:stdin-write`. Requires a runId to key the stream registry;
+  // without one there is no way to route later writes, so it falls back to the
+  // request/response close-immediately posture.
+  const interactive = options.interactive === true && Boolean(options.runId);
+
   try {
     const run = await spawnNativeRun({
       command: nodeBinary,
@@ -696,9 +729,26 @@ async function spawnNode(
       maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
       stdoutTruncationMarker: markers.stdout,
       stderrTruncationMarker: markers.stderr,
-      // Slice 6 stdin forwarding — always managed for Node (write when
-      // non-empty, then close so `process.stdin` reads hit EOF).
-      stdin: { data: options.stdin },
+      // Slice 6 stdin forwarding — write when non-empty, then close so
+      // `process.stdin` reads hit EOF. F-7 interactive runs instead keep stdin
+      // open and register the stream so a later `node:stdin-write` can reach it.
+      stdin: {
+        data: options.stdin,
+        keepOpen: interactive,
+        onStream:
+          interactive && options.runId
+            ? (stdin) => activeNodeStdins.set(options.runId!, stdin)
+            : undefined,
+      },
+      // F-7 — stream live output to the renderer before buffering/truncation.
+      onStdout:
+        interactive && options.onOutput
+          ? (chunk) => options.onOutput?.('stdout', chunk)
+          : undefined,
+      onStderr:
+        interactive && options.onOutput
+          ? (chunk) => options.onOutput?.('stderr', chunk)
+          : undefined,
       signal: controller.signal,
     });
 
@@ -710,7 +760,11 @@ async function spawnNode(
 
     return mapNodeRunResult(run, timeoutMs);
   } finally {
-    if (options.runId) activeNodeRuns.delete(options.runId);
+    if (options.runId) {
+      activeNodeRuns.delete(options.runId);
+      // F-7 — drop the interactive stdin registration once the run ends.
+      activeNodeStdins.delete(options.runId);
+    }
   }
 }
 
@@ -808,6 +862,49 @@ export function stopNodeRun(runId: unknown): { stopped: boolean } {
   return { stopped: true };
 }
 
+/**
+ * F-7 — write a chunk to an interactive run's stdin. Returns
+ * `{ written: false }` when the runId is unknown (run already finished,
+ * or was not started interactively) so the renderer can drop the input
+ * quietly instead of throwing.
+ */
+export function writeNodeStdin(runId: unknown, data: unknown): { written: boolean } {
+  const normalizedRunId = normalizeRunId(runId);
+  if (!normalizedRunId || typeof data !== 'string') return { written: false };
+  // Bound a single write so a renderer bug cannot balloon the child's stdin
+  // buffer in main-process memory if the child never reads it.
+  if (data.length > MAX_STDIN_WRITE_BYTES) return { written: false };
+  const stream = activeNodeStdins.get(normalizedRunId);
+  if (!stream) return { written: false };
+  try {
+    stream.write(data);
+    return { written: true };
+  } catch {
+    // EPIPE / destroyed — the child exited between the lookup and write.
+    return { written: false };
+  }
+}
+
+/** F-7 — close an interactive run's stdin (sends EOF to the child). */
+export function closeNodeStdin(runId: unknown): { closed: boolean } {
+  const normalizedRunId = normalizeRunId(runId);
+  if (!normalizedRunId) return { closed: false };
+  const stream = activeNodeStdins.get(normalizedRunId);
+  if (!stream) return { closed: false };
+  try {
+    stream.end();
+  } catch {
+    // Already closed — treat as success.
+  }
+  activeNodeStdins.delete(normalizedRunId);
+  return { closed: true };
+}
+
+/** Test seam — clear interactive stdin registry between cases. */
+export function _resetNodeStdinsForTests(): void {
+  activeNodeStdins.clear();
+}
+
 /** Register all Node-related IPC handlers. */
 export function registerNodeJSHandlers(): void {
   typedHandle(
@@ -817,17 +914,42 @@ export function registerNodeJSHandlers(): void {
   );
   typedHandle(
     'node:run',
-    async (_event, source: unknown, options?: unknown) => {
+    async (event, source: unknown, options?: unknown) => {
       if (typeof source !== 'string') {
         return invalidNodeRunResult('Node runner received invalid source.');
       }
-      return runNodeCode(source, normalizeNodeRunOptions(options));
+      const normalized = normalizeNodeRunOptions(options);
+      // F-7 — stream live output to the renderer for interactive runs.
+      if (normalized.interactive && normalized.runId) {
+        const runId = normalized.runId;
+        const sender = event.sender;
+        normalized.onOutput = (stream, chunk) => {
+          if (sender.isDestroyed()) return;
+          try {
+            typedSendTo(sender, 'runtime:output-chunk', { runId, stream, chunk });
+          } catch {
+            /* sender gone */
+          }
+        };
+      }
+      return runNodeCode(source, normalized);
     }
   );
   typedHandle(
     'node:stop',
     async (_event, runId?: unknown) =>
       stopNodeRun(runId)
+  );
+  // F-7 — interactive stdin channels.
+  typedHandle(
+    'node:stdin-write',
+    async (_event, runId: string, data: string) =>
+      writeNodeStdin(runId, data)
+  );
+  typedHandle(
+    'node:stdin-close',
+    async (_event, runId: string) =>
+      closeNodeStdin(runId)
   );
 }
 

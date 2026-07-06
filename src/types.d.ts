@@ -142,6 +142,8 @@ interface NodeRunInvokeOptions {
   filePath?: string;
   userEnv?: Record<string, string>;
   stdin?: string;
+  /** F-7 — keep stdin open for `node.writeStdin` streaming. */
+  interactive?: boolean;
   messages?: NativeRunnerMessages;
 }
 
@@ -184,6 +186,8 @@ interface RubyRunInvokeOptions {
   filePath?: string;
   userEnv?: Record<string, string>;
   stdin?: string;
+  /** F-7 — keep stdin open for `ruby.writeStdin` streaming. */
+  interactive?: boolean;
   messages?: NativeRunnerMessages;
 }
 
@@ -195,6 +199,57 @@ interface RubyRunResult {
   executionTime: number;
   error?: string;
   timeoutMs: number;
+}
+
+// F-4 — Deno / Bun desktop runtime IPC shapes. Both runtimes share one
+// generic backend (src/main/altJsRuntimes.ts), so they share these types.
+type AltJsRunKind = 'success' | 'error' | 'timeout' | 'stopped' | 'missing-binary';
+interface AltJsDetectResult {
+  installed: boolean;
+  version?: string;
+  error?: string;
+}
+interface AltJsRunInvokeOptions {
+  runId?: string;
+  timeoutMs?: number;
+  language?: string;
+  userEnv?: Record<string, string>;
+}
+interface AltJsRunResult {
+  kind: AltJsRunKind;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executionTime: number;
+  error?: string;
+  timeoutMs: number;
+}
+
+// F-1 — Go / Rust / Ruby dependency install IPC shapes. Mirrors the
+// module types in src/shared/dependencies/nativeDependencies.ts and
+// src/main/nativeDependencyInstall.ts (ambient copy for the import-free
+// ipcContract, same pattern as the Node/Ruby types above).
+type NativePackageLanguage = 'go' | 'rust' | 'ruby';
+type NativeInstallStatus =
+  | 'success'
+  | 'error'
+  | 'timeout'
+  | 'missing-manifest'
+  | 'invalid-specifiers'
+  | 'missing-binary';
+interface NativeInstallResult {
+  status: NativeInstallStatus;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+}
+
+// F-7 — a live output chunk from an interactive run (REPL streaming).
+interface RuntimeOutputChunk {
+  runId: string;
+  stream: 'stdout' | 'stderr';
+  chunk: string;
 }
 
 // RL-026 Slice 3 + Slice 4 — desktop LSP launcher status surface.
@@ -752,6 +807,25 @@ interface LinguaAPI {
       options?: NodeRunInvokeOptions
     ) => Promise<NodeRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    // F-7 — interactive stdin.
+    writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
+    closeStdin: (runId: string) => Promise<{ closed: boolean }>;
+    // F-7 — live stdout/stderr chunks from an interactive run. Returns an
+    // unsubscribe fn. Consumers filter by `runId`.
+    onOutput: (handler: (event: RuntimeOutputChunk) => void) => () => void;
+  };
+
+  // F-4 — desktop Deno / Bun child-spawn IPC. Optional; web adapter omits
+  // them (desktop-only). Callers MUST check `window.lingua.deno` / `.bun`.
+  deno?: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) => Promise<AltJsDetectResult>;
+    run: (source: string, options?: AltJsRunInvokeOptions) => Promise<AltJsRunResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
+  };
+  bun?: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) => Promise<AltJsDetectResult>;
+    run: (source: string, options?: AltJsRunInvokeOptions) => Promise<AltJsRunResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 
   // RL-042 Slice 6 — desktop Ruby child-spawn IPC. Optional because
@@ -769,6 +843,12 @@ interface LinguaAPI {
       options?: RubyRunInvokeOptions
     ) => Promise<RubyRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    // F-7 — interactive stdin.
+    writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
+    closeStdin: (runId: string) => Promise<{ closed: boolean }>;
+    // F-7 — live stdout/stderr chunks from an interactive run. Returns an
+    // unsubscribe fn. Consumers filter by `runId`.
+    onOutput: (handler: (event: RuntimeOutputChunk) => void) => () => void;
   };
 
   format: {
@@ -1123,6 +1203,12 @@ interface LinguaAPI {
     onInstallLogJs: (
       handler: (event: DependencyInstallLogEvent) => void
     ) => () => void;
+    // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+    installNative: (
+      language: NativePackageLanguage,
+      specifiers: readonly string[],
+      filePath: string
+    ) => Promise<NativeInstallResult>;
   };
 
   /**

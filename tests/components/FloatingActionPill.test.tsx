@@ -197,6 +197,26 @@ describe('FloatingActionPill', () => {
     expect(structuralDividers).toHaveLength(1);
   });
 
+  it('offers every implemented JS/TS runtime in the floating runtime picker', async () => {
+    const user = userEvent.setup();
+    renderPill();
+
+    await user.click(screen.getByTestId('action-pill-runtime'));
+
+    const menu = screen.getByRole('menu');
+    expect(within(menu).getByTestId('action-pill-runtime-option-worker')).toBeTruthy();
+    expect(within(menu).getByTestId('action-pill-runtime-option-node')).toBeTruthy();
+    expect(within(menu).getByTestId('action-pill-runtime-option-browser-preview')).toBeTruthy();
+    expect(within(menu).getByTestId('action-pill-runtime-option-deno')).toBeTruthy();
+    expect(within(menu).getByTestId('action-pill-runtime-option-bun')).toBeTruthy();
+
+    await user.click(within(menu).getByTestId('action-pill-runtime-option-deno'));
+
+    expect(
+      useEditorStore.getState().tabs.find((tab) => tab.id === 'tab-ts')?.runtimeMode
+    ).toBe('deno');
+  });
+
   it('moves back to the handoff default when floating positions are reset', async () => {
     useUIStore.getState().setActionPillPosition({ x: 120, y: 64 });
     renderPill();

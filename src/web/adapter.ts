@@ -211,6 +211,14 @@ const webLingua: LinguaAPI = {
     }),
     cancelInstallJs: async () => ({ cancelled: false }),
     onInstallLogJs: () => () => {},
+    // F-1 — native installs are desktop-only (no toolchain in the browser).
+    installNative: async () => ({
+      status: 'missing-binary' as const,
+      stdout: '',
+      stderr: '',
+      exitCode: -1,
+      error: 'Native package install is only available in the desktop build.',
+    }),
   },
 };
 

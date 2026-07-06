@@ -4,7 +4,7 @@
 |---------|------------|
 | Status  | Accepted   |
 | Date    | 2026-05-12 |
-| Slice   | 1 + 2 + 3 of 3 (closed) |
+| Slice   | 1 + 2 + 3 of 3 (closed); F-4 Deno/Bun extension |
 
 ## Context
 
@@ -39,13 +39,15 @@ The ticket also unlocks two downstream stories:
 
 ## Decisions
 
-### 1. Three runtime modes, JS/TS only
+### 1. Five runtime modes, JS/TS only
 
 | Mode               | Surface           | Status |
 |--------------------|-------------------|-----------------------|
 | `worker`           | Sandboxed Web Worker — no DOM, no Node built-ins | **Shipping (Slice 1)** |
 | `node`             | Desktop child-process Node with built-ins (`fs`, `path`, `http`) | **Shipping (Slice 2)** |
 | `browser-preview`  | Iframe-isolated context with DOM access + preview pane | **Shipping (Slice 3)** |
+| `deno`             | Desktop child-process Deno running JS/TS directly with temp-dir-scoped `--allow-read` | **Shipping (F-4)** |
+| `bun`              | Desktop child-process Bun running JS/TS directly with Lingua's native env allowlist | **Shipping (F-4)** |
 
 Other languages keep their existing single-runtime model. Adding
 `runtimeMode` to a Python / Go / Rust tab is out of scope here; the
@@ -89,11 +91,13 @@ to see the roadmap and self-route to the right tool, even when the
 plain product copy, while this ADR and the release plan keep the Slice
 2 / Slice 3 delivery detail.
 
-Post-closeout note: Slice 3 enabled `browser-preview` on 2026-05-12
-and Slice 2 enabled `node` on 2026-05-14. The selector and Settings
-default-mode select now show all three options enabled; the disabled
-copy remains only as a defensive path for future runtime-mode enum
-additions or platform detection failures.
+Post-closeout note: Slice 3 enabled `browser-preview` on 2026-05-12,
+Slice 2 enabled `node` on 2026-05-14, and the F-4 roadmap extension
+adds Deno/Bun as desktop-native JS/TS modes. The selector and Settings
+default-mode select now show all five options enabled at the implementation
+gate; each desktop runner still self-gates on bridge availability and local
+binary detection, so web builds and hosts without Deno/Bun degrade with a
+clear runtime error rather than silently falling back to Worker.
 
 ### 4. No silent fallback to Worker
 
@@ -158,9 +162,9 @@ path stayed intact.
 **Negative:**
 
 - During Slice 1, disabled future-mode options created some visual
-  noise. This was temporary: Slice 2 and Slice 3 now enable all
-  three options, and the disabled copy only protects future enum or
-  detection gaps.
+  noise. This was temporary: Slice 2, Slice 3, and F-4 now enable all
+  five known options at the implementation gate, and the disabled copy
+  only protects future enum or detection gaps.
 
 **Neutral:**
 
@@ -181,12 +185,32 @@ path stayed intact.
 | `src/renderer/components/Toolbar/RuntimeModeSelector.tsx` | JS/TS-only dropdown                              |
 | `src/renderer/components/Toolbar/Toolbar.tsx`         | Mount the selector behind a JS/TS guard              |
 | `src/renderer/components/Settings/EditorSection.tsx`  | Default mode select                                  |
-| `src/renderer/components/CommandPalette/commandPaletteModel.ts` | Three palette entries (fold E)            |
-| `src/renderer/runners/manager.ts`                     | **No Slice 1 changes** — registry stays language-keyed per Decision 6. Slice 2 extends this file with a `NodeRunner` branch. |
+| `src/renderer/components/CommandPalette/commandPaletteModel.ts` | Runtime-mode palette entries (fold E) |
+| `src/renderer/runners/manager.ts`                     | Runtime-mode override map layered on top of the language-keyed registry |
 | `src/renderer/data/keyboardShortcuts.ts`              | `Mod+Alt+M` shortcut entry                           |
 | `src/renderer/hooks/useGlobalShortcuts.ts`            | Cycle dispatcher                                     |
 | `src/renderer/App.tsx`                                | Cycle implementation                                 |
 | `src/shared/telemetry.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event (fold A)         |
+
+## F-4 extension ship notes — 2026-07-06
+
+- `src/main/altJsRuntimes.ts` — desktop Deno/Bun backend. It writes
+  source to a temp `.js` / `.ts` file, spawns without a shell, applies
+  parent-owned timeout + output caps, and cleans up the temp directory.
+  Deno is launched with `--allow-read=<tempdir>`; Bun has no equivalent
+  permission model, so it relies on the same filtered environment posture as
+  Node mode.
+- `src/preload/index.ts` + `src/shared/ipcContract.ts` — expose
+  `deno:*` and `bun:*` typed IPC channels in the desktop shell. The web
+  adapter omits those bridges, so renderer runners surface a desktop-only
+  error instead of dereferencing an unavailable API.
+- `src/renderer/runners/altJsRunner.ts` — runtime-mode runner used for both
+  Deno and Bun. It self-gates on bridge availability, binary detection, and
+  the existing first-run native-runtime trust notice.
+- `src/shared/runtimeModes.ts`, `RuntimeModeSelector`, Settings default mode,
+  command-palette runtime switching, and telemetry parity all include
+  `deno` / `bun` so persisted sessions and emitted events stay closed-enum
+  safe.
 
 ## Slice 2 ship notes — 2026-05-14
 

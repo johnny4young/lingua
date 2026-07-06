@@ -1016,7 +1016,7 @@ const HISTORY_CLEAR_SCOPES = new Set(['session', 'persisted', 'all']);
 // RL-019 Slice 1 — closed enum mirroring `RuntimeMode` in
 // `src/shared/runtimeModes.ts`. The parity test asserts the worker
 // + renderer copies stay in sync.
-const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview']);
+const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview', 'deno', 'bun']);
 // RL-020 Slice 1 — closed enum mirror of `AUTO_RUN_GATE_REASONS` in
 // `src/shared/telemetry.ts`. Locked to `'incomplete'` for Slice 1.
 const AUTO_RUN_GATE_REASONS = new Set(['incomplete']);

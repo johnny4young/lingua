@@ -62,8 +62,17 @@ export interface SpawnNativeRunOptions {
    * EPIPE guard, writes `stdin.data` (when non-empty), and closes the
    * stream so the child hits EOF on first read. Omit it entirely to
    * leave the child's stdin untouched (Rust's posture).
+   *
+   * F-7 interactive mode: when `keepOpen` is true the helper writes `data`
+   * but does NOT close the stream, and hands the writable to `onStream` so
+   * the caller can forward later input (and owns closing it). The default
+   * (write-once-then-close) posture is unchanged when `keepOpen` is falsy.
    */
-  stdin?: { data?: string };
+  stdin?: {
+    data?: string;
+    keepOpen?: boolean;
+    onStream?: (stdin: NodeJS.WritableStream) => void;
+  };
   /** Observer fired for each raw stdout chunk (before capping). */
   onStdout?: (chunk: string) => void;
   /** Observer fired for each raw stderr chunk (before capping). */
@@ -195,7 +204,14 @@ export function spawnNativeRun(
         if (stdin.data && stdin.data.length > 0) {
           child.stdin.write(stdin.data);
         }
-        child.stdin.end();
+        if (stdin.keepOpen) {
+          // F-7 — leave stdin open for later interactive writes; hand the
+          // stream to the caller, which owns closing it (e.g. a stdin-close
+          // IPC or the run finishing).
+          stdin.onStream?.(child.stdin);
+        } else {
+          child.stdin.end();
+        }
       } catch {
         // stdin may already be closed if the child crashed during boot —
         // safe to ignore.

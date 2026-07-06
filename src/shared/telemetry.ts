@@ -1539,7 +1539,14 @@ const HISTORY_CLEAR_SCOPES = new Set(['session', 'persisted', 'all']);
 // production code; this Set is duplicated here so the redactor
 // stays a pure module without an import cycle. A parity test
 // asserts both stay in sync.
-const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview']);
+const RUNTIME_MODE_VALUES = new Set([
+  'worker',
+  'node',
+  'browser-preview',
+  // F-4 — Deno / Bun desktop runtimes.
+  'deno',
+  'bun',
+]);
 // RL-020 Slice 1 — closed enum for the auto-run gate reason. Today
 // only the renderer's `useAutoRun` emits `'incomplete'`; the validator
 // rejects anything else so a future heuristic-expansion has to amend

@@ -84,6 +84,9 @@ export interface IpcInvokeContract {
     result: RubyRunResult;
   };
   'ruby:stop': { args: [runId: string]; result: { stopped: boolean } };
+  // F-7 — interactive stdin for a live Ruby run.
+  'ruby:stdin-write': { args: [runId: string, data: string]; result: { written: boolean } };
+  'ruby:stdin-close': { args: [runId: string]; result: { closed: boolean } };
 
   // ----------------------------------------------------------- node runner
   'node:detect': {
@@ -95,6 +98,23 @@ export interface IpcInvokeContract {
     result: NodeRunResult;
   };
   'node:stop': { args: [runId: string]; result: { stopped: boolean } };
+  // F-7 — interactive stdin for a live Node run.
+  'node:stdin-write': { args: [runId: string, data: string]; result: { written: boolean } };
+  'node:stdin-close': { args: [runId: string]; result: { closed: boolean } };
+
+  // ------------------------------------------------- Deno / Bun runners (F-4)
+  'deno:detect': {
+    args: [userEnv?: Record<string, string>, force?: boolean];
+    result: AltJsDetectResult;
+  };
+  'deno:run': { args: [source: string, options?: AltJsRunInvokeOptions]; result: AltJsRunResult };
+  'deno:stop': { args: [runId: string]; result: { stopped: boolean } };
+  'bun:detect': {
+    args: [userEnv?: Record<string, string>, force?: boolean];
+    result: AltJsDetectResult;
+  };
+  'bun:run': { args: [source: string, options?: AltJsRunInvokeOptions]; result: AltJsRunResult };
+  'bun:stop': { args: [runId: string]; result: { stopped: boolean } };
 
   // ------------------------------------------------------------- formatters
   'format:gofmt': { args: [source: string]; result: FormatIpcResult };
@@ -357,6 +377,11 @@ export interface IpcInvokeContract {
     args: [runId: string];
     result: { cancelled: boolean };
   };
+  // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+  'dependencies:native:install': {
+    args: [language: NativePackageLanguage, specifiers: readonly string[], filePath: string];
+    result: NativeInstallResult;
+  };
 
   // -------------------------------------------------------------------- git
   'git:detect': { args: [folderPath?: string]; result: GitDetectResult };
@@ -390,6 +415,10 @@ export interface IpcPushContract {
   'fs:watcher-degraded': WatcherDiagnostic;
   'updates:state-changed': UpdateState;
   'dependencies:js:install:log': DependencyInstallLogEvent;
+  // F-7 — live stdout/stderr chunks from an interactive Node/Ruby run,
+  // streamed as they arrive (keyed by runId) so the console REPL can echo
+  // output before the process exits.
+  'runtime:output-chunk': RuntimeOutputChunk;
   'git:on-head-changed': GitHeadChangePayload;
   'git:on-head-watcher-failed': GitHeadWatcherFailurePayload;
 }
@@ -435,9 +464,19 @@ export const IPC_INVOKE_CHANNELS = [
   'ruby:detect',
   'ruby:run',
   'ruby:stop',
+  'ruby:stdin-write',
+  'ruby:stdin-close',
   'node:detect',
   'node:run',
   'node:stop',
+  'node:stdin-write',
+  'node:stdin-close',
+  'deno:detect',
+  'deno:run',
+  'deno:stop',
+  'bun:detect',
+  'bun:run',
+  'bun:stop',
   'format:gofmt',
   'format:rustfmt',
   'format:python',
@@ -498,6 +537,7 @@ export const IPC_INVOKE_CHANNELS = [
   'dependencies:js:resolve',
   'dependencies:js:install',
   'dependencies:js:install:cancel',
+  'dependencies:native:install',
   'git:detect',
   'git:status',
   'git:diff',

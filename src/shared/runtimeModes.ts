@@ -10,6 +10,9 @@
  *     main process.
  *   - `browser-preview` — iframe-isolated context with DOM. Slice 3
  *     ships the preview pane.
+ *   - `deno` / `bun` — desktop child-process alternatives for JS/TS.
+ *     They execute TypeScript directly when the matching binary is on
+ *     PATH and otherwise surface a detector-gated unavailable state.
  *
  * `defaultRuntimeModeFor(language)` returns `'worker'` for JS/TS and
  * `null` for every other language. Non-JS/TS tabs intentionally
@@ -19,12 +22,12 @@
  *
  * `isRuntimeModeImplemented(mode)` gates writes from the UI / the
  * keyboard cycle helper / the command palette. All three RL-019
- * modes are implemented as of 2026-05-14.
+ * RL-019 modes plus the F-4 Deno / Bun extension are implemented.
  */
 
 import { isJavaScriptFamily } from './languageFamilies';
 
-export const RUNTIME_MODES = ['worker', 'node', 'browser-preview'] as const;
+export const RUNTIME_MODES = ['worker', 'node', 'browser-preview', 'deno', 'bun'] as const;
 export type RuntimeMode = (typeof RUNTIME_MODES)[number];
 
 const RUNTIME_MODE_SET: ReadonlySet<string> = new Set(RUNTIME_MODES);
@@ -60,7 +63,14 @@ export function defaultRuntimeModeFor(language: string | undefined): RuntimeMode
  */
 export function isRuntimeModeImplemented(mode: RuntimeMode): boolean {
   return (
-    mode === 'worker' || mode === 'browser-preview' || mode === 'node'
+    mode === 'worker' ||
+    mode === 'browser-preview' ||
+    mode === 'node' ||
+    // F-4 — Deno / Bun desktop backends (src/main/altJsRuntimes.ts). Like
+    // `node`, the UI still renders these disabled when the detector cannot
+    // find the binary on PATH; that is a platform gate, not an impl gate.
+    mode === 'deno' ||
+    mode === 'bun'
   );
 }
 

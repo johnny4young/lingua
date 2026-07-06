@@ -26,6 +26,13 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useUpdateStore } from '../../stores/updateStore';
+import { useConsoleStore } from '../../stores/consoleStore';
+import { runBenchmark, BENCHMARK_DEFAULT_ITERATIONS } from '../../runtime/benchmarkRun';
+import { explainError, formatExplanation } from '../../../shared/errorExplainer';
+import {
+  detectNativeDependencies,
+  type NativePackageLanguage,
+} from '../../../shared/dependencies/nativeDependencies';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import {
   getActiveEditorCursorLine,
@@ -186,6 +193,18 @@ export function CommandPalette({
   const activeWatchLanguage = activeTab?.language ?? null;
   const { snippets } = useSnippetsStore();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
+  const canBenchmark = useEntitlement('BENCHMARK');
+  const canExplainError = useEntitlement('LOCAL_AI');
+  // F-1 — Go/Rust/Ruby install: detect the active saved tab's third-party
+  // deps so the palette can offer a one-shot toolchain install.
+  const nativeDepLanguage: NativePackageLanguage | null =
+    activeTab && ['go', 'rust', 'ruby'].includes(activeTab.language)
+      ? (activeTab.language as NativePackageLanguage)
+      : null;
+  const nativeDepSpecifiers =
+    nativeDepLanguage && activeTab
+      ? detectNativeDependencies(nativeDepLanguage, activeTab.content)
+      : [];
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
   // RL-094 Slice 1 fold B — read the latest capsule (newest-first walk
   // inside the store). Recomputes when `entries` changes; the
@@ -284,6 +303,126 @@ export function CommandPalette({
         const { showStatusBar, setShowStatusBar } = useSettingsStore.getState();
         setShowStatusBar(!showStatusBar);
       },
+      // F-5 — benchmark the active tab. Gated on the BENCHMARK entitlement
+      // AND a worker-runner language (JS/TS/Python/Ruby) with non-empty
+      // source, so the command is hidden for Free users and unbenchmarkable
+      // tabs. Results are reported to the console.
+      onBenchmarkActiveTab:
+        canBenchmark &&
+        activeTab &&
+        isWorkerRunnerLanguage(activeTab.language) &&
+        activeTab.content.trim().length > 0
+          ? () => {
+              const tab = activeTab;
+              const console = useConsoleStore.getState();
+              const ui = useUIStore.getState();
+              ui.openBottomPanel('console');
+              console.addEntry({
+                type: 'info',
+                content: t('benchmark.console.start', {
+                  count: BENCHMARK_DEFAULT_ITERATIONS,
+                  name: tab.name,
+                }),
+              });
+              void runBenchmark({
+                code: tab.content,
+                language: tab.language,
+                runtimeMode: activeRuntimeMode ?? undefined,
+                iterations: BENCHMARK_DEFAULT_ITERATIONS,
+              }).then((result) => {
+                const store = useConsoleStore.getState();
+                if (!result.ok) {
+                  store.addEntry({
+                    type: 'error',
+                    content:
+                      result.reason === 'run-error'
+                        ? t('benchmark.console.runError', {
+                            message: result.message ?? '',
+                          })
+                        : t('benchmark.console.noSamples'),
+                  });
+                  return;
+                }
+                const { stats } = result;
+                const fmt = (value: number) => `${value.toFixed(2)}ms`;
+                store.addEntry({
+                  type: 'result',
+                  content: t('benchmark.console.report', {
+                    runs: stats.runs,
+                    mean: fmt(stats.mean),
+                    median: fmt(stats.median),
+                    min: fmt(stats.min),
+                    max: fmt(stats.max),
+                    p95: fmt(stats.p95),
+                    stdev: fmt(stats.stdev),
+                  }),
+                });
+              });
+            }
+          : undefined,
+      // F-2 — explain the last run error via the offline explainer. Gated
+      // on LOCAL_AI and on there actually being an error to explain.
+      onExplainLastError:
+        canExplainError && useResultStore.getState().error
+          ? () => {
+              const runError = useResultStore.getState().error;
+              if (!runError) return;
+              const explanation = explainError({
+                message: runError.message,
+                language: activeTab?.language,
+              });
+              const console = useConsoleStore.getState();
+              useUIStore.getState().openBottomPanel('console');
+              console.addEntry({
+                type: 'info',
+                content: `${t('command.explainError')}\n\n${formatExplanation(explanation)}`,
+              });
+            }
+          : undefined,
+      // F-1 — install detected Go/Rust/Ruby packages via the desktop
+      // toolchain. Wired only for a saved native-language tab with
+      // detected third-party deps and the desktop install bridge present.
+      onInstallNativeDependencies:
+        nativeDepLanguage &&
+        activeTab?.filePath &&
+        nativeDepSpecifiers.length > 0 &&
+        typeof window !== 'undefined' &&
+        window.lingua?.dependencies?.installNative
+          ? () => {
+              const language = nativeDepLanguage;
+              const filePath = activeTab.filePath;
+              const specifiers = nativeDepSpecifiers;
+              const bridge = window.lingua?.dependencies?.installNative;
+              if (!filePath || !bridge) return;
+              const store = useConsoleStore.getState();
+              useUIStore.getState().openBottomPanel('console');
+              store.addEntry({
+                type: 'info',
+                content: t('command.installNativeDeps.start', {
+                  count: specifiers.length,
+                  packages: specifiers.join(', '),
+                }),
+              });
+              void bridge(language, specifiers, filePath).then((result) => {
+                const console = useConsoleStore.getState();
+                if (result.status === 'success') {
+                  console.addEntry({
+                    type: 'result',
+                    content: t('command.installNativeDeps.success', {
+                      count: specifiers.length,
+                    }),
+                  });
+                } else {
+                  console.addEntry({
+                    type: 'error',
+                    content: t('command.installNativeDeps.failure', {
+                      reason: result.error ?? result.status,
+                    }),
+                  });
+                }
+              });
+            }
+          : undefined,
       onFocusStatusBar: showStatusBar ? () => focusStatusBar() : undefined,
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       onToggleVimMode,
