@@ -6,6 +6,8 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-07-05
+
 ### Added
 - **Notebook — Python cells share a kernel**: Python cells in a notebook now run against one persistent Python kernel, so a later cell sees the imports, DataFrames, and functions an earlier cell defined — the notebook workflow you'd expect from Jupyter, instead of every cell starting from scratch. Each notebook gets its own kernel: notebook A can't see notebook B's variables, and neither sees the editor scratchpad. "Restart kernel" (and closing the notebook) clears it. Cross-notebook/editor isolation also closes a latent leak where all Python runs previously shared one global namespace.
 - **Notebook — SQL cells**: a notebook code cell can now be set to SQL. It runs on the same DuckDB-WASM engine as the SQL workspace and renders its result set as a table (the same grid rich outputs use). Because the engine is shared, a table you `CREATE` in one SQL cell is visible to later SQL cells and to the SQL workspace, so you can build up a query across cells. DDL/DML statements show a short status line instead of a table, and query errors surface inline on the cell. SQL is a notebook-only cell language — it does not turn SQL into a general editor file type.
@@ -18,11 +20,16 @@ The format follows Keep a Changelog and groups changes by release.
 - **HTTP workspace — Copy as code**: the request's Copy button is now a "Copy as…" menu that generates a runnable snippet in cURL, JavaScript `fetch`, JavaScript `axios`, or Python `requests`, matching the exact wire request (composed headers + injected auth + default Content-Type). Environment secrets stay as `{{placeholders}}`, never resolved into the clipboard — same guarantee as Copy as cURL.
 - **SQL workspace — column-aware schema browser + autocomplete**: the schema browser now expands each table to list its columns with SQL types, and the query editor's autocomplete offers column names (typed detail, de-duplicated across tables) alongside table names and keywords. Introspection is a single `information_schema.columns` probe per refresh instead of one `PRAGMA table_info` per table.
 - **SQL workspace — export results to a file**: the result toolbar gains an "Export…" menu that downloads the current result as a CSV, JSON, or Markdown file. It writes exactly the rows on screen (the same filtered/sorted/capped view Copy uses) and, when the result is truncated to a preview, the confirmation says so — the natural path for a result too large to paste.
+- **Accessibility overhaul**: A sweep across the app brings full keyboard operability and screen-reader support — roving arrow-key navigation and ARIA semantics for the file tree, editor tab strip, command palette, quick-open, recipes, and capsule-comparison surfaces; focus management and traps for the guided tour, overlays, menus, and the execution-history popover; live-region announcements for console run summaries, project-search results, and other dynamic state; and a reduced-motion guard that quiets non-essential animation for people who prefer it.
+- **Safer destructive actions**: Irreversible operations — file and folder delete, pipeline delete, remove license, keymap and theme import overwrite, and replace-in-files — now route through a shared confirmation dialog, and recoverable deletes (snippets, capsules, clear console) offer an Undo toast that restores the item in place. The web file delete, previously unconfirmed, now always asks first.
+- **Import data files as DuckDB tables**: Load CSV, JSON, and Parquet files directly into the SQL workspace as queryable tables.
 
 ### Changed
 - **Typed IPC contract**: the entire preload↔main boundary now derives from a single source of truth (`src/shared/ipcContract.ts`). The preload bridge routes through typed helpers (`typedInvoke` / `typedSend` / `typedOn`) instead of hand-written `as Promise<X>` casts, and main handlers register through `typedHandle`, which binds each handler's return type to the contract. A renamed channel or drifted payload is now a compile error, and a drift test keeps the contract in lockstep with the registered handlers. (Internal refactor; no user-facing behavior change.)
 - **Build-time env wiring is now gated in CI**: the four-source env cascade for main-process defines lives in one shared helper (`build/resolveEnv.mts`), and a new drift test fails when a `__LINGUA_*__` define is consumed by a surface whose Vite config never provides it, or when `envDir` drifts off the repo root — the class of regression behind the RL-061 `no-public-key` production incident, previously only catchable with a manual packaged-build audit. (Internal; no user-facing behavior change.)
 - **License IPC handlers join the typed contract**: the renderer's ambient license tier type was widened to the full canonical six (`free` / `pro` / `pro_lifetime` / `team` / `trial` / `education`) so it matches the shared source of truth, which let the five `license:*` main handlers move onto `typedHandle` (return types now compile-checked against the contract) and closed the last documented exception in the typed-IPC boundary. Gating is unchanged — entitlements are free-vs-paid, so the two newly-typed tiers resolve to paid. (Internal; no user-facing behavior change.)
+- **Desktop packaging and auto-update**: Desktop builds now ship through electron-builder as native installers for every platform — macOS (signed and notarized `.dmg` / `.zip`), Windows (NSIS installer), and Linux (AppImage) — and auto-update through GitHub Releases. Linux desktop builds auto-update for the first time.
+- **Large notebooks stay responsive**: The notebook cell list is windowed, so a notebook with hundreds of cells mounts only the rows near the viewport while preserving scroll position and the row count screen readers announce.
 
 ### Security
 - **License tokens are bound to the Lingua product.** The verifier shape-checked `productId` but never bound it, so a token minted for a different product under the same signing key would satisfy validation and grant Lingua entitlements. Tokens must now carry a `lingua`-family `productId`; a foreign product id is rejected.
@@ -47,26 +54,13 @@ The format follows Keep a Changelog and groups changes by release.
 - **Replace in files**: "Replace all" freezes the confirmed query/replacement, so editing the inputs while the queue drains can no longer rewrite the remaining files with a half-typed search.
 - **Native runners**: a failed temp-file write no longer leaks the temp directory or escapes as a raw IPC rejection.
 - **Window close**: a crashed renderer no longer leaves the window (and the updater's install-on-quit) blocked forever.
+- Accessibility follow-ups from the audit: focus-visible rings on bespoke controls, guided-tour announcements scoped to step changes, pipeline list semantics with keyboard step reordering, recipe combobox and capsule-comparison tab roles, and clearer license invalid-state feedback.
 
 ### Performance
 - **Lighter app-shell boot**: Monaco (~3.8 MB / ~987 KB gzip) is no longer executed as part of the shell startup path — the LSP lifecycle hook and the Git diff panel now load it on demand, so it runs with the editor/diff surface that needs it instead of before the shell paints (and not at all on non-editor web surfaces).
 - **Faster typing**: the app shell no longer re-renders on every keystroke (the LSP, Git-status, auto-run, and dependency-detection hooks were subscribing to the whole tab list).
 - **Faster native runs**: Go and Rust toolchain detection is cached per session, saving one to two process spawns per run.
 - **Editor tab strip no longer re-renders every row on each keystroke**: each tab row is memoized, so typing in the active file re-renders only that tab's row (its Git status pill, glyph, and status dot) instead of the whole strip — the win grows with the number of open tabs.
-
-## [0.9.0] — 2026-06-28
-
-### Added
-- **Accessibility overhaul**: A sweep across the app brings full keyboard operability and screen-reader support — roving arrow-key navigation and ARIA semantics for the file tree, editor tab strip, command palette, quick-open, recipes, and capsule-comparison surfaces; focus management and traps for the guided tour, overlays, menus, and the execution-history popover; live-region announcements for console run summaries, project-search results, and other dynamic state; and a reduced-motion guard that quiets non-essential animation for people who prefer it.
-- **Safer destructive actions**: Irreversible operations — file and folder delete, pipeline delete, remove license, keymap and theme import overwrite, and replace-in-files — now route through a shared confirmation dialog, and recoverable deletes (snippets, capsules, clear console) offer an Undo toast that restores the item in place. The web file delete, previously unconfirmed, now always asks first.
-- **Import data files as DuckDB tables**: Load CSV, JSON, and Parquet files directly into the SQL workspace as queryable tables.
-
-### Changed
-- **Desktop packaging and auto-update**: Desktop builds now ship through electron-builder as native installers for every platform — macOS (signed and notarized `.dmg` / `.zip`), Windows (NSIS installer), and Linux (AppImage) — and auto-update through GitHub Releases. Linux desktop builds auto-update for the first time.
-- **Large notebooks stay responsive**: The notebook cell list is windowed, so a notebook with hundreds of cells mounts only the rows near the viewport while preserving scroll position and the row count screen readers announce.
-
-### Fixed
-- Accessibility follow-ups from the audit: focus-visible rings on bespoke controls, guided-tour announcements scoped to step changes, pipeline list semantics with keyboard step reordering, recipe combobox and capsule-comparison tab roles, and clearer license invalid-state feedback.
 
 ## [0.8.0] — 2026-06-26
 
