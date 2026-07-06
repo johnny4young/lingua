@@ -19,6 +19,7 @@ import {
 } from '../../runtime/aiClient';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
+import { ExplainErrorAnswer } from './ExplainErrorAnswer';
 
 export interface ExplainErrorDialogProps {
   readonly errorMessage: string;
@@ -133,12 +134,7 @@ export function ExplainErrorDialog({
               {t('ai.explain.loading')}
             </p>
           ) : phase.kind === 'done' ? (
-            <div
-              data-testid="ai-explain-result"
-              className="whitespace-pre-wrap text-fg"
-            >
-              {phase.content}
-            </div>
+            <ExplainErrorAnswer content={phase.content} />
           ) : (
             <p data-testid="ai-explain-error" className="text-error">
               {t('ai.explain.failed', { message: phase.message })}

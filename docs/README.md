@@ -104,6 +104,7 @@ docs.
 | [`electron-stagewright-desktop-validation.md`](./runbooks/electron-stagewright-desktop-validation.md) | Running the lightweight Electron Stagewright MCP desktop UI check before falling back to the full native smoke matrix. |
 | [`github-degraded.md`](./runbooks/github-degraded.md) | GitHub API, Releases, or webhook paths are degraded and operators need fallback steps. |
 | [`license-recovery.md`](./runbooks/license-recovery.md) | Helping a licensed user recover or re-link a license/device. |
+| [`local-ai-smoke.md`](./runbooks/local-ai-smoke.md) | Smoke-testing the "Explain this error" AI feature against a real local model (Ollama / LM Studio) on the web build. |
 | [`r2-release-mirror-setup.md`](./runbooks/r2-release-mirror-setup.md) | Provisioning or validating the public R2 release-download mirror. |
 | [`refund-handling.md`](./runbooks/refund-handling.md) | Processing a refund while keeping license and audit records coherent. |
 | [`telemetry-pipeline.md`](./runbooks/telemetry-pipeline.md) | Debugging or validating telemetry ingestion and privacy controls. |
