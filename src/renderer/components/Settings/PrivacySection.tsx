@@ -2,6 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useUIStore } from '../../stores/uiStore';
+import { recordTrustEventBestEffort } from '../../stores/trustEventStore';
+import { clearLedger, exportLedgerJson } from '../../runtime/runLedger';
+import { trackEvent } from '../../utils/telemetry';
 import { BASELINE_SENSITIVE_HEADERS } from '../../../shared/httpWorkspace';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { Toggle } from './shared';
@@ -94,7 +98,155 @@ export function PrivacySection() {
         />
         <SensitiveHeadersRow />
       </SpecCard>
+      {/* IT2-C1 — the local Run Ledger card: opt-in, clear, export. */}
+      <SpecCard>
+        <RunLedgerRows />
+      </SpecCard>
     </SettingsSection>
+  );
+}
+
+/**
+ * IT2-C1 — Run Ledger controls. The ledger records MANUAL runs into the
+ * `lingua_ledger` schema of the SQL workspace's DuckDB database. It keeps
+ * source hashes and a metadata-only capsule summary; code, stdin, output,
+ * error text, tab names, and Git metadata never persist. Off by default;
+ * durability across reloads additionally requires the SQL workspace's OPFS
+ * persistence opt-in (Editor section), which the status line under the
+ * toggle makes explicit. Clearing drops the schema; exporting downloads every
+ * table as JSON.
+ */
+function RunLedgerRows() {
+  const { t } = useTranslation();
+  const runLedgerEnabled = useSettingsStore((state) => state.runLedgerEnabled);
+  const setRunLedgerEnabled = useSettingsStore((state) => state.setRunLedgerEnabled);
+  const persistTables = useSettingsStore((state) => state.sqlWorkspacePersistTables);
+  const [busy, setBusy] = useState(false);
+
+  const statusKey = !runLedgerEnabled
+    ? 'privacy.runLedger.status.off'
+    : persistTables
+      ? 'privacy.runLedger.status.durable'
+      : 'privacy.runLedger.status.sessionOnly';
+
+  const handleToggle = () => {
+    const next = !runLedgerEnabled;
+    setRunLedgerEnabled(next);
+    void trackEvent('ledger.toggled', { enabled: next });
+    recordTrustEventBestEffort({
+      feature: 'run-ledger',
+      action: next ? 'enabled' : 'disabled',
+      sensitivity: 'low',
+      summary: next
+        ? 'Run Ledger enabled (local DuckDB, hashes only)'
+        : 'Run Ledger disabled',
+    });
+  };
+
+  const handleClear = async () => {
+    setBusy(true);
+    try {
+      const ok = await clearLedger();
+      if (ok) {
+        void trackEvent('ledger.cleared', {});
+        recordTrustEventBestEffort({
+          feature: 'run-ledger',
+          action: 'cleared',
+          sensitivity: 'low',
+          summary: 'Run Ledger schema dropped',
+        });
+      }
+      useUIStore.getState().pushStatusNotice({
+        tone: ok ? 'success' : 'warning',
+        messageKey: ok ? 'privacy.runLedger.toast.cleared' : 'privacy.runLedger.toast.clearFailed',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setBusy(true);
+    try {
+      const json = await exportLedgerJson();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `lingua-run-ledger-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      // Revoking synchronously can cancel the download in some browsers;
+      // give the fetch of the blob URL time to start before releasing it.
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      recordTrustEventBestEffort({
+        feature: 'run-ledger',
+        action: 'exported',
+        sensitivity: 'low',
+        summary: 'Run Ledger exported as JSON',
+      });
+      useUIStore.getState().pushStatusNotice({
+        tone: 'success',
+        messageKey: 'privacy.runLedger.toast.exported',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <SpecRow
+        label={t('privacy.runLedger.label')}
+        description={t('privacy.runLedger.hint')}
+        control={
+          <div className="flex flex-col items-end gap-1">
+            <Toggle
+              value={runLedgerEnabled}
+              onChange={handleToggle}
+              aria-label={t('privacy.runLedger.label')}
+              data-testid="run-ledger-toggle"
+            />
+            <span
+              data-testid="run-ledger-status"
+              role="status"
+              aria-live="polite"
+              className="text-caption text-fg-subtle"
+            >
+              {t(statusKey)}
+            </span>
+          </div>
+        }
+      />
+      <SpecRow
+        last
+        label={t('privacy.runLedger.data.label')}
+        description={t('privacy.runLedger.data.hint')}
+        control={
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => void handleExport()}
+              disabled={busy}
+              data-testid="run-ledger-export"
+            >
+              {t('privacy.runLedger.export')}
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => void handleClear()}
+              disabled={busy}
+              data-testid="run-ledger-clear"
+            >
+              {t('privacy.runLedger.clear')}
+            </button>
+          </div>
+        }
+      />
+    </>
   );
 }
 

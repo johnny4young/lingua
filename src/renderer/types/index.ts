@@ -858,6 +858,15 @@ export interface SettingsState {
    */
   sqlWorkspacePersistTables: boolean;
   /**
+   * IT2-C1 — opt into the local Run Ledger: manual runs recorded into
+   * the `lingua_ledger` schema of the SQL workspace's DuckDB database.
+   * It stores source hashes plus metadata-only capsule summaries; source,
+   * input, output, and diagnostics never persist. Default `false`;
+   * durability across reloads additionally requires the OPFS opt-in above,
+   * otherwise the ledger lives for the session only.
+   */
+  runLedgerEnabled: boolean;
+  /**
    * RL-043 Slice C fold D — language seeded into a new notebook code
    * cell by the "Add code" toolbar button. Only the two runnable cell
    * languages are offered; defaults to `'javascript'`.
@@ -1037,6 +1046,8 @@ export interface SettingsState {
    * is not migrated mid-session.
    */
   setSqlWorkspacePersistTables: (value: boolean) => void;
+  /** IT2-C1 — toggle the local Run Ledger (see `runLedgerEnabled`). */
+  setRunLedgerEnabled: (value: boolean) => void;
   /**
    * Apply a named keymap preset. Replaces `shortcutOverrides` with the
    * preset's bundle and stores the preset id. Unknown ids are ignored so

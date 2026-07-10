@@ -61,7 +61,12 @@ export interface SqlSchemaColumn {
  * know the count. `undefined` on both hides the chip.
  */
 export interface SqlSchemaTable {
+  /** Human-readable label, schema-qualified outside DuckDB's `main`. */
   name: string;
+  /** Raw table identifier for generated SQL. Defaults to `name` for legacy callers. */
+  sqlName?: string;
+  /** Raw non-main schema identifier for generated SQL. */
+  schemaName?: string;
   columnCount?: number;
   columns?: ReadonlyArray<SqlSchemaColumn>;
 }
@@ -76,7 +81,7 @@ export interface SqlSchemaBrowserProps {
    * Insert a `SELECT * FROM <name> LIMIT 100;` starter into the active
    * query editor. Disabled (the row is inert) when no query is active.
    */
-  onInsertTable: (name: string) => void;
+  onInsertTable: (name: string, schemaName?: string) => void;
   /** Whether a query is active to receive the inserted starter. */
   canInsert: boolean;
   /**
@@ -339,7 +344,14 @@ export function SqlSchemaBrowser({
                       )}
                       <button
                         type="button"
-                        onClick={() => onInsertTable(table.name)}
+                        onClick={() => {
+                          const name = table.sqlName ?? table.name;
+                          if (table.schemaName !== undefined) {
+                            onInsertTable(name, table.schemaName);
+                          } else {
+                            onInsertTable(name);
+                          }
+                        }}
                         disabled={!canInsert}
                         data-testid="sql-schema-browser-table"
                         data-table-name={table.name}

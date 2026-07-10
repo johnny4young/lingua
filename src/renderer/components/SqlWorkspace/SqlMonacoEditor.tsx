@@ -48,7 +48,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { configureMonaco } from '../../monaco';
 import { defineCustomThemes } from '../Editor/editorThemes';
 import { getSatelliteEditorOptions } from '../Editor/editorOptions';
-import { quoteSqlIdentifier } from './sqlResultFormatters';
+import { quoteSqlIdentifier, quoteSqlTableReference } from './sqlResultFormatters';
 
 // Ensure the worker environment + the `sql` contribution are registered
 // before any editor mounts (idempotent; shared with `<CodeEditor>`).
@@ -135,6 +135,8 @@ export interface SqlMonacoEditorProps {
    */
   tables: ReadonlyArray<{
     name: string;
+    sqlName?: string;
+    schemaName?: string;
     columns?: ReadonlyArray<{ name: string; type: string }>;
   }>;
   /** Accessible name for the editor textarea. */
@@ -229,7 +231,7 @@ export function SqlMonacoEditor({
         const tableSuggestions = tablesRef.current.map((table) => ({
           label: table.name,
           kind: monaco.languages.CompletionItemKind.Struct,
-          insertText: quoteSqlIdentifier(table.name),
+          insertText: quoteSqlTableReference(table.sqlName ?? table.name, table.schemaName),
           detail: 'table',
           range,
         }));

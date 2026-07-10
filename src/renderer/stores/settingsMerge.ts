@@ -137,11 +137,10 @@ export function settingsMerge(
         ? requestedThemePack
         : DEFAULT_THEME_PACK_ID;
 
-  // RL-019 Slice 1 — guard `defaultRuntimeMode` on rehydrate
-  // the same way `setDefaultRuntimeMode` does at runtime. A
-  // tampered localStorage entry with an unimplemented or
-  // unknown string would otherwise survive into the live
-  // store and surface a broken Select in Settings.
+  // RL-019 Slice 1 — guard `defaultRuntimeMode` on rehydrate the same
+  // way `setDefaultRuntimeMode` does at runtime. A tampered localStorage
+  // entry with an unimplemented or unknown string would otherwise
+  // survive into the live store and surface a broken Select in Settings.
   const normalizedDefaultRuntimeMode =
     typeof merged.defaultRuntimeMode === 'string' &&
     isRuntimeModeImplemented(merged.defaultRuntimeMode as never)
@@ -292,6 +291,7 @@ export function settingsMerge(
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
     sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // RL-097 S3 OPFS: coerce to boolean on rehydrate
+    runLedgerEnabled: merged.runLedgerEnabled === true, // IT2-C1: coerce to boolean on rehydrate
     notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // RL-043 SC: only the runnable pair; anything else falls back to JS
     capsuleImportClipboardOnFocusConsent,
     importPreviewClipboardOnFocusConsent,

@@ -117,3 +117,16 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - When the watcher fails to start (permission denied, system limit, missing path), Lingua surfaces a status notice in the explorer instead of silently desynchronizing the tree. The notice persists until you dismiss it; the file tree may not refresh automatically until the underlying issue is resolved (commonly: raising `ulimit -n`, fixing folder permissions, or restarting the app).
 - A degraded warning appears when the watcher reports a sustained burst of dropped event names (Linux inotify under load). Refresh the file tree manually if it looks stale.
 - Web builds do not watch the local filesystem at all; external edits are not reflected.
+
+## Run Ledger (local run history)
+
+- The Run Ledger is an OPT-IN local history of your manual runs, stored in the same DuckDB database the SQL workspace uses, under the `lingua_ledger` schema. Enable it in Settings → Privacy; the Privacy tab shows its activity in the trust feed.
+- What gets recorded per manual run (toolbar Run, palette run, SQL, HTTP, utility pipelines — auto-runs are never recorded): language/surface, ok/error status, duration, and a SHA-256 hash of the source (never the source itself). When a run has a capsule, `lingua_ledger.capsules` receives only a metadata summary (capsule id/version/timestamps, language, status, duration, source hash, and its redaction audit); code, stdin, stdout/stderr, errors, diagnostics, rich output, tab names, and Git metadata are never written to the ledger.
+- Because it lives in the SQL workspace's database, your history IS a queryable table. Open the SQL workspace and try:
+
+  `SELECT language, count(*) AS runs, avg(duration_ms) AS avg_ms FROM lingua_ledger.runs GROUP BY 1 ORDER BY 2 DESC;`
+
+  The `lingua_ledger.runs`, `lingua_ledger.capsules`, and `lingua_ledger.daily_activity` tables appear in the schema browser under their qualified names. They are your data: querying, editing, or dropping them is fine — the ledger recreates its schema on the next recorded run.
+- Durability follows the SQL workspace's OPFS persistence opt-in (Settings → Editor → SQL workspace). Without it, the ledger lives for the current session only; with it, history survives reloads.
+- Retention: the Free tier keeps 7 days of runs (pruned lazily); paid tiers keep everything. `daily_activity` keeps only per-day counters and is never pruned.
+- The same Settings card also offers Export JSON (downloads every table) and Clear history (drops the whole schema). Both actions, plus the toggle itself, are logged to the Privacy trust feed.

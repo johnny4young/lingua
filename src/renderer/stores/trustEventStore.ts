@@ -28,6 +28,7 @@ export type TrustFeature =
   | 'license'
   | 'share-link'
   | 'capsule-export'
+  | 'run-ledger'
   | 'ai';
 
 export type TrustSensitivity = 'low' | 'medium' | 'high';

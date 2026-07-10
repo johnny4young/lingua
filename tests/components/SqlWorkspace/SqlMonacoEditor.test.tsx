@@ -219,6 +219,29 @@ describe('SqlMonacoEditor', () => {
     expect(byLabel('SELECT')).toMatchObject({ kind: 17 });
   });
 
+  it('quotes schema and table independently in non-main table completions', () => {
+    render(
+      <SqlMonacoEditor
+        value=""
+        onChange={vi.fn()}
+        onRunShortcut={vi.fn()}
+        onFormatShortcut={vi.fn()}
+        tables={[
+          {
+            name: 'lingua_ledger.runs',
+            sqlName: 'runs',
+            schemaName: 'lingua_ledger',
+          },
+        ]}
+        ariaLabel="SQL query editor"
+      />
+    );
+
+    expect(runCompletions().find((suggestion) => suggestion.label === 'lingua_ledger.runs')).toMatchObject({
+      insertText: '"lingua_ledger"."runs"',
+    });
+  });
+
   it('disposes the completion provider when the editor disposes', () => {
     const { unmount } = render(
       <SqlMonacoEditor

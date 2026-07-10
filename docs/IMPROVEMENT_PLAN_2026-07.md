@@ -404,7 +404,29 @@ dependencia real (build no necesita test).
 
 # LANE C — Datos: el Run Ledger (modelos de DB)
 
-## IT2-C1 · `lingua_ledger` sobre el motor DuckDB existente — M (3-4 d)
+## IT2-C1 · `lingua_ledger` sobre el motor DuckDB existente — EJECUTADO 2026-07-09
+
+> **Estado de ejecución.** Implementado en `runtime/runLedger.ts`: DDL
+> idempotente (schema + runs/capsules/daily_activity), cola de escrituras
+> serializada, re-ensure + retry ante reinicios del engine compartido,
+> retención Free 7 días (lazy, una vez por sesión, gated en
+> EXECUTION_HISTORY), clear = DROP SCHEMA CASCADE, export JSON. El tap
+> (`hooks/useRunLedgerTap`, montado en App) se suscribe a
+> executionHistoryStore — cuyos call sites son EXACTAMENTE los runs
+> manuales (editor/SQL/HTTP/pipeline; los auto-runs nunca registran ahí,
+> así que no hay flooding) — con guard por entry-id para ignorar
+> mutaciones no-run (pin/clear). Hash vía computeContentHash reutilizado
+> de runCapsule; una capsule se reduce a un resumen de metadatos antes de
+> persistirse: código, stdin, output, errores, diagnósticos, rich output,
+> nombres de tabs y metadatos Git jamás tocan la DB (test lo bloquea).
+> Setting `runLedgerEnabled` default OFF cableado en los 6 puntos
+> (types/defaults/partialize/merge/actions). Privacy UI: card con toggle
+> + estado de durabilidad (ligado al opt-in OPFS existente) + Export
+> JSON (Blob download) + Clear; trust feature nuevo `run-ledger` +
+> telemetría `ledger.toggled { enabled }` / `ledger.cleared`. 7 tests de
+> contrato con el mock-engine seam de duckdbClient (OFF-escribe-nada,
+> DDL-once, escaping, retención por tier, capsule-link, drop+recreate,
+> export). daily_activity usa el día LOCAL (en-CA) para streaks humanos.
 
 **Evidencia.** Ya existe todo el sustrato: `getDuckDbEngine()`,
 `executeQuery(query, options)` → `DuckDbExecuteOutcome`
@@ -441,7 +463,6 @@ CREATE TABLE IF NOT EXISTS lingua_ledger.runs (
   started_at     TIMESTAMP NOT NULL,
   duration_ms    INTEGER,
   status         TEXT NOT NULL CHECK (status IN ('ok','error','timeout','cancelled')),
-  stdout_preview TEXT,                 -- <=2 KiB, pasado por el redactor
   capsule_id     UUID
 );
 
@@ -450,7 +471,7 @@ CREATE TABLE IF NOT EXISTS lingua_ledger.capsules (
   schema_version TEXT NOT NULL,        -- 'RunCapsuleV1' (version:1)
   created_at     TIMESTAMP NOT NULL,
   language       TEXT,
-  payload        JSON NOT NULL,        -- capsule completa, ya redactada por diseño
+  payload        JSON NOT NULL,        -- resumen de metadatos, sin contenido del usuario
   size_bytes     INTEGER NOT NULL
 );
 
@@ -493,7 +514,16 @@ sobrevive; "Borrar historial" la vacía; con ledger OFF no se escribe NADA
 **Qué desbloquea:** el remaining scope de **RL-094** (auto-capsule + disk
 persistence → tabla `capsules`) y el run-history timeline de **RL-096**.
 
-## IT2-C2 · "Query your own history" en el SQL workspace — S (0.5-1 d)
+## IT2-C2 · "Query your own history" en el SQL workspace — EJECUTADO 2026-07-09
+
+> **Estado de ejecución + corrección.** La premisa "las tablas aparecen
+> solas" era parcialmente falsa: el browser usaba SHOW TABLES, que solo
+> ve el schema `main`. Corregido: la introspección ahora lista
+> `information_schema.tables` calificando los schemas no-main, así
+> `lingua_ledger.runs`/`.capsules`/`.daily_activity` aparecen en el
+> browser con el nombre EXACTO que una query debe usar (autocomplete
+> veraz incluido — las columnas se agrupan por el mismo nombre
+> calificado). Docs + snippet de ejemplo en USAGE.md § Run Ledger.
 
 **Evidencia.** El schema browser hace introspección genérica — `SHOW
 TABLES` + `information_schema.columns` filtrando solo

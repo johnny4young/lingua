@@ -135,6 +135,10 @@ describe('TELEMETRY_EVENTS', () => {
       // anything whose lowercased name contains 'source' — same
       // precedent as `runtime.workflow_mode_changed { trigger }`.
       'language_scorecard_viewed',
+      // IT2-C1 — Run Ledger: schema drop acknowledgement (no payload)
+      // and the Privacy opt-in toggle ({ enabled } boolean only).
+      'ledger.cleared',
+      'ledger.toggled',
       // RL-043 Slice (Monaco cells) fold E — cell editor mounted. Sorts
       // before `cell_executed` (`cell_e-ditor` < `cell_e-xecuted`).
       'notebook.cell_editor_mounted',

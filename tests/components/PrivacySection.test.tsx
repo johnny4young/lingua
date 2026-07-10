@@ -52,6 +52,20 @@ describe('PrivacySection', () => {
     ).toBe('false');
   });
 
+  it('keeps the Run Ledger off by default and reports session-only storage when enabled', async () => {
+    const user = userEvent.setup();
+    render(<PrivacySection />);
+
+    const toggle = screen.getByTestId('run-ledger-toggle');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByTestId('run-ledger-status').textContent).toContain('nothing is recorded');
+
+    await user.click(toggle);
+
+    expect(useSettingsStore.getState().runLedgerEnabled).toBe(true);
+    expect(screen.getByTestId('run-ledger-status').textContent).toContain('this session only');
+  });
+
   // Slice 2 — `shareLinkConfirmEnabled` was removed; the share-link
   // confirmation modal is now the only path before clipboard writes
   // (safer default for accidental shares). The toggle no longer

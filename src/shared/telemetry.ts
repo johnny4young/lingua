@@ -560,6 +560,11 @@ export const TELEMETRY_EVENTS = [
   // RL-112 — fires when the user toggles the persistent status bar; closed
   // payload `{ enabled }` boolean. Mirrored on update-server with a parity test.
   'editor.status_bar_toggled',
+  // IT2-C1 — Run Ledger opt-in toggled; closed payload { enabled } boolean.
+  // Fires from the Privacy settings toggle only. No run data, ever.
+  'ledger.toggled',
+  // IT2-C1 — the user cleared the whole ledger (schema drop). No payload.
+  'ledger.cleared',
   // RL-109 close-out — project-scoped env adoption. Fires once per session the
   // first time a native runner resolves env for a project, with closed payload
   // `{ hasProjectVars }` (did the active project carry any project-tier vars).
@@ -913,6 +918,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'editor.smart_paste_applied': ['handler', 'accepted'],
   // RL-112 — `enabled` is a boolean (status-bar visibility).
   'editor.status_bar_toggled': ['enabled'],
+  // IT2-C1 — `enabled` is a boolean (Run Ledger opt-in state).
+  'ledger.toggled': ['enabled'],
+  // IT2-C1 — schema-drop acknowledgement; carries nothing.
+  'ledger.cleared': [],
   // RL-109 close-out — `hasProjectVars` is a boolean; no env keys/values.
   'env.project_scope_used': ['hasProjectVars'],
 };
@@ -2172,6 +2181,10 @@ function isAllowedValue(
       return false;
     case 'editor.status_bar_toggled':
       return key === 'enabled' && typeof value === 'boolean';
+    case 'ledger.toggled':
+      return key === 'enabled' && typeof value === 'boolean';
+    case 'ledger.cleared':
+      return false;
     case 'env.project_scope_used':
       return key === 'hasProjectVars' && typeof value === 'boolean';
     default: {

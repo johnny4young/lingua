@@ -238,13 +238,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   }, []);
 
   // Schema browser → editor insert. Build a runnable starter for the
-  // table and signal the editor to append it. The table name is quoted
-  // (ANSI identifier quoting) so names with spaces, reserved words,
-  // mixed case, or special characters produce a valid single statement
-  // instead of broken — or statement-chaining — SQL.
-  const handleInsertTable = useCallback((name: string) => {
+  // table and signal the editor to append it. Schema + table are quoted
+  // segment-by-segment so names with spaces, reserved words, mixed case,
+  // special characters, or a non-main schema produce one valid statement.
+  const handleInsertTable = useCallback((name: string, schemaName?: string) => {
     setInsertSignal((prev) => ({
-      text: buildSelectStarter(name),
+      text: buildSelectStarter(name, schemaName),
       nonce: (prev?.nonce ?? 0) + 1,
     }));
   }, []);
@@ -397,12 +396,33 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       return;
     }
     try {
-      const { rows } = await connection.query('SHOW TABLES');
-      const names: string[] = [];
+      // IT2-C2 — schema-qualified table listing (replacing `SHOW TABLES`,
+      // which only sees the current schema). User tables in `main` keep
+      // their bare names; tables in any other schema — notably the Run
+      // Ledger's `lingua_ledger.runs` / `.capsules` / `.daily_activity` —
+      // list under their qualified name, which is also exactly what a
+      // query must reference, so autocomplete stays truthful.
+      const { rows } = await connection.query(
+        'SELECT table_schema, table_name FROM information_schema.tables ' +
+          "WHERE table_schema NOT IN ('information_schema', 'pg_catalog') " +
+          'ORDER BY table_schema, table_name'
+      );
+      const tablesByDisplayName = new Map<
+        string,
+        { sqlName: string; schemaName?: string }
+      >();
       for (const row of rows) {
-        // DuckDB SHOW TABLES returns a `name` column.
-        const value = row['name'];
-        if (typeof value === 'string') names.push(value);
+        const schema = row['table_schema'];
+        const table = row['table_name'];
+        if (typeof table !== 'string') continue;
+        if (typeof schema === 'string' && schema !== 'main') {
+          tablesByDisplayName.set(`${schema}.${table}`, {
+            sqlName: table,
+            schemaName: schema,
+          });
+        } else {
+          tablesByDisplayName.set(table, { sqlName: table });
+        }
       }
       // Single-round-trip column introspection. `information_schema.columns`
       // returns one row per (table, column); grouping in JS by `table_name`
@@ -413,18 +433,26 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       const columnsByTable = new Map<string, SqlSchemaColumn[]>();
       try {
         const columnRows = await connection.query(
-          'SELECT table_name, column_name, data_type ' +
+          'SELECT table_schema, table_name, column_name, data_type ' +
             'FROM information_schema.columns ' +
             "WHERE table_schema NOT IN ('information_schema', 'pg_catalog') " +
-            'ORDER BY table_name, ordinal_position'
+            'ORDER BY table_schema, table_name, ordinal_position'
         );
         for (const row of columnRows.rows) {
-          const tableName = row['table_name'];
+          const schemaName = row['table_schema'];
+          const bareTableName = row['table_name'];
           const columnName = row['column_name'];
           const dataType = row['data_type'];
-          if (typeof tableName !== 'string' || typeof columnName !== 'string') {
+          if (typeof bareTableName !== 'string' || typeof columnName !== 'string') {
             continue;
           }
+          // IT2-C2 — key columns by the SAME display name the table list
+          // uses (qualified outside `main`), so the count chip and the
+          // autocomplete line up for ledger tables.
+          const tableName =
+            typeof schemaName === 'string' && schemaName !== 'main'
+              ? `${schemaName}.${bareTableName}`
+              : bareTableName;
           const list = columnsByTable.get(tableName) ?? [];
           list.push({
             name: columnName,
@@ -435,9 +463,11 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       } catch {
         // Leave the map empty — tables render name-only.
       }
-      const tables: SqlSchemaTable[] = names.map((name) => {
+      const tables: SqlSchemaTable[] = Array.from(tablesByDisplayName, ([name, identifiers]) => {
         const columns = columnsByTable.get(name);
-        return columns !== undefined ? { name, columns } : { name };
+        return columns !== undefined
+          ? { name, ...identifiers, columns }
+          : { name, ...identifiers };
       });
       setSchemaTables(tables);
     } catch (err) {

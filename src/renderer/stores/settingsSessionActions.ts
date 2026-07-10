@@ -26,6 +26,7 @@ export function createSessionActions(
   | 'setSqlWorkspaceRowDisplayLimit'
   | 'setSqlWorkspaceQueryTimeoutMs'
   | 'setSqlWorkspacePersistTables'
+  | 'setRunLedgerEnabled'
 > {
   return {
     setRestoreSessionMode: (mode) => set({ restoreSessionMode: mode }),
@@ -88,6 +89,13 @@ export function createSessionActions(
         const next = value === true;
         if (state.sqlWorkspacePersistTables === next) return state;
         return { sqlWorkspacePersistTables: next };
+      }),
+    // IT2-C1 — same boolean coercion for the Run Ledger opt-in.
+    setRunLedgerEnabled: (value) =>
+      set((state) => {
+        const next = value === true;
+        if (state.runLedgerEnabled === next) return state;
+        return { runLedgerEnabled: next };
       }),
   };
 }
