@@ -1,0 +1,386 @@
+import { executeQuery } from './duckdbClient';
+import { computeContentHash } from '../../shared/runCapsule';
+import type { RunCapsuleV1 } from '../../shared/runCapsule';
+import { isEntitled } from '../../shared/entitlements';
+import { currentEffectiveTier } from '../stores/licenseSelectors';
+import { useSettingsStore } from '../stores/settingsStore';
+
+/**
+ * IT2-C1 — the Run Ledger: a local, opt-in, queryable history of the
+ * user's MANUAL runs, stored in the SAME DuckDB database the SQL
+ * workspace uses (schema `lingua_ledger`), so it inherits the existing
+ * OPFS persistence opt-in (`sqlWorkspacePersistTables` →
+ * `configureDuckDbPersistence`) and — deliberately — shows up in the SQL
+ * workspace's schema browser: the user can query their own run history
+ * with the product's own SQL surface.
+ *
+ * Privacy posture (non-negotiable):
+ * - Everything is OFF by default (`runLedgerEnabled`, default false).
+ * - Source code is NEVER stored in `runs` — only a SHA-256 content hash.
+ * - `stdout_preview` comes exclusively from an attached RunCapsule's
+ *   stdout, which is redacted by design, and is capped to 2 KiB.
+ * - Full capsules land in `lingua_ledger.capsules` only when a run
+ *   already produced one (capsules redact secrets at build time).
+ * - `clearLedger()` drops the whole schema; `exportLedgerJson()` gives
+ *   the user their data. The tables live in the user-visible SQL
+ *   database on purpose — the user editing or dropping them is their
+ *   right, not a corruption scenario.
+ *
+ * Retention: Free keeps 7 days of runs (pruned lazily on first use per
+ * session); paid tiers (EXECUTION_HISTORY entitlement) keep everything.
+ * `daily_activity` is NOT pruned — it holds only per-day counters (no
+ * content) and future streak surfaces need the long tail.
+ *
+ * Write model: all writes funnel through one promise queue, so inserts
+ * and the read-modify-write of `daily_activity` never interleave. Every
+ * write is fire-and-forget and best-effort — the ledger must never make
+ * a run slower or louder. `executeQuery` never throws (it settles with
+ * `status: 'error'`), and a failed write triggers ONE re-ensure +
+ * retry so an engine restart (SQL workspace Clear/Reconnect terminates
+ * the shared engine) recreates the schema instead of silently dropping
+ * every subsequent row.
+ */
+
+const FREE_RETENTION_DAYS = 7;
+const STDOUT_PREVIEW_MAX_CHARS = 2_048;
+const RECENT_RUNS_DEFAULT_LIMIT = 50;
+
+export interface LedgerRunInput {
+  language: string;
+  status: 'ok' | 'error';
+  durationMs: number | null;
+  /** Epoch ms when the run started/completed (history entry timestamp). */
+  startedAtMs: number;
+  tabId?: string | null;
+  /**
+   * Source text, when the surface has it (Pro history snapshot). Hashed
+   * with SHA-256 before touching the database; the text itself is
+   * discarded. Prefer `contentHash` when a capsule already computed it.
+   */
+  code?: string | null;
+  /** Pre-computed SHA-256 hex (RunCapsuleV1.source.contentHash). */
+  contentHash?: string | null;
+  /** Redacted-by-design capsule stdout; truncated to 2 KiB here. */
+  stdoutPreview?: string | null;
+  /** Full capsule to persist alongside the run row, when one exists. */
+  capsule?: RunCapsuleV1 | null;
+}
+
+export interface LedgerRunRow {
+  runId: string;
+  language: string;
+  status: string;
+  durationMs: number | null;
+  startedAt: string;
+  codeSha256: string | null;
+  stdoutPreview: string | null;
+  capsuleId: string | null;
+  tabId: string | null;
+}
+
+export interface LedgerDailyActivityRow {
+  day: string;
+  runsCount: number;
+  languagesUsed: string[];
+  utilitiesUsed: number;
+}
+
+let schemaEnsured = false;
+let retentionApplied = false;
+let writeQueue: Promise<void> = Promise.resolve();
+
+/** Test seam — resets the per-session ensure/retention latches. */
+export function _resetRunLedgerForTests(): void {
+  schemaEnsured = false;
+  retentionApplied = false;
+  writeQueue = Promise.resolve();
+}
+
+function ledgerEnabled(): boolean {
+  return useSettingsStore.getState().runLedgerEnabled === true;
+}
+
+/** Single-quote escape for SQL text literals (values are app-internal or
+ * already-redacted; escaping is still mandatory because stdout previews
+ * are user-program output). */
+function sqlText(value: string | null | undefined): string {
+  if (value === null || value === undefined) return 'NULL';
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function sqlNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return 'NULL';
+  return String(value);
+}
+
+/** Epoch ms → TIMESTAMP literal (UTC, second precision is enough). */
+function sqlTimestamp(epochMs: number): string {
+  return `'${new Date(epochMs).toISOString().replace('T', ' ').slice(0, 19)}'`;
+}
+
+/** Epoch ms → the user's LOCAL calendar day (streaks are a human-local
+ * concept; en-CA formats as YYYY-MM-DD). */
+function localDay(epochMs: number): string {
+  return new Date(epochMs).toLocaleDateString('en-CA');
+}
+
+const DDL_STATEMENTS = [
+  'CREATE SCHEMA IF NOT EXISTS lingua_ledger',
+  `CREATE TABLE IF NOT EXISTS lingua_ledger.runs (
+    run_id UUID PRIMARY KEY,
+    language TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('ok','error')),
+    duration_ms INTEGER,
+    started_at TIMESTAMP NOT NULL,
+    code_sha256 TEXT,
+    stdout_preview TEXT,
+    capsule_id UUID,
+    tab_id TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS lingua_ledger.capsules (
+    capsule_id UUID PRIMARY KEY,
+    schema_version INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    language TEXT,
+    payload JSON NOT NULL,
+    size_bytes INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS lingua_ledger.daily_activity (
+    day DATE PRIMARY KEY,
+    runs_count INTEGER NOT NULL DEFAULT 0,
+    languages_used JSON NOT NULL DEFAULT '[]',
+    utilities_used INTEGER NOT NULL DEFAULT 0
+  )`,
+] as const;
+
+async function runStatement(sql: string): Promise<boolean> {
+  const outcome = await executeQuery(sql);
+  return outcome.status === 'success';
+}
+
+async function ensureSchema(): Promise<boolean> {
+  if (schemaEnsured) return true;
+  for (const statement of DDL_STATEMENTS) {
+    if (!(await runStatement(statement))) return false;
+  }
+  schemaEnsured = true;
+  await applyRetentionOnce();
+  return true;
+}
+
+/**
+ * Free keeps FREE_RETENTION_DAYS of runs; orphaned capsules go with
+ * them. Lazy, once per session, and only after the schema exists.
+ */
+async function applyRetentionOnce(): Promise<void> {
+  if (retentionApplied) return;
+  retentionApplied = true;
+  if (isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY')) return;
+  await runStatement(
+    `DELETE FROM lingua_ledger.runs WHERE started_at < now() - INTERVAL ${FREE_RETENTION_DAYS} DAY`
+  );
+  await runStatement(
+    `DELETE FROM lingua_ledger.capsules WHERE capsule_id NOT IN (
+       SELECT capsule_id FROM lingua_ledger.runs WHERE capsule_id IS NOT NULL
+     )`
+  );
+}
+
+async function resolveContentHash(input: LedgerRunInput): Promise<string | null> {
+  if (typeof input.contentHash === 'string' && input.contentHash.length > 0) {
+    return input.contentHash;
+  }
+  if (typeof input.code === 'string' && input.code.length > 0) {
+    try {
+      return await computeContentHash(input.code);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function writeRun(input: LedgerRunInput): Promise<void> {
+  if (!ledgerEnabled()) return;
+  if (!(await ensureSchema())) return;
+
+  const runId = crypto.randomUUID();
+  const codeSha = await resolveContentHash(input);
+  const preview =
+    typeof input.stdoutPreview === 'string' && input.stdoutPreview.length > 0
+      ? input.stdoutPreview.slice(0, STDOUT_PREVIEW_MAX_CHARS)
+      : null;
+
+  let capsuleId: string | null = null;
+  if (input.capsule) {
+    capsuleId = input.capsule.capsuleId;
+    const payload = JSON.stringify(input.capsule);
+    const capsuleInsert = `INSERT OR IGNORE INTO lingua_ledger.capsules
+      (capsule_id, schema_version, created_at, language, payload, size_bytes)
+      VALUES (${sqlText(capsuleId)}, ${sqlNumber(input.capsule.version)},
+              ${sqlText(input.capsule.createdAt.replace('T', ' ').slice(0, 19))},
+              ${sqlText(input.capsule.tab.language)}, ${sqlText(payload)},
+              ${sqlNumber(payload.length)})`;
+    if (!(await runStatement(capsuleInsert))) {
+      // One re-ensure + retry: the shared engine may have been restarted
+      // (memory mode loses the schema) between ensure and this insert.
+      schemaEnsured = false;
+      if (!(await ensureSchema()) || !(await runStatement(capsuleInsert))) {
+        capsuleId = null;
+      }
+    }
+  }
+
+  const runInsert = `INSERT INTO lingua_ledger.runs
+    (run_id, language, status, duration_ms, started_at, code_sha256,
+     stdout_preview, capsule_id, tab_id)
+    VALUES (${sqlText(runId)}, ${sqlText(input.language)}, ${sqlText(input.status)},
+            ${sqlNumber(input.durationMs)}, ${sqlTimestamp(input.startedAtMs)},
+            ${sqlText(codeSha)}, ${sqlText(preview)}, ${sqlText(capsuleId)},
+            ${sqlText(input.tabId ?? null)})`;
+  if (!(await runStatement(runInsert))) {
+    schemaEnsured = false;
+    if (!(await ensureSchema()) || !(await runStatement(runInsert))) return;
+  }
+
+  await bumpDailyActivity(input);
+}
+
+/** Read-modify-write of the per-day counters. Safe because every write
+ * flows through the single queue — no interleaving within this session,
+ * and the renderer is the database's only writer. */
+async function bumpDailyActivity(input: LedgerRunInput): Promise<void> {
+  const day = localDay(input.startedAtMs);
+  const existing = await executeQuery(
+    `SELECT runs_count, languages_used, utilities_used
+     FROM lingua_ledger.daily_activity WHERE day = ${sqlText(day)}`
+  );
+  let runsCount = 0;
+  let languages: string[] = [];
+  let utilities = 0;
+  if (existing.status === 'success' && existing.rows.length > 0) {
+    const row = existing.rows[0]!;
+    runsCount = Number(row['runs_count'] ?? 0);
+    utilities = Number(row['utilities_used'] ?? 0);
+    try {
+      const parsed: unknown = JSON.parse(String(row['languages_used'] ?? '[]'));
+      if (Array.isArray(parsed)) languages = parsed.filter((x): x is string => typeof x === 'string');
+    } catch {
+      languages = [];
+    }
+  }
+  runsCount += 1;
+  if (!languages.includes(input.language)) languages.push(input.language);
+  if (input.language === 'pipeline') utilities += 1;
+
+  await runStatement(
+    `INSERT INTO lingua_ledger.daily_activity (day, runs_count, languages_used, utilities_used)
+     VALUES (${sqlText(day)}, ${sqlNumber(runsCount)}, ${sqlText(JSON.stringify(languages))}, ${sqlNumber(utilities)})
+     ON CONFLICT (day) DO UPDATE SET
+       runs_count = excluded.runs_count,
+       languages_used = excluded.languages_used,
+       utilities_used = excluded.utilities_used`
+  );
+}
+
+/**
+ * Fire-and-forget entry point the run tap calls after a manual run
+ * lands in the execution history. Never throws, never blocks the run
+ * path; all writes serialize on one queue.
+ */
+export function recordRun(input: LedgerRunInput): void {
+  if (!ledgerEnabled()) return;
+  writeQueue = writeQueue
+    .then(() => writeRun(input))
+    .catch(() => {
+      // Best-effort by contract — a ledger failure must never surface
+      // into the run path.
+    });
+}
+
+/** Await all queued writes — test/export seam. */
+export function flushRunLedgerWrites(): Promise<void> {
+  return writeQueue.then(() => undefined);
+}
+
+export async function queryRecentRuns(
+  limit: number = RECENT_RUNS_DEFAULT_LIMIT
+): Promise<LedgerRunRow[]> {
+  if (!(await ensureSchema())) return [];
+  const capped = Math.min(500, Math.max(1, Math.floor(limit)));
+  const outcome = await executeQuery(
+    `SELECT run_id, language, status, duration_ms, started_at, code_sha256,
+            stdout_preview, capsule_id, tab_id
+     FROM lingua_ledger.runs ORDER BY started_at DESC LIMIT ${capped}`
+  );
+  if (outcome.status !== 'success') return [];
+  return outcome.rows.map((row) => ({
+    runId: String(row['run_id'] ?? ''),
+    language: String(row['language'] ?? ''),
+    status: String(row['status'] ?? ''),
+    durationMs: row['duration_ms'] === null || row['duration_ms'] === undefined ? null : Number(row['duration_ms']),
+    startedAt: String(row['started_at'] ?? ''),
+    codeSha256: row['code_sha256'] === null || row['code_sha256'] === undefined ? null : String(row['code_sha256']),
+    stdoutPreview: row['stdout_preview'] === null || row['stdout_preview'] === undefined ? null : String(row['stdout_preview']),
+    capsuleId: row['capsule_id'] === null || row['capsule_id'] === undefined ? null : String(row['capsule_id']),
+    tabId: row['tab_id'] === null || row['tab_id'] === undefined ? null : String(row['tab_id']),
+  }));
+}
+
+export async function getDailyActivity(days = 30): Promise<LedgerDailyActivityRow[]> {
+  if (!(await ensureSchema())) return [];
+  const capped = Math.min(3650, Math.max(1, Math.floor(days)));
+  const outcome = await executeQuery(
+    `SELECT day, runs_count, languages_used, utilities_used
+     FROM lingua_ledger.daily_activity
+     WHERE day >= current_date - INTERVAL ${capped} DAY
+     ORDER BY day DESC`
+  );
+  if (outcome.status !== 'success') return [];
+  return outcome.rows.map((row) => {
+    let languages: string[] = [];
+    try {
+      const parsed: unknown = JSON.parse(String(row['languages_used'] ?? '[]'));
+      if (Array.isArray(parsed)) languages = parsed.filter((x): x is string => typeof x === 'string');
+    } catch {
+      languages = [];
+    }
+    return {
+      day: String(row['day'] ?? ''),
+      runsCount: Number(row['runs_count'] ?? 0),
+      languagesUsed: languages,
+      utilitiesUsed: Number(row['utilities_used'] ?? 0),
+    };
+  });
+}
+
+/** Drop the whole ledger schema. The next enabled run recreates it. */
+export async function clearLedger(): Promise<boolean> {
+  await flushRunLedgerWrites();
+  const dropped = await runStatement('DROP SCHEMA IF EXISTS lingua_ledger CASCADE');
+  schemaEnsured = false;
+  retentionApplied = false;
+  return dropped;
+}
+
+/** The user's data, out: every table as JSON. */
+export async function exportLedgerJson(): Promise<string> {
+  await flushRunLedgerWrites();
+  if (!(await ensureSchema())) {
+    return JSON.stringify({ runs: [], capsules: [], dailyActivity: [] });
+  }
+  const [runs, capsules, activity] = [
+    await executeQuery('SELECT * FROM lingua_ledger.runs ORDER BY started_at'),
+    await executeQuery('SELECT * FROM lingua_ledger.capsules ORDER BY created_at'),
+    await executeQuery('SELECT * FROM lingua_ledger.daily_activity ORDER BY day'),
+  ];
+  return JSON.stringify(
+    {
+      runs: runs.status === 'success' ? runs.rows : [],
+      capsules: capsules.status === 'success' ? capsules.rows : [],
+      dailyActivity: activity.status === 'success' ? activity.rows : [],
+    },
+    null,
+    2
+  );
+}

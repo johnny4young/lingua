@@ -567,11 +567,16 @@ function importEngine(
             arrowTable([{ name: 'n', type: 'BIGINT' }], [{ n: 3n }])
           );
         }
-        if (/SHOW TABLES/i.test(sql)) {
+        // IT2-C2 — the browser now lists schema-qualified tables from
+        // information_schema.tables (SHOW TABLES only saw `main`).
+        if (/FROM information_schema\.tables/i.test(sql)) {
           return mapArrowTable(
             arrowTable(
-              [{ name: 'name', type: 'VARCHAR' }],
-              existingTables.map((name) => ({ name }))
+              [
+                { name: 'table_schema', type: 'VARCHAR' },
+                { name: 'table_name', type: 'VARCHAR' },
+              ],
+              existingTables.map((name) => ({ table_schema: 'main', table_name: name }))
             )
           );
         }

@@ -397,12 +397,27 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       return;
     }
     try {
-      const { rows } = await connection.query('SHOW TABLES');
+      // IT2-C2 — schema-qualified table listing (replacing `SHOW TABLES`,
+      // which only sees the current schema). User tables in `main` keep
+      // their bare names; tables in any other schema — notably the Run
+      // Ledger's `lingua_ledger.runs` / `.capsules` / `.daily_activity` —
+      // list under their qualified name, which is also exactly what a
+      // query must reference, so autocomplete stays truthful.
+      const { rows } = await connection.query(
+        'SELECT table_schema, table_name FROM information_schema.tables ' +
+          "WHERE table_schema NOT IN ('information_schema', 'pg_catalog') " +
+          'ORDER BY table_schema, table_name'
+      );
       const names: string[] = [];
       for (const row of rows) {
-        // DuckDB SHOW TABLES returns a `name` column.
-        const value = row['name'];
-        if (typeof value === 'string') names.push(value);
+        const schema = row['table_schema'];
+        const table = row['table_name'];
+        if (typeof table !== 'string') continue;
+        if (typeof schema === 'string' && schema !== 'main') {
+          names.push(`${schema}.${table}`);
+        } else {
+          names.push(table);
+        }
       }
       // Single-round-trip column introspection. `information_schema.columns`
       // returns one row per (table, column); grouping in JS by `table_name`
@@ -413,18 +428,26 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       const columnsByTable = new Map<string, SqlSchemaColumn[]>();
       try {
         const columnRows = await connection.query(
-          'SELECT table_name, column_name, data_type ' +
+          'SELECT table_schema, table_name, column_name, data_type ' +
             'FROM information_schema.columns ' +
             "WHERE table_schema NOT IN ('information_schema', 'pg_catalog') " +
-            'ORDER BY table_name, ordinal_position'
+            'ORDER BY table_schema, table_name, ordinal_position'
         );
         for (const row of columnRows.rows) {
-          const tableName = row['table_name'];
+          const schemaName = row['table_schema'];
+          const bareTableName = row['table_name'];
           const columnName = row['column_name'];
           const dataType = row['data_type'];
-          if (typeof tableName !== 'string' || typeof columnName !== 'string') {
+          if (typeof bareTableName !== 'string' || typeof columnName !== 'string') {
             continue;
           }
+          // IT2-C2 — key columns by the SAME display name the table list
+          // uses (qualified outside `main`), so the count chip and the
+          // autocomplete line up for ledger tables.
+          const tableName =
+            typeof schemaName === 'string' && schemaName !== 'main'
+              ? `${schemaName}.${bareTableName}`
+              : bareTableName;
           const list = columnsByTable.get(tableName) ?? [];
           list.push({
             name: columnName,

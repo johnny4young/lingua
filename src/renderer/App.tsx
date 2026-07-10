@@ -34,6 +34,7 @@ import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useShareLinkBoot } from './hooks/useShareLinkBoot';
 import { ShareLinkController } from './components/Share/ShareLinkButton';
 import { useOnboardingChoreography } from './hooks/useOnboardingChoreography';
+import { useRunLedgerTap } from './hooks/useRunLedgerTap';
 import { useDependencyDetection } from './hooks/useDependencyDetection';
 import { useGitDetectOnProjectChange } from './hooks/useGitDetectOnProjectChange';
 import { useGitStatus } from './hooks/useGitStatus';
@@ -165,6 +166,11 @@ function AppChrome({
   // `sessionRestoreReady` so a real restored session always wins
   // over the seed; safe mode short-circuits the hook entirely.
   useOnboardingChoreography({ enabled: sessionRestoreReady });
+  // IT2-C1 — Run Ledger tap: forwards each NEW execution-history entry
+  // (manual runs only — auto-runs never reach that store) into the
+  // opt-in lingua_ledger DuckDB schema, fire-and-forget. The hook
+  // subscribes unconditionally; recordRun itself is the opt-in gate.
+  useRunLedgerTap();
   // RL-102 Slice 1 — Git read-only layer. The detect hook resolves
   // posture on every project root change; the status hook drives
   // per-file pill updates via the existing fs watcher. Both
