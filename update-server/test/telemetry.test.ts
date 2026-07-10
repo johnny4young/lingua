@@ -472,6 +472,27 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     }
   });
 
+  it('validates the Run Ledger event payloads without accepting extra data', () => {
+    expect(EVENT_PROPERTY_ALLOWLIST['ledger.toggled']).toEqual(['enabled']);
+    expect(EVENT_PROPERTY_ALLOWLIST['ledger.cleared']).toEqual([]);
+
+    const toggled = validateTelemetryPayload({
+      event: 'ledger.toggled',
+      properties: { enabled: true, sourceCode: 'must not reach the worker' },
+    });
+    expect(toggled).toEqual({
+      ok: true,
+      event: 'ledger.toggled',
+      properties: { enabled: true },
+    });
+
+    const cleared = validateTelemetryPayload({
+      event: 'ledger.cleared',
+      properties: { tabName: 'must not reach the worker' },
+    });
+    expect(cleared).toEqual({ ok: true, event: 'ledger.cleared', properties: {} });
+  });
+
   it('worker EVENT_PROPERTY_ALLOWLIST has no extra event keys', () => {
     const rendererSet = new Set<string>(RENDERER_TELEMETRY_EVENTS);
     for (const event of Object.keys(EVENT_PROPERTY_ALLOWLIST)) {

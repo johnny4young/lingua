@@ -292,6 +292,10 @@ export const TELEMETRY_EVENT_NAMES = [
   'editor.smart_paste_applied',
   // RL-112 — mirror of src/shared/telemetry.ts. `{ enabled }`; boolean only.
   'editor.status_bar_toggled',
+  // IT2-C1 — mirror of src/shared/telemetry.ts. The Run Ledger opt-in
+  // carries only `{ enabled }`; clearing it intentionally carries no data.
+  'ledger.toggled',
+  'ledger.cleared',
   // RL-109 close-out — mirror of src/shared/telemetry.ts. `{ hasProjectVars }`;
   // boolean only, no env keys/values/paths.
   'env.project_scope_used',
@@ -469,6 +473,9 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'editor.smart_paste_applied': ['handler', 'accepted'],
   // RL-112 — mirror of src/shared/telemetry.ts.
   'editor.status_bar_toggled': ['enabled'],
+  // IT2-C1 — mirror of src/shared/telemetry.ts.
+  'ledger.toggled': ['enabled'],
+  'ledger.cleared': [],
   // RL-109 close-out — mirror of src/shared/telemetry.ts.
   'env.project_scope_used': ['hasProjectVars'],
 };
@@ -1678,6 +1685,10 @@ function isAllowedValue(
       return false;
     case 'editor.status_bar_toggled':
       return key === 'enabled' && typeof value === 'boolean';
+    case 'ledger.toggled':
+      return key === 'enabled' && typeof value === 'boolean';
+    case 'ledger.cleared':
+      return false;
     case 'env.project_scope_used':
       return key === 'hasProjectVars' && typeof value === 'boolean';
     default: {
