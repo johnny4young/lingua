@@ -18,6 +18,7 @@ import {
   clearLedger,
   exportLedgerJson,
   flushRunLedgerWrites,
+  getDailyActivity,
   queryRecentRuns,
   recordRun,
 } from '../../../src/renderer/runtime/runLedger';
@@ -203,6 +204,65 @@ describe('runLedger (IT2-C1)', () => {
     expect(json.runs).toEqual([{ run_id: 'r1', language: 'javascript' }]);
     expect(json.capsules).toEqual([]);
     expect(json.dailyActivity).toEqual([]);
+  });
+
+  it('read helpers never run DDL — inspecting a never-used ledger creates nothing', async () => {
+    const statements = installSpyEngine();
+    await queryRecentRuns();
+    await getDailyActivity();
+    await exportLedgerJson();
+    expect(statements.some((sql) => sql.startsWith('CREATE'))).toBe(false);
+  });
+
+  it('truncates previews on UTF-8 byte boundaries and sizes capsules in bytes', async () => {
+    const statements = installSpyEngine();
+    // 800 euro signs = 2400 bytes > the 2048-byte cap, and 2048 is not a
+    // multiple of 3 — a code-unit slice would leave a broken codepoint.
+    recordRun({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      startedAtMs: 1_700_000_000_000,
+      stdoutPreview: '€'.repeat(800),
+      capsule: {
+        version: 1,
+        capsuleId: '00000000-0000-4000-8000-000000000002',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        appVersion: '0.0.0-test',
+        tab: { name: 'ñandú', language: 'javascript' },
+        source: { content: '', contentHash: 'b'.repeat(64) },
+        input: {},
+        result: { status: 'ok', durationMs: 1 },
+        environment: { platform: 'test', runner: 'test' },
+        privacy: { redactionVersion: 1, omittedFields: [] },
+      } as never,
+    });
+    await flushRunLedgerWrites();
+
+    const runInsert = statements.find((sql) => sql.includes('INSERT INTO lingua_ledger.runs'));
+    // floor(2048 / 3) = 682 whole euro signs; the partial codepoint is dropped.
+    expect(runInsert).toContain('€'.repeat(682));
+    expect(runInsert).not.toContain('€'.repeat(683));
+    expect(runInsert).not.toContain('�');
+
+    const capsuleInsert = statements.find((sql) =>
+      sql.includes('INSERT OR IGNORE INTO lingua_ledger.capsules')
+    );
+    const payloadBytes = new TextEncoder().encode(
+      JSON.stringify({
+        version: 1,
+        capsuleId: '00000000-0000-4000-8000-000000000002',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        appVersion: '0.0.0-test',
+        tab: { name: 'ñandú', language: 'javascript' },
+        source: { content: '', contentHash: 'b'.repeat(64) },
+        input: {},
+        result: { status: 'ok', durationMs: 1 },
+        environment: { platform: 'test', runner: 'test' },
+        privacy: { redactionVersion: 1, omittedFields: [] },
+      })
+    ).byteLength;
+    expect(capsuleInsert?.trimEnd().endsWith(`${payloadBytes})`)).toBe(true);
   });
 
   it('queryRecentRuns maps rows and caps the limit', async () => {

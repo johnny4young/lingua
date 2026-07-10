@@ -42,7 +42,7 @@ import { useSettingsStore } from '../stores/settingsStore';
  */
 
 const FREE_RETENTION_DAYS = 7;
-const STDOUT_PREVIEW_MAX_CHARS = 2_048;
+const STDOUT_PREVIEW_MAX_BYTES = 2_048;
 const RECENT_RUNS_DEFAULT_LIMIT = 50;
 
 export interface LedgerRunInput {
@@ -118,10 +118,25 @@ function sqlTimestamp(epochMs: number): string {
   return `'${new Date(epochMs).toISOString().replace('T', ' ').slice(0, 19)}'`;
 }
 
-/** Epoch ms → the user's LOCAL calendar day (streaks are a human-local
- * concept; en-CA formats as YYYY-MM-DD). */
+/** Epoch ms → the user's LOCAL calendar day as YYYY-MM-DD (streaks are a
+ * human-local concept). Built by hand from the local date parts —
+ * `toLocaleDateString` output is implementation-defined and the DATE
+ * primary key must never depend on a locale table. */
 function localDay(epochMs: number): string {
-  return new Date(epochMs).toLocaleDateString('en-CA');
+  const date = new Date(epochMs);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** Truncate to a REAL UTF-8 byte budget (the documented 2 KiB cap is
+ * bytes, not UTF-16 code units). A codepoint split at the boundary
+ * decodes to U+FFFD, which is stripped from the tail. */
+function truncateUtf8(value: string, maxBytes: number): string {
+  const encoded = new TextEncoder().encode(value);
+  if (encoded.byteLength <= maxBytes) return value;
+  const decoded = new TextDecoder('utf-8', { fatal: false }).decode(encoded.slice(0, maxBytes));
+  return decoded.replace(/�+$/u, '');
 }
 
 const DDL_STATEMENTS = [
@@ -208,19 +223,21 @@ async function writeRun(input: LedgerRunInput): Promise<void> {
   const codeSha = await resolveContentHash(input);
   const preview =
     typeof input.stdoutPreview === 'string' && input.stdoutPreview.length > 0
-      ? input.stdoutPreview.slice(0, STDOUT_PREVIEW_MAX_CHARS)
+      ? truncateUtf8(input.stdoutPreview, STDOUT_PREVIEW_MAX_BYTES)
       : null;
 
   let capsuleId: string | null = null;
   if (input.capsule) {
     capsuleId = input.capsule.capsuleId;
     const payload = JSON.stringify(input.capsule);
+    // size_bytes means BYTES — encode instead of counting UTF-16 units.
+    const payloadBytes = new TextEncoder().encode(payload).byteLength;
     const capsuleInsert = `INSERT OR IGNORE INTO lingua_ledger.capsules
       (capsule_id, schema_version, created_at, language, payload, size_bytes)
       VALUES (${sqlText(capsuleId)}, ${sqlNumber(input.capsule.version)},
               ${sqlText(input.capsule.createdAt.replace('T', ' ').slice(0, 19))},
               ${sqlText(input.capsule.tab.language)}, ${sqlText(payload)},
-              ${sqlNumber(payload.length)})`;
+              ${sqlNumber(payloadBytes)})`;
     if (!(await runStatement(capsuleInsert))) {
       // One re-ensure + retry: the shared engine may have been restarted
       // (memory mode loses the schema) between ensure and this insert.
@@ -303,10 +320,14 @@ export function flushRunLedgerWrites(): Promise<void> {
   return writeQueue.then(() => undefined);
 }
 
+// Read helpers deliberately do NOT ensure the schema: a read must never
+// run DDL (Export/inspection with the ledger never used would otherwise
+// CREATE the tables, contradicting the off-writes-nothing posture).
+// Queries against a missing schema settle as errors and map to empties.
+
 export async function queryRecentRuns(
   limit: number = RECENT_RUNS_DEFAULT_LIMIT
 ): Promise<LedgerRunRow[]> {
-  if (!(await ensureSchema())) return [];
   const capped = Math.min(500, Math.max(1, Math.floor(limit)));
   const outcome = await executeQuery(
     `SELECT run_id, language, status, duration_ms, started_at, code_sha256,
@@ -328,7 +349,6 @@ export async function queryRecentRuns(
 }
 
 export async function getDailyActivity(days = 30): Promise<LedgerDailyActivityRow[]> {
-  if (!(await ensureSchema())) return [];
   const capped = Math.min(3650, Math.max(1, Math.floor(days)));
   const outcome = await executeQuery(
     `SELECT day, runs_count, languages_used, utilities_used
@@ -363,12 +383,10 @@ export async function clearLedger(): Promise<boolean> {
   return dropped;
 }
 
-/** The user's data, out: every table as JSON. */
+/** The user's data, out: every table as JSON. Read-only — an export on a
+ * never-used ledger yields empty arrays instead of creating the schema. */
 export async function exportLedgerJson(): Promise<string> {
   await flushRunLedgerWrites();
-  if (!(await ensureSchema())) {
-    return JSON.stringify({ runs: [], capsules: [], dailyActivity: [] });
-  }
   const [runs, capsules, activity] = [
     await executeQuery('SELECT * FROM lingua_ledger.runs ORDER BY started_at'),
     await executeQuery('SELECT * FROM lingua_ledger.capsules ORDER BY created_at'),

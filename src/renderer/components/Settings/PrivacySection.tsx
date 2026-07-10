@@ -146,13 +146,15 @@ function RunLedgerRows() {
     setBusy(true);
     try {
       const ok = await clearLedger();
-      void trackEvent('ledger.cleared', {});
-      recordTrustEventBestEffort({
-        feature: 'run-ledger',
-        action: 'cleared',
-        sensitivity: 'low',
-        summary: 'Run Ledger schema dropped',
-      });
+      if (ok) {
+        void trackEvent('ledger.cleared', {});
+        recordTrustEventBestEffort({
+          feature: 'run-ledger',
+          action: 'cleared',
+          sensitivity: 'low',
+          summary: 'Run Ledger schema dropped',
+        });
+      }
       useUIStore.getState().pushStatusNotice({
         tone: ok ? 'success' : 'warning',
         messageKey: ok ? 'privacy.runLedger.toast.cleared' : 'privacy.runLedger.toast.clearFailed',
@@ -171,8 +173,18 @@ function RunLedgerRows() {
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = `lingua-run-ledger-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
       anchor.click();
-      URL.revokeObjectURL(url);
+      anchor.remove();
+      // Revoking synchronously can cancel the download in some browsers;
+      // give the fetch of the blob URL time to start before releasing it.
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      recordTrustEventBestEffort({
+        feature: 'run-ledger',
+        action: 'exported',
+        sensitivity: 'low',
+        summary: 'Run Ledger exported as JSON',
+      });
       useUIStore.getState().pushStatusNotice({
         tone: 'success',
         messageKey: 'privacy.runLedger.toast.exported',
