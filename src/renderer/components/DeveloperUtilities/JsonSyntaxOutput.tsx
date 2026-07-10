@@ -208,7 +208,7 @@ function addTimestampTooltips(
     trigger.setAttribute('aria-describedby', tooltipId);
     trigger.setAttribute('data-testid', 'json-timestamp-value');
     trigger.className =
-      'inline-flex cursor-help rounded-md border border-accent/25 bg-accent/10 px-1 py-0.5 font-semibold text-inherit outline-none transition-colors hover:border-accent/45 hover:bg-accent/15 focus-visible:ring-2 focus-visible:ring-ring/70';
+      'focus-ring inline-flex cursor-help rounded-md border border-accent/25 bg-accent/10 px-1 py-0.5 font-semibold text-inherit transition-colors hover:border-accent/45 hover:bg-accent/15';
     trigger.append(sourceRange.extractContents());
     wrapper.append(trigger);
 

@@ -102,8 +102,17 @@ export function DeveloperUtilitiesWorkspaceBody({
   // straight to the store), so remember every id that becomes selected —
   // otherwise a palette-opened panel never joins the keep-mounted cache
   // and its draft is discarded on the next in-sidebar navigation.
-  // Render-time state adjustment (guarded) instead of an effect: React
-  // re-renders immediately with the appended id, before children commit.
+  //
+  // This is React's documented adjust-state-when-a-prop-changes pattern
+  // (react.dev "You Might Not Need an Effect", storing information from
+  // previous renders): a GUARDED setState during render makes React
+  // restart this component's render immediately with the appended id —
+  // no children commit in between, no extra effect pass, and the
+  // `includes` guard guarantees convergence (StrictMode's double render
+  // takes the guard branch on the second pass). The obvious alternative
+  // — a useEffect keyed on selectedUtilityId — is rejected by this
+  // repo's react-compiler lint (setState-in-effect cascades a second
+  // full render+commit) and was reverted to this form on purpose.
   if (!visitedUtilityIds.includes(selectedUtilityId)) {
     setVisitedUtilityIds([...visitedUtilityIds, selectedUtilityId]);
   }

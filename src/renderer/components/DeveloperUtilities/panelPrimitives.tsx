@@ -104,7 +104,7 @@ export function TimestampHoverValue({
         tabIndex={0}
         aria-describedby={tooltipId}
         data-testid="json-timestamp-value"
-        className="inline-flex cursor-help items-center rounded-md border border-accent/25 bg-accent/10 px-1.5 py-0.5 font-mono text-[0.82em] font-semibold text-accent-fg outline-none transition-colors hover:border-accent/45 hover:bg-accent/15 focus-visible:ring-2 focus-visible:ring-ring/70"
+        className="focus-ring inline-flex cursor-help items-center rounded-md border border-accent/25 bg-accent/10 px-1.5 py-0.5 font-mono text-[0.82em] font-semibold text-accent-fg transition-colors hover:border-accent/45 hover:bg-accent/15"
       >
         {value}
       </span>
