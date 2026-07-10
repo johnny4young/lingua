@@ -570,4 +570,29 @@ describe('AppLayout responsive shell', () => {
     expect(screen.queryByRole('dialog', { name: 'Project explorer' })).toBeNull();
     expect(document.body.style.overflow).toBe('');
   });
+
+  it('shares one header row with the Utilities pills and folds the console on a utilities tab', async () => {
+    editorTabs = [{ id: 'utilities-tab', kind: 'utilities', language: 'javascript' }];
+    activeTabId = 'utilities-tab';
+    useUIStore.getState().setConsoleVisible(true);
+
+    render(<AppLayout />);
+    await screen.findByTestId('developer-utilities-workspace');
+
+    // The Utilities pills join the SHARED editor chips row (no second
+    // workspace-local header row).
+    const chipsRow = screen.getByRole('toolbar', { name: 'Editor panels' });
+    await waitFor(() => {
+      expect(chipsRow.textContent).toContain('Copy output');
+      expect(chipsRow.textContent).toMatch(/\d+ tools/u);
+    });
+
+    // Utilities has no runtime output: activating the tab folds the
+    // console down to the restore strip without destroying its state.
+    await waitFor(() => {
+      expect(useUIStore.getState().consoleVisible).toBe(false);
+    });
+    expect(screen.queryByTestId('console-panel')).toBeNull();
+    expect(screen.getByTestId('bottom-panel-restore')).toBeTruthy();
+  });
 });

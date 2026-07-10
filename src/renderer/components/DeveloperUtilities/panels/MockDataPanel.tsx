@@ -5,6 +5,7 @@ import {
   UtilityInput,
   UtilityTextarea,
 } from '../panelPrimitives';
+import { JsonSyntaxOutput } from '../JsonSyntaxOutput';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -116,14 +117,23 @@ export function MockDataPanel() {
           <StatusMessage message={t('utilities.tool.mockData.empty')} />
         ) : (
           <div className="relative">
-            <UtilityTextarea
-              aria-label={t('utilities.tool.mockData.output.label')}
-              data-testid="mock-data-output"
-              value={output}
-              readOnly
-              spellCheck={false}
-              className="pr-10 min-h-[18rem] font-mono"
-            />
+            {format === 'json' || format === 'ndjson' ? (
+              <JsonSyntaxOutput
+                ariaLabel={t('utilities.tool.mockData.output.label')}
+                testid="mock-data-output"
+                value={output}
+                className="min-h-[18rem] pr-10"
+              />
+            ) : (
+              <UtilityTextarea
+                aria-label={t('utilities.tool.mockData.output.label')}
+                data-testid="mock-data-output"
+                value={output}
+                readOnly
+                spellCheck={false}
+                className="pr-10 min-h-[18rem] font-mono"
+              />
+            )}
             <div className="absolute right-2 top-2">
               <CopyButton value={output} testid="mock-data-output-copy" />
             </div>

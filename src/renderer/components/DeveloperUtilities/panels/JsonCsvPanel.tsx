@@ -5,6 +5,7 @@ import {
   UtilityTextarea,
   UtilityToolbar,
 } from '../panelPrimitives';
+import { JsonSyntaxOutput } from '../JsonSyntaxOutput';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -152,14 +153,23 @@ export function JsonCsvPanel() {
               })}
             />
             <div className="relative">
-              <UtilityTextarea
-                aria-label={t('utilities.tool.jsonCsv.output.label')}
-                data-testid="json-csv-output"
-                value={result.output}
-                readOnly
-                spellCheck={false}
-                className="pr-10 min-h-[20rem] font-mono"
-              />
+              {isJsonToCsv ? (
+                <UtilityTextarea
+                  aria-label={t('utilities.tool.jsonCsv.output.label')}
+                  data-testid="json-csv-output"
+                  value={result.output}
+                  readOnly
+                  spellCheck={false}
+                  className="pr-10 min-h-[20rem] font-mono"
+                />
+              ) : (
+                <JsonSyntaxOutput
+                  ariaLabel={t('utilities.tool.jsonCsv.output.label')}
+                  testid="json-csv-output"
+                  value={result.output}
+                  className="min-h-[20rem] pr-10"
+                />
+              )}
               <div className="absolute right-2 top-2">
                 <CopyButton
                   value={result.output}

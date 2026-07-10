@@ -36,6 +36,7 @@ import {
   encodeBase64,
   encodeUrlComponentValue,
   hashText,
+  inspectTimestampLike,
 } from '../../src/renderer/utils/developerUtilities';
 
 describe('developerUtilities', () => {
@@ -121,10 +122,11 @@ describe('developerUtilities', () => {
     // produces the f7bc83... vector cited in Wikipedia's HMAC article and
     // countless independent verifier tools. Not a formal RFC test-case, but
     // independently cross-referenced enough to serve as a stability anchor.
-    const result = await computeHash(
-      'The quick brown fox jumps over the lazy dog',
-      { algorithm: 'SHA-256', mode: 'hmac', key: 'key' }
-    );
+    const result = await computeHash('The quick brown fox jumps over the lazy dog', {
+      algorithm: 'SHA-256',
+      mode: 'hmac',
+      key: 'key',
+    });
     expect(result).toMatchObject({
       ok: true,
       hex: 'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8',
@@ -236,13 +238,24 @@ describe('developerUtilities', () => {
     expect(analysis.unixSeconds).toBe(1713268800);
     expect(analysis.unixMilliseconds).toBe(1713268800000);
     expect(analysis.iso).toBe('2024-04-16T12:00:00.000Z');
+    expect(analysis.utc).toContain('UTC');
     expect(analysis.errorKey).toBeNull();
   });
 
   it('reports invalid timestamps with a stable key', () => {
-    expect(analyzeTimestamp('not-a-date').errorKey).toBe(
-      'utilities.tool.timestamp.error'
-    );
+    expect(analyzeTimestamp('not-a-date').errorKey).toBe('utilities.tool.timestamp.error');
+  });
+
+  it('detects timestamp-like JWT claims without treating small counters as dates', () => {
+    const timestamp = inspectTimestampLike(1783624472, 'iat');
+    expect(timestamp).toMatchObject({
+      unixSeconds: 1783624472,
+      unixMilliseconds: 1783624472000,
+      iso: new Date(1783624472 * 1000).toISOString(),
+    });
+    expect(timestamp?.local).toBeTruthy();
+    expect(timestamp?.utc).toContain('UTC');
+    expect(inspectTimestampLike(31)).toBeNull();
   });
 
   it('finds all regex matches with capture groups for global patterns', () => {
@@ -250,7 +263,7 @@ describe('developerUtilities', () => {
     expect(result.errorKey).toBeNull();
     expect(result.matches).toHaveLength(2);
     expect(result.matches[0]?.match).toBe('a@x.io');
-    expect(result.matches[0]?.groups.map((g) => g.value)).toEqual(['a', 'x.io']);
+    expect(result.matches[0]?.groups.map(g => g.value)).toEqual(['a', 'x.io']);
     expect(result.matches[1]?.index).toBe(7);
   });
 
@@ -284,7 +297,7 @@ describe('developerUtilities', () => {
       '(\\w+)@(\\w+\\.\\w+)',
       'g',
       'hello@lingua.dev and support@example.com',
-      '[$1 at $2]',
+      '[$1 at $2]'
     );
     expect(result).toMatchObject({
       ok: true,
@@ -298,7 +311,7 @@ describe('developerUtilities', () => {
       '(?<user>\\w+)@(?<host>\\w+\\.\\w+)',
       'g',
       'hello@lingua.dev',
-      '$<user> on $<host>',
+      '$<user> on $<host>'
     );
     expect(result).toMatchObject({
       ok: true,
@@ -364,13 +377,7 @@ describe('developerUtilities', () => {
 
   it('computes a line diff with add and remove markers', () => {
     const diff = computeLineDiff('a\nb\nc', 'a\nb2\nc\nd');
-    expect(diff.lines.map((entry) => entry.kind)).toEqual([
-      'same',
-      'remove',
-      'add',
-      'same',
-      'add',
-    ]);
+    expect(diff.lines.map(entry => entry.kind)).toEqual(['same', 'remove', 'add', 'same', 'add']);
     expect(diff.addCount).toBe(2);
     expect(diff.removeCount).toBe(1);
     expect(diff.sameCount).toBe(2);
@@ -381,7 +388,7 @@ describe('developerUtilities', () => {
     const diff = computeLineDiff('same\nlines', 'same\nlines');
     expect(diff.addCount).toBe(0);
     expect(diff.removeCount).toBe(0);
-    expect(diff.lines.every((entry) => entry.kind === 'same')).toBe(true);
+    expect(diff.lines.every(entry => entry.kind === 'same')).toBe(true);
   });
 
   it('flags diff truncation when inputs exceed the character cap', () => {

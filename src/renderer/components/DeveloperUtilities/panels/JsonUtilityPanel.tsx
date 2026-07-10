@@ -1,11 +1,11 @@
 import {
   FieldLabel,
-  JsonTreeNode,
   PanelSection,
   StatusMessage,
   UtilityToolbar,
   UtilityTextarea,
 } from '../panelPrimitives';
+import { JsonSyntaxOutput } from '../JsonSyntaxOutput';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -79,9 +79,12 @@ export function JsonUtilityPanel() {
         ) : analysis.parsed === null ? (
           <StatusMessage message={t('utilities.tool.json.empty')} />
         ) : (
-          <div className="max-h-[34rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
-            <JsonTreeNode value={analysis.parsed} />
-          </div>
+          <JsonSyntaxOutput
+            ariaLabel={t('utilities.tool.json.viewerTitle')}
+            testid="json-viewer-output"
+            value={analysis.formatted ?? ''}
+            className="max-h-[34rem]"
+          />
         )}
       </PanelSection>
     </div>

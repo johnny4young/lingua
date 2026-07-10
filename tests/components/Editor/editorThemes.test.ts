@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defineCustomThemes } from '@/components/Editor/editorThemes';
+import { defineCustomThemes, getEditorThemeSurface } from '@/components/Editor/editorThemes';
 
 type DefineThemeCall = [name: string, theme: MonacoThemeData];
 
@@ -99,6 +99,27 @@ describe('defineCustomThemes', () => {
       'nord-night',
       'solarized-light',
     ]);
+  });
+
+  it('shares every custom viewer surface with its Monaco theme definition', () => {
+    const { monaco, calls } = createMonacoMock();
+    defineCustomThemes(monaco);
+
+    for (const themeName of [
+      'lingua-dark',
+      'lingua-light',
+      'dracula',
+      'one-dark-pro',
+      'monokai',
+      'nord-night',
+      'solarized-light',
+    ]) {
+      const theme = findTheme(calls(), themeName);
+      expect(getEditorThemeSurface(themeName)).toEqual({
+        background: theme.colors['editor.background'],
+        foreground: theme.colors['editor.foreground'],
+      });
+    }
   });
 
   describe.each(['lingua-dark', 'lingua-light'] as const)('%s (Lingua-owned)', (themeName) => {

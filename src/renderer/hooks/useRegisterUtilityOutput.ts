@@ -4,6 +4,7 @@ import {
   type UtilityApplyHandler,
   type UtilityOutputProvider,
 } from '../stores/utilityOutputStore';
+import { useUtilityPanelActive } from './utilityPanelActive';
 
 /**
  * RL-069 Slice 1 — Per-panel registration helper.
@@ -25,7 +26,10 @@ import {
  * extra ref-tracking is needed and production behaviour is unaffected.
  */
 export function useRegisterUtilityOutput(provider: UtilityOutputProvider): void {
+  const active = useUtilityPanelActive();
+
   useEffect(() => {
+    if (!active) return;
     useUtilityOutputStore.getState().setProvider(provider);
     return () => {
       // Only clear when our provider is still the active one — prevents
@@ -35,7 +39,7 @@ export function useRegisterUtilityOutput(provider: UtilityOutputProvider): void 
         useUtilityOutputStore.getState().clearProvider();
       }
     };
-  }, [provider]);
+  }, [active, provider]);
 }
 
 /**
@@ -52,12 +56,15 @@ export function useRegisterUtilityOutput(provider: UtilityOutputProvider): void 
  * when fired against them.
  */
 export function useRegisterUtilityApply(handler: UtilityApplyHandler): void {
+  const active = useUtilityPanelActive();
+
   useEffect(() => {
+    if (!active) return;
     useUtilityOutputStore.getState().setApplyHandler(handler);
     return () => {
       if (useUtilityOutputStore.getState().applyHandler === handler) {
         useUtilityOutputStore.getState().clearApplyHandler();
       }
     };
-  }, [handler]);
+  }, [active, handler]);
 }

@@ -1,7 +1,6 @@
-import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { ChevronUp, Clock3, Eye, GitCompare, MessageSquare, PanelLeft, X } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ChevronUp, PanelLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -11,23 +10,15 @@ import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
 import { AppChrome } from '../Chrome';
 import { StatusBar } from '../StatusBar/StatusBar';
 import { BottomPanel } from './BottomPanel';
+import { PanelChipsRow } from './PanelChipsRow';
 import { Toolbar } from '../Toolbar';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
-import { useActiveTab } from '../../hooks/useActiveTab';
 import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
-import {
-  comparableSnapshotCountFor,
-  scopeSnapshotVariableCountFor,
-  useResultStore,
-} from '../../stores/resultStore';
-import { executionModeForLanguage } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
-import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
-import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import type { LayoutPreset } from '../../types';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
@@ -75,6 +66,15 @@ const LazyDeveloperUtilitiesWorkspaceView = lazy(async () => {
   return { default: module.DeveloperUtilitiesWorkspaceView };
 });
 
+// The Utilities status pills (copy-output hint + tool counter) render in
+// the shared editor chips row when a Utilities tab is active — one header
+// row instead of two. Lazy so the shell chunk does not absorb the
+// utilities catalog/data.
+const LazyUtilityHeaderPills = lazy(async () => {
+  const module = await import('../DeveloperUtilities/UtilityHeaderPills');
+  return { default: module.UtilityHeaderPills };
+});
+
 function useCompactShellLayout() {
   const [isCompact, setIsCompact] = useState(() => window.innerWidth < COMPACT_SHELL_BREAKPOINT);
 
@@ -112,204 +112,6 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
         }`}
       />
     </Separator>
-  );
-}
-
-function countStdinLines(buffer: string | undefined): number {
-  if (!buffer) return 0;
-  const lines = buffer.split('\n');
-  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-  return lines.length;
-}
-
-/**
- * RL-122 — descriptor for one context chip in {@link PanelChipsRow}. The
- * row builds these in a memoized array; {@link PanelChip} renders one.
- * `onClick` carries the per-chip toggle behavior so the renderer stays a
- * pure presentation component.
- */
-interface PanelChipDescriptor {
-  readonly id: 'stdin' | 'history' | 'compare' | 'variables';
-  readonly icon: LucideIcon;
-  readonly label: string;
-  readonly badge: string | null;
-  readonly active: boolean;
-  readonly disabled: boolean;
-  readonly title: string;
-  readonly onClick: () => void;
-}
-
-/**
- * RL-122 fold D — single context chip, extracted and `memo`-wrapped so a
- * `PanelChipsRow` re-render does not re-render a chip whose descriptor is
- * referentially unchanged.
- */
-const PanelChip = memo(function PanelChip({ chip }: { chip: PanelChipDescriptor }) {
-  const Icon = chip.icon;
-  return (
-    <button
-      type="button"
-      data-testid={`panel-chip-${chip.id}`}
-      className={cn(
-        'panel-chip',
-        chip.active && 'panel-chip-active',
-        chip.disabled && 'cursor-not-allowed opacity-45'
-      )}
-      aria-pressed={chip.active}
-      disabled={chip.disabled}
-      title={chip.title}
-      onClick={chip.onClick}
-    >
-      <Icon size={11} aria-hidden />
-      <span>{chip.label}</span>
-      {chip.badge ? <span className="panel-chip-badge">{chip.badge}</span> : null}
-    </button>
-  );
-});
-
-function PanelChipsRow() {
-  const { t } = useTranslation();
-  const activeTab = useActiveTab();
-  const setTabCompareEnabled = useEditorStore(state => state.setTabCompareEnabled);
-  const setTabVariableInspectorEnabled = useEditorStore(
-    state => state.setTabVariableInspectorEnabled
-  );
-  const showStdinPanel = useSettingsStore(state => state.showStdinPanel);
-  const variableInspectorSurface = useSettingsStore(state => state.variableInspectorSurface);
-  const activeBottomPanel = useUIStore(state => state.activeBottomPanel);
-  const consoleVisible = useUIStore(state => state.consoleVisible);
-  const openBottomPanel = useUIStore(state => state.openBottomPanel);
-  const setConsoleVisible = useUIStore(state => state.setConsoleVisible);
-  // RL-122 — subscribe to identity-stable PRIMITIVE derivations instead
-  // of the raw `snapshotRing` array + `scopeSnapshot` object, so this row
-  // re-renders only when the comparator count or the captured variable
-  // count for the active language actually changes — not on every run
-  // that replaces those references.
-  const comparableSnapshotCount = useResultStore(state =>
-    comparableSnapshotCountFor(state, activeTab?.language)
-  );
-  const scopeVariableCount = useResultStore(state =>
-    scopeSnapshotVariableCountFor(state, activeTab?.language)
-  );
-
-  // RL-122 — build the chip descriptors in a memo keyed on the real
-  // inputs (active tab, the two snapshot derivations, panel + settings
-  // state, and the store actions). Returns [] when there is no active
-  // tab so the hook order stays stable across the early return below.
-  const chips = useMemo<PanelChipDescriptor[]>(() => {
-    if (!activeTab) return [];
-    const executionMode = executionModeForLanguage(activeTab.language);
-    const stdinAvailable =
-      showStdinPanel &&
-      activeTab.runtimeMode !== 'browser-preview' &&
-      isWorkerRunnerLanguage(activeTab.language);
-    const stdinLineCount = countStdinLines(activeTab.stdinBuffer);
-    const compareAvailable = executionMode === 'run' && comparableSnapshotCount > 0;
-    const variableAvailable =
-      executionMode === 'run' &&
-      activeTab.runtimeMode !== 'node' &&
-      isWorkerRunnerLanguage(activeTab.language) &&
-      scopeVariableCount !== null;
-    return [
-      {
-        id: 'stdin',
-        icon: MessageSquare,
-        label: t('panelChips.stdin'),
-        badge: stdinLineCount > 0 ? String(stdinLineCount) : null,
-        active: activeBottomPanel === 'stdin' && consoleVisible,
-        disabled: !stdinAvailable,
-        title: stdinAvailable ? t('panelChips.stdin.tooltip') : t('panelChips.stdin.disabled'),
-        onClick: () => {
-          if (activeBottomPanel === 'stdin' && consoleVisible) {
-            setConsoleVisible(false);
-          } else {
-            openBottomPanel('stdin');
-          }
-        },
-      },
-      {
-        id: 'history',
-        icon: Clock3,
-        label: t('panelChips.history'),
-        badge: null,
-        active: activeBottomPanel === 'console' && consoleVisible,
-        disabled: false,
-        title: t('panelChips.history.tooltip'),
-        onClick: () => {
-          if (activeBottomPanel === 'console' && consoleVisible) {
-            setConsoleVisible(false);
-          } else {
-            openBottomPanel('console');
-          }
-        },
-      },
-      {
-        id: 'compare',
-        icon: GitCompare,
-        label: t('panelChips.compare'),
-        badge: compareAvailable ? String(comparableSnapshotCount) : null,
-        active: activeTab.compareWithSnapshotEnabled === true,
-        disabled: !compareAvailable,
-        title: compareAvailable
-          ? t('panelChips.compare.tooltip')
-          : t('compare.toggle.tooltipDisabled'),
-        onClick: () =>
-          setTabCompareEnabled(activeTab.id, activeTab.compareWithSnapshotEnabled !== true),
-      },
-      {
-        id: 'variables',
-        icon: Eye,
-        label: t('panelChips.variables'),
-        badge: variableAvailable ? String(scopeVariableCount ?? 0) : null,
-        // RL-093 Slice 3 — when surface=bottom, active state mirrors the
-        // bottom-panel tab selection so clicking the chip when the
-        // bottom Variables tab is showing toggles the drawer off.
-        active:
-          variableInspectorSurface === 'bottom'
-            ? activeBottomPanel === 'variables' && consoleVisible
-            : activeTab.variableInspectorEnabled === true,
-        disabled: !variableAvailable,
-        title: variableAvailable
-          ? t('panelChips.variables.tooltip')
-          : t('variableInspector.toggle.tooltipDisabled'),
-        onClick: () => {
-          // RL-093 Slice 3 — bottom mode treats the drawer selection as the
-          // visible toggle. If the per-tab flag is already true but the drawer
-          // is not showing Variables, clicking the inactive chip must open the
-          // Variables tab rather than silently turning the feature off.
-          const variablesDrawerOpen = activeBottomPanel === 'variables' && consoleVisible;
-          const nextEnabled =
-            variableInspectorSurface === 'bottom'
-              ? !variablesDrawerOpen
-              : activeTab.variableInspectorEnabled !== true;
-          setTabVariableInspectorEnabled(activeTab.id, nextEnabled);
-          syncVariableInspectorSurfaceAfterToggle(nextEnabled);
-        },
-      },
-    ];
-  }, [
-    t,
-    activeTab,
-    comparableSnapshotCount,
-    scopeVariableCount,
-    showStdinPanel,
-    variableInspectorSurface,
-    activeBottomPanel,
-    consoleVisible,
-    openBottomPanel,
-    setConsoleVisible,
-    setTabCompareEnabled,
-    setTabVariableInspectorEnabled,
-  ]);
-
-  if (!activeTab) return null;
-
-  return (
-    <div className="panel-chip-row" role="toolbar" aria-label={t('panelChips.ariaLabel')}>
-      {chips.map(chip => (
-        <PanelChip key={chip.id} chip={chip} />
-      ))}
-    </div>
   );
 }
 
@@ -352,6 +154,27 @@ function EditorArea() {
     const active = getActiveTab(s);
     return active?.kind === 'utilities' ? active.id : null;
   });
+  const utilitiesTabOpen = useEditorStore(s => s.tabs.some(tab => tab.kind === 'utilities'));
+
+  // Utilities is a full-screen workspace with no runtime output, so
+  // activating it folds the console away and leaving restores the user's
+  // previous choice. Mutating the store (instead of gating the render)
+  // keeps the restore strip honest: explicitly reopening the console
+  // while on Utilities works, and that explicit choice is respected.
+  const utilitiesActive = activeUtilitiesTabId !== null;
+  const consoleWasVisibleRef = useRef(false);
+  useEffect(() => {
+    const ui = useUIStore.getState();
+    if (utilitiesActive) {
+      consoleWasVisibleRef.current = ui.consoleVisible;
+      if (ui.consoleVisible) ui.setConsoleVisible(false);
+      return;
+    }
+    if (consoleWasVisibleRef.current) {
+      consoleWasVisibleRef.current = false;
+      useUIStore.getState().setConsoleVisible(true);
+    }
+  }, [utilitiesActive]);
 
   return (
     <div id="guided-tour-editor" className="flex h-full flex-col">
@@ -374,9 +197,24 @@ function EditorArea() {
           <EditorTabs />
         </div>
       </div>
-      <PanelChipsRow />
+      <PanelChipsRow
+        trailing={
+          utilitiesActive ? (
+            <Suspense fallback={null}>
+              <LazyUtilityHeaderPills />
+            </Suspense>
+          ) : null
+        }
+      />
       <div className="min-h-0 flex-1">
-        {activeNotebookTabId !== null ? (
+        {utilitiesTabOpen ? (
+          <div className={cn('h-full min-h-0', activeUtilitiesTabId === null && 'hidden')}>
+            <Suspense fallback={<EditorLoadingState />}>
+              <LazyDeveloperUtilitiesWorkspaceView active={activeUtilitiesTabId !== null} />
+            </Suspense>
+          </div>
+        ) : null}
+        {activeUtilitiesTabId !== null ? null : activeNotebookTabId !== null ? (
           /* RL-043 Slice A — notebook tabs mount `<NotebookView>` in
              place of the Monaco + ResultPanel split. The Monaco editor
              would otherwise try to render the (empty) notebook tab
@@ -400,16 +238,6 @@ function EditorArea() {
           <div className="h-full min-h-0">
             <Suspense fallback={<EditorLoadingState />}>
               <LazyHttpWorkspaceView tabId={activeHttpTabId} />
-            </Suspense>
-          </div>
-        ) : activeUtilitiesTabId !== null ? (
-          /* MOV.03 — Developer Utilities now mounts as a full-screen
-             workspace tab so wide outputs (JSON, JWT, generated code,
-             Markdown/SQL, pipelines) get the editor canvas instead of a
-             constrained modal. */
-          <div className="h-full min-h-0">
-            <Suspense fallback={<EditorLoadingState />}>
-              <LazyDeveloperUtilitiesWorkspaceView />
             </Suspense>
           </div>
         ) : hasTabs ? (

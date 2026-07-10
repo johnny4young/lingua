@@ -51,6 +51,11 @@ vi.mock('../../src/renderer/utils/formatters', () => ({
   }),
 }));
 
+function outputText(): string {
+  const output = screen.getByTestId('beautify-minify-output');
+  return output instanceof HTMLTextAreaElement ? output.value : (output.textContent ?? '');
+}
+
 describe('BeautifyMinifyUtilityPanel', () => {
   beforeEach(async () => {
     initI18n('en');
@@ -61,11 +66,11 @@ describe('BeautifyMinifyUtilityPanel', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
     await waitFor(() => {
-      expect(output.value).toContain('"greeting"');
-      expect(output.value).toContain('\n  ');
+      expect(outputText()).toContain('"greeting"');
+      expect(outputText()).toContain('\n  ');
     });
+    expect(screen.getByTestId('beautify-minify-output').tagName).toBe('PRE');
   });
 
   it('minify mode compacts the seeded JSON into the standard minified form', async () => {
@@ -76,8 +81,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
     await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
 
     await waitFor(() => {
-      const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
-      expect(output.value).toBe('{"greeting":"Hello, World!","count":3}');
+      expect(outputText()).toBe('{"greeting":"Hello, World!","count":3}');
     });
   });
 
@@ -151,11 +155,10 @@ describe('BeautifyMinifyUtilityPanel', () => {
     fireEvent.change(input, { target: { value: '<div><span>hi</span></div>' } });
 
     await waitFor(() => {
-      const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
       // The stub wraps each `><` boundary onto its own line; asserting the
       // newline shape proves the HTML branch of formatSource was hit.
-      expect(output.value).toContain('<span>hi</span>');
-      expect(output.value).toContain('\n');
+      expect(outputText()).toContain('<span>hi</span>');
+      expect(outputText()).toContain('\n');
     });
   });
 
@@ -173,8 +176,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
     });
 
     await waitFor(() => {
-      const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
-      expect(output.value).toBe('<div><span>hi</span></div>');
+      expect(outputText()).toBe('<div><span>hi</span></div>');
     });
 
     // The honesty hint surfaces specifically for HTML minify mode.
@@ -195,8 +197,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
     });
 
     await waitFor(() => {
-      const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
-      expect(output.value).toBe('.x{color:red}');
+      expect(outputText()).toBe('.x{color:red}');
     });
 
     expect(screen.getByText(/url\(\) values are preserved/)).toBeTruthy();
@@ -216,8 +217,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
     });
 
     await waitFor(() => {
-      const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
-      expect(output.value).toBe('<root><child>hi</child></root>');
+      expect(outputText()).toBe('<root><child>hi</child></root>');
     });
 
     expect(screen.getByText(/CDATA sections/)).toBeTruthy();

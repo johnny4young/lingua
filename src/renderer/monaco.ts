@@ -113,6 +113,18 @@ export function configureMonaco(): void {
 }
 
 /**
+ * Returns the configured Monaco singleton for static, non-editor consumers.
+ * These callers must not use `useMonaco()`: that hook starts the async editor
+ * loader, which is needless for tokenizer-only surfaces such as utility
+ * output. The returned API shares theme and language registration with every
+ * live Lingua code editor.
+ */
+export function getConfiguredMonaco(): Monaco {
+  configureMonaco();
+  return monaco as unknown as Monaco;
+}
+
+/**
  * Register one language's Monaco contribution (tokenizer + language config) and
  * its lazily-imported editor providers (completion / hover / signature) exactly
  * once. Returns the shared registration promise so callers can await readiness

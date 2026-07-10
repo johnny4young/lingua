@@ -2,27 +2,20 @@ import { Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  KEYBOARD_SHORTCUTS,
-  formatShortcutCombo,
-  resolveCombos,
-  resolveShortcutDisplayPlatform,
-} from '../../data/keyboardShortcuts';
-import {
   DEFAULT_DEVELOPER_UTILITY_ID,
   DEVELOPER_UTILITIES,
   findDeveloperUtility,
   type DeveloperUtilityDefinition,
   type DeveloperUtilityId,
 } from '../../data/developerUtilities';
-import { ModalShell, Kbd } from '../ui/ModalShell';
-import { EyebrowMono } from '../ui/primitives';
+import { ModalShell } from '../ui/ModalShell';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 import { DeveloperUtilityPanel } from './UtilityPanels';
 import { prefetchUtilityPanel } from './UtilityPanelRegistry';
 import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
+import { UtilityCopyShortcutHint } from './UtilityHeaderPills';
 import { trackEvent } from '../../utils/telemetry';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
@@ -59,35 +52,6 @@ interface DeveloperUtilitiesModalProps {
   initialUtilityId?: DeveloperUtilityId;
 }
 
-const COPY_OUTPUT_SHORTCUT_HINT = {
-  id: 'utility-copy-output',
-  labelKey: 'utilities.shortcuts.copyOutput',
-} as const;
-
-function getShortcutDisplayPlatform() {
-  const runtimePlatform =
-    typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
-  const navigatorPlatform = typeof navigator !== 'undefined' ? navigator.platform : undefined;
-  return resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
-}
-
-function useCopyOutputShortcutHint() {
-  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
-  return useMemo(() => {
-    // The footer/header reflects user shortcut overrides and platform glyphs,
-    // so resolve it from the same shortcut catalog used by the key handler.
-    const displayPlatform = getShortcutDisplayPlatform();
-    const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === COPY_OUTPUT_SHORTCUT_HINT.id);
-    if (!definition) return null;
-    const combo = resolveCombos(definition, shortcutOverrides)[0];
-    if (!combo) return null;
-    return {
-      labelKey: COPY_OUTPUT_SHORTCUT_HINT.labelKey,
-      combo: formatShortcutCombo(combo, displayPlatform),
-    };
-  }, [shortcutOverrides]);
-}
-
 function useFavoriteTelemetry(): void {
   // RL-069 Slice 3 — emit favorite-pinned telemetry from a one-shot
   // store subscription. We listen on the store so the trackEvent call
@@ -111,30 +75,13 @@ function useFavoriteTelemetry(): void {
   }, []);
 }
 
-function UtilityCopyShortcutHint({ className }: { className?: string }) {
-  const { t } = useTranslation();
-  const copyOutputShortcutHint = useCopyOutputShortcutHint();
-
-  if (!copyOutputShortcutHint) return <span />;
-
-  return (
-    <span
-      className={cn('flex items-center gap-[6px] text-caption text-fg-subtle', className)}
-      aria-label={t('utilities.shortcuts.outputAriaLabel')}
-      data-testid="utilities-sidebar-shortcuts"
-    >
-      <Kbd>{copyOutputShortcutHint.combo}</Kbd>
-      {t(copyOutputShortcutHint.labelKey)}
-    </span>
-  );
-}
-
 interface DeveloperUtilitiesWorkspaceBodyProps {
   selectedUtilityId: DeveloperUtilityId;
   onSelectUtility: (utilityId: DeveloperUtilityId) => void;
   autoFocusSearch?: boolean;
   testId?: string;
   className?: string;
+  active?: boolean;
 }
 
 export function DeveloperUtilitiesWorkspaceBody({
@@ -143,9 +90,23 @@ export function DeveloperUtilitiesWorkspaceBody({
   autoFocusSearch = true,
   testId = 'developer-utilities-workspace-body',
   className = 'grid h-full grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]',
+  active = true,
 }: DeveloperUtilitiesWorkspaceBodyProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [visitedUtilityIds, setVisitedUtilityIds] = useState<DeveloperUtilityId[]>(() => [
+    selectedUtilityId,
+  ]);
+  // The active utility can also change from OUTSIDE the sidebar handlers
+  // (the command palette's Open JWT Debugger writes activeUtilityId
+  // straight to the store), so remember every id that becomes selected —
+  // otherwise a palette-opened panel never joins the keep-mounted cache
+  // and its draft is discarded on the next in-sidebar navigation.
+  // Render-time state adjustment (guarded) instead of an effect: React
+  // re-renders immediately with the appended id, before children commit.
+  if (!visitedUtilityIds.includes(selectedUtilityId)) {
+    setVisitedUtilityIds([...visitedUtilityIds, selectedUtilityId]);
+  }
   const searchRef = useRef<HTMLInputElement>(null);
   const effectiveTier = useEffectiveTier();
   const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
@@ -208,11 +169,18 @@ export function DeveloperUtilitiesWorkspaceBody({
     });
   };
 
-  const activeSelectedUtilityId =
-    filteredUtilities.find(utility => utility.id === selectedUtilityId)?.id ??
-    filteredUtilities.find(utility => !isUtilityLocked(utility))?.id ??
-    filteredUtilities[0]?.id ??
-    selectedUtilityId;
+  const rememberUtility = (utilityId: DeveloperUtilityId) => {
+    setVisitedUtilityIds(current =>
+      current.includes(utilityId) ? current : [...current, utilityId]
+    );
+  };
+
+  const selectUtility = (utilityId: DeveloperUtilityId) => {
+    rememberUtility(utilityId);
+    onSelectUtility(utilityId);
+  };
+
+  const activeSelectedUtilityId = selectedUtilityId;
   // `selectedUtility` never falls back to null because the catalog owns
   // DEFAULT_DEVELOPER_UTILITY_ID and `activeSelectedUtilityId` preserves the
   // last known id when a search produces no rows.
@@ -230,14 +198,14 @@ export function DeveloperUtilitiesWorkspaceBody({
     const utility = filteredUtilities[index];
     if (!utility) return;
     if (isUtilityLocked(utility)) {
-      onSelectUtility(utility.id);
+      selectUtility(utility.id);
       notifyLockedUtility();
       if (shouldFocusButton) {
         focusUtilityButton(utility.id);
       }
       return;
     }
-    onSelectUtility(utility.id);
+    selectUtility(utility.id);
     if (shouldFocusButton) {
       focusUtilityButton(utility.id);
     }
@@ -246,11 +214,11 @@ export function DeveloperUtilitiesWorkspaceBody({
   const handleSelectUtility = (utilityId: DeveloperUtilityId) => {
     const utility = findDeveloperUtility(utilityId);
     if (isUtilityLocked(utility)) {
-      onSelectUtility(utilityId);
+      selectUtility(utilityId);
       notifyLockedUtility();
       return;
     }
-    onSelectUtility(utilityId);
+    selectUtility(utilityId);
   };
 
   const selectRelativeUtility = (delta: number, shouldFocusButton: boolean) => {
@@ -380,11 +348,11 @@ export function DeveloperUtilitiesWorkspaceBody({
                     }}
                     onClick={() => {
                       if (isLocked) {
-                        onSelectUtility(utility.id);
+                        selectUtility(utility.id);
                         notifyLockedUtility();
                         return;
                       }
-                      onSelectUtility(utility.id);
+                      selectUtility(utility.id);
                     }}
                     onKeyDown={handleUtilityKeyDown}
                     onMouseEnter={() => {
@@ -445,17 +413,22 @@ export function DeveloperUtilitiesWorkspaceBody({
       </aside>
 
       <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
-        <div className="border-b border-border-subtle px-7 pb-5 pt-6">
-          <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
-          <h2 className="mt-1.5 text-h2 font-bold leading-[1.15] tracking-[-0.01em] text-fg-base">
-            {t(selectedUtility.titleKey)}
-          </h2>
-          <p className="mt-1 max-w-3xl text-body leading-[1.55] text-fg-muted">
+        {/* Space-saving header: the utility is already identified by the
+            selected sidebar item, so the big title collapses to an
+            sr-only heading (screen readers and heading-based tests keep
+            their landmark) and only the one-line description renders. */}
+        <div className="border-b border-border-subtle px-7 py-3">
+          <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
+          <p className="max-w-3xl text-body-sm leading-[1.5] text-fg-muted">
             {t(selectedUtility.descriptionKey)}
           </p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-          <DeveloperUtilityPanel toolId={activeSelectedUtilityId} />
+          <DeveloperUtilityPanel
+            toolId={activeSelectedUtilityId}
+            mountedToolIds={visitedUtilityIds}
+            active={active}
+          />
         </div>
       </main>
     </div>
@@ -510,8 +483,7 @@ export function DeveloperUtilitiesModal({
   );
 }
 
-export function DeveloperUtilitiesWorkspaceView() {
-  const { t } = useTranslation();
+export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: boolean }) {
   const activeUtilityId = useUtilityHistoryStore(state => state.activeUtilityId);
   const setActiveUtilityId = useUtilityHistoryStore(state => state.setActiveUtilityId);
 
@@ -520,28 +492,15 @@ export function DeveloperUtilitiesWorkspaceView() {
       data-testid="developer-utilities-workspace"
       className="flex h-full min-h-0 flex-col bg-bg-panel-alt/40"
     >
-      <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-border-subtle bg-bg-panel/80 px-6 py-4">
-        <div className="min-w-0">
-          <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
-          <h1 className="mt-1 text-h2 font-bold leading-tight tracking-[-0.01em] text-fg-base">
-            {t('utilities.title')}
-          </h1>
-          <p className="mt-1 max-w-3xl text-body leading-[1.55] text-fg-muted">
-            {t('utilities.description')}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <UtilityCopyShortcutHint className="rounded-full border border-border-subtle bg-bg-panel-alt/70 px-2.5 py-1" />
-          <span className="rounded-full border border-border-subtle bg-bg-panel-alt/70 px-2.5 py-1 font-mono text-caption text-fg-subtle">
-            {t('utilities.toolCount', { count: DEVELOPER_UTILITIES.length })}
-          </span>
-        </div>
-      </header>
+      {/* No workspace-local header: the copy-output hint and the tool
+          counter render in the shell's editor chips row (one shared row)
+          via UtilityHeaderPills — see AppLayout's PanelChipsRow trailing. */}
       <DeveloperUtilitiesWorkspaceBody
         selectedUtilityId={activeUtilityId}
         onSelectUtility={setActiveUtilityId}
         testId="developer-utilities-workspace-body"
         className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]"
+        active={active}
       />
     </div>
   );

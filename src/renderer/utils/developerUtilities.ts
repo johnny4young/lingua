@@ -3,10 +3,7 @@ import { parseInAnyBase } from './numberBase';
 // shared utilities layer (the `url-encode` / `url-decode` pipeline
 // adapters) so the single-shot URL panel and the pipeline share one
 // implementation of the actual encode/decode call.
-import {
-  decodeUrlComponentSafe,
-  encodeUrlComponent,
-} from '../../shared/utilities/urlComponent';
+import { decodeUrlComponentSafe, encodeUrlComponent } from '../../shared/utilities/urlComponent';
 
 export interface JsonAnalysis {
   formatted: string | null;
@@ -30,7 +27,16 @@ export interface TimestampAnalysis {
   unixMilliseconds: number | null;
   iso: string | null;
   local: string | null;
+  utc: string | null;
   errorKey: string | null;
+}
+
+export interface TimestampHoverInfo {
+  unixSeconds: number;
+  unixMilliseconds: number;
+  iso: string;
+  local: string;
+  utc: string;
 }
 
 export interface RegexMatchGroup {
@@ -98,7 +104,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 function base64ToBytes(value: string): Uint8Array {
   const binary = atob(value);
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return Uint8Array.from(binary, char => char.charCodeAt(0));
 }
 
 // `normalizeBase64Url` and `parseJsonObject` moved to `./jwt` as private
@@ -399,6 +405,7 @@ export function analyzeTimestamp(value: string): TimestampAnalysis {
       unixMilliseconds: null,
       iso: null,
       local: null,
+      utc: null,
       errorKey: null,
     };
   }
@@ -422,6 +429,7 @@ export function analyzeTimestamp(value: string): TimestampAnalysis {
       unixMilliseconds: null,
       iso: null,
       local: null,
+      utc: null,
       errorKey: 'utilities.tool.timestamp.error',
     };
   }
@@ -433,7 +441,79 @@ export function analyzeTimestamp(value: string): TimestampAnalysis {
     unixMilliseconds,
     iso: date.toISOString(),
     local: date.toLocaleString(),
+    utc: `${formatTimestampDate(date, 'UTC')} UTC`,
     errorKey: null,
+  };
+}
+
+const TIMESTAMP_MIN_MS = Date.UTC(2000, 0, 1);
+const TIMESTAMP_MAX_MS = Date.UTC(2100, 0, 1);
+const TIMESTAMP_CLAIM_KEYS = new Set([
+  'iat',
+  'exp',
+  'nbf',
+  'auth_time',
+  'updated_at',
+  'created_at',
+]);
+
+function formatTimestampDate(date: Date, timeZone?: string): string {
+  return date.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+    ...(timeZone ? { timeZone } : {}),
+  });
+}
+
+function numericTimestampToDate(value: number): Date | null {
+  if (!Number.isFinite(value)) return null;
+  const absolute = Math.abs(value);
+  // Unix seconds are 10 digits for today's dates; Unix milliseconds are
+  // 13 digits. Avoid shorter values so generic counters like "31" or
+  // "2024" do not get timestamp chrome.
+  const milliseconds = absolute < 10_000_000_000 ? value * 1000 : value;
+  const date = new Date(milliseconds);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+/**
+ * Return hover metadata for values that are very likely to be timestamps.
+ * Used by JSON/JWT renderers so machine-friendly epoch claims become human
+ * readable without changing the copied JSON value.
+ */
+export function inspectTimestampLike(value: unknown, label?: string): TimestampHoverInfo | null {
+  const normalizedLabel = label?.toLowerCase();
+  const labelSuggestsTimestamp =
+    normalizedLabel !== undefined && TIMESTAMP_CLAIM_KEYS.has(normalizedLabel);
+
+  let date: Date | null = null;
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    date = numericTimestampToDate(value);
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^-?\d{10,13}$/u.test(trimmed)) {
+      date = numericTimestampToDate(Number.parseInt(trimmed, 10));
+    } else if (labelSuggestsTimestamp && trimmed.length > 0) {
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    }
+  }
+
+  if (!date) return null;
+  const unixMilliseconds = date.getTime();
+  const insideHumanRange =
+    unixMilliseconds >= TIMESTAMP_MIN_MS && unixMilliseconds <= TIMESTAMP_MAX_MS;
+  if (!insideHumanRange && !labelSuggestsTimestamp) return null;
+
+  return {
+    unixSeconds: Math.floor(unixMilliseconds / 1000),
+    unixMilliseconds,
+    iso: date.toISOString(),
+    local: formatTimestampDate(date),
+    utc: `${formatTimestampDate(date, 'UTC')} UTC`,
   };
 }
 
@@ -462,11 +542,7 @@ function toRegexMatch(result: RegExpMatchArray): RegexMatch {
   };
 }
 
-export function analyzeRegex(
-  pattern: string,
-  flags: string,
-  input: string
-): RegexAnalysis {
+export function analyzeRegex(pattern: string, flags: string, input: string): RegexAnalysis {
   if (!pattern) {
     return { matches: [], truncated: false, errorKey: null };
   }
@@ -786,13 +862,9 @@ function diffLcs(left: string[], right: string[]): DiffLine[] {
   return out;
 }
 
-export function computeLineDiff(
-  leftInput: string,
-  rightInput: string
-): LineDiffAnalysis {
+export function computeLineDiff(leftInput: string, rightInput: string): LineDiffAnalysis {
   const truncated =
-    leftInput.length > DIFF_MAX_INPUT_CHARS ||
-    rightInput.length > DIFF_MAX_INPUT_CHARS;
+    leftInput.length > DIFF_MAX_INPUT_CHARS || rightInput.length > DIFF_MAX_INPUT_CHARS;
   const left = truncated ? leftInput.slice(0, DIFF_MAX_INPUT_CHARS) : leftInput;
   const right = truncated ? rightInput.slice(0, DIFF_MAX_INPUT_CHARS) : rightInput;
 
@@ -824,10 +896,8 @@ export function computeLineDiff(
  * the panel render path.
  */
 
-const BASE64_PATTERN =
-  /^[A-Za-z0-9+/]+={0,2}$/u;
-const BASE64_URL_PATTERN =
-  /^[A-Za-z0-9_-]+={0,2}$/u;
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/u;
+const BASE64_URL_PATTERN = /^[A-Za-z0-9_-]+={0,2}$/u;
 const HEX_COLOR_PATTERN = /^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/u;
 const RGB_FUNC_PATTERN = /^rgba?\(/iu;
 const HSL_FUNC_PATTERN = /^hsla?\(/iu;
@@ -842,8 +912,7 @@ const UUID_PATTERN =
 const JWT_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/u;
 const NUMERIC_PATTERN = /^[+-]?(?:0[xXoObB])?[0-9a-zA-Z_]+$/u;
 const ESCAPED_PATTERN = /\\(?:[nrt"'\\/bf]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})/u;
-const SQL_HINT_PATTERN =
-  /\b(?:select|insert|update|delete|create|drop|alter|with)\b/iu;
+const SQL_HINT_PATTERN = /\b(?:select|insert|update|delete|create|drop|alter|with)\b/iu;
 const CRON_PATTERN =
   /^\s*(?:@(?:annually|yearly|monthly|weekly|daily|hourly|reboot)|(?:[\d*/,?L#-]+\s+){4,6}[\d*/,?L#-]+)\s*$/u;
 const CURL_PATTERN = /^\s*curl\s+/u;
