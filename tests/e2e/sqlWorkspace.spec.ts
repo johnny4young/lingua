@@ -12,7 +12,19 @@
  * shortcut → editor tab + full-screen panel.
  */
 
+import type { Page } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
 import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+
+async function replaceSqlEditorText(page: Page, source: string): Promise<void> {
+  const editor = page
+    .getByTestId('sql-query-editor-monaco')
+    .locator('.monaco-editor');
+  await editor.click({ position: { x: 120, y: 36 } });
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.insertText(source);
+}
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -87,5 +99,72 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     await expect(
       page.locator('[data-testid="sql-schema-browser-table"][data-table-name="people"]')
     ).toBeVisible();
+  });
+
+  test('profiles a successful read query only after an explicit click (EN)', async ({
+    page,
+  }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await page.keyboard.press('ControlOrMeta+Alt+S');
+    await page.getByTestId('sql-query-list-create').click();
+    await expect(page.getByTestId('sql-query-editor').last()).toBeVisible();
+
+    await replaceSqlEditorText(
+      page,
+      "SELECT * FROM (VALUES (1, 'Ada'), (2, NULL)) AS people(id, name);"
+    );
+    await page.getByTestId('sql-query-editor-run').click();
+
+    await expect(page.getByTestId('sql-result-preview-profile')).toBeVisible();
+    await page.getByTestId('sql-result-preview-profile').click();
+    await expect(page.getByTestId('sql-column-profile-panel')).toBeVisible();
+    await expect(page.getByTestId('sql-column-profile-panel')).toContainText('id');
+    await expect(page.getByTestId('sql-column-profile-panel')).toContainText('name');
+    // Null percentages must render as real numbers (name is NULL in 1 of 2
+    // rows). Locks the DECIMAL→DOUBLE cast in buildColumnProfileQuery: the
+    // raw SUMMARIZE decimal arrives as an Arrow value object and every Nulls
+    // metric silently degraded to the not-available dash.
+    await expect(page.getByTestId('sql-column-profile-panel')).toContainText('50%');
+    await expect(page.getByTestId('sql-column-profile-panel')).toContainText('0%');
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      // Review evidence lives under output/review/<ticket>/ (repo convention).
+      mkdirSync('output/review/rl-097-column-explorer', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/rl-097-column-explorer/e2e-en-column-profile.png',
+      });
+    }
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('localizes the Column Explorer labels in Spanish', async ({ page }) => {
+    await seedSession(page, { language: 'es' });
+    await gotoApp(page);
+    await page.keyboard.press('ControlOrMeta+Alt+S');
+    await page.getByTestId('sql-query-list-create').click();
+    await replaceSqlEditorText(page, 'SELECT 1 AS valor');
+    await page.getByTestId('sql-query-editor-run').click();
+
+    await expect(page.getByTestId('sql-result-preview-profile')).toHaveAttribute(
+      'aria-label',
+      'Analizar columnas'
+    );
+    await page.getByTestId('sql-result-preview-profile').click();
+    await expect(page.getByTestId('sql-column-profile-panel')).toHaveAttribute(
+      'aria-label',
+      'Perfil de columnas'
+    );
+    await expect(page.getByTestId('sql-column-profile-item').first()).toBeVisible();
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/rl-097-column-explorer', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/rl-097-column-explorer/e2e-es-column-profile.png',
+      });
+    }
   });
 });

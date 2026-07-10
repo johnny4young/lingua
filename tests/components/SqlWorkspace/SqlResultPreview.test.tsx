@@ -9,6 +9,7 @@ vi.mock('../../../src/renderer/utils/downloadTextFile', () => ({
 }));
 
 import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/SqlResultPreview';
+import type { SqlColumnProfileOutcome } from '../../../src/renderer/runtime/sqlColumnProfile';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
 
@@ -305,6 +306,137 @@ describe('SqlResultPreview', () => {
         messageKey: 'sqlWorkspace.action.exportedMarkdownPreview',
         values: { shown: 1, total: 20 },
       });
+    });
+  });
+
+  describe('column profile', () => {
+    const successfulProfile: SqlColumnProfileOutcome = {
+      status: 'success',
+      tooLarge: false,
+      profiles: [
+        {
+          columnName: 'score',
+          columnType: 'INTEGER',
+          min: '1',
+          max: '9',
+          approximateUnique: '3',
+          average: '5',
+          standardDeviation: '2.5',
+          nullPercentage: '0',
+        },
+      ],
+    };
+
+    it('opens an on-demand profile for the newest successful read query', async () => {
+      const user = userEvent.setup();
+      let resolveProfile: ((value: SqlColumnProfileOutcome) => void) | undefined;
+      const onProfileQuery = vi.fn(
+        () =>
+          new Promise<SqlColumnProfileOutcome>((resolve) => {
+            resolveProfile = resolve;
+          })
+      );
+      render(
+        <SqlResultPreview
+          response={response()}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+          profileQuerySource="SELECT score FROM metrics"
+          onProfileQuery={onProfileQuery}
+        />
+      );
+
+      await user.click(screen.getByTestId('sql-result-preview-profile'));
+      expect(screen.getByTestId('sql-column-profile-loading')).toBeTruthy();
+      expect(onProfileQuery).toHaveBeenCalledWith('SELECT score FROM metrics');
+
+      resolveProfile?.(successfulProfile);
+      await waitFor(() => {
+        expect(screen.getByTestId('sql-column-profile-panel').textContent).toContain('score');
+      });
+
+      await user.click(screen.getByTestId('sql-column-profile-close'));
+      expect(screen.queryByTestId('sql-column-profile-panel')).toBeNull();
+      expect(screen.getByTestId('sql-result-preview')).toBeTruthy();
+    });
+
+    it('does not offer a profile for a mutating query or historical response', () => {
+      const { rerender } = render(
+        <SqlResultPreview
+          response={response()}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+          profileQuerySource="DELETE FROM metrics"
+          onProfileQuery={vi.fn()}
+        />
+      );
+      expect(screen.queryByTestId('sql-result-preview-profile')).toBeNull();
+
+      rerender(
+        <SqlResultPreview
+          response={response()}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+          profileQuerySource="SELECT score FROM metrics"
+          onProfileQuery={vi.fn()}
+          responses={[response(), response({ recordedAt: '2026-05-25T00:00:00.000Z' })]}
+          selectedResponseIndex={1}
+        />
+      );
+      expect(screen.queryByTestId('sql-result-preview-profile')).toBeNull();
+    });
+
+    it('shows the profile error and retries without mutating the SQL result', async () => {
+      const user = userEvent.setup();
+      const onProfileQuery = vi
+        .fn<() => Promise<SqlColumnProfileOutcome>>()
+        .mockRejectedValueOnce(new Error('profile failed'))
+        .mockResolvedValueOnce(successfulProfile);
+      render(
+        <SqlResultPreview
+          response={response()}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+          profileQuerySource="SELECT score FROM metrics"
+          onProfileQuery={onProfileQuery}
+        />
+      );
+
+      await user.click(screen.getByTestId('sql-result-preview-profile'));
+      await waitFor(() => {
+        expect(screen.getByTestId('sql-column-profile-error').textContent).toContain(
+          'profile failed'
+        );
+      });
+      await user.click(screen.getByTestId('sql-column-profile-retry'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('sql-column-profile-panel').textContent).toContain('score');
+      });
+      expect(onProfileQuery).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('sql-result-preview').getAttribute('data-state')).toBe('success');
+    });
+
+    it('profiles the source that produced the result, not a later editor draft', async () => {
+      const user = userEvent.setup();
+      const onProfileQuery = vi.fn().mockResolvedValue(successfulProfile);
+      render(
+        <SqlResultPreview
+          response={response()}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+          querySource="SELECT changed_draft FROM metrics"
+          profileQuerySource="SELECT score FROM metrics"
+          onProfileQuery={onProfileQuery}
+        />
+      );
+
+      await user.click(screen.getByTestId('sql-result-preview-profile'));
+
+      expect(onProfileQuery).toHaveBeenCalledWith('SELECT score FROM metrics');
+      expect(onProfileQuery).not.toHaveBeenCalledWith(
+        'SELECT changed_draft FROM metrics'
+      );
     });
   });
 });

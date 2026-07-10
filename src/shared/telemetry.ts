@@ -449,6 +449,9 @@ export const TELEMETRY_EVENTS = [
   // text, NO schema names, NO column names, NO row values reach the
   // wire. Mirrored on update-server with parity test.
   'sql.query_executed',
+  // IT2-F3 — explicit request to inspect aggregate column statistics. The
+  // event deliberately carries no query, schema, column, or result data.
+  'sql.profile_opened',
   // RL-097 Slice 3 (SQL OPFS) fold F — SQL workspace storage backing.
   // Fires once per session when the DuckDB engine first resolves its
   // backing. Closed-enum `{ mode, requested }` where both ∈
@@ -871,6 +874,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // ∈ SQL_DURATION_BUCKETS_SET. No query text, schema names, or row
   // values on the wire.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
+  // IT2-F3 — pure interaction counter; profile data never leaves the device.
+  'sql.profile_opened': [],
   // RL-097 Slice 3 (SQL OPFS) fold F — `mode` + `requested` ∈
   // SQL_STORAGE_MODES_SET. No database content on the wire.
   'sql.storage_mode': ['mode', 'requested'],
@@ -2127,6 +2132,8 @@ function isAllowedValue(
         return (
           typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
         );
+      return false;
+    case 'sql.profile_opened':
       return false;
     case 'sql.storage_mode':
       // Both keys share the same closed enum.

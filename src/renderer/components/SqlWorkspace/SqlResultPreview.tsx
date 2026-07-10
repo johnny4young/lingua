@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  BarChart3,
   Bookmark,
   CheckCircle2,
   ChevronDown,
@@ -48,6 +49,10 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
+import {
+  buildColumnProfileQuery,
+  type SqlColumnProfileOutcome,
+} from '../../runtime/sqlColumnProfile';
 import { downloadTextFile } from '../../utils/downloadTextFile';
 import type {
   SqlColumnMetadata,
@@ -60,6 +65,7 @@ import { ResultHeader } from '../ui/ResultHeader';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { rowsToCsv, rowsToMarkdownTable } from './sqlResultFormatters';
 import { SqlRunHistory } from './SqlRunHistory';
+import { SqlColumnProfilePanel } from './SqlColumnProfilePanel';
 import {
   filterRows,
   nextSortState,
@@ -91,6 +97,14 @@ export interface SqlResultPreviewProps {
   onRun?: () => void;
   /** Stash the active query in the snippet library (footer nudge). */
   onSaveSnippet?: () => void;
+  /** Run the active read query again as an explicit DuckDB column profile. */
+  onProfileQuery?: (query: string) => Promise<SqlColumnProfileOutcome>;
+  /**
+   * Exact source that produced the newest response during this renderer
+   * session. Unlike `querySource`, this must not follow editor changes made
+   * after a run: a column profile always describes the result on screen.
+   */
+  profileQuerySource?: string;
   /**
    * Per-query response LRU (newest-first) for the run-history list.
    * Defaults to the single `response` when omitted so callers that
@@ -141,6 +155,8 @@ export function SqlResultPreview({
   canRun = false,
   onRun,
   onSaveSnippet,
+  onProfileQuery,
+  profileQuerySource,
   responses,
   selectedResponseIndex = 0,
   onSelectResponse,
@@ -160,9 +176,72 @@ export function SqlResultPreview({
     direction: 'asc',
   });
   const [filter, setFilter] = useState<string>('');
+  const profileRequestIdRef = useRef(0);
+  const [profileState, setProfileState] = useState<{
+    responseKey: string;
+    outcome: SqlColumnProfileOutcome | null;
+  } | null>(null);
+
+  // A profile belongs to one exact fresh response. Keeping the key beside the
+  // local result avoids an effect/reset race when the user selects history or
+  // runs a new query while the profile request is still resolving.
+  const responseKey = response
+    ? `${response.recordedAt}:${selectedResponseIndex}`
+    : null;
+  const visibleProfile =
+    responseKey !== null && profileState?.responseKey === responseKey
+      ? profileState
+      : null;
 
   const handleSort = useCallback((column: string) => {
     setSort((current) => nextSortState(current, column));
+  }, []);
+
+  // Memoized: buildColumnProfileQuery strips literals/comments over the
+  // whole source (up to the workspace byte cap), and this component
+  // re-renders on every filter keystroke.
+  const isProfileableSource = useMemo(
+    () =>
+      profileQuerySource !== undefined &&
+      buildColumnProfileQuery(profileQuerySource) !== null,
+    [profileQuerySource]
+  );
+  const canProfile =
+    response !== null &&
+    response.status === 'success' &&
+    selectedResponseIndex === 0 &&
+    onProfileQuery !== undefined &&
+    isProfileableSource;
+
+  const handleProfile = useCallback(async () => {
+    if (
+      !canProfile ||
+      profileQuerySource === undefined ||
+      onProfileQuery === undefined ||
+      responseKey === null
+    ) {
+      return;
+    }
+    const requestId = profileRequestIdRef.current + 1;
+    profileRequestIdRef.current = requestId;
+    setProfileState({ responseKey, outcome: null });
+    let outcome: SqlColumnProfileOutcome;
+    try {
+      outcome = await onProfileQuery(profileQuerySource);
+    } catch (error) {
+      outcome = {
+        status: 'sql-error',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+    if (profileRequestIdRef.current === requestId) {
+      setProfileState({ responseKey, outcome });
+    }
+  }, [canProfile, onProfileQuery, profileQuerySource, responseKey]);
+
+  const handleCloseProfile = useCallback(() => {
+    profileRequestIdRef.current += 1;
+    setProfileState(null);
   }, []);
 
   // Filter + sort once, reused for the display cap and the pre-cap count
@@ -342,6 +421,14 @@ export function SqlResultPreview({
               label={t('sqlWorkspace.action.copyAsMarkdown')}
               icon={<FileText size={11} aria-hidden="true" />}
             />
+            {canProfile ? (
+              <CopyButton
+                onClick={() => void handleProfile()}
+                testId="sql-result-preview-profile"
+                label={t('sqlWorkspace.profile.open')}
+                icon={<BarChart3 size={11} aria-hidden="true" />}
+              />
+            ) : null}
             <div className="relative" ref={exportMenuRef}>
               <button
                 type="button"
@@ -393,7 +480,7 @@ export function SqlResultPreview({
     <div
       data-testid="sql-result-preview"
       data-state={response.status}
-      className="flex h-full min-w-0 flex-col bg-bg-base"
+      className="relative flex h-full min-w-0 flex-col bg-bg-base"
     >
       <ResultHeader
         status={
@@ -564,6 +651,17 @@ export function SqlResultPreview({
             <Bookmark size={12} aria-hidden="true" />
             {t('sqlWorkspace.snippet.cta')}
           </button>
+        </div>
+      ) : null}
+
+      {visibleProfile !== null ? (
+        <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-[34rem] min-h-0 flex-col border-l border-border-default bg-bg-base shadow-[-8px_0_20px_rgba(0,0,0,0.08)]">
+          <SqlColumnProfilePanel
+            outcome={visibleProfile.outcome}
+            isLoading={visibleProfile.outcome === null}
+            onClose={handleCloseProfile}
+            onRetry={() => void handleProfile()}
+          />
         </div>
       ) : null}
     </div>

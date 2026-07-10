@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   __resetSqlStorageModeTelemetryForTests,
+  trackSqlProfileOpened,
   trackSqlStorageMode,
   trackSqlTableImported,
 } from '../../../src/renderer/hooks/sqlWorkspaceTelemetry';
@@ -46,5 +47,11 @@ describe('sqlWorkspaceTelemetry', () => {
       format: 'parquet',
       source: 'drop',
     });
+  });
+
+  it('emits sql.profile_opened without query or result properties', () => {
+    trackSqlProfileOpened();
+
+    expect(trackEventMock).toHaveBeenCalledWith('sql.profile_opened', {});
   });
 });

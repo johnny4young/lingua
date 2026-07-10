@@ -39,10 +39,12 @@ import {
   estimateOriginStorageBytes,
   type DuckDbEngineHandle,
 } from '../../runtime/duckdbClient';
+import { profileSqlQuery } from '../../runtime/sqlColumnProfile';
 import { buildSqlResponseCapsule } from '../../runtime/sqlResponseCapsule';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import {
   trackSqlQueryExecuted,
+  trackSqlProfileOpened,
   trackSqlStorageMode,
 } from '../../hooks/sqlWorkspaceTelemetry';
 import { useSqlImport } from '../../hooks/useSqlImport';
@@ -148,6 +150,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // run handler + mount effect can trigger a schema refresh without
   // depending on a callback declared later in the component body.
   const refreshTablesRef = useRef<() => void>(() => {});
+  // Profiles must use the exact SQL that produced a response, not subsequent
+  // editor drafts. This in-memory map deliberately does not survive reload:
+  // persisted responses do not retain their SQL source and profiling a guessed
+  // source would misrepresent the visible result.
+  const [profileSourcesByQueryId, setProfileSourcesByQueryId] = useState(
+    () => new Map<string, { recordedAt: string; query: string }>()
+  );
   // Run-history selection — index into the active query's response LRU
   // (0 = newest). A fresh run / query switch resets to 0.
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
@@ -181,6 +190,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       : Math.min(selectedResponseIndex, activeResponses.length - 1);
   const activeResponse: SqlResponseV1 | null =
     activeResponses[safeResponseIndex] ?? null;
+  const profileSource =
+    activeQuery !== undefined &&
+    activeResponse !== null &&
+    safeResponseIndex === 0
+      ? profileSourcesByQueryId.get(activeQuery.id)
+      : undefined;
 
   // SQL/HTTP MODEL rework — a new query is a row in the collection, NOT a
   // new editor tab. `createQuery` appends it to the store and selects it
@@ -287,6 +302,14 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             ? { errorMessage: outcome.errorMessage }
             : {}),
         };
+        setProfileSourcesByQueryId((current) => {
+          const next = new Map(current);
+          next.set(queryToRun.id, {
+            recordedAt: response.recordedAt,
+            query: queryToRun.query,
+          });
+          return next;
+        });
         useWorkspaceSqlStore.getState().recordResponse(queryToRun.id, response);
         // A fresh run is always the newest entry — show it in the grid.
         setSelectedResponseIndex(0);
@@ -343,6 +366,17 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       }
     },
     [queryTimeoutMs, t, announce]
+  );
+
+  // IT2-F3 — a profile is deliberate secondary exploration, not another run:
+  // it must not add a response/history/ledger entry. Reuse the same user
+  // timeout as the query that produced the visible result.
+  const handleProfileQuery = useCallback(
+    async (query: string) => {
+      trackSqlProfileOpened();
+      return profileSqlQuery(query, { timeoutMs: queryTimeoutMs });
+    },
+    [queryTimeoutMs]
   );
 
   // T19 apply-&-re-run: write the AI-suggested SQL into the active query,
@@ -757,7 +791,14 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             selectedResponseIndex={safeResponseIndex}
             onSelectResponse={handleSelectResponse}
             querySource={activeQuery?.query}
+            profileQuerySource={
+              profileSource !== undefined &&
+              profileSource.recordedAt === activeResponse?.recordedAt
+                ? profileSource.query
+                : undefined
+            }
             onApplyFix={handleApplyFix}
+            onProfileQuery={handleProfileQuery}
             canRun={activeQuery !== undefined}
             onRun={
               activeQuery ? () => void handleRun(activeQuery) : undefined

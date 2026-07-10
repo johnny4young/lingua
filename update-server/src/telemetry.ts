@@ -230,6 +230,8 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts. Parity test cross-imports
   // SQL_QUERY_STATUSES_SET and SQL_DURATION_BUCKETS_SET.
   'sql.query_executed',
+  // IT2-F3 — Column Explorer opened. Deliberately has no payload.
+  'sql.profile_opened',
   // RL-097 Slice 3 (SQL OPFS) fold F — SQL workspace storage backing.
   // Closed-enum `{ mode, requested }` (both ∈ SQL_STORAGE_MODES_SET)
   // mirrored from src/shared/telemetry.ts. Parity test cross-imports
@@ -440,6 +442,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'import.postman_variables_resolved': ['resolvedBucket', 'unresolvedBucket'],
   // RL-097 Slice 2 fold F — mirror of src/shared/telemetry.ts.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
+  'sql.profile_opened': [],
   // RL-097 Slice 3 (SQL OPFS) fold F — mirror of src/shared/telemetry.ts.
   'sql.storage_mode': ['mode', 'requested'],
   // RL-097 (SQL import) fold B — mirror of src/shared/telemetry.ts.
@@ -1594,6 +1597,8 @@ function isAllowedValue(
         return (
           typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
         );
+      return false;
+    case 'sql.profile_opened':
       return false;
     case 'sql.storage_mode':
       return (

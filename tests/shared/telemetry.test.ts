@@ -290,6 +290,8 @@ describe('TELEMETRY_EVENTS', () => {
       // `SQL_QUERY_STATUSES_SET` + `DEPENDENCY_COUNT_BUCKETS_SET` +
       // `SQL_DURATION_BUCKETS_SET`. Sorts between `share.opened` (sh)
       // and `template_project_applied` (te) alphabetically.
+      // IT2-F3 — a privacy-safe interaction counter with no payload.
+      'sql.profile_opened',
       'sql.query_executed',
       // RL-097 Slice 3 (SQL OPFS) fold F — SQL workspace storage backing.
       'sql.storage_mode',

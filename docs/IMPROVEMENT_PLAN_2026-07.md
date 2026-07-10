@@ -897,25 +897,26 @@ recibe el dataframe (round-trip Arrow con 100k filas < 1 s en test);
 notebooks sin directivas se comportan EXACTO igual que hoy (cero
 regresión — suite RL-043 verde).
 
-## IT2-F3 · Column Explorer en el SQL workspace — S-M (1-2 d)
+## IT2-F3 · Column Explorer en el SQL workspace — EJECUTADO 2026-07-10
 
-**Evidencia.** El profiling por columna es el feature más amado de la
-exploración local de datos (DuckDB Local UI "Column Explorer"; visidata
-frequency tables). DuckDB lo trae gratis: `SUMMARIZE <query>` devuelve
-tipo, min/max, approx_unique, avg, std, %null por columna.
+El profiling por columna aterrizó como exploración explícita y local: una
+consulta `SELECT` o `WITH … SELECT` exitosa muestra **Profile columns** y
+abre un panel lateral con tipo, nulos, cardinalidad aproximada, mínimo,
+máximo, promedio y desviación estándar por columna. La operación es lazy;
+nunca corre automáticamente ni añade entradas a SQL history o Run Ledger.
 
-**Diseño.** Tras cada query exitosa en el workspace (la infra:
-`executeQuery` → `DuckDbExecuteOutcome`, `duckdbClient.ts:57-81`), botón
-"Profile" en la barra de resultados que corre
-`SUMMARIZE (<query del usuario>)` y renderiza panel lateral por columna:
-tipo, % nulls, únicos, min/max, y mini-histograma (para columnas
-numéricas: `SELECT histogram(col)` o buckets manuales). Lazy: solo al
-click, nunca automático (una query cara no debe correrse dos veces sin
-pedirlo).
+**Corrección técnica.** DuckDB perfila una consulta con el prefijo
+`SUMMARIZE SELECT …` (o `SUMMARIZE WITH … SELECT`), no con
+`SUMMARIZE (<query>)`. El helper rechaza consultas vacías, mutables o con
+múltiples sentencias, y conserva el límite global de bytes antes de volver a
+ejecutar la consulta de lectura.
 
-**AC.** Query → Profile → panel con una fila por columna y datos
-correctos (test contra tabla fixture); query con error no ofrece Profile;
-telemetría `sql.profile_opened` (allowlist `[]`); i18n en/es.
+**Contrato.** El panel es efímero y se cierra al cambiar de resultado; errores,
+timeout y truncation muestran un estado honesto y permiten reintentar. La única
+telemetría es `sql.profile_opened` con allowlist vacío: nunca viajan SQL,
+schema, columnas o valores. La primera versión no añade histogramas por
+columna: eso requeriría consultas adicionales y queda fuera del AC de resumen
+fiable.
 
 ## IT2-F4 · Smart clipboard → sugerencia de utilidad — S-M (1-2 d)
 

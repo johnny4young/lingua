@@ -49,6 +49,14 @@ export function trackSqlQueryExecuted(response: SqlResponseV1): void {
 }
 
 /**
+ * IT2-F3 — count explicit Column Explorer opens without exposing any SQL or
+ * data shape. The empty payload is deliberate and mirrored on update-server.
+ */
+export function trackSqlProfileOpened(): void {
+  void trackEvent('sql.profile_opened', {});
+}
+
+/**
  * RL-097 Slice 3 (SQL OPFS) fold F — fires once per distinct resolved
  * storage backing during a renderer session. `mode` is the
  * RESOLVED backing (`'opfs'` / `'memory'`); `requested` is what the
