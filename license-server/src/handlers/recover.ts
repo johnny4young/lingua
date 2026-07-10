@@ -251,6 +251,7 @@ recoverRouter.get('/confirm', async (c) => {
     issuedTo: license.issued_to,
     tier: license.tier as SendLicenseEmailInput['tier'],
     expiresAt: license.expires_at,
+    supportWindowEndsAt: license.support_window_ends_at,
     deepLink: `lingua://license?token=${encodeURIComponent(license.token)}`,
   });
 

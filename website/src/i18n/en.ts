@@ -181,7 +181,7 @@ export const en = {
       tiers: [
         { name: 'Free', price: '$0', tag: 'Default', desc: 'One tab, five snippets, JS / TS / Python / Ruby, single-shot utilities. No license needed.' },
         { name: 'Pro', price: '$5 / mo', tag: 'Subscription', desc: 'Unlimited tabs and snippets, Go and Rust, plus utility workflows.' },
-        { name: 'Pro Lifetime', price: '$59 once', tag: 'Pay once', desc: 'Perpetual Pro unlock — no recurring bill, every future update included.' },
+        { name: 'Pro Lifetime', price: '$59 once', tag: 'Pay once', desc: 'Perpetual Pro unlock — no recurring bill, with 12 months of updates included.' },
         { name: 'Team', price: '$3 / seat / mo', tag: 'Per seat', desc: 'Team seats, invoicing, and organization-friendly license handling.' },
       ],
     },
@@ -204,7 +204,7 @@ export const en = {
     eyebrow: 'Pricing',
     heading: 'Four tiers. Pay only for what you need.',
     lede:
-      'Pro is a $5/month subscription. Pro Lifetime is $59 once with every future update included. Team is $3/seat/month with invoicing. Free covers single-file scratchpads forever. License keys verify offline.',
+      'Pro is a $5/month subscription. Pro Lifetime is $59 once for perpetual Pro access and 12 months of updates; renew only if you want later releases. Team is $3/seat/month with invoicing. Free covers single-file scratchpads forever. License keys verify offline.',
     trialCallout: {
       text: 'First time? Try Pro free for 14 days — no credit card.',
       linkText: 'How to start →',
@@ -258,8 +258,14 @@ export const en = {
           name: 'Pro Lifetime',
           price: '$59',
           cadence: 'one-time',
-          bestFor: 'Pay once, stay supported forever',
-          features: ['Everything in Pro', 'Every future update included', 'Priority email support'],
+          bestFor: 'Pay once, keep Pro forever',
+          features: [
+            'Everything in Pro',
+            'Perpetual Pro unlock',
+            '12 months of updates included',
+            'Optional renewal for later updates',
+            'Priority email support during the update window',
+          ],
           cta: 'Buy Pro Lifetime',
         },
         {
@@ -295,8 +301,8 @@ export const en = {
         a: 'Yes. A Pro license is bound to a small set of devices (currently three). When you buy a new machine, deactivate the old one from Settings → License — the slot frees up immediately. No phone-home, no waiting on a server.',
       },
       {
-        q: 'What happens if a Pro Lifetime release reaches end-of-life?',
-        a: 'Pro Lifetime entitles you to every future stable release. If we ever sunset the product or a particular platform, your token continues to unlock the last release that supported you — you keep using it forever, offline. Source-available means you can also build it yourself.',
+        q: 'What happens after my Pro Lifetime updates end?',
+        a: 'Your Pro features stay unlocked forever. The one-time purchase includes 12 months of new releases; renewal is optional if you want to keep your update eligibility current. Your signed token continues to work offline.',
       },
     ],
   },

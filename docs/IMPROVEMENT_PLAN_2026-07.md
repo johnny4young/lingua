@@ -732,7 +732,7 @@ no compiladas en la plataforma (web no sugiere Go).
 
 ---
 
-## IT2-D8 · Modelo lifetime $59: `pro_lifetime` perpetuo + ventana de updates — APROBADO 2026-07-06 · M (2-3 d, security-gated)
+## IT2-D8 · Modelo lifetime $59: `pro_lifetime` perpetuo + ventana de updates — IMPLEMENTADO 2026-07-10 · M (security-gated)
 
 **Decisión.** Mantener el precio **$59**, pero pasar del riesgo "updates
 forever" (el modelo que quebró el Golden de Bruno) al patrón sostenible:
@@ -740,47 +740,39 @@ forever" (el modelo que quebró el Golden de Bruno) al patrón sostenible:
 incluidos + renovación opcional con 30-40% off** para seguir recibiendo
 builds nuevas. El monthly `pro` ($5) no cambia.
 
-**Evidencia — la infra ya existe.** El token Ed25519 ya trae lo necesario
-(`src/shared/license.ts`): tier `pro_lifetime` en `LICENSE_TIERS:24`;
-`LicensePayload` con `issuedAt` + `supportWindowEndsAt`
-(`license.ts:44-51`); el verificador ya resuelve `active` mientras
-`now <= supportWindowEndsAt`, `grace` en la ventana de gracia, y rechaza
-después (`license.ts:343-351`). El mint script ya tiene `--days`
-(AGENTS.md: "--days 0 leaves no remaining support window").
+**Implementación.** El verificador Ed25519 de `src/shared/license.ts`
+desacopla la validez de entitlements de la ventana de updates solo para
+`pro_lifetime`: ese tier queda siempre `active` tras una firma, payload y
+`issuedAt` válidos. El resultado expone `updatesIncludedUntil` y
+`updatesLapsed`; este último compara la fecha de build con la ventana de
+updates, no el reloj actual. Los tiers temporales conservan sin cambios sus
+estados `active` / `grace` / `expired`.
 
-**El cambio real (scoped, security-sensitive).** Hoy TODOS los tiers
-caducan tras `supportWindowEndsAt + grace` (`license.ts:343`). Para un
-lifetime honesto hay que **desacoplar validez-de-entitlements de la
-ventana-de-updates SOLO para `pro_lifetime`**:
+**UX y release.** `__LINGUA_BUILD_DATE__` ya existía en
+`build/appBuildMetadata.mts`; main y web lo pasan al verificador. Settings →
+License muestra una fila no bloqueante de renovación opcional solo cuando la
+build es posterior a la ventana incluida. No corta funciones Pro. El issuer
+de Polar ahora sella `pro_lifetime` con 365 días; el dev mint aclara que
+`--days` es ventana de updates para ese tier. Website y páginas legales en
+inglés/español dicen: acceso Pro perpetuo + 12 meses de updates + renovación
+opcional. Los emails de compra y recuperación repiten el mismo contrato y la
+fecha concreta de la ventana cuando está disponible.
 
-1. En el verificador (`verifyLicense` / la rama de `license.ts:343-351`):
-   si `tier === 'pro_lifetime'`, el estado es SIEMPRE `active`
-   independientemente de `supportWindowEndsAt` (los entitlements no
-   lapsan). Para los demás tiers, comportamiento idéntico al actual.
-2. `supportWindowEndsAt` pasa a significar, para `pro_lifetime`,
-   "updates incluidas hasta". Nueva señal derivada
-   `updatesIncludedUntil = supportWindowEndsAt` comparada contra la
-   **fecha de build** (`__LINGUA_APP_VERSION__` ya existe; añadir un
-   `__LINGUA_BUILD_DATE__` define si no está): si la build es más nueva
-   que `updatesIncludedUntil`, la licencia sigue `active` pero se muestra
-   una fila NO bloqueante en Settings → License: "Renueva para seguir
-   recibiendo updates (-40%)". Jamás corta funcionalidad.
-3. `scripts/mint-dev-license.mjs` y el issuer real: `pro_lifetime` sella
-   `supportWindowEndsAt = issuedAt + 365 d`.
-4. Website/pricing (`website/`): copy del $59 = "perpetuo, 12 meses de
-   updates incluidos, renovación opcional".
+**Seguridad y regresiones.** La firma se verifica antes de evaluar ventanas;
+una modificación del cutoff de updates sigue fallando como
+`invalid-signature`. Se estrechó la familia `productId` a `lingua`,
+`lingua-*` y `lingua_*`, para que un lookalike como `linguaforeign` no pueda
+usar una llave compartida. La revocación/refund del servidor sigue siendo
+autoritaria al sincronizar, incluso para un token lifetime fuera de su ventana
+de updates.
 
-**Gate de seguridad.** Toca el verificador Ed25519 → ruta
-`security-reviewer` obligatoria (AGENTS.md routing) antes de merge. Prueba
-del lock: un `pro_lifetime` con `supportWindowEndsAt` en el pasado debe
-verificar `active` (no `grace`, no reject) y un `pro`/`trial` con la misma
-fecha debe seguir cayendo a `grace`/reject.
-
-**AC.** Tests de `license.ts`: (a) `pro_lifetime` vencido en support-window
-→ `active` + flag `updatesLapsed`; (b) `pro` vencido → `grace`/reject sin
-cambios; (c) la fila de renovación aparece solo cuando build-date >
-`supportWindowEndsAt` y nunca bloquea; mint script sella 365 d; copy es/en
-en Settings + website; security review firmada.
+**Validación.** `tests/shared/license.test.ts` cubre expiry, grace,
+perpetual lifetime, build-date y falsificación; `tests/main/license.test.ts`
+fija persistencia y revocación desktop; `LicenseSection.test.tsx` cubre la
+fila no bloqueante; `license-server/test/webhooks.test.ts` fija el issuer de
+365 días y el copy del email de compra; `license-server/test/recover.test.ts`
+cubre el email de recuperación; `tests/docs/lifetimePricingContract.test.ts`
+evita que vuelva el claim de updates para siempre.
 
 # LANE E — Testeabilidad
 

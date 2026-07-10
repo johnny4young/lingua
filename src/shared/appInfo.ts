@@ -72,7 +72,12 @@ function repositoryUrlFromPackage(repository: PackageRepository | undefined): st
   return normalizeExternalUrl(repository.url);
 }
 
-function buildDateFromBundle(): string | null {
+/**
+ * Build timestamp stamped by getSharedBuildDefines at bundle time; null in
+ * unbundled runtimes. Shared by the About surface and both license verifiers
+ * (main + web) so the update-window comparison has one source of truth.
+ */
+export function bundledBuildDate(): string | null {
   return typeof __LINGUA_BUILD_DATE__ === 'string' && __LINGUA_BUILD_DATE__.trim()
     ? __LINGUA_BUILD_DATE__
     : null;
@@ -93,7 +98,7 @@ export function getBundledAppInfo(overrides: Partial<AppInfo> = {}): AppInfo {
   return {
     productName,
     version: metadata.version ?? '0.0.0',
-    buildDate: buildDateFromBundle(),
+    buildDate: bundledBuildDate(),
     licenseType: resolveLicenseType(metadata.license),
     repositoryUrl,
     websiteUrl: websiteUrlFromBundle(),

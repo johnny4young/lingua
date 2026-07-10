@@ -45,7 +45,12 @@ import type { Env } from '../index';
 export const webhooksRouter = new Hono<{ Bindings: Env }>();
 
 const SUPPORT_GRACE_SECONDS = 14 * 24 * 60 * 60;
-const LIFETIME_SUPPORT_SECONDS = 5 * 365 * 24 * 60 * 60;
+/**
+ * Pro Lifetime keeps its Pro entitlement forever. This window only covers
+ * releases included with the initial one-time purchase; renewal remains an
+ * optional future commerce flow.
+ */
+export const PRO_LIFETIME_INCLUDED_UPDATES_SECONDS = 365 * 24 * 60 * 60;
 
 webhooksRouter.post('/polar', async (c) => {
   const rawBody = await c.req.text();
@@ -180,6 +185,7 @@ async function emitLicenseAndEmail(c: WebhookContext, args: EmitArgs): Promise<R
     licenseToken: minted.token,
     tier: tierForProduct(args.productId),
     productId: args.productId,
+    supportWindowEndsAt: args.supportWindowEndsAt,
   });
 
   return jsonNoStore(c, {
@@ -219,7 +225,7 @@ async function handleOrderPaid(
   }
 
   const issuedAt = Math.floor(Date.now() / 1000);
-  const supportWindowEndsAt = issuedAt + LIFETIME_SUPPORT_SECONDS;
+  const supportWindowEndsAt = issuedAt + PRO_LIFETIME_INCLUDED_UPDATES_SECONDS;
   const deviceLimit = deviceLimitForProduct(productId, metadata);
 
   return emitLicenseAndEmail(c, {

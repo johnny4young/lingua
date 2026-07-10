@@ -37,7 +37,7 @@
  *
  * Flags (all optional):
  *   --tier <free|pro|pro_lifetime|team>   default: pro
- *   --days <number>                       support-window in days from now, default 365
+ *   --days <number>                       entitlement window in days (included-update window for pro_lifetime), default 365
  *   --issued-to <string>                  default: dev@localhost
  *
  * Usage (bash) — local dev with env-var public key:

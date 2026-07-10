@@ -25,6 +25,7 @@ import {
   type LicenseVerificationResult,
   verifyLicenseToken,
 } from '../shared/license';
+import { bundledBuildDate } from '../shared/appInfo';
 import {
   activate as serverActivate,
   isLicenseServerEnabled,
@@ -216,7 +217,10 @@ async function runVerify(
         'Build does not embed a license public key. Set LINGUA_LICENSE_PUBLIC_KEY_JWK at build time.',
     };
   }
-  const result = await verifyLicenseToken(token, publicKeyJwk, { now });
+  const result = await verifyLicenseToken(token, publicKeyJwk, {
+    now,
+    buildDate: bundledBuildDate(),
+  });
   return resultToStatus(result);
 }
 

@@ -163,13 +163,21 @@ licensesRouter.get('/status', async (c) => {
   // Include refreshedToken when the persisted token differs from the
   // one the client just sent — Monthly subscriptions pick up
   // `expires_at` extensions through this channel after a paid
-  // `order.paid` webhook re-mints `licenses.token`.
-  const refreshedToken = license.token !== token ? license.token : undefined;
+  // `order.paid` webhook re-mints `licenses.token`. Never hand the
+  // current row token to a refunded or hard-expired license: rotation
+  // must remain an effective revocation lever, which matters most for
+  // pro_lifetime tokens whose historical payloads stay refreshable
+  // forever.
+  const status = computeStatus(license);
+  const refreshedToken =
+    license.token !== token && status !== 'refunded' && status !== 'expired'
+      ? license.token
+      : undefined;
 
   return jsonNoStore(c, {
     ok: true,
     licenseId: license.id,
-    status: computeStatus(license),
+    status,
     tier: license.tier,
     expiresAt: license.expires_at,
     supportWindowEndsAt: license.support_window_ends_at,
@@ -298,6 +306,12 @@ async function findCurrentLicenseForToken(
 }
 
 function isRefreshableHistoricalPayload(payload: LicensePayload): boolean {
+  // Pro Lifetime tokens remain valid after their included-update window.
+  // A later optional renewal rotates the canonical row token, so its prior
+  // signed token must still be able to locate that same row and receive the
+  // refreshed token. The row's refunded status remains authoritative.
+  if (payload.tier === 'pro_lifetime') return true;
+
   const supportWindowEndsAt = Math.floor(Date.parse(payload.supportWindowEndsAt) / 1000);
   if (!Number.isFinite(supportWindowEndsAt)) return false;
   const now = Math.floor(Date.now() / 1000);

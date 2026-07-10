@@ -1,10 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import app, { buildInternalErrorResponse } from '../src/index';
+import { PRO_LIFETIME_INCLUDED_UPDATES_SECONDS } from '../src/handlers/webhooks';
 import { buildSignedPolarWebhook, createMockEnv, generateEd25519Keypair } from './helpers';
 
 const WHSEC = 'whsec_dGVzdC1zZWNyZXQ=';
 
 describe('POST /webhooks/polar', () => {
+  // A failing expect must not leak a stubbed global fetch into later tests.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('returns 501 not-implemented when POLAR_WEBHOOK_SECRET is not configured (defends against accidentally accepting events on a half-deployed worker)', async () => {
     const response = await app.request(
       'http://localhost/webhooks/polar',
@@ -114,6 +120,57 @@ describe('POST /webhooks/polar', () => {
       device_limit: 10,
       expires_at: Math.floor(Date.parse('2026-05-27T00:00:00.000Z') / 1000),
     });
+  });
+
+  it('mints Pro Lifetime with perpetual entitlement and a one-year included-update window', async () => {
+    const keys = await generateEd25519Keypair();
+    const fetchMock = vi.fn(
+      async (_input: Parameters<typeof fetch>[0], _init?: Parameters<typeof fetch>[1]) =>
+        new Response(JSON.stringify({ id: 'email_lifetime' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const env = createMockEnv({
+      polarWebhookSecret: WHSEC,
+      privateKeyJwk: keys.privateKeyJwk,
+      resendApiKey: 're_test_key',
+    });
+    const { headers, body } = await buildSignedPolarWebhook(WHSEC, {
+      type: 'order.paid',
+      data: {
+        id: 'order_lifetime_paid',
+        customer: { email: 'buyer@example.com' },
+        product: {
+          id: 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff',
+          metadata: { product_id: 'lingua_lifetime' },
+        },
+      },
+    });
+
+    const response = await app.request(
+      'http://localhost/webhooks/polar',
+      { method: 'POST', headers, body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const [row] = [...env.__db.licenses.values()];
+    expect(row).toMatchObject({
+      product_id: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      expires_at: null,
+    });
+    expect(row?.support_window_ends_at).toBe(row!.issued_at + PRO_LIFETIME_INCLUDED_UPDATES_SECONDS);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      html: string;
+      text: string;
+    };
+    expect(requestBody.text).toContain('Your Pro features stay unlocked forever.');
+    expect(requestBody.text).toContain('Renewal is optional if you want later updates.');
+    expect(requestBody.html).toContain('Included updates and priority email support run through');
   });
 
   it('acks `unknown-product` when metadata.product_id is missing (forces maintainer to set it on every Polar product)', async () => {

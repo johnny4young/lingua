@@ -152,6 +152,12 @@ export interface SendLicenseEmailInput {
   licenseToken: string;
   tier: PaidTier | 'trial' | 'education';
   productId: string;
+  /**
+   * The end of the subscription term for renewable tiers, or the included
+   * update/support window for Pro Lifetime. It never limits Pro Lifetime
+   * feature access.
+   */
+  supportWindowEndsAt: number | null;
   fetchImpl?: typeof fetch;
 }
 
@@ -163,21 +169,49 @@ const TIER_HUMAN: Record<SendLicenseEmailInput['tier'], string> = {
   education: 'Lingua Education',
 };
 
-function buildPaidHtmlBody(token: string, productLabel: string): string {
+function lifetimeUpdateTerms(supportWindowEndsAt: number | null): string {
+  if (supportWindowEndsAt === null) {
+    return 'Your Pro features stay unlocked forever. Renewal is optional if you want later updates.';
+  }
+
+  return [
+    'Your Pro features stay unlocked forever.',
+    `Included updates and priority email support run through ${formatExpiresOn(supportWindowEndsAt)}.`,
+    'Renewal is optional if you want later updates.',
+  ].join(' ');
+}
+
+function buildPaidHtmlBody(
+  token: string,
+  productLabel: string,
+  tier: SendLicenseEmailInput['tier'],
+  supportWindowEndsAt: number | null,
+): string {
   const safeToken = escapeHtml(token);
   const safeLabel = escapeHtml(productLabel);
+  const lifetimeTerms =
+    tier === 'pro_lifetime'
+      ? `<p style="margin:16px 0 0 0;font-size:13px;color:#6b6b76;">${escapeHtml(lifetimeUpdateTerms(supportWindowEndsAt))}</p>`
+      : '';
   return [
     '<!DOCTYPE html><html><body style="font-family:-apple-system,Segoe UI,sans-serif;color:#0a0a0f;background:#f7f7f9;padding:24px;">',
     `<h1 style="font-size:18px;margin:0 0 16px 0;">Welcome to ${safeLabel}.</h1>`,
     '<p style="margin:0 0 16px 0;">Your Lingua license is ready. Paste the token below into the app under <strong>Settings → License → Paste a license token</strong>.</p>',
     `<pre style="background:#0a0a0f;color:#e7e7ec;padding:16px;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap;word-break:break-all;">${safeToken}</pre>`,
+    lifetimeTerms,
     '<p style="margin:16px 0 0 0;font-size:13px;color:#6b6b76;">Tokens are tied to your email and a max of 3 desktops + 3 browsers per license. Manage devices any time from <strong>Settings → License</strong>.</p>',
     '<p style="margin:16px 0 0 0;font-size:13px;color:#6b6b76;">Lost this email? Re-request the token from <strong>Settings → License → Lost your license?</strong> any time.</p>',
     '</body></html>',
   ].join('');
 }
 
-function buildPaidTextBody(token: string, productLabel: string): string {
+function buildPaidTextBody(
+  token: string,
+  productLabel: string,
+  tier: SendLicenseEmailInput['tier'],
+  supportWindowEndsAt: number | null,
+): string {
+  const lifetimeTerms = tier === 'pro_lifetime' ? lifetimeUpdateTerms(supportWindowEndsAt) : null;
   return [
     `Welcome to ${productLabel}.`,
     '',
@@ -185,6 +219,7 @@ function buildPaidTextBody(token: string, productLabel: string): string {
     'Settings → License → Paste a license token.',
     '',
     token,
+    ...(lifetimeTerms ? ['', lifetimeTerms] : []),
     '',
     'Tokens are tied to your email and a max of 3 desktops + 3 browsers per',
     'license. Manage devices any time from Settings → License.',
@@ -202,8 +237,18 @@ export async function sendLicenseEmail(input: SendLicenseEmailInput): Promise<Re
     fromName: input.fromName,
     apiKey: input.apiKey,
     subject: `Your ${productLabel} license`,
-    html: buildPaidHtmlBody(input.licenseToken, productLabel),
-    text: buildPaidTextBody(input.licenseToken, productLabel),
+    html: buildPaidHtmlBody(
+      input.licenseToken,
+      productLabel,
+      input.tier,
+      input.supportWindowEndsAt,
+    ),
+    text: buildPaidTextBody(
+      input.licenseToken,
+      productLabel,
+      input.tier,
+      input.supportWindowEndsAt,
+    ),
     fetchImpl: input.fetchImpl,
   });
 }
@@ -422,6 +467,7 @@ export interface SendRecoveryTokenEmailInput {
   issuedTo: string;
   tier: SendLicenseEmailInput['tier'];
   expiresAt: number | null;
+  supportWindowEndsAt: number | null;
   deepLink: string;
   fetchImpl?: typeof fetch;
 }
@@ -431,11 +477,15 @@ export async function sendRecoveryTokenEmail(
 ): Promise<ResendResult> {
   const tierLabel = TIER_HUMAN[input.tier];
   const expiresOn = input.expiresAt === null ? 'No expiry (lifetime)' : formatExpiresOn(input.expiresAt);
+  const planDetails =
+    input.tier === 'pro_lifetime'
+      ? lifetimeUpdateTerms(input.supportWindowEndsAt)
+      : `Valid until: ${expiresOn}.`;
   const html = renderEmailFromTemplate(recoveryTokenTemplate, {
     issuedTo: escapeHtml(input.issuedTo),
     token: escapeHtml(input.token),
     tier: escapeHtml(tierLabel),
-    expiresOn,
+    planDetails: escapeHtml(planDetails),
     deepLink: input.deepLink,
   });
   const text = [
@@ -445,7 +495,7 @@ export async function sendRecoveryTokenEmail(
     '',
     input.token,
     '',
-    `Plan: ${tierLabel}. Valid until: ${expiresOn}.`,
+    `Plan: ${tierLabel}. ${planDetails}`,
   ].join('\n');
   return postToResend({
     to: input.to,

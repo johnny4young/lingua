@@ -341,6 +341,61 @@ describe('GET /licenses/status', () => {
     expect(body).toMatchObject({ ok: true, refreshedToken: newToken });
   });
 
+  it('withholds refreshedToken from a refunded license even when the row rotated (lifetime revocation lever)', async () => {
+    const keys = await generateEd25519Keypair();
+    const licenseId = 'lic_refunded_rotation';
+    const issuedAt = Math.floor(Date.now() / 1000) - 60;
+    const oldPayload: LicensePayload = {
+      licenseId,
+      productId: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      issuedTo: 'buyer@example.com',
+      issuedAt: new Date(issuedAt * 1000).toISOString(),
+      supportWindowEndsAt: new Date((issuedAt + 365 * 24 * 60 * 60) * 1000).toISOString(),
+      entitlements: ['tabs'],
+    };
+    const oldToken = await signPayload(oldPayload, keys.privateKeyJwk);
+    const newToken = await signPayload(
+      {
+        ...oldPayload,
+        supportWindowEndsAt: new Date((issuedAt + 2 * 365 * 24 * 60 * 60) * 1000).toISOString(),
+      },
+      keys.privateKeyJwk
+    );
+    const env = createMockEnv({ publicKeyJwk: keys.publicKeyJwk });
+    env.__db.licenses.set(licenseId, {
+      id: licenseId,
+      token: newToken,
+      product_id: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      device_limit: 3,
+      issued_to: 'buyer@example.com',
+      issued_at: issuedAt,
+      expires_at: null,
+      support_window_ends_at: issuedAt + 365 * 24 * 60 * 60,
+      status: 'refunded',
+      polar_order_id: 'order_refunded',
+      polar_subscription_id: null,
+      created_at: issuedAt,
+      updated_at: issuedAt + 100,
+    });
+
+    const response = await app.request(
+      'http://localhost/licenses/status?deviceId=device-uuid&surface=desktop',
+      { headers: { authorization: `Bearer ${oldToken}` } },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      ok: boolean;
+      status: string;
+      refreshedToken?: string;
+    };
+    expect(body).toMatchObject({ ok: true, status: 'refunded' });
+    expect(body.refreshedToken).toBeUndefined();
+  });
+
   it('rejects a historical token after its refresh grace window has elapsed', async () => {
     vi.useFakeTimers();
     try {

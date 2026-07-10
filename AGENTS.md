@@ -215,8 +215,9 @@ Notes:
 
 - The keypair is session-scoped. Once the dev server stops, the
   private key is gone — mint again for the next session.
-- `--days 0` leaves no remaining support window so you can smoke
-  grace/expiry handling without waiting days for the window to lapse.
+- `--days 0` leaves no remaining support window. For `pro_lifetime`, it
+  immediately exercises the non-blocking included-updates-lapsed notice;
+  use a time-bound tier such as `pro` to smoke grace/expiry handling.
 - **Do not commit** `dev-license.json`, and never paste the private
   key (`privateKeyJwkDoNotShip`) into the app.
 - Tests mint throwaway tokens in-process via

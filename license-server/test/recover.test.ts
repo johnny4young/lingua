@@ -229,13 +229,13 @@ describe('GET /licenses/recover/confirm', () => {
     await insertLicense(env.DB, {
       id: 'lic_recover',
       token: 'recover.token.abc',
-      productId: 'lingua_pro_lifetime',
-      tier: 'pro',
+      productId: 'lingua_lifetime',
+      tier: 'pro_lifetime',
       deviceLimit: 3,
       issuedTo: 'recover@example.com',
       issuedAt: Math.floor(Date.now() / 1000),
       expiresAt: null,
-      supportWindowEndsAt: null,
+      supportWindowEndsAt: Math.floor(Date.parse('2027-01-01T00:00:00.000Z') / 1000),
       status: 'active',
       polarOrderId: null,
       polarSubscriptionId: null,
@@ -271,6 +271,8 @@ describe('GET /licenses/recover/confirm', () => {
     };
     expect(requestBody.text).toContain('recover.token.abc');
     expect(requestBody.html).toContain('recover.token.abc');
+    expect(requestBody.text).toContain('Your Pro features stay unlocked forever.');
+    expect(requestBody.html).toContain('Renewal is optional if you want later updates.');
   });
 
   it('prefers an older paid license over a newer free trial during recovery', async () => {

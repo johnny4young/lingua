@@ -9,8 +9,8 @@
  * - `decodeLicenseToken` — pure parsing (no crypto), returns the raw payload
  *   object or a discriminated failure. Handy for debugging and tests.
  * - `verifyLicenseToken` — decodes, signature-verifies with WebCrypto, and
- *   resolves the window state (active / grace / expired) using the caller's
- *   "now" timestamp and a configurable grace window.
+ *   resolves entitlement state and, for a Pro Lifetime token, a separate
+ *   included-updates window using the caller's timestamps.
  *
  * Never throws — every failure surface is represented by a discriminated
  * result so the renderer and main verifiers can handle them the same way.
@@ -38,7 +38,11 @@ export const LINGUA_PRODUCT_ID_PREFIX = 'lingua';
 
 /** True when a productId belongs to the Lingua product family. */
 export function isLinguaProductId(productId: string): boolean {
-  return productId.startsWith(LINGUA_PRODUCT_ID_PREFIX);
+  return (
+    productId === LINGUA_PRODUCT_ID_PREFIX ||
+    productId.startsWith(`${LINGUA_PRODUCT_ID_PREFIX}-`) ||
+    productId.startsWith(`${LINGUA_PRODUCT_ID_PREFIX}_`)
+  );
 }
 
 export interface LicensePayload {
@@ -65,6 +69,12 @@ export interface LicenseVerificationOptions {
    * tokens issued more than this ahead of `now` are rejected as clock-skew.
    */
   clockSkewMs?: number;
+  /**
+   * Build timestamp for the running app. It is advisory only: Pro Lifetime
+   * entitlement never expires, but a build newer than its included-updates
+   * window can show a non-blocking renewal notice.
+   */
+  buildDate?: string | number | null;
 }
 
 export type LicenseFailureReason =
@@ -79,12 +89,21 @@ export type LicenseVerificationResult =
   | {
       ok: true;
       payload: LicensePayload;
-      /**
-       * `active` when now is within the support window, `grace` when now is
-       * between `supportWindowEndsAt` and `supportWindowEndsAt + grace`.
-       */
+      /** `active` entitlement, or time-bound-tier offline grace. */
       state: 'active' | 'grace';
       supportWindowEndsAt: number;
+      /**
+       * Pro Lifetime's included-update cutoff. `null` for every other tier:
+       * their entitlement is itself time-bound, so a separate update window
+       * would be misleading.
+       */
+      updatesIncludedUntil: number | null;
+      /**
+       * True only for Pro Lifetime when the running build post-dates its
+       * included-update cutoff. This is informational and never blocks Pro
+       * entitlements.
+       */
+      updatesLapsed: boolean;
     }
   | {
       ok: false;
@@ -139,6 +158,15 @@ function isIsoTimestamp(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   const ms = Date.parse(value);
   return Number.isFinite(ms);
+}
+
+function parseTimestamp(value: string | number | null | undefined): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const timestamp = Date.parse(value);
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+  return null;
 }
 
 function isStringArray(value: unknown): value is readonly string[] {
@@ -340,6 +368,27 @@ export async function verifyLicenseToken(
     return { ok: false, reason: 'clock-skew', message: 'Token issuedAt is in the future.' };
   }
 
+  const isLifetime = decoded.payload.tier === 'pro_lifetime';
+  const updatesIncludedUntil = isLifetime ? supportWindowEndsAt : null;
+  const buildDate = parseTimestamp(options.buildDate);
+  const updatesLapsed =
+    updatesIncludedUntil !== null && buildDate !== null && buildDate > updatesIncludedUntil;
+
+  // A Pro Lifetime token grants perpetual Pro entitlement. Its support-window
+  // timestamp is intentionally *not* an entitlement expiry: it only limits
+  // the releases included with the original purchase. Revocation stays
+  // authoritative through the license server when the app can sync.
+  if (isLifetime) {
+    return {
+      ok: true,
+      payload: decoded.payload,
+      state: 'active',
+      supportWindowEndsAt,
+      updatesIncludedUntil,
+      updatesLapsed,
+    };
+  }
+
   if (now > supportWindowEndsAt + gracePeriodMs) {
     return { ok: false, reason: 'expired' };
   }
@@ -349,5 +398,7 @@ export async function verifyLicenseToken(
     payload: decoded.payload,
     state: now <= supportWindowEndsAt ? 'active' : 'grace',
     supportWindowEndsAt,
+    updatesIncludedUntil: null,
+    updatesLapsed: false,
   };
 }

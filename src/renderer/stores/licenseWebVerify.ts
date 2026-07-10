@@ -2,6 +2,7 @@ import {
   type LicenseVerificationResult,
   verifyLicenseToken,
 } from '../../shared/license';
+import { bundledBuildDate } from '../../shared/appInfo';
 import type { LicenseStatus } from './licenseTypes';
 
 /**
@@ -54,6 +55,6 @@ export async function runVerifyWeb(token: string): Promise<LicenseStatus> {
         'Build does not embed a license public key. Set VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK at build time.',
     };
   }
-  const result = await verifyLicenseToken(token, PUBLIC_KEY_JWK);
+  const result = await verifyLicenseToken(token, PUBLIC_KEY_JWK, { buildDate: bundledBuildDate() });
   return resultToStatus(result);
 }

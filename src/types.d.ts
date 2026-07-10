@@ -531,6 +531,8 @@ interface LicenseVerificationOk {
   payload: LicensePayloadShape;
   state: 'active' | 'grace';
   supportWindowEndsAt: number;
+  updatesIncludedUntil: number | null;
+  updatesLapsed: boolean;
 }
 
 type LicenseStatus =

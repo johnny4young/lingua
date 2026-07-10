@@ -290,6 +290,31 @@ describe('createLicenseRuntime', () => {
     expect(await readPersistedLicense(file)).toBeNull();
   });
 
+  it('keeps a persisted Pro Lifetime token active after its included-update window ends', async () => {
+    const { createLicenseRuntime, writePersistedLicense, resolveLicensePath, readPersistedLicense } =
+      await import('../../src/main/license');
+    const file = resolveLicensePath(tempDir);
+    const token = await signLicenseTokenForTest(
+      freshPayload({
+        tier: 'pro_lifetime',
+        issuedAt: new Date(Date.now() - 365 * 86_400_000).toISOString(),
+        supportWindowEndsAt: new Date(Date.now() - 90 * 86_400_000).toISOString(),
+      }),
+      privateKeyJwk
+    );
+    await writePersistedLicense(file, { token, lastVerifiedAt: Date.now() - 86_400_000 });
+
+    const runtime = await createLicenseRuntime({ userDataDir: tempDir, publicKeyJwk });
+    const snapshot = runtime.getSnapshot();
+    expect(snapshot.token).toBe(token);
+    expect(snapshot.status.kind).toBe('active');
+    if (snapshot.status.kind === 'active') {
+      expect(snapshot.status.verification.payload.tier).toBe('pro_lifetime');
+      expect(snapshot.status.verification.updatesLapsed).toBe(true);
+    }
+    expect((await readPersistedLicense(file))?.token).toBe(token);
+  });
+
   it.skipIf(process.platform === 'win32')(
     'boot still reaches the renderer when a stale token cannot be removed',
     async () => {
@@ -809,6 +834,54 @@ describe('createLicenseRuntime — server-aware desktop branch (Slice 3.5)', () 
     const snap = runtime.getSnapshot();
     expect(snap.token).toBeNull();
     expect(snap.devices).toBeNull();
+  });
+
+  it('honors server-side revocation for a Pro Lifetime token after its update window ends', async () => {
+    const fetchMock = makeFetchMock();
+    const updateWindowEndsAt = Math.floor(Date.now() / 1000) - 90 * 86_400;
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      if (String(url) === `${SERVER_URL}/licenses/activate`) {
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_lifetime',
+          activated: true,
+          idempotent: false,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      return jsonResponse({
+        ok: true,
+        licenseId: 'lic_lifetime',
+        status: 'refunded',
+        tier: 'pro_lifetime',
+        expiresAt: null,
+        supportWindowEndsAt: updateWindowEndsAt,
+        devices: { desktop: [], web: [] },
+        deviceLimit: { desktop: 3, web: 3 },
+        deviceRegistered: true,
+      });
+    });
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(
+      freshPayload({
+        tier: 'pro_lifetime',
+        supportWindowEndsAt: new Date(updateWindowEndsAt * 1000).toISOString(),
+      }),
+      privateKeyJwk
+    );
+    expect((await runtime.applyToken(token)).kind).toBe('active');
+
+    const status = await runtime.revalidate();
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('license-refunded');
+    expect(runtime.getSnapshot().token).toBeNull();
   });
 
   it('revalidate updates the verification payload when accepting a newer refreshedToken', async () => {

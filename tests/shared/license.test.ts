@@ -98,14 +98,24 @@ describe('decodeLicenseToken', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('accepts every lingua-prefixed productId in the family', async () => {
-    for (const productId of ['lingua', 'lingua-desktop', 'lingua-web']) {
+  it('accepts Lingua product IDs with an explicit family delimiter', async () => {
+    for (const productId of ['lingua', 'lingua-desktop', 'lingua-web', 'lingua_lifetime']) {
       const token = await signLicenseTokenForTest(
         buildPayload({ productId }),
         keys.privateKey
       );
       expect(decodeLicenseToken(token).ok, productId).toBe(true);
     }
+  });
+
+  it('rejects a lookalike productId even when it was signed by the trusted key', async () => {
+    const token = await signLicenseTokenForTest(
+      buildPayload({ productId: 'linguaforeign' }),
+      keys.privateKey
+    );
+    const result = decodeLicenseToken(token);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('malformed');
   });
 });
 
@@ -187,6 +197,74 @@ describe('verifyLicenseToken', () => {
     expect(resultOneMsPast.ok).toBe(false);
   });
 
+  it('keeps Pro Lifetime active after its included-update window and flags a newer build', async () => {
+    const supportWindowEndsAt = new Date(now - 30 * DAY_MS).toISOString();
+    const token = await signLicenseTokenForTest(
+      buildPayload({
+        productId: 'lingua_lifetime',
+        tier: 'pro_lifetime',
+        supportWindowEndsAt,
+      }),
+      keys.privateKey
+    );
+
+    const result = await verifyLicenseToken(token, keys.publicKey, {
+      now,
+      buildDate: new Date(now).toISOString(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.state).toBe('active');
+      expect(result.updatesIncludedUntil).toBe(Date.parse(supportWindowEndsAt));
+      expect(result.updatesLapsed).toBe(true);
+    }
+  });
+
+  it('bases the Pro Lifetime renewal notice on the build date, not the current clock', async () => {
+    const supportWindowEndsAt = new Date(now - 30 * DAY_MS).toISOString();
+    const token = await signLicenseTokenForTest(
+      buildPayload({
+        productId: 'lingua_lifetime',
+        tier: 'pro_lifetime',
+        supportWindowEndsAt,
+      }),
+      keys.privateKey
+    );
+
+    const result = await verifyLicenseToken(token, keys.publicKey, {
+      now,
+      buildDate: new Date(now - 60 * DAY_MS).toISOString(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.state).toBe('active');
+      expect(result.updatesLapsed).toBe(false);
+    }
+  });
+
+  it('still rejects a future-dated Pro Lifetime token as clock-skew despite the perpetual branch', async () => {
+    // Locks the check ordering: the pro_lifetime early return must stay
+    // BELOW the clock-skew rejection, or a token forged with a future
+    // issuedAt would verify perpetually.
+    const token = await signLicenseTokenForTest(
+      buildPayload({
+        productId: 'lingua_lifetime',
+        tier: 'pro_lifetime',
+        issuedAt: new Date(now + 7 * DAY_MS).toISOString(),
+        supportWindowEndsAt: new Date(now + 372 * DAY_MS).toISOString(),
+      }),
+      keys.privateKey
+    );
+    const result = await verifyLicenseToken(token, keys.publicKey, {
+      now,
+      clockSkewMs: DAY_MS,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('clock-skew');
+  });
+
   it('rejects tokens issued beyond the clock-skew tolerance as clock-skew', async () => {
     const token = await signLicenseTokenForTest(
       buildPayload({ issuedAt: new Date(now + 7 * DAY_MS).toISOString() }),
@@ -219,6 +297,36 @@ describe('verifyLicenseToken', () => {
       .replace(/=+$/u, '')
       .replace(/\+/g, '-')
       .replace(/\//g, '_')}.${signaturePart}`;
+    const result = await verifyLicenseToken(tampered, keys.publicKey, { now });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('invalid-signature');
+  });
+
+  it('rejects a forged Pro Lifetime update window even though its entitlement would otherwise be perpetual', async () => {
+    const token = await signLicenseTokenForTest(
+      buildPayload({
+        productId: 'lingua_lifetime',
+        tier: 'pro_lifetime',
+        supportWindowEndsAt: new Date(now - 30 * DAY_MS).toISOString(),
+      }),
+      keys.privateKey
+    );
+    const [, signaturePart] = token.split('.');
+    const tampered = `${Buffer.from(
+      JSON.stringify(
+        buildPayload({
+          productId: 'lingua_lifetime',
+          tier: 'pro_lifetime',
+          supportWindowEndsAt: new Date(now + 365 * DAY_MS).toISOString(),
+        })
+      ),
+      'utf-8'
+    )
+      .toString('base64')
+      .replace(/=+$/u, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')}.${signaturePart}`;
+
     const result = await verifyLicenseToken(tampered, keys.publicKey, { now });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('invalid-signature');

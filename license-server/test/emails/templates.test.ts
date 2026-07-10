@@ -86,7 +86,7 @@ describe('email templates render against fixture vars', () => {
       issuedTo: FIXTURE_ISSUED_TO,
       token: FIXTURE_TOKEN,
       tier: FIXTURE_TIER_LABEL,
-      expiresOn: FIXTURE_EXPIRES_ON,
+      planDetails: `Valid until: ${FIXTURE_EXPIRES_ON}.`,
       deepLink: FIXTURE_DEEP_LINK,
     });
     expect(html).toMatchSnapshot();
@@ -112,10 +112,23 @@ describe('email templates fail loud on missing vars', () => {
         layoutCss,
         issuedTo: FIXTURE_ISSUED_TO,
         token: FIXTURE_TOKEN,
-        expiresOn: FIXTURE_EXPIRES_ON,
+        planDetails: `Valid until: ${FIXTURE_EXPIRES_ON}.`,
         deepLink: FIXTURE_DEEP_LINK,
         // tier intentionally missing
       })
     ).toThrowError(/missing variable "tier"/);
+  });
+
+  it('recoveryToken.html requires planDetails (regression guard)', () => {
+    expect(() =>
+      renderTemplate(recoveryTokenTemplate, {
+        layoutCss,
+        issuedTo: FIXTURE_ISSUED_TO,
+        token: FIXTURE_TOKEN,
+        tier: FIXTURE_TIER_LABEL,
+        deepLink: FIXTURE_DEEP_LINK,
+        // planDetails intentionally missing
+      })
+    ).toThrowError(/missing variable "planDetails"/);
   });
 });

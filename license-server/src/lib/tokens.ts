@@ -71,8 +71,8 @@ export interface MintInput {
    */
   expiresAt: number | null;
   /**
-   * Epoch seconds at which offline grace begins. Defaults to
-   * `expiresAt` for time-bound tiers, or `issuedAt + 365d` for lifetime.
+   * Epoch seconds at which the entitlement window ends for time-bound tiers,
+   * or the included-update window ends for Pro Lifetime.
    */
   supportWindowEndsAt: number;
 }

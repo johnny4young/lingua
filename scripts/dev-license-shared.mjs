@@ -228,9 +228,13 @@ export function printDevLicenseBanner({
 }) {
   const separator = '─'.repeat(72);
   const planLabel = DEV_LICENSE_PLAN_LABELS[tier] ?? tier;
+  const durationLabel =
+    tier === 'pro_lifetime'
+      ? `perpetual Pro entitlement, ${days} day(s) of included updates`
+      : `valid ${days} day(s)`;
   console.log(separator);
   console.log(
-    `Lingua dev ${surface} session (tier: ${tier} → shows as "${planLabel}", valid ${days} day(s))`
+    `Lingua dev ${surface} session (tier: ${tier} → shows as "${planLabel}", ${durationLabel})`
   );
   if (publicKeyThumbprint) {
     // Must match the "Signing key fingerprint" row in Settings → License.

@@ -113,6 +113,64 @@ describe('LicenseSection', () => {
     expect(screen.getByTestId('license-clear').className).toContain('focus-ring');
   });
 
+  it('shows a non-blocking optional-renewal row only for a lapsed Pro Lifetime build', () => {
+    stubStatus(
+      {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.parse('2026-06-01T00:00:00.000Z'),
+          updatesIncludedUntil: Date.parse('2026-06-01T00:00:00.000Z'),
+          updatesLapsed: true,
+          payload: {
+            productId: 'lingua_lifetime',
+            tier: 'pro_lifetime',
+            issuedTo: 'user@example.com',
+            issuedAt: '2025-06-01T00:00:00.000Z',
+            supportWindowEndsAt: '2026-06-01T00:00:00.000Z',
+            entitlements: [],
+          },
+        },
+      },
+      'token.value'
+    );
+
+    render(<LicenseSection />);
+
+    expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Pro');
+    expect(screen.getByTestId('license-lifetime-updates-lapsed').textContent).toContain(
+      'Optional renewal'
+    );
+    expect(screen.getByTestId('license-lifetime-updates-lapsed').textContent).toContain(
+      'stay unlocked forever'
+    );
+  });
+
+  it('does not show the renewal row for a Pro Lifetime build still inside its included updates', () => {
+    stubStatus({
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.parse('2026-12-01T00:00:00.000Z'),
+        updatesIncludedUntil: Date.parse('2026-12-01T00:00:00.000Z'),
+        updatesLapsed: false,
+        payload: {
+          productId: 'lingua_lifetime',
+          tier: 'pro_lifetime',
+          issuedTo: 'user@example.com',
+          issuedAt: '2025-12-01T00:00:00.000Z',
+          supportWindowEndsAt: '2026-12-01T00:00:00.000Z',
+          entitlements: [],
+        },
+      },
+    });
+
+    render(<LicenseSection />);
+    expect(screen.queryByTestId('license-lifetime-updates-lapsed')).toBeNull();
+  });
+
   it('disables the Apply button when the input is empty or whitespace-only', () => {
     render(<LicenseSection />);
     const apply = screen.getByTestId('license-apply') as HTMLButtonElement;

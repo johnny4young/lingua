@@ -181,7 +181,7 @@ export const es = {
       tiers: [
         { name: 'Free', price: '$0', tag: 'Por defecto', desc: 'Una pestaña, cinco snippets, JS / TS / Python / Ruby, utilidades de una sola acción. Sin licencia.' },
         { name: 'Pro', price: '$5 / mes', tag: 'Suscripción', desc: 'Pestañas y snippets ilimitados, Go y Rust, más workflows de utilidades.' },
-        { name: 'Pro Lifetime', price: '$59 una vez', tag: 'Pago único', desc: 'Desbloqueo Pro perpetuo, sin factura recurrente y con todas las actualizaciones futuras incluidas.' },
+        { name: 'Pro Lifetime', price: '$59 una vez', tag: 'Pago único', desc: 'Desbloqueo Pro perpetuo, sin factura recurrente y con 12 meses de actualizaciones incluidos.' },
         { name: 'Team', price: '$3 / asiento / mes', tag: 'Por asiento', desc: 'Asientos de equipo, facturación y manejo de licencias para organizaciones.' },
       ],
     },
@@ -204,7 +204,7 @@ export const es = {
     eyebrow: 'Precios',
     heading: 'Cuatro tiers. Paga solo por lo que necesitas.',
     lede:
-      'Pro es una suscripción de $5/mes. Pro Lifetime es $59 una vez con todas las actualizaciones futuras incluidas. Team es $3/asiento/mes con facturación. Free cubre scratchpads de archivo único para siempre. Las licencias se verifican offline.',
+      'Pro es una suscripción de $5/mes. Pro Lifetime cuesta $59 una vez por acceso Pro perpetuo y 12 meses de actualizaciones; renueva solo si quieres releases posteriores. Team cuesta $3/asiento/mes con facturación. Free cubre scratchpads de archivo único para siempre. Las licencias se verifican offline.',
     trialCallout: {
       text: '¿Primera vez? Prueba Pro gratis 14 días — sin tarjeta de crédito.',
       linkText: 'Cómo empezar →',
@@ -258,8 +258,14 @@ export const es = {
           name: 'Pro Lifetime',
           price: '$59',
           cadence: 'una vez',
-          bestFor: 'Paga una vez y conserva soporte',
-          features: ['Todo lo de Pro', 'Cada actualización futura incluida', 'Soporte prioritario por email'],
+          bestFor: 'Paga una vez y conserva Pro para siempre',
+          features: [
+            'Todo lo de Pro',
+            'Desbloqueo Pro perpetuo',
+            '12 meses de actualizaciones incluidos',
+            'Renovación opcional para actualizaciones posteriores',
+            'Soporte prioritario por email durante la ventana de actualizaciones',
+          ],
           cta: 'Comprar Pro Lifetime',
         },
         {
@@ -295,8 +301,8 @@ export const es = {
         a: 'Sí. Una licencia Pro se vincula a un conjunto pequeño de dispositivos (actualmente tres). Cuando compres una máquina nueva, desactiva la anterior desde Settings → License; el cupo se libera de inmediato. Sin phone-home ni espera por servidor.',
       },
       {
-        q: '¿Qué pasa si una release Pro Lifetime llega a fin de vida?',
-        a: 'Pro Lifetime te da acceso a cada release estable futura. Si algún día cerramos el producto o una plataforma específica, tu token seguirá desbloqueando la última release que te soportó: la podrás usar para siempre, offline. Source-available también significa que puedes compilarla tú mismo.',
+        q: '¿Qué pasa cuando terminan las actualizaciones de Pro Lifetime?',
+        a: 'Las funciones Pro siguen desbloqueadas para siempre. La compra única incluye 12 meses de nuevas releases; renovar es opcional si quieres mantener vigente tu elegibilidad para actualizaciones posteriores. Tu token firmado sigue funcionando offline.',
       },
     ],
   },

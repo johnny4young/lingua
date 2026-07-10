@@ -114,8 +114,30 @@ function tierLabel(t: ReturnType<typeof useTranslation>['t'], status: LicenseSta
   return t('license.tier.free');
 }
 
+function lifetimeUpdateNotice(status: LicenseStatus): { updatesIncludedUntil: number } | null {
+  if (status.kind !== 'active' && status.kind !== 'grace') return null;
+  const { verification } = status;
+  if (
+    verification.payload.tier !== 'pro_lifetime' ||
+    verification.updatesLapsed !== true ||
+    verification.updatesIncludedUntil === null ||
+    !Number.isFinite(verification.updatesIncludedUntil)
+  ) {
+    return null;
+  }
+  return { updatesIncludedUntil: verification.updatesIncludedUntil };
+}
+
+function formatLifetimeUpdateDate(timestamp: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(timestamp));
+}
+
 export function LicenseSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState('');
   // UX Sweep T14 — reflect a rejected paste on the input itself (aria-invalid
   // + an inline message), not only via the transient toast.
@@ -164,6 +186,7 @@ export function LicenseSection() {
   const clearRecoverHint = useLicenseStore(state => state.clearRecoverHint);
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const isDevicesExhausted = status.kind === 'invalid' && status.reason === 'devices-exhausted';
+  const lifetimeNotice = lifetimeUpdateNotice(status);
 
   // Slice 4 — when a child CTA hits a duplicate-email branch with
   // `canRecover: true`, we capture the email here and pass it down to
@@ -176,7 +199,7 @@ export function LicenseSection() {
   const handleDismissRecoverHint = useCallback(() => {
     clearRecoverHint();
     setRecoveryPrefill(null);
-  }, [clearRecoverHint]);
+  }, [clearRecoverHint, setRecoveryPrefill]);
 
   // Auto-show the modal for a rehydrated `invalid:devices-exhausted` status
   // without mirroring the status into state from an effect. Closing it marks
@@ -334,6 +357,25 @@ export function LicenseSection() {
           }
         />
       </SpecCard>
+
+      {lifetimeNotice ? (
+        <div data-testid="license-lifetime-updates-lapsed">
+          <SpecCard>
+            <SpecRow
+              last
+              label={t('license.lifetimeUpdates.label')}
+              description={t('license.lifetimeUpdates.description', {
+                date: formatLifetimeUpdateDate(lifetimeNotice.updatesIncludedUntil, i18n.language || 'en'),
+              })}
+              control={
+                <span className="rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-caption text-warning-fg">
+                  {t('license.lifetimeUpdates.renewal')}
+                </span>
+              }
+            />
+          </SpecCard>
+        </div>
+      ) : null}
 
       {/* RL-143 — embedded signing-key fingerprint. Rendered only when the
           build embeds a public key; the operator cross-checks this value
