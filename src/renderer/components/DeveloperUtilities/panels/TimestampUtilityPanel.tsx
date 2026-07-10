@@ -1,9 +1,16 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityToolbar } from '../panelPrimitives';
+import {
+  FieldLabel,
+  PanelSection,
+  StatusMessage,
+  TimestampHoverValue,
+  UtilityInput,
+  UtilityToolbar,
+} from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
-import { analyzeTimestamp } from '../../../utils/developerUtilities';
+import { analyzeTimestamp, inspectTimestampLike } from '../../../utils/developerUtilities';
 
 export function TimestampUtilityPanel() {
   const { t } = useTranslation();
@@ -13,16 +20,13 @@ export function TimestampUtilityPanel() {
   // RL-069 Slice 2 — ISO 8601 is the most copy-worthy output for the
   // shortcut. The other readouts (epoch s/ms, local) stay reachable
   // through their per-row CopyButtons.
-  const registerOutput = useCallback(
-    () => analysis.iso ?? null,
-    [analysis.iso]
-  );
+  const registerOutput = useCallback(() => analysis.iso ?? null, [analysis.iso]);
   useRegisterUtilityOutput(registerOutput);
 
   const runApply = useCallback(() => {
     // No-op for the live panel — Apply gives a deterministic moment
     // for the success toast to confirm the gesture.
-    setInput((prev) => prev);
+    setInput(prev => prev);
   }, []);
 
   return (
@@ -36,7 +40,7 @@ export function TimestampUtilityPanel() {
           <UtilityInput
             aria-label={t('utilities.field.input')}
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={event => setInput(event.target.value)}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -54,9 +58,7 @@ export function TimestampUtilityPanel() {
             setPrimary={setInput}
           />
         </div>
-        {analysis.errorKey ? (
-          <StatusMessage message={t(analysis.errorKey)} tone="error" />
-        ) : null}
+        {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
       </PanelSection>
 
       <PanelSection
@@ -87,6 +89,13 @@ export function TimestampUtilityPanel() {
             fullWidth
             monospace={false}
           />
+          <TimestampOutputCard
+            label={t('utilities.tool.timestamp.outputs.utc')}
+            value={analysis.utc ?? null}
+            testid="timestamp-output-utc"
+            fullWidth
+            monospace={false}
+          />
         </div>
       </PanelSection>
     </div>
@@ -109,6 +118,7 @@ function TimestampOutputCard({
 }) {
   const hasValue = value !== null && value !== undefined && String(value).length > 0;
   const stringValue = hasValue ? String(value) : '';
+  const timestamp = hasValue ? inspectTimestampLike(value) : null;
   const textClass = `${monospace ? 'font-mono ' : ''}text-body text-foreground`;
   return (
     <div
@@ -121,7 +131,13 @@ function TimestampOutputCard({
         <CopyButton value={stringValue} testid={`${testid}-copy`} disabled={!hasValue} />
       </div>
       <span className={textClass} data-testid={testid}>
-        {hasValue ? stringValue : '—'}
+        {timestamp ? (
+          <TimestampHoverValue value={stringValue} timestamp={timestamp} />
+        ) : hasValue ? (
+          stringValue
+        ) : (
+          '—'
+        )}
       </span>
     </div>
   );

@@ -1,5 +1,35 @@
 import type { Monaco } from '@monaco-editor/react';
 
+export interface EditorThemeSurface {
+  background: string;
+  foreground: string;
+}
+
+/**
+ * The static utility viewers reuse these surfaces so their background and
+ * foreground match the selected Monaco editor theme as well as its token
+ * colors. Keep custom-theme values in lockstep with `defineCustomThemes`.
+ */
+const EDITOR_THEME_SURFACES = {
+  'lingua-dark': { background: '#060a0b', foreground: '#dfe6e7' },
+  'lingua-light': { background: '#fafcfd', foreground: '#2a3537' },
+  dracula: { background: '#282a36', foreground: '#f8f8f2' },
+  'one-dark-pro': { background: '#282c34', foreground: '#abb2bf' },
+  monokai: { background: '#272822', foreground: '#f8f8f2' },
+  'nord-night': { background: '#2e3440', foreground: '#d8dee9' },
+  'solarized-light': { background: '#fdf6e3', foreground: '#657b83' },
+  'vs-dark': { background: '#1e1e1e', foreground: '#d4d4d4' },
+  vs: { background: '#fffffe', foreground: '#000000' },
+  'hc-black': { background: '#000000', foreground: '#ffffff' },
+} as const satisfies Readonly<Record<string, EditorThemeSurface>>;
+
+export function getEditorThemeSurface(themeId: string): EditorThemeSurface {
+  if (themeId in EDITOR_THEME_SURFACES) {
+    return EDITOR_THEME_SURFACES[themeId as keyof typeof EDITOR_THEME_SURFACES];
+  }
+  return EDITOR_THEME_SURFACES['lingua-dark'];
+}
+
 export function defineCustomThemes(monaco: Monaco) {
   // Lingua Dark — DS canonical syntax palette + chrome from
   // tokens.json (Signal-Slate v1.0.0). The hexes are the OKLCh values
@@ -28,8 +58,8 @@ export function defineCustomThemes(monaco: Monaco) {
       { token: 'operator', foreground: '98a8ab' },
     ],
     colors: {
-      'editor.background': '#060a0b',
-      'editor.foreground': '#dfe6e7',
+      'editor.background': EDITOR_THEME_SURFACES['lingua-dark'].background,
+      'editor.foreground': EDITOR_THEME_SURFACES['lingua-dark'].foreground,
       'editorLineNumber.foreground': '#475558',
       'editorLineNumber.activeForeground': '#98a8ab',
       'editor.lineHighlightBackground': '#0d1314',
@@ -57,8 +87,8 @@ export function defineCustomThemes(monaco: Monaco) {
       { token: 'operator', foreground: '4a585b' },
     ],
     colors: {
-      'editor.background': '#fafcfd',
-      'editor.foreground': '#2a3537',
+      'editor.background': EDITOR_THEME_SURFACES['lingua-light'].background,
+      'editor.foreground': EDITOR_THEME_SURFACES['lingua-light'].foreground,
       'editorLineNumber.foreground': '#9ea6a8',
       'editorLineNumber.activeForeground': '#4a585b',
       'editor.lineHighlightBackground': '#f1f5f6',
@@ -80,8 +110,8 @@ export function defineCustomThemes(monaco: Monaco) {
       { token: 'variable', foreground: 'f8f8f2' },
     ],
     colors: {
-      'editor.background': '#282a36',
-      'editor.foreground': '#f8f8f2',
+      'editor.background': EDITOR_THEME_SURFACES.dracula.background,
+      'editor.foreground': EDITOR_THEME_SURFACES.dracula.foreground,
       'editorLineNumber.foreground': '#6272a4',
       'editor.lineHighlightBackground': '#44475a40',
       'editor.selectionBackground': '#44475a',
@@ -102,8 +132,8 @@ export function defineCustomThemes(monaco: Monaco) {
       { token: 'variable', foreground: 'e06c75' },
     ],
     colors: {
-      'editor.background': '#282c34',
-      'editor.foreground': '#abb2bf',
+      'editor.background': EDITOR_THEME_SURFACES['one-dark-pro'].background,
+      'editor.foreground': EDITOR_THEME_SURFACES['one-dark-pro'].foreground,
       'editorLineNumber.foreground': '#4b5263',
       'editor.lineHighlightBackground': '#2c313c',
       'editor.selectionBackground': '#3e4451',
@@ -124,8 +154,8 @@ export function defineCustomThemes(monaco: Monaco) {
       { token: 'variable', foreground: 'f8f8f2' },
     ],
     colors: {
-      'editor.background': '#272822',
-      'editor.foreground': '#f8f8f2',
+      'editor.background': EDITOR_THEME_SURFACES.monokai.background,
+      'editor.foreground': EDITOR_THEME_SURFACES.monokai.foreground,
       'editorLineNumber.foreground': '#75715e',
       'editor.lineHighlightBackground': '#3e3d32',
       'editor.selectionBackground': '#49483e',
@@ -146,8 +176,8 @@ export function defineCustomThemes(monaco: Monaco) {
       { token: 'variable', foreground: 'd8dee9' },
     ],
     colors: {
-      'editor.background': '#2e3440',
-      'editor.foreground': '#d8dee9',
+      'editor.background': EDITOR_THEME_SURFACES['nord-night'].background,
+      'editor.foreground': EDITOR_THEME_SURFACES['nord-night'].foreground,
       'editorLineNumber.foreground': '#4c566a',
       'editorLineNumber.activeForeground': '#d8dee9',
       'editor.lineHighlightBackground': '#3b4252',
@@ -168,8 +198,8 @@ export function defineCustomThemes(monaco: Monaco) {
       { token: 'function', foreground: '268bd2' },
     ],
     colors: {
-      'editor.background': '#fdf6e3',
-      'editor.foreground': '#657b83',
+      'editor.background': EDITOR_THEME_SURFACES['solarized-light'].background,
+      'editor.foreground': EDITOR_THEME_SURFACES['solarized-light'].foreground,
       'editorLineNumber.foreground': '#93a1a1',
       'editor.lineHighlightBackground': '#eee8d5',
       'editor.selectionBackground': '#eee8d5',

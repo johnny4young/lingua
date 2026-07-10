@@ -1,14 +1,16 @@
 import type React from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useId, useMemo } from 'react';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from './CopyButton';
 import { findDeveloperUtility, type DeveloperUtilityId } from '../../data/developerUtilities';
 import { useRegisterUtilityApply } from '../../hooks/useRegisterUtilityOutput';
 import { useClipboardOnFocus } from '../../hooks/useClipboardOnFocus';
+import { useUtilityPanelActive } from '../../hooks/utilityPanelActive';
 import { useUtilityHistoryStore, type UtilityHistoryEntry } from '../../stores/utilityHistoryStore';
 import { useUtilityOutputStore } from '../../stores/utilityOutputStore';
 import { cn } from '../../utils/cn';
+import type { TimestampHoverInfo } from '../../utils/developerUtilities';
 import { UtilityHistoryDrawer } from './UtilityHistoryDrawer';
 
 export function PanelSection({
@@ -85,53 +87,43 @@ export const UTILITY_TALL_TEXTAREA_CLASS = 'min-h-[16rem] font-mono';
 
 export const UTILITY_EXTRA_TALL_TEXTAREA_CLASS = 'min-h-[20rem] font-mono';
 
-export function JsonTreeNode({ label, value }: { label?: string; value: unknown }) {
-  if (Array.isArray(value)) {
-    return (
-      <div className="grid gap-2 pl-4">
-        <div className="text-body-sm font-medium text-foreground">
-          {label ? `${label}: ` : ''}
-          <span className="text-muted">[{value.length}]</span>
-        </div>
-        <div className="grid gap-2 border-l border-border/70 pl-3">
-          {value.map((entry, index) => (
-            <JsonTreeNode
-              key={`${label ?? 'array'}-${index}`}
-              label={String(index)}
-              value={entry}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    return (
-      <div className="grid gap-2 pl-4">
-        <div className="text-body-sm font-medium text-foreground">
-          {label ? `${label}: ` : ''}
-          <span className="text-muted">
-            {'{'}
-            {entries.length}
-            {'}'}
-          </span>
-        </div>
-        <div className="grid gap-2 border-l border-border/70 pl-3">
-          {entries.map(([key, entry]) => (
-            <JsonTreeNode key={`${label ?? 'object'}-${key}`} label={key} value={entry} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+export function TimestampHoverValue({
+  value,
+  timestamp,
+}: {
+  value: string;
+  timestamp: TimestampHoverInfo;
+}) {
+  const { t } = useTranslation();
+  const reactId = useId();
+  const tooltipId = `utility-timestamp-${reactId.replace(/:/g, '')}`;
 
   return (
-    <div className="text-body-sm text-foreground">
-      {label ? <span className="font-medium text-foreground">{label}: </span> : null}
-      <span className="text-muted">{String(value)}</span>
-    </div>
+    <span className="group relative inline-flex align-baseline">
+      <span
+        tabIndex={0}
+        aria-describedby={tooltipId}
+        data-testid="json-timestamp-value"
+        className="focus-ring inline-flex cursor-help items-center rounded-md border border-accent/25 bg-accent/10 px-1.5 py-0.5 font-mono text-[0.82em] font-semibold text-accent-fg transition-colors hover:border-accent/45 hover:bg-accent/15"
+      >
+        {value}
+      </span>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className="pointer-events-none absolute left-0 top-[calc(100%+0.45rem)] z-50 hidden w-max max-w-[20rem] rounded-xl border border-border-subtle bg-bg-panel px-3 py-2 text-left text-caption leading-5 text-fg-base shadow-xl group-hover:block group-focus-within:block"
+      >
+        <span className="block font-mono text-[0.68rem] font-bold uppercase tracking-[0.18em] text-fg-subtle">
+          {t('utilities.timestampHover.local')}
+        </span>
+        <span className="block whitespace-nowrap">{timestamp.local}</span>
+        <span className="mt-1.5 block font-mono text-[0.68rem] font-bold uppercase tracking-[0.18em] text-fg-subtle">
+          {t('utilities.timestampHover.utc')}
+        </span>
+        <span className="block whitespace-nowrap">{timestamp.utc}</span>
+        <span className="mt-1.5 block font-mono text-[0.68rem] text-fg-muted">{timestamp.iso}</span>
+      </span>
+    </span>
   );
 }
 
@@ -160,6 +152,7 @@ export function UtilityToolbar({
   setPrimary,
   applyTestId = 'utility-apply-button',
   className,
+  leading,
   children,
 }: {
   utilityId: DeveloperUtilityId;
@@ -177,9 +170,16 @@ export function UtilityToolbar({
   setPrimary?: (value: string) => void;
   applyTestId?: string;
   className?: string;
+  /**
+   * Space audit — panel-specific controls (e.g. the JWT mode select)
+   * rendered BEFORE the Apply button so they share the toolbar's single
+   * row instead of stacking a row of their own above it.
+   */
+  leading?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  const panelActive = useUtilityPanelActive();
   const definition = useMemo(() => findDeveloperUtility(utilityId), [utilityId]);
   const detect = definition.detect;
   const enabled = useMemo(() => {
@@ -257,18 +257,19 @@ export function UtilityToolbar({
     [setPrimary]
   );
   useClipboardOnFocus(utilityId, clipboardDetect, applyClipboardValue, {
-    enabled: Boolean(setPrimary),
+    enabled: Boolean(setPrimary) && panelActive,
   });
 
   if (!detect) {
     // Generator panel — no Apply button, but still allow extras. This
     // keeps the toolbar API uniform across the catalog.
-    if (!children) return null;
+    if (!children && !leading) return null;
     return (
       <div
         data-testid="utility-toolbar"
         className={`um-toolbar flex flex-wrap items-center gap-2 ${className ?? ''}`}
       >
+        {leading}
         {children}
       </div>
     );
@@ -279,24 +280,31 @@ export function UtilityToolbar({
     ? 'utilities.actions.applyFromInput'
     : 'utilities.tooltip.applyUnavailable';
   return (
-    <div data-testid="utility-toolbar" className={`um-toolbar grid gap-2 ${className ?? ''}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={handleApply}
-          disabled={!enabled}
-          data-testid={applyTestId}
-          aria-label={t(labelKey)}
-          title={t(tooltipKey)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-bg-panel px-3 py-1.5 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Zap size={12} aria-hidden="true" />
-          {t(labelKey)}
-        </button>
-        {children}
-      </div>
+    // Space audit — ONE wrapping row: leading extras, Apply, children,
+    // and the Recent-runs drawer side by side (the drawer flexes into
+    // the remaining width; its expanded list drops below within it).
+    <div
+      data-testid="utility-toolbar"
+      className={`um-toolbar flex flex-wrap items-center gap-2 ${className ?? ''}`}
+    >
+      {leading}
+      <button
+        type="button"
+        onClick={handleApply}
+        disabled={!enabled}
+        data-testid={applyTestId}
+        aria-label={t(labelKey)}
+        title={t(tooltipKey)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-bg-panel px-3 py-1.5 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Zap size={12} aria-hidden="true" />
+        {t(labelKey)}
+      </button>
+      {children}
       {setPrimary ? (
-        <UtilityHistoryDrawer utilityId={utilityId} onApplyEntry={handleHistoryEntry} />
+        <div className="min-w-[14rem] flex-1">
+          <UtilityHistoryDrawer utilityId={utilityId} onApplyEntry={handleHistoryEntry} />
+        </div>
       ) : null}
     </div>
   );

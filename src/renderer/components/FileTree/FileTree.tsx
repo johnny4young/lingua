@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   ChevronsDownUp,
@@ -16,6 +16,7 @@ import { countFiles } from '../../stores/projectTree';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
 import { useDirtyTabPaths, dirtyTabKey } from '../../hooks/useDirtyTabPaths';
+import { useListWindow } from '../../hooks/useListWindow';
 import { useProjectBundle } from '../../hooks/useProjectBundle';
 import { IconButton } from '../ui/chrome';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
@@ -23,29 +24,17 @@ import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import { FileTreeNode } from './FileTreeNode';
 import { FileTreeOpenTabs } from './FileTreeOpenTabs';
+import { flattenVisibleRows } from './fileTreeRows';
 import type { CreationTarget } from './fileTreeTypes';
 
 // ------------------------------------------------------------------ main FileTree
 
 /**
- * UX Sweep T7 — flatten the tree into the rows that are CURRENTLY visible
- * (respecting each directory's expanded state), in display order, each
- * tagged with its parent path. This is the model the ArrowUp/Down/Left
- * keyboard navigation steps through.
+ * IT2-B2 — estimated row height for the windower. Rows are `py-1` over a
+ * ~16px line: ~24-26px real; `useListWindow` self-corrects per row via
+ * ResizeObserver, so the estimate only shapes the first paint.
  */
-function flattenVisibleTree(
-  nodes: readonly ProjectFileTreeNode[],
-  parentPath = ''
-): Array<{ node: ProjectFileTreeNode; parentPath: string }> {
-  const out: Array<{ node: ProjectFileTreeNode; parentPath: string }> = [];
-  for (const node of nodes) {
-    out.push({ node, parentPath });
-    if (node.isDirectory && node.isExpanded && node.children) {
-      out.push(...flattenVisibleTree(node.children, node.path));
-    }
-  }
-  return out;
-}
+const TREE_ROW_ESTIMATE_PX = 26;
 
 interface FileTreeProps {
   onNavigate?: () => void;
@@ -147,19 +136,49 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     return dirtyTabKey(currentProject.rootId, activeTabRelativePath);
   }, [currentProject, activeTabRootId, activeTabRelativePath]);
 
-  // UX Sweep T7 — the flat list of visible rows + the keyboard navigator.
-  const visibleNodes = useMemo(() => flattenVisibleTree(nodes), [nodes]);
+  // IT2-B2 — the flat display-order row list (nodes + the synthetic
+  // create/empty-dir rows) feeding the windower, plus the node-only
+  // projection the ArrowUp/Down keyboard navigator steps through.
+  const flatRows = useMemo(() => flattenVisibleRows(nodes, creating), [nodes, creating]);
+  const visibleNodes = useMemo(
+    () => flatRows.filter((row) => row.kind === 'node'),
+    [flatRows]
+  );
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const { listWindow, measureRef, scrollToIndex } = useListWindow({
+    scrollRef,
+    keys: useMemo(() => flatRows.map((row) => row.key), [flatRows]),
+    estimate: TREE_ROW_ESTIMATE_PX,
+  });
 
   const focusTreeRow = (path: string | undefined) => {
     if (!path) return;
-    requestAnimationFrame(() => {
+    // IT2-B2 — a keyboard jump (Home/End/long Arrow runs) can target a
+    // row that is currently windowed out. Scroll it into the window
+    // first so the focus target actually mounts.
+    const rowIndex = flatRows.findIndex(
+      (row) => row.kind === 'node' && row.node.path === path
+    );
+    if (
+      rowIndex !== -1 &&
+      (rowIndex < listWindow.startIndex || rowIndex > listWindow.endIndex)
+    ) {
+      scrollToIndex(rowIndex);
+    }
+    const tryFocus = (attempt: number) => {
       // Quoted attribute selector needs no CSS.escape (absent in some
       // jsdom); just guard `"`/`\` so a pathological name can't break it.
       const safe = path.replace(/["\\]/g, '\\$&');
-      document
-        .querySelector<HTMLElement>(`[data-tree-row="${safe}"]`)
-        ?.focus();
-    });
+      const row = document.querySelector<HTMLElement>(`[data-tree-row="${safe}"]`);
+      if (row) {
+        row.focus();
+        return;
+      }
+      // The just-scrolled-in row may need one more frame to mount.
+      if (attempt < 3) requestAnimationFrame(() => tryFocus(attempt + 1));
+    };
+    requestAnimationFrame(() => tryFocus(0));
   };
 
   const handleTreeKeyDown = (
@@ -354,54 +373,100 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         </div>
       </div>
 
-      {/* Tree */}
+      {/* Tree — IT2-B2: one windowed flat list. Only the rows whose band
+          intersects the viewport (plus overscan) mount; two spacer divs
+          preserve the scrollbar geometry. In jsdom (clientHeight 0) the
+          windower degrades to the full list, so component tests see every
+          row exactly as before virtualization. Tree semantics stay valid
+          as a flat ARIA tree: each row carries role="treeitem" +
+          aria-level, so depth no longer needs nested role="group" DOM. */}
       <div
+        ref={scrollRef}
         className="flex-1 overflow-y-auto py-1"
         role="tree"
         aria-label={t('fileTree.ariaLabel', { name: currentProject.name })}
       >
-        {/* Inline creation at root level */}
-        {creating && creating.parentPath === '' && (
-          <div className="px-2 py-0.5">
-            <FileTreeInlineInput
-              placeholder={
-                creating.kind === 'file'
-                  ? t('fileTree.placeholder.file')
-                  : t('fileTree.placeholder.folder')
-              }
-              onConfirm={handleCreateConfirm}
-              onCancel={() => setCreating(null)}
-            />
-          </div>
+        {listWindow.topSpacer > 0 && (
+          <div style={{ height: `${listWindow.topSpacer}px` }} aria-hidden role="presentation" />
         )}
 
-        {nodes.map((node) => (
-          <FileTreeNode
-            key={node.path}
-            node={node}
-            depth={0}
-            creating={creating}
-            dirtyTabPaths={dirtyTabPaths}
-            activeFileKey={activeFileKey}
-            onCreateConfirm={handleCreateConfirm}
-            onCancelCreate={() => setCreating(null)}
-            onFileClick={handleFileClick}
-            onDelete={handleDelete}
-            onNewFileIn={(n) => {
-              setCreating({ parentPath: n.path, kind: 'file' });
-              // ensure directory is expanded first
-              if (!n.isExpanded) useProjectStore.getState().expandDirectory(n.path);
-            }}
-            onNewDirIn={(n) => {
-              setCreating({ parentPath: n.path, kind: 'dir' });
-              if (!n.isExpanded) useProjectStore.getState().expandDirectory(n.path);
-            }}
-            onTreeKeyDown={handleTreeKeyDown}
-          />
-        ))}
+        {flatRows.slice(listWindow.startIndex, listWindow.endIndex + 1).map((row) => {
+          if (row.kind === 'create') {
+            return (
+              <div
+                key={row.key}
+                ref={measureRef(row.key)}
+                role="treeitem"
+                aria-level={row.parentPath ? row.depth + 2 : 1}
+                className="px-2 py-0.5"
+                style={
+                  row.parentPath
+                    ? { paddingLeft: `${(row.depth + 2) * 12 + 4}px` }
+                    : undefined
+                }
+              >
+                <FileTreeInlineInput
+                  placeholder={
+                    creating?.kind === 'file'
+                      ? t('fileTree.placeholder.file')
+                      : t('fileTree.placeholder.folder')
+                  }
+                  onConfirm={handleCreateConfirm}
+                  onCancel={() => setCreating(null)}
+                />
+              </div>
+            );
+          }
+          if (row.kind === 'empty-dir') {
+            return (
+              <p
+                key={row.key}
+                ref={measureRef(row.key)}
+                role="treeitem"
+                aria-level={row.depth + 2}
+                aria-disabled="true"
+                className="py-0.5 text-body-sm italic text-muted"
+                style={{ paddingLeft: `${(row.depth + 2) * 12 + 4}px` }}
+              >
+                {t('fileTree.emptyDirectory')}
+              </p>
+            );
+          }
+          return (
+            <FileTreeNode
+              key={row.key}
+              rowRef={measureRef(row.key)}
+              node={row.node}
+              depth={row.depth}
+              dirtyTabPaths={dirtyTabPaths}
+              activeFileKey={activeFileKey}
+              onFileClick={handleFileClick}
+              onDelete={handleDelete}
+              onNewFileIn={(n) => {
+                setCreating({ parentPath: n.path, kind: 'file' });
+                // ensure directory is expanded first
+                if (!n.isExpanded) useProjectStore.getState().expandDirectory(n.path);
+              }}
+              onNewDirIn={(n) => {
+                setCreating({ parentPath: n.path, kind: 'dir' });
+                if (!n.isExpanded) useProjectStore.getState().expandDirectory(n.path);
+              }}
+              onTreeKeyDown={handleTreeKeyDown}
+            />
+          );
+        })}
+
+        {listWindow.bottomSpacer > 0 && (
+          <div style={{ height: `${listWindow.bottomSpacer}px` }} aria-hidden role="presentation" />
+        )}
 
         {nodes.length === 0 && (
-          <p className="px-3 py-4 text-center text-body-sm italic text-muted">
+          <p
+            role="treeitem"
+            aria-level={1}
+            aria-disabled="true"
+            className="px-3 py-4 text-center text-body-sm italic text-muted"
+          >
             {t('fileTree.empty')}
           </p>
         )}

@@ -14,7 +14,13 @@
  * Reference: RL-027 Slice 1 and docs/DEBUGGER_ADR.md.
  */
 
-type DebuggerControlMessage =
+/**
+ * IT2-A4 — the single source of truth for debugger-control messages.
+ * Exported so the worker's inbound message handler (`js-worker.ts`) can
+ * consume the SAME union the sender posts, closing the send/receive drift
+ * (the worker previously read `event.data` as `any` and cast per branch).
+ */
+export type DebuggerControlMessage =
   | { type: 'resume' }
   | { type: 'step'; mode: 'over' | 'into' | 'out' }
   | { type: 'set-breakpoints'; breakpoints: { line: number; condition?: string }[] };

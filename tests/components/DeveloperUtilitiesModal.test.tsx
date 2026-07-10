@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
@@ -61,11 +61,83 @@ describe('DeveloperUtilitiesModal', () => {
 
     expect(screen.getByTestId('developer-utilities-workspace')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'JWT Debugger' })).toBeTruthy();
+    // Space audit: the workspace view carries NO local header — neither
+    // the old title box nor the status pills, which now render in the
+    // shell's shared editor chips row (asserted in AppLayout.test).
+    expect(screen.queryByText('Built-in utilities')).toBeNull();
+    expect(screen.queryByText('Copy output')).toBeNull();
+    expect(screen.queryByText(/\d+ tools/u)).toBeNull();
 
     await user.click(screen.getByTestId('utility-item-json'));
 
     expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('json');
     expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
+  });
+
+  it('opens a favorite utility even when it is outside the current search results', async () => {
+    const user = userEvent.setup();
+    useUtilityHistoryStore.setState({
+      favorites: ['jwt', 'timestamp'],
+      activeUtilityId: 'jwt',
+    });
+
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    await user.type(screen.getByTestId('utilities-search-input'), 'jwt');
+    expect(screen.queryByTestId('utility-item-timestamp')).toBeNull();
+
+    await user.click(screen.getByText('Timestamp Converter'));
+
+    expect(screen.getByRole('heading', { name: 'Timestamp Converter' })).toBeTruthy();
+    expect((screen.getByTestId('utilities-search-input') as HTMLInputElement).value).toBe('jwt');
+  });
+
+  it('keeps utility draft inputs while navigating within an open Utilities workspace tab', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    await user.click(screen.getByTestId('utility-item-base64'));
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+    const base64Panel = () => within(screen.getByTestId('utility-panel-cache-base64'));
+    fireEvent.change(base64Panel().getByLabelText('Input'), {
+      target: { value: 'draft stays here' },
+    });
+
+    await user.click(screen.getByTestId('utility-item-json'));
+    expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
+
+    await user.click(screen.getByTestId('utility-item-base64'));
+    expect((base64Panel().getByLabelText('Input') as HTMLTextAreaElement).value).toBe(
+      'draft stays here'
+    );
+  });
+
+  it('remembers a utility selected from outside the sidebar (palette path) in the keep-mounted cache', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    // Simulate the command palette writing the active utility straight to
+    // the store — no sidebar click, so only the selectedUtilityId sync
+    // effect can remember it in the keep-mounted cache.
+    act(() => {
+      useUtilityHistoryStore.getState().setActiveUtilityId('base64');
+    });
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+    const base64Panel = () => within(screen.getByTestId('utility-panel-cache-base64'));
+    fireEvent.change(base64Panel().getByLabelText('Input'), {
+      target: { value: 'palette draft' },
+    });
+
+    await user.click(screen.getByTestId('utility-item-json'));
+    expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
+
+    await user.click(screen.getByTestId('utility-item-base64'));
+    expect((base64Panel().getByLabelText('Input') as HTMLTextAreaElement).value).toBe(
+      'palette draft'
+    );
   });
 
   it('keeps the Pipelines workflow locked on Free while base utilities render', async () => {
@@ -150,17 +222,18 @@ describe('DeveloperUtilitiesModal', () => {
     // FavoriteToggleButton whose aria-label also contains "Base64
     // Encoder" (e.g. "Pin Base64 Encoder to favorites").
     await user.click(screen.getByTestId('utility-item-base64'));
+    const base64Panel = within(screen.getByTestId('utility-panel-cache-base64'));
 
     expect(screen.getByRole('heading', { name: 'Base64 Encoder' })).toBeTruthy();
-    expect((screen.getByLabelText('Output') as HTMLTextAreaElement).value).toBe(
+    expect((base64Panel.getByLabelText('Output') as HTMLTextAreaElement).value).toBe(
       'TGluZ3VhIHV0aWxpdGllcw=='
     );
 
     await user.click(screen.getByRole('button', { name: 'Decode' }));
-    await user.clear(screen.getByLabelText('Input'));
-    await user.type(screen.getByLabelText('Input'), 'TGluZ3Vh');
+    await user.clear(base64Panel.getByLabelText('Input'));
+    await user.type(base64Panel.getByLabelText('Input'), 'TGluZ3Vh');
 
-    expect((screen.getByLabelText('Output') as HTMLTextAreaElement).value).toBe('Lingua');
+    expect((base64Panel.getByLabelText('Output') as HTMLTextAreaElement).value).toBe('Lingua');
   });
 
   it('shows regex matches with capture groups and a count label', async () => {

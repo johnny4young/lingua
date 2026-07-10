@@ -5,6 +5,7 @@ import {
   UtilityTextarea,
   UtilityToolbar,
 } from '../panelPrimitives';
+import { JsonSyntaxOutput } from '../JsonSyntaxOutput';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -153,14 +154,23 @@ export function BeautifyMinifyUtilityPanel() {
           <StatusMessage message={t(errorKey)} tone="error" />
         ) : (
           <div className="relative">
-            <UtilityTextarea
-              aria-label={t('utilities.field.output')}
-              data-testid="beautify-minify-output"
-              value={output}
-              readOnly
-              spellCheck={false}
-              className="pr-10 min-h-[20rem] font-mono"
-            />
+            {language === 'json' ? (
+              <JsonSyntaxOutput
+                ariaLabel={t('utilities.field.output')}
+                testid="beautify-minify-output"
+                value={output}
+                className="min-h-[20rem] pr-10"
+              />
+            ) : (
+              <UtilityTextarea
+                aria-label={t('utilities.field.output')}
+                data-testid="beautify-minify-output"
+                value={output}
+                readOnly
+                spellCheck={false}
+                className="pr-10 min-h-[20rem] font-mono"
+              />
+            )}
             <div className="absolute right-2 top-2">
               <CopyButton value={output} disabled={!output} />
             </div>

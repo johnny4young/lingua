@@ -10,6 +10,11 @@ Canonical status + priority for every `RL-XXX` ticket, deep per-ticket scope,
 sprint sequencing, raw idea capture, and shipped-history archiving are tracked
 in internal planning docs that are not part of this repo.
 
+[`IMPROVEMENT_PLAN_2026-07.md`](./IMPROVEMENT_PLAN_2026-07.md) — the 2026-07
+state-of-the-project audit (code, market, boot, a11y, distribution) and its
+`IT2-*` execution lanes. Working document: `IT2-*` ids are NOT tickets;
+graduation to `RL-XXX` still goes through the internal backlog first.
+
 ## Reading order (new contributors)
 
 1. [`DEVELOPMENT.md`](./DEVELOPMENT.md) — contributor workflow (clone, dev/test/smoke/build commands, Pro testing locally, automation/delivery).

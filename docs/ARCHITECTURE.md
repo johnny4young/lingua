@@ -400,13 +400,14 @@ and the renderer is now a **compile error**, and
 fails if a handler is registered for a channel absent from the contract (or
 vice versa).
 
-Two documented exceptions stay on raw `ipcMain.handle`: the generic LSP
+One documented exception stays on raw `ipcMain.handle`: the generic LSP
 registrar (it builds channel names dynamically, so it cannot pass a literal
-contract key) and the `license:*` handlers (binding them surfaced a real,
-pre-existing drift — main's 6-tier license types vs the renderer-facing
-4-tier ambient types — whose reconciliation is a deliberate follow-up, not a
-mechanical wrap). Both are still covered by the contract + drift test by
-name.
+contract key). It is still covered by the contract + drift test by name.
+The `license:*` handlers were a second exception while main's 6-tier license
+types drifted from the renderer-facing 4-tier ambient types; that drift has
+since been reconciled — both sides share the 6-tier `LicenseTier` union in
+`src/shared/license.ts` — and the handlers now register through
+`typedHandle` (`src/main/ipc/license.ts`).
 
 ### Why IPC is used here
 

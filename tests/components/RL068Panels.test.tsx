@@ -34,13 +34,19 @@ beforeEach(async () => {
   await i18next.changeLanguage('en');
 });
 
+function outputText(testid: string): string {
+  const output = screen.getByTestId(testid);
+  return output instanceof HTMLTextAreaElement ? output.value : (output.textContent ?? '');
+}
+
 describe('YamlJsonPanel', () => {
   it('renders the seeded YAML → JSON output and surfaces the comments-dropped warning', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="yaml-json" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
-    const output = (screen.getByTestId('yaml-json-output') as HTMLTextAreaElement).value;
+    const output = outputText('yaml-json-output');
     expect(output).toContain('"name": "lingua"');
     expect(output).toContain('"services"');
+    expect(screen.getByTestId('yaml-json-output').tagName).toBe('PRE');
     expect(screen.getByTestId('yaml-json-comments-dropped')).toBeTruthy();
   });
 
@@ -50,8 +56,9 @@ describe('YamlJsonPanel', () => {
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     await user.selectOptions(screen.getByTestId('yaml-json-mode'), 'json-to-yaml');
     await waitFor(() => {
-      const output = (screen.getByTestId('yaml-json-output') as HTMLTextAreaElement).value;
+      const output = outputText('yaml-json-output');
       expect(output).toContain('name: lingua');
+      expect(screen.getByTestId('yaml-json-output').tagName).toBe('TEXTAREA');
     });
   });
 
@@ -72,7 +79,7 @@ describe('JsonCsvPanel', () => {
   it('renders the seeded JSON → CSV output with the header row', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="json-csv" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
-    const output = (screen.getByTestId('json-csv-output') as HTMLTextAreaElement).value;
+    const output = outputText('json-csv-output');
     expect(output.split('\n')[0]).toBe('name,score');
     expect(output).toContain('Alice,92');
     expect(screen.getByTestId('json-csv-summary').textContent).toMatch(/3 rows/);
@@ -84,8 +91,9 @@ describe('JsonCsvPanel', () => {
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     await user.selectOptions(screen.getByTestId('json-csv-mode'), 'csv-to-json');
     await waitFor(() => {
-      const output = (screen.getByTestId('json-csv-output') as HTMLTextAreaElement).value;
+      const output = outputText('json-csv-output');
       expect(output).toContain('"name": "Alice"');
+      expect(screen.getByTestId('json-csv-output').tagName).toBe('PRE');
     });
   });
 
@@ -95,7 +103,7 @@ describe('JsonCsvPanel', () => {
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     await user.selectOptions(screen.getByTestId('json-csv-delimiter'), '\t');
     await waitFor(() => {
-      const output = (screen.getByTestId('json-csv-output') as HTMLTextAreaElement).value;
+      const output = outputText('json-csv-output');
       expect(output.includes('\t')).toBe(true);
     });
   });

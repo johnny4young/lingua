@@ -1,15 +1,16 @@
 import {
   FieldLabel,
-  JsonTreeNode,
   PanelSection,
   StatusMessage,
   UtilityToolbar,
   UtilityTextarea,
 } from '../panelPrimitives';
-import { useCallback, useMemo, useState } from 'react';
+import { JsonSyntaxOutput } from '../JsonSyntaxOutput';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
+import { cn } from '../../../utils/cn';
 import {
   JWT_SUPPORTED_ALGORITHMS,
   decodeJwt,
@@ -40,24 +41,31 @@ export function JwtUtilityPanel() {
         title={t('utilities.tool.jwt.title')}
         description={t('utilities.tool.jwt.panelDescription')}
       >
-        <div className="grid gap-2">
-          <FieldLabel>{t('utilities.tool.jwt.mode.label')}</FieldLabel>
-          <select
-            aria-label={t('utilities.tool.jwt.mode.label')}
-            data-testid="jwt-mode"
-            value={mode}
-            onChange={event => {
-              const next = event.target.value;
-              if (next === 'decode' || next === 'verify' || next === 'sign') setMode(next);
-            }}
-            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
-          >
-            <option value="decode">{t('utilities.tool.jwt.mode.decode')}</option>
-            <option value="verify">{t('utilities.tool.jwt.mode.verify')}</option>
-            <option value="sign">{t('utilities.tool.jwt.mode.sign')}</option>
-          </select>
-        </div>
-        <UtilityToolbar utilityId="jwt" primary={input} run={runApply} setPrimary={setInput} />
+        {/* Space audit — the mode select shares the toolbar's single
+            row (mode · Apply · Recent runs) instead of stacking its own
+            labeled block above it. The label survives as aria-label. */}
+        <UtilityToolbar
+          utilityId="jwt"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+          leading={
+            <select
+              aria-label={t('utilities.tool.jwt.mode.label')}
+              data-testid="jwt-mode"
+              value={mode}
+              onChange={event => {
+                const next = event.target.value;
+                if (next === 'decode' || next === 'verify' || next === 'sign') setMode(next);
+              }}
+              className="rounded-full border border-border/80 bg-bg-panel py-1.5 pl-3 pr-8 text-body-sm font-semibold text-fg-base outline-none transition-colors hover:bg-bg-panel-alt focus:border-accent/55"
+            >
+              <option value="decode">{t('utilities.tool.jwt.mode.decode')}</option>
+              <option value="verify">{t('utilities.tool.jwt.mode.verify')}</option>
+              <option value="sign">{t('utilities.tool.jwt.mode.sign')}</option>
+            </select>
+          }
+        />
       </PanelSection>
 
       {mode === 'decode' ? (
@@ -72,6 +80,7 @@ export function JwtUtilityPanel() {
 }
 
 type JwtMode = 'decode' | 'verify' | 'sign';
+type JwtSignatureState = 'missing' | 'unverified' | 'verified' | 'failed' | 'signed';
 
 function JwtDecodeSection({
   input,
@@ -94,34 +103,41 @@ function JwtDecodeSection({
   useRegisterUtilityOutput(registerOutput);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.45fr)] 2xl:grid-cols-[minmax(20rem,0.65fr)_minmax(42rem,1.7fr)]">
+    <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
       <PanelSection
         title={t('utilities.tool.jwt.headerTitle')}
         description={t('utilities.tool.jwt.panelDescription')}
       >
         <div className="grid gap-2">
-          <FieldLabel>{t('utilities.field.token')}</FieldLabel>
-          <UtilityTextarea
-            aria-label={t('utilities.field.token')}
-            data-testid="jwt-decode-token"
+          <div className="flex items-center justify-between gap-2">
+            <FieldLabel>{t('utilities.field.token')}</FieldLabel>
+            {input.trim() ? (
+              <JwtSignaturePill state={resolveSignatureState(input, 'unverified')} />
+            ) : null}
+          </div>
+          <JwtColoredTokenArea
+            ariaLabel={t('utilities.field.token')}
+            testid="jwt-decode-token"
             value={input}
-            onChange={event => setInput(event.target.value)}
-            className="min-h-[18rem] font-mono"
+            onChange={setInput}
+            signatureState={resolveSignatureState(input, 'unverified')}
           />
         </div>
         {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
       </PanelSection>
 
-      <div className="grid gap-4">
+      <div className="grid content-start gap-4">
         <PanelSection
           title={t('utilities.tool.jwt.headerTitle')}
           description={t('utilities.tool.jwt.headerDescription')}
         >
           {analysis.header ? (
             <div className="grid gap-2">
-              <div className="max-h-[22rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
-                <JsonTreeNode value={analysis.header} />
-              </div>
+              <JsonSyntaxOutput
+                ariaLabel={t('utilities.tool.jwt.headerTitle')}
+                testid="jwt-header-output"
+                value={JSON.stringify(analysis.header, null, 2)}
+              />
               <div className="flex justify-end">
                 <CopyButton
                   value={JSON.stringify(analysis.header, null, 2)}
@@ -139,9 +155,11 @@ function JwtDecodeSection({
         >
           {analysis.payload ? (
             <div className="grid gap-2">
-              <div className="max-h-[22rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
-                <JsonTreeNode value={analysis.payload} />
-              </div>
+              <JsonSyntaxOutput
+                ariaLabel={t('utilities.tool.jwt.payloadTitle')}
+                testid="jwt-payload-output"
+                value={JSON.stringify(analysis.payload, null, 2)}
+              />
               <div className="flex justify-end">
                 <CopyButton
                   value={JSON.stringify(analysis.payload, null, 2)}
@@ -171,16 +189,32 @@ function JwtVerifySection({
   const [algorithm, setAlgorithm] = useState<JwtAlgorithm>('HS256');
   const [result, setResult] = useState<JwtVerifyResult | null>(null);
   const [running, setRunning] = useState(false);
+  const signatureState: JwtSignatureState =
+    result === null ? 'unverified' : result.ok ? 'verified' : 'failed';
+  const resetVerification = useCallback(() => setResult(null), []);
+  const latestVerificationInputRef = useRef({ input, key, algorithm });
+
+  useEffect(() => {
+    latestVerificationInputRef.current = { input, key, algorithm };
+  }, [input, key, algorithm]);
 
   const handleVerify = async () => {
     // Defensive re-entrancy guard in addition to the button's `disabled`
     // attr — protects the async closure from being re-invoked while a
     // prior call is still awaiting crypto.subtle.
     if (running) return;
+    const request = { input, key, algorithm };
     setRunning(true);
     try {
-      const next = await verifyJwt(input, key, algorithm);
-      setResult(next);
+      const next = await verifyJwt(request.input, request.key, request.algorithm);
+      const latest = latestVerificationInputRef.current;
+      if (
+        latest.input === request.input &&
+        latest.key === request.key &&
+        latest.algorithm === request.algorithm
+      ) {
+        setResult(next);
+      }
     } finally {
       setRunning(false);
     }
@@ -193,12 +227,21 @@ function JwtVerifySection({
         description={t('utilities.tool.jwt.verify.description')}
       >
         <div className="grid gap-2">
-          <FieldLabel>{t('utilities.field.token')}</FieldLabel>
-          <UtilityTextarea
-            aria-label={t('utilities.field.token')}
-            data-testid="jwt-verify-token"
+          <div className="flex items-center justify-between gap-2">
+            <FieldLabel>{t('utilities.field.token')}</FieldLabel>
+            {input.trim() ? (
+              <JwtSignaturePill state={resolveSignatureState(input, signatureState)} />
+            ) : null}
+          </div>
+          <JwtColoredTokenArea
+            ariaLabel={t('utilities.field.token')}
+            testid="jwt-verify-token"
             value={input}
-            onChange={event => setInput(event.target.value)}
+            onChange={next => {
+              setInput(next);
+              resetVerification();
+            }}
+            signatureState={resolveSignatureState(input, signatureState)}
           />
         </div>
         <div className="grid gap-2">
@@ -209,7 +252,10 @@ function JwtVerifySection({
             value={algorithm}
             onChange={event => {
               const next = event.target.value;
-              if (isJwtAlgorithm(next)) setAlgorithm(next);
+              if (isJwtAlgorithm(next)) {
+                setAlgorithm(next);
+                resetVerification();
+              }
             }}
             className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
           >
@@ -226,7 +272,10 @@ function JwtVerifySection({
             aria-label={t('utilities.tool.jwt.verify.keyLabel')}
             data-testid="jwt-verify-key"
             value={key}
-            onChange={event => setKey(event.target.value)}
+            onChange={event => {
+              setKey(event.target.value);
+              resetVerification();
+            }}
             placeholder={t('utilities.tool.jwt.verify.keyPlaceholder')}
             spellCheck={false}
           />
@@ -272,9 +321,11 @@ function JwtVerifyResultView({ result }: { result: JwtVerifyResult }) {
         ) : null}
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.jwt.payloadTitle')}</FieldLabel>
-          <div className="max-h-[22rem] overflow-auto rounded-2xl border border-border/80 bg-background/65 p-3">
-            <JsonTreeNode value={result.payload} />
-          </div>
+          <JsonSyntaxOutput
+            ariaLabel={t('utilities.tool.jwt.payloadTitle')}
+            testid="jwt-verify-payload-output"
+            value={JSON.stringify(result.payload, null, 2)}
+          />
         </div>
       </PanelSection>
     );
@@ -418,19 +469,17 @@ function JwtSignSection() {
       >
         {result?.ok ? (
           <div className="grid gap-2">
-            <div className="relative">
-              <UtilityTextarea
-                aria-label={t('utilities.tool.jwt.sign.resultTitle')}
-                data-testid="jwt-sign-result"
-                readOnly
-                value={result.token}
-                className="pr-10"
-                spellCheck={false}
-              />
-              <div className="absolute right-2 top-2">
-                <CopyButton value={result.token} testid="jwt-sign-copy" />
-              </div>
+            <div className="flex items-center justify-between gap-2">
+              <JwtSignaturePill state="signed" />
+              <CopyButton value={result.token} testid="jwt-sign-copy" />
             </div>
+            <JwtColoredTokenArea
+              ariaLabel={t('utilities.tool.jwt.sign.resultTitle')}
+              testid="jwt-sign-result"
+              readOnly
+              value={result.token}
+              signatureState="signed"
+            />
             {result.warning?.kind === 'weak-hs-key' ? (
               <StatusMessage
                 tone="warning"
@@ -469,5 +518,157 @@ function signErrorMessageKey(kind: Exclude<JwtSignResult, { ok: true }>['kind'])
       return 'utilities.tool.jwt.error.unsupportedAlgorithm';
     case 'unknown':
       return 'utilities.tool.jwt.error.unknown';
+  }
+}
+
+/**
+ * A signature-less token resolves to `missing` no matter what the caller
+ * knows about verification — you cannot verify what is not there.
+ */
+function resolveSignatureState(token: string, base: JwtSignatureState): JwtSignatureState {
+  const parts = token.trim().split('.');
+  const signature = parts.slice(2).join('.');
+  return signature ? base : 'missing';
+}
+
+function JwtSignaturePill({ state }: { state: JwtSignatureState }) {
+  const { t } = useTranslation();
+  return (
+    <span
+      data-testid="jwt-signature-status"
+      className={cn(
+        'rounded-full border px-2 py-0.5 font-mono text-micro font-bold uppercase tracking-[0.14em]',
+        signatureStatusClass(state)
+      )}
+    >
+      {t(signatureStatusLabelKey(state))}
+    </span>
+  );
+}
+
+/**
+ * The token characters, segment-colored: header (info), payload (accent),
+ * signature (state-toned). Rendered inside the colored-input overlay so
+ * the REAL input shows the colors — no duplicated preview block.
+ */
+function JwtTokenSpans({ token, signatureState }: { token: string; signatureState: JwtSignatureState }) {
+  const parts = token.split('.');
+  const header = parts[0] ?? '';
+  const payload = parts[1] ?? '';
+  const signature = parts.slice(2).join('.');
+  return (
+    <>
+      <span data-testid="jwt-token-header" className="text-info">
+        {header}
+      </span>
+      {parts.length > 1 ? <span className="text-fg-subtle">.</span> : null}
+      <span data-testid="jwt-token-payload" className="text-accent-fg">
+        {payload}
+      </span>
+      {parts.length > 2 ? <span className="text-fg-subtle">.</span> : null}
+      <span data-testid="jwt-token-signature" className={signatureTextClass(signatureState)}>
+        {signature}
+      </span>
+    </>
+  );
+}
+
+function signatureTextClass(state: JwtSignatureState): string {
+  switch (state) {
+    case 'verified':
+    case 'signed':
+      return 'text-success';
+    case 'failed':
+      return 'text-danger';
+    case 'missing':
+    case 'unverified':
+      return 'text-warning';
+  }
+}
+
+/**
+ * jwt.io-style colored token editor. The REAL textarea stays on top with
+ * transparent text (caret, selection, and editing intact) while an
+ * aria-hidden overlay underneath paints the same characters
+ * segment-colored. Both layers copy the um-control metrics (1px border,
+ * px-3 py-3, text-body-md, mono, break-anywhere) so wrap points line up,
+ * and the overlay mirrors the textarea's scroll position. The overlay
+ * carries the control background; the textarea keeps the visible border
+ * and focus ring.
+ */
+function JwtColoredTokenArea({
+  value,
+  onChange,
+  signatureState,
+  testid,
+  ariaLabel,
+  readOnly = false,
+}: {
+  value: string;
+  onChange?: (value: string) => void;
+  signatureState: JwtSignatureState;
+  testid: string;
+  ariaLabel: string;
+  readOnly?: boolean;
+}) {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const syncScroll = (target: HTMLTextAreaElement) => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    overlay.scrollTop = target.scrollTop;
+    overlay.scrollLeft = target.scrollLeft;
+  };
+  return (
+    <div className="relative">
+      <div
+        ref={overlayRef}
+        aria-hidden
+        data-testid={`${testid}-overlay`}
+        className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap rounded-xl border border-transparent bg-bg-inset/60 px-3 py-3 font-mono text-body-md [overflow-wrap:anywhere]"
+      >
+        {value ? <JwtTokenSpans token={value} signatureState={signatureState} /> : null}
+      </div>
+      <UtilityTextarea
+        aria-label={ariaLabel}
+        data-testid={testid}
+        value={value}
+        readOnly={readOnly}
+        onChange={onChange ? event => onChange(event.target.value) : undefined}
+        onScroll={event => syncScroll(event.currentTarget)}
+        spellCheck={false}
+        className="relative bg-transparent font-mono text-transparent [overflow-wrap:anywhere] selection:bg-accent/30 selection:text-fg-base"
+        style={{ caretColor: 'var(--color-fg-base)' }}
+      />
+    </div>
+  );
+}
+
+function signatureStatusClass(state: JwtSignatureState): string {
+  switch (state) {
+    case 'verified':
+      return 'border-success/45 bg-success/10 text-success';
+    case 'failed':
+      return 'border-danger/45 bg-danger/10 text-danger';
+    case 'signed':
+      return 'border-success/45 bg-success/10 text-success';
+    case 'missing':
+      return 'border-border-subtle bg-bg-panel-alt/80 text-fg-muted';
+    case 'unverified':
+      return 'border-warning/45 bg-warning/10 text-warning';
+  }
+}
+
+function signatureStatusLabelKey(state: JwtSignatureState): string {
+  switch (state) {
+    case 'verified':
+      return 'utilities.jwtPreview.signature.verified';
+    case 'failed':
+      return 'utilities.jwtPreview.signature.failed';
+    case 'signed':
+      return 'utilities.jwtPreview.signature.signed';
+    case 'missing':
+      return 'utilities.jwtPreview.signature.missing';
+    case 'unverified':
+      return 'utilities.jwtPreview.signature.unverified';
   }
 }

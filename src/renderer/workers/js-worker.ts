@@ -2,7 +2,8 @@
  * JavaScript execution Web Worker.
  *
  * Runs user code in an isolated context with console capture.
- * Communication via structured messages (WorkerRequest / WorkerResponse).
+ * Communication via structured messages (WorkerInboundMessage in /
+ * WorkerResponse out — see IT2-A4 note above WorkerInboundMessage).
  *
  * RL-078: this worker no longer schedules its own deadline. The
  * parent renderer thread owns a kill timer and calls
@@ -61,6 +62,7 @@ import {
   validateImageSrc,
 } from '../../shared/richOutput';
 import { parseJsErrorStack } from '../../shared/errorStack';
+import type { DebuggerControlMessage } from '../runtime/debuggerWorkerBridge';
 
 // Type-safe message posting (Worker context has no DOM types)
 const ctx = self as unknown as Worker;
@@ -750,6 +752,17 @@ interface ExecuteMessage {
 }
 
 /**
+ * IT2-A4 — every message the JS/TS worker can receive. `execute` starts
+ * a run; the debugger-control variants (`resume` / `step` /
+ * `set-breakpoints`) reuse the SAME union the sender posts
+ * (`DebuggerControlMessage` from `debuggerWorkerBridge`). Asserted once
+ * at the message boundary so the handler narrows by `type` with no
+ * per-branch casts, and an exhaustiveness `never` check flags any new
+ * inbound variant that lacks a handler.
+ */
+type WorkerInboundMessage = ExecuteMessage | DebuggerControlMessage;
+
+/**
  * RL-020 Slice 6 — line-by-line stdin reader. The worker constructs
  * a fresh reader on each `execute` request; consumed lines are
  * tracked locally and reported back to the main thread via the
@@ -810,7 +823,11 @@ function applyExecutePayload(session: DebuggerSessionState, msg: ExecuteMessage)
 let activeSession: DebuggerSessionState | null = null;
 
 ctx.addEventListener('message', async (event) => {
-  const msg = event.data;
+  // IT2-A4 — one deliberate boundary assertion; `MessageEvent.data` is
+  // untyped by the DOM. Every branch below narrows by `msg.type` with no
+  // further casts, and the exhaustiveness guard after the last branch
+  // makes an unhandled variant a compile error.
+  const msg = event.data as WorkerInboundMessage;
 
   // RL-027 Slice 1 — debugger control messages from main. These
   // arrive WHILE a run is ongoing (the worker is paused awaiting a
@@ -819,7 +836,7 @@ ctx.addEventListener('message', async (event) => {
     const session = activeSession;
     if (!session || !session.resumeResolver) return;
     if (msg.type === 'step') {
-      session.stepMode = (msg.mode as StepMode) ?? 'over';
+      session.stepMode = msg.mode ?? 'over';
       session.stepDepth = session.frames.length;
     } else {
       session.stepMode = 'none';
@@ -835,7 +852,7 @@ ctx.addEventListener('message', async (event) => {
     const session = activeSession;
     if (!session) return;
     session.breakpoints.clear();
-    const bps = (msg as { breakpoints?: { line: number; condition?: string }[] }).breakpoints;
+    const bps = msg.breakpoints;
     if (Array.isArray(bps)) {
       for (const bp of bps) {
         if (typeof bp.line === 'number' && bp.line > 0) {
@@ -847,7 +864,7 @@ ctx.addEventListener('message', async (event) => {
   }
 
   if (msg.type === 'execute') {
-    const exec = msg as ExecuteMessage;
+    const exec = msg;
     const { runId, code, resultTruncationMarker } = exec;
     const marker =
       typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
@@ -1144,5 +1161,12 @@ ctx.addEventListener('message', async (event) => {
       }
       activeSession = null;
     }
+    return;
   }
+
+  // IT2-A4 — exhaustiveness lock: adding a new WorkerInboundMessage
+  // variant without a branch above turns this assignment into a compile
+  // error (the narrowed remainder must be `never`).
+  const unhandled: never = msg;
+  void unhandled;
 });
