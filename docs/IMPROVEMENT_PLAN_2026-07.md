@@ -1,0 +1,1396 @@
+# Lingua — Análisis de estado + Plan de mejora v4 (2026-07-06)
+
+> **v4 = v3 + LANE G (cierre) + scorecard final.** La v2 convirtió el plan
+> en especificación técnica (cada item cita APIs REALES del repo,
+> verificadas contra `main` @ `351cf02`, v0.10.0, con path:línea, diseño,
+> pasos y AC). La v3 añadió el análisis competitivo (4 investigaciones web
+> con fuentes) y el LANE F de mercado. La v4 auditó las dimensiones que
+> faltaban — accesibilidad + i18n profunda, performance de ARRANQUE,
+> resiliencia + paridad cross-platform, y CLI + website/distribución — y
+> cierra con el LANE G y el scorecard consolidado de 12 dimensiones (§10).
+>
+> Hallazgo v4 que corrige al diagnóstico v1: la resiliencia es MEJOR de lo
+> asumido — safe mode auto-recuperable (`safeBoot.ts:76-81`), contador de
+> boot-loop 3-en-60s → factory reset (`safeBoot.ts:133-176`), crash
+> reporter opt-in, y kill de process tree por plataforma
+> (`processTree.ts:46-86`) ya existen y están documentados en RECOVERY.md. Los ids son `IT2-*` (no se inventan `RL-XXX`;
+> cuando el item ya existe como ticket RL se referencia el id real).
+> Para graduar un `IT2-*` al ROADMAP: backlog interno → acceptance criteria
+> (protocolo ROADMAP §3).
+>
+> **Correcciones v2 sobre v1** (evidencia nueva contradijo dos hipótesis):
+>
+> 1. Los 30 paneles de utilidades **ya se cargan lazy** —
+>    `PANEL_LOADERS` usa dynamic imports + `React.lazy` + `Suspense`
+>    (`UtilityPanelRegistry.ts:26-61`, `UtilityPanels.tsx:26-33`) y solo el
+>    panel activo se monta. El viejo IT2-B3 ("code-split por panel") queda
+>    reducido a una verificación de chunking (§B3).
+> 2. `PanelChipsRow` **ya usa selectores primitivos** para los contadores
+>    (`AppLayout.tsx:188-193`). El sospechoso real de re-render es
+>    `useActiveTab` (devuelve el objeto tab, que cambia en cada keystroke
+>    por `content`). B4 se reescribió sobre esa evidencia.
+
+## Decisiones de negocio aprobadas (2026-07-06)
+
+Las tres decisiones que la v4 dejó abiertas fueron **confirmadas por el
+dueño del producto el 2026-07-06**. Ya no son "pendientes": son spec.
+
+1. **Free 1 → 3 tabs.** APROBADO. Spec en IT2-D1. (Snippets 5→25 NO fue
+   parte de esta aprobación — sigue como recomendación abierta en §F-P.)
+2. **Lifetime a $59, con el modelo sostenible** (perpetua + 12 meses de
+   updates + renovación opcional con descuento; los entitlements NO
+   caducan). APROBADO — se mantiene el precio $59, NO se sube a $79.
+   Spec técnica nueva en IT2-D8 (mapea sobre el token que ya existe:
+   tier `pro_lifetime` + `supportWindowEndsAt`).
+3. **Publicar el CLI a npm.** APROBADO. Spec en IT2-G9; la cadena de
+   publicación va dentro del scope de RL-098.
+
+## 0. Razón de ser (ancla de todo)
+
+Lingua es el RunJS multi-lenguaje: **"open, write, run"** offline-first.
+Tesis vigente (ROADMAP §5a): *workspace local-first donde un dev corre
+código o una herramienta, captura input/output/environment exacto, y lo
+replay/comparte sin filtrar secretos*. Cada item de este plan fortalece uno
+de los tres loops (core / workflow artifacts / execution-adjacent tools) o
+reduce el costo de mantenerlos. El objetivo emocional: que el usuario
+sienta que la app *recuerda, anticipa y celebra* su trabajo — sin nube, sin
+cuentas, sin fricción.
+
+## 1. Diagnóstico resumido (detalle en §9)
+
+Fortalezas: IPC tipado por contrato, FS por capabilities, spawn engine
+unificado, licensing offline, stack al día, onboarding <90 s.
+Deudas: `fileSystem.ts` 1.904 LOC; workers sin contrato tipado; T6 sin
+descarte de output tras truncation; FileTree sin virtualizar; 0 coverage
+instrumentado; sin DB local (historial volátil); gating Free hostil
+(1 tab); bootstrap de runtimes sin progreso; cero loops de retención.
+
+---
+
+# LANE A — Mantenibilidad
+
+## IT2-A1 · Split de `src/main/ipc/fileSystem.ts` (1.904 LOC) — EJECUTADO PARCIAL 2026-07-09
+
+> **Estado de ejecución.** Extraídos VERBATIM los dos bloques grandes y
+> cohesivos que NO tocan estado mutable de módulo: `fs/fsShared.ts` (117
+> LOC — helpers puros: shouldHide/joinRelative/dirnameRelative/isRecord/
+> coerce*/CapabilityError/resolveOrThrow), `fs/fsSearchReplace.ts` (569
+> LOC — searchInFiles/replaceInFiles/applyReplaceInFile + walkProject),
+> `fs/fsBundle.ts` (216 LOC — export/importBundle; recibe
+> `rememberApprovedRoot` como parámetro inyectado). `fileSystem.ts` bajó
+> 1904 → 1052 y quedó como assembly que delega. Cero cambio de
+> comportamiento: los 132 tests de `tests/ipc/fileSystem.test.ts` +
+> `watcherLifecycle` + `permissions` pasan sin editar asserts; suite
+> 530/530. **Follow-up documentado:** `fsWatchers.ts` (el cluster de
+> watchers comparte los 4 Maps de estado + `stopAllWatchers` exportado +
+> los `_reset*ForTests` que los tests importan — mover requiere
+> re-exportar desde el assembly, más riesgo) y `fsOperations.ts`
+> (read/write/readdir) quedan para una segunda pasada; el assembly a 1052
+> LOC ya no es un god-file de 1904.
+
+**Evidencia (mapa estructural real).** Estado module-level: `watchers`
+(L83), `watcherIdsByTarget` (L84), `watcherIdsBySender` (L91),
+`nullFilenameBursts` (L470); approvals: `loadFilesystemApprovals` (L138),
+`persistFilesystemApprovals` (L164), `pathIntersectsApprovedScope` (L224).
+Registro único: `registerFileSystemHandlers()` (L508). El mint/resolve de
+capabilities YA vive aparte en `ipc/projectCapabilities.ts` (298 LOC).
+
+**Diseño.** 5 módulos nuevos bajo `src/main/ipc/fs/`, cada uno exporta
+`registerXHandlers()`; `fileSystem.ts` queda como assembly (mismo patrón
+que los store splits RL-128/129):
+
+| Módulo nuevo | Se lleva (líneas actuales) |
+| --- | --- |
+| `fsApprovals.ts` | approvals L125-251 + pickers/reopen/revoke L541-717 + dialogs L721-761 |
+| `fsOperations.ts` | readdir/listAllFiles L765-855 + stat/read/write/append/mkdir/rename/remove L1415-1650 |
+| `fsSearchReplace.ts` | `fs:searchInFiles` L864 + `fs:replaceInFiles` L1097 |
+| `fsWatchers.ts` | los 4 Maps de watchers + stopWatcherById/ForSender/All L385-421 + watch-start/stop/change-handler L1591-1896 |
+| `fsBundle.ts` | pack/unpack L1705-1777 |
+
+**Pasos.** (1) Crear módulos moviendo código VERBATIM (sin re-firmar nada);
+(2) los Maps de watchers se exportan solo desde `fsWatchers.ts` (los otros
+módulos no los tocan — verificar con grep antes de mover); (3) `fileSystem.ts`
+importa y delega; (4) correr `tests/main/*` sin editar un solo assert.
+
+**AC.** Cero cambio de comportamiento; contrato IPC intacto
+(`tests/shared/ipcContract.test.ts` verde); cada módulo <600 LOC; `git log
+--follow` conserva historia (usar `git mv` + edición, no copy-paste).
+
+## IT2-A2 · Consolidar boilerplate de paneles de utilidades — S (1-2 d)
+
+**Evidencia.** `Base64UtilityPanel.tsx:1-62` es representativo: cada panel
+repite `useState` de mode/input + `useCallback(registerOutput)` +
+`useRegisterUtilityOutput` (`useRegisterUtilityOutput.ts:27-63`) +
+`UtilityToolbar` + `TwoPaneTransformPanel`
+(`panelPrimitives.tsx:305-325`, props: `title/description/input/
+onInputChange/output/errorKey/layout`). La duplicación es de *ciclo*, no de
+UI (los primitives ya existen).
+
+**Diseño.** Hook `useTransformUtilityPanel` en
+`src/renderer/components/DeveloperUtilities/useTransformUtilityPanel.ts`:
+
+```ts
+export function useTransformUtilityPanel(args: {
+  utilityId: DeveloperUtilityId;
+  initialInput: string;
+  transform: (input: string) => { output: string; errorKey: string | null };
+}): {
+  input: string;
+  setInput: (v: string) => void;
+  output: string;
+  errorKey: string | null;
+};
+// internamente: deriva output/errorKey, memoiza el provider
+// (errorKey ? null : output || null) y llama useRegisterUtilityOutput.
+```
+
+**Pasos.** (1) Hook + test unitario; (2) migrar Base64 como referencia y
+verificar con web smoke que Cmd+Shift+C (copy output) y Apply siguen
+funcionando; (3) migrar solo los paneles que calcen sin forzar (los
+two-pane puros: url, string-case, html-entity, backslash-escape, number-base,
+yaml-json, json-csv…); los paneles con estado propio complejo (regex, diff,
+qr-code, mock-data) NO se fuerzan al hook.
+
+**AC.** Paneles migrados quedan <45 LOC; `useRegisterUtilityOutput` se
+llama exactamente una vez por panel montado; smoke web con
+`browser_console_messages({level:'error'})` = 0.
+
+## IT2-A3 · Desacoplar stores — ejecutar RL-133 → RL-134 → RL-135
+
+Tickets ya planeados con AC propios en el audit interno. Contexto para el
+implementador: el peor acoplamiento es `editorCloseActions.ts` (importa 5
+stores); `pushStatusNotice` tiene 134 call sites (RL-134 los envuelve);
+RL-135 reemplaza los bridges `window.dispatchEvent`. No re-especificar aquí.
+
+## IT2-A4 · Contrato tipado para workers — EJECUTADO 2026-07-09 (alcance corregido)
+
+> **Estado de ejecución + corrección de alcance.** El inventario (paso 1
+> del diseño) invalidó parte de la premisa: `WorkerResponse` en
+> `types/index.ts` YA era un union completo y el runner YA lo consumía
+> tipado. Los gaps REALES eran dos: (a) el handler entrante del worker
+> leía `event.data` como any con casts por rama (`msg as ExecuteMessage`,
+> `msg.mode as StepMode`), y (b) el `WorkerRequest` exportado estaba
+> MUERTO y mentía (declaraba un mensaje `stop` que no existe — los
+> runners hacen `terminate()` — y omitía las variantes del debugger).
+> Aplicado: `DebuggerControlMessage` exportado desde
+> `debuggerWorkerBridge` (single source of truth del lado emisor),
+> `WorkerInboundMessage = ExecuteMessage | DebuggerControlMessage` en el
+> worker con UNA aserción deliberada en el boundary + narrowing por
+> `type` sin casts + guard de exhaustividad `never` (una variante nueva
+> sin rama = error de compilación en el tsc de CI); `WorkerRequest`
+> eliminado con nota puntero. E3: test de contrato del bridge
+> (`tests/renderer/runtime/debuggerWorkerBridge.test.ts` — round-trip
+> verbatim de las 3 variantes, refuse sin worker, terminated-worker no
+> lanza). Python/ruby workers: sus protocolos son mono-variante
+> (`init`/`execute`) y quedan para cuando crezcan.
+
+**Evidencia.** Los 3 workers hablan `{ type, runId, ...payload }` ad-hoc:
+`js-worker.ts` emite `console` (L387), `result` (L462), `resumed` (L827),
+`scope-snapshot` (L1068), `done` (L1101); el runner postea
+`{ type:'execute', runId, code, debug, breakpoints, magicKindByLine, stdin,
+captureScope }` (`runners/javascript.ts:250-290`) y ya filtra por runId
+(guard RL-078). No existe tipo compartido — cada lado castea.
+
+**Diseño.** `src/shared/workerContract.ts`:
+
+```ts
+export type JsWorkerRequest =
+  | { type: 'execute'; runId: string; code: string; debug?: boolean;
+      breakpoints?: number[]; magicKindByLine?: Record<number, MagicCommentKind>;
+      stdin?: string; captureScope?: boolean }
+  | { type: 'stop'; runId: string }; // + variantes debugger reales
+
+export type JsWorkerResponse =
+  | { type: 'console'; runId: string; method: 'log'|'warn'|'error'|'info';
+      args: string[]; payload?: RichOutputPayload[] }
+  | { type: 'result'; runId: string; line: number; value: string;
+      payload?: RichOutputPayload[] }
+  | { type: 'scope-snapshot'; runId: string; snapshot: ScopeSnapshot }
+  | { type: 'resumed'; runId: string }
+  | { type: 'done'; runId: string; executionTime: number };
+```
+
+(Los shapes EXACTOS se transcriben del switch actual de cada worker al
+migrar — el paso 1 es inventariarlos, no inventarlos.) Helpers
+`postTyped(worker, msg)` / worker-side `replyTyped(ctx, msg)` con el union
+como único tipo aceptado. Espejo para python/ruby (`PyWorkerRequest`…).
+
+**Pasos.** (1) Inventariar TODAS las variantes reales por worker (grep
+`postMessage` en cada worker + listener del runner); (2) declarar unions;
+(3) tipar ambos lados sin cambiar payloads; (4) test de exhaustividad
+(switch con `never` en default).
+
+**AC.** Cero casts `as` en los listeners de runners; una variante nueva sin
+handler = error de compilación; runs de JS/TS/Python/Ruby verdes en smoke.
+
+## IT2-A5 · Partir hooks gigantes — S por hook
+
+`useAutoRun.ts` (617), `useImportPreview.ts` (574), `useGlobalShortcuts.ts`
+(533), `useProjectWatchSync.ts` (488). Extraer la lógica pura (máquinas de
+estado, decisiones de gating) a helpers junto al hook — patrón ya usado por
+`runnerOutput.ts`. AC: hook <300 LOC, helpers con test propio, cero cambio
+de comportamiento. Hacer UNO por PR.
+
+## IT2-A6 · Higiene de dependencias — CERRADO 2026-07-06 (resultado: no-op)
+
+**Corrección en ejecución (Fase 1).** La afirmación "0 imports" de la
+auditoría era FALSA: `scripts/build-desktop-bundles.mjs:26` importa
+`@electron-forge/plugin-vite/dist/ViteConfig.js` (el generador de config
+Vite que replica el grafo de build que `electron-forge package` producía —
+pieza viva del empaquetado con electron-builder) y `forge.env.d.ts`
+(referenciado en el `include` de `tsconfig.json:24` y
+`tsconfig.test.json:23`) consume sus tipos. **La dependencia NO es
+removible** sin reescribir el pipeline de bundles desktop — eso sería un
+refactor con riesgo de packaging, no higiene. `pnpm run check:deadcode`
+(knip) corre LIMPIO: no hay dependencias ni archivos muertos que retirar.
+Removerla de verdad queda como opción futura solo si se replica
+`ViteConfigGenerator` en `scripts/` (no recomendado hoy).
+
+## IT2-A7 · Doc-sync — S (0.5 d)
+
+`docs/ARCHITECTURE.md:406-409` describe el drift de tiers de licencia
+(4 vs 6) como pendiente; ya está resuelto — `src/shared/license.ts:24` y
+`src/types.d.ts` son ambos 6-tier
+(`free|pro|pro_lifetime|team|trial|education`). Actualizar la nota.
+Registrar este doc en `docs/README.md` si se conserva.
+
+---
+
+# LANE B — Performance
+
+## IT2-B1 · Descarte de output tras truncation en T6 — EJECUTADO 2026-07-06 (Fase 1)
+
+> **Estado de ejecución.** Aplicado en `spawnNativeRun.ts` con handlers
+> nombrados: al cruzar el cap, `off('data')` + `resume()` (destroy()
+> descartado por riesgo EPIPE, como especificaba el diseño). Contrato
+> testeado en `tests/main/spawnNativeRun.test.ts` (detach + resume + cero
+> crecimiento post-cap + stderr intacto). Colateral corregido: el fixture
+> de `tests/main/ruby-runner.test.ts` fakeaba stdout sin `resume` y su
+> test de cap de 1 MiB lo ejercita — fixture completado para modelar la
+> superficie real del stream.
+
+**Evidencia.** `spawnNativeRun.ts:221-241`: los listeners `data` hacen
+early-return cuando `stdoutTruncated`, pero **siguen suscritos** — Node
+sigue entregando chunks (`chunk.toString()` incluido) de un proceso que
+puede emitir cientos de MB hasta el timeout. La acumulación se detiene; el
+costo de recepción/parseo no.
+
+**Diseño.** Al marcar truncation, cortar la recepción:
+
+```ts
+if (stdout.length > maxOutputBytes) {
+  stdout = truncateBytes(stdout, maxOutputBytes, stdoutTruncationMarker);
+  stdoutTruncated = true;
+  child.stdout.removeAllListeners('data');
+  child.stdout.resume();   // drena y descarta sin acumular ni parsear
+}
+```
+
+(idéntico para stderr). NO usar `destroy()` — cerrar el pipe puede provocar
+EPIPE en el hijo y cambiar su comportamiento; el contrato actual (el
+proceso sigue vivo hasta exit/timeout) se mantiene.
+
+**AC.** Test en `tests/main/` con un proceso sintético
+(`node -e 'while(1) console.log("x".repeat(65536))'` + `timeoutMs` corto):
+resultado truncado con marker, y heap del main estable (asserts sobre el
+tamaño de `stdout` capturado, no sobre RSS — determinista). Runs normales
+de Go/Rust/Ruby sin cambio (smoke desktop).
+
+## IT2-B2 · Virtualizar FileTree — EJECUTADO 2026-07-06 (Fase 1)
+
+> **Estado de ejecución.** Implementado: `fileTreeRows.ts` (modelo de fila
+> plana con filas sintéticas `create`/`empty-dir` para preservar la
+> geometría del scroll), `FileTree.tsx` renderiza la lista ventaneada con
+> `useListWindow` (spacers + `measureRef` + `scrollToIndex` en el focus de
+> teclado), y `FileTreeNode.tsx` dejó de recursar (renderiza UNA fila;
+> `role="treeitem"` + `aria-level` YA existían y se preservaron — el árbol
+> plano es patrón ARIA válido sin `role="group"`). AC ajustado con
+> honestidad: jsdom no hace layout (el windower degrada a lista completa
+> por diseño), así que el "<100 filas montadas" se prueba sobre
+> `computeWindow` puro (`tests/components/fileTreeRows.test.ts`, 5.000
+> filas → slice acotado + spacers exactos) y las 5 suites existentes del
+> árbol (28 tests) validan teclado/rename/dirty-dot sin ediciones.
+
+**Evidencia.** El render actual es recursión de componentes
+(`FileTree.tsx:378-401` mapea raíces; `FileTreeNode.tsx:394-410` se
+auto-recursa) — O(nodos visibles) componentes montados. Ya existen las dos
+piezas para virtualizar: `flattenVisibleTree(nodes, parentPath)`
+(`FileTree.tsx:36-48`, aplana respetando `isExpanded`) y `useListWindow`
+(`useListWindow.ts:203-208`; retorna `listWindow` con
+`startIndex/endIndex/topSpacer/bottomSpacer`, `measureRef`,
+`scrollToIndex` — mismo hook que virtualiza Notebook y Console).
+
+**Diseño.** Reemplazar la recursión por lista plana ventaneada:
+
+1. `const flat = useMemo(() => flattenVisibleTree(nodes), [nodes])`.
+2. `useListWindow({ scrollRef, keys: flat.map(e => e.node.path), estimate: 28 })`.
+3. Render: spacer top → `flat.slice(startIndex, endIndex+1)` como
+   `<FileTreeRow node depth={…}>` (depth = profundidad calculada en el
+   flatten — extender `flattenVisibleTree` para incluirla) → spacer bottom.
+4. `FileTreeNode` deja de recursar; conserva íntegros el menú contextual,
+   rename inline, `data-tree-row`, y `handleTreeKeyDown` (la navegación
+   Arrow/Home/End ya opera sobre paths — reutilizar `scrollToIndex` para
+   revelar la fila al navegar con teclado).
+
+**AC.** Con 5.000 nodos visibles, <100 filas montadas (assert en test de
+componente contando `data-tree-row`); navegación por teclado y rename
+intactos (tests existentes de FileTree verdes); smoke web con proyecto
+real; el accent de tab activa (PERF-001) sigue funcionando.
+
+## IT2-B3 · Verificación de chunking de paneles — CERRADO 2026-07-06 (verificado, no-op)
+
+Verificado en `build:web` del 2026-07-06: cada panel genera su chunk
+propio en `dist/web/assets/` (`Base64UtilityPanel` 1.5k …
+`QrCodePanel` 145k, ~34 chunks de panel) con `panelPrimitives` (9.1k) y
+el shell `DeveloperUtilities` (19k) compartidos. Vite NO los agrupó;
+ninguna acción necesaria.
+
+## IT2-B4 · Selectores primitivos en `PanelChipsRow` — EJECUTADO 2026-07-06 (Fase 1)
+
+> **Estado de ejecución.** Mecanismo confirmado (el `useShallow` de
+> `useActiveTab` no salva: `content` ES un campo shallow del tab, cambia
+> por keystroke). Fix aplicado: 6 suscripciones primitivas
+> (id/language/runtimeMode/stdinLineCount/compareEnabled/
+> variableInspectorEnabled); `useActiveTab` eliminado del archivo. AC
+> verificado de forma determinista con un test de contrato
+> (`tests/components/panelChipsRowRerender.test.tsx`, patrón
+> `editorStoreSelectorRenders` + `<Profiler>`): 2 `updateContent` → 0
+> commits de la fila; flip del compare flag → sí re-renderiza.
+> `PanelChipsRow` quedó exportado solo para ese test.
+
+**Evidencia.** `AppLayout.tsx:170-193`: los contadores ya son selectores
+primitivos (`comparableSnapshotCountFor`), pero la primera línea es
+`const activeTab = useActiveTab()` — devuelve el OBJETO tab, cuya identidad
+cambia en cada keystroke (el `content` muta), re-renderizando toda la fila
+de chips. El propio archivo documenta el patrón correcto (PERF-001,
+L131-148): *"computed from narrow primitive selectors, never the whole
+tabs array, so editor keystrokes leave this untouched"*.
+
+**Diseño.** (1) Medir primero: React DevTools Profiler tipeando 10
+caracteres — confirmar que `PanelChipsRow` re-renderiza. (2) Si confirma:
+reemplazar `useActiveTab()` por los selectores primitivos que la fila
+realmente usa (`activeTab?.language`, flags de compare/inspector):
+
+```ts
+const activeTabLanguage = useEditorStore(s => getActiveTab(s)?.language ?? null);
+const compareEnabled   = useEditorStore(s => getActiveTab(s)?.compareEnabled ?? false);
+```
+
+(cada selector devuelve primitivo → zustand solo re-renderiza si el valor
+cambia). Pasar `activeTabLanguage` a los selectores de counts.
+
+**AC.** Profiler: 0 re-renders de `PanelChipsRow` al tipear con estado de
+chips estable; los chips siguen reaccionando a cambio de tab/lenguaje.
+
+## IT2-B5 · CI a <15 min — M (1-2 d)
+
+**Evidencia.** `ci.yml` job `linux-gates`: 17 steps secuenciales
+(typecheck L49, typecheck:tests L59, lint L61, i18n L63/65, changelog L67,
+license-rotation L73, test L75, update-server L82-87, build:web L89,
+performance L91/93, licenses L95, prod-audit L102, audit L104); cache pnpm
+dual-lockfile L39-46.
+
+**Diseño.** 3 jobs paralelos que reutilizan el mismo bloque de setup
+(checkout + pnpm + cache): **static** (typecheck + typecheck:tests + lint +
+i18n + changelog + license-rotation), **test** (pnpm test + update-server
+gates), **build** (build:web + performance + licenses + prod-audit +
+audit-advisory). `windows-path-hardening` queda igual.
+
+**AC.** Wall-clock de PR < 15 min (medir 3 PRs); exactamente los mismos 17
+comandos repartidos — ninguno eliminado; `needs:` solo donde haya
+dependencia real (build no necesita test).
+
+---
+
+# LANE C — Datos: el Run Ledger (modelos de DB)
+
+## IT2-C1 · `lingua_ledger` sobre el motor DuckDB existente — M (3-4 d)
+
+**Evidencia.** Ya existe todo el sustrato: `getDuckDbEngine()`,
+`executeQuery(query, options)` → `DuckDbExecuteOutcome`
+(`duckdbClient.ts:57-81`), persistencia OPFS opt-in con fallback in-memory
+(`applyDuckDbPersistence`, L223-244, con CHECKPOINT post-write L852-857).
+El historial actual es volátil: `ExecutionHistoryEntry`
+(`executionHistoryStore.ts:46-93`) con `MAX_HISTORY_ENTRIES = 50` in-memory
+y capsules LRU 5/20 (L188, L141-149). Los runs ya escriben ahí — call site
+tipo `useExecutionHistoryStore.getState().record({...})`
+(`SqlWorkspacePanel.tsx:329-334`). La capsule ya tiene schema estable
+`RunCapsuleV1` (`runCapsule.ts:113-128`) con redacción por diseño
+(`privacy.redactionVersion`, caps 1 MiB/stream y 4 MiB total).
+
+**Diseño.** Módulo nuevo `src/renderer/runtime/runLedger.ts`:
+
+- Vive en la MISMA base OPFS del SQL workspace (comparte el opt-in
+  existente `configureDuckDbPersistence` / `sqlWorkspacePersistTables`), en
+  el schema `lingua_ledger`. Sin persistencia activada → el ledger opera
+  in-memory (sesión actual) y la UI lo dice.
+- API: `recordRun(entry: LedgerRunInput): Promise<void>` (fire-and-forget,
+  post-run, NUNCA en el hot path — se llama desde los mismos call sites que
+  hoy llaman `executionHistoryStore.record`), `queryRecentRuns()`,
+  `getDailyActivity()`, `clearLedger()`, `exportLedgerJson()`.
+- DDL (idempotente, `CREATE SCHEMA IF NOT EXISTS` al primer uso):
+
+```sql
+CREATE SCHEMA IF NOT EXISTS lingua_ledger;
+
+CREATE TABLE IF NOT EXISTS lingua_ledger.runs (
+  run_id         UUID PRIMARY KEY,
+  tab_id         TEXT,
+  language       TEXT NOT NULL,
+  code_sha256    TEXT NOT NULL,        -- RunCapsuleV1.source.contentHash; nunca el código
+  started_at     TIMESTAMP NOT NULL,
+  duration_ms    INTEGER,
+  status         TEXT NOT NULL CHECK (status IN ('ok','error','timeout','cancelled')),
+  stdout_preview TEXT,                 -- <=2 KiB, pasado por el redactor
+  capsule_id     UUID
+);
+
+CREATE TABLE IF NOT EXISTS lingua_ledger.capsules (
+  capsule_id     UUID PRIMARY KEY,
+  schema_version TEXT NOT NULL,        -- 'RunCapsuleV1' (version:1)
+  created_at     TIMESTAMP NOT NULL,
+  language       TEXT,
+  payload        JSON NOT NULL,        -- capsule completa, ya redactada por diseño
+  size_bytes     INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lingua_ledger.daily_activity (
+  day            DATE PRIMARY KEY,
+  runs_count     INTEGER NOT NULL DEFAULT 0,
+  languages_used JSON NOT NULL DEFAULT '[]',
+  utilities_used INTEGER NOT NULL DEFAULT 0
+);
+```
+
+- **Privacidad (innegociable):** setting nuevo `runLedgerEnabled`
+  (default OFF) siguiendo el patrón verificado: añadir a
+  `settingsPartialize` (`settingsPersistence.ts:37-112`), sanitizer boolean
+  en `settingsSanitizers.ts`, action en `settingsSessionActions.ts` —
+  campo aditivo con default ⇒ NO requiere bump de versión de migración
+  (el merge sanitizer rellena ausencias). Botón "Borrar historial"
+  (`clearLedger()`) + export JSON en Settings → Privacy. Registrar trust
+  event (patrón `licenseTrustCapture.ts`) en cada activación. Telemetría:
+  añadir `'ledger.enabled': []`, `'ledger.cleared': []` al
+  `EVENT_PROPERTY_ALLOWLIST` (`src/shared/telemetry.ts:596+`).
+- **Retención por tier:** Free 7 días / Pro ilimitado (job de limpieza al
+  boot: `DELETE FROM lingua_ledger.runs WHERE started_at < now() - INTERVAL 7 DAY`
+  cuando `!isEntitled(tier,'EXECUTION_HISTORY')` — API real de
+  `entitlements.ts`). Consistente con la retención tier-aware de capsules.
+- El usuario puede tocar el schema con SQL (misma DB): es SU data —
+  documentarlo en USAGE.md como feature, no protegerlo.
+
+**Pasos.** (1) `runLedger.ts` + DDL + tests unitarios con engine in-memory;
+(2) setting + Settings UI + trust event; (3) conectar los call sites de
+`record(...)` (editor runs, SQL, HTTP, notebook) con un tap no-bloqueante;
+(4) retención por tier; (5) USAGE.md + smoke web (activar, correr, ver
+tabla, borrar).
+
+**AC.** Con ledger ON y persistencia OPFS: correr código → fila en
+`lingua_ledger.runs` con `code_sha256` y SIN código fuente; reload →
+sobrevive; "Borrar historial" la vacía; con ledger OFF no se escribe NADA
+(assert en test); gates i18n verdes (strings nuevos en/es, tuteo).
+
+**Qué desbloquea:** el remaining scope de **RL-094** (auto-capsule + disk
+persistence → tabla `capsules`) y el run-history timeline de **RL-096**.
+
+## IT2-C2 · "Query your own history" en el SQL workspace — S (0.5-1 d)
+
+**Evidencia.** El schema browser hace introspección genérica — `SHOW
+TABLES` + `information_schema.columns` filtrando solo
+`information_schema/pg_catalog` (`SqlWorkspacePanel.tsx:366-419`) — así que
+las tablas de `lingua_ledger` **aparecen solas** en cuanto existen en la
+misma DB. El trabajo real es presentación y docs, no plumbing.
+
+**Diseño.** (1) Agrupar el schema `lingua_ledger` en una sección propia del
+schema browser con badge "Lingua" (orden: user tables primero); (2) snippet
+de ejemplo en el workspace vacío:
+`SELECT language, count(*) runs, avg(duration_ms) avg_ms FROM lingua_ledger.runs GROUP BY 1 ORDER BY 2 DESC;`
+(3) sección en USAGE.md. Nadie más en la categoría tiene esto: tu historial
+de ejecuciones es una tabla SQL consultable con la propia app.
+
+**AC.** Con ledger ON, el browser muestra el grupo `lingua_ledger` con
+columnas; el snippet corre; con ledger OFF el grupo no aparece.
+
+---
+
+# LANE D — UX: que se enamoren (retención local-first)
+
+## IT2-D1 · Rebalancear el gating Free — APROBADO 2026-07-06 · S (0.5 d)
+
+**Evidencia.** `FREE_TIER_LIMITS = { maxOpenTabs: 1, maxSnippets: 5,
+allowedLanguages: [js, ts, python, ruby] }` (`entitlements.ts:38-46`);
+`FREE_TIER_ENTITLEMENTS = new Set([])` — Free no tiene NINGÚN entitlement.
+El gate ya es civilizado en infraestructura: `withinTabBudget` +
+`pushUpsellNotice({ messageKey:'upsell.freeCeilingReached', … })` +
+`trackEvent('feature.blocked', { entitlement:'tabs', tier })`
+(`editorTabActions.ts:99-111`).
+
+**Spec (aprobada).** (a) `maxOpenTabs: 1 → 3` — cambiar la constante en
+`entitlements.ts:38-46` + actualizar los fixtures de los tests de
+`entitlements` y `editorTabActions`; la persona objetivo es multi-lenguaje,
+que pruebe JS+Python+TS sin pagar y encuentre el paywall cuando ya ama la
+app. (b) Enriquecer el upsell notice existente con `actions:` (el campo ya
+existe en `StatusNotice`, `uiStore.ts:86-122`): CTA "Ver qué incluye Pro" →
+abre Settings → License con la lista visual de entitlements. (c) Medir con
+el evento `feature.blocked` ya emitido (dashboard: ¿bajan los blocks, sube
+la conversión?).
+
+**Evidencia de mercado (2026-07, ver §F-P).** El Free de 1 tab es más
+restrictivo que el benchmark más duro del segmento (TablePlus regala "2 de
+todo" sin límite de tiempo); Yaak y Obsidian regalan el producto completo
+para uso personal; Bruno regala el core entero. En un producto cuyo pitch
+ES multi-lenguaje, 1 tab impide siquiera comparar dos lenguajes lado a
+lado: es un gate de evaluación, no de conversión.
+
+**AC.** 3 tabs Free operativos; 4.º tab → upsell con CTA; tests de
+`entitlements` y `editorTabActions` actualizados; smoke web verificando el
+upsell. (Decisión (a) ya confirmada 2026-07-06 — ver Decisiones aprobadas.)
+
+## IT2-D2 · Streaks + achievements locales (= RL-046, ya `Planned`) — M (3-4 d)
+
+**Evidencia de las piezas a reutilizar.** (1) Detección por suscripción a
+stores — patrón EXACTO ya probado en
+`useOnboardingChoreography.ts:76-170`
+(`useExecutionHistoryStore.subscribe((state, prev) => …)` sobre
+`entries`); (2) toasts con prioridad y CTA —
+`pushStatusNotice({ tone:'success', actions:[…], priority:'high',
+onSurvived, onDismiss })` (`uiStore.ts:86-122`, clobbering L258-346);
+(3) StatusBar extensible (`StatusBar.tsx` + `useStatusBarModel.ts:17-26`);
+(4) datos: `lingua_ledger.daily_activity` (IT2-C1).
+
+**Diseño.**
+- `src/shared/achievements.ts`: catálogo **closed-enum** (~15 ids):
+  `first-run-{python,go,rust,ruby}`, `three-languages-one-day`,
+  `ten-runs-day`, `first-capsule`, `first-capsule-diff`, `first-notebook`,
+  `first-sql-import`, `first-pipeline`, `streak-{3,7,30}`,
+  `hundred-runs-total`. Cada entrada: `{ id, i18nKey, evaluate(activity) }`
+  donde `evaluate` es función pura sobre un snapshot de actividad.
+- `achievementsStore.ts` (persist `lingua-achievements`, patrón
+  version+createMigrate del registry): `{ unlocked: Record<id, isoDate>,
+  currentStreakDays, lastActiveDay }`.
+- `useAchievementChoreography.ts` (espejo de onboarding): se suscribe a
+  `executionHistoryStore`; en cada run OK actualiza streak/actividad,
+  evalúa el catálogo, y para cada unlock nuevo dispara UN toast
+  `priority:'high'` + `trackEvent('achievement.unlocked', { id })`
+  (allowlist: `['id']` — id es closed enum, seguro).
+- StatusBar: segmento `StreakSegment` (🔥 + días) visible solo si
+  `achievementsEnabled && currentStreakDays >= 2`; click → popover con
+  el catálogo (conseguidos a color, pendientes en gris con hint).
+- Settings → General: toggle `achievementsEnabled` (default ON,
+  **apagarlo oculta TODO** — chip, toasts, popover; audiencia senior manda).
+- Microcopy (tuteo neutral, es/en): `"🔥 Racha de {{days}} días"`,
+  `"Logro desbloqueado: Políglota — corriste 3 lenguajes hoy"`,
+  `"Primera capsule exportada — tu run ya es reproducible"`.
+
+**AC.** Los del ticket RL-046 + estos: unlock exactamente una vez (persistido);
+streak sobrevive reload (usa `daily_activity`, no el reloj de sesión);
+toggle OFF = cero superficies visibles; `check:i18n` + `check:i18n:copy`
+verdes; smoke web del flujo run→toast→popover.
+
+## IT2-D3 · Progreso visible del bootstrap de runtimes — M (2 d)
+
+**Evidencia.** Confirmado: NO hay progreso hoy (búsqueda de
+onProgress/ReadableStream/Content-Length en python-worker, ruby-worker y
+duckdbClient = ausente). Mensajes actuales: estáticos —
+`INITIALIZATION_MESSAGES` en `runnerOutput.ts:5-18` ("Loading Python
+runtime (Pyodide)..."). URLs resolubles: Pyodide `PYODIDE_INDEX_URL`
+(`python-worker.ts:67-84`, define `__LINGUA_PYODIDE_INDEX_URL__`), Ruby
+`RUBY_WASM_URL` (`ruby-worker.ts:44-52`). Assets críticos con nombres
+conocidos: `runtimeAssets.ts` — pyodide `pyodide.asm.wasm` etc., ruby
+`ruby+stdlib.wasm`.
+
+**Diseño.** Técnica de **pre-warm con progreso** (no requiere tocar
+pyodide/ruby-wasm):
+
+1. Helper en el worker: `fetchWithProgress(url, onProgress)` — `fetch` +
+   `response.body.getReader()` + `Content-Length`; los bytes van al HTTP
+   cache del navegador; cuando `loadPyodide`/`RubyVM` piden el mismo URL,
+   sirven del cache (mismo origen, GET simple). Si `Content-Length` falta,
+   progreso indeterminado (spinner + bytes acumulados).
+2. Antes de `loadPyodide()`: `fetchWithProgress(PYODIDE_INDEX_URL +
+   'pyodide.asm.wasm', p => ctx.postMessage({ type:'bootstrap-progress',
+   runId, loadedBytes: p.loaded, totalBytes: p.total }))`. Ruby: envolver el
+   fetch de `RUBY_WASM_URL` que ya existe.
+3. Nueva variante `bootstrap-progress` en el contrato de workers (IT2-A4 la
+   tipa); el runner la reenvía a `setLoadingMessage` → el mensaje pasa de
+   estático a `"Loading Python runtime… 34 MB / 60 MB"`.
+4. **Prefetch opt-in** (slice 2): al boot, si un tab reciente es
+   python/ruby y `prefetchRuntimesEnabled` (setting nuevo, default ON solo
+   desktop), disparar el mismo fetch en idle (`requestIdleCallback`) y
+   mostrar chip discreto en StatusBar: "Python listo ✓". Web queda OFF por
+   default (datos móviles).
+5. Telemetría (allowlist): `'runtime.bootstrap_completed':
+   ['language','durationBucket']`, `'runtime.bootstrap_failed':
+   ['language','reason']` — buckets, jamás bytes exactos.
+
+**AC.** Primer run de Python con red lenta simulada (DevTools throttling)
+muestra progreso creciente; segundo boot con prefetch → run sin espera
+perceptible; sin red y sin cache → mensaje de error honesto (no spinner
+infinito); offline desktop (assets locales) → el progreso completa
+instantáneo sin regresión.
+
+## IT2-D4 · Magic comments descubribles — S (1 d)
+
+**Evidencia.** Vocabulario REAL (`magicComments.ts:35-124`): `// @watch
+expr` (JS_WATCH_RE / PY_WATCH_RE), `// =>` arrow, auto-log, `@timeout <n>
+[ms|s|m]` (TIMEOUT_DIRECTIVE_RE, comparte JS/TS/Python), `@origin off`,
+`@git-ignore-status`, `@git-watch-head off`; directivas de presentación
+`table|chart|image|html` (`MagicCommentDirective`). Infra de providers YA
+genérica: `registerLanguageOnce` (`monaco.ts:130-142`) registra por
+descriptor `createCompletionProvider` / `createHoverProvider`
+(`monaco.ts:173-196`); helper existente `createCompletionProvider(monaco,
+COMPLETIONS, { triggerCharacters, getDynamicDefinitions })` (patrón
+`pythonCompletions.ts:50-59`); hover de referencia
+`pythonHoverProvider.ts:23-50`.
+
+**Diseño.** (1) `magicCommentCompletions.ts` en `completionProviders/`:
+catálogo de sugerencias (`@watch`, `@timeout`, `@origin off`, `=>`,
+`:table`, `:chart`…) con `documentation` i18n; trigger character `@` y
+filtro por contexto (solo dentro de comentario `//` o `#` según lenguaje —
+inspeccionar el prefijo de línea en `provideCompletionItems`). (2) Hover
+provider sobre líneas que matcheen los regex reales (reusar
+TIMEOUT_DIRECTIVE_RE etc. exportándolos) mostrando qué hace la directiva +
+ejemplo. (3) Registrarlos en los descriptors de JS/TS/Python vía
+`loadEditorProviders` (composición con los providers existentes — verificar
+si el descriptor admite múltiples completion providers; Monaco sí:
+`registerCompletionItemProvider` es aditivo).
+
+**AC.** Tipear `// @` en JS/TS y `# @` en Python → sugerencias con docs;
+hover sobre `// @timeout 5s` explica el timeout; cero sugerencias fuera de
+comentarios; i18n en/es; test de componente para el filtro de contexto.
+
+## IT2-D5 · What's New activo — XS-S (0.5 d, con verificación previa)
+
+**Evidencia (parcial — verificar primero).** Ya existen `lastSeenVersion` /
+`setLastSeenVersion` en settings y un efecto en `App.tsx` (~L95-120) que
+compara con `appInfo.version` y llama `openOverlay('whats-new')` — pero el
+extracto sugiere que la apertura está condicionada a `overlay !== 'none'`
+(transcripción aproximada). **Paso 0 obligatorio: leer ese efecto completo.**
+
+**Diseño condicional.** Si hoy abre el overlay completo tras cada update:
+suavizarlo a toast (`pushStatusNotice` `priority:'normal'`, tone `info`,
+action "Ver novedades" → `openOverlay('whats-new')`) — un overlay modal
+sin pedirlo es intrusivo; un toast con CTA invita. Si hoy NO se muestra
+nada: implementar ese toast. Ambos casos: máximo 1 vez por versión
+(el flag `lastSeenVersion` ya lo garantiza), toggle en Settings.
+
+**AC.** Simular upgrade (bajar `lastSeenVersion` en localStorage) → toast
+una sola vez, CTA abre el overlay; toggle OFF lo silencia.
+
+## IT2-D6 · Quick wins del roadmap ya especificados
+
+**RL-113** (Cmd+; recent commands — el `CommandEntry`
+(`commandPaletteModel.ts:25-33`) y los builders L471-545 son la base: un
+ring de 20 ids ejecutados + popover), **RL-115** (`// @time` — extiende el
+vocabulario de IT2-D4 y el gutter), **RL-116** (Focus mode). Ejecutar con
+sus AC del plan interno; sinergia: hacer RL-115 justo después de IT2-D4.
+
+## IT2-D7 · Hints rotativos en superficies vacías — S (1 d)
+
+**Diseño.** Catálogo cerrado `src/renderer/data/hints.ts` (~20 entradas,
+cada una `{ id, i18nKey, surface: 'console'|'palette' }`): "Cmd+Shift+V
+pega sin smart-paste", "`// @watch x` muestra x en cada cambio", "Arrastra
+un CSV al SQL workspace", "Cmd+; repite tu último comando" (cuando RL-113
+exista — el catálogo se filtra por features presentes). Render en el empty
+state de ConsolePanel y del palette; rotación por sesión (índice =
+`sessionSeed % hints.length`, sin `Math.random` en render para
+determinismo de tests); "No mostrar tips" → setting `hintsEnabled`.
+
+**AC.** Hint visible en consola vacía; cambia entre sesiones; OFF lo
+elimina de ambas superficies; i18n en/es tuteo; cero hints sobre features
+no compiladas en la plataforma (web no sugiere Go).
+
+---
+
+## IT2-D8 · Modelo lifetime $59: `pro_lifetime` perpetuo + ventana de updates — APROBADO 2026-07-06 · M (2-3 d, security-gated)
+
+**Decisión.** Mantener el precio **$59**, pero pasar del riesgo "updates
+forever" (el modelo que quebró el Golden de Bruno) al patrón sostenible:
+**licencia perpetua (los entitlements NUNCA caducan) + 12 meses de updates
+incluidos + renovación opcional con 30-40% off** para seguir recibiendo
+builds nuevas. El monthly `pro` ($5) no cambia.
+
+**Evidencia — la infra ya existe.** El token Ed25519 ya trae lo necesario
+(`src/shared/license.ts`): tier `pro_lifetime` en `LICENSE_TIERS:24`;
+`LicensePayload` con `issuedAt` + `supportWindowEndsAt`
+(`license.ts:44-51`); el verificador ya resuelve `active` mientras
+`now <= supportWindowEndsAt`, `grace` en la ventana de gracia, y rechaza
+después (`license.ts:343-351`). El mint script ya tiene `--days`
+(AGENTS.md: "--days 0 leaves no remaining support window").
+
+**El cambio real (scoped, security-sensitive).** Hoy TODOS los tiers
+caducan tras `supportWindowEndsAt + grace` (`license.ts:343`). Para un
+lifetime honesto hay que **desacoplar validez-de-entitlements de la
+ventana-de-updates SOLO para `pro_lifetime`**:
+
+1. En el verificador (`verifyLicense` / la rama de `license.ts:343-351`):
+   si `tier === 'pro_lifetime'`, el estado es SIEMPRE `active`
+   independientemente de `supportWindowEndsAt` (los entitlements no
+   lapsan). Para los demás tiers, comportamiento idéntico al actual.
+2. `supportWindowEndsAt` pasa a significar, para `pro_lifetime`,
+   "updates incluidas hasta". Nueva señal derivada
+   `updatesIncludedUntil = supportWindowEndsAt` comparada contra la
+   **fecha de build** (`__LINGUA_APP_VERSION__` ya existe; añadir un
+   `__LINGUA_BUILD_DATE__` define si no está): si la build es más nueva
+   que `updatesIncludedUntil`, la licencia sigue `active` pero se muestra
+   una fila NO bloqueante en Settings → License: "Renueva para seguir
+   recibiendo updates (-40%)". Jamás corta funcionalidad.
+3. `scripts/mint-dev-license.mjs` y el issuer real: `pro_lifetime` sella
+   `supportWindowEndsAt = issuedAt + 365 d`.
+4. Website/pricing (`website/`): copy del $59 = "perpetuo, 12 meses de
+   updates incluidos, renovación opcional".
+
+**Gate de seguridad.** Toca el verificador Ed25519 → ruta
+`security-reviewer` obligatoria (AGENTS.md routing) antes de merge. Prueba
+del lock: un `pro_lifetime` con `supportWindowEndsAt` en el pasado debe
+verificar `active` (no `grace`, no reject) y un `pro`/`trial` con la misma
+fecha debe seguir cayendo a `grace`/reject.
+
+**AC.** Tests de `license.ts`: (a) `pro_lifetime` vencido en support-window
+→ `active` + flag `updatesLapsed`; (b) `pro` vencido → `grace`/reject sin
+cambios; (c) la fila de renovación aparece solo cuando build-date >
+`supportWindowEndsAt` y nunca bloquea; mint script sella 365 d; copy es/en
+en Settings + website; security review firmada.
+
+# LANE E — Testeabilidad
+
+## IT2-E1 · Cobertura instrumentada — S (0.5-1 d)
+`coverage: { provider: 'v8', reporter: ['text-summary','json-summary'] }`
+en la config de vitest; step de CI (job **test** de IT2-B5) que sube el
+summary como artifact y lo imprime. SIN umbral bloqueante al inicio;
+ratchet después (el umbral solo sube). AC: `pnpm test -- --coverage`
+funciona; CI publica el resumen.
+
+## IT2-E2 · Ampliar el gate de type-check de tests — incremental
+Hoy `tsconfig.test.json` incluye 1 archivo de 571 (decisión RL-132
+documentada: cientos de errores de strictness preexistentes). Plan:
+carpeta por carpeta — limpiar `tests/shared/` primero, añadirla al
+`include`, PR pequeño; repetir. PROHIBIDO `tests/**` de golpe (AGENTS.md).
+AC por PR: la carpeta añadida compila limpia y el gate sigue verde.
+
+## IT2-E3 · Tests del protocolo de workers — S-M (tras IT2-A4)
+Con el contrato tipado: tests de request→response shape, `runId` guard
+(mensajes de runs viejos descartados — comportamiento RL-078 existente),
+timeouts y la variante `bootstrap-progress` (IT2-D3). AC: cada variante del
+union tiene al menos un test; `tests/renderer/workers/` deja de ser un gap.
+
+---
+
+# LANE F — Mercado (investigación web 2026-07-06, 4 frentes con fuentes)
+
+## F0 · Mapa competitivo — dónde está parada Lingua
+
+| Competidor | Estado 2026 | Amenaza / oportunidad para Lingua |
+| --- | --- | --- |
+| **RunJS** (runjs.app) | Activo. v4.0 (abr-2026): logpoints de gutter, runtime por tab, web view, AI chat multi-proveedor. Solo JS/TS. | Amenaza directa en JS/TS. Su maker lanzó **RunPy** (Python separado) — ataca multi-lenguaje con apps mono-lenguaje; Lingua ya lo tiene unificado. Queja recurrente de sus usuarios: renovación anual con pocas updates. |
+| **CodeRunner** (macOS) | Vivo, cadencia lenta. $22.99 una vez. 25 lenguajes, debugger 12+ lenguajes, input sets. | Sin notebooks, sin inline results, sin AI, solo macOS. Lingua gana en todo menos en amplitud de debugger. |
+| **Quokka.js** | El techo técnico de inline values (Time Machine, Value Explorer, live coverage). Solo JS/TS, vive dentro de VS Code. | No compite por el mismo asiento (extensión vs app), pero define las expectativas de "inline values" de un dev senior. |
+| **RunKit** | **Muerto de facto** (caído desde fines de 2024, sin anuncio). | Sus usuarios de notebooks Node+npm están huérfanos — objetivo directo para los notebooks de Lingua + importer. |
+| **marimo / Observable 2.0 / Livebook** | Notebooks reactivos en auge; Observable pivotó a local-first/desktop (valida la tesis de Lingua). | **Nadie hace reactividad cross-lenguaje** (marimo = Python+SQL; Polyglot Notebooks comparte datos sin reactividad). Hueco de mercado concreto → IT2-F2. |
+| **DevToys / DevUtils / He3** | Utilidades: gratis-OSS / $29 perpetuo / gratis. Feature más citado: smart detection del clipboard. | Compiten con las 30 utilidades, no con el runner. Lingua diferencia por integración (pipelines, capsules, runner al lado). |
+| **Bruno / Yaak / Hoppscotch** | Capturaron la migración post-Insomnia. Criterios del comprador: colecciones plain-text en git, offline, scripting+tests, WS/SSE, CLI. | El workspace HTTP de Lingua está por detrás del estándar 2026 en assertions y protocolos realtime → IT2-F8/F9. |
+| **DuckDB Local UI** | Gratis, local; Column Explorer (profiling por columna) + notebook SQL con autocomplete. | Mismo motor que Lingua (DuckDB). El profiling por columna es el feature más amado de exploración local → IT2-F3. |
+
+No se encontró evidencia de ningún runner desktop multi-lenguaje
+offline-first nuevo (2025-2026) que replique la tesis de Lingua. La ventana
+competitiva está abierta; la constelación RunJS+RunPy es quien más cerca
+está de cerrarla.
+
+## F-P · Pricing y posicionamiento (conclusiones accionables)
+
+Benchmarks verificados: CodeRunner $22.99 · DevUtils $29-39 (perpetua +
+12 m updates, renovación -40%) · Quokka Pro ~$50 (perpetua + 12 m, -30%) ·
+Sublime $99 (3 años updates) · TablePlus $99 (perpetua + 12 m) · Yaak
+$79/año o $349 lifetime (gratis uso personal) · Bruno mató su one-time
+$19 por insostenible y hoy cobra $72/año · Obsidian: core gratis, ~$25M
+ARR con 7 personas monetizando add-ons.
+
+1. **Free tier:** subir de 1→3 tabs (evidencia en IT2-D1). Considerar
+   snippets 5→25: el cap de 5 castiga el hábito que más retiene.
+2. **Lifetime $59 → DECIDIDO 2026-07-06: se mantiene $59 con el modelo
+   sostenible** (perpetua + 12 meses de updates + renovación opcional
+   30-40% off, DevUtils/Quokka/TablePlus), NO se sube a $79. Evita el
+   "updates forever" que quebró el Golden de Bruno. Spec técnica completa
+   en IT2-D8 (mapea sobre `pro_lifetime` + `supportWindowEndsAt`, que ya
+   existen en el token). Nota abierta: $5×12 = $60 ≈ $59 canibaliza el
+   monthly — el monthly queda como puerta de entrada/trial extendido, no
+   como revenue principal.
+3. **Marketing local-first literal** — los mensajes que ya convierten en
+   el segmento y que Lingua puede afirmar con verdad hoy: *"works
+   entirely offline"*, *"your code never leaves your machine"*, *"no
+   account required"*. Las anti-features (§8) son features de marketing.
+4. **GitHub Student Developer Pack** como canal: GitHub verifica al
+   estudiante (costo cero para el vendor); Lingua solo emite licencias
+   education con expiry 1 año — el modelo Ed25519 offline ya lo soporta.
+   Aplicar cuando haya tracción.
+5. **Ángulo contra RunJS:** su queja pública es "pago renovación y recibo
+   ~3 updates flojas al año". El CHANGELOG denso de Lingua + What's New
+   activo (IT2-D5) es munición directa.
+
+## IT2-F1 · Logpoints de gutter — ejecutar **RL-027 Slice 1.5c** ya
+
+**Presión competitiva.** RunJS v4.0 lo shippeó como headline (abr-2026) y
+Quokka/Console Ninja lo normalizaron. El roadmap YA lo tiene planeado
+(extensión RL-027 Slice 1.5c, promoción post-RunJS-audit 2026-05-21, AC
+firmes en el plan interno; comparte security review con Slice 1.5b). La
+acción aquí no es especificar de nuevo — es **subirlo de prioridad**: la
+infra de Lingua (inline results + `// @watch` + breakpoint UI del debugger
+RL-027) deja el costo en bajo-medio. AC: los del plan interno.
+
+## IT2-F2 · Reactividad lazy cross-lenguaje en notebooks — L (la apuesta)
+
+**Hueco de mercado.** Es el remaining "reactive dataflow" de **RL-043**,
+ahora con mecanismo verificado y con evidencia de que nadie lo hace
+cross-lenguaje: marimo lo hace solo Python+SQL (grafo por análisis
+estático de defs/refs, sin ejecutar); Polyglot Notebooks (.NET) comparte
+variables entre lenguajes por copia serializada explícita (`#!set`,
+mime-type configurable) pero SIN reactividad. La combinación = primer
+notebook reactivo TS+Python+SQL local-first.
+
+**Diseño (3 slices).**
+
+1. **Grafo + stale marking (sin auto-run — el modo lazy de marimo).** Por
+   celda, extraer defs/refs con análisis estático: TS → el TS-AST rewriter
+   que RL-043 Slice B ya usa para cross-cell vars; Python → módulo `ast`
+   ejecutado en el kernel Pyodide persistente (RL-043 Slice F); SQL →
+   tablas creadas/referenciadas (parseo de `CREATE TABLE x` / `FROM x`).
+   Reglas marimo: una variable global se define en UNA sola celda; ciclos
+   = error visible. Al editar una celda, sus descendientes se marcan
+   **stale** (badge ámbar en la celda, contador en la toolbar del
+   notebook) — NUNCA se re-ejecutan solos. Botón "Run stale" + comando de
+   palette. Auto-run reactivo queda como toggle opt-in posterior.
+2. **Variable sharing cross-lenguaje explícito (patrón Polyglot).**
+   Directiva de celda `// @use python:df` / `# @use ts:config` — copia
+   serializada nombrada entre runtimes: JSON para escalares/objetos;
+   **Arrow** para dataframes DuckDB↔Python (ambos lo hablan nativo, evita
+   el costo JSON que Polyglot asume). La directiva crea la arista en el
+   grafo del slice 1 — reactividad cruza lenguajes.
+3. **Celda SQL ↔ host (patrón marimo SQL):** el resultado de una celda SQL
+   nombrada es una variable consumible desde TS/Python vía `@use`.
+
+**AC.** Editar la celda A marca stale exactamente a sus descendientes
+(test del grafo puro, sin UI); ciclo → error legible con las celdas del
+ciclo; "Run stale" ejecuta en orden topológico; `@use python:df` en TS
+recibe el dataframe (round-trip Arrow con 100k filas < 1 s en test);
+notebooks sin directivas se comportan EXACTO igual que hoy (cero
+regresión — suite RL-043 verde).
+
+## IT2-F3 · Column Explorer en el SQL workspace — S-M (1-2 d)
+
+**Evidencia.** El profiling por columna es el feature más amado de la
+exploración local de datos (DuckDB Local UI "Column Explorer"; visidata
+frequency tables). DuckDB lo trae gratis: `SUMMARIZE <query>` devuelve
+tipo, min/max, approx_unique, avg, std, %null por columna.
+
+**Diseño.** Tras cada query exitosa en el workspace (la infra:
+`executeQuery` → `DuckDbExecuteOutcome`, `duckdbClient.ts:57-81`), botón
+"Profile" en la barra de resultados que corre
+`SUMMARIZE (<query del usuario>)` y renderiza panel lateral por columna:
+tipo, % nulls, únicos, min/max, y mini-histograma (para columnas
+numéricas: `SELECT histogram(col)` o buckets manuales). Lazy: solo al
+click, nunca automático (una query cara no debe correrse dos veces sin
+pedirlo).
+
+**AC.** Query → Profile → panel con una fila por columna y datos
+correctos (test contra tabla fixture); query con error no ofrece Profile;
+telemetría `sql.profile_opened` (allowlist `[]`); i18n en/es.
+
+## IT2-F4 · Smart clipboard → sugerencia de utilidad — S-M (1-2 d)
+
+**Evidencia.** El feature más citado de DevToys/DevUtils/He3 ("smart
+detection"). Lingua ya tiene la mitad: el router de smart-paste RL-110
+(`src/renderer/clipboard/` — detectores puros + intent router, shipped
+2026-06-14) detecta share-links/capsules/cURL/stack-traces/JSON en el
+EDITOR. Y los parsers de las 30 utilidades ya existen
+(`utils/developerUtilities.ts`, p. ej. `detectsAsBase64`).
+
+**Diseño.** Nueva familia de detectores en el mismo router: JWT (3
+segmentos base64url), base64, JSON, timestamp unix, cron (5-6 campos),
+color hex/rgb, UUID. Al pegar en el editor algo que NO es código y
+matchea, el toast existente de smart-paste ofrece "Abrir en <utilidad>"
+(action de `StatusNotice`) → abre el workspace con el panel correcto y el
+input pre-cargado (los paneles ya aceptan `initialInput` vía el hook
+IT2-A2). Mismo toggle y bypass Cmd+Shift+V de RL-110.
+
+**AC.** Pegar un JWT en el editor → toast → click → panel JWT con el
+token cargado; pegar código JS normal → cero toast (test de precedencia:
+los detectores RL-110 existentes ganan); toggle OFF lo apaga todo.
+
+## IT2-F5 · Input sets guardados (stdin + args) — S (1 d)
+
+**Evidencia.** CodeRunner ("run with arguments & input sets") es el único
+con esto y sus usuarios lo destacan. Lingua ya tiene stdin por tab
+(F-7 shipped) y panel stdin (`showStdinPanel` en settings).
+
+**Diseño.** En el panel stdin: dropdown "Input set" + guardar/renombrar/
+borrar sets nombrados `{ name, stdin, args? }` por tab (persistidos en el
+store del editor — campo aditivo). El run usa el set activo; la capsule
+lo captura (el campo `input.stdin` de `RunCapsuleV1` ya existe — extender
+con `input.setName` opcional, additive al schema v1 como campo omitible).
+
+**AC.** Crear 2 sets, alternar, correr → cada run usa su stdin;
+sobrevive reload; la capsule registra el set usado; export/import de
+capsule con set → round-trip intacto.
+
+## IT2-F6 · Value Explorer live — M (2-3 d)
+
+**Evidencia.** El feature definitorio de Quokka (Community lo capa a 2
+niveles — señal de que es driver de conversión Pro). Lingua ya tiene
+scope snapshots (`resultStore` "variable scope",
+`variableInspectorSurface` setting, `scope-snapshot` del worker).
+
+**Diseño.** Elevar el inspector actual a treeview expandible-por-demanda:
+el worker ya envía `scope-snapshot`; añadir mensaje `expand-value`
+(request de children de un path `obj.a.b`, tipado en el contrato IT2-A4)
+que el worker responde serializando SOLO ese nivel (lazy, evita
+serializar objetos enormes). UI: árbol con copy-value/copy-path por nodo.
+Gate: Pro (ya existe `EXECUTION_HISTORY`-style gating; usar el
+entitlement `BENCHMARK`-adjacente o el que decida producto — NO crear
+entitlement nuevo sin decisión).
+
+**AC.** Objeto anidado de 5 niveles → expandir bajo demanda sin
+serializar el árbol completo (assert sobre el tamaño del mensaje); copy
+value/path; funciona en JS/TS; Python en slice 2 (vía kernel).
+
+## IT2-F7 · Capsule → HTML autocontenido — S-M (1-2 d)
+
+**Evidencia.** Quokka monetiza compartir ejecuciones (Codeclip, con
+backend). La versión Lingua sin backend: exportar una `RunCapsuleV1` a un
+único `.html` con código (resaltado estático), output, metadata de
+environment y estilos inline — se comparte por Slack/email/gist y se abre
+en cualquier navegador sin app.
+
+**Diseño.** `src/shared/capsuleHtmlExport.ts`: template literal → HTML
+con CSS inline (sin JS externo, CSP-friendly); resaltado con el
+colorizador estático que el notebook ya usa para celdas inactivas
+(RL-043 Slice G). Botón "Export HTML" junto al export existente de
+capsules; trust event + redacción ya vienen de la capsule.
+
+**AC.** Capsule → HTML → abre standalone con código coloreado y output;
+cero requests externos (verificar con el HTML abierto offline); tamaño
+< 500 KB para una capsule típica; el HTML declara la versión del schema.
+
+## IT2-F8 · HTTP: assertions + scripting post-request — M (3-4 d)
+
+**Evidencia.** Estándar de la categoría 2026 (Bruno, Hoppscotch con
+compat `pm.*`, Yaak). Los imports de Postman que RL-100 ya hace HOY
+pierden los tests de las colecciones.
+
+**Diseño.** Slice 1 (assertions declarativas, sin código): lista de
+asserts por request `{ target: status|header|jsonPath, op: eq|lt|contains,
+value }` con UI tipo tabla + resultados pass/fail en el response panel.
+Slice 2 (scripting): post-script JS en el **js-worker existente**
+(sandboxed, sin DOM) con API mínima `lingua.response`, `lingua.env.set()`
+— y mapear los `pm.test()` básicos del import Postman a asserts
+declarativos donde sea posible (best-effort documentado). Persistencia en
+`workspaceToolStore` (additive).
+
+**AC.** Request con 3 asserts → pass/fail visible; import de colección
+Postman con tests → asserts mapeados o aviso claro de qué se omitió;
+scripting corre en worker con timeout (reusa el guard de T6-style);
+capsule de HTTP captura los resultados de asserts.
+
+## IT2-F9 · WebSocket + SSE en el workspace HTTP — M-L (4-6 d)
+
+**Evidencia.** Yaak y Hoppscotch los tienen; es el segundo criterio del
+comprador post-Insomnia (tras git-friendly). gRPC se descarta por ahora
+(el más caro, menor demanda relativa).
+
+**Diseño.** Engine en main process junto al proxy T7 (mismas guardas
+SSRF/redaction): canal push tipado `http:stream-event` (nuevo en
+`ipcContract.ts` — invoke `connect/send/close` + push de frames). UI:
+tipo de request "WebSocket"/"SSE" en el workspace, timeline de mensajes
+enviados/recibidos con filtros. Capsule de sesión WS = transcript
+redactado (los secrets de `{{env}}` ya se redactan).
+
+**AC.** Conectar a un echo server WS local (fixture en tests e2e), enviar
+y recibir; SSE contra endpoint fixture; el guard SSRF de T7 aplica
+(conectar a IP privada → bloqueado con el mismo error tipado); timeline
+sobrevive cambio de tab.
+
+## IT2-F10 · Quick capture global (tray + hotkey) — M (2-3 d, desktop)
+
+**Evidencia.** SnippetsLab Assistant (menu bar) y DevUtils→launchers son
+los drivers de hábito diario de sus categorías.
+
+**Diseño.** Desktop only: `globalShortcut` de Electron (default
+Cmd+Shift+L, remapeable en el editor de shortcuts RL-037 existente) +
+tray menu → mini-popover "Guardar clipboard como snippet" / "Abrir con
+utilidad" (reusa la detección IT2-F4) / "Nuevo scratch". Permiso: cero —
+no lee el clipboard hasta que el usuario invoca el hotkey (consistente
+con la postura de permisos RL-127).
+
+**AC.** Hotkey con la app en background → popover → guardar snippet →
+aparece en la librería; el hotkey es remapeable y liberable; web build:
+la superficie no existe (stub honesto).
+
+## IT2-F11 · Runner como servidor MCP local — M (3-4 d, gated)
+
+**Evidencia.** Jupyter shippeó `jupyter_server_mcp`; Yaak expone MCP; los
+agentes locales (Claude Code, etc.) son el nuevo consumidor de tooling.
+Lingua puede ser el brazo de ejecución multi-lenguaje de cualquier agente
+— 100% local, alineado con el AI bridge ADR de RL-031.
+
+**Diseño.** Servidor MCP (stdio o HTTP loopback-only) en el main process,
+opt-in en Settings → AI, exponiendo herramientas de solo-ejecución:
+`run_code(language, code, stdin?)` → resultado tipado (reusa los runners
+y sus timeouts/caps), `list_capsules`, `get_capsule(id)`. NUNCA fs write
+ni shell. **Gate: security review previa** (misma vara que el eval del
+debugger RL-027) + trust event por invocación.
+
+**AC.** Con el toggle ON, un cliente MCP local lista las tools y ejecuta
+`run_code('python', 'print(1+1)')` → `2`; con OFF, el server no escucha;
+cada invocación queda en el trust ledger; review de seguridad firmada
+antes de exponer superficie.
+
+## IT2-F12 · Coverage gutter JS/TS — M (2-3 d, tier 2)
+
+**Evidencia.** Quokka live coverage (verde/parcial/gris por línea).
+Lingua ya instrumenta el AST JS/TS (loop protection, magic comments) —
+añadir un contador por línea al instrumentado y pintar decorations Monaco
+post-run es incremental. Runtimes nativos: fuera de scope (costo alto).
+
+**AC.** Run → gutter marca líneas ejecutadas/no ejecutadas; overhead de
+instrumentación < 10% en el benchmark existente; toggle en Settings
+(default OFF).
+
+## IT2-F13 · Snippets como archivos planos git-sync — ESTUDIO (ADR primero)
+
+**Evidencia.** El criterio #1 del comprador local-first post-Insomnia
+(Bruno `.bru`, massCode `.md` + frontmatter). Hoy los snippets viven en
+localStorage — invisibles para git/backup.
+
+**Por qué estudio y no slice:** toca la arquitectura de storage (¿carpeta
+elegida por el usuario vía fs capability? ¿sync bidireccional con el
+watcher? ¿conflictos?) y colinda con RL-117 (personal cloud sync,
+Research-backed spike) y la anti-feature §A-006. Acción: ADR corto
+(formato de archivo, dirección del sync, scope: ¿solo snippets o también
+colecciones HTTP?) antes de cualquier código. El mismo ADR decide si las
+colecciones HTTP van al disco (criterio Bruno).
+
+## F-X · Descartes razonados (para no re-litigar)
+
+- **Vim mode** (CodeRunner): Lingua YA lo tiene (`monaco-vim` +
+  ADR de Vim mode; paridad Vim en celdas de notebook, RL-043 Slice G).
+- **Carga de `.env` / env vars** (RunJS): ya cubierto por RL-011/RL-109
+  (tiers de env por proyecto, shipped).
+- **Web view de output** (RunJS): existe BrowserPreview; el auto-refresh
+  es RL-119 (ya planeado).
+- **Selector de runtime por tab** (RunJS v4): RL-019 (Done) ya da modos
+  de runtime JS/TS; solo cabría pulir la visibilidad del selector.
+- **Time Machine** (Quokka): valor altísimo, esfuerzo altísimo — parking
+  lot explícito; reevaluar tras IT2-F6/F12.
+- **SDK de plugins de terceros** (DevToys): contradice el landmine
+  activo ("no describir plugin support como terminado") y el anti-scope;
+  los user-scripts como paso de pipeline pueden reevaluarse aparte.
+- **gRPC** (Yaak/Hoppscotch): detrás de WS/SSE (IT2-F9) por
+  costo/beneficio.
+- **Sync en la nube propio**: sigue vetado (anti-feature §A-006);
+  IT2-F13 lo bordea con archivos locales + git del usuario.
+
+# LANE G — Cierre v4: arranque, resiliencia, a11y, distribución
+
+> Nota de modelos de datos: la v4 NO extiende el DDL del Run Ledger
+> (IT2-C1). Las métricas de boot van a telemetría en buckets (opt-in),
+> nunca al ledger — el ledger es del usuario, la telemetría del producto.
+
+## IT2-G1 · Instrumentar el arranque — S (1 d)
+
+**Evidencia.** No existe medición por fases del boot: `performance-report.mjs`
+solo captura el end-to-end del smoke (`launcherToSmokeReadyMs`,
+`performance-report.mjs:422`); cero `performance.mark` en `main.tsx`/`App.tsx`.
+Sin esto, G2/G3 no pueden probar su valor.
+
+**Diseño.** `performance.mark`/`measure` en las fases reales del bootstrap
+(`main.tsx:44-97`): inicio → `resolveSystemLanguage` resuelto → `initI18n`
+hecho → React mount → primer paint de AppLayout → rehidratación completa.
+Comando de palette "Copy boot timings" (JSON al clipboard). Telemetría
+opt-in `app.boot_phase` con `durationBucket` (allowlist; jamás valores
+exactos ni timestamps).
+
+**AC.** Marks visibles en DevTools Performance; el comando copia el JSON;
+cero PII (test del redactor sobre el evento nuevo).
+
+## IT2-G2 · Arranque percibido: skeleton + ventana sin bloqueo de licencia — M (1-2 d)
+
+**Evidencia.** `index.html` monta React sobre un `<div id="root">` vacío —
+pantalla en blanco hasta el mount (index.html:170-173). En desktop, el main
+process **espera** `bootCrashReporter` y `createLicenseRuntime` ANTES de
+`createWindow()` (`src/main/index.ts:294-306`); `show:false` +
+`ready-to-show` ya están bien (L154, L194-196).
+
+**Diseño.** (a) Skeleton estático inline en `index.html`: shell mínimo
+(barra superior + bloque editor + statusbar) en CSS puro, theme-aware
+leyendo `lingua-settings` de localStorage con un script inline mínimo
+(verificar compatibilidad con la CSP del build web ANTES — si la CSP lo
+bloquea, skeleton monocromo sin script). React lo reemplaza al montar.
+(b) **Paso 0 obligatorio:** mapear qué handlers dependen de
+`createLicenseRuntime` (`registerLicenseHandlers(licenseRuntime)`). Si la
+dependencia es solo de los handlers `license:*`, crear la ventana primero
+y resolver el runtime en paralelo (los stores de licencia del renderer ya
+modelan estado pendiente); si hay dependencia dura, dividir: ventana
+inmediata + runtime awaited solo por sus handlers.
+
+**AC.** Con G1: el intervalo "proceso → ventana visible" baja
+(medir antes/después en el smoke); primer paint web muestra skeleton
+< 100 ms en throttling "Fast 3G"; el estado de licencia resuelve async sin
+flash de "invalid"; smoke desktop completo verde.
+
+## IT2-G3 · Rehidratación diferida de stores pesados — M (1-2 d, tras G1)
+
+**Evidencia.** Los 15 stores `persist` rehidratan síncronamente en
+import-time; `notebookStore` parsea el payload completo al boot y
+`utilityHistoryStore` hasta 256 KB (`utilityHistoryStore.ts:49-80`);
+`settingsStore` usa `onRehydrateStorage` (L65) — el patrón ya existe.
+
+**Diseño.** Medir primero con G1 cuáles cuestan. Para los pesados que NO
+participan del primer paint (`notebookStore`, `utilityHistoryStore`,
+`executionHistory` no persiste): `skipHydration: true` + `rehydrate()`
+explícito en `requestIdleCallback` tras el primer paint. `settingsStore`
+y `editorStore` quedan síncronos (el shell y el session-restore los
+necesitan al mount). UI: si el usuario abre un notebook antes del idle
+rehydrate, estado de carga breve (el Suspense de LazyNotebookView ya
+existe).
+
+**AC.** Marks de G1 muestran la mejora; suite completa verde sin editar
+asserts; abrir notebook inmediatamente tras el boot funciona (test e2e
+con notebook persistido grande).
+
+## IT2-G4 · Toolchain ausente → guía in-app — S (1 d)
+
+**Evidencia.** Cuando falta el toolchain nativo (Go/Rust/Ruby/Node), el
+error va a consola sin guía ni retry (auditoría de resiliencia §4); la
+detección tipada ya existe (`goLanguageStore`/`rustLanguageStore` + los
+detect de cada runner).
+
+**Diseño.** En el fallo de detección, `pushStatusNotice` tone `warning`
+con `actions`: "Cómo instalar Go" → `shell.openExternal` a la sección de
+instalación por lenguaje (docs del sitio) + "Reintentar detección" →
+re-dispara el detect. Copy es/en (tuteo): *"No encontramos Go en tu
+sistema. Instálalo y reintenta — todo lo demás sigue funcionando."*
+
+**AC.** Con PATH sin Go (test de main con env controlado), correr Go →
+notice con ambos CTAs; retry tras instalar detecta sin reiniciar la app;
+con toolchain presente, cero cambio.
+
+## IT2-G5 · Indicador offline que celebra — S (0.5-1 d)
+
+**Evidencia.** Producción no tiene ninguna señal de offline (la auditoría
+lo confirmó: el manejo es test-only vía `offlineSmoke.ts`); offline-first
+ES la razón de ser — hoy es invisible.
+
+**Diseño.** `navigator.onLine` + eventos `online`/`offline` → segmento
+discreto en el StatusBar: **"Offline — todo sigue funcionando"** (tono
+positivo, no advertencia). Tooltip honesto: qué NO está disponible
+(updates, AI remota, descarga de runtimes no cacheados). Desaparece al
+volver online, sin toasts. Es marketing de la razón de ser dentro del
+producto.
+
+**AC.** DevTools offline → chip aparece con el copy positivo; online →
+desaparece; correr JS/TS/Python (cacheado) offline funciona y el chip no
+interfiere; i18n es/en.
+
+## IT2-G6 · ErrorBoundary regional por workspace — S-M (1 d)
+
+**Evidencia.** Solo existe el boundary de shell (`App.tsx:459`,
+`region="shell"`); los workspaces lazy (Notebook/SQL/HTTP/Utilities) solo
+tienen `Suspense` — un crash de render en un panel tumba el shell entero
+(fallback global) en vez del panel.
+
+**Diseño.** Envolver cada workspace lazy en el `ErrorBoundary` existente
+con `region` propia (`notebook`/`sql`/`http`/`utilities`) y un fallback
+compacto por panel: mensaje + "Reintentar" (re-mount local por key bump)
++ "Copiar reporte" (la infra de reporte redactado ya existe en el
+boundary). El resto de la app sigue viva.
+
+**AC.** Throw simulado dentro del notebook (test de componente) → el
+editor y el resto del shell siguen operativos; Reintentar re-monta; el
+crash-log registra la región correcta; el boundary de shell sigue
+cubriendo lo demás.
+
+## IT2-G7 · A11y: cierre de gaps concretos — S-M (1-2 d)
+
+**Evidencia (corregida en Fase 1).** Base sólida (focus trap canónico
+`ModalShell.tsx:234-266`, 87 call sites de announcer, plurales i18next,
+`prefers-reduced-motion`). La afirmación de la auditoría "las filas no
+tienen role=treeitem" era FALSA: `FileTreeNode.tsx` ya llevaba
+`role="treeitem"` + `aria-level` + `aria-expanded` + `aria-selected` —
+la parte (a) quedó cubierta y verificada durante IT2-B2 (el árbol plano
+virtualizado conserva esos atributos; `aria-level` transmite la
+profundidad sin `role="group"` anidado, patrón ARIA de árbol plano
+estándar). Gaps reales restantes: StatusBar sin roles semánticos; axe
+cubre ~30% de superficies (`a11y.spec.ts`: editor + Settings + palette +
+QuickOpen); `.toLocaleString()` en 7 sitios sin respetar `i18n.language`;
+context menus solo por right-click en tabs.
+
+**Diseño.** (a) ~~role=treeitem en filas del árbol~~ HECHO (ya existía;
+preservado en IT2-B2); (b) `role="status"` en segmentos informativos del
+StatusBar; (c) ampliar `a11y.spec.ts` a Snippets, Developer Utilities,
+Recipes, overlays de capsule y Notebook; (d) helper `formatNumber(value)`
+ligado a `i18n.language` + reemplazo mecánico de los 7
+`.toLocaleString()`; (e) Shift+F10/tecla Menu en tabs (el FileTree ya lo
+tiene — replicar patrón).
+
+**AC.** axe verde en las superficies añadidas; VoiceOver anuncia
+nivel/estado del árbol; números renderizan formato es con locale es;
+`check:i18n` verde.
+
+## IT2-G8 · Distribución + comparación pública — M (2-3 d, post-release estable)
+
+**Evidencia.** Distribución = solo GitHub Releases (electron-builder.yml:
+dmg/zip + NSIS + AppImage); sin Homebrew/winget/Snap — canales estándar
+de la categoría (DevToys/DevUtils/Bruno están en brew). La website no
+tiene página de comparación (grep "runjs" en website/ = 0 resultados) ni
+usa los deep links `lingua://` como demo.
+
+**Diseño.** (a) Homebrew cask (tap propio `johnny4young/homebrew-lingua`)
++ manifest winget, generados como jobs post-publish del Release workflow;
+(b) página `/compare/runjs` en el sitio Astro con la tabla honesta de F0
+(SEO: "RunJS alternative" — la queja pública de renovación de RunJS es el
+ángulo, sin FUD); (c) botones "Ábrelo en Lingua" (`lingua://snippet?...`)
+en los docs del sitio como puente web→app.
+
+**AC.** `brew install --cask lingua` instala y abre; manifest winget
+validado; página indexable con JSON-LD y en en/es; los deep links del
+sitio abren la app instalada.
+
+## IT2-G9 · CLI: documentar + publicar a npm — APROBADO 2026-07-06 · S-M (1-2 d)
+
+**Evidencia (corregida en Fase 1).** El CLI Slice 1 es sólido (esbuild CJS
+35 KiB, exit codes 0-4 testeados con snapshots, cero imports del renderer
+con ban de ESLint) pero `private: true` — sin canal de instalación público.
+La afirmación de la auditoría "sin documentación" era FALSA:
+`docs/CLI_USAGE.md` existe y está en el reading order de `docs/README.md`;
+el gap real es solo la publicación. RL-098 remaining ya contempla
+`lingua run`, `capsule replay`, completions y "package publish chain".
+
+**Spec (aprobada — publicar a npm).** (a) `docs/CLI_USAGE.md` ya cubre la
+documentación (verificar que mencione el canal npm cuando exista). (b) Cadena de
+publicación npm **dentro del scope de RL-098** (no inventar ticket): o
+bien un `package.json` propio en `dist/cli/` con `bin` público, o extraer
+el CLI a un paquete publicable `@lingua/cli` (decidir en el ADR de RL-098;
+recomendado el paquete dedicado para no publicar el árbol Electron
+completo). Versionado atado a la app (`__LINGUA_CLI_VERSION__` ya se
+inyecta). Workflow de release: job `npm publish --provenance` tras el
+build, gated por el mismo tag del Release. (c) Sinergia: el CLI es el
+complemento natural del workspace HTTP con assertions (IT2-F8 →
+`lingua http run` en CI, criterio Bruno/Hoppscotch).
+
+**AC.** `npm install -g @lingua/cli` (o el nombre elegido) instala y
+`lingua --version` responde; docs mergeadas; publish reproducible desde CI
+con provenance; exit codes 0-4 estables (tests existentes verdes); el
+paquete NO arrastra código del renderer (ban de ESLint ya lo garantiza).
+
+# 7. Secuencia recomendada (iteración 2)
+
+Cada slice cierra con: `pnpm test -- --run` · `pnpm exec tsc --noEmit` ·
+`pnpm run lint` · `check:i18n` · `check:i18n:copy` + smoke web/desktop si
+toca UI (mandato AGENTS.md).
+
+**Fase 1 — Fundaciones técnicas** (el orden importa):
+
+| # | Item | Esfuerzo | Nota |
+| - | ---- | -------- | ---- |
+| 1 | IT2-A6 + IT2-A7 + IT2-B3 | 1 d | Higiene sin riesgo. |
+| 2 | IT2-B4 (medir → fix selectores) | 0.5 d | Perf percibida al tipear. |
+| 3 | IT2-B1 (descarte post-truncation T6) | 1 d | Robustez del engine. |
+| 4 | IT2-B2 (FileTree virtual) | 1.5 d | Piezas ya existen. |
+| 5 | IT2-A1 (split fileSystem.ts) | 2-3 d | Con suite verde y sin re-firmar. |
+| 6 | IT2-A4 → IT2-E3 (worker contract → tests) | 2-3 d | Prerrequisito de D3, F6, F8. |
+
+**Fase 2 — Datos + quick wins de mercado**:
+
+| # | Item | Esfuerzo | Nota |
+| - | ---- | -------- | ---- |
+| 7 | IT2-C1 → IT2-C2 (Run Ledger → SQL expuesto) | 4-5 d | La pieza central. |
+| 8 | IT2-F3 (Column Explorer SQL) | 1-2 d | El feature más amado de la categoría; SUMMARIZE ya existe. |
+| 9 | IT2-F5 (input sets stdin+args) | 1 d | Barato; alimenta capsules. |
+| 10 | IT2-F4 (smart clipboard → utilidad) | 1-2 d | Extiende RL-110; paridad DevToys/DevUtils. |
+
+**Fase 3 — UX de retención** (que se enamoren):
+
+| # | Item | Esfuerzo | Nota |
+| - | ---- | -------- | ---- |
+| 11 | IT2-D3 (bootstrap progress + prefetch) | 2 d | Fricción #1 del primer uso. |
+| 12 | IT2-D4 + IT2-D5 + IT2-D7 (descubribilidad) | 2.5 d | Hace visible lo que ya existe. |
+| 13 | IT2-D2 (RL-046 sobre el ledger) | 3-4 d | Retención; necesita #7. |
+| 14 | IT2-D1 (Free 1→3 tabs) + IT2-D8 (lifetime $59 sostenible) | 0.5 d + 2-3 d | **APROBADO 2026-07-06.** IT2-D8 es security-gated (verificador Ed25519). |
+
+**Fase 4 — Diferenciadores de mercado**:
+
+| # | Item | Esfuerzo | Nota |
+| - | ---- | -------- | ---- |
+| 15 | IT2-F1 (= RL-027 Slice 1.5c logpoints) | según ticket | Presión directa de RunJS v4. |
+| 16 | IT2-F7 (capsule → HTML autocontenido) | 1-2 d | Share sin backend; único en la categoría. |
+| 17 | IT2-F6 (Value Explorer live) | 2-3 d | Driver de conversión Pro (patrón Quokka). |
+| 18 | IT2-F8 (HTTP assertions + scripting) | 3-4 d | Estándar 2026 de la categoría. |
+| 19 | IT2-F2 (reactividad cross-lenguaje) | L, por slices | La apuesta: hueco de mercado sin ocupar. |
+| 20 | IT2-F9 (WebSocket + SSE) | 4-6 d | Segundo criterio del comprador HTTP. |
+| 21 | IT2-F10 (quick capture global) | 2-3 d | Hábito diario; desktop only. |
+| 22 | IT2-F11 (servidor MCP local) | 3-4 d | **Gated en security review.** |
+| 23 | IT2-F12 (coverage gutter) + IT2-F13 (ADR snippets-as-files) | 2-3 d + ADR | Tier 2 / estudio. |
+
+**Fase 5 — Cierre v4 (LANE G)**:
+
+| # | Item | Esfuerzo | Nota |
+| - | ---- | -------- | ---- |
+| 24 | IT2-G1 (instrumentar boot) | 1 d | **Puede adelantarse a Fase 1** — habilita medir G2/G3. |
+| 25 | IT2-G2 (skeleton + ventana sin bloqueo) | 1-2 d | Primer impacto percibido; paso 0 = mapear dependencia de licencia. |
+| 26 | IT2-G3 (rehidratación diferida) | 1-2 d | Solo tras medir con G1. |
+| 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | Convierte las dos frustraciones en momentos de marca. |
+| 28 | IT2-G6 (boundaries regionales) | 1 d | Resiliencia percibida. |
+| 29 | IT2-G7 (a11y gaps) | 1-2 d | La parte (a) va DENTRO de IT2-B2. |
+| 30 | IT2-G8 (brew/winget + /compare/runjs) | 2-3 d | Post-release estable. |
+| 31 | IT2-G9 (CLI docs + publicar a npm) | 1-2 d + RL-098 | **APROBADO 2026-07-06.** Cadena de publish dentro de RL-098. |
+
+**Interleavables en cualquier fase**: IT2-A2 (hook de paneles), IT2-A5
+(hooks split), RL-133 → RL-134 → RL-135 (lane audit existente), IT2-B5 +
+IT2-E1/E2 (CI paralelo + coverage + typecheck ratchet).
+
+**Adelantos recomendados**: IT2-G1 junto a la Fase 1 (medir antes de
+optimizar); IT2-G7a dentro de IT2-B2 (las filas del árbol se reescriben
+una sola vez).
+
+# 8. Anti-scope
+
+Sin cambios vs v1: no quitar el bundling offline-first de runtimes (96 MB
+deliberados); no migraciones WASM-first sin CAPABILITY_MATRIX; nada de
+backend/nube/cuentas para ledger o achievements; no inventar RL ids; no
+marketplace ni social (anti-features §A-004/§A-011); RL-105/RL-118 siguen
+detrás del product-center (§5a).
+
+# 9. Anexo — diagnóstico v1 por dimensión
+
+(Se conserva el resumen de la primera pasada como contexto histórico:
+funcionalidad ★★★★★, arquitectura ★★★★, mantenibilidad ★★★, perf runtime
+★★★★, perf build ★★★, testeabilidad ★★★, datos ★★, UX/retención ★★★,
+librerías ★★★★★, innovación ★★★★. Evidencia detallada en el historial de
+la sesión de análisis del 2026-07-06. Superado por el scorecard v4 de §10.)
+
+# 10. Scorecard final v4 — las 12 dimensiones
+
+Consolidado de las 4 pasadas (auditoría de código v1, verificación de APIs
+v2, mercado v3, cierre v4). Cada fila: veredicto + evidencia + qué lane lo
+ataca.
+
+| Dimensión | Nota | Veredicto en una línea | Lane |
+| --- | :--: | --- | --- |
+| **Funcionalidad** | ★★★★★ | 95 tickets shipped; 6 lenguajes ejecutables + notebooks + SQL/HTTP + 30 utilidades + capsules + licensing offline. La amplitud ya es de talla mundial. | F (profundizar, no ensanchar) |
+| **Usabilidad** | ★★★★ | Onboarding <90 s, 100% keyboard-path en los flujos núcleo, focus traps canónicos. Gaps: descubribilidad enterrada y bootstrap mudo. | D3, D4-D7 |
+| **Innovación** | ★★★★ | Capsules reproducibles + Trust dashboard + AI local con payload preview: real, pero invisible al mercado. La reactividad cross-lenguaje (F2) es el hueco sin ocupar. | F2, C2, G8 |
+| **Originalidad** | ★★★★½ | Único runner multi-lenguaje offline-first unificado (la competencia lo ataca con apps separadas). El ledger consultable con SQL (C2) y la capsule→HTML (F7) no los tiene nadie. | C2, F7 |
+| **UX** | ★★★½ | Sólida de base, sin momentos de deleite ni loops de retorno; el gating Free contradice la persona objetivo. | D completo, G4-G5 |
+| **Performance** | ★★★½ | Runtime bien (virtualización parcial, budgets en CI); el ARRANQUE está sin instrumentar, con rehidratación síncrona de 15 stores y ventana bloqueada por la licencia. | B, G1-G3 |
+| **Arquitectura** | ★★★★½ | IPC por contrato, FS por capabilities, resiliencia mejor de lo asumido (safe mode, boot-loop counter, factory reset). Lo que resta: god-file fs y workers sin contrato. | A1, A4 |
+| **Escalabilidad (datos)** | ★★½ | Todo en localStorage con caps; historial volátil. El Run Ledger (DuckDB+OPFS) es el salto — sin dependencias nuevas. | C1-C2 |
+| **Testeabilidad** | ★★★ | 571 tests y CI disciplinado, pero 0 coverage instrumentado, 1/571 type-checkeado y axe en ~30% de superficies. | E, G7c |
+| **Simplicidad** | ★★★½ | Patrones consistentes (splits RL-128/129/130, contrato IPC); la rompen los hooks de 500-617 LOC y el boilerplate de paneles. | A2, A5 |
+| **Mantenibilidad** | ★★★½ | Docs vivos + gates fuertes; deuda concentrada y mapeada (fileSystem.ts 1.904 LOC, 53 imports cruzados). | A completo |
+| **Librerías** | ★★★★★ | React 19 / Vite 8 / TS 6 / Electron 42 / zustand 5 / Tailwind 4 — todo al día; el plugin de Forge fue verificado como dependencia viva del empaquetado desktop. | A6 |
+
+**Los tres multiplicadores** (si solo se hicieran tres cosas): (1)
+**IT2-C1/C2 Run Ledger** — convierte datos volátiles en el activo que
+alimenta retención, replay y el diferenciador SQL; (2) **IT2-F2
+reactividad cross-lenguaje** — ocupa el hueco de mercado que nadie tiene;
+(3) **IT2-G2 + IT2-D3 arranque y bootstrap percibidos** — la primera
+impresión es donde se decide el enamoramiento.
