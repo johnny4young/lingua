@@ -1331,32 +1331,21 @@ export interface LanguageRunner {
   isReady(): boolean;
 }
 
+// IT2-A4 — the stale `WorkerRequest` union that used to live here is
+// gone: nothing imported it, its shape had drifted from what the runner
+// actually posts (no `stop` message exists — runners `terminate()`), and
+// it silently omitted the debugger-control variants. The REAL inbound
+// contract lives at the receiving end: `WorkerInboundMessage` in
+// `workers/js-worker.ts` (= `ExecuteMessage` + the shared
+// `DebuggerControlMessage` from `runtime/debuggerWorkerBridge`), enforced
+// there by an exhaustiveness `never` guard.
+
 /**
- * Messages sent from the main thread to the worker.
+ * Messages sent from the worker to the main thread.
  *
  * RL-078 — every `execute` request carries an opaque `runId` minted
  * by the parent. The worker echoes it on every reply so the parent
  * can drop messages from a previous (terminated-by-timeout) run.
- */
-export type WorkerRequest =
-  | {
-      type: 'execute';
-      runId: string;
-      code: string;
-      timeout: number;
-      resultTruncationMarker: string;
-      userEnv?: Record<string, string>;
-      /**
-       * RL-044 Sub-slice G — false disables console-origin stack
-       * capture in JS/TS workers. Undefined preserves the historical
-       * enabled default.
-       */
-      sourceMappingEnabled?: boolean;
-    }
-  | { type: 'stop' };
-
-/**
- * Messages sent from the worker to the main thread.
  *
  * The `runId` echo lives on every variant tied to a specific
  * `execute` round; lifecycle messages (`loading` / `ready`) leave
