@@ -218,7 +218,14 @@ export function spawnNativeRun(
       }
     }
 
-    child.stdout.on('data', (chunk: Buffer) => {
+    // Once a stream hits the cap the parent must stop RECEIVING, not just
+    // stop accumulating: a child that keeps streaming hundreds of MB would
+    // otherwise be Buffer-decoded chunk-by-chunk until exit/timeout. On
+    // truncation, detach the handler and resume() so the pipe drains
+    // straight to the void. destroy() is deliberately avoided — closing
+    // the pipe can EPIPE a still-writing child and change its behavior;
+    // the run contract (child lives until exit/timeout) stays intact.
+    const onStdoutData = (chunk: Buffer) => {
       if (stdoutTruncated) return;
       const text = chunk.toString();
       onStdout?.(text);
@@ -226,10 +233,13 @@ export function spawnNativeRun(
       if (stdout.length > maxOutputBytes) {
         stdout = truncateBytes(stdout, maxOutputBytes, stdoutTruncationMarker);
         stdoutTruncated = true;
+        child.stdout.off('data', onStdoutData);
+        child.stdout.resume();
       }
-    });
+    };
+    child.stdout.on('data', onStdoutData);
 
-    child.stderr.on('data', (chunk: Buffer) => {
+    const onStderrData = (chunk: Buffer) => {
       if (stderrTruncated) return;
       const text = chunk.toString();
       onStderr?.(text);
@@ -237,8 +247,11 @@ export function spawnNativeRun(
       if (stderr.length > maxOutputBytes) {
         stderr = truncateBytes(stderr, maxOutputBytes, stderrTruncationMarker);
         stderrTruncated = true;
+        child.stderr.off('data', onStderrData);
+        child.stderr.resume();
       }
-    });
+    };
+    child.stderr.on('data', onStderrData);
 
     // Parent-owned timeout. Mirrors RL-078's pattern for the worker
     // runners — main owns the kill timer; the subprocess never schedules

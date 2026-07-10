@@ -57,8 +57,8 @@ function handlerFor<T>(channel: string): T {
 
 function createChildProcess() {
   const child = new EventEmitter() as EventEmitter & {
-    stdout: EventEmitter;
-    stderr: EventEmitter;
+    stdout: EventEmitter & { resume: ReturnType<typeof vi.fn> };
+    stderr: EventEmitter & { resume: ReturnType<typeof vi.fn> };
     stdin: {
       // `on` mirrors the runtime contract: the runner attaches a stdin
       // 'error' listener (async EPIPE guard) before writing.
@@ -69,8 +69,11 @@ function createChildProcess() {
     kill: ReturnType<typeof vi.fn>;
     pid?: number;
   };
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
+  // `resume` mirrors the runtime contract: the shared spawn engine hands
+  // a stream past the output cap to `resume()` so the pipe drains without
+  // accumulating (IT2-B1 discard-after-truncation).
+  child.stdout = Object.assign(new EventEmitter(), { resume: vi.fn() });
+  child.stderr = Object.assign(new EventEmitter(), { resume: vi.fn() });
   child.stdin = {
     on: vi.fn(),
     write: vi.fn(),

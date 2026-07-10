@@ -84,4 +84,54 @@ describe('spawnNativeRun', () => {
       killed: false,
     });
   });
+
+  it('stops receiving after the output cap: detaches the data listener and resumes the pipe', async () => {
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: EventEmitter & { resume: ReturnType<typeof vi.fn> };
+      stderr: EventEmitter & { resume: ReturnType<typeof vi.fn> };
+      stdin: { on: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> };
+      kill: ReturnType<typeof vi.fn>;
+    };
+    child.stdout = Object.assign(new EventEmitter(), { resume: vi.fn() });
+    child.stderr = Object.assign(new EventEmitter(), { resume: vi.fn() });
+    child.stdin = { on: vi.fn(), end: vi.fn() };
+    child.kill = vi.fn(() => true);
+    mocks.spawn.mockReturnValue(child);
+
+    const onStdout = vi.fn();
+    const { spawnNativeRun } = await import('../../src/main/runners/spawnNativeRun');
+    const promise = spawnNativeRun({
+      command: 'node',
+      args: ['-e', 'while(true) console.log("x")'],
+      env: {},
+      timeoutMs: 1_000,
+      killEscalationMs: 200,
+      maxOutputBytes: 16,
+      stdoutTruncationMarker: '\n[stdout truncated]',
+      stderrTruncationMarker: '\n[stderr truncated]',
+      onStdout,
+    });
+
+    // First oversized chunk crosses the cap: the handler must truncate,
+    // detach itself, and hand the pipe to resume() so a flooding child
+    // no longer costs Buffer decodes in the parent.
+    child.stdout.emit('data', Buffer.from('x'.repeat(64)));
+    expect(child.stdout.listenerCount('data')).toBe(0);
+    expect(child.stdout.resume).toHaveBeenCalledTimes(1);
+    const streamedCallsAfterCap = onStdout.mock.calls.length;
+
+    // A flood after the cap is invisible: no listener, no streaming
+    // callback, no growth of the captured buffer.
+    child.stdout.emit('data', Buffer.from('y'.repeat(1024)));
+    expect(onStdout.mock.calls.length).toBe(streamedCallsAfterCap);
+
+    child.emit('close', 0);
+    const result = await promise;
+    expect(result.stdout.endsWith('\n[stdout truncated]')).toBe(true);
+    expect(result.stdout.length).toBeLessThanOrEqual(16 + '\n[stdout truncated]'.length);
+    expect(result.stdout).not.toContain('y');
+    // stderr never crossed the cap — its listener stays attached.
+    expect(child.stderr.listenerCount('data')).toBe(1);
+    expect(child.stderr.resume).not.toHaveBeenCalled();
+  });
 });

@@ -24,12 +24,17 @@ import { asRelativePath } from '../../../shared/fs/brandedIds';
 import { dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { FileTreeContextMenu, type FileTreeContextMenuItem } from './FileTreeContextMenu';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
-import type { CreationTarget } from './fileTreeTypes';
 
 interface FileTreeNodeProps {
   node: ProjectFileTreeNode;
   depth: number;
-  creating: CreationTarget;
+  /**
+   * IT2-B2 — height-measure callback ref from the tree's `useListWindow`
+   * (`measureRef(key)`), attached to the row's outer element so the
+   * windower learns real row heights. Optional so direct-render tests
+   * and future non-windowed callers stay valid.
+   */
+  rowRef?: (element: HTMLElement | null) => void;
   /**
    * RL-024 Slice 1 — set of `rootId::relativePath` keys for tabs
    * with unsaved edits. Lifted to the tree root in `FileTree` so
@@ -46,8 +51,6 @@ interface FileTreeNodeProps {
    * to `editorStore.activeTabId`.
    */
   activeFileKey?: string | null;
-  onCreateConfirm: (value: string) => void;
-  onCancelCreate: () => void;
   onFileClick: (node: ProjectFileTreeNode) => void;
   onDelete: (node: ProjectFileTreeNode) => void;
   onNewFileIn?: (node: ProjectFileTreeNode) => void;
@@ -65,11 +68,9 @@ const EMPTY_DIRTY_SET: ReadonlySet<string> = new Set<string>();
 export function FileTreeNode({
   node,
   depth,
-  creating,
+  rowRef,
   dirtyTabPaths = EMPTY_DIRTY_SET,
   activeFileKey = null,
-  onCreateConfirm,
-  onCancelCreate,
   onFileClick,
   onDelete,
   onNewFileIn,
@@ -224,6 +225,7 @@ export function FileTreeNode({
 
   return (
     <div
+      ref={rowRef}
       role="treeitem"
       aria-level={depth + 1}
       aria-expanded={node.isDirectory ? node.isExpanded : undefined}
@@ -373,51 +375,10 @@ export function FileTreeNode({
         )}
       </div>
 
-      {node.isDirectory && node.isExpanded && node.children && (
-        <div role="group">
-          {creating && creating.parentPath === node.path && (
-            <div
-              className="px-2 py-0.5"
-              style={{ paddingLeft: `${(depth + 2) * 12 + 4}px` }}
-            >
-              <FileTreeInlineInput
-                placeholder={
-                  creating.kind === 'file'
-                    ? t('fileTree.placeholder.file')
-                    : t('fileTree.placeholder.folder')
-                }
-                onConfirm={onCreateConfirm}
-                onCancel={onCancelCreate}
-              />
-            </div>
-          )}
-          {node.children.map((child) => (
-            <FileTreeNode
-              key={child.path}
-              node={child}
-              depth={depth + 1}
-              creating={creating}
-              dirtyTabPaths={dirtyTabPaths}
-              activeFileKey={activeFileKey}
-              onCreateConfirm={onCreateConfirm}
-              onCancelCreate={onCancelCreate}
-              onFileClick={onFileClick}
-              onDelete={onDelete}
-              onNewFileIn={onNewFileIn}
-              onNewDirIn={onNewDirIn}
-              onTreeKeyDown={onTreeKeyDown}
-            />
-          ))}
-          {node.children.length === 0 && (
-            <p
-              className="py-0.5 text-body-sm italic text-muted"
-              style={{ paddingLeft: `${(depth + 2) * 12 + 4}px` }}
-            >
-              {t('fileTree.emptyDirectory')}
-            </p>
-          )}
-        </div>
-      )}
+      {/* IT2-B2 — children, the inline-creation input, and the
+          empty-directory hint are no longer rendered here: the tree is
+          one windowed flat list owned by `FileTree` (see
+          `fileTreeRows.ts`), so this component renders exactly ONE row. */}
 
       {contextMenu && (
         <FileTreeContextMenu
