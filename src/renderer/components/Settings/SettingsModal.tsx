@@ -751,6 +751,7 @@ export function SettingsModal({
       case 'privacy':
         return (
           <div className="space-y-6">
+            <PrivacySection />
             <PrivacyTrustSection />
           </div>
         );
@@ -760,7 +761,6 @@ export function SettingsModal({
             <LicenseSection />
             <AiSection />
             <RunCapsulesSection />
-            <PrivacySection />
           </div>
         );
       case 'shortcuts':

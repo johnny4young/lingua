@@ -416,7 +416,9 @@ dependencia real (build no necesita test).
 > manuales (editor/SQL/HTTP/pipeline; los auto-runs nunca registran ahí,
 > así que no hay flooding) — con guard por entry-id para ignorar
 > mutaciones no-run (pin/clear). Hash vía computeContentHash reutilizado
-> de runCapsule; el código fuente jamás toca la DB (test lo bloquea).
+> de runCapsule; una capsule se reduce a un resumen de metadatos antes de
+> persistirse: código, stdin, output, errores, diagnósticos, rich output,
+> nombres de tabs y metadatos Git jamás tocan la DB (test lo bloquea).
 > Setting `runLedgerEnabled` default OFF cableado en los 6 puntos
 > (types/defaults/partialize/merge/actions). Privacy UI: card con toggle
 > + estado de durabilidad (ligado al opt-in OPFS existente) + Export
@@ -461,7 +463,6 @@ CREATE TABLE IF NOT EXISTS lingua_ledger.runs (
   started_at     TIMESTAMP NOT NULL,
   duration_ms    INTEGER,
   status         TEXT NOT NULL CHECK (status IN ('ok','error','timeout','cancelled')),
-  stdout_preview TEXT,                 -- <=2 KiB, pasado por el redactor
   capsule_id     UUID
 );
 
@@ -470,7 +471,7 @@ CREATE TABLE IF NOT EXISTS lingua_ledger.capsules (
   schema_version TEXT NOT NULL,        -- 'RunCapsuleV1' (version:1)
   created_at     TIMESTAMP NOT NULL,
   language       TEXT,
-  payload        JSON NOT NULL,        -- capsule completa, ya redactada por diseño
+  payload        JSON NOT NULL,        -- resumen de metadatos, sin contenido del usuario
   size_bytes     INTEGER NOT NULL
 );
 

@@ -73,6 +73,29 @@ describe('SqlSchemaBrowser', () => {
     expect(onInsertTable).toHaveBeenCalledWith('users');
   });
 
+  it('keeps a non-main table label separate from its raw SQL identifiers', async () => {
+    const user = userEvent.setup();
+    const onInsertTable = vi.fn();
+    render(
+      <SqlSchemaBrowser
+        tables={[
+          {
+            name: 'lingua_ledger.runs',
+            sqlName: 'runs',
+            schemaName: 'lingua_ledger',
+          },
+        ]}
+        isLoading={false}
+        onRefresh={vi.fn()}
+        onInsertTable={onInsertTable}
+        canInsert
+      />
+    );
+
+    await user.click(screen.getByTestId('sql-schema-browser-table'));
+    expect(onInsertTable).toHaveBeenCalledWith('runs', 'lingua_ledger');
+  });
+
   it('disables table insertion when no query is active', () => {
     render(
       <SqlSchemaBrowser

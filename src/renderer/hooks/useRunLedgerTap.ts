@@ -35,7 +35,6 @@ export function useRunLedgerTap(): void {
         tabId: latest.tabId ?? null,
         code: latest.snapshot?.code ?? null,
         contentHash: latest.lastCapsule?.source.contentHash ?? null,
-        stdoutPreview: latest.lastCapsule?.result.stdout ?? null,
         capsule: latest.lastCapsule ?? null,
       });
     };

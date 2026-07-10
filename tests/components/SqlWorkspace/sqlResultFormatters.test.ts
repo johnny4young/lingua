@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildSelectStarter,
   quoteSqlIdentifier,
+  quoteSqlTableReference,
 } from '../../../src/renderer/components/SqlWorkspace/sqlResultFormatters';
 
 describe('quoteSqlIdentifier', () => {
@@ -53,6 +54,21 @@ describe('buildSelectStarter', () => {
     // inside the identifier — there is no second statement.
     expect(starter).toBe(
       'SELECT * FROM "x""; DELETE FROM secrets; --" LIMIT 100;'
+    );
+  });
+
+  it('quotes schema and table separately for a non-main table', () => {
+    expect(quoteSqlTableReference('runs', 'lingua_ledger')).toBe(
+      '"lingua_ledger"."runs"'
+    );
+    expect(buildSelectStarter('runs', 'lingua_ledger')).toBe(
+      'SELECT * FROM "lingua_ledger"."runs" LIMIT 100;'
+    );
+  });
+
+  it('keeps a dot in either raw identifier from changing SQL structure', () => {
+    expect(buildSelectStarter('runs.data', 'ledger space')).toBe(
+      'SELECT * FROM "ledger space"."runs.data" LIMIT 100;'
     );
   });
 });

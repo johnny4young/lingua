@@ -120,8 +120,8 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## Run Ledger (local run history)
 
-- The Run Ledger is an OPT-IN local history of your manual runs, stored in the same DuckDB database the SQL workspace uses, under the `lingua_ledger` schema. Enable it in Settings → Account (the privacy controls card); the Privacy tab shows its activity in the trust feed.
-- What gets recorded per manual run (toolbar Run, palette run, SQL, HTTP, utility pipelines — auto-runs are never recorded): language/surface, ok/error status, duration, a SHA-256 hash of the source (never the source itself), a stdout preview taken from the run's redacted capsule when one exists, and the full capsule payload in `lingua_ledger.capsules`.
+- The Run Ledger is an OPT-IN local history of your manual runs, stored in the same DuckDB database the SQL workspace uses, under the `lingua_ledger` schema. Enable it in Settings → Privacy; the Privacy tab shows its activity in the trust feed.
+- What gets recorded per manual run (toolbar Run, palette run, SQL, HTTP, utility pipelines — auto-runs are never recorded): language/surface, ok/error status, duration, and a SHA-256 hash of the source (never the source itself). When a run has a capsule, `lingua_ledger.capsules` receives only a metadata summary (capsule id/version/timestamps, language, status, duration, source hash, and its redaction audit); code, stdin, stdout/stderr, errors, diagnostics, rich output, tab names, and Git metadata are never written to the ledger.
 - Because it lives in the SQL workspace's database, your history IS a queryable table. Open the SQL workspace and try:
 
   `SELECT language, count(*) AS runs, avg(duration_ms) AS avg_ms FROM lingua_ledger.runs GROUP BY 1 ORDER BY 2 DESC;`

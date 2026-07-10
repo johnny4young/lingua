@@ -148,5 +148,6 @@ describe('SettingsModal', () => {
     );
     expect(screen.getByText('Privacidad y confianza')).toBeTruthy();
     expect(screen.getByText('Vista previa de redacción')).toBeTruthy();
+    expect(screen.getByText('Run Ledger (historial local de ejecuciones)')).toBeTruthy();
   }, 10000);
 });

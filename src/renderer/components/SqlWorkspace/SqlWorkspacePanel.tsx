@@ -238,13 +238,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   }, []);
 
   // Schema browser → editor insert. Build a runnable starter for the
-  // table and signal the editor to append it. The table name is quoted
-  // (ANSI identifier quoting) so names with spaces, reserved words,
-  // mixed case, or special characters produce a valid single statement
-  // instead of broken — or statement-chaining — SQL.
-  const handleInsertTable = useCallback((name: string) => {
+  // table and signal the editor to append it. Schema + table are quoted
+  // segment-by-segment so names with spaces, reserved words, mixed case,
+  // special characters, or a non-main schema produce one valid statement.
+  const handleInsertTable = useCallback((name: string, schemaName?: string) => {
     setInsertSignal((prev) => ({
-      text: buildSelectStarter(name),
+      text: buildSelectStarter(name, schemaName),
       nonce: (prev?.nonce ?? 0) + 1,
     }));
   }, []);
@@ -408,15 +407,21 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           "WHERE table_schema NOT IN ('information_schema', 'pg_catalog') " +
           'ORDER BY table_schema, table_name'
       );
-      const names: string[] = [];
+      const tablesByDisplayName = new Map<
+        string,
+        { sqlName: string; schemaName?: string }
+      >();
       for (const row of rows) {
         const schema = row['table_schema'];
         const table = row['table_name'];
         if (typeof table !== 'string') continue;
         if (typeof schema === 'string' && schema !== 'main') {
-          names.push(`${schema}.${table}`);
+          tablesByDisplayName.set(`${schema}.${table}`, {
+            sqlName: table,
+            schemaName: schema,
+          });
         } else {
-          names.push(table);
+          tablesByDisplayName.set(table, { sqlName: table });
         }
       }
       // Single-round-trip column introspection. `information_schema.columns`
@@ -458,9 +463,11 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       } catch {
         // Leave the map empty — tables render name-only.
       }
-      const tables: SqlSchemaTable[] = names.map((name) => {
+      const tables: SqlSchemaTable[] = Array.from(tablesByDisplayName, ([name, identifiers]) => {
         const columns = columnsByTable.get(name);
-        return columns !== undefined ? { name, columns } : { name };
+        return columns !== undefined
+          ? { name, ...identifiers, columns }
+          : { name, ...identifiers };
       });
       setSchemaTables(tables);
     } catch (err) {

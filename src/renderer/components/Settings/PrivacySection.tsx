@@ -108,12 +108,13 @@ export function PrivacySection() {
 
 /**
  * IT2-C1 — Run Ledger controls. The ledger records MANUAL runs into the
- * `lingua_ledger` schema of the SQL workspace's DuckDB database: source
- * as a SHA-256 hash only, stdout previews from redacted capsules. Off by
- * default; durability across reloads additionally requires the SQL
- * workspace's OPFS persistence opt-in (Editor section), which the status
- * line under the toggle makes explicit. Clearing drops the schema;
- * exporting downloads every table as JSON.
+ * `lingua_ledger` schema of the SQL workspace's DuckDB database. It keeps
+ * source hashes and a metadata-only capsule summary; code, stdin, output,
+ * error text, tab names, and Git metadata never persist. Off by default;
+ * durability across reloads additionally requires the SQL workspace's OPFS
+ * persistence opt-in (Editor section), which the status line under the
+ * toggle makes explicit. Clearing drops the schema; exporting downloads every
+ * table as JSON.
  */
 function RunLedgerRows() {
   const { t } = useTranslation();

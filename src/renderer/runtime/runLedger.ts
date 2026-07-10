@@ -17,10 +17,9 @@ import { useSettingsStore } from '../stores/settingsStore';
  * Privacy posture (non-negotiable):
  * - Everything is OFF by default (`runLedgerEnabled`, default false).
  * - Source code is NEVER stored in `runs` — only a SHA-256 content hash.
- * - `stdout_preview` comes exclusively from an attached RunCapsule's
- *   stdout, which is redacted by design, and is capped to 2 KiB.
- * - Full capsules land in `lingua_ledger.capsules` only when a run
- *   already produced one (capsules redact secrets at build time).
+ * - No source, stdin, stdout/stderr, error text, diagnostics, rich output,
+ *   tab name, or Git metadata reaches the ledger. An attached capsule is
+ *   reduced to a metadata-only summary before it is persisted.
  * - `clearLedger()` drops the whole schema; `exportLedgerJson()` gives
  *   the user their data. The tables live in the user-visible SQL
  *   database on purpose — the user editing or dropping them is their
@@ -42,8 +41,24 @@ import { useSettingsStore } from '../stores/settingsStore';
  */
 
 const FREE_RETENTION_DAYS = 7;
-const STDOUT_PREVIEW_MAX_BYTES = 2_048;
 const RECENT_RUNS_DEFAULT_LIMIT = 50;
+const SHA256_HEX_RE = /^[a-f0-9]{64}$/u;
+
+/** Fields deliberately omitted from the metadata-only capsule summary. Keep
+ * this explicit so a future RunCapsule field cannot accidentally become
+ * durable user content through a broad object spread. */
+const LEDGER_CAPSULE_OMITTED_FIELDS = [
+  'source.content',
+  'input',
+  'result.stdout',
+  'result.stderr',
+  'result.lineResults',
+  'result.richOutputs',
+  'result.diagnostics',
+  'result.errorMessage',
+  'environment.git',
+  'tab.name',
+] as const;
 
 export interface LedgerRunInput {
   language: string;
@@ -60,9 +75,7 @@ export interface LedgerRunInput {
   code?: string | null;
   /** Pre-computed SHA-256 hex (RunCapsuleV1.source.contentHash). */
   contentHash?: string | null;
-  /** Redacted-by-design capsule stdout; truncated to 2 KiB here. */
-  stdoutPreview?: string | null;
-  /** Full capsule to persist alongside the run row, when one exists. */
+  /** Capsule to reduce to metadata-only summary alongside the run row. */
   capsule?: RunCapsuleV1 | null;
 }
 
@@ -73,7 +86,6 @@ export interface LedgerRunRow {
   durationMs: number | null;
   startedAt: string;
   codeSha256: string | null;
-  stdoutPreview: string | null;
   capsuleId: string | null;
   tabId: string | null;
 }
@@ -100,9 +112,9 @@ function ledgerEnabled(): boolean {
   return useSettingsStore.getState().runLedgerEnabled === true;
 }
 
-/** Single-quote escape for SQL text literals (values are app-internal or
- * already-redacted; escaping is still mandatory because stdout previews
- * are user-program output). */
+/** Single-quote escape for SQL text literals. Values are app-internal or
+ * metadata-only, but escaping remains mandatory for defensively handling
+ * future caller inputs. */
 function sqlText(value: string | null | undefined): string {
   if (value === null || value === undefined) return 'NULL';
   return `'${value.replace(/'/g, "''")}'`;
@@ -129,16 +141,6 @@ function localDay(epochMs: number): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/** Truncate to a REAL UTF-8 byte budget (the documented 2 KiB cap is
- * bytes, not UTF-16 code units). A codepoint split at the boundary
- * decodes to U+FFFD, which is stripped from the tail. */
-function truncateUtf8(value: string, maxBytes: number): string {
-  const encoded = new TextEncoder().encode(value);
-  if (encoded.byteLength <= maxBytes) return value;
-  const decoded = new TextDecoder('utf-8', { fatal: false }).decode(encoded.slice(0, maxBytes));
-  return decoded.replace(/�+$/u, '');
-}
-
 const DDL_STATEMENTS = [
   'CREATE SCHEMA IF NOT EXISTS lingua_ledger',
   `CREATE TABLE IF NOT EXISTS lingua_ledger.runs (
@@ -148,7 +150,6 @@ const DDL_STATEMENTS = [
     duration_ms INTEGER,
     started_at TIMESTAMP NOT NULL,
     code_sha256 TEXT,
-    stdout_preview TEXT,
     capsule_id UUID,
     tab_id TEXT
   )`,
@@ -202,7 +203,7 @@ async function applyRetentionOnce(): Promise<void> {
 }
 
 async function resolveContentHash(input: LedgerRunInput): Promise<string | null> {
-  if (typeof input.contentHash === 'string' && input.contentHash.length > 0) {
+  if (typeof input.contentHash === 'string' && SHA256_HEX_RE.test(input.contentHash)) {
     return input.contentHash;
   }
   if (typeof input.code === 'string' && input.code.length > 0) {
@@ -215,21 +216,46 @@ async function resolveContentHash(input: LedgerRunInput): Promise<string | null>
   return null;
 }
 
+/**
+ * Reduce a replay/export capsule to fields that are useful for correlating a
+ * run but cannot carry the user's code, input, output, project identity, or
+ * diagnostic text. `sanitizeRunCapsule` is intentionally insufficient here:
+ * its contract preserves source and stdin for portable replay artifacts.
+ */
+function serializeLedgerCapsule(capsule: RunCapsuleV1): string {
+  return JSON.stringify({
+    version: capsule.version,
+    capsuleId: capsule.capsuleId,
+    createdAt: capsule.createdAt,
+    appVersion: capsule.appVersion,
+    language: capsule.tab.language,
+    sourceHash: SHA256_HEX_RE.test(capsule.source.contentHash)
+      ? capsule.source.contentHash
+      : null,
+    status: capsule.result.status,
+    durationMs: capsule.result.durationMs,
+    privacy: {
+      redactionVersion: capsule.privacy.redactionVersion,
+      omittedFields: [
+        ...new Set([
+          ...capsule.privacy.omittedFields,
+          ...LEDGER_CAPSULE_OMITTED_FIELDS,
+        ]),
+      ],
+    },
+  });
+}
+
 async function writeRun(input: LedgerRunInput): Promise<void> {
   if (!ledgerEnabled()) return;
   if (!(await ensureSchema())) return;
 
   const runId = crypto.randomUUID();
   const codeSha = await resolveContentHash(input);
-  const preview =
-    typeof input.stdoutPreview === 'string' && input.stdoutPreview.length > 0
-      ? truncateUtf8(input.stdoutPreview, STDOUT_PREVIEW_MAX_BYTES)
-      : null;
-
   let capsuleId: string | null = null;
   if (input.capsule) {
     capsuleId = input.capsule.capsuleId;
-    const payload = JSON.stringify(input.capsule);
+    const payload = serializeLedgerCapsule(input.capsule);
     // size_bytes means BYTES — encode instead of counting UTF-16 units.
     const payloadBytes = new TextEncoder().encode(payload).byteLength;
     const capsuleInsert = `INSERT OR IGNORE INTO lingua_ledger.capsules
@@ -250,10 +276,10 @@ async function writeRun(input: LedgerRunInput): Promise<void> {
 
   const runInsert = `INSERT INTO lingua_ledger.runs
     (run_id, language, status, duration_ms, started_at, code_sha256,
-     stdout_preview, capsule_id, tab_id)
+     capsule_id, tab_id)
     VALUES (${sqlText(runId)}, ${sqlText(input.language)}, ${sqlText(input.status)},
             ${sqlNumber(input.durationMs)}, ${sqlTimestamp(input.startedAtMs)},
-            ${sqlText(codeSha)}, ${sqlText(preview)}, ${sqlText(capsuleId)},
+            ${sqlText(codeSha)}, ${sqlText(capsuleId)},
             ${sqlText(input.tabId ?? null)})`;
   if (!(await runStatement(runInsert))) {
     schemaEnsured = false;
@@ -307,17 +333,30 @@ async function bumpDailyActivity(input: LedgerRunInput): Promise<void> {
  */
 export function recordRun(input: LedgerRunInput): void {
   if (!ledgerEnabled()) return;
-  writeQueue = writeQueue
-    .then(() => writeRun(input))
-    .catch(() => {
-      // Best-effort by contract — a ledger failure must never surface
-      // into the run path.
-    });
+  void scheduleLedgerTask(() => writeRun(input)).catch(() => {
+    // Best-effort by contract — a ledger failure must never surface
+    // into the run path.
+  });
 }
 
 /** Await all queued writes — test/export seam. */
 export function flushRunLedgerWrites(): Promise<void> {
-  return writeQueue.then(() => undefined);
+  return writeQueue;
+}
+
+/**
+ * Serialize writes, destructive actions, and exports in one FIFO. This makes
+ * the Clear button a real boundary: writes queued before it are removed and
+ * writes started afterwards land in the newly recreated schema. It also gives
+ * Export one consistent snapshot without racing a background run write.
+ */
+function scheduleLedgerTask<T>(task: () => Promise<T>): Promise<T> {
+  const scheduled = writeQueue.then(task);
+  writeQueue = scheduled.then(
+    () => undefined,
+    () => undefined
+  );
+  return scheduled;
 }
 
 // Read helpers deliberately do NOT ensure the schema: a read must never
@@ -331,7 +370,7 @@ export async function queryRecentRuns(
   const capped = Math.min(500, Math.max(1, Math.floor(limit)));
   const outcome = await executeQuery(
     `SELECT run_id, language, status, duration_ms, started_at, code_sha256,
-            stdout_preview, capsule_id, tab_id
+            capsule_id, tab_id
      FROM lingua_ledger.runs ORDER BY started_at DESC LIMIT ${capped}`
   );
   if (outcome.status !== 'success') return [];
@@ -342,7 +381,6 @@ export async function queryRecentRuns(
     durationMs: row['duration_ms'] === null || row['duration_ms'] === undefined ? null : Number(row['duration_ms']),
     startedAt: String(row['started_at'] ?? ''),
     codeSha256: row['code_sha256'] === null || row['code_sha256'] === undefined ? null : String(row['code_sha256']),
-    stdoutPreview: row['stdout_preview'] === null || row['stdout_preview'] === undefined ? null : String(row['stdout_preview']),
     capsuleId: row['capsule_id'] === null || row['capsule_id'] === undefined ? null : String(row['capsule_id']),
     tabId: row['tab_id'] === null || row['tab_id'] === undefined ? null : String(row['tab_id']),
   }));
@@ -376,29 +414,37 @@ export async function getDailyActivity(days = 30): Promise<LedgerDailyActivityRo
 
 /** Drop the whole ledger schema. The next enabled run recreates it. */
 export async function clearLedger(): Promise<boolean> {
-  await flushRunLedgerWrites();
-  const dropped = await runStatement('DROP SCHEMA IF EXISTS lingua_ledger CASCADE');
-  schemaEnsured = false;
-  retentionApplied = false;
-  return dropped;
+  try {
+    return await scheduleLedgerTask(async () => {
+      const dropped = await runStatement('DROP SCHEMA IF EXISTS lingua_ledger CASCADE');
+      schemaEnsured = false;
+      retentionApplied = false;
+      return dropped;
+    });
+  } catch {
+    schemaEnsured = false;
+    retentionApplied = false;
+    return false;
+  }
 }
 
 /** The user's data, out: every table as JSON. Read-only — an export on a
  * never-used ledger yields empty arrays instead of creating the schema. */
 export async function exportLedgerJson(): Promise<string> {
-  await flushRunLedgerWrites();
-  const [runs, capsules, activity] = [
-    await executeQuery('SELECT * FROM lingua_ledger.runs ORDER BY started_at'),
-    await executeQuery('SELECT * FROM lingua_ledger.capsules ORDER BY created_at'),
-    await executeQuery('SELECT * FROM lingua_ledger.daily_activity ORDER BY day'),
-  ];
-  return JSON.stringify(
-    {
-      runs: runs.status === 'success' ? runs.rows : [],
-      capsules: capsules.status === 'success' ? capsules.rows : [],
-      dailyActivity: activity.status === 'success' ? activity.rows : [],
-    },
-    null,
-    2
-  );
+  return scheduleLedgerTask(async () => {
+    const [runs, capsules, activity] = await Promise.all([
+      executeQuery('SELECT * FROM lingua_ledger.runs ORDER BY started_at'),
+      executeQuery('SELECT * FROM lingua_ledger.capsules ORDER BY created_at'),
+      executeQuery('SELECT * FROM lingua_ledger.daily_activity ORDER BY day'),
+    ]);
+    return JSON.stringify(
+      {
+        runs: runs.status === 'success' ? runs.rows : [],
+        capsules: capsules.status === 'success' ? capsules.rows : [],
+        dailyActivity: activity.status === 'success' ? activity.rows : [],
+      },
+      null,
+      2
+    );
+  });
 }

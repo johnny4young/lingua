@@ -859,11 +859,11 @@ export interface SettingsState {
   sqlWorkspacePersistTables: boolean;
   /**
    * IT2-C1 — opt into the local Run Ledger: manual runs recorded into
-   * the `lingua_ledger` schema of the SQL workspace's DuckDB database
-   * (source is stored as a SHA-256 hash only; stdout previews come from
-   * redacted capsules). Default `false`; durability across reloads
-   * additionally requires the OPFS opt-in above, otherwise the ledger
-   * lives for the session only.
+   * the `lingua_ledger` schema of the SQL workspace's DuckDB database.
+   * It stores source hashes plus metadata-only capsule summaries; source,
+   * input, output, and diagnostics never persist. Default `false`;
+   * durability across reloads additionally requires the OPFS opt-in above,
+   * otherwise the ledger lives for the session only.
    */
   runLedgerEnabled: boolean;
   /**
