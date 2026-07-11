@@ -14,7 +14,6 @@ import {
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import {
   isVariableInspectorSupportedLanguage,
-  languageSupportsStdin,
 } from './editorTabUtils';
 
 /**
@@ -35,7 +34,6 @@ export function createModeActions(
   | 'setTabRuntimeMode'
   | 'setTabWorkflowMode'
   | 'setTabAutoLogEnabled'
-  | 'setTabStdinBuffer'
   | 'setTabCompareEnabled'
   | 'setTabVariableInspectorEnabled'
 > {
@@ -176,24 +174,6 @@ export function createModeActions(
           enabled,
         });
       }
-    },
-
-    setTabStdinBuffer: (id, text) => {
-      const target = get().tabs.find((t) => t.id === id);
-      if (!target) return;
-      if (!languageSupportsStdin(target.language)) return;
-      set((state) => ({
-        tabs: state.tabs.map((t) => {
-          if (t.id !== id) return t;
-          if (text === null || text === '') {
-            if (t.stdinBuffer === undefined) return t;
-            const { stdinBuffer: _drop, ...rest } = t;
-            void _drop;
-            return rest;
-          }
-          return { ...t, stdinBuffer: text };
-        }),
-      }));
     },
 
     /**

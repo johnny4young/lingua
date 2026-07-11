@@ -52,6 +52,11 @@ const EXPECTED_STORE_KEYS = [
   'setTabWorkflowMode',
   'setTabAutoLogEnabled',
   'setTabStdinBuffer',
+  'setTabInputArgs',
+  'saveTabInputSet',
+  'selectTabInputSet',
+  'renameTabInputSet',
+  'deleteTabInputSet',
   'setTabCompareEnabled',
   'setTabVariableInspectorEnabled',
   // open / save
@@ -99,6 +104,7 @@ const SPLIT_MODULES = [
   'editorWorkspaceActions.ts',
   'editorContentActions.ts',
   'editorModeActions.ts',
+  'editorInputActions.ts',
   'editorSaveActions.ts',
   'editorCloseActions.ts',
 ];
@@ -120,6 +126,7 @@ const ACTION_FACTORY_MODULES = [
   'editorWorkspaceActions.ts',
   'editorContentActions.ts',
   'editorModeActions.ts',
+  'editorInputActions.ts',
   'editorSaveActions.ts',
   'editorCloseActions.ts',
 ];

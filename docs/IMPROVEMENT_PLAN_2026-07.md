@@ -939,7 +939,7 @@ IT2-A2). Mismo toggle y bypass Cmd+Shift+V de RL-110.
 token cargado; pegar código JS normal → cero toast (test de precedencia:
 los detectores RL-110 existentes ganan); toggle OFF lo apaga todo.
 
-## IT2-F5 · Input sets guardados (stdin + args) — S (1 d)
+## IT2-F5 · Input sets guardados (stdin + args) — EJECUTADO 2026-07-10 · S (1 d)
 
 **Evidencia.** CodeRunner ("run with arguments & input sets") es el único
 con esto y sus usuarios lo destacan. Lingua ya tiene stdin por tab
@@ -954,6 +954,18 @@ con `input.setName` opcional, additive al schema v1 como campo omitible).
 **AC.** Crear 2 sets, alternar, correr → cada run usa su stdin;
 sobrevive reload; la capsule registra el set usado; export/import de
 capsule con set → round-trip intacto.
+
+**Cierre 2026-07-10.** El panel Entrada ahora administra hasta 20 sets
+nombrados por tab, permite crear, seleccionar, renombrar mediante
+"Guardar cambios" y borrar, y sincroniza el stdin y los argumentos del
+set activo. La sesión v2 persiste y sanea el estado; cambiar a un lenguaje
+sin stdin elimina el payload. `RunCapsuleV1.input` suma `setName` y `args`
+opcionales sin cambiar `version: 1`; importar una capsule restaura el
+snapshot en un tab inerte y nunca ejecuta automáticamente. Los argumentos
+quedan preservados en el set, el contexto y la capsule, sin prometer soporte
+`argv` en runners que todavía no lo consumen. Evidencia: tests de store,
+sesión/migración, ejecución/capsule/import y smoke web EN/ES con dos sets,
+reload y gate de cero errores de consola.
 
 ## IT2-F6 · Value Explorer live — M (2-3 d)
 
@@ -1327,7 +1339,7 @@ toca UI (mandato AGENTS.md).
 | - | ---- | -------- | ---- |
 | 7 | IT2-C1 → IT2-C2 (Run Ledger → SQL expuesto) | 4-5 d | La pieza central. |
 | 8 | IT2-F3 (Column Explorer SQL) | 1-2 d | El feature más amado de la categoría; SUMMARIZE ya existe. |
-| 9 | IT2-F5 (input sets stdin+args) | 1 d | Barato; alimenta capsules. |
+| 9 | ~~IT2-F5 (input sets stdin+args)~~ | Hecho 2026-07-10 | Persistencia + capsules + smoke EN/ES. |
 | 10 | IT2-F4 (smart clipboard → utilidad) | 1-2 d | Extiende RL-110; paridad DevToys/DevUtils. |
 
 **Fase 3 — UX de retención** (que se enamoren):

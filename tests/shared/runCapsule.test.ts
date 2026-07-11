@@ -93,6 +93,36 @@ describe('buildRunCapsule', () => {
     expect(capsule.privacy.omittedFields).toEqual([]);
   });
 
+  it('round-trips the optional named input set snapshot', async () => {
+    const capsule = await buildRunCapsule({
+      appVersion: '1.2.3',
+      tab: {
+        name: 'demo.js',
+        language: 'javascript',
+        runtimeMode: 'worker',
+        workflowMode: 'run',
+      },
+      source: { content: 'console.log(1)' },
+      input: {
+        stdin: 'Ada\n42',
+        setName: 'Happy path',
+        args: ['--mode', 'fast'],
+      },
+      result: { status: 'success', durationMs: 4 },
+      environment: { platform: 'web', runner: 'javascript' },
+    });
+
+    const parsed = parseRunCapsule(JSON.stringify(capsule));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.input).toEqual({
+        stdin: 'Ada\n42',
+        setName: 'Happy path',
+        args: ['--mode', 'fast'],
+      });
+    }
+  });
+
   it('produces deterministic contentHash for the same input', async () => {
     const a = await buildRunCapsule({
       appVersion: 'v',
@@ -340,6 +370,23 @@ describe('parseRunCapsule — shape validation', () => {
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) {
       expect(parsed.reason).toBe('invalid-field-type');
+    }
+  });
+
+  it.each([
+    { setName: 42 },
+    { args: '--mode fast' },
+    { args: ['--mode', 42] },
+  ])('rejects malformed optional input-set fields: $setName$args', (input) => {
+    const broken = JSON.stringify({
+      ...FIXTURE_MINIMAL_JS,
+      input: { ...FIXTURE_MINIMAL_JS.input, ...input },
+    });
+    const parsed = parseRunCapsule(broken);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.reason).toBe('invalid-field-type');
+      expect(parsed.detail).toBe('input fields');
     }
   });
 });

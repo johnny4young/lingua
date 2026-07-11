@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { EditorState, FileTab, Language } from '../types';
+import type { EditorState, FileTab, InputSet, Language } from '../types';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   useEditorStore,
@@ -25,6 +25,7 @@ import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { coerceRuntimeMode, type RuntimeMode } from '../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import type { RelativePath, RootId } from '../../shared/fs/brandedIds';
+import { MAX_INPUT_ARGS_PER_SET, sanitizeInputSets } from './editorTabUtils';
 
 interface SessionTab {
   name: string;
@@ -53,6 +54,10 @@ interface SessionTab {
    * language.
    */
   stdinBuffer?: string;
+  /** IT2-F5 — named stdin/argv snapshots and the currently loaded draft. */
+  inputSets?: InputSet[];
+  activeInputSetId?: string;
+  inputArgs?: string[];
   /**
    * RL-039 Slice B — persisted recipe binding for tabs opened from
    * the Recipes overlay. Runtime run-results stay transient in
@@ -179,9 +184,33 @@ function sessionTabEqual(a: FileTab, b: FileTab): boolean {
     (a.filePath ? true : a.content === b.content) &&
     a.runtimeMode === b.runtimeMode &&
     a.stdinBuffer === b.stdinBuffer &&
+    inputSetsEqual(a.inputSets, b.inputSets) &&
+    a.activeInputSetId === b.activeInputSetId &&
+    stringArrayEqual(a.inputArgs, b.inputArgs) &&
     a.recipeBindingId === b.recipeBindingId &&
     a.kind === b.kind
   );
+}
+
+function stringArrayEqual(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
+
+function inputSetsEqual(a: readonly InputSet[] | undefined, b: readonly InputSet[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((inputSet, index) => {
+    const other = b[index];
+    return (
+      other !== undefined &&
+      inputSet.id === other.id &&
+      inputSet.name === other.name &&
+      inputSet.stdin === other.stdin &&
+      stringArrayEqual(inputSet.args, other.args)
+    );
+  });
 }
 
 /**
@@ -238,6 +267,9 @@ export const useSessionStore = create<SessionState>()(
           // so a tampered persisted entry can't leak the buffer onto
           // a Rust / Go / JSON tab.
           stdinBuffer: tab.stdinBuffer,
+          inputSets: tab.inputSets,
+          activeInputSetId: tab.activeInputSetId,
+          inputArgs: tab.inputArgs,
           recipeBindingId: tab.recipeBindingId,
           // RL-043 Slice A — preserve the notebook discriminator + the
           // original tabId so the per-tab notebook payload in
@@ -354,6 +386,19 @@ export const useSessionStore = create<SessionState>()(
           const stdinSupported = isWorkerRunnerLanguage(language);
           const restoredStdinBuffer =
             stdinSupported && typeof saved.stdinBuffer === 'string' ? saved.stdinBuffer : undefined;
+          const restoredInputSets = stdinSupported ? sanitizeInputSets(saved.inputSets) : [];
+          const restoredActiveInputSetId =
+            stdinSupported &&
+            typeof saved.activeInputSetId === 'string' &&
+            restoredInputSets.some((inputSet) => inputSet.id === saved.activeInputSetId)
+              ? saved.activeInputSetId
+              : undefined;
+          const restoredInputArgs =
+            stdinSupported && Array.isArray(saved.inputArgs)
+              ? saved.inputArgs
+                  .filter((arg): arg is string => typeof arg === 'string')
+                  .slice(0, MAX_INPUT_ARGS_PER_SET)
+              : [];
           const restoredRecipeBindingId =
             language === 'javascript' &&
             typeof saved.recipeBindingId === 'string' &&
@@ -466,6 +511,11 @@ export const useSessionStore = create<SessionState>()(
             relativePath,
             ...(restoredRuntimeMode !== null ? { runtimeMode: restoredRuntimeMode } : {}),
             ...(restoredStdinBuffer !== undefined ? { stdinBuffer: restoredStdinBuffer } : {}),
+            ...(restoredInputSets.length > 0 ? { inputSets: restoredInputSets } : {}),
+            ...(restoredActiveInputSetId !== undefined
+              ? { activeInputSetId: restoredActiveInputSetId }
+              : {}),
+            ...(restoredInputArgs.length > 0 ? { inputArgs: restoredInputArgs } : {}),
             ...(restoredRecipeBindingId !== undefined
               ? { recipeBindingId: restoredRecipeBindingId }
               : {}),
@@ -502,7 +552,7 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'lingua-session',
-      version: 1,
+      version: 2,
       migrate: createMigrate('lingua-session'),
       // Only the serializable snapshot belongs in localStorage. Actions and
       // live editor/UI state are rebuilt from the store creators at runtime.

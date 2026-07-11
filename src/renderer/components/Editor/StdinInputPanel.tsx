@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import {
   useMemo,
+  useState,
   type ChangeEvent,
   type CSSProperties,
   type KeyboardEvent,
@@ -51,7 +52,11 @@ import { useResultStore } from '../../stores/resultStore';
 import { Kbd } from '../ui/chrome';
 import { TypePill, type TypePillKind, MonoBadge, EyebrowMono } from '../ui/primitives';
 import { cn } from '../../utils/cn';
-import type { Language } from '../../types';
+import type { InputSet, Language } from '../../types';
+import {
+  MAX_INPUT_SET_NAME_LENGTH,
+  MAX_INPUT_SETS_PER_TAB,
+} from '../../stores/editorTabUtils';
 
 const SUPPORTED: ReadonlySet<Language> = new Set<Language>([
   'javascript',
@@ -141,6 +146,7 @@ export function StdinInputPanel() {
   const { t } = useTranslation();
   const activeTab = useActiveTab();
   const setTabStdinBuffer = useEditorStore((state) => state.setTabStdinBuffer);
+  const setTabInputArgs = useEditorStore((state) => state.setTabInputArgs);
   const stdinConsumed = useResultStore((state) => state.stdinConsumed);
 
   // Hooks must run unconditionally before the language/activeTab
@@ -319,6 +325,34 @@ export function StdinInputPanel() {
         </div>
       </header>
 
+      <InputSetToolbar
+        key={`${activeTab.id}:${activeTab.activeInputSetId ?? 'draft'}`}
+        tabId={activeTab.id}
+        inputSets={activeTab.inputSets ?? []}
+        activeInputSetId={activeTab.activeInputSetId}
+      />
+
+      <label className="grid flex-shrink-0 gap-1.5" data-testid="stdin-input-args">
+        <span className="text-caption font-semibold text-fg-muted">
+          {t('stdin.inputSets.argsLabel')}
+        </span>
+        <textarea
+          value={(activeTab.inputArgs ?? []).join('\n')}
+          onChange={(event) => {
+            const value = event.target.value;
+            setTabInputArgs(activeTab.id, value === '' ? null : value.split('\n'));
+          }}
+          rows={2}
+          spellCheck={false}
+          placeholder={t('stdin.inputSets.argsPlaceholder')}
+          aria-label={t('stdin.inputSets.argsAriaLabel')}
+          className="field-shell min-h-12 resize-y px-3 py-2 font-mono text-body-sm"
+        />
+        <span className="text-caption text-fg-subtle">
+          {t('stdin.inputSets.argsHint')}
+        </span>
+      </label>
+
       {/* Ordered queue */}
       <div className="flex-1 min-h-0 overflow-auto rounded-xl border border-border/60 bg-bg-panel-alt/70">
         <DndContext
@@ -388,6 +422,108 @@ export function StdinInputPanel() {
     </div>
   );
 }
+
+interface InputSetToolbarProps {
+  tabId: string;
+  inputSets: readonly InputSet[];
+  activeInputSetId?: string;
+}
+
+function InputSetToolbar({
+  tabId,
+  inputSets,
+  activeInputSetId,
+}: InputSetToolbarProps) {
+  const { t } = useTranslation();
+  const selectTabInputSet = useEditorStore((state) => state.selectTabInputSet);
+  const saveTabInputSet = useEditorStore((state) => state.saveTabInputSet);
+  const deleteTabInputSet = useEditorStore((state) => state.deleteTabInputSet);
+  const activeInputSet = inputSets.find((inputSet) => inputSet.id === activeInputSetId);
+  const [name, setName] = useState(activeInputSet?.name ?? '');
+  const normalizedName = name.trim();
+  const duplicateName = inputSets.some(
+    (inputSet) =>
+      inputSet.id !== activeInputSetId &&
+      inputSet.name.localeCompare(normalizedName, undefined, { sensitivity: 'accent' }) === 0
+  );
+  const atLimit = !activeInputSet && inputSets.length >= MAX_INPUT_SETS_PER_TAB;
+  const canSave = normalizedName.length > 0 && !duplicateName && !atLimit;
+
+  return (
+    <div
+      className="grid flex-shrink-0 gap-2 rounded-xl border border-border/60 bg-bg-panel-alt/45 p-3 md:grid-cols-[minmax(140px,0.8fr)_minmax(180px,1fr)_auto_auto] md:items-end"
+      data-testid="stdin-input-set-toolbar"
+    >
+      <label className="grid gap-1.5">
+        <span className="text-caption font-semibold text-fg-muted">
+          {t('stdin.inputSets.label')}
+        </span>
+        <select
+          value={activeInputSetId ?? ''}
+          onChange={(event) =>
+            selectTabInputSet(tabId, event.target.value || null)
+          }
+          aria-label={t('stdin.inputSets.selectAriaLabel')}
+          className="field-shell h-9 px-2.5 text-body-sm"
+        >
+          <option value="">{t('stdin.inputSets.draft')}</option>
+          {inputSets.map((inputSet) => (
+            <option key={inputSet.id} value={inputSet.id}>
+              {inputSet.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1.5">
+        <span className="text-caption font-semibold text-fg-muted">
+          {t('stdin.inputSets.nameLabel')}
+        </span>
+        <input
+          type="text"
+          value={name}
+          maxLength={MAX_INPUT_SET_NAME_LENGTH}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={t('stdin.inputSets.namePlaceholder')}
+          aria-label={t('stdin.inputSets.nameAriaLabel')}
+          className="field-shell h-9 px-3 text-body-sm"
+        />
+      </label>
+      <button
+        type="button"
+        disabled={!canSave}
+        onClick={() => saveTabInputSet(tabId, normalizedName)}
+        className="button-primary h-9 px-3 text-caption"
+        data-testid="stdin-input-set-save"
+        title={
+          duplicateName
+            ? t('stdin.inputSets.duplicateName')
+            : atLimit
+              ? t('stdin.inputSets.limitReached', { count: MAX_INPUT_SETS_PER_TAB })
+              : undefined
+        }
+      >
+        {t(activeInputSet ? 'stdin.inputSets.update' : 'stdin.inputSets.save')}
+      </button>
+      <button
+        type="button"
+        disabled={!activeInputSet}
+        onClick={() => {
+          if (activeInputSet) deleteTabInputSet(tabId, activeInputSet.id);
+        }}
+        className="button-ghost h-9 px-3 text-caption text-danger disabled:opacity-40"
+        data-testid="stdin-input-set-delete"
+      >
+        {t('stdin.inputSets.delete')}
+      </button>
+      {duplicateName ? (
+        <span className="text-caption text-danger md:col-span-4" role="alert">
+          {t('stdin.inputSets.duplicateName')}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 interface SortableStdinRowProps {
   id: string;
   idx: number;

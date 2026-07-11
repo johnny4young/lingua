@@ -62,6 +62,15 @@ export type Language = BuiltInLanguage | (string & {});
  */
 export type TabExecutionState = 'idle' | 'running' | 'success' | 'error';
 
+/** IT2-F5 — a named, per-tab replayable stdin + argv snapshot. */
+export interface InputSet {
+  id: string;
+  name: string;
+  stdin: string;
+  /** Optional command arguments, stored exactly one entry per argument. */
+  args?: string[];
+}
+
 export interface FileTab {
   id: string;
   name: string;
@@ -150,6 +159,12 @@ export interface FileTab {
    * stdin support (anything outside JS / TS / Python).
    */
   stdinBuffer?: string;
+  /** IT2-F5 — named input snapshots saved with the editor session. */
+  inputSets?: InputSet[];
+  /** IT2-F5 — the set currently loaded into `stdinBuffer` / `inputArgs`. */
+  activeInputSetId?: string;
+  /** IT2-F5 — current argv draft; runners may consume it when supported. */
+  inputArgs?: string[];
   /**
    * RL-020 Slice 7 fold D — one-shot extended-timeout override for
    * the NEXT run on this tab. Set by the command palette
@@ -310,6 +325,16 @@ export interface EditorState {
    *     worker-only this slice; the desktop runners stay TODO).
    */
   setTabStdinBuffer: (id: string, text: string | null) => void;
+  /** IT2-F5 — replace the active tab's argv draft (one array item per argument). */
+  setTabInputArgs: (id: string, args: string[] | null) => void;
+  /** IT2-F5 — create/update a named snapshot from the tab's current input. */
+  saveTabInputSet: (id: string, name: string) => string | null;
+  /** IT2-F5 — load a named snapshot, or detach into an unsaved draft with null. */
+  selectTabInputSet: (id: string, inputSetId: string | null) => void;
+  /** IT2-F5 — rename an existing input snapshot. */
+  renameTabInputSet: (id: string, inputSetId: string, name: string) => boolean;
+  /** IT2-F5 — remove a snapshot without clearing the currently loaded values. */
+  deleteTabInputSet: (id: string, inputSetId: string) => void;
   /**
    * RL-020 Slice 7 fold D — set / clear the one-shot extended-timeout
    * override for the next run on the given tab. `executeTabManually`
@@ -1117,6 +1142,8 @@ export interface ExecutionContext {
    * ignore the field harmlessly.
    */
   stdin?: string;
+  /** IT2-F5 — argv from the active input set; unsupported runners ignore it. */
+  args?: string[];
   /**
    * RL-020 Slice 7 — the resolved preset that produced the active
    * `timeout`. Used by `runnerTimeoutResult` to populate the

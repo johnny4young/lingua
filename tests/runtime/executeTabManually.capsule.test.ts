@@ -160,6 +160,17 @@ describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
       language: 'javascript',
       content: 'console.log("hi")',
       isDirty: false,
+      stdinBuffer: 'Ada\n42',
+      inputArgs: ['--mode', 'fast'],
+      inputSets: [
+        {
+          id: 'set-happy',
+          name: 'Happy path',
+          stdin: 'Ada\n42',
+          args: ['--mode', 'fast'],
+        },
+      ],
+      activeInputSetId: 'set-happy',
     });
 
     const entries = useExecutionHistoryStore.getState().entries;
@@ -177,6 +188,18 @@ describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
       magicPayload,
     ]);
     expect(entry.lastCapsule?.result.diagnostics).toEqual(diagnostics);
+    expect(entry.lastCapsule?.input).toEqual({
+      stdin: 'Ada\n42',
+      setName: 'Happy path',
+      args: ['--mode', 'fast'],
+    });
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
+      'console.log("hi")',
+      expect.objectContaining({
+        stdin: 'Ada\n42',
+        args: ['--mode', 'fast'],
+      })
+    );
   });
 
   it('attaches the run-start git snapshot to the capsule environment', async () => {

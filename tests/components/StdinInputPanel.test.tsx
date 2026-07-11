@@ -22,16 +22,27 @@ interface MockTab {
   content: string;
   isDirty: boolean;
   stdinBuffer?: string;
+  inputArgs?: string[];
+  inputSets?: Array<{ id: string; name: string; stdin: string; args?: string[] }>;
+  activeInputSetId?: string;
 }
 
 const editorState: {
   tabs: MockTab[];
   activeTabId: string | null;
   setTabStdinBuffer: ReturnType<typeof vi.fn>;
+  setTabInputArgs: ReturnType<typeof vi.fn>;
+  saveTabInputSet: ReturnType<typeof vi.fn>;
+  selectTabInputSet: ReturnType<typeof vi.fn>;
+  deleteTabInputSet: ReturnType<typeof vi.fn>;
 } = {
   tabs: [],
   activeTabId: null,
   setTabStdinBuffer: vi.fn(),
+  setTabInputArgs: vi.fn(),
+  saveTabInputSet: vi.fn(),
+  selectTabInputSet: vi.fn(),
+  deleteTabInputSet: vi.fn(),
 };
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
@@ -52,6 +63,10 @@ describe('StdinInputPanel (RL-020 Slice 6)', () => {
     editorState.tabs = [];
     editorState.activeTabId = null;
     editorState.setTabStdinBuffer = vi.fn();
+    editorState.setTabInputArgs = vi.fn();
+    editorState.saveTabInputSet = vi.fn();
+    editorState.selectTabInputSet = vi.fn();
+    editorState.deleteTabInputSet = vi.fn();
   });
 
   it('renders the empty state when no active tab is selected', () => {
@@ -112,5 +127,48 @@ describe('StdinInputPanel (RL-020 Slice 6)', () => {
     render(<StdinInputPanel />);
     const pill = screen.getByTestId('stdin-panel-consumed');
     expect(pill.textContent).toMatch(/2.*3/);
+  });
+
+  it('saves a named input set and captures one argv value per line', () => {
+    editorState.tabs = [
+      { id: 't1', name: 'main.js', language: 'javascript', content: '', isDirty: false },
+    ];
+    editorState.activeTabId = 't1';
+    render(<StdinInputPanel />);
+
+    fireEvent.change(screen.getByLabelText('Input set name'), {
+      target: { value: 'Happy path' },
+    });
+    fireEvent.click(screen.getByTestId('stdin-input-set-save'));
+    expect(editorState.saveTabInputSet).toHaveBeenCalledWith('t1', 'Happy path');
+
+    fireEvent.change(screen.getByLabelText('Command arguments'), {
+      target: { value: '--mode\nfast' },
+    });
+    expect(editorState.setTabInputArgs).toHaveBeenCalledWith('t1', ['--mode', 'fast']);
+  });
+
+  it('loads and deletes the selected input set through accessible controls', () => {
+    editorState.tabs = [
+      {
+        id: 't1',
+        name: 'main.py',
+        language: 'python',
+        content: '',
+        isDirty: false,
+        inputSets: [{ id: 'set-1', name: 'Edge case', stdin: '0' }],
+        activeInputSetId: 'set-1',
+      },
+    ];
+    editorState.activeTabId = 't1';
+    render(<StdinInputPanel />);
+
+    fireEvent.change(screen.getByLabelText('Select an input set'), {
+      target: { value: '' },
+    });
+    expect(editorState.selectTabInputSet).toHaveBeenCalledWith('t1', null);
+
+    fireEvent.click(screen.getByTestId('stdin-input-set-delete'));
+    expect(editorState.deleteTabInputSet).toHaveBeenCalledWith('t1', 'set-1');
   });
 });

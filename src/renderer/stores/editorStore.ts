@@ -4,6 +4,7 @@ import { createTabActions } from './editorTabActions';
 import { createWorkspaceActions } from './editorWorkspaceActions';
 import { createContentActions } from './editorContentActions';
 import { createModeActions } from './editorModeActions';
+import { createInputActions } from './editorInputActions';
 import { createSaveActions } from './editorSaveActions';
 import { createCloseActions } from './editorCloseActions';
 
@@ -23,6 +24,7 @@ import { createCloseActions } from './editorCloseActions';
  *   - `editorWorkspaceActions`— notebook + SQL / HTTP / Utilities workspace openers
  *   - `editorContentActions` — buffer / execution-state / timeout / recipe-clear
  *   - `editorModeActions`    — runtime/workflow mode + capability toggles
+ *   - `editorInputActions`   — stdin, argv, and named input sets
  *   - `editorSaveActions`    — open / save / save-as
  *   - `editorCloseActions`   — close (+ bulk) / rename
  *
@@ -41,6 +43,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   ...createWorkspaceActions(set, get),
   ...createContentActions(set),
   ...createModeActions(set, get),
+  ...createInputActions(set, get),
   ...createSaveActions(set, get),
   ...createCloseActions(set, get),
 }));

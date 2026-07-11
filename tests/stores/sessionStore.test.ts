@@ -82,6 +82,17 @@ describe('sessionStore', () => {
           isDirty: false,
           filePath: '/path/hello.js',
           recipeBindingId: 'js-sort-objects',
+          stdinBuffer: 'Ada',
+          inputArgs: ['--mode', 'fast'],
+          inputSets: [
+            {
+              id: 'set-happy',
+              name: 'Happy path',
+              stdin: 'Ada',
+              args: ['--mode', 'fast'],
+            },
+          ],
+          activeInputSetId: 'set-happy',
         },
         {
           id: 'tab-2',
@@ -104,6 +115,16 @@ describe('sessionStore', () => {
     expect(savedTabs[0].content).toBe('');
     expect(savedTabs[0].filePath).toBe('/path/hello.js');
     expect(savedTabs[0].recipeBindingId).toBe('js-sort-objects');
+    expect(savedTabs[0].inputSets).toEqual([
+      {
+        id: 'set-happy',
+        name: 'Happy path',
+        stdin: 'Ada',
+        args: ['--mode', 'fast'],
+      },
+    ]);
+    expect(savedTabs[0].activeInputSetId).toBe('set-happy');
+    expect(savedTabs[0].inputArgs).toEqual(['--mode', 'fast']);
 
     // In-memory tab stores content
     expect(savedTabs[1].content).toBe('const x = 42;');
@@ -124,6 +145,17 @@ describe('sessionStore', () => {
           name: 'scratch.py',
           language: 'python',
           content: 'print("hello")',
+          stdinBuffer: 'Ada',
+          inputArgs: ['--count', '2'],
+          inputSets: [
+            {
+              id: 'set-python',
+              name: 'Two runs',
+              stdin: 'Ada',
+              args: ['--count', '2'],
+            },
+          ],
+          activeInputSetId: 'set-python',
         },
       ],
       savedActiveIndex: 1,
@@ -142,9 +174,55 @@ describe('sessionStore', () => {
     // In-memory tab uses saved content
     expect(tabs[1].name).toBe('scratch.py');
     expect(tabs[1].content).toBe('print("hello")');
+    expect(tabs[1].stdinBuffer).toBe('Ada');
+    expect(tabs[1].inputSets).toEqual([
+      {
+        id: 'set-python',
+        name: 'Two runs',
+        stdin: 'Ada',
+        args: ['--count', '2'],
+      },
+    ]);
+    expect(tabs[1].activeInputSetId).toBe('set-python');
+    expect(tabs[1].inputArgs).toEqual(['--count', '2']);
 
     // Active tab should be the second one (index 1)
     expect(activeTabId).toBe(tabs[1].id);
+  });
+
+  it('sanitizes malformed and oversized input-set state during restore', async () => {
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'scratch.js',
+          language: 'javascript',
+          content: 'console.log(1)',
+          inputSets: [
+            {
+              id: 'set-valid',
+              name: '  Valid set  ',
+              stdin: 'Ada',
+              args: ['--mode', 42, 'fast'] as unknown as string[],
+            },
+            { id: 'set-broken', name: '', stdin: 'ignored' },
+            { id: 'set-valid', name: 'Duplicate id', stdin: 'ignored' },
+          ],
+          activeInputSetId: 'missing-set',
+          inputArgs: [...Array.from({ length: 70 }, (_, index) => `arg-${index}`), 42] as unknown as string[],
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+
+    await useSessionStore.getState().restoreSession();
+
+    const tab = useEditorStore.getState().tabs[0];
+    expect(tab?.inputSets).toEqual([
+      { id: 'set-valid', name: 'Valid set', stdin: 'Ada', args: ['--mode', 'fast'] },
+    ]);
+    expect(tab?.activeInputSetId).toBeUndefined();
+    expect(tab?.inputArgs).toHaveLength(64);
+    expect(tab?.inputArgs?.[63]).toBe('arg-63');
   });
 
   it('restores the armed ask-mode snapshot even if autosave replaces savedTabs before restore', async () => {
@@ -596,6 +674,9 @@ describe('sessionStore', () => {
       ['filePath', { filePath: '/p/a.ts' }],
       ['runtimeMode', { runtimeMode: 'node' }],
       ['stdinBuffer', { stdinBuffer: 'line1\n' }],
+      ['inputSets', { inputSets: [{ id: 'set-1', name: 'Happy', stdin: 'line1' }] }],
+      ['activeInputSetId', { activeInputSetId: 'set-1' }],
+      ['inputArgs', { inputArgs: ['--fast'] }],
       ['recipeBindingId', { recipeBindingId: 'js-sort-objects' }],
       ['kind', { kind: 'notebook' }],
     ] as const)('flips on persisted tab field: %s', (_label, override) => {
@@ -647,6 +728,9 @@ describe('sessionStore', () => {
       ['filePath', { filePath: '/p/a.ts' }],
       ['runtimeMode', { runtimeMode: 'node' }],
       ['stdinBuffer', { stdinBuffer: 'line1\n' }],
+      ['inputSets', { inputSets: [{ id: 'set-1', name: 'Happy', stdin: 'line1' }] }],
+      ['activeInputSetId', { activeInputSetId: 'set-1' }],
+      ['inputArgs', { inputArgs: ['--fast'] }],
       ['recipeBindingId', { recipeBindingId: 'js-sort-objects' }],
       ['kind (notebook, also feeds notebookTabId)', { kind: 'notebook' }],
       ['kind (sql, also feeds workspaceTabId)', { kind: 'sql' }],
