@@ -7,6 +7,7 @@
  * the component + shared unit tests.
  */
 
+import { mkdirSync } from 'node:fs';
 import { expect, expectNoticeContains, gotoApp, seedSession, test } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -59,6 +60,21 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
 
     const output = page.getByTestId('utility-pipeline-result-output').first();
     await expect(output).toHaveText('apple\nbanana\ncherry');
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          performance
+            .getEntriesByType('resource')
+            .some((entry) => entry.name.includes('utility-compute-worker'))
+        )
+      )
+      .toBe(true);
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/project-sequence/t07-performance', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/project-sequence/t07-performance/web-en-pipeline-worker.png',
+      });
+    }
   });
 
   test('runs a generator (lorem-ipsum) feeding a transform (text-stats) (EN)', async ({

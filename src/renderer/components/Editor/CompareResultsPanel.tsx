@@ -33,6 +33,7 @@ import {
   resolveCompareTargetSnapshot,
 } from '../../utils/snapshotDiff';
 import type { DiffGranularity } from '../../utils/diff';
+import { useComputedDiff } from '../../hooks/useComputedDiff';
 import { EyebrowMono, MonoBadge, TypePill } from '../ui/primitives';
 import { cn } from '../../utils/cn';
 
@@ -83,7 +84,27 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
     [relevantRing]
   );
 
-  if (relevantRing.length === 0) {
+  const targetEntry =
+    relevantRing.length === 0
+      ? null
+      : resolveCompareTargetSnapshot({
+          snapshotRing,
+          language,
+          selectedCapturedAt,
+          current: { lineResults, fullOutput },
+        }) ?? relevantRing[relevantRing.length - 1]!;
+  const dynamicMode = Boolean(
+    targetEntry &&
+      (targetEntry.lineResults.length > 0 || lineResults.length > 0)
+  );
+  const compiledSegments = useComputedDiff(
+    targetEntry?.fullOutput ?? '',
+    fullOutput,
+    granularity,
+    targetEntry !== null && !dynamicMode
+  );
+
+  if (relevantRing.length === 0 || !targetEntry) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center">
         <span
@@ -96,19 +117,20 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
     );
   }
 
-  const targetEntry =
-    resolveCompareTargetSnapshot({
-      snapshotRing,
-      language,
-      selectedCapturedAt,
-      current: { lineResults, fullOutput },
-    }) ?? relevantRing[relevantRing.length - 1]!;
-
-  const diff = diffSnapshot({
-    snapshot: targetEntry,
-    current: { lineResults, fullOutput },
-    granularity,
-  });
+  const diff = dynamicMode
+    ? diffSnapshot({
+        snapshot: targetEntry,
+        current: { lineResults, fullOutput },
+        granularity,
+      })
+    : {
+        mode: 'compiled' as const,
+        segments: compiledSegments,
+        identical:
+          compiledSegments.length === 0 ||
+          compiledSegments.every((segment) => segment.kind === 'equal'),
+        granularity,
+      };
 
   // RL-033 dep-sweep follow-up — Date.now() in render is a react-hooks/purity
   // violation. Use the newest snapshot's capturedAt as the reference time so

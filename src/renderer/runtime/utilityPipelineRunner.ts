@@ -19,6 +19,10 @@ import {
   type RunPipelineOptions,
   type UtilityPipelineV1,
 } from '../../shared/utilityPipeline';
+import {
+  runPipelineOffThread,
+  type UtilityComputeWorkerFactory,
+} from './utilityComputeClient';
 
 export interface PipelineRunnerOptions {
   pipeline: UtilityPipelineV1;
@@ -26,6 +30,8 @@ export interface PipelineRunnerOptions {
   onStepSettled?: (result: PipelineStepResult) => void;
   /** Test seam — override the per-step timeout. */
   stepTimeoutMs?: number;
+  /** Test seam; production creates the dedicated utility compute worker. */
+  workerFactory?: UtilityComputeWorkerFactory;
 }
 
 /**
@@ -37,6 +43,19 @@ export interface PipelineRunnerOptions {
 export async function runUtilityPipeline(
   options: PipelineRunnerOptions
 ): Promise<PipelineRunOutcome> {
+  const workerOutcome = await runPipelineOffThread({
+    pipeline: options.pipeline,
+    input: options.input,
+    ...(options.onStepSettled
+      ? { onStepSettled: options.onStepSettled }
+      : {}),
+    ...(options.stepTimeoutMs === undefined
+      ? {}
+      : { stepTimeoutMs: options.stepTimeoutMs }),
+    ...(options.workerFactory ? { workerFactory: options.workerFactory } : {}),
+  });
+  if (workerOutcome) return workerOutcome;
+
   const runOptions: RunPipelineOptions = {};
   if (options.onStepSettled) runOptions.onStepSettled = options.onStepSettled;
   if (options.stepTimeoutMs !== undefined) {

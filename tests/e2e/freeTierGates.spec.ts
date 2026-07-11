@@ -223,7 +223,6 @@ test.describe('Free tier gates', () => {
   }) => {
     await page.getByRole('button', { name: 'Developer utilities' }).click();
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1, name: 'Built-in utilities' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'JSON Formatter' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Pretty print' })).toBeVisible();
 

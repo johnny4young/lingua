@@ -400,6 +400,17 @@ audit-advisory). `windows-path-hardening` queda igual.
 comandos repartidos — ninguno eliminado; `needs:` solo donde haya
 dependencia real (build no necesita test).
 
+### Cierre de auditoría de rendimiento P3/P4/P7 — EJECUTADO 2026-07-10
+
+Tres hallazgos de la revisión profunda quedaron cerrados como una misma ronda
+medible: la tira de `EditorTabs` ya no se suscribe al contenido completo, el
+locale español se carga como chunk diferido y el trabajo pesado de Diff Viewer
+y Utility Pipelines usa un Web Worker tipado. Se conservaron caminos inline
+para diffs pequeños y entornos sin Worker. El build de evidencia redujo el
+chunk inicial de la aplicación en ~70 kB gzip y emitió chunks separados para el
+catálogo ES (~70 kB gzip) y el worker (~34 kB sin comprimir). Validación y
+capturas: `output/review/project-sequence/t07-performance/`.
+
 ---
 
 # LANE C — Datos: el Run Ledger (modelos de DB)

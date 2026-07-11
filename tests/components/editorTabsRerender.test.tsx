@@ -1,12 +1,9 @@
 /**
  * Roadmap T4 — per-tab render isolation.
  *
- * `updateContent` mints a new `tabs` array on every keystroke, so the
- * `EditorTabs` strip re-renders. Before the memoized `EditorTabItem`
- * split, that re-rendered EVERY row's subtree (glyph, filename,
- * GitStatusPill, status control) even though only the active tab's
- * content changed. This probe locks the contract: editing one tab's
- * content re-renders ONLY that tab's row, never its siblings.
+ * `updateContent` mints a new `tabs` array on every keystroke. The strip now
+ * subscribes to a value-comparable projection, so once the first edit flips
+ * visible dirty/execution metadata, later content-only writes render no rows.
  *
  * The probe counts GitStatusPill renders per file path (one pill per
  * row); the real store drives the mutation so this is an end-to-end
@@ -72,21 +69,22 @@ describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
     useEditorStore.setState(initialEditorState, true);
   });
 
-  it('editing one tab does not re-render sibling tab rows', () => {
+  it('content-only typing does not re-render the strip or either row', () => {
     render(<EditorTabs />);
 
-    const baselineA = pillRenders['/repo/a.ts'] ?? 0;
-    const baselineB = pillRenders['/repo/b.ts'] ?? 0;
-    expect(baselineA).toBeGreaterThan(0);
-    expect(baselineB).toBeGreaterThan(0);
-
-    // Edit ONLY tab-a's content through the real store.
+    // First edit legitimately flips isDirty, a visible strip signal.
     act(() => {
       useEditorStore.getState().updateContent('tab-a', 'const a = 42;');
     });
+    const baselineA = pillRenders['/repo/a.ts'] ?? 0;
+    const baselineB = pillRenders['/repo/b.ts'] ?? 0;
 
-    // The edited row re-rendered; the sibling row did not.
-    expect(pillRenders['/repo/a.ts']).toBeGreaterThan(baselineA);
+    // Subsequent typing changes only content; the encoded projection remains
+    // shallow-equal and React is never entered for the strip.
+    act(() => {
+      useEditorStore.getState().updateContent('tab-a', 'const a = 420;');
+    });
+    expect(pillRenders['/repo/a.ts']).toBe(baselineA);
     expect(pillRenders['/repo/b.ts']).toBe(baselineB);
   });
 

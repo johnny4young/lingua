@@ -33,10 +33,10 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`lint/`](lint)             | Inline-lint rules + quick-fix provider Monaco's TS worker does not cover (RL-108) |
 | [`clipboard/`](clipboard)   | Smart-paste detectors + intent router that delegate pasted artifacts to existing importers (RL-110) |
 | [`validation/`](validation) | Validate-only document checks for non-runnable development files          |
-| [`workers/`](workers)       | Web Worker entry points for JS/TS/Python/Go browser execution             |
+| [`workers/`](workers)       | Web Worker entry points for JS/TS/Python/Go browser execution plus large diff and Utility Pipeline compute |
 | [`utils/`](utils)           | Framework-agnostic helpers and renderer-specific utilities                |
 | [`data/`](data)             | Static templates and catalog data                                         |
-| [`i18n/`](i18n)             | Translation bootstrap and locale files                                    |
+| [`i18n/`](i18n)             | Async translation bootstrap: English is initial; Spanish loads on demand before mount/language change |
 | [`themes/`](themes)         | Monaco/editor theme definitions                                           |
 | [`plugins/`](plugins)       | Renderer-side plugin catalog, diagnostics, and safe runtime hooks         |
 | [`onboarding/`](onboarding) | First-run scratchpad seed and guided-start helpers                        |
@@ -53,7 +53,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`                                       | Owns shell composition, panel layout, sidebar/drawer behavior  |
 | [`components/Chrome/`](components/Chrome)                 | `AppChrome.tsx`                                       | App-level chrome frame and shell wrapper primitives            |
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
-| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `ResultPanel.tsx` | Owns Monaco, tabs, inline result surface, completion providers |
+| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabItems.tsx`, `ResultPanel.tsx` | Owns Monaco, tab orchestration/rows, inline result surface, completion providers |
 | [`components/ErrorBoundary/`](components/ErrorBoundary)   | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
 | [`components/Toolbar/`](components/Toolbar)               | `Toolbar.tsx`                                         | Owns primary shell actions and status affordances              |

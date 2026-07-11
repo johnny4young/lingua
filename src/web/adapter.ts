@@ -11,13 +11,15 @@
  * This module must be imported BEFORE the React application renders.
  */
 
-import { getActiveAppLanguage, getBrowserSystemLanguages } from '../renderer/i18n';
+import {
+  getBrowserSystemLanguages,
+  translateAppCommon,
+} from '../renderer/i18n';
 import { getBundledAppInfo, normalizeExternalUrl } from '../shared/appInfo';
-import { translateCommon } from '../shared/i18n/runtime';
 import { webFsAdapter } from './fs-adapter';
 
 function t(key: string): string {
-  return translateCommon(getActiveAppLanguage(), key);
+  return translateAppCommon(key);
 }
 
 const goStub: LinguaAPI['go'] = {

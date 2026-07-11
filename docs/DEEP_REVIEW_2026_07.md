@@ -245,11 +245,11 @@ Console/Notebook, barrido de modelos Monaco al cerrar tabs); main sin
 |---|---------|-------------|--------|
 | P1 | Alto | Monaco (~987 KB gzip) se ejecutaba en el arranque del shell por dos aristas estáticas | ✅ Corregido |
 | P2 | Alto | Todo el shell (`AppChrome`) re-renderizaba en cada pulsación | ✅ Corregido |
-| P3 | Medio | `EditorTabs` re-renderizaba la tira completa por keystroke | 📋 Documentado |
-| P4 | Medio | Los dos locales i18n viajan en el chunk inicial | 📋 Documentado |
+| P3 | Medio | `EditorTabs` re-renderizaba la tira completa por keystroke | ✅ Corregido |
+| P4 | Medio | Los dos locales i18n viajan en el chunk inicial | ✅ Corregido |
 | P5 | Medio | Detección Go/Rust sin caché → 1-2 spawns extra por run | ✅ Corregido |
 | P6 | Medio | fs síncrono en hot paths de ejecución (node/ruby/deps) | 📋 Documentado |
-| P7 | Medio-bajo | Pipeline de utilities y diff Myers en el hilo de UI | 📋 Documentado |
+| P7 | Medio-bajo | Pipeline de utilities y diff Myers en el hilo de UI | ✅ Corregido |
 | P8 | Bajo | Suscripciones a store completo (`useUIStore()` en AppChrome) | ✅ Corregido (parcial) |
 
 **P1 — Monaco fuera del arranque del shell (corregido).** Dos aristas
@@ -287,12 +287,34 @@ caché de sesión para el probe de env por defecto, con la misma
 convención que `detectNode` (solo cachea detects exitosos, así instalar
 la toolchain a mitad de sesión se detecta en el siguiente run).
 
-**P3/P4/P6/P7 (documentados).** Pendientes de slices dedicados:
-`EditorTabs` con selector `useShallow` a primitivos + `memo` en el item;
-locale inactivo con `import()` diferido; migrar los probes síncronos de
-`node-runner`/`ruby-runner`/`dependencies` a `fs/promises`; mover
-`runUtilityPipeline` y `computeDiff` a un worker con Comlink. Ninguno
-bloquea; todos tienen patrón de fix ya presente en el repo.
+**P3 — Tira de tabs aislada del contenido (corregido 2026-07-10).**
+`EditorTabs` selecciona únicamente la metadata visible de cada tab mediante
+una proyección estable con `useShallow`; el contenido completo no llega al
+row memoizado. El único dato derivado del buffer es el booleano que suprime el
+estado Git ante magic comments. Después del primer cambio que activa
+`isDirty`, las siguientes pulsaciones producen cero commits tanto en el tab
+activo como en sus hermanos; el contrato se prueba con React Profiler.
+
+**P4 — Locale inactivo fuera del chunk inicial (corregido 2026-07-10).**
+La metadata de idiomas vive separada de los catálogos. El renderer incluye
+inglés estáticamente y carga español mediante `import()` antes de montar React
+cuando es el idioma activo o antes de cambiarlo en runtime. El build web mueve
+el catálogo ES a un chunk propio de ~278 kB (~70 kB gzip) y reduce el chunk de
+aplicación de ~2.119 MB / 552 kB gzip a ~1.841 MB / 482 kB gzip. Main conserva
+ambos catálogos porque no participa del bundle del renderer.
+
+**P7 — Diff y pipelines fuera del hilo de UI (corregido 2026-07-10).**
+Un Web Worker tipado ejecuta los pipelines y los diffs Myers de 4.000+
+caracteres, preservando resultados progresivos por paso y terminando el worker
+al resolver. Los diffs pequeños y los entornos sin Worker conservan el camino
+inline; si el input cambia durante el cálculo, el hook no presenta el resultado
+anterior como si perteneciera a la nueva solicitud. El build emite un chunk de
+worker dedicado de ~34 kB y Playwright prueba la carga real del recurso tanto
+en Diff Viewer como en Utility Pipelines.
+
+**P6 (documentado).** Sigue pendiente migrar los probes síncronos de
+`node-runner`/`ruby-runner`/`dependencies` a `fs/promises`; no bloquea, pero
+requiere un slice dedicado en main para conservar la semántica de errores.
 
 ---
 

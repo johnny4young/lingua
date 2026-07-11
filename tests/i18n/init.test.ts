@@ -16,15 +16,15 @@ describe('initI18n', () => {
     }
   });
 
-  it('should initialise with English resources', () => {
-    initI18n('en');
+  it('should initialise with English resources', async () => {
+    await initI18n('en');
     expect(i18next.language).toBe('en');
     expect(i18next.t('settings.title')).toBe('Workspace Settings');
     expect(document.documentElement.lang).toBe('en');
   });
 
-  it('should initialise with Spanish resources', () => {
-    initI18n('es');
+  it('should initialise with Spanish resources', async () => {
+    await initI18n('es');
     expect(i18next.language).toBe('es');
     expect(i18next.t('settings.title')).toBe(
       'Configuración del espacio de trabajo'
@@ -32,8 +32,8 @@ describe('initI18n', () => {
     expect(document.documentElement.lang).toBe('es');
   });
 
-  it('should fall back to English for unsupported locales', () => {
-    initI18n('fr');
+  it('should fall back to English for unsupported locales', async () => {
+    await initI18n('fr');
     expect(i18next.language).toBe('en');
     expect(i18next.t('settings.title')).toBe('Workspace Settings');
     expect(document.documentElement.lang).toBe('en');
