@@ -793,6 +793,7 @@
   "envVars.emptyScopeTitle": "Sin variables en este ámbito",
   "upsell.freeCeilingReached": "Actualiza a Lingua Pro para desbloquear {{feature}} — estás en el plan Free.",
   "upsell.visitPricing": "Visita linguacode.dev para ver precios y descargas.",
+  "upsell.viewPro": "Ver qué incluye Pro",
   "upsell.feature.extraTabs": "más pestañas abiertas",
   "upsell.feature.extraSnippets": "más snippets guardados",
   "upsell.feature.extraLanguages": "Go, Rust y otros lenguajes",

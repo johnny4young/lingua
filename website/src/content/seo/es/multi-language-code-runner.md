@@ -36,7 +36,7 @@ Maquinaria compartida:
 
 ## Tier
 
-Free ejecuta JavaScript, TypeScript y Python con una pestaña abierta y hasta 5 snippets guardados. Pro desbloquea Go, Rust y límites más amplios.
+Free ejecuta JavaScript, TypeScript, Python y Ruby con hasta tres pestañas abiertas y 5 snippets guardados. Pro desbloquea Go, Rust y límites más amplios.
 
 ## Descargar
 

@@ -545,7 +545,7 @@ columnas; el snippet corre; con ledger OFF el grupo no aparece.
 
 # LANE D — UX: que se enamoren (retención local-first)
 
-## IT2-D1 · Rebalancear el gating Free — APROBADO 2026-07-06 · S (0.5 d)
+## IT2-D1 · Rebalancear el gating Free — EJECUTADO 2026-07-10 · S (0.5 d)
 
 **Evidencia.** `FREE_TIER_LIMITS = { maxOpenTabs: 1, maxSnippets: 5,
 allowedLanguages: [js, ts, python, ruby] }` (`entitlements.ts:38-46`);
@@ -575,6 +575,13 @@ lado: es un gate de evaluación, no de conversión.
 **AC.** 3 tabs Free operativos; 4.º tab → upsell con CTA; tests de
 `entitlements` y `editorTabActions` actualizados; smoke web verificando el
 upsell. (Decisión (a) ya confirmada 2026-07-06 — ver Decisiones aprobadas.)
+
+**Cierre 2026-07-10.** `FREE_TIER_LIMITS.maxOpenTabs` es 3; el cuarto
+tab mantiene el evento `feature.blocked` y muestra el upsell centralizado.
+Todos los upsells incluyen ahora la CTA localizada "Ver qué incluye Pro",
+que abre Settings → Account/License. La suite prueba 3 permitidos/4.º
+bloqueado, workspaces exentos y telemetría; el smoke web verifica el límite,
+la CTA y el destino visual en License.
 
 ## IT2-D2 · Streaks + achievements locales (= RL-046, ya `Planned`) — M (3-4 d)
 
@@ -1349,7 +1356,7 @@ toca UI (mandato AGENTS.md).
 | 11 | IT2-D3 (bootstrap progress + prefetch) | 2 d | Fricción #1 del primer uso. |
 | 12 | IT2-D4 + IT2-D5 + IT2-D7 (descubribilidad) | 2.5 d | Hace visible lo que ya existe. |
 | 13 | IT2-D2 (RL-046 sobre el ledger) | 3-4 d | Retención; necesita #7. |
-| 14 | IT2-D1 (Free 1→3 tabs) + IT2-D8 (lifetime $59 sostenible) | 0.5 d + 2-3 d | **APROBADO 2026-07-06.** IT2-D8 es security-gated (verificador Ed25519). |
+| 14 | ~~IT2-D1 (Free 1→3 tabs)~~ + IT2-D8 (lifetime $59 sostenible) | D1 hecho 2026-07-10 + 2-3 d | IT2-D8 es security-gated (verificador Ed25519). |
 
 **Fase 4 — Diferenciadores de mercado**:
 

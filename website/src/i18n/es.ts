@@ -204,7 +204,7 @@ export const es = {
     eyebrow: 'Precios',
     heading: 'Cuatro tiers. Paga solo por lo que necesitas.',
     lede:
-      'Pro es una suscripción de $5/mes. Pro Lifetime cuesta $59 una vez por acceso Pro perpetuo y 12 meses de actualizaciones; renueva solo si quieres releases posteriores. Team cuesta $3/asiento/mes con facturación. Free cubre scratchpads de archivo único para siempre. Las licencias se verifican offline.',
+      'Pro es una suscripción de $5/mes. Pro Lifetime cuesta $59 una vez por acceso Pro perpetuo y 12 meses de actualizaciones; renueva solo si quieres releases posteriores. Team cuesta $3/asiento/mes con facturación. Free cubre scratchpads de hasta tres pestañas para siempre. Las licencias se verifican offline.',
     trialCallout: {
       text: '¿Primera vez? Prueba Pro gratis 14 días — sin tarjeta de crédito.',
       linkText: 'Cómo empezar →',
@@ -228,7 +228,7 @@ export const es = {
           cadence: 'para siempre',
           bestFor: 'Probar Lingua y usar scratchpads simples',
           features: [
-            '1 pestaña abierta a la vez',
+            '3 pestañas abiertas a la vez',
             'Hasta 5 snippets guardados',
             'Runners de JavaScript, TypeScript, Python y Ruby',
             'Todas las utilidades de una sola acción',

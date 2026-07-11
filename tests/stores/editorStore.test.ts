@@ -1028,13 +1028,15 @@ describe('editorStore', () => {
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
       useUIStore.setState({ statusNotice: null });
 
-      const first = createDefaultTab('javascript');
-      useEditorStore.getState().addTab(first);
-      expect(useEditorStore.getState().tabs).toHaveLength(1);
+      for (const language of ['javascript', 'python', 'typescript'] as const) {
+        useEditorStore.getState().addTab(createDefaultTab(language));
+      }
+      expect(useEditorStore.getState().tabs).toHaveLength(3);
 
-      useEditorStore.getState().addTab(createDefaultTab('python'));
-      expect(useEditorStore.getState().tabs).toHaveLength(1);
+      useEditorStore.getState().addTab(createDefaultTab('ruby'));
+      expect(useEditorStore.getState().tabs).toHaveLength(3);
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+      expect(useUIStore.getState().statusNotice?.actions?.[0]?.labelKey).toBe('upsell.viewPro');
     });
 
     it('waves paid tiers through the ceiling so Pro users get unlimited tabs', async () => {
@@ -1072,7 +1074,9 @@ describe('editorStore', () => {
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
       useUIStore.setState({ statusNotice: null });
 
-      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      for (const language of ['javascript', 'typescript', 'ruby'] as const) {
+        useEditorStore.getState().addTab(createDefaultTab(language));
+      }
       (window.lingua.fs.read as ReturnType<typeof vi.fn>).mockResolvedValue('print("hi")');
 
       await useEditorStore
@@ -1080,7 +1084,7 @@ describe('editorStore', () => {
         .openFile('root-blocked', 'blocked.py', 'blocked.py', 'python', '/tmp/blocked.py');
 
       expect(window.lingua.fs.read).not.toHaveBeenCalled();
-      expect(useEditorStore.getState().tabs).toHaveLength(1);
+      expect(useEditorStore.getState().tabs).toHaveLength(3);
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     });
 
@@ -1089,12 +1093,14 @@ describe('editorStore', () => {
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
       mockTrackEvent.mockClear();
 
-      useEditorStore.getState().addTab(createDefaultTab('javascript'));
-      // First tab fits the budget — no telemetry emitted yet.
+      for (const language of ['javascript', 'typescript', 'python'] as const) {
+        useEditorStore.getState().addTab(createDefaultTab(language));
+      }
+      // Three tabs fit the budget — no telemetry emitted yet.
       expect(mockTrackEvent).not.toHaveBeenCalled();
 
-      useEditorStore.getState().addTab(createDefaultTab('python'));
-      // Second tab on Free hits the gate; telemetry fires.
+      useEditorStore.getState().addTab(createDefaultTab('ruby'));
+      // Fourth tab on Free hits the gate; telemetry fires.
       expect(mockTrackEvent).toHaveBeenCalledWith(
         'feature.blocked',
         expect.objectContaining({ entitlement: 'tabs', tier: 'free' })
@@ -1106,7 +1112,9 @@ describe('editorStore', () => {
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
       mockTrackEvent.mockClear();
 
-      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      for (const language of ['javascript', 'typescript', 'ruby'] as const) {
+        useEditorStore.getState().addTab(createDefaultTab(language));
+      }
       mockTrackEvent.mockClear();
 
       await useEditorStore
@@ -1265,16 +1273,18 @@ describe('editorStore', () => {
       expect(useEditorStore.getState().addUtilitiesTab()).toBe(UTILITIES_WORKSPACE_TAB_ID);
       expect(useEditorStore.getState().tabs).toHaveLength(3);
 
-      // The single Free code tab must still fit — the two workspace
-      // tabs do NOT crowd it out of the budget.
-      useEditorStore.getState().addTab(createDefaultTab('javascript'));
-      expect(useEditorStore.getState().tabs).toHaveLength(4);
+      // All three Free code tabs still fit — workspace tabs do NOT crowd
+      // them out of the budget.
+      for (const language of ['javascript', 'typescript', 'python'] as const) {
+        useEditorStore.getState().addTab(createDefaultTab(language));
+      }
+      expect(useEditorStore.getState().tabs).toHaveLength(6);
       expect(useUIStore.getState().statusNotice).toBeNull();
 
-      // A SECOND code tab is over the Free ceiling and is refused, even
+      // A FOURTH code tab is over the Free ceiling and is refused, even
       // though workspace tabs are present.
-      useEditorStore.getState().addTab(createDefaultTab('python'));
-      expect(useEditorStore.getState().tabs.filter(t => !t.kind)).toHaveLength(1);
+      useEditorStore.getState().addTab(createDefaultTab('ruby'));
+      expect(useEditorStore.getState().tabs.filter(t => !t.kind)).toHaveLength(3);
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     });
 

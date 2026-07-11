@@ -204,7 +204,7 @@ export const en = {
     eyebrow: 'Pricing',
     heading: 'Four tiers. Pay only for what you need.',
     lede:
-      'Pro is a $5/month subscription. Pro Lifetime is $59 once for perpetual Pro access and 12 months of updates; renew only if you want later releases. Team is $3/seat/month with invoicing. Free covers single-file scratchpads forever. License keys verify offline.',
+      'Pro is a $5/month subscription. Pro Lifetime is $59 once for perpetual Pro access and 12 months of updates; renew only if you want later releases. Team is $3/seat/month with invoicing. Free covers three-tab scratchpads forever. License keys verify offline.',
     trialCallout: {
       text: 'First time? Try Pro free for 14 days — no credit card.',
       linkText: 'How to start →',
@@ -226,9 +226,9 @@ export const en = {
           name: 'Free',
           price: '$0',
           cadence: 'forever',
-          bestFor: 'Trying Lingua, single-file scratchpads',
+          bestFor: 'Trying Lingua across core languages',
           features: [
-            '1 open tab at a time',
+            '3 open tabs at a time',
             'Up to 5 saved snippets',
             'JavaScript, TypeScript, Python, Ruby runners',
             'All single-shot developer utilities',
