@@ -18,11 +18,33 @@
 > todas (heading `## [0.9.0]` del CHANGELOG, guard de copy del renderer,
 > tuteo neutro en ES, sin atribución de IA en commits).
 
+## 0. Actualización operativa — 2026-07-10
+
+Las secciones 1–2 se conservan como snapshot histórico de la ronda PR #17–#22;
+ya no describen PRs abiertos ni un merge train pendiente. Para estado operativo
+actual, `docs/IMPROVEMENT_PLAN_2026-07.md` gana sobre estimaciones antiguas de
+este documento y `docs/DEEP_REVIEW_2026_07.md` mantiene el inventario de
+hallazgos.
+
+La ronda actual completó: Column Explorer, B13 (watcher fresh-state), Input
+Sets, Free 1→3 tabs, instrumentación de boot G1, hardening B5 de npm en Windows,
+P3/P4/P7 de rendimiento, el split final IT2-A1 de filesystem y los cuatro
+componentes prioritarios de A5. B5 cuenta además con evidencia nativa del job
+Windows del PR; P6 y los seis componentes renderer que aún superan 800 LOC
+siguen abiertos. Evidencia reproducible por tarea:
+`output/review/project-sequence/t01-*` … `t08-*`.
+
+Siguiente secuencia recomendada después de integrar esta ronda: G2 (primer
+paint/skeleton y ventana desacoplada de licencia), G3 (rehidratación diferida
+guiada por los timings de G1), P6 (`fs/promises` en probes síncronos) y luego
+los seis componentes restantes de A5. No abrir otra expansión de superficie
+antes de medir G2/G3.
+
 ---
 
-## 1. Estado actual
+## 1. Snapshot histórico previo a la ronda actual
 
-### 1.1 Hecho y en revisión (PRs abiertos, todos en verde)
+### 1.1 PRs que estaban abiertos en ese snapshot
 
 | PR | Rama | Contenido | Riesgo de conflicto |
 |----|------|-----------|---------------------|
@@ -51,7 +73,7 @@
 
 ---
 
-## 2. Plan de merges (hacer PRIMERO, antes de cualquier ítem nuevo)
+## 2. Plan de merges histórico (completado)
 
 Orden recomendado y resolución de los conflictos conocidos:
 
@@ -162,14 +184,21 @@ instrucción de smoke escrita en el cuerpo.
   degradación a texto), test de componente del render en celda, smoke
   web con una celda Python que produzca un DataFrame.
 
-#### T4. Perf: `EditorTabs` deja de re-renderizar en cada cambio global — S/M
+#### T4. Perf: `EditorTabs` deja de re-renderizar en cada cambio global — EJECUTADO 2026-07-10
+
+> **Estado actual.** P3 quedó cerrado con una proyección de metadata visible
+> codificada como strings value-equal bajo `useShallow`; el buffer completo no
+> llega a la tira ni a sus rows memoizados. El primer cambio puede actualizar
+> `isDirty`; las pulsaciones posteriores con metadata estable producen cero
+> commits en parent y rows. El test de Profiler y la evidencia de T07 reemplazan
+> el diseño hipotético de ids-only descrito abajo.
 
 - **Problema.** El selector de `EditorTabs` (840 líneas) reconstruye un
   array de objetos por render, y con la igualdad estricta de Zustand v5
   cada mutación del store re-renderiza toda la strip. Diferido de P3
   porque `useShallow` no basta cuando los objetos se recrean.
 - **Diseño.** Dos movimientos: (1) el componente lista suscribe SOLO a
-  `state.tabs.map(t => t.id).join(' ')` + `activeTabId` (string
+  `state.tabs.map(t => t.id).join('\0')` + `activeTabId` (string
   primitivo → igualdad estricta funciona); (2) cada `<EditorTab>` hijo
   se suscribe a SU tab por id
   (`useEditorStore(useCallback(s => s.tabs.find(t => t.id === id), [id]))`)
@@ -249,7 +278,14 @@ instrucción de smoke escrita en el cuerpo.
 - **Validación.** Desktop empaquetado obligatorio (el gate del env de
   #20 no cubre runtime). PR en draft si no hay hardware.
 
-#### T8. Split de componentes 800+ — S/M cada uno
+#### T8. Split de componentes 800+ — EJECUTADO PARCIAL 2026-07-10
+
+> **Estado actual.** Se partieron los cuatro prioritarios confirmados por la
+> ronda: `NotebookView` 1238→756 LOC, `SqlResultPreview` 1018→675,
+> `CommandPalette` 987→143 y `EditorTabs` 1007→267. El inventario bajó de 10
+> a 6 componentes sobre 800 LOC y un test estructural fija el budget. Restan
+> `HttpRequestEditor`, `EditorSection`, `UtilityPipelinePanel`, `SettingsModal`,
+> `ConsolePanel` y `SqlWorkspacePanel`; no se marcan como hechos.
 
 - **Objetivo.** Diffs revisables; ningún cambio de comportamiento.
 - **Orden por retorno:** `NotebookView` (1238 — post-#18),

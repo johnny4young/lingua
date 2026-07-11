@@ -132,6 +132,8 @@ async function tryBuildCapsule(args: {
   diagnostics?: unknown[];
   errorMessage?: string;
   stdin?: string;
+  inputSetName?: string;
+  inputArgs?: string[];
   /**
    * RL-102 Slice 2 fold A — pre-run branch snapshot. Captured at
    * run-START (not at this builder-call time) so a mid-run sibling
@@ -159,9 +161,15 @@ async function tryBuildCapsule(args: {
         workflowMode: args.workflowMode,
       },
       source: { content: args.content },
-      input: args.stdin !== undefined && args.stdin.length > 0
-        ? { stdin: args.stdin }
-        : {},
+      input: {
+        ...(args.stdin !== undefined && args.stdin.length > 0
+          ? { stdin: args.stdin }
+          : {}),
+        ...(args.inputSetName ? { setName: args.inputSetName } : {}),
+        ...(args.inputArgs && args.inputArgs.length > 0
+          ? { args: args.inputArgs }
+          : {}),
+      },
       result: {
         status: args.status,
         durationMs: Math.max(0, args.durationMs),
@@ -561,6 +569,9 @@ export async function executeTabManually(
       // that auto-run uses. Runners that do not consume stdin
       // ignore the field.
       ...(activeTab.stdinBuffer ? { stdin: activeTab.stdinBuffer } : {}),
+      ...(activeTab.inputArgs && activeTab.inputArgs.length > 0
+        ? { args: activeTab.inputArgs }
+        : {}),
       ...(wantsScopeCapture ? { captureScope: true } : {}),
       ...(wantsScopeCapture && typeof scopeDepthPref === 'number'
         ? { scopeDepth: scopeDepthPref }
@@ -732,6 +743,10 @@ export async function executeTabManually(
         diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
         errorMessage: result.error?.message,
         stdin: activeTab.stdinBuffer ?? undefined,
+        inputSetName: activeTab.inputSets?.find(
+          (inputSet) => inputSet.id === activeTab.activeInputSetId
+        )?.name,
+        inputArgs: activeTab.inputArgs,
         // RL-102 Slice 2 fold A — pre-run branch snapshot.
         ...(gitSnapshot !== undefined ? { gitSnapshot } : {}),
       });
@@ -811,6 +826,11 @@ export async function executeTabManually(
         status: 'error',
         durationMs: 0,
         errorMessage: message,
+        stdin: activeTab.stdinBuffer ?? undefined,
+        inputSetName: activeTab.inputSets?.find(
+          (inputSet) => inputSet.id === activeTab.activeInputSetId
+        )?.name,
+        inputArgs: activeTab.inputArgs,
         ...(gitSnapshot !== undefined ? { gitSnapshot } : {}),
       });
       useExecutionHistoryStore.getState().record({

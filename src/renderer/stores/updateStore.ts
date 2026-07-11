@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { getActiveAppLanguage } from '../i18n';
-import { translateCommon } from '../../shared/i18n/runtime';
+import { translateAppCommon } from '../i18n';
 import { trackEvent } from '../utils/telemetry';
 import { recordTrustEventBestEffort } from './trustEventStore';
 
@@ -49,7 +48,7 @@ let teardownUpdatesListener: (() => void) | null = null;
 function checkingState(): Pick<UpdateState, 'status' | 'message' | 'lastCheckedAt'> {
   return {
     status: 'checking',
-    message: translateCommon(getActiveAppLanguage(), 'updates.actions.checking'),
+    message: translateAppCommon('updates.actions.checking'),
     lastCheckedAt: new Date().toISOString(),
   };
 }

@@ -95,7 +95,7 @@ export function createTabActions(
       // refused so nobody loses work in the upgrade. Workspace tabs
       // (SQL / HTTP / Utilities) are exempt — they never reach this
       // `addTab` path, and `budgetedTabCount` excludes any that exist so they don't
-      // crowd out the Free user's single code tab.
+      // crowd out the Free user's three code tabs.
       if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabs) + 1)) {
         pushUpsellNotice({
           messageKey: 'upsell.freeCeilingReached',

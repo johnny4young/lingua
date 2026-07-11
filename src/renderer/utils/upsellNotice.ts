@@ -1,5 +1,8 @@
 import { useUIStore } from '../stores/uiStore';
 
+/** App-shell event used by upsell CTAs to open Settings → Account/License. */
+export const OPEN_LICENSE_SETTINGS_EVENT = 'lingua-open-license-settings';
+
 /**
  * One-stop upsell notice helper so stores/components do not reinvent copy.
  * Pairs with RL-060: callers that block a Free-tier action push through
@@ -21,5 +24,11 @@ export function pushUpsellNotice(input: UpsellNoticeInput): void {
     messageKey: input.messageKey,
     values: { feature: input.featureLabel },
     detail: input.detail,
+    actions: [
+      {
+        labelKey: 'upsell.viewPro',
+        onClick: () => window.dispatchEvent(new CustomEvent(OPEN_LICENSE_SETTINGS_EVENT)),
+      },
+    ],
   });
 }

@@ -23,7 +23,10 @@ Object.defineProperty(globalThis, 'localStorage', {
   writable: true,
 });
 
-// Initialise i18next with English resources so component tests that use
-// useTranslation() find a valid instance without extra setup.
+// Initialise i18next with both catalogs so legacy component tests can switch
+// the singleton directly via `i18next.changeLanguage(...)`. Production still
+// loads only the active renderer catalog; this eager test setup avoids making
+// every existing locale assertion aware of the bundle boundary.
 import { initI18n } from '../src/renderer/i18n';
-initI18n('en');
+await initI18n('es');
+await initI18n('en');

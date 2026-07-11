@@ -82,7 +82,7 @@ Hi! I'm the maker of Lingua. A few things the tagline doesn't fit:
   etc.) are first-class — Cmd+K opens the workspace, then search and run.
 - Keyboard shortcuts are rebindable with a preset import/export flow,
   and theme presets round-trip as JSON.
-- Free tier is single-tab + 5 snippets + JS/TS/Python. Monthly and Pro
+- Free tier includes 3 tabs + 5 snippets + JS/TS/Python/Ruby. Monthly and Pro
   unlock unlimited tabs and snippets, plus Go and Rust runners.
 
 Happy to answer anything here.

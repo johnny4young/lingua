@@ -131,8 +131,9 @@ describe('useShareLinkBoot', () => {
 
   it('does not overwrite the tab-budget upsell when a decoded share cannot open', async () => {
     const existingTab = createDefaultTab('javascript');
+    const siblingTabs = [createDefaultTab('typescript'), createDefaultTab('python')];
     useEditorStore.setState(
-      { ...initialEditor, tabs: [existingTab], activeTabId: existingTab.id },
+      { ...initialEditor, tabs: [existingTab, ...siblingTabs], activeTabId: existingTab.id },
       true
     );
     const payload = buildSharePayload({
@@ -152,7 +153,7 @@ describe('useShareLinkBoot', () => {
     });
 
     const state = useEditorStore.getState();
-    expect(state.tabs).toHaveLength(1);
+    expect(state.tabs).toHaveLength(3);
     expect(state.tabs[0]!.id).toBe(existingTab.id);
     expect(useUIStore.getState().statusNotice?.messageKey).toBe(
       'upsell.freeCeilingReached'

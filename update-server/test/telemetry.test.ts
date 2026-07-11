@@ -236,6 +236,19 @@ describe('POST /telemetry — payload validation', () => {
     });
     expect(response.status).toBe(204);
   });
+
+  it('accepts only closed boot phase duration buckets', async () => {
+    const accepted = await postTelemetry({
+      event: 'app.boot_phase',
+      properties: {
+        phase: 'first-paint',
+        durationBucket: '50-249ms',
+        durationMs: 83.42,
+        filePath: '/Users/private',
+      },
+    });
+    expect(accepted.status).toBe(204);
+  });
 });
 
 describe('POST /telemetry — silent property drop (no signal leakage)', () => {

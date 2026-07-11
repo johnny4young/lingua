@@ -108,6 +108,10 @@ export interface RunCapsulePrivacy {
 export interface RunCapsuleInput {
   /** Optional pre-set stdin buffer (RL-020 Slice 6). May be empty. */
   stdin?: string;
+  /** IT2-F5 — optional name of the saved input set used for this run. */
+  setName?: string;
+  /** IT2-F5 — optional argv snapshot, one array item per argument. */
+  args?: string[];
 }
 
 export interface RunCapsuleV1 {
@@ -496,6 +500,18 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
   }
   const input = candidate.input;
   if (input.stdin !== undefined && typeof input.stdin !== 'string') {
+    return {
+      ok: false,
+      reason: 'invalid-field-type',
+      detail: 'input fields',
+    };
+  }
+  if (
+    (input.setName !== undefined && typeof input.setName !== 'string') ||
+    (input.args !== undefined &&
+      (!Array.isArray(input.args) ||
+        input.args.some((arg) => typeof arg !== 'string')))
+  ) {
     return {
       ok: false,
       reason: 'invalid-field-type',

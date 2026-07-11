@@ -106,6 +106,19 @@ describe('createMigrate (per-store wrapper)', () => {
     expect(migrate(null, 0)).toBeUndefined();
     expect(migrate([], 0)).toBeUndefined();
   });
+
+  it('advances lingua-session v1 payloads through the v2 identity boundary', () => {
+    vi.mocked(trackEvent).mockClear();
+    const migrate = createMigrate('lingua-session');
+    const payload = { tabs: [{ id: 'tab-1', stdinBuffer: 'Ada' }] };
+
+    const migrated = migrate(payload, 1);
+
+    expect(migrated).toBe(payload);
+    expect(trackEvent).toHaveBeenCalledWith('persistence.migrated', {
+      store: 'lingua-session',
+    });
+  });
 });
 
 describe('migrationRegistry coverage', () => {

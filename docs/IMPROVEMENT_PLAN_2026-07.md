@@ -60,33 +60,33 @@ cuentas, sin fricción.
 
 Fortalezas: IPC tipado por contrato, FS por capabilities, spawn engine
 unificado, licensing offline, stack al día, onboarding <90 s.
-Deudas: `fileSystem.ts` 1.904 LOC; workers sin contrato tipado; T6 sin
-descarte de output tras truncation; FileTree sin virtualizar; 0 coverage
-instrumentado; sin DB local (historial volátil); gating Free hostil
-(1 tab); bootstrap de runtimes sin progreso; cero loops de retención.
+Deudas: seis componentes renderer aún superan 800 LOC; 0 coverage
+instrumentado; bootstrap de runtimes sin progreso; cero loops de retención.
+El god-file `fileSystem.ts`, el contrato de workers, T6 y la virtualización de
+FileTree ya quedaron cerrados con límites estructurales automatizados.
+El Run Ledger y el rebalanceo Free a 3 tabs ya cerraron los dos gaps que
+esta auditoría describía como historial volátil y gating hostil.
 
 ---
 
 # LANE A — Mantenibilidad
 
-## IT2-A1 · Split de `src/main/ipc/fileSystem.ts` (1.904 LOC) — EJECUTADO PARCIAL 2026-07-09
+## IT2-A1 · Split de `src/main/ipc/fileSystem.ts` (1.904 LOC) — EJECUTADO 2026-07-10
 
-> **Estado de ejecución.** Extraídos VERBATIM los dos bloques grandes y
+> **Estado de ejecución.** La primera pasada extrajo VERBATIM los bloques
 > cohesivos que NO tocan estado mutable de módulo: `fs/fsShared.ts` (117
 > LOC — helpers puros: shouldHide/joinRelative/dirnameRelative/isRecord/
 > coerce*/CapabilityError/resolveOrThrow), `fs/fsSearchReplace.ts` (569
 > LOC — searchInFiles/replaceInFiles/applyReplaceInFile + walkProject),
 > `fs/fsBundle.ts` (216 LOC — export/importBundle; recibe
-> `rememberApprovedRoot` como parámetro inyectado). `fileSystem.ts` bajó
-> 1904 → 1052 y quedó como assembly que delega. Cero cambio de
-> comportamiento: los 132 tests de `tests/ipc/fileSystem.test.ts` +
-> `watcherLifecycle` + `permissions` pasan sin editar asserts; suite
-> 530/530. **Follow-up documentado:** `fsWatchers.ts` (el cluster de
-> watchers comparte los 4 Maps de estado + `stopAllWatchers` exportado +
-> los `_reset*ForTests` que los tests importan — mover requiere
-> re-exportar desde el assembly, más riesgo) y `fsOperations.ts`
-> (read/write/readdir) quedan para una segunda pasada; el assembly a 1052
-> LOC ya no es un god-file de 1904.
+> `rememberApprovedRoot` como parámetro inyectado). La segunda pasada movió
+> aprobaciones (`fsApprovals.ts`, 167 LOC), operaciones/pickers/dialogs
+> (`fsOperations.ts`, 543 LOC) y todo el registro/lifecycle mutable de watchers
+> (`fsWatchers.ts`, 315 LOC). `fileSystem.ts` bajó 1904 → 1052 → **40 LOC** y
+> quedó como assembly puro con re-exports compatibles para `git.ts` y tests.
+> Los seis módulos quedan por debajo de 600 LOC. Un test estructural bloquea
+> regresiones del assembly y del presupuesto; 115 tests IPC/watcher/git y 296
+> pruebas focalizadas de la ronda pasan sin cambiar contratos ni asserts.
 
 **Evidencia (mapa estructural real).** Estado module-level: `watchers`
 (L83), `watcherIdsByTarget` (L84), `watcherIdsBySender` (L91),
@@ -95,14 +95,15 @@ instrumentado; sin DB local (historial volátil); gating Free hostil
 Registro único: `registerFileSystemHandlers()` (L508). El mint/resolve de
 capabilities YA vive aparte en `ipc/projectCapabilities.ts` (298 LOC).
 
-**Diseño.** 5 módulos nuevos bajo `src/main/ipc/fs/`, cada uno exporta
+**Diseño ejecutado.** 6 módulos bajo `src/main/ipc/fs/`; los grupos con IPC
+exportan
 `registerXHandlers()`; `fileSystem.ts` queda como assembly (mismo patrón
 que los store splits RL-128/129):
 
 | Módulo nuevo | Se lleva (líneas actuales) |
 | --- | --- |
-| `fsApprovals.ts` | approvals L125-251 + pickers/reopen/revoke L541-717 + dialogs L721-761 |
-| `fsOperations.ts` | readdir/listAllFiles L765-855 + stat/read/write/append/mkdir/rename/remove L1415-1650 |
+| `fsApprovals.ts` | persistencia de approvals + checks de scope usados por Git y reopen |
+| `fsOperations.ts` | pickers/reopen/revoke/dialogs + readdir/listAllFiles/stat/read/write/delete/rename/mkdir/touch/reveal |
 | `fsSearchReplace.ts` | `fs:searchInFiles` L864 + `fs:replaceInFiles` L1097 |
 | `fsWatchers.ts` | los 4 Maps de watchers + stopWatcherById/ForSender/All L385-421 + watch-start/stop/change-handler L1591-1896 |
 | `fsBundle.ts` | pack/unpack L1705-1777 |
@@ -112,9 +113,9 @@ que los store splits RL-128/129):
 módulos no los tocan — verificar con grep antes de mover); (3) `fileSystem.ts`
 importa y delega; (4) correr `tests/main/*` sin editar un solo assert.
 
-**AC.** Cero cambio de comportamiento; contrato IPC intacto
-(`tests/shared/ipcContract.test.ts` verde); cada módulo <600 LOC; `git log
---follow` conserva historia (usar `git mv` + edición, no copy-paste).
+**AC.** Cero cambio de comportamiento; contrato IPC intacto; cada módulo
+<600 LOC; re-exports públicos de approvals/watchers intactos. El split
+multi-destino queda visible como movimiento mecánico dentro de un solo commit.
 
 ## IT2-A2 · Consolidar boilerplate de paneles de utilidades — S (1-2 d)
 
@@ -400,6 +401,17 @@ audit-advisory). `windows-path-hardening` queda igual.
 comandos repartidos — ninguno eliminado; `needs:` solo donde haya
 dependencia real (build no necesita test).
 
+### Cierre de auditoría de rendimiento P3/P4/P7 — EJECUTADO 2026-07-10
+
+Tres hallazgos de la revisión profunda quedaron cerrados como una misma ronda
+medible: la tira de `EditorTabs` ya no se suscribe al contenido completo, el
+locale español se carga como chunk diferido y el trabajo pesado de Diff Viewer
+y Utility Pipelines usa un Web Worker tipado. Se conservaron caminos inline
+para diffs pequeños y entornos sin Worker. El build de evidencia redujo el
+chunk inicial de la aplicación en ~70 kB gzip y emitió chunks separados para el
+catálogo ES (~70 kB gzip) y el worker (~34 kB sin comprimir). Validación y
+capturas: `output/review/project-sequence/t07-performance/`.
+
 ---
 
 # LANE C — Datos: el Run Ledger (modelos de DB)
@@ -545,7 +557,7 @@ columnas; el snippet corre; con ledger OFF el grupo no aparece.
 
 # LANE D — UX: que se enamoren (retención local-first)
 
-## IT2-D1 · Rebalancear el gating Free — APROBADO 2026-07-06 · S (0.5 d)
+## IT2-D1 · Rebalancear el gating Free — EJECUTADO 2026-07-10 · S (0.5 d)
 
 **Evidencia.** `FREE_TIER_LIMITS = { maxOpenTabs: 1, maxSnippets: 5,
 allowedLanguages: [js, ts, python, ruby] }` (`entitlements.ts:38-46`);
@@ -575,6 +587,13 @@ lado: es un gate de evaluación, no de conversión.
 **AC.** 3 tabs Free operativos; 4.º tab → upsell con CTA; tests de
 `entitlements` y `editorTabActions` actualizados; smoke web verificando el
 upsell. (Decisión (a) ya confirmada 2026-07-06 — ver Decisiones aprobadas.)
+
+**Cierre 2026-07-10.** `FREE_TIER_LIMITS.maxOpenTabs` es 3; el cuarto
+tab mantiene el evento `feature.blocked` y muestra el upsell centralizado.
+Todos los upsells incluyen ahora la CTA localizada "Ver qué incluye Pro",
+que abre Settings → Account/License. La suite prueba 3 permitidos/4.º
+bloqueado, workspaces exentos y telemetría; el smoke web verifica el límite,
+la CTA y el destino visual en License.
 
 ## IT2-D2 · Streaks + achievements locales (= RL-046, ya `Planned`) — M (3-4 d)
 
@@ -939,7 +958,7 @@ IT2-A2). Mismo toggle y bypass Cmd+Shift+V de RL-110.
 token cargado; pegar código JS normal → cero toast (test de precedencia:
 los detectores RL-110 existentes ganan); toggle OFF lo apaga todo.
 
-## IT2-F5 · Input sets guardados (stdin + args) — S (1 d)
+## IT2-F5 · Input sets guardados (stdin + args) — EJECUTADO 2026-07-10 · S (1 d)
 
 **Evidencia.** CodeRunner ("run with arguments & input sets") es el único
 con esto y sus usuarios lo destacan. Lingua ya tiene stdin por tab
@@ -954,6 +973,18 @@ con `input.setName` opcional, additive al schema v1 como campo omitible).
 **AC.** Crear 2 sets, alternar, correr → cada run usa su stdin;
 sobrevive reload; la capsule registra el set usado; export/import de
 capsule con set → round-trip intacto.
+
+**Cierre 2026-07-10.** El panel Entrada ahora administra hasta 20 sets
+nombrados por tab, permite crear, seleccionar, renombrar mediante
+"Guardar cambios" y borrar, y sincroniza el stdin y los argumentos del
+set activo. La sesión v2 persiste y sanea el estado; cambiar a un lenguaje
+sin stdin elimina el payload. `RunCapsuleV1.input` suma `setName` y `args`
+opcionales sin cambiar `version: 1`; importar una capsule restaura el
+snapshot en un tab inerte y nunca ejecuta automáticamente. Los argumentos
+quedan preservados en el set, el contexto y la capsule, sin prometer soporte
+`argv` en runners que todavía no lo consumen. Evidencia: tests de store,
+sesión/migración, ejecución/capsule/import y smoke web EN/ES con dos sets,
+reload y gate de cero errores de consola.
 
 ## IT2-F6 · Value Explorer live — M (2-3 d)
 
@@ -1117,7 +1148,21 @@ colecciones HTTP van al disco (criterio Bruno).
 > (IT2-C1). Las métricas de boot van a telemetría en buckets (opt-in),
 > nunca al ledger — el ledger es del usuario, la telemetría del producto.
 
-## IT2-G1 · Instrumentar el arranque — S (1 d)
+## IT2-G1 · Instrumentar el arranque — EJECUTADO 2026-07-10
+
+El renderer ahora registra una secuencia estable de marks/measures desde el
+inicio del bootstrap hasta la rehidratación: idioma del sistema, i18n, mount de
+React, primer paint y sesión restaurada. El comando de palette **Copy boot
+timings** / **Copiar tiempos de arranque** copia un snapshot JSON con duraciones
+solamente; no incluye timestamps, rutas, contenido del usuario ni otras fuentes
+de PII. La telemetría opt-in emite `app.boot_phase` con `phase` y
+`durationBucket` cerrados por allowlist, nunca con la duración exacta.
+
+**Cierre de AC.** Los marks y measures se verifican end-to-end en el build web;
+la acción de palette y su confirmación se ejercitan en inglés y español; tests
+del renderer y del update server demuestran que el redactor descarta tiempos
+exactos y propiedades no permitidas. La evidencia visual y automatizada queda
+en `output/review/project-sequence/t05-boot-timings/`.
 
 **Evidencia.** No existe medición por fases del boot: `performance-report.mjs`
 solo captura el end-to-end del smoke (`launcherToSmokeReadyMs`,
@@ -1318,7 +1363,7 @@ toca UI (mandato AGENTS.md).
 | 2 | IT2-B4 (medir → fix selectores) | 0.5 d | Perf percibida al tipear. |
 | 3 | IT2-B1 (descarte post-truncation T6) | 1 d | Robustez del engine. |
 | 4 | IT2-B2 (FileTree virtual) | 1.5 d | Piezas ya existen. |
-| 5 | IT2-A1 (split fileSystem.ts) | 2-3 d | Con suite verde y sin re-firmar. |
+| 5 | ~~IT2-A1 (split fileSystem.ts)~~ | Hecho 2026-07-10 | Assembly 40 LOC; seis módulos <600 LOC. |
 | 6 | IT2-A4 → IT2-E3 (worker contract → tests) | 2-3 d | Prerrequisito de D3, F6, F8. |
 
 **Fase 2 — Datos + quick wins de mercado**:
@@ -1327,7 +1372,7 @@ toca UI (mandato AGENTS.md).
 | - | ---- | -------- | ---- |
 | 7 | IT2-C1 → IT2-C2 (Run Ledger → SQL expuesto) | 4-5 d | La pieza central. |
 | 8 | IT2-F3 (Column Explorer SQL) | 1-2 d | El feature más amado de la categoría; SUMMARIZE ya existe. |
-| 9 | IT2-F5 (input sets stdin+args) | 1 d | Barato; alimenta capsules. |
+| 9 | ~~IT2-F5 (input sets stdin+args)~~ | Hecho 2026-07-10 | Persistencia + capsules + smoke EN/ES. |
 | 10 | IT2-F4 (smart clipboard → utilidad) | 1-2 d | Extiende RL-110; paridad DevToys/DevUtils. |
 
 **Fase 3 — UX de retención** (que se enamoren):
@@ -1337,7 +1382,7 @@ toca UI (mandato AGENTS.md).
 | 11 | IT2-D3 (bootstrap progress + prefetch) | 2 d | Fricción #1 del primer uso. |
 | 12 | IT2-D4 + IT2-D5 + IT2-D7 (descubribilidad) | 2.5 d | Hace visible lo que ya existe. |
 | 13 | IT2-D2 (RL-046 sobre el ledger) | 3-4 d | Retención; necesita #7. |
-| 14 | IT2-D1 (Free 1→3 tabs) + IT2-D8 (lifetime $59 sostenible) | 0.5 d + 2-3 d | **APROBADO 2026-07-06.** IT2-D8 es security-gated (verificador Ed25519). |
+| 14 | ~~IT2-D1 (Free 1→3 tabs)~~ + IT2-D8 (lifetime $59 sostenible) | D1 hecho 2026-07-10 + 2-3 d | IT2-D8 es security-gated (verificador Ed25519). |
 
 **Fase 4 — Diferenciadores de mercado**:
 
@@ -1357,7 +1402,7 @@ toca UI (mandato AGENTS.md).
 
 | # | Item | Esfuerzo | Nota |
 | - | ---- | -------- | ---- |
-| 24 | IT2-G1 (instrumentar boot) | 1 d | **Puede adelantarse a Fase 1** — habilita medir G2/G3. |
+| 24 | IT2-G1 (instrumentar boot) | 1 d | **Hecho 2026-07-10** — habilita medir G2/G3. |
 | 25 | IT2-G2 (skeleton + ventana sin bloqueo) | 1-2 d | Primer impacto percibido; paso 0 = mapear dependencia de licencia. |
 | 26 | IT2-G3 (rehidratación diferida) | 1-2 d | Solo tras medir con G1. |
 | 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | Convierte las dos frustraciones en momentos de marca. |
@@ -1403,12 +1448,12 @@ ataca.
 | **Innovación** | ★★★★ | Capsules reproducibles + Trust dashboard + AI local con payload preview: real, pero invisible al mercado. La reactividad cross-lenguaje (F2) es el hueco sin ocupar. | F2, C2, G8 |
 | **Originalidad** | ★★★★½ | Único runner multi-lenguaje offline-first unificado (la competencia lo ataca con apps separadas). El ledger consultable con SQL (C2) y la capsule→HTML (F7) no los tiene nadie. | C2, F7 |
 | **UX** | ★★★½ | Sólida de base, sin momentos de deleite ni loops de retorno; el gating Free contradice la persona objetivo. | D completo, G4-G5 |
-| **Performance** | ★★★½ | Runtime bien (virtualización parcial, budgets en CI); el ARRANQUE está sin instrumentar, con rehidratación síncrona de 15 stores y ventana bloqueada por la licencia. | B, G1-G3 |
-| **Arquitectura** | ★★★★½ | IPC por contrato, FS por capabilities, resiliencia mejor de lo asumido (safe mode, boot-loop counter, factory reset). Lo que resta: god-file fs y workers sin contrato. | A1, A4 |
+| **Performance** | ★★★★ | Runtime con virtualización, selectors estrechos y compute worker; G1 ya instrumenta el arranque. Restan rehidratación diferida y desacoplar la ventana del bootstrap de licencia. | B, G2-G3 |
+| **Arquitectura** | ★★★★½ | IPC y workers por contrato, FS por capabilities y assembly de 40 LOC. Restan el lifecycle duplicado de runners y el sprawl de configs. | A2, A4 |
 | **Escalabilidad (datos)** | ★★½ | Todo en localStorage con caps; historial volátil. El Run Ledger (DuckDB+OPFS) es el salto — sin dependencias nuevas. | C1-C2 |
 | **Testeabilidad** | ★★★ | 571 tests y CI disciplinado, pero 0 coverage instrumentado, 1/571 type-checkeado y axe en ~30% de superficies. | E, G7c |
 | **Simplicidad** | ★★★½ | Patrones consistentes (splits RL-128/129/130, contrato IPC); la rompen los hooks de 500-617 LOC y el boilerplate de paneles. | A2, A5 |
-| **Mantenibilidad** | ★★★½ | Docs vivos + gates fuertes; deuda concentrada y mapeada (fileSystem.ts 1.904 LOC, 53 imports cruzados). | A completo |
+| **Mantenibilidad** | ★★★★ | Docs vivos + gates fuertes; fileSystem y cuatro componentes prioritarios ya se partieron con budgets automatizados. Quedan seis componentes de 800+ LOC y los hooks grandes de A5. | A2, A5-A7 |
 | **Librerías** | ★★★★★ | React 19 / Vite 8 / TS 6 / Electron 42 / zustand 5 / Tailwind 4 — todo al día; el plugin de Forge fue verificado como dependencia viva del empaquetado desktop. | A6 |
 
 **Los tres multiplicadores** (si solo se hicieran tres cosas): (1)

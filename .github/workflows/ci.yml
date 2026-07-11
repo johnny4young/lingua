@@ -105,11 +105,11 @@ jobs:
         continue-on-error: true
 
   windows-path-hardening:
-    name: Windows path hardening
+    name: Windows platform hardening
     runs-on: windows-latest
     timeout-minutes: 20
     # Windows runners count 2× against the Actions budget, and the
-    # path-hardening test is a regression guard that only matters
+    # path/npm-launcher tests are regression guards that only matter
     # when changes land on main. Skip on push (the linux-gates job
     # ran on the PR already), keep on PR so the catch is at review
     # time. Saves ~6-10 min per direct push to main.
@@ -125,6 +125,10 @@ jobs:
       # Do not route through `pnpm test -- <file>` here: pnpm expands that to
       # `vitest run -- <file>`, and Vitest treats the path after `--` as a
       # positional arg to ignore, accidentally running the full suite on the
-      # Windows-only runner. Keep this job narrowly scoped to the path-hardening
-      # coverage it exists to provide.
-      - run: pnpm exec vitest run tests/ipc/permissions.test.ts
+      # Windows-only runner. Keep this job narrowly scoped to platform-boundary
+      # coverage: path permissions plus the live cmd.exe -> npm.cmd handoff.
+      - name: Windows path and npm launcher guards
+        run: >-
+          pnpm exec vitest run
+          tests/ipc/permissions.test.ts
+          tests/main/dependencies.install.windows.test.ts

@@ -13,6 +13,9 @@
 
 export const TELEMETRY_EVENTS = [
   'app.launched',
+  // IT2-G1 — one event per renderer boot phase. Payload is closed to
+  // `{ phase, durationBucket }`; exact timings/timestamps stay local.
+  'app.boot_phase',
   'runner.executed',
   'overlay.opened',
   'feature.blocked',
@@ -576,6 +579,36 @@ export const TELEMETRY_EVENTS = [
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
+export const BOOT_PHASES = [
+  'system-language',
+  'i18n',
+  'react-mount',
+  'first-paint',
+  'rehydration',
+] as const;
+export type BootPhase = (typeof BOOT_PHASES)[number];
+const BOOT_PHASES_SET: ReadonlySet<string> = new Set(BOOT_PHASES);
+
+export const BOOT_DURATION_BUCKETS = [
+  '<50ms',
+  '50-249ms',
+  '250-999ms',
+  '1-4.9s',
+  '5-29.9s',
+  '>=30s',
+] as const;
+export type BootDurationBucket = (typeof BOOT_DURATION_BUCKETS)[number];
+const BOOT_DURATION_BUCKETS_SET: ReadonlySet<string> = new Set(BOOT_DURATION_BUCKETS);
+
+export function bucketBootDuration(ms: number): BootDurationBucket {
+  if (ms < 50) return '<50ms';
+  if (ms < 250) return '50-249ms';
+  if (ms < 1_000) return '250-999ms';
+  if (ms < 5_000) return '1-4.9s';
+  if (ms < 30_000) return '5-29.9s';
+  return '>=30s';
+}
+
 export interface TelemetryBaseFields {
   appVersion: string;
   osBucket: string;
@@ -603,6 +636,7 @@ export interface TelemetryEvent extends TelemetryBaseFields {
  */
 const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = {
   'app.launched': ['platform', 'build', 'locale'],
+  'app.boot_phase': ['phase', 'durationBucket'],
   'runner.executed': ['language', 'status', 'durationBucketMs'],
   'overlay.opened': ['overlayId'],
   'feature.blocked': ['entitlement', 'tier'],
@@ -1673,6 +1707,12 @@ function isAllowedValue(
   switch (event) {
     case 'app.launched':
       return isSafeToken(value);
+    case 'app.boot_phase':
+      if (key === 'phase') return typeof value === 'string' && BOOT_PHASES_SET.has(value);
+      if (key === 'durationBucket') {
+        return typeof value === 'string' && BOOT_DURATION_BUCKETS_SET.has(value);
+      }
+      return false;
     case 'runner.executed':
       if (key === 'language') return isSafeToken(value);
       if (key === 'status') return typeof value === 'string' && RUNNER_STATUS_VALUES.has(value);

@@ -28,28 +28,14 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  CodeXml,
-  FileText,
-  Hammer,
-  Keyboard,
-  Loader2,
-  Play,
-  RotateCcw,
-  Eraser,
-  PlayCircle,
-  Square,
-  Sparkles,
 } from 'lucide-react';
 import {
   isNotebookCodeCell,
-  isNotebookMarkdownCell,
   MAX_CELLS_PER_NOTEBOOK,
-  NOTEBOOK_CELL_LANGUAGES,
   type NotebookCellLanguage,
 } from '../../../shared/notebook';
 import { useEditorStore } from '../../stores/editorStore';
 import {
-  type NotebookCellRunStatus,
   useNotebookStore,
 } from '../../stores/notebookStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -58,51 +44,22 @@ import { useNotebookRun } from '../../hooks/useNotebookRun';
 import { useListWindow } from '../../hooks/useListWindow';
 import {
   trackNotebookCellLanguageChanged,
-  trackNotebookExported,
 } from '../../hooks/notebookTelemetry';
-import { NotebookCodeCellRow } from './NotebookCodeCellRow';
-import { NotebookMarkdownCellRow } from './NotebookMarkdownCellRow';
 import {
-  exportNotebookAsScript,
   pickNotebookExportLanguage,
 } from './notebookExportToScript';
-import { exportNotebookAsIpynb } from './notebookExportToIpynb';
-import { exportNotebookAsLinguanb } from './notebookExportToLinguanb';
-import { downloadTextFile } from '../../utils/downloadTextFile';
-import { saveOrDownloadLinguanb } from '../../runtime/notebookLinguanbDisk';
 import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
 import { useNotebookCommandMode } from './useNotebookCommandMode';
-import { Kbd } from '../ui/ModalShell';
-import { cn } from '../../utils/cn';
+import { NotebookToolbar } from './NotebookToolbar';
+import { NotebookCellList } from './NotebookCellList';
+import { useNotebookExportActions } from './useNotebookExportActions';
+import { coerceNotebookCellLanguage, notebookTitleFromTabName } from './notebookViewModel';
+import { useDismissibleNotebookPopover } from './useDismissibleNotebookPopover';
 import { languageLabel } from '../../utils/languageMeta';
 
 export interface NotebookViewProps {
   readonly tabId: string;
 }
-
-/**
- * Signal-Slate — the discoverable command-mode cheat sheet. Each row
- * pairs a translated description with the literal key caps (rendered in
- * `<Kbd>`, which the copy-check intentionally skips). Keeping the caps as
- * raw glyphs here is correct: they are key names, not translatable copy.
- */
-const NOTEBOOK_SHORTCUT_HINTS: ReadonlyArray<{
-  readonly keys: ReadonlyArray<string>;
-  readonly labelKey: string;
-}> = [
-  { keys: ['Enter'], labelKey: 'notebook.command.legend.edit' },
-  { keys: ['Esc'], labelKey: 'notebook.command.legend.command' },
-  { keys: ['j', 'k'], labelKey: 'notebook.command.legend.navigate' },
-  { keys: ['a', 'b'], labelKey: 'notebook.command.legend.insert' },
-  { keys: ['d', 'd'], labelKey: 'notebook.command.legend.delete' },
-  { keys: ['z'], labelKey: 'notebook.command.legend.undo' },
-  { keys: ['m', 'y'], labelKey: 'notebook.command.legend.changeType' },
-  { keys: ['⌘/Ctrl', '↵'], labelKey: 'notebook.command.legend.runInPlace' },
-  { keys: ['⇧', '↵'], labelKey: 'notebook.command.legend.runAdvance' },
-  { keys: ['⌥', '↵'], labelKey: 'notebook.command.legend.runInsert' },
-  { keys: ['Ctrl', 'C'], labelKey: 'notebook.command.legend.interrupt' },
-];
-
 export function NotebookView({ tabId }: NotebookViewProps) {
   const { t } = useTranslation();
   const notebook = useNotebookStore((s) => s.notebooks[tabId]?.notebook);
@@ -265,44 +222,16 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     createNotebookForTab(tabId, notebookTitleFromTabName(backingTabName));
   }, [backingTabName, createNotebookForTab, notebook, tabId]);
 
-  // Dismiss the shortcuts legend on outside-click / Escape so it never
-  // strands an open popover when the user moves on.
-  useEffect(() => {
-    if (!shortcutsOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!shortcutsAnchorRef.current?.contains(event.target as Node)) {
-        setShortcutsOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShortcutsOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [shortcutsOpen]);
-
-  // RL-043 Slice D — dismiss the export menu on outside-click / Escape.
-  useEffect(() => {
-    if (!exportMenuOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!exportMenuAnchorRef.current?.contains(event.target as Node)) {
-        setExportMenuOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setExportMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [exportMenuOpen]);
+  useDismissibleNotebookPopover(
+    shortcutsOpen,
+    shortcutsAnchorRef,
+    setShortcutsOpen
+  );
+  useDismissibleNotebookPopover(
+    exportMenuOpen,
+    exportMenuAnchorRef,
+    setExportMenuOpen
+  );
 
   const handleAddMarkdown = useCallback(() => {
     if (!notebook) return;
@@ -584,91 +513,12 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     ]
   );
 
-  const handleExport = useCallback(() => {
-    setExportMenuOpen(false);
-    if (!notebook) return;
-    const result = exportNotebookAsScript(notebook);
-    if (result.source.length === 0) {
-      pushStatusNotice({
-        tone: 'info',
-        messageKey: 'notebook.notice.exportEmpty',
-      });
-      return;
-    }
-    try {
-      downloadTextFile(
-        result.source,
-        result.suggestedFileName,
-        'text/plain;charset=utf-8'
-      );
-      trackNotebookExported('script');
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'notebook.notice.exportOk',
-      });
-    } catch {
-      pushStatusNotice({
-        tone: 'error',
-        messageKey: 'notebook.notice.exportFailed',
-      });
-    }
-  }, [notebook, pushStatusNotice]);
-
-  // RL-043 Slice D — export to Jupyter `.ipynb` (nbformat v4). Threads the
-  // transient `[N]` execution-order map so Jupyter consumers see the run
-  // sequence (fold C). Gated by the same toolbar disable as script export.
-  const handleExportIpynb = useCallback(() => {
-    setExportMenuOpen(false);
-    if (!notebook) return;
-    const result = exportNotebookAsIpynb(notebook, {
-      executionOrder: cellExecutionOrderMap ?? {},
+  const { handleExport, handleExportIpynb, handleExportLinguanb } =
+    useNotebookExportActions({
+      notebook,
+      cellExecutionOrderMap,
+      closeMenu: () => setExportMenuOpen(false),
     });
-    try {
-      downloadTextFile(
-        result.json,
-        result.suggestedFileName,
-        'application/x-ipynb+json;charset=utf-8'
-      );
-      trackNotebookExported('ipynb');
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'notebook.notice.exportIpynbOk',
-      });
-    } catch {
-      pushStatusNotice({
-        tone: 'error',
-        messageKey: 'notebook.notice.exportFailed',
-      });
-    }
-  }, [cellExecutionOrderMap, notebook, pushStatusNotice]);
-
-  // RL-043 Slice E — export to the native lossless `.linguanb` document.
-  // Threads the transient `[N]` execution-order map so a round-trip
-  // restores the run sequence (fold B). Fold A: on desktop the export
-  // goes through the native Save dialog (capability sandbox); on web it
-  // falls back to a blob download. Gated by the same toolbar disable as
-  // the other export formats.
-  const handleExportLinguanb = useCallback(() => {
-    setExportMenuOpen(false);
-    if (!notebook) return;
-    const result = exportNotebookAsLinguanb(notebook, {
-      executionOrder: cellExecutionOrderMap ?? {},
-    });
-    void saveOrDownloadLinguanb(result.json, result.suggestedFileName, {
-      onOk: () => {
-        trackNotebookExported('linguanb');
-        pushStatusNotice({
-          tone: 'success',
-          messageKey: 'notebook.notice.exportLinguanbOk',
-        });
-      },
-      onError: () =>
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: 'notebook.notice.exportFailed',
-        }),
-    });
-  }, [cellExecutionOrderMap, notebook, pushStatusNotice]);
 
   const handleTitleCommit = useCallback(
     (value: string) => {
@@ -838,401 +688,69 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       data-notebook-id={notebook.id}
       className="grid h-full min-h-0 grid-rows-[auto_1fr] bg-background"
     >
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/40 bg-surface/30 px-4 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <input
-            type="text"
-            value={titleDraft ?? notebook.title}
-            onChange={(event) => setTitleDraft(event.target.value)}
-            onBlur={(event) => handleTitleCommit(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                handleTitleCommit(event.currentTarget.value);
-              } else if (event.key === 'Escape') {
-                setTitleDraft(null);
-              }
-            }}
-            data-testid="notebook-title"
-            spellCheck={false}
-            aria-label={t('notebook.titleLabel')}
-            className="min-w-0 flex-1 truncate rounded border border-transparent bg-transparent px-2 py-1 font-display text-body font-semibold tracking-tight text-foreground hover:border-border/40 focus:border-border-strong focus:bg-bg-elevated focus:outline-none"
-          />
-          <span className="hidden text-eyebrow uppercase tracking-wider text-muted sm:inline">
-            {t('notebook.toolbar.summary', {
-              cells: notebook.cells.length,
-              codeCells: codeCellsCount,
-            })}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={handleAddMarkdown}
-            disabled={disabled}
-            data-testid="notebook-toolbar-add-markdown"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <FileText size={11} aria-hidden="true" />
-            {t('notebook.toolbar.addMarkdown')}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleAddCode(preferredCodeLanguage)}
-            disabled={disabled}
-            data-testid="notebook-toolbar-add-code"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <CodeXml size={11} aria-hidden="true" />
-            {t('notebook.toolbar.addCode')}
-          </button>
-          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={() => {
-              if (activeCellId) runAbove(tabId, activeCellId);
-            }}
-            disabled={disabled || !canRunThroughActiveCell}
-            data-testid="notebook-toolbar-run-above"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <Hammer size={11} aria-hidden="true" />
-            {t('notebook.toolbar.runAbove')}
-          </button>
-          <button
-            type="button"
-            onClick={handleRunFromHere}
-            disabled={disabled || !canRunFromActiveCell}
-            data-testid="notebook-toolbar-run-from-here"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <PlayCircle size={11} aria-hidden="true" />
-            {t('notebook.toolbar.runFromHere')}
-          </button>
-          <button
-            type="button"
-            onClick={handleRunAll}
-            disabled={disabled || lastCodeCellId === null}
-            data-testid="notebook-toolbar-run-all"
-            className={cn(
-              'focus-ring inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-caption font-medium transition-colors duration-150',
-              disabled
-                ? 'border-border/40 bg-surface/40 text-muted'
-                : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
-              'disabled:cursor-not-allowed disabled:opacity-50'
-            )}
-          >
-            {isAnyCellRunning ? (
-              <>
-                <Loader2 size={11} aria-hidden="true" className="animate-spin" />
-                {t('notebook.toolbar.running')}
-              </>
-            ) : (
-              <>
-                <Play size={11} aria-hidden="true" />
-                {t('notebook.toolbar.runAll')}
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={stop}
-            disabled={!isAnyCellRunning}
-            data-testid="notebook-toolbar-stop"
-            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Square size={11} aria-hidden="true" />
-            {t('notebook.toolbar.stop')}
-          </button>
-          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={handleRestart}
-            disabled={disabled}
-            title={t('notebook.toolbar.restartHint')}
-            data-testid="notebook-toolbar-restart"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <RotateCcw size={11} aria-hidden="true" />
-            {t('notebook.toolbar.restart')}
-          </button>
-          <button
-            type="button"
-            onClick={handleClearOutputs}
-            disabled={disabled || !hasOutputsToClear}
-            data-testid="notebook-toolbar-clear-outputs"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <Eraser size={11} aria-hidden="true" />
-            {t('notebook.toolbar.clearOutputs')}
-          </button>
-          {/* RL-043 Slice D — export-format menu (Script | Jupyter .ipynb),
-              same popover mechanics as the shortcuts legend. */}
-          <div className="relative" ref={exportMenuAnchorRef}>
-            <button
-              type="button"
-              onClick={() => setExportMenuOpen((open) => !open)}
-              disabled={disabled || codeCellsCount === 0}
-              aria-expanded={exportMenuOpen}
-              aria-haspopup="menu"
-              data-testid="notebook-toolbar-export"
-              className="button-ghost px-2.5 text-caption"
-            >
-              <Sparkles size={11} aria-hidden="true" />
-              {t('notebook.toolbar.export')}
-            </button>
-            {exportMenuOpen ? (
-              <div
-                role="menu"
-                aria-label={t('notebook.toolbar.exportMenuLabel')}
-                data-testid="notebook-export-menu"
-                className="absolute right-0 top-9 z-20 w-60 rounded-md border border-border/60 bg-bg-elevated p-1 shadow-lg"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleExport}
-                  data-testid="notebook-export-script"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
-                >
-                  {t('notebook.toolbar.exportScript', {
-                    language: exportLanguageLabel,
-                  })}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleExportIpynb}
-                  data-testid="notebook-export-ipynb"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
-                >
-                  {t('notebook.toolbar.exportAsIpynb')}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleExportLinguanb}
-                  data-testid="notebook-export-linguanb"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
-                >
-                  {t('notebook.toolbar.exportAsLinguanb')}
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
-          <div className="relative" ref={shortcutsAnchorRef}>
-            <button
-              type="button"
-              onClick={() => setShortcutsOpen((open) => !open)}
-              aria-expanded={shortcutsOpen}
-              aria-haspopup="dialog"
-              aria-label={t('notebook.command.shortcutsTitle')}
-              title={t('notebook.command.shortcutsTitle')}
-              data-testid="notebook-toolbar-shortcuts"
-              className={cn(
-                'focus-ring inline-flex h-[28px] w-[28px] items-center justify-center rounded-lg border text-caption transition-colors duration-150',
-                shortcutsOpen
-                  ? 'border-primary/60 bg-primary/10 text-foreground'
-                  : 'border-transparent text-muted hover:bg-surface-strong/60 hover:text-foreground'
-              )}
-            >
-              <Keyboard size={12} aria-hidden="true" />
-            </button>
-            {shortcutsOpen ? (
-              <div
-                role="dialog"
-                aria-label={t('notebook.command.shortcutsTitle')}
-                data-testid="notebook-shortcuts-legend"
-                className="absolute right-0 top-9 z-20 w-72 rounded-md border border-border/60 bg-bg-elevated p-3 shadow-lg"
-              >
-                <p className="mb-2 text-eyebrow font-semibold uppercase tracking-wider text-muted">
-                  {t('notebook.command.shortcutsTitle')}
-                </p>
-                <ul className="grid gap-1.5">
-                  {NOTEBOOK_SHORTCUT_HINTS.map(({ keys, labelKey }) => (
-                    <li
-                      key={labelKey}
-                      className="flex items-center justify-between gap-2 text-caption text-foreground"
-                    >
-                      <span>{t(labelKey)}</span>
-                      <span className="flex shrink-0 items-center gap-1">
-                        {keys.map((cap) => (
-                          <Kbd key={cap}>{cap}</Kbd>
-                        ))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </header>
+      <NotebookToolbar
+        notebook={notebook}
+        titleDraft={titleDraft}
+        setTitleDraft={setTitleDraft}
+        handleTitleCommit={handleTitleCommit}
+        codeCellsCount={codeCellsCount}
+        handleAddMarkdown={handleAddMarkdown}
+        disabled={disabled}
+        handleAddCode={handleAddCode}
+        preferredCodeLanguage={preferredCodeLanguage}
+        activeCellId={activeCellId}
+        runAbove={runAbove}
+        tabId={tabId}
+        canRunThroughActiveCell={canRunThroughActiveCell}
+        handleRunFromHere={handleRunFromHere}
+        canRunFromActiveCell={canRunFromActiveCell}
+        handleRunAll={handleRunAll}
+        lastCodeCellId={lastCodeCellId}
+        isAnyCellRunning={isAnyCellRunning}
+        stop={stop}
+        handleRestart={handleRestart}
+        handleClearOutputs={handleClearOutputs}
+        hasOutputsToClear={hasOutputsToClear}
+        exportMenuAnchorRef={exportMenuAnchorRef}
+        setExportMenuOpen={setExportMenuOpen}
+        exportMenuOpen={exportMenuOpen}
+        handleExport={handleExport}
+        handleExportIpynb={handleExportIpynb}
+        handleExportLinguanb={handleExportLinguanb}
+        exportLanguageLabel={exportLanguageLabel}
+        shortcutsAnchorRef={shortcutsAnchorRef}
+        setShortcutsOpen={setShortcutsOpen}
+        shortcutsOpen={shortcutsOpen}
+      />
 
-      <section
-        ref={cellsScrollRef}
-        data-testid="notebook-cells"
-        onKeyDown={handleContainerKeyDown}
-        onScroll={handleCellsScroll}
-        className="min-h-0 overflow-y-auto px-4 py-3"
-      >
-        {notebook.cells.length === 0 ? (
-          <div
-            data-testid="notebook-cells-empty"
-            className="grid place-items-center rounded border border-dashed border-border/60 p-8 text-center text-body-sm text-muted"
-          >
-            <div className="grid gap-2">
-              <p>{t('notebook.empty.title')}</p>
-              <p className="text-caption">{t('notebook.empty.cta')}</p>
-            </div>
-          </div>
-        ) : (
-          // RL-043 Slice H — windowed cell list. Only rows in
-          // `[startIndex, endIndex]` mount; two aria-hidden spacer <li>s
-          // hold the scrollbar geometry. The inter-row gap lives in each
-          // row's `pb-3` (border box) so the windower measures it exactly —
-          // hence no `gap-3` on the <ul>. In jsdom the windower degrades to
-          // the full list and both spacers collapse to 0 (omitted).
-          <ul role="list">
-            {listWindow.topSpacer > 0 ? (
-              <li aria-hidden="true" style={{ height: listWindow.topSpacer }} />
-            ) : null}
-            {notebook.cells
-              .slice(listWindow.startIndex, listWindow.endIndex + 1)
-              .map((cell, i) => {
-                const idx = listWindow.startIndex + i;
-                const status: NotebookCellRunStatus =
-                  cellRunStatusMap?.[cell.id] ?? 'idle';
-                const durationMs = cellDurationMsMap?.[cell.id];
-                const varFlow = cellVarFlowMap?.[cell.id];
-                const canMoveUp = idx > 0;
-                const canMoveDown = idx < notebook.cells.length - 1;
-                const isActive = activeCellId === cell.id;
-                // Slice H a11y — windowing drops off-screen rows from the
-                // DOM, so each mounted row reports the TRUE list size + its
-                // 1-based position to assistive tech via aria-setsize /
-                // aria-posinset (the W3C pattern for virtualized lists);
-                // otherwise a screen reader would see only the mounted slice.
-                if (isNotebookMarkdownCell(cell)) {
-                  return (
-                    <li
-                      key={cell.id}
-                      ref={measureRef(cell.id)}
-                      className="pb-3"
-                      aria-setsize={notebook.cells.length}
-                      aria-posinset={idx + 1}
-                    >
-                      <NotebookMarkdownCellRow
-                        cell={cell}
-                        cellIndex={idx}
-                        isActive={isActive}
-                        editRequestNonce={
-                          editRequest?.cellId === cell.id
-                            ? editRequest.nonce
-                            : null
-                        }
-                        canMoveUp={canMoveUp}
-                        canMoveDown={canMoveDown}
-                        disabled={disabled}
-                        onActivate={handleActivate}
-                        onSourceChange={handleSourceChange}
-                        onMoveUp={handleMoveUp}
-                        onMoveDown={handleMoveDown}
-                        onDelete={handleDelete}
-                      />
-                    </li>
-                  );
-                }
-                return (
-                  <li
-                    key={cell.id}
-                    ref={measureRef(cell.id)}
-                    className="pb-3"
-                    aria-setsize={notebook.cells.length}
-                    aria-posinset={idx + 1}
-                  >
-                    <NotebookCodeCellRow
-                      cell={cell}
-                      cellIndex={idx}
-                      status={status}
-                      durationMs={durationMs}
-                      varFlow={varFlow}
-                      executionOrder={cellExecutionOrderMap?.[cell.id] ?? null}
-                      isActive={isActive}
-                      editRequestNonce={
-                        editRequest?.cellId === cell.id
-                          ? editRequest.nonce
-                          : null
-                      }
-                      canMoveUp={canMoveUp}
-                      canMoveDown={canMoveDown}
-                      disabled={disabled}
-                      onActivate={handleActivate}
-                      onSourceChange={handleSourceChange}
-                      onRunCell={handleRunCell}
-                      onRunAndAdvance={handleRunAndAdvance}
-                      onRunAndInsertBelow={handleRunAndInsertBelow}
-                      onMoveUp={handleMoveUp}
-                      onMoveDown={handleMoveDown}
-                      onDelete={handleDelete}
-                      onLanguageChange={handleLanguageChange}
-                    />
-                  </li>
-                );
-              })}
-            {listWindow.bottomSpacer > 0 ? (
-              <li
-                aria-hidden="true"
-                style={{ height: listWindow.bottomSpacer }}
-              />
-            ) : null}
-          </ul>
-        )}
-        {lastCellId !== null ? (
-          <div className="mt-3 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleAddCode(preferredCodeLanguage)}
-              disabled={disabled}
-              data-testid="notebook-cells-append-code"
-              className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CodeXml size={11} aria-hidden="true" />
-              {t('notebook.toolbar.addCode')}
-            </button>
-            <button
-              type="button"
-              onClick={handleAddMarkdown}
-              disabled={disabled}
-              data-testid="notebook-cells-append-markdown"
-              className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <FileText size={11} aria-hidden="true" />
-              {t('notebook.toolbar.addMarkdown')}
-            </button>
-          </div>
-        ) : null}
-      </section>
+      <NotebookCellList
+        cellsScrollRef={cellsScrollRef}
+        handleContainerKeyDown={handleContainerKeyDown}
+        handleCellsScroll={handleCellsScroll}
+        notebook={notebook}
+        listWindow={listWindow}
+        measureRef={measureRef}
+        cellRunStatusMap={cellRunStatusMap}
+        cellDurationMsMap={cellDurationMsMap}
+        cellVarFlowMap={cellVarFlowMap}
+        cellExecutionOrderMap={cellExecutionOrderMap}
+        activeCellId={activeCellId}
+        editRequest={editRequest}
+        disabled={disabled}
+        handleActivate={handleActivate}
+        handleSourceChange={handleSourceChange}
+        handleRunCell={handleRunCell}
+        handleRunAndAdvance={handleRunAndAdvance}
+        handleRunAndInsertBelow={handleRunAndInsertBelow}
+        handleMoveUp={handleMoveUp}
+        handleMoveDown={handleMoveDown}
+        handleDelete={handleDelete}
+        handleLanguageChange={handleLanguageChange}
+        lastCellId={lastCellId}
+        handleAddCode={handleAddCode}
+        preferredCodeLanguage={preferredCodeLanguage}
+        handleAddMarkdown={handleAddMarkdown}
+      />
     </div>
   );
-}
-
-function notebookTitleFromTabName(name: string): string {
-  const withoutExtension = name.endsWith('.linguanb')
-    ? name.slice(0, -'.linguanb'.length)
-    : name;
-  return withoutExtension.trim() || 'Untitled notebook';
-}
-
-function coerceNotebookCellLanguage(
-  language: string | null | undefined
-): NotebookCellLanguage | null {
-  if (
-    typeof language === 'string' &&
-    (NOTEBOOK_CELL_LANGUAGES as readonly string[]).includes(language)
-  ) {
-    return language as NotebookCellLanguage;
-  }
-  return null;
 }

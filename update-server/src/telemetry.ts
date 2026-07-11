@@ -28,6 +28,7 @@ import { log } from './lib/observability';
 // test imports both arrays and asserts equality.
 export const TELEMETRY_EVENT_NAMES = [
   'app.launched',
+  'app.boot_phase',
   'runner.executed',
   'overlay.opened',
   'feature.blocked',
@@ -312,6 +313,7 @@ const EVENT_NAME_SET: ReadonlySet<string> = new Set(TELEMETRY_EVENT_NAMES);
 // per-event key parity.
 export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = {
   'app.launched': ['platform', 'build', 'locale'],
+  'app.boot_phase': ['phase', 'durationBucket'],
   'runner.executed': ['language', 'status', 'durationBucketMs'],
   'overlay.opened': ['overlayId'],
   'feature.blocked': ['entitlement', 'tier'],
@@ -1017,6 +1019,21 @@ export const ONBOARDING_LANGUAGE_IDS = new Set([
   'shellscript',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
+const BOOT_PHASES = new Set([
+  'system-language',
+  'i18n',
+  'react-mount',
+  'first-paint',
+  'rehydration',
+]);
+const BOOT_DURATION_BUCKETS = new Set([
+  '<50ms',
+  '50-249ms',
+  '250-999ms',
+  '1-4.9s',
+  '5-29.9s',
+  '>=30s',
+]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
   'available',
   'no-update',
@@ -1193,6 +1210,12 @@ function isAllowedValue(
   switch (event) {
     case 'app.launched':
       return isSafeToken(value);
+    case 'app.boot_phase':
+      if (key === 'phase') return typeof value === 'string' && BOOT_PHASES.has(value);
+      if (key === 'durationBucket') {
+        return typeof value === 'string' && BOOT_DURATION_BUCKETS.has(value);
+      }
+      return false;
     case 'runner.executed':
       if (key === 'language') return isSafeToken(value);
       if (key === 'status') return typeof value === 'string' && RUNNER_STATUS_VALUES.has(value);

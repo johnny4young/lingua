@@ -64,7 +64,11 @@ describe('DeveloperUtilitiesModal', () => {
     // Space audit: the workspace view carries NO local header — neither
     // the old title box nor the status pills, which now render in the
     // shell's shared editor chips row (asserted in AppLayout.test).
-    expect(screen.queryByText('Built-in utilities')).toBeNull();
+    // The workspace keeps an sr-only landmark heading for assistive tech,
+    // but does not restore the removed visible title box.
+    expect(
+      screen.getByRole('heading', { name: 'Built-in utilities' }).className
+    ).toContain('sr-only');
     expect(screen.queryByText('Copy output')).toBeNull();
     expect(screen.queryByText(/\d+ tools/u)).toBeNull();
 

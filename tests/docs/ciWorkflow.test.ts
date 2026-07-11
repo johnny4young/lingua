@@ -1,9 +1,9 @@
 /**
  * Guard for `.github/workflows/ci.yml`.
  *
- * Windows filesystem protection is security-sensitive and cannot rely only on
- * `it.runIf(process.platform === 'win32')` in the regular Ubuntu test job.
- * Keep a dedicated Windows CI job so the platform-specific assertions run.
+ * Windows filesystem protection and executable launching cannot rely only on
+ * platform-skipped tests in the regular Ubuntu job. Keep a dedicated Windows
+ * CI job so the platform-specific assertions run against Node on win32.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -21,11 +21,14 @@ describe('CI workflow', () => {
     ? readFileSync(CI_WORKFLOW_PATH, 'utf-8')
     : '';
 
-  it('runs Windows path-hardening coverage on a Windows runner', () => {
+  it('runs Windows platform-boundary coverage on a Windows runner', () => {
     expect(workflow).toContain('windows-path-hardening:');
     expect(workflow).toMatch(/windows-path-hardening:[\s\S]*?runs-on:\s*windows-latest/u);
     expect(workflow).toMatch(
-      /windows-path-hardening:[\s\S]*?pnpm exec vitest run tests\/ipc\/permissions\.test\.ts/u
+      /windows-path-hardening:[\s\S]*?pnpm exec vitest run[\s\S]*?tests\/ipc\/permissions\.test\.ts/u
+    );
+    expect(workflow).toMatch(
+      /windows-path-hardening:[\s\S]*?tests\/main\/dependencies\.install\.windows\.test\.ts/u
     );
   });
 

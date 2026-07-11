@@ -132,7 +132,7 @@ conviene confirmar cuál es el canal activo o añadir el hash.
 | B2 | Crítica | `fs:watch-start` sin listener `'error'` → crash del proceso main | ✅ Corregido |
 | B3 | Alta | `restart()` del LSP generaba un proceso servidor duplicado y huérfano | ✅ Corregido |
 | B4 | Alta | Cancel/timeout de `npm install` mataba solo `npm`, no su árbol | ✅ Corregido |
-| B5 | Alta | Windows: spawn de `npm` (sin `.cmd`) fallaba siempre | 📋 Documentado |
+| B5 | Alta | Windows: spawn de `npm` (sin `.cmd`) fallaba siempre | ✅ Corregido |
 | B6 | Alta | Revalidación web de licencia revivía una licencia recién eliminada | ✅ Corregido |
 | B7 | Alta | `saveTabById` descartaba teclas escritas durante un guardado en vuelo | ✅ Corregido |
 | B8 | Alta | "Replace all" leía query/replacement vivos mientras los inputs seguían editables | ✅ Corregido |
@@ -140,7 +140,7 @@ conviene confirmar cuál es el canal activo o añadir el hash.
 | B10 | Baja | `disposeProcess()` del LSP generaba una unhandled rejection en cada stop | ✅ Corregido |
 | B11 | Media | `openFile`: doble clic abría el mismo archivo dos veces | ✅ Corregido |
 | B12 | Media | Opens concurrentes filtraban watcher/capability; `watchStop` sin `.catch()` abortaba el open | ✅ Corregido |
-| B13 | Media | `applyWatchChanges` commiteaba un árbol derivado de snapshot stale | 📋 Documentado |
+| B13 | Media | `applyWatchChanges` commiteaba un árbol derivado de snapshot stale | ✅ Corregido 2026-07-10 |
 | B14 | Media | Watchers del bridge fs no atados al ciclo de vida del sender (fuga en macOS/reload) | ✅ Corregido |
 | B15 | Media | Runners Node/Ruby: temp dir creado fuera de región protegida → fuga + rechazo crudo | ✅ Corregido |
 | B16 | Media | Cierre "sucio" sin fallback para renderer muerto → ventana imposible de cerrar | ✅ Corregido |
@@ -198,12 +198,15 @@ búsqueda mientras drenaba la cola aplicaba un query a medio escribir a
 los archivos restantes (operación no-deshacible). *Fix:* `applyToAll`
 congela los params confirmados y los pasa a cada `applyToFile`.
 
-**B5 — npm en Windows (documentado).** `spawn('npm', ...)` sin resolver
-`npm.cmd` y con `shell:false` falla siempre en win32
-(CVE-2024-27980 → `EINVAL`). Requiere validación en una máquina Windows
-real; el fix propuesto es resolver la ruta de `npm.cmd` o invocar vía
-`cmd.exe /c` con argv fijo. No se aplicó aquí por no poder verificarlo
-end-to-end en este entorno.
+**B5 — npm en Windows (corregido).** El instalador resuelve el launcher por
+plataforma: POSIX conserva `npm`; Windows ejecuta explícitamente
+`COMSPEC /d /c npm.cmd` con `shell:false`, specifiers validados y flags fijos.
+El entorno filtrado ahora incluye la allowlist común y las claves Windows
+(`PATH`, `PATHEXT`, `COMSPEC`, `SYSTEMROOT`) necesarias para descubrir ambos
+binarios. Tests unitarios fijan el argv y el entorno exactos; el job Windows de
+cada PR ejecuta además el handoff real `cmd.exe` → `npm.cmd` contra un registry
+local cerrado y exige un diagnóstico propio de npm; así un `cmd.exe` que abre
+pero no encuentra `npm.cmd` tampoco puede producir un falso verde.
 
 **B14 — Fuga de watchers fs por sender (corregido).** Los watchers del
 bridge fs solo se limpiaban en `before-quit` y en `fs:watch-stop`
@@ -214,10 +217,13 @@ sender (`watcherIdsBySender`) + listener `destroyed` idempotente que
 llama `stopWatchersForSender`, exactamente el patrón del watcher de git.
 2 tests nuevos en `watcherLifecycle.test.ts`.
 
-**B13 — Snapshot stale del árbol (documentado).** Mejora de robustez en
-`projectStore` (commit por directorio sobre estado fresco); se deja
-documentado con el fix propuesto para un slice dedicado con su propia
-cobertura de tests.
+**B13 — Snapshot stale del árbol (corregido 2026-07-10).**
+`applyWatchChanges` ahora revalida el `rootId` y el directorio cargado a ambos
+lados de cada `await`, y commitea cada directorio contra el árbol fresco en
+vez del snapshot inicial del burst. Un cambio concurrente en otra rama ya no
+se pierde y una respuesta tardía de un proyecto cerrado/cambiado se descarta.
+Dos regresiones deterministas cubren ambos casos en
+`tests/stores/projectStore.test.ts`.
 
 ---
 
@@ -239,11 +245,11 @@ Console/Notebook, barrido de modelos Monaco al cerrar tabs); main sin
 |---|---------|-------------|--------|
 | P1 | Alto | Monaco (~987 KB gzip) se ejecutaba en el arranque del shell por dos aristas estáticas | ✅ Corregido |
 | P2 | Alto | Todo el shell (`AppChrome`) re-renderizaba en cada pulsación | ✅ Corregido |
-| P3 | Medio | `EditorTabs` re-renderizaba la tira completa por keystroke | 📋 Documentado |
-| P4 | Medio | Los dos locales i18n viajan en el chunk inicial | 📋 Documentado |
+| P3 | Medio | `EditorTabs` re-renderizaba la tira completa por keystroke | ✅ Corregido |
+| P4 | Medio | Los dos locales i18n viajan en el chunk inicial | ✅ Corregido |
 | P5 | Medio | Detección Go/Rust sin caché → 1-2 spawns extra por run | ✅ Corregido |
 | P6 | Medio | fs síncrono en hot paths de ejecución (node/ruby/deps) | 📋 Documentado |
-| P7 | Medio-bajo | Pipeline de utilities y diff Myers en el hilo de UI | 📋 Documentado |
+| P7 | Medio-bajo | Pipeline de utilities y diff Myers en el hilo de UI | ✅ Corregido |
 | P8 | Bajo | Suscripciones a store completo (`useUIStore()` en AppChrome) | ✅ Corregido (parcial) |
 
 **P1 — Monaco fuera del arranque del shell (corregido).** Dos aristas
@@ -281,12 +287,34 @@ caché de sesión para el probe de env por defecto, con la misma
 convención que `detectNode` (solo cachea detects exitosos, así instalar
 la toolchain a mitad de sesión se detecta en el siguiente run).
 
-**P3/P4/P6/P7 (documentados).** Pendientes de slices dedicados:
-`EditorTabs` con selector `useShallow` a primitivos + `memo` en el item;
-locale inactivo con `import()` diferido; migrar los probes síncronos de
-`node-runner`/`ruby-runner`/`dependencies` a `fs/promises`; mover
-`runUtilityPipeline` y `computeDiff` a un worker con Comlink. Ninguno
-bloquea; todos tienen patrón de fix ya presente en el repo.
+**P3 — Tira de tabs aislada del contenido (corregido 2026-07-10).**
+`EditorTabs` selecciona únicamente la metadata visible de cada tab mediante
+una proyección estable con `useShallow`; el contenido completo no llega al
+row memoizado. El único dato derivado del buffer es el booleano que suprime el
+estado Git ante magic comments. Después del primer cambio que activa
+`isDirty`, las siguientes pulsaciones producen cero commits tanto en el tab
+activo como en sus hermanos; el contrato se prueba con React Profiler.
+
+**P4 — Locale inactivo fuera del chunk inicial (corregido 2026-07-10).**
+La metadata de idiomas vive separada de los catálogos. El renderer incluye
+inglés estáticamente y carga español mediante `import()` antes de montar React
+cuando es el idioma activo o antes de cambiarlo en runtime. El build web mueve
+el catálogo ES a un chunk propio de ~278 kB (~70 kB gzip) y reduce el chunk de
+aplicación de ~2.119 MB / 552 kB gzip a ~1.841 MB / 482 kB gzip. Main conserva
+ambos catálogos porque no participa del bundle del renderer.
+
+**P7 — Diff y pipelines fuera del hilo de UI (corregido 2026-07-10).**
+Un Web Worker tipado ejecuta los pipelines y los diffs Myers de 4.000+
+caracteres, preservando resultados progresivos por paso y terminando el worker
+al resolver. Los diffs pequeños y los entornos sin Worker conservan el camino
+inline; si el input cambia durante el cálculo, el hook no presenta el resultado
+anterior como si perteneciera a la nueva solicitud. El build emite un chunk de
+worker dedicado de ~34 kB y Playwright prueba la carga real del recurso tanto
+en Diff Viewer como en Utility Pipelines.
+
+**P6 (documentado).** Sigue pendiente migrar los probes síncronos de
+`node-runner`/`ruby-runner`/`dependencies` a `fs/promises`; no bloquea, pero
+requiere un slice dedicado en main para conservar la semántica de errores.
 
 ---
 
@@ -309,7 +337,7 @@ capas (unit + e2e + perf + smoke empaquetado).
 | A2 | Alto | Sprawl de configs de build; la mina de env vars es síntoma estructural | 📋 Documentado |
 | A3 | Alto | Stores importaban de `hooks/` y `components/` (ciclo latente) | ✅ Corregido |
 | A4 | Medio | Ciclo de vida de spawn duplicado 4 veces en los runners nativos | 📋 Documentado |
-| A5 | Medio | 10 componentes de 800+ líneas violan la regla propia de 250-300 | 📋 Documentado |
+| A5 | Medio | 10 componentes de 800+ líneas violan la regla propia de 250-300 | ✅ Corregido (4 prioritarios; 6 pendientes) |
 | A6 | Medio | `notebookStore` (958 líneas) es la única "god store" restante | 📋 Documentado |
 | A7 | Medio | Árbol de tests con espejos inconsistentes + huecos de cobertura | 📋 Documentado |
 | A8 | Bajo | `ARCHITECTURE.md` se contradecía sobre el watch flow (pre-RL-146) | ✅ Corregido |
@@ -334,7 +362,21 @@ pre-RL-146 (`refreshTree()` root-granular), contradiciendo el código
 real (`applyWatchChanges` incremental). Reescritas como "historia +
 estado actual".
 
-**A1/A2/A4/A5/A6/A7 (documentados, ver §6).** Son refactors de
+**A5 — Componentes prioritarios partidos (parcial, 2026-07-10).** La ronda
+extrajo UI, modelos y hooks de orquestación por ownership, sin cambiar contratos:
+`NotebookView` 1238→756 LOC, `SqlResultPreview` 1018→676,
+`CommandPalette` 987→143 (catálogo en hook dedicado de 773) y `EditorTabs`
+1007→267 (rows/overflow en 644). El inventario de componentes sobre 800 LOC
+bajó de 10 a 6. `tests/docs/deepReviewMaintainability.test.ts` fija el umbral
+de 800 para estos cuatro; los seis restantes conservan estado pendiente.
+
+**Split final de filesystem (corregido 2026-07-10).** El follow-up del plan de
+mejoras separó aprobaciones, operaciones y watchers. `fileSystem.ts` pasó de
+1052 a 40 LOC de assembly, mantiene re-exports compatibles y delega en seis
+módulos menores de 600 LOC. El mismo test estructural impide volver a registrar
+handlers directamente en el assembly o superar el presupuesto por módulo.
+
+**A1/A2/A4/A6/A7 y el remanente A5 (documentados, ver §6).** Son refactors de
 mediana/alta envergadura que merecen slices propios; se detallan como
 recomendaciones priorizadas más abajo.
 

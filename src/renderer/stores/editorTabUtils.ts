@@ -1,4 +1,4 @@
-import type { FileTab, Language } from '../types';
+import type { FileTab, InputSet, Language } from '../types';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers';
 import {
@@ -60,9 +60,53 @@ export function languageSupportsStdin(language: Language): boolean {
 
 export function dropStdinIfUnsupported<T extends FileTab>(tab: T): T {
   if (languageSupportsStdin(tab.language)) return tab;
-  const { stdinBuffer: _drop, ...rest } = tab;
-  void _drop;
+  const {
+    stdinBuffer: _dropStdin,
+    inputSets: _dropSets,
+    activeInputSetId: _dropActiveSet,
+    inputArgs: _dropArgs,
+    ...rest
+  } = tab;
+  void _dropStdin;
+  void _dropSets;
+  void _dropActiveSet;
+  void _dropArgs;
   return rest as T;
+}
+
+/** IT2-F5 — keep persisted input sets bounded and safe to render. */
+export const MAX_INPUT_SETS_PER_TAB = 20;
+export const MAX_INPUT_SET_NAME_LENGTH = 60;
+export const MAX_INPUT_ARGS_PER_SET = 64;
+
+export function sanitizeInputSets(value: unknown): InputSet[] {
+  if (!Array.isArray(value)) return [];
+  const result: InputSet[] = [];
+  const seenIds = new Set<string>();
+  for (const candidate of value) {
+    if (result.length >= MAX_INPUT_SETS_PER_TAB) break;
+    if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      continue;
+    }
+    const raw = candidate as Record<string, unknown>;
+    if (typeof raw.id !== 'string' || raw.id.length === 0 || seenIds.has(raw.id)) continue;
+    if (typeof raw.name !== 'string' || typeof raw.stdin !== 'string') continue;
+    const name = raw.name.trim().slice(0, MAX_INPUT_SET_NAME_LENGTH);
+    if (!name) continue;
+    const args = Array.isArray(raw.args)
+      ? raw.args
+          .filter((arg): arg is string => typeof arg === 'string')
+          .slice(0, MAX_INPUT_ARGS_PER_SET)
+      : [];
+    seenIds.add(raw.id);
+    result.push({
+      id: raw.id,
+      name,
+      stdin: raw.stdin,
+      ...(args.length > 0 ? { args } : {}),
+    });
+  }
+  return result;
 }
 
 /**

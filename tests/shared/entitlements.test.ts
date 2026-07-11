@@ -53,8 +53,8 @@ describe('entitlements policy (RL-060)', () => {
     }
   });
 
-  it('Free ceilings are exactly the documented numbers (1 tab, 5 snippets, 4 languages)', () => {
-    expect(FREE_TIER_LIMITS.maxOpenTabs).toBe(1);
+  it('Free ceilings are exactly the documented numbers (3 tabs, 5 snippets, 4 languages)', () => {
+    expect(FREE_TIER_LIMITS.maxOpenTabs).toBe(3);
     expect(FREE_TIER_LIMITS.maxSnippets).toBe(5);
     expect([...FREE_TIER_LIMITS.allowedLanguages].sort()).toEqual([
       'javascript',
@@ -75,7 +75,8 @@ describe('entitlements policy (RL-060)', () => {
 
   it('withinTabBudget respects Free ceiling and waves paid tiers through', () => {
     expect(withinTabBudget('free', 1)).toBe(true);
-    expect(withinTabBudget('free', 2)).toBe(false);
+    expect(withinTabBudget('free', 3)).toBe(true);
+    expect(withinTabBudget('free', 4)).toBe(false);
     expect(withinTabBudget('pro', 100)).toBe(true);
   });
 

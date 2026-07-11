@@ -96,7 +96,12 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
       };
     },
   },
-  'lingua-session': {},
+  // IT2-F5 v1->v2 — input-set fields are additive optional fields on each
+  // saved tab. The identity step re-stamps the envelope without inventing
+  // values for older sessions; restore sanitizes any future/tampered payload.
+  'lingua-session': {
+    2: (state) => state,
+  },
   'lingua-snippets': {},
   'lingua-project-store': {},
   'lingua-recent-files': {},

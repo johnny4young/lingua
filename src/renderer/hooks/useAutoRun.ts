@@ -420,6 +420,9 @@ export function useAutoRun() {
           ...(activeTab?.filePath ? { filePath: activeTab.filePath } : {}),
           autoLog: autoLogEnabled,
           ...(stdinBuffer !== undefined ? { stdin: stdinBuffer } : {}),
+          ...(activeTab?.inputArgs && activeTab.inputArgs.length > 0
+            ? { args: activeTab.inputArgs }
+            : {}),
           ...(overrideMs !== null ? { timeout: overrideMs } : {}),
           ...(wantsScopeCapture ? { captureScope: true } : {}),
           ...(wantsScopeCapture && typeof scopeDepthPref === 'number'

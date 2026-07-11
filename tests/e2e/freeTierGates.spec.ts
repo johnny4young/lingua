@@ -10,6 +10,7 @@
  * in proTierUnlocks.spec.ts.
  */
 
+import { mkdirSync } from 'node:fs';
 import {
   DEFAULT_FONT_STACK,
   closeSettings,
@@ -52,14 +53,67 @@ test.describe('Free tier gates', () => {
     await expect(page.getByRole('button', { name: /Go .*\.go/i })).toHaveCount(0);
   });
 
-  test('one-tab ceiling upsells on second New JavaScript click', async ({ page }) => {
+  test('three-tab ceiling upsells on the fourth tab and CTA opens License', async ({ page }) => {
     await createJavaScriptTab(page);
-    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(1);
+    for (let index = 1; index < 3; index += 1) {
+      await page.getByTestId('action-pill-lang').click();
+      await page.getByRole('menuitem', { name: /^JavaScript\b/i }).click();
+    }
+    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(3);
 
     await page.getByTestId('action-pill-lang').click();
     await page.getByRole('menuitem', { name: /^JavaScript\b/i }).click();
     await expectNoticeContains(page, 'additional open tabs');
-    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(3);
+
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/project-sequence/t04-free-three-tabs', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/project-sequence/t04-free-three-tabs/web-en-fourth-tab-upsell.png',
+      });
+    }
+
+    await page.getByRole('button', { name: 'See what Pro includes' }).click();
+    await expect(page.getByTestId('settings-tab-account')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('license-status-pill')).toContainText('Free plan');
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      await page.screenshot({
+        path: 'output/review/project-sequence/t04-free-three-tabs/web-en-license-destination.png',
+      });
+    }
+  });
+
+  test('Spanish fourth-tab upsell localizes the shared Pro CTA', async ({ page }) => {
+    await page.evaluate(() => {
+      const raw = window.localStorage.getItem('lingua-settings');
+      const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 };
+      parsed.state = parsed.state ?? {};
+      parsed.state.language = 'es';
+      window.localStorage.setItem('lingua-settings', JSON.stringify(parsed));
+    });
+    await page.reload();
+    await expectTier(page, 'FREE');
+
+    await createJavaScriptTab(page);
+    for (let index = 1; index < 3; index += 1) {
+      await page.getByTestId('action-pill-lang').click();
+      await page.getByRole('menuitem', { name: /^JavaScript\b/i }).click();
+    }
+    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(3);
+    await dismissNotice(page);
+    await dismissNotice(page);
+    await page.getByTestId('action-pill-lang').click();
+    await page.getByRole('menuitem', { name: /^JavaScript\b/i }).click();
+
+    await expect(page.getByRole('button', { name: 'Ver qué incluye Pro' })).toBeVisible();
+    await expectNoticeContains(page, 'más pestañas abiertas');
+    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(3);
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/project-sequence/t04-free-three-tabs', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/project-sequence/t04-free-three-tabs/web-es-fourth-tab-upsell.png',
+      });
+    }
   });
 
   test('snippet library caps at 5 saved items', async ({ page }) => {
@@ -169,7 +223,6 @@ test.describe('Free tier gates', () => {
   }) => {
     await page.getByRole('button', { name: 'Developer utilities' }).click();
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1, name: 'Built-in utilities' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'JSON Formatter' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Pretty print' })).toBeVisible();
 

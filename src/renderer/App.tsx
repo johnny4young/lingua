@@ -43,6 +43,8 @@ import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
 import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
+import { useBootCompletionMarkers } from './hooks/useBootCompletionMarkers';
+import { useLicenseSettingsNavigation } from './hooks/useLicenseSettingsNavigation';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { getActiveTab, useEditorStore } from './stores/editorStore';
 import { openUtilitiesWorkspaceTab } from './runtime/openWorkspaceTab';
@@ -125,6 +127,7 @@ function AppChrome({
   // under the AUDIT-11 size budget). Owns the `always`/`ask`/`never` decision
   // and the `ask`-mode restore prompt; returns the boot-gating ready flag.
   const sessionRestoreReady = useSessionRestoreBoot(smokeEnabled);
+  useBootCompletionMarkers(sessionRestoreReady);
 
   // RL-147 — debounced session auto-save, narrowed to save-relevant
   // editor-store changes (see useSessionAutoSave for the contract).
@@ -350,6 +353,8 @@ function AppChrome({
     window.addEventListener('lingua-open-snippets-overlay', handler);
     return () => window.removeEventListener('lingua-open-snippets-overlay', handler);
   }, [openOverlay]);
+
+  useLicenseSettingsNavigation(() => openOverlay('settings'));
 
   // RL-094 Slice 2 — Settings → Account → Run Capsules → Import
   // button dispatches `lingua-open-capsule-import` so the section

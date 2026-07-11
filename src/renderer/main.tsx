@@ -12,6 +12,7 @@ import {
   scheduleRecoveryMarksClear,
 } from './utils/safeBoot';
 import './index.css';
+import { markBootPhase } from './utils/bootTimings';
 
 // RL-090 — global handlers for async + event-handler errors.
 // React error boundaries only catch render-time throws inside the
@@ -58,8 +59,10 @@ async function bootstrap() {
       resolved = 'en';
     }
   }
+  markBootPhase('system-language');
 
-  initI18n(resolved);
+  await initI18n(resolved);
+  markBootPhase('i18n');
 
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');
@@ -91,6 +94,7 @@ async function bootstrap() {
       <App />
     </StrictMode>
   );
+  markBootPhase('react-mount');
   scheduleRecoveryMarksClear();
 }
 

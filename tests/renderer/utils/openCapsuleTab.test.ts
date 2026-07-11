@@ -24,7 +24,11 @@ function makeCapsule(language: string, name = 'My capsule'): RunCapsuleV1 {
     appVersion: '0.5.0',
     tab: { name, language, runtimeMode: 'utility-pipeline', workflowMode: 'run' },
     source: { content: '# Lingua utility pipeline capsule v1\n#1 json-format {}', contentHash: 'abc' },
-    input: { stdin: 'some input' },
+    input: {
+      stdin: 'some input',
+      setName: 'Happy path',
+      args: ['--mode', 'fast'],
+    },
     result: { status: 'success', durationMs: 10 },
     environment: { platform: 'web', runner: 'utility-pipeline' },
     privacy: { redactionVersion: 'test', omittedFields: [] },
@@ -62,5 +66,16 @@ describe('openCapsuleSourceInNewTab — non-code language fallback (RL-099 Slice
     const tab = useEditorStore.getState().tabs[0];
     expect(tab?.language).toBe('javascript');
     expect(tab?.name).toBe('script.js');
+    expect(tab?.stdinBuffer).toBe('some input');
+    expect(tab?.inputArgs).toEqual(['--mode', 'fast']);
+    expect(tab?.inputSets).toEqual([
+      expect.objectContaining({
+        id: expect.any(String),
+        name: 'Happy path',
+        stdin: 'some input',
+        args: ['--mode', 'fast'],
+      }),
+    ]);
+    expect(tab?.activeInputSetId).toBe(tab?.inputSets?.[0]?.id);
   });
 });

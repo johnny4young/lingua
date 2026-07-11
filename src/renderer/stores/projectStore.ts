@@ -388,8 +388,9 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       applyWatchChanges: async (changes) => {
-        const { currentProject, nodes, nodeIndex } = get();
+        const { currentProject, nodeIndex } = get();
         if (!currentProject || changes.length === 0) return;
+        const rootId = currentProject.rootId;
 
         // Resolve the set of currently-loaded directories whose children
         // must be re-read from disk. Pure file 'change' events carry no
@@ -417,25 +418,32 @@ export const useProjectStore = create<ProjectState>()(
         }
         if (dirsToRefresh.size === 0) return;
 
-        // Re-read only the loaded directories that changed, preserving each
-        // branch's expansion. updateChildrenAtPath keeps untouched sibling
-        // subtrees' object identity, so React re-renders O(branch) not O(N).
-        const expandedPaths = new Set(collectExpandedPaths(nodes));
-        let nextNodes = nodes;
+        // Re-read only the loaded directories that changed. Each async read is
+        // committed against the fresh store state instead of the snapshot from
+        // the beginning of the burst: a concurrent expand/collapse, CRUD
+        // action, or a second watcher refresh must never be overwritten when
+        // this read settles. Re-check the root capability on both sides of the
+        // await so a late response from a closed/switched project is dropped.
         for (const dir of dirsToRefresh) {
-          if (!isLoadedDirectory(nodeIndex, dir)) continue; // unexpanded subtree
+          const beforeRead = get();
+          if (beforeRead.currentProject?.rootId !== rootId) return;
+          if (!isLoadedDirectory(beforeRead.nodeIndex, dir)) continue; // unexpanded subtree
+          const expandedPaths = new Set(collectExpandedPaths(beforeRead.nodes));
           const children = await loadNodesForDirectory(
-            currentProject.rootId,
+            rootId,
             asRelativePath(dir),
             expandedPaths
           );
-          nextNodes =
+          const afterRead = get();
+          if (afterRead.currentProject?.rootId !== rootId) return;
+          if (!isLoadedDirectory(afterRead.nodeIndex, dir)) continue;
+          const nextNodes =
             dir === ''
               ? children
-              : updateChildrenAtPath(nextNodes, dir, children);
-        }
-        if (nextNodes !== nodes) {
-          set(withNodeIndex(nextNodes));
+              : updateChildrenAtPath(afterRead.nodes, dir, children);
+          if (nextNodes !== afterRead.nodes) {
+            set(withNodeIndex(nextNodes));
+          }
         }
       },
 

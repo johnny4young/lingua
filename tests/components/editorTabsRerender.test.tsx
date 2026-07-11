@@ -1,12 +1,9 @@
 /**
  * Roadmap T4 — per-tab render isolation.
  *
- * `updateContent` mints a new `tabs` array on every keystroke, so the
- * `EditorTabs` strip re-renders. Before the memoized `EditorTabItem`
- * split, that re-rendered EVERY row's subtree (glyph, filename,
- * GitStatusPill, status control) even though only the active tab's
- * content changed. This probe locks the contract: editing one tab's
- * content re-renders ONLY that tab's row, never its siblings.
+ * `updateContent` mints a new `tabs` array on every keystroke. The strip now
+ * subscribes to a value-comparable projection, so once the first edit flips
+ * visible dirty/execution metadata, later content-only writes render no rows.
  *
  * The probe counts GitStatusPill renders per file path (one pill per
  * row); the real store drives the mutation so this is an end-to-end
@@ -58,12 +55,25 @@ const TAB_B = {
   isDirty: false,
   filePath: '/repo/b.ts',
 };
+// Never active in any test — the bystander row that must NOT re-render
+// when activation moves between the other two.
+const TAB_C = {
+  id: 'tab-c',
+  name: 'c.ts',
+  language: 'typescript' as const,
+  content: 'const c = 3;',
+  isDirty: false,
+  filePath: '/repo/c.ts',
+};
 
 describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
   beforeEach(() => {
     for (const key of Object.keys(pillRenders)) delete pillRenders[key];
     useEditorStore.setState(
-      { tabs: [structuredClone(TAB_A), structuredClone(TAB_B)], activeTabId: 'tab-a' },
+      {
+        tabs: [structuredClone(TAB_A), structuredClone(TAB_B), structuredClone(TAB_C)],
+        activeTabId: 'tab-a',
+      },
       false
     );
   });
@@ -72,21 +82,22 @@ describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
     useEditorStore.setState(initialEditorState, true);
   });
 
-  it('editing one tab does not re-render sibling tab rows', () => {
+  it('content-only typing does not re-render the strip or either row', () => {
     render(<EditorTabs />);
 
-    const baselineA = pillRenders['/repo/a.ts'] ?? 0;
-    const baselineB = pillRenders['/repo/b.ts'] ?? 0;
-    expect(baselineA).toBeGreaterThan(0);
-    expect(baselineB).toBeGreaterThan(0);
-
-    // Edit ONLY tab-a's content through the real store.
+    // First edit legitimately flips isDirty, a visible strip signal.
     act(() => {
       useEditorStore.getState().updateContent('tab-a', 'const a = 42;');
     });
+    const baselineA = pillRenders['/repo/a.ts'] ?? 0;
+    const baselineB = pillRenders['/repo/b.ts'] ?? 0;
 
-    // The edited row re-rendered; the sibling row did not.
-    expect(pillRenders['/repo/a.ts']).toBeGreaterThan(baselineA);
+    // Subsequent typing changes only content; the encoded projection remains
+    // shallow-equal and React is never entered for the strip.
+    act(() => {
+      useEditorStore.getState().updateContent('tab-a', 'const a = 420;');
+    });
+    expect(pillRenders['/repo/a.ts']).toBe(baselineA);
     expect(pillRenders['/repo/b.ts']).toBe(baselineB);
   });
 
@@ -94,6 +105,7 @@ describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
     render(<EditorTabs />);
     const baselineA = pillRenders['/repo/a.ts'] ?? 0;
     const baselineB = pillRenders['/repo/b.ts'] ?? 0;
+    const baselineC = pillRenders['/repo/c.ts'] ?? 0;
 
     act(() => {
       useEditorStore.getState().setActiveTab('tab-b');
@@ -103,5 +115,10 @@ describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
     // this is the counter-assertion that the memo is not simply frozen.
     expect(pillRenders['/repo/a.ts']).toBeGreaterThan(baselineA);
     expect(pillRenders['/repo/b.ts']).toBeGreaterThan(baselineB);
+    // The bystander tab's props are reference-stable (memoized decode +
+    // stable callbacks), so the memo boundary must hold its row at zero
+    // extra renders. This is the assertion that catches an unmemoized
+    // tabs projection handing every row a fresh object.
+    expect(pillRenders['/repo/c.ts']).toBe(baselineC);
   });
 });

@@ -11,6 +11,7 @@ import { SCORECARD_PLATFORMS } from '../../src/shared/languageSupport';
 import {
   LANGUAGE_SCORECARD_PLATFORMS,
   TELEMETRY_EVENTS,
+  bucketBootDuration,
   bucketDurationMs,
   bucketOs,
   createSessionId,
@@ -34,6 +35,7 @@ function buildEvent(overrides: Partial<TelemetryEvent> = {}): TelemetryEvent {
 describe('TELEMETRY_EVENTS', () => {
   it('matches the allowed event names and does not grow without review', () => {
     expect([...TELEMETRY_EVENTS].sort()).toEqual([
+      'app.boot_phase',
       'app.launched',
       // RL-094 Slice 3 fold G — capsule browse overlay adoption signal.
       // Closed-enum `{ surface, tier }`. Sorts before `capsule.compared`.
@@ -413,6 +415,35 @@ describe('fs.blocked redaction (RL-137 / AUDIT-17)', () => {
 });
 
 describe('redactForTelemetry', () => {
+  it('keeps only closed boot phase buckets and drops exact timing or PII', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'app.boot_phase',
+        properties: {
+          phase: 'first-paint',
+          durationBucket: '50-249ms',
+          durationMs: 83.421,
+          timestamp: Date.now(),
+          filePath: '/Users/me/private',
+        },
+      })
+    );
+    expect(event.properties).toEqual({
+      phase: 'first-paint',
+      durationBucket: '50-249ms',
+    });
+    expect(droppedKeys).toEqual(expect.arrayContaining(['durationMs', 'timestamp', 'filePath']));
+  });
+
+  it('buckets boot durations without exposing exact values', () => {
+    expect([0, 49, 50, 249, 250, 999, 1000, 4999, 5000, 29999, 30000].map(
+      bucketBootDuration
+    )).toEqual([
+      '<50ms', '<50ms', '50-249ms', '50-249ms', '250-999ms', '250-999ms',
+      '1-4.9s', '1-4.9s', '5-29.9s', '5-29.9s', '>=30s',
+    ]);
+  });
+
   it('keeps only allow-listed properties and reports what was dropped', () => {
     const { event, droppedKeys } = redactForTelemetry(
       buildEvent({

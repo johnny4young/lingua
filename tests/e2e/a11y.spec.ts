@@ -111,7 +111,12 @@ test.describe('Automated axe scans', () => {
   test('Developer Utilities', async ({ page }) => {
     await openDeveloperUtilities(page);
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
-    await expect(page.getByRole('heading', { name: /built-in utilities/i })).toBeVisible();
+    // The workspace deliberately has no visible title (the shared chips row
+    // carries the header content); the heading contract is sr-only for
+    // assistive tech, so assert presence, not visibility.
+    await expect(
+      page.getByRole('heading', { name: /built-in utilities/i })
+    ).toBeAttached();
     await auditA11y(page);
   });
 

@@ -36,7 +36,9 @@ export type Entitlement = (typeof ENTITLEMENTS)[number];
  * entitlement flag above.
  */
 export const FREE_TIER_LIMITS = {
-  maxOpenTabs: 1,
+  // IT2-D1 — three tabs let Free users compare the core JS/TS/Python
+  // workflows before the unlimited-tabs upgrade becomes relevant.
+  maxOpenTabs: 3,
   maxSnippets: 5,
   // RL-042 Slice 5 — Ruby (@ruby/wasm-wasi) joins the Free set with
   // the same posture as Python (Pyodide): pure browser WASM, no host

@@ -133,6 +133,11 @@ export async function persistTab(
   const stdinBuffer = languageSupportsStdin(language)
     ? tab.stdinBuffer
     : undefined;
+  const inputSets = languageSupportsStdin(language) ? tab.inputSets : undefined;
+  const activeInputSetId = languageSupportsStdin(language)
+    ? tab.activeInputSetId
+    : undefined;
+  const inputArgs = languageSupportsStdin(language) ? tab.inputArgs : undefined;
   // RL-020 Slice 8 — Save-As that changes the language drops the
   // Compare toggle. Same-language Save-As (renaming `foo.js` →
   // `bar.js`) keeps the toggle on so the user's workflow isn't
@@ -160,6 +165,9 @@ export async function persistTab(
   const {
     autoLogEnabled: _staleAutoLogEnabled,
     stdinBuffer: _staleStdinBuffer,
+    inputSets: _staleInputSets,
+    activeInputSetId: _staleActiveInputSetId,
+    inputArgs: _staleInputArgs,
     // RL-020 Slice 7 — the per-tab one-shot extended-timeout
     // override is always scoped to the code the user was looking
     // at when they armed it. A Save-As that retitles or changes
@@ -172,6 +180,9 @@ export async function persistTab(
   } = tab;
   void _staleAutoLogEnabled;
   void _staleStdinBuffer;
+  void _staleInputSets;
+  void _staleActiveInputSetId;
+  void _staleInputArgs;
   void _staleNextRunTimeoutOverride;
   void _staleCompareEnabled;
   void _staleInspectorEnabled;
@@ -187,6 +198,9 @@ export async function persistTab(
     workflowMode,
     ...(autoLogEnabled !== undefined ? { autoLogEnabled } : {}),
     ...(stdinBuffer !== undefined ? { stdinBuffer } : {}),
+    ...(inputSets !== undefined ? { inputSets } : {}),
+    ...(activeInputSetId !== undefined ? { activeInputSetId } : {}),
+    ...(inputArgs !== undefined ? { inputArgs } : {}),
     ...(compareWithSnapshotEnabled !== undefined
       ? { compareWithSnapshotEnabled }
       : {}),

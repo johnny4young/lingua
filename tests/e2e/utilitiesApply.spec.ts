@@ -12,6 +12,7 @@
  * it also protects the paid workflow layer that shares the same surface.
  */
 
+import { mkdirSync } from 'node:fs';
 import {
   closeDeveloperUtilities,
   expect,
@@ -62,7 +63,11 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
     // depending on whether the seed accidentally satisfies the base64
     // shape — we only assert the toolbar exists, which proves the
     // panel wired UtilityToolbar.
-    await expect(page.getByTestId('utility-apply-button')).toBeVisible();
+    await expect(
+      page
+        .getByTestId('utility-panel-cache-base64')
+        .getByTestId('utility-apply-button')
+    ).toBeVisible();
   });
 
   test('Random String: pure generator panel exposes no Apply button', async ({ page }) => {
@@ -72,7 +77,11 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
       page.getByRole('heading', { level: 2, name: 'Random String Generator' })
     ).toBeVisible();
 
-    await expect(page.getByTestId('utility-apply-button')).toHaveCount(0);
+    await expect(
+      page
+        .getByTestId('utility-panel-cache-random-string')
+        .getByTestId('utility-apply-button')
+    ).toHaveCount(0);
   });
 
   test('Lorem Ipsum: pure generator panel exposes no Apply button', async ({ page }) => {
@@ -82,7 +91,11 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
       page.getByRole('heading', { level: 2, name: 'Lorem Ipsum Generator' })
     ).toBeVisible();
 
-    await expect(page.getByTestId('utility-apply-button')).toHaveCount(0);
+    await expect(
+      page
+        .getByTestId('utility-panel-cache-lorem-ipsum')
+        .getByTestId('utility-apply-button')
+    ).toHaveCount(0);
   });
 
   test('UUID: Apply is disabled with empty decoder, enabled with a valid UUID pasted', async ({
@@ -92,7 +105,9 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
     await page.getByTestId('utility-item-uuid').click();
     await expect(page.getByRole('heading', { level: 2, name: 'UUID Generator' })).toBeVisible();
 
-    const apply = page.getByTestId('utility-apply-button');
+    const apply = page
+      .getByTestId('utility-panel-cache-uuid')
+      .getByTestId('utility-apply-button');
     await expect(apply).toBeDisabled();
 
     // Paste a UUID into the decoder field — Apply should enable.
@@ -105,7 +120,9 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
     await page.getByTestId('utility-item-diff').click();
     await expect(page.getByRole('heading', { level: 2, name: 'Diff Viewer' })).toBeVisible();
 
-    const apply = page.getByTestId('utility-apply-button');
+    const apply = page
+      .getByTestId('utility-panel-cache-diff')
+      .getByTestId('utility-apply-button');
     // Both default seeds non-empty.
     await expect(apply).toBeEnabled();
 
@@ -114,13 +131,40 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
 
     await page.getByLabel('Updated').fill('different content');
     await expect(apply).toBeEnabled();
+
+    // P7 — cross the worker threshold and prove the production bundle loaded
+    // the dedicated compute worker rather than running Myers in the renderer.
+    await page.getByLabel('Original').fill(`before-${'a'.repeat(4_100)}`);
+    await page.getByLabel('Updated').fill(`after-${'b'.repeat(4_100)}`);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          performance
+            .getEntriesByType('resource')
+            .some((entry) => entry.name.includes('utility-compute-worker'))
+        )
+      )
+      .toBe(true);
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/project-sequence/t07-performance', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/project-sequence/t07-performance/web-en-large-diff-worker.png',
+      });
+    }
   });
 
   test('Mod+Shift+A: shortcut fires the focused panel Apply with localized toast', async ({
     page,
   }) => {
     await openDeveloperUtilities(page);
-    // JSON panel is the default; Apply is enabled with the seeded payload.
+    // JSON panel is the default. Wait for its registration + seeded input to
+    // settle before driving the global shortcut; parallel startup can expose
+    // the shell a frame before the active-panel callback is ready.
+    await expect(
+      page
+        .getByTestId('utility-panel-cache-json')
+        .getByTestId('utility-apply-button')
+    ).toBeEnabled();
     await page.keyboard.press('Meta+Shift+A');
 
     await expect(page.getByText(/Applied JSON Formatter|Apliqué Formateador JSON/i)).toBeVisible({
@@ -142,6 +186,12 @@ test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
       await expect(esPage.getByRole('button', { name: /Aplica desde la entrada/i })).toBeVisible({
         timeout: 6000,
       });
+      if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+        mkdirSync('output/review/project-sequence/t07-performance', { recursive: true });
+        await esPage.screenshot({
+          path: 'output/review/project-sequence/t07-performance/web-es-lazy-locale.png',
+        });
+      }
 
       await esPage.keyboard.press('Meta+Shift+A');
       await expect(esPage.getByText(/Apliqué.*a la entrada actual/i)).toBeVisible({

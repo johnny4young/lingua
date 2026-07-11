@@ -119,4 +119,91 @@ describe('editorStore — stdinBuffer per-tab (RL-020 Slice 6)', () => {
     const tab = useEditorStore.getState().tabs[0];
     expect(tab?.stdinBuffer).toBeUndefined();
   });
+
+  it('normalizes argv input: strips CR line endings and drops blank lines', () => {
+    const { addTab, setTabInputArgs } = useEditorStore.getState();
+    addTab({ id: 't1', name: 'main.js', language: 'javascript', content: '' });
+
+    // A pasted CRLF block with a trailing newline splits into entries that
+    // carry \r and a final empty string — the one-argument-per-line contract
+    // must not persist either.
+    setTabInputArgs('t1', ['--mode\r', 'fast\r', '', '  ', 'last', '']);
+    let tab = useEditorStore.getState().tabs[0];
+    expect(tab?.inputArgs).toEqual(['--mode', 'fast', 'last']);
+
+    // All-blank input clears the args entirely rather than storing empties.
+    setTabInputArgs('t1', ['', '\r', '   ']);
+    tab = useEditorStore.getState().tabs[0];
+    expect(tab?.inputArgs).toBeUndefined();
+  });
+
+  it('saves, switches, and updates named stdin + argv input sets', () => {
+    const {
+      addTab,
+      setTabStdinBuffer,
+      setTabInputArgs,
+      saveTabInputSet,
+      selectTabInputSet,
+    } = useEditorStore.getState();
+    addTab({ id: 't1', name: 'main.js', language: 'javascript', content: '' });
+
+    setTabStdinBuffer('t1', 'Ada\n42');
+    setTabInputArgs('t1', ['--mode', 'fast']);
+    const happyId = saveTabInputSet('t1', 'Happy path');
+    expect(happyId).toBeTruthy();
+
+    selectTabInputSet('t1', null);
+    setTabStdinBuffer('t1', '');
+    setTabInputArgs('t1', ['--empty']);
+    const emptyId = saveTabInputSet('t1', 'Empty input');
+    expect(emptyId).toBeTruthy();
+
+    selectTabInputSet('t1', happyId);
+    let tab = useEditorStore.getState().tabs[0];
+    expect(tab?.stdinBuffer).toBe('Ada\n42');
+    expect(tab?.inputArgs).toEqual(['--mode', 'fast']);
+
+    setTabStdinBuffer('t1', 'Grace');
+    expect(saveTabInputSet('t1', 'Renamed happy path')).toBe(happyId);
+    tab = useEditorStore.getState().tabs[0];
+    expect(tab?.inputSets?.find((inputSet) => inputSet.id === happyId)?.stdin).toBe('Grace');
+    expect(tab?.inputSets?.find((inputSet) => inputSet.id === happyId)?.name).toBe(
+      'Renamed happy path'
+    );
+    expect(tab?.inputSets).toHaveLength(2);
+  });
+
+  it('rejects duplicate names and deleting the active set keeps its loaded input', () => {
+    const { addTab, setTabStdinBuffer, saveTabInputSet, selectTabInputSet, deleteTabInputSet } =
+      useEditorStore.getState();
+    addTab({ id: 't1', name: 'main.py', language: 'python', content: '' });
+    setTabStdinBuffer('t1', 'first');
+    const firstId = saveTabInputSet('t1', 'Primary');
+    expect(firstId).toBeTruthy();
+
+    selectTabInputSet('t1', null);
+    expect(saveTabInputSet('t1', 'primary')).toBeNull();
+
+    selectTabInputSet('t1', firstId);
+    deleteTabInputSet('t1', firstId!);
+    const tab = useEditorStore.getState().tabs[0];
+    expect(tab?.stdinBuffer).toBe('first');
+    expect(tab?.inputSets).toBeUndefined();
+    expect(tab?.activeInputSetId).toBeUndefined();
+  });
+
+  it('drops input sets and argv when the tab changes to an unsupported language', () => {
+    const { addTab, setTabStdinBuffer, setTabInputArgs, saveTabInputSet, renameTab } =
+      useEditorStore.getState();
+    addTab({ id: 't1', name: 'main.js', language: 'javascript', content: '' });
+    setTabStdinBuffer('t1', 'value');
+    setTabInputArgs('t1', ['--verbose']);
+    saveTabInputSet('t1', 'Verbose');
+
+    renameTab('t1', 'main.rs');
+    const tab = useEditorStore.getState().tabs[0];
+    expect(tab?.inputSets).toBeUndefined();
+    expect(tab?.activeInputSetId).toBeUndefined();
+    expect(tab?.inputArgs).toBeUndefined();
+  });
 });

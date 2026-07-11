@@ -9,7 +9,8 @@
  * capsule — the new tab starts in `createDefaultTab` defaults so the
  * user has to explicitly Run / Cmd+Enter to re-execute. "No silent
  * execution" is the core RL-094 promise; opening a capsule must never
- * run code on its own.
+ * run code on its own. IT2-F5 restores the inert stdin/argv snapshot and
+ * optional set name so an explicitly-triggered replay receives the same input.
  *
  * RL-099 Slice 3 fold C — non-code capsules. `capsule.tab.language`
  * is a string that, for workspace-kind capsules, is NOT a real editor
@@ -52,11 +53,31 @@ export function openCapsuleSourceInNewTab(capsule: RunCapsuleV1): void {
     editorLanguage !== undefined
       ? createDefaultTab(editorLanguage)
       : createDefaultTab();
+  const restoredInputSet = capsule.input.setName
+    ? {
+        id: crypto.randomUUID(),
+        name: capsule.input.setName,
+        stdin: capsule.input.stdin ?? '',
+        ...(capsule.input.args && capsule.input.args.length > 0
+          ? { args: [...capsule.input.args] }
+          : {}),
+      }
+    : null;
   editor.addTab({
     ...defaults,
     content: capsule.source.content,
     name: capsule.tab.name?.trim().length
       ? capsule.tab.name.trim()
       : defaults.name,
+    ...(capsule.input.stdin ? { stdinBuffer: capsule.input.stdin } : {}),
+    ...(capsule.input.args && capsule.input.args.length > 0
+      ? { inputArgs: [...capsule.input.args] }
+      : {}),
+    ...(restoredInputSet
+      ? {
+          inputSets: [restoredInputSet],
+          activeInputSetId: restoredInputSet.id,
+        }
+      : {}),
   });
 }

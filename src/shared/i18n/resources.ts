@@ -14,34 +14,18 @@
 import en from '../../renderer/i18n/locales/en/common.json';
 // eslint-disable-next-line no-restricted-imports -- deliberate: JSON locale DATA, not renderer code (see layering note above)
 import es from '../../renderer/i18n/locales/es/common.json';
+import { COMMON_NAMESPACE } from './languages';
 
-export const COMMON_NAMESPACE = 'common';
-export const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
-
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+export {
+  COMMON_NAMESPACE,
+  SUPPORTED_LANGUAGES,
+  coerceSupportedLanguage,
+  isSupportedLanguage,
+  resolveSystemLanguage,
+} from './languages';
+export type { SupportedLanguage } from './languages';
 
 export const COMMON_RESOURCES = {
   en: { [COMMON_NAMESPACE]: en },
   es: { [COMMON_NAMESPACE]: es },
 } as const;
-
-export function isSupportedLanguage(language: string): language is SupportedLanguage {
-  return (SUPPORTED_LANGUAGES as readonly string[]).includes(language);
-}
-
-export function coerceSupportedLanguage(language: string): SupportedLanguage {
-  return isSupportedLanguage(language) ? language : 'en';
-}
-
-export function resolveSystemLanguage(
-  systemLanguages: readonly string[]
-): SupportedLanguage {
-  for (const tag of systemLanguages) {
-    const base = tag.split('-')[0]?.toLowerCase();
-    if (base && isSupportedLanguage(base)) {
-      return base;
-    }
-  }
-
-  return 'en';
-}

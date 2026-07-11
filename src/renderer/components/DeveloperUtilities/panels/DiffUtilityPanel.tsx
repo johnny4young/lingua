@@ -2,8 +2,9 @@ import { PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '..
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
-import { computeDiff, summarizeDiff } from '../../../utils/diff';
+import { summarizeDiff } from '../../../utils/diff';
 import type { DiffGranularity, DiffSegment } from '../../../utils/diff';
+import { useComputedDiff } from '../../../hooks/useComputedDiff';
 
 export function DiffUtilityPanel() {
   const { t } = useTranslation();
@@ -11,10 +12,7 @@ export function DiffUtilityPanel() {
   const [right, setRight] = useState('line one\nline two updated\nline three\nline four');
   const [granularity, setGranularity] = useState<DiffGranularity>('line');
 
-  const segments = useMemo(
-    () => computeDiff(left, right, granularity),
-    [left, right, granularity]
-  );
+  const segments = useComputedDiff(left, right, granularity);
   const summary = useMemo(() => summarizeDiff(segments), [segments]);
 
   // RL-069 Slice 2 — emit a unified-style summary line "+A −B =C" so

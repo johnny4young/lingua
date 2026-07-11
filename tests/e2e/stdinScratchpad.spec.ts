@@ -21,8 +21,10 @@
  *   9. Empty buffer ⇒ no patching: a JS `prompt()` call returns
  *      `null` (the panel hint promised native behavior).
  *  10. Console stays clean across the full flow.
+ *  11. Named input sets switch stdin/argv together and survive reload.
  */
 
+import { mkdirSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import {
   createJavaScriptTab,
@@ -175,5 +177,75 @@ test.describe('stdin / input — JS + TS + Python (RL-020 Slice 6)', () => {
 
     const tab = page.getByTestId('bottom-panel-stdin-tab');
     await expect(tab).toContainText('Entrada');
+    await tab.click();
+    await expect(page.getByText('Conjunto de entrada', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Nombre del conjunto de entrada')).toBeVisible();
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/project-sequence/t03-input-sets', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/project-sequence/t03-input-sets/web-es-input-sets.png',
+      });
+    }
+  });
+
+  test('6. Named input sets switch stdin + argv together and survive reload', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en' });
+    await page.addInitScript(() => {
+      const raw = window.localStorage.getItem('lingua-settings');
+      const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 };
+      parsed.state = parsed.state ?? {};
+      parsed.state.restoreSessionMode = 'always';
+      window.localStorage.setItem('lingua-settings', JSON.stringify(parsed));
+    });
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createJavaScriptTab(page);
+    await openStdinTab(page);
+
+    await fillStdinTextarea(page, 'Ada');
+    await page.getByLabel('Command arguments').fill('--mode\nfast');
+    await page.getByLabel('Input set name').fill('Happy path');
+    await page.getByTestId('stdin-input-set-save').click();
+
+    const selector = page.getByLabel('Select an input set');
+    await expect(selector).toHaveValue(/.+/);
+    await selector.selectOption({ label: 'Unsaved draft' });
+    await page.getByRole('textbox', { name: 'Response for call 1' }).fill('Grace');
+    await page.getByLabel('Command arguments').fill('--dry-run');
+    await page.getByLabel('Input set name').fill('Edge case');
+    await page.getByTestId('stdin-input-set-save').click();
+
+    await selector.selectOption({ label: 'Happy path' });
+    await expect(page.getByRole('textbox', { name: 'Response for call 1' })).toHaveValue('Ada');
+    await expect(page.getByLabel('Command arguments')).toHaveValue('--mode\nfast');
+
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/project-sequence/t03-input-sets', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/project-sequence/t03-input-sets/web-en-input-sets.png',
+      });
+    }
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const raw = window.localStorage.getItem('lingua-session');
+          if (!raw) return 0;
+          const parsed = JSON.parse(raw) as {
+            state?: { savedTabs?: Array<{ inputSets?: unknown[] }> };
+          };
+          return parsed.state?.savedTabs?.[0]?.inputSets?.length ?? 0;
+        })
+      )
+      .toBe(2);
+
+    await page.reload();
+    await expect(page.getByTestId('license-badge')).toBeVisible();
+    await openStdinTab(page);
+    await expect(page.getByLabel('Select an input set')).toContainText('Happy path');
+    await expect(page.getByRole('textbox', { name: 'Response for call 1' })).toHaveValue('Ada');
+    await expect(page.getByLabel('Command arguments')).toHaveValue('--mode\nfast');
   });
 });

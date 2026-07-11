@@ -33,10 +33,10 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`lint/`](lint)             | Inline-lint rules + quick-fix provider Monaco's TS worker does not cover (RL-108) |
 | [`clipboard/`](clipboard)   | Smart-paste detectors + intent router that delegate pasted artifacts to existing importers (RL-110) |
 | [`validation/`](validation) | Validate-only document checks for non-runnable development files          |
-| [`workers/`](workers)       | Web Worker entry points for JS/TS/Python/Go browser execution             |
+| [`workers/`](workers)       | Web Worker entry points for JS/TS/Python/Go browser execution plus large diff and Utility Pipeline compute |
 | [`utils/`](utils)           | Framework-agnostic helpers and renderer-specific utilities                |
 | [`data/`](data)             | Static templates and catalog data                                         |
-| [`i18n/`](i18n)             | Translation bootstrap and locale files                                    |
+| [`i18n/`](i18n)             | Async translation bootstrap: English is initial; Spanish loads on demand before mount/language change |
 | [`themes/`](themes)         | Monaco/editor theme definitions                                           |
 | [`plugins/`](plugins)       | Renderer-side plugin catalog, diagnostics, and safe runtime hooks         |
 | [`onboarding/`](onboarding) | First-run scratchpad seed and guided-start helpers                        |
@@ -53,15 +53,15 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`                                       | Owns shell composition, panel layout, sidebar/drawer behavior  |
 | [`components/Chrome/`](components/Chrome)                 | `AppChrome.tsx`                                       | App-level chrome frame and shell wrapper primitives            |
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
-| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `ResultPanel.tsx` | Owns Monaco, tabs, inline result surface, completion providers |
+| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabItems.tsx`, `ResultPanel.tsx` | Owns Monaco, tab orchestration/rows, inline result surface, completion providers |
 | [`components/ErrorBoundary/`](components/ErrorBoundary)   | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
 | [`components/Toolbar/`](components/Toolbar)               | `Toolbar.tsx`                                         | Owns primary shell actions and status affordances              |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
-| [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `commandPaletteModel.ts`        | UI plus command catalog/model logic                            |
+| [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `useCommandPaletteCommands.ts`, `commandPaletteModel.ts` | Thin combobox UI plus store-backed catalog orchestration and pure model logic |
 | [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
 | [`components/GuidedTour/`](components/GuidedTour)         | `GuidedTourProvider.tsx`, step helpers                | First-run tour orchestration and target selectors              |
-| [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, cell row components               | Notebook cells, keyboard command mode, export-to-script flow   |
+| [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, `NotebookToolbar.tsx`, `NotebookCellList.tsx`, cell rows | Notebook orchestration, toolbar/export lifecycle, virtualized cells, keyboard command mode |
 | [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 29 utility panels plus panel-specific validation/output UX      |
 | [`components/Dependencies/`](components/Dependencies)     | `DependenciesPanel.tsx`                               | JS/TS and Python dependency detection/install surfaces          |
 | [`components/BrowserPreview/`](components/BrowserPreview) | `BrowserPreviewPanel.tsx`                             | Iframe preview panel and active iframe bridge integration       |
@@ -71,7 +71,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`   | cURL, `.ipynb`, Postman, and Bruno preview before opening workspace tabs |
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
-| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`                               | DuckDB SQL workspace, schema browser, result preview            |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlResultPreview.tsx`, preview parts/actions | DuckDB SQL workspace, schema browser, result orchestration and focused table/export UI |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`                            | Run Capsule import validation and open/focus routing            |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`                              | Capsule browsing, filters, and replay affordances              |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
@@ -95,7 +95,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [editorStore.ts](stores/editorStore.ts)     | tabs, active editor session, file/language metadata, pending reveal requests — thin assembly point (RL-128) that composes the focused editor\* modules below |
 | editor split (RL-128) — pure helpers: [editorStoreContext.ts](stores/editorStoreContext.ts) (shared `EditorSet`/`EditorGet` types), [editorModeHelpers.ts](stores/editorModeHelpers.ts) (runtime/workflow mode resolution), [editorTabUtils.ts](stores/editorTabUtils.ts) (tab helpers, capability droppers, workspace consts, `createDefaultTab`), [editorPersistence.ts](stores/editorPersistence.ts) (format-on-save + `persistTab`), [editorSelectors.ts](stores/editorSelectors.ts) (`getActiveTab`/`getActiveTabIndex`) | leaf helpers the assembly + consumers import; no store-cycle |
-| editor split (RL-128) — action factories: [editorTabActions.ts](stores/editorTabActions.ts) (create/restore/remove/focus/duplicate), [editorWorkspaceActions.ts](stores/editorWorkspaceActions.ts) (notebook + SQL/HTTP openers), [editorContentActions.ts](stores/editorContentActions.ts) (buffer/exec-state/timeout/recipe-clear), [editorModeActions.ts](stores/editorModeActions.ts) (runtime/workflow mode + capability toggles), [editorSaveActions.ts](stores/editorSaveActions.ts) (open/save/save-as), [editorCloseActions.ts](stores/editorCloseActions.ts) (close + bulk + rename) | `(set, get) => Pick<EditorState, …>` slices spread into `useEditorStore` |
+| editor split (RL-128) — action factories: [editorTabActions.ts](stores/editorTabActions.ts) (create/restore/remove/focus/duplicate), [editorWorkspaceActions.ts](stores/editorWorkspaceActions.ts) (notebook + SQL/HTTP openers), [editorContentActions.ts](stores/editorContentActions.ts) (buffer/exec-state/timeout/recipe-clear), [editorModeActions.ts](stores/editorModeActions.ts) (runtime/workflow mode + capability toggles), [editorInputActions.ts](stores/editorInputActions.ts) (stdin/argv/named input sets), [editorSaveActions.ts](stores/editorSaveActions.ts) (open/save/save-as), [editorCloseActions.ts](stores/editorCloseActions.ts) (close + bulk + rename) | `(set, get) => Pick<EditorState, …>` slices spread into `useEditorStore` |
 | [resultStore.ts](stores/resultStore.ts)     | inline results, diagnostics, run timing, compare snapshots, variable scope |
 | [consoleStore.ts](stores/consoleStore.ts)   | console entries and runtime output filters                        |
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |

@@ -20,7 +20,10 @@ import {
   useRecipeStore,
 } from '../../../src/renderer/stores/recipeStore';
 import { resetLessonProgressStoreForTests, useLessonProgressStore } from '../../../src/renderer/stores/lessonProgressStore';
-import { useEditorStore } from '../../../src/renderer/stores/editorStore';
+import {
+  createDefaultTab,
+  useEditorStore,
+} from '../../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 
 beforeEach(() => {
@@ -119,6 +122,8 @@ describe('RecipesOverlay', () => {
           workflowMode: 'scratchpad',
           runtimeMode: 'worker',
         },
+        { ...createDefaultTab('typescript'), id: 'existing-tab-2' },
+        { ...createDefaultTab('python'), id: 'existing-tab-3' },
       ],
       activeTabId: 'existing-tab',
     });
@@ -132,7 +137,7 @@ describe('RecipesOverlay', () => {
     await user.click(sortRow!);
 
     expect(closed).toBe(false);
-    expect(useEditorStore.getState().tabs).toHaveLength(1);
+    expect(useEditorStore.getState().tabs).toHaveLength(3);
     expect(useRecipeStore.getState().getBindingForTab('existing-tab')).toBeUndefined();
     expect(useLessonProgressStore.getState().getEntry('js-sort-objects')).toBeUndefined();
     expect(useUIStore.getState().activeBottomPanel).toBe('console');

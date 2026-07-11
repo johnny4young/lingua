@@ -412,6 +412,8 @@ interface BuildCommandPaletteModelArgs {
    * omitted the palette entry is hidden.
    */
   onCopyLanguageScorecardMarkdown?: () => void;
+  /** IT2-G1 — copies the local duration-only boot timing snapshot as JSON. */
+  onCopyBootTimings?: () => void;
   /**
    * RL-036 Phase A1 fold C — encodes the active tab as a share-link
    * URL fragment and copies it to the clipboard (via the
@@ -780,6 +782,7 @@ export function buildCommandPaletteModel({
   onExportActiveNotebookLinguanb,
   onShowLanguageSupport,
   onCopyLanguageScorecardMarkdown,
+  onCopyBootTimings,
   onCopyShareLink,
   onReplayOnboardingWelcome,
   onReplayOnboardingFirstRun,
@@ -1162,6 +1165,20 @@ export function buildCommandPaletteModel({
             ['language', 'scorecard', 'markdown', 'copy', 'lenguajes', 'tabla'],
             () => {
               onCopyLanguageScorecardMarkdown();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    ...(onCopyBootTimings
+      ? [
+          buildActionCommand(
+            'action-copy-boot-timings',
+            translate('commandPalette.action.copyBootTimings.label'),
+            translate('commandPalette.action.copyBootTimings.description'),
+            ['boot', 'startup', 'performance', 'timings', 'arranque', 'rendimiento'],
+            () => {
+              onCopyBootTimings();
               onClose();
             }
           ),

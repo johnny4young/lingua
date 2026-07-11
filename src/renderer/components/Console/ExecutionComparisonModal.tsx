@@ -1,13 +1,13 @@
 import { X } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import {
-  computeDiff,
   DIFF_MAX_INPUT_CHARS,
   summarizeDiff,
   type DiffSegment,
 } from '../../utils/diff';
+import { useComputedDiff } from '../../hooks/useComputedDiff';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
 /**
@@ -81,15 +81,12 @@ export function ExecutionComparisonModal({ entries, onClose }: ExecutionComparis
     return () => window.removeEventListener('keydown', onKey);
   }, [entries, onClose]);
 
-  const diff = useMemo<DiffSegment[]>(() => {
-    if (!entries) return [];
-    const [older, newer] = entries;
-    return computeDiff(
-      older.snapshot?.code ?? '',
-      newer.snapshot?.code ?? '',
-      'line'
-    );
-  }, [entries]);
+  const diff = useComputedDiff(
+    entries?.[0].snapshot?.code ?? '',
+    entries?.[1].snapshot?.code ?? '',
+    'line',
+    entries !== null
+  );
 
   if (!entries) return null;
   const [older, newer] = entries;

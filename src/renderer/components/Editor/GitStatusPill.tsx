@@ -52,6 +52,8 @@ export interface GitStatusPillProps {
   language?: string;
   /** Live tab content; checked for `// @git-ignore-status`. */
   content?: string;
+  /** Precomputed strip projection; avoids forwarding the whole editor buffer. */
+  suppressedByMagic?: boolean;
 }
 
 interface PillVisualSpec {
@@ -95,6 +97,7 @@ export function GitStatusPill({
   filePath,
   language,
   content,
+  suppressedByMagic,
 }: GitStatusPillProps) {
   const { t } = useTranslation();
   const posture = useGitStore((state) => state.posture);
@@ -105,10 +108,11 @@ export function GitStatusPill({
   // Per-file magic-comment opt-out (fold F). Memoised by content so
   // a clean file with the directive in a comment doesn't re-evaluate
   // on every render.
-  const suppressedByMagic = useMemo(
+  const suppressedFromContent = useMemo(
     () => gitStatusSuppressedByMagicComment(language ?? '', content ?? ''),
     [language, content]
   );
+  const isSuppressedByMagic = suppressedByMagic ?? suppressedFromContent;
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(
     null
@@ -210,7 +214,7 @@ export function GitStatusPill({
 
   // Bail-outs (post-hooks so React rules-of-hooks stay clean).
   if (!posture?.available) return null;
-  if (suppressedByMagic) return null;
+  if (isSuppressedByMagic) return null;
   if (!entry) return null;
 
   // `PILL_VISUAL[entry.status]` is provably defined because
