@@ -1448,12 +1448,12 @@ ataca.
 | **Innovación** | ★★★★ | Capsules reproducibles + Trust dashboard + AI local con payload preview: real, pero invisible al mercado. La reactividad cross-lenguaje (F2) es el hueco sin ocupar. | F2, C2, G8 |
 | **Originalidad** | ★★★★½ | Único runner multi-lenguaje offline-first unificado (la competencia lo ataca con apps separadas). El ledger consultable con SQL (C2) y la capsule→HTML (F7) no los tiene nadie. | C2, F7 |
 | **UX** | ★★★½ | Sólida de base, sin momentos de deleite ni loops de retorno; el gating Free contradice la persona objetivo. | D completo, G4-G5 |
-| **Performance** | ★★★½ | Runtime bien (virtualización parcial, budgets en CI); el ARRANQUE está sin instrumentar, con rehidratación síncrona de 15 stores y ventana bloqueada por la licencia. | B, G1-G3 |
-| **Arquitectura** | ★★★★½ | IPC por contrato, FS por capabilities, resiliencia mejor de lo asumido (safe mode, boot-loop counter, factory reset). Lo que resta: god-file fs y workers sin contrato. | A1, A4 |
+| **Performance** | ★★★★ | Runtime con virtualización, selectors estrechos y compute worker; G1 ya instrumenta el arranque. Restan rehidratación diferida y desacoplar la ventana del bootstrap de licencia. | B, G2-G3 |
+| **Arquitectura** | ★★★★½ | IPC y workers por contrato, FS por capabilities y assembly de 40 LOC. Restan el lifecycle duplicado de runners y el sprawl de configs. | A2, A4 |
 | **Escalabilidad (datos)** | ★★½ | Todo en localStorage con caps; historial volátil. El Run Ledger (DuckDB+OPFS) es el salto — sin dependencias nuevas. | C1-C2 |
 | **Testeabilidad** | ★★★ | 571 tests y CI disciplinado, pero 0 coverage instrumentado, 1/571 type-checkeado y axe en ~30% de superficies. | E, G7c |
 | **Simplicidad** | ★★★½ | Patrones consistentes (splits RL-128/129/130, contrato IPC); la rompen los hooks de 500-617 LOC y el boilerplate de paneles. | A2, A5 |
-| **Mantenibilidad** | ★★★½ | Docs vivos + gates fuertes; deuda concentrada y mapeada (fileSystem.ts 1.904 LOC, 53 imports cruzados). | A completo |
+| **Mantenibilidad** | ★★★★ | Docs vivos + gates fuertes; fileSystem y cuatro componentes prioritarios ya se partieron con budgets automatizados. Quedan seis componentes de 800+ LOC y los hooks grandes de A5. | A2, A5-A7 |
 | **Librerías** | ★★★★★ | React 19 / Vite 8 / TS 6 / Electron 42 / zustand 5 / Tailwind 4 — todo al día; el plugin de Forge fue verificado como dependencia viva del empaquetado desktop. | A6 |
 
 **Los tres multiplicadores** (si solo se hicieran tres cosas): (1)
