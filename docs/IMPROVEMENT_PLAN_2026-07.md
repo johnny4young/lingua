@@ -60,33 +60,33 @@ cuentas, sin fricción.
 
 Fortalezas: IPC tipado por contrato, FS por capabilities, spawn engine
 unificado, licensing offline, stack al día, onboarding <90 s.
-Deudas: `fileSystem.ts` 1.904 LOC; workers sin contrato tipado; T6 sin
-descarte de output tras truncation; FileTree sin virtualizar; 0 coverage
-instrumentado; sin DB local (historial volátil); gating Free hostil
-(1 tab); bootstrap de runtimes sin progreso; cero loops de retención.
+Deudas: seis componentes renderer aún superan 800 LOC; 0 coverage
+instrumentado; bootstrap de runtimes sin progreso; cero loops de retención.
+El god-file `fileSystem.ts`, el contrato de workers, T6 y la virtualización de
+FileTree ya quedaron cerrados con límites estructurales automatizados.
+El Run Ledger y el rebalanceo Free a 3 tabs ya cerraron los dos gaps que
+esta auditoría describía como historial volátil y gating hostil.
 
 ---
 
 # LANE A — Mantenibilidad
 
-## IT2-A1 · Split de `src/main/ipc/fileSystem.ts` (1.904 LOC) — EJECUTADO PARCIAL 2026-07-09
+## IT2-A1 · Split de `src/main/ipc/fileSystem.ts` (1.904 LOC) — EJECUTADO 2026-07-10
 
-> **Estado de ejecución.** Extraídos VERBATIM los dos bloques grandes y
+> **Estado de ejecución.** La primera pasada extrajo VERBATIM los bloques
 > cohesivos que NO tocan estado mutable de módulo: `fs/fsShared.ts` (117
 > LOC — helpers puros: shouldHide/joinRelative/dirnameRelative/isRecord/
 > coerce*/CapabilityError/resolveOrThrow), `fs/fsSearchReplace.ts` (569
 > LOC — searchInFiles/replaceInFiles/applyReplaceInFile + walkProject),
 > `fs/fsBundle.ts` (216 LOC — export/importBundle; recibe
-> `rememberApprovedRoot` como parámetro inyectado). `fileSystem.ts` bajó
-> 1904 → 1052 y quedó como assembly que delega. Cero cambio de
-> comportamiento: los 132 tests de `tests/ipc/fileSystem.test.ts` +
-> `watcherLifecycle` + `permissions` pasan sin editar asserts; suite
-> 530/530. **Follow-up documentado:** `fsWatchers.ts` (el cluster de
-> watchers comparte los 4 Maps de estado + `stopAllWatchers` exportado +
-> los `_reset*ForTests` que los tests importan — mover requiere
-> re-exportar desde el assembly, más riesgo) y `fsOperations.ts`
-> (read/write/readdir) quedan para una segunda pasada; el assembly a 1052
-> LOC ya no es un god-file de 1904.
+> `rememberApprovedRoot` como parámetro inyectado). La segunda pasada movió
+> aprobaciones (`fsApprovals.ts`, 167 LOC), operaciones/pickers/dialogs
+> (`fsOperations.ts`, 543 LOC) y todo el registro/lifecycle mutable de watchers
+> (`fsWatchers.ts`, 315 LOC). `fileSystem.ts` bajó 1904 → 1052 → **40 LOC** y
+> quedó como assembly puro con re-exports compatibles para `git.ts` y tests.
+> Los seis módulos quedan por debajo de 600 LOC. Un test estructural bloquea
+> regresiones del assembly y del presupuesto; 115 tests IPC/watcher/git y 296
+> pruebas focalizadas de la ronda pasan sin cambiar contratos ni asserts.
 
 **Evidencia (mapa estructural real).** Estado module-level: `watchers`
 (L83), `watcherIdsByTarget` (L84), `watcherIdsBySender` (L91),
@@ -95,14 +95,15 @@ instrumentado; sin DB local (historial volátil); gating Free hostil
 Registro único: `registerFileSystemHandlers()` (L508). El mint/resolve de
 capabilities YA vive aparte en `ipc/projectCapabilities.ts` (298 LOC).
 
-**Diseño.** 5 módulos nuevos bajo `src/main/ipc/fs/`, cada uno exporta
+**Diseño ejecutado.** 6 módulos bajo `src/main/ipc/fs/`; los grupos con IPC
+exportan
 `registerXHandlers()`; `fileSystem.ts` queda como assembly (mismo patrón
 que los store splits RL-128/129):
 
 | Módulo nuevo | Se lleva (líneas actuales) |
 | --- | --- |
-| `fsApprovals.ts` | approvals L125-251 + pickers/reopen/revoke L541-717 + dialogs L721-761 |
-| `fsOperations.ts` | readdir/listAllFiles L765-855 + stat/read/write/append/mkdir/rename/remove L1415-1650 |
+| `fsApprovals.ts` | persistencia de approvals + checks de scope usados por Git y reopen |
+| `fsOperations.ts` | pickers/reopen/revoke/dialogs + readdir/listAllFiles/stat/read/write/delete/rename/mkdir/touch/reveal |
 | `fsSearchReplace.ts` | `fs:searchInFiles` L864 + `fs:replaceInFiles` L1097 |
 | `fsWatchers.ts` | los 4 Maps de watchers + stopWatcherById/ForSender/All L385-421 + watch-start/stop/change-handler L1591-1896 |
 | `fsBundle.ts` | pack/unpack L1705-1777 |
@@ -112,9 +113,9 @@ que los store splits RL-128/129):
 módulos no los tocan — verificar con grep antes de mover); (3) `fileSystem.ts`
 importa y delega; (4) correr `tests/main/*` sin editar un solo assert.
 
-**AC.** Cero cambio de comportamiento; contrato IPC intacto
-(`tests/shared/ipcContract.test.ts` verde); cada módulo <600 LOC; `git log
---follow` conserva historia (usar `git mv` + edición, no copy-paste).
+**AC.** Cero cambio de comportamiento; contrato IPC intacto; cada módulo
+<600 LOC; re-exports públicos de approvals/watchers intactos. El split
+multi-destino queda visible como movimiento mecánico dentro de un solo commit.
 
 ## IT2-A2 · Consolidar boilerplate de paneles de utilidades — S (1-2 d)
 
@@ -1362,7 +1363,7 @@ toca UI (mandato AGENTS.md).
 | 2 | IT2-B4 (medir → fix selectores) | 0.5 d | Perf percibida al tipear. |
 | 3 | IT2-B1 (descarte post-truncation T6) | 1 d | Robustez del engine. |
 | 4 | IT2-B2 (FileTree virtual) | 1.5 d | Piezas ya existen. |
-| 5 | IT2-A1 (split fileSystem.ts) | 2-3 d | Con suite verde y sin re-firmar. |
+| 5 | ~~IT2-A1 (split fileSystem.ts)~~ | Hecho 2026-07-10 | Assembly 40 LOC; seis módulos <600 LOC. |
 | 6 | IT2-A4 → IT2-E3 (worker contract → tests) | 2-3 d | Prerrequisito de D3, F6, F8. |
 
 **Fase 2 — Datos + quick wins de mercado**:

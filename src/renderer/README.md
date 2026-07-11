@@ -58,10 +58,10 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/FileTree/`](components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
 | [`components/Toolbar/`](components/Toolbar)               | `Toolbar.tsx`                                         | Owns primary shell actions and status affordances              |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
-| [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `commandPaletteModel.ts`        | UI plus command catalog/model logic                            |
+| [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `useCommandPaletteCommands.ts`, `commandPaletteModel.ts` | Thin combobox UI plus store-backed catalog orchestration and pure model logic |
 | [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
 | [`components/GuidedTour/`](components/GuidedTour)         | `GuidedTourProvider.tsx`, step helpers                | First-run tour orchestration and target selectors              |
-| [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, cell row components               | Notebook cells, keyboard command mode, export-to-script flow   |
+| [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, `NotebookToolbar.tsx`, `NotebookCellList.tsx`, cell rows | Notebook orchestration, toolbar/export lifecycle, virtualized cells, keyboard command mode |
 | [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 29 utility panels plus panel-specific validation/output UX      |
 | [`components/Dependencies/`](components/Dependencies)     | `DependenciesPanel.tsx`                               | JS/TS and Python dependency detection/install surfaces          |
 | [`components/BrowserPreview/`](components/BrowserPreview) | `BrowserPreviewPanel.tsx`                             | Iframe preview panel and active iframe bridge integration       |
@@ -71,7 +71,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`   | cURL, `.ipynb`, Postman, and Bruno preview before opening workspace tabs |
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
-| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`                               | DuckDB SQL workspace, schema browser, result preview            |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlResultPreview.tsx`, preview parts/actions | DuckDB SQL workspace, schema browser, result orchestration and focused table/export UI |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`                            | Run Capsule import validation and open/focus routing            |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`                              | Capsule browsing, filters, and replay affordances              |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |

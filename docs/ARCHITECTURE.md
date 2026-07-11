@@ -374,7 +374,11 @@ This project uses Electron's secure preload + IPC model:
 
 The bridge is defined in [`src/preload/index.ts`](../src/preload/index.ts).
 
-The handlers are registered from [`src/main/index.ts`](../src/main/index.ts), mainly through [`src/main/ipc/fileSystem.ts`](../src/main/ipc/fileSystem.ts).
+The handlers are registered from [`src/main/index.ts`](../src/main/index.ts)
+through the thin [`src/main/ipc/fileSystem.ts`](../src/main/ipc/fileSystem.ts)
+assembly. Focused groups live under [`src/main/ipc/fs/`](../src/main/ipc/fs/):
+approvals, core operations, search/replace, bundles, shared capability helpers,
+and watcher lifecycle.
 
 ### Typed IPC contract (single source of truth)
 
@@ -626,7 +630,10 @@ Follow this path:
 
 1. Add or update the type in [`src/types.d.ts`](../src/types.d.ts).
 2. Expose it in [`src/preload/index.ts`](../src/preload/index.ts).
-3. Implement the handler in [`src/main/ipc/fileSystem.ts`](../src/main/ipc/fileSystem.ts).
+3. Implement the handler in the closest focused group under
+   [`src/main/ipc/fs/`](../src/main/ipc/fs/) (`fsOperations` for ordinary
+   capability-resolved file operations, or the search/bundle/watcher group for
+   those domains). Keep `fileSystem.ts` as assembly only.
 4. Decide whether the web adapter should support it in [`src/web/fs-adapter.ts`](../src/web/fs-adapter.ts).
 5. Call it from renderer state or hooks, not directly from many UI components.
 
