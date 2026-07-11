@@ -2,8 +2,10 @@
  * RL-025 Slice B — main-side install spawn safety + outcome mapping.
  *
  * Pins:
- *   - Safe argv shape (shell:false, no -g, no --prefix, --no-audit /
- *     --no-fund / --no-progress wired).
+ *   - Platform-safe launcher: direct `npm` on POSIX and explicit
+ *     `cmd.exe /d /c npm.cmd` on Windows, always with shell:false.
+ *   - Safe argv shape (no -g, no --prefix, --no-audit / --no-fund /
+ *     --no-progress wired).
  *   - Specifier validation (invalid names never reach npm).
  *   - Unsaved tab refusal (no filePath → `no-package-json` failure
  *     without ever spawning).
@@ -54,6 +56,7 @@ describe('installJsDependencyBatch', () => {
 
   afterEach(async () => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     await rm(workdir, { recursive: true, force: true });
     const { __resetActiveInstallsForTests } = await import(
       '../../src/main/dependencies'
@@ -132,7 +135,7 @@ describe('installJsDependencyBatch', () => {
     expect(result.statuses.lodash).toBe('skipped-preflight');
   });
 
-  it('spawns npm install with shell:false and the locked argv shape', async () => {
+  it('spawns npm directly on POSIX with shell:false and the locked argv shape', async () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
     const child = createChild();
     const spawnSpy = vi.fn(() => child as never);
@@ -144,6 +147,7 @@ describe('installJsDependencyBatch', () => {
       filePath: path.join(workdir, 'app.js'),
       specifiers: ['lodash', '@scope/pkg'],
       spawnImpl: spawnSpy as never,
+      platform: 'linux',
     });
     // Let the spawn call resolve before we drive the child events.
     await Promise.resolve();
@@ -172,6 +176,56 @@ describe('installJsDependencyBatch', () => {
     expect(result.outcome).toBe('success');
     expect(result.statuses.lodash).toBe('installed');
     expect(result.statuses['@scope/pkg']).toBe('installed');
+  });
+
+  it('spawns npm.cmd through an explicit command interpreter on Windows', async () => {
+    await writeFile(path.join(workdir, 'package.json'), '{}');
+    vi.stubEnv('COMSPEC', 'C:\\Windows\\System32\\cmd.exe');
+    vi.stubEnv('PATH', 'C:\\Program Files\\nodejs;C:\\Windows\\System32');
+    vi.stubEnv('PATHEXT', '.COM;.EXE;.BAT;.CMD');
+    const child = createChild();
+    const spawnSpy = vi.fn(() => child as never);
+    const { installJsDependencyBatch } = await import(
+      '../../src/main/dependencies'
+    );
+    const promise = installJsDependencyBatch({
+      runId: 'r5-win32',
+      filePath: path.join(workdir, 'app.js'),
+      specifiers: ['lodash', '@scope/pkg'],
+      spawnImpl: spawnSpy as never,
+      platform: 'win32',
+    });
+    await Promise.resolve();
+
+    const [bin, argv, opts] = spawnSpy.mock.calls[0]!;
+    expect(bin).toBe('C:\\Windows\\System32\\cmd.exe');
+    expect(argv).toEqual([
+      '/d',
+      '/c',
+      'npm.cmd',
+      'install',
+      'lodash',
+      '@scope/pkg',
+      '--no-audit',
+      '--no-fund',
+      '--no-progress',
+      '--save',
+    ]);
+    const options = opts as {
+      shell?: boolean;
+      env?: NodeJS.ProcessEnv;
+      windowsHide?: boolean;
+    };
+    expect(options.shell).toBe(false);
+    expect(options.windowsHide).toBe(true);
+    expect(options.env).toMatchObject({
+      COMSPEC: 'C:\\Windows\\System32\\cmd.exe',
+      PATH: 'C:\\Program Files\\nodejs;C:\\Windows\\System32',
+      PATHEXT: '.COM;.EXE;.BAT;.CMD',
+    });
+
+    child.emit('close', 0);
+    expect((await promise).outcome).toBe('success');
   });
 
   it('maps a non-zero exit to a failed outcome with exit-nonzero reason', async () => {

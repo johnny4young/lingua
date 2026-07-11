@@ -132,7 +132,7 @@ conviene confirmar cuál es el canal activo o añadir el hash.
 | B2 | Crítica | `fs:watch-start` sin listener `'error'` → crash del proceso main | ✅ Corregido |
 | B3 | Alta | `restart()` del LSP generaba un proceso servidor duplicado y huérfano | ✅ Corregido |
 | B4 | Alta | Cancel/timeout de `npm install` mataba solo `npm`, no su árbol | ✅ Corregido |
-| B5 | Alta | Windows: spawn de `npm` (sin `.cmd`) fallaba siempre | 📋 Documentado |
+| B5 | Alta | Windows: spawn de `npm` (sin `.cmd`) fallaba siempre | ✅ Corregido |
 | B6 | Alta | Revalidación web de licencia revivía una licencia recién eliminada | ✅ Corregido |
 | B7 | Alta | `saveTabById` descartaba teclas escritas durante un guardado en vuelo | ✅ Corregido |
 | B8 | Alta | "Replace all" leía query/replacement vivos mientras los inputs seguían editables | ✅ Corregido |
@@ -198,12 +198,15 @@ búsqueda mientras drenaba la cola aplicaba un query a medio escribir a
 los archivos restantes (operación no-deshacible). *Fix:* `applyToAll`
 congela los params confirmados y los pasa a cada `applyToFile`.
 
-**B5 — npm en Windows (documentado).** `spawn('npm', ...)` sin resolver
-`npm.cmd` y con `shell:false` falla siempre en win32
-(CVE-2024-27980 → `EINVAL`). Requiere validación en una máquina Windows
-real; el fix propuesto es resolver la ruta de `npm.cmd` o invocar vía
-`cmd.exe /c` con argv fijo. No se aplicó aquí por no poder verificarlo
-end-to-end en este entorno.
+**B5 — npm en Windows (corregido).** El instalador resuelve el launcher por
+plataforma: POSIX conserva `npm`; Windows ejecuta explícitamente
+`COMSPEC /d /c npm.cmd` con `shell:false`, specifiers validados y flags fijos.
+El entorno filtrado ahora incluye la allowlist común y las claves Windows
+(`PATH`, `PATHEXT`, `COMSPEC`, `SYSTEMROOT`) necesarias para descubrir ambos
+binarios. Tests unitarios fijan el argv y el entorno exactos; el job Windows de
+cada PR ejecuta además el handoff real `cmd.exe` → `npm.cmd` contra un registry
+local cerrado y exige un diagnóstico propio de npm; así un `cmd.exe` que abre
+pero no encuentra `npm.cmd` tampoco puede producir un falso verde.
 
 **B14 — Fuga de watchers fs por sender (corregido).** Los watchers del
 bridge fs solo se limpiaban en `before-quit` y en `fs:watch-stop`

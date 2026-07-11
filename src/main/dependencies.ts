@@ -5,11 +5,12 @@
  * Slice A — read-only existence check against the active tab's
  * resolved cwd (`resolveNodeCwd` re-uses the Node-runner walker).
  *
- * Slice B — install path via `child_process.spawn('npm', …,
- * { shell: false })`. Reuses every safety primitive already in this
- * module (`isSafeSpecifier`, `resolveNodeCwd`) plus the runner-env
- * allowlist (`buildNativeRunnerEnv` / `NODE_TOOLCHAIN_KEYS`) and the
- * subprocess output cap (`MAX_NATIVE_STDERR_BYTES` / `truncateBytes`).
+ * Slice B — install path via `child_process.spawn` with a platform-safe
+ * launcher and `{ shell: false }`. POSIX invokes `npm` directly; Windows
+ * explicitly invokes `cmd.exe /d /c npm.cmd` because `.cmd` files are not
+ * executables on their own. Reuses every safety primitive already in this
+ * module (`isSafeSpecifier`, `resolveNodeCwd`) plus the runner-env allowlist
+ * and the subprocess output cap (`MAX_NATIVE_STDERR_BYTES`).
  *
  * Specifier safety: the caller's renderer already validated
  * specifiers via the shared detector (no `.`, no `..`, no `/`
@@ -36,7 +37,11 @@ import type {
   DependencyInstallFailureReason,
   DependencyInstallOutcome,
 } from '../shared/dependencies/types';
-import { NODE_TOOLCHAIN_KEYS, buildNativeRunnerEnv } from './runners/nativeEnv';
+import {
+  NODE_TOOLCHAIN_KEYS,
+  buildNativeRunnerEnv,
+  combinedAllowlist,
+} from './runners/nativeEnv';
 import {
   detachedSpawnOptions,
   killProcessTree,
@@ -234,6 +239,39 @@ export interface DependencyInstallBatchInternalOptions
    * shelling out.
    */
   readonly spawnImpl?: typeof spawn;
+  /** Test seam — production always uses `process.platform`. */
+  readonly platform?: NodeJS.Platform;
+}
+
+interface NpmInstallSpawnCommand {
+  readonly binary: string;
+  readonly args: readonly string[];
+}
+
+/**
+ * Resolve the platform-specific npm launcher without enabling Node's shell
+ * option. On Windows npm is exposed as `npm.cmd`; Node documents that `.cmd`
+ * files require a command interpreter, so invoke the allowlisted COMSPEC
+ * explicitly. Package names have already passed `isSafeSpecifier` and every
+ * remaining argument is owned by this module, keeping cmd metacharacters out
+ * of the command line.
+ */
+function npmInstallSpawnCommand(
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv,
+  npmArgs: readonly string[]
+): NpmInstallSpawnCommand {
+  if (platform !== 'win32') {
+    return { binary: 'npm', args: npmArgs };
+  }
+  const comspec =
+    typeof env.COMSPEC === 'string' && env.COMSPEC.length > 0
+      ? env.COMSPEC
+      : 'cmd.exe';
+  return {
+    binary: comspec,
+    args: ['/d', '/c', 'npm.cmd', ...npmArgs],
+  };
 }
 
 /**
@@ -244,7 +282,8 @@ export interface DependencyInstallBatchInternalOptions
  *
  * Invariants:
  *   - `shell: false`, argv-only (no command-line interpolation).
- *   - Env via `buildNativeRunnerEnv([...NODE_TOOLCHAIN_KEYS], …)`.
+ *   - Env via `buildNativeRunnerEnv(combinedAllowlist(NODE_TOOLCHAIN_KEYS), …)`
+ *     so PATH and Windows COMSPEC/PATHEXT survive the secret-filtering boundary.
  *   - cwd via `resolveNodeCwd(filePath)` (saved tab only).
  *   - Refuse without spawning when the cwd has no `package.json`
  *     (fold A: avoid silently turning a scratchpad into a project).
@@ -258,6 +297,7 @@ export async function installJsDependencyBatch(
 ): Promise<DependencyInstallResult> {
   const { runId, filePath, specifiers, onLog } = options;
   const spawnFn = options.spawnImpl ?? spawn;
+  const platform = options.platform ?? process.platform;
 
   const seen = new Set<string>();
   const statuses: Record<string, DependencyInstallResultStatus> = {};
@@ -322,7 +362,10 @@ export async function installJsDependencyBatch(
     };
   }
 
-  const env = buildNativeRunnerEnv([...NODE_TOOLCHAIN_KEYS], undefined);
+  const env = buildNativeRunnerEnv(
+    combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform),
+    undefined
+  );
 
   // Product install command, not repository setup. `npm install --save`
   // matches the copy shown in the dependency panel and the broadest
@@ -336,6 +379,7 @@ export async function installJsDependencyBatch(
     '--no-progress',
     '--save',
   ];
+  const command = npmInstallSpawnCommand(platform, env, argv);
 
   if (activeInstalls.has(runId)) {
     for (const name of toInstall) statuses[name] = 'failed';
@@ -355,7 +399,7 @@ export async function installJsDependencyBatch(
   const truncationMarker = '\n[output truncated]';
   let child: ReturnType<typeof spawn>;
   try {
-    child = spawnFn('npm', argv, {
+    child = spawnFn(command.binary, [...command.args], {
       cwd,
       env,
       shell: false,

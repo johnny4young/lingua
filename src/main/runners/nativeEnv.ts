@@ -204,9 +204,10 @@ export function buildNativeRunnerEnv(
  * concrete string array (not readonly) so callers can spread further.
  */
 export function combinedAllowlist(
-  languageKeys: readonly string[]
+  languageKeys: readonly string[],
+  platform: NodeJS.Platform = process.platform
 ): string[] {
   const platformKeys =
-    process.platform === 'win32' ? WINDOWS_TOOLCHAIN_KEYS : ([] as readonly string[]);
+    platform === 'win32' ? WINDOWS_TOOLCHAIN_KEYS : ([] as readonly string[]);
   return [...COMMON_TOOLCHAIN_KEYS, ...platformKeys, ...languageKeys];
 }
