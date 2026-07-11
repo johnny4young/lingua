@@ -18,7 +18,7 @@
 > todas (heading `## [0.9.0]` del CHANGELOG, guard de copy del renderer,
 > tuteo neutro en ES, sin atribución de IA en commits).
 
-## 0. Actualización operativa — 2026-07-10
+## 0. Actualización operativa — 2026-07-11
 
 Las secciones 1–2 se conservan como snapshot histórico de la ronda PR #17–#22;
 ya no describen PRs abiertos ni un merge train pendiente. Para estado operativo
@@ -29,16 +29,17 @@ hallazgos.
 La ronda actual completó: Column Explorer, B13 (watcher fresh-state), Input
 Sets, Free 1→3 tabs, instrumentación de boot G1, hardening B5 de npm en Windows,
 P3/P4/P7 de rendimiento, el split final IT2-A1 de filesystem y los cuatro
-componentes prioritarios de A5. B5 cuenta además con evidencia nativa del job
-Windows del PR; P6 y los seis componentes renderer que aún superan 800 LOC
-siguen abiertos. Evidencia reproducible por tarea:
-`output/review/project-sequence/t01-*` … `t08-*`.
+componentes prioritarios de A5. IT2-G2 añadió el skeleton de primer paint y
+sacó la inicialización de licencia del camino crítico de la ventana desktop.
+B5 cuenta además con evidencia nativa del job Windows del PR; P6 y los seis
+componentes renderer que aún superan 800 LOC siguen abiertos. Evidencia
+reproducible: `output/review/project-sequence/t01-*` … `t08-*` y
+`output/review/g2-perceived-boot/`.
 
-Siguiente secuencia recomendada después de integrar esta ronda: G2 (primer
-paint/skeleton y ventana desacoplada de licencia), G3 (rehidratación diferida
-guiada por los timings de G1), P6 (`fs/promises` en probes síncronos) y luego
-los seis componentes restantes de A5. No abrir otra expansión de superficie
-antes de medir G2/G3.
+Siguiente secuencia recomendada: G3 (rehidratación diferida guiada por los
+timings de G1/G2), P6 (`fs/promises` en probes síncronos) y luego los seis
+componentes restantes de A5. No abrir otra expansión de superficie antes de
+medir G3.
 
 ---
 

@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- **Faster, calmer startup**: Lingua now paints a theme-matched editor skeleton while the renderer bundle loads instead of showing an empty window. On desktop, license verification runs in parallel after its IPC channels are registered, so opening the window no longer waits on disk/token initialization and the license surface shows a neutral verifying state until the real snapshot arrives.
+
 ## [0.10.0] — 2026-07-06
 
 ### Added

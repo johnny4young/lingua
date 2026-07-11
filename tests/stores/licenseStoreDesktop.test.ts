@@ -60,6 +60,66 @@ describe('licenseStore — desktop IPC bridge', () => {
     });
   });
 
+  it('reports verifying while the main snapshot is pending, then applies it', async () => {
+    let resolveSnapshot!: (snapshot: {
+      token: string | null;
+      status: { kind: 'active'; verification: never };
+      deviceId: string;
+      lastVerifiedAt: number | null;
+    }) => void;
+    const pendingSnapshot = new Promise<{
+      token: string | null;
+      status: { kind: 'active'; verification: never };
+      deviceId: string;
+      lastVerifiedAt: number | null;
+    }>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const bridge = installBridge({
+      token: null,
+      status: { kind: 'free' },
+      deviceId: 'device-uuid',
+      lastVerifiedAt: null,
+    });
+    bridge.getState.mockReturnValueOnce(pendingSnapshot);
+
+    const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
+    expect(useLicenseStore.getState().status.kind).toBe('verifying');
+
+    resolveSnapshot({
+      token: 'active.token',
+      status: { kind: 'active', verification: {} as never },
+      deviceId: 'device-uuid',
+      lastVerifiedAt: 1234,
+    });
+    await vi.waitFor(() => {
+      expect(useLicenseStore.getState().token).toBe('active.token');
+      expect(useLicenseStore.getState().status.kind).toBe('active');
+    });
+  });
+
+  it('falls back to free when the pending desktop bootstrap rejects', async () => {
+    const bridge = installBridge({
+      token: null,
+      status: { kind: 'free' },
+      deviceId: 'device-uuid',
+      lastVerifiedAt: null,
+    });
+    let rejectSnapshot!: (reason?: unknown) => void;
+    bridge.getState.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectSnapshot = reject;
+      })
+    );
+
+    const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
+    expect(useLicenseStore.getState().status.kind).toBe('verifying');
+    rejectSnapshot(new Error('ipc unavailable'));
+    await vi.waitFor(() => {
+      expect(useLicenseStore.getState().status.kind).toBe('free');
+    });
+  });
+
   it('setLicenseToken delegates to bridge.applyToken and updates the mirror', async () => {
     const initial = {
       token: null,

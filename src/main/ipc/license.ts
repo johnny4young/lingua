@@ -25,14 +25,35 @@ export type LicenseRemoveDeviceResult =
 // `LicensePayloadShape.tier` in `src/types.d.ts` was widened to the full
 // canonical 6-tier list (matching `src/shared/license.ts`), so main's
 // snapshot type is assignable to the contract's ambient shape.
-export function registerLicenseHandlers(runtime: LicenseRuntime): void {
-  typedHandle('license:get-state', async () => runtime.getSnapshot());
+export function registerLicenseHandlers(
+  runtimeSource: LicenseRuntime | PromiseLike<LicenseRuntime>
+): void {
+  // IT2-G2 — register the channels before the window loads, while allowing
+  // main to construct the runtime in parallel with the renderer's first
+  // paint. Every channel shares the same promise, so concurrent bootstrap
+  // calls wait for one runtime instead of starting duplicate verification.
+  const runtimeReady = Promise.resolve(runtimeSource);
+  // Attach a rejection observer immediately. The individual handlers still
+  // receive the rejection and map it through their existing failure paths,
+  // but a slow renderer must not leave an early runtime failure unhandled.
+  void runtimeReady.catch((error: unknown) => {
+    console.error(
+      '[lingua] license runtime failed to initialize:',
+      error instanceof Error ? error.message : String(error)
+    );
+  });
+
+  typedHandle('license:get-state', async () => {
+    const runtime = await runtimeReady;
+    return runtime.getSnapshot();
+  });
 
   typedHandle('license:apply-token', async (_event, token: unknown): Promise<LicenseApplyResult> => {
     if (typeof token !== 'string') {
       return { ok: false, reason: 'invalid-input', message: 'Expected a string token.' };
     }
     try {
+      const runtime = await runtimeReady;
       const status = await runtime.applyToken(token);
       return { ok: true, status, snapshot: runtime.getSnapshot() };
     } catch (error) {
@@ -46,6 +67,7 @@ export function registerLicenseHandlers(runtime: LicenseRuntime): void {
 
   typedHandle('license:clear', async (): Promise<{ ok: true; snapshot: LicenseSnapshot } | { ok: false; reason: string; message?: string }> => {
     try {
+      const runtime = await runtimeReady;
       await runtime.clear();
       return { ok: true, snapshot: runtime.getSnapshot() };
     } catch (error) {
@@ -59,6 +81,7 @@ export function registerLicenseHandlers(runtime: LicenseRuntime): void {
 
   typedHandle('license:revalidate', async (): Promise<LicenseApplyResult> => {
     try {
+      const runtime = await runtimeReady;
       const status = await runtime.revalidate();
       return { ok: true, status, snapshot: runtime.getSnapshot() };
     } catch (error) {
@@ -83,6 +106,7 @@ export function registerLicenseHandlers(runtime: LicenseRuntime): void {
         return { ok: false, reason: 'invalid-input', message: 'Expected a non-empty deviceId.' };
       }
       try {
+        const runtime = await runtimeReady;
         const result: RemoveDeviceResult = await runtime.removeDevice(deviceIdToRemove);
         if (result.ok) {
           return { ok: true, removed: result.removed, snapshot: runtime.getSnapshot() };

@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { RemoveDeviceResult } from '../services/licenseServer';
-import { FREE_STATUS, type LicenseState, type LicenseStatus } from './licenseTypes';
+import {
+  FREE_STATUS,
+  VERIFYING_STATUS,
+  type LicenseState,
+  type LicenseStatus,
+} from './licenseTypes';
 import type { LicenseBridge } from './licenseBridge';
 
 /**
@@ -62,7 +67,10 @@ export function createDesktopStore(bridge: LicenseBridge) {
 
   const store = create<LicenseState>()((set, get) => ({
     token: null,
-    status: FREE_STATUS,
+    // IT2-G2 — main now initializes the verified snapshot in parallel with
+    // the first paint. Model that interval explicitly instead of flashing a
+    // free/invalid state before the promise-backed IPC handler settles.
+    status: VERIFYING_STATUS,
     lastVerifiedAt: null,
     // Slice 3.5 — main now talks to /licenses/* and reports the
     // outcome through `serverSync`. The renderer mirrors whatever
@@ -212,9 +220,10 @@ export function createDesktopStore(bridge: LicenseBridge) {
       applySnapshot(snapshot);
     })
     .catch(() => {
-      // Bridge errors leave the store at the free-tier defaults — main
-      // surfaces its own crash reporter for the underlying failure.
+      // Fail closed after a transport/runtime failure; do not leave the
+      // transient verifying state stuck forever.
       bootstrapApplied = true;
+      store.setState({ status: FREE_STATUS });
     });
 
   return store;

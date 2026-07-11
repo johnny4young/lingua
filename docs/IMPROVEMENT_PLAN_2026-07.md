@@ -1179,11 +1179,21 @@ exactos ni timestamps).
 **AC.** Marks visibles en DevTools Performance; el comando copia el JSON;
 cero PII (test del redactor sobre el evento nuevo).
 
-## IT2-G2 · Arranque percibido: skeleton + ventana sin bloqueo de licencia — M (1-2 d)
+## IT2-G2 · Arranque percibido: skeleton + ventana sin bloqueo de licencia — EJECUTADO 2026-07-11
 
-**Evidencia.** `index.html` monta React sobre un `<div id="root">` vacío —
+> **Estado actual.** Las entradas desktop y web pintan un shell estático
+> theme-aware antes de cargar React y lo reemplazan al montar. En desktop, los
+> handlers `license:*` se registran inmediatamente contra una promesa compartida
+> mientras `createLicenseRuntime` verifica en paralelo; el store usa el estado
+> transitorio `verifying` y cae a Free si el bootstrap falla. El smoke local
+> 10/10 midió `launcherToSmokeReadyMs` 1948→1453 ms (-25.4%, una corrida de
+> referencia, no benchmark estadístico). Playwright conserva capturas dark/light
+> del skeleton y Stagewright valida 27 controles interactivos sin errores de
+> consola.
+
+**Evidencia previa.** `index.html` montaba React sobre un `<div id="root">` vacío —
 pantalla en blanco hasta el mount (index.html:170-173). En desktop, el main
-process **espera** `bootCrashReporter` y `createLicenseRuntime` ANTES de
+process **esperaba** `bootCrashReporter` y `createLicenseRuntime` ANTES de
 `createWindow()` (`src/main/index.ts:294-306`); `show:false` +
 `ready-to-show` ya están bien (L154, L194-196).
 
