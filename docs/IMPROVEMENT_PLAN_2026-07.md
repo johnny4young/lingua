@@ -1136,7 +1136,21 @@ colecciones HTTP van al disco (criterio Bruno).
 > (IT2-C1). Las métricas de boot van a telemetría en buckets (opt-in),
 > nunca al ledger — el ledger es del usuario, la telemetría del producto.
 
-## IT2-G1 · Instrumentar el arranque — S (1 d)
+## IT2-G1 · Instrumentar el arranque — EJECUTADO 2026-07-10
+
+El renderer ahora registra una secuencia estable de marks/measures desde el
+inicio del bootstrap hasta la rehidratación: idioma del sistema, i18n, mount de
+React, primer paint y sesión restaurada. El comando de palette **Copy boot
+timings** / **Copiar tiempos de arranque** copia un snapshot JSON con duraciones
+solamente; no incluye timestamps, rutas, contenido del usuario ni otras fuentes
+de PII. La telemetría opt-in emite `app.boot_phase` con `phase` y
+`durationBucket` cerrados por allowlist, nunca con la duración exacta.
+
+**Cierre de AC.** Los marks y measures se verifican end-to-end en el build web;
+la acción de palette y su confirmación se ejercitan en inglés y español; tests
+del renderer y del update server demuestran que el redactor descarta tiempos
+exactos y propiedades no permitidas. La evidencia visual y automatizada queda
+en `output/review/project-sequence/t05-boot-timings/`.
 
 **Evidencia.** No existe medición por fases del boot: `performance-report.mjs`
 solo captura el end-to-end del smoke (`launcherToSmokeReadyMs`,
@@ -1376,7 +1390,7 @@ toca UI (mandato AGENTS.md).
 
 | # | Item | Esfuerzo | Nota |
 | - | ---- | -------- | ---- |
-| 24 | IT2-G1 (instrumentar boot) | 1 d | **Puede adelantarse a Fase 1** — habilita medir G2/G3. |
+| 24 | IT2-G1 (instrumentar boot) | 1 d | **Hecho 2026-07-10** — habilita medir G2/G3. |
 | 25 | IT2-G2 (skeleton + ventana sin bloqueo) | 1-2 d | Primer impacto percibido; paso 0 = mapear dependencia de licencia. |
 | 26 | IT2-G3 (rehidratación diferida) | 1-2 d | Solo tras medir con G1. |
 | 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | Convierte las dos frustraciones en momentos de marca. |

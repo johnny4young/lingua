@@ -733,6 +733,46 @@ describe('buildCommandPaletteModel', () => {
     expect(calls).toEqual(['copy', 'close']);
   });
 
+  it('exposes Copy boot timings only when the callback is wired', () => {
+    const onCopyBootTimings = vi.fn();
+    const onClose = vi.fn();
+    const baseArgs: Parameters<typeof buildCommandPaletteModel>[0] = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    expect(
+      buildCommandPaletteModel(baseArgs).find((command) => command.id === 'action-copy-boot-timings')
+    ).toBeUndefined();
+
+    const command = buildCommandPaletteModel({
+      ...baseArgs,
+      onCopyBootTimings,
+    }).find((entry) => entry.id === 'action-copy-boot-timings');
+    expect(command?.label).toBe('Copy boot timings');
+    command?.action();
+    expect(onCopyBootTimings).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('exposes the Privacy + Trust dashboard command only when wired and closes first', () => {
     const calls: string[] = [];
     const onClose = vi.fn(() => calls.push('close'));

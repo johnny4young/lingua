@@ -25,6 +25,7 @@ import {
   scheduleRecoveryMarksClear,
 } from '../renderer/utils/safeBoot';
 import '../renderer/index.css';
+import { markBootPhase } from '../renderer/utils/bootTimings';
 
 // RL-090 — mirror the boot recovery state on `<html data-recovery-state>`
 // and install global error listeners so async + event-handler errors
@@ -75,21 +76,24 @@ if (shouldRegisterServiceWorkerForMode(import.meta.env.MODE)) {
   void manageServiceWorker({ ...serviceWorkerDeps, isProduction: false });
 }
 
-// Resolve language and initialise i18n synchronously (web path)
-const { language } = useSettingsStore.getState();
-const resolved =
-  language === 'system'
-    ? resolveSystemLanguage(getBrowserSystemLanguages())
-    : language;
-initI18n(resolved);
-installE2eHooks();
+async function bootstrapWeb(): Promise<void> {
+  const { language } = useSettingsStore.getState();
+  const resolved =
+    language === 'system'
+      ? resolveSystemLanguage(getBrowserSystemLanguages())
+      : language;
+  markBootPhase('system-language');
+  await initI18n(resolved);
+  markBootPhase('i18n');
+  installE2eHooks();
 
-const root = document.getElementById('root');
-if (!root) throw new Error('Root element not found');
+  const root = document.getElementById('root');
+  if (!root) throw new Error('Root element not found');
 
-const isRichConsoleE2eFixture =
-  __LINGUA_E2E_HOOKS__ &&
-  new URLSearchParams(window.location.search).get('e2e') === 'rich-console-slice2a';
+  const isRichConsoleE2eFixture =
+    __LINGUA_E2E_HOOKS__ &&
+    new URLSearchParams(window.location.search).get('e2e') ===
+      'rich-console-slice2a';
 
 // FASE 0 dev-only acceptance artifact. `?lingua-showcase` mounts the
 // recipe gallery instead of the app. The dynamic import code-splits the
@@ -101,20 +105,26 @@ const isRichConsoleE2eFixture =
 // `src/renderer/main.tsx`; the web entry needs its own copy because the
 // two entry points render independently. The showcase URL used for
 // validation is `http://localhost:4173/?lingua-showcase`.
-if (new URLSearchParams(window.location.search).has('lingua-showcase')) {
-  void import('../renderer/devShowcase/RecipeShowcase').then(({ RecipeShowcase }) => {
+  if (new URLSearchParams(window.location.search).has('lingua-showcase')) {
+    const { RecipeShowcase } = await import(
+      '../renderer/devShowcase/RecipeShowcase'
+    );
     createRoot(root).render(
       <StrictMode>
         <RecipeShowcase />
       </StrictMode>
     );
     scheduleRecoveryMarksClear();
-  });
-} else {
+    return;
+  }
+
   createRoot(root).render(
     <StrictMode>
       {isRichConsoleE2eFixture ? <RichConsoleE2eFixture /> : <App />}
     </StrictMode>
   );
+  markBootPhase('react-mount');
   scheduleRecoveryMarksClear();
 }
+
+void bootstrapWeb();

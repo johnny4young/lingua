@@ -43,6 +43,7 @@ import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
 import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
+import { useBootCompletionMarkers } from './hooks/useBootCompletionMarkers';
 import { useLicenseSettingsNavigation } from './hooks/useLicenseSettingsNavigation';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { getActiveTab, useEditorStore } from './stores/editorStore';
@@ -126,6 +127,7 @@ function AppChrome({
   // under the AUDIT-11 size budget). Owns the `always`/`ask`/`never` decision
   // and the `ask`-mode restore prompt; returns the boot-gating ready flag.
   const sessionRestoreReady = useSessionRestoreBoot(smokeEnabled);
+  useBootCompletionMarkers(sessionRestoreReady);
 
   // RL-147 — debounced session auto-save, narrowed to save-relevant
   // editor-store changes (see useSessionAutoSave for the contract).
