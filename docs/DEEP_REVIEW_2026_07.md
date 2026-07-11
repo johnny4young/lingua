@@ -140,7 +140,7 @@ conviene confirmar cuál es el canal activo o añadir el hash.
 | B10 | Baja | `disposeProcess()` del LSP generaba una unhandled rejection en cada stop | ✅ Corregido |
 | B11 | Media | `openFile`: doble clic abría el mismo archivo dos veces | ✅ Corregido |
 | B12 | Media | Opens concurrentes filtraban watcher/capability; `watchStop` sin `.catch()` abortaba el open | ✅ Corregido |
-| B13 | Media | `applyWatchChanges` commiteaba un árbol derivado de snapshot stale | 📋 Documentado |
+| B13 | Media | `applyWatchChanges` commiteaba un árbol derivado de snapshot stale | ✅ Corregido 2026-07-10 |
 | B14 | Media | Watchers del bridge fs no atados al ciclo de vida del sender (fuga en macOS/reload) | ✅ Corregido |
 | B15 | Media | Runners Node/Ruby: temp dir creado fuera de región protegida → fuga + rechazo crudo | ✅ Corregido |
 | B16 | Media | Cierre "sucio" sin fallback para renderer muerto → ventana imposible de cerrar | ✅ Corregido |
@@ -214,10 +214,13 @@ sender (`watcherIdsBySender`) + listener `destroyed` idempotente que
 llama `stopWatchersForSender`, exactamente el patrón del watcher de git.
 2 tests nuevos en `watcherLifecycle.test.ts`.
 
-**B13 — Snapshot stale del árbol (documentado).** Mejora de robustez en
-`projectStore` (commit por directorio sobre estado fresco); se deja
-documentado con el fix propuesto para un slice dedicado con su propia
-cobertura de tests.
+**B13 — Snapshot stale del árbol (corregido 2026-07-10).**
+`applyWatchChanges` ahora revalida el `rootId` y el directorio cargado a ambos
+lados de cada `await`, y commitea cada directorio contra el árbol fresco en
+vez del snapshot inicial del burst. Un cambio concurrente en otra rama ya no
+se pierde y una respuesta tardía de un proyecto cerrado/cambiado se descarta.
+Dos regresiones deterministas cubren ambos casos en
+`tests/stores/projectStore.test.ts`.
 
 ---
 

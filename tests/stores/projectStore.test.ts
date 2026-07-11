@@ -791,6 +791,91 @@ describe('projectStore applyWatchChanges (RL-146 / AUDIT-26)', () => {
     expect(nodeIndex.has('src/b.ts' as never)).toBe(false);
   });
 
+  it('commits an async directory refresh onto fresh state without clobbering concurrent tree changes', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    let resolveRead: ((entries: FsDirEntry[]) => void) | undefined;
+    mockReaddir.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRead = resolve;
+        })
+    );
+    seedTree(baseTree());
+
+    const refresh = useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src/new.ts', eventType: 'rename', filename: 'new.ts' },
+    ]);
+    await vi.waitFor(() => expect(resolveRead).toBeTypeOf('function'));
+
+    // Simulate a concurrent UI/store mutation while readdir is in flight.
+    // The watcher delta owns only `src`; the newer `lib` branch must survive.
+    const concurrentNodes = useProjectStore.getState().nodes.map((node) =>
+      node.path === 'lib'
+        ? expandedDir('lib', 'lib', [
+            makeFile('c.ts', 'lib/c.ts'),
+            makeFile('concurrent.ts', 'lib/concurrent.ts'),
+          ])
+        : node
+    );
+    useProjectStore.setState({
+      nodes: concurrentNodes,
+      nodeIndex: buildNodeIndex(concurrentNodes),
+    });
+
+    resolveRead?.([
+      { name: 'a.ts', isDirectory: false, relativePath: 'src/a.ts' },
+      { name: 'new.ts', isDirectory: false, relativePath: 'src/new.ts' },
+    ]);
+    await refresh;
+
+    const { nodes, nodeIndex } = useProjectStore.getState();
+    expect(
+      nodes.find((node) => node.path === 'src')?.children?.map((node) => node.path)
+    ).toEqual(['src/a.ts', 'src/new.ts']);
+    expect(
+      nodes.find((node) => node.path === 'lib')?.children?.map((node) => node.path)
+    ).toEqual(['lib/c.ts', 'lib/concurrent.ts']);
+    expect(nodeIndex).toEqual(buildNodeIndex(nodes));
+  });
+
+  it('drops a late directory refresh after the active project switches', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    let resolveRead: ((entries: FsDirEntry[]) => void) | undefined;
+    mockReaddir.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRead = resolve;
+        })
+    );
+    seedTree(baseTree());
+
+    const refresh = useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src/new.ts', eventType: 'rename', filename: 'new.ts' },
+    ]);
+    await vi.waitFor(() => expect(resolveRead).toBeTypeOf('function'));
+
+    const otherNodes = [makeFile('other.ts', 'other.ts')];
+    useProjectStore.setState({
+      currentProject: {
+        id: '/other',
+        name: 'other',
+        rootId: 'root-other',
+        rootPath: '/other',
+        openedAt: 1,
+      },
+      nodes: otherNodes,
+      nodeIndex: buildNodeIndex(otherNodes),
+    });
+
+    resolveRead?.([
+      { name: 'new.ts', isDirectory: false, relativePath: 'src/new.ts' },
+    ]);
+    await refresh;
+
+    expect(useProjectStore.getState().currentProject?.rootId).toBe('root-other');
+    expect(useProjectStore.getState().nodes).toEqual(otherNodes);
+  });
+
   it('no-ops without a current project', async () => {
     const mockReaddir = vi.mocked(window.lingua.fs.readdir);
     useProjectStore.setState({ currentProject: null, nodes: [] });
