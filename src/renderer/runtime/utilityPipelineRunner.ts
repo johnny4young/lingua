@@ -43,21 +43,45 @@ export interface PipelineRunnerOptions {
 export async function runUtilityPipeline(
   options: PipelineRunnerOptions
 ): Promise<PipelineRunOutcome> {
-  const workerOutcome = await runPipelineOffThread({
-    pipeline: options.pipeline,
-    input: options.input,
-    ...(options.onStepSettled
-      ? { onStepSettled: options.onStepSettled }
-      : {}),
-    ...(options.stepTimeoutMs === undefined
-      ? {}
-      : { stepTimeoutMs: options.stepTimeoutMs }),
-    ...(options.workerFactory ? { workerFactory: options.workerFactory } : {}),
-  });
+  // Count the steps the worker managed to stream so a mid-run worker
+  // failure can fall back inline without re-emitting them (steps are
+  // deterministic text transforms, so the inline prefix matches).
+  let workerStepsForwarded = 0;
+  let workerOutcome: PipelineRunOutcome | null = null;
+  try {
+    workerOutcome = await runPipelineOffThread({
+      pipeline: options.pipeline,
+      input: options.input,
+      ...(options.onStepSettled
+        ? {
+            onStepSettled: (result: PipelineStepResult) => {
+              workerStepsForwarded += 1;
+              options.onStepSettled?.(result);
+            },
+          }
+        : {}),
+      ...(options.stepTimeoutMs === undefined
+        ? {}
+        : { stepTimeoutMs: options.stepTimeoutMs }),
+      ...(options.workerFactory ? { workerFactory: options.workerFactory } : {}),
+    });
+  } catch {
+    // Worker crash or protocol error — the pipeline contract is that this
+    // runner always settles, so leave workerOutcome null and fall through
+    // to the inline path.
+  }
   if (workerOutcome) return workerOutcome;
 
   const runOptions: RunPipelineOptions = {};
-  if (options.onStepSettled) runOptions.onStepSettled = options.onStepSettled;
+  if (options.onStepSettled) {
+    const forward = options.onStepSettled;
+    let inlineStepIndex = 0;
+    runOptions.onStepSettled = (result) => {
+      inlineStepIndex += 1;
+      if (inlineStepIndex <= workerStepsForwarded) return;
+      forward(result);
+    };
+  }
   if (options.stepTimeoutMs !== undefined) {
     runOptions.stepTimeoutMs = options.stepTimeoutMs;
   }

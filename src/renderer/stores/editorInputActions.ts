@@ -13,7 +13,15 @@ function normalizeInputSetName(name: string): string {
 
 function normalizeInputArgs(args: readonly string[] | null): string[] | undefined {
   if (!args || args.length === 0) return undefined;
-  return args.slice(0, MAX_INPUT_ARGS_PER_SET);
+  // The UI contract is one argument per line: strip Windows \r line
+  // endings and drop blank lines (a trailing newline or pasted CRLF text
+  // must not become empty argv entries). Blank lines are removed BEFORE
+  // the cap so they never consume argument slots.
+  const cleaned = args
+    .map((arg) => (arg.endsWith('\r') ? arg.slice(0, -1) : arg))
+    .filter((arg) => arg.trim().length > 0);
+  if (cleaned.length === 0) return undefined;
+  return cleaned.slice(0, MAX_INPUT_ARGS_PER_SET);
 }
 
 /** IT2-F5 — per-tab stdin, argv, and named input-set actions. */

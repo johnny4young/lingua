@@ -55,12 +55,25 @@ const TAB_B = {
   isDirty: false,
   filePath: '/repo/b.ts',
 };
+// Never active in any test — the bystander row that must NOT re-render
+// when activation moves between the other two.
+const TAB_C = {
+  id: 'tab-c',
+  name: 'c.ts',
+  language: 'typescript' as const,
+  content: 'const c = 3;',
+  isDirty: false,
+  filePath: '/repo/c.ts',
+};
 
 describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
   beforeEach(() => {
     for (const key of Object.keys(pillRenders)) delete pillRenders[key];
     useEditorStore.setState(
-      { tabs: [structuredClone(TAB_A), structuredClone(TAB_B)], activeTabId: 'tab-a' },
+      {
+        tabs: [structuredClone(TAB_A), structuredClone(TAB_B), structuredClone(TAB_C)],
+        activeTabId: 'tab-a',
+      },
       false
     );
   });
@@ -92,6 +105,7 @@ describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
     render(<EditorTabs />);
     const baselineA = pillRenders['/repo/a.ts'] ?? 0;
     const baselineB = pillRenders['/repo/b.ts'] ?? 0;
+    const baselineC = pillRenders['/repo/c.ts'] ?? 0;
 
     act(() => {
       useEditorStore.getState().setActiveTab('tab-b');
@@ -101,5 +115,10 @@ describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
     // this is the counter-assertion that the memo is not simply frozen.
     expect(pillRenders['/repo/a.ts']).toBeGreaterThan(baselineA);
     expect(pillRenders['/repo/b.ts']).toBeGreaterThan(baselineB);
+    // The bystander tab's props are reference-stable (memoized decode +
+    // stable callbacks), so the memo boundary must hold its row at zero
+    // extra renders. This is the assertion that catches an unmemoized
+    // tabs projection handing every row a fresh object.
+    expect(pillRenders['/repo/c.ts']).toBe(baselineC);
   });
 });

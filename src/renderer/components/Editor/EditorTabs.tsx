@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -34,7 +34,11 @@ export function EditorTabs() {
   const encodedTabs = useEditorStore(
     useShallow((state) => state.tabs.map(encodeEditorTab))
   );
-  const tabs = encodedTabs.map(decodeEditorTab);
+  // Memoized against the shallow-stable projection: without this, every
+  // parent render (active-tab switch, rename, context menu) would hand
+  // each memo'd <EditorTabItem> a fresh tab object and re-render the
+  // whole strip, defeating the row isolation this file exists for.
+  const tabs = useMemo(() => encodedTabs.map(decodeEditorTab), [encodedTabs]);
   const activeTabId = useEditorStore(state => state.activeTabId);
   const setActiveTab = useEditorStore(state => state.setActiveTab);
   const closeTab = useEditorStore(state => state.closeTab);

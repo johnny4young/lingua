@@ -493,6 +493,7 @@ export function DeveloperUtilitiesModal({
 }
 
 export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: boolean }) {
+  const { t } = useTranslation();
   const activeUtilityId = useUtilityHistoryStore(state => state.activeUtilityId);
   const setActiveUtilityId = useUtilityHistoryStore(state => state.setActiveUtilityId);
 
@@ -501,9 +502,12 @@ export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: bo
       data-testid="developer-utilities-workspace"
       className="flex h-full min-h-0 flex-col bg-bg-panel-alt/40"
     >
-      {/* No workspace-local header: the copy-output hint and the tool
-          counter render in the shell's editor chips row (one shared row)
-          via UtilityHeaderPills — see AppLayout's PanelChipsRow trailing. */}
+      {/* No VISIBLE workspace-local header: the copy-output hint and the
+          tool counter render in the shell's editor chips row (one shared
+          row) via UtilityHeaderPills — see AppLayout's PanelChipsRow
+          trailing. Screen readers still need a landmark heading for the
+          surface, hence the sr-only h2. */}
+      <h2 className="sr-only">{t('utilities.title')}</h2>
       <DeveloperUtilitiesWorkspaceBody
         selectedUtilityId={activeUtilityId}
         onSelectUtility={setActiveUtilityId}

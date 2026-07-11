@@ -120,6 +120,23 @@ describe('editorStore — stdinBuffer per-tab (RL-020 Slice 6)', () => {
     expect(tab?.stdinBuffer).toBeUndefined();
   });
 
+  it('normalizes argv input: strips CR line endings and drops blank lines', () => {
+    const { addTab, setTabInputArgs } = useEditorStore.getState();
+    addTab({ id: 't1', name: 'main.js', language: 'javascript', content: '' });
+
+    // A pasted CRLF block with a trailing newline splits into entries that
+    // carry \r and a final empty string — the one-argument-per-line contract
+    // must not persist either.
+    setTabInputArgs('t1', ['--mode\r', 'fast\r', '', '  ', 'last', '']);
+    let tab = useEditorStore.getState().tabs[0];
+    expect(tab?.inputArgs).toEqual(['--mode', 'fast', 'last']);
+
+    // All-blank input clears the args entirely rather than storing empties.
+    setTabInputArgs('t1', ['', '\r', '   ']);
+    tab = useEditorStore.getState().tabs[0];
+    expect(tab?.inputArgs).toBeUndefined();
+  });
+
   it('saves, switches, and updates named stdin + argv input sets', () => {
     const {
       addTab,

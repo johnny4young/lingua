@@ -26,7 +26,7 @@ export function CopyButton({
       data-testid={testId}
       title={label}
       aria-label={label}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-default bg-bg-panel-alt text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-default bg-bg-panel-alt text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base"
     >
       {icon}
     </button>

@@ -215,7 +215,16 @@ export function ModalShell({
     const frame = requestFrame(() => {
       const root = containerRef.current;
       if (!root || root.contains(document.activeElement)) return;
-      (getFocusableElements(root)[0] ?? root).focus({ preventScroll: true });
+      const focusable = getFocusableElements(root);
+      // The scroll region participates in keyboard tab order for axe's
+      // scrollable-region contract, but it is infrastructure rather than
+      // the caller's primary action. Preserve the existing initial-focus
+      // behavior by preferring the first interactive descendant.
+      const initialTarget =
+        focusable.find((element) => !element.hasAttribute('data-modal-scroll-region')) ??
+        focusable[0] ??
+        root;
+      initialTarget.focus({ preventScroll: true });
     });
 
     return () => {
@@ -313,10 +322,18 @@ export function ModalShell({
           ) : null}
         </div>
 
-        {/* BODY */}
+        {/* BODY — focusable region: results lists (palette, quick open)
+            overflow this container, and a scrollable area whose rows are
+            aria-activedescendant options (tabindex -1) is otherwise
+            unreachable by keyboard scrolling (axe
+            scrollable-region-focusable). */}
         <div
+          data-modal-scroll-region
+          role="region"
+          aria-labelledby={labelledById}
+          tabIndex={0}
           className={cn(
-            'max-h-[min(60vh,420px)] overflow-y-auto',
+            'max-h-[min(60vh,420px)] overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
             bodyClassName ?? 'px-3 py-[10px]'
           )}
         >
