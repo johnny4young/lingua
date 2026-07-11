@@ -30,6 +30,22 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
+/**
+ * Converter outputs render as a read-only textarea in text directions and as
+ * the syntax-highlighted JsonSyntaxOutput block (a <pre>) when the output is
+ * JSON — read whichever the panel mounted.
+ */
+function outputText(page: import('@playwright/test').Page, testId: string) {
+  return page.getByTestId(testId).evaluate((el) =>
+    ('value' in el ? String((el as HTMLTextAreaElement).value) : (el.textContent ?? ''))
+      // The highlighted block indents with non-breaking spaces and may carry
+      // zero-width joiners between token spans — normalize for matching.
+      .replace(/\u00a0/g, ' ')
+      .replace(/[\u200b\ufeff]/g, '')
+  );
+}
+
+
 test.describe('Command palette', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
@@ -176,20 +192,46 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
     const expectedOutput = 'TGluZ3VhIHV0aWxpdGllcw==';
 
-    await page.keyboard.press('Control+Shift+C');
+    // Observe copies through a writeText spy: headless clipboard readback is
+    // flaky across platforms, and the contract under test is the app writing
+    // the registered output, not the OS clipboard round-trip.
+    await page.evaluate(() => {
+      const copies: string[] = [];
+      (window as unknown as { __copiedOutputs: string[] }).__copiedOutputs = copies;
+      const original = navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText = (text: string) => {
+        copies.push(text);
+        return original(text).catch(() => undefined);
+      };
+    });
+    const lastCopied = () =>
+      page.evaluate(
+        () => (window as unknown as { __copiedOutputs: string[] }).__copiedOutputs.at(-1) ?? ''
+      );
+
+    // Control on purpose (not ControlOrMeta): the app maps BOTH ctrl and
+    // meta onto its Mod token, and Chromium on macOS swallows Meta+Shift+C
+    // before the page sees it.
+    // The panel registers its copyable output in an effect after the first
+    // compute — wait for the rendered output before firing the shortcut, or
+    // the keystroke races the registration and copies nothing.
     await expect
-      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-      .toBe(expectedOutput);
+      .poll(() =>
+        page.evaluate((expected) =>
+          Array.from(document.querySelectorAll('textarea')).some(
+            (area) => area.value === expected
+          ), 'TGluZ3VhIHV0aWxpdGllcw==')
+      )
+      .toBe(true);
+
+    await page.keyboard.press('Control+Shift+C');
+    await expect.poll(lastCopied).toBe(expectedOutput);
     await expect(
       page.getByText(/Output copied to clipboard · (⌘⇧C|Ctrl\+Shift\+C)/u)
     ).toBeVisible();
 
-    await page.evaluate(() => navigator.clipboard.writeText('old clipboard'));
-    const replaceShortcut = process.platform === 'darwin' ? 'Meta+Alt+R' : 'Control+Alt+R';
-    await page.keyboard.press(replaceShortcut);
-    await expect
-      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-      .toBe(expectedOutput);
+    await page.keyboard.press('Control+Alt+R');
+    await expect.poll(lastCopied).toBe(expectedOutput);
     await expect(
       page.getByText(/Clipboard replaced with output · (⌘⌥R|Ctrl\+Alt\+R)/u)
     ).toBeVisible();
@@ -207,8 +249,8 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await page.getByTestId('beautify-minify-mode').selectOption('minify');
     await page.getByTestId('beautify-minify-input').fill('{\n  "a": 1\n}');
 
-    const output = page.getByTestId('beautify-minify-output');
-    await expect(output).toHaveValue('{"a":1}');
+    // JSON output renders as the highlighted JsonSyntaxOutput block.
+    await expect.poll(() => outputText(page, 'beautify-minify-output')).toBe('{"a":1}');
 
     await closeDeveloperUtilities(page);
   });
@@ -515,12 +557,11 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await openDeveloperUtilities(page);
     await page.getByRole('button', { name: /^YAML and JSON/ }).click();
 
-    const output = page.getByTestId('yaml-json-output');
-    await expect(output).toHaveValue(/"name": "lingua"/);
+    await expect.poll(() => outputText(page, 'yaml-json-output')).toMatch(/"name": "lingua"/);
     await expect(page.getByTestId('yaml-json-comments-dropped')).toBeVisible();
 
     await page.getByTestId('yaml-json-mode').selectOption('json-to-yaml');
-    await expect(output).toHaveValue(/name: lingua/);
+    await expect.poll(() => outputText(page, 'yaml-json-output')).toMatch(/name: lingua/);
 
     await closeDeveloperUtilities(page);
   });
@@ -531,12 +572,11 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await openDeveloperUtilities(page);
     await page.getByRole('button', { name: /^JSON and CSV/ }).click();
 
-    const output = page.getByTestId('json-csv-output');
-    await expect(output).toHaveValue(/^name,score\nAlice,92/);
+    await expect.poll(() => outputText(page, 'json-csv-output')).toMatch(/^name,score\nAlice,92/);
     await expect(page.getByTestId('json-csv-summary')).toContainText('3 rows');
 
     await page.getByTestId('json-csv-mode').selectOption('csv-to-json');
-    await expect(output).toHaveValue(/"name": "Alice"/);
+    await expect.poll(() => outputText(page, 'json-csv-output')).toMatch(/"name": "Alice"/);
 
     await closeDeveloperUtilities(page);
   });

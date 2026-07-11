@@ -129,7 +129,13 @@ test.describe('Vim mode (RL-037)', () => {
     // Click the filtered command directly. `openPaletteAction(page, query, actionName)`
     // would call `openCommandPalette` again and race against the already-open
     // backdrop, so we drive the click ourselves once the palette is up.
-    await page.getByRole('button', { name: /Toggle Vim mode/i }).click();
+    // Palette rows are aria options (combobox + listbox pattern), not
+    // buttons — target the row via its stable data-result-index hook.
+    await page
+      .locator('[data-result-index]')
+      .filter({ hasText: /Toggle Vim mode/i })
+      .first()
+      .click();
 
     // Palette closed and Vim mode is now on — status bar mounts and
     // monaco-vim emits the localized normal-mode label.

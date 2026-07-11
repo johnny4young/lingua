@@ -170,18 +170,21 @@ test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
     for (const { id, heading } of checkPanels) {
       await page.getByTestId(`utility-item-${id}`).click();
       await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible();
+      // Visited panels stay mounted (hidden) in the keep-mounted cache, so
+      // every per-panel locator must scope to the active panel's container.
+      const panel = page.getByTestId(`utility-panel-cache-${id}`);
       if (id === 'base64') {
-        await page.getByRole('textbox', { name: 'Input' }).fill('TGluZ3Vh');
+        await panel.getByRole('textbox', { name: 'Input' }).fill('TGluZ3Vh');
       }
       if (id === 'url') {
-        await page.getByRole('textbox', { name: 'Input' }).fill('name%3DLingua%20utils');
+        await panel.getByRole('textbox', { name: 'Input' }).fill('name%3DLingua%20utils');
       }
-      const apply = page.getByTestId('utility-apply-button');
+      const apply = panel.getByTestId('utility-apply-button');
       await expect(apply).toBeEnabled();
       await apply.click();
-      await page.getByTestId('utility-history-drawer').click();
-      await expect(page.getByTestId('utility-history-entry')).toHaveCount(1);
-      await page.getByTestId('utility-history-drawer').click();
+      await panel.getByTestId('utility-history-drawer').click();
+      await expect(panel.getByTestId('utility-history-entry')).toHaveCount(1);
+      await panel.getByTestId('utility-history-drawer').click();
     }
   });
 
@@ -226,13 +229,18 @@ test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
     await openDeveloperUtilities(page);
 
     // Pin two, click apply on three different panels, open the drawer.
+    // Visited panels stay mounted in the keep-mounted cache — scope each
+    // apply/drawer interaction to the active panel's container.
     await page.getByTestId('utility-favorite-toggle-jwt').click();
     await page.getByTestId('utility-favorite-toggle-cron-parser').click();
-    await page.getByTestId('utility-apply-button').click();
+    await page.getByTestId('utility-panel-cache-json').getByTestId('utility-apply-button').click();
     await page.getByTestId('utility-item-jwt').click();
-    await page.getByTestId('utility-apply-button').click();
+    await page.getByTestId('utility-panel-cache-jwt').getByTestId('utility-apply-button').click();
     await page.getByTestId('utility-item-cron-parser').click();
-    await page.getByTestId('utility-history-drawer').click();
+    await page
+      .getByTestId('utility-panel-cache-cron-parser')
+      .getByTestId('utility-history-drawer')
+      .click();
 
     expect(errors, errors.join('\n')).toEqual([]);
   });

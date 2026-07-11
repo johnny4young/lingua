@@ -96,7 +96,13 @@ test.describe('Spanish locale — shell and settings', () => {
     await openCommandPalette(page);
 
     await paletteInput(page).fill('atajos');
-    await expect(page.getByRole('button', { name: /Abrir atajos de teclado/i })).toBeVisible();
+    // Palette rows are aria options, not buttons.
+    await expect(
+      page
+        .locator('[data-result-index]')
+        .filter({ hasText: /Abrir atajos de teclado/i })
+        .first()
+    ).toBeVisible();
     await page.keyboard.press('Escape');
   });
 
