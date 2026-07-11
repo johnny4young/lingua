@@ -98,12 +98,19 @@ export function finishBootTiming(): void {
 }
 
 export async function copyBootTimingsToClipboard(
-  writer: ((text: string) => Promise<void>) | undefined = navigator.clipboard?.writeText?.bind(
-    navigator.clipboard
-  )
+  writer?: (text: string) => Promise<void>
 ): Promise<boolean> {
-  if (!writer) return false;
-  await writer(`${JSON.stringify(getBootTimings(), null, 2)}\n`);
+  // Resolve the clipboard lazily inside the body: a default-parameter
+  // expression touching a bare `navigator` throws ReferenceError in
+  // non-browser callers (unit tests, SSR-like tooling) before the guard
+  // below could ever run.
+  const resolvedWriter =
+    writer ??
+    (typeof navigator !== 'undefined'
+      ? navigator.clipboard?.writeText?.bind(navigator.clipboard)
+      : undefined);
+  if (!resolvedWriter) return false;
+  await resolvedWriter(`${JSON.stringify(getBootTimings(), null, 2)}\n`);
   return true;
 }
 

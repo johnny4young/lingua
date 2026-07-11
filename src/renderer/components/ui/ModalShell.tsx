@@ -333,7 +333,10 @@ export function ModalShell({
           aria-labelledby={labelledById}
           tabIndex={0}
           className={cn(
-            'max-h-[min(60vh,420px)] overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+            // Shared focus-ring utility + inset so the ring hugs the inside
+            // of the scroll region instead of being clipped by the shell's
+            // rounded overflow-hidden container.
+            'focus-ring max-h-[min(60vh,420px)] overflow-y-auto focus-visible:ring-inset',
             bodyClassName ?? 'px-3 py-[10px]'
           )}
         >
