@@ -88,8 +88,12 @@ export function UtilityHistoryDrawer({
             : t('utilities.history.sessionBadge')}
         </span>
       </summary>
-      <div className="grid gap-2 px-3 pb-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-muted">
+      {/* minmax(0,1fr) pins the single column to the drawer's width — an
+          auto track grows to the rows' min-content and pushes the persist +
+          Clear controls past the drawer's overflow-hidden edge, where the
+          neighbouring card swallows their clicks. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2 px-3 pb-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-caption text-muted">
           <label
             className={`inline-flex items-center gap-1.5 ${
               canPersistHistory ? 'cursor-pointer' : 'cursor-not-allowed opacity-65'

@@ -285,7 +285,11 @@ export function UtilityToolbar({
     // the remaining width; its expanded list drops below within it).
     <div
       data-testid="utility-toolbar"
-      className={`um-toolbar flex flex-wrap items-center gap-2 ${className ?? ''}`}
+      // min-w-0: as a grid item this row must be allowed to shrink below its
+      // content's min width, or the history drawer never wraps and overflows
+      // the card into the neighbouring pane (its Clear row lands under the
+      // sibling card and becomes unclickable).
+      className={`um-toolbar flex min-w-0 flex-wrap items-center gap-2 ${className ?? ''}`}
     >
       {leading}
       <button
@@ -302,7 +306,12 @@ export function UtilityToolbar({
       </button>
       {children}
       {setPrimary ? (
-        <div className="min-w-[14rem] flex-1">
+        // w-full: the drawer always takes its own toolbar line. A flex-basis
+        // floor (the previous min-w-[14rem] flex-1) let it share the Apply
+        // row and overflow the card whenever a sibling grid row inflated the
+        // column track — its expanded Clear row then landed under the
+        // neighbouring card, clipped and unclickable.
+        <div className="w-full min-w-0">
           <UtilityHistoryDrawer utilityId={utilityId} onApplyEntry={handleHistoryEntry} />
         </div>
       ) : null}

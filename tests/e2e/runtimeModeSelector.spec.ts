@@ -74,7 +74,7 @@ test.describe('Runtime mode selector (RL-019)', () => {
     await expect(page.getByTestId('action-pill-runtime')).toBeHidden();
   });
 
-  test('Settings → Editor default runtime mode select lists three options', async ({ page }) => {
+  test('Settings → Editor default runtime mode select lists five options', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -87,7 +87,8 @@ test.describe('Runtime mode selector (RL-019)', () => {
     const optionValues = await select.locator('option').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)
     );
-    expect(optionValues).toEqual(['worker', 'node', 'browser-preview']);
+    // F-1 runtimes added Deno and Bun as first-class desktop modes.
+    expect(optionValues).toEqual(['worker', 'node', 'browser-preview', 'deno', 'bun']);
     const disabledValues = await select.locator('option[disabled]').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)
     );

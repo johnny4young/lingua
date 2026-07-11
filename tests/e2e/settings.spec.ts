@@ -63,9 +63,11 @@ test.describe('Settings — structural tour', () => {
 
     await openSettingsTab(page, 'account');
     await expect(page.getByRole('heading', { name: 'License', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Privacy', exact: true })).toBeVisible();
 
+    // Privacy controls + the trust dashboard share the Privacy tab (the
+    // run-ledger slice moved PrivacySection out of Account).
     await openSettingsTab(page, 'privacy');
+    await expect(page.getByRole('heading', { name: 'Privacy', exact: true })).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Privacy + Trust', exact: true })
     ).toBeVisible();
@@ -92,7 +94,7 @@ test.describe('Settings — Privacy section', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
-    await openSettingsTab(page, 'account');
+    await openSettingsTab(page, 'privacy');
 
     // Seed writes telemetryConsent = 'declined' so this state is the baseline.
     await expect(page.getByTestId('telemetry-status')).toContainText(

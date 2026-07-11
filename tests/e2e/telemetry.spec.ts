@@ -87,7 +87,7 @@ test.describe('Telemetry consent gate', () => {
 
     // Flip telemetry consent to `granted` via the Privacy section.
     await openSettings(page);
-    await openSettingsTab(page, 'account');
+    await openSettingsTab(page, 'privacy');
     const toggle = page.getByRole('switch', {
       name: /share anonymous usage analytics|compartir estadísticas de uso anónimas/i,
     });
@@ -141,7 +141,7 @@ test.describe('Telemetry consent gate', () => {
 
     // Grant first → trigger → expect POST.
     await openSettings(page);
-    await openSettingsTab(page, 'account');
+    await openSettingsTab(page, 'privacy');
     const toggle = page.getByRole('switch', {
       name: /share anonymous usage analytics|compartir estadísticas de uso anónimas/i,
     });
@@ -163,7 +163,7 @@ test.describe('Telemetry consent gate', () => {
     // (and after Escape closes the settings overlay) — only then do
     // we trigger the command palette and assert silence.
     await openSettings(page);
-    await openSettingsTab(page, 'account');
+    await openSettingsTab(page, 'privacy');
     await toggle.click();
     await expect(page.getByTestId('telemetry-status')).toContainText(
       /declined — no data leaves|rechazada — ningún dato sale/i

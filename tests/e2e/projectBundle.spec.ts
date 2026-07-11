@@ -8,13 +8,9 @@
  * IPC tests; this pin focuses on the palette wiring + locale copy.
  */
 
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import { expect, gotoApp, paletteInput, seedSession, test } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
-
-function paletteInput(page: import('@playwright/test').Page) {
-  return page.getByRole('dialog').getByRole('textbox').first();
-}
 
 test.describe('Project bundle import overlay (RL-024 Slice 3)', () => {
   test('opens from the command palette (EN)', async ({ page }) => {
