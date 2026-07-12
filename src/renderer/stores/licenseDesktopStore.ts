@@ -220,6 +220,12 @@ export function createDesktopStore(bridge: LicenseBridge) {
       applySnapshot(snapshot);
     })
     .catch(() => {
+      if (bootstrapApplied) {
+        // A user mutation already owns the canonical state. A late failure
+        // from the original getState request must not roll that mutation back
+        // to Free.
+        return;
+      }
       // Fail closed after a transport/runtime failure; do not leave the
       // transient verifying state stuck forever.
       bootstrapApplied = true;
