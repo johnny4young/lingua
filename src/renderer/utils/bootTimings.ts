@@ -28,7 +28,7 @@ function now(): number {
 }
 
 function devtoolsMark(name: BootMark): void {
-  if (typeof performance?.mark !== 'function') return;
+  if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
   try {
     performance.mark(`${BOOT_MARK_PREFIX}:${name}`);
   } catch {
@@ -36,8 +36,31 @@ function devtoolsMark(name: BootMark): void {
   }
 }
 
+function existingDevtoolsMarkTime(name: BootMark): number | null {
+  if (
+    typeof performance === 'undefined' ||
+    typeof performance.getEntriesByName !== 'function'
+  ) {
+    return null;
+  }
+  try {
+    const entries = performance.getEntriesByName(
+      `${BOOT_MARK_PREFIX}:${name}`,
+      'mark'
+    );
+    return entries[0]?.startTime ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function startBootTiming(): void {
   if (marks.has('start')) return;
+  const documentStart = existingDevtoolsMarkTime('start');
+  if (documentStart !== null) {
+    marks.set('start', documentStart);
+    return;
+  }
   marks.set('start', now());
   devtoolsMark('start');
 }
@@ -118,6 +141,15 @@ export async function copyBootTimingsToClipboard(
 export function resetBootTimingsForTesting(): void {
   marks.clear();
   telemetryReported = false;
+  if (typeof performance === 'undefined') return;
+  try {
+    for (const mark of ['start', ...BOOT_PHASES] satisfies BootMark[]) {
+      performance.clearMarks?.(`${BOOT_MARK_PREFIX}:${mark}`);
+      performance.clearMeasures?.(`${BOOT_MARK_PREFIX}:phase:${mark}`);
+    }
+  } catch {
+    // Test diagnostics must stay harmless in partial Performance shims.
+  }
 }
 
 // Importing this tiny module from the entrypoint establishes the earliest

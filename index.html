@@ -96,6 +96,12 @@
     <title>Lingua</title>
     <script>
       (() => {
+        // IT2-G3 prerequisite: capture module download/evaluation and the
+        // import-time hydration work that runs before renderer/main.tsx.
+        try {
+          window.performance?.mark?.('lingua:boot:start');
+        } catch {}
+
         const themeColors = {
           dark: '#0c1017',
           light: '#f4efe7',
