@@ -26,8 +26,17 @@ function readHtmlEntry(filePath: string): string {
   return readFileSync(filePath, 'utf8');
 }
 
+function extractBootSkeletonStyle(html: string): string {
+  const match = html.match(
+    /<style id="lingua-boot-skeleton-styles">([\s\S]*?)<\/style>/u
+  );
+  if (!match?.[1]) throw new Error('Missing boot skeleton style block');
+  return match[1].trim();
+}
+
 test.describe('Document head — RL-140 boot hints', () => {
   test('keeps desktop and web HTML entries aligned on critical boot hints', () => {
+    const [desktopHtml, webHtml] = htmlEntryPaths.map(readHtmlEntry);
     for (const filePath of htmlEntryPaths) {
       const html = readHtmlEntry(filePath);
       expect(html, filePath).toContain('<meta name="color-scheme" content="dark light"');
@@ -39,7 +48,13 @@ test.describe('Document head — RL-140 boot hints', () => {
       expect(html, filePath).toContain('parsed?.state?.editorTheme');
       expect(html, filePath).toContain('#0c1017');
       expect(html, filePath).toContain('#f4efe7');
+      expect(html, filePath).toContain('id="lingua-boot-skeleton"');
+      expect(html, filePath).toContain('data-testid="boot-skeleton"');
+      expect(html, filePath).toContain('aria-hidden="true" inert');
     }
+    expect(extractBootSkeletonStyle(desktopHtml)).toBe(
+      extractBootSkeletonStyle(webHtml)
+    );
   });
 
   test('serves color-scheme, preconnects, and font preloads in the static head', async ({

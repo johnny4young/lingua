@@ -296,10 +296,12 @@ app.on('ready', async () => {
     readConsentAtBoot: () => readConsentMirror(mirrorPath),
   });
 
-  // RL-059 main-side license runtime — boots before the window so the
-  // first `getState` call from the renderer always sees the verified
-  // snapshot instead of a free-tier sentinel.
-  const licenseRuntime = await createLicenseRuntime({
+  // IT2-G2 — start the RL-059 runtime before the window, but do not keep its
+  // disk read + token verification on the first-paint critical path. The IPC
+  // handlers register synchronously against the shared promise; a renderer
+  // getState call that wins the race waits for the verified snapshot instead
+  // of observing an unregistered channel or a free-tier sentinel.
+  const licenseRuntime = createLicenseRuntime({
     userDataDir,
     publicKeyJwk: parseEmbeddedPublicKey(__LINGUA_LICENSE_PUBLIC_KEY_JWK__),
   });

@@ -166,9 +166,161 @@
         themeColorMeta.setAttribute('content', themeColors[theme]);
       })();
     </script>
+    <!--
+      IT2-G2 — first-paint shell. This block intentionally has no runtime
+      dependency: it renders while the module graph, i18n catalog, and React
+      bootstrap are still loading. The theme bootstrap above has already put
+      dark/light on <html>, so these tokens match the persisted shell polarity
+      without another inline script. Keep this block byte-for-byte aligned with
+      src/web/index.html; tests/e2e/documentHead.spec.ts guards the contract.
+    -->
+    <style id="lingua-boot-skeleton-styles">
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      #lingua-boot-skeleton {
+        --boot-bg: #0c1017;
+        --boot-panel: #121824;
+        --boot-panel-alt: #161e2b;
+        --boot-border: #293446;
+        --boot-muted: #536177;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-rows: 42px minmax(0, 1fr) 26px;
+        min-height: 100vh;
+        overflow: hidden;
+        background: var(--boot-bg);
+      }
+
+      html.light #lingua-boot-skeleton {
+        --boot-bg: #f4efe7;
+        --boot-panel: #fcfaf6;
+        --boot-panel-alt: #ebe4d9;
+        --boot-border: #d4c9ba;
+        --boot-muted: #b5aa9a;
+      }
+
+      #lingua-boot-skeleton,
+      #lingua-boot-skeleton * {
+        box-sizing: border-box;
+      }
+
+      .lingua-boot-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--boot-border);
+        background: var(--boot-panel);
+        padding: 0 14px;
+      }
+
+      .lingua-boot-dot,
+      .lingua-boot-line,
+      .lingua-boot-tab {
+        display: block;
+        border-radius: 999px;
+        background: var(--boot-muted);
+        opacity: 0.58;
+      }
+
+      .lingua-boot-dot {
+        width: 8px;
+        height: 8px;
+      }
+
+      .lingua-boot-tab {
+        width: 94px;
+        height: 12px;
+        margin-left: 12px;
+      }
+
+      .lingua-boot-workspace {
+        display: grid;
+        grid-template-columns: 224px minmax(0, 1fr);
+        min-height: 0;
+      }
+
+      .lingua-boot-sidebar {
+        display: grid;
+        align-content: start;
+        gap: 13px;
+        border-right: 1px solid var(--boot-border);
+        background: var(--boot-panel);
+        padding: 18px 14px;
+      }
+
+      .lingua-boot-editor {
+        display: grid;
+        grid-template-rows: 38px minmax(0, 1fr);
+        min-width: 0;
+        background: var(--boot-bg);
+      }
+
+      .lingua-boot-tabs {
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid var(--boot-border);
+        background: var(--boot-panel-alt);
+      }
+
+      .lingua-boot-code {
+        display: grid;
+        align-content: start;
+        gap: 12px;
+        padding: 28px 34px;
+      }
+
+      .lingua-boot-line {
+        width: min(68%, 680px);
+        height: 9px;
+      }
+
+      .lingua-boot-line:nth-child(2) { width: min(44%, 440px); }
+      .lingua-boot-line:nth-child(3) { width: min(57%, 570px); }
+      .lingua-boot-line:nth-child(4) { width: min(36%, 360px); }
+
+      .lingua-boot-status {
+        border-top: 1px solid var(--boot-border);
+        background: var(--boot-panel);
+      }
+
+      @media (max-width: 720px) {
+        .lingua-boot-workspace { grid-template-columns: 72px minmax(0, 1fr); }
+        .lingua-boot-sidebar { padding-inline: 12px; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="lingua-boot-skeleton" data-testid="boot-skeleton" aria-hidden="true" inert>
+        <div class="lingua-boot-bar">
+          <span class="lingua-boot-dot"></span>
+          <span class="lingua-boot-dot"></span>
+          <span class="lingua-boot-dot"></span>
+        </div>
+        <div class="lingua-boot-workspace">
+          <div class="lingua-boot-sidebar">
+            <span class="lingua-boot-line"></span>
+            <span class="lingua-boot-line"></span>
+            <span class="lingua-boot-line"></span>
+          </div>
+          <div class="lingua-boot-editor">
+            <div class="lingua-boot-tabs"><span class="lingua-boot-tab"></span></div>
+            <div class="lingua-boot-code">
+              <span class="lingua-boot-line"></span>
+              <span class="lingua-boot-line"></span>
+              <span class="lingua-boot-line"></span>
+              <span class="lingua-boot-line"></span>
+            </div>
+          </div>
+        </div>
+        <div class="lingua-boot-status"></div>
+      </div>
+    </div>
     <script type="module" src="/src/renderer/main.tsx"></script>
   </body>
 </html>

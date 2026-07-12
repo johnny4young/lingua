@@ -484,6 +484,53 @@ describe('registerLicenseHandlers', () => {
     expect(ipcHandlers.has('license:revalidate')).toBe(true);
   });
 
+  it('registers channels immediately and lets bootstrap calls await a pending runtime', async () => {
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const { registerLicenseHandlers } = await import('../../src/main/ipc/license');
+    let resolveRuntime!: (runtime: Awaited<ReturnType<typeof createLicenseRuntime>>) => void;
+    const runtimeReady = new Promise<Awaited<ReturnType<typeof createLicenseRuntime>>>((resolve) => {
+      resolveRuntime = resolve;
+    });
+
+    registerLicenseHandlers(runtimeReady);
+    const get = ipcHandlers.get('license:get-state');
+    expect(get).toBeDefined();
+
+    let settled = false;
+    const snapshotPromise = get!({}).then((snapshot) => {
+      settled = true;
+      return snapshot;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    resolveRuntime(await createLicenseRuntime({ userDataDir: tempDir, publicKeyJwk }));
+    const snapshot = (await snapshotPromise) as { status: { kind: string } };
+    expect(snapshot.status.kind).toBe('free');
+  });
+
+  it('maps a rejected runtime bootstrap through the mutation failure contract', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { registerLicenseHandlers } = await import('../../src/main/ipc/license');
+    registerLicenseHandlers(Promise.reject(new Error('runtime unavailable')));
+
+    const apply = ipcHandlers.get('license:apply-token')!;
+    const result = (await apply({}, 'token')) as {
+      ok: boolean;
+      reason?: string;
+      message?: string;
+    };
+    expect(result).toEqual({
+      ok: false,
+      reason: 'apply-failed',
+      message: 'runtime unavailable',
+    });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[lingua] license runtime failed to initialize:',
+      'runtime unavailable'
+    );
+  });
+
   it('license:apply-token forwards a string token through the runtime and returns the snapshot', async () => {
     const { createLicenseRuntime } = await import('../../src/main/license');
     const { registerLicenseHandlers } = await import('../../src/main/ipc/license');

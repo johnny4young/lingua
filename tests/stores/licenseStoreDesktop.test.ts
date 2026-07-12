@@ -60,6 +60,113 @@ describe('licenseStore — desktop IPC bridge', () => {
     });
   });
 
+  it('reports verifying while the main snapshot is pending, then applies it', async () => {
+    let resolveSnapshot!: (snapshot: {
+      token: string | null;
+      status: { kind: 'active'; verification: never };
+      deviceId: string;
+      lastVerifiedAt: number | null;
+    }) => void;
+    const pendingSnapshot = new Promise<{
+      token: string | null;
+      status: { kind: 'active'; verification: never };
+      deviceId: string;
+      lastVerifiedAt: number | null;
+    }>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const bridge = installBridge({
+      token: null,
+      status: { kind: 'free' },
+      deviceId: 'device-uuid',
+      lastVerifiedAt: null,
+    });
+    bridge.getState.mockReturnValueOnce(pendingSnapshot);
+
+    const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
+    expect(useLicenseStore.getState().status.kind).toBe('verifying');
+
+    resolveSnapshot({
+      token: 'active.token',
+      status: { kind: 'active', verification: {} as never },
+      deviceId: 'device-uuid',
+      lastVerifiedAt: 1234,
+    });
+    await vi.waitFor(() => {
+      expect(useLicenseStore.getState().token).toBe('active.token');
+      expect(useLicenseStore.getState().status.kind).toBe('active');
+    });
+  });
+
+  it('falls back to free when the pending desktop bootstrap rejects', async () => {
+    const bridge = installBridge({
+      token: null,
+      status: { kind: 'free' },
+      deviceId: 'device-uuid',
+      lastVerifiedAt: null,
+    });
+    let rejectSnapshot!: (reason?: unknown) => void;
+    bridge.getState.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectSnapshot = reject;
+      })
+    );
+
+    const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
+    expect(useLicenseStore.getState().status.kind).toBe('verifying');
+    rejectSnapshot(new Error('ipc unavailable'));
+    await vi.waitFor(() => {
+      expect(useLicenseStore.getState().status.kind).toBe('free');
+    });
+  });
+
+  it('does not let a late bootstrap rejection clobber a user-applied license', async () => {
+    const initial = {
+      token: null,
+      status: { kind: 'free' as const },
+      deviceId: 'device-uuid',
+      lastVerifiedAt: null,
+    };
+    const active = {
+      token: 'active.token',
+      status: {
+        kind: 'active' as const,
+        verification: {
+          ok: true as const,
+          payload: {} as never,
+          state: 'active' as const,
+          supportWindowEndsAt: 1,
+        },
+      },
+      deviceId: 'device-uuid',
+      lastVerifiedAt: 1234,
+    };
+    const bridge = installBridge(initial);
+    let rejectBootstrap!: (reason?: unknown) => void;
+    bridge.getState.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectBootstrap = reject;
+      })
+    );
+    bridge.applyToken.mockResolvedValueOnce({
+      ok: true,
+      status: active.status,
+      snapshot: active,
+    });
+
+    const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
+    expect(useLicenseStore.getState().status.kind).toBe('verifying');
+
+    const status = await useLicenseStore.getState().setLicenseToken(active.token);
+    expect(status.kind).toBe('active');
+    expect(useLicenseStore.getState().token).toBe(active.token);
+
+    rejectBootstrap(new Error('late bootstrap failure'));
+    await Promise.resolve();
+    expect(useLicenseStore.getState().token).toBe(active.token);
+    expect(useLicenseStore.getState().status.kind).toBe('active');
+  });
+
   it('setLicenseToken delegates to bridge.applyToken and updates the mirror', async () => {
     const initial = {
       token: null,
