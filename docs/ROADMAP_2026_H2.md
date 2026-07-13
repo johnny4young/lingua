@@ -53,9 +53,10 @@ reproducible: `output/review/project-sequence/t01-*` … `t08-*` y
 `output/review/a5-sql-workspace-panel-split/`; el primer split de hooks A5 queda
 en `output/review/a5-auto-run-split/`, el segundo en
 `output/review/a5-import-preview-split/` y el tercero en
-`output/review/a5-global-shortcuts-split/`.
+`output/review/a5-global-shortcuts-split/`; el cierre queda en
+`output/review/a5-project-watch-sync-split/`.
 
-Siguiente secuencia recomendada: cerrar A5 con `useProjectWatchSync`. G3 ya
+Siguiente secuencia recomendada: retomar A2 con `useTransformUtilityPanel`. G3 ya
 cumplió el gate de medición y P6 cerró el último hallazgo de performance medio
 de esta ronda.
 
