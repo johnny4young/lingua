@@ -30,17 +30,22 @@ describe('deep-review maintainability boundaries', () => {
     }
   });
 
-  it('keeps the four prioritized renderer components below 800 lines', () => {
-    for (const relativePath of [
-      'src/renderer/components/Notebook/NotebookView.tsx',
-      'src/renderer/components/SqlWorkspace/SqlResultPreview.tsx',
-      'src/renderer/components/CommandPalette/CommandPalette.tsx',
-      'src/renderer/components/Editor/EditorTabs.tsx',
-    ]) {
+  it('keeps completed renderer splits within their maintainability budgets', () => {
+    for (const [relativePath, budget] of [
+      ['src/renderer/components/Notebook/NotebookView.tsx', 800],
+      ['src/renderer/components/SqlWorkspace/SqlResultPreview.tsx', 800],
+      ['src/renderer/components/CommandPalette/CommandPalette.tsx', 800],
+      ['src/renderer/components/Editor/EditorTabs.tsx', 800],
+      ['src/renderer/components/Settings/EditorSection.tsx', 800],
+      [
+        'src/renderer/components/Settings/SqlWorkspaceSettingsSection.tsx',
+        400,
+      ],
+    ] as const) {
       expect(
         physicalLines(relativePath),
-        `${relativePath} regressed above the deep-review threshold`
-      ).toBeLessThanOrEqual(800);
+        `${relativePath} regressed above its deep-review budget`
+      ).toBeLessThanOrEqual(budget);
     }
   });
 });

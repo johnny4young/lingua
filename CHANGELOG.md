@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - **Faster, calmer startup**: Lingua now paints a theme-matched editor skeleton while the renderer bundle loads instead of showing an empty window. On desktop, license verification runs in parallel after its IPC channels are registered, so opening the window no longer waits on disk/token initialization and the license surface shows a neutral verifying state until the real snapshot arrives.
+- **Settings editor internals are easier to maintain**: the SQL workspace defaults and persistence actions now live in their own focused settings component, reducing the parent editor-settings surface below the maintainability threshold without changing controls, copy, persistence, or DuckDB behavior.
 
 ### Performance
 - **Boot timings now cover the real startup boundary**: the initial performance mark is emitted by the static document before the renderer module downloads or evaluates, so Copy boot timings includes bundle evaluation and import-time persistence work instead of starting after it. A capped-payload audit found no meaningful first-paint win from deferring notebook or utility-history hydration, so Lingua keeps immediate workspace access rather than adding a new loading interval.
