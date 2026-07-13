@@ -39,6 +39,34 @@ describe('bootTimings (IT2-G1)', () => {
     });
   });
 
+  it('adopts the document-level start mark instead of resetting the clock', () => {
+    resetBootTimingsForTesting();
+    const startEntry = { startTime: 12 } as PerformanceEntry;
+    vi.spyOn(performance, 'getEntriesByName').mockReturnValue([startEntry]);
+    vi.spyOn(performance, 'now').mockReturnValue(42);
+    const mark = vi.spyOn(performance, 'mark');
+
+    startBootTiming();
+    markBootPhase('system-language');
+    markBootPhase('i18n');
+    markBootPhase('react-mount');
+    markBootPhase('first-paint');
+    markBootPhase('rehydration');
+
+    expect(getBootTimings()).toEqual({
+      version: 1,
+      totalDurationMs: 30,
+      phases: [
+        { phase: 'system-language', durationMs: 30 },
+        { phase: 'i18n', durationMs: 0 },
+        { phase: 'react-mount', durationMs: 0 },
+        { phase: 'first-paint', durationMs: 0 },
+        { phase: 'rehydration', durationMs: 0 },
+      ],
+    });
+    expect(mark).not.toHaveBeenCalledWith('lingua:boot:start');
+  });
+
   it('copies JSON with durations but no timestamps, paths, or user data', async () => {
     const writer = vi.fn().mockResolvedValue(undefined);
     resetBootTimingsForTesting();

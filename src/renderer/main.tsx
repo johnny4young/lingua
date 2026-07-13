@@ -1,3 +1,6 @@
+// Keep the timing import first as the non-HTML/test fallback. Production HTML
+// owns the earlier document-level mark that also covers module evaluation.
+import { markBootPhase } from './utils/bootTimings';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
@@ -12,7 +15,6 @@ import {
   scheduleRecoveryMarksClear,
 } from './utils/safeBoot';
 import './index.css';
-import { markBootPhase } from './utils/bootTimings';
 
 // RL-090 — global handlers for async + event-handler errors.
 // React error boundaries only catch render-time throws inside the

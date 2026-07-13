@@ -51,6 +51,7 @@ test.describe('Document head — RL-140 boot hints', () => {
       expect(html, filePath).toContain('id="lingua-boot-skeleton"');
       expect(html, filePath).toContain('data-testid="boot-skeleton"');
       expect(html, filePath).toContain('aria-hidden="true" inert');
+      expect(html, filePath).toContain("performance?.mark?.('lingua:boot:start')");
     }
     expect(extractBootSkeletonStyle(desktopHtml)).toBe(
       extractBootSkeletonStyle(webHtml)

@@ -1214,7 +1214,17 @@ inmediata + runtime awaited solo por sus handlers.
 < 100 ms en throttling "Fast 3G"; el estado de licencia resuelve async sin
 flash de "invalid"; smoke desktop completo verde.
 
-## IT2-G3 · Rehidratación diferida de stores pesados — M (1-2 d, tras G1)
+## IT2-G3 · Rehidratación diferida de stores pesados — EVALUADO 2026-07-11 · SIN DIFERIMIENTO
+
+> **Estado actual.** Se corrigió primero el límite de medición de G1: el mark
+> `lingua:boot:start` ahora se emite desde el HTML estático, antes de descargar
+> y evaluar el entry module, y `bootTimings` adopta ese origen sin duplicarlo.
+> En seis corridas intercaladas por variante, con navegador fresco, un notebook
+> de 200 celdas (212 KB) y Utility History de 241 KB, las medianas
+> `start → first-paint` fueron 221,24 ms vacío, 225,09 ms notebook, 221,64 ms
+> historial y 222,25 ms combinados. No se aplicó `skipHydration`: el máximo
+> delta mediano aislado fue 3,85 ms y diferir estos stores agregaría una espera
+> visible al abrir Notebook/Utilities sin una mejora de boot demostrable.
 
 **Evidencia.** Los 15 stores `persist` rehidratan síncronamente en
 import-time; `notebookStore` parsea el payload completo al boot y
@@ -1233,6 +1243,13 @@ existe).
 **AC.** Marks de G1 muestran la mejora; suite completa verde sin editar
 asserts; abrir notebook inmediatamente tras el boot funciona (test e2e
 con notebook persistido grande).
+
+**Cierre de AC.** El gate era medir antes de diferir, no imponer el mecanismo.
+Los marks ahora abarcan el tramo que se pretendía evaluar y el experimento con
+los caps de producción descartó la optimización. Se conserva la hidratación
+actual y, por tanto, la apertura inmediata de notebooks y Utilities no gana una
+carrera ni un estado de carga nuevo. Las pruebas de skeleton bloquean el entry
+module y demuestran que el mark ya existe antes de React.
 
 ## IT2-G4 · Toolchain ausente → guía in-app — S (1 d)
 
@@ -1414,7 +1431,7 @@ toca UI (mandato AGENTS.md).
 | - | ---- | -------- | ---- |
 | 24 | IT2-G1 (instrumentar boot) | 1 d | **Hecho 2026-07-10** — habilita medir G2/G3. |
 | 25 | IT2-G2 (skeleton + ventana sin bloqueo) | 1-2 d | Primer impacto percibido; paso 0 = mapear dependencia de licencia. |
-| 26 | IT2-G3 (rehidratación diferida) | 1-2 d | Solo tras medir con G1. |
+| 26 | IT2-G3 (rehidratación diferida) | Medido 2026-07-11 | **Cerrado sin diferir** — ≤3,85 ms medianos; el costo no justificó nuevas esperas. |
 | 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | Convierte las dos frustraciones en momentos de marca. |
 | 28 | IT2-G6 (boundaries regionales) | 1 d | Resiliencia percibida. |
 | 29 | IT2-G7 (a11y gaps) | 1-2 d | La parte (a) va DENTRO de IT2-B2. |
@@ -1458,7 +1475,7 @@ ataca.
 | **Innovación** | ★★★★ | Capsules reproducibles + Trust dashboard + AI local con payload preview: real, pero invisible al mercado. La reactividad cross-lenguaje (F2) es el hueco sin ocupar. | F2, C2, G8 |
 | **Originalidad** | ★★★★½ | Único runner multi-lenguaje offline-first unificado (la competencia lo ataca con apps separadas). El ledger consultable con SQL (C2) y la capsule→HTML (F7) no los tiene nadie. | C2, F7 |
 | **UX** | ★★★½ | Sólida de base, sin momentos de deleite ni loops de retorno; el gating Free contradice la persona objetivo. | D completo, G4-G5 |
-| **Performance** | ★★★★ | Runtime con virtualización, selectors estrechos y compute worker; G1 ya instrumenta el arranque. Restan rehidratación diferida y desacoplar la ventana del bootstrap de licencia. | B, G2-G3 |
+| **Performance** | ★★★★ | Runtime con virtualización, selectors estrechos y compute worker; G1/G2 ya miden y desacoplan el arranque, y G3 descartó diferir stores por falta de ganancia. Resta P6 sobre probes síncronos. | B, P6 |
 | **Arquitectura** | ★★★★½ | IPC y workers por contrato, FS por capabilities y assembly de 40 LOC. Restan el lifecycle duplicado de runners y el sprawl de configs. | A2, A4 |
 | **Escalabilidad (datos)** | ★★½ | Todo en localStorage con caps; historial volátil. El Run Ledger (DuckDB+OPFS) es el salto — sin dependencias nuevas. | C1-C2 |
 | **Testeabilidad** | ★★★ | 571 tests y CI disciplinado, pero 0 coverage instrumentado, 1/571 type-checkeado y axe en ~30% de superficies. | E, G7c |
