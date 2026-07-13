@@ -228,13 +228,27 @@ como único tipo aceptado. Espejo para python/ruby (`PyWorkerRequest`…).
 **AC.** Cero casts `as` en los listeners de runners; una variante nueva sin
 handler = error de compilación; runs de JS/TS/Python/Ruby verdes en smoke.
 
-## IT2-A5 · Partir hooks gigantes — S por hook
+## IT2-A5 · Partir hooks gigantes — EN PROGRESO 2026-07-13 (2/4)
 
-`useAutoRun.ts` (617), `useImportPreview.ts` (574), `useGlobalShortcuts.ts`
-(533), `useProjectWatchSync.ts` (488). Extraer la lógica pura (máquinas de
-estado, decisiones de gating) a helpers junto al hook — patrón ya usado por
-`runnerOutput.ts`. AC: hook <300 LOC, helpers con test propio, cero cambio
-de comportamiento. Hacer UNO por PR.
+`useAutoRun.ts` pasó 620→151 LOC al separar decisiones puras en
+`autoRunModel.ts` (55), ejecución/gates en `autoRunExecution.ts` (226) y
+publicación de resultados/telemetría en `autoRunResult.ts` (119). Los budgets
+automatizados fijan el hook por debajo de 300 LOC y los tres módulos por debajo
+de 120-300; `autoRunModel` tiene tests propios y la suite existente del hook
+conserva sus carreras manual/auto, gates y entradas efectivas.
+
+`useImportPreview.ts` pasó 574→79 LOC: detección, preview y variables Postman
+quedaron en `importPreviewModel.ts` (189), y la confirmación con escrituras en
+stores quedó en `importPreviewConfirm.ts` (223). El modelo suma tests directos;
+la confirmación también fija directamente su contrato de cierre/reset, y la
+suite existente conserva cURL, ipynb, linguanb, Postman, Bruno, warnings,
+telemetría, cancelación y estados rechazados.
+
+Restan `useGlobalShortcuts.ts` (533) y `useProjectWatchSync.ts` (488). Mantener
+el patrón: extraer lógica pura (máquinas de estado, decisiones de gating) a
+helpers junto al hook. AC por slice: hook <300 LOC, helpers con test propio,
+cero cambio de comportamiento. Hacer UNO por commit; una banda puede agrupar
+varios commits ya validados.
 
 ## IT2-A6 · Higiene de dependencias — CERRADO 2026-07-06 (resultado: no-op)
 
@@ -1483,8 +1497,8 @@ ataca.
 | **Arquitectura** | ★★★★½ | IPC y workers por contrato, FS por capabilities y assembly de 40 LOC. Restan el lifecycle duplicado de runners y el sprawl de configs. | A2, A4 |
 | **Escalabilidad (datos)** | ★★½ | Todo en localStorage con caps; historial volátil. El Run Ledger (DuckDB+OPFS) es el salto — sin dependencias nuevas. | C1-C2 |
 | **Testeabilidad** | ★★★ | 571 tests y CI disciplinado, pero 0 coverage instrumentado, 1/571 type-checkeado y axe en ~30% de superficies. | E, G7c |
-| **Simplicidad** | ★★★½ | Patrones consistentes (splits RL-128/129/130, contrato IPC); la rompen los hooks de 500-617 LOC y el boilerplate de paneles. | A2, A5 |
-| **Mantenibilidad** | ★★★★ | Docs vivos + gates fuertes; fileSystem y nueve componentes prioritarios ya se partieron con budgets automatizados. Queda un componente de 800+ LOC y los hooks grandes de A5. | A2, A5-A7 |
+| **Simplicidad** | ★★★½ | Patrones consistentes (splits RL-128/129/130, contrato IPC); la rompen dos hooks de 488-533 LOC y el boilerplate de paneles. | A2, A5 |
+| **Mantenibilidad** | ★★★★ | Docs vivos + gates fuertes; fileSystem, los diez componentes prioritarios, `useAutoRun` y `useImportPreview` ya se partieron con budgets automatizados. No quedan componentes de 800+ LOC; quedan dos hooks grandes de A5. | A2, A5-A7 |
 | **Librerías** | ★★★★★ | React 19 / Vite 8 / TS 6 / Electron 42 / zustand 5 / Tailwind 4 — todo al día; el plugin de Forge fue verificado como dependencia viva del empaquetado desktop. | A6 |
 
 **Los tres multiplicadores** (si solo se hicieran tres cosas): (1)

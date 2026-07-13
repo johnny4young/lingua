@@ -28,7 +28,7 @@ hallazgos.
 
 La ronda actual completó: Column Explorer, B13 (watcher fresh-state), Input
 Sets, Free 1→3 tabs, instrumentación de boot G1, hardening B5 de npm en Windows,
-P3/P4/P7 de rendimiento, el split final IT2-A1 de filesystem y los nueve
+P3/P4/P7 de rendimiento, el split final IT2-A1 de filesystem y los diez
 componentes prioritarios de A5. IT2-G2 añadió el skeleton de primer paint y
 sacó la inicialización de licencia del camino crítico de la ventana desktop.
 IT2-G3 midió la rehidratación con payloads cercanos a los caps reales y cerró
@@ -39,7 +39,7 @@ mark inicial ahora nace en el HTML estático y cubre descarga/evaluación del
 bundle y trabajo import-time, no solo el bootstrap posterior.
 B5 cuenta además con evidencia nativa del job Windows del PR. P6 sacó del hilo
 principal los probes de filesystem de Node, Ruby y dependencias mediante
-`fs/promises`; el componente renderer que aún supera 800 LOC sigue abierto.
+`fs/promises`; ya no quedan componentes renderer por encima de 800 LOC.
 Evidencia
 reproducible: `output/review/project-sequence/t01-*` … `t08-*` y
 `output/review/g2-perceived-boot/`; la medición G3 queda en
@@ -49,9 +49,12 @@ reproducible: `output/review/project-sequence/t01-*` … `t08-*` y
 `output/review/a5-utility-pipeline-split/`, el de `HttpRequestEditor` en
 `output/review/a5-http-request-editor-split/` y el de `SettingsModal` en
 `output/review/a5-settings-modal-split/`; el de `ConsolePanel` queda en
-`output/review/a5-console-panel-split/`.
+`output/review/a5-console-panel-split/` y el cierre con `SqlWorkspacePanel` en
+`output/review/a5-sql-workspace-panel-split/`; el primer split de hooks A5 queda
+en `output/review/a5-auto-run-split/` y el segundo en
+`output/review/a5-import-preview-split/`.
 
-Siguiente secuencia recomendada: cerrar A5 con `SqlWorkspacePanel`. G3 ya
+Siguiente secuencia recomendada: continuar A5 con `useGlobalShortcuts`. G3 ya
 cumplió el gate de medición y P6 cerró el último hallazgo de performance medio
 de esta ronda.
 
@@ -293,9 +296,9 @@ instrucción de smoke escrita en el cuerpo.
 - **Validación.** Desktop empaquetado obligatorio (el gate del env de
   #20 no cubre runtime). PR en draft si no hay hardware.
 
-#### T8. Split de componentes 800+ — EJECUTADO PARCIAL 2026-07-13
+#### T8. Split de componentes 800+ — EJECUTADO 2026-07-13
 
-> **Estado actual.** Se partieron nueve componentes confirmados por la
+> **Estado actual.** Se partieron los diez componentes confirmados por la
 > ronda: `NotebookView` 1238→756 LOC, `SqlResultPreview` 1018→675,
 > `CommandPalette` 987→143, `EditorTabs` 1007→267 y `EditorSection` 929→691
 > (SQL settings en un componente enfocado de 242 LOC). `UtilityPipelinePanel`
@@ -304,12 +307,12 @@ instrucción de smoke escrita en el cuerpo.
 > y paneles del request builder a `HttpRequestBuilderTabs` (273). `SettingsModal`
 > pasó 864→589 LOC al separar el rail (88) y su catálogo/filtro (165).
 > `ConsolePanel` pasó 839→607 LOC al separar el render de filas y parsing ANSI
-> en `ConsoleEntryRow` (202). El inventario bajó de 10 a 1 componente sobre 800
-> LOC y un test estructural fija los budgets de padres y módulos extraídos.
-> Resta `SqlWorkspacePanel`; no se marca como hecho.
+> en `ConsoleEntryRow` (202). `SqlWorkspacePanel` pasó 829→793 LOC al separar el
+> toolbar de importación accesible en `SqlWorkspaceImportToolbar` (56). El
+> inventario bajó de 10 a 0 componentes sobre 800 LOC y un test estructural fija
+> los budgets de padres y módulos extraídos.
 
 - **Objetivo.** Diffs revisables; ningún cambio de comportamiento.
-- **Siguiente orden por retorno:** `SqlWorkspacePanel` (829).
 - **Patrón.** Extraer subcomponentes por región visual + hooks por
   dominio (el repo ya lo hizo con `editor*Actions.ts` para el
   editorStore — espejo de ese estándar). Un componente por commit; una banda

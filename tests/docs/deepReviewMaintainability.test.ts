@@ -44,6 +44,7 @@ describe('deep-review maintainability boundaries', () => {
       ['src/renderer/components/HttpWorkspace/HttpRequestEditor.tsx', 800],
       ['src/renderer/components/Settings/SettingsModal.tsx', 800],
       ['src/renderer/components/Console/ConsolePanel.tsx', 800],
+      ['src/renderer/components/SqlWorkspace/SqlWorkspacePanel.tsx', 800],
       [
         'src/renderer/components/Settings/SqlWorkspaceSettingsSection.tsx',
         400,
@@ -63,10 +64,31 @@ describe('deep-review maintainability boundaries', () => {
       ['src/renderer/components/Settings/SettingsRail.tsx', 150],
       ['src/renderer/components/Settings/settingsRailModel.ts', 250],
       ['src/renderer/components/Console/ConsoleEntryRow.tsx', 250],
+      [
+        'src/renderer/components/SqlWorkspace/SqlWorkspaceImportToolbar.tsx',
+        150,
+      ],
     ] as const) {
       expect(
         physicalLines(relativePath),
         `${relativePath} regressed above its deep-review budget`
+      ).toBeLessThanOrEqual(budget);
+    }
+  });
+
+  it('keeps completed oversized hooks and their helpers focused', () => {
+    for (const [relativePath, budget] of [
+      ['src/renderer/hooks/useAutoRun.ts', 300],
+      ['src/renderer/hooks/autoRunExecution.ts', 300],
+      ['src/renderer/hooks/autoRunResult.ts', 180],
+      ['src/renderer/hooks/autoRunModel.ts', 120],
+      ['src/renderer/hooks/useImportPreview.ts', 200],
+      ['src/renderer/hooks/importPreviewModel.ts', 250],
+      ['src/renderer/hooks/importPreviewConfirm.ts', 300],
+    ] as const) {
+      expect(
+        physicalLines(relativePath),
+        `${relativePath} regressed above its IT2-A5 budget`
       ).toBeLessThanOrEqual(budget);
     }
   });
