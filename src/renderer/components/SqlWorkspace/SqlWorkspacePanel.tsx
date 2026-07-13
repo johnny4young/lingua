@@ -13,7 +13,7 @@
  */
 
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
-import { Database, FilePlus2, Loader2, Plus } from 'lucide-react';
+import { Database, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
@@ -23,7 +23,6 @@ import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getBundledAppInfo } from '../../../shared/appInfo';
 import {
-  SQL_IMPORT_FILE_ACCEPT,
   createBlankSqlQuery,
   queryChangesSchema,
   type SqlQueryV1,
@@ -61,6 +60,7 @@ import {
   type SqlSchemaTable,
 } from './SqlSchemaBrowser';
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
+import { SqlWorkspaceImportToolbar } from './SqlWorkspaceImportToolbar';
 
 /**
  * RL-097 Slice 3 (SQL OPFS) fold C — compact, locale-agnostic byte
@@ -541,10 +541,6 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const importBusy =
     sqlImport.isPreviewing || sqlImport.isImporting || sqlImport.modal !== null;
 
-  // The keyboard-operable primary "Import data" toolbar control: a real
-  // <button> that opens the hidden <input type="file"> via `.click()`. The
-  // schema-browser "+" button is a second entry point into the same flow.
-  const toolbarImportInputRef = useRef<HTMLInputElement | null>(null);
   const handleStartImport = useCallback(
     (file: File, source: SqlImportSource) => {
       void sqlImport.startImport(file, source);
@@ -666,43 +662,11 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       data-testid="sql-workspace-panel"
       className="flex h-full min-w-0 flex-col bg-bg-base text-fg-base"
     >
-      {/* RL-097 (SQL import) fold F — primary, keyboard-operable
-          "Import data" toolbar control. A real <button> opens the hidden
-          file input via `.click()`; the native dialog is keyboard
-          accessible, so importing never requires a mouse. */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle bg-bg-panel px-2.5 py-1.5">
-        <button
-          type="button"
-          onClick={() => toolbarImportInputRef.current?.click()}
-          disabled={importBusy}
-          aria-label={t('sqlWorkspace.import.buttonAria')}
-          data-testid="sql-workspace-import"
-          className="focus-ring inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-bg-panel-alt px-2.5 py-1 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {sqlImport.isPreviewing ? (
-            <Loader2 size={13} aria-hidden="true" className="animate-spin" />
-          ) : (
-            <FilePlus2 size={13} aria-hidden="true" />
-          )}
-          {sqlImport.isPreviewing
-            ? t('sqlWorkspace.import.loadingPreview')
-            : t('sqlWorkspace.import.button')}
-        </button>
-        <input
-          ref={toolbarImportInputRef}
-          type="file"
-          accept={SQL_IMPORT_FILE_ACCEPT}
-          disabled={importBusy}
-          aria-label={t('sqlWorkspace.import.buttonAria')}
-          data-testid="sql-workspace-import-input"
-          className="sr-only"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) handleStartImport(file, 'picker');
-            event.target.value = '';
-          }}
-        />
-      </div>
+      <SqlWorkspaceImportToolbar
+        isBusy={importBusy}
+        isPreviewing={sqlImport.isPreviewing}
+        onImportFile={(file) => handleStartImport(file, 'picker')}
+      />
       <Group
         orientation="vertical"
         defaultLayout={layout.defaultLayout}

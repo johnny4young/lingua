@@ -342,7 +342,7 @@ capas (unit + e2e + perf + smoke empaquetado).
 | A2 | Alto | Sprawl de configs de build; la mina de env vars es síntoma estructural | 📋 Documentado |
 | A3 | Alto | Stores importaban de `hooks/` y `components/` (ciclo latente) | ✅ Corregido |
 | A4 | Medio | Ciclo de vida de spawn duplicado 4 veces en los runners nativos | 📋 Documentado |
-| A5 | Medio | 10 componentes de 800+ líneas violan la regla propia de 250-300 | ✅ Corregido (9 prioritarios; 1 pendiente) |
+| A5 | Medio | 10 componentes de 800+ líneas violan la regla propia de 250-300 | ✅ Corregido (10 prioritarios) |
 | A6 | Medio | `notebookStore` (958 líneas) es la única "god store" restante | 📋 Documentado |
 | A7 | Medio | Árbol de tests con espejos inconsistentes + huecos de cobertura | 📋 Documentado |
 | A8 | Bajo | `ARCHITECTURE.md` se contradecía sobre el watch flow (pre-RL-146) | ✅ Corregido |
@@ -367,7 +367,7 @@ pre-RL-146 (`refreshTree()` root-granular), contradiciendo el código
 real (`applyWatchChanges` incremental). Reescritas como "historia +
 estado actual".
 
-**A5 — Componentes prioritarios partidos (parcial, 2026-07-13).** La ronda
+**A5 — Componentes prioritarios partidos (completo, 2026-07-13).** La ronda
 extrajo UI, modelos y hooks de orquestación por ownership, sin cambiar contratos:
 `NotebookView` 1238→756 LOC, `SqlResultPreview` 1018→676,
 `CommandPalette` 987→143 (catálogo en hook dedicado de 773) y `EditorTabs`
@@ -381,10 +381,12 @@ pasó 964→720 al mover las pestañas y paneles del request builder a
 catálogo/filtro a `settingsRailModel` (165). `ConsolePanel` pasó 839→607 al
 mover el render de cada fila colapsada y el parsing ANSI a `ConsoleEntryRow`
 (202), mientras el padre conserva store, efectos, filtros, pulsos y windowing.
-El inventario de componentes sobre 800 LOC bajó de 10 a 1.
+`SqlWorkspacePanel` pasó 829→793 al mover el control de importación accesible a
+`SqlWorkspaceImportToolbar` (56), mientras el padre conserva estado, layouts,
+queries, resultados, browser de schema y la orquestación del import. El
+inventario de componentes sobre 800 LOC bajó de 10 a 0.
 `tests/docs/deepReviewMaintainability.test.ts` fija 800 para los padres
-completados y budgets de 150-400 para los módulos nuevos; el componente restante
-conserva estado pendiente.
+completados y budgets de 150-400 para los módulos nuevos.
 
 **Split final de filesystem (corregido 2026-07-10).** El follow-up del plan de
 mejoras separó aprobaciones, operaciones y watchers. `fileSystem.ts` pasó de
@@ -392,7 +394,7 @@ mejoras separó aprobaciones, operaciones y watchers. `fileSystem.ts` pasó de
 módulos menores de 600 LOC. El mismo test estructural impide volver a registrar
 handlers directamente en el assembly o superar el presupuesto por módulo.
 
-**A1/A2/A4/A6/A7 y el remanente A5 (documentados, ver §6).** Son refactors de
+**A1/A2/A4/A6/A7 (documentados, ver §6).** Son refactors de
 mediana/alta envergadura que merecen slices propios; se detallan como
 recomendaciones priorizadas más abajo.
 

@@ -44,6 +44,7 @@ describe('deep-review maintainability boundaries', () => {
       ['src/renderer/components/HttpWorkspace/HttpRequestEditor.tsx', 800],
       ['src/renderer/components/Settings/SettingsModal.tsx', 800],
       ['src/renderer/components/Console/ConsolePanel.tsx', 800],
+      ['src/renderer/components/SqlWorkspace/SqlWorkspacePanel.tsx', 800],
       [
         'src/renderer/components/Settings/SqlWorkspaceSettingsSection.tsx',
         400,
@@ -63,6 +64,10 @@ describe('deep-review maintainability boundaries', () => {
       ['src/renderer/components/Settings/SettingsRail.tsx', 150],
       ['src/renderer/components/Settings/settingsRailModel.ts', 250],
       ['src/renderer/components/Console/ConsoleEntryRow.tsx', 250],
+      [
+        'src/renderer/components/SqlWorkspace/SqlWorkspaceImportToolbar.tsx',
+        150,
+      ],
     ] as const) {
       expect(
         physicalLines(relativePath),

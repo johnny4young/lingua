@@ -1484,7 +1484,7 @@ ataca.
 | **Escalabilidad (datos)** | ★★½ | Todo en localStorage con caps; historial volátil. El Run Ledger (DuckDB+OPFS) es el salto — sin dependencias nuevas. | C1-C2 |
 | **Testeabilidad** | ★★★ | 571 tests y CI disciplinado, pero 0 coverage instrumentado, 1/571 type-checkeado y axe en ~30% de superficies. | E, G7c |
 | **Simplicidad** | ★★★½ | Patrones consistentes (splits RL-128/129/130, contrato IPC); la rompen los hooks de 500-617 LOC y el boilerplate de paneles. | A2, A5 |
-| **Mantenibilidad** | ★★★★ | Docs vivos + gates fuertes; fileSystem y nueve componentes prioritarios ya se partieron con budgets automatizados. Queda un componente de 800+ LOC y los hooks grandes de A5. | A2, A5-A7 |
+| **Mantenibilidad** | ★★★★ | Docs vivos + gates fuertes; fileSystem y los diez componentes prioritarios ya se partieron con budgets automatizados. No quedan componentes de 800+ LOC; siguen abiertos los hooks grandes de A5. | A2, A5-A7 |
 | **Librerías** | ★★★★★ | React 19 / Vite 8 / TS 6 / Electron 42 / zustand 5 / Tailwind 4 — todo al día; el plugin de Forge fue verificado como dependencia viva del empaquetado desktop. | A6 |
 
 **Los tres multiplicadores** (si solo se hicieran tres cosas): (1)
