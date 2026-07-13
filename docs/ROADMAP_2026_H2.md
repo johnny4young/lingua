@@ -37,15 +37,18 @@ dentro del ruido (≤3,85 ms por variante), mientras que retrasar notebook o
 Utilities sí añadiría un estado de carga observable. Como prerequisite fix, el
 mark inicial ahora nace en el HTML estático y cubre descarga/evaluación del
 bundle y trabajo import-time, no solo el bootstrap posterior.
-B5 cuenta además con evidencia nativa del job Windows del PR; P6 y los seis
-componentes renderer que aún superan 800 LOC siguen abiertos. Evidencia
+B5 cuenta además con evidencia nativa del job Windows del PR. P6 sacó del hilo
+principal los probes de filesystem de Node, Ruby y dependencias mediante
+`fs/promises`; los seis componentes renderer que aún superan 800 LOC siguen
+abiertos. Evidencia
 reproducible: `output/review/project-sequence/t01-*` … `t08-*` y
 `output/review/g2-perceived-boot/`; la medición G3 queda en
-`output/review/g3-deferred-hydration/`.
+`output/review/g3-deferred-hydration/` y la validación P6 en
+`output/review/p6-async-fs-probes/`.
 
-Siguiente secuencia recomendada: P6 (`fs/promises` en probes síncronos) y luego
-los seis componentes restantes de A5. G3 ya cumplió el gate de medición; no
-abrir otra expansión de superficie antes de cerrar P6.
+Siguiente secuencia recomendada: los seis componentes restantes de A5. G3 ya
+cumplió el gate de medición y P6 cerró el último hallazgo de performance medio
+de esta ronda.
 
 ---
 

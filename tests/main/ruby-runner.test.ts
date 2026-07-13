@@ -180,12 +180,14 @@ describe('main ruby runner', () => {
       await mkdir(nested, { recursive: true });
       await writeFile(path.join(project, '.ruby-version'), '3.3.6\n', 'utf-8');
       const { findRubyVersionFile } = await import('../../src/main/ruby-runner');
-      expect(findRubyVersionFile(path.join(nested, 'main.rb'))).toBe('3.3.6');
+      await expect(
+        findRubyVersionFile(path.join(nested, 'main.rb'))
+      ).resolves.toBe('3.3.6');
     });
 
     it('returns null for Scratchpad tabs (no filePath)', async () => {
       const { findRubyVersionFile } = await import('../../src/main/ruby-runner');
-      expect(findRubyVersionFile(undefined)).toBeNull();
+      await expect(findRubyVersionFile(undefined)).resolves.toBeNull();
     });
 
     it('rejects suspicious version strings containing path separators', async () => {
@@ -197,14 +199,18 @@ describe('main ruby runner', () => {
         'utf-8'
       );
       const { findRubyVersionFile } = await import('../../src/main/ruby-runner');
-      expect(findRubyVersionFile(path.join(project, 'main.rb'))).toBeNull();
+      await expect(
+        findRubyVersionFile(path.join(project, 'main.rb'))
+      ).resolves.toBeNull();
     });
 
     it('returns null when no .ruby-version anywhere up the tree', async () => {
       const project = path.join(tempRoot, 'empty');
       await mkdir(project, { recursive: true });
       const { findRubyVersionFile } = await import('../../src/main/ruby-runner');
-      expect(findRubyVersionFile(path.join(project, 'main.rb'))).toBeNull();
+      await expect(
+        findRubyVersionFile(path.join(project, 'main.rb'))
+      ).resolves.toBeNull();
     });
   });
 

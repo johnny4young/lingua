@@ -11,6 +11,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Performance
 - **Boot timings now cover the real startup boundary**: the initial performance mark is emitted by the static document before the renderer module downloads or evaluates, so Copy boot timings includes bundle evaluation and import-time persistence work instead of starting after it. A capped-payload audit found no meaningful first-paint win from deferring notebook or utility-history hydration, so Lingua keeps immediate workspace access rather than adding a new loading interval.
+- **Native execution probes no longer block the Electron main thread**: Node and Ruby toolchain discovery, project/module lookup, dependency detection, and the guarded Windows npm-launcher search now use asynchronous filesystem APIs while preserving the same fallbacks and security checks.
 
 ## [0.10.0] — 2026-07-06
 

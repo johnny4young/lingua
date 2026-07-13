@@ -46,8 +46,7 @@
 import { app } from 'electron';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
 import * as childProc from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -291,25 +290,25 @@ function invalidRubyRunResult(message: string): RubyRunResult {
  * on the first line). Returns `null` for Scratchpad tabs (no
  * `filePath`) or when no pin exists anywhere up the tree.
  */
-export function findRubyVersionFile(filePath?: string): string | null {
+export async function findRubyVersionFile(
+  filePath?: string
+): Promise<string | null> {
   if (!filePath) return null;
   let dir = path.dirname(filePath);
   for (let depth = 0; depth < 8; depth += 1) {
     const candidate = path.join(dir, '.ruby-version');
-    if (existsSync(candidate)) {
-      try {
-        const raw = readFileSync(candidate, 'utf-8');
-        const firstLine = raw.split('\n')[0]?.trim();
-        if (firstLine && firstLine.length > 0 && firstLine.length <= 64) {
-          // Defensive: reject anything that looks like a path injection
-          // or non-version glob. rbenv accepts strings like `3.3.6`,
-          // `ruby-3.3.6`, `truffleruby-23.0.0`, `system`. Anything with
-          // a path separator is suspicious.
-          if (!/[/\\]/.test(firstLine)) return firstLine;
-        }
-      } catch {
-        // Unreadable .ruby-version — fall through to the next parent.
+    try {
+      const raw = await readFile(candidate, 'utf-8');
+      const firstLine = raw.split('\n')[0]?.trim();
+      if (firstLine && firstLine.length > 0 && firstLine.length <= 64) {
+        // Defensive: reject anything that looks like a path injection
+        // or non-version glob. rbenv accepts strings like `3.3.6`,
+        // `ruby-3.3.6`, `truffleruby-23.0.0`, `system`. Anything with
+        // a path separator is suspicious.
+        if (!/[/\\]/.test(firstLine)) return firstLine;
       }
+    } catch {
+      // Missing/unreadable .ruby-version — fall through to the next parent.
     }
     const parent = path.dirname(dir);
     if (parent === dir) break;
@@ -336,7 +335,7 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
   // so rbenv shims pick the right interpreter. Without rbenv installed,
   // RBENV_VERSION is silently ignored by the spawned `ruby` and we just
   // fall back to whichever binary `PATH` resolved.
-  const rubyVersionPin = findRubyVersionFile(options.filePath);
+  const rubyVersionPin = await findRubyVersionFile(options.filePath);
   const env = resolveRubyRunEnv(
     options.userEnv,
     rubyVersionPin ? { RBENV_VERSION: rubyVersionPin, ASDF_RUBY_VERSION: rubyVersionPin } : {}

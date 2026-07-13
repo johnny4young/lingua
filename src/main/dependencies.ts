@@ -30,7 +30,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
 import type {
@@ -88,6 +88,15 @@ function packageDirectoryFor(cwd: string, name: string): string {
   return path.join(cwd, 'node_modules', name);
 }
 
+async function pathExists(candidate: string): Promise<boolean> {
+  try {
+    await access(candidate);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Resolve a batch of npm package names against the cwd derived from
  * the active tab's `filePath`. Returns one status per requested
@@ -100,12 +109,12 @@ function packageDirectoryFor(cwd: string, name: string): string {
  * on shared CI hosts or developer machines, so unsaved tabs return
  * `detected` for every name instead.
  */
-export function resolveJsDependencyBatch(
+export async function resolveJsDependencyBatch(
   specifiers: readonly unknown[],
   filePath?: string
-): DependencyResolveResult {
+): Promise<DependencyResolveResult> {
   const hasFilePath = typeof filePath === 'string' && filePath.length > 0;
-  const cwd = resolveNodeCwd(hasFilePath ? filePath : undefined);
+  const cwd = await resolveNodeCwd(hasFilePath ? filePath : undefined);
   const statuses: Record<string, DependencyResolveStatus> = {};
   for (const raw of specifiers) {
     if (!isSafeSpecifier(raw)) continue;
@@ -126,7 +135,7 @@ export function resolveJsDependencyBatch(
         statuses[name] = 'invalid';
         continue;
       }
-      statuses[name] = existsSync(probe) ? 'installed' : 'detected';
+      statuses[name] = (await pathExists(probe)) ? 'installed' : 'detected';
     } catch {
       statuses[name] = 'detected';
     }
@@ -134,7 +143,7 @@ export function resolveJsDependencyBatch(
   return {
     statuses,
     cwd: hasFilePath ? cwd : null,
-    hasPackageJson: hasFilePath ? packageJsonExistsIn(cwd) : null,
+    hasPackageJson: hasFilePath ? await packageJsonExistsIn(cwd) : null,
   };
 }
 
@@ -205,12 +214,8 @@ interface ActiveInstall {
 }
 const activeInstalls = new Map<string, ActiveInstall>();
 
-function packageJsonExistsIn(cwd: string): boolean {
-  try {
-    return existsSync(path.join(cwd, 'package.json'));
-  } catch {
-    return false;
-  }
+async function packageJsonExistsIn(cwd: string): Promise<boolean> {
+  return pathExists(path.join(cwd, 'package.json'));
 }
 
 interface AppendCappedResult {
@@ -256,7 +261,10 @@ interface NpmInstallSpawnCommand {
  * they click Install (CWE-427 binary planting). Returns null when no PATH
  * entry holds the launcher.
  */
-function resolveFromPath(binary: string, env: NodeJS.ProcessEnv): string | null {
+async function resolveFromPath(
+  binary: string,
+  env: NodeJS.ProcessEnv
+): Promise<string | null> {
   const rawPath = typeof env.PATH === 'string' ? env.PATH : '';
   for (const dir of rawPath.split(path.delimiter)) {
     // Empty and relative PATH entries are cwd-relative command lookup in
@@ -264,7 +272,7 @@ function resolveFromPath(binary: string, env: NodeJS.ProcessEnv): string | null 
     // launcher did not come from the opened project.
     if (!path.isAbsolute(dir)) continue;
     const candidate = path.join(dir, binary);
-    if (existsSync(candidate)) return candidate;
+    if (await pathExists(candidate)) return candidate;
   }
   return null;
 }
@@ -281,18 +289,18 @@ function resolveFromPath(binary: string, env: NodeJS.ProcessEnv): string | null 
  * out repository. Returns null (→ `binary-missing`) when either cannot be
  * resolved; falling back to an unqualified name would reopen the hole.
  */
-function npmInstallSpawnCommand(
+async function npmInstallSpawnCommand(
   platform: NodeJS.Platform,
   env: NodeJS.ProcessEnv,
   npmArgs: readonly string[]
-): NpmInstallSpawnCommand | null {
+): Promise<NpmInstallSpawnCommand | null> {
   if (platform !== 'win32') {
     return { binary: 'npm', args: npmArgs };
   }
   const comspec =
     typeof env.COMSPEC === 'string' && env.COMSPEC.length > 0 ? env.COMSPEC : null;
   if (comspec === null || !path.isAbsolute(comspec)) return null;
-  const npmCmd = resolveFromPath('npm.cmd', env);
+  const npmCmd = await resolveFromPath('npm.cmd', env);
   if (npmCmd === null) return null;
   return {
     binary: comspec,
@@ -355,8 +363,8 @@ export async function installJsDependencyBatch(
     };
   }
 
-  const cwd = resolveNodeCwd(filePath);
-  if (!packageJsonExistsIn(cwd)) {
+  const cwd = await resolveNodeCwd(filePath);
+  if (!(await packageJsonExistsIn(cwd))) {
     for (const name of safeNames) statuses[name] = 'failed';
     return {
       statuses,
@@ -369,7 +377,7 @@ export async function installJsDependencyBatch(
 
   // Fold C — pre-flight integrity check. Skip names that already
   // resolve as `installed`; we never invoke npm for a no-op.
-  const preflight = resolveJsDependencyBatch(safeNames, filePath);
+  const preflight = await resolveJsDependencyBatch(safeNames, filePath);
   const toInstall: string[] = [];
   for (const name of safeNames) {
     if (preflight.statuses[name] === 'installed') {
@@ -411,7 +419,7 @@ export async function installJsDependencyBatch(
     '--no-progress',
     '--save',
   ];
-  const command = npmInstallSpawnCommand(platform, env, argv);
+  const command = await npmInstallSpawnCommand(platform, env, argv);
   if (command === null) {
     for (const name of toInstall) statuses[name] = 'failed';
     return {
