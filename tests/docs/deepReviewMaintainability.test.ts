@@ -82,6 +82,9 @@ describe('deep-review maintainability boundaries', () => {
       ['src/renderer/hooks/autoRunExecution.ts', 300],
       ['src/renderer/hooks/autoRunResult.ts', 180],
       ['src/renderer/hooks/autoRunModel.ts', 120],
+      ['src/renderer/hooks/useImportPreview.ts', 200],
+      ['src/renderer/hooks/importPreviewModel.ts', 250],
+      ['src/renderer/hooks/importPreviewConfirm.ts', 300],
     ] as const) {
       expect(
         physicalLines(relativePath),
