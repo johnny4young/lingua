@@ -65,7 +65,12 @@ export function SettingsRail({ active, filter, onSelect }: SettingsRailProps) {
                 role="tab"
                 id={`settings-rail-${item.id}`}
                 aria-selected={isActive}
-                aria-controls={`settings-panel-${item.id}`}
+                // Only the active tabpanel is mounted (SettingsModal renders
+                // one `settings-panel-${activeTab}`), so pointing every tab at
+                // its own panel id would leave inactive tabs referencing
+                // elements that are not in the DOM. Set aria-controls only on
+                // the active tab, whose panel actually exists.
+                aria-controls={isActive ? `settings-panel-${item.id}` : undefined}
                 onClick={() => onSelect(item.id)}
                 onKeyDown={event => handleRailKeyDown(event, item.id)}
                 data-active={isActive ? 'true' : 'false'}

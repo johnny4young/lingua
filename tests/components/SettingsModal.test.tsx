@@ -179,4 +179,30 @@ describe('SettingsModal', () => {
     fireEvent.keyDown(appearance, { key: 'End' });
     expect(document.activeElement).toBe(screen.getByTestId('settings-tab-recovery'));
   });
+
+  it('sets aria-controls only on the active tab so inactive tabs never reference an unmounted panel', () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    // Only the active tabpanel is mounted; the active tab must point at it,
+    // and inactive tabs must not carry a dangling aria-controls reference.
+    const general = screen.getByTestId('settings-tab-general');
+    const appearance = screen.getByTestId('settings-tab-appearance');
+    const panelId = screen.getByRole('tabpanel').getAttribute('id');
+
+    expect(general.getAttribute('aria-controls')).toBe(panelId);
+    expect(document.getElementById(panelId ?? '')).not.toBeNull();
+    expect(appearance.getAttribute('aria-controls')).toBeNull();
+
+    // The reference follows the selection when the active tab changes.
+    fireEvent.click(appearance);
+    const nextPanelId = screen.getByRole('tabpanel').getAttribute('id');
+    expect(appearance.getAttribute('aria-controls')).toBe(nextPanelId);
+    expect(general.getAttribute('aria-controls')).toBeNull();
+  });
 });
