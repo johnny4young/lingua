@@ -47,8 +47,7 @@ import { typedHandle, typedSendTo } from './ipc/typedHandle';
 import { parse } from 'acorn';
 import type { Node as AcornNode, Program as AcornProgram } from 'acorn';
 import * as childProc from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -214,6 +213,15 @@ function homeDirForNodeCandidates(userEnv?: Record<string, string>): string {
   );
 }
 
+async function pathExists(candidate: string): Promise<boolean> {
+  try {
+    await access(candidate);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeVersionLabel(label: string): [number, number, number] | null {
   const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(label);
   if (!match) return null;
@@ -243,13 +251,12 @@ function compareVersionLabels(a: string, b: string): number {
   return 0;
 }
 
-function installedNodeVersionCandidates(
+async function installedNodeVersionCandidates(
   root: string,
   nodePathFromVersion: (version: string) => string
-): string[] {
-  if (!existsSync(root)) return [];
+): Promise<string[]> {
   try {
-    return readdirSync(root)
+    return (await readdir(root))
       .filter((entry) => normalizeVersionLabel(entry) !== null)
       .sort((a, b) => compareVersionLabels(b, a))
       .map(nodePathFromVersion);
@@ -258,11 +265,10 @@ function installedNodeVersionCandidates(
   }
 }
 
-function nvmDefaultNodeCandidate(root: string): string | null {
+async function nvmDefaultNodeCandidate(root: string): Promise<string | null> {
   const aliasPath = path.join(root, 'alias', 'default');
-  if (!existsSync(aliasPath)) return null;
   try {
-    const alias = readFileSync(aliasPath, 'utf-8').trim();
+    const alias = (await readFile(aliasPath, 'utf-8')).trim();
     if (!alias || alias === 'node' || alias === 'stable') return null;
     const version = alias.startsWith('v') ? alias : `v${alias}`;
     return path.join(root, 'versions', 'node', version, 'bin', 'node');
@@ -279,9 +285,9 @@ function appendNodeExecutable(directory: string | undefined): string | null {
   );
 }
 
-function posixNodeBinaryCandidates(
+async function posixNodeBinaryCandidates(
   userEnv?: Record<string, string>
-): Array<string | null> {
+): Promise<Array<string | null>> {
   const home = homeDirForNodeCandidates(userEnv);
   const nvmRoot = envValue('NVM_DIR', userEnv) || path.join(home, '.nvm');
   const xdgDataHome = envValue('XDG_DATA_HOME', userEnv) || path.join(home, '.local', 'share');
@@ -293,11 +299,39 @@ function posixNodeBinaryCandidates(
     path.join(home, '.fnm'),
   ].filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
   const nodenvRoot = envValue('NODENV_ROOT', userEnv) || path.join(home, '.nodenv');
+  const [nvmDefault, fnmInstalled, nvmInstalled, nodenvInstalled] =
+    await Promise.all([
+      nvmDefaultNodeCandidate(nvmRoot),
+      Promise.all(
+        fnmRoots.map((root) =>
+          installedNodeVersionCandidates(
+            path.join(root, 'node-versions'),
+            (version) =>
+              path.join(
+                root,
+                'node-versions',
+                version,
+                'installation',
+                'bin',
+                'node'
+              )
+          )
+        )
+      ),
+      installedNodeVersionCandidates(
+        path.join(nvmRoot, 'versions', 'node'),
+        (version) => path.join(nvmRoot, 'versions', 'node', version, 'bin', 'node')
+      ),
+      installedNodeVersionCandidates(
+        path.join(nodenvRoot, 'versions'),
+        (version) => path.join(nodenvRoot, 'versions', version, 'bin', 'node')
+      ),
+    ]);
 
   return [
     path.join(home, '.volta', 'bin', 'node'),
     ...fnmRoots.map((root) => path.join(root, 'aliases', 'default', 'bin', 'node')),
-    nvmDefaultNodeCandidate(nvmRoot),
+    nvmDefault,
     path.join(home, '.asdf', 'shims', 'node'),
     path.join(home, '.local', 'share', 'mise', 'shims', 'node'),
     path.join(nodenvRoot, 'shims', 'node'),
@@ -305,26 +339,15 @@ function posixNodeBinaryCandidates(
     path.join(home, '.local', 'bin', 'node'),
     ...(process.platform === 'darwin' ? DARWIN_SYSTEM_NODE_FALLBACK_PATHS : []),
     ...(process.platform === 'linux' ? LINUX_SYSTEM_NODE_FALLBACK_PATHS : []),
-    ...fnmRoots.flatMap((root) =>
-      installedNodeVersionCandidates(
-        path.join(root, 'node-versions'),
-        (version) => path.join(root, 'node-versions', version, 'installation', 'bin', 'node')
-      )
-    ),
-    ...installedNodeVersionCandidates(
-      path.join(nvmRoot, 'versions', 'node'),
-      (version) => path.join(nvmRoot, 'versions', 'node', version, 'bin', 'node')
-    ),
-    ...installedNodeVersionCandidates(
-      path.join(nodenvRoot, 'versions'),
-      (version) => path.join(nodenvRoot, 'versions', version, 'bin', 'node')
-    ),
+    ...fnmInstalled.flat(),
+    ...nvmInstalled,
+    ...nodenvInstalled,
   ];
 }
 
-function windowsNodeBinaryCandidates(
+async function windowsNodeBinaryCandidates(
   userEnv?: Record<string, string>
-): Array<string | null> {
+): Promise<Array<string | null>> {
   const home = homeDirForNodeCandidates(userEnv);
   const appData = envValue('APPDATA', userEnv);
   const localAppData = envValue('LOCALAPPDATA', userEnv);
@@ -339,6 +362,37 @@ function windowsNodeBinaryCandidates(
     localAppData ? path.join(localAppData, 'fnm') : undefined,
     appData ? path.join(appData, 'fnm') : undefined,
   ].filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+  const [fnmInstalled, nvmInstalled] = await Promise.all([
+    Promise.all(
+      fnmRoots.map(async (root) => [
+        path.join(root, 'aliases', 'default', 'node.exe'),
+        path.join(root, 'aliases', 'default', 'bin', 'node.exe'),
+        ...(await installedNodeVersionCandidates(
+          path.join(root, 'node-versions'),
+          (version) =>
+            path.join(root, 'node-versions', version, 'installation', 'node.exe')
+        )),
+        ...(await installedNodeVersionCandidates(
+          path.join(root, 'node-versions'),
+          (version) =>
+            path.join(
+              root,
+              'node-versions',
+              version,
+              'installation',
+              'bin',
+              'node.exe'
+            )
+        )),
+      ])
+    ),
+    nvmHome
+      ? installedNodeVersionCandidates(
+          nvmHome,
+          (version) => path.join(nvmHome, version, 'node.exe')
+        )
+      : Promise.resolve([]),
+  ]);
 
   return [
     appendNodeExecutable(nvmSymlink),
@@ -354,40 +408,27 @@ function windowsNodeBinaryCandidates(
     appendNodeExecutable(path.join(home, '.asdf', 'shims')),
     appendNodeExecutable(localAppData ? path.join(localAppData, 'Nodist', 'bin') : undefined),
     appendNodeExecutable(programFiles ? path.join(programFiles, 'Nodist', 'bin') : undefined),
-    ...fnmRoots.flatMap((root) => [
-      path.join(root, 'aliases', 'default', 'node.exe'),
-      path.join(root, 'aliases', 'default', 'bin', 'node.exe'),
-      ...installedNodeVersionCandidates(
-        path.join(root, 'node-versions'),
-        (version) => path.join(root, 'node-versions', version, 'installation', 'node.exe')
-      ),
-      ...installedNodeVersionCandidates(
-        path.join(root, 'node-versions'),
-        (version) => path.join(root, 'node-versions', version, 'installation', 'bin', 'node.exe')
-      ),
-    ]),
-    ...(nvmHome
-      ? installedNodeVersionCandidates(
-          nvmHome,
-          (version) => path.join(nvmHome, version, 'node.exe')
-        )
-      : []),
+    ...fnmInstalled.flat(),
+    ...nvmInstalled,
   ];
 }
 
-function nodeBinaryCandidates(userEnv?: Record<string, string>): string[] {
+async function nodeBinaryCandidates(
+  userEnv?: Record<string, string>
+): Promise<string[]> {
   const candidates =
     process.platform === 'win32'
-      ? windowsNodeBinaryCandidates(userEnv)
-      : posixNodeBinaryCandidates(userEnv);
+      ? await windowsNodeBinaryCandidates(userEnv)
+      : await posixNodeBinaryCandidates(userEnv);
   const seen = new Set<string>();
-
-  return candidates.filter((candidate): candidate is string => {
+  const unique = candidates.filter((candidate): candidate is string => {
     if (typeof candidate !== 'string' || candidate.length === 0) return false;
     if (seen.has(candidate)) return false;
     seen.add(candidate);
-    return existsSync(candidate);
+    return true;
   });
+  const existing = await Promise.all(unique.map(pathExists));
+  return unique.filter((_candidate, index) => existing[index] === true);
 }
 
 async function probeNodeBinary(
@@ -441,7 +482,7 @@ export async function detectNode(
   let result = await probeNodeBinary('node', env);
 
   if (!result) {
-    for (const candidate of nodeBinaryCandidates(userEnv)) {
+    for (const candidate of await nodeBinaryCandidates(userEnv)) {
       result = await probeNodeBinary(candidate, env);
       if (result) break;
     }
@@ -528,12 +569,12 @@ function invalidNodeRunResult(message: string): NodeRunResult {
  * naturally. Falls back to `path.dirname(filePath)` for saved
  * tabs and `app.getPath('temp')` for unsaved Scratchpad tabs.
  */
-export function resolveNodeCwd(filePath?: string): string {
+export async function resolveNodeCwd(filePath?: string): Promise<string> {
   if (filePath) {
     const startDir = path.dirname(filePath);
     let dir = startDir;
     for (let depth = 0; depth < 8; depth += 1) {
-      if (existsSync(path.join(dir, 'node_modules'))) return dir;
+      if (await pathExists(path.join(dir, 'node_modules'))) return dir;
       const parent = path.dirname(dir);
       if (parent === dir) break;
       dir = parent;
@@ -562,21 +603,20 @@ function inputTypeFromFileExtension(filePath?: string): NodeInputType | null {
   return null;
 }
 
-function packageTypeFromNearestPackageJson(startDir: string): NodeInputType | null {
+async function packageTypeFromNearestPackageJson(
+  startDir: string
+): Promise<NodeInputType | null> {
   let dir = startDir;
   for (let depth = 0; depth < 8; depth += 1) {
     const pkgPath = path.join(dir, 'package.json');
-    if (existsSync(pkgPath)) {
-      try {
-        const raw = readFileSync(pkgPath, 'utf-8');
-        const json = JSON.parse(raw) as { type?: unknown };
-        if (json.type === 'module') return 'module';
-        if (json.type === 'commonjs') return 'commonjs';
-      } catch {
-        // Malformed package.json — keep walking so a parent package can still
-        // provide a valid declaration; otherwise fall back below.
-      }
+    try {
+      const raw = await readFile(pkgPath, 'utf-8');
+      const json = JSON.parse(raw) as { type?: unknown };
+      if (json.type === 'module') return 'module';
+      if (json.type === 'commonjs') return 'commonjs';
       return null;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return null;
     }
     const parent = path.dirname(dir);
     if (parent === dir) break;
@@ -650,17 +690,17 @@ function sourceLooksCommonJs(source: string): boolean {
   );
 }
 
-function pickInputType(
+async function pickInputType(
   cwd: string,
   source: string,
   filePath?: string
-): NodeInputType {
+): Promise<NodeInputType> {
   const extensionInputType = inputTypeFromFileExtension(filePath);
   if (extensionInputType) return extensionInputType;
   if (sourceRequiresModuleInput(source)) return 'module';
   if (sourceLooksCommonJs(source)) return 'commonjs';
   const packageStartDir = filePath ? path.dirname(filePath) : cwd;
-  return packageTypeFromNearestPackageJson(packageStartDir) ?? 'commonjs';
+  return (await packageTypeFromNearestPackageJson(packageStartDir)) ?? 'commonjs';
 }
 
 async function spawnNode(
@@ -669,8 +709,8 @@ async function spawnNode(
   nodeBinary = 'node'
 ): Promise<NodeRunResult> {
   const timeoutMs = clampTimeout(options.timeoutMs);
-  const cwd = resolveNodeCwd(options.filePath);
-  const inputType = pickInputType(cwd, source, options.filePath);
+  const cwd = await resolveNodeCwd(options.filePath);
+  const inputType = await pickInputType(cwd, source, options.filePath);
   const env = envWithNodeBinary(resolveNodeRunEnv(options.userEnv), nodeBinary);
   const markers = truncationMarkers(options.messages);
 

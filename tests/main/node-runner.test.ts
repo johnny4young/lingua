@@ -114,13 +114,15 @@ describe('main node runner', () => {
 
     const { resolveNodeCwd } = await import('../../src/main/node-runner');
 
-    expect(resolveNodeCwd(path.join(src, 'index.js'))).toBe(project);
+    await expect(resolveNodeCwd(path.join(src, 'index.js'))).resolves.toBe(
+      project
+    );
   });
 
   it('falls back to Electron temp for unsaved Scratchpad runs', async () => {
     const { resolveNodeCwd } = await import('../../src/main/node-runner');
 
-    expect(resolveNodeCwd()).toBe('/tmp/lingua-node-test');
+    await expect(resolveNodeCwd()).resolves.toBe('/tmp/lingua-node-test');
   });
 
   it('registers run, detect, and stop IPC handlers', async () => {

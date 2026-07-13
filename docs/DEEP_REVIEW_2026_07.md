@@ -248,7 +248,7 @@ Console/Notebook, barrido de modelos Monaco al cerrar tabs); main sin
 | P3 | Medio | `EditorTabs` re-renderizaba la tira completa por keystroke | ✅ Corregido |
 | P4 | Medio | Los dos locales i18n viajan en el chunk inicial | ✅ Corregido |
 | P5 | Medio | Detección Go/Rust sin caché → 1-2 spawns extra por run | ✅ Corregido |
-| P6 | Medio | fs síncrono en hot paths de ejecución (node/ruby/deps) | 📋 Documentado |
+| P6 | Medio | fs síncrono en hot paths de ejecución (node/ruby/deps) | ✅ Corregido |
 | P7 | Medio-bajo | Pipeline de utilities y diff Myers en el hilo de UI | ✅ Corregido |
 | P8 | Bajo | Suscripciones a store completo (`useUIStore()` en AppChrome) | ✅ Corregido (parcial) |
 
@@ -312,9 +312,14 @@ anterior como si perteneciera a la nueva solicitud. El build emite un chunk de
 worker dedicado de ~34 kB y Playwright prueba la carga real del recurso tanto
 en Diff Viewer como en Utility Pipelines.
 
-**P6 (documentado).** Sigue pendiente migrar los probes síncronos de
-`node-runner`/`ruby-runner`/`dependencies` a `fs/promises`; no bloquea, pero
-requiere un slice dedicado en main para conservar la semántica de errores.
+**P6 — Probes de filesystem fuera del hilo principal (corregido 2026-07-12).**
+`node-runner`, `ruby-runner` y `dependencies` migraron la búsqueda de
+toolchains, `node_modules`, `package.json`, `.ruby-version`, paquetes instalados
+y launchers npm a `fs/promises`. Los handlers conservan los mismos payloads,
+fallbacks y defensas de PATH; los tests de instalación ahora esperan el spawn
+observable en vez de asumir un número fijo de microtasks. Un guard estructural
+impide reintroducir `existsSync`/`readFileSync`/`readdirSync` en esos tres hot
+paths.
 
 ---
 

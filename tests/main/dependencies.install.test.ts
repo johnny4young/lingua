@@ -149,9 +149,7 @@ describe('installJsDependencyBatch', () => {
       spawnImpl: spawnSpy as never,
       platform: 'linux',
     });
-    // Let the spawn call resolve before we drive the child events.
-    await Promise.resolve();
-    expect(spawnSpy).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
     const [bin, argv, opts] = spawnSpy.mock.calls[0]!;
     expect(bin).toBe('npm');
     expect(argv).toEqual([
@@ -202,7 +200,7 @@ describe('installJsDependencyBatch', () => {
       spawnImpl: spawnSpy as never,
       platform: 'win32',
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
 
     const [bin, argv, opts] = spawnSpy.mock.calls[0]!;
     expect(bin).toBe(comspec);
@@ -321,7 +319,7 @@ describe('installJsDependencyBatch', () => {
       specifiers: ['lodash'],
       spawnImpl: spawnSpy as never,
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
     child.stderr.emit('data', Buffer.from('npm ERR! network ETIMEDOUT\n'));
     child.emit('close', 1);
     const result = await promise;
@@ -345,7 +343,7 @@ describe('installJsDependencyBatch', () => {
       specifiers: ['lodash'],
       spawnImpl: spawnSpy as never,
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
 
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
     const result = await promise;
@@ -370,7 +368,7 @@ describe('installJsDependencyBatch', () => {
       specifiers: ['lodash'],
       spawnImpl: spawnSpy as never,
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
 
     const second = await installJsDependencyBatch({
       runId: 'dup-run',
@@ -400,7 +398,7 @@ describe('installJsDependencyBatch', () => {
       specifiers: ['lodash'],
       spawnImpl: spawnSpy as never,
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
     const err = Object.assign(new Error('spawn npm ENOENT'), {
       code: 'ENOENT',
     });
@@ -426,7 +424,7 @@ describe('installJsDependencyBatch', () => {
       onLog: (stream, chunk) => logs.push({ stream, chunk }),
       spawnImpl: spawnSpy as never,
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
     // First chunk exceeds the cap; second chunk arrives after the
     // truncation marker has fired. The second must NOT reach onLog.
     child.stdout.emit('data', Buffer.from('x'.repeat(cap + 1024)));
@@ -460,7 +458,7 @@ describe('installJsDependencyBatch', () => {
       onLog: (stream, chunk) => logs.push({ stream, chunk }),
       spawnImpl: spawnSpy as never,
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
     child.stdout.emit('data', Buffer.from('added 1 package\n'));
     child.stderr.emit('data', Buffer.from('npm notice ok\n'));
     child.emit('close', 0);
@@ -485,7 +483,7 @@ describe('installJsDependencyBatch', () => {
       specifiers: ['lodash'],
       spawnImpl: spawnSpy as never,
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(spawnSpy).toHaveBeenCalledTimes(1));
     const cancelled = cancelJsDependencyInstall('r9');
     expect(cancelled).toBe(true);
     expect(child.kill).toHaveBeenCalledWith('SIGTERM');

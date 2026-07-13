@@ -66,6 +66,10 @@ El god-file `fileSystem.ts`, el contrato de workers, T6 y la virtualización de
 FileTree ya quedaron cerrados con límites estructurales automatizados.
 El Run Ledger y el rebalanceo Free a 3 tabs ya cerraron los dos gaps que
 esta auditoría describía como historial volátil y gating hostil.
+El hallazgo de performance P6 también quedó cerrado el 2026-07-12: los probes
+de filesystem de Node, Ruby y dependencias usan `fs/promises`, mantienen sus
+contratos IPC y cuentan con un guard que impide reintroducir llamadas síncronas
+en esos hot paths.
 
 ---
 

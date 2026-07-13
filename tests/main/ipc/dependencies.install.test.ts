@@ -120,7 +120,7 @@ describe('dependencies IPC — install lifecycle', () => {
       ['lodash'],
       path.join(workdir, 'app.js')
     );
-    await Promise.resolve();
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
     child.stdout.emit('data', Buffer.from('added 1\n'));
     child.emit('close', 0);
     await promise;

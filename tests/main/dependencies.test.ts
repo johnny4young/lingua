@@ -36,7 +36,7 @@ describe('resolveJsDependencyBatch', () => {
     const { resolveJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
-    const result = resolveJsDependencyBatch(
+    const result = await resolveJsDependencyBatch(
       ['lodash'],
       path.join(workdir, 'app.js')
     );
@@ -48,7 +48,7 @@ describe('resolveJsDependencyBatch', () => {
     const { resolveJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
-    const result = resolveJsDependencyBatch(
+    const result = await resolveJsDependencyBatch(
       ['ghost-pkg'],
       path.join(workdir, 'app.js')
     );
@@ -63,7 +63,7 @@ describe('resolveJsDependencyBatch', () => {
     const { resolveJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
-    const result = resolveJsDependencyBatch(
+    const result = await resolveJsDependencyBatch(
       ['@scope/pkg'],
       path.join(workdir, 'app.js')
     );
@@ -74,7 +74,7 @@ describe('resolveJsDependencyBatch', () => {
     const { resolveJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
-    const result = resolveJsDependencyBatch(
+    const result = await resolveJsDependencyBatch(
       ['../../../etc/passwd', './local', 'good'],
       path.join(workdir, 'app.js')
     );
@@ -87,7 +87,7 @@ describe('resolveJsDependencyBatch', () => {
     const { resolveJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
-    const result = resolveJsDependencyBatch(
+    const result = await resolveJsDependencyBatch(
       ['x'.repeat(300), 42 as unknown as string, null as unknown as string, 'lodash'],
       path.join(workdir, 'app.js')
     );
@@ -99,7 +99,10 @@ describe('resolveJsDependencyBatch', () => {
     const { resolveJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
-    const result = resolveJsDependencyBatch([], path.join(workdir, 'app.js'));
+    const result = await resolveJsDependencyBatch(
+      [],
+      path.join(workdir, 'app.js')
+    );
     expect(typeof result.cwd === 'string').toBe(true);
   });
 });
