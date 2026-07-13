@@ -28,7 +28,7 @@ hallazgos.
 
 La ronda actual completó: Column Explorer, B13 (watcher fresh-state), Input
 Sets, Free 1→3 tabs, instrumentación de boot G1, hardening B5 de npm en Windows,
-P3/P4/P7 de rendimiento, el split final IT2-A1 de filesystem y los cuatro
+P3/P4/P7 de rendimiento, el split final IT2-A1 de filesystem y los cinco
 componentes prioritarios de A5. IT2-G2 añadió el skeleton de primer paint y
 sacó la inicialización de licencia del camino crítico de la ventana desktop.
 IT2-G3 midió la rehidratación con payloads cercanos a los caps reales y cerró
@@ -39,16 +39,17 @@ mark inicial ahora nace en el HTML estático y cubre descarga/evaluación del
 bundle y trabajo import-time, no solo el bootstrap posterior.
 B5 cuenta además con evidencia nativa del job Windows del PR. P6 sacó del hilo
 principal los probes de filesystem de Node, Ruby y dependencias mediante
-`fs/promises`; los seis componentes renderer que aún superan 800 LOC siguen
+`fs/promises`; los cinco componentes renderer que aún superan 800 LOC siguen
 abiertos. Evidencia
 reproducible: `output/review/project-sequence/t01-*` … `t08-*` y
 `output/review/g2-perceived-boot/`; la medición G3 queda en
-`output/review/g3-deferred-hydration/` y la validación P6 en
-`output/review/p6-async-fs-probes/`.
+`output/review/g3-deferred-hydration/`, la validación P6 en
+`output/review/p6-async-fs-probes/` y el split de `EditorSection` en
+`output/review/a5-editor-section-split/`.
 
-Siguiente secuencia recomendada: los seis componentes restantes de A5. G3 ya
-cumplió el gate de medición y P6 cerró el último hallazgo de performance medio
-de esta ronda.
+Siguiente secuencia recomendada: los cinco componentes restantes de A5,
+comenzando por `UtilityPipelinePanel`. G3 ya cumplió el gate de medición y P6
+cerró el último hallazgo de performance medio de esta ronda.
 
 ---
 
@@ -288,20 +289,20 @@ instrucción de smoke escrita en el cuerpo.
 - **Validación.** Desktop empaquetado obligatorio (el gate del env de
   #20 no cubre runtime). PR en draft si no hay hardware.
 
-#### T8. Split de componentes 800+ — EJECUTADO PARCIAL 2026-07-10
+#### T8. Split de componentes 800+ — EJECUTADO PARCIAL 2026-07-13
 
-> **Estado actual.** Se partieron los cuatro prioritarios confirmados por la
+> **Estado actual.** Se partieron cinco componentes confirmados por la
 > ronda: `NotebookView` 1238→756 LOC, `SqlResultPreview` 1018→675,
-> `CommandPalette` 987→143 y `EditorTabs` 1007→267. El inventario bajó de 10
-> a 6 componentes sobre 800 LOC y un test estructural fija el budget. Restan
-> `HttpRequestEditor`, `EditorSection`, `UtilityPipelinePanel`, `SettingsModal`,
+> `CommandPalette` 987→143, `EditorTabs` 1007→267 y `EditorSection` 929→691
+> (SQL settings en un componente enfocado de 242 LOC). El inventario bajó de
+> 10 a 5 componentes sobre 800 LOC y un test estructural fija ambos budgets.
+> Restan `HttpRequestEditor`, `UtilityPipelinePanel`, `SettingsModal`,
 > `ConsolePanel` y `SqlWorkspacePanel`; no se marcan como hechos.
 
 - **Objetivo.** Diffs revisables; ningún cambio de comportamiento.
-- **Orden por retorno:** `NotebookView` (1238 — post-#18),
-  `EditorSection` (929), `FloatingActionPill` (927), `AppLayout` (897),
-  `UtilityPipelinePanel` (892 — de paso arregla T5 si el flaky vive en
-  su tamaño), `HttpRequestEditor` (868 — post-#22).
+- **Siguiente orden por retorno:** `UtilityPipelinePanel` (892 — de paso
+  desacopla el área que alojaba el flaky T5), `HttpRequestEditor` (964),
+  `SettingsModal` (864), `ConsolePanel` (839) y `SqlWorkspacePanel` (829).
 - **Patrón.** Extraer subcomponentes por región visual + hooks por
   dominio (el repo ya lo hizo con `editor*Actions.ts` para el
   editorStore — espejo de ese estándar). Un componente por PR; el test
