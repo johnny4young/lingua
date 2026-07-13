@@ -4,28 +4,11 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type RefObject,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Braces,
-  Check,
-  Copy,
-  FileCode2,
-  Key,
-  Keyboard,
-  Languages,
-  Package,
-  Palette,
-  Search,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  Terminal,
-  Wrench,
-  X,
-} from 'lucide-react';
+import { Braces, Check, Copy, Keyboard, Search, Settings as SettingsIcon, X } from 'lucide-react';
 import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
@@ -56,6 +39,8 @@ import {
 } from '../../data/keyboardShortcuts';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
+import { SettingsRail } from './SettingsRail';
+import { RAIL_ITEMS, matchesFilter, type TabId } from './settingsRailModel';
 
 /**
  * RL-071 Signal-Slate v2 — Settings modal with a left rail.
@@ -67,281 +52,32 @@ import { cn } from '../../utils/cn';
  * directly to a setting. An "Effective config" JSON tile renders at
  * the bottom of each tab — the same view a runtime would see.
  *
- * Tab inventory (8 rail items):
+ * Tab inventory (10 rail items):
  *
  *   Workspace
  *     1. general      → About + Updates
  *     2. appearance   → Appearance + Layout
  *     3. editor       → Editor + ExecutionHistory + Utilities
- *     4. environment  → EnvVars
- *     5. account      → License + Privacy
+ *     4. languages    → Languages
+ *     5. environment  → EnvVars
+ *     6. privacy      → Privacy + PrivacyTrust
+ *     7. account      → License + AI + RunCapsules
  *
  *   Advanced
- *     6. shortcuts    → CTA to open the existing KeyboardShortcuts
+ *     8. shortcuts    → CTA to open the existing KeyboardShortcuts
  *                       modal (keeps the heavy table out of this
  *                       surface)
- *     7. plugins      → PluginsSection (was nested under "editor")
- *     8. recovery     → RecoverySection (was nested under "account")
+ *     9. plugins      → PluginsSection (was nested under "editor")
+ *    10. recovery     → RecoverySection (was nested under "account")
  *
  * Keyboard nav: ⌘1–⌘0 jumps to the matching section while the modal
  * is focused; Esc closes. Ctrl/Cmd + , focuses the filter bar.
  */
-type TabId =
-  | 'general'
-  | 'appearance'
-  | 'editor'
-  | 'languages'
-  | 'environment'
-  | 'privacy'
-  | 'account'
-  | 'shortcuts'
-  | 'plugins'
-  | 'recovery';
-
 interface SettingsModalProps {
   onClose: () => void;
   onOpenWhatsNew: () => void;
   onStartGuidedTour: () => void;
   onOpenKeyboardShortcuts?: () => void;
-}
-
-interface RailItem {
-  id: TabId;
-  group: 'workspace' | 'advanced';
-  labelKey: string;
-  icon: typeof SettingsIcon;
-  kbdToken: string;
-  /** Keywords used to match against the filter bar. Free-form, multi-word. */
-  keywords: readonly string[];
-}
-
-const RAIL_ITEMS: readonly RailItem[] = [
-  {
-    id: 'general',
-    group: 'workspace',
-    labelKey: 'settings.tabs.general',
-    icon: SettingsIcon,
-    kbdToken: '1',
-    keywords: ['about', 'version', 'updates', 'release', 'whats new', 'tour'],
-  },
-  {
-    id: 'appearance',
-    group: 'workspace',
-    labelKey: 'settings.tabs.appearance',
-    icon: Palette,
-    kbdToken: '2',
-    keywords: ['theme', 'tema', 'font', 'fuente', 'layout', 'preset', 'language', 'idioma'],
-  },
-  {
-    id: 'editor',
-    group: 'workspace',
-    labelKey: 'settings.tabs.editor',
-    icon: FileCode2,
-    kbdToken: '3',
-    keywords: [
-      'editor',
-      'monaco',
-      'format',
-      'history',
-      'utilities',
-      'autosave',
-      'wrap',
-      'indent',
-    ],
-  },
-  // RL-095 Slice 1 (post-review refactor) — own tab for the Language
-  // Support Scorecard plus the per-language preference rows that
-  // used to live at the bottom of Editor.
-  {
-    id: 'languages',
-    group: 'workspace',
-    labelKey: 'settings.tabs.languages',
-    icon: Languages,
-    kbdToken: '8',
-    keywords: [
-      'language',
-      'languages',
-      'lenguajes',
-      'scorecard',
-      'matrix',
-      'lsp',
-      'rust',
-      'go',
-      'gopls',
-      'rust-analyzer',
-      'ruby',
-      'python',
-      'typescript',
-      'lua',
-      'runtime',
-      'capability',
-      'capabilities',
-      'soporte',
-    ],
-  },
-  {
-    id: 'environment',
-    group: 'workspace',
-    labelKey: 'settings.tabs.environment',
-    icon: Terminal,
-    kbdToken: '4',
-    keywords: ['env', 'environment', 'variable', 'variables', 'secret'],
-  },
-  // RL-096 Slice 1 — Privacy + Trust dashboard. Position 5 in the
-  // workspace group so it sits between Environment (which is read by
-  // every runner) and Account (which stores the license token). The
-  // existing `'4'` slot is taken by environment; this row picks `'9'`
-  // because Recovery already claimed `'0'` and Languages claimed `'8'`.
-  {
-    id: 'privacy',
-    group: 'workspace',
-    labelKey: 'settings.tabs.privacy',
-    icon: ShieldCheck,
-    kbdToken: '9',
-    keywords: [
-      'privacy',
-      'privacidad',
-      'trust',
-      'confianza',
-      'redaction',
-      'redaccion',
-      'network',
-      'red',
-      'audit',
-      'auditoria',
-    ],
-  },
-  {
-    id: 'account',
-    group: 'workspace',
-    labelKey: 'settings.tabs.account',
-    icon: Key,
-    kbdToken: '5',
-    keywords: ['license', 'pro', 'trial', 'privacy', 'account', 'cuenta', 'ai', 'openai', 'llm'],
-  },
-  {
-    id: 'shortcuts',
-    group: 'advanced',
-    labelKey: 'settings.tabs.shortcuts',
-    icon: Keyboard,
-    kbdToken: '6',
-    keywords: ['keyboard', 'shortcut', 'atajo', 'kbd', 'binding'],
-  },
-  {
-    id: 'plugins',
-    group: 'advanced',
-    labelKey: 'settings.tabs.plugins',
-    icon: Package,
-    kbdToken: '7',
-    keywords: ['plugin', 'extension', 'plugins'],
-  },
-  {
-    id: 'recovery',
-    group: 'advanced',
-    labelKey: 'settings.tabs.recovery',
-    icon: Wrench,
-    kbdToken: '0',
-    keywords: ['recovery', 'recuperar', 'reset', 'backup'],
-  },
-];
-
-function matchesFilter(item: RailItem, filter: string, t: (k: string) => string): boolean {
-  if (!filter) return true;
-  const lowered = filter.toLowerCase();
-  if (item.id.includes(lowered)) return true;
-  if (t(item.labelKey).toLowerCase().includes(lowered)) return true;
-  return item.keywords.some((kw) => kw.toLowerCase().includes(lowered));
-}
-
-interface SettingsRailProps {
-  active: TabId;
-  filter: string;
-  onSelect: (id: TabId) => void;
-}
-
-function SettingsRail({ active, filter, onSelect }: SettingsRailProps) {
-  const { t } = useTranslation();
-  const groups = ['workspace', 'advanced'] as const;
-  const focusRailItem = (id: TabId) => {
-    document.getElementById(`settings-rail-${id}`)?.focus();
-  };
-  const handleRailKeyDown = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-    itemId: TabId
-  ) => {
-    const currentIndex = RAIL_ITEMS.findIndex((item) => item.id === itemId);
-    if (currentIndex < 0) return;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      event.preventDefault();
-      const nextItem = RAIL_ITEMS[(currentIndex + 1) % RAIL_ITEMS.length];
-      if (nextItem) focusRailItem(nextItem.id);
-      return;
-    }
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      const previousItem =
-        RAIL_ITEMS[(currentIndex - 1 + RAIL_ITEMS.length) % RAIL_ITEMS.length];
-      if (previousItem) focusRailItem(previousItem.id);
-      return;
-    }
-    if (event.key === 'Home') {
-      event.preventDefault();
-      const firstItem = RAIL_ITEMS[0];
-      if (firstItem) focusRailItem(firstItem.id);
-      return;
-    }
-    if (event.key === 'End') {
-      event.preventDefault();
-      const lastItem = RAIL_ITEMS[RAIL_ITEMS.length - 1];
-      if (lastItem) focusRailItem(lastItem.id);
-    }
-  };
-
-  return (
-    <aside
-      className="settings-rail"
-      role="tablist"
-      aria-label={t('settings.rail.ariaLabel')}
-    >
-      <div className="px-4 pb-3 pt-5">
-        <EyebrowMono className="text-fg-subtle">{t('settings.title')}</EyebrowMono>
-      </div>
-      {groups.map((group) => (
-        <div key={group} className="pb-2">
-          <p className="settings-rail-group-label">
-            {t(`settings.rail.${group}`)}
-          </p>
-          {RAIL_ITEMS.filter((it) => it.group === group).map((item) => {
-            const isActive = item.id === active;
-            const isMatch = matchesFilter(item, filter, t);
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                id={`settings-rail-${item.id}`}
-                aria-selected={isActive}
-                aria-controls={`settings-panel-${item.id}`}
-                onClick={() => onSelect(item.id)}
-                onKeyDown={(event) => handleRailKeyDown(event, item.id)}
-                data-active={isActive ? 'true' : 'false'}
-                data-dim={!isActive && filter && !isMatch ? 'true' : 'false'}
-                className="settings-rail-row w-full"
-                data-testid={`settings-tab-${item.id}`}
-              >
-                <span className="row-icon">
-                  <Icon size={13} aria-hidden />
-                </span>
-                <span className="truncate text-left">{t(item.labelKey)}</span>
-                <Kbd className="ml-auto">⌘{item.kbdToken}</Kbd>
-              </button>
-            );
-          })}
-        </div>
-      ))}
-    </aside>
-  );
 }
 
 interface SettingsTopBarProps {
@@ -362,21 +98,19 @@ function SettingsTopBar({
   filterInputRef,
 }: SettingsTopBarProps) {
   const { t } = useTranslation();
-  const activeLabel = RAIL_ITEMS.find((it) => it.id === active)?.labelKey;
+  const activeLabel = RAIL_ITEMS.find(it => it.id === active)?.labelKey;
   return (
     <div className="flex h-12 flex-none items-center gap-3 border-b border-border/80 bg-bg-panel px-4">
       <div className="flex items-center gap-2 text-body-sm">
         <SettingsIcon size={14} className="text-fg-subtle" aria-hidden />
         <span className="text-fg-muted">{t('settings.title')}</span>
         <span className="text-fg-subtle">›</span>
-        <span className="font-medium text-fg-base">
-          {activeLabel ? t(activeLabel) : ''}
-        </span>
+        <span className="font-medium text-fg-base">{activeLabel ? t(activeLabel) : ''}</span>
       </div>
       <div
         className={cn(
           'mx-2 flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md border bg-bg-base px-2.5 transition-colors',
-          filter ? 'border-accent bg-primary-soft' : 'border-border/80',
+          filter ? 'border-accent bg-primary-soft' : 'border-border/80'
         )}
       >
         <Search
@@ -388,11 +122,11 @@ function SettingsTopBar({
           ref={filterInputRef}
           type="text"
           value={filter}
-          onChange={(e) => onFilterChange(e.target.value)}
+          onChange={e => onFilterChange(e.target.value)}
           placeholder={t('settings.filter.placeholder')}
           className={cn(
             'min-w-0 flex-1 bg-transparent font-mono text-body-sm outline-none placeholder:text-fg-subtle',
-            filter ? 'font-semibold text-accent-fg' : 'text-fg-muted',
+            filter ? 'font-semibold text-accent-fg' : 'text-fg-muted'
           )}
           data-testid="settings-filter-input"
           aria-label={t('settings.filter.placeholder')}
@@ -497,14 +231,14 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
   // Shallow compare so a setting change in a DIFFERENT tab doesn't
   // re-render this tile.
   const slice = useSettingsStore(
-    useShallow((state) => {
+    useShallow(state => {
       const s = state as unknown as Record<string, unknown>;
       const out: Record<string, unknown> = {};
       for (const k of keys) {
         if (k in s && typeof s[k] !== 'function') out[k] = s[k];
       }
       return out;
-    }),
+    })
   );
   const [copied, setCopied] = useState(false);
 
@@ -523,9 +257,7 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
         <div className="flex items-center gap-2">
           <Braces size={13} className="text-fg-subtle" aria-hidden />
           <EyebrowMono>{t('settings.effectiveConfig.label')}</EyebrowMono>
-          <span className="text-caption text-fg-muted">
-            {t('settings.effectiveConfig.hint')}
-          </span>
+          <span className="text-caption text-fg-muted">{t('settings.effectiveConfig.hint')}</span>
         </div>
       </summary>
       <button
@@ -556,10 +288,7 @@ function SettingsStatusBar({ active }: SettingsStatusBarProps) {
   return (
     <div className="settings-status-bar">
       <span className="inline-flex items-center gap-1.5">
-        <span
-          aria-hidden
-          className="inline-block size-1.5 rounded-full bg-success"
-        />
+        <span aria-hidden className="inline-block size-1.5 rounded-full bg-success" />
         <span className="font-mono">{t('settings.sync.label')}</span>
       </span>
       <span className="text-fg-subtle">·</span>
@@ -603,16 +332,16 @@ const SHORTCUTS_PREVIEW_IDS = [
 
 function ShortcutsPreviewCard() {
   const { t } = useTranslation();
-  const overrides = useSettingsStore((state) => state.shortcutOverrides);
+  const overrides = useSettingsStore(state => state.shortcutOverrides);
   const platform = resolveShortcutDisplayPlatform(
     window.lingua?.platform ?? 'unknown',
-    window.navigator?.platform,
+    window.navigator?.platform
   );
 
   const rows = useMemo(
     () =>
-      SHORTCUTS_PREVIEW_IDS.flatMap((id) => {
-        const definition = KEYBOARD_SHORTCUTS.find((entry) => entry.id === id);
+      SHORTCUTS_PREVIEW_IDS.flatMap(id => {
+        const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === id);
         if (!definition) return [];
         const [primaryCombo] = resolveCombos(definition, overrides);
         return [
@@ -623,7 +352,7 @@ function ShortcutsPreviewCard() {
           },
         ];
       }),
-    [overrides, platform, t],
+    [overrides, platform, t]
   );
 
   return (
@@ -660,13 +389,12 @@ export function SettingsModal({
   useEffect(() => {
     const onNavigate = (event: Event) => {
       const detail = (event as CustomEvent<TabId>).detail;
-      if (typeof detail === 'string' && RAIL_ITEMS.some((it) => it.id === detail)) {
+      if (typeof detail === 'string' && RAIL_ITEMS.some(it => it.id === detail)) {
         setActiveTab(detail);
       }
     };
     window.addEventListener('lingua-settings-navigate-tab', onNavigate);
-    return () =>
-      window.removeEventListener('lingua-settings-navigate-tab', onNavigate);
+    return () => window.removeEventListener('lingua-settings-navigate-tab', onNavigate);
   }, []);
 
   // Map ⌘1..⌘0 → tab. Cmd on macOS, Ctrl on others.
@@ -682,7 +410,7 @@ export function SettingsModal({
       if (event.metaKey || event.ctrlKey) {
         const tag = (event.target as HTMLElement | null)?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        const match = RAIL_ITEMS.find((it) => it.kbdToken === event.key);
+        const match = RAIL_ITEMS.find(it => it.kbdToken === event.key);
         if (match) {
           event.preventDefault();
           setActiveTab(match.id);
@@ -697,8 +425,8 @@ export function SettingsModal({
   }, [filterInputRef]);
 
   const matchCount = useMemo(
-    () => (filter ? RAIL_ITEMS.filter((it) => matchesFilter(it, filter, t)).length : 0),
-    [filter, t],
+    () => (filter ? RAIL_ITEMS.filter(it => matchesFilter(it, filter, t)).length : 0),
+    [filter, t]
   );
 
   const handleSelect = useCallback((id: TabId) => {
@@ -710,10 +438,7 @@ export function SettingsModal({
       case 'general':
         return (
           <div className="space-y-6">
-            <AboutSection
-              onOpenWhatsNew={onOpenWhatsNew}
-              onStartGuidedTour={onStartGuidedTour}
-            />
+            <AboutSection onOpenWhatsNew={onOpenWhatsNew} onStartGuidedTour={onStartGuidedTour} />
             <UpdatesSection />
             {/* RL-101 Slice 1 — Onboarding choreography reset toggles */}
             <OnboardingSection />

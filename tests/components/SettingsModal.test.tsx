@@ -150,4 +150,33 @@ describe('SettingsModal', () => {
     expect(screen.getByText('Vista previa de redacción')).toBeTruthy();
     expect(screen.getByText('Run Ledger (historial local de ejecuciones)')).toBeTruthy();
   }, 10000);
+
+  it('preserves rail filter dimming and keyboard focus navigation', () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    fireEvent.change(screen.getByTestId('settings-filter-input'), {
+      target: { value: 'plugin' },
+    });
+    expect(screen.getByTestId('settings-tab-plugins').getAttribute('data-dim')).toBe(
+      'false'
+    );
+    expect(screen.getByTestId('settings-tab-appearance').getAttribute('data-dim')).toBe(
+      'true'
+    );
+
+    const general = screen.getByTestId('settings-tab-general');
+    const appearance = screen.getByTestId('settings-tab-appearance');
+    general.focus();
+    fireEvent.keyDown(general, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(appearance);
+
+    fireEvent.keyDown(appearance, { key: 'End' });
+    expect(document.activeElement).toBe(screen.getByTestId('settings-tab-recovery'));
+  });
 });

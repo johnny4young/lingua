@@ -42,6 +42,7 @@ describe('deep-review maintainability boundaries', () => {
         800,
       ],
       ['src/renderer/components/HttpWorkspace/HttpRequestEditor.tsx', 800],
+      ['src/renderer/components/Settings/SettingsModal.tsx', 800],
       [
         'src/renderer/components/Settings/SqlWorkspaceSettingsSection.tsx',
         400,
@@ -58,6 +59,8 @@ describe('deep-review maintainability boundaries', () => {
         'src/renderer/components/HttpWorkspace/HttpRequestBuilderTabs.tsx',
         400,
       ],
+      ['src/renderer/components/Settings/SettingsRail.tsx', 150],
+      ['src/renderer/components/Settings/settingsRailModel.ts', 250],
     ] as const) {
       expect(
         physicalLines(relativePath),

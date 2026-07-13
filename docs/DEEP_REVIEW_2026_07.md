@@ -342,7 +342,7 @@ capas (unit + e2e + perf + smoke empaquetado).
 | A2 | Alto | Sprawl de configs de build; la mina de env vars es síntoma estructural | 📋 Documentado |
 | A3 | Alto | Stores importaban de `hooks/` y `components/` (ciclo latente) | ✅ Corregido |
 | A4 | Medio | Ciclo de vida de spawn duplicado 4 veces en los runners nativos | 📋 Documentado |
-| A5 | Medio | 10 componentes de 800+ líneas violan la regla propia de 250-300 | ✅ Corregido (7 prioritarios; 3 pendientes) |
+| A5 | Medio | 10 componentes de 800+ líneas violan la regla propia de 250-300 | ✅ Corregido (8 prioritarios; 2 pendientes) |
 | A6 | Medio | `notebookStore` (958 líneas) es la única "god store" restante | 📋 Documentado |
 | A7 | Medio | Árbol de tests con espejos inconsistentes + huecos de cobertura | 📋 Documentado |
 | A8 | Bajo | `ARCHITECTURE.md` se contradecía sobre el watch flow (pre-RL-146) | ✅ Corregido |
@@ -376,10 +376,12 @@ SQL completa a `SqlWorkspaceSettingsSection` (242). `UtilityPipelinePanel` pasó
 892→508 al mover la biblioteca/importación a `UtilityPipelineLibrarySidebar`
 (303) y la tabla streaming a `UtilityPipelineResults` (91). `HttpRequestEditor`
 pasó 964→720 al mover las pestañas y paneles del request builder a
-`HttpRequestBuilderTabs` (273). El inventario de componentes sobre 800 LOC bajó
-de 10 a 3.
+`HttpRequestBuilderTabs` (273). `SettingsModal` pasó 864→589 al mover el rail a
+`SettingsRail` (88) y su
+catálogo/filtro a `settingsRailModel` (165). El inventario de componentes sobre
+800 LOC bajó de 10 a 2.
 `tests/docs/deepReviewMaintainability.test.ts` fija 800 para los padres
-completados y budgets de 300-400 para los módulos nuevos; los tres restantes
+completados y budgets de 150-400 para los módulos nuevos; los dos restantes
 conservan estado pendiente.
 
 **Split final de filesystem (corregido 2026-07-10).** El follow-up del plan de
