@@ -7,7 +7,6 @@ import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
-import { formatExecTime } from '../../hooks/runnerOutput';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { trackEvent } from '../../utils/telemetry';
@@ -23,113 +22,9 @@ import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
-import { ConsoleEntryRenderer } from './ConsoleEntryRenderer';
-import { OutputLineBadge } from './OutputLineBadge';
+import { ConsoleEntryRow } from './ConsoleEntryRow';
 import { richKindBucket } from './richConsoleFormat';
 import { useListWindow } from '../../hooks/useListWindow';
-
-interface AnsiSpan {
-  text: string;
-  color?: string;
-  bold?: boolean;
-  dim?: boolean;
-}
-
-/**
- * ANSI foreground codes routed through the DS canonical console
- * tokens (declared in src/renderer/index.css under :root,.light and
- * .dark / [data-theme="dark"]). The DS spec defines six console
- * roles with theme-aware values:
- *
- *   --color-console-stdout    → ANSI 37/97 (default white text)
- *   --color-console-stderr    → ANSI 31/91 (red)
- *   --color-console-warning   → ANSI 33/93 (yellow / amber)
- *   --color-console-info      → ANSI 34/94/36/96 (blue / cyan)
- *   --color-console-prompt    → ANSI 35/95 (magenta in legacy, mapped
- *                                to the slate accent here so prompts
- *                                read as the brand color rather than
- *                                a third color outside the system)
- *   --color-console-timestamp → ANSI 30/90 (the dim greys reserved
- *                                for metadata in tools like git/npm
- *                                output)
- *
- * The bright variants (90-97) deliberately collapse to the same
- * semantic var as their non-bright sibling — the original ANSI
- * "brightness boost" was arbitrary hex and preserving it would re-
- * introduce the hardcoded-hex drift the migration fixes. If a
- * future slice wants the distinction, declare
- * --color-console-stderr-strong (etc) and split the rows.
- */
-const ANSI_FG: Record<number, string> = {
-  30: 'var(--color-console-timestamp)',
-  31: 'var(--color-console-stderr)',
-  32: 'var(--color-success-fg)',
-  33: 'var(--color-console-warning)',
-  34: 'var(--color-console-info)',
-  35: 'var(--color-console-prompt)',
-  36: 'var(--color-console-info)',
-  37: 'var(--color-console-stdout)',
-  90: 'var(--color-console-timestamp)',
-  91: 'var(--color-console-stderr)',
-  92: 'var(--color-success-fg)',
-  93: 'var(--color-console-warning)',
-  94: 'var(--color-console-info)',
-  95: 'var(--color-console-prompt)',
-  96: 'var(--color-console-info)',
-  97: 'var(--color-console-stdout)',
-};
-
-function parseAnsi(raw: string): AnsiSpan[] {
-  const spans: AnsiSpan[] = [];
-  // eslint-disable-next-line no-control-regex
-  const re = /\x1b\[([0-9;]*)m/g;
-  let last = 0;
-  let color: string | undefined;
-  let bold = false;
-  let dim = false;
-
-  const push = (text: string) => {
-    if (text) spans.push({ text, color, bold, dim });
-  };
-
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(raw)) !== null) {
-    push(raw.slice(last, match.index));
-    last = match.index + match[0].length;
-
-    const controlSequence = match[1] ?? '';
-    const codes = controlSequence === '' ? [0] : controlSequence.split(';').map(Number);
-    for (const code of codes) {
-      if (code === 0) {
-        color = undefined;
-        bold = false;
-        dim = false;
-      } else if (code === 1) {
-        bold = true;
-      } else if (code === 2) {
-        dim = true;
-      } else if (ANSI_FG[code]) {
-        color = ANSI_FG[code];
-      }
-    }
-  }
-
-  push(raw.slice(last));
-  return spans;
-}
-
-function hasAnsi(value: string): boolean {
-  // eslint-disable-next-line no-control-regex
-  return /\x1b\[/.test(value);
-}
-
-const TYPE_COLOR: Record<ConsoleEntryType, string> = {
-  log: 'text-foreground',
-  info: 'text-info',
-  warn: 'text-warning',
-  error: 'text-error',
-  result: 'text-primary',
-};
 
 const TYPE_BADGE: Record<ConsoleEntryType, string> = {
   log: 'text-muted',
@@ -141,40 +36,9 @@ const TYPE_BADGE: Record<ConsoleEntryType, string> = {
 
 const FILTER_TYPES: ConsoleEntryType[] = ['log', 'info', 'warn', 'error'];
 
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('en-US', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
-
 // `nextReplayTabId` and `replayTabName` moved to
 // `src/renderer/utils/replayHistoryEntry.ts` so the command-palette
 // per-entry Replay surface can share the same helper as this popover.
-
-function AnsiContent({ text, className }: { text: string; className: string }) {
-  if (!hasAnsi(text)) {
-    return <span className={`whitespace-pre-wrap ${className}`}>{text}</span>;
-  }
-
-  const spans = parseAnsi(text);
-  return (
-    <span className={`whitespace-pre-wrap ${className}`}>
-      {spans.map((span, index) => (
-        <span
-          key={index}
-          style={span.color ? { color: span.color } : undefined}
-          className={span.bold ? 'font-bold' : span.dim ? 'opacity-50' : undefined}
-        >
-          {span.text}
-        </span>
-      ))}
-    </span>
-  );
-}
 
 function sourceLineForEntry(entry: ConsoleEntry): number | null {
   const payload = Array.isArray(entry.payload) ? entry.payload : null;
@@ -185,103 +49,6 @@ function sourceLineForEntry(entry: ConsoleEntry): number | null {
   return typeof entry.line === 'number' && Number.isFinite(entry.line) && entry.line > 0
     ? entry.line
     : null;
-}
-
-function EntryRow({
-  entry,
-  showTimestamps,
-  typeLabel,
-  repeatCount,
-  pulseTargetLine,
-  originSuppressed,
-}: {
-  entry: ConsoleEntry;
-  showTimestamps: boolean;
-  typeLabel: Record<ConsoleEntryType, string>;
-  /** RL-044 Slice 1B fold H — number of collapsed duplicate entries. ≥2 surfaces the ×N badge. */
-  repeatCount: number;
-  /** RL-044 Sub-slice G Fold G — when set and matches this row's origin/entry line, the row pulses. */
-  pulseTargetLine: number | null;
-  /** Per-tab `@origin off` opt-out shared with the rich-render badge path. */
-  originSuppressed: boolean;
-}) {
-  const labelClass = TYPE_BADGE[entry.type];
-  const contentClass = TYPE_COLOR[entry.type];
-  // Capture the payload in a const so the rich-render branch reads
-  // through narrowed types without resorting to a non-null assertion.
-  const payload = Array.isArray(entry.payload) ? entry.payload : null;
-  const usesRichRender = payload !== null && payload.length > 0;
-
-  // RL-044 Sub-slice G Fold G — derive this row's source line from
-  // either a payload-level origin or the legacy entry.line. The
-  // pulse activates when that line matches the cursor-broadcast
-  // target line. `null` target = no pulse.
-  const rowSourceLine = sourceLineForEntry(entry);
-  const rowOrigin = rowSourceLine !== null ? { line: rowSourceLine } : null;
-  const isPulsing =
-    !originSuppressed &&
-    pulseTargetLine !== null &&
-    rowSourceLine === pulseTargetLine;
-
-  return (
-    <div
-      className="group flex gap-3 rounded-4xl px-2 py-1.5 hover:bg-surface-strong/52"
-      data-testid="console-entry-row"
-      data-pulsing={isPulsing ? 'true' : undefined}
-    >
-      {showTimestamps && (
-        <span className="shrink-0 select-none tabular-nums text-muted">
-          {formatTime(entry.timestamp)}
-        </span>
-      )}
-      <span className={`shrink-0 select-none font-bold text-eyebrow leading-5 ${labelClass}`}>
-        {typeLabel[entry.type]}
-      </span>
-      {/*
-        RL-044 Sub-slice G — when the rich-render path is active the
-        interactive `<OutputLineBadge>` inside `<ConsoleEntryRenderer>`
-        is the canonical line affordance. The fallback branch renders
-        the same button here so ansi-only rows (Go / Rust subprocess
-        stdout) remain clickable instead of falling back to a static
-        `L<n>` hint.
-      */}
-      {rowOrigin && !originSuppressed && !(usesRichRender && payload !== null) && (
-        <span className="shrink-0">
-          <OutputLineBadge
-            origin={rowOrigin}
-            language={entry.language ?? 'unknown'}
-          />
-        </span>
-      )}
-      {usesRichRender && payload !== null ? (
-        <div className={contentClass}>
-          <ConsoleEntryRenderer
-            payloads={payload}
-            fallbackText={entry.content}
-            language={entry.language}
-            entryLine={entry.line}
-            originSuppressed={originSuppressed}
-          />
-        </div>
-      ) : (
-        <AnsiContent text={entry.content} className={contentClass} />
-      )}
-      {repeatCount > 1 && (
-        <span
-          className="shrink-0 select-none rounded-full border border-border/60 px-1.5 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle"
-          data-testid="console-repeat-count"
-          title={`×${repeatCount}`}
-        >
-          ×{repeatCount}
-        </span>
-      )}
-      {entry.executionTime !== undefined && (
-        <span className="ml-auto shrink-0 select-none tabular-nums text-muted">
-          {formatExecTime(entry.executionTime)}
-        </span>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -817,11 +584,12 @@ export function ConsolePanel() {
                   ref={measureRef(entry.id)}
                   className="[contain-intrinsic-size:auto_28px] [content-visibility:auto]"
                 >
-                  <EntryRow
+                  <ConsoleEntryRow
                     entry={entry}
                     showTimestamps={showTimestamps}
                     typeLabel={typeLabel}
                     repeatCount={repeatCount}
+                    sourceLine={sourceLineForEntry(entry)}
                     pulseTargetLine={renderedPulseLine}
                     originSuppressed={originSuppressed}
                   />

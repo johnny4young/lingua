@@ -150,4 +150,59 @@ describe('SettingsModal', () => {
     expect(screen.getByText('Vista previa de redacción')).toBeTruthy();
     expect(screen.getByText('Run Ledger (historial local de ejecuciones)')).toBeTruthy();
   }, 10000);
+
+  it('preserves rail filter dimming and keyboard focus navigation', () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    fireEvent.change(screen.getByTestId('settings-filter-input'), {
+      target: { value: 'plugin' },
+    });
+    expect(screen.getByTestId('settings-tab-plugins').getAttribute('data-dim')).toBe(
+      'false'
+    );
+    expect(screen.getByTestId('settings-tab-appearance').getAttribute('data-dim')).toBe(
+      'true'
+    );
+
+    const general = screen.getByTestId('settings-tab-general');
+    const appearance = screen.getByTestId('settings-tab-appearance');
+    general.focus();
+    fireEvent.keyDown(general, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(appearance);
+
+    fireEvent.keyDown(appearance, { key: 'End' });
+    expect(document.activeElement).toBe(screen.getByTestId('settings-tab-recovery'));
+  });
+
+  it('sets aria-controls only on the active tab so inactive tabs never reference an unmounted panel', () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    // Only the active tabpanel is mounted; the active tab must point at it,
+    // and inactive tabs must not carry a dangling aria-controls reference.
+    const general = screen.getByTestId('settings-tab-general');
+    const appearance = screen.getByTestId('settings-tab-appearance');
+    const panelId = screen.getByRole('tabpanel').getAttribute('id');
+
+    expect(general.getAttribute('aria-controls')).toBe(panelId);
+    expect(document.getElementById(panelId ?? '')).not.toBeNull();
+    expect(appearance.getAttribute('aria-controls')).toBeNull();
+
+    // The reference follows the selection when the active tab changes.
+    fireEvent.click(appearance);
+    const nextPanelId = screen.getByRole('tabpanel').getAttribute('id');
+    expect(appearance.getAttribute('aria-controls')).toBe(nextPanelId);
+    expect(general.getAttribute('aria-controls')).toBeNull();
+  });
 });

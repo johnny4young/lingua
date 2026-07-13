@@ -284,6 +284,45 @@ describe('HttpRequestEditor', () => {
     });
   });
 
+  it('keeps bespoke editor actions on the shared focus-ring contract', () => {
+    const request = {
+      ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }),
+      url: 'https://x.dev/users',
+    };
+    const props = {
+      request,
+      onPatch: vi.fn(),
+      onSend: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <HttpRequestEditor {...props} isExecuting={false} />
+    );
+
+    for (const testId of [
+      'http-request-editor-copy-menu',
+      'http-request-editor-send',
+      'http-request-editor-tab-params',
+    ]) {
+      expect(screen.getByTestId(testId).className).toContain('focus-ring');
+    }
+
+    fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
+    expect(screen.getByTestId('http-request-editor-copy-curl').className).toContain(
+      'focus-ring'
+    );
+
+    fireEvent.click(screen.getByTestId('http-request-editor-tab-headers'));
+    expect(screen.getByTestId('http-request-editor-headers-add').className).toContain(
+      'focus-ring'
+    );
+
+    rerender(<HttpRequestEditor {...props} isExecuting onStop={vi.fn()} />);
+    expect(screen.getByTestId('http-request-editor-stop').className).toContain(
+      'focus-ring'
+    );
+  });
+
   // RL-097 Slice 3a folds A + C — resolution preview + secret-safe cURL.
   it('renders the resolution preview (resolved URL + var chips) with an active env', () => {
     const request = {

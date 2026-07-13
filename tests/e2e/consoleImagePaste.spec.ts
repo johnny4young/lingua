@@ -148,6 +148,14 @@ test.describe('Console image clipboard paste (RL-044)', () => {
     await gotoApp(page);
     await waitForConsole(page);
 
+    // The seeded welcome scratchpad auto-runs after mount and clears the
+    // console when that run starts. Wait for its first committed row before
+    // dispatching the expensive synthetic paste so the harness cannot erase
+    // the image between the visibility and MIME assertions under load.
+    await expect(page.getByTestId('console-entry-row').first()).toBeVisible({
+      timeout: 30000,
+    });
+
     await pasteOversizedImage(page);
 
     const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
