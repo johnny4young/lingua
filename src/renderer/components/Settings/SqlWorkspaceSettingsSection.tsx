@@ -62,6 +62,31 @@ export function SqlWorkspaceSettingsSection() {
   // understands persistence won't take.
   const opfsAvailable = isOpfsStorageAvailable();
 
+  const reconnectDuckDbAndNotify = async (successMessageKey: string) => {
+    configureDuckDbPersistence(sqlWorkspacePersistTables);
+    try {
+      await getDuckDbEngine();
+    } catch (err) {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'warning',
+        messageKey: 'sqlWorkspace.response.engineLoadFailedBand',
+        detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
+      });
+      return;
+    }
+    const resolved = getResolvedSqlStorageMode();
+    const requested = getResolvedSqlStorageRequestMode();
+    useWorkspaceSqlStore.getState().setStorageMode(resolved, requested);
+    trackSqlStorageMode(resolved, requested);
+    const fellBack = requested === 'opfs' && resolved === 'memory';
+    useUIStore.getState().pushStatusNotice({
+      tone: fellBack ? 'warning' : 'success',
+      messageKey: fellBack
+        ? 'sqlWorkspace.storage.unavailableNotice'
+        : successMessageKey,
+    });
+  };
+
   // RL-097 Slice 3 (SQL OPFS) fold E — delete the persisted database.
   // Destructive (drops every saved table + row), so it confirms first.
   // `clearPersistedSqlDatabase` terminates the engine before removing
@@ -77,28 +102,9 @@ export function SqlWorkspaceSettingsSection() {
     }
     void (async () => {
       await clearPersistedSqlDatabase();
-      configureDuckDbPersistence(sqlWorkspacePersistTables);
-      try {
-        await getDuckDbEngine();
-      } catch (err) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'warning',
-          messageKey: 'sqlWorkspace.response.engineLoadFailedBand',
-          detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
-        });
-        return;
-      }
-      const resolved = getResolvedSqlStorageMode();
-      const requested = getResolvedSqlStorageRequestMode();
-      useWorkspaceSqlStore.getState().setStorageMode(resolved, requested);
-      trackSqlStorageMode(resolved, requested);
-      const fellBack = requested === 'opfs' && resolved === 'memory';
-      useUIStore.getState().pushStatusNotice({
-        tone: fellBack ? 'warning' : 'success',
-        messageKey: fellBack
-          ? 'sqlWorkspace.storage.unavailableNotice'
-          : 'settings.editor.sqlWorkspace.persistTables.cleared',
-      });
+      await reconnectDuckDbAndNotify(
+        'settings.editor.sqlWorkspace.persistTables.cleared'
+      );
     })();
   };
 
@@ -117,28 +123,9 @@ export function SqlWorkspaceSettingsSection() {
     }
     void (async () => {
       await flushAndReleaseDuckDbEngine();
-      configureDuckDbPersistence(sqlWorkspacePersistTables);
-      try {
-        await getDuckDbEngine();
-      } catch (err) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'warning',
-          messageKey: 'sqlWorkspace.response.engineLoadFailedBand',
-          detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
-        });
-        return;
-      }
-      const resolved = getResolvedSqlStorageMode();
-      const requested = getResolvedSqlStorageRequestMode();
-      useWorkspaceSqlStore.getState().setStorageMode(resolved, requested);
-      trackSqlStorageMode(resolved, requested);
-      const fellBack = requested === 'opfs' && resolved === 'memory';
-      useUIStore.getState().pushStatusNotice({
-        tone: fellBack ? 'warning' : 'success',
-        messageKey: fellBack
-          ? 'sqlWorkspace.storage.unavailableNotice'
-          : 'settings.editor.sqlWorkspace.persistTables.reconnected',
-      });
+      await reconnectDuckDbAndNotify(
+        'settings.editor.sqlWorkspace.persistTables.reconnected'
+      );
     })();
   };
 
