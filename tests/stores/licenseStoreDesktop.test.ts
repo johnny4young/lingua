@@ -120,6 +120,7 @@ describe('licenseStore — desktop IPC bridge', () => {
     });
   });
 
+<<<<<<< HEAD
   it('does not let a late bootstrap rejection clobber a user-applied license', async () => {
     const initial = {
       token: null,
@@ -167,6 +168,9 @@ describe('licenseStore — desktop IPC bridge', () => {
     expect(useLicenseStore.getState().status.kind).toBe('active');
   });
 
+||||||| parent of 97add7e (perf: improve perceived startup)
+=======
+>>>>>>> 97add7e (perf: improve perceived startup)
   it('setLicenseToken delegates to bridge.applyToken and updates the mirror', async () => {
     const initial = {
       token: null,
