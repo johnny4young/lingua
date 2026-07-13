@@ -41,6 +41,7 @@ describe('deep-review maintainability boundaries', () => {
         'src/renderer/components/DeveloperUtilities/UtilityPipelinePanel.tsx',
         800,
       ],
+      ['src/renderer/components/HttpWorkspace/HttpRequestEditor.tsx', 800],
       [
         'src/renderer/components/Settings/SqlWorkspaceSettingsSection.tsx',
         400,
@@ -52,6 +53,10 @@ describe('deep-review maintainability boundaries', () => {
       [
         'src/renderer/components/DeveloperUtilities/UtilityPipelineResults.tsx',
         300,
+      ],
+      [
+        'src/renderer/components/HttpWorkspace/HttpRequestBuilderTabs.tsx',
+        400,
       ],
     ] as const) {
       expect(

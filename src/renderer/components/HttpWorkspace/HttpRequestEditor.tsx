@@ -21,15 +21,7 @@
  *     `onPatch` — no explicit Save button.
  */
 
-import {
-  ChevronDown,
-  Copy,
-  Loader2,
-  Plus,
-  SendHorizontal,
-  Square,
-  Trash2,
-} from 'lucide-react';
+import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -56,23 +48,15 @@ import {
   generateHttpCode,
   type HttpCodegenTarget,
 } from '../../../shared/httpCodegen';
-import {
-  maskSecretsForCapsule,
-  type HttpEnvironmentV1,
-} from '../../../shared/httpEnvironment';
+import { maskSecretsForCapsule, type HttpEnvironmentV1 } from '../../../shared/httpEnvironment';
 import { writeToClipboard } from '../../utils/clipboard';
 import { useUIStore } from '../../stores/uiStore';
-import { cn } from '../../utils/cn';
 import { tryParseCurl } from './curlImport';
-import { HttpParamsTab } from './HttpParamsTab';
-import { HttpCaptureTab } from './HttpCaptureTab';
-import { HttpAuthTab } from './HttpAuthTab';
 import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
 import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
+import { HttpRequestBuilderTabs, type HttpRequestBuilderTab } from './HttpRequestBuilderTabs';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
-
-type BuilderTab = 'params' | 'auth' | 'headers' | 'body' | 'capture';
 
 export interface HttpRequestEditorProps {
   request: HttpRequestV1;
@@ -111,7 +95,7 @@ const COPY_FORMATS: ReadonlyArray<{
   label: string;
 }> = [
   { id: 'curl', label: 'cURL' },
-  ...HTTP_CODEGEN_TARGETS.map((target) => ({
+  ...HTTP_CODEGEN_TARGETS.map(target => ({
     id: target,
     label: HTTP_CODEGEN_LABELS[target],
   })),
@@ -145,14 +129,12 @@ export function HttpRequestEditor({
     request.queryParams ?? urlToParams(request.url)
   );
   const [auth, setAuth] = useState<HttpRequestAuth | undefined>(request.auth);
-  const [captures, setCaptures] = useState<HttpCaptureRule[]>(
-    request.captures ?? []
-  );
-  const [builderTab, setBuilderTab] = useState<BuilderTab>('params');
+  const [captures, setCaptures] = useState<HttpCaptureRule[]>(request.captures ?? []);
+  const [builderTab, setBuilderTab] = useState<HttpRequestBuilderTab>('params');
 
   // RL-097 Slice 3a — the active environment, resolved from props.
   const activeEnv = useMemo<HttpEnvironmentV1 | null>(
-    () => environments.find((e) => e.id === activeEnvironmentId) ?? null,
+    () => environments.find(e => e.id === activeEnvironmentId) ?? null,
     [environments, activeEnvironmentId]
   );
 
@@ -292,7 +274,7 @@ export function HttpRequestEditor({
 
   const flushDraftBeforeSend = useCallback((): HttpRequestV1 | null => {
     const draft = buildDraftRequest();
-    const content = draft.body?.kind !== 'none' ? draft.body?.content ?? '' : '';
+    const content = draft.body?.kind !== 'none' ? (draft.body?.content ?? '') : '';
     if (content.length > 0 && bodyExceedsCap(content)) {
       pushBodyTooLargeNotice();
       return null;
@@ -315,13 +297,7 @@ export function HttpRequestEditor({
       body: draft.body,
     });
     return draft;
-  }, [
-    buildDraftRequest,
-    bodyExceedsCap,
-    onPatch,
-    pushBodyTooLargeNotice,
-    request.id,
-  ]);
+  }, [buildDraftRequest, bodyExceedsCap, onPatch, pushBodyTooLargeNotice, request.id]);
 
   const sendCurrentDraft = useCallback(() => {
     if (isExecuting) return;
@@ -350,9 +326,7 @@ export function HttpRequestEditor({
       const draft = buildDraftRequest();
       const masked = activeEnv ? maskSecretsForCapsule(draft, activeEnv) : draft;
       const snippet =
-        format === 'curl'
-          ? buildCurlCommand(masked)
-          : generateHttpCode(masked, format);
+        format === 'curl' ? buildCurlCommand(masked) : generateHttpCode(masked, format);
       const ok = await writeToClipboard(snippet);
       useUIStore.getState().pushStatusNotice({
         tone: ok ? 'success' : 'warning',
@@ -537,10 +511,7 @@ export function HttpRequestEditor({
   );
 
   const handleAddHeader = useCallback(() => {
-    const next: HttpRequestHeader[] = [
-      ...headers,
-      { name: '', value: '', enabled: true },
-    ];
+    const next: HttpRequestHeader[] = [...headers, { name: '', value: '', enabled: true }];
     setHeaders(next);
     scheduleAutoSave({ headers: next });
   }, [headers, scheduleAutoSave]);
@@ -566,80 +537,33 @@ export function HttpRequestEditor({
     [headers, scheduleAutoSave]
   );
 
-  const supportsBody = useMemo(
-    () => method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS',
-    [method]
+  const handleBodyKindChange = useCallback(
+    (kind: HttpRequestBodyKind) => {
+      const next: HttpRequestBody = {
+        kind,
+        ...(kind !== 'none' ? { content: body?.content ?? '' } : {}),
+      };
+      setBody(next);
+      scheduleAutoSave({ body: next });
+    },
+    [body?.content, scheduleAutoSave]
   );
 
-  const bodyKind: HttpRequestBodyKind = body?.kind ?? 'none';
-
-  // Count badges on the sub-tabs (enabled rows / active auth) so the
-  // user sees what is configured without switching tabs — Insomnia
-  // surfaces the same dot/count cue.
-  const enabledParamCount = useMemo(
-    () => params.filter((p) => p.enabled && p.key.length > 0).length,
-    [params]
-  );
-  const enabledHeaderCount = useMemo(
-    () => headers.filter((h) => h.enabled && h.name.trim().length > 0).length,
-    [headers]
-  );
-  const authActive = (auth?.kind ?? 'none') !== 'none';
-  const enabledCaptureCount = useMemo(
-    () =>
-      captures.filter((c) => c.enabled && c.targetVariable.trim().length > 0)
-        .length,
-    [captures]
-  );
-
-  const builderTabs: ReadonlyArray<{ id: BuilderTab; label: string; badge?: string }> =
-    useMemo(() => {
-      const tabs: Array<{ id: BuilderTab; label: string; badge?: string }> = [
-        {
-          id: 'params',
-          label: t('httpWorkspace.editor.tab.params'),
-          ...(enabledParamCount > 0 ? { badge: String(enabledParamCount) } : {}),
-        },
-        {
-          id: 'auth',
-          label: t('httpWorkspace.editor.tab.auth'),
-          ...(authActive ? { badge: '•' } : {}),
-        },
-        {
-          id: 'headers',
-          label: t('httpWorkspace.editor.tab.headers'),
-          ...(enabledHeaderCount > 0 ? { badge: String(enabledHeaderCount) } : {}),
-        },
-      ];
-      if (supportsBody) {
-        tabs.push({
-          id: 'body',
-          label: t('httpWorkspace.editor.tab.body'),
-          ...(bodyKind !== 'none' ? { badge: '•' } : {}),
-        });
+  const handleBodyContentChange = useCallback(
+    (content: string) => {
+      if (bodyExceedsCap(content)) {
+        pushBodyTooLargeNotice();
+        return;
       }
-      tabs.push({
-        id: 'capture',
-        label: t('httpWorkspace.editor.tab.capture'),
-        ...(enabledCaptureCount > 0 ? { badge: String(enabledCaptureCount) } : {}),
-      });
-      return tabs;
-    }, [
-      t,
-      enabledParamCount,
-      authActive,
-      enabledHeaderCount,
-      supportsBody,
-      bodyKind,
-      enabledCaptureCount,
-    ]);
-
-  // If the active sub-tab is Body but the method stops supporting a
-  // body (GET/HEAD/OPTIONS), fall back to Params so the editor never
-  // shows an empty pane. Derive the effective tab during render rather
-  // than via a reset effect (avoids the cascading-render lint).
-  const effectiveBuilderTab: BuilderTab =
-    builderTab === 'body' && !supportsBody ? 'params' : builderTab;
+      const next: HttpRequestBody = {
+        kind: body?.kind ?? 'none',
+        content,
+      };
+      setBody(next);
+      scheduleAutoSave({ body: next });
+    },
+    [body?.kind, bodyExceedsCap, pushBodyTooLargeNotice, scheduleAutoSave]
+  );
 
   return (
     <div
@@ -667,14 +591,14 @@ export function HttpRequestEditor({
           id="http-request-method"
           data-testid="http-request-editor-method"
           value={method}
-          onChange={(event) => {
+          onChange={event => {
             const next = event.target.value as HttpMethod;
             setMethod(next);
             scheduleAutoSave({ method: next });
           }}
           className="h-8 shrink-0 rounded-md border border-border bg-bg-panel px-2 font-mono text-body-sm font-semibold tabular-nums text-fg-base focus:border-border-strong focus:outline-none"
         >
-          {HTTP_METHODS.map((m) => (
+          {HTTP_METHODS.map(m => (
             <option key={m} value={m}>
               {m}
             </option>
@@ -686,7 +610,7 @@ export function HttpRequestEditor({
           placeholder={t('httpWorkspace.editor.url.placeholder')}
           aria-label={t('httpWorkspace.editor.url.ariaLabel')}
           value={url}
-          onChange={(event) => handleUrlChange(event.target.value)}
+          onChange={event => handleUrlChange(event.target.value)}
           onPaste={handleUrlPaste}
           className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-3 font-mono text-body-sm text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
         />
@@ -694,14 +618,14 @@ export function HttpRequestEditor({
         <div ref={copyMenuRef} className="relative shrink-0">
           <button
             type="button"
-            onClick={() => setCopyMenuOpen((open) => !open)}
+            onClick={() => setCopyMenuOpen(open => !open)}
             disabled={url.trim().length === 0}
             data-testid="http-request-editor-copy-menu"
             aria-haspopup="menu"
             aria-expanded={copyMenuOpen}
             aria-label={t('httpWorkspace.editor.copyAs.label')}
             title={t('httpWorkspace.editor.copyAs.label')}
-            className="inline-flex h-8 items-center justify-center gap-0.5 rounded-md border border-border-subtle px-2 text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-8 items-center justify-center gap-0.5 rounded-md border border-border-subtle px-2 text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Copy size={14} aria-hidden="true" />
             <ChevronDown size={12} aria-hidden="true" />
@@ -722,7 +646,7 @@ export function HttpRequestEditor({
                     setCopyMenuOpen(false);
                     void copyAs(id);
                   }}
-                  className="block w-full px-3 py-1.5 text-left text-body-sm text-fg-base hover:bg-bg-inset focus-visible:bg-bg-inset focus-visible:outline-none"
+                  className="focus-ring block w-full px-3 py-1.5 text-left text-body-sm text-fg-base hover:bg-bg-inset focus-visible:bg-bg-inset"
                 >
                   {label}
                 </button>
@@ -743,7 +667,7 @@ export function HttpRequestEditor({
             data-testid="http-request-editor-stop"
             aria-label={t('httpWorkspace.editor.stop.label')}
             title={t('httpWorkspace.editor.stop.label')}
-            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border-strong bg-bg-inset px-3 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset"
+            className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border-strong bg-bg-inset px-3 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-muted"
           >
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
             <Square size={12} aria-hidden="true" />
@@ -757,7 +681,7 @@ export function HttpRequestEditor({
             data-testid="http-request-editor-send"
             aria-label={t('httpWorkspace.editor.send.label')}
             title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint')}`}
-            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <SendHorizontal size={14} aria-hidden="true" />
             <span>{t('httpWorkspace.editor.send.label')}</span>
@@ -769,196 +693,28 @@ export function HttpRequestEditor({
           URL. Resolved URL (secrets masked) + variable-state chips. */}
       <HttpEnvironmentPreview request={previewRequest} env={activeEnv} />
 
-      {/* Request builder sub-tabs (Params | Auth | Headers | Body). */}
-      <div
-        role="tablist"
-        aria-label={t('httpWorkspace.editor.tabs.ariaLabel')}
-        data-testid="http-request-editor-tabs"
-        className="flex shrink-0 items-center gap-1 border-b border-border-subtle pb-1.5"
-      >
-        {builderTabs.map((bt) => {
-          const active = bt.id === effectiveBuilderTab;
-          return (
-            <button
-              key={bt.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              data-testid={`http-request-editor-tab-${bt.id}`}
-              data-active={active}
-              onClick={() => setBuilderTab(bt.id)}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
-                active
-                  ? 'bg-bg-inset font-semibold text-fg-base'
-                  : 'text-fg-subtle hover:text-fg-base'
-              )}
-            >
-              <span>{bt.label}</span>
-              {bt.badge ? (
-                <span className="rounded-sm bg-bg-panel-alt px-1 text-micro font-semibold tabular-nums text-fg-muted">
-                  {bt.badge}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Active sub-tab body. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-        {effectiveBuilderTab === 'params' ? (
-          <HttpParamsTab
-            params={params}
-            onAdd={handleAddParam}
-            onUpdate={handleUpdateParam}
-            onRemove={handleRemoveParam}
-          />
-        ) : null}
-
-        {effectiveBuilderTab === 'auth' ? (
-          <HttpAuthTab auth={auth} onChange={handleAuthChange} />
-        ) : null}
-
-        {effectiveBuilderTab === 'headers' ? (
-          <section data-testid="http-request-editor-headers">
-            <header className="flex items-center gap-2">
-              <span className="text-caption font-semibold text-fg-base">
-                {t('httpWorkspace.editor.headers.label')}
-              </span>
-              <button
-                type="button"
-                onClick={handleAddHeader}
-                data-testid="http-request-editor-headers-add"
-                aria-label={t('httpWorkspace.editor.headers.add')}
-                title={t('httpWorkspace.editor.headers.add')}
-                className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-border-subtle text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-              >
-                <Plus size={12} aria-hidden="true" />
-              </button>
-              {headers.length === 0 ? (
-                <span className="text-caption text-fg-subtle">
-                  {t('httpWorkspace.editor.headers.empty')}
-                </span>
-              ) : null}
-            </header>
-            <ul role="list" className="mt-1 flex flex-col gap-1">
-              {headers.map((h, i) => (
-                <li key={i} className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={h.enabled}
-                    onChange={(event) =>
-                      handleUpdateHeader(i, { enabled: event.target.checked })
-                    }
-                    data-testid="http-request-editor-header-enabled"
-                    aria-label={t('httpWorkspace.editor.headers.enabledAria', {
-                      name: h.name,
-                    })}
-                  />
-                  <input
-                    type="text"
-                    value={h.name}
-                    onChange={(event) =>
-                      handleUpdateHeader(i, { name: event.target.value })
-                    }
-                    placeholder={t('httpWorkspace.editor.headers.name.placeholder')}
-                    aria-label={t('httpWorkspace.editor.headers.name.placeholder')}
-                    data-testid="http-request-editor-header-name"
-                    className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={h.value}
-                    onChange={(event) =>
-                      handleUpdateHeader(i, { value: event.target.value })
-                    }
-                    placeholder={t('httpWorkspace.editor.headers.value.placeholder')}
-                    aria-label={t('httpWorkspace.editor.headers.value.placeholder')}
-                    data-testid="http-request-editor-header-value"
-                    className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveHeader(i)}
-                    aria-label={t('httpWorkspace.editor.headers.remove.aria')}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded text-fg-subtle transition-colors hover:text-error-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-                  >
-                    <Trash2 size={11} aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {effectiveBuilderTab === 'body' && supportsBody ? (
-          <section data-testid="http-request-editor-body">
-            <header className="flex items-center justify-between">
-              <span className="text-caption font-semibold text-fg-base">
-                {t('httpWorkspace.editor.body.label')}
-              </span>
-              <select
-                value={bodyKind}
-                onChange={(event) => {
-                  const kind = event.target.value as HttpRequestBodyKind;
-                  const next: HttpRequestBody = {
-                    kind,
-                    ...(kind !== 'none' ? { content: body?.content ?? '' } : {}),
-                  };
-                  setBody(next);
-                  scheduleAutoSave({ body: next });
-                }}
-                data-testid="http-request-editor-body-kind"
-                className="h-6 rounded-md border border-border-subtle bg-bg-panel px-1.5 text-eyebrow font-semibold text-fg-base focus:border-border-strong focus:outline-none"
-              >
-                <option value="none">
-                  {t('httpWorkspace.editor.body.kind.none')}
-                </option>
-                <option value="json">
-                  {t('httpWorkspace.editor.body.kind.json')}
-                </option>
-                <option value="text">
-                  {t('httpWorkspace.editor.body.kind.text')}
-                </option>
-                <option value="form">
-                  {t('httpWorkspace.editor.body.kind.form')}
-                </option>
-              </select>
-            </header>
-            {bodyKind !== 'none' ? (
-              <textarea
-                value={body?.content ?? ''}
-                onChange={(event) => {
-                  if (bodyExceedsCap(event.target.value)) {
-                    pushBodyTooLargeNotice();
-                    return;
-                  }
-                  const next: HttpRequestBody = {
-                    kind: bodyKind,
-                    content: event.target.value,
-                  };
-                  setBody(next);
-                  scheduleAutoSave({ body: next });
-                }}
-                placeholder={t('httpWorkspace.editor.body.placeholder')}
-                aria-label={t('httpWorkspace.editor.body.label')}
-                data-testid="http-request-editor-body-content"
-                className="mt-1 h-40 w-full resize-y rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
-              />
-            ) : null}
-          </section>
-        ) : null}
-
-        {effectiveBuilderTab === 'capture' ? (
-          <HttpCaptureTab
-            captures={captures}
-            onAdd={handleAddCapture}
-            onUpdate={handleUpdateCapture}
-            onRemove={handleRemoveCapture}
-          />
-        ) : null}
-      </div>
+      <HttpRequestBuilderTabs
+        method={method}
+        activeTab={builderTab}
+        onSelectTab={setBuilderTab}
+        params={params}
+        onAddParam={handleAddParam}
+        onUpdateParam={handleUpdateParam}
+        onRemoveParam={handleRemoveParam}
+        auth={auth}
+        onAuthChange={handleAuthChange}
+        headers={headers}
+        onAddHeader={handleAddHeader}
+        onUpdateHeader={handleUpdateHeader}
+        onRemoveHeader={handleRemoveHeader}
+        body={body}
+        onBodyKindChange={handleBodyKindChange}
+        onBodyContentChange={handleBodyContentChange}
+        captures={captures}
+        onAddCapture={handleAddCapture}
+        onUpdateCapture={handleUpdateCapture}
+        onRemoveCapture={handleRemoveCapture}
+      />
     </div>
   );
 }
