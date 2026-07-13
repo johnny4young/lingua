@@ -38,8 +38,20 @@ describe('deep-review maintainability boundaries', () => {
       ['src/renderer/components/Editor/EditorTabs.tsx', 800],
       ['src/renderer/components/Settings/EditorSection.tsx', 800],
       [
+        'src/renderer/components/DeveloperUtilities/UtilityPipelinePanel.tsx',
+        800,
+      ],
+      [
         'src/renderer/components/Settings/SqlWorkspaceSettingsSection.tsx',
         400,
+      ],
+      [
+        'src/renderer/components/DeveloperUtilities/UtilityPipelineLibrarySidebar.tsx',
+        400,
+      ],
+      [
+        'src/renderer/components/DeveloperUtilities/UtilityPipelineResults.tsx',
+        300,
       ],
     ] as const) {
       expect(

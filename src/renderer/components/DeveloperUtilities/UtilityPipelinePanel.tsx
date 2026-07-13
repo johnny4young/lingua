@@ -16,24 +16,13 @@
  * emit (`utility.pipeline_executed` — fold F).
  */
 
-import {
-  Copy as CopyIcon,
-  Download,
-  PackagePlus,
-  PlayCircle,
-  Plus,
-  Sparkles,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { PlayCircle, Plus } from 'lucide-react';
 import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ChangeEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -52,7 +41,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useUtilityPipelineStore } from '../../stores/utilityPipelineStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useAnnounce } from '../../hooks/useAnnounce';
@@ -60,7 +48,6 @@ import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import {
   PIPELINE_MAX_STEPS,
-  createBlankPipeline,
   createBlankStep,
   type PipelineRunOutcome,
   type PipelineStepResult,
@@ -79,8 +66,8 @@ import { trackUtilityPipelineExecuted } from '../../hooks/utilityPipelineTelemet
 import { buildPipelineCapsule } from '../../runtime/pipelineCapsule';
 import { UtilityPipelineStepRow } from './UtilityPipelineStepRow';
 import { PipelineTemplateGallery } from './PipelineTemplateGallery';
-import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { cn } from '../../utils/cn';
+import { UtilityPipelineLibrarySidebar } from './UtilityPipelineLibrarySidebar';
+import { UtilityPipelineResults } from './UtilityPipelineResults';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 
@@ -161,7 +148,6 @@ function UtilityPipelinePanelUnlocked() {
   const activePipelineId = useUtilityPipelineStore(state => state.activePipelineId);
   const isExecuting = useUtilityPipelineStore(state => state.isExecutingActive);
   const inputsByPipelineId = useUtilityPipelineStore(state => state.inputsByPipelineId);
-  const clipboardConsent = useSettingsStore(state => state.utilitiesClipboardOnFocusConsent);
 
   const activePipeline: UtilityPipelineV1 | undefined = useMemo(
     () => pipelines.find(p => p.id === activePipelineId),
@@ -171,8 +157,6 @@ function UtilityPipelinePanelUnlocked() {
 
   const { state: runState, run, reset: resetRun } = useUtilityPipelineRun();
   const [capsuleRunSnapshot, setCapsuleRunSnapshot] = useState<CapsuleRunSnapshot | null>(null);
-  // UX Sweep T2 — id of the pipeline pending a delete confirmation.
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   // Per-step result map keyed by step id so the panel can render the
   // status badge regardless of which step is rendered.
   const stepResultMap = useMemo(() => {
@@ -188,25 +172,6 @@ function UtilityPipelinePanelUnlocked() {
   useEffect(() => {
     resetRun();
   }, [activePipelineId, resetRun]);
-
-  const handleCreate = useCallback(() => {
-    const blank = createBlankPipeline({
-      id: crypto.randomUUID(),
-      name: '',
-    });
-    useUtilityPipelineStore.getState().createPipeline(blank);
-  }, []);
-
-  const handleSelect = useCallback((id: string) => {
-    useUtilityPipelineStore.getState().setActivePipeline(id);
-  }, []);
-
-  // RL-099 Slice 5 fold B — deselect the active pipeline so the
-  // empty-state template gallery shows, letting users with existing
-  // pipelines browse starters too (their pipelines stay in the list).
-  const handleShowTemplates = useCallback(() => {
-    useUtilityPipelineStore.getState().setActivePipeline(null);
-  }, []);
 
   // RL-099 Slice 5 — instantiate a gallery template into a fresh
   // pipeline, select it, seed the sample input (fold F), and record the
@@ -230,32 +195,6 @@ function UtilityPipelinePanelUnlocked() {
       void trackEvent('utility.pipeline_template_used', {
         templateId: template.id,
       });
-    },
-    [t]
-  );
-
-  const handleRename = useCallback((id: string, name: string) => {
-    useUtilityPipelineStore.getState().updatePipeline(id, { name });
-  }, []);
-
-  // UX Sweep T2 — the native `window.confirm` had no danger styling,
-  // no focus management, and could not be translated mid-string; route
-  // the pipeline delete through the shared ConfirmDialog instead.
-  const handleDelete = useCallback((id: string) => {
-    setPendingDeleteId(id);
-  }, []);
-
-  const handleConfirmDelete = useCallback(() => {
-    if (pendingDeleteId === null) return;
-    useUtilityPipelineStore.getState().deletePipeline(pendingDeleteId);
-    setPendingDeleteId(null);
-  }, [pendingDeleteId]);
-
-  const handleDuplicate = useCallback(
-    (id: string) => {
-      useUtilityPipelineStore
-        .getState()
-        .duplicatePipeline(id, crypto.randomUUID(), t('utilityPipeline.list.copySuffix'));
     },
     [t]
   );
@@ -448,246 +387,12 @@ function UtilityPipelinePanelUnlocked() {
     setCapsuleRunSnapshot(null);
   }, [activePipelineId, capsuleRunSnapshot, runState.phase]);
 
-  // Fold G — Import-from-clipboard auto-detect (gated on the existing
-  // `utilitiesClipboardOnFocusConsent` three-state from RL-069 Slice 3).
-  const importTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  // UX Sweep T3 — the button that opens the import panel, so focus can
-  // return to it when the panel is dismissed.
-  const importTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const [importTextareaValue, setImportTextareaValue] = useState('');
-  const [importOpen, setImportOpen] = useState(false);
-  const [importWarning, setImportWarning] = useState<string | null>(null);
-
-  // UX Sweep T3 — close the inline import panel and return focus to its
-  // trigger, so a keyboard user is not stranded inside a now-gone panel.
-  const closeImportPanel = useCallback(() => {
-    setImportOpen(false);
-    setImportWarning(null);
-    importTriggerRef.current?.focus();
-  }, []);
-
-  // Escape dismisses the import panel WITHOUT bubbling to the Developer
-  // Utilities overlay (which would otherwise close the whole surface).
-  const handleImportKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopPropagation();
-      closeImportPanel();
-    },
-    [closeImportPanel]
-  );
-
-  const handleImportOpen = useCallback(async () => {
-    setImportOpen(true);
-    setImportWarning(null);
-    if (clipboardConsent === 'granted' && navigator.clipboard?.readText) {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text.trim().startsWith('{') && text.includes('"version"')) {
-          setImportTextareaValue(text);
-        }
-      } catch {
-        /* fall through — user can paste manually */
-      }
-    }
-    // Defer focus so the textarea exists.
-    setTimeout(() => importTextareaRef.current?.focus(), 0);
-  }, [clipboardConsent]);
-
-  const handleImportConfirm = useCallback(() => {
-    if (!importTextareaValue.trim()) return;
-    const outcome = useUtilityPipelineStore.getState().importPipelineJson(importTextareaValue);
-    if (outcome.ok) {
-      setImportOpen(false);
-      setImportTextareaValue('');
-      setImportWarning(null);
-      importTriggerRef.current?.focus();
-    } else {
-      const detail = outcome.detail ? ` — ${outcome.detail}` : '';
-      setImportWarning(`${t(`utilityPipeline.import.reject.${camel(outcome.reason)}`)}${detail}`);
-    }
-  }, [importTextareaValue, t]);
-
-  const handleExport = useCallback(async () => {
-    if (!activePipeline) return;
-    const json = useUtilityPipelineStore.getState().exportPipelineJson(activePipeline.id);
-    if (!json) return;
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(json);
-        useUIStore.getState().pushStatusNotice({
-          tone: 'success',
-          messageKey: 'utilityPipeline.list.exported',
-        });
-        return;
-      } catch {
-        /* clipboard rejected — fall through to inline copy */
-      }
-    }
-    // Fallback: show in a notice with the user copying manually.
-    useUIStore.getState().pushStatusNotice({
-      tone: 'warning',
-      messageKey: 'utilityPipeline.list.clipboardUnavailable',
-    });
-  }, [activePipeline]);
-
   return (
     <div
       data-testid="utility-pipeline-panel"
       className="grid h-full min-h-[42rem] grid-cols-1 gap-4 xl:min-h-0 xl:grid-cols-[240px_minmax(22rem,0.85fr)_minmax(28rem,1.15fr)] 2xl:grid-cols-[260px_minmax(24rem,0.8fr)_minmax(36rem,1.35fr)]"
     >
-      {/* LEFT — pipeline list */}
-      <aside className="flex min-h-0 flex-col border-r border-border/60 pr-2">
-        <header className="flex items-center justify-between gap-2 pb-2">
-          <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
-            {t('utilityPipeline.list.label')}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              ref={importTriggerRef}
-              type="button"
-              onClick={handleImportOpen}
-              aria-label={t('utilityPipeline.list.import')}
-              title={t('utilityPipeline.list.import')}
-              data-testid="utility-pipeline-list-import"
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
-            >
-              <Upload size={11} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={!activePipeline}
-              aria-label={t('utilityPipeline.list.export')}
-              title={t('utilityPipeline.list.export')}
-              data-testid="utility-pipeline-list-export"
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Download size={11} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleShowTemplates}
-              aria-label={t('utilityPipeline.template.galleryTitle')}
-              title={t('utilityPipeline.template.galleryTitle')}
-              data-testid="utility-pipeline-list-templates"
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
-            >
-              <Sparkles size={11} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleCreate}
-              aria-label={t('utilityPipeline.list.create')}
-              title={t('utilityPipeline.list.create')}
-              data-testid="utility-pipeline-list-create"
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
-            >
-              <Plus size={12} aria-hidden="true" />
-            </button>
-          </div>
-        </header>
-        {pipelines.length === 0 ? (
-          <p className="px-2 py-3 text-body-sm text-muted">{t('utilityPipeline.list.empty')}</p>
-        ) : null}
-        <ul role="list" className="flex-1 overflow-y-auto">
-          {pipelines.map(p => {
-            const isActive = p.id === activePipelineId;
-            // UX Sweep T10 — the row used to be role=button while nesting an
-            // editable name input + action buttons, which is invalid (a button
-            // cannot contain interactive content). The row is now a plain
-            // listitem; the always-editable name input is the selection
-            // affordance (focus follows selection, as is idiomatic for a
-            // single-select sidebar list), and the actions are siblings.
-            return (
-              <li
-                key={p.id}
-                data-testid="utility-pipeline-list-row"
-                data-pipeline-id={p.id}
-                data-active={isActive}
-                aria-current={isActive ? 'true' : undefined}
-                className={cn(
-                  'group flex items-center gap-1 rounded px-2 py-1.5 text-body-sm',
-                  isActive
-                    ? 'bg-background-elevated text-foreground'
-                    : 'text-muted hover:bg-surface-strong/60 hover:text-foreground'
-                )}
-              >
-                <input
-                  type="text"
-                  value={p.name}
-                  data-testid="utility-pipeline-list-name"
-                  aria-label={t('utilityPipeline.list.nameAria')}
-                  onChange={event => handleRename(p.id, event.target.value)}
-                  onFocus={() => handleSelect(p.id)}
-                  placeholder={t('utilityPipeline.list.renamePlaceholder')}
-                  className="focus-ring min-w-0 flex-1 truncate cursor-pointer rounded bg-transparent px-1 text-body-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleDuplicate(p.id)}
-                  aria-label={t('utilityPipeline.list.duplicateAria', { name: p.name })}
-                  data-testid="utility-pipeline-list-duplicate"
-                  className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
-                >
-                  <CopyIcon size={10} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(p.id)}
-                  aria-label={t('utilityPipeline.list.deleteAria', { name: p.name })}
-                  data-testid="utility-pipeline-list-delete"
-                  className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
-                >
-                  <Trash2 size={10} aria-hidden="true" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        {importOpen ? (
-          <div
-            data-testid="utility-pipeline-import-panel"
-            onKeyDown={handleImportKeyDown}
-            className="mt-2 grid gap-2 rounded border border-border/60 bg-surface/40 p-2"
-          >
-            <textarea
-              ref={importTextareaRef}
-              value={importTextareaValue}
-              onChange={event => setImportTextareaValue(event.target.value)}
-              data-testid="utility-pipeline-import-textarea"
-              placeholder={t('utilityPipeline.import.placeholder')}
-              rows={4}
-              className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-eyebrow"
-            />
-            {importWarning ? (
-              <p data-testid="utility-pipeline-import-error" className="text-eyebrow text-rose-300">
-                {importWarning}
-              </p>
-            ) : null}
-            <div className="flex justify-end gap-1">
-              <button
-                type="button"
-                onClick={closeImportPanel}
-                data-testid="utility-pipeline-import-cancel"
-                className="inline-flex h-6 items-center rounded border border-border/60 bg-surface/40 px-2 text-eyebrow text-muted hover:text-foreground"
-              >
-                {t('utilityPipeline.import.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleImportConfirm}
-                disabled={!importTextareaValue.trim()}
-                data-testid="utility-pipeline-import-confirm"
-                className="inline-flex h-6 items-center rounded border border-accent/40 bg-accent/10 px-2 text-eyebrow text-accent-fg hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {t('utilityPipeline.import.confirm')}
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </aside>
+      <UtilityPipelineLibrarySidebar />
 
       {/* CENTER — editor */}
       <section data-testid="utility-pipeline-editor" className="flex min-h-0 flex-col gap-2">
@@ -712,7 +417,7 @@ function UtilityPipelinePanelUnlocked() {
                 onClick={handleAddStep}
                 disabled={activePipeline.steps.length >= PIPELINE_MAX_STEPS}
                 data-testid="utility-pipeline-editor-add-step"
-                className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                className="focus-ring ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus size={11} aria-hidden="true" />
                 <span>{t('utilityPipeline.editor.addStep')}</span>
@@ -725,7 +430,7 @@ function UtilityPipelinePanelUnlocked() {
                 }
                 data-testid="utility-pipeline-editor-run"
                 aria-label={t('utilityPipeline.editor.run')}
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-success-border bg-success-bg px-2 text-caption font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
+                className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-success-border bg-success-bg px-2 text-caption font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <PlayCircle size={11} aria-hidden="true" />
                 <span>
@@ -789,104 +494,15 @@ function UtilityPipelinePanelUnlocked() {
         )}
       </section>
 
-      {/* RIGHT — streaming result table */}
-      <aside
-        data-testid="utility-pipeline-result"
-        className="flex min-h-0 flex-col gap-2 border-l border-border/60 pl-2"
-      >
-        <header className="flex items-center gap-2 pb-1">
-          <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
-            {t('utilityPipeline.result.title')}
-          </span>
-          <button
-            type="button"
-            onClick={handleSaveCapsule}
-            disabled={!canSaveCapsule}
-            data-testid="pipeline-save-capsule"
-            title={t('pipeline.capsule.saveAction')}
-            className="ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-eyebrow font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <PackagePlus size={11} aria-hidden="true" />
-            <span>{t('pipeline.capsule.saveAction')}</span>
-          </button>
-        </header>
-        {runState.phase === 'idle' ? (
-          <p className="text-body-sm text-muted">{t('utilityPipeline.result.empty')}</p>
-        ) : (
-          <ol className="flex-1 space-y-2 overflow-y-auto pr-1">
-            {runState.stepResults.map((result, index) => (
-              <li
-                key={result.stepId}
-                data-testid="utility-pipeline-result-row"
-                data-status={result.status}
-                className="grid gap-1 rounded border border-border/40 bg-surface/30 p-2"
-              >
-                <header className="flex items-center gap-2 text-eyebrow text-muted">
-                  <span className="font-bold uppercase tracking-wider">
-                    {t('utilityPipeline.result.stepLabel', { index: index + 1 })}
-                  </span>
-                  <span className="font-mono text-foreground">{result.utilityId}</span>
-                  <span className="ml-auto tabular-nums">{result.durationMs} ms</span>
-                </header>
-                {result.status === 'ok' && typeof result.output === 'string' ? (
-                  <pre
-                    data-testid="utility-pipeline-result-output"
-                    className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded bg-background-elevated/60 p-2 font-mono text-eyebrow text-foreground"
-                  >
-                    {result.output.length === 0
-                      ? t('utilityPipeline.result.emptyOutput')
-                      : result.output}
-                  </pre>
-                ) : null}
-                {result.status === 'error' || result.status === 'timeout' ? (
-                  <p
-                    data-testid="utility-pipeline-result-error"
-                    className="font-mono text-eyebrow text-rose-300"
-                  >
-                    {result.errorMessage ?? t(`utilityPipeline.result.${result.status}`)}
-                  </p>
-                ) : null}
-                {result.status === 'skipped' ? (
-                  <p className="text-eyebrow text-muted">
-                    {t('utilityPipeline.result.skippedHint')}
-                  </p>
-                ) : null}
-                {result.status === 'incompatible' ? (
-                  <p className="font-mono text-eyebrow text-amber-300">
-                    {result.errorMessage ?? t('utilityPipeline.result.incompatibleHint')}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        )}
-      </aside>
-
-      {pendingDeleteId !== null ? (
-        <ConfirmDialog
-          testId="utility-pipeline-delete-confirm"
-          title={t('utilityPipeline.list.deleteConfirm.title')}
-          body={t('utilityPipeline.list.deleteConfirm.body', {
-            name: pipelines.find((p) => p.id === pendingDeleteId)?.name ?? '',
-          })}
-          confirmLabel={t('utilityPipeline.list.deleteConfirm.confirm')}
-          cancelLabel={t('utilityPipeline.list.deleteConfirm.cancel')}
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setPendingDeleteId(null)}
-        />
-      ) : null}
+      <UtilityPipelineResults
+        runState={runState}
+        canSaveCapsule={canSaveCapsule}
+        onSaveCapsule={handleSaveCapsule}
+      />
     </div>
   );
 }
 
 function statusOrPending(result: PipelineStepResult | undefined): PipelineStepStatus | null {
   return result ? result.status : null;
-}
-
-/**
- * Convert a closed-enum reject reason ('malformed-json') to the camelCase i18n
- * suffix ('malformedJson') so the keys can be split for the human reader.
- */
-function camel(value: string): string {
-  return value.replace(/-([a-z])/g, (_, c) => (c as string).toUpperCase());
 }

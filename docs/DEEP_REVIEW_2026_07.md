@@ -342,7 +342,7 @@ capas (unit + e2e + perf + smoke empaquetado).
 | A2 | Alto | Sprawl de configs de build; la mina de env vars es síntoma estructural | 📋 Documentado |
 | A3 | Alto | Stores importaban de `hooks/` y `components/` (ciclo latente) | ✅ Corregido |
 | A4 | Medio | Ciclo de vida de spawn duplicado 4 veces en los runners nativos | 📋 Documentado |
-| A5 | Medio | 10 componentes de 800+ líneas violan la regla propia de 250-300 | ✅ Corregido (5 prioritarios; 5 pendientes) |
+| A5 | Medio | 10 componentes de 800+ líneas violan la regla propia de 250-300 | ✅ Corregido (6 prioritarios; 4 pendientes) |
 | A6 | Medio | `notebookStore` (958 líneas) es la única "god store" restante | 📋 Documentado |
 | A7 | Medio | Árbol de tests con espejos inconsistentes + huecos de cobertura | 📋 Documentado |
 | A8 | Bajo | `ARCHITECTURE.md` se contradecía sobre el watch flow (pre-RL-146) | ✅ Corregido |
@@ -372,10 +372,13 @@ extrajo UI, modelos y hooks de orquestación por ownership, sin cambiar contrato
 `NotebookView` 1238→756 LOC, `SqlResultPreview` 1018→676,
 `CommandPalette` 987→143 (catálogo en hook dedicado de 773) y `EditorTabs`
 1007→267 (rows/overflow en 644). `EditorSection` pasó 929→691 al mover la región
-SQL completa a `SqlWorkspaceSettingsSection` (242). El inventario de componentes
-sobre 800 LOC bajó de 10 a 5. `tests/docs/deepReviewMaintainability.test.ts`
-fija 800 para los padres completados y 400 para el nuevo módulo; los cinco
-restantes conservan estado pendiente.
+SQL completa a `SqlWorkspaceSettingsSection` (242). `UtilityPipelinePanel` pasó
+892→508 al mover la biblioteca/importación a `UtilityPipelineLibrarySidebar`
+(303) y la tabla streaming a `UtilityPipelineResults` (91). El inventario de
+componentes sobre 800 LOC bajó de 10 a 4.
+`tests/docs/deepReviewMaintainability.test.ts` fija 800 para los padres
+completados y budgets de 300-400 para los módulos nuevos; los cuatro restantes
+conservan estado pendiente.
 
 **Split final de filesystem (corregido 2026-07-10).** El follow-up del plan de
 mejoras separó aprobaciones, operaciones y watchers. `fileSystem.ts` pasó de
