@@ -315,6 +315,34 @@ describe('UtilityPipelinePanel', () => {
     }
   });
 
+  it('keeps every bespoke panel action on the shared focus-ring contract', async () => {
+    const user = userEvent.setup();
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'one' });
+    pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    render(<UtilityPipelinePanel />);
+
+    for (const testId of [
+      'utility-pipeline-list-import',
+      'utility-pipeline-list-export',
+      'utility-pipeline-list-templates',
+      'utility-pipeline-list-create',
+      'utility-pipeline-editor-add-step',
+      'utility-pipeline-editor-run',
+      'pipeline-save-capsule',
+    ]) {
+      expect(screen.getByTestId(testId).className).toContain('focus-ring');
+    }
+
+    await user.click(screen.getByTestId('utility-pipeline-list-import'));
+    expect(screen.getByTestId('utility-pipeline-import-cancel').className).toContain(
+      'focus-ring'
+    );
+    expect(screen.getByTestId('utility-pipeline-import-confirm').className).toContain(
+      'focus-ring'
+    );
+  });
+
   // RL-099 Slice 3 fold A — explicit Save-as-capsule button.
   it('disables Save-as-capsule before a run completes', async () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
