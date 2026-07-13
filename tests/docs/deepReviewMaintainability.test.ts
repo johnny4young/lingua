@@ -75,4 +75,18 @@ describe('deep-review maintainability boundaries', () => {
       ).toBeLessThanOrEqual(budget);
     }
   });
+
+  it('keeps completed oversized hooks and their helpers focused', () => {
+    for (const [relativePath, budget] of [
+      ['src/renderer/hooks/useAutoRun.ts', 300],
+      ['src/renderer/hooks/autoRunExecution.ts', 300],
+      ['src/renderer/hooks/autoRunResult.ts', 180],
+      ['src/renderer/hooks/autoRunModel.ts', 120],
+    ] as const) {
+      expect(
+        physicalLines(relativePath),
+        `${relativePath} regressed above its IT2-A5 budget`
+      ).toBeLessThanOrEqual(budget);
+    }
+  });
 });
