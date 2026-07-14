@@ -177,11 +177,11 @@ export const en = {
       eyebrow: 'Pricing',
       title: 'Four tiers, shown without the pricing-page ceremony.',
       lede:
-        'The home page only needs the shape: Free is useful, Pro unlocks the heavier runners, Lifetime is for pay-once users, and Team is seat-based.',
+        'The home page only needs the shape: Free is useful, Monthly unlocks the heavier runners, Pro is the pay-once tier, and Team is seat-based.',
       tiers: [
         { name: 'Free', price: '$0', tag: 'Default', desc: 'One tab, five snippets, JS / TS / Python / Ruby, single-shot utilities. No license needed.' },
-        { name: 'Pro', price: '$5 / mo', tag: 'Subscription', desc: 'Unlimited tabs and snippets, Go and Rust, plus utility workflows.' },
-        { name: 'Pro Lifetime', price: '$59 once', tag: 'Pay once', desc: 'Perpetual Pro unlock — no recurring bill, with 12 months of updates included.' },
+        { name: 'Monthly', price: '$5 / mo', tag: 'Subscription', desc: 'Unlimited tabs and snippets, Go and Rust, plus utility workflows.' },
+        { name: 'Pro', price: '$59 once', tag: 'Pay once', desc: 'Perpetual paid unlock — no recurring bill, with 12 months of updates included.' },
         { name: 'Team', price: '$3 / seat / mo', tag: 'Per seat', desc: 'Team seats, invoicing, and organization-friendly license handling.' },
       ],
     },
@@ -200,11 +200,11 @@ export const en = {
   pricing: {
     title: 'Pricing — Lingua',
     description:
-      'Free, Pro at $5/mo, Pro Lifetime at $59 one-time, and Team at $3/seat/mo. Offline-verified license keys. Free Pro for verified students and educators.',
+      'Free, Monthly at $5/mo, Pro at $59 one-time, and Team at $3/seat/mo. Offline-verified license keys. Free paid access for verified students and educators.',
     eyebrow: 'Pricing',
     heading: 'Four tiers. Pay only for what you need.',
     lede:
-      'Pro is a $5/month subscription. Pro Lifetime is $59 once for perpetual Pro access and 12 months of updates; renew only if you want later releases. Team is $3/seat/month with invoicing. Free covers three-tab scratchpads forever. License keys verify offline.',
+      'Monthly is a $5/month subscription. Pro is $59 once for a perpetual paid unlock and 12 months of updates; renew only if you want later releases. Team is $3/seat/month with invoicing. Free covers three-tab scratchpads forever. License keys verify offline.',
     trialCallout: {
       text: 'First time? Try Pro free for 14 days — no credit card.',
       linkText: 'How to start →',
@@ -239,7 +239,7 @@ export const en = {
         },
         {
           id: 'pro',
-          name: 'Pro',
+          name: 'Monthly',
           price: '$5',
           cadence: '/ month',
           bestFor: 'Developers running real multi-language work',
@@ -251,22 +251,22 @@ export const en = {
             'Format-on-save in every language',
             'Every update while subscribed',
           ],
-          cta: 'Buy Pro',
+          cta: 'Buy Monthly',
         },
         {
           id: 'pro_lifetime',
-          name: 'Pro Lifetime',
+          name: 'Pro',
           price: '$59',
           cadence: 'one-time',
-          bestFor: 'Pay once, keep Pro forever',
+          bestFor: 'Pay once, keep the paid tier forever',
           features: [
-            'Everything in Pro',
-            'Perpetual Pro unlock',
+            'Everything in Monthly',
+            'Perpetual paid unlock',
             '12 months of updates included',
             'Optional renewal for later updates',
             'Priority email support during the update window',
           ],
-          cta: 'Buy Pro Lifetime',
+          cta: 'Buy Pro',
         },
         {
           id: 'team',
@@ -274,7 +274,7 @@ export const en = {
           price: '$3',
           cadence: '/ seat / month',
           bestFor: 'Teams and agencies',
-          features: ['Everything in Pro Lifetime', 'Seat management', 'Invoicing'],
+          features: ['Everything in Pro', 'Seat management', 'Invoicing'],
           cta: 'Buy Team',
         },
       ],
@@ -301,8 +301,8 @@ export const en = {
         a: 'Yes. A Pro license is bound to a small set of devices (currently three). When you buy a new machine, deactivate the old one from Settings → License — the slot frees up immediately. No phone-home, no waiting on a server.',
       },
       {
-        q: 'What happens after my Pro Lifetime updates end?',
-        a: 'Your Pro features stay unlocked forever. The one-time purchase includes 12 months of new releases; renewal is optional if you want to keep your update eligibility current. Your signed token continues to work offline.',
+        q: 'What happens after my one-time Pro updates end?',
+        a: 'Your paid features stay unlocked forever. The one-time Pro purchase includes 12 months of new releases; renewal is optional if you want to keep your update eligibility current. Your signed token continues to work offline.',
       },
     ],
   },
@@ -322,7 +322,7 @@ export const en = {
   seo: {
     download: 'Download Lingua',
     pricing: 'See pricing',
-    offerDescription: 'Free tier with paid Pro / Pro Lifetime / Team upgrades',
+    offerDescription: 'Free tier with paid Monthly / Pro / Team upgrades',
   },
   legal: {
     label: 'Legal',
@@ -445,7 +445,7 @@ export const en = {
       },
       {
         title: 'About Lingua — 150 words',
-        body: 'Lingua is a commercial multi-language desktop code runner. JavaScript, TypeScript, Python, Go, and Rust are first-class citizens — each with its own runner, templates, and inline result panel — and they live inside the same offline-first Monaco-powered app. Developer utilities (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter, JWT decoder, color converter, diff viewer) are built in, so the app replaces the half-dozen browser tabs that usually sit alongside a code runner. Snippets, project indexing, quick-open, project search, and customizable shortcuts keep the workflow fast. Paid tiers (Pro monthly, Pro Lifetime, Team per seat) unlock via a signed license key verified offline — no phone-home required. Education access is free for verified students and teachers. The repository is source-available for evaluation and contributor review under the Lingua Commercial License.',
+        body: 'Lingua is a commercial multi-language desktop code runner. JavaScript, TypeScript, Python, Go, and Rust are first-class citizens — each with its own runner, templates, and inline result panel — and they live inside the same offline-first Monaco-powered app. Developer utilities (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter, JWT decoder, color converter, diff viewer) are built in, so the app replaces the half-dozen browser tabs that usually sit alongside a code runner. Snippets, project indexing, quick-open, project search, and customizable shortcuts keep the workflow fast. Paid tiers (Monthly, one-time Pro, Team per seat) unlock via a signed license key verified offline — no phone-home required. Education access is free for verified students and teachers. The repository is source-available for evaluation and contributor review under the Lingua Commercial License.',
       },
       {
         title: 'Founder bio — 40 words',
@@ -458,7 +458,7 @@ export const en = {
     ],
     pricing: {
       title: 'Pricing',
-      bodyStart: 'Four tiers — Free, Pro at $5/mo, Pro Lifetime at $59 one-time, Team at $3/seat/mo. Education is free for verified students and educators. See the',
+      bodyStart: 'Four tiers — Free, Monthly at $5/mo, Pro at $59 one-time, Team at $3/seat/mo. Education is free for verified students and educators. See the',
       link: 'full pricing page',
       bodyEnd: 'for what each tier unlocks.',
     },
