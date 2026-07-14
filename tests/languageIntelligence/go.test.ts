@@ -32,9 +32,9 @@ function setupTransport(): FakeTransportSetup {
   const transport: GoAdapterTransport = {
     request: (method, params) => {
       requests.push({ method, params });
-      return new Promise<{ ok: true; result: unknown } | { ok: false; error: string }>(
+      return new Promise<Result<unknown>>(
         (resolve) => {
-          pendingResolve = (result) => resolve({ ok: true, result });
+          pendingResolve = (result) => resolve({ ok: true, data: result });
         }
       );
     },

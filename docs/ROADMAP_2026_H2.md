@@ -60,9 +60,13 @@ encaje exacto (Base64 y URL) por debajo de 45 LOC y guards que impiden registros
 duplicados; la evidencia visual queda en `output/review/a2-transform-base64/`
 y `output/review/a2-transform-url/`.
 
-Siguiente secuencia recomendada: retomar A3 por `RL-133` y mantener el orden
-`RL-133` → `RL-134` → `RL-135`. G3 ya cumplió el gate de medición y P6 cerró el
-último hallazgo de performance medio de esta ronda.
+RL-133 cerró el primer tramo de A3 con un `Result<T, E>` compartido para
+profile/recovery, licencia y solicitudes LSP Rust/Go, más adaptación única por
+superficie renderer. La evidencia visual queda en
+`output/review/rl133-ipc-result/` y el smoke nativo en
+`output/stagewright/desktop-smoke/`. Siguiente secuencia recomendada:
+`RL-134` → `RL-135`. G3 ya cumplió el gate de medición y P6 cerró el último
+hallazgo de performance medio de esta ronda.
 
 ---
 

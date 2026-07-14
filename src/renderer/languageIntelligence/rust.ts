@@ -8,6 +8,7 @@ import type {
   LanguageIntelligenceSignatureParameter,
   LspLanguageIntelligenceAdapter,
 } from './types';
+import { requestLspData, type LspRequestTransport } from './lspRequest';
 
 /**
  * RL-026 Slice 3 — renderer-side adapter for rust-analyzer.
@@ -34,11 +35,7 @@ import type {
  *     previous diagnostic set for that uri (LSP contract).
  */
 
-export interface RustAdapterTransport {
-  request: (
-    method: string,
-    params: unknown
-  ) => Promise<{ ok: true; result: unknown } | { ok: false; error: string }>;
+export interface RustAdapterTransport extends LspRequestTransport {
   notify: (method: string, params: unknown) => void;
   onNotification: (callback: (notification: LspNotification) => void) => () => void;
 }
@@ -162,12 +159,11 @@ export class RustLanguageIntelligenceAdapter implements LspLanguageIntelligenceA
     line: number,
     column: number
   ): Promise<readonly LanguageIntelligenceCompletion[]> {
-    const response = await this.transport.request('textDocument/completion', {
+    const response = await requestLspData(this.transport, 'textDocument/completion', {
       textDocument: { uri },
       position: lspPositionFromOneBased(line, column),
     });
-    if (!response.ok) return [];
-    return parseCompletions(response.result);
+    return parseCompletions(response);
   }
 
   async provideHover(
@@ -175,12 +171,11 @@ export class RustLanguageIntelligenceAdapter implements LspLanguageIntelligenceA
     line: number,
     column: number
   ): Promise<LanguageIntelligenceHover | null> {
-    const response = await this.transport.request('textDocument/hover', {
+    const response = await requestLspData(this.transport, 'textDocument/hover', {
       textDocument: { uri },
       position: lspPositionFromOneBased(line, column),
     });
-    if (!response.ok) return null;
-    return parseHover(response.result);
+    return parseHover(response);
   }
 
   async provideSignatureHelp(
@@ -188,12 +183,11 @@ export class RustLanguageIntelligenceAdapter implements LspLanguageIntelligenceA
     line: number,
     column: number
   ): Promise<LanguageIntelligenceSignatureHelp | null> {
-    const response = await this.transport.request('textDocument/signatureHelp', {
+    const response = await requestLspData(this.transport, 'textDocument/signatureHelp', {
       textDocument: { uri },
       position: lspPositionFromOneBased(line, column),
     });
-    if (!response.ok) return null;
-    return parseSignatureHelp(response.result);
+    return parseSignatureHelp(response);
   }
 
   private handleNotification(notification: LspNotification): void {

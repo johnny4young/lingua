@@ -33,6 +33,20 @@ vi.mock('../../../src/main/lsp/rustAnalyzerLauncher', () => ({
   RustAnalyzerLauncher: RustAnalyzerLauncherMock,
 }));
 
+class GoplsLauncherMock {
+  start = vi.fn(async () => ({ kind: 'running', version: 'gopls test' }));
+  restart = vi.fn(async () => ({ kind: 'running', version: 'gopls test' }));
+  stop = vi.fn();
+  status = vi.fn(() => ({ kind: 'running', version: 'gopls test' }));
+  sendRequest = sendRequestMock;
+  sendNotification = sendNotificationMock;
+  dispose = disposeMock;
+}
+
+vi.mock('../../../src/main/lsp/goplsLauncher', () => ({
+  GoplsLauncher: GoplsLauncherMock,
+}));
+
 beforeEach(() => {
   vi.resetModules();
   handleMock.mockReset();
@@ -42,21 +56,23 @@ beforeEach(() => {
   disposeMock.mockReset();
 });
 
-async function loadHandlers() {
+async function loadHandlers(language: 'rust' | 'go' = 'rust', startLauncher = true) {
   const module = await import('../../../src/main/ipc/lsp');
   module.registerLspHandlers();
 
-  const start = handleMock.mock.calls.find(([channel]) => channel === 'lsp:rust:start')?.[1];
+  const start = handleMock.mock.calls.find(([channel]) => channel === `lsp:${language}:start`)?.[1];
   const request = handleMock.mock.calls.find(
-    ([channel]) => channel === 'lsp:rust:request'
+    ([channel]) => channel === `lsp:${language}:request`
   )?.[1];
-  const notify = onMock.mock.calls.find(([channel]) => channel === 'lsp:rust:notify')?.[1];
+  const notify = onMock.mock.calls.find(
+    ([channel]) => channel === `lsp:${language}:notify`
+  )?.[1];
 
   if (!start || !request || !notify) {
     throw new Error('missing registered LSP IPC handlers');
   }
 
-  await start({});
+  if (startLauncher) await start({});
   return { request, notify };
 }
 
@@ -70,7 +86,7 @@ describe('registerLspHandlers', () => {
         textDocument: { uri: 'file:///src/main.rs' },
         position: { line: 0, character: 1 },
       })
-    ).resolves.toEqual({ ok: true, result: { items: [] } });
+    ).resolves.toEqual({ ok: true, data: { items: [] } });
 
     expect(sendRequestMock).toHaveBeenCalledWith('textDocument/completion', {
       textDocument: { uri: 'file:///src/main.rs' },
@@ -85,9 +101,44 @@ describe('registerLspHandlers', () => {
       request({}, 'workspace/executeCommand', {
         command: 'rust-analyzer.runSingle',
       })
-    ).resolves.toEqual({ ok: false, error: 'Unsupported rust-analyzer request' });
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'unsupported-method',
+      message: 'Unsupported rust-analyzer request',
+    });
 
     expect(sendRequestMock).not.toHaveBeenCalled();
+  });
+
+  it('maps an unavailable Go launcher to a not-started Result', async () => {
+    const { request } = await loadHandlers('go', false);
+
+    await expect(
+      request({}, 'textDocument/hover', {
+        textDocument: { uri: 'file:///src/main.go' },
+        position: { line: 0, character: 1 },
+      })
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'not-started',
+      message: 'gopls launcher not started',
+    });
+  });
+
+  it('maps LSP server rejections to a request-failed Result', async () => {
+    sendRequestMock.mockRejectedValue(new Error('server closed'));
+    const { request } = await loadHandlers('go');
+
+    await expect(
+      request({}, 'textDocument/signatureHelp', {
+        textDocument: { uri: 'file:///src/main.go' },
+        position: { line: 0, character: 1 },
+      })
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'request-failed',
+      message: 'server closed',
+    });
   });
 
   it('drops unsupported Rust LSP notifications before they reach rust-analyzer', async () => {

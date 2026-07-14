@@ -195,23 +195,28 @@ function registerLanguageHandlers<L extends LspLanguage>(
   });
   ipcMain.handle(
     channel('request'),
-    async (_event, method: unknown, params: unknown) => {
+    async (_event, method: unknown, params: unknown): Promise<LspRequestResult> => {
       if (!isAllowedLspRequest(method)) {
-        return { ok: false as const, error: `Unsupported ${launcherLabel} request` };
+        return {
+          ok: false,
+          reason: 'unsupported-method',
+          message: `Unsupported ${launcherLabel} request`,
+        };
       }
       const launcher = launchers[language];
       if (!launcher) {
         return {
-          ok: false as const,
-          error: `${launcherLabel} launcher not started`,
+          ok: false,
+          reason: 'not-started',
+          message: `${launcherLabel} launcher not started`,
         };
       }
       try {
         const result = await launcher.sendRequest(method, params);
-        return { ok: true as const, result };
+        return { ok: true, data: result };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return { ok: false as const, error: message };
+        return { ok: false, reason: 'request-failed', message };
       }
     }
   );

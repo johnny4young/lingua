@@ -181,6 +181,11 @@ implementador: el peor acoplamiento es `editorCloseActions.ts` (importa 5
 stores); `pushStatusNotice` tiene 134 call sites (RL-134 los envuelve);
 RL-135 reemplaza los bridges `window.dispatchEvent`. No re-especificar aquí.
 
+**Estado 2026-07-14.** `RL-133` cerrado: el contrato IPC esperado converge en
+`Result<T, E>` para profile/recovery, licencia y solicitudes LSP Rust/Go; cada
+superficie renderer lo consume en un único adaptador. Siguiente secuencia:
+`RL-134` → `RL-135`.
+
 ## IT2-A4 · Contrato tipado para workers — EJECUTADO 2026-07-09 (alcance corregido)
 
 > **Estado de ejecución + corrección de alcance.** El inventario (paso 1

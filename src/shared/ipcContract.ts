@@ -137,7 +137,7 @@ export interface IpcInvokeContract {
   'lsp:rust:status': { args: []; result: RustAnalyzerStatus };
   'lsp:rust:request': {
     args: [method: string, params: unknown];
-    result: { ok: true; result: unknown } | { ok: false; error: string };
+    result: LspRequestResult;
   };
 
   // ---------------------------------------------------------------- lsp: go
@@ -147,7 +147,7 @@ export interface IpcInvokeContract {
   'lsp:go:status': { args: []; result: GoplsStatus };
   'lsp:go:request': {
     args: [method: string, params: unknown];
-    result: { ok: true; result: unknown } | { ok: false; error: string };
+    result: LspRequestResult;
   };
 
   // --------------------------------------------------------------------- fs

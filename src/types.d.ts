@@ -277,6 +277,9 @@ interface LspNotification<P = unknown> {
   params?: P;
 }
 
+type LspRequestFailureReason = 'unsupported-method' | 'not-started' | 'request-failed';
+type LspRequestResult = Result<unknown, LspRequestFailureReason>;
+
 interface NativeRunnerMessages {
   compileOutputTruncated?: string;
   stdoutTruncated?: string;
@@ -895,7 +898,7 @@ interface LinguaAPI {
       request: (
         method: string,
         params: unknown
-      ) => Promise<{ ok: true; result: unknown } | { ok: false; error: string }>;
+      ) => Promise<LspRequestResult>;
       notify: (method: string, params: unknown) => void;
       onNotification: (callback: (notification: LspNotification) => void) => () => void;
       onStatusChanged: (callback: (status: RustAnalyzerStatus) => void) => () => void;
@@ -908,7 +911,7 @@ interface LinguaAPI {
       request: (
         method: string,
         params: unknown
-      ) => Promise<{ ok: true; result: unknown } | { ok: false; error: string }>;
+      ) => Promise<LspRequestResult>;
       notify: (method: string, params: unknown) => void;
       onNotification: (callback: (notification: LspNotification) => void) => () => void;
       onStatusChanged: (callback: (status: GoplsStatus) => void) => () => void;
