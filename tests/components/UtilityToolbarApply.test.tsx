@@ -100,6 +100,15 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
+    const encodeButton = screen.getByRole('button', { name: 'Encode' });
+    const decodeButton = screen.getByRole('button', { name: 'Decode' });
+    expect(encodeButton.getAttribute('aria-pressed')).toBe('true');
+    expect(decodeButton.getAttribute('aria-pressed')).toBe('false');
+    expect(encodeButton.className).toContain('focus-ring');
+    expect(decodeButton.className).toContain('focus-ring');
+    expect(encodeButton.className).toContain('focus-visible:ring-inset');
+    expect(decodeButton.className).toContain('focus-visible:ring-inset');
+
     // Default seed is plain text in encode mode. Replace with a base64 paste.
     const inputs = screen.getAllByLabelText('Input');
     const textarea = inputs[0] as HTMLTextAreaElement;
@@ -110,12 +119,29 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
     expect((apply as HTMLButtonElement).disabled).toBe(false);
     await user.click(screen.getByTestId('utility-apply-button'));
 
-    // After Apply, the Decode toggle should be active. The mode toggles
-    // are rendered via plain buttons; the active one carries the
-    // primary-soft / primary classes.
+    // After Apply, the semantic pressed state should move to Decode.
     await waitFor(() => {
-      const decodeButton = screen.getByRole('button', { name: 'Decode' });
-      expect(decodeButton.className).toMatch(/text-primary/);
+      expect(encodeButton.getAttribute('aria-pressed')).toBe('false');
+      expect(decodeButton.getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+
+  it('URL: Apply auto-flips to decode and publishes the decoded output', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="url" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    const input = screen.getAllByLabelText('Input')[0] as HTMLTextAreaElement;
+    await user.clear(input);
+    fireEvent.change(input, { target: { value: 'name%3DLingua%20utils' } });
+
+    await user.click(await screen.findByTestId('utility-apply-button'));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Decode' }).className).toMatch(/text-primary/);
+      expect((screen.getByLabelText('Output') as HTMLTextAreaElement).value).toBe(
+        'name=Lingua utils'
+      );
+      expect(useUtilityOutputStore.getState().getProvider()?.()).toBe('name=Lingua utils');
     });
   });
 

@@ -121,7 +121,7 @@ importa y delega; (4) correr `tests/main/*` sin editar un solo assert.
 <600 LOC; re-exports públicos de approvals/watchers intactos. El split
 multi-destino queda visible como movimiento mecánico dentro de un solo commit.
 
-## IT2-A2 · Consolidar boilerplate de paneles de utilidades — S (1-2 d)
+## IT2-A2 · Consolidar boilerplate de paneles de utilidades — CERRADO 2026-07-13
 
 **Evidencia.** `Base64UtilityPanel.tsx:1-62` es representativo: cada panel
 repite `useState` de mode/input + `useCallback(registerOutput)` +
@@ -159,6 +159,20 @@ qr-code, mock-data) NO se fuerzan al hook.
 **AC.** Paneles migrados quedan <45 LOC; `useRegisterUtilityOutput` se
 llama exactamente una vez por panel montado; smoke web con
 `browser_console_messages({level:'error'})` = 0.
+
+**Cierre 2026-07-13.** `useTransformUtilityPanel` concentra el estado de input,
+la derivación síncrona y el provider nulo ante error. Base64 quedó como
+referencia (61→44 LOC) y URL como el único segundo consumidor que cumple el
+contrato sin duplicar cómputo (62→44 LOC); ambos comparten además el selector
+encode/decode. El inventario corrigió la lista tentativa: String Case necesita
+múltiples salidas; HTML Entity y Backslash exponen metadatos; Number Base tiene
+varias vistas editables; YAML/JSON y JSON/CSV conservan dos inputs por dirección.
+Forzarlos habría empeorado el diseño, así que permanecen explícitamente fuera.
+El test del registry fija una sola ruta de registro y el budget de 45 LOC para
+cualquier consumidor del hook. Evidencia: unit/component tests, 269 E2E web,
+smoke manual EN/ES con Apply, Cmd+Shift+C, error paths y consola sin errores;
+capturas en `output/review/a2-transform-base64/` y
+`output/review/a2-transform-url/`.
 
 ## IT2-A3 · Desacoplar stores — ejecutar RL-133 → RL-134 → RL-135
 
@@ -1467,9 +1481,8 @@ toca UI (mandato AGENTS.md).
 | 30 | IT2-G8 (brew/winget + /compare/runjs) | 2-3 d | Post-release estable. |
 | 31 | IT2-G9 (CLI docs + publicar a npm) | 1-2 d + RL-098 | **APROBADO 2026-07-06.** Cadena de publish dentro de RL-098. |
 
-**Interleavables en cualquier fase**: IT2-A2 (hook de paneles), IT2-A5
-(hooks split), RL-133 → RL-134 → RL-135 (lane audit existente), IT2-B5 +
-IT2-E1/E2 (CI paralelo + coverage + typecheck ratchet).
+**Interleavables en cualquier fase**: RL-133 → RL-134 → RL-135 (lane audit
+existente) e IT2-E1/E2 (coverage + typecheck ratchet).
 
 **Adelantos recomendados**: IT2-G1 junto a la Fase 1 (medir antes de
 optimizar); IT2-G7a dentro de IT2-B2 (las filas del árbol se reescriben

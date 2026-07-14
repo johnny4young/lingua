@@ -35,9 +35,9 @@ describe('DeveloperUtilityPanel registry', () => {
   // RL-069 Slice 2 (fold G) — every panel registers an output provider
   // so the global Cmd+Shift+C / Cmd+Alt+R shortcuts cover the full
   // catalog. The static-source check catches a regression where a new
-  // panel forgot to wire `useRegisterUtilityOutput` without paying the
-  // cost of rendering all 29 panels.
-  it('every panel module imports useRegisterUtilityOutput', () => {
+  // panel forgot to wire either registration path without paying the
+  // cost of rendering the full panel catalog.
+  it('every panel module registers exactly one output provider', () => {
     // RL-099 Slice 1 — `utility-pipelines` is opt-out: the panel
     // produces a streamed multi-step result table, not a single
     // text output, so the Cmd+Shift+C / Cmd+Alt+R global handlers
@@ -82,10 +82,19 @@ describe('DeveloperUtilityPanel registry', () => {
       const fileName = panelFileByCatalogId[utility.id];
       expect(fileName, `${utility.id} missing in test mapping`).toBeDefined();
       const source = readFileSync(resolve(PANELS_DIR, fileName!), 'utf-8');
+      const directRegistrations = source.match(/\buseRegisterUtilityOutput\(/g)?.length ?? 0;
+      const transformRegistrations = source.match(/\buseTransformUtilityPanel\(/g)?.length ?? 0;
       expect(
-        source.includes('useRegisterUtilityOutput'),
-        `${utility.id} (${fileName}) must call useRegisterUtilityOutput`
-      ).toBe(true);
+        directRegistrations + transformRegistrations,
+        `${utility.id} (${fileName}) must register exactly one output provider`
+      ).toBe(1);
+
+      if (transformRegistrations === 1) {
+        expect(
+          source.split('\n').length,
+          `${utility.id} (${fileName}) must stay within the A2 45-line budget`
+        ).toBeLessThanOrEqual(45);
+      }
     }
   });
 

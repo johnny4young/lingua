@@ -55,10 +55,14 @@ en `output/review/a5-auto-run-split/`, el segundo en
 `output/review/a5-import-preview-split/` y el tercero en
 `output/review/a5-global-shortcuts-split/`; el cierre queda en
 `output/review/a5-project-watch-sync-split/`.
+IT2-A2 quedó cerrado con `useTransformUtilityPanel`, sus dos consumidores de
+encaje exacto (Base64 y URL) por debajo de 45 LOC y guards que impiden registros
+duplicados; la evidencia visual queda en `output/review/a2-transform-base64/`
+y `output/review/a2-transform-url/`.
 
-Siguiente secuencia recomendada: retomar A2 con `useTransformUtilityPanel`. G3 ya
-cumplió el gate de medición y P6 cerró el último hallazgo de performance medio
-de esta ronda.
+Siguiente secuencia recomendada: retomar A3 por `RL-133` y mantener el orden
+`RL-133` → `RL-134` → `RL-135`. G3 ya cumplió el gate de medición y P6 cerró el
+último hallazgo de performance medio de esta ronda.
 
 ---
 

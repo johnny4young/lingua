@@ -74,6 +74,32 @@ export function StatusMessage({
   );
 }
 
+export function EncodeDecodeToggle({
+  mode,
+  onModeChange,
+}: {
+  mode: 'encode' | 'decode';
+  onModeChange: (mode: 'encode' | 'decode') => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="inline-flex w-fit overflow-hidden rounded-full border border-border/60 bg-bg-panel-alt">
+      {(['encode', 'decode'] as const).map(option => (
+        <button
+          key={option}
+          type="button"
+          aria-pressed={mode === option}
+          className={`focus-ring px-4 py-2 text-body-sm font-semibold focus-visible:ring-inset ${mode === option ? 'bg-primary-soft text-primary' : 'text-foreground'}`}
+          onClick={() => onModeChange(option)}
+        >
+          {t(`utilities.actions.${option}`)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export const UTILITY_BALANCED_PANE_GRID =
   'grid gap-4 xl:grid-cols-[minmax(18rem,1fr)_minmax(18rem,1fr)]';
 
