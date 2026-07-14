@@ -64,9 +64,11 @@ RL-133 cerró el primer tramo de A3 con un `Result<T, E>` compartido para
 profile/recovery, licencia y solicitudes LSP Rust/Go, más adaptación única por
 superficie renderer. La evidencia visual queda en
 `output/review/rl133-ipc-result/` y el smoke nativo en
-`output/stagewright/desktop-smoke/`. Siguiente secuencia recomendada:
-`RL-134` → `RL-135`. G3 ya cumplió el gate de medición y P6 cerró el último
-hallazgo de performance medio de esta ronda.
+`output/stagewright/desktop-smoke/`. `RL-134` cerró la siguiente etapa con una
+API estable de notices por tono y la migración de 54 productores de alto
+tráfico sin cambiar el comportamiento del banner. Siguiente paso: `RL-135`.
+G3 ya cumplió el gate de medición y P6 cerró el último hallazgo de performance
+medio de esta ronda.
 
 ---
 

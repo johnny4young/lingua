@@ -12,6 +12,7 @@ import { useUIStore } from '../stores/uiStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDependencyDetectionStore } from '../stores/dependencyDetectionStore';
 import { exportCapsuleToClipboard } from '../utils/exportCapsule';
+import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
 import { trackEvent } from '../utils/telemetry';
 import { syncVariableInspectorSurfaceAfterToggle } from '../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../shared/scopeSnapshot';
@@ -166,10 +167,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       // a passive notice so the keystroke is never silent.
       const dispatched = toggleRecentRunsPopover();
       if (!dispatched) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'executionHistory.tabPill.shortcutUnavailable',
-        });
+        pushInfoNotice('executionHistory.tabPill.shortcutUnavailable');
       }
     },
     toggleCompareWithSnapshot: () => {
@@ -184,10 +182,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       const snapshotIsRelevant =
         tab !== null && snapshotRing.some(entry => entry.language === tab.language);
       if (!tab || !snapshotIsRelevant) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'compare.toggle.shortcutUnavailable',
-        });
+        pushInfoNotice('compare.toggle.shortcutUnavailable');
         return;
       }
       const next = tab.compareWithSnapshotEnabled !== true;
@@ -212,10 +207,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         scopeSnapshot !== null &&
         scopeSnapshot.language === tab.language;
       if (!tab || !snapshotIsRelevant) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'variableInspector.toggle.shortcutUnavailable',
-        });
+        pushInfoNotice('variableInspector.toggle.shortcutUnavailable');
         return;
       }
       const next = tab.variableInspectorEnabled !== true;
@@ -243,10 +235,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         tab.runtimeMode !== 'browser-preview' &&
         isWorkerRunnerLanguage(tab.language);
       if (!stdinAvailable) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'panelChips.stdin.disabled',
-        });
+        pushInfoNotice('panelChips.stdin.disabled');
         return;
       }
       if (uiState.activeBottomPanel === 'stdin' && uiState.consoleVisible) {
@@ -260,10 +249,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       // to the synchronous defaults. Useful when a localStorage value
       // landed off-screen after a monitor / window-size change.
       useUIStore.getState().resetFloatingPositions();
-      useUIStore.getState().pushStatusNotice({
-        tone: 'info',
-        messageKey: 'actionPill.resetFloatingNotice',
-      });
+      pushInfoNotice('actionPill.resetFloatingNotice');
     },
     toggleVariableInspectorSurface: () => {
       // RL-093 Slice 3 fold D — flip floating ↔ bottom. Sticks via
@@ -287,13 +273,11 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       } else if (next === 'floating' && uiState.activeBottomPanel === 'variables') {
         uiState.setConsoleVisible(false);
       }
-      useUIStore.getState().pushStatusNotice({
-        tone: 'info',
-        messageKey:
-          next === 'floating'
-            ? 'variableInspector.surface.notice.toFloating'
-            : 'variableInspector.surface.notice.toBottom',
-      });
+      pushInfoNotice(
+        next === 'floating'
+          ? 'variableInspector.surface.notice.toFloating'
+          : 'variableInspector.surface.notice.toBottom'
+      );
     },
     // RL-094 Slice 1.5 fold A — keyboard shortcut for the primary
     // result-panel export surface. Reads the latest capsule, calls
@@ -303,24 +287,15 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     exportLatestCapsule: () => {
       const capsule = useExecutionHistoryStore.getState().latestCapsule();
       if (!capsule) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'results.actions.exportCapsule.noCapsule',
-        });
+        pushInfoNotice('results.actions.exportCapsule.noCapsule');
         return;
       }
       void exportCapsuleToClipboard(capsule, 'result-panel-export').then(result => {
-        useUIStore.getState().pushStatusNotice(
-          result.ok
-            ? {
-                tone: 'success',
-                messageKey: 'settings.account.runCapsules.copiedNotice',
-              }
-            : {
-                tone: 'warning',
-                messageKey: 'results.actions.exportCapsule.clipboardUnavailable',
-              }
-        );
+        if (result.ok) {
+          pushSuccessNotice('settings.account.runCapsules.copiedNotice');
+        } else {
+          pushWarningNotice('results.actions.exportCapsule.clipboardUnavailable');
+        }
       });
     },
     // RL-036 Phase A1 fold D — keyboard shortcut for the share-link
@@ -346,10 +321,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       settings.resetOnboardingWelcome();
       settings.resetOnboardingFirstRun();
       settings.resetOnboardingFirstSnippet();
-      useUIStore.getState().pushStatusNotice({
-        tone: 'info',
-        messageKey: 'onboarding.notice.welcomeReplay',
-      });
+      pushInfoNotice('onboarding.notice.welcomeReplay');
     },
     // RL-025 Slice A fold C — `Mod+Shift+J` focuses the Dependencies
     // bottom-panel tab when there are detected dependencies for the
@@ -365,20 +337,14 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       const currentEntry = entry?.language === activeTab?.language ? entry : null;
       const enabled = useSettingsStore.getState().dependencyDetectionEnabled;
       if (!enabled) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'dependencies.shortcut.disabled',
-        });
+        pushInfoNotice('dependencies.shortcut.disabled');
         return;
       }
       if (
         !currentEntry ||
         (currentEntry.dependencies.length === 0 && !currentEntry.skippedReason)
       ) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'dependencies.shortcut.empty',
-        });
+        pushInfoNotice('dependencies.shortcut.empty');
         return;
       }
       useUIStore.getState().openBottomPanel('dependencies');
