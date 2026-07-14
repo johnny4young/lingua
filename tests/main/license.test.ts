@@ -551,10 +551,10 @@ describe('registerLicenseHandlers', () => {
 
     const handler = ipcHandlers.get('license:apply-token')!;
     const result = (await handler({}, token)) as
-      | { ok: true; status: { kind: string } }
+      | { ok: true; data: { status: { kind: string } } }
       | { ok: false };
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.status.kind).toBe('active');
+    if (result.ok) expect(result.data.status.kind).toBe('active');
   });
 
   it('license:apply-token rejects non-string input with reason invalid-input', async () => {
@@ -588,8 +588,14 @@ describe('registerLicenseHandlers', () => {
     await runtime.applyToken(token);
 
     const clear = ipcHandlers.get('license:clear')!;
-    const result = (await clear({})) as { ok: boolean };
+    const result = (await clear({})) as
+      | { ok: true; data: { snapshot: { token: string | null; status: { kind: string } } } }
+      | { ok: false };
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.snapshot.token).toBeNull();
+      expect(result.data.snapshot.status.kind).toBe('free');
+    }
 
     const get = ipcHandlers.get('license:get-state')!;
     const snapshot = (await get({})) as { token: string | null; status: { kind: string } };

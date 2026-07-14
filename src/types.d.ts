@@ -582,17 +582,28 @@ interface LicenseSnapshot {
   deviceLimit: LicenseServerDeviceLimit | null;
 }
 
-type LicenseApplyResult =
-  | { ok: true; status: LicenseStatus; snapshot: LicenseSnapshot }
-  | { ok: false; reason: string; message?: string };
+interface LicenseApplyData {
+  status: LicenseStatus;
+  snapshot: LicenseSnapshot;
+}
 
-type LicenseClearResult =
-  | { ok: true; snapshot: LicenseSnapshot }
-  | { ok: false; reason: string; message?: string };
+type LicenseApplyResult = Result<LicenseApplyData>;
 
-type LicenseRemoveDeviceResult =
-  | { ok: true; removed: boolean; snapshot: LicenseSnapshot }
-  | { ok: false; reason: string; message?: string; issues?: string[] };
+interface LicenseClearData {
+  snapshot: LicenseSnapshot;
+}
+
+type LicenseClearResult = Result<LicenseClearData>;
+
+interface LicenseRemoveDeviceData {
+  removed: boolean;
+  snapshot: LicenseSnapshot;
+}
+
+// Server validation failures may include issue details. Keeping the optional
+// field as an intersection preserves that diagnostic without forking the
+// shared Result discriminator.
+type LicenseRemoveDeviceResult = Result<LicenseRemoveDeviceData> & { issues?: string[] };
 
 // ------------------------------------------------------------- Plugin types
 //

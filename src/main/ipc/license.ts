@@ -7,17 +7,9 @@
  * mutation lands on this module first.
  */
 
-import type { LicenseRuntime, LicenseSnapshot, LicenseStatus } from '../license';
+import type { LicenseRuntime } from '../license';
 import type { RemoveDeviceResult } from '../licenseServer';
 import { typedHandle } from './typedHandle';
-
-export type LicenseApplyResult =
-  | { ok: true; status: LicenseStatus; snapshot: LicenseSnapshot }
-  | { ok: false; reason: string; message?: string };
-
-export type LicenseRemoveDeviceResult =
-  | { ok: true; removed: boolean; snapshot: LicenseSnapshot }
-  | { ok: false; reason: string; message?: string; issues?: string[] };
 
 // RL-059 / typed IPC contract: the `license:*` handlers bind to
 // `typedHandle`, so `tsc` checks each handler's return type against the
@@ -55,7 +47,7 @@ export function registerLicenseHandlers(
     try {
       const runtime = await runtimeReady;
       const status = await runtime.applyToken(token);
-      return { ok: true, status, snapshot: runtime.getSnapshot() };
+      return { ok: true, data: { status, snapshot: runtime.getSnapshot() } };
     } catch (error) {
       return {
         ok: false,
@@ -65,11 +57,11 @@ export function registerLicenseHandlers(
     }
   });
 
-  typedHandle('license:clear', async (): Promise<{ ok: true; snapshot: LicenseSnapshot } | { ok: false; reason: string; message?: string }> => {
+  typedHandle('license:clear', async (): Promise<LicenseClearResult> => {
     try {
       const runtime = await runtimeReady;
       await runtime.clear();
-      return { ok: true, snapshot: runtime.getSnapshot() };
+      return { ok: true, data: { snapshot: runtime.getSnapshot() } };
     } catch (error) {
       return {
         ok: false,
@@ -83,7 +75,7 @@ export function registerLicenseHandlers(
     try {
       const runtime = await runtimeReady;
       const status = await runtime.revalidate();
-      return { ok: true, status, snapshot: runtime.getSnapshot() };
+      return { ok: true, data: { status, snapshot: runtime.getSnapshot() } };
     } catch (error) {
       return {
         ok: false,
@@ -96,9 +88,9 @@ export function registerLicenseHandlers(
   // Slice 3.5 — desktop's parallel of `/licenses/devices/remove`.
   // Renderer's `licenseStore` desktop branch delegates here through
   // `window.lingua.license.removeDevice(deviceIdToRemove)`. The
-  // wrapper-side tagged union (`RemoveDeviceResult`) is collapsed
-  // into a renderer-friendly shape with a flat `snapshot` for the
-  // success case so the callers do not have to refetch state.
+  // wrapper-side tagged union (`RemoveDeviceResult`) is normalized to
+  // the shared IPC Result contract with a snapshot in the success data
+  // so callers do not have to refetch state.
   typedHandle(
     'license:remove-device',
     async (_event, deviceIdToRemove: unknown): Promise<LicenseRemoveDeviceResult> => {
@@ -109,7 +101,10 @@ export function registerLicenseHandlers(
         const runtime = await runtimeReady;
         const result: RemoveDeviceResult = await runtime.removeDevice(deviceIdToRemove);
         if (result.ok) {
-          return { ok: true, removed: result.removed, snapshot: runtime.getSnapshot() };
+          return {
+            ok: true,
+            data: { removed: result.removed, snapshot: runtime.getSnapshot() },
+          };
         }
         return {
           ok: false,

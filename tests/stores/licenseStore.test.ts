@@ -983,7 +983,10 @@ describe('licenseStore — desktop bridge branch (Slice 3.5)', () => {
       applyToken: vi.fn(),
       clear: vi.fn(),
       revalidate: vi.fn(),
-      removeDevice: vi.fn().mockResolvedValue({ ok: true, removed: true, snapshot: after }),
+      removeDevice: vi.fn().mockResolvedValue({
+        ok: true,
+        data: { removed: true, snapshot: after },
+      }),
     };
     installBridge(bridge);
 
@@ -1009,6 +1012,7 @@ describe('licenseStore — desktop bridge branch (Slice 3.5)', () => {
         ok: false,
         reason: 'unreachable',
         message: 'Network error',
+        issues: ['upstream-timeout'],
       }),
     };
     installBridge(bridge);
@@ -1020,7 +1024,10 @@ describe('licenseStore — desktop bridge branch (Slice 3.5)', () => {
 
     const result = await useLicenseStore.getState().removeDevice('d-uuid');
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe('unreachable');
+    if (!result.ok) {
+      expect(result.reason).toBe('unreachable');
+      expect(result.issues).toEqual(['upstream-timeout']);
+    }
     // Cached bucket survives transient failures.
     expect(useLicenseStore.getState().devices).not.toBeNull();
   });
