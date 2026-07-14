@@ -119,6 +119,25 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
     });
   });
 
+  it('URL: Apply auto-flips to decode and publishes the decoded output', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="url" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    const input = screen.getAllByLabelText('Input')[0] as HTMLTextAreaElement;
+    await user.clear(input);
+    fireEvent.change(input, { target: { value: 'name%3DLingua%20utils' } });
+
+    await user.click(await screen.findByTestId('utility-apply-button'));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Decode' }).className).toMatch(/text-primary/);
+      expect((screen.getByLabelText('Output') as HTMLTextAreaElement).value).toBe(
+        'name=Lingua utils'
+      );
+      expect(useUtilityOutputStore.getState().getProvider()?.()).toBe('name=Lingua utils');
+    });
+  });
+
   it('HTML Entity: Apply encodes raw HTML and decodes encoded entities', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-entity" />);
