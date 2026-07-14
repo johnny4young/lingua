@@ -66,7 +66,7 @@ Buenas prácticas verificadas y dignas de reconocimiento:
   discriminador + `runId`.
 - **Sin `dangerouslySetInnerHTML`/`eval`/`new Function`** en el
   renderer; markdown sanitizado con DOMPurify.
-- **Dependencias al día**: Electron 42, React 19, Vite 8, wrangler 4.
+- **Dependencias al día**: Electron 43, React 19, Vite 8, wrangler 4.
 
 ### Hallazgos
 
