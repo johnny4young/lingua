@@ -8,6 +8,7 @@ import type {
   LanguageIntelligenceSignatureParameter,
   LspLanguageIntelligenceAdapter,
 } from './types';
+import { requestLspData, type LspRequestTransport } from './lspRequest';
 
 /**
  * RL-026 Slice 4 — renderer-side adapter for gopls.
@@ -29,16 +30,12 @@ import type {
  * on the same model without overwriting each other.
  */
 
-export interface GoAdapterTransport {
+export interface GoAdapterTransport extends LspRequestTransport {
   /**
    * Request/response leg over the main-process LSP bridge. The bridge
    * returns an explicit ok/error union so Monaco providers can degrade to
    * empty completions or no hover instead of throwing into the editor.
    */
-  request: (
-    method: string,
-    params: unknown
-  ) => Promise<{ ok: true; result: unknown } | { ok: false; error: string }>;
   /** Fire-and-forget JSON-RPC notifications such as didOpen/didChange. */
   notify: (method: string, params: unknown) => void;
   /** Subscribe to LSP server pushes, primarily publishDiagnostics. */
@@ -172,12 +169,11 @@ export class GoLanguageIntelligenceAdapter implements LspLanguageIntelligenceAda
     line: number,
     column: number
   ): Promise<readonly LanguageIntelligenceCompletion[]> {
-    const response = await this.transport.request('textDocument/completion', {
+    const response = await requestLspData(this.transport, 'textDocument/completion', {
       textDocument: { uri },
       position: lspPositionFromOneBased(line, column),
     });
-    if (!response.ok) return [];
-    return parseCompletions(response.result);
+    return parseCompletions(response);
   }
 
   async provideHover(
@@ -185,12 +181,11 @@ export class GoLanguageIntelligenceAdapter implements LspLanguageIntelligenceAda
     line: number,
     column: number
   ): Promise<LanguageIntelligenceHover | null> {
-    const response = await this.transport.request('textDocument/hover', {
+    const response = await requestLspData(this.transport, 'textDocument/hover', {
       textDocument: { uri },
       position: lspPositionFromOneBased(line, column),
     });
-    if (!response.ok) return null;
-    return parseHover(response.result);
+    return parseHover(response);
   }
 
   async provideSignatureHelp(
@@ -198,12 +193,11 @@ export class GoLanguageIntelligenceAdapter implements LspLanguageIntelligenceAda
     line: number,
     column: number
   ): Promise<LanguageIntelligenceSignatureHelp | null> {
-    const response = await this.transport.request('textDocument/signatureHelp', {
+    const response = await requestLspData(this.transport, 'textDocument/signatureHelp', {
       textDocument: { uri },
       position: lspPositionFromOneBased(line, column),
     });
-    if (!response.ok) return null;
-    return parseSignatureHelp(response.result);
+    return parseSignatureHelp(response);
   }
 
   private handleNotification(notification: LspNotification): void {

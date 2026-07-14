@@ -45,7 +45,7 @@ describe('useRustLspDocumentSync', () => {
       .setStatus({ kind: 'available', version: 'rust-analyzer test' });
     __setRustAdapterForTesting(
       new RustLanguageIntelligenceAdapter({
-        request: async () => ({ ok: true, result: null }),
+        request: async () => ({ ok: true, data: null }),
         notify: (method, params) => {
           notifications.push({ method, params });
         },

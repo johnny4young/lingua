@@ -404,6 +404,14 @@ and the renderer is now a **compile error**, and
 fails if a handler is registered for a channel absent from the contract (or
 vice versa).
 
+Expected operational failures at this boundary use the shared
+[`Result<T, E>`](../src/shared/result.ts) contract: success payloads live under
+`data`; failures carry a stable `reason` plus an optional user-safe `message`.
+Profile/recovery confirmations, every license mutation, and Rust/Go LSP
+requests follow this shape. Renderer surfaces unwrap the union once in their
+domain adapter and degrade or resync deliberately. Throws remain reserved for
+capability-sandbox violations and unexpected transport/runtime failures.
+
 One documented exception stays on raw `ipcMain.handle`: the generic LSP
 registrar (it builds channel names dynamically, so it cannot pass a literal
 contract key). It is still covered by the contract + drift test by name.

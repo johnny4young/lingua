@@ -53,7 +53,7 @@ describe('recovery IPC', () => {
     expect(electronMock.openPath).toHaveBeenCalledWith(
       '/Users/example/Library/Application Support/Lingua'
     );
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, data: null });
   });
 
   it('returns a typed error when the OS file browser cannot open the recovery folder', async () => {
@@ -67,6 +67,30 @@ describe('recovery IPC', () => {
       ok: false,
       reason: 'open-failed',
       message: 'denied',
+    });
+  });
+
+  it('wraps the reset confirmation response in Result data', async () => {
+    const { registerRecoveryHandlers } = await import('../../src/main/ipc/recovery');
+    registerRecoveryHandlers();
+
+    const handler = electronMock.handlers.get('recovery:confirm-reset');
+    await expect(handler!({ sender: {} }, 'snippets', 'en')).resolves.toEqual({
+      ok: true,
+      data: 1,
+    });
+  });
+
+  it('returns a typed failure when the reset dialog rejects', async () => {
+    electronMock.showMessageBox.mockRejectedValueOnce(new Error('dialog unavailable'));
+    const { registerRecoveryHandlers } = await import('../../src/main/ipc/recovery');
+    registerRecoveryHandlers();
+
+    const handler = electronMock.handlers.get('recovery:confirm-reset');
+    await expect(handler!({ sender: {} }, 'snippets', 'en')).resolves.toEqual({
+      ok: false,
+      reason: 'confirm-failed',
+      message: 'dialog unavailable',
     });
   });
 });

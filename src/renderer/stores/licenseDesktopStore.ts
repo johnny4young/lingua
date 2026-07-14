@@ -150,7 +150,7 @@ export function createDesktopStore(bridge: LicenseBridge) {
     /**
      * Slice 3.5 — desktop now delegates removeDevice to the main
      * bridge, which calls `/licenses/devices/remove` with the
-     * persisted token. The bridge returns a flat snapshot on
+     * persisted token. The bridge adapter exposes a flat snapshot on
      * success; on failure we forward the tagged-union shape so the
      * renderer's existing handlers (LicenseSection,
      * ExhaustedDevicesModal) can dispatch the right notice without

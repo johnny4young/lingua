@@ -7,16 +7,36 @@
  * global — never on any store module.
  */
 
+type FlatLicenseResult<T extends object> =
+  | ({ ok: true } & T)
+  | { ok: false; reason: string; message?: string; issues?: string[] };
+
+function flattenLicenseResult<T extends object>(
+  result: Result<T> & { issues?: string[] }
+): FlatLicenseResult<T> {
+  if (!result.ok) return result;
+  return { ok: true, ...result.data };
+}
+
 /**
- * Detect the desktop IPC bridge at module-load time. Tests (vitest, JSDOM)
- * never set this, so they run the same web path as the production web build.
- * Slice 0 of RL-059 keeps the bridge optional — when absent we transparently
- * fall through to the local-verify + zustand-persist behavior that shipped
- * in the renderer-only iteration.
+ * Detect and adapt the desktop IPC bridge at module-load time. The raw bridge
+ * uses the shared Result data envelope; this leaf is the single compatibility
+ * point that flattens successful license payloads for the existing desktop
+ * store. Tests (vitest, JSDOM) normally omit the bridge and exercise web mode.
  */
 export function readLicenseBridge() {
   if (typeof window === 'undefined') return null;
-  return window.lingua?.license ?? null;
+  const bridge = window.lingua?.license;
+  if (!bridge) return null;
+
+  return {
+    getState: () => bridge.getState(),
+    applyToken: async (token: string) => flattenLicenseResult(await bridge.applyToken(token)),
+    clear: async () => flattenLicenseResult(await bridge.clear()),
+    revalidate: async () => flattenLicenseResult(await bridge.revalidate()),
+    removeDevice: async (deviceIdToRemove: string) =>
+      flattenLicenseResult(await bridge.removeDevice(deviceIdToRemove)),
+  };
 }
 
 /** The non-null desktop license bridge — the shape `createDesktopStore` drives. */

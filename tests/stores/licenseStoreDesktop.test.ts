@@ -25,7 +25,7 @@ function installBridge(snapshot: { token: string | null; status: { kind: string 
   const bridge: MockBridge = {
     getState: vi.fn().mockResolvedValue(snapshot),
     applyToken: vi.fn(),
-    clear: vi.fn().mockResolvedValue({ ok: true, snapshot }),
+    clear: vi.fn().mockResolvedValue({ ok: true, data: { snapshot } }),
     revalidate: vi.fn(),
   };
   // Mount on window before the store module loads.
@@ -150,8 +150,7 @@ describe('licenseStore — desktop IPC bridge', () => {
     );
     bridge.applyToken.mockResolvedValueOnce({
       ok: true,
-      status: active.status,
-      snapshot: active,
+      data: { status: active.status, snapshot: active },
     });
 
     const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
@@ -181,7 +180,10 @@ describe('licenseStore — desktop IPC bridge', () => {
       lastVerifiedAt: 9999,
     };
     const bridge = installBridge(initial);
-    bridge.applyToken.mockResolvedValueOnce({ ok: true, status: next.status, snapshot: next });
+    bridge.applyToken.mockResolvedValueOnce({
+      ok: true,
+      data: { status: next.status, snapshot: next },
+    });
 
     const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
     const status = await useLicenseStore.getState().setLicenseToken('aaa.bbb');
@@ -220,8 +222,10 @@ describe('licenseStore — desktop IPC bridge', () => {
     const bridge = installBridge(persisted);
     bridge.applyToken.mockResolvedValueOnce({
       ok: true,
-      status: { kind: 'invalid' as const, reason: 'malformed' },
-      snapshot: persisted,
+      data: {
+        status: { kind: 'invalid' as const, reason: 'malformed' },
+        snapshot: persisted,
+      },
     });
 
     const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
@@ -285,7 +289,10 @@ describe('licenseStore — desktop IPC bridge', () => {
       status: { kind: 'grace' as const, verification: { ok: true as const, payload: {} as never, state: 'grace' as const, supportWindowEndsAt: 2 } },
       lastVerifiedAt: 10_000,
     };
-    bridge.revalidate.mockResolvedValueOnce({ ok: true, status: refreshed.status, snapshot: refreshed });
+    bridge.revalidate.mockResolvedValueOnce({
+      ok: true,
+      data: { status: refreshed.status, snapshot: refreshed },
+    });
 
     const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
     await vi.waitFor(() => expect(useLicenseStore.getState().token).toBe('aaa.bbb'));
@@ -417,7 +424,7 @@ describe('licenseStore — desktop IPC bridge', () => {
         resolveBootstrap = resolve;
       })),
       applyToken: vi.fn(),
-      clear: vi.fn().mockResolvedValue({ ok: true, snapshot: initial }),
+      clear: vi.fn().mockResolvedValue({ ok: true, data: { snapshot: initial } }),
       revalidate: vi.fn(),
     };
     (window as unknown as { lingua: { license: MockBridge } }).lingua = { license: bridge };
@@ -428,7 +435,10 @@ describe('licenseStore — desktop IPC bridge', () => {
       deviceId: 'device-uuid',
       lastVerifiedAt: 12345,
     };
-    bridge.applyToken.mockResolvedValueOnce({ ok: true, status: next.status, snapshot: next });
+    bridge.applyToken.mockResolvedValueOnce({
+      ok: true,
+      data: { status: next.status, snapshot: next },
+    });
 
     const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
     // Apply BEFORE the bootstrap resolves.
@@ -460,7 +470,10 @@ describe('licenseStore — desktop IPC bridge', () => {
       deviceId: 'device-uuid',
       lastVerifiedAt: 9999,
     };
-    bridge.applyToken.mockResolvedValueOnce({ ok: true, status: next.status, snapshot: next });
+    bridge.applyToken.mockResolvedValueOnce({
+      ok: true,
+      data: { status: next.status, snapshot: next },
+    });
 
     const { useLicenseStore } = await import('../../src/renderer/stores/licenseStore');
     await useLicenseStore.getState().setLicenseToken('aaa.bbb');

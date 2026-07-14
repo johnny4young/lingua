@@ -17,6 +17,7 @@
  */
 
 import { dialog, BrowserWindow, app, shell } from 'electron';
+import type { Result } from '../../shared/result';
 import { typedHandle } from './typedHandle';
 import { translateCommon } from '../../shared/i18n/runtime';
 
@@ -44,35 +45,47 @@ const t = (
 export function registerRecoveryHandlers(): void {
   typedHandle(
     'recovery:confirm-reset',
-    async (event, rawScope: unknown, language?: string) => {
+    async (
+      event,
+      rawScope: unknown,
+      language?: string
+    ): Promise<Result<number, 'confirm-failed'>> => {
       const scope =
         typeof rawScope === 'string' && VALID_SCOPES.has(rawScope)
           ? (rawScope as ResetScope)
           : 'settings';
 
       const win = BrowserWindow.fromWebContents(event.sender);
-      if (!win) return 1;
+      if (!win) return { ok: true, data: 1 };
 
       const scopeLabel = t(language, `recovery.scope.${scope}`);
       const hint = t(language, `recovery.action.${scope}.hint`);
 
-      const { response } = await dialog.showMessageBox(win, {
-        type: 'warning',
-        buttons: [
-          t(language, 'recovery.confirm.reset'),
-          t(language, 'recovery.confirm.cancel'),
-        ],
-        defaultId: 1,
-        cancelId: 1,
-        title: t(language, 'recovery.confirm.title', { scope: scopeLabel }),
-        message: t(language, 'recovery.confirm.message'),
-        detail: t(language, 'recovery.confirm.detail', { hint }),
-      });
-      return response;
+      try {
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'warning',
+          buttons: [
+            t(language, 'recovery.confirm.reset'),
+            t(language, 'recovery.confirm.cancel'),
+          ],
+          defaultId: 1,
+          cancelId: 1,
+          title: t(language, 'recovery.confirm.title', { scope: scopeLabel }),
+          message: t(language, 'recovery.confirm.message'),
+          detail: t(language, 'recovery.confirm.detail', { hint }),
+        });
+        return { ok: true, data: response };
+      } catch (error) {
+        return {
+          ok: false,
+          reason: 'confirm-failed',
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
     }
   );
 
-  typedHandle('recovery:reveal-folder', async () => {
+  typedHandle('recovery:reveal-folder', async (): Promise<RecoveryRevealFolderResult> => {
     if (typeof app?.getPath !== 'function' || typeof shell?.openPath !== 'function') {
       return { ok: false, reason: 'unsupported' } as const;
     }
@@ -82,7 +95,7 @@ export function registerRecoveryHandlers(): void {
       if (errorMessage) {
         return { ok: false, reason: 'open-failed', message: errorMessage } as const;
       }
-      return { ok: true } as const;
+      return { ok: true, data: null };
     } catch (error) {
       return {
         ok: false,

@@ -312,8 +312,8 @@ contextBridge.exposeInMainWorld('lingua', {
     // `removeDevice`. Renderer's licenseStore desktop branch
     // delegates here when the user clicks Remove on a non-current
     // row in Settings → License or inside the exhausted-devices
-    // modal. Returns a flat `snapshot` on success so callers do
-    // not need a separate `getState()` round-trip.
+    // modal. Returns the shared Result data envelope with a snapshot
+    // so callers do not need a separate getState round-trip.
     removeDevice: (deviceIdToRemove: string) =>
       typedInvoke('license:remove-device', deviceIdToRemove),
   },
