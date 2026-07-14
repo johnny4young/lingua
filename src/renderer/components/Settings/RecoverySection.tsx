@@ -165,11 +165,11 @@ export function RecoverySection() {
   const handleReset = async (action: ScopeAction): Promise<void> => {
     setBusyScope(action.scope);
     try {
-      const response = await window.lingua.recovery.confirmReset(
+      const result = await window.lingua.recovery.confirmReset(
         action.scope,
         getActiveAppLanguage()
       );
-      if (response !== 0) {
+      if (!result.ok || result.data !== 0) {
         pushStatusNotice({ tone: 'info', messageKey: 'recovery.cancelled' });
         return;
       }

@@ -48,7 +48,7 @@ describe('ProfileSection', () => {
     URL.createObjectURL = createObjectURLSpy as unknown as typeof URL.createObjectURL;
     URL.revokeObjectURL = vi.fn() as unknown as typeof URL.revokeObjectURL;
 
-    confirmReplaceSpy = vi.fn(async () => 0);
+    confirmReplaceSpy = vi.fn(async () => ({ ok: true as const, data: 0 }));
     Object.defineProperty(window, 'lingua', {
       configurable: true,
       writable: true,
@@ -154,7 +154,7 @@ describe('ProfileSection', () => {
   });
 
   it('Apply with replace + confirm dialog cancel (response 1) leaves stores untouched and pushes an explanatory notice', async () => {
-    confirmReplaceSpy.mockImplementationOnce(async () => 1);
+    confirmReplaceSpy.mockImplementationOnce(async () => ({ ok: true, data: 1 }));
     render(<ProfileSection />);
     fireEvent.click(screen.getByTestId('profile-import-paste-toggle'));
     fireEvent.change(screen.getByTestId('profile-import-textarea'), {
@@ -179,6 +179,33 @@ describe('ProfileSection', () => {
         'profile.import.replaceCancelled'
       );
     });
+  });
+
+  it('fails closed when the native replace confirmation cannot open', async () => {
+    confirmReplaceSpy.mockImplementationOnce(async () => ({
+      ok: false,
+      reason: 'confirm-failed' as const,
+      message: 'dialog unavailable',
+    }));
+    render(<ProfileSection />);
+    fireEvent.click(screen.getByTestId('profile-import-paste-toggle'));
+    fireEvent.change(screen.getByTestId('profile-import-textarea'), {
+      target: { value: JSON.stringify(VALID_PROFILE) },
+    });
+    fireEvent.click(screen.getByTestId('profile-import-validate'));
+    await screen.findByTestId('profile-import-dry-run');
+
+    fireEvent.click(screen.getByTestId('profile-import-policy-replace'));
+    fireEvent.click(screen.getByTestId('profile-import-apply'));
+
+    await waitFor(() => {
+      expect(confirmReplaceSpy).toHaveBeenCalled();
+    });
+    expect(useSettingsStore.getState().vimMode).toBe(false);
+    expect(useSnippetsStore.getState().snippets).toHaveLength(0);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+      'profile.import.replaceCancelled'
+    );
   });
 
   it('merge policy applies WITHOUT a confirm dialog round-trip', async () => {

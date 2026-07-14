@@ -172,18 +172,18 @@ const webLingua: LinguaAPI = {
     markReady: () => {},
     onLink: () => () => {},
   },
-  // RL-089 — web has no native confirm modal. Resolve to 1 (cancel)
-  // so the renderer preserves current data and surfaces an explicit
-  // cancellation notice instead of silently doing nothing.
+  // RL-089 — web has no native confirm modal. Resolve to Result data 1
+  // (cancel) so the renderer preserves current data and surfaces an
+  // explicit cancellation notice instead of silently doing nothing.
   profile: {
-    confirmReplace: async () => 1,
+    confirmReplace: async () => ({ ok: true, data: 1 }),
   },
-  // RL-090 — recovery surface. Web has no native confirm dialog
-  // (returns 1 = cancel; RecoverySection surfaces an inline notice)
-  // and no shell.openPath equivalent (revealFolder reports unsupported
-  // so the button hides on web).
+  // RL-090 — recovery surface. Web has no native confirm dialog (Result
+  // data 1 = cancel; RecoverySection surfaces an inline notice) and no
+  // shell.openPath equivalent (revealFolder reports unsupported so the
+  // button hides on web).
   recovery: {
-    confirmReset: async () => 1,
+    confirmReset: async () => ({ ok: true, data: 1 }),
     revealFolder: async () => ({ ok: false, reason: 'unsupported' as const }),
   },
   // RL-025 Slice A + Slice B — dependency resolver + installer. Web

@@ -9,6 +9,7 @@
  */
 
 import { dialog, BrowserWindow } from 'electron';
+import type { Result } from '../../shared/result';
 import { typedHandle } from './typedHandle';
 import { translateCommon } from '../../shared/i18n/runtime';
 
@@ -32,7 +33,11 @@ function sanitizeCount(raw: unknown): number {
 export function registerProfileHandlers(): void {
   typedHandle(
     'profile:confirm-replace',
-    async (event, rawCounts: unknown, language?: string) => {
+    async (
+      event,
+      rawCounts: unknown,
+      language?: string
+    ): Promise<Result<number, 'confirm-failed'>> => {
       // RL-089 — `counts` arrives over IPC; coerce to safe finite
       // integers so a renderer cannot make the dialog interpolate
       // `Infinity`, `NaN`, or string-shaped values that read as
@@ -48,21 +53,29 @@ export function registerProfileHandlers(): void {
       // and risk a throw — an unhandled rejection would leave the
       // renderer waiting on a destructive flow.
       const win = BrowserWindow.fromWebContents(event.sender);
-      if (!win) return 1;
+      if (!win) return { ok: true, data: 1 };
 
-      const { response } = await dialog.showMessageBox(win, {
-        type: 'warning',
-        buttons: [
-          t(language, 'profile.replaceConfirm.replace'),
-          t(language, 'profile.replaceConfirm.cancel'),
-        ],
-        defaultId: 1,
-        cancelId: 1,
-        title: t(language, 'profile.replaceConfirm.title'),
-        message: t(language, 'profile.replaceConfirm.message'),
-        detail: t(language, 'profile.replaceConfirm.detail', safeCounts),
-      });
-      return response;
+      try {
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'warning',
+          buttons: [
+            t(language, 'profile.replaceConfirm.replace'),
+            t(language, 'profile.replaceConfirm.cancel'),
+          ],
+          defaultId: 1,
+          cancelId: 1,
+          title: t(language, 'profile.replaceConfirm.title'),
+          message: t(language, 'profile.replaceConfirm.message'),
+          detail: t(language, 'profile.replaceConfirm.detail', safeCounts),
+        });
+        return { ok: true, data: response };
+      } catch (error) {
+        return {
+          ok: false,
+          reason: 'confirm-failed',
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
     }
   );
 }

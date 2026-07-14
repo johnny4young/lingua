@@ -351,13 +351,13 @@ export interface IpcInvokeContract {
   // ---------------------------------------------------------------- profile
   'profile:confirm-replace': {
     args: [counts: ProfileConfirmReplaceCounts, language?: string];
-    result: number;
+    result: ProfileConfirmReplaceResult;
   };
 
   // --------------------------------------------------------------- recovery
   'recovery:confirm-reset': {
     args: [scope: RecoveryResetScope, language?: string];
-    result: number;
+    result: RecoveryConfirmResetResult;
   };
   'recovery:reveal-folder': {
     args: [];

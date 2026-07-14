@@ -30,11 +30,13 @@ describe('profile IPC handlers', () => {
     registerProfileHandlers();
 
     const handler = handlers.get('profile:confirm-replace');
-    await handler?.(
+    const result = await handler?.(
       { sender: {} } as never,
       { snippets: Number.POSITIVE_INFINITY, envVars: Number.NaN },
       'en'
     );
+
+    expect(result).toEqual({ ok: true, data: 1 });
 
     expect(mockShowMessageBox).toHaveBeenCalledWith(
       { id: 1 },
@@ -52,7 +54,22 @@ describe('profile IPC handlers', () => {
     const handler = handlers.get('profile:confirm-replace');
     await expect(
       handler?.({ sender: {} } as never, { snippets: 1, envVars: 1 }, 'en')
-    ).resolves.toBe(1);
+    ).resolves.toEqual({ ok: true, data: 1 });
     expect(mockShowMessageBox).not.toHaveBeenCalled();
+  });
+
+  it('returns a typed failure when the native dialog rejects', async () => {
+    mockShowMessageBox.mockRejectedValueOnce(new Error('dialog unavailable'));
+    const { registerProfileHandlers } = await import('#src/main/ipc/profile');
+    registerProfileHandlers();
+
+    const handler = handlers.get('profile:confirm-replace');
+    await expect(
+      handler?.({ sender: {} } as never, { snippets: 1, envVars: 1 }, 'en')
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'confirm-failed',
+      message: 'dialog unavailable',
+    });
   });
 });

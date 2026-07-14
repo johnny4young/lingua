@@ -117,16 +117,16 @@ export function ProfileSection() {
         snippets: parsed.profile.data.snippets.length,
         envVars: countEnvVars(parsed.profile),
       };
-      const response = await window.lingua.profile.confirmReplace(
+      const result = await window.lingua.profile.confirmReplace(
         counts,
         getActiveAppLanguage()
       );
-      // 0 = Replace, 1 = Cancel (matches `app:confirm-close` convention).
+      // Result data 0 = Replace, 1 = Cancel (matches `app:confirm-close`).
       // Surface a notice so the user sees an explicit result instead
       // of a click that silently does nothing — important on web,
       // where the stub always returns 1 (no native dialog) and the
       // user otherwise has no feedback.
-      if (response !== 0) {
+      if (!result.ok || result.data !== 0) {
         pushStatusNotice({
           tone: 'info',
           messageKey: 'profile.import.replaceCancelled',

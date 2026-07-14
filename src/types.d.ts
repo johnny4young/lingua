@@ -511,6 +511,8 @@ type DesktopSmokeMemorySnapshot =
 
 // -------------------------------------------------------------- License types
 
+type Result<T, E = string> = import('./shared/result').Result<T, E>;
+
 interface LicensePayloadShape {
   productId: string;
   // Canonical closed tier list — kept in lockstep with `LICENSE_TIERS`
@@ -641,6 +643,8 @@ interface ProfileConfirmReplaceCounts {
   envVars: number;
 }
 
+type ProfileConfirmReplaceResult = Result<number, 'confirm-failed'>;
+
 // ---------------------------------------------------------- Recovery types
 //
 // RL-090 — error boundaries + recovery UX. The renderer-side helpers
@@ -649,9 +653,8 @@ interface ProfileConfirmReplaceCounts {
 // the IPC + web-stub call sites compiling without explicit imports.
 
 type RecoveryResetScope = 'settings' | 'snippets' | 'envVars' | 'session' | 'factory';
-type RecoveryRevealFolderResult =
-  | { ok: true }
-  | { ok: false; reason: 'unsupported' | 'open-failed'; message?: string };
+type RecoveryConfirmResetResult = Result<number, 'confirm-failed'>;
+type RecoveryRevealFolderResult = Result<null, 'unsupported' | 'open-failed'>;
 
 // RL-025 Slice A — JS/TS dependency resolver IPC contract. Closed
 // status set; the renderer maps these to its broader
@@ -1159,30 +1162,31 @@ interface LinguaAPI {
 
   /**
    * RL-089 — destructive `replace` policy of the profile-restore flow
-   * gates behind a native confirm modal. Returns 0 to confirm, 1 to
-   * cancel (matches `app:confirm-close` convention). The web stub
-   * resolves to 1 (cancel) so the renderer preserves current data and
-   * surfaces an explicit cancellation notice.
+   * gates behind a native confirm modal. Result data is 0 to confirm or
+   * 1 to cancel (matching `app:confirm-close`); operational dialog
+   * failures use the Result error branch. The web stub resolves to a
+   * successful cancel so the renderer preserves current data and surfaces
+   * an explicit cancellation notice.
    */
   profile: {
     confirmReplace: (
       counts: ProfileConfirmReplaceCounts,
       language?: string
-    ) => Promise<number>;
+    ) => Promise<ProfileConfirmReplaceResult>;
   };
 
   /**
    * RL-090 — recovery surface (Settings → Account → Recovery).
-   * `confirmReset` returns 0 (Reset) or 1 (Cancel). `revealFolder`
-   * opens the OS file browser at the userData path so a user with
-   * a corrupted persisted state can wipe files manually. Web stubs
-   * both to safe no-ops.
+   * `confirmReset` returns Result data 0 (Reset) or 1 (Cancel).
+   * `revealFolder` opens the OS file browser at the userData path so a
+   * user with a corrupted persisted state can wipe files manually. Web
+   * stubs both to safe no-ops.
    */
   recovery: {
     confirmReset: (
       scope: RecoveryResetScope,
       language?: string
-    ) => Promise<number>;
+    ) => Promise<RecoveryConfirmResetResult>;
     revealFolder: () => Promise<RecoveryRevealFolderResult>;
   };
 

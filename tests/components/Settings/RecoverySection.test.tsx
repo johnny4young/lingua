@@ -20,8 +20,8 @@ describe('RecoverySection', () => {
     await i18next.changeLanguage('en');
     localStorage.clear();
 
-    confirmResetSpy = vi.fn(async () => 0);
-    revealFolderSpy = vi.fn(async () => ({ ok: true } as const));
+    confirmResetSpy = vi.fn(async () => ({ ok: true as const, data: 0 }));
+    revealFolderSpy = vi.fn(async () => ({ ok: true as const, data: null }));
     Object.defineProperty(window, 'lingua', {
       configurable: true,
       writable: true,
@@ -118,10 +118,26 @@ describe('RecoverySection', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('recovery.success');
   });
 
-  it('Cancel returns 1 and surfaces the cancellation notice without changing stores', async () => {
-    confirmResetSpy.mockImplementationOnce(async () => 1);
+  it('Result data 1 cancels without changing stores and surfaces the notice', async () => {
+    confirmResetSpy.mockImplementationOnce(async () => ({ ok: true, data: 1 }));
     render(<RecoverySection />);
     fireEvent.click(screen.getByTestId('recovery-reset-snippets'));
+    await waitFor(() => {
+      expect(confirmResetSpy).toHaveBeenCalled();
+    });
+    expect(useSnippetsStore.getState().snippets).toHaveLength(1);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('recovery.cancelled');
+  });
+
+  it('fails closed when the native reset confirmation cannot open', async () => {
+    confirmResetSpy.mockImplementationOnce(async () => ({
+      ok: false,
+      reason: 'confirm-failed' as const,
+      message: 'dialog unavailable',
+    }));
+    render(<RecoverySection />);
+    fireEvent.click(screen.getByTestId('recovery-reset-snippets'));
+
     await waitFor(() => {
       expect(confirmResetSpy).toHaveBeenCalled();
     });
