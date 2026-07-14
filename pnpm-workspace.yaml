@@ -76,3 +76,9 @@ overrides:
   # platform before it can be trusted. `pnpm audit --prod` stays clean;
   # re-check on the next @electron-forge bump (see the TODO above).
   "tmp": "^0.2.7"
+
+# Electron 43.1.1 is an explicit same-day upgrade. Keep pnpm's global
+# minimum-release-age hardening for every other package while allowing this
+# reviewed runtime release to install reproducibly.
+minimumReleaseAgeExclude:
+  - electron@43.1.1

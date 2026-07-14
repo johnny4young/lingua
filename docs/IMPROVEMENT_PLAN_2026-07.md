@@ -1528,7 +1528,7 @@ ataca.
 | **Testeabilidad** | ★★★ | 571 tests y CI disciplinado, pero 0 coverage instrumentado, 1/571 type-checkeado y axe en ~30% de superficies. | E, G7c |
 | **Simplicidad** | ★★★½ | Patrones consistentes (splits RL-128/129/130, contrato IPC); la rompen dos hooks de 488-533 LOC y el boilerplate de paneles. | A2, A5 |
 | **Mantenibilidad** | ★★★★ | Docs vivos + gates fuertes; fileSystem, los diez componentes prioritarios, `useAutoRun` y `useImportPreview` ya se partieron con budgets automatizados. No quedan componentes de 800+ LOC; quedan dos hooks grandes de A5. | A2, A5-A7 |
-| **Librerías** | ★★★★★ | React 19 / Vite 8 / TS 6 / Electron 42 / zustand 5 / Tailwind 4 — todo al día; el plugin de Forge fue verificado como dependencia viva del empaquetado desktop. | A6 |
+| **Librerías** | ★★★★★ | React 19 / Vite 8 / TS 6 / Electron 43 / zustand 5 / Tailwind 4 — todo al día; el plugin de Forge fue verificado como dependencia viva del empaquetado desktop. | A6 |
 
 **Los tres multiplicadores** (si solo se hicieran tres cosas): (1)
 **IT2-C1/C2 Run Ledger** — convierte datos volátiles en el activo que

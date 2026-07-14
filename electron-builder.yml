@@ -4,7 +4,7 @@ executableName: lingua
 copyright: Copyright © Lingua contributors
 # package.json pins electron with a caret range; electron-builder needs the exact
 # release to fetch its platform binaries. Keep in sync with the electron devDep.
-electronVersion: 42.3.3
+electronVersion: 43.1.1
 # Auto-update feed + installers both live on GitHub Releases. electron-builder
 # embeds this provider into the packaged app-update.yml, so electron-updater
 # fetches latest*.yml + the installer straight from the repo's Releases. No
