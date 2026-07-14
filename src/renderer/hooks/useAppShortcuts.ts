@@ -16,7 +16,7 @@ import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/s
 import { trackEvent } from '../utils/telemetry';
 import { syncVariableInspectorSurfaceAfterToggle } from '../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../shared/scopeSnapshot';
-import { SHARE_LINK_TRIGGER_EVENT } from '../components/Share/shareLinkEvents';
+import { emitCommand } from '../stores/commandBus';
 import { type AppOverlay, useGlobalShortcuts } from './useGlobalShortcuts';
 
 /**
@@ -299,17 +299,13 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       });
     },
     // RL-036 Phase A1 fold D — keyboard shortcut for the share-link
-    // copy. Dispatches the same `lingua-share-link-trigger` event the
-    // command palette uses (fold C) so the always-mounted
+    // copy. Emits the same `share.trigger` command the command palette
+    // uses (fold C) so the always-mounted
     // `<ShareLinkController>` owns shortcut-triggered confirmation
     // even when the result panel is hidden. Telemetry tags
     // `trigger: 'shortcut'`.
     copyShareLink: () => {
-      window.dispatchEvent(
-        new CustomEvent(SHARE_LINK_TRIGGER_EVENT, {
-          detail: { trigger: 'shortcut' },
-        })
-      );
+      emitCommand('share.trigger', { trigger: 'shortcut' });
     },
     // RL-101 Slice 1 fold D — `Mod+Shift+W` resets all three onboarding
     // stages so the welcome scratchpad re-seeds on next eligible mount

@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  OPEN_LICENSE_SETTINGS_EVENT,
-  pushUpsellNotice,
-} from '../../src/renderer/utils/upsellNotice';
+import { pushUpsellNotice } from '../../src/renderer/utils/upsellNotice';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { subscribeCommand } from '../../src/renderer/stores/commandBus';
 
 describe('pushUpsellNotice', () => {
   beforeEach(() => {
@@ -26,9 +24,9 @@ describe('pushUpsellNotice', () => {
     });
   });
 
-  it('routes the shared CTA through the App license-settings event', () => {
+  it('routes the shared CTA through the App license-settings command', () => {
     const listener = vi.fn();
-    window.addEventListener(OPEN_LICENSE_SETTINGS_EVENT, listener);
+    const unsubscribe = subscribeCommand('settings.openLicense', listener);
     pushUpsellNotice({
       messageKey: 'upsell.freeCeilingReached',
       featureLabel: 'additional open tabs',
@@ -37,6 +35,6 @@ describe('pushUpsellNotice', () => {
     useUIStore.getState().statusNotice?.actions?.[0]?.onClick();
 
     expect(listener).toHaveBeenCalledOnce();
-    window.removeEventListener(OPEN_LICENSE_SETTINGS_EVENT, listener);
+    unsubscribe();
   });
 });

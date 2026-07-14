@@ -12,18 +12,9 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react';
+import type { SettingsTabId } from '../../stores/commandBus';
 
-export type TabId =
-  | 'general'
-  | 'appearance'
-  | 'editor'
-  | 'languages'
-  | 'environment'
-  | 'privacy'
-  | 'account'
-  | 'shortcuts'
-  | 'plugins'
-  | 'recovery';
+export type TabId = SettingsTabId;
 
 interface RailItem {
   id: TabId;

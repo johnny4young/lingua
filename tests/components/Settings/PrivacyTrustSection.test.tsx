@@ -12,6 +12,7 @@ import {
   useTrustEventStore,
 } from '@/stores/trustEventStore';
 import { useUIStore } from '@/stores/uiStore';
+import { subscribeCommand } from '@/stores/commandBus';
 
 const { trackEventMock } = vi.hoisted(() => ({
   trackEventMock: vi.fn(),
@@ -48,15 +49,9 @@ describe('PrivacyTrustSection', () => {
     window.localStorage.setItem('lingua-snippets', 'abc');
     render(<PrivacyTrustSection />);
 
-    expect(
-      screen.getByRole('heading', { name: 'Redaction preview' })
-    ).toBeTruthy();
-    expect(
-      screen.queryByTestId('privacy-local-stores-row-lingua-execution-history')
-    ).toBeNull();
-    expect(
-      screen.getByTestId('privacy-local-stores-row-lingua-snippets')
-    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Redaction preview' })).toBeTruthy();
+    expect(screen.queryByTestId('privacy-local-stores-row-lingua-execution-history')).toBeNull();
+    expect(screen.getByTestId('privacy-local-stores-row-lingua-snippets')).toBeTruthy();
 
     fireEvent.change(screen.getByTestId('privacy-redaction-input'), {
       target: { value: '{"token":"abc","language":"python"}' },
@@ -85,9 +80,9 @@ describe('PrivacyTrustSection', () => {
     markPrivacyDashboardSurfaceForNextMount('palette');
     render(<PrivacyTrustSection />);
 
-    expect(
-      screen.getByTestId('privacy-trust-section').getAttribute('data-surface')
-    ).toBe('palette');
+    expect(screen.getByTestId('privacy-trust-section').getAttribute('data-surface')).toBe(
+      'palette'
+    );
     expect(trackEventMock).toHaveBeenCalledWith('privacy.dashboard_opened', {
       surface: 'palette',
     });
@@ -103,15 +98,11 @@ describe('PrivacyTrustSection', () => {
     expect(window.localStorage.getItem(TRUST_EVENT_STORAGE_KEY)).not.toBeNull();
 
     render(<PrivacyTrustSection />);
-    fireEvent.click(
-      screen.getByTestId(`privacy-local-stores-clear-${TRUST_EVENT_STORAGE_KEY}`)
-    );
+    fireEvent.click(screen.getByTestId(`privacy-local-stores-clear-${TRUST_EVENT_STORAGE_KEY}`));
     expect(screen.getByTestId('privacy-clear-confirm-modal')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('privacy-clear-confirm-confirm'));
-    await waitFor(() =>
-      expect(window.localStorage.getItem(TRUST_EVENT_STORAGE_KEY)).toBeNull()
-    );
+    await waitFor(() => expect(window.localStorage.getItem(TRUST_EVENT_STORAGE_KEY)).toBeNull());
     expect(useTrustEventStore.getState().events).toEqual([]);
     expect(pushStatusNoticeMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -157,9 +148,9 @@ describe('PrivacyTrustSection', () => {
     record({ feature: 'capsule-export', action: 'exported', sensitivity: 'medium', summary: 'b' });
     render(<PrivacyTrustSection />);
     expect(
-      screen.getByTestId('privacy-recent-list').querySelectorAll(
-        '[data-testid^="privacy-recent-row-"]'
-      )
+      screen
+        .getByTestId('privacy-recent-list')
+        .querySelectorAll('[data-testid^="privacy-recent-row-"]')
     ).toHaveLength(2);
 
     fireEvent.click(screen.getByTestId('privacy-recent-filter-medium'));
@@ -201,17 +192,16 @@ describe('PrivacyTrustSection', () => {
   });
 
   it('deep-links Network rows to the owning Settings tab (fold F)', () => {
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    const listener = vi.fn();
+    const unsubscribe = subscribeCommand('settings.navigate', listener);
     render(<PrivacyTrustSection />);
     // telemetry → account (PrivacySection consent toggle lives there).
     const telemetryLink = screen.getByTestId('privacy-network-deeplink-telemetry');
     fireEvent.click(telemetryLink);
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'lingua-settings-navigate-tab', detail: 'account' })
-    );
+    expect(listener).toHaveBeenCalledWith({ tab: 'account' }, expect.any(Object));
     // updates → general; a feature with no destination renders no button.
     expect(screen.getByTestId('privacy-network-deeplink-updates')).toBeTruthy();
     expect(screen.queryByTestId('privacy-network-deeplink-capsule-export')).toBeNull();
-    dispatchSpy.mockRestore();
+    unsubscribe();
   });
 });

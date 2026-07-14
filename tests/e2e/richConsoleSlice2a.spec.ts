@@ -24,7 +24,6 @@ declare global {
       clearConsole: () => void;
       addConsoleEntries: (entries: ConsoleEntrySeed[]) => void;
     };
-    __linguaOpenFileEvents?: unknown[];
   }
 }
 
@@ -200,13 +199,6 @@ test.describe('rich console Slice 2a visual matrix', () => {
       },
     ]);
 
-    await page.evaluate(() => {
-      window.__linguaOpenFileEvents = [];
-      window.addEventListener('lingua-open-file', event => {
-        window.__linguaOpenFileEvents?.push(event instanceof CustomEvent ? event.detail : null);
-      });
-    });
-
     await expect(page.getByTestId('console-rich-error')).toBeVisible();
     await captureLocator(
       testInfo,
@@ -216,9 +208,7 @@ test.describe('rich console Slice 2a visual matrix', () => {
 
     const frame = page.getByTestId('console-rich-error-frame-clickable');
     await frame.click();
-    await expect
-      .poll(() => page.evaluate(() => window.__linguaOpenFileEvents?.length ?? 0))
-      .toBe(1);
+    await expect(page.getByText('Opening src/example.ts:12 is not available yet.')).toBeVisible();
 
     await page.getByTestId('console-rich-open-details').click();
     const dialog = page.getByRole('dialog');
@@ -291,10 +281,6 @@ test.describe('rich console Slice 2a visual matrix', () => {
     await expect(dialogChart.locator('canvas')).toBeVisible();
     await dialog.getByTestId('console-rich-chart-actions').click();
     await expect(dialog.getByTestId('console-rich-chart-export-pro')).toBeVisible();
-    await captureLocator(
-      testInfo,
-      screenshotFileName('Chart details popover and menu'),
-      dialog
-    );
+    await captureLocator(testInfo, screenshotFileName('Chart details popover and menu'), dialog);
   });
 });

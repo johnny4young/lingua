@@ -5,6 +5,7 @@ import { useActiveTab } from '../../hooks/useActiveTab';
 import { useUpdateStore } from '../../stores/updateStore';
 import { LicenseBadge } from '../Toolbar/LicenseBadge';
 import { cn } from '../../utils/cn';
+import { emitCommand } from '../../stores/commandBus';
 
 interface AppChromeProps {
   onOpenSettings?: () => void;
@@ -22,23 +23,20 @@ interface AppChromeProps {
 export function AppChrome({ onOpenSettings }: AppChromeProps) {
   const { t } = useTranslation();
   const activeTab = useActiveTab();
-  const isWebBuild =
-    typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const filename = activeTab?.name ?? t('chrome.filename.untitled');
   const isDirty = activeTab?.isDirty === true;
 
   // UX Sweep T5 — the license badge opens Settings AND lands on the
   // Account/License tab (it used to dump the user on General). Two rAFs let
   // SettingsModal mount, paint, and run the effect that registers its
-  // navigate-tab listener before the event fires; dispatching earlier can
+  // command listener before the request fires; emitting earlier can
   // race the mount and be lost.
   const handleOpenLicenseSettings = useCallback(() => {
     onOpenSettings?.();
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        window.dispatchEvent(
-          new CustomEvent('lingua-settings-navigate-tab', { detail: 'account' })
-        );
+        emitCommand('settings.navigate', { tab: 'account' });
       });
     });
   }, [onOpenSettings]);
@@ -69,7 +67,9 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
         <span className="text-fg-muted" aria-hidden="true">
           {t('chrome.appName').toLowerCase()}
         </span>
-        <span className="text-fg-subtle" aria-hidden="true">·</span>
+        <span className="text-fg-subtle" aria-hidden="true">
+          ·
+        </span>
         <span
           data-testid="app-chrome-filename"
           className="max-w-[260px] truncate font-mono text-fg-base"
@@ -83,10 +83,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
             aria-label={t('chrome.unsaved.aria')}
             className="inline-flex items-center gap-1 rounded-sm border border-border-strong/70 px-1 py-px font-mono text-micro font-bold uppercase tracking-[0.12em] text-warning"
           >
-            <span
-              aria-hidden="true"
-              className="inline-block h-1.5 w-1.5 rounded-full bg-warning"
-            />
+            <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-warning" />
             {t('chrome.unsaved.label')}
           </span>
         ) : null}
@@ -107,7 +104,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
  */
 function UpdateReadyChip({ onClick }: { onClick?: () => void }) {
   const { t } = useTranslation();
-  const status = useUpdateStore((state) => state.status);
+  const status = useUpdateStore(state => state.status);
   if (status !== 'downloaded') return null;
   return (
     <button

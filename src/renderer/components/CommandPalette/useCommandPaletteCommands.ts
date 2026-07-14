@@ -35,7 +35,7 @@ import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { renderLanguageScorecardMarkdown } from '../../../shared/languageSupport';
 import { markLanguageScorecardSurfaceForNextMount } from '../Settings/languageSupportScorecardTelemetry';
 import { markPrivacyDashboardSurfaceForNextMount } from '../Settings/privacyTrustTelemetry';
-import { SHARE_LINK_TRIGGER_EVENT } from '../Share/shareLinkEvents';
+import { emitCommand } from '../../stores/commandBus';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
@@ -539,26 +539,22 @@ export function useCommandPaletteCommands({
       //      fires exactly one telemetry event with the right tag.
       //   2. Open the Settings overlay (the model wrapper has already
       //      called `onClose()` first, so this overlay state wins).
-      //   3. Dispatch `lingua-settings-navigate-tab` so SettingsModal
+      //   3. Emit settings.navigate so SettingsModal
       //      jumps to the Languages tab before the scroll target is
-      //      queried. The event listener lives in SettingsModal so
+      //      queried. The command listener lives in SettingsModal so
       //      we never grow a global "active settings tab" store.
       onShowLanguageSupport: () => {
         markLanguageScorecardSurfaceForNextMount('palette');
         onOpenSettings();
         // Two `requestAnimationFrame` ticks: the first lets
         // SettingsModal mount and register its
-        // `lingua-settings-navigate-tab` listener; the second lets
+        // settings.navigate listener; the second lets
         // `LanguagesSection` mount the scorecard after the tab
         // change before we try to scroll it into view. A synchronous
         // dispatch right after `onOpenSettings()` would race the
         // mount and be lost.
         window.requestAnimationFrame(() => {
-          window.dispatchEvent(
-            new CustomEvent('lingua-settings-navigate-tab', {
-              detail: 'languages',
-            })
-          );
+          emitCommand('settings.navigate', { tab: 'languages' });
           window.requestAnimationFrame(() => {
             const node = document.querySelector('[data-testid="language-support-scorecard"]');
             if (node) {
@@ -567,7 +563,7 @@ export function useCommandPaletteCommands({
           });
         });
       },
-      // RL-036 Phase A1 fold C — dispatch the share trigger event;
+      // RL-036 Phase A1 fold C — emit the share trigger command;
       // the always-mounted `<ShareLinkController>` picks it up and
       // runs the same flow as the header button, with `trigger:
       // 'palette'` so telemetry attributes correctly. Hide the
@@ -575,11 +571,7 @@ export function useCommandPaletteCommands({
       // no-op.
       onCopyShareLink: activeTab
         ? () => {
-            window.dispatchEvent(
-              new CustomEvent(SHARE_LINK_TRIGGER_EVENT, {
-                detail: { trigger: 'palette' },
-              })
-            );
+            emitCommand('share.trigger', { trigger: 'palette' });
           }
         : undefined,
       // RL-101 Slice 1 fold G — three palette entries that re-arm a
@@ -599,18 +591,14 @@ export function useCommandPaletteCommands({
       // RL-096 Slice 1 fold B — open Settings on the Privacy tab.
       // Mirrors the `onShowLanguageSupport` choreography from RL-095:
       // claim the next PrivacyTrustSection mount as `surface:
-      // 'palette'`, open Settings overlay, then dispatch the navigate
-      // event on the next animation frame so SettingsModal's listener
+      // 'palette'`, open Settings overlay, then emit the navigate
+      // command on the next animation frame so SettingsModal's listener
       // has mounted before we fire.
       onShowPrivacyDashboard: () => {
         markPrivacyDashboardSurfaceForNextMount('palette');
         onOpenSettings();
         window.requestAnimationFrame(() => {
-          window.dispatchEvent(
-            new CustomEvent('lingua-settings-navigate-tab', {
-              detail: 'privacy',
-            })
-          );
+          emitCommand('settings.navigate', { tab: 'privacy' });
         });
       },
       // RL-025 Slice A fold C — open the bottom-panel Dependencies

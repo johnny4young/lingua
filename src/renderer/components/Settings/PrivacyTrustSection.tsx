@@ -1,18 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
-import {
-  applyRedactionPreview,
-  type RedactionPreviewResult,
-} from '../../utils/redactionPreview';
+import { applyRedactionPreview, type RedactionPreviewResult } from '../../utils/redactionPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useLicenseStore } from '../../stores/licenseStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
-import {
-  TRUST_EVENT_STORAGE_KEY,
-  useTrustEventStore,
-} from '../../stores/trustEventStore';
+import { TRUST_EVENT_STORAGE_KEY, useTrustEventStore } from '../../stores/trustEventStore';
 import { useUIStore } from '../../stores/uiStore';
 import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { SettingsSection } from '../ui/SpecRow';
@@ -35,11 +29,9 @@ import {
   type NetworkActivityFeature,
   type NetworkActivityStatus,
 } from './privacyTrustHelpers';
-import type {
-  TrustEvent,
-  TrustFeature,
-  TrustSensitivity,
-} from '../../stores/trustEventStore';
+import type { TrustEvent, TrustFeature, TrustSensitivity } from '../../stores/trustEventStore';
+import { emitCommand } from '../../stores/commandBus';
+import type { TabId } from './settingsRailModel';
 
 /** RL-096 Slice 2 — newest N trust events shown in the Recent activity feed. */
 const RECENT_ACTIVITY_LIMIT = 8;
@@ -61,17 +53,15 @@ const SENSITIVITY_TONE: Record<TrustSensitivity, StatusBadgeTone> = {
  * `SettingsModal` (telemetry consent + license live under Account; the
  * update check under General; dependency detection under Editor).
  */
-const FEATURE_SETTINGS_TAB: Partial<Record<NetworkActivityFeature, string>> = {
+const FEATURE_SETTINGS_TAB: Partial<Record<NetworkActivityFeature, TabId>> = {
   telemetry: 'account',
   updates: 'general',
   license: 'account',
   dependencies: 'editor',
 };
 
-function navigateToSettingsTab(tabId: string): void {
-  window.dispatchEvent(
-    new CustomEvent('lingua-settings-navigate-tab', { detail: tabId })
-  );
+function navigateToSettingsTab(tab: TabId): void {
+  emitCommand('settings.navigate', { tab });
 }
 
 /**
@@ -116,10 +106,10 @@ function trustActionLabel(action: string): string {
  */
 export function PrivacyTrustSection() {
   const { t } = useTranslation();
-  const telemetryConsent = useSettingsStore((s) => s.telemetryConsent);
-  const licenseToken = useLicenseStore((s) => s.token);
-  const clearLicense = useLicenseStore((s) => s.clearLicense);
-  const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
+  const telemetryConsent = useSettingsStore(s => s.telemetryConsent);
+  const licenseToken = useLicenseStore(s => s.token);
+  const clearLicense = useLicenseStore(s => s.clearLicense);
+  const pushStatusNotice = useUIStore(s => s.pushStatusNotice);
   // RL-025 Slice B — reach into the dependency install state to
   // surface the most recent install timestamp in the network
   // activity table. We take the max across every tab so the row
@@ -128,9 +118,9 @@ export function PrivacyTrustSection() {
   // Derive a primitive (not the `capsuleEntries()` array) so the
   // subscription stays stable and never trips zustand v5's update loop.
   const capsulesRetained = useExecutionHistoryStore(
-    (s) => s.entries.filter((entry) => entry.lastCapsule !== undefined).length
+    s => s.entries.filter(entry => entry.lastCapsule !== undefined).length
   );
-  const dependencyInstallLastAt = useDependencyDetectionStore((s) => {
+  const dependencyInstallLastAt = useDependencyDetectionStore(s => {
     let latest: number | null = null;
     for (const entry of s.installByTab.values()) {
       if (entry.lastAttemptAt !== null) {
@@ -144,19 +134,15 @@ export function PrivacyTrustSection() {
 
   // RL-096 Slice 2 — the live trust-event log drives both the Network
   // table's real "last call" timestamps and the Recent activity feed.
-  const trustEvents = useTrustEventStore((s) => s.events);
+  const trustEvents = useTrustEventStore(s => s.events);
   // RL-096 Slice 2 fold E — Recent-activity sensitivity filter. `all`
   // shows every captured event; the others narrow to one severity.
-  const [sensitivityFilter, setSensitivityFilter] = useState<
-    'all' | TrustSensitivity
-  >('all');
+  const [sensitivityFilter, setSensitivityFilter] = useState<'all' | TrustSensitivity>('all');
 
   // Refresh trigger — bumped after every Clear so the size estimates
   // re-read localStorage. Cheap because the audited key list is tiny.
   const [, setRefreshTick] = useState(0);
-  const [confirmKey, setConfirmKey] = useState<LinguaLocalStoreKey | null>(
-    null
-  );
+  const [confirmKey, setConfirmKey] = useState<LinguaLocalStoreKey | null>(null);
   const [pasteInput, setPasteInput] = useState('');
   const [surface] = useState<PrivacyDashboardSurface>(() =>
     readPrivacyDashboardSurfaceForMount('settings')
@@ -195,7 +181,7 @@ export function PrivacyTrustSection() {
     const filtered =
       sensitivityFilter === 'all'
         ? trustEvents
-        : trustEvents.filter((event) => event.sensitivity === sensitivityFilter);
+        : trustEvents.filter(event => event.sensitivity === sensitivityFilter);
     return [...filtered].reverse().slice(0, RECENT_ACTIVITY_LIMIT);
   }, [trustEvents, sensitivityFilter]);
 
@@ -222,25 +208,17 @@ export function PrivacyTrustSection() {
       values: { key },
     });
     setConfirmKey(null);
-    setRefreshTick((tick) => tick + 1);
+    setRefreshTick(tick => tick + 1);
   };
 
   return (
-    <div
-      className="space-y-7"
-      data-testid="privacy-trust-section"
-      data-surface={surface}
-    >
+    <div className="space-y-7" data-testid="privacy-trust-section" data-surface={surface}>
       <SettingsSection
         eyebrow={t('settings.privacy.title')}
         description={t('settings.privacy.hint')}
       >
         {/* Redaction preview */}
-        <RedactionPreviewBlock
-          input={pasteInput}
-          result={previewResult}
-          onChange={setPasteInput}
-        />
+        <RedactionPreviewBlock input={pasteInput} result={previewResult} onChange={setPasteInput} />
       </SettingsSection>
 
       <SettingsSection
@@ -248,10 +226,7 @@ export function PrivacyTrustSection() {
         description={t('settings.privacy.localStores.hint')}
       >
         <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
-          <table
-            className="min-w-full text-body"
-            data-testid="privacy-local-stores-table"
-          >
+          <table className="min-w-full text-body" data-testid="privacy-local-stores-table">
             <thead className="bg-bg-panel-alt text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">
@@ -269,18 +244,14 @@ export function PrivacyTrustSection() {
               </tr>
             </thead>
             <tbody>
-              {localRows.map((row) => (
+              {localRows.map(row => (
                 <tr
                   key={row.key}
                   className="border-t border-border-subtle"
                   data-testid={`privacy-local-stores-row-${row.key}`}
                 >
-                  <td className="px-3 py-2 font-mono text-body-sm text-fg-base">
-                    {row.key}
-                  </td>
-                  <td className="px-3 py-2 text-body-sm text-fg-muted">
-                    {t(row.purposeKey)}
-                  </td>
+                  <td className="px-3 py-2 font-mono text-body-sm text-fg-base">{row.key}</td>
+                  <td className="px-3 py-2 text-body-sm text-fg-muted">{t(row.purposeKey)}</td>
                   <td
                     className="px-3 py-2 text-right font-mono text-body-sm text-fg-muted"
                     data-testid={`privacy-local-stores-size-${row.key}`}
@@ -311,10 +282,7 @@ export function PrivacyTrustSection() {
          * makes the Pro-gated capsule browse retention transparent;
          * the copy is explicit that a reload clears them.
          */}
-        <p
-          data-testid="privacy-capsules-retained"
-          className="text-body-sm text-fg-subtle"
-        >
+        <p data-testid="privacy-capsules-retained" className="text-body-sm text-fg-subtle">
           {t('settings.privacy.localStores.capsulesRetained', {
             count: capsulesRetained,
           })}
@@ -326,10 +294,7 @@ export function PrivacyTrustSection() {
         description={t('settings.privacy.network.hint')}
       >
         <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
-          <table
-            className="min-w-full text-body"
-            data-testid="privacy-network-activity-table"
-          >
+          <table className="min-w-full text-body" data-testid="privacy-network-activity-table">
             <thead className="bg-bg-panel-alt text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">
@@ -344,7 +309,7 @@ export function PrivacyTrustSection() {
               </tr>
             </thead>
             <tbody>
-              {networkRows.map((row) => (
+              {networkRows.map(row => (
                 <tr
                   key={row.feature}
                   className="border-t border-border-subtle"
@@ -354,9 +319,7 @@ export function PrivacyTrustSection() {
                     {FEATURE_SETTINGS_TAB[row.feature] ? (
                       <button
                         type="button"
-                        onClick={() =>
-                          navigateToSettingsTab(FEATURE_SETTINGS_TAB[row.feature]!)
-                        }
+                        onClick={() => navigateToSettingsTab(FEATURE_SETTINGS_TAB[row.feature]!)}
                         data-testid={`privacy-network-deeplink-${row.feature}`}
                         className="text-left text-accent transition-colors hover:underline"
                       >
@@ -392,7 +355,7 @@ export function PrivacyTrustSection() {
           data-testid="privacy-recent-sensitivity-filter"
           className="mb-3 flex w-fit overflow-hidden rounded-sm border border-border-subtle"
         >
-          {SENSITIVITY_FILTER_OPTIONS.map((option) => (
+          {SENSITIVITY_FILTER_OPTIONS.map(option => (
             <button
               key={option}
               type="button"
@@ -422,7 +385,7 @@ export function PrivacyTrustSection() {
             data-testid="privacy-recent-list"
             className="divide-y divide-border-subtle overflow-hidden rounded-lg border border-border-subtle bg-bg-inset"
           >
-            {recentEvents.map((event) => (
+            {recentEvents.map(event => (
               <RecentActivityRow key={event.id} event={event} />
             ))}
           </ul>
@@ -457,7 +420,7 @@ function RedactionPreviewBlock({
       </h3>
       <textarea
         value={input}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         placeholder={t('settings.privacy.redaction.placeholder')}
         rows={4}
         spellCheck={false}
@@ -474,9 +437,7 @@ function RedactionPreviewBlock({
             className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-caption leading-snug text-fg-base"
             data-testid="privacy-redaction-before"
           >
-            {input.length === 0
-              ? t('settings.privacy.redaction.empty')
-              : input}
+            {input.length === 0 ? t('settings.privacy.redaction.empty') : input}
           </pre>
         </div>
         <div className="rounded-lg border border-border-subtle bg-bg-inset p-3">
@@ -487,9 +448,7 @@ function RedactionPreviewBlock({
             className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-caption leading-snug text-fg-base"
             data-testid="privacy-redaction-after"
           >
-            {input.length === 0
-              ? t('settings.privacy.redaction.empty')
-              : result.redacted}
+            {input.length === 0 ? t('settings.privacy.redaction.empty') : result.redacted}
           </pre>
         </div>
       </div>
@@ -539,10 +498,7 @@ const NETWORK_STATUS_TONE: Record<NetworkActivityStatus, StatusBadgeTone> = {
 function NetworkStatusChip({ status }: { status: NetworkActivityStatus }) {
   const { t } = useTranslation();
   return (
-    <span
-      className="inline-flex"
-      data-testid={`privacy-network-status-${status}`}
-    >
+    <span className="inline-flex" data-testid={`privacy-network-status-${status}`}>
       <StatusBadge tone={NETWORK_STATUS_TONE[status]}>
         {t(`settings.privacy.network.status.${status}`)}
       </StatusBadge>
@@ -618,9 +574,7 @@ function ClearConfirmationModal({
   );
 }
 
-function deriveLicenseStatus(
-  token: string | null
-): 'pro' | 'free' | 'invalid' | 'grace' {
+function deriveLicenseStatus(token: string | null): 'pro' | 'free' | 'invalid' | 'grace' {
   // Lingua's renderer cannot verify the token directly here; the
   // license store owns that. For dashboard purposes, presence of a
   // token => 'pro' (best-effort) and absence => 'free'. The status

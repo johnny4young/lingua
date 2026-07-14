@@ -1,10 +1,9 @@
 /**
- * RL-044 Slice 2b-β-α Fold H — default `lingua-open-file` consumer.
+ * RL-044 / RL-135 — default `file.open` command consumer.
  *
  * When the user clicks a clickable stack frame in `<RichValueError>`
  * or an `<OutputLineBadge>` chip (RL-044 Sub-slice G), the component
- * dispatches `CustomEvent('lingua-open-file', { detail: { file,
- * line, column?, fnName? } })` on `window`.
+ * emits `file.open` with `{ file, line, column?, fnName? }`.
  *
  * Two routing paths:
  *   1. `file` is a non-empty string — cross-file click (stack frame).
@@ -25,32 +24,21 @@
  * as the bucket.
  */
 
-import { useEffect } from 'react';
+import { useRef } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
-
-interface LinguaOpenFileDetail {
-  file?: unknown;
-  line?: unknown;
-  column?: unknown;
-  fnName?: unknown;
-}
+import { useCommandListener } from './useCommandListener';
 
 const RECENT_DEBOUNCE_MS = 1500;
 const MAX_RECENT_KEYS = 32;
 
 export function useDefaultOpenFileConsumer(): void {
-  useEffect(() => {
-    const recentKeys = new Map<string, number>();
+  const recentKeysRef = useRef(new Map<string, number>());
 
-    const handler = (event: Event) => {
-      if (!(event instanceof CustomEvent)) return;
-      // RL-024 will register a higher-priority consumer that calls
-      // `event.preventDefault()` after opening the file. Skip the
-      // fallback for that case so users don't see both the file open
-      // AND the within-tab cursor jump.
-      if (event.defaultPrevented) return;
-      const detail = event.detail as LinguaOpenFileDetail | null | undefined;
+  useCommandListener(
+    'file.open',
+    (detail, context) => {
+      const recentKeys = recentKeysRef.current;
       const file = typeof detail?.file === 'string' ? detail.file : '';
       const line = typeof detail?.line === 'number' ? detail.line : 0;
       const column = typeof detail?.column === 'number' ? detail.column : undefined;
@@ -84,6 +72,7 @@ export function useDefaultOpenFileConsumer(): void {
           messageKey: 'openFile.toast.unavailable',
           values: { file, line },
         });
+        context.markHandled();
         return;
       }
 
@@ -96,11 +85,8 @@ export function useDefaultOpenFileConsumer(): void {
       recentKeys.set(key, now);
       trimRecent();
       requestReveal({ tabId: activeTabId, line, column });
-    };
-
-    window.addEventListener('lingua-open-file', handler);
-    return () => {
-      window.removeEventListener('lingua-open-file', handler);
-    };
-  }, []);
+      context.markHandled();
+    },
+    { priority: -1000, delivery: 'fallback' }
+  );
 }

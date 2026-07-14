@@ -14,8 +14,8 @@ import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
  * Editor tab stay focused on editor-shell concerns (theme, font,
  * timeouts, vim mode) and gives the language matrix its own
  * discoverable surface — Cmd+8 in Settings, plus the palette
- * `Show language support` command (fold B) which dispatches the
- * `lingua-settings-navigate-tab` event so this tab opens on demand.
+ * `Show language support` command (fold B) which emits the
+ * `settings.navigate` command so this tab opens on demand.
  *
  * FASE 2a — rebuilt on the canonical Settings rhythm: the scorecard is
  * its own `SettingsSection`, and the per-language preference rows are

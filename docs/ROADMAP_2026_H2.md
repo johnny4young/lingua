@@ -66,7 +66,12 @@ superficie renderer. La evidencia visual queda en
 `output/review/rl133-ipc-result/` y el smoke nativo en
 `output/stagewright/desktop-smoke/`. `RL-134` cerró la siguiente etapa con una
 API estable de notices por tono y la migración de 54 productores de alto
-tráfico sin cambiar el comportamiento del banner. Siguiente paso: `RL-135`.
+tráfico sin cambiar el comportamiento del banner. `RL-135` completó A3 con un
+bus tipado de comandos renderer, entrega síncrona sin replay y prioridades con
+fallback manejable; los bridges de coordinación de la aplicación ya no usan el
+target DOM global. La evidencia visual queda en
+`output/review/rl135-command-bus/` y el smoke nativo en
+`output/stagewright/desktop-smoke/`.
 G3 ya cumplió el gate de medición y P6 cerró el último hallazgo de performance
 medio de esta ronda.
 

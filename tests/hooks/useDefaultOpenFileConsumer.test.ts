@@ -3,6 +3,12 @@ import { renderHook } from '@testing-library/react';
 import { useDefaultOpenFileConsumer } from '../../src/renderer/hooks/useDefaultOpenFileConsumer';
 import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import {
+  _resetCommandBusForTesting,
+  emitCommand,
+  subscribeCommand,
+  type OpenFileCommand,
+} from '../../src/renderer/stores/commandBus';
 
 describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
   let pushSpy: ReturnType<typeof vi.spyOn>;
@@ -13,10 +19,11 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
 
   afterEach(() => {
     pushSpy.mockRestore();
+    _resetCommandBusForTesting();
   });
 
   function dispatch(detail: unknown): void {
-    window.dispatchEvent(new CustomEvent('lingua-open-file', { detail }));
+    emitCommand('file.open', detail as OpenFileCommand);
   }
 
   it('pushes a fallback status notice when no RL-024 consumer is registered', () => {
@@ -128,26 +135,18 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
     unmount();
   });
 
-  it('skips when a higher-priority consumer called preventDefault (RL-024 path)', () => {
-    // Register the higher-priority consumer BEFORE the hook mounts so
-    // it runs first in document order. By the time the hook's handler
-    // sees the event, `defaultPrevented` is already true.
-    const claimer = (event: Event) => event.preventDefault();
-    window.addEventListener('lingua-open-file', claimer);
+  it('skips when a higher-priority consumer claims the command (RL-024 path)', () => {
+    const unsubscribeClaimer = subscribeCommand(
+      'file.open',
+      (_payload, context) => context.markHandled(),
+      { priority: 100 }
+    );
     const { unmount } = renderHook(() => useDefaultOpenFileConsumer());
     try {
-      // cancelable: true is required so preventDefault actually marks
-      // the event as defaultPrevented (matches the RichValueError
-      // dispatch site).
-      window.dispatchEvent(
-        new CustomEvent('lingua-open-file', {
-          detail: { file: 'src/claimed.ts', line: 42 },
-          cancelable: true,
-        })
-      );
+      dispatch({ file: 'src/claimed.ts', line: 42 });
       expect(pushSpy).not.toHaveBeenCalled();
     } finally {
-      window.removeEventListener('lingua-open-file', claimer);
+      unsubscribeClaimer();
       unmount();
     }
   });

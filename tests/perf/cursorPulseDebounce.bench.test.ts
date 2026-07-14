@@ -3,9 +3,9 @@
  * guard.
  *
  * Acceptance criteria locked here:
- *   - a synthetic burst of 100 `lingua-source-line-hovered`
- *     dispatches stays under the 200 ms listener overhead budget;
- *   - 100 individual dispatches stay under the 5 ms per-call budget.
+ *   - a synthetic burst of 100 editor.sourceLineHovered commands
+ *     stays under the 200 ms listener overhead budget;
+ *   - 100 individual emissions stay under the 5 ms per-call budget.
  *
  * The CodeEditor producer is not exercised directly (Monaco isn't
  * available in vitest's jsdom). This bench drives the downstream
@@ -16,6 +16,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { emitCommand, subscribeCommand } from '@/stores/commandBus';
 
 const IS_CI = process.env.CI === 'true';
 const CI_MULTIPLIER = 1.5;
@@ -24,22 +25,17 @@ function budget(ms: number): number {
 }
 
 describe('cursor pulse listener — burst-tolerance bench', () => {
-  it('absorbs 100 burst dispatches in under 200 ms', () => {
+  it('absorbs 100 burst commands in under 200 ms', () => {
     let received = 0;
-    const handler = (event: Event) => {
-      if (event instanceof CustomEvent && typeof event.detail?.line === 'number') {
+    const unsubscribe = subscribeCommand('editor.sourceLineHovered', payload => {
+      if (typeof payload.line === 'number') {
         received += 1;
       }
-    };
-    window.addEventListener('lingua-source-line-hovered', handler);
+    });
     try {
       const start = performance.now();
       for (let i = 0; i < 100; i += 1) {
-        window.dispatchEvent(
-          new CustomEvent('lingua-source-line-hovered', {
-            detail: { line: i + 1, durationMs: 1500 },
-          })
-        );
+        emitCommand('editor.sourceLineHovered', { line: i + 1, durationMs: 1500 });
       }
       const elapsed = performance.now() - start;
       expect(received).toBe(100);
@@ -48,11 +44,11 @@ describe('cursor pulse listener — burst-tolerance bench', () => {
       // loop materially. Budget mirrors the 1k-row console bench.
       expect(elapsed).toBeLessThan(budget(200));
     } finally {
-      window.removeEventListener('lingua-source-line-hovered', handler);
+      unsubscribe();
     }
   });
 
-  it('keeps the per-dispatch cost under the 5 ms ceiling on the consumer side', () => {
+  it('keeps the per-command cost under the 5 ms ceiling on the consumer side', () => {
     // Reviewer pass — renamed from a misleading "spread across 5 s"
     // description that the body never honored (no `setTimeout` /
     // sleep). The test still measures useful coverage: it asserts
@@ -66,25 +62,20 @@ describe('cursor pulse listener — burst-tolerance bench', () => {
     // CodeEditor producer's 200 ms debounce runs against the real
     // event loop.
     let received = 0;
-    const handler = () => {
+    const unsubscribe = subscribeCommand('editor.sourceLineHovered', () => {
       received += 1;
-    };
-    window.addEventListener('lingua-source-line-hovered', handler);
+    });
     try {
       const start = performance.now();
       for (let i = 0; i < 100; i += 1) {
-        window.dispatchEvent(
-          new CustomEvent('lingua-source-line-hovered', {
-            detail: { line: i + 1, durationMs: 1500 },
-          })
-        );
+        emitCommand('editor.sourceLineHovered', { line: i + 1, durationMs: 1500 });
       }
       const elapsed = performance.now() - start;
       const perCallMs = elapsed / 100;
       expect(received).toBe(100);
       expect(perCallMs).toBeLessThan(budget(5));
     } finally {
-      window.removeEventListener('lingua-source-line-hovered', handler);
+      unsubscribe();
     }
   });
 });

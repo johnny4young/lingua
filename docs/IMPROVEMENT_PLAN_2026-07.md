@@ -185,8 +185,12 @@ RL-135 reemplaza los bridges `window.dispatchEvent`. No re-especificar aquí.
 `Result<T, E>` para profile/recovery, licencia y solicitudes LSP Rust/Go; cada
 superficie renderer lo consume en un único adaptador. `RL-134` también cerrado:
 una API estable por tono (`useStatusNotice` + helpers imperativos) preserva las
-opciones del notice y ya reemplaza 54 productores de alto tráfico. Siguiente
-paso: `RL-135`.
+opciones del notice y ya reemplaza 54 productores de alto tráfico. `RL-135`
+cerrado: un mapa cerrado de comandos reemplaza los bridges de coordinación
+basados en `window.dispatchEvent`, con entrega síncrona sin replay, prioridad,
+orden estable y fallback marcado como atendido. La cobertura incluye entrega
+repetida, limpieza en Strict Mode, ausencia estructural de nuevos bridges DOM y
+flujos web/nativos; evidencia visual en `output/review/rl135-command-bus/`.
 
 ## IT2-A4 · Contrato tipado para workers — EJECUTADO 2026-07-09 (alcance corregido)
 

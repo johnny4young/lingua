@@ -3,7 +3,7 @@
  *
  * Renders `kind: 'error'` payloads with a structured stack. Each
  * `ClickableStackFrame` with a `file` + `line` becomes a focusable
- * `<button>` that emits a `lingua-open-file` `CustomEvent` the rest
+ * `<button>` that emits a typed `file.open` command the rest
  * of the app can wire to (RL-024 multi-file lane). Frames without a
  * `file` render as a non-clickable `<span>`.
  *
@@ -24,6 +24,7 @@ import type { ClickableStackFrame } from '../../../shared/errorStack';
 import { isClickable } from '../../../shared/errorStack';
 import { trackEvent } from '../../utils/telemetry';
 import { isSafeToken } from '../../../shared/telemetry';
+import { emitCommand } from '../../stores/commandBus';
 
 interface RichValueErrorProps {
   payload: ScopeValueError;
@@ -39,23 +40,20 @@ interface FrameMenuState {
 }
 
 /**
- * Custom event the rest of the renderer listens for. Wired up
- * incrementally: today an empty document handler logs a notice
+ * Typed command the rest of the renderer listens for. Wired up
+ * incrementally: today the default consumer shows a notice
  * (RL-024 Slice 1 will wire the actual "open file at line" flow).
  */
 function dispatchOpenSource(frame: ClickableStackFrame): void {
-  if (typeof window === 'undefined') return;
   const detail = {
     file: frame.file,
     line: frame.line,
     column: frame.column,
     fnName: frame.fnName,
   };
-  // `cancelable: true` so the future RL-024 multi-file consumer can
-  // call `event.preventDefault()` to suppress the default fallback
-  // toast (see `useDefaultOpenFileConsumer`). Without it the toast
-  // would double-fire alongside the actual file-open behaviour.
-  window.dispatchEvent(new CustomEvent('lingua-open-file', { detail, cancelable: true }));
+  // A future RL-024 multi-file consumer can claim this command at a
+  // higher priority to suppress the default fallback notice.
+  emitCommand('file.open', detail);
 }
 
 export function RichValueError({ payload, language, fallbackText }: RichValueErrorProps) {
@@ -171,10 +169,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
     // returns false), but the dispatcher might still arrive here on
     // its catch-all branch.
     return (
-      <span
-        className="whitespace-pre-wrap text-fg-danger"
-        data-testid="console-rich-error-text"
-      >
+      <span className="whitespace-pre-wrap text-fg-danger" data-testid="console-rich-error-text">
         {fallbackText ?? payload.message}
       </span>
     );
@@ -230,7 +225,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
                 <button
                   type="button"
                   onClick={() => handleFrameClick(frame)}
-                  onContextMenu={(event) => handleContextMenu(event, index)}
+                  onContextMenu={event => handleContextMenu(event, index)}
                   data-testid="console-rich-error-frame-clickable"
                   className="rounded-sm px-1 text-left text-fg-info underline-offset-2 hover:bg-bg-elevated hover:underline focus:bg-bg-elevated focus:outline focus:outline-1 focus:outline-fg-info"
                   title={label}
@@ -244,7 +239,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
           return (
             <li key={index}>
               <span
-                onContextMenu={(event) => handleContextMenu(event, index)}
+                onContextMenu={event => handleContextMenu(event, index)}
                 className="block px-1 text-fg-subtle"
                 data-testid="console-rich-error-frame-text"
                 title={label}

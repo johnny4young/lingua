@@ -13,10 +13,7 @@ import { trackEvent } from '../../utils/telemetry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useUIStore } from '../../stores/uiStore';
 import { bucketCapsuleSize } from '../../../shared/runCapsule';
-import {
-  extractClipboardImageFile,
-  readPastedImageFile,
-} from './clipboardImagePaste';
+import { extractClipboardImageFile, readPastedImageFile } from './clipboardImagePaste';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
 import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
@@ -25,6 +22,7 @@ import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRow } from './ConsoleEntryRow';
 import { richKindBucket } from './richConsoleFormat';
 import { useListWindow } from '../../hooks/useListWindow';
+import { useCommandListener } from '../../hooks/useCommandListener';
 
 const TYPE_BADGE: Record<ConsoleEntryType, string> = {
   log: 'text-muted',
@@ -42,7 +40,7 @@ const FILTER_TYPES: ConsoleEntryType[] = ['log', 'info', 'warn', 'error'];
 
 function sourceLineForEntry(entry: ConsoleEntry): number | null {
   const payload = Array.isArray(entry.payload) ? entry.payload : null;
-  const payloadLine = payload?.find((p) => p.origin)?.origin?.line;
+  const payloadLine = payload?.find(p => p.origin)?.origin?.line;
   if (typeof payloadLine === 'number' && Number.isFinite(payloadLine) && payloadLine > 0) {
     return payloadLine;
   }
@@ -132,24 +130,18 @@ export function ConsolePanel() {
     togglePayloadKindFilter,
     toggleTimestamps,
   } = useConsoleStore();
-  const activeTab = useEditorStore((state) => getActiveTab(state));
+  const activeTab = useEditorStore(state => getActiveTab(state));
   // T19 — offer "Explain this error" when the active tab's run left an error
   // entry. The shared button self-gates on LOCAL_AI, so here we only assemble
   // the error text + the code context (the active tab's source). Use only the
   // MOST RECENT error entry: buildExplainErrorRequest clips from the start, so
   // joining every error in the history would let older ones truncate away the
   // one the user just hit.
-  const consoleErrorText =
-    entries.filter((entry) => entry.type === 'error').at(-1)?.content ?? '';
+  const consoleErrorText = entries.filter(entry => entry.type === 'error').at(-1)?.content ?? '';
   const canExplainConsoleError =
-    consoleErrorText.length > 0 &&
-    activeTab !== null &&
-    activeTab.content.trim().length > 0;
+    consoleErrorText.length > 0 && activeTab !== null && activeTab.content.trim().length > 0;
   const originSuppressed = activeTab
-    ? originSuppressedByMagicComment(
-        activeTab.language ?? 'plaintext',
-        activeTab.content
-      )
+    ? originSuppressedByMagicComment(activeTab.language ?? 'plaintext', activeTab.content)
     : false;
   // RL-044 next slice — paste an image into the console. The listener
   // lives on `document` (a read-only console row is not a focusable
@@ -171,7 +163,7 @@ export function ConsolePanel() {
       const file = extractClipboardImageFile(data);
       if (!file) return;
       event.preventDefault();
-      void readPastedImageFile(file).then((result) => {
+      void readPastedImageFile(file).then(result => {
         if (result.ok) {
           addEntry({
             type: 'log',
@@ -184,9 +176,7 @@ export function ConsolePanel() {
           // bucket reflects what actually landed (fold D).
           useUIStore.getState().pushStatusNotice({
             tone: 'success',
-            messageKey: result.resized
-              ? 'console.imagePaste.resized'
-              : 'console.imagePaste.pasted',
+            messageKey: result.resized ? 'console.imagePaste.resized' : 'console.imagePaste.pasted',
           });
           void trackEvent('runtime.image_clipboard_pasted', {
             status: result.resized ? 'resized' : 'pasted',
@@ -230,7 +220,7 @@ export function ConsolePanel() {
   const visibleEntries = useMemo(
     () =>
       collapsedEntries.filter(
-        (row) =>
+        row =>
           activeFilters.has(row.entry.type) &&
           !entryFilteredByPayloadKind(row.entry, hiddenPayloadKinds)
       ),
@@ -250,7 +240,7 @@ export function ConsolePanel() {
     visibleSourceLinesRef.current = visibleSourceLines;
   }, [visibleSourceLines]);
   // RL-044 Sub-slice G Fold G — symmetric inverse direction. Listens
-  // for `lingua-source-line-hovered` events broadcast by CodeEditor
+  // for editor.sourceLineHovered commands emitted by CodeEditor
   // when the cursor settles on a line; pulses every console row
   // whose origin.line / entry.line matches. The state holds the
   // current pulse target line plus a generation so stale pulses from
@@ -262,62 +252,54 @@ export function ConsolePanel() {
   const [pulse, setPulse] = useState<{ line: number; generation: number } | null>(null);
   const pulseGenerationRef = useRef(0);
   const pulseClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    const clearPulseTimer = () => {
-      if (pulseClearTimerRef.current) {
-        clearTimeout(pulseClearTimerRef.current);
-        pulseClearTimerRef.current = null;
-      }
-    };
-    const handler = (event: Event) => {
-      if (!(event instanceof CustomEvent)) return;
-      const detail = event.detail as { line?: unknown; durationMs?: unknown } | null;
-      const line = typeof detail?.line === 'number' ? detail.line : 0;
-      if (!Number.isFinite(line) || line <= 0) return;
-      if (!visibleSourceLinesRef.current.has(line)) {
-        setPulse(null);
-        clearPulseTimer();
-        return;
-      }
-      setPulse({ line, generation: pulseGenerationRef.current });
-      // RL-044 Sub-slice G.1 Fold D — adoption signal for the
-      // inverse direction. Once per pulse-settle (the upstream
-      // CodeEditor debounce already collapses bursts), payload is
-      // `{ language }` only. Read the active tab's language directly
-      // from the store at fire time so we attribute the event to the
-      // tab the user is actually inside when the cursor settles —
-      // not the tab that was active when the listener was registered.
-      const pulseTabId = useEditorStore.getState().activeTabId;
-      const pulseTab = pulseTabId
-        ? useEditorStore
-            .getState()
-            .tabs.find((tab) => tab.id === pulseTabId)
-        : undefined;
-      void trackEvent('runtime.cursor_pulse_emitted', {
-        language: pulseTab?.language ?? 'unknown',
-      });
-      clearPulseTimer();
-      const duration =
-        typeof detail?.durationMs === 'number' && detail.durationMs > 0
-          ? Math.min(detail.durationMs, 10_000)
-          : 1500;
-      pulseClearTimerRef.current = setTimeout(() => {
-        setPulse(null);
-        pulseClearTimerRef.current = null;
-      }, duration + 50);
-    };
-    window.addEventListener('lingua-source-line-hovered', handler);
-    return () => {
-      window.removeEventListener('lingua-source-line-hovered', handler);
-      clearPulseTimer();
-    };
+  const clearPulseTimer = useCallback(() => {
+    if (pulseClearTimerRef.current) {
+      clearTimeout(pulseClearTimerRef.current);
+      pulseClearTimerRef.current = null;
+    }
   }, []);
+  useCommandListener('editor.sourceLineHovered', detail => {
+    const { line } = detail;
+    if (!Number.isFinite(line) || line <= 0) return;
+    if (!visibleSourceLinesRef.current.has(line)) {
+      setPulse(null);
+      clearPulseTimer();
+      return;
+    }
+    setPulse({ line, generation: pulseGenerationRef.current });
+    // RL-044 Sub-slice G.1 Fold D — adoption signal for the
+    // inverse direction. Once per pulse-settle (the upstream
+    // CodeEditor debounce already collapses bursts), payload is
+    // `{ language }` only. Read the active tab's language directly
+    // from the store at fire time so we attribute the event to the
+    // tab the user is actually inside when the cursor settles —
+    // not the tab that was active when the listener was registered.
+    const pulseTabId = useEditorStore.getState().activeTabId;
+    const pulseTab = pulseTabId
+      ? useEditorStore.getState().tabs.find(tab => tab.id === pulseTabId)
+      : undefined;
+    void trackEvent('runtime.cursor_pulse_emitted', {
+      language: pulseTab?.language ?? 'unknown',
+    });
+    clearPulseTimer();
+    const duration =
+      typeof detail?.durationMs === 'number' && detail.durationMs > 0
+        ? Math.min(detail.durationMs, 10_000)
+        : 1500;
+    pulseClearTimerRef.current = setTimeout(() => {
+      setPulse(null);
+      pulseClearTimerRef.current = null;
+    }, duration + 50);
+  });
+  useEffect(
+    () => () => {
+      clearPulseTimer();
+    },
+    [clearPulseTimer]
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
-  const rowKeys = useMemo(
-    () => visibleEntries.map((row) => row.entry.id),
-    [visibleEntries]
-  );
+  const rowKeys = useMemo(() => visibleEntries.map(row => row.entry.id), [visibleEntries]);
   // RL-123 Slice 2 — window the (already collapsed + filtered) rows so only
   // the viewport band mounts. Off-window rows unmount, releasing their
   // RichValueChart Vega canvases for free.
@@ -427,9 +409,7 @@ export function ConsolePanel() {
 
   const renderedPulseLine =
     // eslint-disable-next-line react-hooks/refs -- This ref is an epoch guard, read on setting-driven renders so old pulses stay hidden after toggle-off.
-    pulse?.generation === pulseGenerationRef.current
-      ? pulse.line
-      : null;
+    pulse?.generation === pulseGenerationRef.current ? pulse.line : null;
   const totalCount = entries.length;
   return (
     <div id="guided-tour-console" className="flex h-full flex-col bg-bg-base/65">
@@ -525,10 +505,8 @@ export function ConsolePanel() {
               code={activeTab.content}
               language={activeTab.language}
               filename={activeTab.name}
-              {...(activeTab.runtimeMode
-                ? { runtimeMode: activeTab.runtimeMode }
-                : {})}
-              onApplyFix={(newCode) => {
+              {...(activeTab.runtimeMode ? { runtimeMode: activeTab.runtimeMode } : {})}
+              onApplyFix={newCode => {
                 // Apply & re-run: replace the tab buffer with the AI
                 // suggestion (marks dirty, resets lifecycle dots) and run it
                 // through the same manual-run path as the Run button.

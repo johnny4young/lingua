@@ -5,10 +5,7 @@ import { AppOverlays } from './components/AppOverlays';
 import { GuidedTourProvider } from './components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
 import { useProjectBundle } from './hooks/useProjectBundle';
-import {
-  claimCapsuleListSurface,
-  type CapsuleBrowseSurface,
-} from './components/CapsuleList/capsuleListSurface';
+import { claimCapsuleListSurface } from './components/CapsuleList/capsuleListSurface';
 import { useRecipeStore } from './stores/recipeStore';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
@@ -45,6 +42,7 @@ import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useBootCompletionMarkers } from './hooks/useBootCompletionMarkers';
 import { useLicenseSettingsNavigation } from './hooks/useLicenseSettingsNavigation';
+import { useCommandListener } from './hooks/useCommandListener';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { getActiveTab, useEditorStore } from './stores/editorStore';
 import { openUtilitiesWorkspaceTab } from './runtime/openWorkspaceTab';
@@ -151,7 +149,7 @@ function AppChrome({
   // user opens Settings → Updates.
   useDownloadedUpdateNotice();
   // RL-044 Slice 2b-β-α Fold H — default consumer for the
-  // `lingua-open-file` CustomEvent dispatched by <RichValueError>
+  // `file.open` command emitted by <RichValueError>
   // when users click a stack frame. Until RL-024 multi-file workspace
   // ships the real open-in-editor handler, this hook shows a
   // status-notice fallback so clicks get visible feedback.
@@ -344,41 +342,22 @@ function AppChrome({
     exportProjectBundle,
   });
 
-  // RL-101 Slice 1 — the snippets-saved toast CTA dispatches a
-  // window event instead of reaching into AppChrome's overlay
-  // state. Listen here so the CTA opens the SnippetsModal exactly
-  // like clicking the toolbar button or the palette command.
-  useEffect(() => {
-    const handler = () => openOverlay('snippets');
-    window.addEventListener('lingua-open-snippets-overlay', handler);
-    return () => window.removeEventListener('lingua-open-snippets-overlay', handler);
-  }, [openOverlay]);
+  // RL-101 / RL-135 — keep overlay ownership in App while shared
+  // producers request the snippets surface through the typed bus.
+  useCommandListener('overlay.openSnippets', () => openOverlay('snippets'));
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));
 
-  // RL-094 Slice 2 — Settings → Account → Run Capsules → Import
-  // button dispatches `lingua-open-capsule-import` so the section
-  // doesn't have to know about App's overlay state slot. Mirror of
-  // the snippets pattern above.
-  useEffect(() => {
-    const handler = () => openOverlay('capsule-import');
-    window.addEventListener('lingua-open-capsule-import', handler);
-    return () => window.removeEventListener('lingua-open-capsule-import', handler);
-  }, [openOverlay]);
+  // RL-094 / RL-135 — Settings and paste importers request the
+  // capsule-import overlay without reaching into App state.
+  useCommandListener('capsule.openImport', () => openOverlay('capsule-import'));
 
-  // RL-094 Slice 3 — the Settings → Run Capsules "Browse all" button
-  // and the floating action pill both dispatch `lingua-open-capsule-list`
-  // with the originating surface in `detail.surface`. Claim the surface
-  // for the overlay's `capsule.browse_opened` telemetry, then open.
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const surface = (event as CustomEvent<{ surface?: CapsuleBrowseSurface }>).detail?.surface;
-      claimCapsuleListSurface(surface ?? 'settings');
-      openOverlay('capsule-list');
-    };
-    window.addEventListener('lingua-open-capsule-list', handler);
-    return () => window.removeEventListener('lingua-open-capsule-list', handler);
-  }, [openOverlay]);
+  // RL-094 / RL-135 — claim the typed originating surface for
+  // capsule.browse_opened telemetry, then open the owned overlay.
+  useCommandListener('capsule.openList', ({ surface }) => {
+    claimCapsuleListSurface(surface);
+    openOverlay('capsule-list');
+  });
 
   const handleStartGuidedTour = () => {
     closeOverlay();

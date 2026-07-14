@@ -3,17 +3,21 @@
  *
  * Covers:
  *   - Renders as a button with the `L<n>` label and aria-label.
- *   - Click dispatches `lingua-open-file` with empty `file` + line
+ *   - Click emits `file.open` with empty `file` + line
  *     (within-tab path).
  *   - Click fires throttled `runtime.output_origin_clicked` telemetry.
  *   - Hover (after the 200ms debounce) dispatches
- *     `lingua-highlight-line` and respects the hover sub-gate.
+ *     `editor.highlightLine` and respects the hover sub-gate.
  *   - Hides itself when the master Settings flag is OFF.
  */
 
 import { render, fireEvent, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OutputLineBadge } from '../../../src/renderer/components/Console/OutputLineBadge';
+import {
+  _resetCommandBusForTesting,
+  subscribeCommand,
+} from '../../../src/renderer/stores/commandBus';
 
 // Hoisted mock: replace `trackOutputOriginClicked` so the badge's
 // click handler routes through our spy instead of the real (consent-
@@ -25,8 +29,7 @@ const trackOutputOriginClickedMock = vi.fn(() => ({ emitted: true }));
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
   emitTelemetryEvent: vi.fn(),
-  trackOutputOriginClicked: (...args: unknown[]) =>
-    trackOutputOriginClickedMock(...args),
+  trackOutputOriginClicked: (...args: unknown[]) => trackOutputOriginClickedMock(...args),
   resetOutputOriginThrottleForTests: () => trackOutputOriginClickedMock.mockClear(),
   OUTPUT_ORIGIN_THROTTLE_MS: 1000,
   isTelemetryEnabled: () => false,
@@ -52,39 +55,39 @@ describe('RL-044 Sub-slice G — <OutputLineBadge>', () => {
   });
 
   afterEach(() => {
+    _resetCommandBusForTesting();
     vi.useRealTimers();
   });
 
   it('renders an `L<n>` button with the localized aria-label', () => {
-    const { getByTestId } = render(
-      <OutputLineBadge origin={{ line: 7 }} language="javascript" />
-    );
+    const { getByTestId } = render(<OutputLineBadge origin={{ line: 7 }} language="javascript" />);
     const button = getByTestId('output-line-badge');
     expect(button.textContent).toBe('L7');
     expect(button.getAttribute('aria-label')).toBe('console.outputBadge.ariaLabel:7');
   });
 
-  it('dispatches `lingua-open-file` and calls trackOutputOriginClicked on click', () => {
+  it('emits `file.open` and calls trackOutputOriginClicked on click', () => {
     const eventSpy = vi.fn();
-    window.addEventListener('lingua-open-file', eventSpy);
+    const unsubscribe = subscribeCommand('file.open', eventSpy);
     try {
       const { getByTestId } = render(
         <OutputLineBadge origin={{ line: 5 }} language="javascript" />
       );
       fireEvent.click(getByTestId('output-line-badge'));
       expect(eventSpy).toHaveBeenCalled();
-      const dispatched = eventSpy.mock.calls[0][0] as CustomEvent;
-      expect(dispatched.detail).toEqual({ file: '', line: 5, column: undefined });
+      expect(eventSpy.mock.calls[0]?.[0]).toEqual({
+        file: '',
+        line: 5,
+        column: undefined,
+      });
       expect(trackOutputOriginClickedMock).toHaveBeenCalledWith('javascript', 'badge');
     } finally {
-      window.removeEventListener('lingua-open-file', eventSpy);
+      unsubscribe();
     }
   });
 
   it('forwards repeated clicks to the throttled helper (Fold B handles burst dedup)', () => {
-    const { getByTestId } = render(
-      <OutputLineBadge origin={{ line: 5 }} language="javascript" />
-    );
+    const { getByTestId } = render(<OutputLineBadge origin={{ line: 5 }} language="javascript" />);
     fireEvent.click(getByTestId('output-line-badge'));
     fireEvent.click(getByTestId('output-line-badge'));
     fireEvent.click(getByTestId('output-line-badge'));
@@ -94,23 +97,21 @@ describe('RL-044 Sub-slice G — <OutputLineBadge>', () => {
     expect(trackOutputOriginClickedMock).toHaveBeenCalledTimes(3);
   });
 
-  it('debounces hover and dispatches `lingua-highlight-line` after 200ms', () => {
+  it('debounces hover and emits `editor.highlightLine` after 200ms', () => {
     const highlightSpy = vi.fn();
-    window.addEventListener('lingua-highlight-line', highlightSpy);
+    const unsubscribe = subscribeCommand('editor.highlightLine', highlightSpy);
     try {
-      const { getByTestId } = render(
-        <OutputLineBadge origin={{ line: 9 }} language="python" />
-      );
+      const { getByTestId } = render(<OutputLineBadge origin={{ line: 9 }} language="python" />);
       fireEvent.mouseEnter(getByTestId('output-line-badge'));
       expect(highlightSpy).not.toHaveBeenCalled();
       act(() => {
         vi.advanceTimersByTime(250);
       });
       expect(highlightSpy).toHaveBeenCalled();
-      const detail = (highlightSpy.mock.calls[0][0] as CustomEvent).detail;
+      const detail = highlightSpy.mock.calls[0]?.[0];
       expect(detail).toEqual({ line: 9, column: undefined, durationMs: 1500 });
     } finally {
-      window.removeEventListener('lingua-highlight-line', highlightSpy);
+      unsubscribe();
     }
   });
 

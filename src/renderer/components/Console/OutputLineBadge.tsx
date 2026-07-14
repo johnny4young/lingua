@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RichOutputOrigin } from '../../../shared/richOutput';
 import { trackOutputOriginClicked } from '../../utils/telemetry';
+import { emitCommand } from '../../stores/commandBus';
 
 /**
  * RL-044 Sub-slice G — clickable `L<n>` chip rendered on every
  * console row whose `RichOutputPayload` carries an `origin`. Click
- * dispatches the shared `lingua-open-file` bus (reuses the Sub-slice
- * F handler in `useDefaultOpenFileConsumer`); hover dispatches the
- * new `lingua-highlight-line` bus consumed by `useEditorHighlightSync`
+ * emits the shared `file.open` command (reuses the Sub-slice
+ * F handler in `useDefaultOpenFileConsumer`); hover emits the
+ * new `editor.highlightLine` command consumed by `useEditorHighlightSync`
  * which applies a Monaco decoration class.
  *
  * Slice 2 — the master/hover Settings toggles are gone; output→source
@@ -24,7 +25,7 @@ import { trackOutputOriginClicked } from '../../utils/telemetry';
  *
  * FASE 2b (MOV.05) — deliberately NOT migrated to `<StatusBadge>`.
  * StatusBadge is a non-interactive uppercase status chip; this is an
- * interactive mono navigation affordance (click + hover bus dispatch +
+ * interactive mono navigation affordance (click + hover bus commands +
  * telemetry). It already speaks the Signal-Slate mono-meta language
  * (`font-mono`, `text-fg-subtle`, `rounded`, `focus-visible:outline-accent`),
  * so no token change is needed.
@@ -41,7 +42,7 @@ export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Clear any pending hover broadcast when the chip unmounts so a
+    // Clear any pending hover command when the chip unmounts so a
     // late timer does not flash a line on the next mount.
     return () => {
       if (hoverTimer.current) {
@@ -57,24 +58,18 @@ export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
       line: origin.line,
       column: origin.column,
     };
-    window.dispatchEvent(
-      new CustomEvent('lingua-open-file', { detail, cancelable: true })
-    );
+    emitCommand('file.open', detail);
     trackOutputOriginClicked(language, 'badge');
   }, [origin.line, origin.column, language]);
 
   const handleMouseEnter = useCallback(() => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     hoverTimer.current = setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent('lingua-highlight-line', {
-          detail: {
-            line: origin.line,
-            column: origin.column,
-            durationMs: 1500,
-          },
-        })
-      );
+      emitCommand('editor.highlightLine', {
+        line: origin.line,
+        column: origin.column,
+        durationMs: 1500,
+      });
     }, HOVER_DEBOUNCE_MS);
   }, [origin.line, origin.column]);
 

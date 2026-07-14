@@ -39,6 +39,7 @@ import {
 } from '../../data/keyboardShortcuts';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
+import { useCommandListener } from '../../hooks/useCommandListener';
 import { SettingsRail } from './SettingsRail';
 import { RAIL_ITEMS, matchesFilter, type TabId } from './settingsRailModel';
 
@@ -380,22 +381,13 @@ export function SettingsModal({
   const [filter, setFilter] = useState('');
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
-  // RL-095 Slice 1 fold B — siblings (command palette) can request a
-  // tab jump via `window.dispatchEvent(new CustomEvent('lingua-settings-navigate-tab',
-  // { detail: 'languages' }))`. We listen here so the palette callback
-  // can open Settings AND land on the right tab without lifting
-  // `activeTab` into a global store. The event-shaped contract keeps
-  // SettingsModal the sole owner of its tab state.
-  useEffect(() => {
-    const onNavigate = (event: Event) => {
-      const detail = (event as CustomEvent<TabId>).detail;
-      if (typeof detail === 'string' && RAIL_ITEMS.some(it => it.id === detail)) {
-        setActiveTab(detail);
-      }
-    };
-    window.addEventListener('lingua-settings-navigate-tab', onNavigate);
-    return () => window.removeEventListener('lingua-settings-navigate-tab', onNavigate);
-  }, []);
+  // RL-095 / RL-135 — siblings request a typed tab jump after opening
+  // Settings, while SettingsModal remains the sole owner of activeTab.
+  useCommandListener('settings.navigate', ({ tab }) => {
+    if (RAIL_ITEMS.some(it => it.id === tab)) {
+      setActiveTab(tab);
+    }
+  });
 
   // Map ⌘1..⌘0 → tab. Cmd on macOS, Ctrl on others.
   useEffect(() => {

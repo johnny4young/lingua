@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { useActiveTab } from '../../hooks/useActiveTab';
@@ -18,6 +18,7 @@ import { RunStatusPill } from './RunStatusPill';
 import { CompareResultsPanel } from './CompareResultsPanel';
 import { resolveCompareTargetSnapshot } from '../../utils/snapshotDiff';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
+import { useCommandListener } from '../../hooks/useCommandListener';
 
 function FullOutputView({
   output,
@@ -46,7 +47,7 @@ export function ResultPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   // Slice 2 — hide-undefined is baseline; the runtime button + Settings
   // toggle were removed. `undefined` rows never reach the inline panel.
-  const settingsFontSize = useSettingsStore((state) => state.fontSize);
+  const settingsFontSize = useSettingsStore(state => state.fontSize);
 
   const language = activeTab?.language ?? 'javascript';
   const dynamic = isInlineResultLanguage(language);
@@ -55,9 +56,9 @@ export function ResultPanel() {
   // tab opted in AND the result store carries a comparator
   // snapshot for the same language. Falsy by default so nothing
   // changes for users who don't touch the toggle.
-  const snapshotRing = useResultStore((state) => state.snapshotRing);
+  const snapshotRing = useResultStore(state => state.snapshotRing);
   const selectedCompareTargetCapturedAt = useResultStore(
-    (state) => state.selectedCompareTargetCapturedAt
+    state => state.selectedCompareTargetCapturedAt
   );
   const compareTargetSnapshot = useMemo(
     () =>
@@ -67,13 +68,7 @@ export function ResultPanel() {
         selectedCapturedAt: selectedCompareTargetCapturedAt,
         current: { lineResults, fullOutput },
       }),
-    [
-      snapshotRing,
-      language,
-      selectedCompareTargetCapturedAt,
-      lineResults,
-      fullOutput,
-    ]
+    [snapshotRing, language, selectedCompareTargetCapturedAt, lineResults, fullOutput]
   );
   const compareEnabled =
     executionMode === 'run' &&
@@ -95,26 +90,15 @@ export function ResultPanel() {
   // surfaces deltas via <CompareResultsPanel>. The diff computation
   // was removed alongside the body to keep the rendering path
   // honest.
-  const visibleLineResults = lineResults.filter(
-    (result) => !isHiddenUndefinedLineResult(result),
-  );
+  const visibleLineResults = lineResults.filter(result => !isHiddenUndefinedLineResult(result));
   void visibleLineResults; // referenced for completeness; the body
-                           // path that consumed it was removed.
+  // path that consumed it was removed.
 
-  useEffect(() => {
+  useCommandListener('editor.scroll', ({ scrollTop }) => {
     const element = scrollRef.current;
     if (!element) return;
-
-    const handleScrollSync = (event: Event) => {
-      const detail = (event as CustomEvent).detail;
-      if (detail?.scrollTop !== undefined) {
-        element.scrollTop = detail.scrollTop;
-      }
-    };
-
-    window.addEventListener('lingua:editor-scroll', handleScrollSync);
-    return () => window.removeEventListener('lingua:editor-scroll', handleScrollSync);
-  }, []);
+    element.scrollTop = scrollTop;
+  });
 
   const hasContent = dynamic
     ? visibleLineResults.length > 0
@@ -153,7 +137,7 @@ export function ResultPanel() {
   // updates copy; validate / view modes stay on their language-
   // specific keys.
   const workflowMode = activeTab
-    ? activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language)
+    ? (activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language))
     : 'scratchpad';
   const emptyKey = dynamic
     ? workflowMode === 'scratchpad'
@@ -216,10 +200,7 @@ export function ResultPanel() {
           // critical because the leak surfaces invisibly (dynamic
           // mode hides the selector) until the user reaches another
           // compiled tab.
-          <CompareResultsPanel
-            key={activeTab?.id ?? 'none'}
-            language={language}
-          />
+          <CompareResultsPanel key={activeTab?.id ?? 'none'} language={language} />
         ) : !hasContent && !isAutoRunning ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <span className="text-body-sm italic text-muted">{t(emptyKey)}</span>

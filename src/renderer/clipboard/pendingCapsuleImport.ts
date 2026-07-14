@@ -3,8 +3,8 @@
  *
  * The smart-paste router (`applyPasteIntent`) cannot open the capsule-import
  * overlay directly (the overlay slot is App-local state). Instead it stashes
- * the pasted JSON here and dispatches `lingua-open-capsule-import`, which the
- * existing App listener (RL-094 Slice 2) maps to `openOverlay('capsule-import')`.
+ * the pasted JSON here and emits `capsule.openImport`, which the existing App
+ * listener maps to `openOverlay('capsule-import')`.
  * `CapsuleImportOverlay` then takes the seed on mount and decodes it, so the
  * confirm-first preview opens pre-filled instead of empty.
  *

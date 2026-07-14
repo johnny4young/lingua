@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { CommandPalette } from '../../src/renderer/components/CommandPalette/CommandPalette';
-import { SHARE_LINK_TRIGGER_EVENT } from '../../src/renderer/components/Share/shareLinkEvents';
+import { subscribeCommand } from '../../src/renderer/stores/commandBus';
 import {
   armPendingSessionRestoreSnapshot,
   clearPendingSessionRestoreSnapshot,
@@ -10,87 +10,82 @@ import {
 } from '../../src/renderer/stores/sessionStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
-const {
-  dependencyDetectionState,
-  editorState,
-  resultState,
-  settingsState,
-  trackEventMock,
-} = vi.hoisted(() => ({
-  dependencyDetectionState: {
-    byTab: new Map<
-      string,
-      {
-        language: 'javascript' | 'python';
-        dependencies: Array<{ name: string; kind: 'import'; status: 'detected' }>;
-        skippedReason?: 'buffer-too-large';
-      }
-    >(),
-  },
-  editorState: {
-    addTab: vi.fn(),
-    openFileFromDisk: vi.fn().mockResolvedValue(undefined),
-    saveActiveTabAs: vi.fn().mockResolvedValue(undefined),
-    duplicateActiveTab: vi.fn(),
-    tabs: [] as Array<{
-      id: string;
-      language: string;
-      content: string;
-      runtimeMode?: 'worker' | 'node' | 'browser-preview';
-      compareWithSnapshotEnabled?: boolean;
-      variableInspectorEnabled?: boolean;
-    }>,
-    activeTabId: null as string | null,
-    setTabRuntimeMode: vi.fn(),
-    setTabAutoLogEnabled: vi.fn(),
-    updateContent: vi.fn(),
-    setTabNextRunTimeoutOverride: vi.fn(),
-    setTabCompareEnabled: vi.fn(),
-    // RL-020 Slice 9 — variable inspector palette wiring depends on
-    // the setter being present even when not exercised.
-    setTabVariableInspectorEnabled: vi.fn(),
-  },
-  resultState: {
-    lastSuccessfulSnapshot: null as null | {
-      lineResults: unknown[];
-      fullOutput: string;
-      stdinConsumed: null;
-      executionTime: number | null;
-      language: string;
-      capturedAt: number;
+const { dependencyDetectionState, editorState, resultState, settingsState, trackEventMock } =
+  vi.hoisted(() => ({
+    dependencyDetectionState: {
+      byTab: new Map<
+        string,
+        {
+          language: 'javascript' | 'python';
+          dependencies: Array<{ name: string; kind: 'import'; status: 'detected' }>;
+          skippedReason?: 'buffer-too-large';
+        }
+      >(),
     },
-    snapshotRing: [] as Array<{
-      lineResults: unknown[];
-      fullOutput: string;
-      stdinConsumed: null;
-      executionTime: number | null;
-      language: string;
-      capturedAt: number;
-    }>,
-    // RL-020 Slice 9 — variable inspector snapshot for palette gate.
-    scopeSnapshot: null as null | {
-      language: string;
-      capturedAt: number;
-      variables: Array<{ name: string; value: unknown }>;
+    editorState: {
+      addTab: vi.fn(),
+      openFileFromDisk: vi.fn().mockResolvedValue(undefined),
+      saveActiveTabAs: vi.fn().mockResolvedValue(undefined),
+      duplicateActiveTab: vi.fn(),
+      tabs: [] as Array<{
+        id: string;
+        language: string;
+        content: string;
+        runtimeMode?: 'worker' | 'node' | 'browser-preview';
+        compareWithSnapshotEnabled?: boolean;
+        variableInspectorEnabled?: boolean;
+      }>,
+      activeTabId: null as string | null,
+      setTabRuntimeMode: vi.fn(),
+      setTabAutoLogEnabled: vi.fn(),
+      updateContent: vi.fn(),
+      setTabNextRunTimeoutOverride: vi.fn(),
+      setTabCompareEnabled: vi.fn(),
+      // RL-020 Slice 9 — variable inspector palette wiring depends on
+      // the setter being present even when not exercised.
+      setTabVariableInspectorEnabled: vi.fn(),
     },
-  },
-  settingsState: {
-    setLayoutPreset: vi.fn(),
-    vimMode: false,
-    showStdinPanel: true,
-    variableInspectorSurface: 'floating' as 'floating' | 'bottom',
-    scratchpadAutoLogByLanguage: { javascript: false, typescript: false },
-    runtimeTimeoutPresetByLanguage: {
-      javascript: 'normal',
-      typescript: 'normal',
-      python: 'long',
-      go: 'normal',
+    resultState: {
+      lastSuccessfulSnapshot: null as null | {
+        lineResults: unknown[];
+        fullOutput: string;
+        stdinConsumed: null;
+        executionTime: number | null;
+        language: string;
+        capturedAt: number;
+      },
+      snapshotRing: [] as Array<{
+        lineResults: unknown[];
+        fullOutput: string;
+        stdinConsumed: null;
+        executionTime: number | null;
+        language: string;
+        capturedAt: number;
+      }>,
+      // RL-020 Slice 9 — variable inspector snapshot for palette gate.
+      scopeSnapshot: null as null | {
+        language: string;
+        capturedAt: number;
+        variables: Array<{ name: string; value: unknown }>;
+      },
     },
-    dependencyDetectionEnabled: true,
-    setRuntimeTimeoutPreset: vi.fn(),
-  },
-  trackEventMock: vi.fn(),
-}));
+    settingsState: {
+      setLayoutPreset: vi.fn(),
+      vimMode: false,
+      showStdinPanel: true,
+      variableInspectorSurface: 'floating' as 'floating' | 'bottom',
+      scratchpadAutoLogByLanguage: { javascript: false, typescript: false },
+      runtimeTimeoutPresetByLanguage: {
+        javascript: 'normal',
+        typescript: 'normal',
+        python: 'long',
+        go: 'normal',
+      },
+      dependencyDetectionEnabled: true,
+      setRuntimeTimeoutPreset: vi.fn(),
+    },
+    trackEventMock: vi.fn(),
+  }));
 
 vi.mock('../../src/renderer/data/templates', () => ({
   BUILT_IN_TEMPLATES: [
@@ -118,9 +113,9 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
   return {
     useEditorStore,
     getActiveTab: (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
-      s.tabs.find((t) => t.id === s.activeTabId) ?? null,
+      s.tabs.find(t => t.id === s.activeTabId) ?? null,
     getActiveTabIndex: (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
-      s.activeTabId == null ? -1 : s.tabs.findIndex((t) => t.id === s.activeTabId),
+      s.activeTabId == null ? -1 : s.tabs.findIndex(t => t.id === s.activeTabId),
     createDefaultTab: (language: string) => ({
       id: `tab-${language}`,
       name: `untitled-${language}`,
@@ -142,9 +137,7 @@ vi.mock('../../src/renderer/stores/dependencyDetectionStore', () => {
   const useDependencyDetectionStore = (
     selector?: (state: typeof dependencyDetectionState) => unknown
   ) =>
-    typeof selector === 'function'
-      ? selector(dependencyDetectionState)
-      : dependencyDetectionState;
+    typeof selector === 'function' ? selector(dependencyDetectionState) : dependencyDetectionState;
   useDependencyDetectionStore.getState = () => dependencyDetectionState;
   return { useDependencyDetectionStore };
 });
@@ -160,9 +153,8 @@ vi.mock('../../src/renderer/stores/snippetsStore', () => ({
 }));
 
 vi.mock('../../src/renderer/stores/settingsStore', () => {
-  const useSettingsStore = (
-    selector?: (state: typeof settingsState) => unknown
-  ) => (typeof selector === 'function' ? selector(settingsState) : settingsState);
+  const useSettingsStore = (selector?: (state: typeof settingsState) => unknown) =>
+    typeof selector === 'function' ? selector(settingsState) : settingsState;
   useSettingsStore.getState = () => settingsState;
   return { useSettingsStore };
 });
@@ -177,16 +169,8 @@ vi.mock('../../src/renderer/stores/updateStore', () => ({
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   Kbd: ({ children }: { children: React.ReactNode }) => <kbd>{children}</kbd>,
-  OverlayBackdrop: ({
-    children,
-    onClose,
-  }: {
-    children: React.ReactNode;
-    onClose?: () => void;
-  }) => (
-    <div onClick={onClose}>
-      {children}
-    </div>
+  OverlayBackdrop: ({ children, onClose }: { children: React.ReactNode; onClose?: () => void }) => (
+    <div onClick={onClose}>{children}</div>
   ),
   OverlayCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -243,9 +227,7 @@ describe('CommandPalette', () => {
       />
     );
 
-    expect(
-      screen.getByPlaceholderText('Buscar plantillas, fragmentos, comandos...')
-    ).toBeTruthy();
+    expect(screen.getByPlaceholderText('Buscar plantillas, fragmentos, comandos...')).toBeTruthy();
     expect(screen.getByText('navegar')).toBeTruthy();
     expect(screen.getByText('seleccionar')).toBeTruthy();
     expect(screen.getByText(/\d+ resultados/)).toBeTruthy();
@@ -466,14 +448,11 @@ describe('CommandPalette', () => {
       })
     );
 
-    expect(editorState.setTabCompareEnabled).toHaveBeenCalledWith(
-      'tab-1',
-      true
-    );
-    expect(trackEventMock).toHaveBeenCalledWith(
-      'runtime.compare_view_toggled',
-      { language: 'javascript', enabled: true }
-    );
+    expect(editorState.setTabCompareEnabled).toHaveBeenCalledWith('tab-1', true);
+    expect(trackEventMock).toHaveBeenCalledWith('runtime.compare_view_toggled', {
+      language: 'javascript',
+      enabled: true,
+    });
   });
 
   // Slice 2 — the "Toggle rich console output" palette action was
@@ -501,7 +480,7 @@ describe('CommandPalette', () => {
     ).toBeNull();
   });
 
-  it('dispatches the share-link trigger from the palette when a tab is active', () => {
+  it('emits the share-link trigger from the palette when a tab is active', () => {
     editorState.tabs = [
       {
         id: 'tab-1',
@@ -510,7 +489,8 @@ describe('CommandPalette', () => {
       },
     ];
     editorState.activeTabId = 'tab-1';
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    const listener = vi.fn();
+    const unsubscribe = subscribeCommand('share.trigger', listener);
 
     render(
       <CommandPalette
@@ -530,16 +510,8 @@ describe('CommandPalette', () => {
       })
     );
 
-    expect(
-      dispatchSpy.mock.calls.some(([event]) => {
-        return (
-          event instanceof CustomEvent &&
-          event.type === SHARE_LINK_TRIGGER_EVENT &&
-          event.detail?.trigger === 'palette'
-        );
-      })
-    ).toBe(true);
-    dispatchSpy.mockRestore();
+    expect(listener).toHaveBeenCalledWith({ trigger: 'palette' }, expect.any(Object));
+    unsubscribe();
   });
 
   it('hides the dependencies action when no dependency panel state is available', () => {
@@ -565,9 +537,7 @@ describe('CommandPalette', () => {
     const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
     fireEvent.change(input, { target: { value: 'dependencies' } });
 
-    expect(
-      screen.queryByRole('button', { name: /Show dependencies/i })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: /Show dependencies/i })).toBeNull();
   });
 
   it('opens the dependencies panel from the palette when rows are detected', () => {
@@ -633,9 +603,7 @@ describe('CommandPalette', () => {
     const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
     fireEvent.change(input, { target: { value: 'dependencies' } });
 
-    expect(
-      screen.queryByRole('button', { name: /Show dependencies/i })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: /Show dependencies/i })).toBeNull();
   });
 
   it('hides the variable inspector action while the active tab is in Node mode', () => {
@@ -718,10 +686,7 @@ describe('CommandPalette', () => {
       })
     );
 
-    expect(editorState.setTabVariableInspectorEnabled).toHaveBeenCalledWith(
-      'tab-1',
-      true
-    );
+    expect(editorState.setTabVariableInspectorEnabled).toHaveBeenCalledWith('tab-1', true);
     expect(useUIStore.getState()).toMatchObject({
       activeBottomPanel: 'variables',
       consoleVisible: true,

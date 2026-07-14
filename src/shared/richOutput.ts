@@ -135,7 +135,7 @@ export interface RichOutputHtml {
  * `inspect.currentframe`, Go/Rust via stdout splitter) stamp this
  * onto the emitted payload. The renderer reads `origin.line` to
  * render an `<OutputLineBadge>` chip and to drive the
- * `lingua-open-file` + `lingua-highlight-line` event bus. Optional —
+ * typed `file.open` + `editor.highlightLine` command bus. Optional —
  * payloads from `eval`, anonymous callers, or runtime warnings simply
  * omit it.
  */
