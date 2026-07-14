@@ -85,6 +85,15 @@ describe('deep-review maintainability boundaries', () => {
       ['src/renderer/hooks/useImportPreview.ts', 200],
       ['src/renderer/hooks/importPreviewModel.ts', 250],
       ['src/renderer/hooks/importPreviewConfirm.ts', 300],
+      ['src/renderer/hooks/useGlobalShortcuts.ts', 120],
+      ['src/renderer/hooks/globalShortcutTypes.ts', 120],
+      ['src/renderer/hooks/globalShortcutModel.ts', 80],
+      ['src/renderer/hooks/globalShortcutActions.ts', 180],
+      ['src/renderer/hooks/globalShortcutUtilities.ts', 180],
+      ['src/renderer/hooks/useProjectWatchSync.ts', 120],
+      ['src/renderer/hooks/projectWatchModel.ts', 100],
+      ['src/renderer/hooks/projectWatchReload.ts', 250],
+      ['src/renderer/hooks/projectWatchTree.ts', 120],
     ] as const) {
       expect(
         physicalLines(relativePath),

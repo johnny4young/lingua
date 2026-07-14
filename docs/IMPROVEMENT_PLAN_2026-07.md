@@ -228,7 +228,7 @@ como único tipo aceptado. Espejo para python/ruby (`PyWorkerRequest`…).
 **AC.** Cero casts `as` en los listeners de runners; una variante nueva sin
 handler = error de compilación; runs de JS/TS/Python/Ruby verdes en smoke.
 
-## IT2-A5 · Partir hooks gigantes — EN PROGRESO 2026-07-13 (2/4)
+## IT2-A5 · Partir hooks gigantes — CERRADO 2026-07-13 (4/4)
 
 `useAutoRun.ts` pasó 620→151 LOC al separar decisiones puras en
 `autoRunModel.ts` (55), ejecución/gates en `autoRunExecution.ts` (226) y
@@ -244,11 +244,22 @@ la confirmación también fija directamente su contrato de cierre/reset, y la
 suite existente conserva cURL, ipynb, linguanb, Postman, Bruno, warnings,
 telemetría, cancelación y estados rechazados.
 
-Restan `useGlobalShortcuts.ts` (533) y `useProjectWatchSync.ts` (488). Mantener
-el patrón: extraer lógica pura (máquinas de estado, decisiones de gating) a
-helpers junto al hook. AC por slice: hook <300 LOC, helpers con test propio,
-cero cambio de comportamiento. Hacer UNO por commit; una banda puede agrupar
-varios commits ya validados.
+`useGlobalShortcuts.ts` pasó 533→46 LOC: tipos, matching del catálogo, mapa de
+acciones, gates del debugger y acciones de utilities quedaron en cuatro módulos
+enfocados de 32-117 LOC. El matching y las acciones de utility tienen tests
+directos; la suite existente conserva defaults, overrides, Escape, overlays,
+clipboard y controles del debugger. Evidencia reproducible:
+`output/review/a5-global-shortcuts-split/`.
+
+`useProjectWatchSync.ts` pasó 488→75 LOC: coalescing y precedencia de eventos,
+prompts de recarga externa y detección de tabs eliminados quedaron en tres
+módulos enfocados de 49-165 LOC. Los tres helpers tienen tests directos; las
+suites existentes conservan debounce, cambios de proyecto, delta refresh,
+autosaves, dirty buffers, lotes, telemetría y cleanup del watcher. Evidencia
+reproducible: `output/review/a5-project-watch-sync-split/`.
+
+IT2-A5 queda cerrado con los cuatro hooks por debajo de 300 LOC, helpers con
+budgets automatizados y cero cambio intencional de comportamiento.
 
 ## IT2-A6 · Higiene de dependencias — CERRADO 2026-07-06 (resultado: no-op)
 
