@@ -89,7 +89,8 @@ export function EncodeDecodeToggle({
         <button
           key={option}
           type="button"
-          className={`px-4 py-2 text-body-sm font-semibold ${mode === option ? 'bg-primary-soft text-primary' : 'text-foreground'}`}
+          aria-pressed={mode === option}
+          className={`focus-ring px-4 py-2 text-body-sm font-semibold focus-visible:ring-inset ${mode === option ? 'bg-primary-soft text-primary' : 'text-foreground'}`}
           onClick={() => onModeChange(option)}
         >
           {t(`utilities.actions.${option}`)}

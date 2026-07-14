@@ -100,6 +100,15 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
+    const encodeButton = screen.getByRole('button', { name: 'Encode' });
+    const decodeButton = screen.getByRole('button', { name: 'Decode' });
+    expect(encodeButton.getAttribute('aria-pressed')).toBe('true');
+    expect(decodeButton.getAttribute('aria-pressed')).toBe('false');
+    expect(encodeButton.className).toContain('focus-ring');
+    expect(decodeButton.className).toContain('focus-ring');
+    expect(encodeButton.className).toContain('focus-visible:ring-inset');
+    expect(decodeButton.className).toContain('focus-visible:ring-inset');
+
     // Default seed is plain text in encode mode. Replace with a base64 paste.
     const inputs = screen.getAllByLabelText('Input');
     const textarea = inputs[0] as HTMLTextAreaElement;
@@ -110,12 +119,10 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
     expect((apply as HTMLButtonElement).disabled).toBe(false);
     await user.click(screen.getByTestId('utility-apply-button'));
 
-    // After Apply, the Decode toggle should be active. The mode toggles
-    // are rendered via plain buttons; the active one carries the
-    // primary-soft / primary classes.
+    // After Apply, the semantic pressed state should move to Decode.
     await waitFor(() => {
-      const decodeButton = screen.getByRole('button', { name: 'Decode' });
-      expect(decodeButton.className).toMatch(/text-primary/);
+      expect(encodeButton.getAttribute('aria-pressed')).toBe('false');
+      expect(decodeButton.getAttribute('aria-pressed')).toBe('true');
     });
   });
 
