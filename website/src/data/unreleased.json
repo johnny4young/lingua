@@ -1,7 +1,98 @@
 {
-  "generatedAt": "2026-07-06T04:51:22.330Z",
-  "baseRef": "v0.9.0",
-  "commitCount": 0,
-  "totalSinceBase": 0,
-  "commits": []
+  "generatedAt": "2026-07-14T05:34:39.187Z",
+  "baseRef": "v0.10.0",
+  "commitCount": 10,
+  "totalSinceBase": 18,
+  "commits": [
+    {
+      "hash": "1f198ab",
+      "date": "2026-07-13",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "main",
+      "message": "move native probes off the main thread (#59)",
+      "breaking": false
+    },
+    {
+      "hash": "54d0240",
+      "date": "2026-07-12",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "renderer",
+      "message": "measure the full startup boundary (#58)",
+      "breaking": false
+    },
+    {
+      "hash": "0e75061",
+      "date": "2026-07-12",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": null,
+      "message": "improve perceived startup",
+      "breaking": false
+    },
+    {
+      "hash": "6377b7b",
+      "date": "2026-07-11",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": null,
+      "message": "improve perceived startup (#57)",
+      "breaking": false
+    },
+    {
+      "hash": "6441475",
+      "date": "2026-07-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "devutils",
+      "message": "unclip the history drawer and green the full e2e suite (#55)",
+      "breaking": false
+    },
+    {
+      "hash": "8fc4afa",
+      "date": "2026-07-11",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": null,
+      "message": "deliver July roadmap and audit sequence (#54)",
+      "breaking": false
+    },
+    {
+      "hash": "7b7488c",
+      "date": "2026-07-10",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "renderer",
+      "message": "SQL Column Explorer - on-demand column profiles via DuckDB SUMMARIZE",
+      "breaking": false
+    },
+    {
+      "hash": "a79a15a",
+      "date": "2026-07-10",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "licensing",
+      "message": "implement perpetual Pro Lifetime contract",
+      "breaking": false
+    },
+    {
+      "hash": "d845e4e",
+      "date": "2026-07-10",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "runtime",
+      "message": "Run Ledger - query your own run history with SQL (#53)",
+      "breaking": false
+    },
+    {
+      "hash": "7f2928e",
+      "date": "2026-07-09",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "devutils",
+      "message": "utilities UX pass + IT2 fase 1 groundwork (#52)",
+      "breaking": false
+    }
+  ]
 }
