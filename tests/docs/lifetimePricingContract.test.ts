@@ -14,8 +14,8 @@ function websiteSource(path: string): string {
   return readFileSync(resolve(ROOT, path), 'utf8');
 }
 
-describe('Pro Lifetime public contract', () => {
-  it('states perpetual Pro access and a 12-month update window in English and Spanish', () => {
+describe('one-time Pro public contract', () => {
+  it('states perpetual paid access and a 12-month update window in English and Spanish', () => {
     const english = websiteSource('website/src/i18n/en.ts');
     const spanish = websiteSource('website/src/i18n/es.ts');
     const licensingEnglish = websiteSource('website/src/pages/licensing.astro');
@@ -23,8 +23,10 @@ describe('Pro Lifetime public contract', () => {
 
     expect(english).toContain('12 months of updates');
     expect(spanish).toContain('12 meses de actualizaciones');
-    expect(licensingEnglish).toMatch(/your Pro\s+entitlement never expires/u);
-    expect(licensingSpanish).toMatch(/tus funciones Pro nunca caducan/u);
+    // The pay-once tier is a perpetual entitlement. Wording is name-neutral
+    // (paid, not Pro/Lifetime) so it survives the tier-name alignment.
+    expect(licensingEnglish).toMatch(/your paid entitlement never expires/u);
+    expect(licensingSpanish).toMatch(/tu acceso de pago nunca caduca/u);
   });
 
   it('does not revive the unsupported updates-forever promise on public website surfaces', () => {

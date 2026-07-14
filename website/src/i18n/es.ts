@@ -177,11 +177,11 @@ export const es = {
       eyebrow: 'Precios',
       title: 'Cuatro tiers, sin el protocolo de una página de precios.',
       lede:
-        'En el home solo importa la forma: Free es útil, Pro desbloquea runners pesados, Lifetime es para pagar una vez y Team funciona por asientos.',
+        'En el home solo importa la forma: Free es útil, Mensual desbloquea runners pesados, Pro es el tier de pago único y Team funciona por asientos.',
       tiers: [
         { name: 'Free', price: '$0', tag: 'Por defecto', desc: 'Una pestaña, cinco snippets, JS / TS / Python / Ruby, utilidades de una sola acción. Sin licencia.' },
-        { name: 'Pro', price: '$5 / mes', tag: 'Suscripción', desc: 'Pestañas y snippets ilimitados, Go y Rust, más workflows de utilidades.' },
-        { name: 'Pro Lifetime', price: '$59 una vez', tag: 'Pago único', desc: 'Desbloqueo Pro perpetuo, sin factura recurrente y con 12 meses de actualizaciones incluidos.' },
+        { name: 'Mensual', price: '$5 / mes', tag: 'Suscripción', desc: 'Pestañas y snippets ilimitados, Go y Rust, más workflows de utilidades.' },
+        { name: 'Pro', price: '$59 una vez', tag: 'Pago único', desc: 'Desbloqueo de pago perpetuo, sin factura recurrente y con 12 meses de actualizaciones incluidos.' },
         { name: 'Team', price: '$3 / asiento / mes', tag: 'Por asiento', desc: 'Asientos de equipo, facturación y manejo de licencias para organizaciones.' },
       ],
     },
@@ -200,11 +200,11 @@ export const es = {
   pricing: {
     title: 'Precios — Lingua',
     description:
-      'Free, Pro a $5/mes, Pro Lifetime a $59 una vez y Team a $3/asiento/mes. Licencias verificadas offline. Pro gratis para estudiantes y docentes verificados.',
+      'Free, Mensual a $5/mes, Pro a $59 una vez y Team a $3/asiento/mes. Licencias verificadas offline. Acceso de pago gratis para estudiantes y docentes verificados.',
     eyebrow: 'Precios',
     heading: 'Cuatro tiers. Paga solo por lo que necesitas.',
     lede:
-      'Pro es una suscripción de $5/mes. Pro Lifetime cuesta $59 una vez por acceso Pro perpetuo y 12 meses de actualizaciones; renueva solo si quieres releases posteriores. Team cuesta $3/asiento/mes con facturación. Free cubre scratchpads de hasta tres pestañas para siempre. Las licencias se verifican offline.',
+      'Mensual es una suscripción de $5/mes. Pro cuesta $59 una vez por un desbloqueo de pago perpetuo y 12 meses de actualizaciones; renueva solo si quieres releases posteriores. Team cuesta $3/asiento/mes con facturación. Free cubre scratchpads de hasta tres pestañas para siempre. Las licencias se verifican offline.',
     trialCallout: {
       text: '¿Primera vez? Prueba Pro gratis 14 días — sin tarjeta de crédito.',
       linkText: 'Cómo empezar →',
@@ -239,7 +239,7 @@ export const es = {
         },
         {
           id: 'pro',
-          name: 'Pro',
+          name: 'Mensual',
           price: '$5',
           cadence: '/ mes',
           bestFor: 'Developers con trabajo multi-lenguaje real',
@@ -251,22 +251,22 @@ export const es = {
             'Format-on-save en cada lenguaje',
             'Cada actualización mientras estés suscrito',
           ],
-          cta: 'Comprar Pro',
+          cta: 'Comprar Mensual',
         },
         {
           id: 'pro_lifetime',
-          name: 'Pro Lifetime',
+          name: 'Pro',
           price: '$59',
           cadence: 'una vez',
-          bestFor: 'Paga una vez y conserva Pro para siempre',
+          bestFor: 'Paga una vez y conserva el tier de pago para siempre',
           features: [
-            'Todo lo de Pro',
-            'Desbloqueo Pro perpetuo',
+            'Todo lo de Mensual',
+            'Desbloqueo de pago perpetuo',
             '12 meses de actualizaciones incluidos',
             'Renovación opcional para actualizaciones posteriores',
             'Soporte prioritario por email durante la ventana de actualizaciones',
           ],
-          cta: 'Comprar Pro Lifetime',
+          cta: 'Comprar Pro',
         },
         {
           id: 'team',
@@ -274,7 +274,7 @@ export const es = {
           price: '$3',
           cadence: '/ asiento / mes',
           bestFor: 'Equipos y agencias',
-          features: ['Todo lo de Pro Lifetime', 'Gestión de asientos', 'Facturación'],
+          features: ['Todo lo de Pro', 'Gestión de asientos', 'Facturación'],
           cta: 'Comprar Team',
         },
       ],
@@ -301,8 +301,8 @@ export const es = {
         a: 'Sí. Una licencia Pro se vincula a un conjunto pequeño de dispositivos (actualmente tres). Cuando compres una máquina nueva, desactiva la anterior desde Settings → License; el cupo se libera de inmediato. Sin phone-home ni espera por servidor.',
       },
       {
-        q: '¿Qué pasa cuando terminan las actualizaciones de Pro Lifetime?',
-        a: 'Las funciones Pro siguen desbloqueadas para siempre. La compra única incluye 12 meses de nuevas releases; renovar es opcional si quieres mantener vigente tu elegibilidad para actualizaciones posteriores. Tu token firmado sigue funcionando offline.',
+        q: '¿Qué pasa cuando terminan las actualizaciones del pago único Pro?',
+        a: 'Las funciones de pago siguen desbloqueadas para siempre. La compra única de Pro incluye 12 meses de nuevas releases; renovar es opcional si quieres mantener vigente tu elegibilidad para actualizaciones posteriores. Tu token firmado sigue funcionando offline.',
       },
     ],
   },
@@ -322,7 +322,7 @@ export const es = {
   seo: {
     download: 'Descargar Lingua',
     pricing: 'Ver precios',
-    offerDescription: 'Tier Free con upgrades pagos a Pro / Pro Lifetime / Team',
+    offerDescription: 'Tier Free con upgrades pagos a Mensual / Pro / Team',
   },
   legal: {
     label: 'Legal',
@@ -446,7 +446,7 @@ export const es = {
       },
       {
         title: 'Sobre Lingua — 150 palabras',
-        body: 'Lingua es un runner desktop comercial y multi-lenguaje. JavaScript, TypeScript, Python, Go y Rust son ciudadanos de primera clase, cada uno con su runner, templates y panel de resultados inline, dentro de la misma app offline-first con Monaco. Las utilidades developer (formateador JSON, tester regex, Base64, UUID, hash, conversor de timestamps, decodificador JWT, conversor de color y diff viewer) vienen integradas, así que reemplaza varias pestañas de navegador alrededor del runner. Snippets, indexación de proyecto, quick-open, búsqueda de proyecto y atajos personalizables mantienen el flujo rápido. Los tiers pagos (Pro mensual, Pro Lifetime y Team por asiento) se desbloquean con una licencia firmada y verificada offline, sin phone-home. El acceso educativo es gratis para estudiantes y docentes verificados. El repositorio es source-available para evaluación y revisión bajo la Licencia Comercial de Lingua.',
+        body: 'Lingua es un runner desktop comercial y multi-lenguaje. JavaScript, TypeScript, Python, Go y Rust son ciudadanos de primera clase, cada uno con su runner, templates y panel de resultados inline, dentro de la misma app offline-first con Monaco. Las utilidades developer (formateador JSON, tester regex, Base64, UUID, hash, conversor de timestamps, decodificador JWT, conversor de color y diff viewer) vienen integradas, así que reemplaza varias pestañas de navegador alrededor del runner. Snippets, indexación de proyecto, quick-open, búsqueda de proyecto y atajos personalizables mantienen el flujo rápido. Los tiers pagos (Mensual, Pro de pago único y Team por asiento) se desbloquean con una licencia firmada y verificada offline, sin phone-home. El acceso educativo es gratis para estudiantes y docentes verificados. El repositorio es source-available para evaluación y revisión bajo la Licencia Comercial de Lingua.',
       },
       {
         title: 'Bio del fundador — 40 palabras',
@@ -459,7 +459,7 @@ export const es = {
     ],
     pricing: {
       title: 'Precios',
-      bodyStart: 'Cuatro tiers: Free, Pro a $5/mes, Pro Lifetime a $59 una vez y Team a $3/asiento/mes. Education es gratis para estudiantes y docentes verificados. Consulta la',
+      bodyStart: 'Cuatro tiers: Free, Mensual a $5/mes, Pro a $59 una vez y Team a $3/asiento/mes. Education es gratis para estudiantes y docentes verificados. Consulta la',
       link: 'página completa de precios',
       bodyEnd: 'para ver qué desbloquea cada tier.',
     },
