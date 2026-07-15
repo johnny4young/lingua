@@ -111,12 +111,10 @@ test.describe('Telemetry consent gate', () => {
       (entry) => entry.event === 'overlay.opened'
     );
     expect(overlayOpened, `expected overlay.opened POST; captured: ${JSON.stringify(captured)}`).toBeDefined();
-    // Positive-shape assertion — the allowlist permits only
-    // `overlayId` for this event and the renderer always populates
-    // it. A zero-properties POST would still pass the privacy
-    // deny-substring scan below, so anchor on the required field.
-    expect(typeof overlayOpened?.properties?.overlayId).toBe('string');
-    expect(String(overlayOpened?.properties?.overlayId).length).toBeGreaterThan(0);
+    // RL-149 — the React hook must be wire-transparent. The palette call site
+    // still emits the exact pre-migration event and property object after the
+    // shared runtime redactor runs.
+    expect(overlayOpened?.properties).toEqual({ overlayId: 'palette' });
     // Privacy guard — every captured event must redact away any
     // deny-substring keys. The renderer should never have sent
     // them, but assert at the wire level too.

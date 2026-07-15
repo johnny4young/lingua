@@ -7,9 +7,9 @@ import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { useTelemetry } from '../../hooks/useTelemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
-import { trackEvent } from '../../utils/telemetry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useUIStore } from '../../stores/uiStore';
 import { bucketCapsuleSize } from '../../../shared/runCapsule';
@@ -114,6 +114,7 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
 
 export function ConsolePanel() {
   const { t } = useTranslation();
+  const { track } = useTelemetry();
   const { run, isRunning } = useRunner();
   const effectiveTier = useEffectiveTier();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
@@ -178,7 +179,7 @@ export function ConsolePanel() {
             tone: 'success',
             messageKey: result.resized ? 'console.imagePaste.resized' : 'console.imagePaste.pasted',
           });
-          void trackEvent('runtime.image_clipboard_pasted', {
+          track('runtime.image_clipboard_pasted', {
             status: result.resized ? 'resized' : 'pasted',
             sizeBucket: bucketCapsuleSize(result.byteLength),
           });
@@ -189,7 +190,7 @@ export function ConsolePanel() {
             tone: 'warning',
             messageKey: 'console.imagePaste.tooLarge',
           });
-          void trackEvent('runtime.image_clipboard_pasted', {
+          track('runtime.image_clipboard_pasted', {
             status: 'rejected-oversized',
             sizeBucket: bucketCapsuleSize(result.byteLength),
           });
@@ -200,7 +201,7 @@ export function ConsolePanel() {
             tone: 'warning',
             messageKey: 'console.imagePaste.unreadable',
           });
-          void trackEvent('runtime.image_clipboard_pasted', {
+          track('runtime.image_clipboard_pasted', {
             status: 'rejected-unreadable',
             sizeBucket: bucketCapsuleSize(result.byteLength),
           });
@@ -209,7 +210,7 @@ export function ConsolePanel() {
     };
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [addEntry]);
+  }, [addEntry, track]);
   // RL-044 Slice 1B / RL-123 — entries are already collapsed store-side
   // (consecutive identical → one ×N row, computed once per push). Here we
   // only apply the legacy type filter AND the payload-kind chip filter
@@ -278,7 +279,7 @@ export function ConsolePanel() {
     const pulseTab = pulseTabId
       ? useEditorStore.getState().tabs.find(tab => tab.id === pulseTabId)
       : undefined;
-    void trackEvent('runtime.cursor_pulse_emitted', {
+    track('runtime.cursor_pulse_emitted', {
       language: pulseTab?.language ?? 'unknown',
     });
     clearPulseTimer();
@@ -341,14 +342,14 @@ export function ConsolePanel() {
       // handler for rationale (already-running short-circuit, etc.).
       const dispatched = replayHistoryEntry(entry, { isRunning, run });
       if (dispatched) {
-        void trackEvent('runtime.history_replay', {
+        track('runtime.history_replay', {
           language: entry.language,
           status: entry.status,
           surface: 'popover',
         });
       }
     },
-    [isRunning, run]
+    [isRunning, run, track]
   );
 
   // UX Sweep T2 fold B — console clear is recoverable: snapshot the
@@ -401,11 +402,11 @@ export function ConsolePanel() {
       messageKey: 'upsell.freeCeilingReached',
       featureLabel: t('upsell.feature.executionHistory'),
     });
-    void trackEvent('feature.blocked', {
+    track('feature.blocked', {
       entitlement: 'execution-history',
       tier: effectiveTier,
     });
-  }, [effectiveTier, t]);
+  }, [effectiveTier, t, track]);
 
   const renderedPulseLine =
     // eslint-disable-next-line react-hooks/refs -- This ref is an epoch guard, read on setting-driven renders so old pulses stay hidden after toggle-off.

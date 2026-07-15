@@ -44,6 +44,7 @@ import { useBootCompletionMarkers } from './hooks/useBootCompletionMarkers';
 import { useLicenseSettingsNavigation } from './hooks/useLicenseSettingsNavigation';
 import { useCommandListener } from './hooks/useCommandListener';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
+import { useTelemetry } from './hooks/useTelemetry';
 import { getActiveTab, useEditorStore } from './stores/editorStore';
 import { openUtilitiesWorkspaceTab } from './runtime/openWorkspaceTab';
 import { usePluginStore } from './stores/pluginStore';
@@ -52,7 +53,6 @@ import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
 import { pushUpsellNotice } from './utils/upsellNotice';
-import { trackEvent } from './utils/telemetry';
 
 function FactoryRecoveryNotice() {
   const { t } = useTranslation();
@@ -85,6 +85,7 @@ function AppChrome({
 }) {
   const { run, stop, isRunning } = useRunner();
   const { t } = useTranslation();
+  const { track } = useTelemetry();
   const saveActiveTab = useEditorStore(s => s.saveActiveTab);
   const saveActiveTabAs = useEditorStore(s => s.saveActiveTabAs);
   const openFileFromDisk = useEditorStore(s => s.openFileFromDisk);
@@ -182,14 +183,14 @@ function AppChrome({
   useGitStatus();
 
   useEffect(() => {
-    // RL-065: fire the first telemetry event. `trackEvent` is a no-op
+    // RL-065: fire the first telemetry event. `track` is a no-op
     // unless the user has explicitly opted in, the endpoint is
     // configured, and the kill switch is not set. Safe to call
     // unconditionally here.
-    void trackEvent('app.launched', {
+    track('app.launched', {
       platform: window.lingua?.platform ?? 'unknown',
     });
-  }, []);
+  }, [track]);
 
   useEffect(() => {
     if (hasHandledWhatsNewRef.current || smokeEnabled || hasHandledDeepLink) {
@@ -309,7 +310,7 @@ function AppChrome({
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: t('upsell.feature.utilityWorkflows'),
       });
-      void trackEvent('feature.blocked', {
+      track('feature.blocked', {
         entitlement: 'utility-workflows',
         tier: effectiveTier,
       });
@@ -320,7 +321,7 @@ function AppChrome({
     // Preserve the pre-workspace adoption signal: the telemetry enum still
     // names the event `overlay.opened`, but the surface id remains stable
     // so dashboards do not lose Utilities open counts during MOV.03.
-    void trackEvent('overlay.opened', { overlayId: 'utilities' });
+    track('overlay.opened', { overlayId: 'utilities' });
   };
 
   useAppShortcuts({
@@ -420,22 +421,23 @@ function KeystrokeReactiveHooks() {
 
 export function App() {
   const [overlay, setOverlay] = useState<AppOverlay>('none');
+  const { track } = useTelemetry();
 
   const openOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
     setOverlay(nextOverlay);
     // RL-065 — fire overlay.opened so a consenting user's telemetry can
-    // reflect which panels got use. trackEvent is a no-op unless consent
+    // reflect which panels got use. track is a no-op unless consent
     // is granted and the endpoint + kill-switch let it through; the
     // allowlist already includes overlay.opened with an overlayId string
     // property, so no allowlist churn here.
-    void trackEvent('overlay.opened', { overlayId: nextOverlay });
+    track('overlay.opened', { overlayId: nextOverlay });
   };
 
   const toggleOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
     setOverlay(currentOverlay => {
       const next = currentOverlay === nextOverlay ? 'none' : nextOverlay;
       if (next !== 'none') {
-        void trackEvent('overlay.opened', { overlayId: next });
+        track('overlay.opened', { overlayId: next });
       }
       return next;
     });

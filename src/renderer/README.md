@@ -124,6 +124,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [uiStore.ts](stores/uiStore.ts)             | transient shell visibility, status notices, bottom panel, floating positions |
 | status notice API (RL-134) — [useStatusNotice.ts](hooks/useStatusNotice.ts) for React consumers and [statusNotice.ts](utils/statusNotice.ts) for imperative paths | tone-safe `info`/`success`/`warning`/`error` actions that preserve notice options while keeping direct store access out of producers |
 | [commandBus.ts](stores/commandBus.ts) + [useCommandListener.ts](hooks/useCommandListener.ts) (RL-135) | closed-map, synchronous renderer commands with no replay/state updates; priority + handled fallback semantics keep app coordination off the global DOM event target |
+| telemetry API (RL-149) — [useTelemetry.ts](hooks/useTelemetry.ts) for React consumers and [telemetry.ts](utils/telemetry.ts) for non-React layers | closed event names at React call sites; consent, endpoint resolution, base fields, redaction, and best-effort delivery remain centralized in the lower-level emitter |
 | [updateStore.ts](stores/updateStore.ts)     | updater status, messages, last-check timing                       |
 | [pluginStore.ts](stores/pluginStore.ts)     | local plugin discovery and diagnostics surface                    |
 | [projectSearchStore.ts](stores/projectSearchStore.ts) / [projectReplaceStore.ts](stores/projectReplaceStore.ts) | project-wide search and replacement sessions |

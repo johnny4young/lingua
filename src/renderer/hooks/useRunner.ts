@@ -17,7 +17,7 @@ import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
 import { pushUpsellNotice } from '../utils/upsellNotice';
-import { trackEvent } from '../utils/telemetry';
+import { useTelemetry } from './useTelemetry';
 
 export interface RunOptions {
   recordHistory?: boolean;
@@ -25,6 +25,7 @@ export interface RunOptions {
 }
 
 export function useRunner() {
+  const { track } = useTelemetry();
   const [isRunning, setIsRunning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export function useRunner() {
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: i18next.t('upsell.feature.extraLanguages'),
       });
-      void trackEvent('feature.blocked', {
+      track('feature.blocked', {
         entitlement: 'languages-extended',
         tier: currentEffectiveTier(),
       });
@@ -112,7 +113,7 @@ export function useRunner() {
     } finally {
       setRunMode(null);
     }
-  }, []);
+  }, [track]);
 
   const run = useCallback(async (options: RunOptions = {}) => {
     const activeTab = getActiveTab(useEditorStore.getState());
@@ -135,7 +136,7 @@ export function useRunner() {
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: i18next.t('upsell.feature.extraLanguages'),
       });
-      void trackEvent('feature.blocked', {
+      track('feature.blocked', {
         entitlement: 'languages-extended',
         tier: currentEffectiveTier(),
       });
@@ -164,7 +165,7 @@ export function useRunner() {
     }
 
     await executeTabById(activeTab.id, options);
-  }, [executeTabById]);
+  }, [executeTabById, track]);
 
   const stop = useCallback(() => {
     if (currentLanguageRef.current) {

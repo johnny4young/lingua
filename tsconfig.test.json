@@ -21,7 +21,8 @@
     "src/**/*.tsx",
     "src/types.d.ts",
     "forge.env.d.ts",
-    "tests/main/projectCapabilitiesBrand.test.ts"
+    "tests/main/projectCapabilitiesBrand.test.ts",
+    "tests/hooks/useTelemetry.types.test.ts"
   ],
   "exclude": ["node_modules", "out", ".vite", "dist"]
 }

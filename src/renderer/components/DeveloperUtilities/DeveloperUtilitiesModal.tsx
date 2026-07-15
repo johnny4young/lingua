@@ -16,8 +16,8 @@ import { DeveloperUtilityPanel } from './UtilityPanels';
 import { prefetchUtilityPanel } from './UtilityPanelRegistry';
 import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
 import { UtilityCopyShortcutHint } from './UtilityHeaderPills';
-import { trackEvent } from '../../utils/telemetry';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { useTelemetry } from '../../hooks/useTelemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 
 /**
@@ -53,8 +53,9 @@ interface DeveloperUtilitiesModalProps {
 }
 
 function useFavoriteTelemetry(): void {
+  const { track } = useTelemetry();
   // RL-069 Slice 3 — emit favorite-pinned telemetry from a one-shot
-  // store subscription. We listen on the store so the trackEvent call
+  // store subscription. We listen on the store so the telemetry call
   // lives in one place even when the user pins from the sidebar OR
   // (potentially) from a future shortcut.
   useEffect(() => {
@@ -64,7 +65,7 @@ function useFavoriteTelemetry(): void {
       if (nextSize > lastSize) {
         const last = state.favorites[state.favorites.length - 1];
         if (last) {
-          void trackEvent('utility.favorite.pinned', {
+          track('utility.favorite.pinned', {
             utilityId: last,
             count: nextSize,
           });
@@ -72,7 +73,7 @@ function useFavoriteTelemetry(): void {
       }
       lastSize = nextSize;
     });
-  }, []);
+  }, [track]);
 }
 
 interface DeveloperUtilitiesWorkspaceBodyProps {
@@ -93,6 +94,7 @@ export function DeveloperUtilitiesWorkspaceBody({
   active = true,
 }: DeveloperUtilitiesWorkspaceBodyProps) {
   const { t } = useTranslation();
+  const { track } = useTelemetry();
   const [searchQuery, setSearchQuery] = useState('');
   const [visitedUtilityIds, setVisitedUtilityIds] = useState<DeveloperUtilityId[]>(() => [
     selectedUtilityId,
@@ -172,7 +174,7 @@ export function DeveloperUtilitiesWorkspaceBody({
       messageKey: 'upsell.freeCeilingReached',
       featureLabel: t('upsell.feature.utilityWorkflows'),
     });
-    void trackEvent('feature.blocked', {
+    track('feature.blocked', {
       entitlement: 'utility-workflows',
       tier: effectiveTier,
     });

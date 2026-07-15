@@ -153,6 +153,8 @@ describe('Script naming docs guard', () => {
       'test:smoke:web:license',
       'test:watch',
       'lint',
+      // RL-149 / AUDIT-29 — ratcheting AST guard for direct telemetry callers.
+      'check:telemetry-call-sites',
       'check:i18n',
       'check:i18n:copy',
       'format',
