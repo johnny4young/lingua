@@ -187,6 +187,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -243,6 +244,21 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
     expect(store.getState().serverSync).toBe('unreachable');
   });
 
+  it('fails closed and clears the token when the server uses a future protocol version', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ protocolVersion: 999, ok: true }), { status: 200 })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    const status = await store.getState().setLicenseToken(token);
+
+    expect(status).toEqual({ kind: 'invalid', reason: 'unsupported-protocol' });
+    expect(store.getState().token).toBeNull();
+    expect(store.getState().serverSync).toBe('synced');
+  });
+
   it('clears cached devices when a replacement activation falls back to local verification', async () => {
     let call = 0;
     const fetchMock = vi.fn(async () => {
@@ -250,6 +266,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       if (call === 1) {
         return new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -286,6 +303,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: false,
             reason: 'exhausted',
             surface: 'web',
@@ -311,7 +329,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
   it('wipes the token on server-side `license-refunded` even though the signature is locally valid', async () => {
     const fetchMock = vi.fn(
       async () =>
-        new Response(JSON.stringify({ ok: false, reason: 'license-refunded' }), { status: 401 })
+        new Response(JSON.stringify({ protocolVersion: 1, ok: false, reason: 'license-refunded' }), { status: 401 })
     );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -337,6 +355,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
         // First call is the activate that lands the old token.
         return new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -351,6 +370,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       // so it surfaces it via refreshedToken.
       return new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           licenseId: 'lic_1',
           status: 'active',
@@ -388,6 +408,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       if (call === 1) {
         return new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -400,6 +421,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       }
       return new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           licenseId: 'lic_1',
           status: 'active',
@@ -445,6 +467,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -481,6 +504,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: false,
             reason: 'exhausted',
             surface: 'web',
@@ -520,6 +544,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
         // Activate.
         return new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -533,6 +558,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       // Status.
       return new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           licenseId: 'lic_1',
           status: 'active',
@@ -573,6 +599,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
         activateCall += 1;
         return new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -585,6 +612,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       }
       return new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           licenseId: 'lic_1',
           status: 'active',
@@ -631,6 +659,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
         if (activateCall === 1) {
           return new Response(
             JSON.stringify({
+              protocolVersion: 1,
               ok: true,
               licenseId: 'lic_1',
               activated: true,
@@ -643,6 +672,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
         }
         return new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: false,
             reason: 'exhausted',
             surface: 'web',
@@ -654,6 +684,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       }
       return new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           licenseId: 'lic_1',
           status: 'active',
@@ -689,6 +720,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
         // somewhere to start.
         return new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -702,6 +734,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       // Remove device — server returns the post-removal bucket.
       return new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           licenseId: 'lic_1',
           removed: true,
@@ -741,6 +774,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       if (call === 1) {
         return new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -774,6 +808,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -801,6 +836,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             activated: true,
@@ -823,6 +859,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             removed: true,

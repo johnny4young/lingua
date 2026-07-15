@@ -13,6 +13,12 @@
  * here.
  */
 
+import type { LicenseServerProtocolEnvelope } from './licenseServerProtocol';
+
+/** Machine-readable wire response before Electron IPC strips the envelope. */
+export type LicenseServerWireResponse<T extends Record<string, unknown>> =
+  T & LicenseServerProtocolEnvelope;
+
 export type LicenseServerSurface = 'desktop' | 'web';
 
 export interface LicenseServerDevice {
@@ -47,7 +53,9 @@ export type LicenseServerFailureReason =
   | 'disabled'
   /** Network error, timeout, DNS failure, CORS, etc. The 24h offline-grace fallback applies. */
   | 'unreachable'
-  /** Worker returned 5xx or a body shape we don't recognise. Treat as transient. */
+  /** Response envelope is missing, malformed, or uses an unknown protocol version. */
+  | 'unsupported-protocol'
+  /** Worker returned a versioned 5xx or an unknown reason within the accepted contract. */
   | 'server-error'
   /** Token signature didn't verify against the server's public key. */
   | 'invalid-signature'
@@ -206,6 +214,7 @@ export type TrialStartFailureReason =
   | 'not-implemented'
   | 'server-error'
   | 'unreachable'
+  | 'unsupported-protocol'
   | 'disabled';
 
 export type TrialStartResult =
@@ -310,6 +319,7 @@ export type LicenseRecoverFailureReason =
   | 'invalid-input'
   | 'server-error'
   | 'unreachable'
+  | 'unsupported-protocol'
   | 'disabled';
 
 export type LicenseRecoverResult =

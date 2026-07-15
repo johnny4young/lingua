@@ -851,6 +851,7 @@
   "license.notice.invalid.refunded": "This license was refunded. Use a different one or contact support if this looks wrong.",
   "license.notice.invalid.unknownLicense": "We could not find this license on the server. Make sure you copied the full token from your Lingua account email.",
   "license.notice.invalid.requestRejected": "The license server rejected this device's registration. The token is valid but the request did not pass server checks. Update Lingua to the latest version, or contact support if the issue persists.",
+  "license.notice.invalid.unsupportedProtocol": "This version of Lingua is not compatible with the license service. Update Lingua and try again.",
   "license.notice.serverUnreachable": "Activated locally as {{tier}}. We could not reach the license server right now — Lingua will sync the device list the next time you are online.",
   "license.notice.cleared": "License removed. You are back on the Free plan.",
   "license.notice.clearFailed": "The license could not be removed. Check disk permissions and try again.",

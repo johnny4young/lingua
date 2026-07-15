@@ -12,6 +12,7 @@ import {
   applyDevLicense,
   clearLicense,
   closeSettings,
+  DEV_LICENSE_TOKEN,
   expect,
   expectTier,
   expectNoticeContains,
@@ -276,6 +277,58 @@ test.describe('Settings — License flows', () => {
     ]) {
       expect(text.toLowerCase()).not.toContain(forbidden.toLowerCase());
     }
+  });
+
+  test('fails closed on a future license protocol in English and Spanish', async ({ page }) => {
+    await page.route('https://licenses.linguacode.dev/licenses/activate', async route => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST,OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type',
+          },
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ protocolVersion: 999, ok: true }),
+      });
+    });
+
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await openSettings(page);
+    await openSettingsTab(page, 'account');
+
+    await page.getByRole('textbox', { name: /paste a license token/i }).fill(DEV_LICENSE_TOKEN!);
+    await page.getByRole('button', { name: /apply license/i }).click();
+    await expect(page.getByTestId('license-status-pill')).toHaveText('License not recognized');
+    await expect(page.getByTestId('status-notice-banner')).toContainText(
+      'This version of Lingua is not compatible with the license service. Update Lingua and try again.'
+    );
+
+    await page.evaluate(() => {
+      const raw = window.localStorage.getItem('lingua-settings');
+      if (!raw) throw new Error('lingua-settings missing');
+      const settings = JSON.parse(raw) as { state: { language: string } };
+      settings.state.language = 'es';
+      window.localStorage.setItem('lingua-settings', JSON.stringify(settings));
+    });
+    await page.reload();
+    await openSettings(page);
+    await openSettingsTab(page, 'account');
+
+    await page.getByRole('textbox', { name: /pega un token de licencia/i }).fill(DEV_LICENSE_TOKEN!);
+    await page.getByRole('button', { name: /aplicar licencia/i }).click();
+    await expect(page.getByTestId('license-status-pill')).toHaveText('Licencia no reconocida');
+    await expect(page.getByTestId('status-notice-banner')).toContainText(
+      'Esta versión de Lingua no es compatible con el servicio de licencias. Actualiza Lingua y vuelve a intentarlo.'
+    );
   });
 });
 

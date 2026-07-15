@@ -331,6 +331,8 @@ export async function createLicenseRuntime(
         return { kind: 'invalid', reason: 'devices-exhausted' };
       case 'invalid-input':
         return { kind: 'invalid', reason: 'invalid-input' };
+      case 'unsupported-protocol':
+        return { kind: 'invalid', reason: 'unsupported-protocol' };
       case 'unreachable':
       case 'server-error':
       case 'not-implemented':

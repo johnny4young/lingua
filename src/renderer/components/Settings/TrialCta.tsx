@@ -98,6 +98,12 @@ export function TrialCta({
             messageKey: 'license.trial.notice.invalidEmail',
           });
           return;
+        case 'unsupported-protocol':
+          pushStatusNotice({
+            tone: 'error',
+            messageKey: 'license.notice.invalid.unsupportedProtocol',
+          });
+          return;
         case 'unreachable':
         case 'server-error':
         default:

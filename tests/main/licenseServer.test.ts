@@ -46,7 +46,7 @@ function mockFetch(): FetchMock {
 }
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
+  return new Response(JSON.stringify({ protocolVersion: 1, ...(body as Record<string, unknown>) }), {
     status: init.status ?? 200,
     headers: { 'content-type': 'application/json', ...(init.headers as Record<string, string>) },
   });
@@ -196,7 +196,7 @@ describe('activate', () => {
     }
   });
 
-  it('maps a 5xx response to reason: server-error', async () => {
+  it('fails closed as unsupported-protocol before interpreting an unversioned 5xx', async () => {
     const fetchMock = mockFetch();
     fetchMock.mockResolvedValue(
       new Response('Internal Server Error', { status: 503 })
@@ -210,7 +210,7 @@ describe('activate', () => {
       surface: 'desktop',
     });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe('server-error');
+    if (!result.ok) expect(result.reason).toBe('unsupported-protocol');
   });
 
   it('forwards the issues array on invalid-input so runtime can console.warn the validator drift', async () => {

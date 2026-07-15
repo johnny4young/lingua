@@ -81,6 +81,7 @@ describe('activate', () => {
     const fetchMock = vi.fn(async () =>
       new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           licenseId: 'lic_1',
           activated: true,
@@ -125,6 +126,7 @@ describe('activate', () => {
     const fetchMock = vi.fn(async () =>
       new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: false,
           reason: 'exhausted',
           surface: 'web',
@@ -151,7 +153,7 @@ describe('activate', () => {
 
   it('maps `license-refunded` 401 to reason `revoked` (terminal — caller wipes the token)', async () => {
     const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ ok: false, reason: 'license-refunded' }), { status: 401 })
+      new Response(JSON.stringify({ protocolVersion: 1, ok: false, reason: 'license-refunded' }), { status: 401 })
     ) as FetchMock;
     vi.stubGlobal('fetch', fetchMock);
 
@@ -184,7 +186,7 @@ describe('activate', () => {
     if (!result.ok) expect(result.reason).toBe('unreachable');
   });
 
-  it('returns reason `server-error` on 5xx without crashing on non-JSON bodies', async () => {
+  it('fails closed as `unsupported-protocol` before interpreting an unversioned 5xx body', async () => {
     const fetchMock = vi.fn(
       async () => new Response('<html>internal error</html>', { status: 502 })
     ) as FetchMock;
@@ -199,7 +201,25 @@ describe('activate', () => {
       surface: 'web',
     });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe('server-error');
+    if (!result.ok) expect(result.reason).toBe('unsupported-protocol');
+  });
+
+  it('fails closed when the server uses a future protocol version', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ protocolVersion: 999, ok: true }), { status: 200 })
+    ) as FetchMock;
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { activate } = await importService();
+    const result = await activate({
+      token: 't',
+      deviceId: 'd',
+      deviceName: 'n',
+      os: 'web-chrome',
+      surface: 'web',
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'unsupported-protocol' });
   });
 });
 
@@ -213,6 +233,7 @@ describe('status', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             status: 'active',
@@ -250,6 +271,7 @@ describe('status', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             status: 'active',
@@ -283,6 +305,7 @@ describe('removeDevice', () => {
       async () =>
         new Response(
           JSON.stringify({
+            protocolVersion: 1,
             ok: true,
             licenseId: 'lic_1',
             removed: true,

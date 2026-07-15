@@ -5,7 +5,8 @@
  *   - reads the base URL from `import.meta.env.VITE_LINGUA_LICENSE_SERVER_URL`
  *   - returns a tagged-union; never throws
  *   - 5s timeout via `AbortController`; no retry
- *   - network / parse errors collapse to `unreachable`
+ *   - network errors map to `unreachable`; malformed or unversioned responses
+ *     fail closed as `unsupported-protocol`
  *
  * The success branch returns the signed token in the body so the
  * caller can feed it directly into `licenseStore.setLicenseToken`
@@ -18,6 +19,10 @@ import type {
   TrialStartSuccess,
   TrialStartFailureReason,
 } from '../../shared/licenseServerTypes';
+import {
+  stripProtocolEnvelope,
+  validateLicenseServerProtocol,
+} from '../../shared/licenseServerProtocol';
 
 export type {
   TrialStartInput,
@@ -94,7 +99,9 @@ export async function startTrial(input: TrialStartInput): Promise<TrialStartResu
   });
   if (!result.ok) return { ok: false, reason: 'unreachable', message: result.message };
   const { response } = result;
-  const body = (await readJson(response)) as Record<string, unknown> | null;
+  const protocol = validateLicenseServerProtocol(await readJson(response));
+  if (!protocol.ok) return { ok: false, reason: protocol.reason };
+  const { body } = protocol;
 
   if (response.status >= 500) {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };
@@ -105,7 +112,7 @@ export async function startTrial(input: TrialStartInput): Promise<TrialStartResu
   // "duplicate" so the renderer can surface a notice without
   // treating it as a hard error.
   if (response.ok && body && body.ok === true) {
-    return body as unknown as TrialStartSuccess;
+    return stripProtocolEnvelope(body) as unknown as TrialStartSuccess;
   }
 
   const reason = mapTrialReason(body?.reason);

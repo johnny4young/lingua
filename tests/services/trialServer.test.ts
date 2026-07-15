@@ -52,6 +52,7 @@ describe('startTrial', () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           licenseId: 'lic_1',
           token: 'tok_1.signature',
@@ -70,6 +71,9 @@ describe('startTrial', () => {
       deviceName: 'MacBook',
       os: 'darwin',
     });
+    // The transport envelope is stripped after the handshake: the returned
+    // payload matches the declared TrialStartSuccess exactly, with no
+    // protocolVersion riding along into renderer state.
     expect(result).toEqual({
       ok: true,
       licenseId: 'lic_1',
@@ -90,7 +94,7 @@ describe('startTrial', () => {
   it('maps trial-unavailable + canRecover through to the failure shape', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ ok: false, reason: 'trial-unavailable', canRecover: true }),
+        JSON.stringify({ protocolVersion: 1, ok: false, reason: 'trial-unavailable', canRecover: true }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       ),
     ) as FetchMock;
@@ -111,7 +115,7 @@ describe('startTrial', () => {
 
   it('collapses legacy duplicate reasons to server-error', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: false, reason: 'trial-exists-device' }), {
+      new Response(JSON.stringify({ protocolVersion: 1, ok: false, reason: 'trial-exists-device' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       }),
@@ -130,7 +134,7 @@ describe('startTrial', () => {
   it('maps rate-limited with retryAfter', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ ok: false, reason: 'rate-limited', retryAfter: 1234 }),
+        JSON.stringify({ protocolVersion: 1, ok: false, reason: 'rate-limited', retryAfter: 1234 }),
         { status: 429, headers: { 'content-type': 'application/json' } },
       ),
     ) as FetchMock;
@@ -149,7 +153,7 @@ describe('startTrial', () => {
     }
   });
 
-  it('returns server-error on a 5xx response', async () => {
+  it('fails closed as unsupported-protocol on an unversioned 5xx response', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response('boom', { status: 500 }),
     ) as FetchMock;
@@ -161,7 +165,7 @@ describe('startTrial', () => {
       deviceName: 'n',
       os: 'darwin',
     });
-    expect(result).toMatchObject({ ok: false, reason: 'server-error' });
+    expect(result).toMatchObject({ ok: false, reason: 'unsupported-protocol' });
   });
 
   it('returns unreachable when fetch throws', async () => {

@@ -64,6 +64,10 @@ export function serverFailureToInvalid(reason: LicenseServerFailureReason): Lice
       return { kind: 'invalid', reason: 'devices-exhausted' };
     case 'invalid-input':
       return { kind: 'invalid', reason: 'invalid-input' };
+    case 'unsupported-protocol':
+      // A protocol mismatch is terminal and fails closed; a client that does
+      // not understand the wire contract cannot trust entitlement fields.
+      return { kind: 'invalid', reason: 'unsupported-protocol' };
     case 'unreachable':
     case 'server-error':
     case 'not-implemented':
