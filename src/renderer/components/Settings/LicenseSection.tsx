@@ -100,6 +100,8 @@ function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid
     // licenseServer.ts:warnOnInvalidInput.
     case 'invalid-input':
       return 'license.notice.invalid.requestRejected';
+    case 'unsupported-protocol':
+      return 'license.notice.invalid.unsupportedProtocol';
     default:
       // Fall back to the generic copy so a new reason code doesn't crash
       // the UI before its i18n key lands.

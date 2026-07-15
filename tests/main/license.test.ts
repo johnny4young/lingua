@@ -663,7 +663,7 @@ describe('createLicenseRuntime — server-aware desktop branch (Slice 3.5)', () 
   }
 
   function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-    return new Response(JSON.stringify(body), {
+    return new Response(JSON.stringify({ protocolVersion: 1, ...(body as Record<string, unknown>) }), {
       status: init.status ?? 200,
       headers: { 'content-type': 'application/json' },
     });
@@ -730,6 +730,26 @@ describe('createLicenseRuntime — server-aware desktop branch (Slice 3.5)', () 
       deviceName: 'MacBook Pro',
       os: 'darwin',
     });
+  });
+
+  it('applyToken fails closed and clears persistence for a future server protocol', async () => {
+    const fetchMock = makeFetchMock();
+    fetchMock.mockResolvedValue(jsonResponse({ protocolVersion: 999, ok: true }));
+
+    const { createLicenseRuntime, readPersistedLicense, resolveLicensePath } = await import(
+      '../../src/main/license'
+    );
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    const status = await runtime.applyToken(token);
+
+    expect(status).toEqual({ kind: 'invalid', reason: 'unsupported-protocol' });
+    expect(runtime.getSnapshot().token).toBeNull();
+    expect(await readPersistedLicense(resolveLicensePath(tempDir))).toBeNull();
   });
 
   it('applyToken transient failure keeps the locally-verified status with serverSync unreachable', async () => {

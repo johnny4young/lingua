@@ -49,6 +49,7 @@ describe('startRecovery', () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          protocolVersion: 1,
           ok: true,
           pending: true,
           message: 'If that email matches a Lingua license...',
@@ -68,7 +69,7 @@ describe('startRecovery', () => {
 
   it('returns invalid-input when worker rejects shape', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: false, reason: 'invalid-input', issues: ['email is required'] }), {
+      new Response(JSON.stringify({ protocolVersion: 1, ok: false, reason: 'invalid-input', issues: ['email is required'] }), {
         status: 400,
         headers: { 'content-type': 'application/json' },
       }),
@@ -79,14 +80,14 @@ describe('startRecovery', () => {
     expect(result).toMatchObject({ ok: false, reason: 'invalid-input' });
   });
 
-  it('returns server-error on 5xx', async () => {
+  it('fails closed as unsupported-protocol on an unversioned 5xx', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response('boom', { status: 503 }),
     ) as FetchMock;
     vi.stubGlobal('fetch', fetchMock);
     const { startRecovery } = await importService();
     const result = await startRecovery({ email: 'me@example.com' });
-    expect(result).toMatchObject({ ok: false, reason: 'server-error' });
+    expect(result).toMatchObject({ ok: false, reason: 'unsupported-protocol' });
   });
 
   it('returns unreachable on network error', async () => {

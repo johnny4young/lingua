@@ -12,7 +12,7 @@
  * `(license_id, device_id)` is unique cross-surface in the schema.
  */
 
-import { Hono } from 'hono';
+import { Context, Hono } from 'hono';
 import { errorResponse, methodNotAllowedResponse } from '../lib/errors';
 import { jsonNoStore } from '../lib/json';
 import {
@@ -57,15 +57,15 @@ licensesRouter.post('/activate', async (c) => {
   }
   const { token, deviceId, deviceName, os, surface } = validation.value;
 
-  const verifyOutcome = await verifyTokenAgainstEnv(c.env, token);
+  const verifyOutcome = await verifyTokenAgainstEnv(c, token);
   if (!verifyOutcome.ok) return verifyOutcome.response;
 
   const license = verifyOutcome.license;
   if (license.status === 'refunded') {
-    return jsonResponse({ ok: false, reason: 'license-refunded' }, 401);
+    return jsonNoStore(c, { ok: false, reason: 'license-refunded' }, 401);
   }
   if (isHardExpired(license)) {
-    return jsonResponse({ ok: false, reason: 'license-expired' }, 401);
+    return jsonNoStore(c, { ok: false, reason: 'license-expired' }, 401);
   }
 
   // Idempotent activation: same device + surface already registered.
@@ -147,7 +147,7 @@ licensesRouter.get('/status', async (c) => {
   }
   const { token, deviceId: requestedDeviceId, surface: requestedSurface } = validation.value;
 
-  const verifyOutcome = await verifyTokenAgainstEnv(c.env, token);
+  const verifyOutcome = await verifyTokenAgainstEnv(c, token);
   if (!verifyOutcome.ok) return verifyOutcome.response;
 
   const license = verifyOutcome.license;
@@ -205,7 +205,7 @@ licensesRouter.post('/devices/remove', async (c) => {
   }
   const { token, deviceIdToRemove } = validation.value;
 
-  const verifyOutcome = await verifyTokenAgainstEnv(c.env, token);
+  const verifyOutcome = await verifyTokenAgainstEnv(c, token);
   if (!verifyOutcome.ok) return verifyOutcome.response;
 
   const license = verifyOutcome.license;
@@ -236,14 +236,16 @@ interface VerifyOutcomeErr {
 }
 
 async function verifyTokenAgainstEnv(
-  env: Env,
+  c: Context<{ Bindings: Env }>,
   token: string
 ): Promise<VerifyOutcomeOk | VerifyOutcomeErr> {
+  const env = c.env;
   const publicKeyJwk = parseJwk(env.LINGUA_LICENSE_PUBLIC_KEY_JWK);
   if (!publicKeyJwk) {
     return {
       ok: false,
-      response: jsonResponse(
+      response: jsonNoStore(
+        c,
         {
           ok: false,
           reason: 'not-implemented',
@@ -257,7 +259,8 @@ async function verifyTokenAgainstEnv(
   if (!verified.ok) {
     return {
       ok: false,
-      response: jsonResponse(
+      response: jsonNoStore(
+        c,
         {
           ok: false,
           reason: verified.reason === 'invalid-signature' ? 'invalid-signature' : 'invalid-token',
@@ -272,7 +275,8 @@ async function verifyTokenAgainstEnv(
   if (!license) {
     return {
       ok: false,
-      response: jsonResponse(
+      response: jsonNoStore(
+        c,
         { ok: false, reason: 'unknown-license', message: 'Token is valid but not in D1.' },
         401
       ),
@@ -316,13 +320,6 @@ function isRefreshableHistoricalPayload(payload: LicensePayload): boolean {
   if (!Number.isFinite(supportWindowEndsAt)) return false;
   const now = Math.floor(Date.now() / 1000);
   return now <= supportWindowEndsAt + STALE_TOKEN_REFRESH_GRACE_SECONDS;
-}
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  });
 }
 
 function parseJwk(raw: string | undefined): JsonWebKey | null {

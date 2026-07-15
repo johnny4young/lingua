@@ -116,11 +116,15 @@ function buildE2eDevice(deviceId: string) {
 }
 
 async function fulfillLicenseJson(route: Route, body: unknown, status = 200): Promise<void> {
+  const versionedBody =
+    body !== null && typeof body === 'object' && !Array.isArray(body)
+      ? { protocolVersion: 1, ...(body as Record<string, unknown>) }
+      : body;
   await route.fulfill({
     status,
     contentType: 'application/json',
     headers: LICENSE_SERVER_HEADERS,
-    body: JSON.stringify(body),
+    body: JSON.stringify(versionedBody),
   });
 }
 

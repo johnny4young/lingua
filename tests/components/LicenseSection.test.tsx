@@ -15,10 +15,15 @@ import { LicenseSection } from '@/components/Settings/LicenseSection';
 import { useLicenseStore, type LicenseStatus, type ServerSyncState } from '@/stores/licenseStore';
 import { useUIStore } from '@/stores/uiStore';
 import { startTrial } from '@/services/trialServer';
+import { startRecovery } from '@/services/recoveryServer';
 import { writeToClipboard } from '@/utils/clipboard';
 
 vi.mock('@/services/trialServer', () => ({
   startTrial: vi.fn(),
+}));
+
+vi.mock('@/services/recoveryServer', () => ({
+  startRecovery: vi.fn(),
 }));
 
 // RL-143 — the fingerprint row reads the module-scope PUBLIC_KEY_JWK, whose
@@ -66,6 +71,7 @@ describe('LicenseSection', () => {
       useUIStore.setState({ statusNotice: null });
     });
     vi.mocked(startTrial).mockReset();
+    vi.mocked(startRecovery).mockReset();
     initI18n('en');
     await act(async () => {
       await i18next.changeLanguage('en');
@@ -251,6 +257,7 @@ describe('LicenseSection', () => {
       // (validator drift between renderer + worker) gets its own copy
       // so users do not waste time re-pasting a perfectly good token.
       ['invalid-input', 'license.notice.invalid.requestRejected'],
+      ['unsupported-protocol', 'license.notice.invalid.unsupportedProtocol'],
     ] as const;
 
     for (const [reason, expectedKey] of reasons) {
@@ -719,6 +726,36 @@ describe('LicenseSection', () => {
     expect(screen.getByTestId('trial-start')).toBeTruthy();
     expect(screen.getByTestId('education-start')).toBeTruthy();
     expect(screen.getByTestId('recovery-start')).toBeTruthy();
+  });
+
+  it('uses the shared compatibility notice for Trial and Recovery protocol mismatches', async () => {
+    const user = userEvent.setup();
+    vi.mocked(startTrial).mockResolvedValue({
+      ok: false,
+      reason: 'unsupported-protocol',
+    });
+    vi.mocked(startRecovery).mockResolvedValue({
+      ok: false,
+      reason: 'unsupported-protocol',
+    });
+    render(<LicenseSection />);
+
+    await user.type(screen.getByTestId('trial-email-input'), 'trial@example.com');
+    await user.click(screen.getByTestId('trial-start'));
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'license.notice.invalid.unsupportedProtocol'
+      )
+    );
+
+    useUIStore.setState({ statusNotice: null });
+    await user.type(screen.getByTestId('recovery-email-input'), 'recover@example.com');
+    await user.click(screen.getByTestId('recovery-start'));
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'license.notice.invalid.unsupportedProtocol'
+      )
+    );
   });
 
   it('does NOT render the CTAs when the license is active', () => {

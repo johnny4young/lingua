@@ -17,8 +17,8 @@
  * All wrappers:
  *   - read the base URL from `import.meta.env.VITE_LINGUA_LICENSE_SERVER_URL`
  *   - return a tagged-union `{ ok: true, ... } | { ok: false, reason, message? }`
- *   - never throw; network errors and parse errors map to `unreachable`
- *     so callers can implement the 24-hour offline-grace fallback
+ *   - never throw; network errors map to `unreachable`, while malformed or
+ *     unversioned responses fail closed as `unsupported-protocol`
  *   - apply a 5-second timeout via `AbortController`; no retry
  *
  * `removeDevice` uses `keepalive: true` so a fast tab close still
@@ -39,6 +39,7 @@ import type {
   StatusResult,
   StatusSuccess,
 } from '../../shared/licenseServerTypes';
+import { validateLicenseServerProtocol } from '../../shared/licenseServerProtocol';
 
 // Re-export so existing renderer imports
 // (`from '../services/licenseServer'`) keep working unchanged.
@@ -179,7 +180,9 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
   });
   if (!result.ok) return { ok: false, reason: 'unreachable', message: result.message };
   const { response } = result;
-  const body = (await readJson(response)) as Record<string, unknown> | null;
+  const protocol = validateLicenseServerProtocol(await readJson(response));
+  if (!protocol.ok) return { ok: false, reason: protocol.reason };
+  const { body } = protocol;
 
   if (response.status >= 500) {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };
@@ -229,7 +232,9 @@ export async function status(input: StatusInput): Promise<StatusResult> {
   });
   if (!result.ok) return { ok: false, reason: 'unreachable', message: result.message };
   const { response } = result;
-  const body = (await readJson(response)) as Record<string, unknown> | null;
+  const protocol = validateLicenseServerProtocol(await readJson(response));
+  if (!protocol.ok) return { ok: false, reason: protocol.reason };
+  const { body } = protocol;
 
   if (response.status >= 500) {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };
@@ -268,7 +273,9 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
   });
   if (!result.ok) return { ok: false, reason: 'unreachable', message: result.message };
   const { response } = result;
-  const body = (await readJson(response)) as Record<string, unknown> | null;
+  const protocol = validateLicenseServerProtocol(await readJson(response));
+  if (!protocol.ok) return { ok: false, reason: protocol.reason };
+  const { body } = protocol;
 
   if (response.status >= 500) {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };

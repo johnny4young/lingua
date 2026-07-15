@@ -46,6 +46,7 @@ import type {
   StatusResult,
   StatusSuccess,
 } from '../shared/licenseServerTypes';
+import { validateLicenseServerProtocol } from '../shared/licenseServerProtocol';
 
 // Re-export so `src/main/license.ts` can import from one place
 // (the runtime + the wrappers stay siblings under src/main).
@@ -236,7 +237,9 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
   });
   if (!result.ok) return { ok: false, reason: result.reason, message: result.message };
   const { response } = result;
-  const body = (await readJson(response)) as Record<string, unknown> | null;
+  const protocol = validateLicenseServerProtocol(await readJson(response));
+  if (!protocol.ok) return { ok: false, reason: protocol.reason };
+  const { body } = protocol;
 
   if (response.status >= 500) {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };
@@ -282,7 +285,9 @@ export async function status(input: StatusInput): Promise<StatusResult> {
   });
   if (!result.ok) return { ok: false, reason: result.reason, message: result.message };
   const { response } = result;
-  const body = (await readJson(response)) as Record<string, unknown> | null;
+  const protocol = validateLicenseServerProtocol(await readJson(response));
+  if (!protocol.ok) return { ok: false, reason: protocol.reason };
+  const { body } = protocol;
 
   if (response.status >= 500) {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };
@@ -316,7 +321,9 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
   });
   if (!result.ok) return { ok: false, reason: result.reason, message: result.message };
   const { response } = result;
-  const body = (await readJson(response)) as Record<string, unknown> | null;
+  const protocol = validateLicenseServerProtocol(await readJson(response));
+  if (!protocol.ok) return { ok: false, reason: protocol.reason };
+  const { body } = protocol;
 
   if (response.status >= 500) {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };

@@ -60,6 +60,12 @@ export function RecoveryCta({
             messageKey: 'license.recovery.notice.invalidEmail',
           });
           return;
+        case 'unsupported-protocol':
+          pushStatusNotice({
+            tone: 'error',
+            messageKey: 'license.notice.invalid.unsupportedProtocol',
+          });
+          return;
         case 'disabled':
           pushStatusNotice({
             tone: 'error',

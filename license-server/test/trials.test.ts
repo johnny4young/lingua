@@ -236,7 +236,12 @@ describe('POST /trials/start — real flow (Slice 4)', () => {
     );
     expect(second.status).toBe(200);
     const body = (await second.json()) as { ok: boolean; reason: string; canRecover: boolean };
-    expect(body).toEqual({ ok: false, reason: 'trial-unavailable', canRecover: true });
+    expect(body).toEqual({
+      protocolVersion: 1,
+      ok: false,
+      reason: 'trial-unavailable',
+      canRecover: true,
+    });
   });
 
   it('returns generic trial-unavailable when the device id already has a trial', async () => {
@@ -258,7 +263,12 @@ describe('POST /trials/start — real flow (Slice 4)', () => {
       reason: string;
       canRecover: boolean;
     };
-    expect(body).toEqual({ ok: false, reason: 'trial-unavailable', canRecover: true });
+    expect(body).toEqual({
+      protocolVersion: 1,
+      ok: false,
+      reason: 'trial-unavailable',
+      canRecover: true,
+    });
   });
 
   it('rate-limits the 4th hit per IP per day with retryAfter', async () => {

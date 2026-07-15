@@ -851,6 +851,7 @@
   "license.notice.invalid.refunded": "Esta licencia fue reembolsada. Usa otra o contacta a soporte si crees que es un error.",
   "license.notice.invalid.unknownLicense": "No encontramos esta licencia en el servidor. Aseg\u00farate de copiar el token completo desde tu correo de Lingua.",
   "license.notice.invalid.requestRejected": "El servidor de licencias rechaz\u00f3 el registro de este dispositivo. El token es v\u00e1lido pero la solicitud no pas\u00f3 las validaciones del servidor. Actualiza Lingua a la \u00faltima versi\u00f3n o contacta a soporte si el problema persiste.",
+  "license.notice.invalid.unsupportedProtocol": "Esta versi\u00f3n de Lingua no es compatible con el servicio de licencias. Actualiza Lingua y vuelve a intentarlo.",
   "license.notice.serverUnreachable": "Activada localmente como {{tier}}. No pudimos conectar con el servidor de licencias ahora \u2014 Lingua sincronizar\u00e1 la lista de dispositivos la pr\u00f3xima vez que est\u00e9s en l\u00ednea.",
   "license.notice.cleared": "Licencia eliminada. Regresaste al plan Gratis.",
   "license.notice.clearFailed": "No se pudo quitar la licencia. Revisa los permisos del disco e inténtalo de nuevo.",

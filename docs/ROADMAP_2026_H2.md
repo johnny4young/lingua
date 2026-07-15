@@ -72,6 +72,14 @@ fallback manejable; los bridges de coordinación de la aplicación ya no usan el
 target DOM global. La evidencia visual queda en
 `output/review/rl135-command-bus/` y el smoke nativo en
 `output/stagewright/desktop-smoke/`.
+`RL-141` cerró el versionado explícito del protocolo machine-readable del
+servidor de licencias: el worker sella versión 1 en respuestas de licencias y
+trials, y web/desktop validan un conjunto cerrado antes de interpretar status o
+payload. Versiones ausentes, malformadas o futuras fallan cerradas con aviso
+localizado y token descartado. La evidencia web EN/ES y desktop queda en
+`output/review/rl141-license-protocol/`, con el smoke general en
+`output/stagewright/desktop-smoke/`; el ADR documenta el rollout expand/contract
+para futuros bumps incompatibles.
 G3 ya cumplió el gate de medición y P6 cerró el último hallazgo de performance
 medio de esta ronda.
 

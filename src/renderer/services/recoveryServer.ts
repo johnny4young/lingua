@@ -19,6 +19,7 @@ import type {
   LicenseRecoverPending,
   LicenseRecoverFailureReason,
 } from '../../shared/licenseServerTypes';
+import { validateLicenseServerProtocol } from '../../shared/licenseServerProtocol';
 
 export type {
   LicenseRecoverInput,
@@ -87,7 +88,11 @@ export async function startRecovery(
   });
   if (!result.ok) return { ok: false, reason: 'unreachable', message: result.message };
   const { response } = result;
-  const body = (await readJson(response)) as Record<string, unknown> | null;
+  // Recovery is no-info-leak only after the response proves it speaks the
+  // contract this client understands.
+  const protocol = validateLicenseServerProtocol(await readJson(response));
+  if (!protocol.ok) return { ok: false, reason: protocol.reason };
+  const { body } = protocol;
 
   if (response.status >= 500) {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };
