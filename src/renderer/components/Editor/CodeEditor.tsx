@@ -35,6 +35,7 @@ import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
 import { VimStatusBar } from './VimStatusBar';
 import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
+import { emitCommand } from '../../stores/commandBus';
 
 configureMonaco();
 
@@ -43,18 +44,12 @@ configureMonaco();
 // ---------------------------------------------------------------------------
 
 export function CodeEditor() {
-  const activeTabId = useEditorStore((state) => state.activeTabId);
-  const updateContent = useEditorStore((state) => state.updateContent);
-  const pendingReveal = useEditorStore((state) => state.pendingReveal);
-  const clearPendingReveal = useEditorStore((state) => state.clearPendingReveal);
-  const {
-    editorTheme,
-    fontSize,
-    fontFamily,
-    wordWrap,
-    minimap,
-  } = useSettingsStore();
-  const vimMode = useSettingsStore((state) => state.vimMode);
+  const activeTabId = useEditorStore(state => state.activeTabId);
+  const updateContent = useEditorStore(state => state.updateContent);
+  const pendingReveal = useEditorStore(state => state.pendingReveal);
+  const clearPendingReveal = useEditorStore(state => state.clearPendingReveal);
+  const { editorTheme, fontSize, fontFamily, wordWrap, minimap } = useSettingsStore();
+  const vimMode = useSettingsStore(state => state.vimMode);
   const { t } = useTranslation();
   // Stash `t` in a ref so the Vim init effect doesn't re-run (and tear
   // down + rebuild the Vim layer, dropping the user's mode + buffer
@@ -65,9 +60,9 @@ export function CodeEditor() {
   useEffect(() => {
     translateRef.current = t;
   }, [t]);
-  const lineResults = useResultStore((state) => state.lineResults);
-  const diagnostics = useResultStore((state) => state.diagnostics);
-  const executionSource = useResultStore((state) => state.executionSource);
+  const lineResults = useResultStore(state => state.lineResults);
+  const diagnostics = useResultStore(state => state.diagnostics);
+  const executionSource = useResultStore(state => state.executionSource);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const vimAdapterRef = useRef<VimAdapter | null>(null);
@@ -82,20 +77,15 @@ export function CodeEditor() {
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const { clearDecorations, applyDiagnostics, clearMarkers } = useInlineResults();
   const visibleLineResults = useMemo(
-    () => lineResults.filter((result) => !isHiddenUndefinedLineResult(result)),
-    [lineResults],
+    () => lineResults.filter(result => !isHiddenUndefinedLineResult(result)),
+    [lineResults]
   );
 
   // RL-093 Slice 3 — richer inline-result presentation as Monaco
   // overlay widgets. This replaces the old trailing-comment
   // decorations so the editor shows one result surface, not duplicate
   // values after the code and again at the right edge.
-  useInlineResultWidgets(
-    editorInstance,
-    monacoInstance,
-    visibleLineResults,
-    activeTabId,
-  );
+  useInlineResultWidgets(editorInstance, monacoInstance, visibleLineResults, activeTabId);
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
 
   const activeTab = useActiveTab();
@@ -117,10 +107,10 @@ export function CodeEditor() {
   // The selector folds the expected model URIs into one string so this
   // effect only re-runs when the Rust tab set (id / name / filePath)
   // actually changes, never per keystroke.
-  const expectedRustModelPaths = useEditorStore((state) =>
+  const expectedRustModelPaths = useEditorStore(state =>
     state.tabs
-      .filter((tab) => tab.language === 'rust')
-      .map((tab) => rustLspModelPathForTab(tab))
+      .filter(tab => tab.language === 'rust')
+      .map(tab => rustLspModelPathForTab(tab))
       .join('\n')
   );
   useEffect(() => {
@@ -129,7 +119,7 @@ export function CodeEditor() {
       expectedRustModelPaths
         .split('\n')
         .filter(Boolean)
-        .map((path) => monacoInstance.Uri.parse(path).toString())
+        .map(path => monacoInstance.Uri.parse(path).toString())
     );
     const mounted = editorRef.current?.getModel() ?? null;
     for (const model of monacoInstance.editor.getModels()) {
@@ -148,13 +138,12 @@ export function CodeEditor() {
   useBreakpointGutter(editorInstance, monacoInstance, {
     activeTabId: activeTab?.id ?? null,
     language: activeTab?.language,
-    toggleAriaLabel: (line) => t('debugger.gutter.toggle', { line }),
+    toggleAriaLabel: line => t('debugger.gutter.toggle', { line }),
   });
-  // RL-044 Sub-slice G — listen for `lingua-highlight-line` events
-  // dispatched by `<OutputLineBadge>` on hover, apply the
+  // RL-044 / RL-135 — listen for editor.highlightLine commands
+  // emitted by `<OutputLineBadge>` on hover, apply the
   // `lingua-highlight-flash` decoration to the hinted line, and
-  // (when the Settings smooth-scroll sub-gate is ON) reveal
-  // offscreen lines via `editor.revealLineInCenter`.
+  // reveal offscreen lines via `editor.revealLineInCenter`.
   useEditorHighlightSync(editorRef);
 
   // RL-124 — lazy per-language Monaco registration. Pre-fetch the active
@@ -195,12 +184,8 @@ export function CodeEditor() {
     // status bar can read marker severities + `getModelMarkers`.
     setActiveEditor(editor, monaco);
 
-    editor.onDidScrollChange((e) => {
-      window.dispatchEvent(
-        new CustomEvent('lingua:editor-scroll', {
-          detail: { scrollTop: e.scrollTop },
-        })
-      );
+    editor.onDidScrollChange(e => {
+      emitCommand('editor.scroll', { scrollTop: e.scrollTop });
     });
     // RL-025 Slice A fold D — let the dependency detection runner
     // see paste events so it can drop to the 60ms paste debounce
@@ -210,29 +195,21 @@ export function CodeEditor() {
       notifyDependencyDetectionPaste();
     });
     // RL-044 Sub-slice G Fold G — symmetric inverse direction:
-    // cursor settled on line N → broadcast a
-    // `lingua-source-line-hovered` CustomEvent so any
+    // cursor settled on line N → emit editor.sourceLineHovered so any
     // `<ConsolePanel>` row whose `origin.line === N` can pulse for
     // the next 1500ms. Debounced 200ms so a normal cursor-move
     // burst (arrow keys, click + drag) does not stream events.
     //
-    // RL-044 Sub-slice G.1 — gated on the master toggle via the ref
-    // so the listener honors the live setting (the outer useEffect
-    // also clears any pending broadcast when the flag flips OFF
-    // mid-debounce; this guard short-circuits new cursor moves so
-    // we never schedule a doomed timer).
-    editor.onDidChangeCursorPosition((event) => {
+    // RL-044 Sub-slice G.1 — keep one pending command so cursor bursts
+    // collapse to the final settled line.
+    editor.onDidChangeCursorPosition(event => {
       const line = event.position.lineNumber;
       if (!Number.isFinite(line) || line <= 0) return;
       if (cursorBroadcastTimerRef.current) {
         clearTimeout(cursorBroadcastTimerRef.current);
       }
       cursorBroadcastTimerRef.current = setTimeout(() => {
-        window.dispatchEvent(
-          new CustomEvent('lingua-source-line-hovered', {
-            detail: { line, durationMs: 1500 },
-          })
-        );
+        emitCommand('editor.sourceLineHovered', { line, durationMs: 1500 });
         cursorBroadcastTimerRef.current = null;
       }, 200);
     });
@@ -301,8 +278,7 @@ export function CodeEditor() {
 
     const matchesActiveTab = pendingReveal.tabId
       ? pendingReveal.tabId === activeTab.id
-      : pendingReveal.filePath !== undefined &&
-        activeTab.filePath === pendingReveal.filePath;
+      : pendingReveal.filePath !== undefined && activeTab.filePath === pendingReveal.filePath;
     if (!matchesActiveTab) return;
 
     editor.revealLineInCenter(pendingReveal.line);
@@ -337,7 +313,7 @@ export function CodeEditor() {
     const statusNode = vimStatusBarRef.current;
     if (!editor || !statusNode) return;
 
-    void loadMonacoVim().then((mod) => {
+    void loadMonacoVim().then(mod => {
       if (cancelled || !mod) return;
       const LocalizedStatusBar = createLocalizedStatusBarClass(mod.StatusBar, (key, options) =>
         translateRef.current(key, options)
@@ -361,8 +337,7 @@ export function CodeEditor() {
     return <EditorEmptyState />;
   }
 
-  const editorPath =
-    activeTab.language === 'rust' ? rustLspModelPathForTab(activeTab) : undefined;
+  const editorPath = activeTab.language === 'rust' ? rustLspModelPathForTab(activeTab) : undefined;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -375,7 +350,7 @@ export function CodeEditor() {
           theme={editorTheme}
           beforeMount={handleBeforeMount}
           onMount={handleEditorMount}
-          onChange={(value) => {
+          onChange={value => {
             if (value !== undefined) {
               updateContent(activeTab.id, value);
             }

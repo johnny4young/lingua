@@ -8,7 +8,7 @@
  *   - curl        -> build an `HttpRequestV1` + `workspaceToolStore.createRequest`
  *                    + `openHttpWorkspaceTab` (mirrors `useImportPreview`'s
  *                    `curl-http` confirm branch)
- *   - stack-trace -> dispatch the existing `lingua-open-file` event (reveals
+ *   - stack-trace -> emit the existing `file.open` command (reveals
  *                    within-tab today; opens cross-file once RL-024 lands)
  *   - large-json  -> open a new `json` editor tab with the blob
  *
@@ -39,6 +39,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
 import type { Language } from '../types';
 import type { PasteIntent } from './pasteHandlers';
+import { emitCommand } from '../stores/commandBus';
 
 /**
  * Minimal Monaco surface the router needs: the model to strip the literal
@@ -126,10 +127,10 @@ function applyCapsule(source: string, ctx: ApplyPasteContext): boolean {
   // Re-validate before handing off; the overlay re-decodes for its preview.
   if (!parseRunCapsule(source).ok) return false;
   // fold E — route through the confirm-first CapsuleImportOverlay (RL-094 UX)
-  // rather than opening a tab one-click. Stash the JSON + dispatch the event
-  // the App already listens for; the overlay decodes the seed on mount.
+  // rather than opening a tab one-click. Stash the JSON + emit the command
+  // App already consumes; the overlay decodes the seed on mount.
   setPendingCapsuleImportSource(source);
-  window.dispatchEvent(new Event('lingua-open-capsule-import'));
+  emitCommand('capsule.openImport');
   removePastedText(ctx);
   return true;
 }
@@ -139,9 +140,11 @@ function applyCurl(source: string, ctx: ApplyPasteContext): boolean {
   if (!result.ok) return false;
   const command = result.command;
   const id = crypto.randomUUID();
-  const headers: HttpRequestHeader[] = Object.entries(command.headers).map(
-    ([name, value]) => ({ name, value, enabled: true })
-  );
+  const headers: HttpRequestHeader[] = Object.entries(command.headers).map(([name, value]) => ({
+    name,
+    value,
+    enabled: true,
+  }));
   const body: HttpRequestBody | undefined =
     command.body != null && command.body.length > 0
       ? { kind: inferBodyKind(command), content: command.body }
@@ -159,22 +162,15 @@ function applyCurl(source: string, ctx: ApplyPasteContext): boolean {
   return true;
 }
 
-function applyStackTrace(
-  intent: Extract<PasteIntent, { kind: 'stack-trace' }>
-): boolean {
-  // Reuse the existing clickable-stack-frame event. The default consumer
+function applyStackTrace(intent: Extract<PasteIntent, { kind: 'stack-trace' }>): boolean {
+  // Reuse the existing clickable-stack-frame command. The default consumer
   // reveals within-tab; a higher-priority RL-024 consumer will open cross-file
   // once multi-file lands. Navigation, so the pasted trace is left in place.
-  window.dispatchEvent(
-    new CustomEvent('lingua-open-file', {
-      detail: {
-        file: intent.file ?? undefined,
-        line: intent.line,
-        column: intent.column,
-      },
-      cancelable: true,
-    })
-  );
+  emitCommand('file.open', {
+    file: intent.file ?? undefined,
+    line: intent.line,
+    column: intent.column,
+  });
   return true;
 }
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
+import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { isJavaScriptFamily, isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { isRuntimeTimeoutSupportedLanguage } from '../../../shared/runtimeTimeoutPresets';
@@ -18,16 +19,23 @@ import { useUpdateStore } from '../../stores/updateStore';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { runBenchmark, BENCHMARK_DEFAULT_ITERATIONS } from '../../runtime/benchmarkRun';
 import { explainError, formatExplanation } from '../../../shared/errorExplainer';
-import { detectNativeDependencies, type NativePackageLanguage } from '../../../shared/dependencies/nativeDependencies';
+import {
+  detectNativeDependencies,
+  type NativePackageLanguage,
+} from '../../../shared/dependencies/nativeDependencies';
 import { useEntitlement } from '../../hooks/useEntitlement';
-import { getActiveEditor, getActiveEditorCursorLine, getActiveEditorLineText } from '../../runtime/editorAccess';
+import {
+  getActiveEditor,
+  getActiveEditorCursorLine,
+  getActiveEditorLineText,
+} from '../../runtime/editorAccess';
 import { appendWatchAtLine, isAppendWatchSupported } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { renderLanguageScorecardMarkdown } from '../../../shared/languageSupport';
 import { markLanguageScorecardSurfaceForNextMount } from '../Settings/languageSupportScorecardTelemetry';
 import { markPrivacyDashboardSurfaceForNextMount } from '../Settings/privacyTrustTelemetry';
-import { SHARE_LINK_TRIGGER_EVENT } from '../Share/shareLinkEvents';
+import { emitCommand } from '../../stores/commandBus';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
@@ -64,27 +72,23 @@ export function useCommandPaletteCommands({
   onNewNotebook,
   onExportActiveNotebookLinguanb,
 }: CommandPaletteProps) {
-  const addTab = useEditorStore((state) => state.addTab);
-  const openFileFromDisk = useEditorStore((state) => state.openFileFromDisk);
-  const saveActiveTabAs = useEditorStore((state) => state.saveActiveTabAs);
-  const duplicateActiveTab = useEditorStore((state) => state.duplicateActiveTab);
-  const setTabRuntimeMode = useEditorStore((state) => state.setTabRuntimeMode);
-  const setTabAutoLogEnabled = useEditorStore(
-    (state) => state.setTabAutoLogEnabled
-  );
-  const updateContent = useEditorStore((state) => state.updateContent);
-  const activeTabId = useEditorStore((state) => state.activeTabId);
+  const addTab = useEditorStore(state => state.addTab);
+  const openFileFromDisk = useEditorStore(state => state.openFileFromDisk);
+  const saveActiveTabAs = useEditorStore(state => state.saveActiveTabAs);
+  const duplicateActiveTab = useEditorStore(state => state.duplicateActiveTab);
+  const setTabRuntimeMode = useEditorStore(state => state.setTabRuntimeMode);
+  const setTabAutoLogEnabled = useEditorStore(state => state.setTabAutoLogEnabled);
+  const updateContent = useEditorStore(state => state.updateContent);
+  const activeTabId = useEditorStore(state => state.activeTabId);
   const activeTab = useActiveTab();
   const activeRuntimeMode = languageHasRuntimeModes(activeTab?.language)
     ? (activeTab?.runtimeMode ?? 'worker')
     : null;
   const activeWorkflowMode = activeTab
-    ? activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language)
+    ? (activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language))
     : null;
   const activeTimeoutLanguage =
-    activeTab && isRuntimeTimeoutSupportedLanguage(activeTab.language)
-      ? activeTab.language
-      : null;
+    activeTab && isRuntimeTimeoutSupportedLanguage(activeTab.language) ? activeTab.language : null;
   const isAutoLogCommandEligible =
     activeTab !== null &&
     isJavaScriptFamily(activeTab.language) &&
@@ -107,19 +111,15 @@ export function useCommandPaletteCommands({
     nativeDepLanguage && activeTab
       ? detectNativeDependencies(nativeDepLanguage, activeTab.content)
       : [];
-  const executionHistory = useExecutionHistoryStore((state) => state.entries);
+  const executionHistory = useExecutionHistoryStore(state => state.entries);
   // RL-094 Slice 1 fold B — read the latest capsule (newest-first walk
   // inside the store). Recomputes when `entries` changes; the
   // selector is cheap (returns null when no entry carries one).
-  const latestCapsule = useExecutionHistoryStore((state) =>
-    state.latestCapsule()
-  );
-  const snapshotRing = useResultStore((state) => state.snapshotRing);
-  const dependencyDetectionEnabled = useSettingsStore(
-    (state) => state.dependencyDetectionEnabled
-  );
-  const dependencyDetectionEntry = useDependencyDetectionStore((state) =>
-    activeTabId ? state.byTab.get(activeTabId) ?? null : null
+  const latestCapsule = useExecutionHistoryStore(state => state.latestCapsule());
+  const snapshotRing = useResultStore(state => state.snapshotRing);
+  const dependencyDetectionEnabled = useSettingsStore(state => state.dependencyDetectionEnabled);
+  const dependencyDetectionEntry = useDependencyDetectionStore(state =>
+    activeTabId ? (state.byTab.get(activeTabId) ?? null) : null
   );
   const dependenciesPanelAvailable =
     dependencyDetectionEnabled &&
@@ -129,20 +129,21 @@ export function useCommandPaletteCommands({
     (dependencyDetectionEntry.dependencies.length > 0 ||
       dependencyDetectionEntry.skippedReason !== undefined);
   const { setLayoutPreset } = useSettingsStore();
-  const vimMode = useSettingsStore((state) => state.vimMode);
+  const vimMode = useSettingsStore(state => state.vimMode);
   // RL-112 fold C — gate the "Focus status bar" palette command on the bar's
   // current visibility so it never offers to focus a hidden bar.
-  const showStatusBar = useSettingsStore((state) => state.showStatusBar);
+  const showStatusBar = useSettingsStore(state => state.showStatusBar);
   // RL-111 fold D — gates the "Restore last session" palette command. When
   // ask-mode boot pinned a previous-session snapshot, prefer that in-memory
   // count over the auto-save store's current value so the palette fallback stays
   // aligned with the boot prompt after the toast dismisses.
-  const savedSessionTabCount = useSessionStore((state) => {
+  const savedSessionTabCount = useSessionStore(state => {
     const pendingCount = getPendingSessionRestoreTabCount();
     return pendingCount > 0 ? pendingCount : state.savedTabs.length;
   });
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
   const { t, i18n } = useTranslation();
+  const { info, success, warning } = useStatusNotice();
 
   // RL-028 third slice — when the user picks a recent-run entry, try to
   // focus a tab that matches the run's language. If there isn't one
@@ -150,7 +151,7 @@ export function useCommandPaletteCommands({
   // until Slice D of RL-028 wires an actual replay path).
   const focusLanguageTab = (language: Language) => {
     const { tabs, setActiveTab } = useEditorStore.getState();
-    const match = tabs.find((tab) => tab.language === language);
+    const match = tabs.find(tab => tab.language === language);
     if (match) setActiveTab(match.id);
   };
 
@@ -231,7 +232,7 @@ export function useCommandPaletteCommands({
                 language: tab.language,
                 runtimeMode: activeRuntimeMode ?? undefined,
                 iterations: BENCHMARK_DEFAULT_ITERATIONS,
-              }).then((result) => {
+              }).then(result => {
                 const store = useConsoleStore.getState();
                 if (!result.ok) {
                   store.addEntry({
@@ -305,7 +306,7 @@ export function useCommandPaletteCommands({
                   packages: specifiers.join(', '),
                 }),
               });
-              void bridge(language, specifiers, filePath).then((result) => {
+              void bridge(language, specifiers, filePath).then(result => {
                 const console = useConsoleStore.getState();
                 if (result.status === 'success') {
                   console.addEntry({
@@ -336,7 +337,7 @@ export function useCommandPaletteCommands({
       // is null; this is the tighter invariant at the call site.
       onSetRuntimeMode:
         activeRuntimeMode !== null && activeTabId
-          ? (mode) => setTabRuntimeMode(activeTabId, mode)
+          ? mode => setTabRuntimeMode(activeTabId, mode)
           : undefined,
       activeRuntimeMode,
       // RL-020 Slice 3 fold E — read the editor's current line text,
@@ -352,10 +353,7 @@ export function useCommandPaletteCommands({
               const cursorLine = getActiveEditorCursorLine();
               const lineText = getActiveEditorLineText();
               if (cursorLine === null || lineText === null) {
-                useUIStore.getState().pushStatusNotice({
-                  tone: 'info',
-                  messageKey: 'commandPalette.action.addWatch.unsupported',
-                });
+                info('commandPalette.action.addWatch.unsupported');
                 return;
               }
               const next = appendWatchAtLine(
@@ -364,10 +362,7 @@ export function useCommandPaletteCommands({
                 activeTab.language as 'javascript' | 'typescript' | 'python'
               );
               if (next === null) {
-                useUIStore.getState().pushStatusNotice({
-                  tone: 'info',
-                  messageKey: 'commandPalette.action.addWatch.unsupported',
-                });
+                info('commandPalette.action.addWatch.unsupported');
                 return;
               }
               updateContent(activeTabId, next);
@@ -393,9 +388,7 @@ export function useCommandPaletteCommands({
       activeAutoLogResolved:
         activeTab && isAutoLogCommandEligible
           ? activeTab.autoLogEnabled === undefined
-            ? useSettingsStore.getState().scratchpadAutoLogByLanguage[
-                activeTab.language
-              ] === true
+            ? useSettingsStore.getState().scratchpadAutoLogByLanguage[activeTab.language] === true
             : activeTab.autoLogEnabled === true
           : false,
       // RL-020 Slice 6 fold E — focus the Input bottom-panel tab.
@@ -419,18 +412,14 @@ export function useCommandPaletteCommands({
       // the supported language set.
       activeTimeoutLanguage,
       activeTimeoutPreset: activeTimeoutLanguage
-        ? (useSettingsStore.getState().runtimeTimeoutPresetByLanguage?.[
-            activeTimeoutLanguage
-          ] ?? null)
+        ? (useSettingsStore.getState().runtimeTimeoutPresetByLanguage?.[activeTimeoutLanguage] ??
+          null)
         : null,
-      onSetActiveLanguageTimeoutPreset:
-        activeTimeoutLanguage
-          ? (preset) => {
-              useSettingsStore
-                .getState()
-                .setRuntimeTimeoutPreset(activeTimeoutLanguage, preset);
-            }
-          : undefined,
+      onSetActiveLanguageTimeoutPreset: activeTimeoutLanguage
+        ? preset => {
+            useSettingsStore.getState().setRuntimeTimeoutPreset(activeTimeoutLanguage, preset);
+          }
+        : undefined,
       // RL-020 Slice 7 fold D — "Run with extended timeout"
       // one-shot. Sets the per-tab override + triggers the manual
       // run via the parent-provided runActiveTab callback. Hidden
@@ -444,9 +433,7 @@ export function useCommandPaletteCommands({
               // 5 min one-shot override. Mirrors the `extended` preset
               // ceiling so the upper bound is consistent with the
               // Settings copy.
-              useEditorStore
-                .getState()
-                .setTabNextRunTimeoutOverride(activeTabId, 300_000);
+              useEditorStore.getState().setTabNextRunTimeoutOverride(activeTabId, 300_000);
               onRerunLast();
             }
           : undefined,
@@ -459,21 +446,17 @@ export function useCommandPaletteCommands({
         activeTab && activeTabId
           ? () => {
               const next = activeTab.compareWithSnapshotEnabled !== true;
-              useEditorStore
-                .getState()
-                .setTabCompareEnabled(activeTabId, next);
+              useEditorStore.getState().setTabCompareEnabled(activeTabId, next);
               void trackEvent('runtime.compare_view_toggled', {
                 language: activeTab.language,
                 enabled: next,
               });
             }
           : undefined,
-      activeCompareEnabled:
-        activeTab?.compareWithSnapshotEnabled === true,
+      activeCompareEnabled: activeTab?.compareWithSnapshotEnabled === true,
       compareSnapshotAvailable: (() => {
         return (
-          activeTab !== null &&
-          snapshotRing.some((entry) => entry.language === activeTab.language)
+          activeTab !== null && snapshotRing.some(entry => entry.language === activeTab.language)
         );
       })(),
       // RL-020 Slice 9 fold B — variable inspector palette entry.
@@ -481,29 +464,22 @@ export function useCommandPaletteCommands({
         activeTab && activeTabId
           ? () => {
               const next = activeTab.variableInspectorEnabled !== true;
-              useEditorStore
-                .getState()
-                .setTabVariableInspectorEnabled(activeTabId, next);
+              useEditorStore.getState().setTabVariableInspectorEnabled(activeTabId, next);
               syncVariableInspectorSurfaceAfterToggle(next);
               const snapshot = useResultStore.getState().scopeSnapshot;
-              const bucket = snapshot
-                ? bucketVariableCount(snapshot.variables.length)
-                : '0';
+              const bucket = snapshot ? bucketVariableCount(snapshot.variables.length) : '0';
               void trackEvent('runtime.variable_inspector_opened', {
                 language: activeTab.language,
                 variableCount: bucket,
               });
             }
           : undefined,
-      activeVariableInspectorEnabled:
-        activeTab?.variableInspectorEnabled === true,
+      activeVariableInspectorEnabled: activeTab?.variableInspectorEnabled === true,
       variableInspectorScopeAvailable: (() => {
         if (!activeTab) return false;
         if (activeTab.runtimeMode === 'node') return false;
         const snapshot = useResultStore.getState().scopeSnapshot;
-        return (
-          snapshot != null && snapshot.language === activeTab.language
-        );
+        return snapshot != null && snapshot.language === activeTab.language;
       })(),
       // RL-020 Slice 4 fold G — pass the active tab id so the
       // model can surface the per-tab Recent runs group above the
@@ -538,28 +514,12 @@ export function useCommandPaletteCommands({
       // adoption from the Settings entry.
       onExportLatestCapsule: latestCapsule
         ? () => {
-            void exportCapsuleToClipboard(
-              latestCapsule,
-              'palette-export'
-            ).then((result) => {
-              useUIStore.getState().pushStatusNotice(
-                result.ok
-                  ? {
-                      tone: 'success',
-                      messageKey:
-                        'settings.account.runCapsules.copiedNotice',
-                    }
-                  : {
-                      tone: 'warning',
-                      // RL-094 Slice 1.5 — converged on the
-                      // `results.actions.exportCapsule.clipboardUnavailable`
-                      // key so palette, keyboard shortcut, and result-
-                      // panel surfaces share one source of truth for
-                      // the failure copy.
-                      messageKey:
-                        'results.actions.exportCapsule.clipboardUnavailable',
-                    }
-              );
+            void exportCapsuleToClipboard(latestCapsule, 'palette-export').then(result => {
+              if (result.ok) {
+                success('settings.account.runCapsules.copiedNotice');
+              } else {
+                warning('results.actions.exportCapsule.clipboardUnavailable');
+              }
             });
           }
         : undefined,
@@ -579,37 +539,31 @@ export function useCommandPaletteCommands({
       //      fires exactly one telemetry event with the right tag.
       //   2. Open the Settings overlay (the model wrapper has already
       //      called `onClose()` first, so this overlay state wins).
-      //   3. Dispatch `lingua-settings-navigate-tab` so SettingsModal
+      //   3. Emit settings.navigate so SettingsModal
       //      jumps to the Languages tab before the scroll target is
-      //      queried. The event listener lives in SettingsModal so
+      //      queried. The command listener lives in SettingsModal so
       //      we never grow a global "active settings tab" store.
       onShowLanguageSupport: () => {
         markLanguageScorecardSurfaceForNextMount('palette');
         onOpenSettings();
         // Two `requestAnimationFrame` ticks: the first lets
         // SettingsModal mount and register its
-        // `lingua-settings-navigate-tab` listener; the second lets
+        // settings.navigate listener; the second lets
         // `LanguagesSection` mount the scorecard after the tab
         // change before we try to scroll it into view. A synchronous
         // dispatch right after `onOpenSettings()` would race the
         // mount and be lost.
         window.requestAnimationFrame(() => {
-          window.dispatchEvent(
-            new CustomEvent('lingua-settings-navigate-tab', {
-              detail: 'languages',
-            })
-          );
+          emitCommand('settings.navigate', { tab: 'languages' });
           window.requestAnimationFrame(() => {
-            const node = document.querySelector(
-              '[data-testid="language-support-scorecard"]'
-            );
+            const node = document.querySelector('[data-testid="language-support-scorecard"]');
             if (node) {
               node.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
           });
         });
       },
-      // RL-036 Phase A1 fold C — dispatch the share trigger event;
+      // RL-036 Phase A1 fold C — emit the share trigger command;
       // the always-mounted `<ShareLinkController>` picks it up and
       // runs the same flow as the header button, with `trigger:
       // 'palette'` so telemetry attributes correctly. Hide the
@@ -617,11 +571,7 @@ export function useCommandPaletteCommands({
       // no-op.
       onCopyShareLink: activeTab
         ? () => {
-            window.dispatchEvent(
-              new CustomEvent(SHARE_LINK_TRIGGER_EVENT, {
-                detail: { trigger: 'palette' },
-              })
-            );
+            emitCommand('share.trigger', { trigger: 'palette' });
           }
         : undefined,
       // RL-101 Slice 1 fold G — three palette entries that re-arm a
@@ -630,10 +580,7 @@ export function useCommandPaletteCommands({
       // even if the user opened the palette before the store mounted.
       onReplayOnboardingWelcome: () => {
         useSettingsStore.getState().resetOnboardingWelcome();
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'onboarding.notice.welcomeReplay',
-        });
+        info('onboarding.notice.welcomeReplay');
       },
       onReplayOnboardingFirstRun: () => {
         useSettingsStore.getState().resetOnboardingFirstRun();
@@ -644,18 +591,14 @@ export function useCommandPaletteCommands({
       // RL-096 Slice 1 fold B — open Settings on the Privacy tab.
       // Mirrors the `onShowLanguageSupport` choreography from RL-095:
       // claim the next PrivacyTrustSection mount as `surface:
-      // 'palette'`, open Settings overlay, then dispatch the navigate
-      // event on the next animation frame so SettingsModal's listener
+      // 'palette'`, open Settings overlay, then emit the navigate
+      // command on the next animation frame so SettingsModal's listener
       // has mounted before we fire.
       onShowPrivacyDashboard: () => {
         markPrivacyDashboardSurfaceForNextMount('palette');
         onOpenSettings();
         window.requestAnimationFrame(() => {
-          window.dispatchEvent(
-            new CustomEvent('lingua-settings-navigate-tab', {
-              detail: 'privacy',
-            })
-          );
+          emitCommand('settings.navigate', { tab: 'privacy' });
         });
       },
       // RL-025 Slice A fold C — open the bottom-panel Dependencies
@@ -684,42 +627,26 @@ export function useCommandPaletteCommands({
           void writer
             .call(navigator.clipboard, markdown)
             .then(() => {
-              useUIStore.getState().pushStatusNotice({
-                tone: 'success',
-                messageKey:
-                  'commandPalette.action.copyLanguageScorecardMarkdown.copied',
-              });
+              success('commandPalette.action.copyLanguageScorecardMarkdown.copied');
             })
             .catch(() => {
-              useUIStore.getState().pushStatusNotice({
-                tone: 'warning',
-                messageKey:
-                  'commandPalette.action.copyLanguageScorecardMarkdown.clipboardUnavailable',
-              });
+              warning('commandPalette.action.copyLanguageScorecardMarkdown.clipboardUnavailable');
             });
         } else {
-          useUIStore.getState().pushStatusNotice({
-            tone: 'warning',
-            messageKey:
-              'commandPalette.action.copyLanguageScorecardMarkdown.clipboardUnavailable',
-          });
+          warning('commandPalette.action.copyLanguageScorecardMarkdown.clipboardUnavailable');
         }
       },
       onCopyBootTimings: () => {
         void copyBootTimingsToClipboard()
-          .then((copied) => {
-            useUIStore.getState().pushStatusNotice({
-              tone: copied ? 'success' : 'warning',
-              messageKey: copied
-                ? 'commandPalette.action.copyBootTimings.copied'
-                : 'commandPalette.action.copyBootTimings.clipboardUnavailable',
-            });
+          .then(copied => {
+            if (copied) {
+              success('commandPalette.action.copyBootTimings.copied');
+            } else {
+              warning('commandPalette.action.copyBootTimings.clipboardUnavailable');
+            }
           })
           .catch(() => {
-            useUIStore.getState().pushStatusNotice({
-              tone: 'warning',
-              messageKey: 'commandPalette.action.copyBootTimings.clipboardUnavailable',
-            });
+            warning('commandPalette.action.copyBootTimings.clipboardUnavailable');
           });
       },
       t,
@@ -768,6 +695,9 @@ export function useCommandPaletteCommands({
     latestCapsule,
     savedSessionTabCount,
     i18n.language,
+    info,
+    success,
+    warning,
   ]);
   return allCommands;
 }

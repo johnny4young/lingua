@@ -26,11 +26,11 @@
 import { useCallback } from 'react';
 import { strToU8 } from 'fflate';
 import { packBundle, type ProjectBundleFile } from '../../shared/projectBundle';
-import { useUIStore } from '../stores/uiStore';
 import { useProjectStore } from '../stores/projectStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { languageFromPath } from '../utils/language';
 import type { Language } from '../types';
+import { useStatusNotice } from './useStatusNotice';
 import {
   trackBundleExported,
   trackBundleImported,
@@ -50,14 +50,14 @@ export interface UseProjectBundleApi {
 }
 
 export function useProjectBundle(): UseProjectBundleApi {
-  const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
-  const openProject = useProjectStore((s) => s.openProject);
-  const openFile = useEditorStore((s) => s.openFile);
+  const { error, success, warning } = useStatusNotice();
+  const openProject = useProjectStore(s => s.openProject);
+  const openFile = useEditorStore(s => s.openFile);
 
   const exportProjectBundle = useCallback(async (): Promise<void> => {
     const project = useProjectStore.getState().currentProject;
     if (!project) {
-      pushStatusNotice({ tone: 'warning', messageKey: 'projectBundle.export.empty' });
+      warning('projectBundle.export.empty');
       trackBundleExported('empty', 0);
       return;
     }
@@ -66,27 +66,22 @@ export function useProjectBundle(): UseProjectBundleApi {
     // project (a scratchpad / single-file tab has no project-relative path).
     const editor = useEditorStore.getState();
     const active = getActiveTab(editor);
-    const entryFile =
-      active && active.rootId === project.rootId ? active.relativePath : undefined;
+    const entryFile = active && active.rootId === project.rootId ? active.relativePath : undefined;
     const languageHint = entryFile ? active?.language : undefined;
 
-    const platform =
-      typeof window !== 'undefined' ? window.lingua?.platform : undefined;
+    const platform = typeof window !== 'undefined' ? window.lingua?.platform : undefined;
 
     if (platform === 'web') {
       try {
         const indexed = await window.lingua.fs.listAllFiles(project.rootId);
         if (indexed.length === 0) {
-          pushStatusNotice({ tone: 'warning', messageKey: 'projectBundle.export.empty' });
+          warning('projectBundle.export.empty');
           trackBundleExported('empty', 0);
           return;
         }
         const files: ProjectBundleFile[] = [];
         for (const entry of indexed) {
-          const content = await window.lingua.fs.read(
-            project.rootId,
-            entry.relativePath
-          );
+          const content = await window.lingua.fs.read(project.rootId, entry.relativePath);
           files.push({ path: entry.relativePath, bytes: strToU8(content) });
         }
         const zip = packBundle(files, {
@@ -96,13 +91,11 @@ export function useProjectBundle(): UseProjectBundleApi {
         });
         triggerBlobDownload(zip, `${project.name || 'project'}.zip`);
         trackBundleExported('exported', files.length);
-        pushStatusNotice({
-          tone: 'success',
-          messageKey: 'projectBundle.export.success',
+        success('projectBundle.export.success', {
           values: { count: files.length },
         });
       } catch {
-        pushStatusNotice({ tone: 'error', messageKey: 'projectBundle.export.failed' });
+        error('projectBundle.export.failed');
         trackBundleExported('failed', 0);
       }
       return;
@@ -118,7 +111,7 @@ export function useProjectBundle(): UseProjectBundleApi {
       // The IPC handler throws only on the deliberate denylist guard
       // (e.g. the user picks a protected save path). Surface a graceful
       // notice instead of letting the rejection go unhandled.
-      pushStatusNotice({ tone: 'error', messageKey: 'projectBundle.export.failed' });
+      error('projectBundle.export.failed');
       trackBundleExported('failed', 0);
       return;
     }
@@ -128,30 +121,25 @@ export function useProjectBundle(): UseProjectBundleApi {
     }
     if (!result.ok) {
       const status = result.reason === 'empty' ? 'empty' : 'failed';
-      pushStatusNotice({
-        tone: result.reason === 'empty' ? 'warning' : 'error',
-        messageKey:
-          result.reason === 'empty'
-            ? 'projectBundle.export.empty'
-            : 'projectBundle.export.failed',
-      });
+      if (result.reason === 'empty') {
+        warning('projectBundle.export.empty');
+      } else {
+        error('projectBundle.export.failed');
+      }
       trackBundleExported(status, 0);
       return;
     }
     trackBundleExported('exported', result.fileCount);
-    pushStatusNotice({
-      tone: 'success',
-      messageKey: 'projectBundle.export.success',
+    success('projectBundle.export.success', {
       values: { count: result.fileCount },
     });
-  }, [pushStatusNotice]);
+  }, [error, success, warning]);
 
   const importProjectBundle = useCallback(
     async (zipBytes: Uint8Array): Promise<void> => {
-      const platform =
-        typeof window !== 'undefined' ? window.lingua?.platform : undefined;
+      const platform = typeof window !== 'undefined' ? window.lingua?.platform : undefined;
       if (platform === 'web') {
-        pushStatusNotice({ tone: 'warning', messageKey: 'projectBundle.web.unsupported' });
+        warning('projectBundle.web.unsupported');
         trackBundleImported('rejected', 0);
         return;
       }
@@ -162,7 +150,7 @@ export function useProjectBundle(): UseProjectBundleApi {
       } catch {
         // Denylist guard throw (protected target dir) — graceful notice
         // rather than an unhandled rejection.
-        pushStatusNotice({ tone: 'error', messageKey: 'projectBundle.import.failed' });
+        error('projectBundle.import.failed');
         trackBundleImported('rejected', 0);
         return;
       }
@@ -172,12 +160,12 @@ export function useProjectBundle(): UseProjectBundleApi {
       }
       if (!result.ok) {
         if (result.reason === 'non-empty-dir') {
-          pushStatusNotice({ tone: 'warning', messageKey: 'projectBundle.import.nonEmptyDir' });
+          warning('projectBundle.import.nonEmptyDir');
           trackBundleImported('non-empty-dir', 0);
           return;
         }
         if (result.reason === 'write-failed') {
-          pushStatusNotice({ tone: 'error', messageKey: 'projectBundle.import.failed' });
+          error('projectBundle.import.failed');
           trackBundleImported('rejected', 0);
           return;
         }
@@ -185,24 +173,21 @@ export function useProjectBundle(): UseProjectBundleApi {
         // fire the dedicated reject event for the maintainer's funnel.
         trackBundleRejected(result.reason);
         trackBundleImported('rejected', 0);
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: `projectBundle.reject.${result.reason}`,
-        });
+        error(`projectBundle.reject.${result.reason}`);
         return;
       }
 
       try {
         await openProject(result.rootPath);
       } catch {
-        pushStatusNotice({ tone: 'error', messageKey: 'projectBundle.import.failed' });
+        error('projectBundle.import.failed');
         trackBundleImported('rejected', 0);
         return;
       }
 
       const project = useProjectStore.getState().currentProject;
       if (!project || project.rootPath !== result.rootPath) {
-        pushStatusNotice({ tone: 'error', messageKey: 'projectBundle.import.failed' });
+        error('projectBundle.import.failed');
         trackBundleImported('rejected', 0);
         return;
       }
@@ -225,9 +210,9 @@ export function useProjectBundle(): UseProjectBundleApi {
       }
 
       trackBundleImported('imported', result.fileCount);
-      pushStatusNotice({ tone: 'success', messageKey: 'projectBundle.import.success' });
+      success('projectBundle.import.success');
     },
-    [openFile, openProject, pushStatusNotice]
+    [error, openFile, openProject, success, warning]
   );
 
   return { exportProjectBundle, importProjectBundle };

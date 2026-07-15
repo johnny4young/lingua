@@ -21,12 +21,7 @@ import { SHARE_FRAGMENT_PREFIX } from '../../shared/sharePayload';
 import { parseCurlCommand } from '../utils/curlToCode';
 
 /** Closed set of paste-intent kinds (mirrored in telemetry `handler`). */
-export type PasteIntentKind =
-  | 'share-link'
-  | 'capsule'
-  | 'curl'
-  | 'stack-trace'
-  | 'large-json';
+export type PasteIntentKind = 'share-link' | 'capsule' | 'curl' | 'stack-trace' | 'large-json';
 
 /** A pasted Lingua share-link; `fragment` is the `share=v1.<body>` payload. */
 export interface ShareLinkIntent {
@@ -50,7 +45,7 @@ export interface CurlIntent {
 /**
  * A pasted stack trace's first resolvable frame. `file` may be an absolute
  * path, a `node:` internal, or null when the frame had no file token; the
- * router forwards it to the existing `lingua-open-file` event, which reveals
+ * router forwards it to the existing `file.open` command, which reveals
  * within-tab today and opens cross-file once RL-024 lands.
  */
 export interface StackTraceIntent {
@@ -95,12 +90,7 @@ function detectShareLink(text: string): ShareLinkIntent | null {
   if (trimmed.length === 0 || /\s/u.test(trimmed)) return null;
   const hashed = `#${SHARE_FRAGMENT_PREFIX}`;
   const hashIdx = trimmed.indexOf(hashed);
-  const startIdx =
-    hashIdx >= 0
-      ? hashIdx + 1
-      : trimmed.startsWith(SHARE_FRAGMENT_PREFIX)
-        ? 0
-        : -1;
+  const startIdx = hashIdx >= 0 ? hashIdx + 1 : trimmed.startsWith(SHARE_FRAGMENT_PREFIX) ? 0 : -1;
   if (startIdx < 0) return null;
   const fragment = trimmed.slice(startIdx);
   if (fragment.length <= SHARE_FRAGMENT_PREFIX.length) return null;

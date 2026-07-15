@@ -13,17 +13,8 @@ import {
   type ShareCreateTrigger,
 } from '../../utils/shareLink';
 import { ShareConfirmationModal } from './ShareConfirmationModal';
-import {
-  SHARE_LINK_SUCCESS_EVENT,
-  SHARE_LINK_TRIGGER_EVENT,
-  type ShareLinkTriggerEventDetail,
-} from './shareLinkEvents';
-
-function isShareLinkTrigger(
-  value: unknown
-): value is ShareCreateTrigger {
-  return value === 'button' || value === 'palette' || value === 'shortcut';
-}
+import { emitCommand } from '../../stores/commandBus';
+import { useCommandListener } from '../../hooks/useCommandListener';
 
 /**
  * RL-036 Phase A1 fold E — primary surface for "Copy share link".
@@ -70,22 +61,20 @@ function releaseShareFlow(): void {
 
 function useShareLinkFlow() {
   const activeTab = useActiveTab();
-  const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
+  const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   // Slice 2 — `shareLinkConfirmEnabled` removed; the confirmation
   // modal is now the only path. Safer default for clipboard writes.
   const shareLinkConfirmEnabled = true;
 
   const [justCopied, setJustCopied] = useState(false);
-  const [pendingPreview, setPendingPreview] =
-    useState<PreparedShareLink | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<PreparedShareLink | null>(null);
   /**
    * The trigger that initiated the currently-pending preview. Kept
    * separate from `pendingPreview` so cancelling the modal can fire
    * the correct telemetry attribution (e.g. cancelling a palette-
    * triggered modal records the cancel against `trigger: 'palette'`).
    */
-  const [pendingTrigger, setPendingTrigger] =
-    useState<ShareCreateTrigger>('button');
+  const [pendingTrigger, setPendingTrigger] = useState<ShareCreateTrigger>('button');
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * Concurrent-encode guard. Without it a rapid double-trigger (e.g.
@@ -132,10 +121,10 @@ function useShareLinkFlow() {
         status: 'success',
         sizeBucket: bucketShareSize(link.sizeBytes),
       });
-      // Broadcast for sibling surfaces (e.g. `<ShareLinkButton>`) that
+      // Signal sibling surfaces (e.g. `<ShareLinkButton>`) that
       // want to flash a success indicator without owning the share
       // flow themselves.
-      window.dispatchEvent(new CustomEvent(SHARE_LINK_SUCCESS_EVENT));
+      emitCommand('share.succeeded');
     },
     [pushStatusNotice]
   );
@@ -182,13 +171,8 @@ function useShareLinkFlow() {
           pushStatusNotice({
             tone: 'warning',
             messageKey:
-              status === 'too-large'
-                ? 'share.notice.tooLarge'
-                : 'share.notice.unknownLanguage',
-            values:
-              status === 'unknown-language'
-                ? { language: activeTab.language }
-                : undefined,
+              status === 'too-large' ? 'share.notice.tooLarge' : 'share.notice.unknownLanguage',
+            values: status === 'unknown-language' ? { language: activeTab.language } : undefined,
           });
           trackShareCreated({
             trigger,
@@ -215,12 +199,7 @@ function useShareLinkFlow() {
         }
       }
     },
-    [
-      activeTab,
-      pushStatusNotice,
-      shareLinkConfirmEnabled,
-      performClipboardWrite,
-    ]
+    [activeTab, pushStatusNotice, shareLinkConfirmEnabled, performClipboardWrite]
   );
 
   const handleModalConfirm = useCallback(async () => {
@@ -272,26 +251,13 @@ function useShareLinkFlow() {
 export function ShareLinkController() {
   const { runShareFlow, modal } = useShareLinkFlow();
 
-  // Listen for the cross-component trigger event from the palette
+  // Listen for the typed cross-component command from the palette
   // (fold C) and keyboard shortcut (fold D). This controller is
   // mounted at AppChrome scope, so those paths keep working even when
   // the result panel is hidden and the header button is not mounted.
-  useEffect(() => {
-    const onTrigger = (event: Event) => {
-      const detail = (event as CustomEvent<ShareLinkTriggerEventDetail>)
-        .detail;
-      if (
-        detail &&
-        typeof detail === 'object' &&
-        isShareLinkTrigger(detail.trigger)
-      ) {
-        void runShareFlow(detail.trigger);
-      }
-    };
-    window.addEventListener(SHARE_LINK_TRIGGER_EVENT, onTrigger);
-    return () =>
-      window.removeEventListener(SHARE_LINK_TRIGGER_EVENT, onTrigger);
-  }, [runShareFlow]);
+  useCommandListener('share.trigger', ({ trigger }) => {
+    void runShareFlow(trigger);
+  });
 
   return modal;
 }
@@ -307,35 +273,31 @@ export function ShareLinkButton() {
   const [justCopied, setJustCopied] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    // Listen for the success signal the controller emits after the
-    // clipboard write resolves. Lets us flash the Check icon without
-    // duplicating the share flow inside the button.
-    const onSuccess = () => {
-      setJustCopied(true);
+  // Listen for the success signal the controller emits after the
+  // clipboard write resolves. Lets us flash the Check icon without
+  // duplicating the share flow inside the button.
+  useCommandListener('share.succeeded', () => {
+    setJustCopied(true);
+    if (resetTimerRef.current !== null) {
+      clearTimeout(resetTimerRef.current);
+    }
+    resetTimerRef.current = setTimeout(() => {
+      setJustCopied(false);
+      resetTimerRef.current = null;
+    }, FEEDBACK_RESET_MS);
+  });
+
+  useEffect(
+    () => () => {
       if (resetTimerRef.current !== null) {
         clearTimeout(resetTimerRef.current);
       }
-      resetTimerRef.current = setTimeout(() => {
-        setJustCopied(false);
-        resetTimerRef.current = null;
-      }, FEEDBACK_RESET_MS);
-    };
-    window.addEventListener(SHARE_LINK_SUCCESS_EVENT, onSuccess);
-    return () => {
-      window.removeEventListener(SHARE_LINK_SUCCESS_EVENT, onSuccess);
-      if (resetTimerRef.current !== null) {
-        clearTimeout(resetTimerRef.current);
-      }
-    };
-  }, []);
+    },
+    []
+  );
 
   const handleClick = useCallback(() => {
-    window.dispatchEvent(
-      new CustomEvent(SHARE_LINK_TRIGGER_EVENT, {
-        detail: { trigger: 'button' },
-      })
-    );
+    emitCommand('share.trigger', { trigger: 'button' });
   }, []);
 
   if (!activeTab) return null;
@@ -349,9 +311,7 @@ export function ShareLinkButton() {
       data-testid="result-panel-share-link"
       data-just-copied={justCopied ? 'true' : 'false'}
       className={`relative button-secondary inline-flex items-center justify-center px-2 py-1 ${
-        justCopied
-          ? 'ring-2 ring-primary/60 ring-offset-1 ring-offset-bg-panel-alt'
-          : ''
+        justCopied ? 'ring-2 ring-primary/60 ring-offset-1 ring-offset-bg-panel-alt' : ''
       }`}
     >
       {justCopied ? (

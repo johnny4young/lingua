@@ -22,6 +22,7 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
+import { subscribeCommand } from '../../src/renderer/stores/commandBus';
 
 const { mockTrackEvent, mockPushStatusNotice } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn().mockResolvedValue(undefined),
@@ -47,17 +48,12 @@ const { latestCapsuleRef } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../src/renderer/stores/executionHistoryStore', () => ({
-  useExecutionHistoryStore: (selector: (state: {
-    latestCapsule: () => unknown;
-  }) => unknown) =>
+  useExecutionHistoryStore: (selector: (state: { latestCapsule: () => unknown }) => unknown) =>
     selector({ latestCapsule: () => latestCapsuleRef.current }),
 }));
 
 import { RunCapsulesSection } from '../../src/renderer/components/Settings/RunCapsulesSection';
-import {
-  FIXTURE_MINIMAL_JS,
-  FIXTURE_LARGE_STDOUT,
-} from '../shared/runCapsule.fixtures';
+import { FIXTURE_MINIMAL_JS, FIXTURE_LARGE_STDOUT } from '../shared/runCapsule.fixtures';
 
 describe('RunCapsulesSection', () => {
   beforeEach(async () => {
@@ -78,25 +74,19 @@ describe('RunCapsulesSection', () => {
     const button = screen.getByTestId('capsule-export-button') as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(
-      screen.queryByText(
-        'Run any code first; the latest result becomes exportable here.'
-      )
+      screen.queryByText('Run any code first; the latest result becomes exportable here.')
     ).not.toBeNull();
   });
 
-  it('dispatches lingua-open-capsule-list with the settings surface when Browse is clicked (RL-094 Slice 3)', () => {
-    const events: CustomEvent[] = [];
-    const handler = (event: Event) => events.push(event as CustomEvent);
-    window.addEventListener('lingua-open-capsule-list', handler);
+  it('emits capsule.openList with the settings surface when Browse is clicked (RL-094 Slice 3)', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeCommand('capsule.openList', listener);
     try {
       render(<RunCapsulesSection />);
       fireEvent.click(screen.getByTestId('capsule-browse-button'));
-      expect(events).toHaveLength(1);
-      expect((events[0]!.detail as { surface?: string }).surface).toBe(
-        'settings'
-      );
+      expect(listener).toHaveBeenCalledWith({ surface: 'settings' }, expect.any(Object));
     } finally {
-      window.removeEventListener('lingua-open-capsule-list', handler);
+      unsubscribe();
     }
   });
 
@@ -114,7 +104,7 @@ describe('RunCapsulesSection', () => {
 
     fireEvent.click(button);
     // Async handler — wait one microtask flush so writeText resolves.
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(writeText).toHaveBeenCalledTimes(1);
     const json = writeText.mock.calls[0]![0] as string;
@@ -167,7 +157,7 @@ describe('RunCapsulesSection', () => {
     // Pretty-print is on by default — first export should include
     // indentation (newline characters).
     fireEvent.click(screen.getByTestId('capsule-export-button'));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
     const pretty = writeText.mock.calls[0]![0] as string;
     expect(pretty).toContain('\n');
 
@@ -175,7 +165,7 @@ describe('RunCapsulesSection', () => {
     const toggle = screen.getByTestId('capsule-pretty-toggle');
     fireEvent.click(toggle);
     fireEvent.click(screen.getByTestId('capsule-export-button'));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
     const minified = writeText.mock.calls[1]![0] as string;
     expect(minified).not.toContain('\n');
     expect(minified.length).toBeLessThan(pretty.length);
@@ -194,7 +184,7 @@ describe('RunCapsulesSection', () => {
 
     render(<RunCapsulesSection />);
     fireEvent.click(screen.getByTestId('capsule-export-button'));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'capsule.exported',

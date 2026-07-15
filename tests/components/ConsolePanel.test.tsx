@@ -4,6 +4,11 @@ import userEvent from '@testing-library/user-event';
 import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
+import {
+  _resetCommandBusForTesting,
+  emitCommand,
+  subscribeCommand,
+} from '../../src/renderer/stores/commandBus';
 
 // ---------------------------------------------------------------------------
 // Mock the console store
@@ -63,15 +68,11 @@ let mockState: Omit<
 // Mirror the store's `payloadShape`: an empty or absent payload both hash to
 // '' (so an empty array collapses with an undefined payload), which a naive
 // `JSON.stringify` would not — keeps this mock faithful to consoleStore.
-function mockPayloadShape(
-  payload: ConsoleState['entries'][number]['payload']
-): string {
+function mockPayloadShape(payload: ConsoleState['entries'][number]['payload']): string {
   return payload && payload.length > 0 ? JSON.stringify(payload) : '';
 }
 
-function collapseForMock(
-  entries: ConsoleState['entries']
-): ConsoleState['collapsedEntries'] {
+function collapseForMock(entries: ConsoleState['entries']): ConsoleState['collapsedEntries'] {
   const rows: ConsoleState['collapsedEntries'] = [];
   for (const entry of entries) {
     const last = rows[rows.length - 1];
@@ -140,9 +141,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
   // fold-C "This tab only" filter. The mock therefore needs to be
   // callable as both a selector hook AND a `getState()` accessor so
   // pre-existing call sites keep working.
-  const useEditorStore = ((
-    selector?: (state: ReturnType<typeof editorStoreState>) => unknown
-  ) => {
+  const useEditorStore = ((selector?: (state: ReturnType<typeof editorStoreState>) => unknown) => {
     const state = editorStoreState();
     return selector ? selector(state) : state;
   }) as ((selector?: unknown) => unknown) & {
@@ -152,9 +151,9 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
   return {
     useEditorStore,
     getActiveTab: (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
-      s.tabs.find((t) => t.id === s.activeTabId) ?? null,
+      s.tabs.find(t => t.id === s.activeTabId) ?? null,
     getActiveTabIndex: (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
-      s.activeTabId == null ? -1 : s.tabs.findIndex((t) => t.id === s.activeTabId),
+      s.activeTabId == null ? -1 : s.tabs.findIndex(t => t.id === s.activeTabId),
   };
 });
 
@@ -181,12 +180,11 @@ vi.mock('lucide-react', () => ({
   Maximize2: () => null,
 }));
 
-vi.mock('../../src/renderer/components/Console/clipboardImagePaste', async (
-  importActual
-) => {
-  const actual = await importActual<
-    typeof import('../../src/renderer/components/Console/clipboardImagePaste')
-  >();
+vi.mock('../../src/renderer/components/Console/clipboardImagePaste', async importActual => {
+  const actual =
+    await importActual<
+      typeof import('../../src/renderer/components/Console/clipboardImagePaste')
+    >();
   // Real reader by default (existing tests); `clearAllMocks` keeps this
   // implementation, individual tests override with `mockResolvedValueOnce`.
   mockReadPastedImageFile.mockImplementation(actual.readPastedImageFile);
@@ -251,6 +249,7 @@ describe('ConsolePanel', () => {
 
   afterEach(() => {
     useExecutionHistoryStore.getState().clear();
+    _resetCommandBusForTesting();
   });
 
   it('renders the empty-state message when entries array is empty', () => {
@@ -262,18 +261,12 @@ describe('ConsolePanel', () => {
     render(<ConsolePanel />);
     // The payload-kind chips render unconditionally and share the same
     // bespoke chip className as the log-type chips.
-    expect(
-      screen.getByTestId('console-payload-chip-table').className
-    ).toContain('focus-ring');
+    expect(screen.getByTestId('console-payload-chip-table').className).toContain('focus-ring');
   });
 
   // RL-044 next slice — image clipboard paste into the console.
   describe('image clipboard paste', () => {
-    function dispatchImagePaste(opts: {
-      mime?: string;
-      bytes?: number;
-      asText?: boolean;
-    }) {
+    function dispatchImagePaste(opts: { mime?: string; bytes?: number; asText?: boolean }) {
       const event = new Event('paste', { bubbles: true });
       const file = opts.asText
         ? null
@@ -293,7 +286,7 @@ describe('ConsolePanel', () => {
       render(<ConsolePanel />);
       await act(async () => {
         dispatchImagePaste({ bytes: 32 });
-        await new Promise((r) => setTimeout(r, 0));
+        await new Promise(r => setTimeout(r, 0));
       });
       await vi.waitFor(() => expect(mockAddEntry).toHaveBeenCalledTimes(1));
       const entry = mockAddEntry.mock.calls[0]![0];
@@ -319,7 +312,7 @@ describe('ConsolePanel', () => {
       });
       await act(async () => {
         document.dispatchEvent(event);
-        await new Promise((r) => setTimeout(r, 0));
+        await new Promise(r => setTimeout(r, 0));
       });
       await vi.waitFor(() => expect(mockAddEntry).toHaveBeenCalledTimes(1));
       expect(mockAddEntry.mock.calls[0]![0].payload?.[0]).toMatchObject({
@@ -331,7 +324,7 @@ describe('ConsolePanel', () => {
       render(<ConsolePanel />);
       await act(async () => {
         dispatchImagePaste({ asText: true });
-        await new Promise((r) => setTimeout(r, 0));
+        await new Promise(r => setTimeout(r, 0));
       });
       expect(mockAddEntry).not.toHaveBeenCalled();
       expect(mockTrackEvent).not.toHaveBeenCalledWith(
@@ -345,7 +338,7 @@ describe('ConsolePanel', () => {
       await act(async () => {
         // 2 MiB + 1 byte trips the cap.
         dispatchImagePaste({ bytes: 2 * 1024 * 1024 + 1 });
-        await new Promise((r) => setTimeout(r, 0));
+        await new Promise(r => setTimeout(r, 0));
       });
       await vi.waitFor(() =>
         expect(mockTrackEvent).toHaveBeenCalledWith(
@@ -370,7 +363,7 @@ describe('ConsolePanel', () => {
       render(<ConsolePanel />);
       await act(async () => {
         dispatchImagePaste({ bytes: 2 * 1024 * 1024 + 1 });
-        await new Promise((r) => setTimeout(r, 0));
+        await new Promise(r => setTimeout(r, 0));
       });
       await vi.waitFor(() => expect(mockAddEntry).toHaveBeenCalledTimes(1));
       expect(mockAddEntry.mock.calls[0]![0].payload?.[0]).toMatchObject({
@@ -395,7 +388,7 @@ describe('ConsolePanel', () => {
       render(<ConsolePanel />);
       await act(async () => {
         dispatchImagePaste({ bytes: 32 });
-        await new Promise((r) => setTimeout(r, 0));
+        await new Promise(r => setTimeout(r, 0));
       });
       await vi.waitFor(() =>
         expect(mockTrackEvent).toHaveBeenCalledWith(
@@ -412,9 +405,7 @@ describe('ConsolePanel', () => {
 
   it('renders a log entry when entries contains a log item', () => {
     resetState({
-      entries: [
-        { id: '1', type: 'log', content: 'hello world', timestamp: Date.now() },
-      ],
+      entries: [{ id: '1', type: 'log', content: 'hello world', timestamp: Date.now() }],
     });
     render(<ConsolePanel />);
     expect(screen.getByText('hello world')).toBeTruthy();
@@ -426,7 +417,7 @@ describe('ConsolePanel', () => {
   it('renders plain source-line entries with a clickable output badge', async () => {
     const user = userEvent.setup();
     const openSpy = vi.fn();
-    window.addEventListener('lingua-open-file', openSpy);
+    const unsubscribe = subscribeCommand('file.open', openSpy);
     try {
       resetState({
         entries: [
@@ -448,14 +439,14 @@ describe('ConsolePanel', () => {
       await user.click(badge);
 
       expect(openSpy).toHaveBeenCalledTimes(1);
-      expect((openSpy.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({
+      expect(openSpy.mock.calls[0]?.[0]).toEqual({
         file: '',
         line: 12,
         column: undefined,
       });
       expect(mockTrackOutputOriginClicked).toHaveBeenCalledWith('go', 'badge');
     } finally {
-      window.removeEventListener('lingua-open-file', openSpy);
+      unsubscribe();
     }
   });
 
@@ -481,11 +472,7 @@ describe('ConsolePanel', () => {
 
     expect(screen.queryByTestId('output-line-badge')).toBeNull();
     act(() => {
-      window.dispatchEvent(
-        new CustomEvent('lingua-source-line-hovered', {
-          detail: { line: 3, durationMs: 1000 },
-        })
-      );
+      emitCommand('editor.sourceLineHovered', { line: 3, durationMs: 1000 });
     });
     expect(row.getAttribute('data-pulsing')).toBeNull();
     expect(mockTrackEvent).not.toHaveBeenCalledWith(
@@ -496,9 +483,7 @@ describe('ConsolePanel', () => {
 
   it('renders an error entry with ERR badge', () => {
     resetState({
-      entries: [
-        { id: '2', type: 'error', content: 'something blew up', timestamp: Date.now() },
-      ],
+      entries: [{ id: '2', type: 'error', content: 'something blew up', timestamp: Date.now() }],
     });
     render(<ConsolePanel />);
     expect(screen.getByText('something blew up')).toBeTruthy();
@@ -521,9 +506,7 @@ describe('ConsolePanel', () => {
       // active tab AFTER resetState — otherwise the listener reads an
       // empty store and attributes the event to `language: 'unknown'`.
       resetState({
-        entries: [
-          { id: 'line-3', type: 'log', content: 'three', timestamp: Date.now(), line: 3 },
-        ],
+        entries: [{ id: 'line-3', type: 'log', content: 'three', timestamp: Date.now(), line: 3 }],
       });
       mockTabs = [
         {
@@ -537,16 +520,11 @@ describe('ConsolePanel', () => {
       mockActiveTabId = 'tab-1';
       render(<ConsolePanel />);
       act(() => {
-        window.dispatchEvent(
-          new CustomEvent('lingua-source-line-hovered', {
-            detail: { line: 3, durationMs: 1000 },
-          })
-        );
+        emitCommand('editor.sourceLineHovered', { line: 3, durationMs: 1000 });
       });
-      expect(mockTrackEvent).toHaveBeenCalledWith(
-        'runtime.cursor_pulse_emitted',
-        { language: 'javascript' }
-      );
+      expect(mockTrackEvent).toHaveBeenCalledWith('runtime.cursor_pulse_emitted', {
+        language: 'javascript',
+      });
     } finally {
       mockTabs = [];
       mockActiveTabId = null;
@@ -557,19 +535,13 @@ describe('ConsolePanel', () => {
   it('does not emit cursor pulse telemetry when no visible row matches the cursor line', () => {
     mockTrackEvent.mockClear();
     resetState({
-      entries: [
-        { id: 'line-3', type: 'log', content: 'three', timestamp: Date.now(), line: 3 },
-      ],
+      entries: [{ id: 'line-3', type: 'log', content: 'three', timestamp: Date.now(), line: 3 }],
     });
 
     render(<ConsolePanel />);
     const row = screen.getByTestId('console-entry-row');
     act(() => {
-      window.dispatchEvent(
-        new CustomEvent('lingua-source-line-hovered', {
-          detail: { line: 99, durationMs: 1000 },
-        })
-      );
+      emitCommand('editor.sourceLineHovered', { line: 99, durationMs: 1000 });
     });
 
     expect(row.getAttribute('data-pulsing')).toBeNull();
@@ -593,11 +565,7 @@ describe('ConsolePanel', () => {
       const rows = screen.getAllByTestId('console-entry-row');
       const pulse = (line: number) => {
         act(() => {
-          window.dispatchEvent(
-            new CustomEvent('lingua-source-line-hovered', {
-              detail: { line, durationMs: 1000 },
-            })
-          );
+          emitCommand('editor.sourceLineHovered', { line, durationMs: 1000 });
         });
       };
 
@@ -628,9 +596,7 @@ describe('ConsolePanel', () => {
 
   it('shows "No entries match the active filters" when entries exist but all filtered out', () => {
     resetState({
-      entries: [
-        { id: '3', type: 'warn', content: 'a warning', timestamp: Date.now() },
-      ],
+      entries: [{ id: '3', type: 'warn', content: 'a warning', timestamp: Date.now() }],
       // activeFilters does NOT include 'warn'
       activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'error', 'result']),
     });
@@ -721,10 +687,9 @@ describe('ConsolePanel', () => {
 
     await user.click(screen.getByTestId('console-rich-error-frame-clickable'));
 
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      'runtime.error_stack_frame_clicked',
-      { language: 'python' }
-    );
+    expect(mockTrackEvent).toHaveBeenCalledWith('runtime.error_stack_frame_clicked', {
+      language: 'python',
+    });
   });
 
   it('renders Slice 2a html, image, and error previews inside the details popover', async () => {
@@ -774,15 +739,11 @@ describe('ConsolePanel', () => {
 
     const detailButtons = screen.getAllByTestId('console-rich-open-details');
     await user.click(detailButtons[0]!);
-    expect(
-      within(screen.getByRole('dialog')).getByTestId('console-rich-html-iframe')
-    ).toBeTruthy();
+    expect(within(screen.getByRole('dialog')).getByTestId('console-rich-html-iframe')).toBeTruthy();
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
 
     await user.click(detailButtons[1]!);
-    expect(
-      within(screen.getByRole('dialog')).getByTestId('console-rich-image')
-    ).toBeTruthy();
+    expect(within(screen.getByRole('dialog')).getByTestId('console-rich-image')).toBeTruthy();
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
 
     await user.click(detailButtons[2]!);
@@ -880,9 +841,7 @@ describe('ConsolePanel', () => {
     expect(mockPushStatusNotice).toHaveBeenCalledTimes(1);
     const notice = mockPushStatusNotice.mock.calls[0]![0];
     expect(notice.messageKey).toBe('console.notice.cleared');
-    const undo = notice.actions?.find(
-      (a: { labelKey: string }) => a.labelKey === 'common.undo'
-    );
+    const undo = notice.actions?.find((a: { labelKey: string }) => a.labelKey === 'common.undo');
     expect(undo).toBeTruthy();
 
     // Invoking Undo restores the snapshot captured before the clear.

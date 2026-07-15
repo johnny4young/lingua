@@ -10,10 +10,7 @@ import { useConsoleStore } from '../stores/consoleStore';
 import { createDefaultTab, getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import {
-  getPendingSessionRestoreTabCount,
-  useSessionStore,
-} from '../stores/sessionStore';
+import { getPendingSessionRestoreTabCount, useSessionStore } from '../stores/sessionStore';
 import { useSnippetsStore } from '../stores/snippetsStore';
 import {
   useUIStore,
@@ -23,6 +20,7 @@ import {
 import { trackEvent } from '../utils/telemetry';
 import { isSafeMode } from '../utils/safeBoot';
 import type { Language } from '../types';
+import { emitCommand } from '../stores/commandBus';
 
 /**
  * RL-101 Onboarding Choreography Slice 1.
@@ -127,8 +125,7 @@ export function useOnboardingChoreography({
     // the choreography — false positives are not possible because
     // only the runners ever set `executionTime`.
     const initialConsoleEntries = useConsoleStore.getState().entries;
-    const initialConsoleEntry =
-      initialConsoleEntries[initialConsoleEntries.length - 1];
+    const initialConsoleEntry = initialConsoleEntries[initialConsoleEntries.length - 1];
     if (
       initialConsoleEntry &&
       initialConsoleEntry.type !== 'error' &&
@@ -148,7 +145,7 @@ export function useOnboardingChoreography({
 
     // ---- Stage 3: first snippet save ---------------------------------
     let lastSnippetCount = useSnippetsStore.getState().snippets.length;
-    const unsubSnippets = useSnippetsStore.subscribe((state) => {
+    const unsubSnippets = useSnippetsStore.subscribe(state => {
       const next = state.snippets.length;
       const previous = lastSnippetCount;
       lastSnippetCount = next;
@@ -188,8 +185,7 @@ function seedWelcomeIfNeeded(): void {
   if (onCurrentVersion) return;
   if (
     settings.restoreSessionMode === 'ask' &&
-    (getPendingSessionRestoreTabCount() > 0 ||
-      useSessionStore.getState().savedTabs.length > 0)
+    (getPendingSessionRestoreTabCount() > 0 || useSessionStore.getState().savedTabs.length > 0)
   ) {
     // Ask-mode means a previous-session snapshot exists but the user has not
     // chosen whether to surface it. Do not seed the welcome scratchpad here:
@@ -287,19 +283,15 @@ function handleFirstSnippetSave(): void {
 
   void trackEvent('onboarding.first_snippet_saved');
 
-  const isMac =
-    typeof navigator !== 'undefined' &&
-    /Mac|iPhone|iPad/u.test(navigator.platform);
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/u.test(navigator.platform);
   const shortcut = isMac ? 'Cmd+Shift+P' : 'Ctrl+Shift+P';
 
   const openAction: StatusNoticeAction = {
     labelKey: 'onboarding.firstSnippet.cta',
     onClick: () => {
-      // Dispatch a window event so AppChrome's overlay state can
-      // open snippets without us reaching into its hooks. Mirrors
-      // the `lingua-share-link-trigger` cross-component pattern
-      // from RL-036.
-      window.dispatchEvent(new CustomEvent('lingua-open-snippets-overlay'));
+      // Ask App's overlay owner to open snippets without reaching
+      // into its hooks.
+      emitCommand('overlay.openSnippets');
     },
   };
 

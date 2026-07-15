@@ -6,16 +6,10 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import {
-  Archive,
-  Braces,
-  Command,
-  FileSearch,
-  GraduationCap,
-  Wrench,
-} from 'lucide-react';
+import { Archive, Braces, Command, FileSearch, GraduationCap, Wrench } from 'lucide-react';
 import { useLessonProgressStore } from '../../stores/lessonProgressStore';
 import { Tooltip } from '../ui/chrome';
+import { emitCommand } from '../../stores/commandBus';
 
 interface CommandActionsProps {
   onOpenPalette?: () => void;
@@ -111,9 +105,11 @@ export function FloatingActionPillCommandActions({
             </button>
           </Tooltip>
         ) : null}
-        {onOpenRecipes ? <RecipesActionPillButton onOpenRecipes={onOpenRecipes} onMenuClose={onCloseMenu} /> : null}
-        {/* RL-094 Slice 3 fold F — Browse run capsules. Dispatches
-            the window event App.tsx listens for (no prop threading
+        {onOpenRecipes ? (
+          <RecipesActionPillButton onOpenRecipes={onOpenRecipes} onMenuClose={onCloseMenu} />
+        ) : null}
+        {/* RL-094 Slice 3 fold F — Browse run capsules. Emits
+            the typed command App.tsx consumes (no prop threading
             through AppLayout); the overlay owns Pro-gating. */}
         <Tooltip content={t('chrome.browseCapsules.tooltip')}>
           <button
@@ -122,11 +118,7 @@ export function FloatingActionPillCommandActions({
             aria-label={t('chrome.browseCapsules.aria')}
             onClick={() => {
               onCloseMenu();
-              window.dispatchEvent(
-                new CustomEvent('lingua-open-capsule-list', {
-                  detail: { surface: 'action-pill' },
-                })
-              );
+              emitCommand('capsule.openList', { surface: 'action-pill' });
             }}
             className="action-pill-icon-button"
           >
@@ -155,7 +147,7 @@ function RecipesActionPillButton({
   onMenuClose: () => void;
 }) {
   const { t } = useTranslation();
-  const passedCount = useLessonProgressStore((s) => s.passedCount());
+  const passedCount = useLessonProgressStore(s => s.passedCount());
   return (
     <Tooltip content={t('chrome.recipes.tooltip')}>
       <button

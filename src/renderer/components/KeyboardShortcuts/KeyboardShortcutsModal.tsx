@@ -18,8 +18,8 @@ import {
   type ShortcutGroupId,
 } from '../../data/keyboardShortcuts';
 import { KEYMAP_PRESETS } from '../../data/keymapPresets';
+import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useUIStore } from '../../stores/uiStore';
 import {
   buildShortcutPreset,
   parseShortcutPreset,
@@ -35,9 +35,7 @@ import { Eyebrow } from '../ui/primitives';
 
 const NON_EDITABLE_SHORTCUTS: ReadonlySet<string> = new Set(['overlay-close']);
 
-function importFailureKey(
-  result: Extract<ParseShortcutPresetResult, { ok: false }>
-): string {
+function importFailureKey(result: Extract<ParseShortcutPresetResult, { ok: false }>): string {
   // Keep parser reasons decoupled from i18n keys so the preset format can
   // evolve without leaking transport-level enum names into UI copy.
   switch (result.reason) {
@@ -221,13 +219,13 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     window.navigator?.platform
   );
 
-  const overrides = useSettingsStore((state) => state.shortcutOverrides);
-  const setShortcutOverride = useSettingsStore((state) => state.setShortcutOverride);
-  const clearShortcutOverride = useSettingsStore((state) => state.clearShortcutOverride);
-  const resetShortcutOverrides = useSettingsStore((state) => state.resetShortcutOverrides);
-  const keymapPreset = useSettingsStore((state) => state.keymapPreset);
-  const applyKeymapPreset = useSettingsStore((state) => state.applyKeymapPreset);
-  const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
+  const overrides = useSettingsStore(state => state.shortcutOverrides);
+  const setShortcutOverride = useSettingsStore(state => state.setShortcutOverride);
+  const clearShortcutOverride = useSettingsStore(state => state.clearShortcutOverride);
+  const resetShortcutOverrides = useSettingsStore(state => state.resetShortcutOverrides);
+  const keymapPreset = useSettingsStore(state => state.keymapPreset);
+  const applyKeymapPreset = useSettingsStore(state => state.applyKeymapPreset);
+  const { error: pushError, success: pushSuccess } = useStatusNotice();
 
   const matching = useMemo(
     () => filterShortcuts(KEYBOARD_SHORTCUTS, query, platform, t),
@@ -263,10 +261,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       // still work. Editable combos are stricter: they must include enough
       // modifier signal to avoid accidental single-letter app-wide bindings.
       if (!isEditableShortcutCombo(combo)) {
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: 'shortcuts.editor.invalidCombo',
-        });
+        pushError('shortcuts.editor.invalidCombo');
         return;
       }
 
@@ -274,10 +269,8 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       // the row being edited so re-recording the same combo is a no-op success.
       const conflictId = findComboConflict(KEYBOARD_SHORTCUTS, overrides, combo, recordingId);
       if (conflictId) {
-        const other = KEYBOARD_SHORTCUTS.find((entry) => entry.id === conflictId);
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: 'shortcuts.editor.conflict',
+        const other = KEYBOARD_SHORTCUTS.find(entry => entry.id === conflictId);
+        pushError('shortcuts.editor.conflict', {
           values: {
             combo: formatShortcutCombo(combo, platform),
             label: other ? t(other.labelKey) : conflictId,
@@ -288,31 +281,26 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
 
       setShortcutOverride(recordingId, [combo]);
       setRecordingId(null);
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'shortcuts.editor.rebound',
+      pushSuccess('shortcuts.editor.rebound', {
         values: { combo: formatShortcutCombo(combo, platform) },
       });
     };
 
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [recordingId, overrides, platform, pushStatusNotice, setShortcutOverride, t]);
+  }, [overrides, platform, pushError, pushSuccess, recordingId, setShortcutOverride, t]);
 
   const handleResetAll = useCallback(() => {
     resetShortcutOverrides();
-    pushStatusNotice({ tone: 'success', messageKey: 'shortcuts.editor.resetAllDone' });
-  }, [pushStatusNotice, resetShortcutOverrides]);
+    pushSuccess('shortcuts.editor.resetAllDone');
+  }, [pushSuccess, resetShortcutOverrides]);
 
   const handleExport = useCallback(async () => {
     const saveDialog = window.lingua?.fs?.saveDialog;
     const write = window.lingua?.fs?.write;
     const revokeRoot = window.lingua?.fs?.revokeRoot;
     if (!saveDialog || !write) {
-      pushStatusNotice({
-        tone: 'error',
-        messageKey: 'shortcuts.editor.exportBridgeMissing',
-      });
+      pushError('shortcuts.editor.exportBridgeMissing');
       return;
     }
     let mintedRootId: RootId | null = null;
@@ -327,17 +315,13 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       // catalog and would make imported files stale when defaults change.
       const preset = buildShortcutPreset(overrides);
       await write(chosen.rootId, chosen.fileRelativePath, serializeShortcutPreset(preset));
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'shortcuts.editor.exported',
+      pushSuccess('shortcuts.editor.exported', {
         values: {
           path: joinAbsolute(chosen.rootPath, chosen.fileRelativePath),
         },
       });
     } catch (error) {
-      pushStatusNotice({
-        tone: 'error',
-        messageKey: 'shortcuts.editor.exportFailed',
+      pushError('shortcuts.editor.exportFailed', {
         detail: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -347,16 +331,13 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         await revokeRoot(mintedRootId).catch(() => {});
       }
     }
-  }, [overrides, pushStatusNotice]);
+  }, [overrides, pushError, pushSuccess]);
 
   const runImport = useCallback(async () => {
     const selectFile = window.lingua?.fs?.selectFile;
     const revokeRoot = window.lingua?.fs?.revokeRoot;
     if (!selectFile) {
-      pushStatusNotice({
-        tone: 'error',
-        messageKey: 'shortcuts.editor.exportBridgeMissing',
-      });
+      pushError('shortcuts.editor.exportBridgeMissing');
       return;
     }
     let mintedRootId: RootId | null = null;
@@ -370,9 +351,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       const result = parseShortcutPreset(picked.content);
 
       if (!result.ok) {
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: importFailureKey(result),
+        pushError(importFailureKey(result), {
           detail: result.message,
         });
         return;
@@ -385,15 +364,11 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       for (const [id, combos] of Object.entries(result.preset.overrides)) {
         setShortcutOverride(id, combos);
       }
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'shortcuts.editor.imported',
+      pushSuccess('shortcuts.editor.imported', {
         values: { count: Object.keys(result.preset.overrides).length },
       });
     } catch (error) {
-      pushStatusNotice({
-        tone: 'error',
-        messageKey: 'shortcuts.editor.importFailed',
+      pushError('shortcuts.editor.importFailed', {
         detail: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -401,7 +376,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         await revokeRoot(mintedRootId).catch(() => {});
       }
     }
-  }, [pushStatusNotice, resetShortcutOverrides, setShortcutOverride]);
+  }, [pushError, pushSuccess, resetShortcutOverrides, setShortcutOverride]);
 
   // UX Sweep T2 — importing a preset wipes the user's existing
   // per-shortcut overrides. Confirm before that overwrite, but only
@@ -465,7 +440,11 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                 </p>
               </div>
             </div>
-            <IconButton onClick={onClose} tooltip={t('shortcuts.close')} aria-label={t('shortcuts.close')}>
+            <IconButton
+              onClick={onClose}
+              tooltip={t('shortcuts.close')}
+              aria-label={t('shortcuts.close')}
+            >
               <X size={16} />
             </IconButton>
           </div>
@@ -474,11 +453,11 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               <span>{t('shortcuts.preset.label')}</span>
               <select
                 value={keymapPreset}
-                onChange={(event) => handleSelectPreset(event.target.value)}
+                onChange={event => handleSelectPreset(event.target.value)}
                 data-testid="shortcut-preset-select"
                 className="rounded-xl border border-border/80 bg-background-elevated/88 px-2.5 py-1.5 text-body-sm text-foreground outline-none focus:border-primary/50"
               >
-                {KEYMAP_PRESETS.map((preset) => (
+                {KEYMAP_PRESETS.map(preset => (
                   <option key={preset.id} value={preset.id}>
                     {t(preset.labelKey)}
                   </option>
@@ -496,7 +475,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                 aria-label={t('shortcuts.searchLabel')}
                 placeholder={t('shortcuts.searchPlaceholder')}
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={event => setQuery(event.target.value)}
                 className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
               {query.length > 0 ? (
@@ -516,16 +495,14 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {matching.length === 0 ? (
             <div className="rounded-2xl border border-border/80 bg-background/65 px-4 py-6 text-center">
-              <p className="text-body font-medium text-foreground">
-                {t('shortcuts.empty.title')}
-              </p>
+              <p className="text-body font-medium text-foreground">{t('shortcuts.empty.title')}</p>
               <p className="mt-1 text-body-sm text-muted">
                 {t('shortcuts.empty', { query: query.trim() })}
               </p>
             </div>
           ) : (
             <div className="grid gap-6">
-              {SHORTCUT_GROUPS.map((group) => {
+              {SHORTCUT_GROUPS.map(group => {
                 const items = grouped.get(group.id);
                 if (!items || items.length === 0) return null;
                 return (
@@ -540,7 +517,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                       </span>
                     </Eyebrow>
                     <ul className="grid gap-1 rounded-2xl border border-border/80 bg-background/65">
-                      {items.map((shortcut) => (
+                      {items.map(shortcut => (
                         <ShortcutRow
                           key={shortcut.id}
                           shortcut={shortcut}
@@ -608,7 +585,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
           body={t('shortcuts.editor.presetConfirm.body', {
             count: Object.keys(overrides).length,
             preset: t(
-              KEYMAP_PRESETS.find((p) => p.id === pendingPresetId)?.labelKey ??
+              KEYMAP_PRESETS.find(p => p.id === pendingPresetId)?.labelKey ??
                 'shortcuts.preset.label'
             ),
           })}

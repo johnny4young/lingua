@@ -13,8 +13,8 @@
  *      schema browser, fires telemetry fold B, pushes a success notice) or
  *      Cancel → `cancelImport` (drops the in-flight preview; no table).
  *
- * Every failure path pushes a SPECIFIC translated notice via
- * `pushStatusNotice` — never a raw DuckDB error string, never a silent
+ * Every failure path pushes a SPECIFIC translated notice via the
+ * tone-safe status helpers — never a raw DuckDB error string, never a silent
  * failure. Errors are caught and mapped so a malformed CSV/JSON yields
  * `errorParse` and leaves no table behind (the runtime helpers drop the
  * registered virtual file on settle).
@@ -29,16 +29,9 @@ import {
   sanitizeTableName,
   type SqlImportFormat,
 } from '../../shared/sqlWorkspace';
-import {
-  importFileAsTable,
-  previewImportFile,
-  type ImportPreview,
-} from '../runtime/duckdbClient';
-import {
-  trackSqlTableImported,
-  type SqlImportSource,
-} from './sqlWorkspaceTelemetry';
-import { useUIStore } from '../stores/uiStore';
+import { importFileAsTable, previewImportFile, type ImportPreview } from '../runtime/duckdbClient';
+import { trackSqlTableImported, type SqlImportSource } from './sqlWorkspaceTelemetry';
+import { pushErrorNotice, pushSuccessNotice } from '../utils/statusNotice';
 
 /** A label for the format, used in the `errorParse` notice interpolation. */
 const FORMAT_LABEL: Readonly<Record<SqlImportFormat, string>> = {
@@ -101,24 +94,17 @@ export function useSqlImport({
 
   const startImport = useCallback(
     async (file: File, source: SqlImportSource) => {
-      const pushStatusNotice = useUIStore.getState().pushStatusNotice;
-
       // Fold A — type detection from extension, then MIME fallback. An
       // unsupported file never gets read.
       const format = detectImportFormat(file.name, file.type);
       if (format === null) {
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: 'sqlWorkspace.import.errorUnsupported',
-        });
+        pushErrorNotice('sqlWorkspace.import.errorUnsupported');
         return;
       }
 
       // Fold E — size cap BEFORE reading the bytes into memory.
       if (file.size > MAX_IMPORT_BYTES) {
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: 'sqlWorkspace.import.errorTooLarge',
+        pushErrorNotice('sqlWorkspace.import.errorTooLarge', {
           values: { limit: Math.floor(MAX_IMPORT_BYTES / (1024 * 1024)) },
         });
         return;
@@ -127,10 +113,7 @@ export function useSqlImport({
       // Empty file — nothing to import. Cheaper to catch here than to let
       // `read_*_auto` produce a zero-column table.
       if (file.size === 0) {
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: 'sqlWorkspace.import.errorEmpty',
-        });
+        pushErrorNotice('sqlWorkspace.import.errorEmpty');
         return;
       }
 
@@ -140,10 +123,7 @@ export function useSqlImport({
         bytes = new Uint8Array(await file.arrayBuffer());
       } catch {
         setIsPreviewing(false);
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: 'sqlWorkspace.import.errorRead',
-        });
+        pushErrorNotice('sqlWorkspace.import.errorRead');
         return;
       }
 
@@ -155,10 +135,7 @@ export function useSqlImport({
         });
         // Fold C — sanitize + de-collide against the live table set so the
         // pre-filled name does not clobber an existing table.
-        const suggested = dedupeTableName(
-          sanitizeTableName(file.name),
-          existingTableNames
-        );
+        const suggested = dedupeTableName(sanitizeTableName(file.name), existingTableNames);
         setModal({
           format,
           fileName: file.name,
@@ -171,9 +148,7 @@ export function useSqlImport({
         // DuckDB threw parsing the file (malformed CSV/JSON, corrupt
         // Parquet). The runtime helper already dropped the registered
         // virtual file; surface a specific notice and create no table.
-        pushStatusNotice({
-          tone: 'error',
-          messageKey: 'sqlWorkspace.import.errorParse',
+        pushErrorNotice('sqlWorkspace.import.errorParse', {
           values: { format: FORMAT_LABEL[format] },
         });
       } finally {
@@ -184,7 +159,7 @@ export function useSqlImport({
   );
 
   const setTableName = useCallback((name: string) => {
-    setModal((prev) => (prev === null ? prev : { ...prev, tableName: name }));
+    setModal(prev => (prev === null ? prev : { ...prev, tableName: name }));
   }, []);
 
   const cancelImport = useCallback(() => {
@@ -197,17 +172,13 @@ export function useSqlImport({
     const current = modal;
     if (current === null) return;
     const tableName = current.tableName.trim();
-    const pushStatusNotice = useUIStore.getState().pushStatusNotice;
     const tableNameTaken = existingTableNames.some(
-      (existing) => existing.toLowerCase() === tableName.toLowerCase()
+      existing => existing.toLowerCase() === tableName.toLowerCase()
     );
     if (!isValidTableName(tableName) || tableNameTaken) {
-      pushStatusNotice({
-        tone: 'error',
-        messageKey: tableNameTaken
-          ? 'sqlWorkspace.import.nameTaken'
-          : 'sqlWorkspace.import.invalidName',
-      });
+      pushErrorNotice(
+        tableNameTaken ? 'sqlWorkspace.import.nameTaken' : 'sqlWorkspace.import.invalidName'
+      );
       return;
     }
     setIsImporting(true);
@@ -221,9 +192,7 @@ export function useSqlImport({
       setModal(null);
       // Fold B — telemetry: closed-enum format + source only.
       trackSqlTableImported(current.format, current.source);
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'sqlWorkspace.import.success',
+      pushSuccessNotice('sqlWorkspace.import.success', {
         values: { name: result.table, count: result.rowCount },
       });
       onImported();
@@ -235,15 +204,12 @@ export function useSqlImport({
       // even when the (possibly stale) pre-flight list missed it.
       const message = err instanceof Error ? err.message : String(err ?? '');
       const isCollision = /already exists/i.test(message);
-      pushStatusNotice({
-        tone: 'error',
-        messageKey: isCollision
-          ? 'sqlWorkspace.import.nameTaken'
-          : 'sqlWorkspace.import.errorParse',
-        ...(isCollision
-          ? {}
-          : { values: { format: FORMAT_LABEL[current.format] } }),
-      });
+      pushErrorNotice(
+        isCollision ? 'sqlWorkspace.import.nameTaken' : 'sqlWorkspace.import.errorParse',
+        {
+          ...(isCollision ? {} : { values: { format: FORMAT_LABEL[current.format] } }),
+        }
+      );
     } finally {
       setIsImporting(false);
     }

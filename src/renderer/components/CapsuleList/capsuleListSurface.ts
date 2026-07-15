@@ -12,11 +12,9 @@
  * action worth counting).
  */
 
-export type CapsuleBrowseSurface =
-  | 'palette'
-  | 'shortcut'
-  | 'settings'
-  | 'action-pill';
+import type { CapsuleBrowseSurface } from '../../stores/commandBus';
+
+export type { CapsuleBrowseSurface } from '../../stores/commandBus';
 
 let pendingSurface: CapsuleBrowseSurface | null = null;
 

@@ -5,6 +5,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { summarizeRunCapsule } from '../../../shared/runCapsule';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
+import { emitCommand } from '../../stores/commandBus';
 
 /**
  * RL-094 Slice 1 — Settings → Account → Run Capsules.
@@ -40,15 +41,12 @@ export function RunCapsulesSection() {
   // returns a new RunCapsuleV1 reference (or `null`) on each entries
   // change, so the component re-renders correctly. Mirrors the
   // pattern used in `CommandPalette.tsx` (RL-094 Slice 1 fold B).
-  const capsule = useExecutionHistoryStore((state) => state.latestCapsule());
-  const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
+  const capsule = useExecutionHistoryStore(state => state.latestCapsule());
+  const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const [prettyPrint, setPrettyPrint] = useState(true);
   const [inlineFallback, setInlineFallback] = useState<string | null>(null);
 
-  const summary = useMemo(
-    () => (capsule ? summarizeRunCapsule(capsule) : null),
-    [capsule]
-  );
+  const summary = useMemo(() => (capsule ? summarizeRunCapsule(capsule) : null), [capsule]);
 
   const handleExport = useCallback(async () => {
     if (!capsule) return;
@@ -89,7 +87,7 @@ export function RunCapsulesSection() {
                 <input
                   type="checkbox"
                   checked={prettyPrint}
-                  onChange={(event) => setPrettyPrint(event.target.checked)}
+                  onChange={event => setPrettyPrint(event.target.checked)}
                   data-testid="capsule-pretty-toggle"
                 />
                 {t('settings.account.runCapsules.prettyToggle')}
@@ -98,14 +96,14 @@ export function RunCapsulesSection() {
                 {/*
                  * RL-094 Slice 2 — Import button mirrors the Export
                  * affordance so the surface advertises both directions of
-                 * the capsule loop. Click dispatches a window event the
-                 * App-level overlay listener picks up; this keeps the
+                 * the capsule loop. Click emits a command the App-level
+                 * overlay consumer handles; this keeps the
                  * Settings section decoupled from the overlay state
                  * slot (same pattern as the snippets surface).
                  */}
                 {/*
                  * RL-094 Slice 3 — Browse opens the Pro-gated capsule
-                 * browse overlay. Same window-event decoupling as Import;
+                 * browse overlay. Same typed-command decoupling as Import;
                  * the surface tag drives the overlay's
                  * `capsule.browse_opened` telemetry.
                  */}
@@ -113,11 +111,7 @@ export function RunCapsulesSection() {
                   type="button"
                   className="rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt"
                   onClick={() => {
-                    window.dispatchEvent(
-                      new CustomEvent('lingua-open-capsule-list', {
-                        detail: { surface: 'settings' },
-                      })
-                    );
+                    emitCommand('capsule.openList', { surface: 'settings' });
                   }}
                   data-testid="capsule-browse-button"
                   title={t('settings.account.runCapsules.browse.helper')}
@@ -128,9 +122,7 @@ export function RunCapsulesSection() {
                   type="button"
                   className="rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt"
                   onClick={() => {
-                    window.dispatchEvent(
-                      new CustomEvent('lingua-open-capsule-import')
-                    );
+                    emitCommand('capsule.openImport');
                   }}
                   data-testid="capsule-import-button"
                   title={t('settings.account.runCapsules.import.helper')}
@@ -162,7 +154,7 @@ export function RunCapsulesSection() {
                 rows={6}
                 className="w-full max-w-[320px] rounded-md border border-border-default bg-bg-base p-2 font-mono text-body-sm text-fg-base"
                 data-testid="capsule-fallback-textarea"
-                onFocus={(event) => event.currentTarget.select()}
+                onFocus={event => event.currentTarget.select()}
               />
             }
           />
