@@ -14,6 +14,7 @@ import {
   RUNTIME_TIMEOUT_SUPPORTED_LANGUAGE_SET,
   type RuntimeTimeoutPreset,
 } from '../../shared/runtimeTimeoutPresets';
+import { isBrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
 import {
   SETTINGS_AUTO_LOG_LANGUAGE_SET,
   SETTINGS_INLINE_LINT_LANGUAGE_SET,
@@ -43,6 +44,7 @@ export function createRuntimeActions(
   | 'setNotebookDefaultCellLanguage'
   | 'setWorkflowModeDefault'
   | 'setScratchpadAutoLogDefault'
+  | 'setBrowserPreviewRefreshInterval'
   | 'setInlineLintEnabled'
   | 'toggleShowStdinPanel'
   | 'setShowStatusBar'
@@ -120,6 +122,17 @@ export function createRuntimeActions(
       if (changed) {
         void trackEvent('runtime.auto_log_enabled', { language, enabled });
       }
+    },
+    // RL-119 Slice 1 — closed persisted preference. Adoption telemetry fires
+    // from the first actual live refresh, not from changing the dropdown, so
+    // selecting Off never claims that an automatic refresh occurred.
+    setBrowserPreviewRefreshInterval: (intervalMs) => {
+      if (!isBrowserPreviewRefreshInterval(intervalMs)) return;
+      set((state) =>
+        state.browserPreviewRefreshIntervalMs === intervalMs
+          ? state
+          : { browserPreviewRefreshIntervalMs: intervalMs }
+      );
     },
     // RL-108 — flip inline lint for one language. Pure state write (no toggle
     // telemetry; adoption rides `editor.lint_diagnostic_emitted`). No-op for

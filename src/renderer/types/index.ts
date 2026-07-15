@@ -6,6 +6,7 @@ import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
 import type { ScorecardPlatform } from '../../shared/languageSupport';
+import type { BrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
 
 export type { RuntimeTimeoutPreset };
 export type { ScopeSnapshot };
@@ -695,6 +696,13 @@ export interface SettingsState {
    */
   scratchpadAutoLogByLanguage: Record<string, boolean>;
   /**
+   * RL-119 Slice 1 — default debounce for Browser preview live refresh.
+   * `0` disables automatic refresh; the two live values are 300 ms and
+   * 1,000 ms. A first-line `// @preview-refresh ...` directive can override
+   * this preference for one tab without mutating the persisted setting.
+   */
+  browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval;
+  /**
    * RL-108 — per-language inline-lint enablement. Keyed by language id;
    * Slice 1 ships `javascript`/`typescript` ON. When `false` for a language,
    * Monaco's built-in TS/JS squiggles are silenced (via
@@ -993,6 +1001,10 @@ export interface SettingsState {
    * payload `{ language, enabled }`.
    */
   setScratchpadAutoLogDefault: (language: string, enabled: boolean) => void;
+  /** RL-119 Slice 1 — set the closed Browser preview refresh interval. */
+  setBrowserPreviewRefreshInterval: (
+    intervalMs: BrowserPreviewRefreshInterval
+  ) => void;
   /**
    * RL-108 — flip inline lint for one language. No-op for languages outside
    * the supported set ({@link SETTINGS_INLINE_LINT_LANGUAGE_SET}). Pure state
@@ -1155,6 +1167,12 @@ export interface ExecutionContext {
    * naming a preset.
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
+  /**
+   * RL-119 Slice 1 — BrowserPreviewRunner keeps the last successful srcdoc
+   * visible when a silent live refresh errors, times out, or is superseded.
+   * Manual runs omit this flag and keep their explicit stop semantics.
+   */
+  preserveBrowserPreviewOnFailure?: boolean;
   /**
    * RL-020 Slice 9 — when `true`, the runner asks its worker to
    * capture the post-execute scope and emit a `ScopeSnapshot` on

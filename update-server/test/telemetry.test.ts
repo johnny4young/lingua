@@ -1602,6 +1602,30 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('reason');
   });
 
+  it('runtime.browser_preview_auto_refresh accepts only 300/1000 (worker validator)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    for (const intervalMs of [300, 1_000, 0, 750]) {
+      const response = await postTelemetry({
+        event: 'runtime.browser_preview_auto_refresh',
+        properties: { language: 'javascript', intervalMs },
+      });
+      expect(response.status).toBe(204);
+    }
+
+    const events = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) =>
+        line.includes('"runtime.browser_preview_auto_refresh"')
+      )
+      .map((line) => JSON.parse(line));
+    expect(events.map((event) => event.properties.intervalMs)).toEqual([
+      300,
+      1_000,
+      undefined,
+      undefined,
+    ]);
+  });
+
   it('WORKFLOW_MODE_VALUES stays in sync with the renderer enum (RL-020 Slice 2)', async () => {
     // Parity guard for the closed `WorkflowMode` enum used by
     // `runtime.workflow_mode_changed`. Adding a new mode (e.g. a

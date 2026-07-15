@@ -19,6 +19,8 @@ import { validateDocument } from '../validation';
 import type { AutoRunInput } from './autoRunModel';
 import { applyAutoRunResult } from './autoRunResult';
 import { currentEffectiveTier } from './useEntitlement';
+import { trackBrowserPreviewAutoRefreshOnce } from './browserPreviewRefreshTelemetry';
+import type { TelemetryTrack } from './useTelemetry';
 
 interface ExecuteAutoRunOptions {
   input: AutoRunInput;
@@ -26,6 +28,7 @@ interface ExecuteAutoRunOptions {
   activeTabId: string | null;
   shouldDiscard: () => boolean;
   finish: () => void;
+  track: TelemetryTrack;
 }
 
 /** Execute one accepted auto-run input and publish it only while still current. */
@@ -35,6 +38,7 @@ export async function executeAutoRun({
   activeTabId,
   shouldDiscard,
   finish,
+  track,
 }: ExecuteAutoRunOptions): Promise<void> {
   const {
     clear,
@@ -51,7 +55,14 @@ export async function executeAutoRun({
     setRunDeadlineAt,
     restoreLastSuccessfulSnapshot,
   } = useResultStore.getState();
-  const { code, language, runtimeMode, autoLogEnabled, stdinBuffer } = input;
+  const {
+    code,
+    language,
+    runtimeMode,
+    autoLogEnabled,
+    browserPreviewRefreshIntervalMs,
+    stdinBuffer,
+  } = input;
   const executionMode = executionModeForLanguage(language);
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
@@ -161,6 +172,17 @@ export async function executeAutoRun({
 
     const capturesScope = isWorkerRunnerLanguage(language);
     const scopeDepth = settings.variableInspectorScopeDepth;
+    if (
+      runtimeMode === 'browser-preview' &&
+      browserPreviewRefreshIntervalMs !== null &&
+      browserPreviewRefreshIntervalMs !== 0
+    ) {
+      trackBrowserPreviewAutoRefreshOnce(
+        track,
+        language,
+        browserPreviewRefreshIntervalMs
+      );
+    }
     const result = await runner.execute(code, {
       language,
       ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),
@@ -170,6 +192,9 @@ export async function executeAutoRun({
         ? { args: activeTab.inputArgs }
         : {}),
       ...(overrideMs !== null ? { timeout: overrideMs } : {}),
+      ...(runtimeMode === 'browser-preview'
+        ? { preserveBrowserPreviewOnFailure: true }
+        : {}),
       ...(capturesScope ? { captureScope: true } : {}),
       ...(capturesScope && typeof scopeDepth === 'number'
         ? { scopeDepth }

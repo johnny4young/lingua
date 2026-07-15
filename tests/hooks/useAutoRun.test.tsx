@@ -10,6 +10,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
 
 vi.mock('@/runners', () => ({
   runnerManager: {
@@ -20,11 +21,44 @@ vi.mock('@/runners', () => ({
   },
 }));
 
+function seedBrowserPreviewTab(content = 'document.body.textContent = "ready";') {
+  useEditorStore.setState({
+    tabs: [
+      {
+        id: 'tab-preview',
+        name: 'preview.js',
+        language: 'javascript',
+        content,
+        isDirty: false,
+        runtimeMode: 'browser-preview',
+        workflowMode: 'scratchpad',
+      },
+    ],
+    activeTabId: 'tab-preview',
+  });
+}
+
+function mockSuccessfulRunner() {
+  const execute = vi.fn().mockResolvedValue({
+    stdout: [],
+    stderr: [],
+    result: undefined,
+    executionTime: 5,
+    error: null,
+  });
+  vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+    runner: { execute },
+    initialized: false,
+  });
+  return execute;
+}
+
 describe('useAutoRun', () => {
   const initialEditor = useEditorStore.getState();
   const initialLicense = useLicenseStore.getState();
   const initialResult = useResultStore.getState();
   const initialSettings = useSettingsStore.getState();
+  const initialHistory = useExecutionHistoryStore.getState();
   const originalLingua = window.lingua;
 
   beforeEach(() => {
@@ -54,6 +88,7 @@ describe('useAutoRun', () => {
       lastVerifiedAt: Date.now(),
     });
     useResultStore.setState(initialResult, true);
+    useExecutionHistoryStore.setState(initialHistory, true);
     // RL-079 — pre-acknowledge native execution so the existing
     // Go/Rust auto-run cases bypass the gate. The dedicated RL-079
     // test below explicitly resets this to `false` to exercise the
@@ -69,6 +104,7 @@ describe('useAutoRun', () => {
     useLicenseStore.setState(initialLicense, true);
     useResultStore.setState(initialResult, true);
     useSettingsStore.setState(initialSettings, true);
+    useExecutionHistoryStore.setState(initialHistory, true);
     Object.defineProperty(window, 'lingua', {
       configurable: true,
       writable: true,
@@ -82,6 +118,110 @@ describe('useAutoRun', () => {
     expect(bucketAutoLogCount(5)).toBe('2-5');
     expect(bucketAutoLogCount(20)).toBe('6-20');
     expect(bucketAutoLogCount(21)).toBe('20-plus');
+  });
+
+  it('RL-119 — debounces rapid Browser preview edits into one 300 ms refresh without history', async () => {
+    const execute = mockSuccessfulRunner();
+    seedBrowserPreviewTab();
+    useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+    });
+    const historyBefore = useExecutionHistoryStore.getState().entries;
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+      const tab = useEditorStore.getState().tabs[0]!;
+      useEditorStore.setState({
+        tabs: [{ ...tab, content: 'document.body.textContent = "first";' }],
+        activeTabId: tab.id,
+      });
+      await vi.advanceTimersByTimeAsync(100);
+      useEditorStore.setState({
+        tabs: [{ ...tab, content: 'document.body.textContent = "second";' }],
+        activeTabId: tab.id,
+      });
+      await vi.advanceTimersByTimeAsync(299);
+    });
+
+    expect(execute).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(runnerManager.prepareRunner).toHaveBeenCalledTimes(1);
+    expect(runnerManager.prepareRunner).toHaveBeenCalledWith(
+      'javascript',
+      'browser-preview'
+    );
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useExecutionHistoryStore.getState().entries).toEqual(historyBefore);
+  });
+
+  it('RL-119 — Off leaves Browser preview manual-only', async () => {
+    mockSuccessfulRunner();
+    useSettingsStore.setState({ browserPreviewRefreshIntervalMs: 0 });
+    seedBrowserPreviewTab();
+
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+  });
+
+  it('RL-119 — a first-line 1000 override wins over the 300 ms setting', async () => {
+    const execute = mockSuccessfulRunner();
+    seedBrowserPreviewTab(
+      '// @preview-refresh 1000\ndocument.body.textContent = "slow";'
+    );
+
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(999);
+    });
+    expect(execute).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('RL-119 — switching runtime cancels an in-flight Browser preview refresh', async () => {
+    const execute = vi.fn(() => new Promise(() => {}));
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: { execute },
+      initialized: false,
+    });
+    seedBrowserPreviewTab();
+
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useResultStore.getState().isAutoRunning).toBe(true);
+
+    act(() => {
+      const tab = useEditorStore.getState().tabs[0]!;
+      useEditorStore.setState({
+        tabs: [{ ...tab, runtimeMode: 'worker' }],
+        activeTabId: tab.id,
+      });
+    });
+
+    expect(runnerManager.stop).toHaveBeenCalledWith(
+      'javascript',
+      'browser-preview'
+    );
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+    expect(useResultStore.getState().executionSource).toBeNull();
   });
 
   it('does not auto-run desktop-only languages on the web build (RL-038 Slice C)', async () => {

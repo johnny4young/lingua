@@ -42,6 +42,10 @@ export const TELEMETRY_EVENTS = [
   // to that single value so a future expansion of the gate must
   // amend this allowlist + the mirror in update-server.
   'runtime.auto_run_gated',
+  // RL-119 Slice 1 — first Browser preview live refresh in a renderer
+  // session. Closed payload `{ language, intervalMs }`; intervalMs accepts
+  // only the two live settings (300 / 1000), never Off or a raw duration.
+  'runtime.browser_preview_auto_refresh',
   // RL-020 Slice 8 — Compare-with-last-stable adoption signal.
   // Closed-enum payload `{ language, enabled }`; no source code,
   // no tab id, no diff content. Fires on user-driven toggles (the
@@ -678,6 +682,7 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `javascript` / `typescript`). `reason` is a closed enum locked
   // to `'incomplete'` for Slice 1.
   'runtime.auto_run_gated': ['language', 'reason'],
+  'runtime.browser_preview_auto_refresh': ['language', 'intervalMs'],
   // RL-020 Slice 8 — `language` is the language-pack id
   // (`isSafeToken`); `enabled` is a boolean flipping with the
   // user's toggle direction. Mirrored on update-server.
@@ -1600,6 +1605,7 @@ const RUNTIME_MODE_VALUES = new Set([
 // rejects anything else so a future heuristic-expansion has to amend
 // this Set + its mirror in `update-server/src/telemetry.ts`.
 const AUTO_RUN_GATE_REASONS = new Set(['incomplete']);
+const BROWSER_PREVIEW_AUTO_REFRESH_INTERVALS = new Set([300, 1_000]);
 // RL-020 Slice 2 — closed enum mirroring `WorkflowMode` in
 // `src/shared/workflowMode.ts`. Duplicated here so this redactor
 // stays a pure module without an import cycle; a parity test
@@ -1751,6 +1757,15 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'reason')
         return typeof value === 'string' && AUTO_RUN_GATE_REASONS.has(value);
+      return false;
+    case 'runtime.browser_preview_auto_refresh':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'intervalMs') {
+        return (
+          typeof value === 'number' &&
+          BROWSER_PREVIEW_AUTO_REFRESH_INTERVALS.has(value)
+        );
+      }
       return false;
     case 'runtime.compare_view_toggled':
       if (key === 'language') return isSafeToken(value);

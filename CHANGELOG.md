@@ -7,7 +7,11 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Added
+- **Live Browser preview refresh**: JavaScript and TypeScript tabs in Browser preview mode now refresh the sandboxed iframe 300 ms after typing stops, with Off and 1-second choices in Settings → Editor plus a first-line `// @preview-refresh off|300|1000` override. Silent refreshes stay out of execution history, preserve the last successful DOM when new code fails, and show their effective interval in the preview footer.
 - **TypeScript and Python Recipes**: the practice library now includes three curated TypeScript recipes and three Python recipes, with language filters, matching `.ts`/`.py` tabs, localized prompts and hints, and real Run + Test execution through each web worker. Recipe assertions keep their results isolated from run history and the Result panel while coordinating with scratchpad auto-run so a test pass is not interrupted after editing.
+
+### Fixed
+- **Notebook edit-request CI stability**: the animation-frame-deferred command-to-edit transition test now synchronizes with the frame itself instead of depending on a one-second polling window that could expire under the full Linux test load.
 
 ## [0.11.0] — 2026-07-14
 

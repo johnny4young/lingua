@@ -522,6 +522,92 @@ describe('BrowserPreviewRunner — execute()', () => {
     expect(result.stderr.length).toBeGreaterThan(0);
   });
 
+  it('keeps the last successful DOM when a silent refresh throws', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const firstRun = runner.execute(
+      'document.body.textContent = "stable";',
+      { preserveBrowserPreviewOnFailure: true }
+    );
+    await Promise.resolve();
+    const stableDocument = iframe.srcdoc;
+    const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: firstRunId,
+      type: 'done',
+    });
+    await firstRun;
+
+    const failedRefresh = runner.execute('throw new Error("new failure");', {
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const failedRunId = iframe.srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: failedRunId,
+      type: 'error',
+      message: 'new failure',
+    });
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: failedRunId,
+      type: 'done',
+    });
+
+    const result = await failedRefresh;
+    expect(result.error?.message).toBe('new failure');
+    expect(iframe.srcdoc).toBe(stableDocument);
+  });
+
+  it('restores the last successful DOM into a remounted preview iframe', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const firstIframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(firstIframe);
+
+    const firstRun = runner.execute('document.body.textContent = "stable";');
+    await Promise.resolve();
+    const stableDocument = firstIframe.srcdoc;
+    const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: firstRunId,
+      type: 'done',
+    });
+    await firstRun;
+
+    firstIframe.remove();
+    const remountedIframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(remountedIframe);
+    const failedRefresh = runner.execute('throw new Error("remount failure");', {
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const failedRunId = remountedIframe.srcdoc.match(
+      /var RUN_ID = "([^"]+)";/u
+    )![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: failedRunId,
+      type: 'error',
+      message: 'remount failure',
+    });
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: failedRunId,
+      type: 'done',
+    });
+
+    const result = await failedRefresh;
+    expect(result.error?.message).toBe('remount failure');
+    expect(remountedIframe.srcdoc).toBe(stableDocument);
+  });
+
   it('honors fold-A sibling sources via setSiblingSources', async () => {
     const runner = new BrowserPreviewRunner();
     await runner.init();
@@ -565,6 +651,36 @@ describe('BrowserPreviewRunner — execute()', () => {
     const result = await promise;
     expect(iframe.srcdoc).toBe('');
     expect(result.error?.message).toMatch(/timed out/i);
+  });
+
+  it('restores the last successful DOM when a silent refresh times out', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const firstRun = runner.execute('document.body.textContent = "stable";');
+    await Promise.resolve();
+    const stableDocument = iframe.srcdoc;
+    const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: firstRunId,
+      type: 'done',
+    });
+    await firstRun;
+
+    vi.useFakeTimers();
+    const timedOutRefresh = runner.execute('while (true) {}', {
+      timeout: 500,
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    vi.advanceTimersByTime(600);
+
+    const result = await timedOutRefresh;
+    expect(result.error?.message).toMatch(/timed out/i);
+    expect(iframe.srcdoc).toBe(stableDocument);
   });
 
   it('stop() during an in-flight run cancels the promise', async () => {

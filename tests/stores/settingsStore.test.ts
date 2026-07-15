@@ -986,6 +986,59 @@ describe('settingsStore', () => {
     });
   });
 
+  describe('RL-119 Slice 1 — Browser preview auto-refresh preference', () => {
+    it('defaults to the fast 300 ms interval and accepts every closed value', () => {
+      expect(
+        useSettingsStore.getState().browserPreviewRefreshIntervalMs
+      ).toBe(300);
+
+      for (const intervalMs of [0, 1_000, 300] as const) {
+        useSettingsStore
+          .getState()
+          .setBrowserPreviewRefreshInterval(intervalMs);
+        expect(
+          useSettingsStore.getState().browserPreviewRefreshIntervalMs
+        ).toBe(intervalMs);
+      }
+    });
+
+    it('rejects an unsupported interval at the runtime setter boundary', () => {
+      useSettingsStore
+        .getState()
+        // @ts-expect-error — exercising the closed-enum runtime guard
+        .setBrowserPreviewRefreshInterval(750);
+      expect(
+        useSettingsStore.getState().browserPreviewRefreshIntervalMs
+      ).toBe(300);
+    });
+
+    it('persists a valid value and sanitizes tampered rehydration', async () => {
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: { browserPreviewRefreshIntervalMs: 1_000 },
+          version: 2,
+        })
+      );
+      await useSettingsStore.persist.rehydrate();
+      expect(
+        useSettingsStore.getState().browserPreviewRefreshIntervalMs
+      ).toBe(1_000);
+
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: { browserPreviewRefreshIntervalMs: 750 },
+          version: 2,
+        })
+      );
+      await useSettingsStore.persist.rehydrate();
+      expect(
+        useSettingsStore.getState().browserPreviewRefreshIntervalMs
+      ).toBe(300);
+    });
+  });
+
   describe('RL-020 Slice 7 — runtimeTimeoutPresetByLanguage', () => {
     it('seeds defaults (Python=long, others=normal)', () => {
       expect(

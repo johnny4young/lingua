@@ -3,11 +3,13 @@ import { defaultWorkflowMode } from '../../shared/workflowMode';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { runnerManager } from '../runners';
 import { executeAutoRun } from './autoRunExecution';
+import { useTelemetry } from './useTelemetry';
 import {
-  AUTO_RUN_DEBOUNCE_MS,
   isSameAutoRunInput,
   resolveAutoLogEnabled,
+  resolveAutoRunSchedule,
   type AutoRunInput,
 } from './autoRunModel';
 
@@ -17,8 +19,9 @@ export {
   type AutoLogCountBucket,
 } from './autoRunModel';
 
-/** Auto-run the active Scratchpad after a short pause in typing. */
+/** Auto-run the active Scratchpad after its runtime-specific typing pause. */
 export function useAutoRun() {
+  const { track } = useTelemetry();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef(false);
   const runTokenRef = useRef(0);
@@ -28,6 +31,9 @@ export function useAutoRun() {
   const activeTab = useEditorStore((state) => getActiveTab(state));
   const autoLogByLanguage = useSettingsStore(
     (state) => state.scratchpadAutoLogByLanguage
+  );
+  const browserPreviewRefreshPreference = useSettingsStore(
+    (state) => state.browserPreviewRefreshIntervalMs
   );
 
   const code = activeTab?.content ?? '';
@@ -42,6 +48,11 @@ export function useAutoRun() {
     autoLogByLanguage
   );
   const stdinBuffer = activeTab?.stdinBuffer;
+  const autoRunSchedule = resolveAutoRunSchedule(
+    runtimeMode,
+    code,
+    browserPreviewRefreshPreference
+  );
 
   useEffect(() => {
     // Run and Debug are manual workflows. Invalidate scheduled or in-flight
@@ -75,12 +86,38 @@ export function useAutoRun() {
       return;
     }
 
+    // RL-119 — Off is a real scheduling mode, not a large timeout. Cancel a
+    // pending/in-flight silent preview without touching the last visible DOM
+    // or result so manual Run remains the only refresh path.
+    if (autoRunSchedule.debounceMs === null) {
+      cancelTimer(timerRef);
+      abortRef.current = true;
+      runTokenRef.current += 1;
+      lastRunInputRef.current = null;
+      const resultState = useResultStore.getState();
+      if (
+        resultState.isAutoRunning &&
+        resultState.executionSource === 'auto' &&
+        runtimeMode === 'browser-preview'
+      ) {
+        runnerManager.stop(language, runtimeMode);
+      }
+      resultState.setIsAutoRunning(false);
+      resultState.setAutoRunGateReason(null);
+      if (resultState.executionSource === 'auto') {
+        resultState.setExecutionSource(null);
+      }
+      return;
+    }
+
     const input: AutoRunInput = {
       code,
       language,
       runtimeMode,
       workflowMode,
       autoLogEnabled,
+      browserPreviewRefreshIntervalMs:
+        autoRunSchedule.browserPreviewRefreshIntervalMs,
       stdinBuffer,
     };
     if (isSameAutoRunInput(lastRunInputRef.current, input)) return;
@@ -119,11 +156,24 @@ export function useAutoRun() {
         activeTabId,
         shouldDiscard,
         finish,
+        track,
       });
-    }, AUTO_RUN_DEBOUNCE_MS);
+    }, autoRunSchedule.debounceMs);
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      cancelTimer(timerRef);
+      abortRef.current = true;
+      runTokenRef.current += 1;
+      const resultState = useResultStore.getState();
+      if (
+        runtimeMode === 'browser-preview' &&
+        resultState.isAutoRunning &&
+        resultState.executionSource === 'auto'
+      ) {
+        runnerManager.stop(language, runtimeMode);
+        resultState.setIsAutoRunning(false);
+        resultState.setExecutionSource(null);
+      }
     };
   }, [
     code,
@@ -131,9 +181,12 @@ export function useAutoRun() {
     runtimeMode,
     workflowMode,
     autoLogEnabled,
+    autoRunSchedule.debounceMs,
+    autoRunSchedule.browserPreviewRefreshIntervalMs,
     stdinBuffer,
     activeTab,
     activeTabId,
+    track,
   ]);
 
   useEffect(() => {

@@ -91,6 +91,10 @@ export class BrowserPreviewRunner implements LanguageRunner {
   private currentRunId: string | null = null;
   private cancelInFlight: (() => void) | null = null;
   private siblingSources: BrowserPreviewSiblingSources | null = null;
+  // Keep only the serializable document. Retaining the iframe would pin a
+  // detached BrowserPreviewPanel for the renderer session and would prevent a
+  // remounted panel from recovering the last successful preview.
+  private lastSuccessfulSrcdoc: string | null = null;
 
   async init(): Promise<void> {
     this.ready = true;
@@ -163,6 +167,12 @@ export class BrowserPreviewRunner implements LanguageRunner {
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
+    const doc = buildPreviewDocument({
+      runId,
+      userCode: code,
+      siblingCss: this.siblingSources?.css,
+      siblingHtml: this.siblingSources?.html,
+    });
 
     return new Promise<ExecutionResult>((resolve) => {
       let resolved = false;
@@ -184,6 +194,16 @@ export class BrowserPreviewRunner implements LanguageRunner {
         window.removeEventListener('message', handleMessage);
       };
 
+      const restoreLastSuccessfulDocument = (clearWhenDisabled = false) => {
+        const preserve = context?.preserveBrowserPreviewOnFailure === true;
+        if (!preserve && !clearWhenDisabled) return;
+        try {
+          iframe.srcdoc = preserve ? (this.lastSuccessfulSrcdoc ?? '') : '';
+        } catch {
+          /* iframe may be detached; ignore */
+        }
+      };
+
       const finish = (value: ExecutionResult) => {
         if (resolved) return;
         resolved = true;
@@ -195,15 +215,10 @@ export class BrowserPreviewRunner implements LanguageRunner {
       };
 
       const cancel = () => {
-        // Tear down the iframe so user code stops executing. We
-        // assign `srcdoc=''` rather than removing the element so
-        // the panel still has its iframe ref intact for the next
-        // run.
-        try {
-          iframe.srcdoc = '';
-        } catch {
-          /* iframe may be detached; ignore */
-        }
+        // Manual stop keeps the legacy blanking behavior. A superseded silent
+        // refresh restores the last successful document instead, so rapid
+        // edits never flash an empty preview between accepted runs.
+        restoreLastSuccessfulDocument(true);
         finish(runnerStoppedResult(t, { stdout, stderr }));
       };
       this.cancelInFlight = cancel;
@@ -275,7 +290,12 @@ export class BrowserPreviewRunner implements LanguageRunner {
             context?.onConsole?.(error);
             break;
           }
-          case 'done':
+          case 'done': {
+            if (executionError) {
+              restoreLastSuccessfulDocument();
+            } else {
+              this.lastSuccessfulSrcdoc = doc;
+            }
             finish({
               stdout,
               stderr,
@@ -287,17 +307,14 @@ export class BrowserPreviewRunner implements LanguageRunner {
               timeoutMs: timeout,
             });
             break;
+          }
         }
       };
 
       window.addEventListener('message', handleMessage);
 
       timeoutHandle = setTimeout(() => {
-        try {
-          iframe.srcdoc = '';
-        } catch {
-          /* iframe may be detached; ignore */
-        }
+        restoreLastSuccessfulDocument(true);
         finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
       }, timeout);
 
@@ -305,15 +322,10 @@ export class BrowserPreviewRunner implements LanguageRunner {
       // does NOT need to be awaited — the bridge IIFE will fire
       // its `ready` message once it has installed listeners, and
       // user code follows naturally.
-      const doc = buildPreviewDocument({
-        runId,
-        userCode: code,
-        siblingCss: this.siblingSources?.css,
-        siblingHtml: this.siblingSources?.html,
-      });
       try {
         iframe.srcdoc = doc;
       } catch (assignError) {
+        restoreLastSuccessfulDocument();
         finish({
           stdout,
           stderr: [

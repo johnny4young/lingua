@@ -3,6 +3,7 @@ import {
   bucketAutoLogCount,
   isSameAutoRunInput,
   resolveAutoLogEnabled,
+  resolveAutoRunSchedule,
   type AutoRunInput,
 } from '@/hooks/autoRunModel';
 
@@ -12,6 +13,7 @@ const BASE_INPUT: AutoRunInput = {
   runtimeMode: 'worker',
   workflowMode: 'scratchpad',
   autoLogEnabled: false,
+  browserPreviewRefreshIntervalMs: null,
   stdinBuffer: undefined,
 };
 
@@ -50,6 +52,12 @@ describe('autoRunModel', () => {
         stdinBuffer: 'first line',
       })
     ).toBe(false);
+    expect(
+      isSameAutoRunInput(BASE_INPUT, {
+        ...BASE_INPUT,
+        browserPreviewRefreshIntervalMs: 300,
+      })
+    ).toBe(false);
     expect(isSameAutoRunInput(null, BASE_INPUT)).toBe(false);
   });
 
@@ -59,5 +67,39 @@ describe('autoRunModel', () => {
     expect(bucketAutoLogCount(2)).toBe('2-5');
     expect(bucketAutoLogCount(6)).toBe('6-20');
     expect(bucketAutoLogCount(21)).toBe('20-plus');
+  });
+
+  it('uses the generic debounce outside Browser preview', () => {
+    expect(resolveAutoRunSchedule('worker', 'void 0;', 300)).toEqual({
+      debounceMs: 1_200,
+      browserPreviewRefreshIntervalMs: null,
+    });
+  });
+
+  it('resolves Browser preview Settings and first-line overrides', () => {
+    expect(resolveAutoRunSchedule('browser-preview', 'void 0;', 300)).toEqual({
+      debounceMs: 300,
+      browserPreviewRefreshIntervalMs: 300,
+    });
+    expect(
+      resolveAutoRunSchedule(
+        'browser-preview',
+        '// @preview-refresh 1000\nvoid 0;',
+        300
+      )
+    ).toEqual({
+      debounceMs: 1_000,
+      browserPreviewRefreshIntervalMs: 1_000,
+    });
+    expect(
+      resolveAutoRunSchedule(
+        'browser-preview',
+        '// @preview-refresh off\nvoid 0;',
+        300
+      )
+    ).toEqual({
+      debounceMs: null,
+      browserPreviewRefreshIntervalMs: 0,
+    });
   });
 });
