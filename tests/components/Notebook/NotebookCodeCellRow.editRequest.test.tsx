@@ -52,6 +52,15 @@ function rowProps(overrides: Record<string, unknown> = {}) {
   };
 }
 
+async function flushAnimationFrame(): Promise<void> {
+  await act(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      })
+  );
+}
+
 describe('NotebookCodeCellRow — edit-request handling', () => {
   beforeAll(async () => {
     await initI18n('en');
@@ -72,10 +81,12 @@ describe('NotebookCodeCellRow — edit-request handling', () => {
       <NotebookCodeCellRow {...rowProps({ disabled: true, editRequestNonce: 1 })} />
     );
 
-    // The flip is rAF-deferred; the editor mounts (read-only) despite the run.
-    await waitFor(() =>
-      expect(screen.queryByTestId('notebook-code-cell-source')).toBeTruthy()
-    );
+    // Synchronize with the deliberate rAF deferral instead of polling with
+    // waitFor's one-second wall-clock budget. The full Linux suite can keep
+    // the worker busy long enough for that budget to expire even though the
+    // next frame still produces the correct UI.
+    await flushAnimationFrame();
+    expect(screen.queryByTestId('notebook-code-cell-source')).toBeTruthy();
   });
 
   it('does not re-open an escaped editor when the run status later settles (stable nonce)', async () => {
@@ -83,9 +94,8 @@ describe('NotebookCodeCellRow — edit-request handling', () => {
     const { rerender } = render(
       <NotebookCodeCellRow {...rowProps({ status: 'running', editRequestNonce: 7 })} />
     );
-    await waitFor(() =>
-      expect(screen.queryByTestId('notebook-code-cell-source')).toBeTruthy()
-    );
+    await flushAnimationFrame();
+    expect(screen.queryByTestId('notebook-code-cell-source')).toBeTruthy();
 
     // ...escape back to command mode (Monaco's Esc command -> the row drops
     // edit mode), so the static view returns.
