@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { CommandPalette } from '../../src/renderer/components/CommandPalette/CommandPalette';
-import { subscribeCommand } from '../../src/renderer/stores/commandBus';
+import {
+  _resetCommandBusForTesting,
+  subscribeCommand,
+} from '../../src/renderer/stores/commandBus';
 import {
   armPendingSessionRestoreSnapshot,
   clearPendingSessionRestoreSnapshot,
@@ -212,6 +215,10 @@ describe('CommandPalette', () => {
       writable: true,
     });
     await i18next.changeLanguage('en');
+  });
+
+  afterEach(() => {
+    _resetCommandBusForTesting();
   });
 
   it('renders localized command palette UI in Spanish', async () => {

@@ -64,7 +64,10 @@ export function useDefaultOpenFileConsumer(): void {
         // RL-024 ships the higher-priority consumer.
         const key = `${file}:${line}`;
         const last = recentKeys.get(key) ?? 0;
-        if (now - last < RECENT_DEBOUNCE_MS) return;
+        if (now - last < RECENT_DEBOUNCE_MS) {
+          context.markHandled();
+          return;
+        }
         recentKeys.set(key, now);
         trimRecent();
         useUIStore.getState().pushStatusNotice({
@@ -81,7 +84,10 @@ export function useDefaultOpenFileConsumer(): void {
       if (!activeTabId) return;
       const key = `tab:${activeTabId}:${line}`;
       const last = recentKeys.get(key) ?? 0;
-      if (now - last < RECENT_DEBOUNCE_MS) return;
+      if (now - last < RECENT_DEBOUNCE_MS) {
+        context.markHandled();
+        return;
+      }
       recentKeys.set(key, now);
       trimRecent();
       requestReveal({ tabId: activeTabId, line, column });

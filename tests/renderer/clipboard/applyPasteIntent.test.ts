@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IRange } from 'monaco-editor';
 import { applyPasteIntent, type ApplyPasteContext } from '@/clipboard/applyPasteIntent';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
-import { subscribeCommand } from '@/stores/commandBus';
+import { _resetCommandBusForTesting, subscribeCommand } from '@/stores/commandBus';
 
 /**
  * RL-110 — locks the impure router's delegation: each intent kind routes to the
@@ -76,6 +76,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  _resetCommandBusForTesting();
   vi.clearAllMocks();
 });
 

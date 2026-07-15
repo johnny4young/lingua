@@ -12,7 +12,7 @@ import {
   useTrustEventStore,
 } from '@/stores/trustEventStore';
 import { useUIStore } from '@/stores/uiStore';
-import { subscribeCommand } from '@/stores/commandBus';
+import { _resetCommandBusForTesting, subscribeCommand } from '@/stores/commandBus';
 
 const { trackEventMock } = vi.hoisted(() => ({
   trackEventMock: vi.fn(),
@@ -43,6 +43,7 @@ describe('PrivacyTrustSection', () => {
   afterEach(() => {
     cleanup();
     _resetPrivacyDashboardTelemetryForTesting();
+    _resetCommandBusForTesting();
   });
 
   it('renders the redaction preview and only audited persisted local stores', () => {

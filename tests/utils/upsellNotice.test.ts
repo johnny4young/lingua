@@ -1,11 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pushUpsellNotice } from '../../src/renderer/utils/upsellNotice';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
-import { subscribeCommand } from '../../src/renderer/stores/commandBus';
+import {
+  _resetCommandBusForTesting,
+  subscribeCommand,
+} from '../../src/renderer/stores/commandBus';
 
 describe('pushUpsellNotice', () => {
   beforeEach(() => {
     useUIStore.getState().dismissStatusNotice();
+  });
+
+  afterEach(() => {
+    _resetCommandBusForTesting();
   });
 
   it('pushes a status notice with the interpolated localized feature label', () => {

@@ -91,6 +91,11 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
 
   it('debounces within-tab clicks on the same active-tab line within 1500ms', () => {
     const requestRevealSpy = vi.spyOn(useEditorStore.getState(), 'requestReveal');
+    const lowerFallback = vi.fn();
+    const unsubscribeFallback = subscribeCommand('file.open', lowerFallback, {
+      priority: -2000,
+      delivery: 'fallback',
+    });
     useEditorStore.setState({
       activeTabId: 'tab-active',
       tabs: [
@@ -111,7 +116,9 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
       dispatch({ file: '', line: 7 });
       dispatch({ file: '', line: 7 });
       expect(requestRevealSpy).toHaveBeenCalledTimes(1);
+      expect(lowerFallback).not.toHaveBeenCalled();
     } finally {
+      unsubscribeFallback();
       requestRevealSpy.mockRestore();
       useEditorStore.setState({ activeTabId: null, tabs: [] });
       unmount();
@@ -119,12 +126,39 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
   });
 
   it('debounces duplicate file:line within 1500ms', () => {
+    const lowerFallback = vi.fn();
+    const unsubscribeFallback = subscribeCommand('file.open', lowerFallback, {
+      priority: -2000,
+      delivery: 'fallback',
+    });
     const { unmount } = renderHook(() => useDefaultOpenFileConsumer());
-    dispatch({ file: 'src/example.ts', line: 12 });
-    dispatch({ file: 'src/example.ts', line: 12 });
-    dispatch({ file: 'src/example.ts', line: 12 });
-    expect(pushSpy).toHaveBeenCalledTimes(1);
-    unmount();
+    try {
+      dispatch({ file: 'src/example.ts', line: 12 });
+      dispatch({ file: 'src/example.ts', line: 12 });
+      dispatch({ file: 'src/example.ts', line: 12 });
+      expect(pushSpy).toHaveBeenCalledTimes(1);
+      expect(lowerFallback).not.toHaveBeenCalled();
+    } finally {
+      unsubscribeFallback();
+      unmount();
+    }
+  });
+
+  it('leaves within-tab commands unhandled when no tab is active so a later fallback can act', () => {
+    const laterFallback = vi.fn((_payload, context) => context.markHandled());
+    const unsubscribeFallback = subscribeCommand('file.open', laterFallback, {
+      priority: -2000,
+      delivery: 'fallback',
+    });
+    const { unmount } = renderHook(() => useDefaultOpenFileConsumer());
+    try {
+      const result = emitCommand('file.open', { file: '', line: 7 });
+      expect(laterFallback).toHaveBeenCalledOnce();
+      expect(result).toEqual({ handled: true, delivered: 2 });
+    } finally {
+      unsubscribeFallback();
+      unmount();
+    }
   });
 
   it('routes distinct file:line pairs through independently', () => {
