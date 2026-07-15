@@ -38,20 +38,19 @@ import {
 } from './settingsSanitizers';
 
 /**
- * RL-129 — the `lingua-settings` rehydrate sanitizer, extracted verbatim from
- * `settingsStore.ts` (the inline per-field IIFE sanitizers now live in
- * `settingsSanitizers.ts`). `persistedState` is attacker/tamper-controlled input
- * from localStorage, so every enum / map / number is narrowed before it can
- * influence Settings UI, runtime dispatch, or telemetry payloads. Pure (modulo
- * the `currentEffectiveTier()` read for the dependency-detection default);
- * depends only on sanitizers + defaults + shared contracts, never on the store.
+ * RL-129 — `lingua-settings` rehydrate sanitizer, extracted from
+ * `settingsStore.ts`. Treats localStorage as tamper-controlled input and
+ * narrows every persisted value before it reaches UI, runtime, or telemetry.
+ * Pure except for the tier read that selects the dependency-detection default.
  */
 export function settingsMerge(
   persistedState: unknown,
   currentState: SettingsState
 ): SettingsState {
-  const persisted = persistedState && typeof persistedState === 'object'
-    ? (persistedState as Partial<SettingsState>) : undefined;
+  const persisted =
+    persistedState && typeof persistedState === 'object'
+      ? (persistedState as Partial<SettingsState>)
+      : undefined;
   const merged = {
     ...currentState,
     ...persisted,
@@ -64,12 +63,8 @@ export function settingsMerge(
       : hasSnapshotPreference
         ? false
         : currentState.executionHistorySnapshotEnabled;
-  // RL-025 Slice A fold G — tier-aware default for the
-  // dependency detection toggle. A present-but-non-boolean value
-  // (corrupted write, future schema drift) falls back to the
-  // tier-aware default exactly like an absent key, so the
-  // surface never silently lands at `false` for someone who
-  // shouldn't get the upsell-pressure default.
+  // RL-025 Slice A fold G — corrupted or missing dependency-detection values
+  // fall back to the tier-aware default instead of silently disabling Pro UI.
   const dependencyDetectionEnabled =
     typeof persisted?.dependencyDetectionEnabled === 'boolean'
       ? persisted.dependencyDetectionEnabled
@@ -277,7 +272,9 @@ export function settingsMerge(
     defaultRuntimeMode: normalizedDefaultRuntimeMode,
     workflowModeDefaultsByLanguage: seededWorkflowDefaults,
     scratchpadAutoLogByLanguage: seededAutoLog,
-    browserPreviewRefreshIntervalMs: sanitizeBrowserPreviewRefreshInterval(merged.browserPreviewRefreshIntervalMs),
+    browserPreviewRefreshIntervalMs: sanitizeBrowserPreviewRefreshInterval(
+      merged.browserPreviewRefreshIntervalMs
+    ),
     inlineLintEnabledByLanguage: resolveInlineLintByLanguage(merged.inlineLintEnabledByLanguage),
     showStdinPanel,
     showStatusBar: typeof merged.showStatusBar === 'boolean' ? merged.showStatusBar : currentState.showStatusBar, // RL-112

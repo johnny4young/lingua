@@ -91,10 +91,10 @@ export class BrowserPreviewRunner implements LanguageRunner {
   private currentRunId: string | null = null;
   private cancelInFlight: (() => void) | null = null;
   private siblingSources: BrowserPreviewSiblingSources | null = null;
-  private lastSuccessfulDocument: {
-    iframe: HTMLIFrameElement;
-    srcdoc: string;
-  } | null = null;
+  // Keep only the serializable document. Retaining the iframe would pin a
+  // detached BrowserPreviewPanel for the renderer session and would prevent a
+  // remounted panel from recovering the last successful preview.
+  private lastSuccessfulSrcdoc: string | null = null;
 
   async init(): Promise<void> {
     this.ready = true;
@@ -195,14 +195,10 @@ export class BrowserPreviewRunner implements LanguageRunner {
       };
 
       const restoreLastSuccessfulDocument = (clearWhenDisabled = false) => {
-        const previous = this.lastSuccessfulDocument;
         const preserve = context?.preserveBrowserPreviewOnFailure === true;
         if (!preserve && !clearWhenDisabled) return;
         try {
-          iframe.srcdoc =
-            preserve && previous?.iframe === iframe
-              ? previous.srcdoc
-              : '';
+          iframe.srcdoc = preserve ? (this.lastSuccessfulSrcdoc ?? '') : '';
         } catch {
           /* iframe may be detached; ignore */
         }
@@ -298,7 +294,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
             if (executionError) {
               restoreLastSuccessfulDocument();
             } else {
-              this.lastSuccessfulDocument = { iframe, srcdoc: doc };
+              this.lastSuccessfulSrcdoc = doc;
             }
             finish({
               stdout,

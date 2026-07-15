@@ -46,10 +46,13 @@ export function BrowserPreviewPanel() {
       : 'browserPreview.empty';
   const isJsTsTab = isJavaScriptFamily(activeTab?.language);
   const isBrowserPreviewMode = activeTab?.runtimeMode === 'browser-preview';
-  const effectiveRefreshInterval = resolveBrowserPreviewRefreshInterval(
-    activeTab?.content ?? '',
-    browserPreviewRefreshPreference
-  );
+  const effectiveRefreshInterval =
+    isJsTsTab && isBrowserPreviewMode
+      ? resolveBrowserPreviewRefreshInterval(
+          activeTab?.content ?? '',
+          browserPreviewRefreshPreference
+        )
+      : null;
 
   // Registration lifecycle. Strict-Mode-safe: snapshot the ref at
   // effect-fire time so the cleanup uses the same element it saw

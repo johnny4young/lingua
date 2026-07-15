@@ -564,6 +564,50 @@ describe('BrowserPreviewRunner — execute()', () => {
     expect(iframe.srcdoc).toBe(stableDocument);
   });
 
+  it('restores the last successful DOM into a remounted preview iframe', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const firstIframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(firstIframe);
+
+    const firstRun = runner.execute('document.body.textContent = "stable";');
+    await Promise.resolve();
+    const stableDocument = firstIframe.srcdoc;
+    const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: firstRunId,
+      type: 'done',
+    });
+    await firstRun;
+
+    firstIframe.remove();
+    const remountedIframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(remountedIframe);
+    const failedRefresh = runner.execute('throw new Error("remount failure");', {
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const failedRunId = remountedIframe.srcdoc.match(
+      /var RUN_ID = "([^"]+)";/u
+    )![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: failedRunId,
+      type: 'error',
+      message: 'remount failure',
+    });
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: failedRunId,
+      type: 'done',
+    });
+
+    const result = await failedRefresh;
+    expect(result.error?.message).toBe('remount failure');
+    expect(remountedIframe.srcdoc).toBe(stableDocument);
+  });
+
   it('honors fold-A sibling sources via setSiblingSources', async () => {
     const runner = new BrowserPreviewRunner();
     await runner.init();
