@@ -31,6 +31,10 @@ import {
   defaultRuntimeTimeoutPreset,
   type RuntimeTimeoutPreset,
 } from '../../../shared/runtimeTimeoutPresets';
+import {
+  BROWSER_PREVIEW_REFRESH_INTERVALS,
+  isBrowserPreviewRefreshInterval,
+} from '../../../shared/browserPreviewRefresh';
 
 export function EditorSection() {
   const effectiveTier = useEffectiveTier();
@@ -79,6 +83,12 @@ export function EditorSection() {
   );
   const setScratchpadAutoLogDefault = useSettingsStore(
     (state) => state.setScratchpadAutoLogDefault
+  );
+  const browserPreviewRefreshIntervalMs = useSettingsStore(
+    (state) => state.browserPreviewRefreshIntervalMs
+  );
+  const setBrowserPreviewRefreshInterval = useSettingsStore(
+    (state) => state.setBrowserPreviewRefreshInterval
   );
   // RL-108 — inline lint is stored + surfaced per language, so adding a
   // language's lint in a later slice lights up a new row without a re-layout.
@@ -535,6 +545,39 @@ export function EditorSection() {
           execution timeout) each keep their nested per-language grid as
           the spec-row control; the wide control fills a fixed column. */}
       <SpecCard>
+        {/* RL-119 Slice 1 — Browser preview reuses Scratchpad auto-run, but
+            carries its own fast closed-enum debounce. The first-line magic
+            comment can override this setting per tab. */}
+        <SpecRow
+          label={t('browserPreview.autoRefresh.settings.label')}
+          description={t('browserPreview.autoRefresh.settings.hint')}
+          control={
+            <Select
+              value={browserPreviewRefreshIntervalMs}
+              data-testid="settings-browser-preview-auto-refresh"
+              aria-label={t('browserPreview.autoRefresh.settings.label')}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (isBrowserPreviewRefreshInterval(next)) {
+                  setBrowserPreviewRefreshInterval(next);
+                }
+              }}
+            >
+              {BROWSER_PREVIEW_REFRESH_INTERVALS.map((intervalMs) => (
+                <option key={intervalMs} value={intervalMs}>
+                  {t(
+                    intervalMs === 0
+                      ? 'browserPreview.autoRefresh.option.off'
+                      : intervalMs === 300
+                        ? 'browserPreview.autoRefresh.option.fast'
+                        : 'browserPreview.autoRefresh.option.conservative'
+                  )}
+                </option>
+              ))}
+            </Select>
+          }
+        />
+
         {/* RL-020 Slice 2 — per-language default workflow mode.
             Settings intentionally surfaces the lightweight in-process
             languages first (JS / TS / Python); Go / Rust keep the

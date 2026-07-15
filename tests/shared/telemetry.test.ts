@@ -194,6 +194,9 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-019 Slice 1 — per-tab JS/TS runtime mode change.
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
       'runtime.auto_run_gated',
+      // RL-119 Slice 1 — once-per-session Browser preview live refresh.
+      // Closed payload `{ language, intervalMs }`.
+      'runtime.browser_preview_auto_refresh',
       // RL-020 Slice 8 — Compare-with-last-stable adoption signal.
       'runtime.compare_view_toggled',
       // RL-044 Slice 1B — rich console output rendered. Closed-enum
@@ -721,6 +724,38 @@ describe('runtime.auto_run_gated value validator (RL-020 Slice 1)', () => {
     );
     expect(event.properties.reason).toBe('incomplete');
     expect(event.properties).not.toHaveProperty('language');
+  });
+});
+
+describe('runtime.browser_preview_auto_refresh value validator (RL-119 Slice 1)', () => {
+  it('accepts each live interval with a safe language', () => {
+    for (const intervalMs of [300, 1_000]) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runtime.browser_preview_auto_refresh',
+          properties: { language: 'javascript', intervalMs },
+        })
+      );
+      expect(event.properties).toEqual({ language: 'javascript', intervalMs });
+    }
+  });
+
+  it('drops Off, arbitrary durations, and non-safe languages', () => {
+    const off = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.browser_preview_auto_refresh',
+        properties: { language: 'typescript', intervalMs: 0 },
+      })
+    ).event;
+    expect(off.properties).toEqual({ language: 'typescript' });
+
+    const arbitrary = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.browser_preview_auto_refresh',
+        properties: { language: '../../secret', intervalMs: 750 },
+      })
+    ).event;
+    expect(arbitrary.properties).toEqual({});
   });
 });
 

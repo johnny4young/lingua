@@ -16,6 +16,7 @@ import {
   type RuntimeTimeoutPreset,
 } from '../../shared/runtimeTimeoutPresets';
 import { type WorkflowMode } from '../../shared/workflowMode';
+import { sanitizeBrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
 import {
   SCRATCHPAD_AUTO_LOG_DEFAULT_SEED,
   WORKFLOW_MODE_DEFAULT_SEED,
@@ -49,10 +50,8 @@ export function settingsMerge(
   persistedState: unknown,
   currentState: SettingsState
 ): SettingsState {
-  const persisted =
-    persistedState && typeof persistedState === 'object'
-      ? (persistedState as Partial<SettingsState>)
-      : undefined;
+  const persisted = persistedState && typeof persistedState === 'object'
+    ? (persistedState as Partial<SettingsState>) : undefined;
   const merged = {
     ...currentState,
     ...persisted,
@@ -278,6 +277,7 @@ export function settingsMerge(
     defaultRuntimeMode: normalizedDefaultRuntimeMode,
     workflowModeDefaultsByLanguage: seededWorkflowDefaults,
     scratchpadAutoLogByLanguage: seededAutoLog,
+    browserPreviewRefreshIntervalMs: sanitizeBrowserPreviewRefreshInterval(merged.browserPreviewRefreshIntervalMs),
     inlineLintEnabledByLanguage: resolveInlineLintByLanguage(merged.inlineLintEnabledByLanguage),
     showStdinPanel,
     showStatusBar: typeof merged.showStatusBar === 'boolean' ? merged.showStatusBar : currentState.showStatusBar, // RL-112

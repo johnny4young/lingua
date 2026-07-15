@@ -7,6 +7,8 @@ import { useResultStore } from '../../stores/resultStore';
 import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
 import { isJavaScriptFamily } from '../../../shared/languageFamilies';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { resolveBrowserPreviewRefreshInterval } from '../../../shared/browserPreviewRefresh';
 
 /**
  * RL-019 Slice 3 — bottom-panel surface for the Browser preview
@@ -28,16 +30,26 @@ export function BrowserPreviewPanel() {
   const { t } = useTranslation();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const isManualRunning = useResultStore((state) => state.isManualRunning);
+  const isAutoRunning = useResultStore((state) => state.isAutoRunning);
   const error = useResultStore((state) => state.error);
   const activeTab = useActiveTab();
+  const browserPreviewRefreshPreference = useSettingsStore(
+    (state) => state.browserPreviewRefreshIntervalMs
+  );
   // Status text key — running / error / idle.
   const statusKey = isManualRunning
     ? 'browserPreview.running'
+    : isAutoRunning
+      ? 'browserPreview.autoRefresh.running'
     : error
       ? 'browserPreview.runtimeError'
       : 'browserPreview.empty';
   const isJsTsTab = isJavaScriptFamily(activeTab?.language);
   const isBrowserPreviewMode = activeTab?.runtimeMode === 'browser-preview';
+  const effectiveRefreshInterval = resolveBrowserPreviewRefreshInterval(
+    activeTab?.content ?? '',
+    browserPreviewRefreshPreference
+  );
 
   // Registration lifecycle. Strict-Mode-safe: snapshot the ref at
   // effect-fire time so the cleanup uses the same element it saw
@@ -89,7 +101,9 @@ export function BrowserPreviewPanel() {
           <p className="mt-0.5 text-caption text-muted">{t('browserPreview.description')}</p>
         </div>
         <div className="flex items-center gap-2">
-          {isManualRunning ? <Loader2 size={13} className="animate-spin text-primary" /> : null}
+          {isManualRunning || isAutoRunning ? (
+            <Loader2 size={13} className="animate-spin text-primary" />
+          ) : null}
           <Tooltip content={t('browserPreview.inspect.tooltip')} side="left">
             <button
               type="button"
@@ -138,11 +152,27 @@ export function BrowserPreviewPanel() {
       </div>
       <div className="surface-header flex h-9 shrink-0 items-center justify-between border-t border-border/60 px-4 text-caption text-muted">
         <span data-testid="browser-preview-status">{t(statusKey)}</span>
-        {inspectFailed ? (
-          <span className="text-error" data-testid="browser-preview-inspect-error">
-            {t('browserPreview.inspect.blocked')}
-          </span>
-        ) : null}
+        <div className="flex items-center gap-3">
+          {isJsTsTab && isBrowserPreviewMode ? (
+            <span data-testid="browser-preview-auto-refresh-status">
+              {effectiveRefreshInterval === 0
+                ? t('browserPreview.autoRefresh.status.off')
+                : t('browserPreview.autoRefresh.status.on', {
+                    interval:
+                      effectiveRefreshInterval === 1_000
+                        ? t('browserPreview.autoRefresh.interval.oneSecond')
+                        : t('browserPreview.autoRefresh.interval.milliseconds', {
+                            count: effectiveRefreshInterval,
+                          }),
+                  })}
+            </span>
+          ) : null}
+          {inspectFailed ? (
+            <span className="text-error" data-testid="browser-preview-inspect-error">
+              {t('browserPreview.inspect.blocked')}
+            </span>
+          ) : null}
+        </div>
       </div>
     </div>
   );

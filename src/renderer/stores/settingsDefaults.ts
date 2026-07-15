@@ -4,6 +4,7 @@ import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpWorkspace';
 import { DEFAULT_KEYMAP_PRESET_ID } from '../data/keymapPresets';
 import { DEFAULT_THEME_PACK_ID } from '../data/themePacks';
 import { defaultRuntimeTimeoutPresetSeed } from '../../shared/runtimeTimeoutPresets';
+import { DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL } from '../../shared/browserPreviewRefresh';
 
 /**
  * RL-129 — settings seed constants + the initial-state factory, extracted
@@ -153,6 +154,11 @@ export function createInitialSettingsState() {
     // opt-in (a quietly enabled flag could surprise a user with a
     // wall of inline values on first open).
     scratchpadAutoLogByLanguage: { ...SCRATCHPAD_AUTO_LOG_DEFAULT_SEED },
+    // RL-119 Slice 1 — Browser preview follows the fast 300 ms live-refresh
+    // path by default. Users can choose Off or 1 s in Settings, while a
+    // first-line magic comment overrides the value for one tab.
+    browserPreviewRefreshIntervalMs:
+      DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL,
     inlineLintEnabledByLanguage: { ...INLINE_LINT_DEFAULT_SEED },
     // RL-020 Slice 6 fold D — bottom-panel `stdin` tab is offered
     // by default. The user can hide it from Settings → Editor;

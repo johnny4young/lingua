@@ -103,6 +103,14 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Local plugin discovery stays unavailable in the browser build.
 - External file watching stays unavailable in the browser build.
 
+## Browser preview live refresh
+
+- JavaScript and TypeScript tabs using **Browser preview** mode refresh their sandboxed iframe after you pause typing. The default delay is 300 ms.
+- Choose **Off**, **300 ms**, or **1 second** in Settings → Editor → Auto-refresh Browser preview. Off keeps the preview manual-only; use Run whenever you want to refresh it.
+- Override one tab without changing Settings by placing exactly one of these directives on its first line: `// @preview-refresh off`, `// @preview-refresh 300`, or `// @preview-refresh 1000`.
+- A live refresh fully re-evaluates the iframe document. If the new code errors or times out, Lingua keeps the last successful preview visible and reports the failure through the existing result/console surfaces.
+- Live refreshes are intentionally silent workflow updates: they do not create execution-history, capsule, or Run Ledger entries.
+
 ## Browser file access
 
 - The web build can open local folders through the File System Access API in supported browsers.

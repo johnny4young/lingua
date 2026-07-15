@@ -41,6 +41,7 @@ export const TELEMETRY_EVENT_NAMES = [
   'debugger.detached',
   'runtime.mode_changed',
   'runtime.auto_run_gated',
+  'runtime.browser_preview_auto_refresh',
   // RL-020 Slice 8 — mirror of `runtime.compare_view_toggled`.
   'runtime.compare_view_toggled',
   'runtime.workflow_mode_changed',
@@ -326,6 +327,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'debugger.detached': ['language', 'reasonBucket'],
   'runtime.mode_changed': ['mode', 'language'],
   'runtime.auto_run_gated': ['language', 'reason'],
+  'runtime.browser_preview_auto_refresh': ['language', 'intervalMs'],
   // RL-020 Slice 8 — mirror of `runtime.compare_view_toggled`.
   'runtime.compare_view_toggled': ['language', 'enabled'],
   'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
@@ -1047,6 +1049,7 @@ const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview', 'deno'
 // RL-020 Slice 1 — closed enum mirror of `AUTO_RUN_GATE_REASONS` in
 // `src/shared/telemetry.ts`. Locked to `'incomplete'` for Slice 1.
 const AUTO_RUN_GATE_REASONS = new Set(['incomplete']);
+const BROWSER_PREVIEW_AUTO_REFRESH_INTERVALS = new Set([300, 1_000]);
 // RL-020 Slice 2 — closed enum mirror of `WORKFLOW_MODE_VALUES` in
 // `src/shared/telemetry.ts`. The parity test asserts the worker +
 // renderer copies stay in sync.
@@ -1255,6 +1258,15 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'reason')
         return typeof value === 'string' && AUTO_RUN_GATE_REASONS.has(value);
+      return false;
+    case 'runtime.browser_preview_auto_refresh':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'intervalMs') {
+        return (
+          typeof value === 'number' &&
+          BROWSER_PREVIEW_AUTO_REFRESH_INTERVALS.has(value)
+        );
+      }
       return false;
     case 'runtime.compare_view_toggled':
       if (key === 'language') return isSafeToken(value);

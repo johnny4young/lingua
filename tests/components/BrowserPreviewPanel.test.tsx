@@ -21,6 +21,7 @@ import i18next from 'i18next';
 import { BrowserPreviewPanel } from '@/components/BrowserPreview/BrowserPreviewPanel';
 import { useEditorStore } from '@/stores/editorStore';
 import { useResultStore } from '@/stores/resultStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import {
   getActiveBrowserPreviewIframe,
   _resetBrowserPreviewBridgeForTesting,
@@ -46,11 +47,13 @@ function seedActiveTab(overrides: Partial<FileTab> = {}): void {
 describe('BrowserPreviewPanel', () => {
   const initialEditor = useEditorStore.getState();
   const initialResult = useResultStore.getState();
+  const initialSettings = useSettingsStore.getState();
 
   beforeEach(async () => {
     _resetBrowserPreviewBridgeForTesting();
     useEditorStore.setState(initialEditor, true);
     useResultStore.setState(initialResult, true);
+    useSettingsStore.setState(initialSettings, true);
     await i18next.changeLanguage('en');
   });
 
@@ -59,6 +62,7 @@ describe('BrowserPreviewPanel', () => {
     _resetBrowserPreviewBridgeForTesting();
     useEditorStore.setState(initialEditor, true);
     useResultStore.setState(initialResult, true);
+    useSettingsStore.setState(initialSettings, true);
     await i18next.changeLanguage('en');
     vi.restoreAllMocks();
   });
@@ -102,6 +106,30 @@ describe('BrowserPreviewPanel', () => {
     render(<BrowserPreviewPanel />);
     const status = screen.getByTestId('browser-preview-status');
     expect(status.textContent).toMatch(/running/i);
+  });
+
+  it('renders the live-refresh status and effective interval', () => {
+    seedActiveTab();
+    useResultStore.setState({ ...useResultStore.getState(), isAutoRunning: true });
+    render(<BrowserPreviewPanel />);
+
+    expect(screen.getByTestId('browser-preview-status').textContent).toMatch(
+      /refreshing/i
+    );
+    expect(
+      screen.getByTestId('browser-preview-auto-refresh-status').textContent
+    ).toMatch(/300 ms/i);
+  });
+
+  it('shows a first-line Off override in the footer', () => {
+    seedActiveTab({
+      content: '// @preview-refresh off\ndocument.body.textContent = "manual";',
+    });
+    render(<BrowserPreviewPanel />);
+
+    expect(
+      screen.getByTestId('browser-preview-auto-refresh-status').textContent
+    ).toMatch(/off/i);
   });
 
   it('renders the runtime-error status when the store carries an error', () => {

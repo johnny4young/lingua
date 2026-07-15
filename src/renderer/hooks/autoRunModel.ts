@@ -1,6 +1,10 @@
 import type { WorkflowMode } from '../../shared/workflowMode';
 import { isJavaScriptFamily } from '../../shared/languageFamilies';
 import type { FileTab, Language } from '../types';
+import {
+  resolveBrowserPreviewRefreshInterval,
+  type BrowserPreviewRefreshInterval,
+} from '../../shared/browserPreviewRefresh';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
 export type AutoLogCountBucket = '1' | '2-5' | '6-20' | '20-plus';
@@ -11,6 +15,8 @@ export interface AutoRunInput {
   runtimeMode: FileTab['runtimeMode'];
   workflowMode: WorkflowMode;
   autoLogEnabled: boolean;
+  /** Effective per-tab Browser preview refresh interval; null elsewhere. */
+  browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval | null;
   /** RL-020 Slice 6 — stdin is part of the effective run input. */
   stdinBuffer: string | undefined;
 }
@@ -42,8 +48,35 @@ export function isSameAutoRunInput(
     previous.runtimeMode === next.runtimeMode &&
     previous.workflowMode === next.workflowMode &&
     previous.autoLogEnabled === next.autoLogEnabled &&
+    previous.browserPreviewRefreshIntervalMs ===
+      next.browserPreviewRefreshIntervalMs &&
     previous.stdinBuffer === next.stdinBuffer
   );
+}
+
+export function resolveAutoRunSchedule(
+  runtimeMode: FileTab['runtimeMode'],
+  code: string,
+  browserPreviewPreference: BrowserPreviewRefreshInterval
+): {
+  debounceMs: number | null;
+  browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval | null;
+} {
+  if (runtimeMode !== 'browser-preview') {
+    return {
+      debounceMs: AUTO_RUN_DEBOUNCE_MS,
+      browserPreviewRefreshIntervalMs: null,
+    };
+  }
+
+  const intervalMs = resolveBrowserPreviewRefreshInterval(
+    code,
+    browserPreviewPreference
+  );
+  return {
+    debounceMs: intervalMs === 0 ? null : intervalMs,
+    browserPreviewRefreshIntervalMs: intervalMs,
+  };
 }
 
 /** Bucket telemetry counts into the closed safe-token allowlist. */
