@@ -925,7 +925,7 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // No pipeline contents on the wire.
   'utility.pipeline_template_used': ['templateId'],
   // RL-039 Slice B fold B — `language` ∈ LANGUAGE_PACK_IDS (Slice B
-  // catalog is JS-only; schema generic). NO recipe id on the wire.
+  // catalog covers JS / TS / Python). NO recipe id on the wire.
   'recipe.opened': ['language'],
   // RL-039 Slice B fold B — `language` ∈ LANGUAGE_PACK_IDS, `status`
   // ∈ RECIPE_RUN_STATUSES_SET.

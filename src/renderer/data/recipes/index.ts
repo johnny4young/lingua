@@ -27,14 +27,21 @@ import { recipe as jsObjectDeepClone } from './js-object-deep-clone';
 import { recipe as jsPalindrome } from './js-palindrome';
 import { recipe as jsSortObjects } from './js-sort-objects';
 import { recipe as jsStringAnagram } from './js-string-anagram';
+import { recipe as pyGroupRecords } from './py-group-records';
+import { recipe as pySlidingWindowMaximum } from './py-sliding-window-maximum';
+import { recipe as pyWordFrequency } from './py-word-frequency';
+import { recipe as tsDiscriminatedUnionArea } from './ts-discriminated-union-area';
+import { recipe as tsGenericKeyBy } from './ts-generic-key-by';
+import { recipe as tsGroupByProperty } from './ts-group-by-property';
 
 /**
  * Ordered list of bundled recipes. The order is what the overlay
  * shows when the search box is empty — beginner-friendly recipes
  * first (count vowels, FizzBuzz), then the medium ones, then the
- * conceptually harder (deep clone, palindrome). Slice C+ may
- * promote/demote based on per-recipe completion telemetry, but
- * Slice B fixes the order in code.
+ * conceptually harder (deep clone, palindrome). The TypeScript and
+ * Python Slice C packs follow as language-specific practice groups.
+ * A future Slice may promote/demote based on completion telemetry,
+ * but the bundled catalog fixes the order in code.
  */
 export const RECIPE_CATALOG: ReadonlyArray<LessonPackV1> = [
   jsCountVowels,
@@ -47,6 +54,12 @@ export const RECIPE_CATALOG: ReadonlyArray<LessonPackV1> = [
   jsPalindrome,
   jsFlattenArray,
   jsObjectDeepClone,
+  tsGenericKeyBy,
+  tsGroupByProperty,
+  tsDiscriminatedUnionArea,
+  pyWordFrequency,
+  pyGroupRecords,
+  pySlidingWindowMaximum,
 ];
 
 /**

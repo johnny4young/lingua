@@ -41,7 +41,13 @@ import { useRecipeStore } from '../../stores/recipeStore';
 import { useUIStore } from '../../stores/uiStore';
 import { RECIPE_CATALOG } from '../../data/recipes';
 import { pickProse, previewPromptLine, type LessonPackV1 } from '../../../shared/lessonPack';
+import {
+  isRecipeRunnableLanguage,
+  RECIPE_RUNNABLE_LANGUAGE_IDS,
+  type RecipeRunnableLanguage,
+} from '../../../shared/lessonRunner';
 import { trackRecipeOpened } from '../../hooks/recipeTelemetry';
+import { extensionForLanguage } from '../../utils/languageMeta';
 import { ModalShell } from '../ui/ModalShell';
 import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { StatusBadge } from '../ui/StatusBadge';
@@ -51,11 +57,14 @@ export interface RecipesOverlayProps {
   onClose: () => void;
 }
 
-type LanguageFilter = 'all' | 'javascript';
+type LanguageFilter = 'all' | RecipeRunnableLanguage;
 
-// The catalog is JS-only today; keep the filter typed narrowly so future
-// language recipe packs must expand this union and the i18n keys together.
-const LANGUAGE_FILTERS: ReadonlyArray<LanguageFilter> = ['all', 'javascript'];
+// The tuple is the single runnable-language source of truth; locale keys under
+// `recipes.filter.*` are guarded separately by the i18n parity checks.
+const LANGUAGE_FILTERS: ReadonlyArray<LanguageFilter> = [
+  'all',
+  ...RECIPE_RUNNABLE_LANGUAGE_IDS,
+];
 
 function scoreRecipe(
   recipe: LessonPackV1,
@@ -118,11 +127,18 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
 
   const handleOpen = useCallback(
     (recipe: LessonPackV1) => {
+      if (!isRecipeRunnableLanguage(recipe.language)) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'recipes.notice.disabledForLanguageMismatch',
+        });
+        return;
+      }
       const tabId = crypto.randomUUID();
       addTab({
         id: tabId,
-        name: `${recipe.id}.js`,
-        language: 'javascript',
+        name: `${recipe.id}.${extensionForLanguage(recipe.language)}`,
+        language: recipe.language,
         content: recipe.starterCode,
         recipeBindingId: recipe.id,
       });

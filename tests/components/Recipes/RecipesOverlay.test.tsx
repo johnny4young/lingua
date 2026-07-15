@@ -109,6 +109,29 @@ describe('RecipesOverlay', () => {
     expect(useLessonProgressStore.getState().getEntry('js-sort-objects')).toBeDefined();
   });
 
+  it.each([
+    ['ts-generic-key-by', 'typescript', 'ts-generic-key-by.ts'],
+    ['py-word-frequency', 'python', 'py-word-frequency.py'],
+  ] as const)(
+    'opens %s with its catalog language and extension',
+    async (recipeId, language, expectedName) => {
+      const user = userEvent.setup();
+      render(<RecipesOverlay onClose={() => {}} />);
+      const row = screen
+        .getAllByTestId('recipes-list-row')
+        .find((entry) => entry.getAttribute('data-recipe-id') === recipeId);
+      expect(row).toBeDefined();
+
+      await user.click(row!);
+
+      expect(useEditorStore.getState().tabs[0]).toMatchObject({
+        name: expectedName,
+        language,
+        recipeBindingId: recipeId,
+      });
+    }
+  );
+
   it('keeps the overlay open when the editor store refuses a new recipe tab', async () => {
     const user = userEvent.setup();
     useEditorStore.setState({
@@ -182,10 +205,16 @@ describe('RecipesOverlay', () => {
     expect(rows[0]?.getAttribute('data-active')).toBe('false');
   });
 
-  it('respects the all/javascript language filter', async () => {
+  it('filters independently across JavaScript, TypeScript, and Python', async () => {
     const user = userEvent.setup();
     render(<RecipesOverlay onClose={() => {}} />);
     await user.click(screen.getByTestId('recipes-filter-javascript'));
+    expect(screen.getAllByTestId('recipes-list-row')).toHaveLength(10);
+    await user.click(screen.getByTestId('recipes-filter-typescript'));
+    expect(screen.getAllByTestId('recipes-list-row')).toHaveLength(3);
+    await user.click(screen.getByTestId('recipes-filter-python'));
+    expect(screen.getAllByTestId('recipes-list-row')).toHaveLength(3);
+    await user.click(screen.getByTestId('recipes-filter-all'));
     expect(screen.getAllByTestId('recipes-list-row')).toHaveLength(
       RECIPE_CATALOG.length
     );

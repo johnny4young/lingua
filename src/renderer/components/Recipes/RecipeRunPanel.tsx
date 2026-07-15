@@ -27,6 +27,7 @@ import { useMemo } from 'react';
 import { Check, Hammer, Loader2, Play, Sparkles, X } from 'lucide-react';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useRecipeStore } from '../../stores/recipeStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getRecipeById } from '../../data/recipes';
 import {
@@ -65,6 +66,7 @@ export function RecipeRunPanel() {
   const isRunning = useRecipeStore((s) =>
     activeTabId ? s.isRunning.get(activeTabId) ?? false : false
   );
+  const isManualRunning = useResultStore((s) => s.isManualRunning);
 
   const recipeId = activeTab?.recipeBindingId ?? null;
   // The binding id is persisted on the editor tab. Resolve the catalog
@@ -104,7 +106,9 @@ export function RecipeRunPanel() {
     );
   }
 
-  const runnable = isRecipeRunnableLanguage(activeTab.language);
+  const runnable =
+    isRecipeRunnableLanguage(activeTab.language) &&
+    activeTab.language === recipe.language;
 
   const handleRun = async () => {
     if (!runnable) {
@@ -113,7 +117,7 @@ export function RecipeRunPanel() {
       // recipe languages that are visible before runner support lands.
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
-        messageKey: 'recipes.notice.disabledForNonJs',
+        messageKey: 'recipes.notice.disabledForLanguageMismatch',
       });
       return;
     }
@@ -179,17 +183,18 @@ export function RecipeRunPanel() {
           <button
             type="button"
             onClick={handleRun}
-            disabled={isRunning || !runnable}
+            disabled={isRunning || isManualRunning || !runnable}
             data-testid="recipe-run-panel-run"
             className={cn(
               'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
               // Run + Test KEEPS green — it is a real run. The hardcoded
               // emerald is replaced by the DS `success` triple so it stays
               // green and resolves correctly in both themes.
-              isRunning
+              isRunning || isManualRunning
                 ? 'border-border-subtle bg-bg-inset text-fg-muted'
                 : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
-              !runnable && 'cursor-not-allowed opacity-50'
+              (isManualRunning || !runnable) &&
+                'cursor-not-allowed opacity-50'
             )}
           >
             {isRunning ? (
@@ -206,7 +211,7 @@ export function RecipeRunPanel() {
           </button>
           {!runnable ? (
             <span className="text-caption text-warning-fg">
-              {t('recipes.notice.disabledForNonJs')}
+              {t('recipes.notice.disabledForLanguageMismatch')}
             </span>
           ) : results.length > 0 ? (
             <span

@@ -12,10 +12,10 @@ import { runtimeModeForRestoredTab, workflowModeForRestoredTab } from './editorM
 import {
   languageSupportsAutoLog,
   languageSupportsStdin,
-  RECIPE_BINDING_SUPPORTED_LANGUAGES,
   VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES,
 } from './editorTabUtils';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
+import { isRecipeRunnableLanguage } from '../../shared/lessonRunner';
 import { notifyBlockedFamily } from '../utils/blockedPath';
 
 /**
@@ -154,12 +154,11 @@ export async function persistTab(
     VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES.has(language)
       ? true
       : undefined;
-  // RL-039 Slice B — Save-As can change a recipe tab from `.js` to a
-  // non-runnable language. Keep the binding only when the saved tab
-  // remains on the same supported language; otherwise the persisted
-  // session copy would resurrect a stale Recipe panel after reload.
+  // RL-039 Slice C — Save-As keeps a recipe binding only when the tab
+  // remains on the exact same runnable language. A cross-language save
+  // would pair the old assertion pack with incompatible source syntax.
   const recipeBindingId =
-    tab.language === language && RECIPE_BINDING_SUPPORTED_LANGUAGES.has(language)
+    tab.language === language && isRecipeRunnableLanguage(language)
       ? tab.recipeBindingId
       : undefined;
   const {

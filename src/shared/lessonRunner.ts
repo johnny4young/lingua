@@ -1,9 +1,9 @@
 /**
- * RL-039 Slice B — Recipe assertion runner.
+ * RL-039 Slices B/C — Recipe assertion runner.
  *
  * Pure helpers used by the renderer-side `useRecipeRun` hook to:
  *
- *   1. Compose a single JavaScript source that wraps the user's tab
+ *   1. Compose a language-aware source that wraps the user's tab
  *      code in a try/catch + appends an assertion shim per
  *      `AssertionV1` (`buildLessonRunSource`).
  *   2. Parse the runner's stdout for the sentinel-prefixed JSON
@@ -34,7 +34,7 @@
  *   - The composed source NEVER reads from the user's filesystem,
  *     network, or clipboard.
  *   - Assertion `code` strings come from the bundled catalog —
- *     Slice B has zero user-authored recipes. Slice C+ import will
+ *     Slices B/C have zero user-authored recipes. A later import slice will
  *     route through `parseLessonPack` which caps `code` length.
  */
 
@@ -42,6 +42,7 @@ import {
   type AssertionExitKind,
   type AssertionV1,
 } from './lessonPack';
+import type { LanguagePackId } from './languagePacks';
 
 // ---------------------------------------------------------------------------
 // Sentinel — SINGLE source of truth. Renderer + parser BOTH import.
@@ -100,9 +101,12 @@ export const MAX_ASSERTION_DETAIL_LENGTH = 200;
 // ---------------------------------------------------------------------------
 
 /**
- * Build the JavaScript source that runs the user's code and then
- * iterates `assertions`, emitting one sentinel-prefixed JSON line
- * per assertion result.
+ * Build the source that runs the user's code and then iterates
+ * `assertions`, emitting one sentinel-prefixed JSON line per result.
+ * JavaScript and TypeScript share the JS-family composer (the TS runner
+ * strips types before handing the program to the JS worker); Python gets
+ * an equivalent native composer so its assertions execute in the same
+ * module scope as the user's declarations.
  *
  * Contract:
  *
@@ -152,6 +156,17 @@ export const MAX_ASSERTION_DETAIL_LENGTH = 200;
  * declarations — not a meaningful improvement.
  */
 export function buildLessonRunSource(
+  language: RecipeRunnableLanguage,
+  userCode: string,
+  assertions: ReadonlyArray<AssertionV1>
+): string {
+  if (language === 'python') {
+    return buildPythonLessonRunSource(userCode, assertions);
+  }
+  return buildJavaScriptFamilyLessonRunSource(userCode, assertions);
+}
+
+function buildJavaScriptFamilyLessonRunSource(
   userCode: string,
   assertions: ReadonlyArray<AssertionV1>
 ): string {
@@ -160,7 +175,7 @@ export function buildLessonRunSource(
   );
   const sentinel = JSON.stringify(ASSERTION_RESULT_SENTINEL);
   return [
-    'return (async () => {',
+    'await (async () => {',
     '  "use strict";',
     `  const __lingua_recipe_sentinel = ${sentinel};`,
     `  const __lingua_recipe_assertions = ${assertionsJson};`,
@@ -233,6 +248,114 @@ export function buildLessonRunSource(
     '  }',
     '})();',
   ].join('\n');
+}
+
+/**
+ * Compose the Python equivalent of the JS-family assertion shim.
+ *
+ * Python's `try` blocks do not introduce a lexical scope, so definitions
+ * from the indented user source remain visible to `eval(..., globals(),
+ * globals())`. The worker-installed `print` function is wrapped (rather
+ * than `sys.stdout`) so normal user output still reaches Lingua while the
+ * console-contains assertion kind gets a private text buffer. The wrapper
+ * is restored in `finally`, including user-code and assertion failures.
+ */
+function buildPythonLessonRunSource(
+  userCode: string,
+  assertions: ReadonlyArray<AssertionV1>
+): string {
+  const assertionsJson = JSON.stringify(
+    assertions.map((a) => ({ id: a.id, kind: a.kind, code: a.code }))
+  );
+  const assertionsLiteral = JSON.stringify(assertionsJson);
+  const sentinelLiteral = JSON.stringify(ASSERTION_RESULT_SENTINEL);
+  const indentedUserCode = indentPythonBlock(userCode, 4);
+
+  return [
+    'import json as __lingua_recipe_json',
+    '',
+    `__lingua_recipe_sentinel = ${sentinelLiteral}`,
+    `__lingua_recipe_assertions = __lingua_recipe_json.loads(${assertionsLiteral})`,
+    '__lingua_recipe_console_buffer = []',
+    '__lingua_recipe_original_print = print',
+    '',
+    'def __lingua_recipe_capture_print(*args, **kwargs):',
+    '    sep = kwargs.get("sep", " ")',
+    '    end = kwargs.get("end", "\\n")',
+    '    if sep is None:',
+    '        sep = " "',
+    '    if end is None:',
+    '        end = "\\n"',
+    '    try:',
+    '        __lingua_recipe_console_buffer.append(sep.join(str(arg) for arg in args) + end)',
+    '    except BaseException:',
+    '        pass',
+    '    __lingua_recipe_original_print(*args, **kwargs)',
+    '',
+    'def __lingua_recipe_clip(value):',
+    '    text = str(value)',
+    `    return text[:${MAX_ASSERTION_DETAIL_LENGTH - 1}] + "…" if len(text) > ${MAX_ASSERTION_DETAIL_LENGTH} else text`,
+    '',
+    'def __lingua_recipe_emit(assertion_id, status, details=None):',
+    '    payload = {"assertionId": assertion_id, "status": status}',
+    '    if details is not None:',
+    '        payload["details"] = __lingua_recipe_clip(details)',
+    '    __lingua_recipe_original_print(',
+    '        __lingua_recipe_sentinel + __lingua_recipe_json.dumps(payload, ensure_ascii=False)',
+    '    )',
+    '',
+    'globals()["print"] = __lingua_recipe_capture_print',
+    '__lingua_recipe_user_error = None',
+    'try:',
+    '    try:',
+    indentPythonBlock(indentedUserCode, 4),
+    '    except BaseException as error:',
+    '        __lingua_recipe_user_error = error',
+    '',
+    '    if __lingua_recipe_user_error is None:',
+    '        for assertion in __lingua_recipe_assertions:',
+    '            try:',
+    '                kind = assertion["kind"]',
+    '                code = assertion["code"]',
+    '                if kind == "throw":',
+    '                    threw = False',
+    '                    try:',
+    '                        eval(code, globals(), globals())',
+    '                    except BaseException:',
+    '                        threw = True',
+    '                    if threw:',
+    '                        __lingua_recipe_emit(assertion["id"], "pass")',
+    '                    else:',
+    '                        __lingua_recipe_emit(assertion["id"], "fail", "expected the snippet to throw")',
+    '                elif kind == "console-contains":',
+    '                    joined = "".join(__lingua_recipe_console_buffer)',
+    '                    if code in joined:',
+    '                        __lingua_recipe_emit(assertion["id"], "pass")',
+    '                    else:',
+    '                        __lingua_recipe_emit(assertion["id"], "fail", "stdout did not contain: " + code)',
+    '                else:',
+    '                    result = eval(code, globals(), globals())',
+    '                    if bool(result):',
+    '                        __lingua_recipe_emit(assertion["id"], "pass")',
+    '                    else:',
+    '                        __lingua_recipe_emit(assertion["id"], "fail", "assertion returned: " + repr(result))',
+    '            except BaseException as error:',
+    '                __lingua_recipe_emit(assertion["id"], "thrown", error)',
+    '    else:',
+    '        for assertion in __lingua_recipe_assertions:',
+    '            __lingua_recipe_emit(assertion["id"], "sentinel-missing", __lingua_recipe_user_error)',
+    'finally:',
+    '    globals()["print"] = __lingua_recipe_original_print',
+  ].join('\n');
+}
+
+function indentPythonBlock(source: string, spaces: number): string {
+  const prefix = ' '.repeat(spaces);
+  const body = source.length > 0 ? source : 'pass';
+  return body
+    .split('\n')
+    .map((line) => `${prefix}${line}`)
+    .join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -347,15 +470,26 @@ export function isAllPassed(results: ReadonlyArray<AssertionRunResult>): boolean
 }
 
 /**
- * Closed-enum bucket of supported recipe languages. Slice B is JS
- * only; the recipe render panel guards on this to disable Run +
- * Test for non-JS tabs (with a localized notice).
+ * Closed-enum bucket of supported recipe languages. Keep the tuple as
+ * the iterable catalog source and the Set as the hot-path membership
+ * guard used by the run panel.
  */
-export const RECIPE_RUNNABLE_LANGUAGES: ReadonlySet<string> = new Set([
+export const RECIPE_RUNNABLE_LANGUAGE_IDS = [
   'javascript',
-]);
+  'typescript',
+  'python',
+] as const satisfies ReadonlyArray<LanguagePackId>;
 
-export function isRecipeRunnableLanguage(language: string): boolean {
+export type RecipeRunnableLanguage =
+  (typeof RECIPE_RUNNABLE_LANGUAGE_IDS)[number];
+
+export const RECIPE_RUNNABLE_LANGUAGES: ReadonlySet<string> = new Set(
+  RECIPE_RUNNABLE_LANGUAGE_IDS
+);
+
+export function isRecipeRunnableLanguage(
+  language: string
+): language is RecipeRunnableLanguage {
   return RECIPE_RUNNABLE_LANGUAGES.has(language);
 }
 

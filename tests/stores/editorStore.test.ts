@@ -785,16 +785,16 @@ describe('editorStore', () => {
       expect(useDependencyDetectionStore.getState().byTab.has(tab.id)).toBe(false);
     });
 
-    it('drops recipe binding and transient recipe state when rename leaves JavaScript', () => {
+    it('drops recipe binding and transient state on a supported cross-language rename', () => {
       const tab = {
-        ...createDefaultTab('javascript'),
-        recipeBindingId: 'js-sort-objects',
+        ...createDefaultTab('typescript'),
+        recipeBindingId: 'ts-generic-key-by',
       };
       useEditorStore.getState().addTab(tab);
-      useRecipeStore.getState().bindRecipeToTab(tab.id, 'js-sort-objects');
+      useRecipeStore.getState().bindRecipeToTab(tab.id, 'ts-generic-key-by');
       useRecipeStore.getState().setRunResults(tab.id, [{ assertionId: 'a', status: 'pass' }]);
 
-      useEditorStore.getState().renameTab(tab.id, 'helper.py');
+      useEditorStore.getState().renameTab(tab.id, 'helper.js');
 
       expect(useEditorStore.getState().tabs[0].recipeBindingId).toBeUndefined();
       expect(useRecipeStore.getState().getBindingForTab(tab.id)).toBeUndefined();
