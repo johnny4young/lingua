@@ -46,7 +46,10 @@ import type {
   StatusResult,
   StatusSuccess,
 } from '../shared/licenseServerTypes';
-import { validateLicenseServerProtocol } from '../shared/licenseServerProtocol';
+import {
+  stripProtocolEnvelope,
+  validateLicenseServerProtocol,
+} from '../shared/licenseServerProtocol';
 
 // Re-export so `src/main/license.ts` can import from one place
 // (the runtime + the wrappers stay siblings under src/main).
@@ -246,10 +249,10 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
   }
 
   if (response.ok && body && body.ok === true) {
-    return body as unknown as ActivateSuccess;
+    return stripProtocolEnvelope(body) as unknown as ActivateSuccess;
   }
   if (response.ok && body && body.ok === false && body.reason === 'exhausted') {
-    return body as unknown as ExhaustedFailure;
+    return stripProtocolEnvelope(body) as unknown as ExhaustedFailure;
   }
 
   const reason = mapServerReason(body?.reason);
@@ -294,7 +297,7 @@ export async function status(input: StatusInput): Promise<StatusResult> {
   }
 
   if (response.ok && body && body.ok === true) {
-    return body as unknown as StatusSuccess;
+    return stripProtocolEnvelope(body) as unknown as StatusSuccess;
   }
 
   const reason = mapServerReason(body?.reason);
@@ -330,7 +333,7 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
   }
 
   if (response.ok && body && body.ok === true) {
-    return body as unknown as RemoveDeviceSuccess;
+    return stripProtocolEnvelope(body) as unknown as RemoveDeviceSuccess;
   }
 
   const reason = mapServerReason(body?.reason);

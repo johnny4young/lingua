@@ -39,7 +39,10 @@ import type {
   StatusResult,
   StatusSuccess,
 } from '../../shared/licenseServerTypes';
-import { validateLicenseServerProtocol } from '../../shared/licenseServerProtocol';
+import {
+  stripProtocolEnvelope,
+  validateLicenseServerProtocol,
+} from '../../shared/licenseServerProtocol';
 
 // Re-export so existing renderer imports
 // (`from '../services/licenseServer'`) keep working unchanged.
@@ -190,10 +193,10 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
 
   // 200 ok=true → activated or idempotent. 200 ok=false → exhausted.
   if (response.ok && body && body.ok === true) {
-    return body as unknown as ActivateSuccess;
+    return stripProtocolEnvelope(body) as unknown as ActivateSuccess;
   }
   if (response.ok && body && body.ok === false && body.reason === 'exhausted') {
-    return body as unknown as ExhaustedFailure;
+    return stripProtocolEnvelope(body) as unknown as ExhaustedFailure;
   }
 
   // 4xx with the worker's tagged reason field.
@@ -241,7 +244,7 @@ export async function status(input: StatusInput): Promise<StatusResult> {
   }
 
   if (response.ok && body && body.ok === true) {
-    return body as unknown as StatusSuccess;
+    return stripProtocolEnvelope(body) as unknown as StatusSuccess;
   }
 
   const reason = mapServerReason(body?.reason);
@@ -282,7 +285,7 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
   }
 
   if (response.ok && body && body.ok === true) {
-    return body as unknown as RemoveDeviceSuccess;
+    return stripProtocolEnvelope(body) as unknown as RemoveDeviceSuccess;
   }
 
   const reason = mapServerReason(body?.reason);

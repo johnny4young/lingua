@@ -19,7 +19,10 @@ import type {
   TrialStartSuccess,
   TrialStartFailureReason,
 } from '../../shared/licenseServerTypes';
-import { validateLicenseServerProtocol } from '../../shared/licenseServerProtocol';
+import {
+  stripProtocolEnvelope,
+  validateLicenseServerProtocol,
+} from '../../shared/licenseServerProtocol';
 
 export type {
   TrialStartInput,
@@ -109,7 +112,7 @@ export async function startTrial(input: TrialStartInput): Promise<TrialStartResu
   // "duplicate" so the renderer can surface a notice without
   // treating it as a hard error.
   if (response.ok && body && body.ok === true) {
-    return body as unknown as TrialStartSuccess;
+    return stripProtocolEnvelope(body) as unknown as TrialStartSuccess;
   }
 
   const reason = mapTrialReason(body?.reason);

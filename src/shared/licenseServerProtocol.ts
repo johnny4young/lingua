@@ -52,3 +52,21 @@ export function validateLicenseServerProtocol(body: unknown): LicenseServerProto
     body: record as Record<string, unknown> & LicenseServerProtocolEnvelope,
   };
 }
+
+/**
+ * Drop the transport envelope once the version handshake has passed.
+ *
+ * `protocolVersion` is a wire concern: the domain success/failure types
+ * (`ActivateSuccess`, `StatusSuccess`, `TrialStartSuccess`, …) deliberately
+ * do not declare it, so returning the validated body as-is would leave the
+ * field on the runtime object and let it ride into renderer state and the
+ * Electron IPC payloads. Strip it here so the returned payload matches the
+ * declared contract exactly.
+ */
+export function stripProtocolEnvelope<T extends Record<string, unknown>>(
+  body: T & LicenseServerProtocolEnvelope
+): T {
+  const { protocolVersion: _protocolVersion, ...payload } = body;
+  void _protocolVersion;
+  return payload as unknown as T;
+}

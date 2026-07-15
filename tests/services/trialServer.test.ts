@@ -71,8 +71,10 @@ describe('startTrial', () => {
       deviceName: 'MacBook',
       os: 'darwin',
     });
+    // The transport envelope is stripped after the handshake: the returned
+    // payload matches the declared TrialStartSuccess exactly, with no
+    // protocolVersion riding along into renderer state.
     expect(result).toEqual({
-      protocolVersion: 1,
       ok: true,
       licenseId: 'lic_1',
       token: 'tok_1.signature',
