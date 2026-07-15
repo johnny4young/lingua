@@ -36,7 +36,7 @@ import {
   type DependencyStatus,
   type DetectedDependency,
 } from '../../shared/dependencies/types';
-import { trackEvent } from '../utils/telemetry';
+import { useTelemetry, type TelemetryTrack } from './useTelemetry';
 
 const KEYSTROKE_DEBOUNCE_MS = 300;
 const PASTE_DEBOUNCE_MS = 60;
@@ -180,26 +180,29 @@ function bucketStatusCount(count: number): DependencyCountBucket {
 }
 
 function fireDetectedTelemetry(
+  track: TelemetryTrack,
   language: DependencyAdapterLanguage,
   classified: readonly ClassifiedDependency[]
 ): void {
-  void trackEvent('dependency.detected_in_tab', {
+  track('dependency.detected_in_tab', {
     language,
     countBucket: bucketDependencyCount(classified.length),
   });
 }
 
 function fireBannerShownTelemetry(
+  track: TelemetryTrack,
   tabId: string,
   language: DependencyAdapterLanguage
 ): void {
   const key = bannerKey(tabId, language);
   if (bannerShownKeys.has(key)) return;
   bannerShownKeys.add(key);
-  void trackEvent('dependency.banner_shown', { language });
+  track('dependency.banner_shown', { language });
 }
 
 function fireSummaryTelemetry(
+  track: TelemetryTrack,
   tabId: string,
   language: DependencyAdapterLanguage,
   classified: readonly ClassifiedDependency[]
@@ -217,7 +220,7 @@ function fireSummaryTelemetry(
     else if (dep.status === 'needs-desktop') needsDesktop += 1;
     else if (dep.status === 'unsupported') unsupported += 1;
   }
-  void trackEvent('dependency.classifications_summary', {
+  track('dependency.classifications_summary', {
     language,
     detectedBucket: bucketStatusCount(detected),
     installedBucket: bucketStatusCount(installed),
@@ -238,6 +241,7 @@ export function __resetDependencyDetectionTelemetryDedup(): void {
 }
 
 export function useDependencyDetection(): void {
+  const { track } = useTelemetry();
   const enabled = useSettingsStore((s) => s.dependencyDetectionEnabled);
   const activeTab = useEditorStore((state) => getActiveTab(state));
   const setDetection = useDependencyDetectionStore((s) => s.setDetection);
@@ -324,10 +328,10 @@ export function useDependencyDetection(): void {
         cwdHasPackageJson,
       };
       setDetection(tabId, next);
-      fireDetectedTelemetry(adapterLanguage, classified);
+      fireDetectedTelemetry(track, adapterLanguage, classified);
       if (classified.length > 0) {
-        fireBannerShownTelemetry(tabId, adapterLanguage);
-        fireSummaryTelemetry(tabId, adapterLanguage, classified);
+        fireBannerShownTelemetry(track, tabId, adapterLanguage);
+        fireSummaryTelemetry(track, tabId, adapterLanguage, classified);
       }
     };
 
@@ -353,5 +357,6 @@ export function useDependencyDetection(): void {
     setDetection,
     clearDetections,
     evictTab,
+    track,
   ]);
 }

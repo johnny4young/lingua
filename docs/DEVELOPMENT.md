@@ -61,6 +61,7 @@ Use [`.env.example`](../.env.example) as the safe template for local overrides. 
 
 ```bash
 pnpm run lint
+pnpm run check:telemetry-call-sites
 pnpm run check:i18n
 pnpm run check:i18n:copy
 pnpm run check:deadcode
@@ -119,7 +120,8 @@ reference for what each command owns.
 | `test:e2e:web` | Runs the Playwright web validation wrapper. |
 | `test:smoke:web:license` | Runs the web license smoke test. |
 | `test:watch` | Starts Vitest watch mode. |
-| `lint` | Runs ESLint over the repo. |
+| `lint` | Runs ESLint over the repo, then the telemetry call-site audit. |
+| `check:telemetry-call-sites` | Enforces the typed React telemetry entry point and ratchets the grandfathered lower-level direct-call baseline downward. |
 | `check:i18n` | Validates locale shape and key parity. |
 | `check:i18n:copy` | Flags obvious hardcoded renderer copy in touched files. |
 | `format` | Runs Prettier over source, JSON, Markdown, and CSS files. |

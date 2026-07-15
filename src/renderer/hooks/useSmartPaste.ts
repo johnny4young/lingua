@@ -7,7 +7,7 @@ import {
 import { applyPasteIntent } from '../clipboard/applyPasteIntent';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
-import { trackEvent } from '../utils/telemetry';
+import { useTelemetry } from './useTelemetry';
 
 type EditorInstance = Parameters<OnMount>[0];
 
@@ -87,6 +87,7 @@ const IMPORT_LABEL_KEY: Record<PasteIntentKind, string> = {
  * literal.
  */
 export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | null): void {
+  const { track } = useTelemetry();
   // `editor.addCommand` returns no disposable and binds for the editor's
   // lifetime, so guard it against re-registration. Without this, React
   // StrictMode's dev double-invoke (setup → cleanup → setup) would bind the
@@ -110,7 +111,7 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
       const intent = detectPasteIntent(pastedText);
       if (!intent) return;
       const handler = intent.kind;
-      void trackEvent('editor.smart_paste_shown', { handler });
+      track('editor.smart_paste_shown', { handler });
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
         priority: 'low',
@@ -119,7 +120,7 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
           {
             labelKey: IMPORT_LABEL_KEY[handler],
             onClick: () => {
-              void trackEvent('editor.smart_paste_applied', { handler, accepted: true });
+              track('editor.smart_paste_applied', { handler, accepted: true });
               void applyPasteIntent(intent, { model, pastedRange: event.range, pastedText });
               useUIStore.getState().dismissStatusNotice('cta');
             },
@@ -127,7 +128,7 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
           {
             labelKey: 'paste.intent.action.pasteAsText',
             onClick: () => {
-              void trackEvent('editor.smart_paste_applied', { handler, accepted: false });
+              track('editor.smart_paste_applied', { handler, accepted: false });
               useUIStore.getState().dismissStatusNotice('cta');
             },
           },
@@ -137,7 +138,7 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
         // fires exactly once per toast.
         onDismiss: (mode) => {
           if (mode === 'auto' || mode === 'manual') {
-            void trackEvent('editor.smart_paste_applied', { handler, accepted: false });
+            track('editor.smart_paste_applied', { handler, accepted: false });
           }
         },
       });
@@ -155,5 +156,5 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
     return () => {
       pasteDisposable.dispose();
     };
-  }, [editor, monaco]);
+  }, [editor, monaco, track]);
 }

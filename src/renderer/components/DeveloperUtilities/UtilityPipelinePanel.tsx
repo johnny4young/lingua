@@ -46,6 +46,7 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { useTelemetry } from '../../hooks/useTelemetry';
 import {
   PIPELINE_MAX_STEPS,
   createBlankStep,
@@ -69,7 +70,6 @@ import { PipelineTemplateGallery } from './PipelineTemplateGallery';
 import { UtilityPipelineLibrarySidebar } from './UtilityPipelineLibrarySidebar';
 import { UtilityPipelineResults } from './UtilityPipelineResults';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
-import { trackEvent } from '../../utils/telemetry';
 
 const DEFAULT_FIRST_STEP_UTILITY: UtilityAdapterId = 'json-format';
 
@@ -90,6 +90,7 @@ function clonePipelineSteps(steps: readonly PipelineStepV1[]): PipelineStepV1[] 
 
 export function UtilityPipelinePanel() {
   const { t } = useTranslation();
+  const { track } = useTelemetry();
   const effectiveTier = useEffectiveTier();
   const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
 
@@ -98,11 +99,11 @@ export function UtilityPipelinePanel() {
       messageKey: 'upsell.freeCeilingReached',
       featureLabel: t('upsell.feature.utilityWorkflows'),
     });
-    void trackEvent('feature.blocked', {
+    track('feature.blocked', {
       entitlement: 'utility-workflows',
       tier: effectiveTier,
     });
-  }, [effectiveTier, t]);
+  }, [effectiveTier, t, track]);
 
   if (!canUseUtilityWorkflows) {
     return (
@@ -137,6 +138,7 @@ export function UtilityPipelinePanel() {
 function UtilityPipelinePanelUnlocked() {
   const { t } = useTranslation();
   const announce = useAnnounce();
+  const { track } = useTelemetry();
   // UX Sweep T10 — register a keyboard sensor so steps can be reordered with
   // the keyboard (focus the grip, Space to lift, Arrow Up/Down to move, Space
   // to drop, Esc to cancel), not just with a pointer drag.
@@ -192,11 +194,11 @@ function UtilityPipelinePanelUnlocked() {
       if (template.sampleInput.length > 0) {
         store.setPipelineInput(pipeline.id, template.sampleInput);
       }
-      void trackEvent('utility.pipeline_template_used', {
+      track('utility.pipeline_template_used', {
         templateId: template.id,
       });
     },
-    [t]
+    [t, track]
   );
 
   const handleStepsPatch = useCallback(
@@ -370,7 +372,7 @@ function UtilityPipelinePanelUnlocked() {
       durationMs: capsuleRunSnapshot.outcome.durationMs,
       lastCapsule: capsule,
     });
-    void trackEvent('capsule.exported', {
+    track('capsule.exported', {
       trigger: 'pipeline-run',
       sizeBucket: bucketCapsuleSize(utf8ByteLength(JSON.stringify(capsule))),
     });
@@ -385,7 +387,7 @@ function UtilityPipelinePanelUnlocked() {
     // re-enables the button; the build-failure path above returns early and
     // leaves the snapshot intact so the user can retry.
     setCapsuleRunSnapshot(null);
-  }, [activePipelineId, capsuleRunSnapshot, runState.phase]);
+  }, [activePipelineId, capsuleRunSnapshot, runState.phase, track]);
 
   return (
     <div

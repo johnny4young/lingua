@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Maximize2 } from 'lucide-react';
 import type { RichOutputPayload } from '../../../shared/richOutput';
 import { formatPayloadInlineSummary } from '../../../shared/richOutput';
-import { trackEvent } from '../../utils/telemetry';
+import { useTelemetry } from '../../hooks/useTelemetry';
 import {
   richKindBucket,
   payloadHasRichSurface,
@@ -63,6 +63,7 @@ export function ConsoleEntryRenderer({
   originSuppressed = false,
 }: ConsoleEntryRendererProps) {
   const { t } = useTranslation();
+  const { track } = useTelemetry();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   // RL-044 Sub-slice G — derive a single origin per row. All payloads
@@ -92,11 +93,11 @@ export function ConsoleEntryRenderer({
     if (reportedPayloadRows.has(payloads)) return;
     reportedPayloadRows.add(payloads);
     for (const payload of payloads) {
-      void trackEvent('runtime.console_rich_rendered', {
+      track('runtime.console_rich_rendered', {
         kind: richKindBucket(payload),
       });
     }
-  }, [payloads]);
+  }, [payloads, track]);
 
   const handleClose = useCallback(() => setOpenIndex(null), []);
 

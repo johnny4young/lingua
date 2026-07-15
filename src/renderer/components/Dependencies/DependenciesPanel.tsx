@@ -40,7 +40,7 @@ import type {
   DependencyStatus,
 } from '../../../shared/dependencies/types';
 import { bucketDependencyCount } from '../../../shared/dependencies/types';
-import { trackEvent } from '../../utils/telemetry';
+import { useTelemetry, type TelemetryTrack } from '../../hooks/useTelemetry';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 
 type PillTone =
@@ -173,31 +173,35 @@ function buildPanelContext(args: {
 }
 
 function fireInstallTelemetryStarted(
+  track: TelemetryTrack,
   language: DependencyAdapterLanguage,
   batchSize: number
 ): void {
-  void trackEvent('dependency.install_started', {
+  track('dependency.install_started', {
     language,
     countBucket: bucketDependencyCount(batchSize),
   });
 }
 
 function fireInstallTelemetryCompleted(
+  track: TelemetryTrack,
   language: DependencyAdapterLanguage,
   outcome: DependencyInstallOutcome
 ): void {
-  void trackEvent('dependency.install_completed', { language, outcome });
+  track('dependency.install_completed', { language, outcome });
 }
 
 function fireInstallTelemetryFailureReason(
+  track: TelemetryTrack,
   language: DependencyAdapterLanguage,
   reason: DependencyInstallFailureReason
 ): void {
-  void trackEvent('dependency.install_failed_reason', { language, reason });
+  track('dependency.install_failed_reason', { language, reason });
 }
 
 export function DependenciesPanel() {
   const { t } = useTranslation();
+  const { track } = useTelemetry();
   const activeTab = useEditorStore((s) => getActiveTab(s));
   const detection = useDependencyDetectionStore((s) =>
     activeTab
@@ -260,7 +264,7 @@ export function DependenciesPanel() {
       if (!isPythonWeb && !filePath) return;
       const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       startInstall(tabId, runId, names);
-      fireInstallTelemetryStarted(language, names.length);
+      fireInstallTelemetryStarted(track, language, names.length);
       try {
         let outcome: DependencyInstallOutcome;
         let failureReason: DependencyInstallFailureReason | null;
@@ -304,8 +308,8 @@ export function DependenciesPanel() {
             const fallback: Record<string, DependencyStatus> = {};
             for (const name of names) fallback[name] = 'failed';
             endInstall(tabId, runId, 'failed', fallback);
-            fireInstallTelemetryCompleted(language, 'failed');
-            fireInstallTelemetryFailureReason(language, 'unknown');
+            fireInstallTelemetryCompleted(track, language, 'failed');
+            fireInstallTelemetryFailureReason(track, language, 'unknown');
             return;
           }
           const result = await bridge.installJs(runId, names, filePath ?? '');
@@ -316,14 +320,14 @@ export function DependenciesPanel() {
           }
         }
         endInstall(tabId, runId, outcome, perNameStatus);
-        fireInstallTelemetryCompleted(language, outcome);
+        fireInstallTelemetryCompleted(track, language, outcome);
         if (
           (outcome === 'failed' ||
             outcome === 'partial' ||
             outcome === 'timed-out') &&
           failureReason
         ) {
-          fireInstallTelemetryFailureReason(language, failureReason);
+          fireInstallTelemetryFailureReason(track, language, failureReason);
         }
       } catch {
         // Network blip / IPC error → treat as a failed batch with
@@ -332,8 +336,8 @@ export function DependenciesPanel() {
         const fallback: Record<string, DependencyStatus> = {};
         for (const name of names) fallback[name] = 'failed';
         endInstall(tabId, runId, 'failed', fallback);
-        fireInstallTelemetryCompleted(language, 'failed');
-        fireInstallTelemetryFailureReason(language, 'unknown');
+        fireInstallTelemetryCompleted(track, language, 'failed');
+        fireInstallTelemetryFailureReason(track, language, 'unknown');
       }
     },
     [
@@ -344,6 +348,7 @@ export function DependenciesPanel() {
       startInstall,
       endInstall,
       appendInstallLog,
+      track,
     ]
   );
 

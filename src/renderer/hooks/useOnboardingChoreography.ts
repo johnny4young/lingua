@@ -17,10 +17,10 @@ import {
   type StatusNoticeAction,
   type StatusNoticeDismissMode,
 } from '../stores/uiStore';
-import { trackEvent } from '../utils/telemetry';
 import { isSafeMode } from '../utils/safeBoot';
 import type { Language } from '../types';
 import { emitCommand } from '../stores/commandBus';
+import { useTelemetry, type TelemetryTrack } from './useTelemetry';
 
 /**
  * RL-101 Onboarding Choreography Slice 1.
@@ -77,6 +77,7 @@ export function useOnboardingChoreography({
   // Re-mount on locale flip so toasts surface in the new language
   // without a reload. Same pattern as `useShareLinkBoot`.
   const { i18n } = useTranslation();
+  const { track } = useTelemetry();
 
   // We use refs because the effect deliberately runs only once on
   // mount and we sample store state via `getState()`/`subscribe()`
@@ -104,13 +105,13 @@ export function useOnboardingChoreography({
     const initialEntries = useExecutionHistoryStore.getState().entries;
     const initialEntry = initialEntries[initialEntries.length - 1];
     if (initialEntry && initialEntry.status === 'ok') {
-      handleFirstSuccessfulRun(initialEntry.language);
+      handleFirstSuccessfulRun(track, initialEntry.language);
     }
     const unsubHistory = useExecutionHistoryStore.subscribe((state, prev) => {
       if (state.entries === prev.entries) return;
       const latest = state.entries[state.entries.length - 1];
       if (!latest || latest.status !== 'ok') return;
-      handleFirstSuccessfulRun(latest.language);
+      handleFirstSuccessfulRun(track, latest.language);
     });
 
     // `useExecutionHistoryStore.record()` only fires for manual runs
@@ -131,7 +132,7 @@ export function useOnboardingChoreography({
       initialConsoleEntry.type !== 'error' &&
       typeof initialConsoleEntry.executionTime === 'number'
     ) {
-      handleFirstSuccessfulRun(initialConsoleEntry.language ?? 'javascript');
+      handleFirstSuccessfulRun(track, initialConsoleEntry.language ?? 'javascript');
     }
     const unsubConsole = useConsoleStore.subscribe((state, prev) => {
       if (state.entries === prev.entries) return;
@@ -140,7 +141,7 @@ export function useOnboardingChoreography({
       if (!latest) return;
       if (latest.type === 'error') return;
       if (typeof latest.executionTime !== 'number') return;
-      handleFirstSuccessfulRun(latest.language ?? 'javascript');
+      handleFirstSuccessfulRun(track, latest.language ?? 'javascript');
     });
 
     // ---- Stage 3: first snippet save ---------------------------------
@@ -150,7 +151,7 @@ export function useOnboardingChoreography({
       const previous = lastSnippetCount;
       lastSnippetCount = next;
       if (next > previous) {
-        handleFirstSnippetSave();
+        handleFirstSnippetSave(track);
       }
     });
 
@@ -163,7 +164,7 @@ export function useOnboardingChoreography({
     // i18n.language is intentionally in deps so a locale flip
     // re-mounts the effect; the per-mount armed-ref guard prevents
     // double seeds.
-  }, [enabled, i18n.language]);
+  }, [enabled, i18n.language, track]);
 }
 
 // ---------------------------------------------------------------------------
@@ -207,14 +208,14 @@ function seedWelcomeIfNeeded(): void {
 // Stage 2 — first successful run
 // ---------------------------------------------------------------------------
 
-function handleFirstSuccessfulRun(language: string): void {
+function handleFirstSuccessfulRun(track: TelemetryTrack, language: string): void {
   const settings = useSettingsStore.getState();
   if (settings.hasCompletedOnboardingFirstRun) return;
   // Lock first so a rapid double-fire (two history entries before the
   // store re-tick) can't push two toasts.
   settings.markOnboardingFirstRunCompleted();
 
-  void trackEvent('onboarding.first_run_completed', { language });
+  track('onboarding.first_run_completed', { language });
 
   const saveAction: StatusNoticeAction = {
     labelKey: 'onboarding.firstRun.cta',
@@ -259,12 +260,12 @@ function handleFirstSuccessfulRun(language: string): void {
     // priority saves the toast. Tells us how often the new field
     // does real work in the wild.
     onSurvived: () => {
-      void trackEvent('onboarding.toast_clobbered', {
+      track('onboarding.toast_clobbered', {
         outstandingStage: 'first_run',
       });
     },
     onDismiss: (mode: StatusNoticeDismissMode) => {
-      void trackEvent('onboarding.toast_dismissed', {
+      track('onboarding.toast_dismissed', {
         stage: 'first_run',
         dismissMode: mode,
       });
@@ -276,12 +277,12 @@ function handleFirstSuccessfulRun(language: string): void {
 // Stage 3 — first snippet save
 // ---------------------------------------------------------------------------
 
-function handleFirstSnippetSave(): void {
+function handleFirstSnippetSave(track: TelemetryTrack): void {
   const settings = useSettingsStore.getState();
   if (settings.hasCompletedOnboardingFirstSnippet) return;
   settings.markOnboardingFirstSnippetCompleted();
 
-  void trackEvent('onboarding.first_snippet_saved');
+  track('onboarding.first_snippet_saved');
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/u.test(navigator.platform);
   const shortcut = isMac ? 'Cmd+Shift+P' : 'Ctrl+Shift+P';
@@ -305,14 +306,14 @@ function handleFirstSnippetSave(): void {
     priority: 'high',
     // RL-101 Slice 1.5 fold A — clobber-attempt telemetry.
     onSurvived: () => {
-      void trackEvent('onboarding.toast_clobbered', {
+      track('onboarding.toast_clobbered', {
         outstandingStage: 'first_snippet',
       });
     },
     values: { shortcut },
     actions: [openAction],
     onDismiss: (mode: StatusNoticeDismissMode) => {
-      void trackEvent('onboarding.toast_dismissed', {
+      track('onboarding.toast_dismissed', {
         stage: 'first_snippet',
         dismissMode: mode,
       });
