@@ -5,18 +5,21 @@
  *
  *   1. Resolve the active tab + its recipe binding.
  *   2. Read the tab's CURRENT source via `useEditorStore`.
- *   3. Compose the assertion-augmented source via
+ *   3. Compose the language-aware assertion source via
  *      `buildLessonRunSource` (no tab content mutation — the user
  *      keeps their working code intact).
- *   4. Invoke `runnerManager.execute('javascript', source)` directly.
+ *   4. Invoke `runnerManager.execute(recipe.language, source)` directly.
  *      We BYPASS `useRunner` / `executeTabManually` on purpose:
  *        - Assertion runs should NOT pollute the user's execution
  *          history (Recent Runs popover, capsule snapshot).
  *        - Assertion runs should NOT overwrite the Result panel
  *          with the sentinel-prefixed lines.
- *        - License + native-execution gates do not apply (the JS
- *          worker is always available + the user already executed
- *          their own code through the normal Run button).
+ *        - License + native-execution gates do not apply (the bundled
+ *          JS/TS/Python web runners are Free + local).
+ *      The shared manual-running flag is still held while the worker is
+ *      leased. That makes a pending auto-run stand down and lets the
+ *      runner preempt an already-started auto-run without a later debounce
+ *      cancelling the assertion execution.
  *   5. Parse `result.stdout` for sentinel-prefixed JSON lines via
  *      `parseAssertionResults`.
  *   6. Roll up to a closed-enum `RecipeRunStatus`, update the
@@ -43,6 +46,7 @@ import { getRecipeById } from '../data/recipes';
 import { useEditorStore } from '../stores/editorStore';
 import { useLessonProgressStore } from '../stores/lessonProgressStore';
 import { useRecipeStore } from '../stores/recipeStore';
+import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { trackRecipeTestRun } from './recipeTelemetry';
 
@@ -65,13 +69,6 @@ export function useRecipeRun(): UseRecipeRunResult {
     if (!tabId) return null;
     const tab = editor.tabs.find((entry) => entry.id === tabId);
     if (!tab) return null;
-    if (!isRecipeRunnableLanguage(tab.language)) {
-      useUIStore.getState().pushStatusNotice({
-        tone: 'info',
-        messageKey: 'recipes.notice.disabledForNonJs',
-      });
-      return null;
-    }
     const recipeStore = useRecipeStore.getState();
     const recipeId = tab.recipeBindingId;
     if (!recipeId) return null;
@@ -82,20 +79,52 @@ export function useRecipeRun(): UseRecipeRunResult {
       editor.clearRecipeBinding(tabId);
       return null;
     }
+    if (
+      !isRecipeRunnableLanguage(tab.language) ||
+      !isRecipeRunnableLanguage(recipe.language) ||
+      tab.language !== recipe.language
+    ) {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: 'recipes.notice.disabledForLanguageMismatch',
+      });
+      return null;
+    }
 
-    if (recipeStore.isTabRunning(tabId)) return null;
+    const resultStore = useResultStore.getState();
+    if (recipeStore.isTabRunning(tabId) || resultStore.isManualRunning) {
+      return null;
+    }
 
     recipeStore.setRunning(tabId, true);
+    // A recipe run is a user-triggered worker lease even though it does not
+    // publish to the Result panel. Reuse the established manual-run mutex so
+    // useAutoRun cannot start a competing execution after an editor change.
+    resultStore.setIsManualRunning(true);
     try {
-      const composed = buildLessonRunSource(tab.content, recipe.assertions);
-      const result = await runnerManager.execute('javascript', composed, {
-        language: 'javascript',
+      const composed = buildLessonRunSource(
+        recipe.language,
+        tab.content,
+        recipe.assertions
+      );
+      const result = await runnerManager.execute(recipe.language, composed, {
+        language: recipe.language,
         // No filePath, no env — recipes run as pure scratchpad code.
       });
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
       const stdoutText = flattenStdoutForSentinel(result.stdout);
       const stderrText = flattenStdoutForSentinel(result.stderr);
       const combined = stderrText ? `${stdoutText}\n${stderrText}` : stdoutText;
       const results = parseAssertionResults(combined, recipe.assertions);
+      // Pyodide can surface a source parse failure only through stderr while
+      // still resolving the worker envelope. Do not collapse that useful
+      // diagnostic into anonymous sentinel-missing rows.
+      if (results.every((entry) => entry.status === 'sentinel-missing')) {
+        const stderrDetail = lastConsoleDetail(result.stderr);
+        if (stderrDetail) throw new Error(stderrDetail);
+      }
       const status = rollupRunStatus(results);
       recipeStore.setRunResults(tabId, results);
       const passed = results.filter((r) => r.status === 'pass').length;
@@ -103,10 +132,10 @@ export function useRecipeRun(): UseRecipeRunResult {
         passed,
         total: results.length,
       });
-      trackRecipeTestRun({ language: 'javascript', status });
+      trackRecipeTestRun({ language: recipe.language, status });
       return { status, results };
     } catch (err) {
-      // Runner-level throw — surface a single fail row.
+      // Runner-level throw — surface one diagnostic row per assertion.
       const message = err instanceof Error ? err.message : String(err);
       const fallback: AssertionRunResult[] = recipe.assertions.map((a) => ({
         assertionId: a.id,
@@ -118,9 +147,13 @@ export function useRecipeRun(): UseRecipeRunResult {
         passed: 0,
         total: fallback.length,
       });
-      trackRecipeTestRun({ language: 'javascript', status: 'execution-error' });
+      trackRecipeTestRun({
+        language: recipe.language,
+        status: 'execution-error',
+      });
       return { status: 'execution-error', results: fallback };
     } finally {
+      resultStore.setIsManualRunning(false);
       recipeStore.setRunning(tabId, false);
     }
   }, []);
@@ -163,4 +196,17 @@ function flattenStdoutForSentinel(
 function clipForDetail(text: string): string {
   const MAX = 200;
   return text.length > MAX ? `${text.slice(0, MAX - 1)}…` : text;
+}
+
+function lastConsoleDetail(
+  entries: ReadonlyArray<{ args: ReadonlyArray<string> }>
+): string | null {
+  for (let entryIndex = entries.length - 1; entryIndex >= 0; entryIndex -= 1) {
+    const args = entries[entryIndex]?.args ?? [];
+    for (let argIndex = args.length - 1; argIndex >= 0; argIndex -= 1) {
+      const text = args[argIndex]?.trim();
+      if (text) return text;
+    }
+  }
+  return null;
 }

@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Added
+- **TypeScript and Python Recipes**: the practice library now includes three curated TypeScript recipes and three Python recipes, with language filters, matching `.ts`/`.py` tabs, localized prompts and hints, and real Run + Test execution through each web worker. Recipe assertions keep their results isolated from run history and the Result panel while coordinating with scratchpad auto-run so a test pass is not interrupted after editing.
+
 ## [0.11.0] — 2026-07-14
 
 ### Added

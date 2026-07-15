@@ -5,8 +5,8 @@
  * Lingua practice problem: a problem statement, a starter code
  * scaffold, and a handful of assertions that decide whether the
  * user's edits solved the problem. The schema deliberately stays
- * language-generic — Slice B ships 10 JavaScript recipes, Slice C+
- * widens to Python / TypeScript — and capsule-friendly so a future
+ * language-generic — Slice B shipped 10 JavaScript recipes and Slice C
+ * adds TypeScript / Python packs — and capsule-friendly so a future
  * "reference solution" Slice can embed a known-good
  * `RunCapsuleV1.contentHash` next to each assertion.
  *
@@ -116,9 +116,9 @@ export interface AssertionV1 {
 export interface LessonPackV1 {
   /** Hard-pinned `1` literal so a future schema flip is forced through `parseLessonPack`. */
   readonly version: 1;
-  /** Stable slug id — bundled recipes live under `js-...` namespace. */
+  /** Stable slug id — bundled recipes use `js-`, `ts-`, or `py-` namespaces. */
   readonly id: string;
-  /** Language-pack id. Slice B catalog is all `'javascript'`; the schema is generic. */
+  /** Language-pack id. The runnable catalog currently covers JS, TS, and Python. */
   readonly language: LanguagePackId;
   /** Localized title (`en` mandatory, `es` optional). */
   readonly title: LessonProse;

@@ -1,11 +1,11 @@
 /**
- * RL-039 Slice B — Bundled recipe catalog audits.
+ * RL-039 Slices B/C — Bundled recipe catalog audits.
  *
  * Pins:
- *   - All 10 recipes load + parse cleanly via `parseLessonPack`.
+ *   - All 16 recipes load + parse cleanly via `parseLessonPack`.
  *   - Ids are unique.
  *   - Every recipe has ≥2 assertions.
- *   - Every recipe targets `javascript` (Slice B contract).
+ *   - Catalog counts stay pinned per supported language.
  *   - `getRecipeById` round-trip works.
  */
 
@@ -14,8 +14,13 @@ import { RECIPE_CATALOG, getRecipeById } from '../../src/renderer/data/recipes';
 import { parseLessonPack } from '../../src/shared/lessonPack';
 
 describe('RECIPE_CATALOG', () => {
-  it('ships 10 recipes Slice B', () => {
-    expect(RECIPE_CATALOG).toHaveLength(10);
+  it('ships 10 JavaScript + 3 TypeScript + 3 Python recipes', () => {
+    expect(RECIPE_CATALOG).toHaveLength(16);
+    const countFor = (language: string) =>
+      RECIPE_CATALOG.filter((recipe) => recipe.language === language).length;
+    expect(countFor('javascript')).toBe(10);
+    expect(countFor('typescript')).toBe(3);
+    expect(countFor('python')).toBe(3);
   });
 
   it('every recipe parses cleanly', () => {
@@ -39,9 +44,18 @@ describe('RECIPE_CATALOG', () => {
     }
   });
 
-  it('every Slice B recipe targets JavaScript', () => {
+  it('every recipe uses the language-specific id prefix', () => {
+    const prefixByLanguage = {
+      javascript: 'js-',
+      typescript: 'ts-',
+      python: 'py-',
+    } as const;
     for (const recipe of RECIPE_CATALOG) {
-      expect(recipe.language).toBe('javascript');
+      const prefix = prefixByLanguage[
+        recipe.language as keyof typeof prefixByLanguage
+      ];
+      expect(prefix, `unsupported recipe language ${recipe.language}`).toBeDefined();
+      expect(recipe.id.startsWith(prefix!)).toBe(true);
     }
   });
 
@@ -51,6 +65,14 @@ describe('RECIPE_CATALOG', () => {
       expect(recipe.title.es).toBeDefined();
       expect(recipe.prompt.en.length).toBeGreaterThan(0);
       expect(recipe.prompt.es).toBeDefined();
+      for (const assertion of recipe.assertions) {
+        expect(assertion.name.en.length).toBeGreaterThan(0);
+        expect(assertion.name.es).toBeDefined();
+        if (assertion.hint) {
+          expect(assertion.hint.en.length).toBeGreaterThan(0);
+          expect(assertion.hint.es).toBeDefined();
+        }
+      }
     }
   });
 });

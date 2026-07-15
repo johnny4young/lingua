@@ -145,22 +145,19 @@ export function dropCompareIfLanguageChanged<T extends FileTab>(
 }
 
 /**
- * RL-039 Slice B — set of languages a recipe can run against. Slice
- * B is JS-only; Slice C+ widens. A rename / Save-As that moves a
- * recipe-bound tab outside this set drops the binding so the bottom
- * panel `'recipe'` tab + the FloatingActionPill recipes badge stop
- * surfacing stale state. Mirrors `dropAutoLogIfUnsupported` /
- * `dropCompareIfLanguageChanged`.
+ * RL-039 Slice C — a recipe binding belongs to one exact language.
+ * Any rename / Save-As that changes that language drops the binding;
+ * otherwise TypeScript syntax could reach a JavaScript recipe (or a
+ * Python assertion pack) after a filename-only transition. Mirrors
+ * `dropCompareIfLanguageChanged`, but deliberately does not keep a
+ * cross-language binding even when both languages support Recipes.
  */
-export const RECIPE_BINDING_SUPPORTED_LANGUAGES: ReadonlySet<Language> = new Set(['javascript']);
-
 export function dropRecipeBindingIfLanguageChanged<T extends FileTab>(
   tab: T,
   previousLanguage: Language | null
 ): T {
   if (previousLanguage === null || tab.language === previousLanguage) return tab;
   if (tab.recipeBindingId === undefined) return tab;
-  if (RECIPE_BINDING_SUPPORTED_LANGUAGES.has(tab.language)) return tab;
   const { recipeBindingId: _drop, ...rest } = tab;
   void _drop;
   return rest as T;

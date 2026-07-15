@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — `lessonRunner` tests.
+ * RL-039 Slices B/C — `lessonRunner` tests.
  *
  * Covers:
  *   - `buildLessonRunSource` composition shape + sentinel inclusion.
@@ -7,7 +7,7 @@
  *     missing-row backfill + collision rejection.
  *   - `rollupRunStatus` priority order (thrown > missing > pass > fail).
  *   - `isAllPassed` helper.
- *   - `isRecipeRunnableLanguage` Slice B JS-only gate.
+ *   - `isRecipeRunnableLanguage` JS/TS/Python gate.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -18,6 +18,7 @@ import {
   isAllPassed,
   isRecipeRunnableLanguage,
   parseAssertionResults,
+  RECIPE_RUNNABLE_LANGUAGE_IDS,
   RECIPE_RUN_STATUSES,
   rollupRunStatus,
 } from '../../src/shared/lessonRunner';
@@ -35,10 +36,13 @@ async function executeComposedSource(source: string): Promise<string> {
     lines.push(args.map(String).join(' '));
   });
   try {
-    // The behavior under test is a generated JavaScript program, so
-    // execute it as a function body and let the composed async IIFE
-    // resolve before parsing its sentinel output.
-    const run = new Function(source) as () => Promise<void> | undefined;
+    // The generated JS-family program intentionally uses top-level await:
+    // esbuild accepts it for TypeScript and the worker's AsyncFunction waits
+    // for every assertion sentinel before posting done.
+    const AsyncFunction = Object.getPrototypeOf(async function () {
+      // Type-only constructor lookup.
+    }).constructor as new (body: string) => () => Promise<void>;
+    const run = new AsyncFunction(source);
     const pending = run();
     expect(pending).toBeInstanceOf(Promise);
     await pending;
@@ -71,7 +75,11 @@ describe('closed enums', () => {
 
 describe('buildLessonRunSource', () => {
   it('includes the sentinel + the user code + each assertion id', () => {
-    const source = buildLessonRunSource('const x = 1;', ASSERTIONS);
+    const source = buildLessonRunSource(
+      'javascript',
+      'const x = 1;',
+      ASSERTIONS
+    );
     expect(source).toContain(ASSERTION_RESULT_SENTINEL);
     expect(source).toContain('const x = 1;');
     expect(source).toContain('"a"');
@@ -80,12 +88,12 @@ describe('buildLessonRunSource', () => {
   });
 
   it('wraps the body in an async IIFE', () => {
-    const source = buildLessonRunSource('', []);
-    expect(source.startsWith('return (async () => {')).toBe(true);
+    const source = buildLessonRunSource('javascript', '', []);
+    expect(source.startsWith('await (async () => {')).toBe(true);
     expect(source.trim().endsWith('})();')).toBe(true);
   });
 
-  it('returns the async IIFE promise so worker done cannot race assertion sentinels', async () => {
+  it('awaits the async IIFE so worker done cannot race assertion sentinels', async () => {
     const assertions: AssertionV1[] = [
       {
         id: 'first-fail',
@@ -107,6 +115,7 @@ describe('buildLessonRunSource', () => {
       },
     ];
     const source = buildLessonRunSource(
+      'javascript',
       ['const answer = 0;', 'console.log("user noise");'].join('\n'),
       assertions
     );
@@ -143,6 +152,7 @@ describe('buildLessonRunSource', () => {
       },
     ];
     const source = buildLessonRunSource(
+      'javascript',
       ['const answer = 42;', 'function double(value) { return value * 2; }'].join(
         '\n'
       ),
@@ -154,6 +164,37 @@ describe('buildLessonRunSource', () => {
       { assertionId: 'function-declaration', status: 'pass' },
       { assertionId: 'const-binding', status: 'pass' },
     ]);
+  });
+
+  it('uses the JS-family source for TypeScript before transpilation', () => {
+    const source = buildLessonRunSource(
+      'typescript',
+      'const answer: number = 42;',
+      ASSERTIONS
+    );
+    expect(source.startsWith('await (async () => {')).toBe(true);
+    expect(source).toContain('const answer: number = 42;');
+    expect(source).toContain(ASSERTION_RESULT_SENTINEL);
+  });
+
+  it('builds native Python source with same-scope eval + print restoration', () => {
+    const source = buildLessonRunSource(
+      'python',
+      ['def double(value):', '    return value * 2'].join('\n'),
+      [
+        {
+          id: 'python-value',
+          name: { en: 'Python value' },
+          kind: 'value',
+          code: 'double(21) == 42',
+        },
+      ]
+    );
+    expect(source).toContain('        def double(value):');
+    expect(source).toContain('eval(code, globals(), globals())');
+    expect(source).toContain('globals()["print"] = __lingua_recipe_original_print');
+    expect(source).toContain(ASSERTION_RESULT_SENTINEL);
+    expect(source).not.toContain('await (async () => {');
   });
 });
 
@@ -253,13 +294,21 @@ describe('isAllPassed', () => {
 });
 
 describe('isRecipeRunnableLanguage', () => {
-  it('allows javascript Slice B', () => {
-    expect(isRecipeRunnableLanguage('javascript')).toBe(true);
+  it('exposes the exact runnable recipe language tuple', () => {
+    expect(RECIPE_RUNNABLE_LANGUAGE_IDS).toEqual([
+      'javascript',
+      'typescript',
+      'python',
+    ]);
   });
 
-  it('blocks every other language Slice B', () => {
-    expect(isRecipeRunnableLanguage('typescript')).toBe(false);
-    expect(isRecipeRunnableLanguage('python')).toBe(false);
+  it('allows JavaScript, TypeScript, and Python', () => {
+    expect(isRecipeRunnableLanguage('javascript')).toBe(true);
+    expect(isRecipeRunnableLanguage('typescript')).toBe(true);
+    expect(isRecipeRunnableLanguage('python')).toBe(true);
+  });
+
+  it('blocks unsupported recipe languages', () => {
     expect(isRecipeRunnableLanguage('go')).toBe(false);
   });
 });
