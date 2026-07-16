@@ -38,6 +38,7 @@
 
 import { consolePrinter, RubyVM } from '@ruby/wasm-wasi';
 import { File, OpenFile, PreopenDirectory, WASI } from '@bjorn3/browser_wasi_shim';
+import { responseWithBootstrapProgress } from './bootstrapProgress';
 
 const ctx = self as unknown as Worker;
 
@@ -107,10 +108,9 @@ let stderrBuffer: StreamBuffer = { method: 'warn', pending: '' };
  * node_modules payload, computed in vite.web.config.mts.
  */
 async function compileVerified(
-  response: Response,
+  bytes: ArrayBuffer,
   expectedSha256: string
 ): Promise<WebAssembly.Module> {
-  const bytes = await response.arrayBuffer();
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const actual = Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, '0'))
@@ -133,12 +133,23 @@ async function loadRuby(): Promise<RubyVM> {
       `Failed to fetch Ruby runtime (${response.status} ${response.statusText})`
     );
   }
+  const trackedResponse = responseWithBootstrapProgress(
+    response,
+    ({ loadedBytes, totalBytes }) => {
+      ctx.postMessage({
+        type: 'bootstrap-progress',
+        runId: activeRunId ?? '',
+        loadedBytes,
+        totalBytes,
+      });
+    }
+  );
   const expectedSha256 = __LINGUA_RUBY_WASM_URL__
     ? __LINGUA_RUBY_WASM_SHA256__
     : null;
   const wasmModule = expectedSha256
-    ? await compileVerified(response, expectedSha256)
-    : await WebAssembly.compileStreaming(response);
+    ? await compileVerified(await trackedResponse.arrayBuffer(), expectedSha256)
+    : await WebAssembly.compileStreaming(trackedResponse);
 
   // The consolePrinter overrides WASI `fd_write` for fd 1 (stdout) and
   // fd 2 (stderr) so writes flow through our callbacks instead of the

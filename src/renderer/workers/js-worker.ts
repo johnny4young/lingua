@@ -899,6 +899,33 @@ ctx.addEventListener('message', async (event) => {
       (self as unknown as { readline: () => string | null }).readline = consumer;
     }
 
+    // RL-115 Slice 1 — per-statement wall-clock ticks. The runner's
+    // transform prefixes each top-level statement with
+    // `__mc_tick(<line>)`; each tick closes the PREVIOUS statement's
+    // interval and opens its own, so the elapsed time between two
+    // ticks is attributed to the earlier statement. `flushLineTimings`
+    // closes the final open interval and posts ONE batched message —
+    // called on success AND on the error path so the statements that
+    // did complete keep their measurements.
+    const lineTimings: Array<{ line: number; durationMs: number }> = [];
+    let tickLine: number | null = null;
+    let tickStart = 0;
+    const __mc_tick = (line: number) => {
+      const now = performance.now();
+      if (tickLine !== null) {
+        lineTimings.push({ line: tickLine, durationMs: now - tickStart });
+      }
+      tickLine = line > 0 ? line : null;
+      tickStart = now;
+    };
+    const flushLineTimings = () => {
+      __mc_tick(0);
+      if (lineTimings.length > 0) {
+        ctx.postMessage({ type: 'line-timing', runId, entries: lineTimings });
+        lineTimings.length = 0;
+      }
+    };
+
     try {
       const executionPromise = (async () => {
         const __mc = (line: number, value: unknown) => {
@@ -1015,6 +1042,7 @@ ctx.addEventListener('message', async (event) => {
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
         const fn = new AsyncFunction(
           '__mc',
+          '__mc_tick',
           '__lingua_dbg_yield',
           '__lingua_dbg_frame',
           '__lingua_dbg_pop',
@@ -1024,6 +1052,7 @@ ctx.addEventListener('message', async (event) => {
         );
         return await fn(
           __mc,
+          __mc_tick,
           __lingua_dbg_yield,
           __lingua_dbg_frame,
           __lingua_dbg_pop,
@@ -1033,6 +1062,9 @@ ctx.addEventListener('message', async (event) => {
       })();
 
       const result = await executionPromise;
+      // Close the last statement's interval BEFORE scope capture /
+      // result serialization so their cost never pollutes it.
+      flushLineTimings();
 
       if (result !== undefined) {
         const resultMessage: {
@@ -1118,6 +1150,10 @@ ctx.addEventListener('message', async (event) => {
       ctx.postMessage({ type: 'done', runId, executionTime });
     } catch (err) {
       const executionTime = performance.now() - startTime;
+      // Flush what we have: completed statements keep their exact
+      // measurements and the failing statement reports the time it ran
+      // before throwing — often the most interesting number of the run.
+      flushLineTimings();
       const parsed = parseError(err);
 
       ctx.postMessage({

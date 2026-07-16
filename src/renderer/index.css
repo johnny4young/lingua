@@ -1154,6 +1154,23 @@
     text-transform: uppercase;
   }
 
+  .lingua-inline-result-timing {
+    /* RL-115 — per-statement wall-clock chip (`▸ 320 ms`). Quiet
+       italic gray so measurements never compete with values; only the
+       run's slowest statement gets the hot-spot tint below. */
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    color: var(--color-fg-subtle);
+    font-size: 10px;
+    font-style: italic;
+  }
+
+  .lingua-inline-result-timing[data-slowest='true'] {
+    color: var(--color-danger, #f87171);
+    font-weight: 600;
+  }
+
   .lingua-inline-result-watch {
     /* @WATCH marker: a quiet accent text label (no filled chip) to
        match `InlineMarker`'s `text-accent` glyph. Keeps the watch

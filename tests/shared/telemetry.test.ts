@@ -194,6 +194,9 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-019 Slice 1 — per-tab JS/TS runtime mode change.
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
       'runtime.auto_run_gated',
+      // IT2-D3 — runtime bootstrap outcome, closed-enum payloads.
+      'runtime.bootstrap_completed',
+      'runtime.bootstrap_failed',
       // RL-119 Slice 1 — once-per-session Browser preview live refresh.
       // Closed payload `{ language, intervalMs }`.
       'runtime.browser_preview_auto_refresh',

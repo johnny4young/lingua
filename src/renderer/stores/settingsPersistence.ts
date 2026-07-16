@@ -78,6 +78,7 @@ export function settingsPartialize(state: SettingsState) {
     variableInspectorSurface: state.variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: state.runtimeTimeoutPresetByLanguage,
     showTimeoutCountdown: state.showTimeoutCountdown,
+    showLineTiming: state.showLineTiming,
     rubyRuntimePreference: state.rubyRuntimePreference,
     firstWorkflowModeSwitchAcknowledged:
       state.firstWorkflowModeSwitchAcknowledged,

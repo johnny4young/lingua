@@ -5,6 +5,10 @@ import { getBundledAppInfo } from '../../shared/appInfo';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
+import {
+  formatBootstrapProgress,
+  useBootstrapProgressStore,
+} from '../stores/bootstrapProgressStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useGitStore } from '../stores/gitStore';
@@ -12,7 +16,7 @@ import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { trackEvent } from '../utils/telemetry';
-import { bucketDurationMs } from '../../shared/telemetry';
+import { bucketBootDuration, bucketDurationMs } from '../../shared/telemetry';
 import { extractTimeoutMagicComment } from '../utils/magicComments';
 import {
   isRuntimeTimeoutSupportedLanguage,
@@ -254,6 +258,29 @@ function joinConsoleEntries(entries: ConsoleOutput[]): string {
   return entries.map((entry) => entry.args.join(' ')).join('\n');
 }
 
+type RuntimeBootstrapOutcome =
+  | { kind: 'completed'; durationMs: number }
+  | { kind: 'failed' };
+
+/** Emit one closed bootstrap outcome without growing direct telemetry calls. */
+function trackRuntimeBootstrapOutcome(
+  language: Language,
+  outcome: RuntimeBootstrapOutcome
+): void {
+  const event =
+    outcome.kind === 'completed'
+      ? 'runtime.bootstrap_completed'
+      : 'runtime.bootstrap_failed';
+  const properties: Record<string, string | number | boolean> =
+    outcome.kind === 'completed'
+      ? {
+          language,
+          durationBucket: bucketBootDuration(outcome.durationMs),
+        }
+      : { language, reason: 'prepare-error' };
+  void trackEvent(event, properties);
+}
+
 export interface ManualExecutionLifecycle {
   setIsRunning?: (value: boolean) => void;
   setIsInitializing?: (value: boolean) => void;
@@ -320,6 +347,7 @@ export async function executeTabManually(
     setIsAutoRunning,
     setIsManualRunning,
     setLineResults,
+    setLineTimings,
     setStdinConsumed,
     setDiagnostics,
     setRunTermination,
@@ -367,6 +395,7 @@ export async function executeTabManually(
       const validation = validateDocument(language, content);
       setDiagnostics(validation.diagnostics);
       setLineResults([]);
+      setLineTimings([]);
       setFullOutput(validation.fullOutput);
       setError(null);
       setExecutionTime(validation.executionTime);
@@ -425,12 +454,35 @@ export async function executeTabManually(
   lifecycle.setIsRunning?.(true);
 
   const shouldShowInitialization = runnerManager.needsInitialization(language, runtimeMode);
+  // IT2-D3 — while the runtime bootstraps, compose the live download
+  // progress the worker streams into the static loading message
+  // ("Loading Python runtime (Pyodide)... 34 MB / 60 MB"). The
+  // subscription lives exactly as long as the initialization window.
+  let unsubscribeBootstrapProgress: (() => void) | undefined;
+  const bootstrapStartedAt = performance.now();
+  let bootstrapSettled = false;
   if (shouldShowInitialization) {
     lifecycle.setIsInitializing?.(true);
     const message = getInitializationMessage(language);
     lifecycle.setLoadingMessage?.(message);
     addRunEntry({ type: 'info', content: message });
+    useBootstrapProgressStore.getState().clear();
+    unsubscribeBootstrapProgress = useBootstrapProgressStore.subscribe(state => {
+      if (state.progress && state.progress.language === language) {
+        lifecycle.setLoadingMessage?.(formatBootstrapProgress(message, state.progress));
+      }
+    });
   }
+  const settleBootstrap = (outcome: RuntimeBootstrapOutcome) => {
+    if (!shouldShowInitialization || bootstrapSettled) return;
+    bootstrapSettled = true;
+    unsubscribeBootstrapProgress?.();
+    unsubscribeBootstrapProgress = undefined;
+    useBootstrapProgressStore.getState().clear(language);
+    lifecycle.setIsInitializing?.(false);
+    lifecycle.setLoadingMessage?.(null);
+    trackRuntimeBootstrapOutcome(language, outcome);
+  };
 
   let runnerPrepared = false;
   // RL-102 Slice 2 fold A — snapshot the git posture at run START,
@@ -457,6 +509,9 @@ export async function executeTabManually(
 
     const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner) {
+      // Closed-enum failure signal; the console entry below carries the
+      // honest local message.
+      settleBootstrap({ kind: 'failed' });
       addRunEntry({ type: 'error', content: `Failed to initialize ${language} runner.` });
       return {
         mode: 'run',
@@ -469,8 +524,11 @@ export async function executeTabManually(
     runnerPrepared = true;
 
     if (shouldShowInitialization) {
-      lifecycle.setIsInitializing?.(false);
-      lifecycle.setLoadingMessage?.(null);
+      // IT2-D3 — bucketed adoption signal; exact durations stay local.
+      settleBootstrap({
+        kind: 'completed',
+        durationMs: performance.now() - bootstrapStartedAt,
+      });
     }
 
     const compilationLoadingMessage = getCompilationLoadingMessage(language);
@@ -518,6 +576,7 @@ export async function executeTabManually(
         executionTime: 0,
       });
       setLineResults(presentation.lineResults);
+      setLineTimings([]);
       setFullOutput(presentation.fullOutput);
       setError(null);
       setExecutionTime(null);
@@ -572,6 +631,9 @@ export async function executeTabManually(
       ...(activeTab.inputArgs && activeTab.inputArgs.length > 0
         ? { args: activeTab.inputArgs }
         : {}),
+      // RL-115 — per-line timing toggle; the runner also honors an
+      // in-buffer // @time directive on its own.
+      ...(useSettingsStore.getState().showLineTiming ? { lineTiming: true } : {}),
       ...(wantsScopeCapture ? { captureScope: true } : {}),
       ...(wantsScopeCapture && typeof scopeDepthPref === 'number'
         ? { scopeDepth: scopeDepthPref }
@@ -624,6 +686,7 @@ export async function executeTabManually(
         error: undefined,
       });
       setLineResults(presentation.lineResults);
+      setLineTimings([]);
       setFullOutput(presentation.fullOutput || message);
       setError(null);
       setDiagnostics([]);
@@ -665,6 +728,7 @@ export async function executeTabManually(
 
     const presentation = toExecutionPresentation(language, content, result);
     setLineResults(presentation.lineResults);
+    setLineTimings(result.lineTimings ?? []);
     setFullOutput(presentation.fullOutput);
     // RL-020 Slice 6 fold G — surface the consumption summary
     // alongside the manual-run results, same as the auto-run path.
@@ -852,6 +916,7 @@ export async function executeTabManually(
       durationBucketMs: 0,
     });
     if (!runnerPrepared) {
+      settleBootstrap({ kind: 'failed' });
       setDiagnostics([]);
       setError({
         message: `Failed to initialize ${language} runner: ${message}`,

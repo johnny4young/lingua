@@ -9,6 +9,7 @@ import { ResultPanel } from '../Editor/ResultPanel';
 import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
 import { AppChrome } from '../Chrome';
 import { StatusBar } from '../StatusBar/StatusBar';
+import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { BottomPanel } from './BottomPanel';
 import { PanelChipsRow } from './PanelChipsRow';
 import { Toolbar } from '../Toolbar';
@@ -503,8 +504,12 @@ export function AppLayout({
     showVariablesTabBody,
     showRecipeTabBody,
   } = useLayoutAvailability();
-  const showPersistentSidebar = sidebarVisible && !isCompactShell;
-  const isCompactDrawerOpen = sidebarVisible && isCompactShell;
+  // RL-116 — presenter mode hides the persistent chrome at render
+  // time; the underlying sidebar preference is untouched, so leaving
+  // the mode restores the exact previous layout.
+  const presenterActive = usePresenterModeStore(s => s.active);
+  const showPersistentSidebar = sidebarVisible && !isCompactShell && !presenterActive;
+  const isCompactDrawerOpen = sidebarVisible && isCompactShell && !presenterActive;
   const handleExplorerNavigate = isCompactShell ? () => setSidebarVisible(false) : undefined;
 
   useEffect(() => {
@@ -637,16 +642,21 @@ export function AppLayout({
         className="flex min-h-0 flex-1 flex-col"
       >
         <AppChrome onOpenSettings={onOpenSettings} />
-        <Toolbar showFloatingPill />
-        <FloatingActionPill
-          onOpenSettings={onOpenSettings}
-          onOpenPalette={onOpenPalette}
-          onOpenQuickOpen={onOpenQuickOpen}
-          onOpenSnippets={onOpenSnippets}
-          onOpenUtilities={onOpenUtilities}
-          onOpenRecipes={onOpenRecipes}
-          utilitiesOpen={utilitiesOpen}
-        />
+        {!presenterActive && <Toolbar showFloatingPill />}
+        {/* RL-116 — the floating action pill IS the dominant chrome; a
+            presenter hides it too (Cmd+Enter still runs, the shortcut
+            or palette toggles the mode back). */}
+        {!presenterActive && (
+          <FloatingActionPill
+            onOpenSettings={onOpenSettings}
+            onOpenPalette={onOpenPalette}
+            onOpenQuickOpen={onOpenQuickOpen}
+            onOpenSnippets={onOpenSnippets}
+            onOpenUtilities={onOpenUtilities}
+            onOpenRecipes={onOpenRecipes}
+            utilitiesOpen={utilitiesOpen}
+          />
+        )}
         {showPersistentSidebar ? (
           <Group
             orientation="horizontal"

@@ -16,6 +16,11 @@ export const TELEMETRY_EVENTS = [
   // IT2-G1 — one event per renderer boot phase. Payload is closed to
   // `{ phase, durationBucket }`; exact timings/timestamps stay local.
   'app.boot_phase',
+  // IT2-D3 — runtime bootstrap outcome. Payload is closed to
+  // `{ language, durationBucket }` / `{ language, reason }`; byte
+  // counts and URLs never leave the device.
+  'runtime.bootstrap_completed',
+  'runtime.bootstrap_failed',
   'runner.executed',
   'overlay.opened',
   'feature.blocked',
@@ -604,6 +609,13 @@ export const BOOT_DURATION_BUCKETS = [
 export type BootDurationBucket = (typeof BOOT_DURATION_BUCKETS)[number];
 const BOOT_DURATION_BUCKETS_SET: ReadonlySet<string> = new Set(BOOT_DURATION_BUCKETS);
 
+// IT2-D3 — closed enum of bootstrap failure kinds. Free-form error
+// text never rides along; the console already shows the honest local
+// message.
+export const BOOTSTRAP_FAILURE_REASONS: ReadonlySet<string> = new Set([
+  'prepare-error',
+]);
+
 export function bucketBootDuration(ms: number): BootDurationBucket {
   if (ms < 50) return '<50ms';
   if (ms < 250) return '50-249ms';
@@ -641,6 +653,8 @@ export interface TelemetryEvent extends TelemetryBaseFields {
 const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = {
   'app.launched': ['platform', 'build', 'locale'],
   'app.boot_phase': ['phase', 'durationBucket'],
+  'runtime.bootstrap_completed': ['language', 'durationBucket'],
+  'runtime.bootstrap_failed': ['language', 'reason'],
   'runner.executed': ['language', 'status', 'durationBucketMs'],
   'overlay.opened': ['overlayId'],
   'feature.blocked': ['entitlement', 'tier'],
@@ -1731,6 +1745,18 @@ function isAllowedValue(
       if (key === 'phase') return typeof value === 'string' && BOOT_PHASES_SET.has(value);
       if (key === 'durationBucket') {
         return typeof value === 'string' && BOOT_DURATION_BUCKETS_SET.has(value);
+      }
+      return false;
+    case 'runtime.bootstrap_completed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'durationBucket') {
+        return typeof value === 'string' && BOOT_DURATION_BUCKETS_SET.has(value);
+      }
+      return false;
+    case 'runtime.bootstrap_failed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'reason') {
+        return typeof value === 'string' && BOOTSTRAP_FAILURE_REASONS.has(value);
       }
       return false;
     case 'runner.executed':

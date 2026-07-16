@@ -470,6 +470,15 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['sidebar', 'explorer', 'toggle'],
   },
   {
+    // RL-116 — presenter / focus mode: hide the chrome, lift the fonts.
+    id: 'view-toggle-presenter',
+    group: 'view',
+    labelKey: 'shortcuts.item.presenterMode.label',
+    descriptionKey: 'shortcuts.item.presenterMode.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'P'] }],
+    keywords: ['presenter', 'focus', 'zen', 'demo', 'present'],
+  },
+  {
     id: 'view-toggle-console',
     group: 'view',
     labelKey: 'shortcuts.item.toggleConsole.label',

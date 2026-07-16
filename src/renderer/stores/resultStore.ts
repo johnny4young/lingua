@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type {
   EditorDiagnostic,
   ExecutionError,
+  LineTimingEntry,
   RuntimeTimeoutPreset,
 } from '../types';
 import type { AutoRunGateReason } from '../../shared/autoRunGating';
@@ -100,6 +101,13 @@ function nextSnapshotCapturedAt(snapshotRing: readonly ResultSnapshot[]): number
 interface ResultState {
   /** Per-line results for dynamic languages */
   lineResults: LineResult[];
+  /**
+   * RL-115 — per-statement wall-clock timings from the last
+   * instrumented run (`// @time` or the Settings toggle), attributed
+   * to each statement's first line. Empty when the last run was not
+   * instrumented.
+   */
+  lineTimings: LineTimingEntry[];
   /** Full output text for compiled languages */
   fullOutput: string;
   /**
@@ -184,6 +192,7 @@ interface ResultState {
   scopeSnapshot: ScopeSnapshot | null;
 
   setLineResults: (results: LineResult[]) => void;
+  setLineTimings: (timings: LineTimingEntry[]) => void;
   setFullOutput: (output: string) => void;
   setStdinConsumed: (summary: { count: number; total: number } | null) => void;
   setError: (error: ExecutionError | null) => void;
@@ -334,6 +343,7 @@ export function scopeSnapshotVariableCountFor(
 
 export const useResultStore = create<ResultState>((set, get) => ({
   lineResults: [],
+  lineTimings: [],
   fullOutput: '',
   stdinConsumed: null,
   error: null,
@@ -355,6 +365,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
   scopeSnapshot: null,
 
   setLineResults: (lineResults) => set({ lineResults }),
+  setLineTimings: (lineTimings) => set({ lineTimings }),
   setFullOutput: (fullOutput) => set({ fullOutput }),
   setStdinConsumed: (stdinConsumed) => set({ stdinConsumed }),
   setError: (error) => set({ error }),
@@ -477,6 +488,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
   clear: () =>
     set({
       lineResults: [],
+      lineTimings: [],
       fullOutput: '',
       stdinConsumed: null,
       error: null,
@@ -512,6 +524,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
     // disappear just because a transient run-start clears visible output.
     set({
       lineResults: [],
+      lineTimings: [],
       fullOutput: '',
       stdinConsumed: null,
       error: null,

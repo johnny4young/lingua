@@ -5,6 +5,7 @@ import type {
   ExecutionResult,
   ConsoleOutput,
   ExecutionError,
+  LineTimingEntry,
   MagicCommentResult,
   WorkerResponse,
 } from '../types';
@@ -12,7 +13,10 @@ import {
   transformJSMagicComments,
   detectJSMagicComments,
   detectJSAutoLogLines,
+  detectJSStatementStartLines,
+  lineTimingRequestedByMagicComment,
   transformJSAutoLog,
+  transformJSLineTiming,
   type MagicCommentKind,
   type MagicCommentDirective,
 } from '../utils/magicComments';
@@ -219,6 +223,22 @@ export class TypeScriptRunner implements LanguageRunner {
       }
     }
 
+    // RL-115 Slice 1 — timing markers BEFORE transpile, mirroring the
+    // auto-log strategy: the line number is baked into the call
+    // argument, so esbuild's line shifts downstream cannot corrupt the
+    // attribution. Debug runs never instrument.
+    let codeWithTiming = codeForTranspile;
+    if (
+      !debug &&
+      (context?.lineTiming === true ||
+        lineTimingRequestedByMagicComment(this.language, processedCode))
+    ) {
+      const statementLines = detectJSStatementStartLines(codeForTranspile);
+      if (statementLines.length > 0) {
+        codeWithTiming = transformJSLineTiming(codeForTranspile, statementLines);
+      }
+    }
+
     this.stop();
     const executionGeneration = ++this.executionGeneration;
 
@@ -228,7 +248,7 @@ export class TypeScriptRunner implements LanguageRunner {
     // repair: debug composes it with the instrumenter map, while normal
     // runs pass a generated-line map into the worker for console output.
     const { js, map: tsMap, error: transpileError } =
-      await this.transpile(codeForTranspile, true);
+      await this.transpile(codeWithTiming, true);
 
     if (executionGeneration !== this.executionGeneration) {
       return runnerStoppedResult(t, { stdout: [], stderr: [] });
@@ -283,6 +303,7 @@ export class TypeScriptRunner implements LanguageRunner {
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     const magicResults: MagicCommentResult[] = [];
+    let lineTimings: LineTimingEntry[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
     // RL-020 Slice 6 fold G — see JavaScriptRunner; the same JS
@@ -451,6 +472,10 @@ export class TypeScriptRunner implements LanguageRunner {
             magicResults.push(entry);
             break;
           }
+          case 'line-timing':
+            // RL-115 — batched per-statement timings (one message per run).
+            lineTimings = msg.entries;
+            break;
           case 'result':
             result = msg.value;
             break;
@@ -493,6 +518,7 @@ export class TypeScriptRunner implements LanguageRunner {
               executionTime: msg.executionTime,
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
+              ...(lineTimings.length > 0 ? { lineTimings } : {}),
               stdinConsumed,
               kind: error ? 'error' : 'success',
               timeoutPreset,

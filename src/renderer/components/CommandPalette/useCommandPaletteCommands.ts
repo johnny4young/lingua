@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
@@ -129,6 +130,7 @@ export function useCommandPaletteCommands({
     (dependencyDetectionEntry.dependencies.length > 0 ||
       dependencyDetectionEntry.skippedReason !== undefined);
   const { setLayoutPreset } = useSettingsStore();
+  const togglePresenterMode = usePresenterModeStore(state => state.toggle);
   const vimMode = useSettingsStore(state => state.vimMode);
   // RL-112 fold C — gate the "Focus status bar" palette command on the bar's
   // current visibility so it never offers to focus a hidden bar.
@@ -490,6 +492,9 @@ export function useCommandPaletteCommands({
       createTab: addTab,
       createDefaultTab,
       setLayoutPreset,
+      // RL-116 — presenter mode reads the session store directly; the
+      // palette only needs a stable callback.
+      onTogglePresenterMode: togglePresenterMode,
       onClose,
       onOpenSettings,
       onOpenWhatsNew,
@@ -672,6 +677,7 @@ export function useCommandPaletteCommands({
     setTabRuntimeMode,
     addTab,
     setLayoutPreset,
+    togglePresenterMode,
     onClose,
     onOpenSettings,
     onOpenSnippets,

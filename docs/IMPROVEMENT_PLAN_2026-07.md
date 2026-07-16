@@ -690,7 +690,7 @@ streak sobrevive reload (usa `daily_activity`, no el reloj de sesión);
 toggle OFF = cero superficies visibles; `check:i18n` + `check:i18n:copy`
 verdes; smoke web del flujo run→toast→popover.
 
-## IT2-D3 · Progreso visible del bootstrap de runtimes — M (2 d)
+## IT2-D3 · Progreso visible del bootstrap de runtimes — SLICE 1 EJECUTADO 2026-07-16 · M (2 d)
 
 **Evidencia.** Confirmado: NO hay progreso hoy (búsqueda de
 onProgress/ReadableStream/Content-Length en python-worker, ruby-worker y
@@ -731,6 +731,25 @@ muestra progreso creciente; segundo boot con prefetch → run sin espera
 perceptible; sin red y sin cache → mensaje de error honesto (no spinner
 infinito); offline desktop (assets locales) → el progreso completa
 instantáneo sin regresión.
+
+**Estado Slice 1 (2026-07-16): hecho** (sin el prefetch opt-in del punto 4
+— Slice 2). Pre-warm con progreso de `pyodide.asm.wasm` en python-worker
+y lectura por chunks del fetch existente en ruby-worker (reemplaza
+`compileStreaming`; el sha256 path ya materializaba bytes); variante
+tipada `bootstrap-progress` en `WorkerResponse` con throttle de 250 ms.
+HALLAZGO CLAVE: el boot real ocurre en el handshake `init` de
+`ensurePyodide`/`ensureRuby` (no en `execute`), con su propio listener y
+sin runId — el reenvío al `bootstrapProgressStore` vive AHÍ, y el
+FloatingActionPill lee el store directamente (path-agnóstico: auto-run o
+manual). La ventana de init de `executeTabManually` también compone el
+mensaje para el Toolbar clásico y emite `runtime.bootstrap_completed`
+(`durationBucket` de BOOT_DURATION_BUCKETS) / `runtime.bootstrap_failed`
+(`prepare-error`), allowlisted en shared + update-server. El error path
+queda igual de honesto (el loader real reporta; el pre-warm es
+best-effort). E2E `tests/e2e/bootstrapProgress.spec.ts` con throttle real
+vía `page.route` (+2.5 s en el asset): label estático + contador MB en el
+pill y run completo. Evidencia en
+`output/review/it2-d3-bootstrap-progress/`.
 
 ## IT2-D4 · Magic comments descubribles — S (1 d)
 
@@ -790,8 +809,24 @@ sesión-only en `commandHistoryStore` (dedupe-to-top, cap 20), tap en el
 variant `recent` (slots 1-8 numerados, timestamps relativos, Enter/1-8
 ejecutan y cierran, sin búsqueda libre). E2E
 `tests/e2e/recentCommands.spec.ts` cubre los tres AC; evidencia en
-`output/review/rl-113-recent-commands/`. **RL-115** (`// @time` — extiende el
-vocabulario de IT2-D4 y el gutter), **RL-116** (Focus mode). Ejecutar con
+`output/review/rl-113-recent-commands/`. **RL-115** — **EJECUTADO 2026-07-16**: walker compartido con auto-log
+detecta inicios de statement top-level (conservador: un marker de menos
+es inocuo, uno de más rompe sintaxis — cron de continuaciones, `while`
+de do-while, decoradores); `__mc_tick` delta-timing en el worker con
+flush en success Y error; chips `▸ N ms` italic gris en el overlay
+inline existente con hot-spot rojo (`data-slowest`); gating por
+`// @time` o Settings → Editor → Mostrar tiempos por línea (default
+OFF); e2e `tests/e2e/lineTiming.spec.ts`; evidencia en
+`output/review/rl-115-inline-timing/`. (`// @time` — extiende el
+vocabulario de IT2-D4 y el gutter), **RL-116** (Focus mode) —
+**EJECUTADO 2026-07-16**: `presenterModeStore` sesión-only con overrides
+en RENDER time (nada muta uiStore/settings persistidos, así un reload en
+medio de la presentación jamás corrompe preferencias); oculta sidebar,
+Toolbar, FloatingActionPill y StatusBar, editor +4px y consola +2px;
+binding **Mod+Alt+P** (el Cmd+K F del spec chocaba con Mod+K de
+Utilities, MOV.03) + acción de palette; e2e
+`tests/e2e/presenterMode.spec.ts` (font exacto +4 y restauración exacta);
+evidencia en `output/review/rl-116-presenter-mode/`. Ejecutar con
 sus AC del plan interno; sinergia: hacer RL-115 justo después de IT2-D4.
 
 ## IT2-D7 · Hints rotativos en superficies vacías — S (1 d)

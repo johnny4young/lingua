@@ -105,6 +105,8 @@ Use the closest store that already owns the product concept instead of adding cr
 | [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) | per-tab dependency detection cache, install state, streamed install logs |
 | [gitStore.ts](stores/gitStore.ts)           | git posture, per-file status cache, HEAD-change updates           |
 | [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
+| [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag (RL-116) read at render time by the chrome |
+| [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress (IT2-D3) feeding the action pill label |
 | [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (RL-113 Cmd+; recent stack) |
 | [debuggerStore.ts](stores/debuggerStore.ts) | debugger breakpoints, paused frames, watch/logpoint state         |
 | [licenseStore.ts](stores/licenseStore.ts)   | license token, verification status, device/recovery metadata — thin factory+facade (RL-130) that picks web vs desktop and re-exports the public types |

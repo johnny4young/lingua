@@ -81,7 +81,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const addNotebookTab = useEditorStore((s) => s.addNotebookTab);
   const setTabRuntimeMode = useEditorStore((s) => s.setTabRuntimeMode);
   const setTabWorkflowMode = useEditorStore((s) => s.setTabWorkflowMode);
-  const { run, stop, isRunning, isInitializing } = useRunner();
+  const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   // RL-093 — Lingua doesn't currently surface an "autosave" setting; the
   // pill shows a static green status dot per the design intent (the
   // editor saves locally on every keystroke today).
@@ -287,6 +287,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     currentWorkflow,
     isRunning,
     isInitializing,
+    loadingMessage,
     runDisabled,
     runDisabledTooltip,
     workflowChip,

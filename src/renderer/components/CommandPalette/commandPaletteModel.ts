@@ -302,6 +302,8 @@ interface BuildCommandPaletteModelArgs {
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
   setLayoutPreset: (preset: LayoutPreset) => void;
+  /** RL-116 — presenter/focus mode toggle; hidden when omitted. */
+  onTogglePresenterMode?: () => void;
   onClose: () => void;
   onOpenSettings: () => void;
   onOpenWhatsNew: () => void;
@@ -753,6 +755,7 @@ export function buildCommandPaletteModel({
   createTab,
   createDefaultTab,
   setLayoutPreset,
+  onTogglePresenterMode,
   onClose,
   onOpenSettings,
   onOpenWhatsNew,
@@ -1641,6 +1644,20 @@ export function buildCommandPaletteModel({
             ['status', 'bar', 'focus', 'keyboard', 'estado', 'barra', 'enfocar'],
             () => {
               onFocusStatusBar();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    ...(onTogglePresenterMode
+      ? [
+          buildActionCommand(
+            'action-toggle-presenter-mode',
+            translate('commandPalette.action.presenterMode.label'),
+            translate('commandPalette.action.presenterMode.description'),
+            ['presenter', 'focus', 'zen', 'demo', 'present', 'chrome'],
+            () => {
+              onTogglePresenterMode();
               onClose();
             }
           ),

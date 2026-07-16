@@ -752,6 +752,15 @@ export interface SettingsState {
    */
   showTimeoutCountdown: boolean;
   /**
+   * RL-115 Slice 1 — per-line timing master toggle. When on, JS / TS
+   * runs are instrumented with `__mc_tick` markers and every top-level
+   * statement's wall-clock duration renders inline next to its line.
+   * Default `false` (the instrumentation adds overhead); an in-buffer
+   * `// @time` magic comment enables timing for that buffer regardless
+   * of this setting.
+   */
+  showLineTiming: boolean;
+  /**
    * RL-020 Slice 9 fold G — Settings → Editor master toggle that
    * decides whether new tabs default to having the Variables panel
    * armed. Per-tab `variableInspectorEnabled` always wins when set;
@@ -1037,6 +1046,8 @@ export interface SettingsState {
    * RL-020 Slice 7 fold E — flip the countdown-in-pill toggle.
    */
   toggleShowTimeoutCountdown: () => void;
+  /** RL-115 Slice 1 — flip the per-line timing toggle. */
+  toggleShowLineTiming: () => void;
   /** RL-042 Slice 6 — set the Ruby runtime dispatcher preference. */
   setRubyRuntimePreference: (preference: 'auto' | 'system' | 'wasm') => void;
   /**
@@ -1145,6 +1156,15 @@ export interface ExecutionContext {
    * auto-log.
    */
   autoLog?: boolean;
+  /**
+   * RL-115 Slice 1 — per-line timing via the Settings toggle. When
+   * `true` the JS / TS runner prefixes every top-level statement with
+   * a `__mc_tick(line)` marker so the worker can attribute wall-clock
+   * time per statement. A `// @time` magic comment in the buffer
+   * enables the same instrumentation regardless of this flag; debug
+   * runs never instrument.
+   */
+  lineTiming?: boolean;
   /**
    * RL-020 Slice 6 — pre-set stdin buffer the worker consumes for
    * `prompt()` / `readline()` (JS / TS) or `input()` (Python).
@@ -1269,11 +1289,25 @@ export interface MagicCommentResult {
   payload?: RichOutputPayload;
 }
 
+/**
+ * RL-115 Slice 1 — wall-clock duration of one top-level statement,
+ * attributed to the statement's first line. Produced by the worker's
+ * `__mc_tick` delta accumulator, batched on a single `line-timing`
+ * message right before `done`.
+ */
+export interface LineTimingEntry {
+  /** 1-based line where the statement begins. */
+  line: number;
+  durationMs: number;
+}
+
 export interface ExecutionResult {
   stdout: ConsoleOutput[];
   stderr: ConsoleOutput[];
   result?: unknown;
   executionTime: number;
+  /** RL-115 — per-statement timings; present only when instrumented. */
+  lineTimings?: LineTimingEntry[];
   /**
    * True when the user explicitly stopped execution. Cancelled runs
    * are not successes and should not be recorded as normal history
@@ -1478,6 +1512,29 @@ export type WorkerResponse =
        * forceTablePayload`. Renderers must always tolerate absence.
        */
       payload?: RichOutputPayload;
+    }
+  | {
+      /**
+       * IT2-D3 — live download progress while a WASM runtime
+       * bootstraps (Pyodide / Ruby). `totalBytes` is null when the
+       * server sent no Content-Length (progress is indeterminate).
+       * Best-effort: absence of these messages never blocks a boot.
+       */
+      type: 'bootstrap-progress';
+      runId: string;
+      loadedBytes: number;
+      totalBytes: number | null;
+    }
+  | {
+      /**
+       * RL-115 Slice 1 — batched per-statement timings the worker
+       * posts once, right before `done` (and on the error path, for
+       * the statements that DID complete). Only present when the
+       * runner instrumented the source with `__mc_tick` markers.
+       */
+      type: 'line-timing';
+      runId: string;
+      entries: LineTimingEntry[];
     }
   | {
       // RL-027 Slice 1 — debugger pause from the JS worker. Carries

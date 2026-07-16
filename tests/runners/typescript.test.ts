@@ -391,6 +391,62 @@ describe('TypeScriptRunner', () => {
   // always receives the source line map. The "skip line map when
   // disabled" case no longer applies.
 
+  it('instruments TypeScript before transpile and surfaces line timings', async () => {
+    const esbuild = await import('esbuild-wasm');
+    let transpileInput = '';
+    vi.mocked(esbuild.transform).mockImplementation(async code => {
+      transpileInput = String(code);
+      return { code: String(code), map: '', warnings: [] };
+    });
+
+    const originalWorker = globalThis.Worker;
+    class TimingWorker {
+      private handler: ((event: MessageEvent) => void) | null = null;
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.handler = handler;
+      }
+
+      postMessage(message: { runId?: string }): void {
+        this.handler?.({
+          data: {
+            type: 'line-timing',
+            runId: message.runId,
+            entries: [{ line: 2, durationMs: 1.25 }],
+          },
+        } as MessageEvent);
+        this.handler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 2 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: TimingWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+      const result = await runner.execute(
+        '// @time\nconst answer: number = 42;'
+      );
+
+      expect(transpileInput).toContain('__mc_tick(2);');
+      expect(result.lineTimings).toEqual([{ line: 2, durationMs: 1.25 }]);
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
   it('does not let a stale transpile supersede a newer execution', async () => {
     const esbuild = await import('esbuild-wasm');
     let resolveFirstTranspile!: (value: { code: string; warnings: [] }) => void;
