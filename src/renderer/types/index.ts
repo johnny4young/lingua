@@ -838,7 +838,7 @@ export interface SettingsState {
    */
   whatsNewNotificationsEnabled: boolean;
   /** Show rotating, platform-safe guidance in otherwise empty product surfaces. */
-  hintsEnabled: boolean;
+  contextualHintsEnabled: boolean;
   /**
    * True once the legacy guided tour reaches its final step. Kept separate from
    * `suppressTourAutoStart` so a skipped tour can be re-enabled later.
@@ -1066,7 +1066,7 @@ export interface SettingsState {
   acknowledgeFirstWorkflowModeSwitch: () => void;
   setLastSeenVersion: (version: string | null) => void;
   setWhatsNewNotificationsEnabled: (enabled: boolean) => void;
-  setHintsEnabled: (enabled: boolean) => void;
+  setContextualHintsEnabled: (enabled: boolean) => void;
   setHasCompletedTour: (value: boolean) => void;
   setSuppressTourAutoStart: (value: boolean) => void;
   setShortcutOverride: (id: string, combos: readonly ShortcutCombo[]) => void;

@@ -59,6 +59,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Toolbar/`](components/Toolbar)               | `Toolbar.tsx`                                         | Owns primary shell actions and status affordances              |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
 | [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `useCommandPaletteCommands.ts`, `commandPaletteModel.ts` | Thin combobox UI plus store-backed catalog orchestration and pure model logic |
+| [`components/ContextualHints/`](components/ContextualHints) | `ContextualHint.tsx` | Platform-aware guidance and persisted opt-out for empty product surfaces |
 | [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
 | [`components/GuidedTour/`](components/GuidedTour)         | `GuidedTourProvider.tsx`, step helpers                | First-run tour orchestration and target selectors              |
 | [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, `NotebookToolbar.tsx`, `NotebookCellList.tsx`, cell rows | Notebook orchestration, toolbar/export lifecycle, virtualized cells, keyboard command mode |

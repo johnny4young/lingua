@@ -25,6 +25,7 @@ import {
   hasOwn,
   isAppLanguage,
   resolveInlineLintByLanguage,
+  sanitizeDiscoverabilityPreferences,
   sanitizeRuntimeTimeoutPresets,
   sanitizeScorecardPlatform,
   sanitizeScratchpadAutoLog,
@@ -243,11 +244,8 @@ export function settingsMerge(
     merged.importPreviewClipboardOnFocusConsent === 'unset'
       ? merged.importPreviewClipboardOnFocusConsent
       : 'unset';
-  // RL-111 — guard the session-restore mode on rehydrate. The v1->v2
-  // migration converts the legacy `restoreSession` boolean, but a
-  // tampered / hand-edited localStorage value (or a blob that skipped
-  // migration) must still coerce to a known enum. Unknown -> the
-  // privacy-conscious `'ask'` default rather than silent auto-restore.
+  // RL-111 — guard the session-restore mode after migration or tampering.
+  // Unknown values use the privacy-conscious `ask` default.
   const restoreSessionMode: SettingsState['restoreSessionMode'] =
     merged.restoreSessionMode === 'never' ||
     merged.restoreSessionMode === 'ask' ||
@@ -263,8 +261,7 @@ export function settingsMerge(
     hasCompletedOnboardingFirstSnippet,
     onboardingWelcomeSeedVersion,
     language: isAppLanguage(merged.language) ? merged.language : currentState.language,
-    whatsNewNotificationsEnabled: typeof merged.whatsNewNotificationsEnabled === 'boolean' ? merged.whatsNewNotificationsEnabled : currentState.whatsNewNotificationsEnabled,
-    hintsEnabled: typeof merged.hintsEnabled === 'boolean' ? merged.hintsEnabled : currentState.hintsEnabled,
+    ...sanitizeDiscoverabilityPreferences(merged, currentState),
     executionHistorySnapshotEnabled,
     dependencyDetectionEnabled,
     nativeExecutionAcknowledged,

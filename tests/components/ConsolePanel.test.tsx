@@ -246,7 +246,7 @@ describe('ConsolePanel', () => {
     resetState();
     setActiveProLicense();
     useExecutionHistoryStore.getState().clear();
-    useSettingsStore.getState().setHintsEnabled(true);
+    useSettingsStore.getState().setContextualHintsEnabled(true);
     vi.clearAllMocks();
   });
 
@@ -267,8 +267,16 @@ describe('ConsolePanel', () => {
 
     await user.click(screen.getByRole('button', { name: "Don't show tips" }));
 
-    expect(useSettingsStore.getState().hintsEnabled).toBe(false);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(false);
     expect(screen.queryByTestId('contextual-hint-console')).toBeNull();
+  });
+
+  it('uses the shared keyboard focus ring on the hint opt-out', () => {
+    render(<ConsolePanel />);
+
+    expect(screen.getByRole('button', { name: "Don't show tips" }).className).toContain(
+      'focus-ring'
+    );
   });
 
   it('gives the filter chips the shared keyboard focus ring (UX Sweep T1)', () => {

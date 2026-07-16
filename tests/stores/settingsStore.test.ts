@@ -349,17 +349,17 @@ describe('settingsStore', () => {
   });
 
   it('enables contextual hints by default and persists opt-out', () => {
-    expect(useSettingsStore.getState().hintsEnabled).toBe(true);
-    useSettingsStore.getState().setHintsEnabled(false);
-    expect(useSettingsStore.getState().hintsEnabled).toBe(false);
-    useSettingsStore.getState().setHintsEnabled(true);
-    expect(useSettingsStore.getState().hintsEnabled).toBe(true);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(true);
+    useSettingsStore.getState().setContextualHintsEnabled(false);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(false);
+    useSettingsStore.getState().setContextualHintsEnabled(true);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(true);
   });
 
   it('sanitizes a tampered contextual-hint preference on rehydrate', async () => {
     localStorage.setItem(
       'lingua-settings',
-      JSON.stringify({ state: { hintsEnabled: 'sometimes' }, version: 2 })
+      JSON.stringify({ state: { contextualHintsEnabled: 'sometimes' }, version: 2 })
     );
 
     await (
@@ -368,7 +368,7 @@ describe('settingsStore', () => {
       }
     ).persist.rehydrate();
 
-    expect(useSettingsStore.getState().hintsEnabled).toBe(true);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(true);
   });
 
   it('should default hasCompletedTour to false', () => {

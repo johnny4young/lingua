@@ -22,7 +22,7 @@ export function createSessionActions(
   | 'setLanguage'
   | 'setLastSeenVersion'
   | 'setWhatsNewNotificationsEnabled'
-  | 'setHintsEnabled'
+  | 'setContextualHintsEnabled'
   | 'setHasCompletedTour'
   | 'setSuppressTourAutoStart'
   | 'setSqlWorkspaceRowDisplayLimit'
@@ -64,7 +64,8 @@ export function createSessionActions(
     setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
     setWhatsNewNotificationsEnabled: (whatsNewNotificationsEnabled) =>
       set({ whatsNewNotificationsEnabled: whatsNewNotificationsEnabled === true }),
-    setHintsEnabled: (hintsEnabled) => set({ hintsEnabled: hintsEnabled === true }),
+    setContextualHintsEnabled: (contextualHintsEnabled) =>
+      set({ contextualHintsEnabled: contextualHintsEnabled === true }),
     setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
     setSuppressTourAutoStart: (suppressTourAutoStart) => set({ suppressTourAutoStart }),
     setSqlWorkspaceRowDisplayLimit: (value) =>

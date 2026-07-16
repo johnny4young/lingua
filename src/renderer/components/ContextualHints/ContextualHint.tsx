@@ -12,11 +12,13 @@ export function ContextualHint({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const hintsEnabled = useSettingsStore(state => state.hintsEnabled);
-  const setHintsEnabled = useSettingsStore(state => state.setHintsEnabled);
+  const contextualHintsEnabled = useSettingsStore(state => state.contextualHintsEnabled);
+  const setContextualHintsEnabled = useSettingsStore(
+    state => state.setContextualHintsEnabled
+  );
   const hint = selectContextualHint(surface);
 
-  if (!hintsEnabled || !hint) return null;
+  if (!contextualHintsEnabled || !hint) return null;
 
   return (
     <div
@@ -37,8 +39,8 @@ export function ContextualHint({
       </div>
       <button
         type="button"
-        onClick={() => setHintsEnabled(false)}
-        className="shrink-0 rounded px-1.5 py-1 text-caption text-fg-subtle underline-offset-2 hover:text-fg-base hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+        onClick={() => setContextualHintsEnabled(false)}
+        className="focus-ring shrink-0 rounded px-1.5 py-1 text-caption text-fg-subtle underline-offset-2 hover:text-fg-base hover:underline"
       >
         {t('hints.disable')}
       </button>

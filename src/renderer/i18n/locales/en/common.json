@@ -225,6 +225,7 @@
   "editor.magicComments.detail": "Lingua magic comment",
   "editor.magicComments.watch": "Pin an expression so its value stays visible after every run.",
   "editor.magicComments.timeout": "Override the execution timeout for this file, up to 10 minutes.",
+  "editor.magicComments.time": "Show per-statement execution timings inline for this JavaScript or TypeScript buffer.",
   "editor.magicComments.originOff": "Hide output-origin badges when results may contain sensitive context.",
   "editor.magicComments.gitIgnoreStatus": "Hide Git status and automatic diff affordances for this file.",
   "editor.magicComments.gitWatchHeadOff": "Pause automatic branch-head refresh for this file.",

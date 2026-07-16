@@ -44,6 +44,7 @@ describe('magic comment editor providers', () => {
       expect.arrayContaining([
         '@watch',
         '@timeout',
+        '@time',
         '@origin off',
         '@git-ignore-status',
         '@git-watch-head off',
@@ -67,6 +68,14 @@ describe('magic comment editor providers', () => {
     expect(suggestions.map(item => item.label)).toEqual(
       expect.arrayContaining(['=> table', '=> chart', '=> image', '=> html'])
     );
+  });
+
+  it('scopes JavaScript timing guidance away from Python', () => {
+    expect(suggestionsFor('// @ti', 'javascript').map(item => item.label)).toEqual([
+      '@timeout',
+      '@time',
+    ]);
+    expect(suggestionsFor('# @ti', 'python').map(item => item.label)).toEqual(['@timeout']);
   });
 
   it('returns no suggestions outside comments or inside quoted marker text', () => {
@@ -117,5 +126,20 @@ describe('magic comment editor providers', () => {
 
     expect(hover?.contents.map(content => content.value).join('\n')).toContain('**@timeout**');
     expect(hover?.contents.map(content => content.value).join('\n')).not.toContain('**@watch**');
+  });
+
+  it('describes the JavaScript timing directive using the live locale', async () => {
+    await i18next.changeLanguage('es');
+    const line = '// @time';
+    const hover = createMagicCommentHoverProvider('javascript').provideHover(
+      modelFor(line) as never,
+      { lineNumber: 1, column: line.length } as never,
+      undefined as never
+    );
+
+    expect(hover?.contents.map(content => content.value).join('\n')).toContain('**@time**');
+    expect(hover?.contents.map(content => content.value).join('\n')).toContain(
+      'tiempos de ejecución por instrucción'
+    );
   });
 });

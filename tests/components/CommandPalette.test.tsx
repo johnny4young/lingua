@@ -86,8 +86,8 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
         go: 'normal',
       },
       dependencyDetectionEnabled: true,
-      hintsEnabled: true,
-      setHintsEnabled: vi.fn(),
+      contextualHintsEnabled: true,
+      setContextualHintsEnabled: vi.fn(),
       setRuntimeTimeoutPreset: vi.fn(),
     },
     trackEventMock: vi.fn(),
@@ -205,7 +205,7 @@ describe('CommandPalette', () => {
     resultState.scopeSnapshot = null;
     dependencyDetectionState.byTab.clear();
     settingsState.dependencyDetectionEnabled = true;
-    settingsState.hintsEnabled = true;
+    settingsState.contextualHintsEnabled = true;
     settingsState.variableInspectorSurface = 'floating';
     settingsState.consoleRichRenderingEnabled = true;
     useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
@@ -394,11 +394,11 @@ describe('CommandPalette', () => {
     expect(screen.getByText(/Try Cmd\+P to jump to a file/i)).toBeTruthy();
     expect(screen.getByTestId('contextual-hint-palette')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: "Don't show tips" }));
-    expect(settingsState.setHintsEnabled).toHaveBeenCalledWith(false);
+    expect(settingsState.setContextualHintsEnabled).toHaveBeenCalledWith(false);
   });
 
   it('hides palette guidance when contextual tips are disabled', () => {
-    settingsState.hintsEnabled = false;
+    settingsState.contextualHintsEnabled = false;
     render(
       <CommandPalette
         onClose={vi.fn()}
@@ -807,5 +807,6 @@ describe('CommandPalette', () => {
       />
     );
     expect(screen.getByText('No commands run yet this session.')).toBeTruthy();
+    expect(screen.queryByTestId('contextual-hint-palette')).toBeNull();
   });
 });

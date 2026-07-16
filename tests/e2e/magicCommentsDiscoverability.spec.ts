@@ -37,6 +37,7 @@ test.describe('IT2-D4 magic comment discoverability', () => {
     await expect(suggestions).toBeVisible();
     await expect(suggestions).toContainText('@watch');
     await expect(suggestions).toContainText('@timeout');
+    await expect(suggestions.getByText('@time', { exact: true })).toBeVisible();
     await expect(suggestions).toContainText('@git-ignore-status');
 
     if (captureEnabled()) {
@@ -54,7 +55,9 @@ test.describe('IT2-D4 magic comment discoverability', () => {
     await replaceEditorContent(page, '# @');
 
     await page.keyboard.press('Control+Space');
-    await expect(page.locator('.suggest-widget')).toContainText('@watch');
+    const pythonSuggestions = page.locator('.suggest-widget');
+    await expect(pythonSuggestions).toContainText('@watch');
+    await expect(pythonSuggestions.getByText('@time', { exact: true })).toHaveCount(0);
 
     if (captureEnabled()) {
       mkdirSync(evidenceDir, { recursive: true });

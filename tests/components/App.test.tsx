@@ -232,26 +232,28 @@ vi.mock('../../src/renderer/stores/settingsStore', () => ({
   ),
 }));
 
-vi.mock('../../src/renderer/stores/uiStore', () => ({
-  useUIStore: (
-    selector?: (state: {
-      toggleSidebar: ReturnType<typeof vi.fn>;
-      toggleConsole: ReturnType<typeof vi.fn>;
-      statusNotice: null;
-      dismissStatusNotice: ReturnType<typeof vi.fn>;
-      pushStatusNotice: typeof mockPushStatusNotice;
-    }) => unknown
-  ) => {
-    const state = {
-      toggleSidebar: vi.fn(),
-      toggleConsole: vi.fn(),
-      statusNotice: null,
-      dismissStatusNotice: vi.fn(),
-      pushStatusNotice: mockPushStatusNotice,
-    };
-    return selector ? selector(state) : state;
-  },
-}));
+vi.mock('../../src/renderer/stores/uiStore', () => {
+  const state = {
+    toggleSidebar: vi.fn(),
+    toggleConsole: vi.fn(),
+    statusNotice: null,
+    dismissStatusNotice: vi.fn(),
+    pushStatusNotice: mockPushStatusNotice,
+  };
+  const useUIStore = Object.assign(
+    (
+      selector?: (state: {
+        toggleSidebar: ReturnType<typeof vi.fn>;
+        toggleConsole: ReturnType<typeof vi.fn>;
+        statusNotice: null;
+        dismissStatusNotice: ReturnType<typeof vi.fn>;
+        pushStatusNotice: typeof mockPushStatusNotice;
+      }) => unknown
+    ) => (selector ? selector(state) : state),
+    { getState: () => state }
+  );
+  return { useUIStore };
+});
 
 vi.mock('../../src/renderer/stores/updateStore', () => ({
   useUpdateStore: (selector?: (state: { initialize: typeof mockInitializeUpdates }) => unknown) => {

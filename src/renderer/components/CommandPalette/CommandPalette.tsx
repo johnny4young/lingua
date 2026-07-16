@@ -2,7 +2,7 @@ import { Search, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '../ui/chrome';
-import { ContextualHint } from '../ui/ContextualHint';
+import { ContextualHint } from '../ContextualHints/ContextualHint';
 import { ModalShell } from '../ui/ModalShell';
 import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { CommandPaletteResults } from './CommandPaletteResults';
@@ -195,7 +195,7 @@ export function CommandPalette(props: CommandPaletteProps) {
         optionId={optionId}
         recentTimestamps={isRecentVariant ? recentTimestamps : undefined}
       />
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && !isRecentVariant ? (
         <div className="px-4 pb-4">
           <ContextualHint surface="palette" />
         </div>

@@ -66,8 +66,8 @@ export function AboutSection({
   const setWhatsNewNotificationsEnabled = useSettingsStore(
     (state) => state.setWhatsNewNotificationsEnabled
   );
-  const hintsEnabled = useSettingsStore((state) => state.hintsEnabled);
-  const setHintsEnabled = useSettingsStore((state) => state.setHintsEnabled);
+  const contextualHintsEnabled = useSettingsStore((state) => state.contextualHintsEnabled);
+  const setContextualHintsEnabled = useSettingsStore((state) => state.setContextualHintsEnabled);
   const { t, i18n } = useTranslation();
 
   const productName = appInfo?.productName ?? 'Lingua';
@@ -216,8 +216,8 @@ export function AboutSection({
             control={
               <div data-testid="settings-contextual-hints-toggle">
                 <Toggle
-                  value={hintsEnabled}
-                  onChange={() => setHintsEnabled(!hintsEnabled)}
+                  value={contextualHintsEnabled}
+                  onChange={() => setContextualHintsEnabled(!contextualHintsEnabled)}
                   aria-label={t('about.actions.contextualHints.label')}
                 />
               </div>

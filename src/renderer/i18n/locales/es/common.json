@@ -225,6 +225,7 @@
   "editor.magicComments.detail": "Comentario m\u00e1gico de Lingua",
   "editor.magicComments.watch": "Fija una expresi\u00f3n para mantener su valor visible despu\u00e9s de cada ejecuci\u00f3n.",
   "editor.magicComments.timeout": "Ajusta el tiempo l\u00edmite de ejecuci\u00f3n para este archivo, hasta 10 minutos.",
+  "editor.magicComments.time": "Muestra tiempos de ejecuci\u00f3n por instrucci\u00f3n en l\u00ednea para este b\u00fafer de JavaScript o TypeScript.",
   "editor.magicComments.originOff": "Oculta las insignias de origen cuando los resultados puedan contener contexto sensible.",
   "editor.magicComments.gitIgnoreStatus": "Oculta el estado de Git y las acciones autom\u00e1ticas de diff para este archivo.",
   "editor.magicComments.gitWatchHeadOff": "Pausa la actualizaci\u00f3n autom\u00e1tica de la rama para este archivo.",

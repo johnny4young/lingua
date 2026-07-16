@@ -6,6 +6,7 @@ import {
   extractTimeoutMagicComment,
   gitStatusSuppressedByMagicComment,
   gitWatchHeadSuppressedByMagicComment,
+  lineTimingRequestedByMagicComment,
   originSuppressedByMagicComment,
 } from '../../../utils/magicComments';
 
@@ -24,6 +25,7 @@ type MagicCommentDefinition = {
   label: string;
   insertText: string;
   descriptionKey: string;
+  languages?: readonly MagicCommentLanguage[];
 };
 
 const MAGIC_COMMENT_DEFINITIONS: readonly MagicCommentDefinition[] = [
@@ -36,6 +38,12 @@ const MAGIC_COMMENT_DEFINITIONS: readonly MagicCommentDefinition[] = [
     label: '@timeout',
     insertText: '@timeout ${1:5s}',
     descriptionKey: 'editor.magicComments.timeout',
+  },
+  {
+    label: '@time',
+    insertText: '@time',
+    descriptionKey: 'editor.magicComments.time',
+    languages: ['javascript', 'typescript'],
   },
   {
     label: '@origin off',
@@ -145,12 +153,28 @@ export function getMagicCommentContext(
   };
 }
 
-function matchingDefinitions(typed: string): readonly MagicCommentDefinition[] {
-  if (!typed) return MAGIC_COMMENT_DEFINITIONS;
+function definitionsForLanguage(
+  language: MagicCommentLanguage
+): readonly MagicCommentDefinition[] {
+  return MAGIC_COMMENT_DEFINITIONS.filter(
+    definition => !definition.languages || definition.languages.includes(language)
+  );
+}
+
+function matchingDefinitions(
+  language: MagicCommentLanguage,
+  typed: string
+): readonly MagicCommentDefinition[] {
+  const available = definitionsForLanguage(language);
+  if (!typed) return available;
   const normalized = typed.toLowerCase();
-  return MAGIC_COMMENT_DEFINITIONS.filter(definition =>
+  return available.filter(definition =>
     definition.label.toLowerCase().startsWith(normalized)
   );
+}
+
+function definitionByLabel(label: string): MagicCommentDefinition | null {
+  return MAGIC_COMMENT_DEFINITIONS.find(definition => definition.label === label) ?? null;
 }
 
 export function createMagicCommentCompletionProvider(
@@ -169,7 +193,7 @@ export function createMagicCommentCompletionProvider(
       if (!context) return { suggestions: [] };
 
       return {
-        suggestions: matchingDefinitions(context.typed).map(definition => ({
+        suggestions: matchingDefinitions(language, context.typed).map(definition => ({
           label: definition.label,
           kind: monaco.languages.CompletionItemKind.Snippet,
           detail: i18next.t('editor.magicComments.detail'),
@@ -199,23 +223,26 @@ function definitionForLine(
       ? detectPythonMagicComments(detectorInput)[0]
       : detectJSMagicComments(detectorInput)[0];
   if (detected?.kind === 'watch') {
-    return MAGIC_COMMENT_DEFINITIONS[0] ?? null;
+    return definitionByLabel('@watch');
   }
   if (detected?.kind === 'arrow') {
     const label = detected.directive ? `=> ${detected.directive}` : '=>';
-    return MAGIC_COMMENT_DEFINITIONS.find(definition => definition.label === label) ?? null;
+    return definitionByLabel(label);
   }
   if (extractTimeoutMagicComment(language, comment) !== null) {
-    return MAGIC_COMMENT_DEFINITIONS[1] ?? null;
+    return definitionByLabel('@timeout');
+  }
+  if (lineTimingRequestedByMagicComment(language, comment)) {
+    return definitionByLabel('@time');
   }
   if (originSuppressedByMagicComment(language, comment)) {
-    return MAGIC_COMMENT_DEFINITIONS[2] ?? null;
+    return definitionByLabel('@origin off');
   }
   if (gitStatusSuppressedByMagicComment(language, comment)) {
-    return MAGIC_COMMENT_DEFINITIONS[3] ?? null;
+    return definitionByLabel('@git-ignore-status');
   }
   if (gitWatchHeadSuppressedByMagicComment(language, comment)) {
-    return MAGIC_COMMENT_DEFINITIONS[4] ?? null;
+    return definitionByLabel('@git-watch-head off');
   }
   return null;
 }

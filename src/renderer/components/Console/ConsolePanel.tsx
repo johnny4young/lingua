@@ -19,7 +19,7 @@ import {
 import { bucketCapsuleSize } from '../../../shared/runCapsule';
 import { extractClipboardImageFile, readPastedImageFile } from './clipboardImagePaste';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
-import { ContextualHint } from '../ui/ContextualHint';
+import { ContextualHint } from '../ContextualHints/ContextualHint';
 import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';

@@ -81,10 +81,10 @@ describe('AboutSection', () => {
     expect(toggle.getAttribute('aria-checked')).toBe('true');
 
     await user.click(toggle);
-    expect(useSettingsStore.getState().hintsEnabled).toBe(false);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(false);
     expect(toggle.getAttribute('aria-checked')).toBe('false');
 
     await user.click(toggle);
-    expect(useSettingsStore.getState().hintsEnabled).toBe(true);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(true);
   });
 });

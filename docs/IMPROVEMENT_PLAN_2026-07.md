@@ -757,7 +757,8 @@ pill y run completo. Evidencia en
 expr` (JS_WATCH_RE / PY_WATCH_RE), `// =>` arrow, auto-log, `@timeout <n>
 [ms|s|m]` (TIMEOUT_DIRECTIVE_RE, comparte JS/TS/Python), `@origin off`,
 `@git-ignore-status`, `@git-watch-head off`; directivas de presentación
-`table|chart|image|html` (`MagicCommentDirective`). Infra de providers YA
+`table|chart|image|html` (`MagicCommentDirective`) y `// @time` para
+timings por instrucción en JS/TS. Infra de providers YA
 genérica: `registerLanguageOnce` (`monaco.ts:130-142`) registra por
 descriptor `createCompletionProvider` / `createHoverProvider`
 (`monaco.ts:173-196`); helper existente `createCompletionProvider(monaco,
