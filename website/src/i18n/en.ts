@@ -145,6 +145,38 @@ export const en = {
         },
       ],
     },
+    tour: {
+      eyebrow: "Inside the app",
+      title: "The actual product, doing actual work.",
+      lede:
+        "No mockups below — every frame is the shipping app captured mid-task on the production web build.",
+      items: [
+        {
+          image: "/screenshots/tour/workspace-python.png",
+          alt: "Lingua workspace running a Python script: inline values next to each statement and real stdout in the console panel",
+          title: "Run Python, watch values land on every line",
+          body: "Pyodide boots in a worker, stdout streams into the console, and each top-level statement shows its value inline next to the code. The wall-clock time of every run lands in the console too — timing is output, not a claim.",
+        },
+        {
+          image: "/screenshots/tour/command-palette.png",
+          alt: "Command palette filtered by the query sql, showing the SQL workspace, escape tool, and SQL formatter",
+          title: "One palette for commands, templates, and utilities",
+          body: "Cmd+K searches everything at once — commands, snippets, templates, and every developer utility. Type three letters, hit Enter, keep coding.",
+        },
+        {
+          image: "/screenshots/tour/utilities.png",
+          alt: "Developer utilities workspace with the JSON formatter active: input panel, pretty-print controls, and a tree viewer",
+          title: "29 utilities live next to your code",
+          body: "JSON formatter with a tree viewer, JWT debugger, hash and UUID generators, regex tester — each one runs locally in the same window, so quick tasks stop costing you a browser tab.",
+        },
+        {
+          image: "/screenshots/tour/settings-privacy.png",
+          alt: "Privacy settings page: anonymous usage analytics off, Run Ledger off, sensitive HTTP header redaction list, and a redaction preview",
+          title: "Privacy is a settings page, not a promise",
+          body: "Telemetry ships off and stays off until you flip it. The Run Ledger records locally, sensitive headers are redacted by name, and the redaction preview shows exactly what would leave your machine — nothing.",
+        },
+      ],
+    },
     ai: {
       eyebrow: 'AI assistance · Pro',
       title: 'AI that never sends your code without asking.',

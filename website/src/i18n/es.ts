@@ -145,6 +145,38 @@ export const es = {
         },
       ],
     },
+    tour: {
+      eyebrow: "Dentro de la app",
+      title: "El producto real, haciendo trabajo real.",
+      lede:
+        "Abajo no hay mockups — cada cuadro es la app tal como se distribuye, capturada a mitad de tarea sobre el build web de producción.",
+      items: [
+        {
+          image: "/screenshots/tour/workspace-python.png",
+          alt: "Workspace de Lingua corriendo un script Python: valores inline junto a cada statement y stdout real en el panel de consola",
+          title: "Corre Python y mira los valores caer en cada línea",
+          body: "Pyodide arranca en un worker, el stdout fluye a la consola y cada statement de nivel superior muestra su valor inline junto al código. El tiempo de pared de cada run también cae en la consola — el timing es output, no una promesa.",
+        },
+        {
+          image: "/screenshots/tour/command-palette.png",
+          alt: "Paleta de comandos filtrada con la consulta sql, mostrando el workspace SQL, la herramienta de escape y el formateador SQL",
+          title: "Una paleta para comandos, plantillas y utilidades",
+          body: "Cmd+K busca todo a la vez — comandos, snippets, plantillas y cada utilidad developer. Escribe tres letras, presiona Enter y sigue codeando.",
+        },
+        {
+          image: "/screenshots/tour/utilities.png",
+          alt: "Workspace de utilidades developer con el formateador JSON activo: panel de entrada, controles de formato y vista de árbol",
+          title: "Las 29 utilidades viven junto a tu código",
+          body: "Formateador JSON con vista de árbol, depurador JWT, generadores de hash y UUID, tester de regex — cada una corre local en la misma ventana, así las tareas rápidas dejan de costarte una pestaña del navegador.",
+        },
+        {
+          image: "/screenshots/tour/settings-privacy.png",
+          alt: "Página de privacidad en Settings: analítica anónima apagada, Run Ledger apagado, lista de headers HTTP sensibles y vista previa de redacción",
+          title: "La privacidad es una página de Settings, no una promesa",
+          body: "La telemetría viene apagada y se queda así hasta que tú la actives. El Run Ledger guarda solo local, los headers sensibles se redactan por nombre y la vista previa de redacción muestra exactamente qué saldría de tu máquina — nada.",
+        },
+      ],
+    },
     ai: {
       eyebrow: 'Asistencia con IA · Pro',
       title: 'IA que nunca envía tu código sin permiso.',

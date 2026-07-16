@@ -1,0 +1,126 @@
+---
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale);
+const block = copy.home.tour;
+---
+
+<section class="tour">
+  <header class="tour-head">
+    <p class="eyebrow">{block.eyebrow}</p>
+    <h2>{block.title}</h2>
+    <p class="lede">{block.lede}</p>
+  </header>
+
+  <div class="tour-rows">
+    {
+      block.items.map((item, index) => (
+        <article class:list={['tour-row', { reverse: index % 2 === 1 }]}>
+          <figure class="tour-shot">
+            <img src={item.image} alt={item.alt} loading="lazy" decoding="async" />
+          </figure>
+          <div class="tour-copy">
+            <span class="tour-index" aria-hidden="true">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </div>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .tour {
+    padding-block: var(--space-section);
+  }
+  .tour-head {
+    max-width: 760px;
+    margin-bottom: clamp(2rem, 5vw, 3.5rem);
+  }
+  .tour-head h2 {
+    font-size: var(--text-h2);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 700;
+    margin: 0.75rem 0 0;
+    line-height: 1.2;
+  }
+  .tour-head .lede {
+    color: var(--color-text-muted);
+    margin: 0.75rem 0 0;
+    line-height: 1.6;
+    max-width: 58ch;
+  }
+
+  .tour-rows {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 6vw, 4.5rem);
+  }
+  .tour-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    align-items: center;
+  }
+  .tour-shot {
+    margin: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-bg-sunken);
+    box-shadow: var(--shadow-card);
+  }
+  .tour-shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .tour-copy {
+    min-width: 0;
+  }
+  .tour-index {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-caps);
+    color: var(--color-accent);
+  }
+  .tour-copy h3 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0.5rem 0 0.625rem;
+  }
+  .tour-copy p {
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.65;
+    max-width: 46ch;
+  }
+
+  @media (min-width: 900px) {
+    .tour-row {
+      grid-template-columns: 3fr 2fr;
+      gap: clamp(2rem, 4vw, 3.5rem);
+    }
+    /* Zig-zag: even rows flip so the eye travels down a diagonal. */
+    .tour-row.reverse .tour-shot {
+      order: 2;
+    }
+    .tour-row.reverse .tour-copy {
+      order: 1;
+      justify-self: end;
+      text-align: right;
+    }
+    .tour-row.reverse .tour-copy p {
+      margin-left: auto;
+    }
+  }
+</style>
