@@ -2851,6 +2851,8 @@
   "statusBar.run.tooltip": "Estado de ejecución",
   "statusBar.indent.spaces": "Espacios: {{width}}",
   "statusBar.indent.tabs": "Tabs: {{width}}",
+  "statusBar.offline.label": "Sin conexión — todo sigue funcionando",
+  "statusBar.offline.tooltip": "Sin conexión: los runtimes locales y almacenados siguen funcionando. Las actualizaciones, la IA remota y las descargas de runtimes no almacenados no están disponibles.",
   "dependencies.tab.label": "Dependencias",
   "dependencies.tab.title": "Dependencias",
   "dependencies.tab.hint": "Imports externos detectados en el archivo activo.",

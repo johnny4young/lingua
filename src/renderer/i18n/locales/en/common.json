@@ -2851,6 +2851,8 @@
   "statusBar.run.tooltip": "Run status",
   "statusBar.indent.spaces": "Spaces: {{width}}",
   "statusBar.indent.tabs": "Tabs: {{width}}",
+  "statusBar.offline.label": "Offline — everything keeps working",
+  "statusBar.offline.tooltip": "Offline: local and cached runtimes keep working. Updates, remote AI, and uncached runtime downloads are unavailable.",
   "dependencies.tab.label": "Dependencies",
   "dependencies.tab.title": "Dependencies",
   "dependencies.tab.hint": "External imports detected in the active file.",

@@ -103,6 +103,13 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Ruby's `auto` preference quietly keeps using the bundled WASM runtime when system Ruby is absent. The guidance appears when `system` Ruby was explicitly selected.
 - Installation walkthroughs live in [Getting started](https://linguacode.dev/docs/getting-started) and its [Spanish version](https://linguacode.dev/es/docs/getting-started).
 
+## Offline status
+
+- The desktop status bar is enabled by default. The web status bar remains opt-in under **Settings → Editor → Show status bar**.
+- When the operating system reports that the app is offline, the status bar shows **Offline — everything keeps working**. The segment disappears automatically when connectivity returns and does not raise a toast.
+- Hover the segment for the honest boundary: local and cached runtimes keep working, while updates, remote AI, and runtime downloads that are not already cached remain unavailable.
+- Lingua's desktop offline smoke validates the bundled JavaScript, TypeScript, and Python paths with non-loopback network access blocked.
+
 ## Browser-only limitations
 
 - Go compilation stays unavailable in the browser build and returns an explicit desktop-only message.

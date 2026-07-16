@@ -34,6 +34,7 @@ type SeedOptions = {
   language?: Locale;
   snippetCount?: number;
   suppressWhatsNew?: boolean;
+  showStatusBar?: boolean;
   /**
    * When true, the session is seeded with a Pro dev license already applied
    * at boot time. Use this for tests that only need Pro to exercise a
@@ -245,6 +246,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
     snippetCount = 0,
     suppressWhatsNew = true,
     primeProLicense = false,
+    showStatusBar,
   } = options;
 
   await page.addInitScript(
@@ -255,6 +257,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       licenseKey,
       seededLanguage,
       seededSnippets,
+      seededShowStatusBar,
       shouldSuppressWhatsNew,
       seededLicenseToken,
     }) => {
@@ -277,6 +280,9 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
             hasCompletedOnboardingFirstRun: true,
             hasCompletedOnboardingFirstSnippet: true,
             telemetryConsent: 'declined',
+            ...(seededShowStatusBar === undefined
+              ? {}
+              : { showStatusBar: seededShowStatusBar }),
           },
           version: 0,
         })
@@ -309,6 +315,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       licenseKey: 'lingua-license',
       seededLanguage: language,
       seededSnippets: buildSeededSnippets(snippetCount),
+      seededShowStatusBar: showStatusBar,
       shouldSuppressWhatsNew: suppressWhatsNew,
       seededLicenseToken: primeProLicense ? (DEV_LICENSE_TOKEN ?? null) : null,
     }

@@ -106,7 +106,16 @@ function makeMonacoStub(markers: Array<{ severity: number }> = []) {
 }
 
 describe('StatusBar', () => {
+  const originalOnlineDescriptor = Object.getOwnPropertyDescriptor(
+    window.navigator,
+    'onLine'
+  );
+
   beforeEach(() => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
     editorAccessState.editor = null;
     editorAccessState.monaco = null;
     editorAccessState.cursor = null;
@@ -118,6 +127,15 @@ describe('StatusBar', () => {
   });
 
   afterEach(() => {
+    if (originalOnlineDescriptor) {
+      Object.defineProperty(
+        window.navigator,
+        'onLine',
+        originalOnlineDescriptor
+      );
+    } else {
+      Reflect.deleteProperty(window.navigator, 'onLine');
+    }
     useSettingsStore.setState(SETTINGS_INITIAL, true);
     useEditorStore.setState(EDITOR_INITIAL, true);
     vi.restoreAllMocks();
@@ -169,6 +187,37 @@ describe('StatusBar', () => {
       // UX Sweep T1 — every segment carries the shared visible focus ring.
       expect(segment.className).toContain('focus-ring');
     }
+  });
+
+  it('celebrates offline capability and disappears immediately when connectivity returns', () => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    });
+    render(<StatusBar />);
+
+    const offline = screen.getByTestId('status-bar-offline');
+    expect(offline.tagName).toBe('BUTTON');
+    expect(offline.className).toContain('focus-ring');
+    expect(offline.className).toContain('text-success-fg');
+    expect(offline.textContent).toContain(
+      'Offline — everything keeps working'
+    );
+    expect(offline.getAttribute('title')).toBe(
+      'Offline: local and cached runtimes keep working. Updates, remote AI, and uncached runtime downloads are unavailable.'
+    );
+    expect(offline.getAttribute('aria-label')).toContain(
+      'Offline — everything keeps working'
+    );
+
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
+    act(() => window.dispatchEvent(new Event('online')));
+
+    expect(screen.queryByTestId('status-bar-offline')).toBeNull();
+    expect(screen.getByTestId('status-bar-run').className).toContain('ml-auto');
   });
 
   it('shows "No problems" when there are no markers', () => {
@@ -245,18 +294,30 @@ describe('defaultShowStatusBar', () => {
     });
   });
 
-  it('returns true when window.lingua.platform === desktop', () => {
+  it.each(['desktop', 'darwin', 'win32', 'linux'])(
+    'returns true when window.lingua.platform is %s',
+    (platform) => {
+      Object.defineProperty(globalThis, 'window', {
+        value: { lingua: { platform } },
+        writable: true,
+        configurable: true,
+      });
+      expect(defaultShowStatusBar()).toBe(true);
+    }
+  );
+
+  it('returns false for the web platform', () => {
     Object.defineProperty(globalThis, 'window', {
-      value: { lingua: { platform: 'desktop' } },
+      value: { lingua: { platform: 'web' } },
       writable: true,
       configurable: true,
     });
-    expect(defaultShowStatusBar()).toBe(true);
+    expect(defaultShowStatusBar()).toBe(false);
   });
 
-  it('returns false when the platform is not desktop (or window absent)', () => {
+  it('returns false when the platform is absent', () => {
     Object.defineProperty(globalThis, 'window', {
-      value: { lingua: { platform: 'web' } },
+      value: {},
       writable: true,
       configurable: true,
     });

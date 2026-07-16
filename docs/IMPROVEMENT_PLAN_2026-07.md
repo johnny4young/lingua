@@ -1353,6 +1353,21 @@ producto.
 desaparece; correr JS/TS/Python (cacheado) offline funciona y el chip no
 interfiere; i18n es/en.
 
+**Estado (2026-07-15): hecho.** El StatusBar observa `navigator.onLine` con
+`useSyncExternalStore` y reacciona a los eventos `online`/`offline` sin duplicar
+el estado ni emitir toasts. Offline muestra un segmento verde y enfocable con
+copy positivo; el tooltip delimita updates, IA remota y descargas no cacheadas.
+También se corrigió el default desktop: el preload expone `darwin`/`win32`/
+`linux`, no el valor sintético `desktop` que el seed anterior esperaba.
+
+**Cierre de AC.** El E2E de producción alternó conectividad y comprobó aparición
+y desaparición, copy y tooltip en inglés y español, con cero errores de consola.
+El smoke Electron offline bloqueó tráfico no-loopback y completó 11 casos, con
+JavaScript, TypeScript y Python incluidos. El smoke Stagewright adicional quedó
+verde. Evidencia visual:
+`output/review/it2-g4-g5-resilience/web-en-offline-status.png` y
+`output/review/it2-g4-g5-resilience/web-es-offline-status.png`.
+
 ## IT2-G6 · ErrorBoundary regional por workspace — S-M (1 d)
 
 **Evidencia.** Solo existe el boundary de shell (`App.tsx:459`,
@@ -1500,7 +1515,7 @@ toca UI (mandato AGENTS.md).
 | 24 | IT2-G1 (instrumentar boot) | 1 d | **Hecho 2026-07-10** — habilita medir G2/G3. |
 | 25 | IT2-G2 (skeleton + ventana sin bloqueo) | 1-2 d | Primer impacto percibido; paso 0 = mapear dependencia de licencia. |
 | 26 | IT2-G3 (rehidratación diferida) | Medido 2026-07-11 | **Cerrado sin diferir** — ≤3,85 ms medianos; el costo no justificó nuevas esperas. |
-| 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | Convierte las dos frustraciones en momentos de marca. |
+| 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | **Hecho 2026-07-15** — ambas frustraciones ahora son momentos de marca. |
 | 28 | IT2-G6 (boundaries regionales) | 1 d | Resiliencia percibida. |
 | 29 | IT2-G7 (a11y gaps) | 1-2 d | La parte (a) va DENTRO de IT2-B2. |
 | 30 | IT2-G8 (brew/winget + /compare/runjs) | 2-3 d | Post-release estable. |
