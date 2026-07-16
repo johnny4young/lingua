@@ -1,6 +1,6 @@
 ---
 title: Utilidades developer
-description: Los 29 paneles de formato, conversión, inspección, criptografía, visuales y tiempo incluidos en Lingua.
+description: Los 31 paneles de formato, conversión, inspección, criptografía, visuales y tiempo incluidos en Lingua.
 order: 2
 section: reference
 ---

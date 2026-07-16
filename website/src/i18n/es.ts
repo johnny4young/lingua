@@ -61,14 +61,14 @@ export const es = {
       proofLabel: 'Datos del producto Lingua',
       proof: [
         { value: '5', label: 'lenguajes ejecutables' },
-        { value: '29', label: 'utilidades developer' },
+        { value: '31', label: 'utilidades developer' },
         { value: '0', label: 'telemetría antes del consentimiento' },
       ],
       bullets: [
         'IA local-first — explica errores y aplica fixes, opt-in y con tu clave.',
         'Pyodide incluido — Python corre offline.',
         'Telemetría desactivada por defecto.',
-        'Modo Vim, paleta de comandos y 29 utilidades.',
+        'Modo Vim, paleta de comandos y 31 utilidades.',
       ],
       os: {
         generic: 'Descargar Lingua',
@@ -166,8 +166,20 @@ export const es = {
         {
           image: "/screenshots/tour/utilities.png",
           alt: "Workspace de utilidades developer con el formateador JSON activo: panel de entrada, controles de formato y vista de árbol",
-          title: "Las 29 utilidades viven junto a tu código",
-          body: "Formateador JSON con vista de árbol, depurador JWT, generadores de hash y UUID, tester de regex — cada una corre local en la misma ventana, así las tareas rápidas dejan de costarte una pestaña del navegador.",
+          title: "Las 31 utilidades viven junto a tu código",
+          body: "Formateador JSON con vista de árbol, depurador JWT, datos de prueba, generadores de hash y UUID — más los Pipelines de utilidades que las encadenan en workflows de un click. Cada una corre local en la misma ventana, así las tareas rápidas dejan de costarte una pestaña del navegador.",
+        },
+        {
+          image: "/screenshots/tour/sql-workspace.png",
+          alt: "Workspace SQL con una tabla releases importada, una query de agregación formateada, grid de resultados y el panel de perfil de columnas",
+          title: "Un workspace SQL completo sobre DuckDB",
+          body: "Suelta un CSV, JSON o Parquet y se convierte en una tabla consultable sobre el motor DuckDB incluido — con grid de resultados, formateo de queries con una tecla y perfil por columna. Tu Run Ledger local también se consulta desde aquí.",
+        },
+        {
+          image: "/screenshots/tour/http-workspace.png",
+          alt: "Workspace HTTP mostrando una request GET con query params y una respuesta JSON 200 OK formateada",
+          title: "Un cliente HTTP sin el impuesto de la pestaña del navegador",
+          body: "Requests, query params, auth, environments y captura de respuestas viven en un solo tab de workspace. Envía y lee el body formateado con status, timing y tamaño ahí donde codeas.",
         },
         {
           image: "/screenshots/tour/settings-privacy.png",
@@ -182,6 +194,12 @@ export const es = {
       title: 'IA que nunca envía tu código sin permiso.',
       lede:
         'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
+      shot: {
+        image: '/screenshots/tour/ai-explain.png',
+        alt: 'Diálogo de explicar este error sobre un run de JavaScript fallido: el modelo explica la propiedad undefined, propone un fix con guard en un bloque de código y ofrece las acciones Preguntar y Aplicar y re-ejecutar',
+        caption:
+          'Una respuesta real de un modelo local — qwen3-coder en Ollama, sin viaje a la nube. El diálogo muestra el payload exacto antes de enviar nada, y Aplicar y re-ejecutar parchea el fix detrás de un diff que tú apruebas.',
+      },
       cards: [
         {
           icon: 'wand-sparkles',
@@ -239,7 +257,7 @@ export const es = {
     },
     utilities: {
       eyebrow: 'Utilidades developer',
-      title: '29 paneles integrados.',
+      title: '31 paneles integrados.',
       lede:
         'Las pestañas del navegador que suelen rodear a un runner — formateador JSON, regex, JWT, diff, hash, cron, color y más — ya viven dentro de Lingua.',
       aria: 'Utilidades developer integradas',

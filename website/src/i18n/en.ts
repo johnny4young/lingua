@@ -61,14 +61,14 @@ export const en = {
       proofLabel: 'Lingua product facts',
       proof: [
         { value: '5', label: 'runnable languages' },
-        { value: '29', label: 'developer utilities' },
+        { value: '31', label: 'developer utilities' },
         { value: '0', label: 'telemetry before consent' },
       ],
       bullets: [
         'Local-first AI — explain errors, apply fixes, opt-in and BYO-key.',
         'Pyodide vendored — Python runs offline.',
         'Telemetry off by default.',
-        'Vim mode, command palette, 29 dev utilities.',
+        'Vim mode, command palette, 31 dev utilities.',
       ],
       os: {
         generic: 'Download Lingua',
@@ -166,8 +166,20 @@ export const en = {
         {
           image: "/screenshots/tour/utilities.png",
           alt: "Developer utilities workspace with the JSON formatter active: input panel, pretty-print controls, and a tree viewer",
-          title: "29 utilities live next to your code",
-          body: "JSON formatter with a tree viewer, JWT debugger, hash and UUID generators, regex tester — each one runs locally in the same window, so quick tasks stop costing you a browser tab.",
+          title: "31 utilities live next to your code",
+          body: "JSON formatter with a tree viewer, JWT debugger, mock data, hash and UUID generators — plus Utility Pipelines that chain them into one-click workflows. Each one runs locally in the same window, so quick tasks stop costing you a browser tab.",
+        },
+        {
+          image: "/screenshots/tour/sql-workspace.png",
+          alt: "SQL workspace with an imported releases table, a formatted aggregate query, a results grid, and the column profile panel",
+          title: "A full SQL workspace on DuckDB",
+          body: "Drop a CSV, JSON, or Parquet file and it becomes a queryable table on the bundled DuckDB engine — results grid, one-keystroke query formatting, and per-column profiling included. Your local Run Ledger is queryable from here too.",
+        },
+        {
+          image: "/screenshots/tour/http-workspace.png",
+          alt: "HTTP workspace showing a GET request with query params and a pretty-printed 200 OK JSON response",
+          title: "An HTTP client without the browser-tab tax",
+          body: "Requests, query params, auth, environments, and response capture live in one workspace tab. Send and read the pretty-printed body with status, timing, and size right where you code.",
         },
         {
           image: "/screenshots/tour/settings-privacy.png",
@@ -182,6 +194,12 @@ export const en = {
       title: 'AI that never sends your code without asking.',
       lede:
         'Opt-in, bring-your-own-key, and local-first. Point it at a local model (Ollama, LM Studio) and your code never leaves the machine — or use any OpenAI-compatible endpoint. Lingua ships no default key and makes no background calls; every request shows you the exact payload first.',
+      shot: {
+        image: '/screenshots/tour/ai-explain.png',
+        alt: 'Explain-this-error dialog over a failed JavaScript run: the model explains the undefined property, proposes a guarded fix in a code block, and offers Ask and Apply and re-run actions',
+        caption:
+          'A real answer from a local model — qwen3-coder on Ollama, no cloud round trip. The dialog previews the exact payload before anything is sent, and Apply & re-run patches the fix behind a diff you approve.',
+      },
       cards: [
         {
           icon: 'wand-sparkles',
@@ -239,7 +257,7 @@ export const en = {
     },
     utilities: {
       eyebrow: 'Developer utilities',
-      title: '29 panels, built in.',
+      title: '31 panels, built in.',
       lede:
         'The browser tabs that usually orbit a code runner — JSON formatter, regex, JWT, diff, hash, cron, color, the lot — already live inside Lingua.',
       aria: 'Built-in developer utilities',
