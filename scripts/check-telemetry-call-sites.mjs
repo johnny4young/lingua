@@ -67,6 +67,7 @@ export const LEGACY_DIRECT_CALL_LIMITS = Object.freeze({
   'src/renderer/utils/blockedPath.ts': 1,
   'src/renderer/utils/bootTimings.ts': 1,
   'src/renderer/utils/exportCapsule.ts': 1,
+  'src/renderer/utils/exportCapsuleHtml.ts': 1,
   'src/renderer/utils/shareLink.ts': 2,
 });
 

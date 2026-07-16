@@ -657,6 +657,9 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   'list-export',
   // RL-099 Slice 3 — mirror of the pipeline-run trigger.
   'pipeline-run',
+  // IT2-F7 — mirror of the HTML-export triggers.
+  'settings-export-html',
+  'list-export-html',
 ]);
 // RL-094 Slice 3 fold G — mirror of `CAPSULE_BROWSE_SURFACES` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.

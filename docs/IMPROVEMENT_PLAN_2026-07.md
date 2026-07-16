@@ -1060,7 +1060,7 @@ entitlement nuevo sin decisión).
 serializar el árbol completo (assert sobre el tamaño del mensaje); copy
 value/path; funciona en JS/TS; Python en slice 2 (vía kernel).
 
-## IT2-F7 · Capsule → HTML autocontenido — S-M (1-2 d)
+## IT2-F7 · Capsule → HTML autocontenido — EJECUTADO 2026-07-16 · S-M (1-2 d)
 
 **Evidencia.** Quokka monetiza compartir ejecuciones (Codeclip, con
 backend). La versión Lingua sin backend: exportar una `RunCapsuleV1` a un
@@ -1077,6 +1077,26 @@ capsules; trust event + redacción ya vienen de la capsule.
 **AC.** Capsule → HTML → abre standalone con código coloreado y output;
 cero requests externos (verificar con el HTML abierto offline); tamaño
 < 500 KB para una capsule típica; el HTML declara la versión del schema.
+
+**Estado (2026-07-16): hecho.** `src/shared/capsuleHtmlExport.ts` construye el
+documento puro (CSS inline, cero scripts, contenido escapado, CSP
+`default-src 'none'` como backstop, `<meta>` con schema v1 + capsule id,
+labels i18n inyectados). El orquestador renderer sanitiza, tokeniza con el
+tokenizador estático de Monaco (fallback a texto plano) y guarda vía un
+helper genérico extraído del exportador `.linguanb` (diálogo nativo en
+desktop, blob en web). Botones: Settings → Cuenta → Run capsules y acción
+por fila en el browse overlay. Telemetría `settings-export-html` /
+`list-export-html` en ambos allowlists (shared + update-server) y trust
+event solo tras un guardado exitoso.
+
+**Cierre de AC.** 11 tests del builder (escape hostil, CSP, sin src/href,
+tamaño, filename determinista, duración redondeada) + 4 del orquestador +
+4 de superficie. El smoke web de producción exportó en EN y ES, validó el
+documento renderizado standalone (código coloreado, stdout, entorno,
+schema en footer) y terminó con cero errores de consola. Una capsule
+típica pesa ~4.7 KB. Evidencia en
+`output/review/it2-f7-capsule-html/` (settings EN/ES, documento EN/ES,
+y los .html exportados).
 
 ## IT2-F8 · HTTP: assertions + scripting post-request — M (3-4 d)
 

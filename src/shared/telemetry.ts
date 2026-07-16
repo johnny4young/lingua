@@ -1121,6 +1121,11 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // pipeline panel. Distinct so the dashboard can measure how often a
   // pipeline run is promoted into the capsule ring.
   'pipeline-run',
+  // IT2-F7 — self-contained HTML export. Tagged per surface (Settings
+  // latest-run button vs browse-overlay row) so the dashboard can
+  // compare HTML-share adoption against the JSON/clipboard flows.
+  'settings-export-html',
+  'list-export-html',
 ]);
 // RL-094 Slice 3 fold G — closed enum of surfaces that can open the
 // capsule browse overlay. Mirrored in `update-server/src/telemetry.ts`

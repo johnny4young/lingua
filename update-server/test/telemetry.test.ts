@@ -556,10 +556,14 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(sharedValues);
     expect(workerValues).toEqual([
       'list-export',
+      // IT2-F7 — self-contained HTML export from the browse overlay row.
+      'list-export-html',
       'palette-export',
       'pipeline-run',
       'result-panel-export',
       'settings-export',
+      // IT2-F7 — self-contained HTML export from Settings latest-run.
+      'settings-export-html',
     ]);
   });
 
