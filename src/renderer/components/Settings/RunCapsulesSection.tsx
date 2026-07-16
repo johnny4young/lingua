@@ -4,6 +4,7 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { summarizeRunCapsule } from '../../../shared/runCapsule';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
+import { exportCapsuleAsHtml } from '../../utils/exportCapsuleHtml';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { emitCommand } from '../../stores/commandBus';
 
@@ -33,7 +34,7 @@ import { emitCommand } from '../../stores/commandBus';
  * Anti-feature §A-006: no mandatory cloud sync).
  */
 export function RunCapsulesSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // RL-094 Slice 1 reviewer fix — select the CALL RESULT of
   // `latestCapsule()`, not the function reference. The reference is
   // stable across store updates so subscribing to it would never
@@ -70,6 +71,27 @@ export function RunCapsulesSection() {
       messageKey: 'settings.account.runCapsules.fallbackNotice',
     });
   }, [capsule, prettyPrint, pushStatusNotice]);
+
+  // IT2-F7 — one-file HTML export of the same latest capsule. Save /
+  // download orchestration (native dialog on desktop, blob on web)
+  // lives in the helper; this surface only routes the outcome notices.
+  const handleExportHtml = useCallback(async () => {
+    if (!capsule) return;
+    await exportCapsuleAsHtml(capsule, 'settings-export-html', {
+      t,
+      locale: i18n.language,
+      onOk: () =>
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'capsuleHtml.notice.saved',
+        }),
+      onError: () =>
+        pushStatusNotice({
+          tone: 'error',
+          messageKey: 'capsuleHtml.notice.failed',
+        }),
+    });
+  }, [capsule, i18n.language, pushStatusNotice, t]);
 
   return (
     <SettingsSection
@@ -128,6 +150,16 @@ export function RunCapsulesSection() {
                   title={t('settings.account.runCapsules.import.helper')}
                 >
                   {t('settings.account.runCapsules.import.button')}
+                </button>
+                <button
+                  type="button"
+                  className="focus-ring rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt disabled:opacity-50"
+                  onClick={() => void handleExportHtml()}
+                  disabled={!capsule}
+                  data-testid="capsule-export-html-button"
+                  title={t('settings.account.runCapsules.exportHtml.helper')}
+                >
+                  {t('settings.account.runCapsules.exportHtml.button')}
                 </button>
                 <button
                   type="button"

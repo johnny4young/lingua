@@ -74,8 +74,12 @@ export function AppOverlays({
       {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
       {overlay === 'replace' && <ProjectReplace onClose={closeOverlay} />}
       {overlay === 'go-to-symbol' && <GoToSymbol onClose={closeOverlay} />}
-      {overlay === 'palette' && (
+      {(overlay === 'palette' || overlay === 'recent-commands') && (
         <CommandPalette
+          key={overlay}
+          // RL-113 — Cmd+; renders the same palette pre-scoped to the
+          // per-session recent-commands stack (numbered 1-8, no search).
+          variant={overlay === 'recent-commands' ? 'recent' : 'all'}
           onClose={closeOverlay}
           onOpenSettings={() => openOverlay('settings')}
           onOpenWhatsNew={() => openOverlay('whats-new')}

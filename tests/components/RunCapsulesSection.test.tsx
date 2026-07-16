@@ -43,6 +43,17 @@ vi.mock('../../src/renderer/stores/uiStore', () => ({
   ),
 }));
 
+// IT2-F7 — the HTML export orchestration is covered by its own unit
+// suite (`tests/utils/exportCapsuleHtml.test.ts`); here we only assert
+// the surface wires the right capsule + trigger + outcome notices.
+const { mockExportCapsuleAsHtml } = vi.hoisted(() => ({
+  mockExportCapsuleAsHtml: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../src/renderer/utils/exportCapsuleHtml', () => ({
+  exportCapsuleAsHtml: mockExportCapsuleAsHtml,
+}));
+
 const { latestCapsuleRef } = vi.hoisted(() => ({
   latestCapsuleRef: { current: null as unknown },
 }));
@@ -59,6 +70,7 @@ describe('RunCapsulesSection', () => {
   beforeEach(async () => {
     mockTrackEvent.mockClear();
     mockPushStatusNotice.mockClear();
+    mockExportCapsuleAsHtml.mockReset().mockResolvedValue(undefined);
     latestCapsuleRef.current = null;
     initI18n('en');
     await i18next.changeLanguage('en');
@@ -73,6 +85,9 @@ describe('RunCapsulesSection', () => {
     render(<RunCapsulesSection />);
     const button = screen.getByTestId('capsule-export-button') as HTMLButtonElement;
     expect(button.disabled).toBe(true);
+    const htmlButton = screen.getByTestId('capsule-export-html-button') as HTMLButtonElement;
+    expect(htmlButton.disabled).toBe(true);
+    expect(htmlButton.className).toContain('focus-ring');
     expect(
       screen.queryByText('Run any code first; the latest result becomes exportable here.')
     ).not.toBeNull();
@@ -119,6 +134,49 @@ describe('RunCapsulesSection', () => {
       expect.objectContaining({
         messageKey: 'settings.account.runCapsules.copiedNotice',
       })
+    );
+  });
+
+  it('exports the latest capsule as HTML with the settings trigger (IT2-F7)', async () => {
+    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
+    mockExportCapsuleAsHtml.mockImplementation(
+      async (_capsule, _trigger, context: { onOk: () => void }) => {
+        context.onOk();
+      }
+    );
+
+    render(<RunCapsulesSection />);
+    const button = screen.getByTestId('capsule-export-html-button') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+
+    fireEvent.click(button);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(mockExportCapsuleAsHtml).toHaveBeenCalledTimes(1);
+    expect(mockExportCapsuleAsHtml).toHaveBeenCalledWith(
+      FIXTURE_MINIMAL_JS,
+      'settings-export-html',
+      expect.objectContaining({ locale: 'en' })
+    );
+    expect(mockPushStatusNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ messageKey: 'capsuleHtml.notice.saved' })
+    );
+  });
+
+  it('surfaces the error notice when the HTML export fails (IT2-F7)', async () => {
+    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
+    mockExportCapsuleAsHtml.mockImplementation(
+      async (_capsule, _trigger, context: { onError: () => void }) => {
+        context.onError();
+      }
+    );
+
+    render(<RunCapsulesSection />);
+    fireEvent.click(screen.getByTestId('capsule-export-html-button'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(mockPushStatusNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ messageKey: 'capsuleHtml.notice.failed' })
     );
   });
 

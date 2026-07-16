@@ -20,11 +20,11 @@ export function Base64UtilityPanel() {
     utilityId: 'base64',
     initialInput: 'Lingua utilities',
     transform,
+    onPendingInput: () => setMode('decode'),
   });
-  const runApply = useCallback(
-    () => setMode(detectsAsBase64(input) ? 'decode' : 'encode'),
-    [input]
-  );
+  const runApply = useCallback(() => {
+    setMode(detectsAsBase64(input) ? 'decode' : 'encode');
+  }, [input]);
 
   return (
     <div className="grid gap-4">

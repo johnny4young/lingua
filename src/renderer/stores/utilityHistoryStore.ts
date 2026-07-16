@@ -68,6 +68,12 @@ export interface UtilityHistoryEntry {
   truncated: boolean;
 }
 
+/** IT2-F4 — a one-shot input seed for a utility panel. */
+export interface PendingUtilityInput {
+  utilityId: DeveloperUtilityId;
+  input: string;
+}
+
 export interface UtilityHistoryState {
   /** Per-tool ring buffer, newest first. */
   history: Partial<Record<DeveloperUtilityId, UtilityHistoryEntry[]>>;
@@ -77,6 +83,13 @@ export interface UtilityHistoryState {
   favorites: DeveloperUtilityId[];
   /** Currently selected tool in the full-screen Utilities workspace. */
   activeUtilityId: DeveloperUtilityId;
+  /**
+   * IT2-F4 — one-shot input handed from the smart-paste router to the
+   * target panel (`usePendingUtilityInput` consumes and clears it).
+   * Session-only by design: it is NOT in `partialize`, so a pending
+   * paste never survives a reload.
+   */
+  pendingUtilityInput: PendingUtilityInput | null;
 
   pushEntry: (toolId: DeveloperUtilityId, input: string, output: string) => void;
   clearHistory: (toolId?: DeveloperUtilityId) => void;
@@ -87,6 +100,7 @@ export interface UtilityHistoryState {
   reorderFavorites: (next: DeveloperUtilityId[]) => void;
   isFavorite: (toolId: DeveloperUtilityId) => boolean;
   setActiveUtilityId: (toolId: DeveloperUtilityId) => void;
+  setPendingUtilityInput: (pending: PendingUtilityInput | null) => void;
 }
 
 function byteLength(value: string): number {
@@ -159,6 +173,7 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
       persistEnabled: {},
       favorites: [],
       activeUtilityId: DEFAULT_DEVELOPER_UTILITY_ID,
+      pendingUtilityInput: null,
 
       pushEntry: (toolId, input, output) => {
         const inputCapped = truncate(input);
@@ -240,6 +255,11 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
       setActiveUtilityId: toolId => {
         if (!isKnownUtilityId(toolId)) return;
         set({ activeUtilityId: toolId });
+      },
+
+      setPendingUtilityInput: pending => {
+        if (pending && !isKnownUtilityId(pending.utilityId)) return;
+        set({ pendingUtilityInput: pending });
       },
     }),
     {

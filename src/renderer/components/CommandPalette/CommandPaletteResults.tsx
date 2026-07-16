@@ -47,6 +47,13 @@ interface CommandPaletteResultsProps {
   listboxId: string;
   /** Stable per-row option id, for the input's aria-activedescendant. */
   optionId: (index: number) => string;
+  /**
+   * RL-113 — present ONLY in the Cmd+; recent-commands variant: maps a
+   * command id to its last execution epoch. Switches the list to a flat
+   * numbered stack (1-8 badges + relative "2m ago" column) and skips
+   * the category grouping.
+   */
+  recentTimestamps?: ReadonlyMap<string, number>;
 }
 
 export function CommandPaletteResults({
@@ -57,25 +64,45 @@ export function CommandPaletteResults({
   onHoverIndex,
   listboxId,
   optionId,
+  recentTimestamps,
 }: CommandPaletteResultsProps) {
   const { t } = useTranslation();
   const isEmptyQuery = query.trim().length === 0;
+  const isRecentStack = recentTimestamps !== undefined;
 
   return (
     <div
       ref={listRef}
       id={listboxId}
       role="listbox"
-      aria-label={t('shortcuts.item.commandPalette.label')}
+      aria-label={t(
+        isRecentStack
+          ? 'commandPalette.recent.title'
+          : 'shortcuts.item.commandPalette.label'
+      )}
     >
       {commands.length === 0 ? (
         <div className="px-4 py-10">
           <EmptyState
             icon={<Search size={18} aria-hidden="true" />}
-            title={t('commandPalette.results.empty', { query })}
-            description={t('commandPalette.results.empty.hint')}
+            title={t(
+              isRecentStack ? 'commandPalette.recent.empty' : 'commandPalette.results.empty',
+              { query }
+            )}
+            description={t(
+              isRecentStack
+                ? 'commandPalette.recent.empty.hint'
+                : 'commandPalette.results.empty.hint'
+            )}
           />
         </div>
+      ) : isRecentStack ? (
+        commands.map((command, index) =>
+          renderEntry(command, index, selectedIndex, onHoverIndex, optionId, {
+            slot: index + 1,
+            relativeTime: relativeTimeLabel(t, recentTimestamps.get(command.id)),
+          })
+        )
       ) : isEmptyQuery ? (
         renderGrouped(commands, t, selectedIndex, onHoverIndex, optionId)
       ) : (
@@ -87,12 +114,32 @@ export function CommandPaletteResults({
   );
 }
 
+/**
+ * RL-113 — compact relative timestamp for the recent stack. Reuses the
+ * existing `executionHistory.relative.*` plural keys so the palette and
+ * the Recent-runs pill describe time identically.
+ */
+function relativeTimeLabel(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  executedAt: number | undefined
+): string | null {
+  if (executedAt === undefined) return null;
+  const elapsedMs = Math.max(0, Date.now() - executedAt);
+  const seconds = Math.round(elapsedMs / 1000);
+  if (seconds < 60) return t('executionHistory.relative.seconds', { count: Math.max(1, seconds) });
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return t('executionHistory.relative.minutes', { count: minutes });
+  const hours = Math.round(minutes / 60);
+  return t('executionHistory.relative.hours', { count: hours });
+}
+
 function renderEntry(
   command: CommandEntry,
   index: number,
   selectedIndex: number,
   onHoverIndex: (index: number) => void,
-  optionId: (index: number) => string
+  optionId: (index: number) => string,
+  recentMeta?: { slot: number; relativeTime: string | null }
 ) {
   const isActive = index === selectedIndex;
   return (
@@ -115,14 +162,26 @@ function renderEntry(
           : 'border-transparent hover:bg-bg-panel-alt'
       )}
     >
-      <span
-        className={cn(
-          'grid size-7 shrink-0 place-items-center rounded-md border border-border-subtle bg-bg-panel-alt',
-          isActive ? 'text-accent' : 'text-fg-muted'
-        )}
-      >
-        {CATEGORY_ICON[command.category]}
-      </span>
+      {recentMeta ? (
+        <kbd
+          data-testid="recent-command-slot"
+          className={cn(
+            'grid size-7 shrink-0 place-items-center rounded-md border border-border-subtle bg-bg-panel-alt font-mono text-body-sm font-semibold',
+            isActive ? 'text-accent' : 'text-fg-muted'
+          )}
+        >
+          {recentMeta.slot}
+        </kbd>
+      ) : (
+        <span
+          className={cn(
+            'grid size-7 shrink-0 place-items-center rounded-md border border-border-subtle bg-bg-panel-alt',
+            isActive ? 'text-accent' : 'text-fg-muted'
+          )}
+        >
+          {CATEGORY_ICON[command.category]}
+        </span>
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-body font-medium text-fg-base">
           {command.label}
@@ -131,6 +190,14 @@ function renderEntry(
           {command.description}
         </span>
       </div>
+      {recentMeta?.relativeTime ? (
+        <span
+          data-testid="recent-command-time"
+          className="shrink-0 font-mono text-caption text-fg-subtle"
+        >
+          {recentMeta.relativeTime}
+        </span>
+      ) : null}
       {command.language && (
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.14em] ${languageBadgeClass(command.language)}`}

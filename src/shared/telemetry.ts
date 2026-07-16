@@ -1121,6 +1121,11 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // pipeline panel. Distinct so the dashboard can measure how often a
   // pipeline run is promoted into the capsule ring.
   'pipeline-run',
+  // IT2-F7 — self-contained HTML export. Tagged per surface (Settings
+  // latest-run button vs browse-overlay row) so the dashboard can
+  // compare HTML-share adoption against the JSON/clipboard flows.
+  'settings-export-html',
+  'list-export-html',
 ]);
 // RL-094 Slice 3 fold G — closed enum of surfaces that can open the
 // capsule browse overlay. Mirrored in `update-server/src/telemetry.ts`
@@ -1683,13 +1688,22 @@ export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
 
 // RL-110 — closed enum for the `handler` property of the smart-paste events.
 // One token per paste-intent kind (mirrors `PasteIntentKind` in
-// src/renderer/clipboard/pasteHandlers.ts).
+// src/renderer/clipboard/pasteHandlers.ts). IT2-F4 utility suggestions
+// report per-format as `utility-<utilityId>` so the dashboard can rank
+// which formats users actually hand to the Developer Utilities.
 export const SMART_PASTE_HANDLERS = new Set([
   'share-link',
   'capsule',
   'curl',
   'stack-trace',
   'large-json',
+  'utility-jwt',
+  'utility-uuid',
+  'utility-color',
+  'utility-timestamp',
+  'utility-cron-parser',
+  'utility-base64',
+  'utility-json',
 ]);
 
 export function isSafeToken(value: unknown): value is string {

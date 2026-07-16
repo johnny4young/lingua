@@ -49,6 +49,7 @@ export function buildGlobalShortcutActions(
     'action-open-recipes': () => options.openRecipesOverlay(),
     'action-new-notebook': () => options.openNewNotebook(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
+    'overlay-recent-commands': () => options.toggleOverlay('recent-commands'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),
     'view-toggle-sidebar': () => options.toggleSidebar(),
