@@ -123,6 +123,7 @@ export class WasmRubyRunner implements LanguageRunner {
         let timeoutId: ReturnType<typeof globalThis.setTimeout> | null =
           globalThis.setTimeout(() => {
             cleanup();
+            useBootstrapProgressStore.getState().clear('ruby');
             worker.terminate();
             if (this.worker === worker) {
               this.worker = null;
@@ -150,6 +151,7 @@ export class WasmRubyRunner implements LanguageRunner {
 
         const cancelLoading = () => {
           cleanup();
+          useBootstrapProgressStore.getState().clear('ruby');
           worker.terminate();
           if (this.worker === worker) {
             this.worker = null;
@@ -170,12 +172,13 @@ export class WasmRubyRunner implements LanguageRunner {
               totalBytes: msg.totalBytes,
             });
           } else if (msg.type === 'ready') {
-            useBootstrapProgressStore.getState().clear();
+            useBootstrapProgressStore.getState().clear('ruby');
             this.rubyLoaded = true;
             cleanup();
             resolve();
           } else if (msg.type === 'error') {
             cleanup();
+            useBootstrapProgressStore.getState().clear('ruby');
             worker.terminate();
             if (this.worker === worker) {
               this.worker = null;
@@ -188,6 +191,7 @@ export class WasmRubyRunner implements LanguageRunner {
 
         const errorHandler = (event: Event) => {
           cleanup();
+          useBootstrapProgressStore.getState().clear('ruby');
           worker.terminate();
           if (this.worker === worker) {
             this.worker = null;
@@ -331,7 +335,7 @@ export class WasmRubyRunner implements LanguageRunner {
           case 'done':
             // IT2-D3 — boot finished (or was already warm); drop the
             // progress line so the pill returns to its normal label.
-            useBootstrapProgressStore.getState().clear();
+            useBootstrapProgressStore.getState().clear('ruby');
             finish({
               stdout,
               stderr,
@@ -368,6 +372,7 @@ export class WasmRubyRunner implements LanguageRunner {
   }
 
   stop(): void {
+    useBootstrapProgressStore.getState().clear('ruby');
     if (this.loadingCancel) {
       const cancelLoading = this.loadingCancel;
       this.loadingCancel = null;

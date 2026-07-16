@@ -12,7 +12,10 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useUIStore } from '../../stores/uiStore';
-import { usePresenterModeStore } from '../../stores/presenterModeStore';
+import {
+  PRESENTER_CONSOLE_FONT_LIFT,
+  usePresenterModeStore,
+} from '../../stores/presenterModeStore';
 import { bucketCapsuleSize } from '../../../shared/runCapsule';
 import { extractClipboardImageFile, readPastedImageFile } from './clipboardImagePaste';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
@@ -535,10 +538,14 @@ export function ConsolePanel() {
         data-window-range={`${listWindow.startIndex}:${listWindow.endIndex}`}
         className="flex-1 overflow-y-auto px-3 py-2 font-mono text-body-sm leading-6"
         style={
-          // RL-116 — presenter mode lifts the output font ~+2px over
-          // the text-body-sm base (13px); the inline style outranks
-          // the class without mutating any persisted preference.
-          presenterActive ? { fontSize: '15px' } : undefined
+          // RL-116 — derive the +2px lift from the design token rather
+          // than hard-coding its current value; text-body-sm can evolve
+          // without changing presenter mode's promised delta.
+          presenterActive
+            ? {
+                fontSize: `calc(var(--text-body-sm-size) + ${PRESENTER_CONSOLE_FONT_LIFT}px)`,
+              }
+            : undefined
         }
       >
         {visibleEntries.length === 0 ? (

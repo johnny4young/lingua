@@ -886,15 +886,18 @@ describe('gitWatchHeadSuppressedByMagicComment (RL-102 Slice 2 Fold F)', () => {
 // ---------------------------------------------------------------------------
 
 describe('lineTimingRequestedByMagicComment (RL-115)', () => {
-  it('detects // @time anywhere in a JS/TS buffer', () => {
+  it('detects real // @time comments anywhere in a JS/TS buffer', () => {
     expect(lineTimingRequestedByMagicComment('javascript', '// @time\nconst x = 1;')).toBe(true);
     expect(lineTimingRequestedByMagicComment('typescript', 'const x = 1;\n// @TIME')).toBe(true);
+    expect(lineTimingRequestedByMagicComment('javascript', 'const x = 1; // @time')).toBe(true);
   });
 
-  it('never matches @timeout (word boundary) or other languages', () => {
+  it('never matches lookalikes inside strings/regexes, @timeout, or other languages', () => {
     expect(lineTimingRequestedByMagicComment('javascript', '// @timeout 60s')).toBe(false);
     expect(lineTimingRequestedByMagicComment('python', '# @time')).toBe(false);
     expect(lineTimingRequestedByMagicComment('javascript', 'const time = 1;')).toBe(false);
+    expect(lineTimingRequestedByMagicComment('javascript', 'const text = "// @time";')).toBe(false);
+    expect(lineTimingRequestedByMagicComment('javascript', 'const pattern = /\\/\\/ @time/u;')).toBe(false);
   });
 });
 
@@ -942,6 +945,20 @@ describe('detectJSStatementStartLines (RL-115)', () => {
       'const b = 2;', // 5 ✓
     ].join('\n');
     expect(detectJSStatementStartLines(code)).toEqual([2, 5]);
+  });
+
+  it('does not instrument directive-prologue string literals', () => {
+    const code = [
+      "'use strict';",
+      '"use client";',
+      'const answer = 42;',
+      "'a later string expression';",
+    ].join('\n');
+    const lines = detectJSStatementStartLines(code);
+    expect(lines).toEqual([3, 4]);
+    expect(transformJSLineTiming(code, lines)).toBe(
+      "'use strict';\n\"use client\";\n__mc_tick(3); const answer = 42;\n__mc_tick(4); 'a later string expression';"
+    );
   });
 });
 

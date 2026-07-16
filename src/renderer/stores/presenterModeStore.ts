@@ -16,6 +16,8 @@ import { create } from 'zustand';
 
 /** Editor font-size lift while presenting, in px over the user's base. */
 export const PRESENTER_EDITOR_FONT_LIFT = 4;
+/** Console font-size lift while presenting, in px over the body-sm token. */
+export const PRESENTER_CONSOLE_FONT_LIFT = 2;
 
 interface PresenterModeState {
   active: boolean;

@@ -24,6 +24,7 @@ import { initI18n } from '@/i18n';
 import { FloatingActionPill } from '@/components/Toolbar/FloatingActionPill';
 import { useEditorStore } from '@/stores/editorStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
 
 const runMock = vi.fn();
 const stopMock = vi.fn();
@@ -67,6 +68,7 @@ beforeEach(async () => {
     pendingReveal: null,
   });
   useUIStore.setState({ actionPillPosition: null });
+  useBootstrapProgressStore.getState().clear();
 });
 
 function renderPill(props: ComponentProps<typeof FloatingActionPill> = {}) {
@@ -195,6 +197,39 @@ describe('FloatingActionPill', () => {
       document.body.querySelectorAll('.action-pill-divider'),
     ).filter((node) => !node.classList.contains('action-pill-meta-divider'));
     expect(structuralDividers).toHaveLength(1);
+  });
+
+  it('only shows bootstrap progress for the active tab language', async () => {
+    renderPill();
+    act(() => {
+      useBootstrapProgressStore.getState().report({
+        language: 'python',
+        loadedBytes: 2 * 1024 * 1024,
+        totalBytes: null,
+      });
+    });
+    expect(screen.getByTestId('action-pill-run').textContent).not.toContain('Python');
+    expect(screen.getByTestId('action-pill-run').textContent).not.toContain('MB');
+
+    act(() => {
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-py',
+            name: 'main.py',
+            language: 'python',
+            content: 'print(42)',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-py',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('action-pill-run').textContent).toContain('Python');
+      expect(screen.getByTestId('action-pill-run').textContent).toContain('2.0 MB');
+    });
   });
 
   it('offers every implemented JS/TS runtime in the floating runtime picker', async () => {

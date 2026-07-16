@@ -7,6 +7,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  PRESENTER_CONSOLE_FONT_LIFT,
   PRESENTER_EDITOR_FONT_LIFT,
   usePresenterModeStore,
 } from '../../src/renderer/stores/presenterModeStore';
@@ -42,7 +43,8 @@ describe('presenterModeStore', () => {
     expect(useSettingsStore.getState().showStatusBar).toBe(statusBefore);
   });
 
-  it('exports a whole-pixel editor lift', () => {
+  it('exports the promised whole-pixel font lifts', () => {
     expect(PRESENTER_EDITOR_FONT_LIFT).toBe(4);
+    expect(PRESENTER_CONSOLE_FONT_LIFT).toBe(2);
   });
 });

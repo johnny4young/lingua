@@ -13,6 +13,7 @@ const {
   mockTrackEvent,
   mockRunnerManagerPrepare,
   mockRunnerExecute,
+  mockNeedsInitialization,
   mockSetRunTermination,
   mockSetRunDeadlineAt,
 } = vi.hoisted(
@@ -20,6 +21,7 @@ const {
     mockTrackEvent: vi.fn().mockResolvedValue(undefined),
     mockRunnerManagerPrepare: vi.fn(),
     mockRunnerExecute: vi.fn(),
+    mockNeedsInitialization: vi.fn(() => false),
     mockSetRunTermination: vi.fn(),
     mockSetRunDeadlineAt: vi.fn(),
   })
@@ -33,7 +35,7 @@ vi.mock('../../src/renderer/runners', () => ({
   runnerManager: {
     prepareRunner: mockRunnerManagerPrepare,
     isSupported: () => true,
-    needsInitialization: () => false,
+    needsInitialization: mockNeedsInitialization,
   },
 }));
 
@@ -88,7 +90,7 @@ vi.mock('../../src/renderer/validation', () => ({
 vi.mock('../../src/renderer/hooks/runnerOutput', () => ({
   getCompilationLoadingMessage: () => null,
   getCompilationMessage: () => null,
-  getInitializationMessage: () => null,
+  getInitializationMessage: (language: string) => `Loading ${language}`,
   toConsoleEntries: () => [],
 }));
 
@@ -109,6 +111,8 @@ describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
     mockRunnerExecute.mockReset();
+    mockNeedsInitialization.mockReset();
+    mockNeedsInitialization.mockReturnValue(false);
     mockSetRunTermination.mockClear();
     mockSetRunDeadlineAt.mockClear();
     useSettingsStore.setState({
@@ -356,5 +360,72 @@ describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
     });
 
     expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  it('emits one completed bootstrap outcome and closes the loading lifecycle', async () => {
+    mockNeedsInitialization.mockReturnValue(true);
+    mockRunnerManagerPrepare.mockResolvedValue({
+      runner: {
+        execute: mockRunnerExecute.mockResolvedValue({
+          stdout: [],
+          stderr: [],
+          result: undefined,
+          executionTime: 1,
+        }),
+      },
+      initialized: true,
+    });
+    const setIsInitializing = vi.fn();
+    const setLoadingMessage = vi.fn();
+
+    await executeTabManually(
+      {
+        id: 'tab-python-bootstrap',
+        name: 'main.py',
+        language: 'python',
+        content: 'print(42)',
+        isDirty: false,
+      },
+      { setIsInitializing, setLoadingMessage }
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'runtime.bootstrap_completed',
+      expect.objectContaining({
+        language: 'python',
+        durationBucket: expect.any(String),
+      })
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === 'runtime.bootstrap_completed'
+      )
+    ).toHaveLength(1);
+    expect(setIsInitializing).toHaveBeenCalledWith(true);
+    expect(setIsInitializing).toHaveBeenLastCalledWith(false);
+    expect(setLoadingMessage).toHaveBeenLastCalledWith(null);
+  });
+
+  it('emits one failed bootstrap outcome when preparation returns no runner', async () => {
+    mockNeedsInitialization.mockReturnValue(true);
+    mockRunnerManagerPrepare.mockResolvedValue({ runner: null, initialized: false });
+
+    await executeTabManually({
+      id: 'tab-ruby-bootstrap',
+      name: 'main.rb',
+      language: 'ruby',
+      content: 'puts 42',
+      isDirty: false,
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'runtime.bootstrap_failed',
+      { language: 'ruby', reason: 'prepare-error' }
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === 'runtime.bootstrap_failed'
+      )
+    ).toHaveLength(1);
   });
 });

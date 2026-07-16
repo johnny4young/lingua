@@ -28,6 +28,18 @@ describe('bootstrapProgressStore', () => {
     useBootstrapProgressStore.getState().clear();
     expect(useBootstrapProgressStore.getState().progress).toBeNull();
   });
+
+  it('does not let one runtime clear another runtime\'s active sample', () => {
+    useBootstrapProgressStore.getState().report({
+      language: 'ruby',
+      loadedBytes: 1024,
+      totalBytes: null,
+    });
+    useBootstrapProgressStore.getState().clear('python');
+    expect(useBootstrapProgressStore.getState().progress?.language).toBe('ruby');
+    useBootstrapProgressStore.getState().clear('ruby');
+    expect(useBootstrapProgressStore.getState().progress).toBeNull();
+  });
 });
 
 describe('formatMegabytes', () => {

@@ -71,10 +71,12 @@ export function FloatingActionPillRunGroup({
   // store is fed by the worker whether the boot started from a manual
   // run's initialization window OR the scratchpad auto-run, so the
   // pill shows the download counter either way.
-  const bootstrapProgress = useBootstrapProgressStore(state => state.progress);
+  const bootstrapProgress = useBootstrapProgressStore(state =>
+    state.progress?.language === language ? state.progress : null
+  );
   const bootstrapLabel = bootstrapProgress
     ? formatBootstrapProgress(
-        getInitializationMessage(bootstrapProgress.language as Language),
+        getInitializationMessage(bootstrapProgress.language),
         bootstrapProgress
       )
     : null;

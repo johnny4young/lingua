@@ -567,6 +567,8 @@ interface TopLevelLineInfo {
   openTokenAtStart: boolean;
   /** True when the line ENDS inside a string/template/block comment. */
   openTokenAtEnd: boolean;
+  /** Text after a real JS `//` opener, excluding string/regex literals. */
+  lineComment: string | null;
 }
 
 /**
@@ -596,6 +598,7 @@ function walkTopLevelLines(
   let lineStart = 0;
   let depthAtLineStart = 0;
   let openTokenAtLineStart = false;
+  let lineComment: string | null = null;
 
   const totalDepth = () =>
     bracketDepth + squareDepth + braceDepth + templateStack.length;
@@ -619,12 +622,14 @@ function walkTopLevelLines(
       depthAtEnd: depthAtLineEnd,
       openTokenAtStart: openTokenAtLineStart,
       openTokenAtEnd: openTokenAtLineEnd,
+      lineComment,
     });
     lineNumber++;
     lineStart = lineEnd + 1;
     depthAtLineStart = depthAtLineEnd;
     openTokenAtLineStart = openTokenAtLineEnd;
     strippedLine = '';
+    lineComment = null;
   };
 
   let i = 0;
@@ -719,6 +724,8 @@ function walkTopLevelLines(
     // JS context (top-level OR template placeholder).
     if (c === '/' && next === '/') {
       inLineComment = true;
+      const newline = code.indexOf('\n', i + 2);
+      lineComment = code.slice(i + 2, newline === -1 ? len : newline);
       strippedLine += '  ';
       i += 2;
       continue;
@@ -1299,19 +1306,26 @@ export function magicCommentKindsByLine(
  * `\b` keeps `@timeout` (whose next char is a word char) from matching.
  * JS/TS only in Slice 1, hence the `//`-only comment opener.
  */
-const TIME_DIRECTIVE_RE = /\/\/\s*@time\b/iu;
+const TIME_DIRECTIVE_COMMENT_RE = /^\s*@time\b/iu;
 
 /**
  * True when the buffer opts into per-line timing via `// @time`.
- * Mirrors the other whole-buffer pragmas (`@origin off`,
- * `@git-ignore-status`): presence anywhere in the buffer enables it.
+ * Presence in any real line comment enables it; string and regex literal
+ * lookalikes stay inert because the shared lexical walker identifies the
+ * actual comment opener.
  */
 export function lineTimingRequestedByMagicComment(
   language: string,
   code: string
 ): boolean {
   if (!isJavaScriptFamily(language)) return false;
-  return TIME_DIRECTIVE_RE.test(code);
+  let requested = false;
+  walkTopLevelLines(code, ({ lineComment }) => {
+    if (lineComment && TIME_DIRECTIVE_COMMENT_RE.test(lineComment)) {
+      requested = true;
+    }
+  });
+  return requested;
 }
 
 /**
@@ -1370,16 +1384,28 @@ export function detectJSStatementStartLines(code: string): number[] {
   if (code.length === 0) return [];
   const out: number[] = [];
   let previousEndedStatement = true;
+  let inDirectivePrologue = true;
 
   walkTopLevelLines(code, (info) => {
     const trimmed = trimLine(info.stripped);
     if (trimmed.length === 0) return; // blank / comment-only — invisible
+    const startsWithQuote = trimmed[0] === "'" || trimmed[0] === '"';
+    // A directive prologue must remain the first statements in its scope.
+    // Prefixing `'use strict'` / `"use client"` with a timing call turns
+    // it into a normal expression and changes runtime semantics. Once a
+    // non-string statement appears, later string expressions are safe to time.
+    const isDirectivePrologueLine = inDirectivePrologue && startsWithQuote;
     const qualifies =
       info.depthAtStart === 0 &&
       !info.openTokenAtStart &&
       previousEndedStatement &&
+      !isDirectivePrologueLine &&
       startsNewTopLevelStatement(trimmed);
     if (qualifies) out.push(info.lineNumber);
+
+    if (inDirectivePrologue && !startsWithQuote) {
+      inDirectivePrologue = false;
+    }
 
     const tail = stripTrailingSemicolons(trimmed);
     previousEndedStatement =

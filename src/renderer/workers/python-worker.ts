@@ -22,6 +22,10 @@
 
 import { syncUserEnvInPyodide } from './python-worker-env';
 import { createStdinLineReader } from './python-worker-stdin';
+import {
+  drainResponseBody,
+  responseWithBootstrapProgress,
+} from './bootstrapProgress';
 import { truncateSerialized } from '../runners/limits';
 import {
   DEFAULT_SCOPE_DEPTH,
@@ -211,20 +215,9 @@ async function prewarmPyodideWithProgress(): Promise<void> {
   try {
     const response = await fetch(`${PYODIDE_INDEX_URL}pyodide.asm.wasm`);
     if (!response.ok || !response.body) return;
-    const totalHeader = Number(response.headers.get('content-length'));
-    const totalBytes = Number.isFinite(totalHeader) && totalHeader > 0 ? totalHeader : null;
-    const reader = response.body.getReader();
-    let loadedBytes = 0;
-    let lastPostAt = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      loadedBytes += value?.byteLength ?? 0;
-      const now = Date.now();
-      // Throttle to ~4 updates/second — enough for a live counter,
-      // never a message flood on fast local serves.
-      if (now - lastPostAt >= 250 || loadedBytes === totalBytes) {
-        lastPostAt = now;
+    const trackedResponse = responseWithBootstrapProgress(
+      response,
+      ({ loadedBytes, totalBytes }) => {
         ctx.postMessage({
           type: 'bootstrap-progress',
           runId: activeRunId ?? '',
@@ -232,7 +225,10 @@ async function prewarmPyodideWithProgress(): Promise<void> {
           totalBytes,
         });
       }
-    }
+    );
+    // Populate the HTTP cache without retaining a second in-memory copy of
+    // the Pyodide WASM. The shared wrapper guarantees the final sample.
+    await drainResponseBody(trackedResponse);
   } catch {
     /* pre-warm is best-effort; the real loader reports failures */
   }

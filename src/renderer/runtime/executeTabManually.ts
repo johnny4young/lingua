@@ -258,6 +258,29 @@ function joinConsoleEntries(entries: ConsoleOutput[]): string {
   return entries.map((entry) => entry.args.join(' ')).join('\n');
 }
 
+type RuntimeBootstrapOutcome =
+  | { kind: 'completed'; durationMs: number }
+  | { kind: 'failed' };
+
+/** Emit one closed bootstrap outcome without growing direct telemetry calls. */
+function trackRuntimeBootstrapOutcome(
+  language: Language,
+  outcome: RuntimeBootstrapOutcome
+): void {
+  const event =
+    outcome.kind === 'completed'
+      ? 'runtime.bootstrap_completed'
+      : 'runtime.bootstrap_failed';
+  const properties: Record<string, string | number | boolean> =
+    outcome.kind === 'completed'
+      ? {
+          language,
+          durationBucket: bucketBootDuration(outcome.durationMs),
+        }
+      : { language, reason: 'prepare-error' };
+  void trackEvent(event, properties);
+}
+
 export interface ManualExecutionLifecycle {
   setIsRunning?: (value: boolean) => void;
   setIsInitializing?: (value: boolean) => void;
@@ -437,6 +460,7 @@ export async function executeTabManually(
   // subscription lives exactly as long as the initialization window.
   let unsubscribeBootstrapProgress: (() => void) | undefined;
   const bootstrapStartedAt = performance.now();
+  let bootstrapSettled = false;
   if (shouldShowInitialization) {
     lifecycle.setIsInitializing?.(true);
     const message = getInitializationMessage(language);
@@ -449,6 +473,16 @@ export async function executeTabManually(
       }
     });
   }
+  const settleBootstrap = (outcome: RuntimeBootstrapOutcome) => {
+    if (!shouldShowInitialization || bootstrapSettled) return;
+    bootstrapSettled = true;
+    unsubscribeBootstrapProgress?.();
+    unsubscribeBootstrapProgress = undefined;
+    useBootstrapProgressStore.getState().clear(language);
+    lifecycle.setIsInitializing?.(false);
+    lifecycle.setLoadingMessage?.(null);
+    trackRuntimeBootstrapOutcome(language, outcome);
+  };
 
   let runnerPrepared = false;
   // RL-102 Slice 2 fold A — snapshot the git posture at run START,
@@ -475,17 +509,9 @@ export async function executeTabManually(
 
     const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner) {
-      if (shouldShowInitialization) {
-        unsubscribeBootstrapProgress?.();
-        unsubscribeBootstrapProgress = undefined;
-        useBootstrapProgressStore.getState().clear();
-        // IT2-D3 — closed-enum failure signal; the console entry below
-        // carries the honest local message.
-        void trackEvent('runtime.bootstrap_failed', {
-          language,
-          reason: 'prepare-error',
-        });
-      }
+      // Closed-enum failure signal; the console entry below carries the
+      // honest local message.
+      settleBootstrap({ kind: 'failed' });
       addRunEntry({ type: 'error', content: `Failed to initialize ${language} runner.` });
       return {
         mode: 'run',
@@ -498,15 +524,10 @@ export async function executeTabManually(
     runnerPrepared = true;
 
     if (shouldShowInitialization) {
-      unsubscribeBootstrapProgress?.();
-      unsubscribeBootstrapProgress = undefined;
-      useBootstrapProgressStore.getState().clear();
-      lifecycle.setIsInitializing?.(false);
-      lifecycle.setLoadingMessage?.(null);
       // IT2-D3 — bucketed adoption signal; exact durations stay local.
-      void trackEvent('runtime.bootstrap_completed', {
-        language,
-        durationBucket: bucketBootDuration(performance.now() - bootstrapStartedAt),
+      settleBootstrap({
+        kind: 'completed',
+        durationMs: performance.now() - bootstrapStartedAt,
       });
     }
 
@@ -895,16 +916,7 @@ export async function executeTabManually(
       durationBucketMs: 0,
     });
     if (!runnerPrepared) {
-      if (shouldShowInitialization) {
-        unsubscribeBootstrapProgress?.();
-        useBootstrapProgressStore.getState().clear();
-        lifecycle.setIsInitializing?.(false);
-        lifecycle.setLoadingMessage?.(null);
-        void trackEvent('runtime.bootstrap_failed', {
-          language,
-          reason: 'prepare-error',
-        });
-      }
+      settleBootstrap({ kind: 'failed' });
       setDiagnostics([]);
       setError({
         message: `Failed to initialize ${language} runner: ${message}`,

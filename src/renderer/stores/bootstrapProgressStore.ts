@@ -9,10 +9,13 @@
  */
 
 import { create } from 'zustand';
+import type { Language } from '../types';
+
+export type BootstrapLanguage = Extract<Language, 'python' | 'ruby'>;
 
 export interface BootstrapProgress {
   /** Language whose runtime is booting (`python` / `ruby`). */
-  language: string;
+  language: BootstrapLanguage;
   loadedBytes: number;
   /** Null when the server sent no Content-Length — indeterminate. */
   totalBytes: number | null;
@@ -21,13 +24,19 @@ export interface BootstrapProgress {
 interface BootstrapProgressState {
   progress: BootstrapProgress | null;
   report: (progress: BootstrapProgress) => void;
-  clear: () => void;
+  /** Clear all progress, or only when the active sample matches a language. */
+  clear: (language?: Language) => void;
 }
 
 export const useBootstrapProgressStore = create<BootstrapProgressState>(set => ({
   progress: null,
   report: progress => set({ progress }),
-  clear: () => set({ progress: null }),
+  clear: language =>
+    set(state =>
+      language === undefined || state.progress?.language === language
+        ? { progress: null }
+        : state
+    ),
 }));
 
 /** `34 MB` with one decimal under 10 MB, whole numbers above. */

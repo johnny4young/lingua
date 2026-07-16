@@ -38,6 +38,7 @@
 
 import { consolePrinter, RubyVM } from '@ruby/wasm-wasi';
 import { File, OpenFile, PreopenDirectory, WASI } from '@bjorn3/browser_wasi_shim';
+import { responseWithBootstrapProgress } from './bootstrapProgress';
 
 const ctx = self as unknown as Worker;
 
@@ -123,47 +124,6 @@ async function compileVerified(
   return WebAssembly.compile(bytes);
 }
 
-/**
- * IT2-D3 — read the runtime body while streaming download progress to
- * the renderer. Materializing the bytes replaces the previous
- * `compileStreaming` fast path; the fetch dominates boot time and the
- * sha256 path already buffered the whole asset anyway.
- */
-async function readBodyWithProgress(response: Response): Promise<ArrayBuffer> {
-  if (!response.body) return response.arrayBuffer();
-  const totalHeader = Number(response.headers.get('content-length'));
-  const totalBytes = Number.isFinite(totalHeader) && totalHeader > 0 ? totalHeader : null;
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let loadedBytes = 0;
-  let lastPostAt = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) {
-      chunks.push(value);
-      loadedBytes += value.byteLength;
-    }
-    const now = Date.now();
-    if (now - lastPostAt >= 250 || loadedBytes === totalBytes) {
-      lastPostAt = now;
-      ctx.postMessage({
-        type: 'bootstrap-progress',
-        runId: activeRunId ?? '',
-        loadedBytes,
-        totalBytes,
-      });
-    }
-  }
-  const merged = new Uint8Array(loadedBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return merged.buffer;
-}
-
 async function loadRuby(): Promise<RubyVM> {
   if (vm) return vm;
 
@@ -173,13 +133,23 @@ async function loadRuby(): Promise<RubyVM> {
       `Failed to fetch Ruby runtime (${response.status} ${response.statusText})`
     );
   }
-  const bytes = await readBodyWithProgress(response);
+  const trackedResponse = responseWithBootstrapProgress(
+    response,
+    ({ loadedBytes, totalBytes }) => {
+      ctx.postMessage({
+        type: 'bootstrap-progress',
+        runId: activeRunId ?? '',
+        loadedBytes,
+        totalBytes,
+      });
+    }
+  );
   const expectedSha256 = __LINGUA_RUBY_WASM_URL__
     ? __LINGUA_RUBY_WASM_SHA256__
     : null;
   const wasmModule = expectedSha256
-    ? await compileVerified(bytes, expectedSha256)
-    : await WebAssembly.compile(bytes);
+    ? await compileVerified(await trackedResponse.arrayBuffer(), expectedSha256)
+    : await WebAssembly.compileStreaming(trackedResponse);
 
   // The consolePrinter overrides WASI `fd_write` for fd 1 (stdout) and
   // fd 2 (stderr) so writes flow through our callbacks instead of the
