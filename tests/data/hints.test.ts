@@ -29,6 +29,13 @@ describe('contextual hint catalog', () => {
     );
   });
 
+  it('keeps syntax guidance aligned with the runtime affordances', () => {
+    for (const locale of [en, es]) {
+      expect(locale['hints.console.watch']).toContain('# @watch');
+      expect(locale['hints.console.autoLog']).not.toContain('@auto-log');
+    }
+  });
+
   it('filters desktop-only capabilities before web selection', () => {
     const webHints = hintsForSurface('palette', 'web');
     const desktopHints = hintsForSurface('palette', 'desktop');
