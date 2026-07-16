@@ -2,6 +2,7 @@
 import Base from '~/layouts/Base.astro';
 import Hero from '~/components/Hero.astro';
 import WhyCards from '~/components/WhyCards.astro';
+import WhatsNewSection from '~/components/WhatsNewSection.astro';
 import AiSection from '~/components/AiSection.astro';
 import LanguageMatrix from '~/components/LanguageMatrix.astro';
 import UtilitiesStrip from '~/components/UtilitiesStrip.astro';
@@ -76,6 +77,7 @@ const jsonLd = {
 
   <div class="container">
     <WhyCards locale={locale} />
+    <WhatsNewSection locale={locale} />
     <AiSection locale={locale} />
     <LanguageMatrix locale={locale} />
     <UtilitiesStrip locale={locale} />

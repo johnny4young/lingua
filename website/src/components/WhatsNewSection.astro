@@ -1,0 +1,104 @@
+---
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = t(locale);
+const block = copy.home.whatsNew;
+---
+
+<section class="whats-new">
+  <header class="whats-new-head">
+    <p class="eyebrow">{block.eyebrow}</p>
+    <h2>{block.title}</h2>
+    <p class="lede">{block.lede}</p>
+  </header>
+
+  <div class="whats-new-grid">
+    {
+      block.items.map((item) => (
+        <article class="card whats-new-card">
+          <div class="shot-frame">
+            <img src={item.image} alt={item.alt} loading="lazy" decoding="async" />
+          </div>
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+        </article>
+      ))
+    }
+  </div>
+
+  <p class="whats-new-cta">
+    <a href={localizePath(locale, '/changelog')}>{block.cta} →</a>
+  </p>
+</section>
+
+<style>
+  .whats-new {
+    padding-block: var(--space-section);
+  }
+  .whats-new-head {
+    max-width: 760px;
+    margin-bottom: 2.5rem;
+  }
+  .whats-new-head h2 {
+    font-size: var(--text-h2);
+    letter-spacing: var(--tracking-tight);
+    font-weight: 700;
+    margin: 0.75rem 0 0;
+    line-height: 1.2;
+  }
+  .whats-new-head .lede {
+    color: var(--color-text-muted);
+    margin: 0.75rem 0 0;
+    line-height: 1.6;
+  }
+  .whats-new-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .whats-new-card h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 1rem 0 0.5rem;
+  }
+  .whats-new-card p {
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+  .shot-frame {
+    border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0b0f15;
+  }
+  .shot-frame img {
+    display: block;
+    width: 100%;
+    height: 180px;
+    object-fit: contain;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+  .whats-new-cta {
+    margin-top: 2rem;
+  }
+  .whats-new-cta a {
+    color: var(--color-accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .whats-new-cta a:hover {
+    text-decoration: underline;
+  }
+  @media (min-width: 768px) {
+    .whats-new-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

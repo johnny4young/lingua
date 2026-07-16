@@ -106,6 +106,39 @@ export const en = {
         },
       ],
     },
+    whatsNew: {
+      eyebrow: "New in 0.12",
+      title: "The latest release, in four screenshots.",
+      lede:
+        "Every feature below shipped in v0.12 and works in the free tier. Full details live in the changelog.",
+      cta: "Read the full changelog",
+      items: [
+        {
+          image: "/screenshots/v0.12/inline-timing.png",
+          alt: "Lingua editor showing per-line wall-clock timings at the right edge of each statement, with the slowest line highlighted in red",
+          title: "Per-line timing with // @time",
+          body: "Add one comment and every top-level statement shows its wall-clock duration inline — the slowest line of the run turns red. Perf hunting without leaving the editor, and timings survive errors.",
+        },
+        {
+          image: "/screenshots/v0.12/smart-paste-jwt.png",
+          alt: "Smart-paste toast offering to open a pasted JWT in the JWT Debugger",
+          title: "Paste a value, open the right tool",
+          body: "Paste a JWT, UUID, color, Unix timestamp, cron expression, or Base64 into the editor and Lingua offers to open it pre-loaded in the matching developer utility. Conservative by design: code look-alikes stay silent.",
+        },
+        {
+          image: "/screenshots/v0.12/presenter-mode.png",
+          alt: "Lingua in presenter mode: no sidebar, toolbar, or status bar, with enlarged editor font",
+          title: "Presenter mode",
+          body: "One keystroke (Cmd+Alt+P) hides the chrome and enlarges the fonts for demos, pairing, and screen recordings. Toggle again and your exact layout comes back — it never touches your saved preferences.",
+        },
+        {
+          image: "/screenshots/v0.12/bootstrap-progress.png",
+          alt: "Run button showing a live megabyte counter while the Python runtime downloads",
+          title: "Watch your runtime arrive",
+          body: "The first Python or Ruby run no longer sits on a static loading line: the run button streams a live MB counter while the WASM runtime downloads, on any network.",
+        },
+      ],
+    },
     ai: {
       eyebrow: 'AI assistance · Pro',
       title: 'AI that never sends your code without asking.',

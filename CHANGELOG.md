@@ -6,7 +6,12 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-07-16
+
 ### Added
+- **Magic comments are now discoverable in the editor**: typing `// @` (or `# @` in Python) offers completions for the real magic-comment vocabulary — `@watch`, `//=>` arrows, `@timeout`, `@time`, and the presentation directives — each with localized hover documentation, so the inline-results language no longer lives only in the docs.
+- **What's New stopped interrupting**: after an update, instead of auto-opening the full release-notes overlay, Lingua shows a one-line upgrade notice once per version with a button to read the notes — and a persisted opt-out for people who never want the nudge.
+- **Rotating hints on empty surfaces**: the empty Console and the Command Palette now surface one of twenty curated tips per session. Hints are platform-aware (web never suggests desktop-only features), can be dismissed for good with one click, and can be re-enabled from Settings → General.
 - **Live download progress while Python or Ruby boots**: the first run on a fresh session used to sit on a static "Loading Python runtime (Pyodide)..." line while tens of megabytes downloaded. The run button now shows the live byte counter ("Loading Python runtime (Pyodide)... 34 MB / 60 MB") whether the boot started from a manual run or the scratchpad auto-run, and falls back to a loaded-only counter when the server sends no Content-Length. Failures keep their honest local error message.
 - **Presenter mode (Cmd+Alt+P)**: one toggle for demos, pairing, and screen recordings — hides the sidebar, toolbar, action pill, and status bar while lifting the editor font by 4px and the console output by 2px. Toggling again (same shortcut, or the **Toggle presenter mode** palette action) restores your exact previous layout, because the mode never touches your saved preferences — even a reload mid-presentation leaves them intact.
 - **Inline per-line timing for JavaScript and TypeScript**: add a `// @time` comment (or enable **Settings → Editor → Show per-line timing**) and every top-level statement shows its wall-clock duration inline at the right edge of its line, with the slowest statement of the run highlighted red. Timings survive errors — statements that completed before a throw keep their measurements, and the failing statement reports how long it ran. Off by default; debug runs are never instrumented.

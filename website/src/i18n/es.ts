@@ -106,6 +106,39 @@ export const es = {
         },
       ],
     },
+    whatsNew: {
+      eyebrow: "Nuevo en 0.12",
+      title: "Lo último del release, en cuatro capturas.",
+      lede:
+        "Todo lo de abajo llegó en v0.12 y funciona en el tier gratuito. El detalle completo vive en el changelog.",
+      cta: "Lee el changelog completo",
+      items: [
+        {
+          image: "/screenshots/v0.12/inline-timing.png",
+          alt: "Editor de Lingua mostrando tiempos por línea al borde derecho de cada statement, con la línea más lenta resaltada en rojo",
+          title: "Tiempos por línea con // @time",
+          body: "Agrega un comentario y cada statement de nivel superior muestra su duración inline — la línea más lenta del run se pinta de rojo. Cacería de performance sin salir del editor, y los tiempos sobreviven errores.",
+        },
+        {
+          image: "/screenshots/v0.12/smart-paste-jwt.png",
+          alt: "Toast de smart paste ofreciendo abrir un JWT pegado en el depurador JWT",
+          title: "Pega un valor, abre la herramienta correcta",
+          body: "Pega un JWT, UUID, color, timestamp Unix, expresión cron o Base64 en el editor y Lingua ofrece abrirlo precargado en la utilidad correspondiente. Conservador por diseño: lo que parece código queda en silencio.",
+        },
+        {
+          image: "/screenshots/v0.12/presenter-mode.png",
+          alt: "Lingua en modo presentación: sin barra lateral, toolbar ni barra de estado, con fuente agrandada",
+          title: "Modo presentación",
+          body: "Un atajo (Cmd+Alt+P) oculta el chrome y agranda las fuentes para demos, pairing y grabaciones. Alterna de nuevo y tu layout exacto regresa — nunca toca tus preferencias guardadas.",
+        },
+        {
+          image: "/screenshots/v0.12/bootstrap-progress.png",
+          alt: "Botón de ejecución mostrando un contador de megabytes en vivo mientras descarga el runtime de Python",
+          title: "Mira llegar tu runtime",
+          body: "El primer run de Python o Ruby ya no se queda en una línea estática: el botón de ejecución muestra un contador de MB en vivo mientras baja el runtime WASM, en cualquier red.",
+        },
+      ],
+    },
     ai: {
       eyebrow: 'Asistencia con IA · Pro',
       title: 'IA que nunca envía tu código sin permiso.',
