@@ -1,4 +1,5 @@
 @import "@fontsource-variable/inter";
+@import "@fontsource-variable/space-grotesk";
 @import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
 
@@ -36,7 +37,7 @@
   /* Type */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk Variable", "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
 
   /* Type scale — fluid clamps for desktop ↔ mobile */
   --text-display: clamp(3rem, 6vw, 5rem);     /* 48–80px */
@@ -47,9 +48,11 @@
   --text-small: 0.875rem;                     /* 14px */
   --text-xs: 0.75rem;                         /* 12px */
 
-  /* Tracking */
-  --tracking-tight: 0;
+  /* Tracking — negative for display sizes, positive for small caps */
+  --tracking-display: -0.045em;
+  --tracking-tight: -0.03em;
   --tracking-normal: 0;
+  --tracking-caps: 0.14em;
 
   /* Spacing — section rhythm */
   --space-section: clamp(3rem, 8vw, 6rem);     /* 48–96px */
@@ -60,11 +63,16 @@
   --container-prose: 720px;
   --container-narrow: 880px;
 
-  /* Radius */
+  /* Radius — tighter inside, softer on containers */
   --radius-sm: 4px;
   --radius: 8px;
-  --radius-lg: 8px;
-  --radius-xl: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+
+  /* Shadows — tinted to the navy base, light source above */
+  --shadow-card: 0 1px 2px rgb(4 8 16 / 0.5), 0 8px 24px -12px rgb(4 8 16 / 0.6);
+  --shadow-lift: 0 2px 4px rgb(4 8 16 / 0.5), 0 16px 40px -16px rgb(8 14 24 / 0.75);
+  --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent), 0 8px 32px -12px color-mix(in srgb, var(--color-accent) 28%, transparent);
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -94,6 +102,9 @@
   --color-accent-muted: #cffafe;
   --color-accent-ink: #ecfeff;
   --color-warning-muted: #fef3c7;
+
+  --shadow-card: 0 1px 2px rgb(28 25 23 / 0.06), 0 8px 24px -12px rgb(28 25 23 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(28 25 23 / 0.06), 0 16px 40px -16px rgb(28 25 23 / 0.18);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -101,6 +112,7 @@
 /* -------------------------------------------------------------------------- */
 
 html {
+  scroll-behavior: smooth;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
@@ -133,8 +145,8 @@ a {
 }
 
 ::selection {
-  background: var(--color-accent);
-  color: var(--color-bg);
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-text);
 }
 
 /* Focus ring — accessible, accent-colored */
@@ -151,4 +163,18 @@ a {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+
+/* Grain overlay — breaks digital flatness without touching legibility.
+   SVG turbulence noise inlined as a data URI; fixed and inert. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
 }

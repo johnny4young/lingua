@@ -1,4 +1,5 @@
 ---
+import { loadChangelog } from '~/lib/changelog';
 import { type Locale, localizePath, t } from '~/lib/i18n';
 
 interface Props {
@@ -8,6 +9,44 @@ interface Props {
 const { locale } = Astro.props;
 const copy = t(locale);
 const block = copy.home.whatsNew;
+
+// The current release stays fully visible; everything older collapses
+// into the history timeline below. Data comes from the preprocessed
+// changelog.json (synced at build time — zero network dependency).
+const entries = await loadChangelog();
+const current = entries[0];
+const previous = entries.slice(1);
+
+const LEAD_RE = /<strong>(.+?)<\/strong>/;
+
+function leadsFor(entry: (typeof entries)[number]): string[] {
+  const leads: string[] = [];
+  for (const section of entry.sections) {
+    for (const item of section.items) {
+      const match = item.match(LEAD_RE);
+      if (match?.[1]) leads.push(match[1]);
+    }
+  }
+  return leads;
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat(locale === 'es' ? 'es' : 'en', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(`${iso}T12:00:00Z`));
+  } catch {
+    return iso;
+  }
+}
+
+const history = previous.map((entry) => ({
+  version: entry.version,
+  date: formatDate(entry.date),
+  leads: leadsFor(entry),
+}));
 ---
 
 <section class="whats-new">
@@ -19,8 +58,8 @@ const block = copy.home.whatsNew;
 
   <div class="whats-new-grid">
     {
-      block.items.map((item) => (
-        <article class="card whats-new-card">
+      block.items.map((item, index) => (
+        <article class:list={['card', 'whats-new-card', { featured: index === 0 }]}>
           <div class="shot-frame">
             <img src={item.image} alt={item.alt} loading="lazy" decoding="async" />
           </div>
@@ -34,6 +73,41 @@ const block = copy.home.whatsNew;
   <p class="whats-new-cta">
     <a href={localizePath(locale, '/changelog')}>{block.cta} →</a>
   </p>
+
+  {
+    history.length > 0 && (
+      <div class="history">
+        <h3 class="history-title">{block.history.title}</h3>
+        <p class="history-lede">{block.history.lede}</p>
+        <ol class="history-list" reversed>
+          {history.map((release) => (
+            <li class="history-item">
+              <details>
+                <summary>
+                  <span class="history-version">v{release.version}</span>
+                  <span class="history-date">{release.date}</span>
+                  <span class="history-count">
+                    {release.leads.length}{' '}
+                    {release.leads.length === 1
+                      ? block.history.featureLabel
+                      : block.history.featuresLabel}
+                  </span>
+                  <span class="history-chevron" aria-hidden="true">
+                    +
+                  </span>
+                </summary>
+                <ul class="history-leads">
+                  {release.leads.map((lead) => (
+                    <li>{lead}</li>
+                  ))}
+                </ul>
+              </details>
+            </li>
+          ))}
+        </ol>
+      </div>
+    )
+  }
 </section>
 
 <style>
@@ -72,8 +146,8 @@ const block = copy.home.whatsNew;
     line-height: 1.6;
   }
   .shot-frame {
-    border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
-    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
     overflow: hidden;
     background: #0b0f15;
   }
@@ -96,9 +170,170 @@ const block = copy.home.whatsNew;
   .whats-new-cta a:hover {
     text-decoration: underline;
   }
+
+  /* ── Release history — collapsed timeline of everything older ── */
+  .history {
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+    border-top: 1px solid var(--color-border);
+    padding-top: clamp(2rem, 5vw, 3rem);
+  }
+  .history-title {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    margin: 0 0 0.5rem;
+  }
+  .history-lede {
+    color: var(--color-text-muted);
+    margin: 0 0 1.75rem;
+    max-width: 62ch;
+  }
+  .history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+  /* timeline spine */
+  .history-list::before {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 8px;
+    bottom: 8px;
+    width: 1px;
+    background: var(--color-border);
+  }
+  .history-item {
+    position: relative;
+    padding-left: 2rem;
+  }
+  .history-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 1.05rem;
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border-strong);
+    transition: border-color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+  }
+  .history-item:has(details[open])::before {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 24%, var(--color-bg));
+  }
+  .history-item + .history-item {
+    margin-top: 0.25rem;
+  }
+  .history-item summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.875rem;
+    padding: 0.7rem 0.75rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    list-style: none;
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+  .history-item summary::-webkit-details-marker {
+    display: none;
+  }
+  .history-item summary:hover {
+    background: color-mix(in srgb, var(--color-bg-elevated) 70%, transparent);
+  }
+  .history-version {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: var(--text-small);
+    color: var(--color-text);
+    min-width: 4.5rem;
+  }
+  .history-date {
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+  }
+  .history-count {
+    color: var(--color-text-subtle);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    margin-left: auto;
+  }
+  .history-chevron {
+    color: var(--color-text-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    width: 1rem;
+    text-align: center;
+    transition: transform var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  details[open] .history-chevron {
+    transform: rotate(45deg);
+    color: var(--color-accent);
+  }
+  .history-leads {
+    list-style: none;
+    margin: 0.25rem 0 1rem;
+    padding: 0 0.75rem 0 5.6rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .history-leads li {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg-elevated) 80%, transparent);
+    border-radius: var(--radius-sm);
+    padding: 0.3rem 0.6rem;
+    line-height: 1.45;
+  }
+
   @media (min-width: 768px) {
     .whats-new-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    /* The headline feature of the release gets the wide slot. */
+    .whats-new-card.featured {
+      grid-column: span 3;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 1.5rem;
+      align-items: center;
+      background:
+        radial-gradient(30rem 16rem at 8% 0%, color-mix(in srgb, var(--color-accent) 7%, transparent), transparent 70%),
+        var(--color-bg-elevated);
+    }
+    .whats-new-card.featured .shot-frame {
+      grid-row: span 2;
+      align-self: stretch;
+      display: grid;
+    }
+    .whats-new-card.featured .shot-frame img {
+      height: 100%;
+      min-height: 230px;
+    }
+    .whats-new-card.featured h3 {
+      font-size: 1.4rem;
+      margin-top: 0;
+      align-self: end;
+    }
+    .whats-new-card.featured p {
+      align-self: start;
+    }
+  }
+  @media (min-width: 768px) and (max-width: 1099px) {
+    .whats-new-card:not(.featured) {
+      grid-column: span 1;
+    }
+  }
+  @media (max-width: 767px) {
+    .history-leads {
+      padding-left: 0.75rem;
     }
   }
 </style>

@@ -112,6 +112,12 @@ export const en = {
       lede:
         "Every feature below shipped in v0.12 and works in the free tier. Full details live in the changelog.",
       cta: "Read the full changelog",
+      history: {
+        title: "Every release before this one",
+        lede: "Fourteen releases of steady, local-first progress. Expand any version for its highlights.",
+        featuresLabel: "features",
+        featureLabel: "feature",
+      },
       items: [
         {
           image: "/screenshots/v0.12/inline-timing.png",

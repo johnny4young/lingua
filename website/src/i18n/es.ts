@@ -112,6 +112,12 @@ export const es = {
       lede:
         "Todo lo de abajo llegó en v0.12 y funciona en el tier gratuito. El detalle completo vive en el changelog.",
       cta: "Lee el changelog completo",
+      history: {
+        title: "Cada release antes de este",
+        lede: "Catorce releases de progreso constante y local-first. Expande cualquier versión para ver sus destacados.",
+        featuresLabel: "features",
+        featureLabel: "feature",
+      },
       items: [
         {
           image: "/screenshots/v0.12/inline-timing.png",
