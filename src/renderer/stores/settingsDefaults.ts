@@ -222,6 +222,8 @@ export function createInitialSettingsState() {
     onboardingWelcomeSeedVersion: 0,
     language: 'system',
     lastSeenVersion: null,
+    whatsNewNotificationsEnabled: true,
+    contextualHintsEnabled: true,
     hasCompletedTour: false,
     suppressTourAutoStart: false,
     shortcutOverrides: {},

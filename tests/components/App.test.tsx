@@ -15,6 +15,7 @@ const {
   mockGetAppInfo,
   mockSetLastSeenVersion,
   mockSetHasCompletedTour,
+  mockPushStatusNotice,
   mockStartTour,
   mockUseDesktopSmoke,
   mockTrackEvent,
@@ -40,6 +41,7 @@ const {
   }),
   mockSetLastSeenVersion: vi.fn(),
   mockSetHasCompletedTour: vi.fn(),
+  mockPushStatusNotice: vi.fn(),
   mockStartTour: vi.fn(),
   mockUseDesktopSmoke: vi.fn(),
   mockTrackEvent: vi.fn().mockResolvedValue(undefined),
@@ -72,6 +74,7 @@ const mockEditorState = {
 const mockSettingsState = {
   restoreSessionMode: 'always' as 'never' | 'ask' | 'always',
   lastSeenVersion: null as string | null,
+  whatsNewNotificationsEnabled: true,
   hasCompletedTour: false,
   suppressTourAutoStart: false,
   setLastSeenVersion: mockSetLastSeenVersion,
@@ -191,9 +194,9 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     isDirty: false,
   });
   const getActiveTab = (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
-    s.tabs.find((t) => t.id === s.activeTabId) ?? null;
+    s.tabs.find(t => t.id === s.activeTabId) ?? null;
   const getActiveTabIndex = (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
-    s.activeTabId == null ? -1 : s.tabs.findIndex((t) => t.id === s.activeTabId);
+    s.activeTabId == null ? -1 : s.tabs.findIndex(t => t.id === s.activeTabId);
   return { useEditorStore, createDefaultTab, getActiveTab, getActiveTabIndex };
 });
 
@@ -229,22 +232,28 @@ vi.mock('../../src/renderer/stores/settingsStore', () => ({
   ),
 }));
 
-vi.mock('../../src/renderer/stores/uiStore', () => ({
-  useUIStore: (selector?: (state: {
-    toggleSidebar: ReturnType<typeof vi.fn>;
-    toggleConsole: ReturnType<typeof vi.fn>;
-    statusNotice: null;
-    dismissStatusNotice: ReturnType<typeof vi.fn>;
-  }) => unknown) => {
-    const state = {
-      toggleSidebar: vi.fn(),
-      toggleConsole: vi.fn(),
-      statusNotice: null,
-      dismissStatusNotice: vi.fn(),
-    };
-    return selector ? selector(state) : state;
-  },
-}));
+vi.mock('../../src/renderer/stores/uiStore', () => {
+  const state = {
+    toggleSidebar: vi.fn(),
+    toggleConsole: vi.fn(),
+    statusNotice: null,
+    dismissStatusNotice: vi.fn(),
+    pushStatusNotice: mockPushStatusNotice,
+  };
+  const useUIStore = Object.assign(
+    (
+      selector?: (state: {
+        toggleSidebar: ReturnType<typeof vi.fn>;
+        toggleConsole: ReturnType<typeof vi.fn>;
+        statusNotice: null;
+        dismissStatusNotice: ReturnType<typeof vi.fn>;
+        pushStatusNotice: typeof mockPushStatusNotice;
+      }) => unknown
+    ) => (selector ? selector(state) : state),
+    { getState: () => state }
+  );
+  return { useUIStore };
+});
 
 vi.mock('../../src/renderer/stores/updateStore', () => ({
   useUpdateStore: (selector?: (state: { initialize: typeof mockInitializeUpdates }) => unknown) => {
@@ -261,7 +270,8 @@ describe('App', () => {
     beforeCloseHandler = undefined;
     smokeEnabled = false;
     mockSettingsState.restoreSessionMode = 'always';
-    mockSettingsState.lastSeenVersion = null;
+    mockSettingsState.lastSeenVersion = '0.1.0';
+    mockSettingsState.whatsNewNotificationsEnabled = true;
     mockSettingsState.hasCompletedTour = false;
     mockSettingsState.suppressTourAutoStart = false;
     mockEditorState.activeTabId = 'tab-1';
@@ -322,7 +332,9 @@ describe('App', () => {
     });
   });
 
-  it('shows whats new only once for a newly seen version under StrictMode', async () => {
+  it('shows a whats-new notice only once for an upgraded version under StrictMode', async () => {
+    mockSettingsState.lastSeenVersion = '0.0.9';
+
     render(
       <StrictMode>
         <App />
@@ -333,7 +345,38 @@ describe('App', () => {
       expect(mockGetAppInfo).toHaveBeenCalled();
       expect(mockSetLastSeenVersion).toHaveBeenCalledWith('0.1.0');
       expect(mockSetLastSeenVersion).toHaveBeenCalledTimes(1);
-      expect(document.body.textContent).toContain('whats-new');
+      expect(mockPushStatusNotice).toHaveBeenCalledTimes(1);
+      expect(mockPushStatusNotice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messageKey: 'whatsNew.notice.updated',
+          priority: 'normal',
+          tone: 'info',
+        })
+      );
+      expect(document.body.textContent).not.toContain('whats-new');
+    });
+  });
+
+  it('acknowledges a fresh install without competing with onboarding chrome', async () => {
+    mockSettingsState.lastSeenVersion = null;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(mockSetLastSeenVersion).toHaveBeenCalledWith('0.1.0');
+      expect(mockPushStatusNotice).not.toHaveBeenCalled();
+    });
+  });
+
+  it('acknowledges upgrades silently when whats-new notices are disabled', async () => {
+    mockSettingsState.lastSeenVersion = '0.0.9';
+    mockSettingsState.whatsNewNotificationsEnabled = false;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(mockSetLastSeenVersion).toHaveBeenCalledWith('0.1.0');
+      expect(mockPushStatusNotice).not.toHaveBeenCalled();
     });
   });
 
@@ -409,15 +452,21 @@ describe('App', () => {
     });
   });
 
-  it('fires app.launched on mount and overlay.opened when the first-boot whats-new dialog opens (RL-065)', async () => {
-    // Default beforeEach state: lastSeenVersion is null and current
-    // version is 0.1.0, so the whats-new overlay opens automatically on
-    // first mount. That flow goes through openOverlay which now fires
-    // overlay.opened for the consenting-user telemetry.
+  it('fires overlay.opened when the upgrade notice CTA opens whats new (RL-065)', async () => {
+    mockSettingsState.lastSeenVersion = '0.0.9';
     render(<App />);
 
     await waitFor(() => {
       expect(mockTrackEvent).toHaveBeenCalledWith('app.launched', expect.any(Object));
+      expect(mockPushStatusNotice).toHaveBeenCalledTimes(1);
+    });
+
+    const notice = mockPushStatusNotice.mock.calls[0]?.[0] as {
+      actions?: ReadonlyArray<{ onClick: () => void }>;
+    };
+    act(() => notice.actions?.[0]?.onClick());
+
+    await waitFor(() => {
       expect(mockTrackEvent).toHaveBeenCalledWith('overlay.opened', {
         overlayId: 'whats-new',
       });

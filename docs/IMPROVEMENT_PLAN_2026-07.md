@@ -751,13 +751,14 @@ vía `page.route` (+2.5 s en el asset): label estático + contador MB en el
 pill y run completo. Evidencia en
 `output/review/it2-d3-bootstrap-progress/`.
 
-## IT2-D4 · Magic comments descubribles — S (1 d)
+## IT2-D4 · Magic comments descubribles — EJECUTADO 2026-07-15 · S (1 d)
 
 **Evidencia.** Vocabulario REAL (`magicComments.ts:35-124`): `// @watch
 expr` (JS_WATCH_RE / PY_WATCH_RE), `// =>` arrow, auto-log, `@timeout <n>
 [ms|s|m]` (TIMEOUT_DIRECTIVE_RE, comparte JS/TS/Python), `@origin off`,
 `@git-ignore-status`, `@git-watch-head off`; directivas de presentación
-`table|chart|image|html` (`MagicCommentDirective`). Infra de providers YA
+`table|chart|image|html` (`MagicCommentDirective`) y `// @time` para
+timings por instrucción en JS/TS. Infra de providers YA
 genérica: `registerLanguageOnce` (`monaco.ts:130-142`) registra por
 descriptor `createCompletionProvider` / `createHoverProvider`
 (`monaco.ts:173-196`); helper existente `createCompletionProvider(monaco,
@@ -781,7 +782,18 @@ si el descriptor admite múltiples completion providers; Monaco sí:
 hover sobre `// @timeout 5s` explica el timeout; cero sugerencias fuera de
 comentarios; i18n en/es; test de componente para el filtro de contexto.
 
-## IT2-D5 · What's New activo — XS-S (0.5 d, con verificación previa)
+**Cierre 2026-07-15.** Los descriptors de JavaScript, TypeScript y Python
+registran providers aditivos con el vocabulario real de `magicComments.ts`;
+las sugerencias solo aparecen dentro de comentarios y el hover reutiliza los
+parsers de ejecución para evitar documentación divergente. Las pruebas
+focalizadas cubren contexto, cadenas, composición de providers e i18n; el smoke
+web de producción validó completions en JS/Python y el hover de timeout en
+inglés/español con cero errores de consola. Evidencia visual en
+`output/review/d4-d5-d7-discoverability/d4-web-en-magic-comment-completions.png`,
+`d4-web-es-python-magic-comment-completions.png` y
+`d4-web-es-magic-comment-hover.png`.
+
+## IT2-D5 · What's New activo — EJECUTADO 2026-07-15 · XS-S (0.5 d, con verificación previa)
 
 **Evidencia (parcial — verificar primero).** Ya existen `lastSeenVersion` /
 `setLastSeenVersion` en settings y un efecto en `App.tsx` (~L95-120) que
@@ -798,6 +810,17 @@ nada: implementar ese toast. Ambos casos: máximo 1 vez por versión
 
 **AC.** Simular upgrade (bajar `lastSeenVersion` en localStorage) → toast
 una sola vez, CTA abre el overlay; toggle OFF lo silencia.
+
+**Cierre 2026-07-15.** El efecto real abría el overlay completo; ahora reconoce
+la versión al iniciar y, solo después de un upgrade, publica un aviso informativo
+normal con CTA hacia Novedades. Una instalación nueva queda en manos del
+onboarding sin superficies simultáneas. `whatsNewNotificationsEnabled` persiste y se
+sanea en el boundary de Settings; al apagarlo, la versión se reconoce sin
+mostrar avisos atrasados al reactivarlo. Pruebas focalizadas cubren StrictMode,
+primer boot, opt-out y CTA; el smoke web de producción validó una única aparición,
+persistencia EN/ES y cero errores de consola. Evidencia visual en
+`output/review/d4-d5-d7-discoverability/d5-web-en-upgrade-notice.png`,
+`d5-web-en-whats-new-overlay.png` y `d5-web-es-whats-new-opt-out.png`.
 
 ## IT2-D6 · Quick wins del roadmap ya especificados
 
@@ -829,7 +852,7 @@ Utilities, MOV.03) + acción de palette; e2e
 evidencia en `output/review/rl-116-presenter-mode/`. Ejecutar con
 sus AC del plan interno; sinergia: hacer RL-115 justo después de IT2-D4.
 
-## IT2-D7 · Hints rotativos en superficies vacías — S (1 d)
+## IT2-D7 · Hints rotativos en superficies vacías — EJECUTADO 2026-07-15 · S (1 d)
 
 **Diseño.** Catálogo cerrado `src/renderer/data/hints.ts` (~20 entradas,
 cada una `{ id, i18nKey, surface: 'console'|'palette' }`): "Cmd+Shift+V
@@ -843,6 +866,18 @@ determinismo de tests); "No mostrar tips" → setting `hintsEnabled`.
 **AC.** Hint visible en consola vacía; cambia entre sesiones; OFF lo
 elimina de ambas superficies; i18n en/es tuteo; cero hints sobre features
 no compiladas en la plataforma (web no sugiere Go).
+
+**Cierre 2026-07-15.** `data/hints.ts` define un catálogo cerrado de 20
+consejos con selección estable por seed de sesión. La disponibilidad se filtra
+antes de calcular el índice modular, por lo que web nunca elige Go nativo ni
+plantillas de proyecto que requieren filesystem de escritorio. Consola y Paleta
+de comandos comparten `ContextualHint`; “No mostrar consejos” apaga ambas superficies mediante el
+setting persistido y saneado `hintsEnabled`, que también puede reactivarse desde
+Settings → General. Pruebas focalizadas cubren catálogo, rotación determinista,
+filtro de plataforma, stores y ambos renders; el smoke web de producción validó
+opt-out y reactivación EN/ES con cero errores de consola. Evidencia visual en
+`output/review/d4-d5-d7-discoverability/d7-web-en-console-hint.png`,
+`d7-web-en-palette-hint.png` y `d7-web-es-hints-opt-out.png`.
 
 ---
 

@@ -21,6 +21,8 @@ export function createSessionActions(
   | 'markOnboardingFirstSnippetCompleted'
   | 'setLanguage'
   | 'setLastSeenVersion'
+  | 'setWhatsNewNotificationsEnabled'
+  | 'setContextualHintsEnabled'
   | 'setHasCompletedTour'
   | 'setSuppressTourAutoStart'
   | 'setSqlWorkspaceRowDisplayLimit'
@@ -60,6 +62,10 @@ export function createSessionActions(
       set({ hasCompletedOnboardingFirstSnippet: true }),
     setLanguage: (language) => set({ language }),
     setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
+    setWhatsNewNotificationsEnabled: (whatsNewNotificationsEnabled) =>
+      set({ whatsNewNotificationsEnabled: whatsNewNotificationsEnabled === true }),
+    setContextualHintsEnabled: (contextualHintsEnabled) =>
+      set({ contextualHintsEnabled: contextualHintsEnabled === true }),
     setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
     setSuppressTourAutoStart: (suppressTourAutoStart) => set({ suppressTourAutoStart }),
     setSqlWorkspaceRowDisplayLimit: (value) =>

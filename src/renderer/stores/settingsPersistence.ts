@@ -84,6 +84,8 @@ export function settingsPartialize(state: SettingsState) {
       state.firstWorkflowModeSwitchAcknowledged,
     language: state.language,
     lastSeenVersion: state.lastSeenVersion,
+    whatsNewNotificationsEnabled: state.whatsNewNotificationsEnabled,
+    contextualHintsEnabled: state.contextualHintsEnabled,
     hasCompletedTour: state.hasCompletedTour,
     suppressTourAutoStart: state.suppressTourAutoStart,
     // RL-101 Slice 1 — sticky onboarding choreography flags so a

@@ -18,15 +18,17 @@ function lineCount(rel: string): number {
   return readFileSync(resolve(ROOT, rel), 'utf8').split('\n').length;
 }
 
-// RL-147 tightened App.tsx from the re-based 560 to the audit's
-// original <500 target after extracting useSessionAutoSave.
-const APP_MAX_LINES = 500;
+// RL-147 tightened App.tsx from the re-based 560 to the audit's original
+// <500 target. PR #77 extracted the version-notice lifecycle at 441 lines,
+// so keep 40 lines of headroom without allowing the root shell to regrow.
+const APP_MAX_LINES = 460;
 const APP_LAYOUT_MAX_LINES = 920;
 
 const EXTRACTED_MODULES = [
   'src/renderer/hooks/useAppShortcuts.ts',
   'src/renderer/hooks/useLayoutAvailability.ts',
   'src/renderer/hooks/useSessionAutoSave.ts',
+  'src/renderer/hooks/useWhatsNewNotice.ts',
   'src/renderer/components/AppOverlays.tsx',
   'src/renderer/components/Layout/BottomPanel.tsx',
 ];

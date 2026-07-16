@@ -35,6 +35,8 @@ type SeedOptions = {
   language?: Locale;
   snippetCount?: number;
   suppressWhatsNew?: boolean;
+  /** Explicit release version to seed; overrides suppressWhatsNew when set. */
+  lastSeenVersion?: string | null;
   showStatusBar?: boolean;
   /**
    * When true, the session is seeded with a Pro dev license already applied
@@ -223,6 +225,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
     language = 'system',
     snippetCount = 0,
     suppressWhatsNew = true,
+    lastSeenVersion,
     primeProLicense = false,
     showStatusBar,
   } = options;
@@ -237,6 +240,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededSnippets,
       seededShowStatusBar,
       shouldSuppressWhatsNew,
+      seededLastSeenVersion,
       seededLicenseToken,
     }) => {
       // Guard: only prime storage when it's empty. Init scripts run on
@@ -253,7 +257,12 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
         JSON.stringify({
           state: {
             language: seededLanguage,
-            lastSeenVersion: shouldSuppressWhatsNew ? currentVersion : null,
+            lastSeenVersion:
+              seededLastSeenVersion === undefined
+                ? shouldSuppressWhatsNew
+                  ? currentVersion
+                  : null
+                : seededLastSeenVersion,
             suppressTourAutoStart: true,
             hasCompletedOnboardingFirstRun: true,
             hasCompletedOnboardingFirstSnippet: true,
@@ -293,6 +302,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededSnippets: buildSeededSnippets(snippetCount),
       seededShowStatusBar: showStatusBar,
       shouldSuppressWhatsNew: suppressWhatsNew,
+      seededLastSeenVersion: lastSeenVersion,
       seededLicenseToken: primeProLicense ? (DEV_LICENSE_TOKEN ?? null) : null,
     }
   );

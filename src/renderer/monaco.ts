@@ -142,7 +142,7 @@ export function getConfiguredMonaco(): Monaco {
 export function registerLanguageOnce(m: Monaco, languageId: string): Promise<void> {
   const cached = languageRegistrations.get(languageId);
   if (cached) return cached;
-  const registration = registerLanguageContribution(m, languageId).catch((error) => {
+  const registration = registerLanguageContribution(m, languageId).catch(error => {
     // Never cache a poisoned entry: drop it so a later activation can retry,
     // and resolve (not reject) so fire-and-forget callers do not emit an
     // unhandled rejection.
@@ -191,8 +191,14 @@ async function registerLanguageContribution(m: Monaco, languageId: string): Prom
           providers.createCompletionProvider(m)
         );
       }
+      for (const createCompletionProvider of providers.createCompletionProviders ?? []) {
+        m.languages.registerCompletionItemProvider(descriptor.id, createCompletionProvider(m));
+      }
       if (providers.createHoverProvider) {
         m.languages.registerHoverProvider(descriptor.id, providers.createHoverProvider());
+      }
+      for (const createHoverProvider of providers.createHoverProviders ?? []) {
+        m.languages.registerHoverProvider(descriptor.id, createHoverProvider());
       }
       if (providers.createSignatureHelpProvider) {
         m.languages.registerSignatureHelpProvider(
@@ -390,9 +396,10 @@ interface TypeScriptWorkerClient {
  * the monaco singleton — downstream components would otherwise have to
  * re-import the heavy editor entry just to reach the worker factory.
  */
-export async function loadNavigationBarItems(
-  model: { uri: monaco.Uri; getLanguageId: () => string }
-): Promise<unknown[] | null> {
+export async function loadNavigationBarItems(model: {
+  uri: monaco.Uri;
+  getLanguageId: () => string;
+}): Promise<unknown[] | null> {
   const languageId = model.getLanguageId();
   const runtime = monaco.languages.typescript as unknown as MonacoTypeScriptRuntime;
   const getWorker =

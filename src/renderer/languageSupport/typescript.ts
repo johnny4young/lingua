@@ -6,7 +6,15 @@ export const typescriptLanguageSupport = {
     id: 'typescript',
     extensions: ['.ts', '.tsx'],
     aliases: ['TypeScript', 'typescript'],
-    loader: () =>
-      import('monaco-editor/esm/vs/basic-languages/typescript/typescript.js'),
+    loader: () => import('monaco-editor/esm/vs/basic-languages/typescript/typescript.js'),
+  },
+  loadEditorProviders: async () => {
+    const { createMagicCommentCompletionProvider, createMagicCommentHoverProvider } =
+      await import('../components/Editor/completionProviders/magicCommentProviders');
+    return {
+      createCompletionProvider: monaco =>
+        createMagicCommentCompletionProvider(monaco, 'typescript'),
+      createHoverProvider: () => createMagicCommentHoverProvider('typescript'),
+    };
   },
 } satisfies LanguageSupportDescriptor;

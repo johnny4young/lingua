@@ -37,10 +37,8 @@ import {
  * depends only on `settingsDefaults` + shared contracts, never on the store,
  * persistence, or action factories.
  *
- * The three `sanitize{SensitiveHttpHeaders,SqlRowDisplayLimit,SqlQueryTimeoutMs}`
- * helpers were inline IIFEs inside `merge`; they are pulled out here so all
- * rehydrate sanitization lives together and `settingsMerge` stays focused on
- * orchestration. Behavior is identical to the prior inline blocks.
+ * Shape-heavy rehydrate sanitizers live here so `settingsMerge` can stay
+ * focused on orchestration.
  */
 
 /**
@@ -128,6 +126,28 @@ export function isAppLanguage(value: unknown): value is SettingsState['language'
 
 export function hasOwn(value: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+type DiscoverabilityPreferences = Pick<SettingsState, 'whatsNewNotificationsEnabled' | 'contextualHintsEnabled'>;
+
+const booleanOr = (value: unknown, fallback: boolean): boolean =>
+  typeof value === 'boolean' ? value : fallback;
+
+/** Keep persisted discoverability toggles boolean without bloating merge orchestration. */
+export function sanitizeDiscoverabilityPreferences(
+  persisted: DiscoverabilityPreferences,
+  current: DiscoverabilityPreferences
+): DiscoverabilityPreferences {
+  return {
+    whatsNewNotificationsEnabled: booleanOr(
+      persisted.whatsNewNotificationsEnabled,
+      current.whatsNewNotificationsEnabled
+    ),
+    contextualHintsEnabled: booleanOr(
+      persisted.contextualHintsEnabled,
+      current.contextualHintsEnabled
+    ),
+  };
 }
 
 /**

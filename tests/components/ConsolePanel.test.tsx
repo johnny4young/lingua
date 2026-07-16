@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import {
   _resetCommandBusForTesting,
   emitCommand,
@@ -178,6 +179,7 @@ vi.mock('lucide-react', () => ({
   // RL-044 Slice 2b-β-α — `<ConsoleEntryRenderer>` now uses Maximize2
   // for the "Open details" chip in place of the old Unicode glyph.
   Maximize2: () => null,
+  Lightbulb: () => null,
 }));
 
 vi.mock('../../src/renderer/components/Console/clipboardImagePaste', async importActual => {
@@ -244,6 +246,7 @@ describe('ConsolePanel', () => {
     resetState();
     setActiveProLicense();
     useExecutionHistoryStore.getState().clear();
+    useSettingsStore.getState().setContextualHintsEnabled(true);
     vi.clearAllMocks();
   });
 
@@ -255,6 +258,25 @@ describe('ConsolePanel', () => {
   it('renders the empty-state message when entries array is empty', () => {
     render(<ConsolePanel />);
     expect(screen.getByText('Output will appear here...')).toBeTruthy();
+    expect(screen.getByTestId('contextual-hint-console')).toBeTruthy();
+  });
+
+  it('removes empty-state guidance when the user disables tips', async () => {
+    const user = userEvent.setup();
+    render(<ConsolePanel />);
+
+    await user.click(screen.getByRole('button', { name: "Don't show tips" }));
+
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(false);
+    expect(screen.queryByTestId('contextual-hint-console')).toBeNull();
+  });
+
+  it('uses the shared keyboard focus ring on the hint opt-out', () => {
+    render(<ConsolePanel />);
+
+    expect(screen.getByRole('button', { name: "Don't show tips" }).className).toContain(
+      'focus-ring'
+    );
   });
 
   it('gives the filter chips the shared keyboard focus ring (UX Sweep T1)', () => {

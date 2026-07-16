@@ -12,9 +12,7 @@ export type MonacoSignatureHelpProvider = Parameters<
 export type MonacoLanguageConfiguration = Parameters<
   Monaco['languages']['setLanguageConfiguration']
 >[1];
-export type MonacoTokensProvider = Parameters<
-  Monaco['languages']['setMonarchTokensProvider']
->[1];
+export type MonacoTokensProvider = Parameters<Monaco['languages']['setMonarchTokensProvider']>[1];
 
 export interface MonacoBasicLanguageModule {
   conf: MonacoLanguageConfiguration;
@@ -42,14 +40,17 @@ export type MonacoLanguageContribution =
 /**
  * Monaco editor providers for one language, returned by the descriptor's lazy
  * `loadEditorProviders` loader. Every field is optional because each language
- * opts into only the providers it ships (Lua has completion only; JS/TS rely on
- * the TypeScript worker and ship none). The whole bundle is loaded on demand so
- * the provider modules stay out of the initial bundle until a tab activates the
- * language.
+ * opts into only the providers it ships. Singular fields hold the language's
+ * primary service; plural fields compose cross-cutting additions such as magic
+ * comments without replacing that service. The whole bundle is loaded on
+ * demand so provider modules stay out of the initial bundle until a tab
+ * activates the language.
  */
 export interface MonacoEditorProviders {
   createCompletionProvider?: (monaco: Monaco) => MonacoCompletionProvider;
+  createCompletionProviders?: readonly ((monaco: Monaco) => MonacoCompletionProvider)[];
   createHoverProvider?: () => MonacoHoverProvider;
+  createHoverProviders?: readonly (() => MonacoHoverProvider)[];
   createSignatureHelpProvider?: () => MonacoSignatureHelpProvider;
 }
 
@@ -60,8 +61,8 @@ export interface LanguageSupportDescriptor {
    * Lazily import this language's Monaco editor providers (completion / hover /
    * signature). Returning dynamic `import()`s keeps each provider module in a
    * per-language chunk; `registerLanguageOnce` awaits this the first time the
-   * language is activated. Omit for languages with no custom providers
-   * (JS/TS, plain file-type tokenizers).
+   * language is activated. Omit for languages with no custom providers, such
+   * as plain file-type tokenizers.
    */
   loadEditorProviders?: () => Promise<MonacoEditorProviders>;
   createLanguageIntelligenceAdapter?: () => LanguageIntelligenceAdapter;

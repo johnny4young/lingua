@@ -322,6 +322,55 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().lastSeenVersion).toBeNull();
   });
 
+  it('enables version notifications by default and persists opt-out', () => {
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(true);
+    useSettingsStore.getState().setWhatsNewNotificationsEnabled(false);
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(false);
+    useSettingsStore.getState().setWhatsNewNotificationsEnabled(true);
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(true);
+  });
+
+  it('sanitizes a tampered version-notification preference on rehydrate', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: { whatsNewNotificationsEnabled: 'sometimes' },
+        version: 2,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(true);
+  });
+
+  it('enables contextual hints by default and persists opt-out', () => {
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(true);
+    useSettingsStore.getState().setContextualHintsEnabled(false);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(false);
+    useSettingsStore.getState().setContextualHintsEnabled(true);
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(true);
+  });
+
+  it('sanitizes a tampered contextual-hint preference on rehydrate', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({ state: { contextualHintsEnabled: 'sometimes' }, version: 2 })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().contextualHintsEnabled).toBe(true);
+  });
+
   it('should default hasCompletedTour to false', () => {
     expect(useSettingsStore.getState().hasCompletedTour).toBe(false);
   });

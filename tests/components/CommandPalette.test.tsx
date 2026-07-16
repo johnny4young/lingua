@@ -86,6 +86,8 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
         go: 'normal',
       },
       dependencyDetectionEnabled: true,
+      contextualHintsEnabled: true,
+      setContextualHintsEnabled: vi.fn(),
       setRuntimeTimeoutPreset: vi.fn(),
     },
     trackEventMock: vi.fn(),
@@ -190,6 +192,7 @@ vi.mock('lucide-react', () => ({
   Code: () => null,
   FileCode: () => null,
   Zap: () => null,
+  Lightbulb: () => null,
 }));
 
 describe('CommandPalette', () => {
@@ -202,6 +205,7 @@ describe('CommandPalette', () => {
     resultState.scopeSnapshot = null;
     dependencyDetectionState.byTab.clear();
     settingsState.dependencyDetectionEnabled = true;
+    settingsState.contextualHintsEnabled = true;
     settingsState.variableInspectorSurface = 'floating';
     settingsState.consoleRichRenderingEnabled = true;
     useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
@@ -387,7 +391,28 @@ describe('CommandPalette', () => {
     // The new hint nudges the user toward Cmd+P or clearing the
     // query — partial match keeps the assertion resilient to copy
     // tweaks.
-    expect(screen.queryByText(/Cmd\+P|clear the search/i)).toBeTruthy();
+    expect(screen.getByText(/Try Cmd\+P to jump to a file/i)).toBeTruthy();
+    expect(screen.getByTestId('contextual-hint-palette')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: "Don't show tips" }));
+    expect(settingsState.setContextualHintsEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it('hides palette guidance when contextual tips are disabled', () => {
+    settingsState.contextualHintsEnabled = false;
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'zzzzzzzz-no-such-thing' } });
+
+    expect(screen.queryByTestId('contextual-hint-palette')).toBeNull();
   });
 
   it('scrolls the highlighted command row instead of a grouped section header', async () => {
@@ -782,5 +807,6 @@ describe('CommandPalette', () => {
       />
     );
     expect(screen.getByText('No commands run yet this session.')).toBeTruthy();
+    expect(screen.queryByTestId('contextual-hint-palette')).toBeNull();
   });
 });

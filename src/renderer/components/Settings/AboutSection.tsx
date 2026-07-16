@@ -60,6 +60,14 @@ export function AboutSection({
   const setSuppressTourAutoStart = useSettingsStore(
     (state) => state.setSuppressTourAutoStart
   );
+  const whatsNewNotificationsEnabled = useSettingsStore(
+    (state) => state.whatsNewNotificationsEnabled
+  );
+  const setWhatsNewNotificationsEnabled = useSettingsStore(
+    (state) => state.setWhatsNewNotificationsEnabled
+  );
+  const contextualHintsEnabled = useSettingsStore((state) => state.contextualHintsEnabled);
+  const setContextualHintsEnabled = useSettingsStore((state) => state.setContextualHintsEnabled);
   const { t, i18n } = useTranslation();
 
   const productName = appInfo?.productName ?? 'Lingua';
@@ -184,6 +192,34 @@ export function AboutSection({
                       : t('about.actions.checkUpdates')}
                   </span>
                 </button>
+              </div>
+            }
+          />
+          <SpecRow
+            label={t('about.actions.whatsNewOnUpdate.label')}
+            description={t('about.actions.whatsNewOnUpdate.hint')}
+            control={
+              <div data-testid="settings-whats-new-notices-toggle">
+                <Toggle
+                  value={whatsNewNotificationsEnabled}
+                  onChange={() =>
+                    setWhatsNewNotificationsEnabled(!whatsNewNotificationsEnabled)
+                  }
+                  aria-label={t('about.actions.whatsNewOnUpdate.label')}
+                />
+              </div>
+            }
+          />
+          <SpecRow
+            label={t('about.actions.contextualHints.label')}
+            description={t('about.actions.contextualHints.hint')}
+            control={
+              <div data-testid="settings-contextual-hints-toggle">
+                <Toggle
+                  value={contextualHintsEnabled}
+                  onChange={() => setContextualHintsEnabled(!contextualHintsEnabled)}
+                  aria-label={t('about.actions.contextualHints.label')}
+                />
               </div>
             }
           />

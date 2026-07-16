@@ -14,14 +14,18 @@ export const pythonLanguageSupport = {
       { createPythonCompletionProvider },
       { createPythonHoverProvider },
       { createPythonSignatureProvider },
+      { createMagicCommentCompletionProvider, createMagicCommentHoverProvider },
     ] = await Promise.all([
       import('../components/Editor/completionProviders/pythonCompletions'),
       import('../components/Editor/completionProviders/pythonHoverProvider'),
       import('../components/Editor/completionProviders/pythonSignatureProvider'),
+      import('../components/Editor/completionProviders/magicCommentProviders'),
     ]);
     return {
       createCompletionProvider: createPythonCompletionProvider,
+      createCompletionProviders: [monaco => createMagicCommentCompletionProvider(monaco, 'python')],
       createHoverProvider: createPythonHoverProvider,
+      createHoverProviders: [() => createMagicCommentHoverProvider('python')],
       createSignatureHelpProvider: createPythonSignatureProvider,
     };
   },

@@ -133,8 +133,12 @@ describe('configureMonaco', () => {
     expect(tsSetCompilerOptions).not.toHaveBeenCalled();
 
     expect(globalThis.MonacoEnvironment.getWorker('worker', 'json')).toBeInstanceOf(MockJsonWorker);
-    expect(globalThis.MonacoEnvironment.getWorker('worker', 'typescript')).toBeInstanceOf(MockTsWorker);
-    expect(globalThis.MonacoEnvironment.getWorker('worker', 'unknown')).toBeInstanceOf(MockEditorWorker);
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'typescript')).toBeInstanceOf(
+      MockTsWorker
+    );
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'unknown')).toBeInstanceOf(
+      MockEditorWorker
+    );
   });
 
   it('reuses the configured worker mapping when called multiple times', async () => {
@@ -146,8 +150,12 @@ describe('configureMonaco', () => {
     expect(loaderConfig).toHaveBeenCalledOnce();
 
     expect(globalThis.MonacoEnvironment.getWorker('worker', 'json')).toBeInstanceOf(MockJsonWorker);
-    expect(globalThis.MonacoEnvironment.getWorker('worker', 'typescript')).toBeInstanceOf(MockTsWorker);
-    expect(globalThis.MonacoEnvironment.getWorker('worker', 'unknown')).toBeInstanceOf(MockEditorWorker);
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'typescript')).toBeInstanceOf(
+      MockTsWorker
+    );
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'unknown')).toBeInstanceOf(
+      MockEditorWorker
+    );
   });
 });
 
@@ -261,15 +269,17 @@ describe('registerLanguageOnce', () => {
   it('does not register any other language when one language is requested', async () => {
     const { registerLanguageOnce } = await import('@/monaco');
 
-    // JavaScript is the scratchpad happy path: tokenizer registers, but JS
-    // ships no custom editor providers (it relies on the TypeScript worker).
+    // JavaScript is the scratchpad happy path: its TypeScript language service
+    // remains built in, while Lingua adds only its magic-comment providers.
     await registerLanguageOnce(monacoMock as never, 'javascript');
 
     expect(monacoMock.languages.register).toHaveBeenCalledTimes(1);
     expect(monacoMock.languages.register).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'javascript' })
     );
-    expect(registerCompletionItemProvider).not.toHaveBeenCalled();
+    expect(registerCompletionItemProvider).toHaveBeenCalledTimes(1);
+    expect(registerCompletionItemProvider).toHaveBeenCalledWith('javascript', expect.any(Object));
+    expect(registerHoverProvider).toHaveBeenCalledWith('javascript', expect.any(Object));
     // No Go / Python / Rust contributions leaked in from the eager old path.
     for (const leaked of ['go', 'python', 'rust', 'ruby', 'lua']) {
       expect(monacoMock.languages.register).not.toHaveBeenCalledWith(
@@ -333,5 +343,13 @@ describe('prefetchLanguage', () => {
       expect.objectContaining({ id: 'python' })
     );
     expect(registerCompletionItemProvider).toHaveBeenCalledWith('python', expect.any(Object));
+    expect(
+      registerCompletionItemProvider.mock.calls.filter(
+        ([languageId]: [string]) => languageId === 'python'
+      )
+    ).toHaveLength(2);
+    expect(
+      registerHoverProvider.mock.calls.filter(([languageId]: [string]) => languageId === 'python')
+    ).toHaveLength(2);
   });
 });

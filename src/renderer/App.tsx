@@ -27,6 +27,7 @@ import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
+import { useWhatsNewNotice } from './hooks/useWhatsNewNotice';
 import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useShareLinkBoot } from './hooks/useShareLinkBoot';
 import { ShareLinkController } from './components/Share/ShareLinkButton';
@@ -94,8 +95,6 @@ function AppChrome({
   const utilitiesWorkspaceActive = useEditorStore(s => {
     return getActiveTab(s)?.kind === 'utilities';
   });
-  const lastSeenVersion = useSettingsStore(s => s.lastSeenVersion);
-  const setLastSeenVersion = useSettingsStore(s => s.setLastSeenVersion);
   const suppressTourAutoStart = useSettingsStore(s => s.suppressTourAutoStart);
   // Select the two stable actions individually — `useUIStore()` with no
   // selector re-renders AppChrome (the entire shell) on EVERY ui-store
@@ -120,7 +119,6 @@ function AppChrome({
   // shared by the FileTree button, the Mod+Alt+E shortcut, and the
   // command-palette actions.
   const { exportProjectBundle } = useProjectBundle();
-  const hasHandledWhatsNewRef = useRef(false);
   const hasHandledAutoTourRef = useRef(false);
   // RL-111 — boot-time session restore (extracted to a hook to keep App.tsx
   // under the AUDIT-11 size budget). Owns the `always`/`ask`/`never` decision
@@ -149,6 +147,13 @@ function AppChrome({
   // the same App-mount scope and runs independently of whether the
   // user opens Settings → Updates.
   useDownloadedUpdateNotice();
+  useWhatsNewNotice({
+    currentVersion: appInfo?.version,
+    hasHandledDeepLink,
+    overlay,
+    openOverlay,
+    suppressed: smokeEnabled,
+  });
   // RL-044 Slice 2b-β-α Fold H — default consumer for the
   // `file.open` command emitted by <RichValueError>
   // when users click a stack frame. Until RL-024 multi-file workspace
@@ -191,38 +196,6 @@ function AppChrome({
       platform: window.lingua?.platform ?? 'unknown',
     });
   }, [track]);
-
-  useEffect(() => {
-    if (hasHandledWhatsNewRef.current || smokeEnabled || hasHandledDeepLink) {
-      return;
-    }
-
-    const currentVersion = appInfo?.version;
-    if (!currentVersion) {
-      return;
-    }
-
-    if (lastSeenVersion === currentVersion) {
-      hasHandledWhatsNewRef.current = true;
-      return;
-    }
-
-    if (overlay !== 'none') {
-      return;
-    }
-
-    hasHandledWhatsNewRef.current = true;
-    setLastSeenVersion(currentVersion);
-    openOverlay('whats-new');
-  }, [
-    appInfo?.version,
-    hasHandledDeepLink,
-    lastSeenVersion,
-    openOverlay,
-    overlay,
-    setLastSeenVersion,
-    smokeEnabled,
-  ]);
 
   useEffect(() => {
     if (hasHandledAutoTourRef.current || smokeEnabled || hasHandledDeepLink) {
