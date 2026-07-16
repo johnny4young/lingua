@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { useBootstrapProgressStore } from '../stores/bootstrapProgressStore';
 import type {
   LanguageRunner,
   ExecutionContext,
@@ -154,7 +155,17 @@ export class PythonRunner implements LanguageRunner {
 
         const handler = (event: MessageEvent) => {
           const msg = event.data;
-          if (msg.type === 'ready') {
+          if (msg.type === 'bootstrap-progress') {
+            // IT2-D3 — the Pyodide download streams progress DURING the
+            // init handshake (no run in flight yet, so no runId guard
+            // here); the action pill reads this store live.
+            useBootstrapProgressStore.getState().report({
+              language: 'python',
+              loadedBytes: msg.loadedBytes,
+              totalBytes: msg.totalBytes,
+            });
+          } else if (msg.type === 'ready') {
+            useBootstrapProgressStore.getState().clear();
             this.pyodideLoaded = true;
             cleanup();
             resolve();
@@ -325,6 +336,16 @@ export class PythonRunner implements LanguageRunner {
         if (this.currentRunId !== runId) return;
 
         switch (msg.type) {
+          case 'bootstrap-progress':
+            // IT2-D3 — live runtime download progress; the
+            // initialization window in executeTabManually composes it
+            // into the loading message.
+            useBootstrapProgressStore.getState().report({
+              language: 'python',
+              loadedBytes: msg.loadedBytes,
+              totalBytes: msg.totalBytes,
+            });
+            break;
           case 'console': {
             // RL-044 Slice 1C — forward the additive payload from the
             // Pyodide worker. Absent on text-only fallback paths
@@ -470,6 +491,9 @@ export class PythonRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
+            // IT2-D3 — boot finished (or was already warm); drop the
+            // progress line so the pill returns to its normal label.
+            useBootstrapProgressStore.getState().clear();
             finish({
               stdout,
               stderr,

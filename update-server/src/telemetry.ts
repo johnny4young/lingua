@@ -29,6 +29,9 @@ import { log } from './lib/observability';
 export const TELEMETRY_EVENT_NAMES = [
   'app.launched',
   'app.boot_phase',
+  // IT2-D3 — mirror of the runtime bootstrap events.
+  'runtime.bootstrap_completed',
+  'runtime.bootstrap_failed',
   'runner.executed',
   'overlay.opened',
   'feature.blocked',
@@ -315,6 +318,8 @@ const EVENT_NAME_SET: ReadonlySet<string> = new Set(TELEMETRY_EVENT_NAMES);
 export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = {
   'app.launched': ['platform', 'build', 'locale'],
   'app.boot_phase': ['phase', 'durationBucket'],
+  'runtime.bootstrap_completed': ['language', 'durationBucket'],
+  'runtime.bootstrap_failed': ['language', 'reason'],
   'runner.executed': ['language', 'status', 'durationBucketMs'],
   'overlay.opened': ['overlayId'],
   'feature.blocked': ['entitlement', 'tier'],
@@ -555,6 +560,8 @@ export const SMART_PASTE_HANDLERS = new Set([
 // RL-020 Slice 7 — widened to mirror the renderer (`'timeout'` and
 // `'stopped'` are the two distinct termination kinds the renderer
 // now reports). The parity test asserts both Sets stay in lockstep.
+// IT2-D3 — mirror of BOOTSTRAP_FAILURE_REASONS in src/shared/telemetry.ts.
+const BOOTSTRAP_FAILURE_REASONS = new Set(['prepare-error']);
 const RUNNER_STATUS_VALUES = new Set([
   'ok',
   'error',
@@ -1217,6 +1224,18 @@ function isAllowedValue(
       if (key === 'phase') return typeof value === 'string' && BOOT_PHASES.has(value);
       if (key === 'durationBucket') {
         return typeof value === 'string' && BOOT_DURATION_BUCKETS.has(value);
+      }
+      return false;
+    case 'runtime.bootstrap_completed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'durationBucket') {
+        return typeof value === 'string' && BOOT_DURATION_BUCKETS.has(value);
+      }
+      return false;
+    case 'runtime.bootstrap_failed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'reason') {
+        return typeof value === 'string' && BOOTSTRAP_FAILURE_REASONS.has(value);
       }
       return false;
     case 'runner.executed':

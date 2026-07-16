@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { useBootstrapProgressStore } from '../stores/bootstrapProgressStore';
 import type {
   LanguageRunner,
   ExecutionContext,
@@ -160,7 +161,16 @@ export class WasmRubyRunner implements LanguageRunner {
 
         const handler = (event: MessageEvent) => {
           const msg = event.data;
-          if (msg.type === 'ready') {
+          if (msg.type === 'bootstrap-progress') {
+            // IT2-D3 — Ruby WASM download progress during the init
+            // handshake; mirrors the Python runner.
+            useBootstrapProgressStore.getState().report({
+              language: 'ruby',
+              loadedBytes: msg.loadedBytes,
+              totalBytes: msg.totalBytes,
+            });
+          } else if (msg.type === 'ready') {
+            useBootstrapProgressStore.getState().clear();
             this.rubyLoaded = true;
             cleanup();
             resolve();
@@ -279,6 +289,16 @@ export class WasmRubyRunner implements LanguageRunner {
         if (this.currentRunId !== runId) return;
 
         switch (msg.type) {
+          case 'bootstrap-progress':
+            // IT2-D3 — live runtime download progress; the
+            // initialization window in executeTabManually composes it
+            // into the loading message.
+            useBootstrapProgressStore.getState().report({
+              language: 'ruby',
+              loadedBytes: msg.loadedBytes,
+              totalBytes: msg.totalBytes,
+            });
+            break;
           case 'console': {
             const output: ConsoleOutput = {
               type: msg.method,
@@ -309,6 +329,9 @@ export class WasmRubyRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
+            // IT2-D3 — boot finished (or was already warm); drop the
+            // progress line so the pill returns to its normal label.
+            useBootstrapProgressStore.getState().clear();
             finish({
               stdout,
               stderr,

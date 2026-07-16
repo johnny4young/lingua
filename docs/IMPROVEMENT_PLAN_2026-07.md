@@ -690,7 +690,7 @@ streak sobrevive reload (usa `daily_activity`, no el reloj de sesión);
 toggle OFF = cero superficies visibles; `check:i18n` + `check:i18n:copy`
 verdes; smoke web del flujo run→toast→popover.
 
-## IT2-D3 · Progreso visible del bootstrap de runtimes — M (2 d)
+## IT2-D3 · Progreso visible del bootstrap de runtimes — SLICE 1 EJECUTADO 2026-07-16 · M (2 d)
 
 **Evidencia.** Confirmado: NO hay progreso hoy (búsqueda de
 onProgress/ReadableStream/Content-Length en python-worker, ruby-worker y
@@ -731,6 +731,25 @@ muestra progreso creciente; segundo boot con prefetch → run sin espera
 perceptible; sin red y sin cache → mensaje de error honesto (no spinner
 infinito); offline desktop (assets locales) → el progreso completa
 instantáneo sin regresión.
+
+**Estado Slice 1 (2026-07-16): hecho** (sin el prefetch opt-in del punto 4
+— Slice 2). Pre-warm con progreso de `pyodide.asm.wasm` en python-worker
+y lectura por chunks del fetch existente en ruby-worker (reemplaza
+`compileStreaming`; el sha256 path ya materializaba bytes); variante
+tipada `bootstrap-progress` en `WorkerResponse` con throttle de 250 ms.
+HALLAZGO CLAVE: el boot real ocurre en el handshake `init` de
+`ensurePyodide`/`ensureRuby` (no en `execute`), con su propio listener y
+sin runId — el reenvío al `bootstrapProgressStore` vive AHÍ, y el
+FloatingActionPill lee el store directamente (path-agnóstico: auto-run o
+manual). La ventana de init de `executeTabManually` también compone el
+mensaje para el Toolbar clásico y emite `runtime.bootstrap_completed`
+(`durationBucket` de BOOT_DURATION_BUCKETS) / `runtime.bootstrap_failed`
+(`prepare-error`), allowlisted en shared + update-server. El error path
+queda igual de honesto (el loader real reporta; el pre-warm es
+best-effort). E2E `tests/e2e/bootstrapProgress.spec.ts` con throttle real
+vía `page.route` (+2.5 s en el asset): label estático + contador MB en el
+pill y run completo. Evidencia en
+`output/review/it2-d3-bootstrap-progress/`.
 
 ## IT2-D4 · Magic comments descubribles — S (1 d)
 

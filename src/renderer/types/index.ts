@@ -1515,6 +1515,18 @@ export type WorkerResponse =
     }
   | {
       /**
+       * IT2-D3 — live download progress while a WASM runtime
+       * bootstraps (Pyodide / Ruby). `totalBytes` is null when the
+       * server sent no Content-Length (progress is indeterminate).
+       * Best-effort: absence of these messages never blocks a boot.
+       */
+      type: 'bootstrap-progress';
+      runId: string;
+      loadedBytes: number;
+      totalBytes: number | null;
+    }
+  | {
+      /**
        * RL-115 Slice 1 — batched per-statement timings the worker
        * posts once, right before `done` (and on the error path, for
        * the statements that DID complete). Only present when the

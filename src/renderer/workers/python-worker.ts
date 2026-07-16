@@ -200,8 +200,47 @@ type PyodideLoaderModule = {
   loadPyodide: (options: { indexURL: string }) => Promise<unknown>;
 };
 
+/**
+ * IT2-D3 — pre-warm the big Pyodide WASM into the HTTP cache while
+ * streaming progress to the renderer. Best-effort by design: any
+ * failure falls through silently and `loadPyodide` performs its own
+ * fetch (served from the cache when the pre-warm succeeded) with its
+ * own honest error reporting.
+ */
+async function prewarmPyodideWithProgress(): Promise<void> {
+  try {
+    const response = await fetch(`${PYODIDE_INDEX_URL}pyodide.asm.wasm`);
+    if (!response.ok || !response.body) return;
+    const totalHeader = Number(response.headers.get('content-length'));
+    const totalBytes = Number.isFinite(totalHeader) && totalHeader > 0 ? totalHeader : null;
+    const reader = response.body.getReader();
+    let loadedBytes = 0;
+    let lastPostAt = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      loadedBytes += value?.byteLength ?? 0;
+      const now = Date.now();
+      // Throttle to ~4 updates/second — enough for a live counter,
+      // never a message flood on fast local serves.
+      if (now - lastPostAt >= 250 || loadedBytes === totalBytes) {
+        lastPostAt = now;
+        ctx.postMessage({
+          type: 'bootstrap-progress',
+          runId: activeRunId ?? '',
+          loadedBytes,
+          totalBytes,
+        });
+      }
+    }
+  } catch {
+    /* pre-warm is best-effort; the real loader reports failures */
+  }
+}
+
 async function loadPyodide(): Promise<unknown> {
   if (pyodide) return pyodide;
+  await prewarmPyodideWithProgress();
 
   // Module workers cannot use importScripts. Load Pyodide's ESM entry
   // from the locally-served copy so Electron, the dev server, and the
