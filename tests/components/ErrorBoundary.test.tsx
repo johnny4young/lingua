@@ -94,6 +94,25 @@ describe('ErrorBoundary', () => {
     expect(onReset).toHaveBeenCalledOnce();
   });
 
+  it('renders the compact panel recovery surface and delegates retry to its owner', () => {
+    const onRetry = vi.fn();
+    render(
+      <ErrorBoundary region="notebook" variant="panel" onRetry={onRetry}>
+        <Boom shouldThrow />
+      </ErrorBoundary>
+    );
+
+    const fallback = screen.getByTestId('error-boundary-notebook');
+    expect(fallback.textContent).toContain('Error · the notebook workspace');
+    expect(fallback.textContent).toContain('This panel crashed while rendering');
+    expect(screen.getByTestId('error-boundary-notebook-copy')).toBeTruthy();
+    expect(screen.queryByTestId('error-boundary-notebook-reload')).toBeNull();
+    expect(screen.queryByTestId('error-boundary-notebook-reset')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('error-boundary-notebook-retry'));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
   it('Copy report button writes the redacted JSON to navigator.clipboard', async () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -124,8 +143,20 @@ describe('ErrorBoundary', () => {
     );
     // The Spanish title interpolates the region label; assert the
     // localized button copies are present.
-    expect(screen.getByTestId('error-boundary-editor-reload').textContent).toMatch(
-      /modo seguro/iu
+    expect(screen.getByTestId('error-boundary-editor-reload').textContent).toMatch(/modo seguro/iu);
+  });
+
+  it('renders the regional panel recovery copy in Spanish', async () => {
+    await i18next.changeLanguage('es');
+    render(
+      <ErrorBoundary region="notebook" variant="panel" onRetry={vi.fn()}>
+        <Boom shouldThrow />
+      </ErrorBoundary>
     );
+
+    const fallback = screen.getByTestId('error-boundary-notebook');
+    expect(fallback.textContent).toContain('Error · el espacio de notebooks');
+    expect(fallback.textContent).toContain('El resto de la app sigue funcionando');
+    expect(screen.getByTestId('error-boundary-notebook-retry').textContent).toContain('Reintentar');
   });
 });

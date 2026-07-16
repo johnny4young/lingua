@@ -1,11 +1,23 @@
 import type { ConsoleEntry } from '../types';
 import { useConsoleStore } from '../stores/consoleStore';
+import type { WorkspaceErrorBoundaryRegion } from '../components/Layout/WorkspaceErrorBoundary';
 
 type ConsoleEntrySeed = Omit<ConsoleEntry, 'id' | 'timestamp'>;
 
 interface LinguaE2eHooks {
   clearConsole: () => void;
   addConsoleEntries: (entries: ConsoleEntrySeed[]) => void;
+  armWorkspaceCrash: (region: WorkspaceErrorBoundaryRegion) => void;
+}
+
+let armedWorkspaceCrash: WorkspaceErrorBoundaryRegion | null = null;
+
+export function shouldE2eWorkspaceCrash(region: WorkspaceErrorBoundaryRegion): boolean {
+  return armedWorkspaceCrash === region;
+}
+
+export function clearE2eWorkspaceCrash(region: WorkspaceErrorBoundaryRegion): void {
+  if (armedWorkspaceCrash === region) armedWorkspaceCrash = null;
 }
 
 declare global {
@@ -30,6 +42,9 @@ export function installE2eHooks(): void {
       for (const entry of entries) {
         addEntry(entry);
       }
+    },
+    armWorkspaceCrash: region => {
+      armedWorkspaceCrash = region;
     },
   };
 }

@@ -25,11 +25,7 @@ import {
   copyErrorReportToClipboard,
   type RedactedErrorReport,
 } from '../utils/redactedErrorReport';
-import {
-  buildCrashFingerprint,
-  markCrashOnNextBoot,
-  recordCrash,
-} from '../utils/safeBoot';
+import { buildCrashFingerprint, markCrashOnNextBoot, recordCrash } from '../utils/safeBoot';
 
 interface ErrorBoundaryProps extends WithTranslation {
   /**
@@ -38,6 +34,16 @@ interface ErrorBoundaryProps extends WithTranslation {
    * redacted error report.
    */
   region: string;
+  /**
+   * `panel` keeps the recovery surface compact and local: the surrounding
+   * shell remains mounted and the caller owns the retry remount.
+   */
+  variant?: 'shell' | 'panel';
+  /**
+   * Remount the protected region after a render failure. Workspace callers
+   * should change a key rather than trying to reuse the failed subtree.
+   */
+  onRetry?: () => void;
   /**
    * When provided, the fallback renders a "Reset to defaults" button
    * that calls this callback. Omit when no domain-specific reset
@@ -75,7 +81,7 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
     // otherwise double-count toward the boot-loop threshold.
     try {
       markCrashOnNextBoot();
-      recordCrash(Date.now(), buildCrashFingerprint(error));
+      recordCrash(Date.now(), buildCrashFingerprint(error), this.props.region);
     } catch {
       // Best-effort — quota / SecurityError on private mode is non-fatal.
     }
@@ -104,25 +110,43 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
     this.setState({ error: null, report: null, copyState: 'idle' });
   };
 
+  private handleRetry = (): void => {
+    this.props.onRetry?.();
+  };
+
   render(): ReactNode {
     const { error, report, copyState } = this.state;
-    const { t, region, onReset } = this.props;
+    const { t, region, onReset, onRetry, variant = 'shell' } = this.props;
 
     if (!error) return this.props.children;
 
-    const fallbackTitle = t('errorBoundary.title', { region: t(`errorBoundary.region.${region}`, region) });
+    const localizedRegion = t(`errorBoundary.region.${region}`, region);
+    const panelFallback = variant === 'panel';
+    const fallbackTitle = panelFallback
+      ? t('errorBoundary.panel.title')
+      : t('errorBoundary.title', { region: localizedRegion });
+    const fallbackDescription = panelFallback
+      ? t('errorBoundary.panel.body')
+      : t('errorBoundary.description');
 
     return (
       <div
         role="alert"
         data-testid={`error-boundary-${region}`}
         data-region={region}
-        className="flex h-full w-full flex-col gap-3 rounded-2xl border border-border/80 bg-background-elevated/72 p-5"
+        className={`flex h-full w-full flex-col gap-3 border border-border/80 bg-background-elevated/72 ${
+          panelFallback ? 'rounded-xl p-4' : 'rounded-2xl p-5'
+        }`}
       >
+        {panelFallback ? (
+          <p className="text-caption font-medium uppercase tracking-[0.14em] text-muted">
+            {t('errorBoundary.eyebrowWithRegion', { region: localizedRegion })}
+          </p>
+        ) : null}
         <h2 className="font-display text-h3 font-semibold tracking-[-0.02em] text-foreground">
           {fallbackTitle}
         </h2>
-        <p className="text-body leading-6 text-muted">{t('errorBoundary.description')}</p>
+        <p className="text-body leading-6 text-muted">{fallbackDescription}</p>
         {report ? (
           <p className="font-mono text-body-sm leading-5 text-muted">
             {report.errorName}: {report.errorMessage}
@@ -143,14 +167,26 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
                   : t('errorBoundary.copy.button')}
             </span>
           </button>
-          <button
-            type="button"
-            onClick={this.handleReloadSafe}
-            className="button-secondary"
-            data-testid={`error-boundary-${region}-reload`}
-          >
-            <span>{t('errorBoundary.reloadSafe.button')}</span>
-          </button>
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={this.handleRetry}
+              className="button-secondary"
+              data-testid={`error-boundary-${region}-retry`}
+            >
+              <span>{t('errorBoundary.tryAgain')}</span>
+            </button>
+          ) : null}
+          {!panelFallback ? (
+            <button
+              type="button"
+              onClick={this.handleReloadSafe}
+              className="button-secondary"
+              data-testid={`error-boundary-${region}-reload`}
+            >
+              <span>{t('errorBoundary.reloadSafe.button')}</span>
+            </button>
+          ) : null}
           {onReset ? (
             <button
               type="button"

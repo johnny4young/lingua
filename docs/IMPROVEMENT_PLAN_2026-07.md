@@ -1386,6 +1386,21 @@ editor y el resto del shell siguen operativos; Reintentar re-monta; el
 crash-log registra la región correcta; el boundary de shell sigue
 cubriendo lo demás.
 
+**Estado (2026-07-15): hecho.** Notebook, SQL, HTTP y Utilities tienen un
+boundary regional alrededor de su `Suspense`. El fallback compacto reutiliza
+el reporte redactado, mantiene visibles el shell y las demás pestañas, y
+reintenta con un remount local sin limpiar stores. El crash-log conserva la
+región mediante entradas compatibles con los timestamps de versiones previas.
+
+**Cierre de AC.** 49 tests focalizados cubren el boundary base, las cuatro
+regiones, retry y compatibilidad del crash-log. El E2E de producción provocó un
+crash controlado en Notebook, abrió y cerró la paleta mientras el fallback
+seguía activo, copió un reporte con `region: notebook` y recuperó el workspace
+en inglés y español. La prueba terminó sin errores inesperados de consola y un
+smoke limpio separado confirmó el arranque normal. Evidencia visual:
+`output/review/it2-g6-g7-product-hardening/g6-web-en-notebook-boundary.png` y
+`output/review/it2-g6-g7-product-hardening/g6-web-es-notebook-recovered.png`.
+
 ## IT2-G7 · A11y: cierre de gaps concretos — S-M (1-2 d)
 
 **Evidencia (corregida en Fase 1).** Base sólida (focus trap canónico
@@ -1516,7 +1531,7 @@ toca UI (mandato AGENTS.md).
 | 25 | IT2-G2 (skeleton + ventana sin bloqueo) | 1-2 d | Primer impacto percibido; paso 0 = mapear dependencia de licencia. |
 | 26 | IT2-G3 (rehidratación diferida) | Medido 2026-07-11 | **Cerrado sin diferir** — ≤3,85 ms medianos; el costo no justificó nuevas esperas. |
 | 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | **Hecho 2026-07-15** — ambas frustraciones ahora son momentos de marca. |
-| 28 | IT2-G6 (boundaries regionales) | 1 d | Resiliencia percibida. |
+| 28 | IT2-G6 (boundaries regionales) | 1 d | **Hecho 2026-07-15** — un crash de workspace ya no tumba el shell. |
 | 29 | IT2-G7 (a11y gaps) | 1-2 d | La parte (a) va DENTRO de IT2-B2. |
 | 30 | IT2-G8 (brew/winget + /compare/runjs) | 2-3 d | Post-release estable. |
 | 31 | IT2-G9 (CLI docs + publicar a npm) | 1-2 d + RL-098 | **APROBADO 2026-07-06.** Cadena de publish dentro de RL-098. |

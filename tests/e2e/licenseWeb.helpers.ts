@@ -83,6 +83,10 @@ const KNOWN_BENIGN_CONSOLE_ERROR_PATTERNS: RegExp[] = [
   // propagated to app code (so it cannot be caught/suppressed there) and
   // invisible to users. Exact-match so a real app "...Canceled" stays caught.
   /^(Error: )?Canceled$/,
+  // IT2-G6 — the regional-boundary spec deliberately throws this exact,
+  // build-gated probe error to prove the shell survives and Retry remounts.
+  // No production path can emit it because __LINGUA_E2E_HOOKS__ is false.
+  /(?:^Error: )?\[E2E\] intentional (?:notebook|sql|http|utilities) workspace render crash(?:\n|$)/,
 ];
 
 function trackConsoleErrors(page: Page): string[] {
@@ -280,9 +284,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
             hasCompletedOnboardingFirstRun: true,
             hasCompletedOnboardingFirstSnippet: true,
             telemetryConsent: 'declined',
-            ...(seededShowStatusBar === undefined
-              ? {}
-              : { showStatusBar: seededShowStatusBar }),
+            ...(seededShowStatusBar === undefined ? {} : { showStatusBar: seededShowStatusBar }),
           },
           version: 0,
         })
