@@ -76,10 +76,11 @@ export const SETTINGS_INLINE_LINT_LANGUAGE_SET: ReadonlySet<string> = new Set(
  * safe in non-DOM test contexts (returns `false` when window / lingua absent).
  */
 export function defaultShowStatusBar(): boolean {
-  return (
-    (globalThis as { window?: { lingua?: { platform?: string } } }).window
-      ?.lingua?.platform === 'desktop'
-  );
+  const platform = (
+    globalThis as { window?: { lingua?: { platform?: string } } }
+  ).window?.lingua?.platform;
+
+  return Boolean(platform && platform !== 'web');
 }
 
 export const APP_LANGUAGES = ['system', 'en', 'es'] as const;

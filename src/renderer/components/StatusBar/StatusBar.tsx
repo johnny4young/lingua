@@ -16,12 +16,13 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { GitBranch } from 'lucide-react';
+import { CheckCircle2, GitBranch } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 import { languageLabel } from '../../utils/languageMeta';
 import { getActiveEditor } from '../../runtime/editorAccess';
 import { useActiveTab } from '../../hooks/useActiveTab';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGitStore } from '../../stores/gitStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -84,6 +85,7 @@ function StatusBarContent() {
   const activeTabId = activeTab?.id ?? null;
   const activeLanguage = activeTab?.language;
   const setTabLanguage = useEditorStore((state) => state.setTabLanguage);
+  const isOnline = useOnlineStatus();
 
   const firstSegmentRef = useRef<HTMLButtonElement | null>(null);
   // RL-112 fold G — a render bump so the indent segment reflects the new model
@@ -267,11 +269,32 @@ function StatusBarContent() {
         </button>
       ) : null}
 
+      {/* IT2-G5 — Offline is a positive local-capability state, not an alert. */}
+      {!isOnline ? (
+        <button
+          type="button"
+          data-testid="status-bar-offline"
+          className={cn(
+            SEGMENT_CLASS,
+            'ml-auto whitespace-nowrap border-success-border bg-success-bg text-success-fg hover:text-success-fg focus-visible:text-success-fg'
+          )}
+          title={t('statusBar.offline.tooltip')}
+          aria-label={`${t('statusBar.offline.label')}. ${t('statusBar.offline.tooltip')}`}
+          aria-live="polite"
+        >
+          <CheckCircle2 size={11} aria-hidden="true" />
+          <span>{t('statusBar.offline.label')}</span>
+        </button>
+      ) : null}
+
       {/* 7 — Run status (fold F): compact icon-only pill, pushed right. */}
       <button
         type="button"
         data-testid="status-bar-run"
-        className="focus-ring ml-auto flex h-full items-center border-l border-border/60 px-2 text-fg-muted focus-visible:text-fg-base"
+        className={cn(
+          'focus-ring flex h-full items-center border-l border-border/60 px-2 text-fg-muted focus-visible:text-fg-base',
+          isOnline && 'ml-auto'
+        )}
         title={t('statusBar.run.tooltip')}
         aria-label={t('statusBar.run.tooltip')}
       >

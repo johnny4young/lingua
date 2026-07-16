@@ -1322,6 +1322,20 @@ sistema. Instálalo y reintenta — todo lo demás sigue funcionando."*
 notice con ambos CTAs; retry tras instalar detecta sin reiniciar la app;
 con toolchain presente, cero cambio.
 
+**Estado (2026-07-15): hecho.** Go, Rust, Node y el modo Ruby de sistema
+comparten un notice localizado con guía y retry. El retry reutiliza los detect
+tipados y actualiza el runner vivo; no requiere reiniciar. El notice usa la
+prioridad de onboarding porque el smoke Electron encontró que el toast de
+primer snippet podía descartar silenciosamente una recuperación normal. Ruby
+`auto` conserva su fallback WASM sin ruido; solo `system` muestra la guía.
+
+**Cierre de AC.** 49 tests focalizados cubren runners, ausencia web, prioridad
+frente a onboarding y detección reintentada. El smoke Electron arrancó con un
+`PATH` sin Go, verificó ambos CTAs, creó un binario Go controlado durante la
+misma sesión y confirmó la detección sin reinicio, con cero errores de consola.
+Evidencia visual:
+`output/review/it2-g4-g5-resilience/desktop-en-missing-go-guidance.png`.
+
 ## IT2-G5 · Indicador offline que celebra — S (0.5-1 d)
 
 **Evidencia.** Producción no tiene ninguna señal de offline (la auditoría
@@ -1338,6 +1352,21 @@ producto.
 **AC.** DevTools offline → chip aparece con el copy positivo; online →
 desaparece; correr JS/TS/Python (cacheado) offline funciona y el chip no
 interfiere; i18n es/en.
+
+**Estado (2026-07-15): hecho.** El StatusBar observa `navigator.onLine` con
+`useSyncExternalStore` y reacciona a los eventos `online`/`offline` sin duplicar
+el estado ni emitir toasts. Offline muestra un segmento verde y enfocable con
+copy positivo; el tooltip delimita updates, IA remota y descargas no cacheadas.
+También se corrigió el default desktop: el preload expone `darwin`/`win32`/
+`linux`, no el valor sintético `desktop` que el seed anterior esperaba.
+
+**Cierre de AC.** El E2E de producción alternó conectividad y comprobó aparición
+y desaparición, copy y tooltip en inglés y español, con cero errores de consola.
+El smoke Electron offline bloqueó tráfico no-loopback y completó 11 casos, con
+JavaScript, TypeScript y Python incluidos. El smoke Stagewright adicional quedó
+verde. Evidencia visual:
+`output/review/it2-g4-g5-resilience/web-en-offline-status.png` y
+`output/review/it2-g4-g5-resilience/web-es-offline-status.png`.
 
 ## IT2-G6 · ErrorBoundary regional por workspace — S-M (1 d)
 
@@ -1486,7 +1515,7 @@ toca UI (mandato AGENTS.md).
 | 24 | IT2-G1 (instrumentar boot) | 1 d | **Hecho 2026-07-10** — habilita medir G2/G3. |
 | 25 | IT2-G2 (skeleton + ventana sin bloqueo) | 1-2 d | Primer impacto percibido; paso 0 = mapear dependencia de licencia. |
 | 26 | IT2-G3 (rehidratación diferida) | Medido 2026-07-11 | **Cerrado sin diferir** — ≤3,85 ms medianos; el costo no justificó nuevas esperas. |
-| 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | Convierte las dos frustraciones en momentos de marca. |
+| 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | **Hecho 2026-07-15** — ambas frustraciones ahora son momentos de marca. |
 | 28 | IT2-G6 (boundaries regionales) | 1 d | Resiliencia percibida. |
 | 29 | IT2-G7 (a11y gaps) | 1-2 d | La parte (a) va DENTRO de IT2-B2. |
 | 30 | IT2-G8 (brew/winget + /compare/runjs) | 2-3 d | Post-release estable. |

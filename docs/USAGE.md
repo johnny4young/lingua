@@ -95,6 +95,21 @@ Diagnostic statuses surfaced in Settings → Plugins:
 
 The plugin model is intentionally manifest-only. There is no facility to load arbitrary plugin executable code from a manifest; the bundled-runtime allowlist enforces that policy at validation time.
 
+## Native toolchains
+
+- JavaScript, TypeScript, and Python ship with Lingua. Go, Rust, desktop Node mode, and system Ruby use binaries installed on the host.
+- When a requested desktop toolchain is missing, Lingua shows an installation-guide action and a **Retry detection** action instead of requiring an app restart.
+- Retry updates the active runner as soon as the binary becomes available on the desktop app's `PATH`.
+- Ruby's `auto` preference quietly keeps using the bundled WASM runtime when system Ruby is absent. The guidance appears when `system` Ruby was explicitly selected.
+- Installation walkthroughs live in [Getting started](https://linguacode.dev/docs/getting-started) and its [Spanish version](https://linguacode.dev/es/docs/getting-started).
+
+## Offline status
+
+- The desktop status bar is enabled by default. The web status bar remains opt-in under **Settings → Editor → Show status bar**.
+- When the operating system reports that the app is offline, the status bar shows **Offline — everything keeps working**. The segment disappears automatically when connectivity returns and does not raise a toast.
+- Hover the segment for the honest boundary: local and cached runtimes keep working, while updates, remote AI, and runtime downloads that are not already cached remain unavailable.
+- Lingua's desktop offline smoke validates the bundled JavaScript, TypeScript, and Python paths with non-loopback network access blocked.
+
 ## Browser-only limitations
 
 - Go compilation stays unavailable in the browser build and returns an explicit desktop-only message.

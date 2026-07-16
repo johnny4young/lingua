@@ -7,6 +7,7 @@ import type {
 import { parseRustExecutionError } from '../utils/executionDiagnostics';
 import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './env';
 import { enrichConsoleOutputLine } from './originSplitter';
+import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
 export class RustRunner implements LanguageRunner {
   id = 'rust';
@@ -23,8 +24,17 @@ export class RustRunner implements LanguageRunner {
     this.ready = true;
 
     if (!result.installed) {
+      this.pushMissingToolchainNotice();
       throw new Error(result.error ?? 'Rust is not installed.');
     }
+  }
+
+  private pushMissingToolchainNotice(): void {
+    pushMissingNativeToolchainNotice('rust', async () => {
+      const result = await window.lingua.rust.detect(resolveUserEnvForRunner());
+      this.rustInstalled = result.installed;
+      return result.installed;
+    });
   }
 
   isReady(): boolean {
@@ -33,14 +43,14 @@ export class RustRunner implements LanguageRunner {
 
   async execute(code: string, _context?: ExecutionContext): Promise<ExecutionResult> {
     if (!this.rustInstalled) {
+      this.pushMissingToolchainNotice();
       return {
         stdout: [],
         stderr: [],
         result: undefined,
         executionTime: 0,
         error: {
-          message:
-            'Rust is not installed on this system. Install it from https://rustup.rs and restart Lingua.',
+          message: 'Rust is not installed on this system.',
         },
       };
     }
