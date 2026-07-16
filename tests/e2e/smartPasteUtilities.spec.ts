@@ -26,9 +26,7 @@ import {
   seedSession,
   test,
 } from './licenseWeb.helpers';
-
-const JWT =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsaW5ndWEiLCJyb2xlIjoiZGV2In0.c2lnbmF0dXJl';
+import { NON_SECRET_TEST_JWT } from '../__fixtures__/jwt';
 
 const PASTE_CHORD = process.platform === 'darwin' ? 'Meta+V' : 'Control+V';
 
@@ -50,7 +48,7 @@ test.describe('smart paste — utility suggestions (IT2-F4)', () => {
     await gotoApp(page);
     await createJavaScriptTab(page);
 
-    await pasteIntoEditor(page, JWT);
+    await pasteIntoEditor(page, NON_SECRET_TEST_JWT);
 
     const banner = page.getByTestId('status-notice-banner');
     await expect(banner).toContainText('Pasted a JWT token.');
@@ -59,7 +57,7 @@ test.describe('smart paste — utility suggestions (IT2-F4)', () => {
     // The Utilities workspace opens on the JWT panel, token loaded and
     // decoded (payload carries the fixture's `sub: lingua`).
     await expect(page.getByTestId('jwt-decode-token')).toContainText(
-      JWT.slice(0, 24)
+      NON_SECRET_TEST_JWT.slice(0, 24)
     );
     await expect(page.getByTestId('jwt-payload-output')).toContainText('lingua');
   });
@@ -90,7 +88,7 @@ test.describe('smart paste — utility suggestions (IT2-F4)', () => {
     await gotoApp(page);
     await createJavaScriptTab(page);
 
-    await pasteIntoEditor(page, JWT);
+    await pasteIntoEditor(page, NON_SECRET_TEST_JWT);
 
     const banner = page.getByTestId('status-notice-banner');
     await expect(banner).toContainText('Pegaste un token JWT.');

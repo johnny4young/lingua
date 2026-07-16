@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import type { Monaco, OnMount } from '@monaco-editor/react';
 import { useSmartPaste, requestPlainPaste } from '@/hooks/useSmartPaste';
+import { NON_SECRET_TEST_JWT } from '../__fixtures__/jwt';
 
 /**
  * RL-110 — locks the paste hook's gating + toast wiring without a real Monaco
@@ -114,7 +115,7 @@ describe('useSmartPaste', () => {
   });
 
   it('IT2-F4 — suggests the matching utility with per-format telemetry + catalog label', () => {
-    const h = createHarness('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJsaW5ndWEifQ.c2lnbmF0dXJl');
+    const h = createHarness(NON_SECRET_TEST_JWT);
     renderHook(() => useSmartPaste(h.editor, h.monaco));
     act(() => {
       h.firePaste();

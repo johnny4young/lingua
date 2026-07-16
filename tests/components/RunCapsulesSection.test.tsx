@@ -87,6 +87,7 @@ describe('RunCapsulesSection', () => {
     expect(button.disabled).toBe(true);
     const htmlButton = screen.getByTestId('capsule-export-html-button') as HTMLButtonElement;
     expect(htmlButton.disabled).toBe(true);
+    expect(htmlButton.className).toContain('focus-ring');
     expect(
       screen.queryByText('Run any code first; the latest result becomes exportable here.')
     ).not.toBeNull();

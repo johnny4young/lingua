@@ -153,7 +153,7 @@ export function RunCapsulesSection() {
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt disabled:opacity-50"
+                  className="focus-ring rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt disabled:opacity-50"
                   onClick={() => void handleExportHtml()}
                   disabled={!capsule}
                   data-testid="capsule-export-html-button"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { detectPasteIntent } from '@/clipboard/pasteHandlers';
+import { NON_SECRET_TEST_JWT } from '../../__fixtures__/jwt';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
 
 /**
@@ -57,9 +58,6 @@ describe('detectPasteIntent — positive detection', () => {
 });
 
 describe('detectPasteIntent — IT2-F4 utility suggestions', () => {
-  const JWT =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsaW5ndWEiLCJyb2xlIjoiZGV2In0.c2lnbmF0dXJl';
-
   function expectUtility(text: string, utilityId: string) {
     const intent = detectPasteIntent(text);
     expect(intent?.kind).toBe('utility');
@@ -70,12 +68,12 @@ describe('detectPasteIntent — IT2-F4 utility suggestions', () => {
   }
 
   it('suggests the JWT debugger for a three-segment token', () => {
-    expectUtility(JWT, 'jwt');
+    expectUtility(NON_SECRET_TEST_JWT, 'jwt');
   });
 
   it('suggests the JWT debugger over Base64 (segments are base64url)', () => {
-    expect(detectPasteIntent(JWT)?.kind === 'utility').toBe(true);
-    const intent = detectPasteIntent(JWT);
+    expect(detectPasteIntent(NON_SECRET_TEST_JWT)?.kind === 'utility').toBe(true);
+    const intent = detectPasteIntent(NON_SECRET_TEST_JWT);
     if (intent?.kind === 'utility') expect(intent.utilityId).toBe('jwt');
   });
 
