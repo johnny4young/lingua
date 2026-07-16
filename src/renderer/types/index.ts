@@ -823,6 +823,12 @@ export interface SettingsState {
    */
   lastSeenVersion: string | null;
   /**
+   * Show one non-blocking What's New notice after each version upgrade.
+   * The version is still acknowledged while disabled so re-enabling the
+   * preference does not surface stale release notes.
+   */
+  whatsNewNotificationsEnabled: boolean;
+  /**
    * True once the legacy guided tour reaches its final step. Kept separate from
    * `suppressTourAutoStart` so a skipped tour can be re-enabled later.
    */
@@ -1046,6 +1052,7 @@ export interface SettingsState {
    */
   acknowledgeFirstWorkflowModeSwitch: () => void;
   setLastSeenVersion: (version: string | null) => void;
+  setWhatsNewNotificationsEnabled: (enabled: boolean) => void;
   setHasCompletedTour: (value: boolean) => void;
   setSuppressTourAutoStart: (value: boolean) => void;
   setShortcutOverride: (id: string, combos: readonly ShortcutCombo[]) => void;

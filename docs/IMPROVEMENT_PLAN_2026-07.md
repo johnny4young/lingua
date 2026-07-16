@@ -773,7 +773,7 @@ inglés/español con cero errores de consola. Evidencia visual en
 `d4-web-es-python-magic-comment-completions.png` y
 `d4-web-es-magic-comment-hover.png`.
 
-## IT2-D5 · What's New activo — XS-S (0.5 d, con verificación previa)
+## IT2-D5 · What's New activo — EJECUTADO 2026-07-15 · XS-S (0.5 d, con verificación previa)
 
 **Evidencia (parcial — verificar primero).** Ya existen `lastSeenVersion` /
 `setLastSeenVersion` en settings y un efecto en `App.tsx` (~L95-120) que
@@ -790,6 +790,17 @@ nada: implementar ese toast. Ambos casos: máximo 1 vez por versión
 
 **AC.** Simular upgrade (bajar `lastSeenVersion` en localStorage) → toast
 una sola vez, CTA abre el overlay; toggle OFF lo silencia.
+
+**Cierre 2026-07-15.** El efecto real abría el overlay completo; ahora reconoce
+la versión al iniciar y, solo después de un upgrade, publica un aviso informativo
+normal con CTA hacia Novedades. Una instalación nueva queda en manos del
+onboarding sin superficies simultáneas. `whatsNewNotificationsEnabled` persiste y se
+sanea en el boundary de Settings; al apagarlo, la versión se reconoce sin
+mostrar avisos atrasados al reactivarlo. Pruebas focalizadas cubren StrictMode,
+primer boot, opt-out y CTA; el smoke web de producción validó una única aparición,
+persistencia EN/ES y cero errores de consola. Evidencia visual en
+`output/review/d4-d5-d7-discoverability/d5-web-en-upgrade-notice.png`,
+`d5-web-en-whats-new-overlay.png` y `d5-web-es-whats-new-opt-out.png`.
 
 ## IT2-D6 · Quick wins del roadmap ya especificados
 

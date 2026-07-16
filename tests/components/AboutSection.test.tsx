@@ -56,4 +56,18 @@ describe('AboutSection', () => {
     await user.click(toggle);
     expect(useSettingsStore.getState().suppressTourAutoStart).toBe(false);
   });
+
+  it('lets users opt out of version notifications', async () => {
+    const user = userEvent.setup();
+    render(<AboutSection onOpenWhatsNew={vi.fn()} />);
+
+    const toggle = screen
+      .getByTestId('settings-whats-new-notices-toggle')
+      .querySelector('button[role="switch"]') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+
+    await user.click(toggle);
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(false);
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+  });
 });

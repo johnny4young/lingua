@@ -82,6 +82,7 @@ const EXPECTED_STORE_KEYS = [
   'setLanguage',
   'setLanguageScorecardPlatform',
   'setLastSeenVersion',
+  'setWhatsNewNotificationsEnabled',
   'setLayoutPreset',
   'setMaxLoopIterations',
   'setNativeExecutionAcknowledged',
@@ -129,6 +130,7 @@ const EXPECTED_STORE_KEYS = [
   'variableInspectorSurface',
   'vimMode',
   'wordWrap',
+  'whatsNewNotificationsEnabled',
   'workflowModeDefaultsByLanguage',
 ].sort();
 
@@ -179,6 +181,7 @@ const STATE_FIELDS = new Set([
   'language',
   'languageScorecardPlatform',
   'lastSeenVersion',
+  'whatsNewNotificationsEnabled',
   'hasCompletedTour',
   'suppressTourAutoStart',
   'shortcutOverrides',

@@ -173,7 +173,7 @@ interface EffectiveConfigTileProps {
 // skipped at runtime by the `pick` helper, so adding a new setting
 // just requires adding the key here.
 const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
-  general: ['theme', 'language'],
+  general: ['theme', 'language', 'whatsNewNotificationsEnabled'],
   appearance: [
     'theme',
     'fontFamily',

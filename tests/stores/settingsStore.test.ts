@@ -322,6 +322,32 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().lastSeenVersion).toBeNull();
   });
 
+  it('enables version notifications by default and persists opt-out', () => {
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(true);
+    useSettingsStore.getState().setWhatsNewNotificationsEnabled(false);
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(false);
+    useSettingsStore.getState().setWhatsNewNotificationsEnabled(true);
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(true);
+  });
+
+  it('sanitizes a tampered version-notification preference on rehydrate', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: { whatsNewNotificationsEnabled: 'sometimes' },
+        version: 2,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(true);
+  });
+
   it('should default hasCompletedTour to false', () => {
     expect(useSettingsStore.getState().hasCompletedTour).toBe(false);
   });

@@ -60,6 +60,12 @@ export function AboutSection({
   const setSuppressTourAutoStart = useSettingsStore(
     (state) => state.setSuppressTourAutoStart
   );
+  const whatsNewNotificationsEnabled = useSettingsStore(
+    (state) => state.whatsNewNotificationsEnabled
+  );
+  const setWhatsNewNotificationsEnabled = useSettingsStore(
+    (state) => state.setWhatsNewNotificationsEnabled
+  );
   const { t, i18n } = useTranslation();
 
   const productName = appInfo?.productName ?? 'Lingua';
@@ -184,6 +190,21 @@ export function AboutSection({
                       : t('about.actions.checkUpdates')}
                   </span>
                 </button>
+              </div>
+            }
+          />
+          <SpecRow
+            label={t('about.actions.whatsNewOnUpdate.label')}
+            description={t('about.actions.whatsNewOnUpdate.hint')}
+            control={
+              <div data-testid="settings-whats-new-notices-toggle">
+                <Toggle
+                  value={whatsNewNotificationsEnabled}
+                  onChange={() =>
+                    setWhatsNewNotificationsEnabled(!whatsNewNotificationsEnabled)
+                  }
+                  aria-label={t('about.actions.whatsNewOnUpdate.label')}
+                />
               </div>
             }
           />

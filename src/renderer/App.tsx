@@ -96,12 +96,14 @@ function AppChrome({
   });
   const lastSeenVersion = useSettingsStore(s => s.lastSeenVersion);
   const setLastSeenVersion = useSettingsStore(s => s.setLastSeenVersion);
+  const whatsNewNotificationsEnabled = useSettingsStore(s => s.whatsNewNotificationsEnabled);
   const suppressTourAutoStart = useSettingsStore(s => s.suppressTourAutoStart);
   // Select the two stable actions individually — `useUIStore()` with no
   // selector re-renders AppChrome (the entire shell) on EVERY ui-store
   // write, including each of the ~134 statusNotice push/dismiss sites.
   const toggleSidebar = useUIStore(s => s.toggleSidebar);
   const toggleConsole = useUIStore(s => s.toggleConsole);
+  const pushStatusNotice = useUIStore(s => s.pushStatusNotice);
   const initializePlugins = usePluginStore(s => s.initialize);
   const initializeUpdates = useUpdateStore(s => s.initialize);
   const appInfo = useAppInfo();
@@ -213,15 +215,33 @@ function AppChrome({
 
     hasHandledWhatsNewRef.current = true;
     setLastSeenVersion(currentVersion);
-    openOverlay('whats-new');
+    // A null version is a fresh install, not an upgrade. Acknowledge the
+    // current build and let onboarding own first boot without competing
+    // release-note chrome.
+    if (lastSeenVersion !== null && whatsNewNotificationsEnabled) {
+      pushStatusNotice({
+        tone: 'info',
+        priority: 'normal',
+        messageKey: 'whatsNew.notice.updated',
+        values: { version: currentVersion },
+        actions: [
+          {
+            labelKey: 'about.actions.whatsNew',
+            onClick: () => openOverlay('whats-new'),
+          },
+        ],
+      });
+    }
   }, [
     appInfo?.version,
     hasHandledDeepLink,
     lastSeenVersion,
     openOverlay,
     overlay,
+    pushStatusNotice,
     setLastSeenVersion,
     smokeEnabled,
+    whatsNewNotificationsEnabled,
   ]);
 
   useEffect(() => {
