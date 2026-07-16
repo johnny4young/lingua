@@ -2,7 +2,9 @@ import type { Monaco, OnMount } from '@monaco-editor/react';
 import { useEffect, useRef } from 'react';
 import {
   detectPasteIntent,
+  type PasteIntent,
   type PasteIntentKind,
+  type UtilitySuggestionId,
 } from '../clipboard/pasteHandlers';
 import { applyPasteIntent } from '../clipboard/applyPasteIntent';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -52,7 +54,7 @@ export function requestPlainPaste(editor: EditorInstance): void {
 }
 
 /** i18n key for the toast message, per detected handler. */
-const MESSAGE_KEY: Record<PasteIntentKind, string> = {
+const MESSAGE_KEY: Record<Exclude<PasteIntentKind, 'utility'>, string> = {
   'share-link': 'paste.intent.shareLink.message',
   capsule: 'paste.intent.capsule.message',
   curl: 'paste.intent.curl.message',
@@ -61,13 +63,60 @@ const MESSAGE_KEY: Record<PasteIntentKind, string> = {
 };
 
 /** i18n key for the primary "Import as X" action, per detected handler. */
-const IMPORT_LABEL_KEY: Record<PasteIntentKind, string> = {
+const IMPORT_LABEL_KEY: Record<Exclude<PasteIntentKind, 'utility'>, string> = {
   'share-link': 'paste.intent.action.importShareLink',
   capsule: 'paste.intent.action.importCapsule',
   curl: 'paste.intent.action.importCurl',
   'stack-trace': 'paste.intent.action.openStackFrame',
   'large-json': 'paste.intent.action.importLargeJson',
 };
+
+/** IT2-F4 — toast message per suggested utility. */
+const UTILITY_MESSAGE_KEY: Record<UtilitySuggestionId, string> = {
+  jwt: 'paste.intent.utility.jwt.message',
+  uuid: 'paste.intent.utility.uuid.message',
+  color: 'paste.intent.utility.color.message',
+  timestamp: 'paste.intent.utility.timestamp.message',
+  'cron-parser': 'paste.intent.utility.cron.message',
+  base64: 'paste.intent.utility.base64.message',
+  json: 'paste.intent.utility.json.message',
+};
+
+/**
+ * IT2-F4 — primary action label per suggested utility. Reuses the
+ * catalog's own localized "Open <utility>" strings so the toast and the
+ * command palette always name the tool identically.
+ */
+const UTILITY_ACTION_KEY: Record<UtilitySuggestionId, string> = {
+  jwt: 'utilities.tool.jwt.label',
+  uuid: 'utilities.tool.uuid.label',
+  color: 'utilities.tool.color.label',
+  timestamp: 'utilities.tool.timestamp.label',
+  'cron-parser': 'utilities.tool.cron.label',
+  base64: 'utilities.tool.base64.label',
+  json: 'utilities.tool.json.label',
+};
+
+/**
+ * Telemetry `handler` token: RL-110 intents report their kind verbatim;
+ * IT2-F4 utility suggestions report per-format as `utility-<utilityId>`
+ * (each token allowlisted in `SMART_PASTE_HANDLERS`).
+ */
+function handlerToken(intent: PasteIntent): string {
+  return intent.kind === 'utility' ? `utility-${intent.utilityId}` : intent.kind;
+}
+
+function messageKeyFor(intent: PasteIntent): string {
+  return intent.kind === 'utility'
+    ? UTILITY_MESSAGE_KEY[intent.utilityId]
+    : MESSAGE_KEY[intent.kind];
+}
+
+function actionLabelKeyFor(intent: PasteIntent): string {
+  return intent.kind === 'utility'
+    ? UTILITY_ACTION_KEY[intent.utilityId]
+    : IMPORT_LABEL_KEY[intent.kind];
+}
 
 /**
  * RL-110 — smart paste detection. Registers a second `onDidPaste` listener
@@ -110,15 +159,15 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
       const pastedText = model.getValueInRange(event.range);
       const intent = detectPasteIntent(pastedText);
       if (!intent) return;
-      const handler = intent.kind;
+      const handler = handlerToken(intent);
       track('editor.smart_paste_shown', { handler });
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
         priority: 'low',
-        messageKey: MESSAGE_KEY[handler],
+        messageKey: messageKeyFor(intent),
         actions: [
           {
-            labelKey: IMPORT_LABEL_KEY[handler],
+            labelKey: actionLabelKeyFor(intent),
             onClick: () => {
               track('editor.smart_paste_applied', { handler, accepted: true });
               void applyPasteIntent(intent, { model, pastedRange: event.range, pastedText });

@@ -33,6 +33,14 @@ vi.mock('../../../src/renderer/utils/upsellNotice', () => ({
   pushUpsellNotice: (...args: unknown[]) => pushUpsellNotice(...args),
 }));
 
+// IT2-F7 — HTML export orchestration is unit-covered in
+// `tests/utils/exportCapsuleHtml.test.ts`; the overlay only needs to
+// wire the row's capsule + list trigger into it.
+const exportCapsuleAsHtml = vi.fn();
+vi.mock('../../../src/renderer/utils/exportCapsuleHtml', () => ({
+  exportCapsuleAsHtml: (...args: unknown[]) => exportCapsuleAsHtml(...args),
+}));
+
 import { CapsuleListOverlay } from '../../../src/renderer/components/CapsuleList';
 import {
   useExecutionHistoryStore,
@@ -136,6 +144,23 @@ describe('CapsuleListOverlay — Pro tier', () => {
         sizeBucket: expect.any(String),
       });
     });
+  });
+
+  it('exports a row as HTML with the list trigger (IT2-F7)', async () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByTestId('capsule-list-row-export-html')[0]!);
+    await waitFor(() => {
+      expect(exportCapsuleAsHtml).toHaveBeenCalledTimes(1);
+    });
+    const [capsule, trigger, context] = exportCapsuleAsHtml.mock.calls[0]! as [
+      { version: number },
+      string,
+      { locale: string },
+    ];
+    expect(capsule.version).toBe(1);
+    expect(trigger).toBe('list-export-html');
+    expect(context.locale).toBe('en');
   });
 
   it('deletes a row capsule via clearCapsule (fold B)', () => {

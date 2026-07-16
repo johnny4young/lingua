@@ -9,6 +9,7 @@ import { JsonSyntaxOutput } from '../JsonSyntaxOutput';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
+import { usePendingUtilityInput } from '../usePendingUtilityInput';
 import { CopyButton } from '../CopyButton';
 import { cn } from '../../../utils/cn';
 import {
@@ -26,6 +27,11 @@ export function JwtUtilityPanel() {
   const [input, setInput] = useState(
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsaW5ndWEiLCJyb2xlIjoiZGV2In0.signature'
   );
+  // IT2-F4 — a smart-pasted token lands in decode mode (the common case).
+  usePendingUtilityInput('jwt', pending => {
+    setMode('decode');
+    setInput(pending);
+  });
 
   // RL-069 Slice 2 — Apply forces the panel into decode mode against
   // the current token. Verify and Sign sub-modes have their own

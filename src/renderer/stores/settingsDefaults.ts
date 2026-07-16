@@ -185,6 +185,7 @@ export function createInitialSettingsState() {
     // header while a run is in flight. Default OFF so the panel
     // stays quiet by default.
     showTimeoutCountdown: false,
+    showLineTiming: false,
     // RL-020 Slice 9 fold G — Variables toggle is opt-in by
     // default. Per-tab override (`variableInspectorEnabled`)
     // always wins; this is just the seed for fresh tabs.

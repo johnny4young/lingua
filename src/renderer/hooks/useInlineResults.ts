@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import type { LineResult } from '../stores/resultStore';
+import type { LineTimingEntry } from '../types';
 import {
   buildDiagnosticMarkerEntries,
   buildInlineDecorationEntries,
@@ -246,6 +247,10 @@ export function useInlineResultWidgets(
   monaco: typeof monacoTypes | null,
   lineResults: readonly LineResult[],
   tabId: string | null,
+  // RL-115 — per-statement timings from the last instrumented run.
+  // Rendered as a trailing chip on the line's widget (or a standalone
+  // widget for lines with no value result). Empty = feature inactive.
+  lineTimings: readonly LineTimingEntry[] = [],
 ) {
   const widgetsRef = useRef<Map<number, InlineWidget>>(new Map());
 
@@ -309,8 +314,27 @@ export function useInlineResultWidgets(
       list.push(result);
       grouped.set(result.line, list);
     }
+    // RL-115 — index the timings and find the run's hot spot. Lines
+    // that only have a timing still get a widget (empty items array).
+    const timingByLine = new Map<number, number>();
+    let slowestLine = 0;
+    let slowestMs = -1;
+    for (const entry of lineTimings) {
+      timingByLine.set(entry.line, entry.durationMs);
+      if (entry.durationMs > slowestMs) {
+        slowestMs = entry.durationMs;
+        slowestLine = entry.line;
+      }
+      if (!grouped.has(entry.line)) grouped.set(entry.line, []);
+    }
     for (const [line, items] of grouped) {
-      const domNode = renderInlineResultNode(items);
+      const timingMs = timingByLine.get(line);
+      const domNode = renderInlineResultNode(
+        items,
+        timingMs === undefined
+          ? undefined
+          : { durationMs: timingMs, slowest: line === slowestLine }
+      );
       domNode.setAttribute('data-line', String(line));
       // Overlay widgets are absolutely-positioned children of the
       // editor's overlay layer. We control position via inline style;
@@ -331,7 +355,7 @@ export function useInlineResultWidgets(
     return () => {
       removeAllWidgets();
     };
-  }, [editor, monaco, lineResults, tabId, removeAllWidgets, repositionAll]);
+  }, [editor, monaco, lineResults, lineTimings, tabId, removeAllWidgets, repositionAll]);
 }
 
 /**
@@ -341,7 +365,10 @@ export function useInlineResultWidgets(
  * because overlay widgets re-use the same node across layouts and
  * mounting a React tree per line would be expensive.
  */
-export function renderInlineResultNode(items: readonly LineResult[]): HTMLElement {
+export function renderInlineResultNode(
+  items: readonly LineResult[],
+  timing?: { durationMs: number; slowest: boolean }
+): HTMLElement {
   const root = document.createElement('span');
   root.className = 'lingua-inline-result';
   root.setAttribute('data-testid', 'lingua-inline-result');
@@ -423,5 +450,28 @@ export function renderInlineResultNode(items: readonly LineResult[]): HTMLElemen
     root.appendChild(overflow);
   }
 
+  // RL-115 — trailing per-statement timing chip. The slowest line of
+  // the run carries `data-slowest` so the stylesheet can paint the hot
+  // spot red while every other measurement stays a quiet italic gray.
+  if (timing) {
+    const chip = document.createElement('span');
+    chip.className = 'lingua-inline-result-timing';
+    chip.setAttribute('data-testid', 'lingua-inline-timing');
+    if (timing.slowest) chip.setAttribute('data-slowest', 'true');
+    chip.textContent = `\u25b8 ${formatTimingMs(timing.durationMs)}`;
+    root.appendChild(chip);
+  }
+
   return root;
+}
+
+/**
+ * RL-115 — compact duration label. Mirrors the notebook's
+ * `formatLatencyMs`: sub-100ms keeps one decimal so quick statements
+ * do not all read as `0 ms`; everything else rounds to whole ms.
+ */
+function formatTimingMs(durationMs: number): string {
+  const value =
+    durationMs >= 100 ? Math.round(durationMs).toString() : durationMs.toFixed(1);
+  return `${value} ms`;
 }

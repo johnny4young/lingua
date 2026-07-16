@@ -1,4 +1,5 @@
 import { claimCapsuleListSurface } from '../components/CapsuleList/capsuleListSurface';
+import { usePresenterModeStore } from '../stores/presenterModeStore';
 import { getActiveEditorCursorLine } from '../runtime/editorAccess';
 import { isDebugWorkerActive, postDebuggerMessage } from '../runtime/debuggerWorkerBridge';
 import { useDebuggerStore } from '../stores/debuggerStore';
@@ -49,9 +50,11 @@ export function buildGlobalShortcutActions(
     'action-open-recipes': () => options.openRecipesOverlay(),
     'action-new-notebook': () => options.openNewNotebook(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
+    'overlay-recent-commands': () => options.toggleOverlay('recent-commands'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),
     'view-toggle-sidebar': () => options.toggleSidebar(),
+    'view-toggle-presenter': () => usePresenterModeStore.getState().toggle(),
     'view-toggle-console': () => options.toggleConsole(),
     'utility-copy-output': () => void writeUtilityOutputToClipboard('copy'),
     'utility-replace-clipboard': () => void writeUtilityOutputToClipboard('replace'),

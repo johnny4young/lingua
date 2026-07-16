@@ -3,6 +3,7 @@ import { PythonRunner } from '@/runners/python';
 import { useEnvVarsStore } from '@/stores/envVarsStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
 
 describe('PythonRunner', () => {
   it('should have correct metadata', () => {
@@ -456,6 +457,13 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
         const handler = this.listeners.get('message');
         if (message.type === 'init') {
           handler?.({
+            data: {
+              type: 'bootstrap-progress',
+              loadedBytes: 1024,
+              totalBytes: null,
+            },
+          } as MessageEvent);
+          handler?.({
             data:
               this.id === 1
                 ? { type: 'error', error: { message: 'Pyodide unavailable' } }
@@ -489,6 +497,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     await runner.init();
 
     const first = await runner.execute('print("hi")');
+    expect(useBootstrapProgressStore.getState().progress).toBeNull();
     const second = await runner.execute('print("hi again")');
 
     expect(first.error?.message).toContain(

@@ -22,6 +22,10 @@
 
 import { syncUserEnvInPyodide } from './python-worker-env';
 import { createStdinLineReader } from './python-worker-stdin';
+import {
+  drainResponseBody,
+  responseWithBootstrapProgress,
+} from './bootstrapProgress';
 import { truncateSerialized } from '../runners/limits';
 import {
   DEFAULT_SCOPE_DEPTH,
@@ -200,8 +204,39 @@ type PyodideLoaderModule = {
   loadPyodide: (options: { indexURL: string }) => Promise<unknown>;
 };
 
+/**
+ * IT2-D3 — pre-warm the big Pyodide WASM into the HTTP cache while
+ * streaming progress to the renderer. Best-effort by design: any
+ * failure falls through silently and `loadPyodide` performs its own
+ * fetch (served from the cache when the pre-warm succeeded) with its
+ * own honest error reporting.
+ */
+async function prewarmPyodideWithProgress(): Promise<void> {
+  try {
+    const response = await fetch(`${PYODIDE_INDEX_URL}pyodide.asm.wasm`);
+    if (!response.ok || !response.body) return;
+    const trackedResponse = responseWithBootstrapProgress(
+      response,
+      ({ loadedBytes, totalBytes }) => {
+        ctx.postMessage({
+          type: 'bootstrap-progress',
+          runId: activeRunId ?? '',
+          loadedBytes,
+          totalBytes,
+        });
+      }
+    );
+    // Populate the HTTP cache without retaining a second in-memory copy of
+    // the Pyodide WASM. The shared wrapper guarantees the final sample.
+    await drainResponseBody(trackedResponse);
+  } catch {
+    /* pre-warm is best-effort; the real loader reports failures */
+  }
+}
+
 async function loadPyodide(): Promise<unknown> {
   if (pyodide) return pyodide;
+  await prewarmPyodideWithProgress();
 
   // Module workers cannot use importScripts. Load Pyodide's ESM entry
   // from the locally-served copy so Electron, the dev server, and the

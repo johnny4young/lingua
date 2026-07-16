@@ -7,6 +7,7 @@ import {
   UtilityToolbar,
 } from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
+import { usePendingUtilityInput } from '../usePendingUtilityInput';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
@@ -15,6 +16,8 @@ import { analyzeTimestamp, inspectTimestampLike } from '../../../utils/developer
 export function TimestampUtilityPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState(() => String(Math.floor(Date.now() / 1000)));
+  // IT2-F4 — seed from a smart-pasted epoch value.
+  usePendingUtilityInput('timestamp', setInput);
   const analysis = useMemo(() => analyzeTimestamp(input), [input]);
 
   // RL-069 Slice 2 — ISO 8601 is the most copy-worthy output for the

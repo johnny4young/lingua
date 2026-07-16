@@ -50,6 +50,7 @@ beforeEach(() => {
       persistEnabled: {},
       favorites: [],
       activeUtilityId: 'json',
+      pendingUtilityInput: null,
     },
     false
   );
@@ -235,5 +236,40 @@ describe('utilityHistoryStore — persistence partialize', () => {
     expect(parsed.state.persistEnabled).toEqual({});
     expect(parsed.state.favorites).toEqual(['jwt']);
     expect(parsed.state.activeUtilityId).toBe('json');
+  });
+});
+
+describe('utilityHistoryStore — IT2-F4 pending utility input', () => {
+  it('sets and clears the one-shot seed', () => {
+    useUtilityHistoryStore
+      .getState()
+      .setPendingUtilityInput({ utilityId: 'jwt', input: 'aaa.bbb.ccc' });
+    expect(useUtilityHistoryStore.getState().pendingUtilityInput).toEqual({
+      utilityId: 'jwt',
+      input: 'aaa.bbb.ccc',
+    });
+    useUtilityHistoryStore.getState().setPendingUtilityInput(null);
+    expect(useUtilityHistoryStore.getState().pendingUtilityInput).toBeNull();
+  });
+
+  it('rejects unknown utility ids', () => {
+    useUtilityHistoryStore
+      .getState()
+      .setPendingUtilityInput({ utilityId: 'nope' as never, input: 'x' });
+    expect(useUtilityHistoryStore.getState().pendingUtilityInput).toBeNull();
+  });
+
+  it('never persists the pending seed (session-only by design)', async () => {
+    useUtilityHistoryStore
+      .getState()
+      .setPendingUtilityInput({ utilityId: 'jwt', input: 'secret-token' });
+    // Trigger a persisted write so partialize runs after the seed landed.
+    useUtilityHistoryStore.getState().pinFavorite('jwt');
+
+    await Promise.resolve();
+    const raw = localStorage.getItem(UTILITY_HISTORY_STORAGE_KEY);
+    expect(raw).not.toBeNull();
+    expect(raw).not.toContain('pendingUtilityInput');
+    expect(raw).not.toContain('secret-token');
   });
 });

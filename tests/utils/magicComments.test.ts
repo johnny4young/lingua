@@ -10,6 +10,9 @@ import {
   originSuppressedByMagicComment,
   gitStatusSuppressedByMagicComment,
   gitWatchHeadSuppressedByMagicComment,
+  detectJSStatementStartLines,
+  lineTimingRequestedByMagicComment,
+  transformJSLineTiming,
 } from '@/utils/magicComments';
 
 describe('JS/TS magic comments', () => {
@@ -875,5 +878,120 @@ describe('gitWatchHeadSuppressedByMagicComment (RL-102 Slice 2 Fold F)', () => {
         '// @git-watch-head off'
       )
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RL-115 Slice 1 — per-line timing
+// ---------------------------------------------------------------------------
+
+describe('lineTimingRequestedByMagicComment (RL-115)', () => {
+  it('detects real // @time comments anywhere in a JS/TS buffer', () => {
+    expect(lineTimingRequestedByMagicComment('javascript', '// @time\nconst x = 1;')).toBe(true);
+    expect(lineTimingRequestedByMagicComment('typescript', 'const x = 1;\n// @TIME')).toBe(true);
+    expect(lineTimingRequestedByMagicComment('javascript', 'const x = 1; // @time')).toBe(true);
+  });
+
+  it('never matches lookalikes inside strings/regexes, @timeout, or other languages', () => {
+    expect(lineTimingRequestedByMagicComment('javascript', '// @timeout 60s')).toBe(false);
+    expect(lineTimingRequestedByMagicComment('python', '# @time')).toBe(false);
+    expect(lineTimingRequestedByMagicComment('javascript', 'const time = 1;')).toBe(false);
+    expect(lineTimingRequestedByMagicComment('javascript', 'const text = "// @time";')).toBe(false);
+    expect(lineTimingRequestedByMagicComment('javascript', 'const pattern = /\\/\\/ @time/u;')).toBe(false);
+  });
+});
+
+describe('detectJSStatementStartLines (RL-115)', () => {
+  it('marks each top-level statement start, spanning multi-line statements', () => {
+    const code = [
+      'const a = 1;', // 1 ✓
+      'const b = [', // 2 ✓ (statement spans 2-4)
+      '  1, 2,', // 3 — inside brackets
+      '];', // 4 — starts with ]
+      'for (let i = 0; i < 3; i++) {', // 5 ✓
+      '  work(i);', // 6 — inside braces
+      '}', // 7 — starts with }
+      'console.log(a);', // 8 ✓
+    ].join('\n');
+    expect(detectJSStatementStartLines(code)).toEqual([1, 2, 5, 8]);
+  });
+
+  it('never marks continuation lines, compound tails, or open-token interiors', () => {
+    const code = [
+      'const text = `', // 1 ✓
+      'const fake = 1;', // 2 — inside template
+      '`;', // 3 — starts inside template
+      'if (a) {', // 4 ✓
+      '}', // 5
+      'else {', // 6 — blocked keyword
+      '}', // 7
+      'value', // 8 ✓ (statement 8-9 via chain)
+      '  .toString();', // 9 — starts with .
+      'do {', // 10 ✓
+      '}', // 11
+      'while (false);', // 12 — blocked keyword (do-while tail safety)
+      'const sum = 1 +', // 13 ✓ (trailing continuation)
+      '  2;', // 14 — previous line did not end its statement
+    ].join('\n');
+    expect(detectJSStatementStartLines(code)).toEqual([1, 4, 8, 10, 13]);
+  });
+
+  it('ignores blank and comment-only lines without breaking the chain', () => {
+    const code = [
+      '// @time', // 1 — comment only
+      'const a = 1;', // 2 ✓
+      '', // 3
+      '/* block */', // 4 — comment only
+      'const b = 2;', // 5 ✓
+    ].join('\n');
+    expect(detectJSStatementStartLines(code)).toEqual([2, 5]);
+  });
+
+  it('does not instrument directive-prologue string literals', () => {
+    const code = [
+      "'use strict';",
+      '"use client";',
+      'const answer = 42;',
+      "'a later string expression';",
+    ].join('\n');
+    const lines = detectJSStatementStartLines(code);
+    expect(lines).toEqual([3, 4]);
+    expect(transformJSLineTiming(code, lines)).toBe(
+      "'use strict';\n\"use client\";\n__mc_tick(3); const answer = 42;\n__mc_tick(4); 'a later string expression';"
+    );
+  });
+});
+
+describe('transformJSLineTiming (RL-115)', () => {
+  it('prefixes targets in place and preserves the line count', () => {
+    const code = ['const a = 1;', '  indented();', 'const b = 2;'].join('\n');
+    const out = transformJSLineTiming(code, [1, 3]);
+    const lines = out.split('\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toBe('__mc_tick(1); const a = 1;');
+    expect(lines[1]).toBe('  indented();');
+    expect(lines[2]).toBe('__mc_tick(3); const b = 2;');
+  });
+
+  it('keeps the indent ahead of the marker', () => {
+    const out = transformJSLineTiming('  work();', [1]);
+    expect(out).toBe('  __mc_tick(1); work();');
+  });
+
+  it('returns the buffer unchanged with no targets', () => {
+    expect(transformJSLineTiming('const x = 1;', [])).toBe('const x = 1;');
+  });
+
+  it('transformed output stays parseable JavaScript', () => {
+    const code = [
+      'const rows = [1, 2, 3];',
+      'const doubled = rows.map(row => row * 2);',
+      'for (const row of doubled) {',
+      '  String(row);',
+      '}',
+    ].join('\n');
+    const lines = detectJSStatementStartLines(code);
+    const out = transformJSLineTiming(code, lines);
+    expect(() => new Function('__mc_tick', out)).not.toThrow();
   });
 });

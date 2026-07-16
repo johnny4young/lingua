@@ -16,6 +16,11 @@ export const TELEMETRY_EVENTS = [
   // IT2-G1 — one event per renderer boot phase. Payload is closed to
   // `{ phase, durationBucket }`; exact timings/timestamps stay local.
   'app.boot_phase',
+  // IT2-D3 — runtime bootstrap outcome. Payload is closed to
+  // `{ language, durationBucket }` / `{ language, reason }`; byte
+  // counts and URLs never leave the device.
+  'runtime.bootstrap_completed',
+  'runtime.bootstrap_failed',
   'runner.executed',
   'overlay.opened',
   'feature.blocked',
@@ -604,6 +609,13 @@ export const BOOT_DURATION_BUCKETS = [
 export type BootDurationBucket = (typeof BOOT_DURATION_BUCKETS)[number];
 const BOOT_DURATION_BUCKETS_SET: ReadonlySet<string> = new Set(BOOT_DURATION_BUCKETS);
 
+// IT2-D3 — closed enum of bootstrap failure kinds. Free-form error
+// text never rides along; the console already shows the honest local
+// message.
+export const BOOTSTRAP_FAILURE_REASONS: ReadonlySet<string> = new Set([
+  'prepare-error',
+]);
+
 export function bucketBootDuration(ms: number): BootDurationBucket {
   if (ms < 50) return '<50ms';
   if (ms < 250) return '50-249ms';
@@ -641,6 +653,8 @@ export interface TelemetryEvent extends TelemetryBaseFields {
 const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = {
   'app.launched': ['platform', 'build', 'locale'],
   'app.boot_phase': ['phase', 'durationBucket'],
+  'runtime.bootstrap_completed': ['language', 'durationBucket'],
+  'runtime.bootstrap_failed': ['language', 'reason'],
   'runner.executed': ['language', 'status', 'durationBucketMs'],
   'overlay.opened': ['overlayId'],
   'feature.blocked': ['entitlement', 'tier'],
@@ -1121,6 +1135,11 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // pipeline panel. Distinct so the dashboard can measure how often a
   // pipeline run is promoted into the capsule ring.
   'pipeline-run',
+  // IT2-F7 — self-contained HTML export. Tagged per surface (Settings
+  // latest-run button vs browse-overlay row) so the dashboard can
+  // compare HTML-share adoption against the JSON/clipboard flows.
+  'settings-export-html',
+  'list-export-html',
 ]);
 // RL-094 Slice 3 fold G — closed enum of surfaces that can open the
 // capsule browse overlay. Mirrored in `update-server/src/telemetry.ts`
@@ -1683,13 +1702,22 @@ export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
 
 // RL-110 — closed enum for the `handler` property of the smart-paste events.
 // One token per paste-intent kind (mirrors `PasteIntentKind` in
-// src/renderer/clipboard/pasteHandlers.ts).
+// src/renderer/clipboard/pasteHandlers.ts). IT2-F4 utility suggestions
+// report per-format as `utility-<utilityId>` so the dashboard can rank
+// which formats users actually hand to the Developer Utilities.
 export const SMART_PASTE_HANDLERS = new Set([
   'share-link',
   'capsule',
   'curl',
   'stack-trace',
   'large-json',
+  'utility-jwt',
+  'utility-uuid',
+  'utility-color',
+  'utility-timestamp',
+  'utility-cron-parser',
+  'utility-base64',
+  'utility-json',
 ]);
 
 export function isSafeToken(value: unknown): value is string {
@@ -1717,6 +1745,18 @@ function isAllowedValue(
       if (key === 'phase') return typeof value === 'string' && BOOT_PHASES_SET.has(value);
       if (key === 'durationBucket') {
         return typeof value === 'string' && BOOT_DURATION_BUCKETS_SET.has(value);
+      }
+      return false;
+    case 'runtime.bootstrap_completed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'durationBucket') {
+        return typeof value === 'string' && BOOT_DURATION_BUCKETS_SET.has(value);
+      }
+      return false;
+    case 'runtime.bootstrap_failed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'reason') {
+        return typeof value === 'string' && BOOTSTRAP_FAILURE_REASONS.has(value);
       }
       return false;
     case 'runner.executed':

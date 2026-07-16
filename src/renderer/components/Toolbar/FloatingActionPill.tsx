@@ -97,6 +97,7 @@ export function FloatingActionPill({
     currentWorkflow,
     isRunning,
     isInitializing,
+    loadingMessage,
     runDisabled,
     runDisabledTooltip,
     workflowChip,
@@ -211,6 +212,7 @@ export function FloatingActionPill({
           currentWorkflow={currentWorkflow}
           isRunning={isRunning}
           isInitializing={isInitializing}
+          loadingMessage={loadingMessage}
           runDisabled={runDisabled}
           runDisabledTooltip={runDisabledTooltip}
           workflowChip={workflowChip}

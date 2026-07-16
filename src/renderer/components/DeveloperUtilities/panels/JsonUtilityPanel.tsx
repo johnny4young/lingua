@@ -7,6 +7,7 @@ import {
 } from '../panelPrimitives';
 import { JsonSyntaxOutput } from '../JsonSyntaxOutput';
 import { useCallback, useMemo, useState } from 'react';
+import { usePendingUtilityInput } from '../usePendingUtilityInput';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
@@ -15,6 +16,8 @@ import { analyzeJson } from '../../../utils/developerUtilities';
 export function JsonUtilityPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState('{\n  "name": "Lingua",\n  "tools": ["json", "base64"]\n}');
+  // IT2-F4 — seed from a smart-pasted JSON snippet.
+  usePendingUtilityInput('json', setInput);
   const analysis = useMemo(() => analyzeJson(input), [input]);
 
   // RL-069 Slice 1 — register the formatted JSON as the panel's

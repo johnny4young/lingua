@@ -22,6 +22,7 @@ export function applyAutoRunResult({
 }: ApplyAutoRunResultOptions): void {
   const {
     setLineResults,
+    setLineTimings,
     setFullOutput,
     setError,
     setDiagnostics,
@@ -56,6 +57,8 @@ export function applyAutoRunResult({
   }
 
   setLineResults(nextLineResults);
+  // RL-115 — publish per-statement timings alongside the line results.
+  setLineTimings(result.lineTimings ?? []);
   setFullOutput(presentation.fullOutput);
 
   // The bottom console owns rich payload rendering, so mirror the manual run

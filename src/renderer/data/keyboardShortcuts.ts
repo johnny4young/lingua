@@ -429,6 +429,15 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['command', 'palette'],
   },
   {
+    // RL-113 — per-session stack of the last executed palette actions.
+    id: 'overlay-recent-commands',
+    group: 'overlays',
+    labelKey: 'shortcuts.item.recentCommands.label',
+    descriptionKey: 'shortcuts.item.recentCommands.description',
+    combos: [{ tokens: ['Mod', 'Semicolon'] }],
+    keywords: ['recent', 'commands', 'history', 'repeat', 'again'],
+  },
+  {
     id: 'overlay-settings',
     group: 'overlays',
     labelKey: 'shortcuts.item.settings.label',
@@ -459,6 +468,15 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'shortcuts.item.toggleSidebar.label',
     combos: [{ tokens: ['Mod', 'B'] }],
     keywords: ['sidebar', 'explorer', 'toggle'],
+  },
+  {
+    // RL-116 — presenter / focus mode: hide the chrome, lift the fonts.
+    id: 'view-toggle-presenter',
+    group: 'view',
+    labelKey: 'shortcuts.item.presenterMode.label',
+    descriptionKey: 'shortcuts.item.presenterMode.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'P'] }],
+    keywords: ['presenter', 'focus', 'zen', 'demo', 'present'],
   },
   {
     id: 'view-toggle-console',
@@ -576,6 +594,7 @@ const MAC_TOKEN_LABELS: Record<string, string> = {
   Escape: 'Esc',
   Backslash: '\\',
   Comma: ',',
+  Semicolon: ';',
 };
 
 const NON_MAC_TOKEN_LABELS: Record<string, string> = {
@@ -585,6 +604,7 @@ const NON_MAC_TOKEN_LABELS: Record<string, string> = {
   Escape: 'Esc',
   Backslash: '\\',
   Comma: ',',
+  Semicolon: ';',
 };
 
 /**

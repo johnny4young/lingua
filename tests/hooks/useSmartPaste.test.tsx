@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import type { Monaco, OnMount } from '@monaco-editor/react';
 import { useSmartPaste, requestPlainPaste } from '@/hooks/useSmartPaste';
+import { NON_SECRET_TEST_JWT } from '../__fixtures__/jwt';
 
 /**
  * RL-110 — locks the paste hook's gating + toast wiring without a real Monaco
@@ -111,6 +112,35 @@ describe('useSmartPaste', () => {
       accepted: false,
     });
     expect(mocks.applyPasteIntent).not.toHaveBeenCalled();
+  });
+
+  it('IT2-F4 — suggests the matching utility with per-format telemetry + catalog label', () => {
+    const h = createHarness(NON_SECRET_TEST_JWT);
+    renderHook(() => useSmartPaste(h.editor, h.monaco));
+    act(() => {
+      h.firePaste();
+    });
+    expect(mocks.trackEvent).toHaveBeenCalledWith('editor.smart_paste_shown', {
+      handler: 'utility-jwt',
+    });
+    const notice = mocks.pushStatusNotice.mock.calls[0]![0] as {
+      messageKey: string;
+      actions: { labelKey: string; onClick: () => void }[];
+    };
+    expect(notice.messageKey).toBe('paste.intent.utility.jwt.message');
+    // The primary action reuses the catalog's own "Open JWT Debugger" label.
+    expect(notice.actions[0]!.labelKey).toBe('utilities.tool.jwt.label');
+    act(() => {
+      notice.actions[0]!.onClick();
+    });
+    expect(mocks.trackEvent).toHaveBeenCalledWith('editor.smart_paste_applied', {
+      handler: 'utility-jwt',
+      accepted: true,
+    });
+    expect(mocks.applyPasteIntent).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'utility', utilityId: 'jwt' }),
+      expect.anything()
+    );
   });
 
   it('does nothing when smart paste is disabled', () => {

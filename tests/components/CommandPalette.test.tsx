@@ -12,6 +12,7 @@ import {
   useSessionStore,
 } from '../../src/renderer/stores/sessionStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { useCommandHistoryStore } from '../../src/renderer/stores/commandHistoryStore';
 
 const { dependencyDetectionState, editorState, resultState, settingsState, trackEventMock } =
   vi.hoisted(() => ({
@@ -723,5 +724,88 @@ describe('CommandPalette', () => {
       activeBottomPanel: 'variables',
       consoleVisible: true,
     });
+  });
+
+  // ─── RL-113 — recent commands stack ───────────────────────────────
+
+  it('records executed actions into the per-session command history', () => {
+    useCommandHistoryStore.getState()._clearForTesting();
+    const onOpenSettings = vi.fn();
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={onOpenSettings}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'Open settings' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+    const entries = useCommandHistoryStore.getState().entries;
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.id).toBeTruthy();
+  });
+
+  it('renders the recent variant with numbered slots and runs slot 1 via the 1 key', () => {
+    useCommandHistoryStore.getState()._clearForTesting();
+    const onOpenSettings = vi.fn();
+
+    // Seed the history through a real palette execution so the recorded
+    // id matches the live model.
+    const first = render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={onOpenSettings}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    const searchInput = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(searchInput, { target: { value: 'Open settings' } });
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+    first.unmount();
+
+    render(
+      <CommandPalette
+        variant="recent"
+        onClose={vi.fn()}
+        onOpenSettings={onOpenSettings}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    // The stack shows the executed command in slot 1 with a timestamp.
+    expect(screen.getAllByTestId('recent-command-slot')[0]!.textContent).toBe('1');
+    expect(screen.getAllByTestId('recent-command-time').length).toBeGreaterThan(0);
+
+    const recentInput = screen.getByPlaceholderText(
+      'Press 1-8 to run again, Enter for the most recent…'
+    );
+    fireEvent.keyDown(recentInput, { key: '1' });
+    expect(onOpenSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows the empty state when no commands ran this session', () => {
+    useCommandHistoryStore.getState()._clearForTesting();
+    render(
+      <CommandPalette
+        variant="recent"
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    expect(screen.getByText('No commands run yet this session.')).toBeTruthy();
   });
 });

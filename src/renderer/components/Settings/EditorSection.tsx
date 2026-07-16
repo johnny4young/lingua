@@ -120,6 +120,10 @@ export function EditorSection() {
   const toggleShowTimeoutCountdown = useSettingsStore(
     (state) => state.toggleShowTimeoutCountdown
   );
+  const showLineTiming = useSettingsStore((state) => state.showLineTiming);
+  const toggleShowLineTiming = useSettingsStore(
+    (state) => state.toggleShowLineTiming
+  );
   const executionHistorySnapshotEnabled = useSettingsStore(
     (state) => state.executionHistorySnapshotEnabled
   );
@@ -530,13 +534,29 @@ export function EditorSection() {
         <SpecRow
           label={t('runtime.timeout.countdown.label')}
           description={t('runtime.timeout.countdown.hint')}
-          last
           control={
             <Toggle
               value={showTimeoutCountdown}
               onChange={toggleShowTimeoutCountdown}
               aria-label={t('runtime.timeout.countdown.label')}
               data-testid="settings-show-timeout-countdown"
+            />
+          }
+        />
+
+        {/* RL-115 Slice 1 — per-line timing toggle. Default OFF: the
+            instrumentation adds a small overhead per statement, so it
+            is a deliberate opt-in (or per-buffer via // @time). */}
+        <SpecRow
+          label={t('settings.editor.showLineTiming.label')}
+          description={t('settings.editor.showLineTiming.hint')}
+          last
+          control={
+            <Toggle
+              value={showLineTiming}
+              onChange={toggleShowLineTiming}
+              aria-label={t('settings.editor.showLineTiming.label')}
+              data-testid="settings-show-line-timing"
             />
           }
         />

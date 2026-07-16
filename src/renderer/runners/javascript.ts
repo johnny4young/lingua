@@ -5,6 +5,7 @@ import type {
   ExecutionResult,
   ConsoleOutput,
   ExecutionError,
+  LineTimingEntry,
   MagicCommentResult,
   WorkerResponse,
 } from '../types';
@@ -12,7 +13,10 @@ import {
   transformJSMagicComments,
   detectJSMagicComments,
   detectJSAutoLogLines,
+  detectJSStatementStartLines,
+  lineTimingRequestedByMagicComment,
   transformJSAutoLog,
+  transformJSLineTiming,
   type MagicCommentKind,
   type MagicCommentDirective,
 } from '../utils/magicComments';
@@ -116,6 +120,7 @@ export class JavaScriptRunner implements LanguageRunner {
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     const magicResults: MagicCommentResult[] = [];
+    let lineTimings: LineTimingEntry[] = [];
     let result: unknown;
     // RL-043 Slice B — the worker's structured return value, forwarded
     // losslessly when the caller set `captureStructuredResult` (notebook
@@ -213,11 +218,30 @@ export class JavaScriptRunner implements LanguageRunner {
       }
     }
 
-    let codeWithScopeCapture = codeWithAutoLog;
+    // RL-115 Slice 1 — per-statement timing markers, AFTER auto-log
+    // (the transformed capture lines are still single top-level
+    // statements) and BEFORE scope capture so the appended capture code
+    // is never attributed to a user statement. Enabled by the Settings
+    // toggle (context.lineTiming) OR a `// @time` directive in the
+    // buffer; debug runs never instrument — pause/step already owns
+    // that view.
+    let codeWithTiming = codeWithAutoLog;
+    if (
+      !debug &&
+      (context?.lineTiming === true ||
+        lineTimingRequestedByMagicComment(this.language, protectedCode))
+    ) {
+      const statementLines = detectJSStatementStartLines(codeWithAutoLog);
+      if (statementLines.length > 0) {
+        codeWithTiming = transformJSLineTiming(codeWithAutoLog, statementLines);
+      }
+    }
+
+    let codeWithScopeCapture = codeWithTiming;
     if (context?.captureScope === true && !debug) {
       codeWithScopeCapture = appendScopeCapture(
-        codeWithAutoLog,
-        collectTopLevelScopeNames(codeWithAutoLog)
+        codeWithTiming,
+        collectTopLevelScopeNames(codeWithTiming)
       );
     }
 
@@ -421,6 +445,11 @@ export class JavaScriptRunner implements LanguageRunner {
             magicResults.push(entry);
             break;
           }
+          case 'line-timing':
+            // RL-115 — batched per-statement timings, one message per
+            // run, posted right before done.
+            lineTimings = msg.entries;
+            break;
           case 'result':
             result = msg.value;
             // RL-043 Slice B — capture the structured value when the
@@ -484,6 +513,9 @@ export class JavaScriptRunner implements LanguageRunner {
               executionTime: msg.executionTime,
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
+              // RL-115 — per-statement wall-clock timings when the
+              // run was instrumented (setting or // @time directive).
+              ...(lineTimings.length > 0 ? { lineTimings } : {}),
               stdinConsumed,
               // RL-020 Slice 7 — explicit kind so the result-panel
               // pill self-gates on a field instead of regexing the

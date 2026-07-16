@@ -405,3 +405,93 @@ describe('JavaScriptRunner', () => {
     }
   });
 });
+
+describe('RL-115 — per-line timing integration', () => {
+  function installTimingWorkerMock() {
+    const originalWorker = globalThis.Worker;
+    const seen: { code?: string } = {};
+
+    class TimingMockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.messageHandler = handler;
+      }
+
+      postMessage(message: { runId?: string; code?: string }): void {
+        seen.code = message.code;
+        this.messageHandler?.({
+          data: {
+            type: 'line-timing',
+            runId: message.runId,
+            entries: [
+              { line: 1, durationMs: 0.4 },
+              { line: 2, durationMs: 312.9 },
+            ],
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 314 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: TimingMockWorker,
+      writable: true,
+      configurable: true,
+    });
+    const restore = () =>
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    return { seen, restore };
+  }
+
+  it('instruments on // @time and surfaces lineTimings on the result', async () => {
+    const { seen, restore } = installTimingWorkerMock();
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+      const result = await runner.execute('// @time\nconst a = 1;\nconst b = a * 2;');
+      expect(seen.code).toContain('__mc_tick(2);');
+      expect(seen.code).toContain('__mc_tick(3);');
+      expect(result.lineTimings).toEqual([
+        { line: 1, durationMs: 0.4 },
+        { line: 2, durationMs: 312.9 },
+      ]);
+    } finally {
+      restore();
+    }
+  });
+
+  it('instruments via context.lineTiming without a directive', async () => {
+    const { seen, restore } = installTimingWorkerMock();
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+      await runner.execute('const a = 1;', { language: 'javascript', lineTiming: true });
+      expect(seen.code).toContain('__mc_tick(1);');
+    } finally {
+      restore();
+    }
+  });
+
+  it('leaves the source untouched when timing is off', async () => {
+    const { seen, restore } = installTimingWorkerMock();
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+      await runner.execute('const a = 1;');
+      expect(seen.code).not.toContain('__mc_tick');
+    } finally {
+      restore();
+    }
+  });
+});

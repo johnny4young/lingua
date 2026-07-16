@@ -19,9 +19,28 @@
 import { parseRunCapsule } from '../../shared/runCapsule';
 import { SHARE_FRAGMENT_PREFIX } from '../../shared/sharePayload';
 import { parseCurlCommand } from '../utils/curlToCode';
+import {
+  decodeBase64,
+  detectsAsBase64,
+  detectsAsColor,
+  detectsAsCron,
+  detectsAsJson,
+  detectsAsJwt,
+  detectsAsUuid,
+} from '../utils/developerUtilities';
 
-/** Closed set of paste-intent kinds (mirrored in telemetry `handler`). */
-export type PasteIntentKind = 'share-link' | 'capsule' | 'curl' | 'stack-trace' | 'large-json';
+/**
+ * Closed set of paste-intent kinds. Telemetry `handler` mirrors these,
+ * except `utility`, which reports per-format as `utility-<utilityId>`
+ * (see `SMART_PASTE_HANDLERS` in `src/shared/telemetry.ts`).
+ */
+export type PasteIntentKind =
+  | 'share-link'
+  | 'capsule'
+  | 'curl'
+  | 'stack-trace'
+  | 'large-json'
+  | 'utility';
 
 /** A pasted Lingua share-link; `fragment` is the `share=v1.<body>` payload. */
 export interface ShareLinkIntent {
@@ -63,13 +82,40 @@ export interface LargeJsonIntent {
   source: string;
 }
 
+/**
+ * IT2-F4 — Developer Utilities the paste router can suggest. Values are
+ * catalog ids from `data/developerUtilities.ts`, narrowed to the formats
+ * with a conservative single-value detector.
+ */
+export type UtilitySuggestionId =
+  | 'jwt'
+  | 'uuid'
+  | 'color'
+  | 'timestamp'
+  | 'cron-parser'
+  | 'base64'
+  | 'json';
+
+/**
+ * IT2-F4 — a pasted value a Developer Utility can handle better than the
+ * code buffer (a JWT, a UUID, a color, an epoch, a cron expression,
+ * Base64 text, or a small JSON snippet). `source` is the trimmed paste,
+ * pre-loaded into the panel when the user accepts.
+ */
+export interface UtilityIntent {
+  kind: 'utility';
+  utilityId: UtilitySuggestionId;
+  source: string;
+}
+
 /** Discriminated union of every paste intent the registry can surface. */
 export type PasteIntent =
   | ShareLinkIntent
   | CapsuleIntent
   | CurlIntent
   | StackTraceIntent
-  | LargeJsonIntent;
+  | LargeJsonIntent
+  | UtilityIntent;
 
 /**
  * Minimum byte length for the generic large-JSON handler. Smaller JSON is
@@ -153,9 +199,175 @@ function detectLargeJson(text: string): LargeJsonIntent | null {
 }
 
 /**
+ * IT2-F4 — utility suggestions. Pastes longer than this never suggest a
+ * utility: the formats below are short values, and analyzing a huge paste
+ * on the paste path is wasted work.
+ */
+export const UTILITY_SUGGESTION_MAX_CHARS = 10_000;
+
+/**
+ * Bare 3/6-digit hex REQUIRES the leading `#`. `detectsAsColor` accepts
+ * `4f46e5` without it, but an un-prefixed hex token pasted into code is
+ * far more often an id fragment or a hash than a color.
+ */
+const STRICT_HEX_COLOR = /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/u;
+const COLOR_FUNCTION = /^(?:rgba?|hsla?)\([^()]*\)$/iu;
+
+/** Epoch seconds (10 digits) or milliseconds (13 digits) — nothing else. */
+const EPOCH_DIGITS = /^\d{10}(?:\d{3})?$/u;
+
+/**
+ * Base64 shorter than this stays literal — 4-to-12-char identifiers in
+ * code match the Base64 charset constantly, and decoding them is never
+ * what the user wants.
+ */
+const MIN_BASE64_SUGGESTION_CHARS = 16;
+
+/**
+ * JSON shorter than this stays literal — a tiny strict-JSON object pasted
+ * into a code buffer is usually meant as code, and a formatter adds
+ * nothing to it. Blobs over `LARGE_JSON_MIN_BYTES` never reach here (the
+ * large-json detector wins first).
+ */
+const MIN_JSON_SUGGESTION_CHARS = 60;
+
+/**
+ * Per-position numeric bounds for 5/6/7-field cron expressions. The shape
+ * regex in `detectsAsCron` also matches arithmetic like `5 * 60 * 1000`
+ * (a hallmark JS duration constant), so every numeric atom must respect
+ * its field's range before we dare suggest the Cron Parser. The real
+ * parser is async (lazy cron-parser import) and cannot run on the
+ * synchronous paste path; these bounds are the sync subset that kills
+ * the arithmetic look-alikes.
+ */
+const CRON_FIELD_BOUNDS: Record<number, ReadonlyArray<readonly [number, number]>> = {
+  5: [
+    [0, 59],
+    [0, 23],
+    [1, 31],
+    [1, 12],
+    [0, 7],
+  ],
+  6: [
+    [0, 59],
+    [0, 59],
+    [0, 23],
+    [1, 31],
+    [1, 12],
+    [0, 7],
+  ],
+  7: [
+    [0, 59],
+    [0, 59],
+    [0, 23],
+    [1, 31],
+    [1, 12],
+    [0, 7],
+    [1970, 2099],
+  ],
+};
+
+function cronAtomInBounds(atom: string, min: number, max: number): boolean {
+  // Strip a trailing `/step`; the step itself just has to be a number.
+  const [base = '', step] = atom.split('/', 2);
+  if (step !== undefined && !/^\d+$/u.test(step)) return false;
+  if (base === '*' || base === '?' || base === 'L') return true;
+  // dow `5#3` (third Friday) — bounds-check the day part.
+  const hashBase = base.split('#', 1)[0] ?? base;
+  const range = hashBase.split('-', 2);
+  return range.every(part => {
+    if (part === '' || part === 'L') return part === 'L';
+    if (!/^\d+$/u.test(part)) return false;
+    const value = Number.parseInt(part, 10);
+    return value >= min && value <= max;
+  });
+}
+
+function cronFieldsInBounds(trimmed: string): boolean {
+  if (trimmed.startsWith('@')) return true;
+  const fields = trimmed.split(/\s+/u);
+  const bounds = CRON_FIELD_BOUNDS[fields.length];
+  if (!bounds) return false;
+  return fields.every((field, index) => {
+    const [min, max] = bounds[index]!;
+    return field.split(',').every(atom => cronAtomInBounds(atom, min, max));
+  });
+}
+
+/**
+ * Mirrors `inspectTimestampLike`'s human-range clamp: an epoch outside
+ * 2000–2100 is far more likely an arbitrary numeric constant.
+ */
+function isHumanEpoch(digits: string): boolean {
+  const numeric = Number.parseInt(digits, 10);
+  const milliseconds = digits.length === 10 ? numeric * 1000 : numeric;
+  const year = new Date(milliseconds).getUTCFullYear();
+  return year >= 2000 && year <= 2100;
+}
+
+/**
+ * A Base64 suggestion is only useful when the decode yields readable
+ * text. Random identifiers and hex hashes that happen to satisfy the
+ * Base64 shape decode to binary garbage — a replacement char or a bare
+ * control char means "leave it alone".
+ */
+function decodesToReadableText(value: string): boolean {
+  const decoded = decodeBase64(value);
+  if (decoded.errorKey !== null || !decoded.value) return false;
+  if (decoded.value.includes('�')) return false;
+  for (const char of decoded.value) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code < 0x20 && char !== '\n' && char !== '\r' && char !== '\t') return false;
+  }
+  return true;
+}
+
+/**
+ * IT2-F4 — map a paste to the Developer Utility that handles it, or null.
+ * Runs LAST in the chain, so every RL-110 code-like artifact (share-link,
+ * capsule, cURL, stack trace, large JSON) wins first. Within the family,
+ * JWT precedes Base64 (JWT segments are themselves base64url) and every
+ * check is single-value strict so ordinary code never matches.
+ */
+function detectUtilitySuggestion(text: string): UtilityIntent | null {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > UTILITY_SUGGESTION_MAX_CHARS) return null;
+  const singleToken = !/\s/u.test(trimmed);
+  const singleLine = !/[\r\n]/u.test(trimmed);
+
+  const utilityId = ((): UtilitySuggestionId | null => {
+    if (singleToken && detectsAsJwt(trimmed)) return 'jwt';
+    if (singleToken && detectsAsUuid(trimmed)) return 'uuid';
+    if (
+      (STRICT_HEX_COLOR.test(trimmed) || COLOR_FUNCTION.test(trimmed)) &&
+      detectsAsColor(trimmed)
+    ) {
+      return 'color';
+    }
+    if (singleToken && EPOCH_DIGITS.test(trimmed) && isHumanEpoch(trimmed)) return 'timestamp';
+    if (singleLine && detectsAsCron(trimmed) && cronFieldsInBounds(trimmed)) {
+      return 'cron-parser';
+    }
+    if (
+      singleToken &&
+      trimmed.length >= MIN_BASE64_SUGGESTION_CHARS &&
+      detectsAsBase64(trimmed) &&
+      decodesToReadableText(trimmed)
+    ) {
+      return 'base64';
+    }
+    if (trimmed.length >= MIN_JSON_SUGGESTION_CHARS && detectsAsJson(trimmed)) return 'json';
+    return null;
+  })();
+
+  return utilityId ? { kind: 'utility', utilityId, source: trimmed } : null;
+}
+
+/**
  * Run every detector in priority order and return the first match, or null
  * when the paste is plain text. Order matters: share-link and capsule are the
- * most specific, large-JSON is the catch-all and must run last.
+ * most specific, large-JSON is the JSON catch-all, and the IT2-F4 utility
+ * suggestions run last so they can never shadow an importer.
  */
 export function detectPasteIntent(text: string): PasteIntent | null {
   if (!text || text.trim().length === 0) return null;
@@ -164,6 +376,7 @@ export function detectPasteIntent(text: string): PasteIntent | null {
     detectCapsule(text) ??
     detectCurl(text) ??
     detectStackTrace(text) ??
-    detectLargeJson(text)
+    detectLargeJson(text) ??
+    detectUtilitySuggestion(text)
   );
 }

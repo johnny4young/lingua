@@ -80,3 +80,29 @@ describe('useInlineResults inline widget DOM', () => {
     });
   });
 });
+
+describe('RL-115 — inline timing chip', () => {
+  it('renders the timing chip after the value parts', () => {
+    const node = renderInlineResultNode(
+      [{ line: 1, value: '42', type: 'autoLog' }],
+      { durationMs: 320.4, slowest: false }
+    );
+    const chip = node.querySelector('[data-testid="lingua-inline-timing"]');
+    expect(chip?.textContent).toBe('▸ 320 ms');
+    expect(chip?.getAttribute('data-slowest')).toBeNull();
+  });
+
+  it('marks the slowest statement and keeps sub-100ms precision', () => {
+    const node = renderInlineResultNode([], { durationMs: 1.26, slowest: true });
+    const chip = node.querySelector('[data-testid="lingua-inline-timing"]');
+    expect(chip?.textContent).toBe('▸ 1.3 ms');
+    expect(chip?.getAttribute('data-slowest')).toBe('true');
+    // A timing-only line renders no value parts at all.
+    expect(node.querySelectorAll('.lingua-inline-result-part')).toHaveLength(0);
+  });
+
+  it('renders no chip when the run was not instrumented', () => {
+    const node = renderInlineResultNode([{ line: 1, value: 'x', type: 'magic' }]);
+    expect(node.querySelector('[data-testid="lingua-inline-timing"]')).toBeNull();
+  });
+});

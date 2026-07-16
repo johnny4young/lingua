@@ -66,6 +66,7 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setIsAutoRunning: vi.fn(),
     setIsManualRunning: vi.fn(),
     setLineResults: vi.fn(),
+    setLineTimings: vi.fn(),
     setStdinConsumed: vi.fn(),
     setDiagnostics: vi.fn(),
     setRunTermination: mockSetRunTermination,

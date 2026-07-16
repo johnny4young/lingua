@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { useBootstrapProgressStore } from '../stores/bootstrapProgressStore';
 import type {
   LanguageRunner,
   ExecutionContext,
@@ -122,6 +123,7 @@ export class WasmRubyRunner implements LanguageRunner {
         let timeoutId: ReturnType<typeof globalThis.setTimeout> | null =
           globalThis.setTimeout(() => {
             cleanup();
+            useBootstrapProgressStore.getState().clear('ruby');
             worker.terminate();
             if (this.worker === worker) {
               this.worker = null;
@@ -149,6 +151,7 @@ export class WasmRubyRunner implements LanguageRunner {
 
         const cancelLoading = () => {
           cleanup();
+          useBootstrapProgressStore.getState().clear('ruby');
           worker.terminate();
           if (this.worker === worker) {
             this.worker = null;
@@ -160,12 +163,22 @@ export class WasmRubyRunner implements LanguageRunner {
 
         const handler = (event: MessageEvent) => {
           const msg = event.data;
-          if (msg.type === 'ready') {
+          if (msg.type === 'bootstrap-progress') {
+            // IT2-D3 — Ruby WASM download progress during the init
+            // handshake; mirrors the Python runner.
+            useBootstrapProgressStore.getState().report({
+              language: 'ruby',
+              loadedBytes: msg.loadedBytes,
+              totalBytes: msg.totalBytes,
+            });
+          } else if (msg.type === 'ready') {
+            useBootstrapProgressStore.getState().clear('ruby');
             this.rubyLoaded = true;
             cleanup();
             resolve();
           } else if (msg.type === 'error') {
             cleanup();
+            useBootstrapProgressStore.getState().clear('ruby');
             worker.terminate();
             if (this.worker === worker) {
               this.worker = null;
@@ -178,6 +191,7 @@ export class WasmRubyRunner implements LanguageRunner {
 
         const errorHandler = (event: Event) => {
           cleanup();
+          useBootstrapProgressStore.getState().clear('ruby');
           worker.terminate();
           if (this.worker === worker) {
             this.worker = null;
@@ -279,6 +293,16 @@ export class WasmRubyRunner implements LanguageRunner {
         if (this.currentRunId !== runId) return;
 
         switch (msg.type) {
+          case 'bootstrap-progress':
+            // IT2-D3 — live runtime download progress; the
+            // initialization window in executeTabManually composes it
+            // into the loading message.
+            useBootstrapProgressStore.getState().report({
+              language: 'ruby',
+              loadedBytes: msg.loadedBytes,
+              totalBytes: msg.totalBytes,
+            });
+            break;
           case 'console': {
             const output: ConsoleOutput = {
               type: msg.method,
@@ -309,6 +333,9 @@ export class WasmRubyRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
+            // IT2-D3 — boot finished (or was already warm); drop the
+            // progress line so the pill returns to its normal label.
+            useBootstrapProgressStore.getState().clear('ruby');
             finish({
               stdout,
               stderr,
@@ -345,6 +372,7 @@ export class WasmRubyRunner implements LanguageRunner {
   }
 
   stop(): void {
+    useBootstrapProgressStore.getState().clear('ruby');
     if (this.loadingCancel) {
       const cancelLoading = this.loadingCancel;
       this.loadingCancel = null;

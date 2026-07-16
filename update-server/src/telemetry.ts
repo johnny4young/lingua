@@ -29,6 +29,9 @@ import { log } from './lib/observability';
 export const TELEMETRY_EVENT_NAMES = [
   'app.launched',
   'app.boot_phase',
+  // IT2-D3 — mirror of the runtime bootstrap events.
+  'runtime.bootstrap_completed',
+  'runtime.bootstrap_failed',
   'runner.executed',
   'overlay.opened',
   'feature.blocked',
@@ -315,6 +318,8 @@ const EVENT_NAME_SET: ReadonlySet<string> = new Set(TELEMETRY_EVENT_NAMES);
 export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = {
   'app.launched': ['platform', 'build', 'locale'],
   'app.boot_phase': ['phase', 'durationBucket'],
+  'runtime.bootstrap_completed': ['language', 'durationBucket'],
+  'runtime.bootstrap_failed': ['language', 'reason'],
   'runner.executed': ['language', 'status', 'durationBucketMs'],
   'overlay.opened': ['overlayId'],
   'feature.blocked': ['entitlement', 'tier'],
@@ -545,16 +550,26 @@ export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
 export const LINT_RULE_IDS = new Set(['strict-equality', 'ts-native']);
 export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
 // RL-110 — mirror of SMART_PASTE_HANDLERS in src/shared/telemetry.ts.
+// IT2-F4 — utility suggestions report per-format as utility-<id>.
 export const SMART_PASTE_HANDLERS = new Set([
   'share-link',
   'capsule',
   'curl',
   'stack-trace',
   'large-json',
+  'utility-jwt',
+  'utility-uuid',
+  'utility-color',
+  'utility-timestamp',
+  'utility-cron-parser',
+  'utility-base64',
+  'utility-json',
 ]);
 // RL-020 Slice 7 — widened to mirror the renderer (`'timeout'` and
 // `'stopped'` are the two distinct termination kinds the renderer
 // now reports). The parity test asserts both Sets stay in lockstep.
+// IT2-D3 — mirror of BOOTSTRAP_FAILURE_REASONS in src/shared/telemetry.ts.
+const BOOTSTRAP_FAILURE_REASONS = new Set(['prepare-error']);
 const RUNNER_STATUS_VALUES = new Set([
   'ok',
   'error',
@@ -657,6 +672,9 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   'list-export',
   // RL-099 Slice 3 — mirror of the pipeline-run trigger.
   'pipeline-run',
+  // IT2-F7 — mirror of the HTML-export triggers.
+  'settings-export-html',
+  'list-export-html',
 ]);
 // RL-094 Slice 3 fold G — mirror of `CAPSULE_BROWSE_SURFACES` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
@@ -1217,6 +1235,18 @@ function isAllowedValue(
       if (key === 'phase') return typeof value === 'string' && BOOT_PHASES.has(value);
       if (key === 'durationBucket') {
         return typeof value === 'string' && BOOT_DURATION_BUCKETS.has(value);
+      }
+      return false;
+    case 'runtime.bootstrap_completed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'durationBucket') {
+        return typeof value === 'string' && BOOT_DURATION_BUCKETS.has(value);
+      }
+      return false;
+    case 'runtime.bootstrap_failed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'reason') {
+        return typeof value === 'string' && BOOTSTRAP_FAILURE_REASONS.has(value);
       }
       return false;
     case 'runner.executed':

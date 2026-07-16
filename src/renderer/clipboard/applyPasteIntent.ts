@@ -32,10 +32,11 @@ import {
   type HttpRequestV1,
 } from '../../shared/httpWorkspace';
 import { parseCurlCommand, type CurlCommand } from '../utils/curlToCode';
-import { openHttpWorkspaceTab } from '../runtime/openWorkspaceTab';
+import { openHttpWorkspaceTab, openUtilitiesWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { setPendingCapsuleImportSource } from './pendingCapsuleImport';
 import { createDefaultTab } from '../stores/editorTabUtils';
 import { useEditorStore } from '../stores/editorStore';
+import { useUtilityHistoryStore } from '../stores/utilityHistoryStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
 import type { Language } from '../types';
 import type { PasteIntent } from './pasteHandlers';
@@ -181,6 +182,23 @@ function applyLargeJson(source: string, ctx: ApplyPasteContext): boolean {
   return true;
 }
 
+function applyUtility(
+  intent: Extract<PasteIntent, { kind: 'utility' }>,
+  ctx: ApplyPasteContext
+): boolean {
+  // IT2-F4 — stash the one-shot seed FIRST so the panel (fresh mount or
+  // already mounted) finds it when the workspace tab activates, then open
+  // the Utilities workspace on the matching panel. The value moved into
+  // the utility, so the literal paste is stripped like the other imports.
+  useUtilityHistoryStore.getState().setPendingUtilityInput({
+    utilityId: intent.utilityId,
+    input: intent.source,
+  });
+  openUtilitiesWorkspaceTab(intent.utilityId);
+  removePastedText(ctx);
+  return true;
+}
+
 /**
  * Route a detected paste intent to its importer. Returns `true` when the import
  * was dispatched, `false` when a late re-parse failed (the caller leaves the
@@ -201,6 +219,8 @@ export async function applyPasteIntent(
       return applyStackTrace(intent);
     case 'large-json':
       return applyLargeJson(intent.source, ctx);
+    case 'utility':
+      return applyUtility(intent, ctx);
     default: {
       const exhaustive: never = intent;
       return exhaustive;
