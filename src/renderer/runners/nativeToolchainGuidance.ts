@@ -27,32 +27,28 @@ function localizedDocsUrl(path: string): string {
   return `https://linguacode.dev${localePrefix}${path}`;
 }
 
-function pushRetryResult(toolchain: string, installed: boolean): void {
+function pushRetrySuccess(toolchain: string): void {
   useUIStore.getState().pushStatusNotice({
-    tone: installed ? 'success' : 'warning',
-    messageKey: installed
-      ? 'nativeToolchain.retry.detected'
-      : 'nativeToolchain.retry.stillMissing',
+    tone: 'success',
+    messageKey: 'nativeToolchain.retry.detected',
     values: { toolchain },
   });
 }
 
-/**
- * Surface one actionable recovery path when a desktop-native runtime is
- * missing. Web runners deliberately stay on their existing adapter copy: a
- * browser cannot install or re-probe a host toolchain.
- */
-export function pushMissingNativeToolchainNotice(
-  toolchain: NativeToolchain,
-  retryDetection: () => Promise<boolean>
-): void {
-  const shell = desktopShell();
-  if (!shell) return;
+type RecoveryMessageKey =
+  | 'nativeToolchain.missing.message'
+  | 'nativeToolchain.retry.stillMissing';
 
-  const spec = TOOLCHAIN_SPECS[toolchain];
+function pushRecoveryNotice(
+  spec: NativeToolchainSpec,
+  shell: LinguaAPI,
+  retryDetection: () => Promise<boolean>,
+  messageKey: RecoveryMessageKey
+): void {
   const currentNotice = useUIStore.getState().statusNotice;
   if (
-    currentNotice?.messageKey === 'nativeToolchain.missing.message' &&
+    (currentNotice?.messageKey === 'nativeToolchain.missing.message' ||
+      currentNotice?.messageKey === 'nativeToolchain.retry.stillMissing') &&
     currentNotice.values?.toolchain === spec.label
   ) {
     return;
@@ -64,7 +60,7 @@ export function pushMissingNativeToolchainNotice(
     // onboarding priority so a first-run toast cannot silently discard the
     // install/retry path; same-priority notices replace in arrival order.
     priority: 'high',
-    messageKey: 'nativeToolchain.missing.message',
+    messageKey,
     values: { toolchain: spec.label },
     actions: [
       {
@@ -92,10 +88,49 @@ export function pushMissingNativeToolchainNotice(
         labelKey: 'nativeToolchain.action.retry',
         onClick: () => {
           void retryDetection()
-            .then((installed) => pushRetryResult(spec.label, installed))
-            .catch(() => pushRetryResult(spec.label, false));
+            .then((installed) => {
+              if (installed) {
+                pushRetrySuccess(spec.label);
+                return;
+              }
+              pushRecoveryNotice(
+                spec,
+                shell,
+                retryDetection,
+                'nativeToolchain.retry.stillMissing'
+              );
+            })
+            .catch(() => {
+              pushRecoveryNotice(
+                spec,
+                shell,
+                retryDetection,
+                'nativeToolchain.retry.stillMissing'
+              );
+            });
         },
       },
     ],
   });
+}
+
+/**
+ * Surface one actionable recovery path when a desktop-native runtime is
+ * missing. Web runners deliberately stay on their existing adapter copy: a
+ * browser cannot install or re-probe a host toolchain.
+ */
+export function pushMissingNativeToolchainNotice(
+  toolchain: NativeToolchain,
+  retryDetection: () => Promise<boolean>
+): void {
+  const shell = desktopShell();
+  if (!shell) return;
+
+  const spec = TOOLCHAIN_SPECS[toolchain];
+  pushRecoveryNotice(
+    spec,
+    shell,
+    retryDetection,
+    'nativeToolchain.missing.message'
+  );
 }

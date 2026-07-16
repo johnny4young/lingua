@@ -1,15 +1,26 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { StatusNoticeBanner } from '../../src/renderer/components/StatusNotice/StatusNoticeBanner';
+import { pushMissingNativeToolchainNotice } from '../../src/renderer/runners/nativeToolchainGuidance';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+
+const originalLingua = window.lingua;
 
 describe('StatusNoticeBanner', () => {
   beforeEach(async () => {
     cleanup();
     await i18next.changeLanguage('en');
     useUIStore.setState({ statusNotice: null });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'lingua', {
+      value: originalLingua,
+      writable: true,
+      configurable: true,
+    });
   });
 
   it('keeps a replacement notice pushed by a CTA visible', async () => {
@@ -42,5 +53,29 @@ describe('StatusNoticeBanner', () => {
     expect(screen.getByTestId('status-notice-banner').textContent).toContain(
       'Reopen it from Snippets or Cmd+Shift+P'
     );
+  });
+
+  it('keeps toolchain recovery actions visible after an unsuccessful retry', async () => {
+    const user = userEvent.setup();
+    const retry = vi.fn().mockResolvedValue(false);
+    Object.defineProperty(window, 'lingua', {
+      value: { platform: 'darwin', openExternal: vi.fn() },
+      writable: true,
+      configurable: true,
+    });
+
+    pushMissingNativeToolchainNotice('go', retry);
+    render(<StatusNoticeBanner />);
+
+    await user.click(screen.getByRole('button', { name: 'Retry detection' }));
+
+    expect(await screen.findByText(/Go is still unavailable/)).toBeTruthy();
+    expect(retry).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('button', { name: 'Installation guide' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Retry detection' })
+    ).toBeTruthy();
   });
 });

@@ -84,6 +84,32 @@ describe('native toolchain guidance', () => {
     });
   });
 
+  it.each([
+    ['the toolchain remains missing', () => Promise.resolve(false)],
+    ['detection rejects', () => Promise.reject(new Error('probe failed'))],
+  ])('keeps both recovery actions when %s', async (_case, retryResult) => {
+    const retry = vi.fn(retryResult);
+    pushMissingNativeToolchainNotice('go', retry);
+
+    const retryAction = useUIStore.getState().statusNotice?.actions?.[1];
+    useUIStore.getState().dismissStatusNotice('cta');
+    retryAction?.onClick();
+
+    await vi.waitFor(() => {
+      expect(retry).toHaveBeenCalledOnce();
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'warning',
+        priority: 'high',
+        messageKey: 'nativeToolchain.retry.stillMissing',
+        values: { toolchain: 'Go' },
+        actions: [
+          { labelKey: 'nativeToolchain.action.install' },
+          { labelKey: 'nativeToolchain.action.retry' },
+        ],
+      });
+    });
+  });
+
   it('keeps the recovery guidance out of the web build', () => {
     installShell('web');
     pushMissingNativeToolchainNotice('ruby', vi.fn().mockResolvedValue(false));
