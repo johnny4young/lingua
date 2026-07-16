@@ -7,12 +7,17 @@ import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { CommandPaletteResults } from './CommandPaletteResults';
 import { filterCommandPaletteCommands } from './commandPaletteModel';
 import { useCommandPaletteCommands } from './useCommandPaletteCommands';
+import { useCommandHistoryStore } from '../../stores/commandHistoryStore';
 import type { CommandPaletteProps } from './commandPaletteTypes';
 
 export type { CommandPaletteProps } from './commandPaletteTypes';
 
+/** RL-113 — the Cmd+; popover shows at most this many recent commands. */
+const RECENT_COMMAND_SLOTS = 8;
+
 export function CommandPalette(props: CommandPaletteProps) {
   const { onClose } = props;
+  const isRecentVariant = props.variant === 'recent';
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,12 +27,46 @@ export function CommandPalette(props: CommandPaletteProps) {
   // stays in the search input.
   const listboxId = useId();
   const optionId = (index: number) => `${listboxId}-opt-${index}`;
-  const allCommands = useCommandPaletteCommands(props);
+  const builtCommands = useCommandPaletteCommands(props);
+  const recentEntries = useCommandHistoryStore(state => state.entries);
   const { t } = useTranslation();
 
+  // RL-113 — every executed ACTION lands in the per-session recent stack.
+  // Wrapping here (the single place both Enter and row clicks call
+  // `action()`) keeps the recording invisible to the model builders.
+  const allCommands = useMemo(
+    () =>
+      builtCommands.map(command =>
+        command.category === 'action'
+          ? {
+              ...command,
+              action: () => {
+                useCommandHistoryStore.getState().recordCommand(command.id);
+                command.action();
+              },
+            }
+          : command
+      ),
+    [builtCommands]
+  );
+
+  const recentTimestamps = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const entry of recentEntries) map.set(entry.id, entry.executedAt);
+    return map;
+  }, [recentEntries]);
+
   const filtered = useMemo(() => {
+    if (isRecentVariant) {
+      // Resolve ids against the LIVE model so labels stay localized and
+      // commands that are no longer available simply drop out.
+      return recentEntries
+        .map(entry => allCommands.find(command => command.id === entry.id))
+        .filter((command): command is (typeof allCommands)[number] => Boolean(command))
+        .slice(0, RECENT_COMMAND_SLOTS);
+    }
     return filterCommandPaletteCommands(allCommands, query);
-  }, [allCommands, query]);
+  }, [allCommands, isRecentVariant, query, recentEntries]);
   const visibleSelectedIndex =
     filtered.length === 0 ? 0 : Math.min(selectedIndex, filtered.length - 1);
 
@@ -43,6 +82,13 @@ export function CommandPalette(props: CommandPaletteProps) {
   }, [visibleSelectedIndex]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    // RL-113 — in the recent stack, 1-8 executes that slot directly.
+    if (isRecentVariant && /^[1-8]$/u.test(event.key)) {
+      event.preventDefault();
+      filtered[Number(event.key) - 1]?.action();
+      return;
+    }
+
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       setSelectedIndex((currentIndex) => Math.min(currentIndex + 1, filtered.length - 1));
@@ -86,8 +132,17 @@ export function CommandPalette(props: CommandPaletteProps) {
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder={t('commandPalette.search.placeholder')}
-            aria-label={t('shortcuts.item.commandPalette.label')}
+            readOnly={isRecentVariant}
+            placeholder={t(
+              isRecentVariant
+                ? 'commandPalette.recent.placeholder'
+                : 'commandPalette.search.placeholder'
+            )}
+            aria-label={t(
+              isRecentVariant
+                ? 'commandPalette.recent.title'
+                : 'shortcuts.item.commandPalette.label'
+            )}
             role="combobox"
             aria-expanded={filtered.length > 0}
             aria-controls={listboxId}
@@ -137,6 +192,7 @@ export function CommandPalette(props: CommandPaletteProps) {
         onHoverIndex={setSelectedIndex}
         listboxId={listboxId}
         optionId={optionId}
+        recentTimestamps={isRecentVariant ? recentTimestamps : undefined}
       />
     </ModalShell>
   );

@@ -429,6 +429,15 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['command', 'palette'],
   },
   {
+    // RL-113 — per-session stack of the last executed palette actions.
+    id: 'overlay-recent-commands',
+    group: 'overlays',
+    labelKey: 'shortcuts.item.recentCommands.label',
+    descriptionKey: 'shortcuts.item.recentCommands.description',
+    combos: [{ tokens: ['Mod', 'Semicolon'] }],
+    keywords: ['recent', 'commands', 'history', 'repeat', 'again'],
+  },
+  {
     id: 'overlay-settings',
     group: 'overlays',
     labelKey: 'shortcuts.item.settings.label',
@@ -585,6 +594,7 @@ const MAC_TOKEN_LABELS: Record<string, string> = {
   Escape: 'Esc',
   Backslash: '\\',
   Comma: ',',
+  Semicolon: ';',
 };
 
 const NON_MAC_TOKEN_LABELS: Record<string, string> = {
@@ -594,6 +604,7 @@ const NON_MAC_TOKEN_LABELS: Record<string, string> = {
   Escape: 'Esc',
   Backslash: '\\',
   Comma: ',',
+  Semicolon: ';',
 };
 
 /**

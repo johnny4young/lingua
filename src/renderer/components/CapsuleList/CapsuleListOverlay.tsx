@@ -30,7 +30,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, ExternalLink, Eye, GitCompare, Package, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, Eye, FileDown, GitCompare, Package, Trash2 } from 'lucide-react';
 import {
   useExecutionHistoryStore,
   type ExecutionHistoryEntry,
@@ -43,6 +43,7 @@ import {
   type RunCapsuleV1,
 } from '../../../shared/runCapsule';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
+import { exportCapsuleAsHtml } from '../../utils/exportCapsuleHtml';
 import { openCapsuleSourceInNewTab } from '../../utils/openCapsuleTab';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
@@ -96,7 +97,7 @@ function formatRelative(
 }
 
 export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const titleId = useId();
   const closeRef = useRef(onClose);
   useEffect(() => {
@@ -279,6 +280,30 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
       );
     },
     [pushStatusNotice]
+  );
+
+  // IT2-F7 — per-row self-contained HTML export (native save dialog on
+  // desktop, blob download on web). Outcome notices mirror handleExport.
+  const handleExportHtml = useCallback(
+    async (entry: ExecutionHistoryEntry) => {
+      const capsule = entry.lastCapsule;
+      if (!capsule) return;
+      await exportCapsuleAsHtml(capsule, 'list-export-html', {
+        t,
+        locale: i18n.language,
+        onOk: () =>
+          pushStatusNotice({
+            tone: 'success',
+            messageKey: 'capsuleHtml.notice.saved',
+          }),
+        onError: () =>
+          pushStatusNotice({
+            tone: 'error',
+            messageKey: 'capsuleHtml.notice.failed',
+          }),
+      });
+    },
+    [i18n.language, pushStatusNotice, t]
   );
 
   const handleCopySummary = useCallback(
@@ -564,6 +589,12 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                           label={t('capsuleList.row.export')}
                           testid="capsule-list-row-export"
                           onClick={() => void handleExport(entry)}
+                        />
+                        <RowAction
+                          icon={<FileDown size={12} aria-hidden="true" />}
+                          label={t('capsuleList.row.exportHtml')}
+                          testid="capsule-list-row-export-html"
+                          onClick={() => void handleExportHtml(entry)}
                         />
                         <RowAction
                           icon={<ExternalLink size={12} aria-hidden="true" />}

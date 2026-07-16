@@ -15,6 +15,8 @@ const spies = vi.hoisted(() => ({
   createRequest: vi.fn(),
   setPendingCapsule: vi.fn(),
   openHttp: vi.fn(),
+  openUtilities: vi.fn(),
+  setPendingUtilityInput: vi.fn(),
   decodeShareFragment: vi.fn(),
 }));
 
@@ -27,7 +29,15 @@ vi.mock('@/stores/workspaceToolStore', () => ({
 vi.mock('@/clipboard/pendingCapsuleImport', () => ({
   setPendingCapsuleImportSource: spies.setPendingCapsule,
 }));
-vi.mock('@/runtime/openWorkspaceTab', () => ({ openHttpWorkspaceTab: spies.openHttp }));
+vi.mock('@/runtime/openWorkspaceTab', () => ({
+  openHttpWorkspaceTab: spies.openHttp,
+  openUtilitiesWorkspaceTab: spies.openUtilities,
+}));
+vi.mock('@/stores/utilityHistoryStore', () => ({
+  useUtilityHistoryStore: {
+    getState: () => ({ setPendingUtilityInput: spies.setPendingUtilityInput }),
+  },
+}));
 vi.mock('@/stores/editorTabUtils', () => ({
   createDefaultTab: (language = 'javascript') => ({
     id: 't',
@@ -170,6 +180,26 @@ describe('applyPasteIntent', () => {
     expect(ok).toBe(true);
     expect(spies.addTab).toHaveBeenCalledWith(
       expect.objectContaining({ language: 'json', content: '{"rows":[]}' })
+    );
+    expect(pushEditOperations).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes an IT2-F4 utility suggestion: seed first, then open, then strip', async () => {
+    const { ctx, pushEditOperations } = makeCtx();
+    const ok = await applyPasteIntent(
+      { kind: 'utility', utilityId: 'jwt', source: 'aaa.bbb.ccc' },
+      ctx
+    );
+    expect(ok).toBe(true);
+    expect(spies.setPendingUtilityInput).toHaveBeenCalledWith({
+      utilityId: 'jwt',
+      input: 'aaa.bbb.ccc',
+    });
+    expect(spies.openUtilities).toHaveBeenCalledWith('jwt');
+    // The seed must land BEFORE the workspace opens, so a fresh panel
+    // mount already finds it.
+    expect(spies.setPendingUtilityInput.mock.invocationCallOrder[0]!).toBeLessThan(
+      spies.openUtilities.mock.invocationCallOrder[0]!
     );
     expect(pushEditOperations).toHaveBeenCalledTimes(1);
   });
