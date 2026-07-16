@@ -24,6 +24,7 @@ test.describe('IT2-D7 contextual empty-state hints', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openConsole(page);
+    await page.getByRole('button', { name: 'Clear console' }).click();
 
     const consoleHint = page.getByTestId('contextual-hint-console');
     await expect(consoleHint).toBeVisible();
@@ -59,6 +60,7 @@ test.describe('IT2-D7 contextual empty-state hints', () => {
     await seedSession(page, { language: 'es' });
     await gotoApp(page);
     await openConsole(page);
+    await page.getByRole('button', { name: 'Limpiar consola' }).click();
 
     const consoleHint = page.getByTestId('contextual-hint-console');
     await expect(consoleHint).toContainText('Consejo');
@@ -80,6 +82,7 @@ test.describe('IT2-D7 contextual empty-state hints', () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
     await closeSettings(page);
+    await page.getByRole('button', { name: 'Limpiar consola' }).click();
     await expect(page.getByTestId('contextual-hint-console')).toContainText('Consejo');
 
     await openCommandPalette(page);

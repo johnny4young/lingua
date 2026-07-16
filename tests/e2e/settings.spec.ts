@@ -374,7 +374,9 @@ test.describe('Settings persistence', () => {
     await page.addInitScript(() => {
       window.localStorage.setItem(
         'lingua-settings',
-        JSON.stringify({ state: { theme: 'light', fontSize: 18 } })
+        JSON.stringify({
+          state: { theme: 'light', fontSize: 18, suppressTourAutoStart: true },
+        })
       );
     });
     await gotoApp(page);
