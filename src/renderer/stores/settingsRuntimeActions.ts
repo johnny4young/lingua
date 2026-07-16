@@ -51,6 +51,7 @@ export function createRuntimeActions(
   | 'setVariableInspectorSurface'
   | 'setRuntimeTimeoutPreset'
   | 'toggleShowTimeoutCountdown'
+  | 'toggleShowLineTiming'
   | 'setRubyRuntimePreference'
   | 'acknowledgeFirstWorkflowModeSwitch'
 > {
@@ -221,6 +222,9 @@ export function createRuntimeActions(
     // RL-020 Slice 7 fold E — flip the countdown-pill toggle.
     toggleShowTimeoutCountdown: () =>
       set((s) => ({ showTimeoutCountdown: !s.showTimeoutCountdown })),
+    // RL-115 Slice 1 — flip the per-line timing toggle.
+    toggleShowLineTiming: () =>
+      set((s) => ({ showLineTiming: !s.showLineTiming })),
     // RL-042 Slice 6 — set the Ruby runtime dispatcher preference.
     // Telemetry mirrors the closed enum so dashboards see the
     // distribution. Tampered values are rejected by the setter

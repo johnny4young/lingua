@@ -1493,6 +1493,8 @@
   "runtime.timeout.row.label": "{{language}}",
   "runtime.timeout.countdown.label": "Show countdown while running",
   "runtime.timeout.countdown.hint": "Renders mm:ss in the result panel header while a run is in flight. Default off.",
+  "settings.editor.showLineTiming.label": "Show per-line timing",
+  "settings.editor.showLineTiming.hint": "Measure every top-level statement in JavaScript and TypeScript runs and show its duration inline. Adds a small overhead, so it is off by default — a // @time comment enables it for one file.",
   "runtime.timeout.hint.openSettings": "Adjust the limit in Settings → Editor → Execution timeout.",
   "runtime.statusPill.timeout.label": "Timeout",
   "runtime.statusPill.timeout.tooltip": "Run hit the {{preset}} limit ({{seconds}}s).",

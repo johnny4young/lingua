@@ -61,6 +61,7 @@ export function CodeEditor() {
     translateRef.current = t;
   }, [t]);
   const lineResults = useResultStore(state => state.lineResults);
+  const lineTimings = useResultStore(state => state.lineTimings);
   const diagnostics = useResultStore(state => state.diagnostics);
   const executionSource = useResultStore(state => state.executionSource);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -85,7 +86,13 @@ export function CodeEditor() {
   // overlay widgets. This replaces the old trailing-comment
   // decorations so the editor shows one result surface, not duplicate
   // values after the code and again at the right edge.
-  useInlineResultWidgets(editorInstance, monacoInstance, visibleLineResults, activeTabId);
+  useInlineResultWidgets(
+    editorInstance,
+    monacoInstance,
+    visibleLineResults,
+    activeTabId,
+    lineTimings
+  );
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
 
   const activeTab = useActiveTab();

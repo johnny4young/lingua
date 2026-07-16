@@ -1493,6 +1493,8 @@
   "runtime.timeout.row.label": "{{language}}",
   "runtime.timeout.countdown.label": "Mostrar cuenta regresiva durante la ejecución",
   "runtime.timeout.countdown.hint": "Muestra mm:ss en el encabezado del panel de resultados mientras una ejecución está en curso. Apagado por defecto.",
+  "settings.editor.showLineTiming.label": "Mostrar tiempos por línea",
+  "settings.editor.showLineTiming.hint": "Mide cada statement de nivel superior en ejecuciones de JavaScript y TypeScript y muestra su duración inline. Agrega una pequeña sobrecarga, así que viene apagado — un comentario // @time lo activa para un archivo.",
   "runtime.timeout.hint.openSettings": "Ajusta el límite en Configuración → Editor → Tiempo de ejecución.",
   "runtime.statusPill.timeout.label": "Tiempo agotado",
   "runtime.statusPill.timeout.tooltip": "La ejecución alcanzó el límite {{preset}} ({{seconds}}s).",

@@ -784,7 +784,15 @@ una sola vez, CTA abre el overlay; toggle OFF lo silencia.
 
 **RL-113** (Cmd+; recent commands — el `CommandEntry`
 (`commandPaletteModel.ts:25-33`) y los builders L471-545 son la base: un
-ring de 20 ids ejecutados + popover), **RL-115** (`// @time` — extiende el
+ring de 20 ids ejecutados + popover), **RL-115** — **EJECUTADO 2026-07-16**: walker compartido con auto-log
+detecta inicios de statement top-level (conservador: un marker de menos
+es inocuo, uno de más rompe sintaxis — cron de continuaciones, `while`
+de do-while, decoradores); `__mc_tick` delta-timing en el worker con
+flush en success Y error; chips `▸ N ms` italic gris en el overlay
+inline existente con hot-spot rojo (`data-slowest`); gating por
+`// @time` o Settings → Editor → Mostrar tiempos por línea (default
+OFF); e2e `tests/e2e/lineTiming.spec.ts`; evidencia en
+`output/review/rl-115-inline-timing/`. (`// @time` — extiende el
 vocabulario de IT2-D4 y el gutter), **RL-116** (Focus mode). Ejecutar con
 sus AC del plan interno; sinergia: hacer RL-115 justo después de IT2-D4.
 

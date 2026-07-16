@@ -320,6 +320,7 @@ export async function executeTabManually(
     setIsAutoRunning,
     setIsManualRunning,
     setLineResults,
+    setLineTimings,
     setStdinConsumed,
     setDiagnostics,
     setRunTermination,
@@ -367,6 +368,7 @@ export async function executeTabManually(
       const validation = validateDocument(language, content);
       setDiagnostics(validation.diagnostics);
       setLineResults([]);
+      setLineTimings([]);
       setFullOutput(validation.fullOutput);
       setError(null);
       setExecutionTime(validation.executionTime);
@@ -518,6 +520,7 @@ export async function executeTabManually(
         executionTime: 0,
       });
       setLineResults(presentation.lineResults);
+      setLineTimings([]);
       setFullOutput(presentation.fullOutput);
       setError(null);
       setExecutionTime(null);
@@ -572,6 +575,9 @@ export async function executeTabManually(
       ...(activeTab.inputArgs && activeTab.inputArgs.length > 0
         ? { args: activeTab.inputArgs }
         : {}),
+      // RL-115 — per-line timing toggle; the runner also honors an
+      // in-buffer // @time directive on its own.
+      ...(useSettingsStore.getState().showLineTiming ? { lineTiming: true } : {}),
       ...(wantsScopeCapture ? { captureScope: true } : {}),
       ...(wantsScopeCapture && typeof scopeDepthPref === 'number'
         ? { scopeDepth: scopeDepthPref }
@@ -624,6 +630,7 @@ export async function executeTabManually(
         error: undefined,
       });
       setLineResults(presentation.lineResults);
+      setLineTimings([]);
       setFullOutput(presentation.fullOutput || message);
       setError(null);
       setDiagnostics([]);
@@ -665,6 +672,7 @@ export async function executeTabManually(
 
     const presentation = toExecutionPresentation(language, content, result);
     setLineResults(presentation.lineResults);
+    setLineTimings(result.lineTimings ?? []);
     setFullOutput(presentation.fullOutput);
     // RL-020 Slice 6 fold G — surface the consumption summary
     // alongside the manual-run results, same as the auto-run path.

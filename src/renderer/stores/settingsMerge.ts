@@ -282,6 +282,7 @@ export function settingsMerge(
     variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
     showTimeoutCountdown,
+    showLineTiming: typeof merged.showLineTiming === 'boolean' ? merged.showLineTiming : currentState.showLineTiming, // RL-115
     rubyRuntimePreference,
     firstWorkflowModeSwitchAcknowledged,
     sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,

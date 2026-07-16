@@ -30,7 +30,7 @@
  * the runner reads when stitching results back into `LineResult[]`.
  */
 
-import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
+import { isJavaScriptFamily, isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 
 export type MagicCommentKind = 'arrow' | 'watch' | 'autoLog';
 
@@ -545,10 +545,42 @@ function consumeAutoLogRegexLiteral(
  * but finalizes each line during the scan so the hot path avoids
  * building full-source metadata arrays and re-splitting the buffer.
  */
-function scanAutoLogCandidates(
+/**
+ * Per-line facts the shared top-level scanner hands each consumer.
+ * `stripped` masks string/template/comment interiors with spaces so
+ * structural checks never trip on user text.
+ */
+interface TopLevelLineInfo {
+  /** 1-based line number. */
+  lineNumber: number;
+  /** The comment/string-masked line content. */
+  stripped: string;
+  /** Absolute offset of the line's first character. */
+  lineStart: number;
+  /** Absolute offset of the line's terminator (or EOF). */
+  lineEnd: number;
+  /** Combined bracket+template depth when the line begins. */
+  depthAtStart: number;
+  /** Combined bracket+template depth when the line ends. */
+  depthAtEnd: number;
+  /** True when the line BEGINS inside a string/template/block comment. */
+  openTokenAtStart: boolean;
+  /** True when the line ENDS inside a string/template/block comment. */
+  openTokenAtEnd: boolean;
+}
+
+/**
+ * Shared JS/TS line walker: one pass over the buffer tracking bracket
+ * depth, strings, templates (with `${}` nesting), and comments, calling
+ * `onLine` with the structural facts for every physical line. Both the
+ * auto-log detector (RL-020 Slice 5) and the RL-115 statement-start
+ * detector consume it, so the tokenizer quirks live in exactly one
+ * place.
+ */
+function walkTopLevelLines(
   code: string,
-  magicLines: ReadonlySet<number>
-): number[] {
+  onLine: (info: TopLevelLineInfo) => void
+): void {
   let bracketDepth = 0; // ()
   let squareDepth = 0; // []
   let braceDepth = 0; // {}
@@ -559,12 +591,11 @@ function scanAutoLogCandidates(
   const templateStack: boolean[] = [];
   const placeholderTargetDepth: number[] = [];
 
-  const out: number[] = [];
-  const hasMagicLines = magicLines.size > 0;
   let strippedLine = '';
   let lineNumber = 1;
   let lineStart = 0;
   let depthAtLineStart = 0;
+  let openTokenAtLineStart = false;
 
   const totalDepth = () =>
     bracketDepth + squareDepth + braceDepth + templateStack.length;
@@ -578,23 +609,21 @@ function scanAutoLogCandidates(
 
   const finishLine = (lineEnd: number) => {
     const depthAtLineEnd = totalDepth();
-    if (
-      (!hasMagicLines || !magicLines.has(lineNumber)) &&
-      isAutoLogCandidateLine(
-        strippedLine,
-        code,
-        lineStart,
-        lineEnd,
-        depthAtLineStart,
-        depthAtLineEnd,
-        isInsideOpenToken()
-      )
-    ) {
-      out.push(lineNumber);
-    }
+    const openTokenAtLineEnd = isInsideOpenToken();
+    onLine({
+      lineNumber,
+      stripped: strippedLine,
+      lineStart,
+      lineEnd,
+      depthAtStart: depthAtLineStart,
+      depthAtEnd: depthAtLineEnd,
+      openTokenAtStart: openTokenAtLineStart,
+      openTokenAtEnd: openTokenAtLineEnd,
+    });
     lineNumber++;
     lineStart = lineEnd + 1;
     depthAtLineStart = depthAtLineEnd;
+    openTokenAtLineStart = openTokenAtLineEnd;
     strippedLine = '';
   };
 
@@ -779,7 +808,30 @@ function scanAutoLogCandidates(
 
   // Close out the final (no trailing newline) line.
   finishLine(len);
+}
 
+function scanAutoLogCandidates(
+  code: string,
+  magicLines: ReadonlySet<number>
+): number[] {
+  const out: number[] = [];
+  const hasMagicLines = magicLines.size > 0;
+  walkTopLevelLines(code, (info) => {
+    if (
+      (!hasMagicLines || !magicLines.has(info.lineNumber)) &&
+      isAutoLogCandidateLine(
+        info.stripped,
+        code,
+        info.lineStart,
+        info.lineEnd,
+        info.depthAtStart,
+        info.depthAtEnd,
+        info.openTokenAtEnd
+      )
+    ) {
+      out.push(info.lineNumber);
+    }
+  });
   return out;
 }
 
@@ -1236,4 +1288,137 @@ export function magicCommentKindsByLine(
     }
   }
   return map;
+}
+
+// ---------------------------------------------------------------------------
+// RL-115 Slice 1 — per-line timing (`// @time`)
+// ---------------------------------------------------------------------------
+
+/**
+ * Whole-buffer pragma enabling per-statement timing for this run.
+ * `\b` keeps `@timeout` (whose next char is a word char) from matching.
+ * JS/TS only in Slice 1, hence the `//`-only comment opener.
+ */
+const TIME_DIRECTIVE_RE = /\/\/\s*@time\b/iu;
+
+/**
+ * True when the buffer opts into per-line timing via `// @time`.
+ * Mirrors the other whole-buffer pragmas (`@origin off`,
+ * `@git-ignore-status`): presence anywhere in the buffer enables it.
+ */
+export function lineTimingRequestedByMagicComment(
+  language: string,
+  code: string
+): boolean {
+  if (!isJavaScriptFamily(language)) return false;
+  return TIME_DIRECTIVE_RE.test(code);
+}
+
+/**
+ * First characters that mark a physical line as the CONTINUATION of the
+ * previous statement (member chains, ternaries, operators, call/index
+ * brackets, template tags) rather than a fresh statement. Prefixing a
+ * tick there would change program meaning or break the parse, so such
+ * lines are never instrumented.
+ */
+const STATEMENT_START_BLOCKED_CHARS = '.?:)]},=+-*/%&|^<>!~`([@';
+
+/**
+ * Leading keywords that continue a compound statement. `while` is here
+ * for the rare split `do {…}\n while (…)` tail — excluding it costs a
+ * standalone while-loop its own marker (its time folds into the
+ * previous statement) but can never produce invalid code, which is the
+ * bias this detector wants.
+ */
+const STATEMENT_START_BLOCKED_KEYWORDS = new Set([
+  'else',
+  'catch',
+  'finally',
+  'while',
+  'case',
+  'default',
+  'extends',
+  'implements',
+  'instanceof',
+  'in',
+  'of',
+]);
+
+function startsNewTopLevelStatement(trimmed: string): boolean {
+  const first = trimmed[0] ?? '';
+  if (first.length === 0) return false;
+  if (STATEMENT_START_BLOCKED_CHARS.includes(first)) return false;
+  const wordMatch = trimmed.match(/^[A-Za-z_$][A-Za-z0-9_$]*/u);
+  if (wordMatch && STATEMENT_START_BLOCKED_KEYWORDS.has(wordMatch[0])) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * RL-115 — 1-based line numbers where a NEW top-level statement begins.
+ *
+ * Deliberately conservative: a missed line only merges its duration
+ * into the previous statement's measurement, while a false positive
+ * would inject a tick mid-statement and break the user's code. A line
+ * qualifies only when it starts at depth 0 outside any open token, has
+ * real content, does not begin with a continuation token/keyword, and
+ * the previous significant line finished its statement (returned to
+ * depth 0 without a trailing continuation character).
+ */
+export function detectJSStatementStartLines(code: string): number[] {
+  if (code.length === 0) return [];
+  const out: number[] = [];
+  let previousEndedStatement = true;
+
+  walkTopLevelLines(code, (info) => {
+    const trimmed = trimLine(info.stripped);
+    if (trimmed.length === 0) return; // blank / comment-only — invisible
+    const qualifies =
+      info.depthAtStart === 0 &&
+      !info.openTokenAtStart &&
+      previousEndedStatement &&
+      startsNewTopLevelStatement(trimmed);
+    if (qualifies) out.push(info.lineNumber);
+
+    const tail = stripTrailingSemicolons(trimmed);
+    previousEndedStatement =
+      info.depthAtEnd === 0 &&
+      !info.openTokenAtEnd &&
+      (tail.length === 0 || !endsWithTrailingContinuation(tail));
+  });
+
+  return out;
+}
+
+/**
+ * RL-115 — prefix each detected statement-start line with a
+ * `__mc_tick(<line>);` marker. Same-line prefixing keeps the buffer's
+ * line count intact, so every later mapping (error stacks, other
+ * transforms) stays valid. There is NO closing marker in the source:
+ * the worker flushes the final open tick itself when execution settles,
+ * which sidesteps the append-after-last-line hazards entirely.
+ */
+export function transformJSLineTiming(
+  code: string,
+  statementLines: ReadonlyArray<number>
+): string {
+  if (statementLines.length === 0) return code;
+  const targets = new Set<number>(statementLines);
+  const lines = code.split('\n');
+  const out: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const original = lines[i]!;
+    const lineNumber = i + 1;
+    if (!targets.has(lineNumber)) {
+      out.push(original);
+      continue;
+    }
+    const indentMatch = original.match(/^(\s*)/u);
+    const indent = indentMatch?.[1] ?? '';
+    out.push(`${indent}__mc_tick(${lineNumber}); ${original.slice(indent.length)}`);
+  }
+
+  return out.join('\n');
 }

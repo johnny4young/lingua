@@ -57,6 +57,7 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setIsAutoRunning: vi.fn(),
     setIsManualRunning: vi.fn(),
     setLineResults: vi.fn(),
+    setLineTimings: vi.fn(),
     setStdinConsumed: vi.fn(),
     setDiagnostics: vi.fn(),
     // RL-020 Slice 7 — pill state setters; consumers must mock them
