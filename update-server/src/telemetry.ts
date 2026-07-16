@@ -545,12 +545,20 @@ export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
 export const LINT_RULE_IDS = new Set(['strict-equality', 'ts-native']);
 export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
 // RL-110 — mirror of SMART_PASTE_HANDLERS in src/shared/telemetry.ts.
+// IT2-F4 — utility suggestions report per-format as utility-<id>.
 export const SMART_PASTE_HANDLERS = new Set([
   'share-link',
   'capsule',
   'curl',
   'stack-trace',
   'large-json',
+  'utility-jwt',
+  'utility-uuid',
+  'utility-color',
+  'utility-timestamp',
+  'utility-cron-parser',
+  'utility-base64',
+  'utility-json',
 ]);
 // RL-020 Slice 7 — widened to mirror the renderer (`'timeout'` and
 // `'stopped'` are the two distinct termination kinds the renderer

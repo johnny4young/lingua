@@ -991,7 +991,7 @@ schema, columnas o valores. La primera versión no añade histogramas por
 columna: eso requeriría consultas adicionales y queda fuera del AC de resumen
 fiable.
 
-## IT2-F4 · Smart clipboard → sugerencia de utilidad — S-M (1-2 d)
+## IT2-F4 · Smart clipboard → sugerencia de utilidad — EJECUTADO 2026-07-16 · S-M (1-2 d)
 
 **Evidencia.** El feature más citado de DevToys/DevUtils/He3 ("smart
 detection"). Lingua ya tiene la mitad: el router de smart-paste RL-110
@@ -1011,6 +1011,27 @@ IT2-A2). Mismo toggle y bypass Cmd+Shift+V de RL-110.
 **AC.** Pegar un JWT en el editor → toast → click → panel JWT con el
 token cargado; pegar código JS normal → cero toast (test de precedencia:
 los detectores RL-110 existentes ganan); toggle OFF lo apaga todo.
+
+**Estado (2026-07-16): hecho.** Nueva familia `UtilityIntent` en el router
+RL-110 (JWT, UUID, color con # obligatorio, epoch 2000-2100, cron con
+validación de límites por campo — mata `5 * 60 * 1000` —, Base64 solo si
+decodifica a texto legible, JSON estricto ≥60 chars). Corre al final de la
+cadena, así los importers existentes siempre ganan. El seed viaja por un
+slot one-shot en `utilityHistoryStore` (sesión-only, excluido de
+partialize); `useTransformUtilityPanel` lo consume gratis para sus paneles
+y los otros cinco usan `usePendingUtilityInput`. El toast reutiliza los
+labels del catálogo (Abrir depurador JWT) y la telemetría reporta
+`utility-<id>` en `SMART_PASTE_HANDLERS` (shared + update-server). Mismo
+toggle y bypass Cmd+Shift+V de RL-110.
+
+**Cierre de AC.** 29 tests de detectores (incluidos los negativos de
+aritmética JS, hashes hex y literales sin comillas), router, hook del
+toast, store y consumidor one-shot. E2E nuevo
+(`tests/e2e/smartPasteUtilities.spec.ts`) con paste REAL vía permisos de
+clipboard + Meta/Ctrl+V a través del EditContext de Monaco: JWT → toast →
+panel precargado y decodificado; código normal silencioso; ES localizado;
+cero errores de consola. Evidencia visual en
+`output/review/it2-f4-smart-clipboard/`.
 
 ## IT2-F5 · Input sets guardados (stdin + args) — EJECUTADO 2026-07-10 · S (1 d)
 

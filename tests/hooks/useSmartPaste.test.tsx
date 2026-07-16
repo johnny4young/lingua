@@ -113,6 +113,35 @@ describe('useSmartPaste', () => {
     expect(mocks.applyPasteIntent).not.toHaveBeenCalled();
   });
 
+  it('IT2-F4 — suggests the matching utility with per-format telemetry + catalog label', () => {
+    const h = createHarness('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJsaW5ndWEifQ.c2lnbmF0dXJl');
+    renderHook(() => useSmartPaste(h.editor, h.monaco));
+    act(() => {
+      h.firePaste();
+    });
+    expect(mocks.trackEvent).toHaveBeenCalledWith('editor.smart_paste_shown', {
+      handler: 'utility-jwt',
+    });
+    const notice = mocks.pushStatusNotice.mock.calls[0]![0] as {
+      messageKey: string;
+      actions: { labelKey: string; onClick: () => void }[];
+    };
+    expect(notice.messageKey).toBe('paste.intent.utility.jwt.message');
+    // The primary action reuses the catalog's own "Open JWT Debugger" label.
+    expect(notice.actions[0]!.labelKey).toBe('utilities.tool.jwt.label');
+    act(() => {
+      notice.actions[0]!.onClick();
+    });
+    expect(mocks.trackEvent).toHaveBeenCalledWith('editor.smart_paste_applied', {
+      handler: 'utility-jwt',
+      accepted: true,
+    });
+    expect(mocks.applyPasteIntent).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'utility', utilityId: 'jwt' }),
+      expect.anything()
+    );
+  });
+
   it('does nothing when smart paste is disabled', () => {
     mocks.enabled = false;
     const h = createHarness(CURL);

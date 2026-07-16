@@ -1,5 +1,6 @@
 import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityToolbar } from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
+import { usePendingUtilityInput } from '../usePendingUtilityInput';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
@@ -28,6 +29,8 @@ export function UuidUtilityPanel() {
     Array.from({ length: 3 }, () => generateIdentifier('v4'))
   );
   const [decoderInput, setDecoderInput] = useState('');
+  // IT2-F4 — a smart-pasted UUID lands in the decoder input.
+  usePendingUtilityInput('uuid', setDecoderInput);
   const decoded = useMemo(() => {
     const trimmed = decoderInput.trim();
     return trimmed ? inspectIdentifier(trimmed) : null;

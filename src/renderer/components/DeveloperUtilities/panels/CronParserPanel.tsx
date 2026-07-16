@@ -7,6 +7,7 @@ import {
   UtilityToolbar,
 } from '../panelPrimitives';
 import { useCallback, useEffect, useState } from 'react';
+import { usePendingUtilityInput } from '../usePendingUtilityInput';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
@@ -41,6 +42,8 @@ function formatCronRunTimestamp(date: Date, locale: string): string {
 export function CronParserPanel() {
   const { t, i18n } = useTranslation();
   const [expression, setExpression] = useState(DEFAULT_CRON_EXPRESSION);
+  // IT2-F4 — seed from a smart-pasted cron expression.
+  usePendingUtilityInput('cron-parser', setExpression);
   const [nextCount, setNextCount] = useState(DEFAULT_CRON_NEXT_COUNT);
   const [result, setResult] = useState<ParseCronResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);

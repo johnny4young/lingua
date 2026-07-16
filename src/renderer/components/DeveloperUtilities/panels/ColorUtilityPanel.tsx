@@ -1,6 +1,7 @@
 import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityToolbar } from '../panelPrimitives';
 import { Palette } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { usePendingUtilityInput } from '../usePendingUtilityInput';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
@@ -35,6 +36,8 @@ function ColorOutputCard({
 export function ColorUtilityPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState('#4f46e5');
+  // IT2-F4 — seed from a smart-pasted color value.
+  usePendingUtilityInput('color', setInput);
   const analysis = useMemo(() => analyzeColor(input), [input]);
   const swatch = analysis.hex ?? 'transparent';
 
