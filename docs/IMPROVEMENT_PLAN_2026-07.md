@@ -784,7 +784,13 @@ una sola vez, CTA abre el overlay; toggle OFF lo silencia.
 
 **RL-113** (Cmd+; recent commands — el `CommandEntry`
 (`commandPaletteModel.ts:25-33`) y los builders L471-545 son la base: un
-ring de 20 ids ejecutados + popover), **RL-115** (`// @time` — extiende el
+ring de 20 ids ejecutados + popover) — **EJECUTADO 2026-07-16**: ring
+sesión-only en `commandHistoryStore` (dedupe-to-top, cap 20), tap en el
+único punto de ejecución del palette, y Cmd+; abre el MISMO palette en
+variant `recent` (slots 1-8 numerados, timestamps relativos, Enter/1-8
+ejecutan y cierran, sin búsqueda libre). E2E
+`tests/e2e/recentCommands.spec.ts` cubre los tres AC; evidencia en
+`output/review/rl-113-recent-commands/`. **RL-115** (`// @time` — extiende el
 vocabulario de IT2-D4 y el gutter), **RL-116** (Focus mode). Ejecutar con
 sus AC del plan interno; sinergia: hacer RL-115 justo después de IT2-D4.
 

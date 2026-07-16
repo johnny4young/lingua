@@ -2,6 +2,12 @@ import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 
 export interface CommandPaletteProps {
+  /**
+   * RL-113 — `recent` renders the Cmd+; recent-commands stack (last 8
+   * executed action ids, numbered 1-8, no free-text search) instead of
+   * the full searchable launcher. Defaults to `all`.
+   */
+  variant?: 'all' | 'recent';
   onClose: () => void;
   onOpenSettings: () => void;
   onOpenWhatsNew: () => void;

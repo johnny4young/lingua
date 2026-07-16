@@ -2,6 +2,8 @@ export type AppOverlay =
   | 'none'
   | 'settings'
   | 'palette'
+  // RL-113 — Cmd+; recent-commands stack (the palette's `recent` variant).
+  | 'recent-commands'
   | 'quick-open'
   | 'search'
   | 'replace'
