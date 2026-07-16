@@ -12,9 +12,7 @@ export type MonacoSignatureHelpProvider = Parameters<
 export type MonacoLanguageConfiguration = Parameters<
   Monaco['languages']['setLanguageConfiguration']
 >[1];
-export type MonacoTokensProvider = Parameters<
-  Monaco['languages']['setMonarchTokensProvider']
->[1];
+export type MonacoTokensProvider = Parameters<Monaco['languages']['setMonarchTokensProvider']>[1];
 
 export interface MonacoBasicLanguageModule {
   conf: MonacoLanguageConfiguration;
@@ -49,7 +47,9 @@ export type MonacoLanguageContribution =
  */
 export interface MonacoEditorProviders {
   createCompletionProvider?: (monaco: Monaco) => MonacoCompletionProvider;
+  createCompletionProviders?: readonly ((monaco: Monaco) => MonacoCompletionProvider)[];
   createHoverProvider?: () => MonacoHoverProvider;
+  createHoverProviders?: readonly (() => MonacoHoverProvider)[];
   createSignatureHelpProvider?: () => MonacoSignatureHelpProvider;
 }
 

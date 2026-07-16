@@ -732,7 +732,7 @@ perceptible; sin red y sin cache → mensaje de error honesto (no spinner
 infinito); offline desktop (assets locales) → el progreso completa
 instantáneo sin regresión.
 
-## IT2-D4 · Magic comments descubribles — S (1 d)
+## IT2-D4 · Magic comments descubribles — EJECUTADO 2026-07-15 · S (1 d)
 
 **Evidencia.** Vocabulario REAL (`magicComments.ts:35-124`): `// @watch
 expr` (JS_WATCH_RE / PY_WATCH_RE), `// =>` arrow, auto-log, `@timeout <n>
@@ -761,6 +761,17 @@ si el descriptor admite múltiples completion providers; Monaco sí:
 **AC.** Tipear `// @` en JS/TS y `# @` en Python → sugerencias con docs;
 hover sobre `// @timeout 5s` explica el timeout; cero sugerencias fuera de
 comentarios; i18n en/es; test de componente para el filtro de contexto.
+
+**Cierre 2026-07-15.** Los descriptors de JavaScript, TypeScript y Python
+registran providers aditivos con el vocabulario real de `magicComments.ts`;
+las sugerencias solo aparecen dentro de comentarios y el hover reutiliza los
+parsers de ejecución para evitar documentación divergente. Las pruebas
+focalizadas cubren contexto, cadenas, composición de providers e i18n; el smoke
+web de producción validó completions en JS/Python y el hover de timeout en
+inglés/español con cero errores de consola. Evidencia visual en
+`output/review/d4-d5-d7-discoverability/d4-web-en-magic-comment-completions.png`,
+`d4-web-es-python-magic-comment-completions.png` y
+`d4-web-es-magic-comment-hover.png`.
 
 ## IT2-D5 · What's New activo — XS-S (0.5 d, con verificación previa)
 
