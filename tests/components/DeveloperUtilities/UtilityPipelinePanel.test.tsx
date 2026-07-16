@@ -411,10 +411,12 @@ describe('UtilityPipelinePanel', () => {
     fireEvent.change(input, { target: { value: '{"changed":true}' } });
     await user.click(screen.getByTestId('pipeline-save-capsule'));
 
-    const capsule = useExecutionHistoryStore.getState().latestCapsule();
-    expect(capsule?.input.stdin).toBe('{"a":1}');
-    expect(capsule?.input.stdin).not.toBe('{"changed":true}');
-    expect(capsule?.result.stdout).toContain('"a": 1');
+    await waitFor(() => {
+      const capsule = useExecutionHistoryStore.getState().latestCapsule();
+      expect(capsule?.input.stdin).toBe('{"a":1}');
+      expect(capsule?.input.stdin).not.toBe('{"changed":true}');
+      expect(capsule?.result.stdout).toContain('"a": 1');
+    });
   });
 
   it('shows an error toast and records nothing when the capsule build fails', async () => {

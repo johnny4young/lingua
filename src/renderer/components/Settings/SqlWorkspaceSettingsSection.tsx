@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatNumber } from '../../i18n/formatNumber';
 import { trackSqlStorageMode } from '../../hooks/sqlWorkspaceTelemetry';
 import {
   clearPersistedSqlDatabase,
@@ -54,7 +55,7 @@ export function SqlWorkspaceSettingsSection() {
   const setSqlWorkspacePersistTables = useSettingsStore(
     (state) => state.setSqlWorkspacePersistTables
   );
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // RL-097 Slice 3 (SQL OPFS) — whether this browser exposes OPFS at
   // all. When false the toggle still works (the runtime falls back to
@@ -151,7 +152,7 @@ export function SqlWorkspaceSettingsSection() {
             >
               {SQL_ROW_DISPLAY_LIMITS.map((limit) => (
                 <option key={limit} value={limit}>
-                  {limit.toLocaleString()}
+                  {formatNumber(limit, i18n.language)}
                 </option>
               ))}
             </Select>

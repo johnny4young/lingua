@@ -15,7 +15,7 @@
  * bar reads, it does not own state.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle2, GitBranch } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
@@ -25,6 +25,7 @@ import { useActiveTab } from '../../hooks/useActiveTab';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGitStore } from '../../stores/gitStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { Language } from '../../types';
 import { cn } from '../../utils/cn';
@@ -71,6 +72,29 @@ const SEGMENT_CLASS =
   'focus-ring flex h-full items-center gap-1 border-l border-border/60 px-2 text-fg-muted ' +
   'hover:text-fg-base focus-visible:text-fg-base';
 
+function InformativeStatus({
+  children,
+  id,
+  live = 'off',
+}: {
+  children: ReactNode;
+  id: string;
+  live?: 'off' | 'polite';
+}) {
+  return (
+    <span
+      id={id}
+      role="status"
+      aria-live={live}
+      aria-atomic="true"
+      data-testid={id}
+      className="sr-only"
+    >
+      {children}
+    </span>
+  );
+}
+
 export function StatusBar() {
   const showStatusBar = useSettingsStore((state) => state.showStatusBar);
   if (!showStatusBar) return null;
@@ -86,6 +110,9 @@ function StatusBarContent() {
   const activeLanguage = activeTab?.language;
   const setTabLanguage = useEditorStore((state) => state.setTabLanguage);
   const isOnline = useOnlineStatus();
+  const runTermination = useResultStore((state) => state.runTermination);
+  const runDeadlineAt = useResultStore((state) => state.runDeadlineAt);
+  const showTimeoutCountdown = useSettingsStore((state) => state.showTimeoutCountdown);
 
   const firstSegmentRef = useRef<HTMLButtonElement | null>(null);
   // RL-112 fold G — a render bump so the indent segment reflects the new model
@@ -148,6 +175,19 @@ function StatusBarContent() {
   const gitTooltip = posture?.commit
     ? `${gitBranchLabel} · ${posture.commit.slice(0, 7)}`
     : gitBranchLabel;
+  const runStatusValue =
+    showTimeoutCountdown && runDeadlineAt !== null
+      ? t('runtime.statusPill.countdown.tooltip', { label: '…' })
+      : runTermination?.kind === 'timeout'
+        ? t('runtime.statusPill.timeout.label')
+        : runTermination?.kind === 'stopped'
+          ? t('runtime.statusPill.stopped.label')
+          : runTermination?.kind === 'error'
+            ? t('runtime.statusPill.error.label')
+            : '';
+  const runStatusLabel = runStatusValue
+    ? `${t('statusBar.run.tooltip')}: ${runStatusValue}`
+    : t('statusBar.run.tooltip');
 
   return (
     <div
@@ -178,11 +218,14 @@ function StatusBarContent() {
         data-lint-warnings={model.lintWarnings}
         className={SEGMENT_CLASS}
         title={lintLabel}
-        aria-label={lintLabel}
+        aria-labelledby="status-bar-lint-status"
         onClick={focusNextProblem}
       >
         {lintLabel}
       </button>
+      <InformativeStatus id="status-bar-lint-status" live="polite">
+        {lintLabel}
+      </InformativeStatus>
 
       {/* 3 — Cursor position. */}
       <button
@@ -197,14 +240,7 @@ function StatusBarContent() {
               })
             : undefined
         }
-        aria-label={
-          model.cursor
-            ? t('statusBar.cursor', {
-                line: model.cursor.line,
-                column: model.cursor.column,
-              })
-            : t('statusBar.cursor', { line: '—', column: '—' })
-        }
+        aria-labelledby="status-bar-cursor-status"
       >
         {model.cursor
           ? t('statusBar.cursor', {
@@ -213,6 +249,14 @@ function StatusBarContent() {
             })
           : t('statusBar.cursor', { line: '—', column: '—' })}
       </button>
+      <InformativeStatus id="status-bar-cursor-status">
+        {model.cursor
+          ? t('statusBar.cursor', {
+              line: model.cursor.line,
+              column: model.cursor.column,
+            })
+          : t('statusBar.cursor', { line: '—', column: '—' })}
+      </InformativeStatus>
 
       {/* 4 — Encoding (fold B): display-only but still keyboard-focusable. */}
       <button
@@ -220,10 +264,13 @@ function StatusBarContent() {
         data-testid="status-bar-encoding"
         className={cn(SEGMENT_CLASS, 'cursor-default')}
         title={t('statusBar.encoding')}
-        aria-label={t('statusBar.encoding')}
+        aria-labelledby="status-bar-encoding-status"
       >
         {t('statusBar.encoding')}
       </button>
+      <InformativeStatus id="status-bar-encoding-status">
+        {t('statusBar.encoding')}
+      </InformativeStatus>
 
       {/* 5 — Indent (fold G): click cycles the active model's indentation. */}
       <button
@@ -256,35 +303,42 @@ function StatusBarContent() {
 
       {/* 6 — Git branch (fold A): self-hides when no posture is available. */}
       {posture?.available ? (
-        <button
-          type="button"
-          data-testid="status-bar-git"
-          data-git-branch={posture.branch ?? null}
-          className={cn(SEGMENT_CLASS, 'cursor-default')}
-          title={gitTooltip}
-          aria-label={gitTooltip}
-        >
-          <GitBranch size={11} aria-hidden="true" className="opacity-70" />
-          <span className="max-w-[160px] truncate">{gitBranchLabel}</span>
-        </button>
+        <>
+          <button
+            type="button"
+            data-testid="status-bar-git"
+            data-git-branch={posture.branch ?? null}
+            className={cn(SEGMENT_CLASS, 'cursor-default')}
+            title={gitTooltip}
+            aria-labelledby="status-bar-git-status"
+          >
+            <GitBranch size={11} aria-hidden="true" className="shrink-0 opacity-70" />
+            <span className="max-w-[160px] truncate">{gitBranchLabel}</span>
+          </button>
+          <InformativeStatus id="status-bar-git-status">{gitTooltip}</InformativeStatus>
+        </>
       ) : null}
 
       {/* IT2-G5 — Offline is a positive local-capability state, not an alert. */}
       {!isOnline ? (
-        <button
-          type="button"
-          data-testid="status-bar-offline"
-          className={cn(
-            SEGMENT_CLASS,
-            'ml-auto whitespace-nowrap border-success-border bg-success-bg text-success-fg hover:text-success-fg focus-visible:text-success-fg'
-          )}
-          title={t('statusBar.offline.tooltip')}
-          aria-label={`${t('statusBar.offline.label')}. ${t('statusBar.offline.tooltip')}`}
-          aria-live="polite"
-        >
-          <CheckCircle2 size={11} aria-hidden="true" />
-          <span>{t('statusBar.offline.label')}</span>
-        </button>
+        <>
+          <button
+            type="button"
+            data-testid="status-bar-offline"
+            className={cn(
+              SEGMENT_CLASS,
+              'ml-auto whitespace-nowrap border-success-border bg-success-bg text-success-fg hover:text-success-fg focus-visible:text-success-fg'
+            )}
+            title={t('statusBar.offline.tooltip')}
+            aria-labelledby="status-bar-offline-status"
+          >
+            <CheckCircle2 size={11} aria-hidden="true" />
+            <span>{t('statusBar.offline.label')}</span>
+          </button>
+          <InformativeStatus id="status-bar-offline-status" live="polite">
+            {t('statusBar.offline.label')}. {t('statusBar.offline.tooltip')}
+          </InformativeStatus>
+        </>
       ) : null}
 
       {/* 7 — Run status (fold F): compact icon-only pill, pushed right. */}
@@ -296,10 +350,13 @@ function StatusBarContent() {
           isOnline && 'ml-auto'
         )}
         title={t('statusBar.run.tooltip')}
-        aria-label={t('statusBar.run.tooltip')}
+        aria-labelledby="status-bar-run-status"
       >
         <RunStatusPill compact />
       </button>
+      <InformativeStatus id="status-bar-run-status" live="polite">
+        {runStatusLabel}
+      </InformativeStatus>
     </div>
   );
 }

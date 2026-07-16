@@ -1428,6 +1428,22 @@ tiene — replicar patrón).
 nivel/estado del árbol; números renderizan formato es con locale es;
 `check:i18n` verde.
 
+**Estado (2026-07-15): hecho.** Los segmentos informativos del StatusBar
+mantienen sus botones y agregan semántica `status`; solo lint, offline y run
+usan anuncios polite, mientras cursor, encoding y Git evitan anuncios
+repetitivos. `formatNumber` fija el formato a `en`/`es` de Lingua y reemplaza
+las nueve expresiones numéricas sin locale en seis módulos. Shift+F10/Menu en
+tabs, `treeitem` del FileTree y los scans de Snippets/Utilities ya estaban
+cubiertos y se preservaron sin duplicación.
+
+**Cierre de AC.** 71 tests focalizados cubren StatusBar, el helper y las
+superficies consumidoras. El pase E2E ejecutó 32 casos con axe verde para
+Notebook, Recipes, Run Capsules browser/import y todas las superficies
+previas; también verificó `10,000` en inglés y `10.000` en español, con el gate
+compartido de cero errores de consola. Evidencia visual:
+`output/review/it2-g6-g7-product-hardening/g7-web-en-notebook-a11y.png` y
+`output/review/it2-g6-g7-product-hardening/g7-web-es-number-formatting.png`.
+
 ## IT2-G8 · Distribución + comparación pública — M (2-3 d, post-release estable)
 
 **Evidencia.** Distribución = solo GitHub Releases (electron-builder.yml:
@@ -1532,7 +1548,7 @@ toca UI (mandato AGENTS.md).
 | 26 | IT2-G3 (rehidratación diferida) | Medido 2026-07-11 | **Cerrado sin diferir** — ≤3,85 ms medianos; el costo no justificó nuevas esperas. |
 | 27 | IT2-G4 (toolchain ausente → guía) + IT2-G5 (chip offline) | 1.5-2 d | **Hecho 2026-07-15** — ambas frustraciones ahora son momentos de marca. |
 | 28 | IT2-G6 (boundaries regionales) | 1 d | **Hecho 2026-07-15** — un crash de workspace ya no tumba el shell. |
-| 29 | IT2-G7 (a11y gaps) | 1-2 d | La parte (a) va DENTRO de IT2-B2. |
+| 29 | IT2-G7 (a11y gaps) | 1-2 d | **Hecho 2026-07-15** — semántica, axe ampliado y números ligados al locale. |
 | 30 | IT2-G8 (brew/winget + /compare/runjs) | 2-3 d | Post-release estable. |
 | 31 | IT2-G9 (CLI docs + publicar a npm) | 1-2 d + RL-098 | **APROBADO 2026-07-06.** Cadena de publish dentro de RL-098. |
 

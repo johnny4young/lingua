@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { AlertTriangle, FileJson, Globe } from 'lucide-react';
 import type { RunCapsuleV1 } from '../../../shared/runCapsule';
 import { utf8ByteLength } from '../../../shared/runCapsule';
+import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
 
 export interface CapsuleImportPreviewProps {
@@ -40,7 +41,7 @@ export function CapsuleImportPreview({
   capsule,
   byteLength,
 }: CapsuleImportPreviewProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<PreviewTab>('source');
   const omittedFields = capsule.privacy?.omittedFields ?? [];
   const isHttpCapsule = capsule.tab.language === 'http';
@@ -86,7 +87,7 @@ export function CapsuleImportPreview({
         <span data-testid="capsule-import-preview-metadata-size">
           {t('capsuleImport.preview.metadata.size')}:{' '}
           <span className="font-mono text-foreground">
-            {byteLength.toLocaleString()} B
+            {formatNumber(byteLength, i18n.language)} B
           </span>
         </span>
       </header>
@@ -165,7 +166,7 @@ function SourcePanel({ capsule }: { capsule: RunCapsuleV1 }) {
 }
 
 function ResultPanel({ capsule }: { capsule: RunCapsuleV1 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { result } = capsule;
   const stdout = result.stdout ?? '';
   const stderr = result.stderr ?? '';
@@ -194,7 +195,7 @@ function ResultPanel({ capsule }: { capsule: RunCapsuleV1 }) {
               className="ml-1 normal-case text-amber-300"
             >
               · {t('capsuleImport.preview.truncated', {
-                size: utf8ByteLength(stdout).toLocaleString(),
+                size: formatNumber(utf8ByteLength(stdout), i18n.language),
               })}
             </span>
           ) : null}
@@ -215,7 +216,7 @@ function ResultPanel({ capsule }: { capsule: RunCapsuleV1 }) {
               className="ml-1 normal-case text-amber-300"
             >
               · {t('capsuleImport.preview.truncated', {
-                size: utf8ByteLength(stderr).toLocaleString(),
+                size: formatNumber(utf8ByteLength(stderr), i18n.language),
               })}
             </span>
           ) : null}

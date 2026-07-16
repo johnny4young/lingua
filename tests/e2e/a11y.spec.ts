@@ -5,8 +5,9 @@
  *
  *   1. Automated axe scans against every rendered overlay surface
  *      (Settings tabs, Command Palette, Quick Open, Snippets,
- *      Developer Utilities, What's New, plus the baseline editor
- *      shell). HIGH/CRITICAL violations fail the test; MODERATE/MINOR
+ *      Developer Utilities, Recipes, Notebook, Run Capsules,
+ *      What's New, plus the baseline editor shell). HIGH/CRITICAL
+ *      violations fail the test; MODERATE/MINOR
  *      surface for follow-up without blocking.
  *
  *   2. Keyboard-only flows for opening, navigating, and dismissing
@@ -20,6 +21,7 @@
  * list and tracked in docs/A11Y.md.
  */
 
+import { mkdirSync } from 'node:fs';
 import {
   closeDeveloperUtilities,
   closeSettings,
@@ -41,6 +43,12 @@ import {
 } from './licenseWeb.helpers';
 import { auditA11y } from './a11y.helpers';
 
+const evidenceDir = 'output/review/it2-g6-g7-product-hardening';
+
+function captureEnabled(): boolean {
+  return process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1';
+}
+
 test.describe.configure({ mode: 'parallel' });
 
 // -----------------------------------------------------------------------
@@ -49,13 +57,31 @@ test.describe.configure({ mode: 'parallel' });
 
 test.describe('Automated axe scans', () => {
   test.beforeEach(async ({ page }) => {
-    await seedSession(page, { language: 'en', primeProLicense: true });
+    await seedSession(page, {
+      language: 'en',
+      primeProLicense: true,
+      showStatusBar: true,
+    });
     await gotoApp(page);
     await expectTier(page, 'PRO');
     await dismissWhatsNew(page);
   });
 
   test('baseline editor shell passes WCAG 2.1 AA', async ({ page }) => {
+    await auditA11y(page);
+  });
+
+  test('StatusBar preserves buttons and exposes linked status regions', async ({ page }) => {
+    const statusBar = page.getByTestId('status-bar');
+    await expect(statusBar).toBeVisible();
+
+    for (const id of ['lint', 'cursor', 'encoding', 'run']) {
+      const button = page.getByTestId(`status-bar-${id}`);
+      const status = page.getByTestId(`status-bar-${id}-status`);
+      await expect(button).toHaveAttribute('aria-labelledby', `status-bar-${id}-status`);
+      await expect(status).toHaveAttribute('role', 'status');
+    }
+
     await auditA11y(page);
   });
 
@@ -117,6 +143,37 @@ test.describe('Automated axe scans', () => {
     await expect(
       page.getByRole('heading', { name: /built-in utilities/i })
     ).toBeAttached();
+    await auditA11y(page);
+  });
+
+  test('Notebook workspace', async ({ page }) => {
+    await page.keyboard.press('ControlOrMeta+Alt+N');
+    await expect(page.getByTestId('notebook-view')).toBeVisible();
+    await auditA11y(page);
+
+    if (captureEnabled()) {
+      mkdirSync(evidenceDir, { recursive: true });
+      await page.screenshot({
+        path: `${evidenceDir}/g7-web-en-notebook-a11y.png`,
+      });
+    }
+  });
+
+  test('Recipes overlay', async ({ page }) => {
+    await page.keyboard.press('ControlOrMeta+Alt+L');
+    await expect(page.getByTestId('recipes-overlay')).toBeVisible();
+    await auditA11y(page);
+  });
+
+  test('Run Capsules browser', async ({ page }) => {
+    await page.keyboard.press('ControlOrMeta+Alt+C');
+    await expect(page.getByRole('dialog', { name: /run capsules/i })).toBeVisible();
+    await auditA11y(page);
+  });
+
+  test('Run Capsule import', async ({ page }) => {
+    await page.keyboard.press('ControlOrMeta+Shift+Y');
+    await expect(page.getByRole('dialog', { name: /import a capsule/i })).toBeVisible();
     await auditA11y(page);
   });
 

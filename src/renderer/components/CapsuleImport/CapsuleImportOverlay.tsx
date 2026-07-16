@@ -41,6 +41,7 @@ import {
   parseHttpRequest,
 } from '../../../shared/httpWorkspace';
 import { cn } from '../../utils/cn';
+import { formatNumber } from '../../i18n/formatNumber';
 import { ModalShell } from '../ui/ModalShell';
 import { EmptyState } from '../ui/EmptyState';
 import { CapsuleImportPreview } from './CapsuleImportPreview';
@@ -471,7 +472,7 @@ function RejectBanner({
   detail?: string;
   byteLength: number;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const messageKey = REJECT_MESSAGE_KEYS[reason];
   return (
     <div
@@ -488,7 +489,7 @@ function RejectBanner({
       </header>
       <p>{t(messageKey)}</p>
       <p className="font-mono text-eyebrow text-error-fg/70">
-        {byteLength.toLocaleString()} B
+        {formatNumber(byteLength, i18n.language)} B
         {detail ? ` · ${detail}` : ''}
       </p>
     </div>
