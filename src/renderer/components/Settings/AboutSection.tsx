@@ -66,6 +66,8 @@ export function AboutSection({
   const setWhatsNewNotificationsEnabled = useSettingsStore(
     (state) => state.setWhatsNewNotificationsEnabled
   );
+  const hintsEnabled = useSettingsStore((state) => state.hintsEnabled);
+  const setHintsEnabled = useSettingsStore((state) => state.setHintsEnabled);
   const { t, i18n } = useTranslation();
 
   const productName = appInfo?.productName ?? 'Lingua';
@@ -204,6 +206,19 @@ export function AboutSection({
                     setWhatsNewNotificationsEnabled(!whatsNewNotificationsEnabled)
                   }
                   aria-label={t('about.actions.whatsNewOnUpdate.label')}
+                />
+              </div>
+            }
+          />
+          <SpecRow
+            label={t('about.actions.contextualHints.label')}
+            description={t('about.actions.contextualHints.hint')}
+            control={
+              <div data-testid="settings-contextual-hints-toggle">
+                <Toggle
+                  value={hintsEnabled}
+                  onChange={() => setHintsEnabled(!hintsEnabled)}
+                  aria-label={t('about.actions.contextualHints.label')}
                 />
               </div>
             }

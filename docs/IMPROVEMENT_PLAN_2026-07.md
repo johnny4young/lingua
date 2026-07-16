@@ -810,7 +810,7 @@ ring de 20 ids ejecutados + popover), **RL-115** (`// @time` — extiende el
 vocabulario de IT2-D4 y el gutter), **RL-116** (Focus mode). Ejecutar con
 sus AC del plan interno; sinergia: hacer RL-115 justo después de IT2-D4.
 
-## IT2-D7 · Hints rotativos en superficies vacías — S (1 d)
+## IT2-D7 · Hints rotativos en superficies vacías — EJECUTADO 2026-07-15 · S (1 d)
 
 **Diseño.** Catálogo cerrado `src/renderer/data/hints.ts` (~20 entradas,
 cada una `{ id, i18nKey, surface: 'console'|'palette' }`): "Cmd+Shift+V
@@ -824,6 +824,18 @@ determinismo de tests); "No mostrar tips" → setting `hintsEnabled`.
 **AC.** Hint visible en consola vacía; cambia entre sesiones; OFF lo
 elimina de ambas superficies; i18n en/es tuteo; cero hints sobre features
 no compiladas en la plataforma (web no sugiere Go).
+
+**Cierre 2026-07-15.** `data/hints.ts` define un catálogo cerrado de 20
+consejos con selección estable por seed de sesión. La disponibilidad se filtra
+antes de calcular el índice modular, por lo que web nunca elige Go nativo ni
+plantillas de proyecto que requieren filesystem de escritorio. Consola y Paleta
+de comandos comparten `ContextualHint`; “No mostrar consejos” apaga ambas superficies mediante el
+setting persistido y saneado `hintsEnabled`, que también puede reactivarse desde
+Settings → General. Pruebas focalizadas cubren catálogo, rotación determinista,
+filtro de plataforma, stores y ambos renders; el smoke web de producción validó
+opt-out y reactivación EN/ES con cero errores de consola. Evidencia visual en
+`output/review/d4-d5-d7-discoverability/d7-web-en-console-hint.png`,
+`d7-web-en-palette-hint.png` y `d7-web-es-hints-opt-out.png`.
 
 ---
 

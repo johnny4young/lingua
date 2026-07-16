@@ -2,6 +2,7 @@ import { Search, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '../ui/chrome';
+import { ContextualHint } from '../ui/ContextualHint';
 import { ModalShell } from '../ui/ModalShell';
 import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { CommandPaletteResults } from './CommandPaletteResults';
@@ -138,6 +139,11 @@ export function CommandPalette(props: CommandPaletteProps) {
         listboxId={listboxId}
         optionId={optionId}
       />
+      {filtered.length === 0 ? (
+        <div className="px-4 pb-4">
+          <ContextualHint surface="palette" />
+        </div>
+      ) : null}
     </ModalShell>
   );
 }

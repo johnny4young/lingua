@@ -70,4 +70,21 @@ describe('AboutSection', () => {
     expect(useSettingsStore.getState().whatsNewNotificationsEnabled).toBe(false);
     expect(toggle.getAttribute('aria-checked')).toBe('false');
   });
+
+  it('lets users disable and re-enable contextual tips', async () => {
+    const user = userEvent.setup();
+    render(<AboutSection />);
+
+    const toggle = screen
+      .getByTestId('settings-contextual-hints-toggle')
+      .querySelector('button[role="switch"]') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+
+    await user.click(toggle);
+    expect(useSettingsStore.getState().hintsEnabled).toBe(false);
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+
+    await user.click(toggle);
+    expect(useSettingsStore.getState().hintsEnabled).toBe(true);
+  });
 });

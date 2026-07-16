@@ -222,6 +222,7 @@ export function createInitialSettingsState() {
     language: 'system',
     lastSeenVersion: null,
     whatsNewNotificationsEnabled: true,
+    hintsEnabled: true,
     hasCompletedTour: false,
     suppressTourAutoStart: false,
     shortcutOverrides: {},

@@ -263,9 +263,8 @@ export function settingsMerge(
     hasCompletedOnboardingFirstSnippet,
     onboardingWelcomeSeedVersion,
     language: isAppLanguage(merged.language) ? merged.language : currentState.language,
-    whatsNewNotificationsEnabled: typeof merged.whatsNewNotificationsEnabled === 'boolean'
-        ? merged.whatsNewNotificationsEnabled
-        : currentState.whatsNewNotificationsEnabled,
+    whatsNewNotificationsEnabled: typeof merged.whatsNewNotificationsEnabled === 'boolean' ? merged.whatsNewNotificationsEnabled : currentState.whatsNewNotificationsEnabled,
+    hintsEnabled: typeof merged.hintsEnabled === 'boolean' ? merged.hintsEnabled : currentState.hintsEnabled,
     executionHistorySnapshotEnabled,
     dependencyDetectionEnabled,
     nativeExecutionAcknowledged,

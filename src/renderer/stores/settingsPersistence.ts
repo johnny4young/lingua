@@ -84,6 +84,7 @@ export function settingsPartialize(state: SettingsState) {
     language: state.language,
     lastSeenVersion: state.lastSeenVersion,
     whatsNewNotificationsEnabled: state.whatsNewNotificationsEnabled,
+    hintsEnabled: state.hintsEnabled,
     hasCompletedTour: state.hasCompletedTour,
     suppressTourAutoStart: state.suppressTourAutoStart,
     // RL-101 Slice 1 — sticky onboarding choreography flags so a

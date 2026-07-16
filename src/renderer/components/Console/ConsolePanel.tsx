@@ -15,6 +15,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { bucketCapsuleSize } from '../../../shared/runCapsule';
 import { extractClipboardImageFile, readPastedImageFile } from './clipboardImagePaste';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
+import { ContextualHint } from '../ui/ContextualHint';
 import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
@@ -542,9 +543,12 @@ export function ConsolePanel() {
               {entries.length === 0 ? t('console.empty.output') : t('console.empty.filtered')}
             </p>
             {entries.length === 0 ? (
-              <p className="mt-1 max-w-md font-sans text-caption leading-[1.45] text-muted">
-                {t('console.empty.hint')}
-              </p>
+              <>
+                <p className="mt-1 max-w-md font-sans text-caption leading-[1.45] text-muted">
+                  {t('console.empty.hint')}
+                </p>
+                <ContextualHint surface="console" className="mt-4" />
+              </>
             ) : null}
           </div>
         ) : (
