@@ -27,6 +27,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useGitStore } from '../../stores/gitStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import type { Language } from '../../types';
 import { cn } from '../../utils/cn';
 import { RunStatusPill } from '../Editor/RunStatusPill';
@@ -97,7 +98,10 @@ function InformativeStatus({
 
 export function StatusBar() {
   const showStatusBar = useSettingsStore((state) => state.showStatusBar);
-  if (!showStatusBar) return null;
+  // RL-116 — presenter mode hides the status bar without touching the
+  // user's showStatusBar preference.
+  const presenterActive = usePresenterModeStore((state) => state.active);
+  if (!showStatusBar || presenterActive) return null;
   return <StatusBarContent />;
 }
 

@@ -12,6 +12,7 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useUIStore } from '../../stores/uiStore';
+import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { bucketCapsuleSize } from '../../../shared/runCapsule';
 import { extractClipboardImageFile, readPastedImageFile } from './clipboardImagePaste';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
@@ -131,6 +132,7 @@ export function ConsolePanel() {
     togglePayloadKindFilter,
     toggleTimestamps,
   } = useConsoleStore();
+  const presenterActive = usePresenterModeStore(state => state.active);
   const activeTab = useEditorStore(state => getActiveTab(state));
   // T19 — offer "Explain this error" when the active tab's run left an error
   // entry. The shared button self-gates on LOCAL_AI, so here we only assemble
@@ -532,6 +534,12 @@ export function ConsolePanel() {
         onScroll={handleScroll}
         data-window-range={`${listWindow.startIndex}:${listWindow.endIndex}`}
         className="flex-1 overflow-y-auto px-3 py-2 font-mono text-body-sm leading-6"
+        style={
+          // RL-116 — presenter mode lifts the output font ~+2px over
+          // the text-body-sm base (13px); the inline style outranks
+          // the class without mutating any persisted preference.
+          presenterActive ? { fontSize: '15px' } : undefined
+        }
       >
         {visibleEntries.length === 0 ? (
           <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-8 text-center">

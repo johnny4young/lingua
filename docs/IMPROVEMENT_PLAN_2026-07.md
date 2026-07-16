@@ -793,7 +793,15 @@ inline existente con hot-spot rojo (`data-slowest`); gating por
 `// @time` o Settings → Editor → Mostrar tiempos por línea (default
 OFF); e2e `tests/e2e/lineTiming.spec.ts`; evidencia en
 `output/review/rl-115-inline-timing/`. (`// @time` — extiende el
-vocabulario de IT2-D4 y el gutter), **RL-116** (Focus mode). Ejecutar con
+vocabulario de IT2-D4 y el gutter), **RL-116** (Focus mode) —
+**EJECUTADO 2026-07-16**: `presenterModeStore` sesión-only con overrides
+en RENDER time (nada muta uiStore/settings persistidos, así un reload en
+medio de la presentación jamás corrompe preferencias); oculta sidebar,
+Toolbar, FloatingActionPill y StatusBar, editor +4px y consola +2px;
+binding **Mod+Alt+P** (el Cmd+K F del spec chocaba con Mod+K de
+Utilities, MOV.03) + acción de palette; e2e
+`tests/e2e/presenterMode.spec.ts` (font exacto +4 y restauración exacta);
+evidencia en `output/review/rl-116-presenter-mode/`. Ejecutar con
 sus AC del plan interno; sinergia: hacer RL-115 justo después de IT2-D4.
 
 ## IT2-D7 · Hints rotativos en superficies vacías — S (1 d)

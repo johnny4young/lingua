@@ -4,6 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
+import {
+  PRESENTER_EDITOR_FONT_LIFT,
+  usePresenterModeStore,
+} from '../../stores/presenterModeStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
 import { rustLspModelPathForTab } from '../../utils/filePath';
@@ -62,6 +66,7 @@ export function CodeEditor() {
   }, [t]);
   const lineResults = useResultStore(state => state.lineResults);
   const lineTimings = useResultStore(state => state.lineTimings);
+  const presenterActive = usePresenterModeStore(state => state.active);
   const diagnostics = useResultStore(state => state.diagnostics);
   const executionSource = useResultStore(state => state.executionSource);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -363,7 +368,9 @@ export function CodeEditor() {
             }
           }}
           options={getEditorOptions({
-            fontSize,
+            // RL-116 — presenter mode lifts the editor font without
+            // touching the persisted preference.
+            fontSize: presenterActive ? fontSize + PRESENTER_EDITOR_FONT_LIFT : fontSize,
             fontFamily,
             fontLigatures: effectiveFontLigatures,
             wordWrap,
