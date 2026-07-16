@@ -109,6 +109,39 @@ describe('NodeRunner', () => {
     );
   });
 
+  it('offers install guidance and a forced retry when Node is missing', async () => {
+    const detect = vi
+      .fn()
+      .mockResolvedValue({ installed: true, version: 'v24.0.0' });
+    const node = installNodeBridge({
+      detect,
+      run: vi.fn().mockResolvedValue({
+        kind: 'missing-binary',
+        stdout: '',
+        stderr: 'Node.js is not installed.',
+        exitCode: -1,
+        executionTime: 1,
+        timeoutMs: 30_000,
+        error: 'Node.js is not installed.',
+      }),
+    });
+    const runner = new NodeRunner();
+
+    const result = await runner.execute('console.log(1)', {
+      language: 'javascript',
+    });
+
+    expect(result.error?.message).toContain('Node.js is not installed');
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'warning',
+      values: { toolchain: 'Node.js' },
+    });
+
+    useUIStore.getState().statusNotice?.actions?.[1]?.onClick();
+    await vi.waitFor(() => expect(detect).toHaveBeenCalledWith({}, true));
+    expect(node.run).toHaveBeenCalledOnce();
+  });
+
   it('stops the main-process child for the active run', async () => {
     let resolveRun!: (value: NodeRunResult) => void;
     const node = installNodeBridge({

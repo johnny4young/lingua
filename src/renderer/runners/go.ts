@@ -24,6 +24,7 @@ import {
   resolveNativeRunnerMessages,
   resolveUserEnvForRunner,
 } from './env';
+import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
 // RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the runner
 // resolves the deadline from the per-language Settings preset on
@@ -61,8 +62,17 @@ export class GoRunner implements LanguageRunner {
     this.ready = true;
 
     if (!result.installed) {
+      this.pushMissingToolchainNotice();
       throw new Error(result.error ?? 'Go is not installed.');
     }
+  }
+
+  private pushMissingToolchainNotice(): void {
+    pushMissingNativeToolchainNotice('go', async () => {
+      const result = await window.lingua.go.detect(resolveUserEnvForRunner());
+      this.goInstalled = result.installed;
+      return result.installed;
+    });
   }
 
   isReady(): boolean {
@@ -83,14 +93,14 @@ export class GoRunner implements LanguageRunner {
       : presetForLanguage ?? 'normal';
 
     if (!this.goInstalled) {
+      this.pushMissingToolchainNotice();
       return {
         stdout: [],
         stderr: [],
         result: undefined,
         executionTime: 0,
         error: {
-          message:
-            'Go is not installed on this system. Install Go from https://go.dev/dl/ and restart Lingua.',
+          message: 'Go is not installed on this system.',
         },
         // RL-020 Slice 7 — host-not-installed counts as `'error'`.
         kind: 'error',

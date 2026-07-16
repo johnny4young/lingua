@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Added
+- **Actionable native-toolchain recovery**: when Go, Rust, desktop Node, or explicitly selected system Ruby is unavailable, Lingua now shows a localized warning with an installation guide and a live detection retry. Installing the toolchain during the session is picked up without restarting the app; Ruby automatic mode keeps its quiet WASM fallback.
 - **Live Browser preview refresh**: JavaScript and TypeScript tabs in Browser preview mode now refresh the sandboxed iframe 300 ms after typing stops, with Off and 1-second choices in Settings → Editor plus a first-line `// @preview-refresh off|300|1000` override. Silent refreshes stay out of execution history, preserve the last successful DOM when new code fails, and show their effective interval in the preview footer.
 - **TypeScript and Python Recipes**: the practice library now includes three curated TypeScript recipes and three Python recipes, with language filters, matching `.ts`/`.py` tabs, localized prompts and hints, and real Run + Test execution through each web worker. Recipe assertions keep their results isolated from run history and the Result panel while coordinating with scratchpad auto-run so a test pass is not interrupted after editing.
 

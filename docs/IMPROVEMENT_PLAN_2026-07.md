@@ -1322,6 +1322,20 @@ sistema. Instálalo y reintenta — todo lo demás sigue funcionando."*
 notice con ambos CTAs; retry tras instalar detecta sin reiniciar la app;
 con toolchain presente, cero cambio.
 
+**Estado (2026-07-15): hecho.** Go, Rust, Node y el modo Ruby de sistema
+comparten un notice localizado con guía y retry. El retry reutiliza los detect
+tipados y actualiza el runner vivo; no requiere reiniciar. El notice usa la
+prioridad de onboarding porque el smoke Electron encontró que el toast de
+primer snippet podía descartar silenciosamente una recuperación normal. Ruby
+`auto` conserva su fallback WASM sin ruido; solo `system` muestra la guía.
+
+**Cierre de AC.** 49 tests focalizados cubren runners, ausencia web, prioridad
+frente a onboarding y detección reintentada. El smoke Electron arrancó con un
+`PATH` sin Go, verificó ambos CTAs, creó un binario Go controlado durante la
+misma sesión y confirmó la detección sin reinicio, con cero errores de consola.
+Evidencia visual:
+`output/review/it2-g4-g5-resilience/desktop-en-missing-go-guidance.png`.
+
 ## IT2-G5 · Indicador offline que celebra — S (0.5-1 d)
 
 **Evidencia.** Producción no tiene ninguna señal de offline (la auditoría

@@ -22,6 +22,7 @@ import { GoRunner } from '@/runners/go';
 import { useEnvVarsStore } from '@/stores/envVarsStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useUIStore } from '@/stores/uiStore';
 
 describe('GoRunner', () => {
   const initialEnv = useEnvVarsStore.getState();
@@ -33,6 +34,7 @@ describe('GoRunner', () => {
     useEnvVarsStore.setState(initialEnv, true);
     useEditorStore.setState(initialEditor, true);
     useProjectStore.setState(initialProject, true);
+    useUIStore.setState({ statusNotice: null });
   });
 
   it('should have correct metadata', () => {
@@ -60,6 +62,36 @@ describe('GoRunner', () => {
     const runner = new GoRunner();
     await expect(runner.init()).rejects.toThrow('Go is not installed');
     expect(runner.isReady()).toBe(true); // ready is set even if not installed
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'warning',
+      values: { toolchain: 'Go' },
+    });
+  });
+
+  it('retries detection and uses Go without restarting Lingua', async () => {
+    mockDetect
+      .mockResolvedValueOnce({ installed: false, error: 'Go is not installed' })
+      .mockResolvedValueOnce({
+        installed: true,
+        version: 'go1.22.0',
+        goRoot: '/usr/local/go',
+      });
+    mockCompile.mockResolvedValue({ success: false, error: 'compile reached' });
+    const runner = new GoRunner();
+    await expect(runner.init()).rejects.toThrow('Go is not installed');
+
+    const retryAction = useUIStore.getState().statusNotice?.actions?.[1];
+    useUIStore.getState().dismissStatusNotice('cta');
+    retryAction?.onClick();
+    await vi.waitFor(() => {
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'nativeToolchain.retry.detected'
+      );
+    });
+
+    const result = await runner.execute('package main\nfunc main() {}');
+    expect(mockCompile).toHaveBeenCalledOnce();
+    expect(result.error?.message).not.toContain('not installed');
   });
 
   it('should return error result when Go is not installed and execute is called', async () => {

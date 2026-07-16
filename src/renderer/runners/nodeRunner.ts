@@ -60,6 +60,7 @@ import {
   type TranslateFn,
 } from './limits';
 import { loadEsbuild } from './esbuildLoader';
+import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
@@ -272,6 +273,10 @@ export class NodeRunner implements LanguageRunner {
             : [];
 
           if (reply.kind === 'missing-binary') {
+            pushMissingNativeToolchainNotice('node', async () => {
+              const result = await nodeBridge.detect(userEnv, true);
+              return result.installed;
+            });
             finish({
               stdout: [],
               stderr: stderrConsole,

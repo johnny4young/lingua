@@ -23,6 +23,7 @@ import { RustRunner } from '@/runners/rust';
 import { useEnvVarsStore } from '@/stores/envVarsStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useUIStore } from '@/stores/uiStore';
 
 describe('RustRunner', () => {
   const initialEnv = useEnvVarsStore.getState();
@@ -34,6 +35,7 @@ describe('RustRunner', () => {
     useEnvVarsStore.setState(initialEnv, true);
     useEditorStore.setState(initialEditor, true);
     useProjectStore.setState(initialProject, true);
+    useUIStore.setState({ statusNotice: null });
   });
 
   it('should have correct metadata', () => {
@@ -64,6 +66,10 @@ describe('RustRunner', () => {
     const runner = new RustRunner();
     await expect(runner.init()).rejects.toThrow('Rust is not installed');
     expect(runner.isReady()).toBe(true); // ready flag set even when not installed
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'warning',
+      values: { toolchain: 'Rust' },
+    });
   });
 
   it('should return error result when Rust is not installed and execute is called', async () => {

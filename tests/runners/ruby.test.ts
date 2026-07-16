@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RubyRunner } from '@/runners/ruby';
+import { useUIStore } from '@/stores/uiStore';
 
 describe('RubyRunner — metadata + lifecycle', () => {
   it('exposes the expected metadata (hybrid dispatcher)', () => {
@@ -440,6 +441,7 @@ describe('RubyRunner — desktop dispatcher routing', () => {
       '../../src/renderer/stores/settingsStore'
     );
     useSettingsStore.setState({ rubyRuntimePreference: 'auto' });
+    useUIStore.setState({ statusNotice: null });
   });
 
   afterEach(() => {
@@ -500,6 +502,10 @@ describe('RubyRunner — desktop dispatcher routing', () => {
     // missing.
     expect(bridgeRun).not.toHaveBeenCalled();
     expect(result.kind).toBe('timeout');
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'warning',
+      values: { toolchain: 'Ruby' },
+    });
   });
 
   it('uses WASM when preference is wasm even if ruby is detected', async () => {

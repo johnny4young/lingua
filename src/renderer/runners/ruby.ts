@@ -22,6 +22,7 @@ import {
 } from './limits';
 import { resolveUserEnvForRunner } from './env';
 import { trackEvent } from '../utils/telemetry';
+import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
 /**
  * Ruby runtime dispatcher — RL-042 Slice 5 (WASM) + Slice 6 (desktop).
@@ -639,6 +640,10 @@ export class RubyRunner implements LanguageRunner {
         dispatchTarget = 'desktop';
         mode = 'system';
       } else {
+        pushMissingNativeToolchainNotice('ruby', async () => {
+          const retry = await this.detect(true);
+          return retry?.installed === true;
+        });
         dispatchTarget = 'wasm';
         mode = 'missing';
       }

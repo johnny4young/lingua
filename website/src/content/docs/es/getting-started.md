@@ -41,6 +41,20 @@ Abre el menú de lenguaje en la tab strip (o `Cmd/Ctrl+L`) y elige otro lenguaje
 
 Go y Rust delegan en las toolchains que ya tienes en tu máquina. Si `go version` o `rustc --version` funciona en tu terminal, Lingua las detectará automáticamente.
 
+## Toolchains nativas
+
+JavaScript, TypeScript y Python vienen incluidos con Lingua. Los modos nativos
+de desktop usan la toolchain instalada en tu máquina:
+
+- **Go:** instala la versión estable actual desde [go.dev/dl](https://go.dev/dl/) y confirma que `go version` funciona.
+- **Rust:** instala Rust desde [rustup.rs](https://rustup.rs/) y confirma que `rustc --version` funciona.
+- **Node.js:** instala una versión LTS activa desde [nodejs.org](https://nodejs.org/en/download) y confirma que `node --version` funciona.
+- **Ruby:** instala una versión compatible desde [ruby-lang.org](https://www.ruby-lang.org/es/documentation/installation/) y confirma que `ruby --version` funciona. El modo automático de Ruby puede seguir usando el runtime WASM incluido cuando Ruby no está disponible en el sistema.
+
+Después de instalar una toolchain, selecciona **Volver a comprobar** en Lingua.
+No necesitas reiniciar la aplicación. Si todavía no se detecta, revisa que el
+binario esté disponible en el `PATH` que reciben las aplicaciones de desktop.
+
 ## Atajos útiles
 
 Unos pocos atajos para que Lingua desaparezca del camino:
