@@ -32,6 +32,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatNumber } from '../../i18n/formatNumber';
 import { useUIStore } from '../../stores/uiStore';
 import {
   MAX_QUERY_BYTES,
@@ -84,7 +85,7 @@ export function SqlQueryEditor({
   tables,
   headerExtra,
 }: SqlQueryEditorProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [text, setText] = useState<string>(query.query);
   const lastInsertNonceRef = useRef<number>(insertSignal?.nonce ?? 0);
   const lastSavedRef = useRef<string>(query.query);
@@ -272,10 +273,10 @@ export function SqlQueryEditor({
         >
           {overCap
             ? t('sqlWorkspace.editor.sizeOverCap', {
-                size: sizeBytes.toLocaleString(),
+                size: formatNumber(sizeBytes, i18n.language),
               })
             : t('sqlWorkspace.editor.sizeBytes', {
-                size: sizeBytes.toLocaleString(),
+                size: formatNumber(sizeBytes, i18n.language),
               })}
         </span>
         {headerExtra}

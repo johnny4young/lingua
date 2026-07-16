@@ -20,6 +20,7 @@ import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
 import { cn } from '../../utils/cn';
 import type { LayoutPreset } from '../../types';
+import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
 const RESIZE_TARGET_MINIMUM_SIZE = { coarse: 24, fine: 24 } as const;
@@ -209,9 +210,11 @@ function EditorArea() {
       <div className="min-h-0 flex-1">
         {utilitiesTabOpen ? (
           <div className={cn('h-full min-h-0', activeUtilitiesTabId === null && 'hidden')}>
-            <Suspense fallback={<EditorLoadingState />}>
-              <LazyDeveloperUtilitiesWorkspaceView active={activeUtilitiesTabId !== null} />
-            </Suspense>
+            <WorkspaceErrorBoundary region="utilities">
+              <Suspense fallback={<EditorLoadingState />}>
+                <LazyDeveloperUtilitiesWorkspaceView active={activeUtilitiesTabId !== null} />
+              </Suspense>
+            </WorkspaceErrorBoundary>
           </div>
         ) : null}
         {activeUtilitiesTabId !== null ? null : activeNotebookTabId !== null ? (
@@ -219,26 +222,32 @@ function EditorArea() {
              place of the Monaco + ResultPanel split. The Monaco editor
              would otherwise try to render the (empty) notebook tab
              `content` and the result panel would surface stale state. */
-          <Suspense fallback={<EditorLoadingState />}>
-            <LazyNotebookView tabId={activeNotebookTabId} />
-          </Suspense>
+          <WorkspaceErrorBoundary key={activeNotebookTabId} region="notebook">
+            <Suspense fallback={<EditorLoadingState />}>
+              <LazyNotebookView tabId={activeNotebookTabId} />
+            </Suspense>
+          </WorkspaceErrorBoundary>
         ) : activeSqlTabId !== null ? (
           /* MOV.02 (FASE 3) — SQL workspace as a full-screen tab. The
              view fills the editor area height (h-full min-h-0) instead
              of the old ~30% dock slot, and binds the workspace store
              to this tab id. No editor + ResultPanel split here. */
           <div className="h-full min-h-0">
-            <Suspense fallback={<EditorLoadingState />}>
-              <LazySqlWorkspaceView tabId={activeSqlTabId} />
-            </Suspense>
+            <WorkspaceErrorBoundary key={activeSqlTabId} region="sql">
+              <Suspense fallback={<EditorLoadingState />}>
+                <LazySqlWorkspaceView tabId={activeSqlTabId} />
+              </Suspense>
+            </WorkspaceErrorBoundary>
           </div>
         ) : activeHttpTabId !== null ? (
           /* MOV.02 (FASE 3) — HTTP workspace as a full-screen tab.
              Mirror of the SQL branch above. */
           <div className="h-full min-h-0">
-            <Suspense fallback={<EditorLoadingState />}>
-              <LazyHttpWorkspaceView tabId={activeHttpTabId} />
-            </Suspense>
+            <WorkspaceErrorBoundary key={activeHttpTabId} region="http">
+              <Suspense fallback={<EditorLoadingState />}>
+                <LazyHttpWorkspaceView tabId={activeHttpTabId} />
+              </Suspense>
+            </WorkspaceErrorBoundary>
           </div>
         ) : hasTabs ? (
           <>

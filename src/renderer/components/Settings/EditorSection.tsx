@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatNumber } from '../../i18n/formatNumber';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { trackEvent } from '../../utils/telemetry';
@@ -132,7 +133,7 @@ export function EditorSection() {
   const toggleDependencyDetectionEnabled = useSettingsStore(
     (state) => state.toggleDependencyDetectionEnabled
   );
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Slice 2 — ligatures auto-enable when the active font supports them.
   // Settings → Editor no longer surfaces a toggle.
   const ligaturesAvailable = true;
@@ -272,7 +273,7 @@ export function EditorSection() {
             >
               {[1000, 5000, 10000, 50000, 100000].map((count) => (
                 <option key={count} value={count}>
-                  {count.toLocaleString()}
+                  {formatNumber(count, i18n.language)}
                 </option>
               ))}
             </Select>

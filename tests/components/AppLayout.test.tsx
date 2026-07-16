@@ -10,6 +10,7 @@ import { useResultStore } from '../../src/renderer/stores/resultStore';
 let compactShell = false;
 let editorTabs: unknown[] = [];
 let activeTabId: string | null = null;
+let workspaceCrashRegion: 'notebook' | 'sql' | 'http' | 'utilities' | null = null;
 const setTabCompareEnabledMock = vi.fn();
 const setTabVariableInspectorEnabledMock = vi.fn();
 const matchMediaListeners = new Set<(event: MediaQueryListEvent) => void>();
@@ -21,7 +22,13 @@ function setCompactShell(nextValue: boolean) {
     media: '(max-width: 1179px)',
   } as MediaQueryListEvent;
 
-  matchMediaListeners.forEach((listener) => listener(event));
+  matchMediaListeners.forEach(listener => listener(event));
+}
+
+function throwForArmedWorkspace(region: Exclude<typeof workspaceCrashRegion, null>) {
+  if (workspaceCrashRegion === region) {
+    throw new Error(`intentional ${region} workspace test crash`);
+  }
 }
 
 async function renderLayout() {
@@ -155,11 +162,47 @@ vi.mock('../../src/renderer/components/Recipes/RecipeRunPanel', () => ({
 }));
 
 vi.mock('../../src/renderer/components/Notebook/NotebookView', () => ({
-  NotebookView: ({ tabId }: { tabId: string }) => (
-    <div data-testid="notebook-view" data-tab-id={tabId}>
-      Notebook view
-    </div>
-  ),
+  NotebookView: ({ tabId }: { tabId: string }) => {
+    throwForArmedWorkspace('notebook');
+    return (
+      <div data-testid="notebook-view" data-tab-id={tabId}>
+        Notebook view
+      </div>
+    );
+  },
+}));
+
+vi.mock('../../src/renderer/components/SqlWorkspace/SqlWorkspaceView', () => ({
+  SqlWorkspaceView: ({ tabId }: { tabId: string }) => {
+    throwForArmedWorkspace('sql');
+    return (
+      <div data-testid="sql-workspace-panel" data-tab-id={tabId}>
+        SQL workspace
+      </div>
+    );
+  },
+}));
+
+vi.mock('../../src/renderer/components/HttpWorkspace/HttpWorkspaceView', () => ({
+  HttpWorkspaceView: ({ tabId }: { tabId: string }) => {
+    throwForArmedWorkspace('http');
+    return (
+      <div data-testid="http-workspace-panel" data-tab-id={tabId}>
+        HTTP workspace
+      </div>
+    );
+  },
+}));
+
+vi.mock('../../src/renderer/components/DeveloperUtilities', () => ({
+  DeveloperUtilitiesWorkspaceView: ({ active }: { active: boolean }) => {
+    throwForArmedWorkspace('utilities');
+    return (
+      <div data-testid="developer-utilities-workspace" data-active={active}>
+        Developer Utilities
+      </div>
+    );
+  },
 }));
 
 vi.mock('../../src/renderer/components/Editor/CodeEditor', () => ({
@@ -184,9 +227,9 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
     return selector ? selector(state) : state;
   },
   getActiveTab: (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
-    s.tabs.find((t) => t.id === s.activeTabId) ?? null,
+    s.tabs.find(t => t.id === s.activeTabId) ?? null,
   getActiveTabIndex: (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
-    s.activeTabId == null ? -1 : s.tabs.findIndex((t) => t.id === s.activeTabId),
+    s.activeTabId == null ? -1 : s.tabs.findIndex(t => t.id === s.activeTabId),
 }));
 
 vi.mock('lucide-react', async () => {
@@ -203,6 +246,7 @@ describe('AppLayout responsive shell', () => {
     compactShell = false;
     editorTabs = [];
     activeTabId = null;
+    workspaceCrashRegion = null;
     setTabCompareEnabledMock.mockReset();
     setTabVariableInspectorEnabledMock.mockReset();
     matchMediaListeners.clear();
@@ -217,10 +261,7 @@ describe('AppLayout responsive shell', () => {
       addEventListener: (_eventName: string, listener: (event: MediaQueryListEvent) => void) => {
         matchMediaListeners.add(listener);
       },
-      removeEventListener: (
-        _eventName: string,
-        listener: (event: MediaQueryListEvent) => void
-      ) => {
+      removeEventListener: (_eventName: string, listener: (event: MediaQueryListEvent) => void) => {
         matchMediaListeners.delete(listener);
       },
       addListener: (listener: (event: MediaQueryListEvent) => void) => {
@@ -389,10 +430,7 @@ describe('AppLayout responsive shell', () => {
     await renderLayout();
     await user.click(screen.getByTestId('panel-chip-variables'));
 
-    expect(setTabVariableInspectorEnabledMock).toHaveBeenCalledWith(
-      'tab-js',
-      true
-    );
+    expect(setTabVariableInspectorEnabledMock).toHaveBeenCalledWith('tab-js', true);
     expect(useUIStore.getState()).toMatchObject({
       activeBottomPanel: 'variables',
       consoleVisible: true,
@@ -595,4 +633,41 @@ describe('AppLayout responsive shell', () => {
     expect(screen.queryByTestId('console-panel')).toBeNull();
     expect(screen.getByTestId('bottom-panel-restore')).toBeTruthy();
   });
+
+  it.each([
+    ['notebook', 'notebook-view'],
+    ['sql', 'sql-workspace-panel'],
+    ['http', 'http-workspace-panel'],
+    ['utilities', 'developer-utilities-workspace'],
+  ] as const)(
+    'contains a %s render crash, records its region, and retries without unmounting the shell',
+    async (region, recoveredTestId) => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      editorTabs = [{ id: `${region}-tab`, kind: region, language: 'javascript' }];
+      activeTabId = `${region}-tab`;
+      workspaceCrashRegion = region;
+
+      try {
+        render(<AppLayout />);
+        const fallback = await screen.findByTestId(`error-boundary-${region}`);
+
+        expect(fallback.getAttribute('data-region')).toBe(region);
+        expect(screen.getByTestId('editor-tabs')).toBeTruthy();
+        expect(screen.getByTestId('toolbar-toggle')).toBeTruthy();
+        const crashLog = JSON.parse(localStorage.getItem('lingua-crash-log') ?? '[]') as Array<{
+          region?: string;
+        }>;
+        expect(crashLog.at(-1)?.region).toBe(region);
+
+        workspaceCrashRegion = null;
+        fireEvent.click(screen.getByTestId(`error-boundary-${region}-retry`));
+
+        await screen.findByTestId(recoveredTestId);
+        expect(screen.queryByTestId(`error-boundary-${region}`)).toBeNull();
+        expect(screen.getByTestId('editor-tabs')).toBeTruthy();
+      } finally {
+        consoleError.mockRestore();
+      }
+    }
+  );
 });

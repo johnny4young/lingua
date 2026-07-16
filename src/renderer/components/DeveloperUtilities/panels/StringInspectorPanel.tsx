@@ -2,11 +2,12 @@ import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolba
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
+import { formatNumber } from '../../../i18n/formatNumber';
 import { inspect as inspectString } from '../../../utils/stringInspector';
 import type { CharacterCategory, WarningKind } from '../../../utils/stringInspector';
 
 export function StringInspectorPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [input, setInput] = useState('hello\u200Bworld');
   const report = useMemo(() => inspectString(input), [input]);
 
@@ -45,16 +46,19 @@ export function StringInspectorPanel() {
             label={t('utilities.tool.stringInspector.summary.graphemes')}
             value={report.counts.graphemesApprox}
             testid="string-inspector-graphemes"
+            language={i18n.language}
           />
           <InspectorCountCard
             label={t('utilities.tool.stringInspector.summary.utf16')}
             value={report.counts.charactersUtf16}
             testid="string-inspector-utf16"
+            language={i18n.language}
           />
           <InspectorCountCard
             label={t('utilities.tool.stringInspector.summary.utf8Bytes')}
             value={report.counts.bytesUtf8}
             testid="string-inspector-utf8"
+            language={i18n.language}
           />
         </div>
         <UtilityToolbar
@@ -149,16 +153,18 @@ function InspectorCountCard({
   label,
   value,
   testid,
+  language,
 }: {
   label: string;
   value: number;
   testid: string;
+  language: string;
 }) {
   return (
     <div className="grid gap-1 rounded-2xl border border-border/80 bg-background/65 px-3 py-3">
       <span className="text-caption uppercase tracking-[0.16em] text-muted">{label}</span>
       <span className="font-mono text-body text-foreground" data-testid={testid}>
-        {value.toLocaleString()}
+        {formatNumber(value, language)}
       </span>
     </div>
   );

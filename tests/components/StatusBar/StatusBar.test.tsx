@@ -189,6 +189,39 @@ describe('StatusBar', () => {
     }
   });
 
+  it('exposes informational content as status semantics without replacing segment buttons', () => {
+    editorAccessState.editor = makeEditorStub();
+    editorAccessState.monaco = makeMonacoStub([]);
+    editorAccessState.cursor = { line: 3, column: 7 };
+    useResultStore.setState({ runTermination: { kind: 'error' } });
+    act(() => {
+      useGitStore.getState().setPosture({
+        available: true,
+        repoRoot: '/tmp/repo',
+        branch: 'feature/rl-112',
+        commit: 'abcdef1234567890',
+      });
+    });
+    render(<StatusBar />);
+
+    for (const id of ['lint', 'cursor', 'encoding', 'git', 'run']) {
+      const segment = screen.getByTestId(`status-bar-${id}`);
+      const status = screen.getByTestId(`status-bar-${id}-status`);
+      expect(segment.tagName).toBe('BUTTON');
+      expect(status.getAttribute('role')).toBe('status');
+      expect(status.getAttribute('aria-atomic')).toBe('true');
+      expect(segment.getAttribute('aria-labelledby')).toBe(`status-bar-${id}-status`);
+      expect(segment.contains(status)).toBe(false);
+    }
+
+    expect(screen.getByTestId('status-bar-lint-status').getAttribute('aria-live')).toBe('polite');
+    expect(screen.getByTestId('status-bar-cursor-status').getAttribute('aria-live')).toBe('off');
+    expect(screen.getByTestId('status-bar-encoding-status').getAttribute('aria-live')).toBe('off');
+    expect(screen.getByTestId('status-bar-git-status').getAttribute('aria-live')).toBe('off');
+    expect(screen.getByTestId('status-bar-run-status').getAttribute('aria-live')).toBe('polite');
+    expect(screen.getByTestId('status-bar-run-status').textContent).toBe('Run status: Error');
+  });
+
   it('celebrates offline capability and disappears immediately when connectivity returns', () => {
     Object.defineProperty(window.navigator, 'onLine', {
       configurable: true,
@@ -206,7 +239,12 @@ describe('StatusBar', () => {
     expect(offline.getAttribute('title')).toBe(
       'Offline: local and cached runtimes keep working. Updates, remote AI, and uncached runtime downloads are unavailable.'
     );
-    expect(offline.getAttribute('aria-label')).toContain(
+    expect(offline.getAttribute('aria-labelledby')).toBe('status-bar-offline-status');
+    expect(screen.getByTestId('status-bar-offline-status').getAttribute('role')).toBe('status');
+    expect(screen.getByTestId('status-bar-offline-status').getAttribute('aria-live')).toBe(
+      'polite'
+    );
+    expect(screen.getByTestId('status-bar-offline-status').textContent).toContain(
       'Offline — everything keeps working'
     );
 

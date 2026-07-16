@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test as base, type Locator, type Page, type Route } from '@playwright/test';
+import { isKnownBenignConsoleError } from './consoleErrorFilter';
 
 const repoRoot = process.cwd();
 const packageJson = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
@@ -64,40 +65,17 @@ function buildSeededSnippets(count: number): SeededSnippet[] {
   }));
 }
 
-// RL-019 Slice 3 — when the BrowserPreview panel mounts its
-// sandboxed iframe (`sandbox="allow-scripts"` without
-// `allow-same-origin`), Chromium logs a SecurityError if any
-// script inside the iframe tries to probe `navigator.serviceWorker`
-// (some libraries do this defensively at boot). The error is
-// benign for our threat model — the sandbox is the intent — so we
-// filter that specific message out of the console-error gate.
-const KNOWN_BENIGN_CONSOLE_ERROR_PATTERNS: RegExp[] = [
-  /Service worker is disabled because the context is sandboxed/i,
-  /Failed to read the '(localStorage|sessionStorage|serviceWorker)' property from 'Window'.*sandboxed/i,
-  /document is sandboxed and lacks the 'allow-same-origin'/i,
-  // RL-043 Slice (Monaco cells) — a notebook code cell mounts a Monaco
-  // editor only while focused and disposes it on blur (mount-virtualization).
-  // When an editor disposes while its TS worker is mid-analysis, Monaco
-  // logs its internal `CancellationError` (literal message "Canceled") to
-  // the console. It is framework noise from a deliberate disposal, never
-  // propagated to app code (so it cannot be caught/suppressed there) and
-  // invisible to users. Exact-match so a real app "...Canceled" stays caught.
-  /^(Error: )?Canceled$/,
-];
-
 function trackConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
-  const isBenign = (text: string) =>
-    KNOWN_BENIGN_CONSOLE_ERROR_PATTERNS.some(pattern => pattern.test(text));
   page.on('console', message => {
     if (message.type() === 'error') {
       const text = message.text();
-      if (isBenign(text)) return;
+      if (isKnownBenignConsoleError(text)) return;
       errors.push(text);
     }
   });
   page.on('pageerror', error => {
-    if (isBenign(error.message)) return;
+    if (isKnownBenignConsoleError(error.message)) return;
     errors.push(error.message);
   });
   return errors;
@@ -280,9 +258,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
             hasCompletedOnboardingFirstRun: true,
             hasCompletedOnboardingFirstSnippet: true,
             telemetryConsent: 'declined',
-            ...(seededShowStatusBar === undefined
-              ? {}
-              : { showStatusBar: seededShowStatusBar }),
+            ...(seededShowStatusBar === undefined ? {} : { showStatusBar: seededShowStatusBar }),
           },
           version: 0,
         })

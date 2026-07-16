@@ -28,6 +28,13 @@ const RECOVERY_MARK_CLEAR_DELAY_MS = 1_000;
 
 export type RecoveryState = 'normal' | 'safe' | 'factory';
 
+interface RegionalCrashLogEntry {
+  timestamp: number;
+  region: string;
+}
+
+type CrashLogEntry = number | RegionalCrashLogEntry;
+
 let currentBootSawCrash = false;
 
 function safeReadJson<T>(key: string): T | null {
@@ -132,7 +139,8 @@ export function _resetCrashFingerprintsForTests(): void {
  */
 export function recordCrash(
   now: number = Date.now(),
-  fingerprint?: string
+  fingerprint?: string,
+  region?: string
 ): RecoveryState {
   currentBootSawCrash = true;
   if (fingerprint) {
@@ -151,10 +159,13 @@ export function recordCrash(
     }
   }
 
-  const log = safeReadJson<number[]>(CRASH_LOG_KEY) ?? [];
+  const log = safeReadJson<CrashLogEntry[]>(CRASH_LOG_KEY) ?? [];
   const cutoff = now - FACTORY_CRASH_WINDOW_MS;
-  const recent = log.filter((stamp) => stamp >= cutoff);
-  recent.push(now);
+  const recent = log.filter(entry => {
+    const timestamp = typeof entry === 'number' ? entry : entry.timestamp;
+    return Number.isFinite(timestamp) && timestamp >= cutoff;
+  });
+  recent.push(region ? { timestamp: now, region } : now);
   safeWriteJson(CRASH_LOG_KEY, recent);
 
   if (recent.length >= FACTORY_CRASH_THRESHOLD) {
@@ -210,12 +221,7 @@ export function applyFactoryReset(): void {
     // survives even if the post-clear `setItem` re-write fails.
     for (let i = localStorage.length - 1; i >= 0; i -= 1) {
       const key = localStorage.key(i);
-      if (
-        key &&
-        !PRESERVED_ON_FACTORY.includes(
-          key as (typeof PRESERVED_ON_FACTORY)[number]
-        )
-      ) {
+      if (key && !PRESERVED_ON_FACTORY.includes(key as (typeof PRESERVED_ON_FACTORY)[number])) {
         safeRemove(key);
       }
     }
@@ -252,9 +258,7 @@ export function clearRecoveryMarksIfCurrentBootClean(): boolean {
   return true;
 }
 
-export function scheduleRecoveryMarksClear(
-  delayMs: number = RECOVERY_MARK_CLEAR_DELAY_MS
-): void {
+export function scheduleRecoveryMarksClear(delayMs: number = RECOVERY_MARK_CLEAR_DELAY_MS): void {
   if (typeof window === 'undefined') return;
   window.setTimeout(() => {
     if (clearRecoveryMarksIfCurrentBootClean()) {

@@ -103,6 +103,18 @@ describe('safeBoot — boot-loop counter escalates to factory mode', () => {
     expect(isFactoryMode()).toBe(false);
   });
 
+  it('records regional metadata without breaking legacy timestamp entries', () => {
+    localStorage.setItem('lingua-crash-log', JSON.stringify([1_000]));
+
+    expect(recordCrash(2_000, 'TypeError:boom:workspace.tsx:1:1', 'notebook')).toBe('normal');
+    const log = JSON.parse(localStorage.getItem('lingua-crash-log') ?? '[]') as Array<
+      number | { timestamp: number; region: string }
+    >;
+
+    expect(log).toEqual([1_000, { timestamp: 2_000, region: 'notebook' }]);
+    expect(recordCrash(3_000, 'TypeError:next:workspace.tsx:2:1', 'sql')).toBe('factory');
+  });
+
   it('factory mode wins over query string and crash mark in resolveRecoveryState', () => {
     setQueryString('?safe-mode=1');
     recordCrash(1_000);
