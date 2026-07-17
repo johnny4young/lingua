@@ -30,10 +30,15 @@
 import { Loader2, SendHorizontal, X } from 'lucide-react';
 import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { HttpResponseV1 } from '../../../shared/httpWorkspace';
+import {
+  runAssertions,
+  type HttpAssertion,
+  type HttpResponseV1,
+} from '../../../shared/httpWorkspace';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
+import { cn } from '../../utils/cn';
 import { HttpStatusPill } from './HttpStatusPill';
 
 type PreviewTab = 'body' | 'headers' | 'raw';
@@ -136,14 +141,24 @@ export interface HttpResponsePreviewProps {
    * error" trigger with the request as the code context.
    */
   requestSummary?: string;
+  /** SR-27 — the active request's assertions, evaluated against the response. */
+  assertions?: readonly HttpAssertion[];
 }
 
 export function HttpResponsePreview({
   response,
   isExecuting,
   requestSummary,
+  assertions,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
+  // SR-27 — evaluate assertions against the settled response. Enabled
+  // rows only; disabled rows are excluded by runAssertions.
+  const assertionResults = useMemo(() => {
+    if (!response || !assertions || assertions.length === 0) return [];
+    return runAssertions(response, assertions);
+  }, [response, assertions]);
+  const assertionPassCount = assertionResults.filter((r) => r.pass).length;
   const [tab, setTab] = useState<PreviewTab>('body');
   // Fold E — pretty/raw toggle.
   const [prettyJson, setPrettyJson] = useState<boolean>(true);
@@ -264,6 +279,61 @@ export function HttpResponsePreview({
           </span>
         }
       />
+
+      {/* SR-27 — assertion results strip. Only shown when the request has
+          enabled assertions; a green/red summary plus a per-row verdict. */}
+      {assertionResults.length > 0 ? (
+        <div
+          data-testid="http-response-assertions"
+          data-all-passed={assertionPassCount === assertionResults.length}
+          className="border-b border-border-subtle bg-bg-panel-alt px-3 py-2"
+        >
+          <div
+            data-testid="http-response-assertions-summary"
+            className={cn(
+              'text-caption font-semibold',
+              assertionPassCount === assertionResults.length
+                ? 'text-success-fg'
+                : 'text-error-fg'
+            )}
+          >
+            {t('httpWorkspace.editor.assert.results.summary', {
+              passed: assertionPassCount,
+              total: assertionResults.length,
+            })}
+          </div>
+          <ul role="list" className="mt-1 flex flex-col gap-0.5">
+            {assertionResults.map((result) => (
+              <li
+                key={result.id}
+                data-testid="http-response-assertion-row"
+                data-pass={result.pass}
+                className="flex items-center gap-2 font-mono text-eyebrow"
+              >
+                <span
+                  className={cn(
+                    'rounded-sm px-1 py-0.5 font-semibold',
+                    result.pass
+                      ? 'bg-success-bg text-success-fg'
+                      : 'bg-error-bg text-error-fg'
+                  )}
+                >
+                  {result.pass
+                    ? t('httpWorkspace.editor.assert.results.pass')
+                    : t('httpWorkspace.editor.assert.results.fail')}
+                </span>
+                <span className="text-fg-subtle">
+                  {result.actual === null
+                    ? t('httpWorkspace.editor.assert.results.miss')
+                    : t('httpWorkspace.editor.assert.results.actual', {
+                        actual: result.actual,
+                      })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* Error band for typed failures — gives the user actionable copy. */}
       {response.kind === 'cors-error' ||

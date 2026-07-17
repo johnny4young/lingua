@@ -470,6 +470,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                     ? `${activeRequest.method} ${activeRequest.url}`
                     : undefined
                 }
+                assertions={activeRequest?.assertions}
               />
             </div>
             <HttpResponseHistory
