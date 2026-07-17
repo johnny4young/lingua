@@ -201,7 +201,7 @@ export function HttpRequestBuilderTabs({
                     value={header.name}
                     onChange={event => onUpdateHeader(index, { name: event.target.value })}
                     placeholder={t('httpWorkspace.editor.headers.name.placeholder')}
-                    aria-label={t('httpWorkspace.editor.headers.name.placeholder')}
+                    aria-label={t('httpWorkspace.editor.headers.nameAria', { index: index + 1 })}
                     data-testid="http-request-editor-header-name"
                     className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
                   />
@@ -210,14 +210,14 @@ export function HttpRequestBuilderTabs({
                     value={header.value}
                     onChange={event => onUpdateHeader(index, { value: event.target.value })}
                     placeholder={t('httpWorkspace.editor.headers.value.placeholder')}
-                    aria-label={t('httpWorkspace.editor.headers.value.placeholder')}
+                    aria-label={t('httpWorkspace.editor.headers.valueAria', { index: index + 1 })}
                     data-testid="http-request-editor-header-value"
                     className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => onRemoveHeader(index)}
-                    aria-label={t('httpWorkspace.editor.headers.remove.aria')}
+                    aria-label={t('httpWorkspace.editor.headers.removeAria', { index: index + 1 })}
                     className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-fg-subtle transition-colors hover:text-error-fg"
                   >
                     <Trash2 size={11} aria-hidden="true" />
