@@ -12,6 +12,7 @@ const copy = t(locale);
 ---
 
 <section class="final">
+  <span class="final-word" aria-hidden="true">RUN()</span>
   <div class="container final-inner">
     <div>
       <h2>{copy.home.finalCta.title}</h2>
@@ -33,20 +34,34 @@ const copy = t(locale);
 
 <style>
   .final {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     padding-block: var(--space-section-lg);
     border-top: 1px solid var(--color-border);
     background:
-      linear-gradient(115deg, transparent 0 64%, color-mix(in srgb, var(--color-border) 44%, transparent) 64% 64.15%, transparent 64.15%),
-      color-mix(in srgb, var(--color-bg-sunken) 70%, var(--color-bg));
+      radial-gradient(42rem 24rem at 78% 40%, color-mix(in srgb, var(--color-signal) 15%, transparent), transparent 72%),
+      radial-gradient(38rem 24rem at 20% 90%, color-mix(in srgb, var(--color-accent) 13%, transparent), transparent 70%),
+      color-mix(in srgb, var(--color-bg-sunken) 76%, var(--color-bg));
+  }
+  .final::before {
+    content: "";
+    position: absolute;
+    inset: 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-border-strong) 58%, transparent);
+    border-radius: var(--radius-xl);
+    pointer-events: none;
   }
   .final-inner {
+    position: relative;
+    z-index: 2;
     display: grid;
     gap: 2rem;
     align-items: center;
   }
   .final h2 {
-    font-size: var(--text-h2);
-    letter-spacing: var(--tracking-tight);
+    font-size: clamp(2.6rem, 5.6vw, 5.8rem);
+    letter-spacing: var(--tracking-display);
     font-weight: 800;
     margin: 0 0 0.75rem;
     line-height: 1.15;
@@ -55,6 +70,22 @@ const copy = t(locale);
     margin: 0;
     color: var(--color-text-muted);
     font-size: 1.125rem;
+  }
+  .final-word {
+    position: absolute;
+    z-index: 0;
+    right: -0.04em;
+    top: 50%;
+    transform: translateY(-52%);
+    font-family: var(--font-display);
+    font-size: clamp(8rem, 24vw, 22rem);
+    font-weight: 800;
+    line-height: 0.75;
+    letter-spacing: -0.09em;
+    color: transparent;
+    -webkit-text-stroke: 1px color-mix(in srgb, var(--color-accent) 15%, transparent);
+    white-space: nowrap;
+    pointer-events: none;
   }
   .final-actions {
     display: flex;
