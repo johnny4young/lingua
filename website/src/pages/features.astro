@@ -33,7 +33,7 @@ const sections = [
   title={isEs ? 'Funciones — Lingua' : 'Features — Lingua'}
   description={isEs
     ? 'Todo lo que Lingua hace hoy: cinco runners, editor Monaco con Vim mode, 31 utilidades, env vars por capas, binarios firmados y privacidad auditable.'
-    : 'Everything Lingua does today. Five language runners, a Monaco editor with Vim mode, a 29-panel utility shelf, three-tier env vars, signed binaries, and a privacy posture you can audit.'}
+    : 'Everything Lingua does today. Five language runners, a Monaco editor with Vim mode, a 31-panel utility shelf, three-tier env vars, signed binaries, and a privacy posture you can audit.'}
   locale={locale}
 >
   <article class="container section">
@@ -73,11 +73,20 @@ const sections = [
         </div>
       </header>
       <LanguageDeepDive locale={locale} />
+      <div class="node-runtime-note">
+        <Icon name="lucide:terminal" />
+        <div>
+          <strong>{isEs ? 'Runtime Node en desktop' : 'Desktop Node runtime'}</strong>
+          {isEs
+            ? ' — cambia cualquier pestaña JS o TS al Node local y obtienes la biblioteca estándar completa (fs, path, http) más require() de cada paquete ya instalado en los node_modules de tu proyecto: el runner sube desde la carpeta del archivo guardado hasta encontrarlos. Node se ejecuta directamente, nunca a través de un shell, con variables de entorno restringidas a una allow-list, timeout del proceso padre y salida acotada. ESM y CJS se detectan solos.'
+            : ' — switch any JS or TS tab to local Node and you get the full standard library (fs, path, http) plus require() of every package already installed in your project node_modules: the runner walks up from the saved file to find them. Node is spawned directly, never through a shell, with an allow-listed environment, a parent-owned timeout, and capped output. ESM and CJS are detected for you.'}
+        </div>
+      </div>
       <p class="sec-foot">
         <Icon name="lucide:circle-alert" />
         {isEs
-          ? 'Ruby, Java, Kotlin, Scala, Swift, C y C++ están registrados pero todavía no se ejecutan dentro de Lingua. No pretendemos lo contrario.'
-          : "Ruby, Java, Kotlin, Scala, Swift, C, and C++ are tracked but not yet runnable from inside Lingua. We don't pretend otherwise."}
+          ? 'Ruby también se ejecuta hoy (WASM en todas partes, subproceso del sistema en desktop cuando lo prefieres). Java, Kotlin, Scala, Swift, C y C++ están registrados pero todavía no se ejecutan dentro de Lingua. No pretendemos lo contrario.'
+          : "Ruby runs today too (WASM everywhere, a system subprocess on desktop when you prefer it). Java, Kotlin, Scala, Swift, C, and C++ are tracked but not yet runnable from inside Lingua. We don't pretend otherwise."}
       </p>
     </section>
 
@@ -391,6 +400,28 @@ const sections = [
     width: 14px;
     height: 14px;
     color: var(--color-warning);
+  }
+  .node-runtime-note {
+    margin-top: 2rem;
+    display: flex;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    line-height: 1.6;
+  }
+  .node-runtime-note svg {
+    width: 20px;
+    height: 20px;
+    color: var(--color-accent);
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+  }
+  .node-runtime-note strong {
+    color: var(--color-text);
   }
 
   /* Editor section */

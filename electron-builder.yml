@@ -62,9 +62,22 @@ electronFuses:
 mac:
   icon: assets/icon.icns
   category: public.app-category.developer-tools
+  # SR-52 — ship BOTH mac arches. Through 0.12.0 the release only carried
+  # arm64, so an Intel Mac could not install Lingua at all. Two per-arch
+  # artifacts (not a `universal` build) because Lingua bundles ~96 MB of WASM
+  # runtimes: a universal binary would double the download for every user to
+  # serve one arch. electron-updater picks the right artifact from the arch
+  # list in latest-mac.yml. Safe to cross-package from an arm64 runner —
+  # Lingua has no native .node addons (see asarUnpack above).
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
   hardenedRuntime: true
   entitlements: build-resources/entitlements.mac.plist
   entitlementsInherit: build-resources/entitlements.mac.plist

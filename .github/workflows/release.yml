@@ -197,11 +197,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! find out-builder -maxdepth 1 -type f -name '*.dmg' -print -quit | grep -q .; then
-            echo "::error::Expected a macOS .dmg in out-builder"
-            find out-builder -maxdepth 1 -type f -print || true
-            exit 1
-          fi
+          # SR-52 — both arches must land. Until 0.12.0 the release shipped
+          # arm64 only, so an Intel Mac had nothing to download; a silent x64
+          # packaging failure must fail the job rather than ship half a release.
+          for arch in arm64 x64; do
+            if ! find out-builder -maxdepth 1 -type f -name "*-mac-${arch}.dmg" -print -quit | grep -q .; then
+              echo "::error::Expected a macOS ${arch} .dmg in out-builder"
+              find out-builder -maxdepth 1 -type f -print || true
+              exit 1
+            fi
+            if ! find out-builder -maxdepth 1 -type f -name "*-mac-${arch}.zip" -print -quit | grep -q .; then
+              echo "::error::Expected a macOS ${arch} .zip (electron-updater feed) in out-builder"
+              exit 1
+            fi
+          done
           test -f out-builder/latest-mac.yml || { echo "::error::Missing out-builder/latest-mac.yml update manifest"; exit 1; }
           node --input-type=module <<'NODE'
           import { existsSync, readFileSync } from 'node:fs';

@@ -65,10 +65,10 @@ export const es = {
         { value: '0', label: 'telemetría antes del consentimiento' },
       ],
       bullets: [
+        'Runtime Node en desktop — require() de los node_modules de tu proyecto.',
         'IA local-first — explica errores y aplica fixes, opt-in y con tu clave.',
         'Pyodide incluido — Python corre offline.',
         'Telemetría desactivada por defecto.',
-        'Modo Vim, paleta de comandos y 31 utilidades.',
       ],
       os: {
         generic: 'Descargar Lingua',
@@ -82,7 +82,7 @@ export const es = {
     },
     why: {
       eyebrow: 'Por qué Lingua',
-      title: 'Tres cosas que puedes verificar antes de confiar en la instalación.',
+      title: 'Todo esto lo puedes verificar antes de confiar en la instalación.',
       cards: [
         {
           icon: 'package',
@@ -93,6 +93,11 @@ export const es = {
           icon: 'wifi-off',
           title: 'Python sin internet',
           body: 'Pyodide v0.26.4 viene dentro del binario desktop. Abre Lingua en un avión, escribe Python y ejecuta. La versión web hace lo mismo después de la primera carga.',
+        },
+        {
+          icon: 'terminal',
+          title: 'Node de verdad, no un sandbox de juguete',
+          body: 'Cambia una pestaña JS o TS al runtime Node de desktop y tienes lo real: fs, path, http y require() de cada paquete que ya está en los node_modules de tu proyecto. Lingua ejecuta Node directamente — nunca a través de un shell — con un entorno de variables restringido a una allow-list.',
         },
         {
           icon: 'shield-check',
