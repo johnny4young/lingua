@@ -17,14 +17,43 @@ const entries = await loadChangelog();
 const current = entries[0];
 const previous = entries.slice(1);
 
-const LEAD_RE = /<strong>(.+?)<\/strong>/;
+const LEAD_RE = /<strong>(.+?)<\/strong>\s*[:—-]?\s*([\s\S]*)/;
 
-function leadsFor(entry: (typeof entries)[number]): string[] {
-  const leads: string[] = [];
+function stripTags(html: string): string {
+  return html.replace(/<[^>]+>/g, '');
+}
+
+// Chip labels and tooltips come from changelog HTML, so nested tags
+// (<code>…</code>) must go and entities (&amp;) must decode exactly
+// once — Astro re-escapes on render.
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+function toPlainText(html: string): string {
+  return decodeEntities(stripTags(html)).replace(/\s+/g, ' ').trim();
+}
+
+interface FeatureLead {
+  lead: string;
+  tip: string;
+}
+
+function leadsFor(entry: (typeof entries)[number]): FeatureLead[] {
+  const leads: FeatureLead[] = [];
   for (const section of entry.sections) {
     for (const item of section.items) {
       const match = item.match(LEAD_RE);
-      if (match?.[1]) leads.push(match[1]);
+      if (!match?.[1]) continue;
+      leads.push({
+        lead: toPlainText(match[1]),
+        tip: toPlainText(match[2] ?? ''),
+      });
     }
   }
   return leads;
@@ -97,9 +126,21 @@ const history = previous.map((entry) => ({
                   </span>
                 </summary>
                 <ul class="history-leads">
-                  {release.leads.map((lead) => (
-                    <li>{lead}</li>
-                  ))}
+                  {release.leads.map((feature, featureIndex) => {
+                    const tipId = feature.tip
+                      ? `lead-tip-${release.version.replace(/\./g, '-')}-${featureIndex}`
+                      : undefined;
+                    return (
+                      <li tabindex={feature.tip ? 0 : undefined} aria-describedby={tipId}>
+                        {feature.lead}
+                        {feature.tip && (
+                          <span class="lead-tip" role="tooltip" id={tipId}>
+                            {feature.tip}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </details>
             </li>
@@ -284,6 +325,7 @@ const history = previous.map((entry) => ({
     gap: 0.5rem;
   }
   .history-leads li {
+    position: relative;
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     border: 1px solid var(--color-border);
@@ -291,6 +333,52 @@ const history = previous.map((entry) => ({
     border-radius: var(--radius-sm);
     padding: 0.3rem 0.6rem;
     line-height: 1.45;
+    cursor: default;
+    transition: border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  .history-leads li:hover,
+  .history-leads li:focus-visible {
+    border-color: var(--color-accent-muted);
+    color: var(--color-text);
+  }
+
+  /* Hover / focus tooltip — the changelog entry's own description. */
+  .lead-tip {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    z-index: 20;
+    width: max-content;
+    max-width: min(52ch, calc(100vw - 3rem));
+    padding: 0.6rem 0.8rem;
+    font-size: var(--text-xs);
+    line-height: 1.55;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lift);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    pointer-events: none;
+    transition: opacity var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out),
+      visibility 0s linear var(--duration-fast);
+  }
+  .history-leads li:hover .lead-tip,
+  .history-leads li:focus-visible .lead-tip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition-delay: 150ms, 150ms, 150ms;
+  }
+  /* Chips on the right half anchor their tooltip to the right edge so
+     long descriptions never overflow the viewport. Placed by script. */
+  .history-leads li.tip-right .lead-tip {
+    left: auto;
+    right: 0;
   }
 
   @media (min-width: 768px) {
