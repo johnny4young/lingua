@@ -40,7 +40,11 @@ const hero = copy.home.hero;
       </div>
 
       <div class="hero-actions">
-        <a href={localizePath(locale, '/releases')} class="btn btn-primary" id="hero-download">
+        <a href={SITE.appUrl} class="btn btn-primary" id="hero-try" rel="external noopener">
+          <Icon name="lucide:play" />
+          {copy.common.tryInBrowser}
+        </a>
+        <a href={localizePath(locale, '/releases')} class="btn btn-secondary" id="hero-download">
           <Icon name="lucide:download" />
           <span
             data-os-label
@@ -52,16 +56,17 @@ const hero = copy.home.hero;
             {hero.os.generic}
           </span>
         </a>
-        <a href={SITE.social.githubUrl} class="btn btn-secondary" rel="external noopener">
-          <Icon name="lucide:github" />
-          {copy.common.viewOnGitHub}
-        </a>
       </div>
+      <p class="hero-actions-note">
+        <Icon name="lucide:zap" />
+        {copy.common.tryInBrowserNote}
+        <a href={SITE.social.githubUrl} rel="external noopener">{copy.common.viewOnGitHub}</a>
+      </p>
 
       <ul class="hero-bullets">
-        <li><Icon name="lucide:wifi-off" /> {hero.bullets[0]}</li>
-        <li><Icon name="lucide:shield-check" /> {hero.bullets[1]}</li>
-        <li><Icon name="lucide:terminal" /> {hero.bullets[2]}</li>
+        <li><Icon name="lucide:terminal" /> {hero.bullets[0]}</li>
+        <li><Icon name="lucide:sparkles" /> {hero.bullets[1]}</li>
+        <li><Icon name="lucide:wifi-off" /> {hero.bullets[2]}</li>
       </ul>
     </div>
 
@@ -237,11 +242,35 @@ const hero = copy.home.hero;
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
-    margin-bottom: 2.25rem;
+    margin-bottom: 0.875rem;
   }
   .hero-actions .btn svg {
     width: 16px;
     height: 16px;
+  }
+  .hero-actions-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 2.25rem;
+    color: var(--color-text-subtle);
+    font-size: var(--text-xs);
+  }
+  .hero-actions-note svg {
+    width: 13px;
+    height: 13px;
+    color: var(--color-accent);
+    flex-shrink: 0;
+  }
+  .hero-actions-note a {
+    color: var(--color-text-muted);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-text-muted) 40%, transparent);
+    text-underline-offset: 2px;
+    margin-left: 0.35rem;
+  }
+  .hero-actions-note a:hover {
+    color: var(--color-text);
   }
   .hero-bullets {
     list-style: none;

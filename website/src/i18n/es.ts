@@ -13,6 +13,8 @@ export const es = {
     downloadLingua: 'Descargar Lingua',
     downloadForDesktop: 'Descargar para desktop',
     viewOnGitHub: 'Ver en GitHub',
+    tryInBrowser: 'Pruébalo en el navegador',
+    tryInBrowserNote: 'Sin instalar — corre en tu navegador',
     browseDocs: 'Ver documentación',
     seePricing: 'Ver precios',
     seeFullComparison: 'Ver comparación completa',
@@ -110,6 +112,14 @@ export const es = {
           body: 'Las ejecuciones anteriores quedan cerca del editor, para que un scratchpad rápido también muestre qué cambió entre intentos.',
         },
       ],
+    },
+    trust: {
+      aria: 'Lo que puedes verificar sobre Lingua',
+      notarized: 'Notarizado por Apple',
+      sourceAvailable: 'Source-available',
+      noTelemetry: '0 telemetría por defecto',
+      checksums: 'Checksums SHA-256 publicados',
+      velocity: '{count} releases desde {since}',
     },
     whatsNew: {
       eyebrow: "Nuevo en 0.12",

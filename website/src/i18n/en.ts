@@ -13,6 +13,8 @@ export const en = {
     downloadLingua: 'Download Lingua',
     downloadForDesktop: 'Download for desktop',
     viewOnGitHub: 'View on GitHub',
+    tryInBrowser: 'Try in browser',
+    tryInBrowserNote: 'No install — runs in your browser',
     browseDocs: 'Browse the docs',
     seePricing: 'See pricing',
     seeFullComparison: 'See full comparison',
@@ -110,6 +112,14 @@ export const en = {
           body: 'Past runs stay close to the editor, so a quick scratchpad can still show what changed between attempts.',
         },
       ],
+    },
+    trust: {
+      aria: 'What you can verify about Lingua',
+      notarized: 'Notarized by Apple',
+      sourceAvailable: 'Source-available',
+      noTelemetry: '0 telemetry by default',
+      checksums: 'SHA-256 checksums published',
+      velocity: '{count} releases since {since}',
     },
     whatsNew: {
       eyebrow: "New in 0.12",
