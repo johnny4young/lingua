@@ -27,12 +27,21 @@ interface BaseMonacoLanguageContribution {
 
 export type MonacoLanguageContribution =
   | (BaseMonacoLanguageContribution & {
-      loader: () => Promise<MonacoBasicLanguageModule>;
+      /**
+       * SR-01 — the id of a bundled Monaco basic language. The actual
+       * `import('monaco-editor/esm/vs/basic-languages/…')` lives ONLY in
+       * `basicLanguageLoaders.ts`, which is dynamically imported at
+       * registration time. Keeping these dynamic imports out of the
+       * eagerly-reachable descriptor graph stops Rolldown from pinning
+       * Vite's `__vitePreload` helper into the Monaco-core chunk, which is
+       * what kept Monaco core in the web `initial` bundle.
+       */
+      basicLanguage: string;
       config?: never;
       language?: never;
     })
   | (BaseMonacoLanguageContribution & {
-      loader?: never;
+      basicLanguage?: never;
       config: MonacoLanguageConfiguration;
       language: MonacoTokensProvider;
     });

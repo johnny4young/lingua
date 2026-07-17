@@ -7,7 +7,7 @@ export const rubyLanguageSupport = {
     id: 'ruby',
     extensions: ['.rb'],
     aliases: ['Ruby', 'ruby'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/ruby/ruby.js'),
+    basicLanguage: 'ruby',
   },
   loadEditorProviders: async () => {
     const [

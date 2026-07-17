@@ -6,7 +6,7 @@ export const rustLanguageSupport = {
     id: 'rust',
     extensions: ['.rs'],
     aliases: ['Rust'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/rust/rust.js'),
+    basicLanguage: 'rust',
   },
   loadEditorProviders: async () => {
     const [

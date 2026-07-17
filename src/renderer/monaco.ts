@@ -167,11 +167,17 @@ async function registerLanguageContribution(m: Monaco, languageId: string): Prom
       });
     }
 
-    if (lang.loader) {
+    if (lang.basicLanguage) {
       try {
-        const mod = await lang.loader();
-        m.languages.setMonarchTokensProvider(lang.id, mod.language);
-        m.languages.setLanguageConfiguration(lang.id, mod.conf);
+        // SR-01 — the monaco basic-language imports live in a module that is
+        // ONLY dynamically imported (here), never statically reachable from
+        // the app entry, so Monaco core stays out of the web `initial` bundle.
+        const { loadBasicLanguage } = await import('./languageSupport/basicLanguageLoaders');
+        const mod = await loadBasicLanguage(lang.basicLanguage);
+        if (mod) {
+          m.languages.setMonarchTokensProvider(lang.id, mod.language);
+          m.languages.setLanguageConfiguration(lang.id, mod.conf);
+        }
       } catch {
         // Optional tokenizer chunks must not create unhandled rejections;
         // Monaco keeps the registered language as a plain mode.
