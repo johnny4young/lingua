@@ -1,0 +1,126 @@
+---
+import { Icon } from 'astro-icon/components';
+import Base from '~/layouts/Base.astro';
+import CompareTable from '~/components/CompareTable.astro';
+import { allComparisons, comparisonBySlug } from '~/lib/comparisons';
+import { SITE } from '~/lib/site';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+  slug?: string;
+}
+
+export function getStaticPaths() {
+  return allComparisons().map(entry => ({
+    params: { competitor: entry.slug },
+    props: { slug: entry.slug },
+  }));
+}
+
+const locale: Locale = Astro.props.locale ?? 'en';
+const slug = Astro.props.slug ?? Astro.params.competitor!;
+const comparison = comparisonBySlug(slug)!;
+const copy = t(locale).home.compare;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: `${copy.chooseLingua}?`,
+      acceptedAnswer: { '@type': 'Answer', text: comparison.chooseLingua[locale].join(' ') },
+    },
+    {
+      '@type': 'Question',
+      name: `${copy.chooseOther.replace('{competitor}', comparison.competitor)}?`,
+      acceptedAnswer: { '@type': 'Answer', text: comparison.chooseOther[locale].join(' ') },
+    },
+  ],
+};
+---
+
+<Base
+  title={`${comparison.title[locale]} — Lingua`}
+  description={comparison.metaDescription[locale]}
+  locale={locale}
+  jsonLd={jsonLd}
+>
+  <article class="container section compare-page">
+    <header class="compare-head">
+      <a class="compare-back" href={localizePath(locale, '/compare')}>
+        <Icon name="lucide:arrow-left" />
+        {copy.backToAll}
+      </a>
+      <p class="eyebrow">{copy.eyebrow}</p>
+      <h1>{comparison.title[locale]}</h1>
+      <p class="lede">{comparison.intro[locale]}</p>
+    </header>
+
+    <CompareTable comparison={comparison} locale={locale} />
+
+    <div class="compare-cta">
+      <a class="btn btn-primary" href={SITE.appUrl} rel="external noopener">
+        <Icon name="lucide:play" />
+        {copy.cta}
+      </a>
+      <span class="compare-cta-note">{copy.ctaNote}</span>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .compare-page {
+    max-width: var(--container-narrow);
+  }
+  .compare-head {
+    margin-bottom: clamp(2rem, 5vw, 3rem);
+  }
+  .compare-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+    margin-bottom: 1.5rem;
+  }
+  .compare-back svg {
+    width: 15px;
+    height: 15px;
+  }
+  .compare-back:hover {
+    color: var(--color-text);
+  }
+  .compare-head h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-h1);
+    letter-spacing: var(--tracking-display);
+    line-height: 1.05;
+    margin: 0.75rem 0 0;
+  }
+  .compare-head .lede {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    line-height: 1.65;
+    margin: 1rem 0 0;
+    max-width: 62ch;
+  }
+  .compare-cta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .compare-cta .btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .compare-cta-note {
+    color: var(--color-text-subtle);
+    font-size: var(--text-small);
+  }
+</style>

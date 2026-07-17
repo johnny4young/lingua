@@ -1,0 +1,213 @@
+---
+import { Icon } from 'astro-icon/components';
+import type { Comparison, Verdict } from '~/lib/comparisons';
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  comparison: Comparison;
+  locale: Locale;
+}
+
+const { comparison, locale } = Astro.props;
+const copy = t(locale).home.compare;
+
+const verdictIcon: Record<Verdict, string> = {
+  yes: 'lucide:check',
+  no: 'lucide:minus',
+  partial: 'lucide:circle-dot',
+};
+---
+
+<div class="compare">
+  <div class="compare-matrix" role="table" aria-label={comparison.title[locale]}>
+    <div class="matrix-head" role="row">
+      <span role="columnheader">{copy.capability}</span>
+      <span role="columnheader" class="col-lingua">Lingua</span>
+      <span role="columnheader">{comparison.competitor}</span>
+    </div>
+    {
+      comparison.rows.map(row => (
+        <div class="matrix-row" role="row">
+          <span class="cell-feature" role="cell">{row.feature[locale]}</span>
+          <span class:list={['cell-verdict', `is-${row.lingua}`, 'col-lingua']} role="cell">
+            <Icon name={verdictIcon[row.lingua]} />
+            {row.linguaNote && <small>{row.linguaNote[locale]}</small>}
+          </span>
+          <span class:list={['cell-verdict', `is-${row.other}`]} role="cell">
+            <Icon name={verdictIcon[row.other]} />
+            {row.otherNote && <small>{row.otherNote[locale]}</small>}
+          </span>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="choose-grid">
+    <section class="choose choose-lingua">
+      <h2>{copy.chooseLingua}</h2>
+      <ul>
+        {comparison.chooseLingua[locale].map(item => (
+          <li>
+            <Icon name="lucide:check" />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </section>
+    <section class="choose choose-other">
+      <h2>{copy.chooseOther.replace('{competitor}', comparison.competitor)}</h2>
+      <ul>
+        {comparison.chooseOther[locale].map(item => (
+          <li>
+            <Icon name="lucide:arrow-right" />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </section>
+  </div>
+</div>
+
+<style>
+  .compare {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 6vw, 4rem);
+  }
+
+  /* Capability matrix — CSS grid so the three columns line up perfectly. */
+  .compare-matrix {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-bg-elevated);
+  }
+  .matrix-head,
+  .matrix-row {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem 1.25rem;
+  }
+  .matrix-head {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    color: var(--color-text-subtle);
+    background: var(--color-bg-sunken);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .matrix-head .col-lingua,
+  .cell-verdict.col-lingua {
+    color: var(--color-accent);
+  }
+  .matrix-row + .matrix-row {
+    border-top: 1px solid var(--color-border);
+  }
+  .matrix-row:nth-child(even) {
+    background: color-mix(in srgb, var(--color-bg-sunken) 45%, transparent);
+  }
+  .cell-feature {
+    font-size: var(--text-small);
+    color: var(--color-text);
+    line-height: 1.4;
+  }
+  .cell-verdict {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    font-size: var(--text-small);
+  }
+  .cell-verdict svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+  .cell-verdict.is-yes svg {
+    color: var(--color-success);
+  }
+  .cell-verdict.is-no svg {
+    color: var(--color-text-subtle);
+  }
+  .cell-verdict.is-partial svg {
+    color: var(--color-warning);
+  }
+  .cell-verdict small {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.35;
+  }
+
+  /* Honest "choose the other tool" split */
+  .choose-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .choose {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem 1.75rem;
+    background: var(--color-bg-elevated);
+  }
+  .choose-lingua {
+    border-color: color-mix(in srgb, var(--color-accent) 32%, var(--color-border));
+    background:
+      radial-gradient(28rem 14rem at 12% 0%, color-mix(in srgb, var(--color-accent) 7%, transparent), transparent 70%),
+      var(--color-bg-elevated);
+  }
+  .choose h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    margin: 0 0 1rem;
+    line-height: 1.25;
+  }
+  .choose ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .choose li {
+    display: flex;
+    gap: 0.625rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    line-height: 1.55;
+  }
+  .choose li svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+  }
+  .choose-lingua li svg {
+    color: var(--color-accent);
+  }
+  .choose-other li svg {
+    color: var(--color-text-subtle);
+  }
+
+  @media (min-width: 820px) {
+    .choose-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (max-width: 560px) {
+    .matrix-head,
+    .matrix-row {
+      grid-template-columns: 1.3fr 0.9fr 0.9fr;
+      gap: 0.5rem;
+      padding-inline: 0.875rem;
+    }
+    .cell-verdict small {
+      display: none;
+    }
+  }
+</style>

@@ -32,6 +32,7 @@ export const FOOTER_NAV = {
   product: [
     { href: '/', key: 'home' },
     { href: '/features', key: 'features' },
+    { href: '/compare', key: 'compare' },
     { href: '/pricing', key: 'pricing' },
     { href: '/releases', key: 'releases' },
     { href: '/changelog', key: 'changelog' },

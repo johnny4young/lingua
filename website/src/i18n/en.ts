@@ -38,6 +38,7 @@ export const en = {
     links: {
       home: 'Home',
       features: 'Features',
+      compare: 'Compare',
       pricing: 'Pricing',
       releases: 'Releases',
       changelog: 'Changelog',
@@ -112,6 +113,19 @@ export const en = {
           body: 'Past runs stay close to the editor, so a quick scratchpad can still show what changed between attempts.',
         },
       ],
+    },
+    compare: {
+      eyebrow: 'Honest comparison',
+      capability: 'Capability',
+      chooseLingua: 'Choose Lingua when',
+      chooseOther: 'Choose {competitor} when',
+      cta: 'Try Lingua in your browser',
+      ctaNote: 'No install, no account.',
+      backToAll: 'All comparisons',
+      indexTitle: 'How Lingua compares',
+      indexLede: 'Honest, verifiable side-by-sides with the tools developers actually weigh Lingua against. Each one says plainly when the other tool is the better pick.',
+      indexCardCta: 'Read the comparison',
+      vsLabel: 'Lingua vs',
     },
     trust: {
       aria: 'What you can verify about Lingua',
