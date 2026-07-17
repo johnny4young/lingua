@@ -1459,6 +1459,8 @@
   "command.benchmarkDescription": "Ejecuta el archivo activo varias veces e informa estadísticas de tiempo",
   "command.explainError": "Explicar el último error",
   "command.explainErrorDescription": "Desglosa el error más reciente y sugiere soluciones (sin conexión)",
+  "command.explainCode": "Explicar el código seleccionado con IA",
+  "command.explainCodeDescription": "Explica la selección actual, o el buffer entero, con tu endpoint de IA",
   "command.installNativeDeps": "Instalar los paquetes detectados",
   "command.installNativeDeps.description": "Instala los módulos de Go / crates de Rust / gemas de Ruby que usa este archivo",
   "command.installNativeDeps.start": "Instalando {{count}} paquete(s): {{packages}}…",

@@ -110,6 +110,13 @@ interface BuildCommandPaletteModelArgs {
    */
   onExplainLastError?: () => void;
   /**
+   * SR-20a (Wave 4) — fires "Explain selected code with AI", opening the
+   * consent-first ExplainCodeDialog over the current editor selection (or
+   * the whole buffer). Optional; wired only when the tier holds `LOCAL_AI`
+   * and an editor tab is active, so the command stays hidden otherwise.
+   */
+  onExplainSelectedCode?: () => void;
+  /**
    * F-1 — fires the "Install detected packages" action for a Go / Rust /
    * Ruby tab: detects imports/crates/gems in the active buffer and runs
    * the toolchain install (go get / cargo add / bundle add). Optional; the
@@ -726,6 +733,7 @@ export function buildCommandPaletteModel({
   onToggleStatusBar,
   onBenchmarkActiveTab,
   onExplainLastError,
+  onExplainSelectedCode,
   onInstallNativeDependencies,
   onFocusStatusBar,
   savedSessionTabCount = 0,
@@ -1628,6 +1636,23 @@ export function buildCommandPaletteModel({
             ['explain', 'error', 'why', 'fix', 'diagnose', 'explicar', 'error', 'ayuda'],
             () => {
               onExplainLastError();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // SR-20a (Wave 4) — explain the current selection / buffer with the
+    // local AI model. Wired only when LOCAL_AI is held and an editor is
+    // active.
+    ...(onExplainSelectedCode
+      ? [
+          buildActionCommand(
+            'action-explain-selected-code',
+            translate('command.explainCode'),
+            translate('command.explainCodeDescription'),
+            ['explain', 'code', 'ai', 'describe', 'selection', 'explicar', 'código', 'ia', 'selección'],
+            () => {
+              onExplainSelectedCode();
               onClose();
             }
           ),

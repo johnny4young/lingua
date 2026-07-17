@@ -1459,6 +1459,8 @@
   "command.benchmarkDescription": "Run the active file repeatedly and report timing statistics",
   "command.explainError": "Explain last error",
   "command.explainErrorDescription": "Break down the most recent run error and suggest fixes (offline)",
+  "command.explainCode": "Explain selected code with AI",
+  "command.explainCodeDescription": "Explain the current selection, or the whole buffer, with your AI endpoint",
   "command.installNativeDeps": "Install detected packages",
   "command.installNativeDeps.description": "Install the Go modules / Rust crates / Ruby gems used by this file",
   "command.installNativeDeps.start": "Installing {{count}} package(s): {{packages}}…",

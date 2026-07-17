@@ -35,7 +35,7 @@ import { setActiveEditor } from '../../runtime/editorAccess';
 import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { notifyDependencyDetectionPaste } from '../../hooks/useDependencyDetection';
 import { useEntitlement } from '../../hooks/useEntitlement';
-import { ExplainCodeDialog } from '../AI/ExplainCodeDialog';
+import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
@@ -107,14 +107,10 @@ export function CodeEditor() {
   // SR-20a — "Explain with AI" over a selection (or the whole buffer) is
   // the first main-editor AI affordance. Registered as a Monaco context-menu
   // action, gated by LOCAL_AI (invisible on Free); it opens a consent-first
-  // dialog. The action closure reads live tab context through a ref so it
+  // dialog rendered by AiExplainCodeHost (also reachable from the command
+  // palette). The action closure reads live tab context through a ref so it
   // never needs re-registering on every keystroke.
   const aiEntitled = useEntitlement('LOCAL_AI');
-  const [explainCodeReq, setExplainCodeReq] = useState<{
-    code: string;
-    language: string;
-    filename?: string;
-  } | null>(null);
   const explainCtxRef = useRef<{ language: string; name: string } | null>(null);
   useEffect(() => {
     explainCtxRef.current = activeTab
@@ -269,16 +265,9 @@ export function CodeEditor() {
       contextMenuGroupId: '9_ai',
       contextMenuOrder: 1,
       run: (ed) => {
-        const model = ed.getModel();
         const ctx = explainCtxRef.current;
-        if (!model || !ctx) return;
-        const selection = ed.getSelection();
-        const code =
-          selection && !selection.isEmpty()
-            ? model.getValueInRange(selection)
-            : model.getValue();
-        if (code.trim().length === 0) return;
-        setExplainCodeReq({ code, language: ctx.language, filename: ctx.name });
+        if (!ctx) return;
+        openExplainCodeForEditor(ed, ctx.language, ctx.name);
       },
     });
     return () => action.dispose();
@@ -426,14 +415,6 @@ export function CodeEditor() {
         />
       </div>
       <VimStatusBar ref={vimStatusBarRef} vimEnabled={vimMode} />
-      {explainCodeReq ? (
-        <ExplainCodeDialog
-          code={explainCodeReq.code}
-          language={explainCodeReq.language}
-          filename={explainCodeReq.filename}
-          onClose={() => setExplainCodeReq(null)}
-        />
-      ) : null}
     </div>
   );
 }
