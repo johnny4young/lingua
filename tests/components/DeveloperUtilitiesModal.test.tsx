@@ -166,6 +166,24 @@ describe('DeveloperUtilitiesModal', () => {
     expect(screen.getByRole('button', { name: 'Use current time' })).toBeTruthy();
   });
 
+  it('groups the browse view by category and drops the headings while searching (SR-36)', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    // Browse view: category headings label the sections.
+    expect(screen.getByTestId('utility-category-data')).toBeTruthy();
+    expect(screen.getByTestId('utility-category-web')).toBeTruthy();
+    expect(screen.getByTestId('utility-category-crypto')).toBeTruthy();
+
+    // Searching collapses to a single ranked run — no category headings.
+    await user.type(screen.getByTestId('utilities-search-input'), 'json');
+    await waitFor(() => {
+      expect(screen.queryByTestId('utility-category-data')).toBeNull();
+    });
+    expect(screen.queryByTestId('utility-category-web')).toBeNull();
+  });
+
   it('focuses search on open and navigates utilities with arrow keys', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
@@ -176,26 +194,29 @@ describe('DeveloperUtilitiesModal', () => {
       expect(document.activeElement).toBe(search);
     });
 
+    // SR-36 — the no-query browse view is grouped by category, so the
+    // second item is the next tool in the "Data" section (json →
+    // number-base → yaml-json), not the old flat-catalog neighbour.
     await user.keyboard('{ArrowDown}');
 
-    const base64Item = screen.getByTestId('utility-item-base64');
+    const numberBaseItem = screen.getByTestId('utility-item-number-base');
     await waitFor(() => {
-      expect(document.activeElement).toBe(base64Item);
+      expect(document.activeElement).toBe(numberBaseItem);
     });
-    expect(screen.getByRole('heading', { name: 'Base64 Encoder' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Number Base Converter' })).toBeTruthy();
 
     await user.keyboard('{ArrowDown}');
 
-    const urlItem = screen.getByTestId('utility-item-url');
+    const mockDataItem = screen.getByTestId('utility-item-mock-data');
     await waitFor(() => {
-      expect(document.activeElement).toBe(urlItem);
+      expect(document.activeElement).toBe(mockDataItem);
     });
-    expect(screen.getByRole('heading', { name: 'URL Encoder' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Mock Data Generator' })).toBeTruthy();
 
     await user.keyboard('{ArrowUp}');
 
     await waitFor(() => {
-      expect(document.activeElement).toBe(base64Item);
+      expect(document.activeElement).toBe(numberBaseItem);
     });
   });
 

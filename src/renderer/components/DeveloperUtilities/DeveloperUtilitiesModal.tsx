@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DEFAULT_DEVELOPER_UTILITY_ID,
@@ -8,6 +8,11 @@ import {
   type DeveloperUtilityDefinition,
   type DeveloperUtilityId,
 } from '../../data/developerUtilities';
+import {
+  CATEGORY_SORTED_UTILITIES,
+  UTILITY_CATEGORY,
+  UTILITY_CATEGORY_LABEL_KEY,
+} from '../../data/utilityCategories';
 import { ModalShell } from '../ui/ModalShell';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
@@ -136,7 +141,10 @@ export function DeveloperUtilitiesWorkspaceBody({
 
   const filteredUtilities = useMemo(() => {
     const q = searchQuery.trim();
-    if (q.length === 0) return DEVELOPER_UTILITIES;
+    // SR-36 — the no-query browse view groups by category, so the flat
+    // nav array follows the category order too (keyboard nav + headers
+    // then read the same sequence). Search stays purely rank-ordered.
+    if (q.length === 0) return CATEGORY_SORTED_UTILITIES;
     // RL-069 Slice 1 — fuzzy match against title, description,
     // keywords, and aliases. Score the best match across those fields
     // so a hit on the title outranks a hit on a tangential keyword.
@@ -165,6 +173,10 @@ export function DeveloperUtilitiesWorkspaceBody({
     ranked.sort((a, b) => b.score - a.score);
     return ranked.map(r => r.utility);
   }, [searchQuery, t]);
+
+  // SR-36 — category headings only make sense in the ungrouped browse
+  // view; while searching, the list is a single ranked run.
+  const showCategoryHeadings = searchQuery.trim().length === 0;
 
   const isUtilityLocked = (utility: DeveloperUtilityDefinition): boolean =>
     utility.requiresEntitlement === 'DEV_UTILITIES' && !canUseUtilityWorkflows;
@@ -333,12 +345,34 @@ export function DeveloperUtilitiesWorkspaceBody({
               </p>
             </div>
           ) : (
-            filteredUtilities.map(utility => {
+            filteredUtilities.map((utility, index) => {
               const isSelected = utility.id === activeSelectedUtilityId;
               const isLocked = isUtilityLocked(utility);
+              // SR-36 — in the no-query browse view, emit a category
+              // heading before the first utility of each category. The
+              // heading is skipped while searching (the list is ranked,
+              // not grouped).
+              const category = UTILITY_CATEGORY[utility.id];
+              const previousUtility = index > 0 ? filteredUtilities[index - 1] : undefined;
+              const previousCategory = previousUtility
+                ? UTILITY_CATEGORY[previousUtility.id]
+                : undefined;
+              const showCategoryHeading =
+                showCategoryHeadings && category !== previousCategory;
               return (
+                <Fragment key={utility.id}>
+                  {showCategoryHeading ? (
+                    <p
+                      data-testid={`utility-category-${category}`}
+                      className={cn(
+                        'px-3 pb-1 font-mono text-micro font-semibold uppercase tracking-[0.16em] text-fg-subtle',
+                        index > 0 && 'mt-3'
+                      )}
+                    >
+                      {t(UTILITY_CATEGORY_LABEL_KEY[category])}
+                    </p>
+                  ) : null}
                 <div
-                  key={utility.id}
                   data-locked={isLocked || undefined}
                   className={cn(
                     'group mb-1 flex w-full items-start gap-1 rounded-xl pr-2 transition-colors',
@@ -417,6 +451,7 @@ export function DeveloperUtilitiesWorkspaceBody({
                   </button>
                   {isLocked ? null : <FavoriteToggleButton utilityId={utility.id} />}
                 </div>
+                </Fragment>
               );
             })
           )}
