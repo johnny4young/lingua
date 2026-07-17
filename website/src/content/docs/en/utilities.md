@@ -1,6 +1,6 @@
 ---
 title: Developer utilities
-description: The 29 formatter, converter, inspection, cryptography, visual, and time utilities built into Lingua.
+description: The 31 formatter, converter, inspection, cryptography, visual, and time utilities built into Lingua.
 order: 3
 section: reference
 ---

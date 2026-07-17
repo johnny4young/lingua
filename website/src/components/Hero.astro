@@ -13,14 +13,18 @@ const copy = t(locale);
 const hero = copy.home.hero;
 ---
 
-<section class="hero">
+<section class="hero" data-kinetic-hero>
+  <div class="hero-noise" aria-hidden="true"></div>
+  <div class="hero-horizon" aria-hidden="true"></div>
   <div class="container hero-grid">
     <div class="hero-copy">
       <p class="eyebrow">{hero.eyebrow}</p>
       <h1>
-        {hero.headline[0]}<br />
-        {hero.headline[1]}<br />
-        {hero.headline[2]} <span class="accent">{hero.headlineSuffix}</span> {hero.headlineEnd}
+        <span>{hero.headline[0]}</span>
+        <span>{hero.headline[1]}</span>
+        <span class="hero-last-line">
+          {hero.headline[2]} <strong>{hero.headlineSuffix}</strong> {hero.headlineEnd}
+        </span>
       </h1>
       <p class="hero-lede">{hero.lede}</p>
 
@@ -61,75 +65,166 @@ const hero = copy.home.hero;
       </ul>
     </div>
 
-    <div class="hero-visual">
-      <HeroCodeRunner locale={locale} />
+    <div class="hero-visual" aria-label={copy.home.heroCode.context}>
+      <div class="orbit orbit-a" aria-hidden="true"></div>
+      <div class="orbit orbit-b" aria-hidden="true"></div>
+      <div class="language-nodes" aria-hidden="true">
+        <span class="node node-js">JS</span>
+        <span class="node node-ts">TS</span>
+        <span class="node node-py">PY</span>
+        <span class="node node-go">GO</span>
+        <span class="node node-rs">RS</span>
+      </div>
+      <div class="runner-frame">
+        <div class="signal-bar" aria-hidden="true">
+          <span>LINGUA://SCRATCH</span>
+          <span class="signal-live"><i></i> LOCAL RUNTIME</span>
+        </div>
+        <HeroCodeRunner locale={locale} />
+        <div class="runner-metrics" aria-hidden="true">
+          {hero.proof.map((item, index) => (
+            <span><b>0{index + 1}</b><strong>{item.value}</strong><i>{item.label}</i></span>
+          ))}
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
 <style>
   .hero {
+    --pointer-x: 68%;
+    --pointer-y: 24%;
     position: relative;
-    padding-block: clamp(3rem, 8vw, 6rem) clamp(2rem, 6vw, 5rem);
+    min-height: min(960px, calc(100svh - 1.5rem));
+    display: grid;
+    align-items: center;
+    padding-block: clamp(5rem, 9vw, 8.5rem) clamp(4rem, 8vw, 7rem);
     overflow: hidden;
     background:
-      linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 20%, transparent), var(--color-bg) 78%),
-      linear-gradient(115deg, transparent 0 58%, color-mix(in srgb, var(--color-border) 40%, transparent) 58% 58.2%, transparent 58.2%);
+      radial-gradient(32rem 26rem at var(--pointer-x) var(--pointer-y), color-mix(in srgb, var(--color-signal) 17%, transparent), transparent 72%),
+      radial-gradient(48rem 32rem at 18% 18%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 70%),
+      linear-gradient(180deg, transparent, color-mix(in srgb, var(--color-bg) 96%, transparent) 88%);
   }
   .hero::before {
     content: "";
     position: absolute;
+    width: min(76vw, 1050px);
+    aspect-ratio: 1;
+    right: -22vw;
+    top: -52%;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--color-signal) 18%, transparent);
+    pointer-events: none;
+    background:
+      repeating-conic-gradient(from 90deg, color-mix(in srgb, var(--color-signal) 10%, transparent) 0deg 0.8deg, transparent 0.8deg 8deg),
+      radial-gradient(circle, transparent 0 58%, color-mix(in srgb, var(--color-accent) 8%, transparent) 58.2% 58.5%, transparent 58.7%);
+    mask-image: radial-gradient(circle, transparent 0 30%, black 60%);
+    animation: halo-spin 42s linear infinite;
+  }
+  .hero::after {
+    content: "LOCAL / PRIVATE / FAST";
+    position: absolute;
+    right: -0.04em;
+    bottom: -0.18em;
+    font-family: var(--font-display);
+    font-size: clamp(5rem, 15vw, 14rem);
+    font-weight: 800;
+    line-height: 0.76;
+    letter-spacing: -0.08em;
+    color: transparent;
+    -webkit-text-stroke: 1px color-mix(in srgb, var(--color-border-strong) 38%, transparent);
+    opacity: 0.36;
+    white-space: nowrap;
+    pointer-events: none;
+    transform: translateX(18%);
+  }
+  .hero-noise {
+    position: absolute;
     inset: 0;
     pointer-events: none;
-    background-image: linear-gradient(to bottom, transparent, var(--color-bg));
-    opacity: 0.72;
+    background:
+      linear-gradient(90deg, transparent 0 49.95%, color-mix(in srgb, var(--color-border) 50%, transparent) 50%, transparent 50.05%),
+      linear-gradient(transparent 0 49.95%, color-mix(in srgb, var(--color-border) 34%, transparent) 50%, transparent 50.05%);
+    background-size: 12rem 12rem;
+    mask-image: linear-gradient(to bottom, black, transparent 92%);
+    opacity: 0.34;
+  }
+  .hero-horizon {
+    position: absolute;
+    inset: auto 0 9% 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent), var(--color-signal), transparent);
+    box-shadow: 0 0 45px 8px color-mix(in srgb, var(--color-signal) 24%, transparent);
+    opacity: 0.55;
   }
   .hero > .container {
     position: relative;
+    z-index: 2;
   }
   .hero-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 3rem;
+    gap: clamp(4rem, 8vw, 7rem);
     align-items: center;
   }
   .hero-copy h1 {
-    font-size: clamp(3rem, 5.2vw, 4.4rem);
-    line-height: 1.05;
-    letter-spacing: var(--tracking-tight);
-    font-weight: 800;
-    margin: 1rem 0 1.5rem;
+    font-family: var(--font-display);
+    font-size: clamp(3.8rem, 7.2vw, 7.4rem);
+    line-height: 0.88;
+    letter-spacing: var(--tracking-display);
+    font-weight: 760;
+    margin: 1.2rem 0 1.75rem;
+    max-width: 10ch;
+    text-wrap: initial;
   }
-  .accent {
+  .hero-copy h1 > span {
+    display: block;
+  }
+  .hero-copy h1 > span:nth-child(2) {
+    color: var(--color-text-muted);
+    font-weight: 560;
+  }
+  .hero-copy h1 .hero-last-line {
+    font-size: 0.6em;
+    line-height: 1.05;
+    letter-spacing: -0.045em;
+    margin-top: 0.15em;
+  }
+  .hero-copy h1 strong {
+    position: relative;
     color: var(--color-accent);
+    font-weight: 800;
+    text-shadow: 0 0 42px color-mix(in srgb, var(--color-accent) 34%, transparent);
   }
   .hero-lede {
     color: var(--color-text-muted);
-    font-size: 1.125rem;
-    line-height: 1.6;
-    max-width: 520px;
-    margin: 0 0 2rem;
+    font-size: clamp(1rem, 1.35vw, 1.2rem);
+    line-height: 1.68;
+    max-width: 590px;
+    margin: 0 0 2.25rem;
   }
   .hero-proof {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1px;
-    width: min(100%, 540px);
-    margin-bottom: 2rem;
-    border: 1px solid var(--color-border);
-    background: var(--color-border);
+    gap: 0.6rem;
+    width: min(100%, 590px);
+    margin-bottom: 2.25rem;
   }
   .hero-proof div {
     min-width: 0;
-    padding: 0.875rem 1rem;
-    background: color-mix(in srgb, var(--color-bg-sunken) 84%, var(--color-bg-elevated));
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-bg-sunken) 66%, transparent);
+    backdrop-filter: blur(16px);
   }
   .hero-proof strong {
     display: block;
     font-family: var(--font-mono);
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     line-height: 1;
-    color: var(--color-text);
+    color: var(--color-accent);
   }
   .hero-proof span {
     display: block;
@@ -142,7 +237,7 @@ const hero = copy.home.hero;
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
-    margin-bottom: 2rem;
+    margin-bottom: 2.25rem;
   }
   .hero-actions .btn svg {
     width: 16px;
@@ -169,21 +264,175 @@ const hero = copy.home.hero;
     color: var(--color-accent);
   }
   .hero-visual {
+    position: relative;
+    isolation: isolate;
     min-width: 0;
+    perspective: 1500px;
+    padding: clamp(2rem, 5vw, 4rem) 0;
   }
-  @media (min-width: 1024px) {
+  .runner-frame {
+    position: relative;
+    z-index: 3;
+    border-radius: calc(var(--radius-xl) + 2px);
+    padding: 1px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 72%, transparent), color-mix(in srgb, var(--color-signal) 44%, transparent) 42%, color-mix(in srgb, var(--color-flare) 35%, transparent));
+    box-shadow:
+      0 54px 120px -48px rgb(0 0 0 / 0.98),
+      0 0 90px -44px color-mix(in srgb, var(--color-signal) 55%, transparent);
+    transform: rotateY(-5deg) rotateX(2deg);
+    transition: transform 650ms var(--ease-out), box-shadow 650ms var(--ease-out);
+  }
+  .hero-visual:hover .runner-frame {
+    transform: rotateY(-1deg) rotateX(0deg) translateY(-8px);
+    box-shadow:
+      0 62px 130px -46px rgb(0 0 0 / 0.98),
+      0 0 110px -40px color-mix(in srgb, var(--color-signal) 66%, transparent);
+  }
+  .signal-bar,
+  .runner-metrics {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    color: var(--color-text-subtle);
+    background: color-mix(in srgb, var(--color-bg-sunken) 96%, transparent);
+  }
+  .signal-bar {
+    padding: 0.7rem 1rem;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .signal-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--color-accent);
+  }
+  .signal-live i {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 1rem currentColor;
+    animation: signal-pulse 1.8s ease-in-out infinite;
+  }
+  .runner-metrics {
+    padding: 0;
+    gap: 0;
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    border-top: 1px solid var(--color-border);
+    overflow: hidden;
+  }
+  .runner-metrics span {
+    flex: 1;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.1rem 0.45rem;
+    min-width: 0;
+    padding: 0.6rem 0.75rem;
+    border-right: 1px solid var(--color-border);
+  }
+  .runner-metrics span:last-child {
+    border-right: 0;
+  }
+  .runner-metrics b {
+    color: var(--color-signal);
+    font-weight: 500;
+  }
+  .runner-metrics strong {
+    color: var(--color-text);
+    font-size: 0.72rem;
+  }
+  .runner-metrics i {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    color: var(--color-text-subtle);
+    font-size: 0.54rem;
+    font-style: normal;
+    letter-spacing: 0;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .orbit {
+    position: absolute;
+    z-index: 0;
+    left: 50%;
+    top: 50%;
+    border: 1px solid color-mix(in srgb, var(--color-border-strong) 64%, transparent);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .orbit-a {
+    width: min(44rem, 112%);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%) rotate(18deg);
+    animation: orbit-turn 24s linear infinite;
+  }
+  .orbit-b {
+    width: min(34rem, 88%);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%) rotate(-28deg);
+    border-style: dashed;
+    animation: orbit-turn-reverse 18s linear infinite;
+  }
+  .language-nodes {
+    position: absolute;
+    z-index: 4;
+    inset: 0;
+    pointer-events: none;
+  }
+  .node {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-bg-sunken) 82%, transparent);
+    box-shadow: 0 0 28px -12px var(--color-accent);
+    backdrop-filter: blur(12px);
+    animation: node-float 4.5s ease-in-out infinite;
+  }
+  .node-js { top: 10%; left: 8%; }
+  .node-ts { top: 3%; right: -1%; animation-delay: -1.2s; }
+  .node-py { bottom: 12%; left: -2%; animation-delay: -2.4s; }
+  .node-go { bottom: 0; right: 18%; animation-delay: -3.2s; }
+  .node-rs { top: -5%; right: 30%; animation-delay: -0.7s; }
+
+  @keyframes halo-spin { to { transform: rotate(360deg); } }
+  @keyframes orbit-turn { to { transform: translate(-50%, -50%) rotate(378deg); } }
+  @keyframes orbit-turn-reverse { to { transform: translate(-50%, -50%) rotate(-388deg); } }
+  @keyframes signal-pulse { 50% { opacity: 0.35; transform: scale(0.75); } }
+  @keyframes node-float { 50% { translate: 0 -8px; } }
+
+  @media (min-width: 1080px) {
     .hero-grid {
-      grid-template-columns: 1.05fr 1fr;
-      gap: 4rem;
+      grid-template-columns: minmax(0, 1.08fr) minmax(460px, 0.92fr);
+      gap: clamp(3rem, 5vw, 6rem);
+    }
+  }
+  @media (min-width: 1380px) {
+    .runner-frame {
+      margin-right: -2rem;
     }
   }
   @media (max-width: 520px) {
-    .hero-copy h1 {
-      font-size: clamp(2.35rem, 11.5vw, 3rem);
-      line-height: 1.08;
+    .hero {
+      min-height: auto;
+      padding-top: 5rem;
     }
-    .hero-copy h1 br {
-      display: none;
+    .hero-copy h1 {
+      font-size: clamp(3.15rem, 16vw, 4.3rem);
+      line-height: 0.9;
+      max-width: 9ch;
     }
     .hero-proof {
       grid-template-columns: 1fr;
@@ -195,6 +444,59 @@ const hero = copy.home.hero;
     .hero-actions .btn {
       width: 100%;
       justify-content: center;
+    }
+    .hero-visual {
+      padding-block: 1.5rem 0;
+    }
+    .runner-frame {
+      transform: none;
+    }
+    .runner-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .node {
+      width: 2.15rem;
+      height: 2.15rem;
+    }
+    .node-ts { right: -0.25rem; }
+    .node-py { left: -0.25rem; }
+  }
+
+  /* Staggered entry — headline first, support content cascades in.
+     The global prefers-reduced-motion rule zeroes these out. */
+  @keyframes hero-rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .hero-copy > *,
+  .hero-visual {
+    animation: hero-rise 760ms var(--ease-out) backwards;
+  }
+  .hero-copy > .eyebrow { animation-delay: 40ms; }
+  .hero-copy > h1 { animation-delay: 100ms; }
+  .hero-copy > .hero-lede { animation-delay: 180ms; }
+  .hero-copy > .hero-proof { animation-delay: 260ms; }
+  .hero-copy > .hero-actions { animation-delay: 320ms; }
+  .hero-copy > .hero-bullets { animation-delay: 380ms; }
+  .hero-visual { animation-delay: 240ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero::before,
+    .orbit,
+    .node,
+    .signal-live i {
+      animation: none !important;
+    }
+    .runner-frame,
+    .hero-visual:hover .runner-frame {
+      transform: none;
     }
   }
 </style>

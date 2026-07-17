@@ -61,14 +61,14 @@ export const es = {
       proofLabel: 'Datos del producto Lingua',
       proof: [
         { value: '5', label: 'lenguajes ejecutables' },
-        { value: '29', label: 'utilidades developer' },
+        { value: '31', label: 'utilidades developer' },
         { value: '0', label: 'telemetría antes del consentimiento' },
       ],
       bullets: [
         'IA local-first — explica errores y aplica fixes, opt-in y con tu clave.',
         'Pyodide incluido — Python corre offline.',
         'Telemetría desactivada por defecto.',
-        'Modo Vim, paleta de comandos y 29 utilidades.',
+        'Modo Vim, paleta de comandos y 31 utilidades.',
       ],
       os: {
         generic: 'Descargar Lingua',
@@ -106,11 +106,100 @@ export const es = {
         },
       ],
     },
+    whatsNew: {
+      eyebrow: "Nuevo en 0.12",
+      title: "Lo último del release, en cuatro capturas.",
+      lede:
+        "Todo lo de abajo llegó en v0.12 y funciona en el tier gratuito. El detalle completo vive en el changelog.",
+      cta: "Lee el changelog completo",
+      history: {
+        title: "Cada release antes de este",
+        lede: "Catorce releases de progreso constante y local-first. Expande cualquier versión para ver sus destacados.",
+        featuresLabel: "features",
+        featureLabel: "feature",
+      },
+      items: [
+        {
+          image: "/screenshots/v0.12/inline-timing.png",
+          alt: "Editor de Lingua mostrando tiempos por línea al borde derecho de cada statement, con la línea más lenta resaltada en rojo",
+          title: "Tiempos por línea con // @time",
+          body: "Agrega un comentario y cada statement de nivel superior muestra su duración inline — la línea más lenta del run se pinta de rojo. Cacería de performance sin salir del editor, y los tiempos sobreviven errores.",
+        },
+        {
+          image: "/screenshots/v0.12/smart-paste-jwt.png",
+          alt: "Toast de smart paste ofreciendo abrir un JWT pegado en el depurador JWT",
+          title: "Pega un valor, abre la herramienta correcta",
+          body: "Pega un JWT, UUID, color, timestamp Unix, expresión cron o Base64 en el editor y Lingua ofrece abrirlo precargado en la utilidad correspondiente. Conservador por diseño: lo que parece código queda en silencio.",
+        },
+        {
+          image: "/screenshots/v0.12/presenter-mode.png",
+          alt: "Lingua en modo presentación: sin barra lateral, toolbar ni barra de estado, con fuente agrandada",
+          title: "Modo presentación",
+          body: "Un atajo (Cmd+Alt+P) oculta el chrome y agranda las fuentes para demos, pairing y grabaciones. Alterna de nuevo y tu layout exacto regresa — nunca toca tus preferencias guardadas.",
+        },
+        {
+          image: "/screenshots/v0.12/bootstrap-progress.png",
+          alt: "Botón de ejecución mostrando un contador de megabytes en vivo mientras descarga el runtime de Python",
+          title: "Mira llegar tu runtime",
+          body: "El primer run de Python o Ruby ya no se queda en una línea estática: el botón de ejecución muestra un contador de MB en vivo mientras baja el runtime WASM, en cualquier red.",
+        },
+      ],
+    },
+    tour: {
+      eyebrow: "Dentro de la app",
+      title: "El producto real, haciendo trabajo real.",
+      lede:
+        "Abajo no hay mockups — cada cuadro es la app tal como se distribuye, capturada a mitad de tarea sobre el build web de producción.",
+      items: [
+        {
+          image: "/screenshots/tour/workspace-python.png",
+          alt: "Workspace de Lingua corriendo un script Python: valores inline junto a cada statement y stdout real en el panel de consola",
+          title: "Corre Python y mira los valores caer en cada línea",
+          body: "Pyodide arranca en un worker, el stdout fluye a la consola y cada statement de nivel superior muestra su valor inline junto al código. El tiempo de pared de cada run también cae en la consola — el timing es output, no una promesa.",
+        },
+        {
+          image: "/screenshots/tour/command-palette.png",
+          alt: "Paleta de comandos filtrada con la consulta sql, mostrando el workspace SQL, la herramienta de escape y el formateador SQL",
+          title: "Una paleta para comandos, plantillas y utilidades",
+          body: "Cmd+K busca todo a la vez — comandos, snippets, plantillas y cada utilidad developer. Escribe tres letras, presiona Enter y sigue codeando.",
+        },
+        {
+          image: "/screenshots/tour/utilities.png",
+          alt: "Workspace de utilidades developer con el formateador JSON activo: panel de entrada, controles de formato y vista de árbol",
+          title: "Las 31 utilidades viven junto a tu código",
+          body: "Formateador JSON con vista de árbol, depurador JWT, datos de prueba, generadores de hash y UUID — más los Pipelines de utilidades que las encadenan en workflows de un click. Cada una corre local en la misma ventana, así las tareas rápidas dejan de costarte una pestaña del navegador.",
+        },
+        {
+          image: "/screenshots/tour/sql-workspace.png",
+          alt: "Workspace SQL con una tabla releases importada, una query de agregación formateada, grid de resultados y el panel de perfil de columnas",
+          title: "Un workspace SQL completo sobre DuckDB",
+          body: "Suelta un CSV, JSON o Parquet y se convierte en una tabla consultable sobre el motor DuckDB incluido — con grid de resultados, formateo de queries con una tecla y perfil por columna. Tu Run Ledger local también se consulta desde aquí.",
+        },
+        {
+          image: "/screenshots/tour/http-workspace.png",
+          alt: "Workspace HTTP mostrando una request GET con query params y una respuesta JSON 200 OK formateada",
+          title: "Un cliente HTTP sin el impuesto de la pestaña del navegador",
+          body: "Requests, query params, auth, environments y captura de respuestas viven en un solo tab de workspace. Envía y lee el body formateado con status, timing y tamaño ahí donde codeas.",
+        },
+        {
+          image: "/screenshots/tour/settings-privacy.png",
+          alt: "Página de privacidad en Settings: analítica anónima apagada, Run Ledger apagado, lista de headers HTTP sensibles y vista previa de redacción",
+          title: "La privacidad es una página de Settings, no una promesa",
+          body: "La telemetría viene apagada y se queda así hasta que tú la actives. El Run Ledger guarda solo local, los headers sensibles se redactan por nombre y la vista previa de redacción muestra exactamente qué saldría de tu máquina — nada.",
+        },
+      ],
+    },
     ai: {
       eyebrow: 'Asistencia con IA · Pro',
       title: 'IA que nunca envía tu código sin permiso.',
       lede:
         'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
+      shot: {
+        image: '/screenshots/tour/ai-explain.png',
+        alt: 'Diálogo de explicar este error sobre un run de JavaScript fallido: el modelo explica la propiedad undefined, propone un fix con guard en un bloque de código y ofrece las acciones Preguntar y Aplicar y re-ejecutar',
+        caption:
+          'Una respuesta real de un modelo local — qwen3-coder en Ollama, sin viaje a la nube. El diálogo muestra el payload exacto antes de enviar nada, y Aplicar y re-ejecutar parchea el fix detrás de un diff que tú apruebas.',
+      },
       cards: [
         {
           icon: 'wand-sparkles',
@@ -168,7 +257,7 @@ export const es = {
     },
     utilities: {
       eyebrow: 'Utilidades developer',
-      title: '29 paneles integrados.',
+      title: '31 paneles integrados.',
       lede:
         'Las pestañas del navegador que suelen rodear a un runner — formateador JSON, regex, JWT, diff, hash, cron, color y más — ya viven dentro de Lingua.',
       aria: 'Utilidades developer integradas',

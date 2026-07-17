@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-14T15:43:21.247Z",
+  "generatedAt": "2026-07-16T21:33:18.061Z",
   "totals": {
     "planned": 6,
     "inProgress": 6
@@ -120,7 +120,7 @@
         {
           "id": "RL-039",
           "title": "Guided lessons + app galleries",
-          "scope": "Shipped so far: guided-tour scaffolds plus Recipes search overlay, assertion runner, 10 bundled JS recipes, persisted progress, reset UI, and telemetry. Remaining: Python and TypeScript recipes, AI hints via RL-031, user-authored recipe import/export through RL-100, lesson progression tree, and `lingua lesson validate`.",
+          "scope": "Shipped so far: guided-tour scaffolds plus Recipes search, 10 JavaScript + 3 TypeScript + 3 Python packs, language-aware Run + Test, persisted progress, reset UI, and telemetry. Remaining: AI hints via RL-031, user-authored recipe import/export through RL-100, lesson progression tree, and `lingua lesson validate`.",
           "status": "Partial",
           "theme": "Personalization & polish"
         }

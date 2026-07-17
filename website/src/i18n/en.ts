@@ -61,14 +61,14 @@ export const en = {
       proofLabel: 'Lingua product facts',
       proof: [
         { value: '5', label: 'runnable languages' },
-        { value: '29', label: 'developer utilities' },
+        { value: '31', label: 'developer utilities' },
         { value: '0', label: 'telemetry before consent' },
       ],
       bullets: [
         'Local-first AI — explain errors, apply fixes, opt-in and BYO-key.',
         'Pyodide vendored — Python runs offline.',
         'Telemetry off by default.',
-        'Vim mode, command palette, 29 dev utilities.',
+        'Vim mode, command palette, 31 dev utilities.',
       ],
       os: {
         generic: 'Download Lingua',
@@ -106,11 +106,100 @@ export const en = {
         },
       ],
     },
+    whatsNew: {
+      eyebrow: "New in 0.12",
+      title: "The latest release, in four screenshots.",
+      lede:
+        "Every feature below shipped in v0.12 and works in the free tier. Full details live in the changelog.",
+      cta: "Read the full changelog",
+      history: {
+        title: "Every release before this one",
+        lede: "Fourteen releases of steady, local-first progress. Expand any version for its highlights.",
+        featuresLabel: "features",
+        featureLabel: "feature",
+      },
+      items: [
+        {
+          image: "/screenshots/v0.12/inline-timing.png",
+          alt: "Lingua editor showing per-line wall-clock timings at the right edge of each statement, with the slowest line highlighted in red",
+          title: "Per-line timing with // @time",
+          body: "Add one comment and every top-level statement shows its wall-clock duration inline — the slowest line of the run turns red. Perf hunting without leaving the editor, and timings survive errors.",
+        },
+        {
+          image: "/screenshots/v0.12/smart-paste-jwt.png",
+          alt: "Smart-paste toast offering to open a pasted JWT in the JWT Debugger",
+          title: "Paste a value, open the right tool",
+          body: "Paste a JWT, UUID, color, Unix timestamp, cron expression, or Base64 into the editor and Lingua offers to open it pre-loaded in the matching developer utility. Conservative by design: code look-alikes stay silent.",
+        },
+        {
+          image: "/screenshots/v0.12/presenter-mode.png",
+          alt: "Lingua in presenter mode: no sidebar, toolbar, or status bar, with enlarged editor font",
+          title: "Presenter mode",
+          body: "One keystroke (Cmd+Alt+P) hides the chrome and enlarges the fonts for demos, pairing, and screen recordings. Toggle again and your exact layout comes back — it never touches your saved preferences.",
+        },
+        {
+          image: "/screenshots/v0.12/bootstrap-progress.png",
+          alt: "Run button showing a live megabyte counter while the Python runtime downloads",
+          title: "Watch your runtime arrive",
+          body: "The first Python or Ruby run no longer sits on a static loading line: the run button streams a live MB counter while the WASM runtime downloads, on any network.",
+        },
+      ],
+    },
+    tour: {
+      eyebrow: "Inside the app",
+      title: "The actual product, doing actual work.",
+      lede:
+        "No mockups below — every frame is the shipping app captured mid-task on the production web build.",
+      items: [
+        {
+          image: "/screenshots/tour/workspace-python.png",
+          alt: "Lingua workspace running a Python script: inline values next to each statement and real stdout in the console panel",
+          title: "Run Python, watch values land on every line",
+          body: "Pyodide boots in a worker, stdout streams into the console, and each top-level statement shows its value inline next to the code. The wall-clock time of every run lands in the console too — timing is output, not a claim.",
+        },
+        {
+          image: "/screenshots/tour/command-palette.png",
+          alt: "Command palette filtered by the query sql, showing the SQL workspace, escape tool, and SQL formatter",
+          title: "One palette for commands, templates, and utilities",
+          body: "Cmd+K searches everything at once — commands, snippets, templates, and every developer utility. Type three letters, hit Enter, keep coding.",
+        },
+        {
+          image: "/screenshots/tour/utilities.png",
+          alt: "Developer utilities workspace with the JSON formatter active: input panel, pretty-print controls, and a tree viewer",
+          title: "31 utilities live next to your code",
+          body: "JSON formatter with a tree viewer, JWT debugger, mock data, hash and UUID generators — plus Utility Pipelines that chain them into one-click workflows. Each one runs locally in the same window, so quick tasks stop costing you a browser tab.",
+        },
+        {
+          image: "/screenshots/tour/sql-workspace.png",
+          alt: "SQL workspace with an imported releases table, a formatted aggregate query, a results grid, and the column profile panel",
+          title: "A full SQL workspace on DuckDB",
+          body: "Drop a CSV, JSON, or Parquet file and it becomes a queryable table on the bundled DuckDB engine — results grid, one-keystroke query formatting, and per-column profiling included. Your local Run Ledger is queryable from here too.",
+        },
+        {
+          image: "/screenshots/tour/http-workspace.png",
+          alt: "HTTP workspace showing a GET request with query params and a pretty-printed 200 OK JSON response",
+          title: "An HTTP client without the browser-tab tax",
+          body: "Requests, query params, auth, environments, and response capture live in one workspace tab. Send and read the pretty-printed body with status, timing, and size right where you code.",
+        },
+        {
+          image: "/screenshots/tour/settings-privacy.png",
+          alt: "Privacy settings page: anonymous usage analytics off, Run Ledger off, sensitive HTTP header redaction list, and a redaction preview",
+          title: "Privacy is a settings page, not a promise",
+          body: "Telemetry ships off and stays off until you flip it. The Run Ledger records locally, sensitive headers are redacted by name, and the redaction preview shows exactly what would leave your machine — nothing.",
+        },
+      ],
+    },
     ai: {
       eyebrow: 'AI assistance · Pro',
       title: 'AI that never sends your code without asking.',
       lede:
         'Opt-in, bring-your-own-key, and local-first. Point it at a local model (Ollama, LM Studio) and your code never leaves the machine — or use any OpenAI-compatible endpoint. Lingua ships no default key and makes no background calls; every request shows you the exact payload first.',
+      shot: {
+        image: '/screenshots/tour/ai-explain.png',
+        alt: 'Explain-this-error dialog over a failed JavaScript run: the model explains the undefined property, proposes a guarded fix in a code block, and offers Ask and Apply and re-run actions',
+        caption:
+          'A real answer from a local model — qwen3-coder on Ollama, no cloud round trip. The dialog previews the exact payload before anything is sent, and Apply & re-run patches the fix behind a diff you approve.',
+      },
       cards: [
         {
           icon: 'wand-sparkles',
@@ -168,7 +257,7 @@ export const en = {
     },
     utilities: {
       eyebrow: 'Developer utilities',
-      title: '29 panels, built in.',
+      title: '31 panels, built in.',
       lede:
         'The browser tabs that usually orbit a code runner — JSON formatter, regex, JWT, diff, hash, cron, color, the lot — already live inside Lingua.',
       aria: 'Built-in developer utilities',

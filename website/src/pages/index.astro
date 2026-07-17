@@ -2,7 +2,9 @@
 import Base from '~/layouts/Base.astro';
 import Hero from '~/components/Hero.astro';
 import WhyCards from '~/components/WhyCards.astro';
+import WhatsNewSection from '~/components/WhatsNewSection.astro';
 import AiSection from '~/components/AiSection.astro';
+import ProductTour from '~/components/ProductTour.astro';
 import LanguageMatrix from '~/components/LanguageMatrix.astro';
 import UtilitiesStrip from '~/components/UtilitiesStrip.astro';
 import PricingTeaser from '~/components/PricingTeaser.astro';
@@ -18,7 +20,7 @@ interface Props {
 const locale = Astro.props.locale ?? 'en';
 const copy = t(locale);
 const description = locale === 'es'
-  ? 'Lingua ejecuta JavaScript, TypeScript, Python, Go y Rust en una app desktop offline-first. Editor Monaco, Vim mode, 29 utilidades developer y código source-available.'
+  ? 'Lingua ejecuta JavaScript, TypeScript, Python, Go y Rust en una app desktop offline-first. Editor Monaco, Vim mode, 31 utilidades developer y código source-available.'
   : SITE.description;
 
 const jsonLd = {
@@ -74,9 +76,11 @@ const jsonLd = {
 >
   <Hero locale={locale} />
 
-  <div class="container">
+  <div class="container home-sections">
     <WhyCards locale={locale} />
+    <WhatsNewSection locale={locale} />
     <AiSection locale={locale} />
+    <ProductTour locale={locale} />
     <LanguageMatrix locale={locale} />
     <UtilitiesStrip locale={locale} />
     <PricingTeaser locale={locale} />
@@ -85,3 +89,49 @@ const jsonLd = {
 
   <FinalCTA locale={locale} />
 </Base>
+
+<style>
+  .home-sections {
+    position: relative;
+    isolation: isolate;
+  }
+  .home-sections::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0 clamp(0.25rem, 2vw, 1.5rem);
+    border-inline: 1px solid color-mix(in srgb, var(--color-border) 44%, transparent);
+    pointer-events: none;
+  }
+  .home-sections::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: clamp(0.25rem, 2vw, 1.5rem);
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--color-accent) 16%, var(--color-signal) 52%, var(--color-flare) 82%, transparent);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--color-signal) 16%, transparent);
+    pointer-events: none;
+  }
+  .home-sections > :global(section) {
+    position: relative;
+  }
+  .home-sections > :global(section:not(:first-child))::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: min(15rem, 36vw);
+    height: 1px;
+    background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-signal) 72%, transparent), transparent);
+    opacity: 0.58;
+  }
+  @media (max-width: 720px) {
+    .home-sections::before,
+    .home-sections::after {
+      display: none;
+    }
+  }
+</style>

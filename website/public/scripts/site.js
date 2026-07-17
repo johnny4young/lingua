@@ -107,6 +107,65 @@
     });
   }
 
+  function bindKineticHero() {
+    const hero = document.querySelector('[data-kinetic-hero]');
+    if (!(hero instanceof HTMLElement)) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    let frame = 0;
+    hero.addEventListener('pointermove', (event) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const bounds = hero.getBoundingClientRect();
+        const x = ((event.clientX - bounds.left) / bounds.width) * 100;
+        const y = ((event.clientY - bounds.top) / bounds.height) * 100;
+        hero.style.setProperty('--pointer-x', `${Math.max(0, Math.min(100, x)).toFixed(2)}%`);
+        hero.style.setProperty('--pointer-y', `${Math.max(0, Math.min(100, y)).toFixed(2)}%`);
+      });
+    });
+    hero.addEventListener('pointerleave', () => {
+      hero.style.removeProperty('--pointer-x');
+      hero.style.removeProperty('--pointer-y');
+    });
+  }
+
+  function bindHistoryLeadTips() {
+    // Release-history feature chips: a chip in the right half of its
+    // list anchors its hover tooltip to the right so long changelog
+    // descriptions never overflow the viewport. Chips have no layout
+    // while the <details> is closed, so placement runs on open (and
+    // again on resize for the open rows).
+    const detailsNodes = Array.from(document.querySelectorAll('.history-item details'));
+    if (detailsNodes.length === 0) return;
+
+    function placeTips(list) {
+      const mid = list.clientWidth / 2;
+      list.querySelectorAll('li').forEach((chip) => {
+        chip.classList.toggle('tip-right', chip.offsetLeft + chip.offsetWidth / 2 > mid);
+      });
+    }
+
+    detailsNodes.forEach((node) => {
+      node.addEventListener('toggle', () => {
+        if (!node.open) return;
+        const list = node.querySelector('.history-leads');
+        if (list) placeTips(list);
+      });
+    });
+
+    let resizeFrame = 0;
+    window.addEventListener('resize', () => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        detailsNodes.forEach((node) => {
+          if (!node.open) return;
+          const list = node.querySelector('.history-leads');
+          if (list) placeTips(list);
+        });
+      });
+    });
+  }
+
   function bindCheckoutReference() {
     const wrapper = document.querySelector('[data-checkout-reference]');
     if (!wrapper) return;
@@ -125,6 +184,8 @@
     bindMobileNav();
     updateOsLabels();
     bindHeroRunner();
+    bindKineticHero();
+    bindHistoryLeadTips();
     bindCheckoutReference();
   }
 

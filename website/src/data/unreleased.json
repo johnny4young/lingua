@@ -1,7 +1,80 @@
 {
-  "generatedAt": "2026-07-14T15:43:21.283Z",
+  "generatedAt": "2026-07-16T21:33:18.096Z",
   "baseRef": "v0.11.0",
-  "commitCount": 0,
-  "totalSinceBase": 0,
-  "commits": []
+  "commitCount": 8,
+  "totalSinceBase": 12,
+  "commits": [
+    {
+      "hash": "7bfa156",
+      "date": "2026-07-16",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": null,
+      "message": "improve editor and empty-state discoverability (#77)",
+      "breaking": false
+    },
+    {
+      "hash": "5521300",
+      "date": "2026-07-16",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": null,
+      "message": "inline timing, presenter mode, runtime bootstrap progress (#79)",
+      "breaking": false
+    },
+    {
+      "hash": "9ffc42d",
+      "date": "2026-07-16",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": null,
+      "message": "capsule HTML export, smart-paste utility suggestions, recent commands stack (#78)",
+      "breaking": false
+    },
+    {
+      "hash": "f521a4f",
+      "date": "2026-07-15",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": null,
+      "message": "harden workspace recovery and accessibility (#76)",
+      "breaking": false
+    },
+    {
+      "hash": "d264770",
+      "date": "2026-07-15",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": null,
+      "message": "add resilience affordances (#75)",
+      "breaking": false
+    },
+    {
+      "hash": "a6eb2b2",
+      "date": "2026-07-15",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "preview",
+      "message": "add configurable live refresh (#74)",
+      "breaking": false
+    },
+    {
+      "hash": "76fe05c",
+      "date": "2026-07-15",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "recipes",
+      "message": "add TypeScript and Python practice packs (#73)",
+      "breaking": false
+    },
+    {
+      "hash": "0823255",
+      "date": "2026-07-15",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "licensing",
+      "message": "version license server protocol (#71)",
+      "breaking": false
+    }
+  ]
 }

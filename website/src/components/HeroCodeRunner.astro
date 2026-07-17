@@ -66,21 +66,30 @@ const panels = await Promise.all(
     position: relative;
     isolation: isolate;
     min-width: 0;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    border: 0;
+    border-radius: 0;
     background: var(--color-bg-sunken);
     overflow: hidden;
-    box-shadow:
-      0 32px 70px -32px color-mix(in srgb, black 70%, transparent),
-      inset 0 1px 0 color-mix(in srgb, var(--color-text) 7%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text) 5%, transparent);
   }
   .hero-runner::before {
     content: "";
     position: absolute;
     inset: 0 auto 0 0;
-    width: 2px;
-    background: var(--color-accent);
+    width: 3px;
+    background: linear-gradient(to bottom, var(--color-accent), var(--color-signal), var(--color-flare));
     z-index: 2;
+    box-shadow: 0 0 24px color-mix(in srgb, var(--color-signal) 65%, transparent);
+  }
+  .hero-runner::after {
+    content: "";
+    position: absolute;
+    z-index: 3;
+    inset: -30% 0 auto;
+    height: 28%;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-signal) 11%, transparent), transparent);
+    animation: runner-scan 6s linear infinite;
   }
   .hero-chrome {
     display: flex;
@@ -88,8 +97,7 @@ const panels = await Promise.all(
     gap: 0.75rem;
     padding: 0.625rem 0.75rem 0.625rem 1rem;
     border-bottom: 1px solid var(--color-border);
-    background:
-      linear-gradient(to bottom, color-mix(in srgb, var(--color-bg-elevated) 96%, var(--color-text)), var(--color-bg-elevated));
+    background: color-mix(in srgb, var(--color-bg-elevated) 88%, transparent);
   }
   .window-dots {
     display: inline-flex;
@@ -101,7 +109,11 @@ const panels = await Promise.all(
     height: 8px;
     border-radius: 999px;
     background: var(--color-border-strong);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text) 10%, transparent);
   }
+  .window-dots span:first-child { background: var(--color-flare); }
+  .window-dots span:nth-child(2) { background: var(--color-warning); }
+  .window-dots span:last-child { background: var(--color-accent); }
   .tab-strip {
     display: flex;
     gap: 0.125rem;
@@ -124,8 +136,9 @@ const panels = await Promise.all(
     color: var(--color-text);
   }
   .hero-tab.is-active {
-    color: var(--color-text);
-    background: color-mix(in srgb, var(--color-accent-muted) 44%, transparent);
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent-muted) 42%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 18%, transparent);
   }
   .run-hint {
     font-family: var(--font-mono);
@@ -140,9 +153,10 @@ const panels = await Promise.all(
     min-height: 214px;
     padding: 1.5rem 1.5rem 1.5rem 1.75rem;
     background:
-      linear-gradient(to right, color-mix(in srgb, var(--color-border) 35%, transparent) 1px, transparent 1px),
+      linear-gradient(to right, color-mix(in srgb, var(--color-border) 30%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, transparent 95%, color-mix(in srgb, var(--color-border) 22%, transparent) 95%),
       var(--color-bg-sunken);
-    background-size: 64px 100%;
+    background-size: 64px 100%, 100% 28px, auto;
   }
   .hero-panel {
     opacity: 0;
@@ -189,6 +203,9 @@ const panels = await Promise.all(
       transform: translateX(0);
     }
   }
+  @keyframes runner-scan {
+    to { translate: 0 520%; }
+  }
   @media (min-width: 768px) {
     .hero-body {
       padding: 2rem 2rem 2rem 2.25rem;
@@ -208,6 +225,12 @@ const panels = await Promise.all(
     }
     .hero-panel :global(pre.hero-code) {
       font-size: 0.78rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-runner::after {
+      animation: none;
+      display: none;
     }
   }
 </style>

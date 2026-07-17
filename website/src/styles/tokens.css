@@ -1,4 +1,5 @@
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/manrope";
 @import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
 
@@ -9,34 +10,37 @@
 
 @theme {
   /* Color — dark surface stack */
-  --color-bg: #0c1017;
-  --color-bg-elevated: #11161f;
-  --color-bg-sunken: #080b11;
-  --color-surface: #161b25;
-  --color-border: #1f2937;
-  --color-border-strong: #2d3748;
+  --color-bg: #070806;
+  --color-bg-elevated: #10130f;
+  --color-bg-sunken: #030403;
+  --color-surface: #151914;
+  --color-border: #273025;
+  --color-border-strong: #445140;
 
   /* Color — text */
-  --color-text: #e5e7eb;
-  --color-text-muted: #9ca3af;
-  --color-text-subtle: #6b7280;
+  --color-text: #f2f7eb;
+  --color-text-muted: #acb5a7;
+  --color-text-subtle: #737d6f;
 
   /* Color — accent (replaceable when brand pins official accent) */
-  --color-accent: #67e8f9;
-  --color-accent-hover: #22d3ee;
-  --color-accent-muted: #155e75;
-  --color-accent-ink: #04161b;
+  --color-accent: #c7ff52;
+  --color-accent-hover: #adff20;
+  --color-accent-muted: #405823;
+  --color-accent-ink: #0a1101;
+  --color-signal: #5de4ff;
+  --color-signal-muted: #173f46;
+  --color-flare: #ff715b;
 
   /* Color — semantic */
-  --color-success: #4ade80;
-  --color-warning: #fbbf24;
-  --color-warning-muted: #7c5d12;
-  --color-danger: #f87171;
+  --color-success: #76ff9f;
+  --color-warning: #ffd166;
+  --color-warning-muted: #66501f;
+  --color-danger: #ff715b;
 
   /* Type */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Manrope Variable", "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Bricolage Grotesque", "Manrope", ui-sans-serif, sans-serif;
 
   /* Type scale — fluid clamps for desktop ↔ mobile */
   --text-display: clamp(3rem, 6vw, 5rem);     /* 48–80px */
@@ -47,24 +51,31 @@
   --text-small: 0.875rem;                     /* 14px */
   --text-xs: 0.75rem;                         /* 12px */
 
-  /* Tracking */
-  --tracking-tight: 0;
+  /* Tracking — negative for display sizes, positive for small caps */
+  --tracking-display: -0.065em;
+  --tracking-tight: -0.045em;
   --tracking-normal: 0;
+  --tracking-caps: 0.14em;
 
   /* Spacing — section rhythm */
   --space-section: clamp(3rem, 8vw, 6rem);     /* 48–96px */
   --space-section-lg: clamp(4rem, 10vw, 8rem); /* 64–128px */
 
   /* Container */
-  --container-max: 1200px;
+  --container-max: 1320px;
   --container-prose: 720px;
   --container-narrow: 880px;
 
-  /* Radius */
-  --radius-sm: 4px;
-  --radius: 8px;
-  --radius-lg: 8px;
-  --radius-xl: 8px;
+  /* Radius — tighter inside, softer on containers */
+  --radius-sm: 7px;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 28px;
+
+  /* Shadows — tinted to the navy base, light source above */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.48), 0 24px 70px -42px rgb(0 0 0 / 0.88);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.5), 0 34px 90px -44px rgb(0 0 0 / 0.92);
+  --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 24%, transparent), 0 18px 64px -24px color-mix(in srgb, var(--color-accent) 30%, transparent);
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -78,22 +89,28 @@
 /* -------------------------------------------------------------------------- */
 
 [data-theme="light"] {
-  --color-bg: #fafaf9;
-  --color-bg-elevated: #ffffff;
-  --color-bg-sunken: #f5f5f4;
+  --color-bg: #f3f4e9;
+  --color-bg-elevated: #fbfcf4;
+  --color-bg-sunken: #e8eadc;
   --color-surface: #ffffff;
-  --color-border: #e7e5e4;
-  --color-border-strong: #d6d3d1;
+  --color-border: #d8dccb;
+  --color-border-strong: #b7bea9;
 
-  --color-text: #18181b;
-  --color-text-muted: #52525b;
-  --color-text-subtle: #71717a;
+  --color-text: #171a13;
+  --color-text-muted: #51594b;
+  --color-text-subtle: #6e7866;
 
-  --color-accent: #0e7490;
-  --color-accent-hover: #155e75;
-  --color-accent-muted: #cffafe;
-  --color-accent-ink: #ecfeff;
-  --color-warning-muted: #fef3c7;
+  --color-accent: #436d00;
+  --color-accent-hover: #315700;
+  --color-accent-muted: #d9f2aa;
+  --color-accent-ink: #f7ffe9;
+  --color-signal: #00798b;
+  --color-signal-muted: #c7eaf0;
+  --color-flare: #b63222;
+  --color-warning-muted: #f2dfad;
+
+  --shadow-card: 0 1px 2px rgb(28 25 23 / 0.06), 0 8px 24px -12px rgb(28 25 23 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(28 25 23 / 0.06), 0 16px 40px -16px rgb(28 25 23 / 0.18);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -101,6 +118,7 @@
 /* -------------------------------------------------------------------------- */
 
 html {
+  scroll-behavior: smooth;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
@@ -119,12 +137,9 @@ body {
   margin: 0;
   min-height: 100vh;
   line-height: 1.6;
-  background:
-    linear-gradient(to right, color-mix(in srgb, var(--color-border) 34%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--color-border) 24%, transparent) 1px, transparent 1px),
-    var(--color-bg);
-  background-size: 72px 72px, 72px 72px, auto;
-  background-position: center top;
+  overflow-x: hidden;
+  isolation: isolate;
+  background: var(--color-bg);
 }
 
 a {
@@ -133,8 +148,8 @@ a {
 }
 
 ::selection {
-  background: var(--color-accent);
-  color: var(--color-bg);
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-text);
 }
 
 /* Focus ring — accessible, accent-colored */
@@ -151,4 +166,33 @@ a {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+
+/* Grain overlay — breaks digital flatness without touching legibility.
+   SVG turbulence noise inlined as a data URI; fixed and inert. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(56rem 38rem at 8% 8%, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent 72%),
+    radial-gradient(44rem 34rem at 92% 34%, color-mix(in srgb, var(--color-signal) 7%, transparent), transparent 74%),
+    linear-gradient(to right, color-mix(in srgb, var(--color-border) 26%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-border) 18%, transparent) 1px, transparent 1px);
+  background-size: auto, auto, 88px 88px, 88px 88px;
+  background-position: center top;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.042;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
 }

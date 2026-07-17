@@ -1,8 +1,8 @@
 import type { Locale } from '~/lib/i18n';
 
 /**
- * The 29 Developer Utilities shipped in Lingua today, mirrored from the
- * main repo's developerUtilities.ts (verified count: 29).
+ * The 31 Developer Utilities shipped in Lingua today, mirrored from the
+ * main repo's developerUtilities.ts (verified count: 31).
  *
  * Used by the home page strip and the /docs/utilities page (P1).
  */
@@ -28,6 +28,8 @@ export const UTILITIES: Utility[] = [
   { id: 'markdown-preview', name: { en: 'Markdown Preview', es: 'Preview Markdown' }, category: 'text', icon: 'file-text' },
   { id: 'lorem-ipsum', name: { en: 'Lorem Ipsum', es: 'Lorem Ipsum' }, category: 'text', icon: 'pilcrow' },
   { id: 'random-string', name: { en: 'Random String', es: 'Texto aleatorio' }, category: 'text', icon: 'shuffle' },
+  { id: 'mock-data', name: { en: 'Mock Data', es: 'Datos de prueba' }, category: 'data', icon: 'dices' },
+  { id: 'utility-pipelines', name: { en: 'Utility Pipelines', es: 'Pipelines de utilidades' }, category: 'data', icon: 'workflow' },
   { id: 'html-entity', name: { en: 'HTML Entity', es: 'Entidad HTML' }, category: 'web', icon: 'code' },
   { id: 'url-parser', name: { en: 'URL Parser', es: 'Parser URL' }, category: 'web', icon: 'link' },
   { id: 'url-encode', name: { en: 'URL Encode', es: 'URL Encode' }, category: 'web', icon: 'percent' },
