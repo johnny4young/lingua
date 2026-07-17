@@ -1,5 +1,9 @@
 {
   "ai.explain.title": "Explica este error",
+  "ai.explainCode.title": "Explica este código",
+  "ai.explainCode.action": "Explicar con IA",
+  "ai.explainCode.upsell": "La asistencia con IA es una función de pago. Pásate a Pro para explicar código con tu propio endpoint de IA.",
+  "ai.explainCode.unconfigured": "Agrega tu endpoint de IA, API key y modelo en Ajustes → IA para explicar código.",
   "ai.explain.close": "Cerrar",
   "ai.explain.cancel": "Cancelar",
   "ai.explain.send": "Enviar a la IA",

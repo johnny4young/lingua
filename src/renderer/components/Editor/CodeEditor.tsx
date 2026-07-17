@@ -34,6 +34,8 @@ import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
 import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { notifyDependencyDetectionPaste } from '../../hooks/useDependencyDetection';
+import { useEntitlement } from '../../hooks/useEntitlement';
+import { ExplainCodeDialog } from '../AI/ExplainCodeDialog';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
@@ -101,6 +103,24 @@ export function CodeEditor() {
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
 
   const activeTab = useActiveTab();
+
+  // SR-20a — "Explain with AI" over a selection (or the whole buffer) is
+  // the first main-editor AI affordance. Registered as a Monaco context-menu
+  // action, gated by LOCAL_AI (invisible on Free); it opens a consent-first
+  // dialog. The action closure reads live tab context through a ref so it
+  // never needs re-registering on every keystroke.
+  const aiEntitled = useEntitlement('LOCAL_AI');
+  const [explainCodeReq, setExplainCodeReq] = useState<{
+    code: string;
+    language: string;
+    filename?: string;
+  } | null>(null);
+  const explainCtxRef = useRef<{ language: string; name: string } | null>(null);
+  useEffect(() => {
+    explainCtxRef.current = activeTab
+      ? { language: activeTab.language, name: activeTab.name }
+      : null;
+  }, [activeTab]);
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
   // RL-108 — inline lint: per-language toggle over Monaco's native JS/TS
   // diagnostics + custom 'lingua-lint' markers + quick-fix provider.
@@ -236,6 +256,33 @@ export function CodeEditor() {
       setActiveEditor(null);
     };
   }, []);
+
+  // SR-20a — register/dispose the "Explain with AI" context-menu action.
+  // Only mounted when entitled, so it stays invisible on Free (matching
+  // the ExplainErrorButton/AskSqlButton convention).
+  useEffect(() => {
+    const editor = editorInstance;
+    if (!editor || !aiEntitled) return;
+    const action = editor.addAction({
+      id: 'lingua.ai.explainSelection',
+      label: t('ai.explainCode.action'),
+      contextMenuGroupId: '9_ai',
+      contextMenuOrder: 1,
+      run: (ed) => {
+        const model = ed.getModel();
+        const ctx = explainCtxRef.current;
+        if (!model || !ctx) return;
+        const selection = ed.getSelection();
+        const code =
+          selection && !selection.isEmpty()
+            ? model.getValueInRange(selection)
+            : model.getValue();
+        if (code.trim().length === 0) return;
+        setExplainCodeReq({ code, language: ctx.language, filename: ctx.name });
+      },
+    });
+    return () => action.dispose();
+  }, [editorInstance, aiEntitled, t]);
 
   useEffect(() => {
     clearDecorations(editorRef.current);
@@ -379,6 +426,14 @@ export function CodeEditor() {
         />
       </div>
       <VimStatusBar ref={vimStatusBarRef} vimEnabled={vimMode} />
+      {explainCodeReq ? (
+        <ExplainCodeDialog
+          code={explainCodeReq.code}
+          language={explainCodeReq.language}
+          filename={explainCodeReq.filename}
+          onClose={() => setExplainCodeReq(null)}
+        />
+      ) : null}
     </div>
   );
 }
