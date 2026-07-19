@@ -25,6 +25,13 @@ describe('HttpEmptyState (SR-38)', () => {
     expect(onCreate).toHaveBeenCalledOnce();
   });
 
+  it('uses the shared focus-ring contract for the primary action', () => {
+    render(<HttpEmptyState onCreate={vi.fn()} />);
+    expect(screen.getByTestId('http-workspace-empty-create').className).toContain(
+      'focus-ring'
+    );
+  });
+
   it('surfaces the import discovery hint with the resolved shortcut', () => {
     render(<HttpEmptyState onCreate={vi.fn()} />);
     const hint = screen.getByTestId('http-workspace-empty-import-hint');

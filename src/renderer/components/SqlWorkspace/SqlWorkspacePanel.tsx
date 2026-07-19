@@ -667,7 +667,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onImportFile={(file) => handleStartImport(file, 'picker')}
       />
       <Group
-        orientation="vertical"
+        orientation="horizontal"
         defaultLayout={layout.defaultLayout}
         onLayoutChanged={layout.onLayoutChanged}
         resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}

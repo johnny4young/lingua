@@ -425,7 +425,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       className="flex h-full min-w-0 flex-col"
     >
       <Group
-        orientation="vertical"
+        orientation="horizontal"
         defaultLayout={layout.defaultLayout}
         onLayoutChanged={layout.onLayoutChanged}
         resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}

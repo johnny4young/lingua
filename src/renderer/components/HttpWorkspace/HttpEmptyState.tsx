@@ -58,7 +58,7 @@ export function HttpEmptyState({ onCreate }: { onCreate: () => void }) {
               type="button"
               onClick={onCreate}
               data-testid="http-workspace-empty-create"
-              className="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+              className="focus-ring inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover"
             >
               <Plus size={13} aria-hidden="true" />
               {t('httpWorkspace.empty.cta')}

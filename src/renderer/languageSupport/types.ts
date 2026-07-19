@@ -19,6 +19,24 @@ export interface MonacoBasicLanguageModule {
   language: MonacoTokensProvider;
 }
 
+/**
+ * Bundled Monaco tokenizers that Lingua can load lazily. Keeping this list
+ * closed makes descriptor-to-loader drift a compile-time error instead of a
+ * silent fallback to an unhighlighted editor.
+ */
+export type MonacoBasicLanguageId =
+  | 'javascript'
+  | 'typescript'
+  | 'go'
+  | 'python'
+  | 'rust'
+  | 'lua'
+  | 'ruby'
+  | 'yaml'
+  | 'dockerfile'
+  | 'shell'
+  | 'ini';
+
 interface BaseMonacoLanguageContribution {
   id: string;
   extensions: readonly string[];
@@ -36,7 +54,7 @@ export type MonacoLanguageContribution =
        * Vite's `__vitePreload` helper into the Monaco-core chunk, which is
        * what kept Monaco core in the web `initial` bundle.
        */
-      basicLanguage: string;
+      basicLanguage: MonacoBasicLanguageId;
       config?: never;
       language?: never;
     })

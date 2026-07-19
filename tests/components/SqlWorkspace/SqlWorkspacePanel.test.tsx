@@ -58,8 +58,18 @@ function happyPathEngine(): DuckDbEngineHandle {
 }
 
 vi.mock('react-resizable-panels', () => ({
-  Group: ({ children, className }: PropsWithChildren<{ className?: string }>) => (
-    <div className={className}>{children}</div>
+  Group: ({
+    children,
+    className,
+    orientation,
+  }: PropsWithChildren<{ className?: string; orientation?: string }>) => (
+    <div
+      className={className}
+      data-testid="sql-workspace-layout"
+      data-orientation={orientation}
+    >
+      {children}
+    </div>
   ),
   Panel: ({ children }: PropsWithChildren<{ id?: string }>) => <div>{children}</div>,
   useDefaultLayout: () => ({
@@ -174,6 +184,13 @@ describe('SqlWorkspacePanel', () => {
     expect(screen.getByTestId('sql-workspace-panel')).toBeTruthy();
     // No active query → empty title in the editor slot.
     expect(screen.getByTestId('sql-query-list')).toBeTruthy();
+  });
+
+  it('lays out query list, editor, and results as columns', () => {
+    render(<SqlWorkspacePanel />);
+    expect(screen.getByTestId('sql-workspace-layout').dataset.orientation).toBe(
+      'horizontal'
+    );
   });
 
   it('createQuery makes the editor available', async () => {

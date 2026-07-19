@@ -1,4 +1,4 @@
-import type { MonacoBasicLanguageModule } from './types';
+import type { MonacoBasicLanguageId, MonacoBasicLanguageModule } from './types';
 
 /**
  * SR-01 — the single home for every `import('monaco-editor/esm/vs/basic-languages/…')`.
@@ -20,7 +20,7 @@ import type { MonacoBasicLanguageModule } from './types';
  * Adding a language: register its basic-language id here AND set
  * `monaco.basicLanguage` to the same id on the descriptor.
  */
-const LOADERS: Record<string, () => Promise<MonacoBasicLanguageModule>> = {
+const LOADERS: Record<MonacoBasicLanguageId, () => Promise<MonacoBasicLanguageModule>> = {
   javascript: () => import('monaco-editor/esm/vs/basic-languages/javascript/javascript.js'),
   typescript: () => import('monaco-editor/esm/vs/basic-languages/typescript/typescript.js'),
   go: () => import('monaco-editor/esm/vs/basic-languages/go/go.js'),
@@ -35,14 +35,11 @@ const LOADERS: Record<string, () => Promise<MonacoBasicLanguageModule>> = {
 };
 
 /**
- * Load a bundled Monaco basic language by id. Returns `null` for an unknown
- * id so the caller can leave the language registered as a plain mode rather
- * than throwing.
+ * Load a bundled Monaco basic language by id. The closed id union and the
+ * exhaustive loader record guarantee that every descriptor has a tokenizer.
  */
 export async function loadBasicLanguage(
-  id: string
-): Promise<MonacoBasicLanguageModule | null> {
-  const loader = LOADERS[id];
-  if (!loader) return null;
-  return loader();
+  id: MonacoBasicLanguageId
+): Promise<MonacoBasicLanguageModule> {
+  return LOADERS[id]();
 }

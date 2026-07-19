@@ -280,8 +280,10 @@ export function HttpRequestEditor({
       queryParams: params,
       ...(auth ? { auth } : {}),
       body: body ?? { kind: 'none' },
+      captures,
+      assertions,
     };
-  }, [request, method, url, headers, params, auth, body]);
+  }, [request, method, url, headers, params, auth, body, captures, assertions]);
 
   const flushDraftBeforeSend = useCallback((): HttpRequestV1 | null => {
     const draft = buildDraftRequest();
@@ -306,6 +308,8 @@ export function HttpRequestEditor({
       queryParams: draft.queryParams,
       ...(draft.auth ? { auth: draft.auth } : {}),
       body: draft.body,
+      captures: draft.captures,
+      assertions: draft.assertions,
     });
     return draft;
   }, [buildDraftRequest, bodyExceedsCap, onPatch, pushBodyTooLargeNotice, request.id]);

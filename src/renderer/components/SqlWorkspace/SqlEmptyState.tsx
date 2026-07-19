@@ -39,7 +39,7 @@ export function SqlEmptyState({
               type="button"
               onClick={onCreate}
               data-testid="sql-workspace-empty-create"
-              className="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+              className="focus-ring inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover"
             >
               <Plus size={13} aria-hidden="true" />
               {t('sqlWorkspace.empty.cta')}
@@ -48,7 +48,7 @@ export function SqlEmptyState({
               type="button"
               onClick={() => inputRef.current?.click()}
               data-testid="sql-workspace-empty-import"
-              className="inline-flex items-center gap-2 rounded-md border border-border-subtle bg-bg-panel-alt px-3.5 py-2 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+              className="focus-ring inline-flex items-center gap-2 rounded-md border border-border-subtle bg-bg-panel-alt px-3.5 py-2 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base"
             >
               <FilePlus2 size={13} aria-hidden="true" />
               {t('sqlWorkspace.import.button')}

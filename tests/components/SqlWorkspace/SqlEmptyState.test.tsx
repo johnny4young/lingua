@@ -21,6 +21,16 @@ describe('SqlEmptyState (SR-38)', () => {
     expect(onCreate).toHaveBeenCalledOnce();
   });
 
+  it('uses the shared focus-ring contract for both actions', () => {
+    render(<SqlEmptyState onCreate={vi.fn()} onImportFile={vi.fn()} />);
+    expect(screen.getByTestId('sql-workspace-empty-create').className).toContain(
+      'focus-ring'
+    );
+    expect(screen.getByTestId('sql-workspace-empty-import').className).toContain(
+      'focus-ring'
+    );
+  });
+
   it('opens the accepted-file picker from the Import data button', async () => {
     const user = userEvent.setup();
     render(<SqlEmptyState onCreate={vi.fn()} onImportFile={vi.fn()} />);

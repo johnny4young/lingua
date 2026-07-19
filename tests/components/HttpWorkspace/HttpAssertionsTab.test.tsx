@@ -69,4 +69,39 @@ describe('HttpAssertionsTab (SR-27)', () => {
         .disabled
     ).toBe(true);
   });
+
+  it('uses row-scoped accessible names when multiple tests are present', () => {
+    render(
+      <HttpAssertionsTab
+        assertions={[
+          { ...createBlankAssertion(), id: 'a1' },
+          { ...createBlankAssertion(), id: 'a2' },
+        ]}
+        onAdd={vi.fn()}
+        onUpdate={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Test 1 source')).toBeTruthy();
+    expect(screen.getByLabelText('Test 2 source')).toBeTruthy();
+    expect(screen.getByLabelText('Test 1 expected value')).toBeTruthy();
+    expect(screen.getByLabelText('Test 2 expected value')).toBeTruthy();
+  });
+
+  it('keeps assertion actions on the shared focus-ring contract', () => {
+    render(
+      <HttpAssertionsTab
+        assertions={[{ ...createBlankAssertion(), id: 'a1' }]}
+        onAdd={vi.fn()}
+        onUpdate={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('http-request-editor-assert-add').className).toContain(
+      'focus-ring'
+    );
+    expect(screen.getByLabelText('Remove test 1').className).toContain('focus-ring');
+  });
 });
