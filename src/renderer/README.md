@@ -136,6 +136,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [trustEventStore.ts](stores/trustEventStore.ts) | Privacy + Trust event ledger surfaced in Settings                  |
 | [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities history, output, and pipeline state |
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | T19 — BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
+| [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | SR-20a — single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
 
 ## Naming conventions
 

@@ -6,7 +6,7 @@ export const luaLanguageSupport = {
     id: 'lua',
     extensions: ['.lua'],
     aliases: ['Lua'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/lua/lua.js'),
+    basicLanguage: 'lua',
   },
   loadEditorProviders: async () => {
     const { createLuaCompletionProvider } = await import(

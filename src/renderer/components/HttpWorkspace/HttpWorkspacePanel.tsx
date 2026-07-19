@@ -8,7 +8,6 @@
  */
 
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
-import { SendHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
@@ -34,7 +33,7 @@ import { executeHttpRequest } from '../../runtime/httpClient';
 import { buildHttpResponseCapsule } from '../../runtime/httpResponseCapsule';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { trackHttpRequestExecuted } from '../../hooks/httpWorkspaceTelemetry';
-import { EmptyState } from '../ui/EmptyState';
+import { HttpEmptyState } from './HttpEmptyState';
 import { HttpRequestList } from './HttpRequestList';
 import { HttpRequestEditor } from './HttpRequestEditor';
 import { HttpResponsePreview } from './HttpResponsePreview';
@@ -426,7 +425,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       className="flex h-full min-w-0 flex-col"
     >
       <Group
-        orientation="vertical"
+        orientation="horizontal"
         defaultLayout={layout.defaultLayout}
         onLayoutChanged={layout.onLayoutChanged}
         resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
@@ -457,13 +456,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               onManageEnvironment={handleManageEnvironment}
             />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center px-4 py-6">
-              <EmptyState
-                icon={<SendHorizontal size={18} aria-hidden="true" />}
-                title={t('httpWorkspace.empty.title')}
-                description={t('httpWorkspace.empty.body')}
-              />
-            </div>
+            <HttpEmptyState onCreate={handleCreate} />
           )}
         </Panel>
         <Panel id="http-response-preview" defaultSize="30%" minSize={220}>
@@ -477,6 +470,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                     ? `${activeRequest.method} ${activeRequest.url}`
                     : undefined
                 }
+                assertions={activeRequest?.assertions}
               />
             </div>
             <HttpResponseHistory

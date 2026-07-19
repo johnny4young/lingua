@@ -6,7 +6,7 @@ export const javascriptLanguageSupport = {
     id: 'javascript',
     extensions: ['.js', '.jsx', '.mjs', '.cjs'],
     aliases: ['JavaScript', 'javascript'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/javascript/javascript.js'),
+    basicLanguage: 'javascript',
   },
   loadEditorProviders: async () => {
     const { createMagicCommentCompletionProvider, createMagicCommentHoverProvider } =

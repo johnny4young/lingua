@@ -161,13 +161,20 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
     await expect(page.getByTestId('utilities-search-input')).toBeFocused();
 
+    // SR-36 — the browse view is grouped by category, so ArrowDown from
+    // the default (json) walks the "Data" section: json → number-base →
+    // mock-data.
     await page.keyboard.press('ArrowDown');
-    await expect(page.getByTestId('utility-item-base64')).toBeFocused();
-    await expect(page.getByRole('heading', { name: 'Base64 Encoder', exact: true })).toBeVisible();
+    await expect(page.getByTestId('utility-item-number-base')).toBeFocused();
+    await expect(
+      page.getByRole('heading', { name: 'Number Base Converter', exact: true })
+    ).toBeVisible();
 
     await page.keyboard.press('ArrowDown');
-    await expect(page.getByTestId('utility-item-url')).toBeFocused();
-    await expect(page.getByRole('heading', { name: 'URL Encoder', exact: true })).toBeVisible();
+    await expect(page.getByTestId('utility-item-mock-data')).toBeFocused();
+    await expect(
+      page.getByRole('heading', { name: 'Mock Data Generator', exact: true })
+    ).toBeVisible();
 
     await expect(
       page.getByRole('heading', { name: 'Built-in utilities', exact: true })

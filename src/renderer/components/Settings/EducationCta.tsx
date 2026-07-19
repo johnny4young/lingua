@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { startEducation } from '../../services/educationServer';
 import { getDeviceName, getOrMintDeviceId, getOs } from '../../services/deviceFingerprint';
+import { isLikelyEmail } from '../../utils/email';
 import { SpecRow } from '../ui/SpecRow';
 
 /**
@@ -33,12 +34,20 @@ export function EducationCta({
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmationSentTo, setConfirmationSentTo] = useState<string | null>(null);
+  // UX-audit tail (SR-39) — inline aria-invalid + error on a rejected
+  // email, mirroring the T14 license-paste pattern (see TrialCta).
+  const [emailError, setEmailError] = useState(false);
+  const emailErrorId = useId();
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
 
   const handleStart = async () => {
     if (busy) return;
     const trimmed = email.trim();
     if (trimmed.length === 0) return;
+    if (!isLikelyEmail(trimmed)) {
+      setEmailError(true);
+      return;
+    }
     setBusy(true);
     try {
       const result = await startEducation({
@@ -85,6 +94,7 @@ export function EducationCta({
           });
           return;
         case 'invalid-input':
+          setEmailError(true);
           pushStatusNotice({
             tone: 'error',
             messageKey: 'license.education.notice.invalidEmail',
@@ -148,10 +158,29 @@ export function EducationCta({
             value={email}
             spellCheck={false}
             autoComplete="email"
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              if (emailError) setEmailError(false);
+            }}
             data-testid="education-email-input"
-            className="w-full rounded-md border border-border-default bg-bg-base px-3 py-2 text-body-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
+            aria-invalid={emailError}
+            aria-describedby={emailError ? emailErrorId : undefined}
+            className={`w-full rounded-md border bg-bg-base px-3 py-2 text-body-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle ${
+              emailError
+                ? 'border-error/70 focus:border-error'
+                : 'border-border-default focus:border-accent/55'
+            }`}
           />
+          {emailError ? (
+            <p
+              id={emailErrorId}
+              role="alert"
+              data-testid="education-email-error"
+              className="w-full text-body-sm text-error"
+            >
+              {t('license.education.invalidEmail')}
+            </p>
+          ) : null}
           <button
             type="button"
             onClick={() => void handleStart()}

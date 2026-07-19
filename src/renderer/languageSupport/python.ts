@@ -7,7 +7,7 @@ export const pythonLanguageSupport = {
     id: 'python',
     extensions: ['.py'],
     aliases: ['Python'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/python/python.js'),
+    basicLanguage: 'python',
   },
   loadEditorProviders: async () => {
     const [

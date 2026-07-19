@@ -65,7 +65,7 @@ export function HttpParamsTab({
               value={p.key}
               onChange={(event) => onUpdate(i, { key: event.target.value })}
               placeholder={t('httpWorkspace.editor.params.name.placeholder')}
-              aria-label={t('httpWorkspace.editor.params.name.placeholder')}
+              aria-label={t('httpWorkspace.editor.params.nameAria', { index: i + 1 })}
               data-testid="http-request-editor-param-name"
               className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
             />
@@ -74,14 +74,14 @@ export function HttpParamsTab({
               value={p.value}
               onChange={(event) => onUpdate(i, { value: event.target.value })}
               placeholder={t('httpWorkspace.editor.params.value.placeholder')}
-              aria-label={t('httpWorkspace.editor.params.value.placeholder')}
+              aria-label={t('httpWorkspace.editor.params.valueAria', { index: i + 1 })}
               data-testid="http-request-editor-param-value"
               className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
             />
             <button
               type="button"
               onClick={() => onRemove(i)}
-              aria-label={t('httpWorkspace.editor.params.remove.aria')}
+              aria-label={t('httpWorkspace.editor.params.removeAria', { index: i + 1 })}
               className="inline-flex h-6 w-6 items-center justify-center rounded text-fg-subtle transition-colors hover:text-error-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
             >
               <Trash2 size={11} aria-hidden="true" />

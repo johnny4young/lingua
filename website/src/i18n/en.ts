@@ -13,6 +13,8 @@ export const en = {
     downloadLingua: 'Download Lingua',
     downloadForDesktop: 'Download for desktop',
     viewOnGitHub: 'View on GitHub',
+    tryInBrowser: 'Try in browser',
+    tryInBrowserNote: 'No install — runs in your browser',
     browseDocs: 'Browse the docs',
     seePricing: 'See pricing',
     seeFullComparison: 'See full comparison',
@@ -36,6 +38,7 @@ export const en = {
     links: {
       home: 'Home',
       features: 'Features',
+      compare: 'Compare',
       pricing: 'Pricing',
       releases: 'Releases',
       changelog: 'Changelog',
@@ -65,10 +68,10 @@ export const en = {
         { value: '0', label: 'telemetry before consent' },
       ],
       bullets: [
+        'Node runtime on desktop — require() your project node_modules.',
         'Local-first AI — explain errors, apply fixes, opt-in and BYO-key.',
         'Pyodide vendored — Python runs offline.',
         'Telemetry off by default.',
-        'Vim mode, command palette, 31 dev utilities.',
       ],
       os: {
         generic: 'Download Lingua',
@@ -82,7 +85,7 @@ export const en = {
     },
     why: {
       eyebrow: 'Why Lingua',
-      title: 'Three things you can verify before you trust the install.',
+      title: 'Everything here you can verify before you trust the install.',
       cards: [
         {
           icon: 'package',
@@ -95,6 +98,11 @@ export const en = {
           body: 'Pyodide v0.26.4 ships inside the desktop binary. Open Lingua on a plane, write Python, hit run. The web build does the same after the first load.',
         },
         {
+          icon: 'terminal',
+          title: 'Real Node, not a sandbox toy',
+          body: 'Switch a JS or TS tab to the desktop Node runtime and you get the real thing: fs, path, http, and require() of every package already in your project node_modules. Lingua spawns Node directly — never through a shell — with an allow-listed environment.',
+        },
+        {
           icon: 'shield-check',
           title: 'Telemetry off by default',
           body: 'Nothing leaves your machine until you opt in. We never transmit your code. Read the privacy page — it says exactly what we collect when you do turn it on.',
@@ -105,6 +113,27 @@ export const en = {
           body: 'Past runs stay close to the editor, so a quick scratchpad can still show what changed between attempts.',
         },
       ],
+    },
+    compare: {
+      eyebrow: 'Honest comparison',
+      capability: 'Capability',
+      chooseLingua: 'Choose Lingua when',
+      chooseOther: 'Choose {competitor} when',
+      cta: 'Try Lingua in your browser',
+      ctaNote: 'No install, no account.',
+      backToAll: 'All comparisons',
+      indexTitle: 'How Lingua compares',
+      indexLede: 'Honest, verifiable side-by-sides with the tools developers actually weigh Lingua against. Each one says plainly when the other tool is the better pick.',
+      indexCardCta: 'Read the comparison',
+      vsLabel: 'Lingua vs',
+    },
+    trust: {
+      aria: 'What you can verify about Lingua',
+      notarized: 'Notarized by Apple',
+      sourceAvailable: 'Source-available',
+      noTelemetry: '0 telemetry by default',
+      checksums: 'SHA-256 checksums published',
+      velocity: '{count} releases since {since}',
     },
     whatsNew: {
       eyebrow: "New in 0.12",

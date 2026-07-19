@@ -13,6 +13,8 @@ export const es = {
     downloadLingua: 'Descargar Lingua',
     downloadForDesktop: 'Descargar para desktop',
     viewOnGitHub: 'Ver en GitHub',
+    tryInBrowser: 'Pruébalo en el navegador',
+    tryInBrowserNote: 'Sin instalar — corre en tu navegador',
     browseDocs: 'Ver documentación',
     seePricing: 'Ver precios',
     seeFullComparison: 'Ver comparación completa',
@@ -36,6 +38,7 @@ export const es = {
     links: {
       home: 'Inicio',
       features: 'Funciones',
+      compare: 'Comparar',
       pricing: 'Precios',
       releases: 'Descargas',
       changelog: 'Cambios',
@@ -65,10 +68,10 @@ export const es = {
         { value: '0', label: 'telemetría antes del consentimiento' },
       ],
       bullets: [
+        'Runtime Node en desktop — require() de los node_modules de tu proyecto.',
         'IA local-first — explica errores y aplica fixes, opt-in y con tu clave.',
         'Pyodide incluido — Python corre offline.',
         'Telemetría desactivada por defecto.',
-        'Modo Vim, paleta de comandos y 31 utilidades.',
       ],
       os: {
         generic: 'Descargar Lingua',
@@ -82,7 +85,7 @@ export const es = {
     },
     why: {
       eyebrow: 'Por qué Lingua',
-      title: 'Tres cosas que puedes verificar antes de confiar en la instalación.',
+      title: 'Todo esto lo puedes verificar antes de confiar en la instalación.',
       cards: [
         {
           icon: 'package',
@@ -95,6 +98,11 @@ export const es = {
           body: 'Pyodide v0.26.4 viene dentro del binario desktop. Abre Lingua en un avión, escribe Python y ejecuta. La versión web hace lo mismo después de la primera carga.',
         },
         {
+          icon: 'terminal',
+          title: 'Node de verdad, no un sandbox de juguete',
+          body: 'Cambia una pestaña JS o TS al runtime Node de desktop y tienes lo real: fs, path, http y require() de cada paquete que ya está en los node_modules de tu proyecto. Lingua ejecuta Node directamente — nunca a través de un shell — con un entorno de variables restringido a una allow-list.',
+        },
+        {
           icon: 'shield-check',
           title: 'Telemetría desactivada por defecto',
           body: 'Nada sale de tu máquina hasta que das consentimiento. Nunca transmitimos tu código. La página de privacidad explica exactamente qué se recopila si la activas.',
@@ -105,6 +113,27 @@ export const es = {
           body: 'Las ejecuciones anteriores quedan cerca del editor, para que un scratchpad rápido también muestre qué cambió entre intentos.',
         },
       ],
+    },
+    compare: {
+      eyebrow: 'Comparación honesta',
+      capability: 'Capacidad',
+      chooseLingua: 'Elige Lingua cuando',
+      chooseOther: 'Elige {competitor} cuando',
+      cta: 'Prueba Lingua en tu navegador',
+      ctaNote: 'Sin instalar, sin cuenta.',
+      backToAll: 'Todas las comparaciones',
+      indexTitle: 'Cómo se compara Lingua',
+      indexLede: 'Comparativos honestos y verificables con las herramientas contra las que los developers realmente sopesan Lingua. Cada uno dice con claridad cuándo la otra herramienta es la mejor opción.',
+      indexCardCta: 'Leer la comparación',
+      vsLabel: 'Lingua vs',
+    },
+    trust: {
+      aria: 'Lo que puedes verificar sobre Lingua',
+      notarized: 'Notarizado por Apple',
+      sourceAvailable: 'Source-available',
+      noTelemetry: '0 telemetría por defecto',
+      checksums: 'Checksums SHA-256 publicados',
+      velocity: '{count} releases desde {since}',
     },
     whatsNew: {
       eyebrow: "Nuevo en 0.12",

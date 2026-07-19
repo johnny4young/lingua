@@ -85,6 +85,69 @@ describe('HttpRequestEditor', () => {
     );
   });
 
+  it('sends and persists the latest captures and assertions before debounce settles', () => {
+    const request = {
+      ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }),
+      url: 'https://api.example.com/session',
+    };
+    const onPatch = vi.fn();
+    const onSend = vi.fn();
+
+    render(
+      <HttpRequestEditor
+        request={request}
+        onPatch={onPatch}
+        onSend={onSend}
+        isExecuting={false}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('http-request-editor-tab-capture'));
+    fireEvent.click(screen.getByTestId('http-request-editor-capture-add'));
+    fireEvent.change(screen.getByTestId('http-request-editor-capture-path'), {
+      target: { value: 'data.token' },
+    });
+    fireEvent.change(screen.getByTestId('http-request-editor-capture-target'), {
+      target: { value: 'TOKEN' },
+    });
+
+    fireEvent.click(screen.getByTestId('http-request-editor-tab-assert'));
+    fireEvent.click(screen.getByTestId('http-request-editor-assert-add'));
+    fireEvent.change(screen.getByTestId('http-request-editor-assert-expected'), {
+      target: { value: '201' },
+    });
+
+    fireEvent.click(screen.getByTestId('http-request-editor-send'));
+
+    const expectedLists = expect.objectContaining({
+      captures: [
+        expect.objectContaining({
+          source: 'body-json',
+          path: 'data.token',
+          targetVariable: 'TOKEN',
+          enabled: true,
+        }),
+      ],
+      assertions: [
+        expect.objectContaining({
+          source: 'status',
+          comparator: 'equals',
+          expected: '201',
+          enabled: true,
+        }),
+      ],
+    });
+    expect(onSend).toHaveBeenCalledOnce();
+    expect(onSend).toHaveBeenCalledWith(expectedLists);
+    expect(onPatch).toHaveBeenCalledOnce();
+    expect(onPatch).toHaveBeenCalledWith('r1', expectedLists);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(onPatch).toHaveBeenCalledOnce();
+  });
+
   // RQ-02 — switching the active request inside the 500 ms debounce
   // quiet window must flush the in-flight edit onto the request it was
   // typed into (A), never onto the newly-active request (B).

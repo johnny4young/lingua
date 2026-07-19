@@ -6,7 +6,7 @@ export const goLanguageSupport = {
     id: 'go',
     extensions: ['.go'],
     aliases: ['Go'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/go/go.js'),
+    basicLanguage: 'go',
   },
   loadEditorProviders: async () => {
     const [{ createGoCompletionProvider }, { createGoHoverProvider }, { createGoSignatureProvider }] =

@@ -13,7 +13,6 @@
  */
 
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
-import { Database, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
@@ -49,7 +48,7 @@ import {
 import { useSqlImport } from '../../hooks/useSqlImport';
 import type { SqlImportSource } from '../../hooks/sqlWorkspaceTelemetry';
 import { buildSelectStarter } from './sqlResultFormatters';
-import { EmptyState } from '../ui/EmptyState';
+import { SqlEmptyState } from './SqlEmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
 import { SqlResultPreview } from './SqlResultPreview';
@@ -668,7 +667,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onImportFile={(file) => handleStartImport(file, 'picker')}
       />
       <Group
-        orientation="vertical"
+        orientation="horizontal"
         defaultLayout={layout.defaultLayout}
         onLayoutChanged={layout.onLayoutChanged}
         resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
@@ -722,27 +721,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
               }
             />
           ) : (
-            <div
-              data-testid="sql-workspace-empty"
-              className="grid h-full place-items-center px-6 py-10"
-            >
-              <EmptyState
-                icon={<Database size={19} aria-hidden="true" />}
-                title={t('sqlWorkspace.empty.title')}
-                description={t('sqlWorkspace.empty.body')}
-                action={
-                  <button
-                    type="button"
-                    onClick={handleCreate}
-                    data-testid="sql-workspace-empty-create"
-                    className="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
-                  >
-                    <Plus size={13} aria-hidden="true" />
-                    {t('sqlWorkspace.empty.cta')}
-                  </button>
-                }
-              />
-            </div>
+            <SqlEmptyState
+              onCreate={handleCreate}
+              onImportFile={(file) => handleStartImport(file, 'picker')}
+            />
           )}
         </Panel>
         <Panel id="sql-result-preview" defaultSize="35%" minSize={220}>

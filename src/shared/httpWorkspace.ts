@@ -190,6 +190,67 @@ export interface HttpCaptureRule {
 }
 
 /**
+ * SR-27 — where a response assertion reads its actual value from. The
+ * first three mirror `HttpCaptureSource` (and reuse the same extractor);
+ * `response-time` checks the round-trip duration in milliseconds.
+ */
+export type HttpAssertionSource =
+  | 'status'
+  | 'header'
+  | 'body-json'
+  | 'response-time';
+
+/**
+ * How an assertion compares the actual value to `expected`.
+ *   - `equals` / `not-equals` — string-equality (numbers compared as
+ *     strings, so `status equals 200`).
+ *   - `contains` — substring of the actual value.
+ *   - `exists` / `not-exists` — the source produced a value at all
+ *     (`expected` is ignored; e.g. "header x-request-id exists").
+ *   - `less-than` / `greater-than` — numeric compare (for
+ *     `response-time` or a numeric body/status value).
+ */
+export type HttpAssertionComparator =
+  | 'equals'
+  | 'not-equals'
+  | 'contains'
+  | 'exists'
+  | 'not-exists'
+  | 'less-than'
+  | 'greater-than';
+
+/**
+ * A post-response assertion. After a request settles, each enabled
+ * assertion reads a value from the response (status, a header, a JSON
+ * body path, or the round-trip time) and checks it against `expected`
+ * with `comparator`. Assertions live on the request so they persist and
+ * export with it — the "Postman-style tests" surface without the cloud.
+ */
+export interface HttpAssertion {
+  /** Opaque client-side row id (React key + drag handle). */
+  id: string;
+  source: HttpAssertionSource;
+  /**
+   * The extraction path: a JSON path for `body-json`, a header name for
+   * `header`, ignored for `status` / `response-time`.
+   */
+  path: string;
+  comparator: HttpAssertionComparator;
+  /** The expected value. Ignored for `exists` / `not-exists`. */
+  expected: string;
+  /** Disabled rows are inert (kept for quick toggling). */
+  enabled: boolean;
+}
+
+/** The outcome of evaluating one assertion against a response. */
+export interface HttpAssertionResult {
+  readonly id: string;
+  readonly pass: boolean;
+  /** The value the source produced, or null when it missed. */
+  readonly actual: string | null;
+}
+
+/**
  * Closed enum of auth schemes the Auth sub-tab supports. `'none'` is
  * the default (no header injected). Each non-none scheme injects a
  * single header on send:
@@ -256,6 +317,12 @@ export interface HttpRequestV1 {
    * field existed load with no captures.
    */
   captures?: HttpCaptureRule[];
+  /**
+   * SR-27 — optional post-response assertions (Postman-style tests).
+   * Absent / empty means no assertions. Back-compat: requests persisted
+   * before this field existed load with no assertions.
+   */
+  assertions?: HttpAssertion[];
   /** Optional per-request timeout override. Capped at `MAX_REQUEST_TIMEOUT_MS`. */
   timeoutMs?: number;
   /** ISO timestamp (millisecond precision). */
@@ -390,6 +457,39 @@ function parseCaptureRuleEntry(value: unknown): HttpCaptureRule | null {
   return { id, source, path, targetVariable, enabled };
 }
 
+function isAssertionSource(value: unknown): value is HttpAssertionSource {
+  return (
+    value === 'status' ||
+    value === 'header' ||
+    value === 'body-json' ||
+    value === 'response-time'
+  );
+}
+
+function isAssertionComparator(value: unknown): value is HttpAssertionComparator {
+  return (
+    value === 'equals' ||
+    value === 'not-equals' ||
+    value === 'contains' ||
+    value === 'exists' ||
+    value === 'not-exists' ||
+    value === 'less-than' ||
+    value === 'greater-than'
+  );
+}
+
+function parseAssertionEntry(value: unknown): HttpAssertion | null {
+  if (!isRecord(value)) return null;
+  const { id, source, path, comparator, expected, enabled } = value;
+  if (typeof id !== 'string' || id.length === 0) return null;
+  if (!isAssertionSource(source)) return null;
+  if (typeof path !== 'string') return null;
+  if (!isAssertionComparator(comparator)) return null;
+  if (typeof expected !== 'string') return null;
+  if (typeof enabled !== 'boolean') return null;
+  return { id, source, path, comparator, expected, enabled };
+}
+
 function isHttpAuthKind(value: unknown): value is HttpAuthKind {
   return (
     value === 'none' ||
@@ -490,6 +590,19 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     }
     captures = parsedCaptures;
   }
+  // Back-compat: `assertions` is optional. Present-but-not-an-array →
+  // reject the entry; present array → every row must be valid.
+  let assertions: HttpAssertion[] | undefined;
+  if (value.assertions !== undefined) {
+    if (!Array.isArray(value.assertions)) return null;
+    const parsedAssertions: HttpAssertion[] = [];
+    for (const raw of value.assertions) {
+      const parsed = parseAssertionEntry(raw);
+      if (parsed === null) return null;
+      parsedAssertions.push(parsed);
+    }
+    assertions = parsedAssertions;
+  }
   const createdAt = value.createdAt;
   const updatedAt = value.updatedAt;
   if (typeof createdAt !== 'string') return null;
@@ -512,6 +625,7 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     ...(auth !== undefined ? { auth } : {}),
     ...(body ? { body } : {}),
     ...(captures !== undefined ? { captures } : {}),
+    ...(assertions !== undefined ? { assertions } : {}),
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     createdAt,
     updatedAt,
@@ -837,6 +951,18 @@ export function createBlankCaptureRule(): HttpCaptureRule {
   };
 }
 
+/** SR-27 — a fresh assertion row: status equals (empty expected). */
+export function createBlankAssertion(): HttpAssertion {
+  return {
+    id: crypto.randomUUID(),
+    source: 'status',
+    path: '',
+    comparator: 'equals',
+    expected: '',
+    enabled: true,
+  };
+}
+
 /**
  * Walk a JSON body by a dot/bracket path (`data.token`, `items[0].id`,
  * `items.0.id` — both index forms accepted). Returns the value as a
@@ -917,6 +1043,97 @@ export function applyCaptureRules(
     writes.push({ targetVariable: target, value });
   }
   return writes;
+}
+
+// ---------------------------------------------------------------------------
+// SR-27 — response assertions (Postman-style tests, evaluated locally).
+// ---------------------------------------------------------------------------
+
+/**
+ * Read the value an assertion checks. Reuses the capture extractor for
+ * status / header / body-json; `response-time` reads the response's own
+ * measured round-trip duration (ms). `null` on a miss.
+ */
+export function extractAssertionValue(
+  response: HttpResponseV1,
+  assertion: HttpAssertion
+): string | null {
+  if (assertion.source === 'response-time') {
+    return String(Math.round(response.durationMs));
+  }
+  // The remaining sources match HttpCaptureSource one-to-one.
+  return extractCaptureValue(response, {
+    id: assertion.id,
+    source: assertion.source,
+    path: assertion.path,
+    targetVariable: '',
+    enabled: true,
+  });
+}
+
+/**
+ * Evaluate one assertion against a response. Pure; never throws. Returns
+ * the pass/fail verdict plus the actual value (for the results UI).
+ */
+export function evaluateAssertion(
+  response: HttpResponseV1,
+  assertion: HttpAssertion
+): HttpAssertionResult {
+  const actual = extractAssertionValue(response, assertion);
+  const expected = assertion.expected.trim();
+
+  let pass: boolean;
+  switch (assertion.comparator) {
+    case 'exists':
+      pass = actual !== null;
+      break;
+    case 'not-exists':
+      pass = actual === null;
+      break;
+    case 'equals':
+      pass = actual !== null && actual === expected;
+      break;
+    case 'not-equals':
+      pass = actual === null || actual !== expected;
+      break;
+    case 'contains':
+      pass = actual !== null && actual.includes(expected);
+      break;
+    case 'less-than':
+    case 'greater-than': {
+      const actualNum = actual === null ? Number.NaN : Number(actual);
+      const expectedNum = Number(expected);
+      if (Number.isNaN(actualNum) || Number.isNaN(expectedNum)) {
+        pass = false;
+      } else {
+        pass =
+          assertion.comparator === 'less-than'
+            ? actualNum < expectedNum
+            : actualNum > expectedNum;
+      }
+      break;
+    }
+    default:
+      pass = false;
+  }
+
+  return { id: assertion.id, pass, actual };
+}
+
+/**
+ * Evaluate every enabled assertion against a response. Disabled rows are
+ * skipped entirely (not reported). Order is preserved.
+ */
+export function runAssertions(
+  response: HttpResponseV1,
+  assertions: ReadonlyArray<HttpAssertion>
+): HttpAssertionResult[] {
+  const results: HttpAssertionResult[] = [];
+  for (const assertion of assertions) {
+    if (!assertion.enabled) continue;
+    results.push(evaluateAssertion(response, assertion));
+  }
+  return results;
 }
 
 // ---------------------------------------------------------------------------

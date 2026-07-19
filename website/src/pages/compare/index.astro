@@ -1,0 +1,132 @@
+---
+import { Icon } from 'astro-icon/components';
+import Base from '~/layouts/Base.astro';
+import { allComparisons } from '~/lib/comparisons';
+import { type Locale, localizePath, t } from '~/lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale: Locale = Astro.props.locale ?? 'en';
+const copy = t(locale).home.compare;
+const comparisons = allComparisons();
+---
+
+<Base
+  title={`${copy.indexTitle} — Lingua`}
+  description={copy.indexLede}
+  locale={locale}
+>
+  <article class="container section compare-index">
+    <header class="compare-index-head">
+      <p class="eyebrow">{copy.eyebrow}</p>
+      <h1>{copy.indexTitle}</h1>
+      <p class="lede">{copy.indexLede}</p>
+    </header>
+
+    <ul class="compare-cards">
+      {
+        comparisons.map(entry => (
+          <li>
+            <a class="card compare-card" href={localizePath(locale, `/compare/${entry.slug}`)}>
+              <div class="compare-card-top">
+                <span class="vs">{copy.vsLabel}</span>
+                <h2>{entry.competitor}</h2>
+              </div>
+              <p>{entry.what[locale]}</p>
+              <span class="compare-card-cta">
+                {copy.indexCardCta}
+                <Icon name="lucide:arrow-right" />
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </article>
+</Base>
+
+<style>
+  .compare-index {
+    max-width: var(--container-narrow);
+  }
+  .compare-index-head {
+    margin-bottom: clamp(2rem, 5vw, 3rem);
+  }
+  .compare-index-head h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-h1);
+    letter-spacing: var(--tracking-display);
+    line-height: 1.05;
+    margin: 0.75rem 0 0;
+  }
+  .compare-index-head .lede {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    line-height: 1.65;
+    margin: 1rem 0 0;
+    max-width: 62ch;
+  }
+  .compare-cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .compare-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    text-decoration: none;
+  }
+  .compare-card-top {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .vs {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    color: var(--color-accent);
+  }
+  .compare-card h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+  .compare-card p {
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+    line-height: 1.55;
+    margin: 0;
+    flex: 1;
+  }
+  .compare-card-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--color-accent);
+    font-size: var(--text-small);
+    font-weight: 600;
+  }
+  .compare-card-cta svg {
+    width: 15px;
+    height: 15px;
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .compare-card:hover .compare-card-cta svg {
+    transform: translateX(3px);
+  }
+  @media (min-width: 720px) {
+    .compare-cards {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>

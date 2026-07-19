@@ -30,6 +30,7 @@ import {
   getActiveEditorCursorLine,
   getActiveEditorLineText,
 } from '../../runtime/editorAccess';
+import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
 import { appendWatchAtLine, isAppendWatchSupported } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
@@ -282,6 +283,18 @@ export function useCommandPaletteCommands({
                 type: 'info',
                 content: `${t('command.explainError')}\n\n${formatExplanation(explanation)}`,
               });
+            }
+          : undefined,
+      // SR-20a (Wave 4) — explain the current editor selection (or the whole
+      // buffer) with the local AI model. Gated on LOCAL_AI AND an active
+      // editor tab with a mounted editor; opens the shared consent-first
+      // ExplainCodeDialog via AiExplainCodeHost.
+      onExplainSelectedCode:
+        canExplainError && activeTab
+          ? () => {
+              const editor = getActiveEditor();
+              if (!editor) return;
+              openExplainCodeForEditor(editor, activeTab.language, activeTab.name);
             }
           : undefined,
       // F-1 — install detected Go/Rust/Ruby packages via the desktop

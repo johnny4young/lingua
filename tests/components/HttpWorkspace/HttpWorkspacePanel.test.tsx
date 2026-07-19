@@ -24,8 +24,18 @@ const { executeHttpRequestMock } =
   }));
 
 vi.mock('react-resizable-panels', () => ({
-  Group: ({ children, className }: PropsWithChildren<{ className?: string }>) => (
-    <div className={className}>{children}</div>
+  Group: ({
+    children,
+    className,
+    orientation,
+  }: PropsWithChildren<{ className?: string; orientation?: string }>) => (
+    <div
+      className={className}
+      data-testid="http-workspace-layout"
+      data-orientation={orientation}
+    >
+      {children}
+    </div>
   ),
   Panel: ({ children }: PropsWithChildren<{ id?: string }>) => <div>{children}</div>,
   useDefaultLayout: () => ({
@@ -86,6 +96,13 @@ describe('HttpWorkspacePanel', () => {
     executeHttpRequestMock.mockReset();
     executeHttpRequestMock.mockResolvedValue(makeResponse());
     useAnnouncerStore.setState({ message: '', nonce: 0 });
+  });
+
+  it('lays out request list, editor, and response as columns', () => {
+    render(<HttpWorkspacePanel />);
+    expect(screen.getByTestId('http-workspace-layout').dataset.orientation).toBe(
+      'horizontal'
+    );
   });
 
   it('sends the current editor draft even before the debounce settles', async () => {

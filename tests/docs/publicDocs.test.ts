@@ -28,6 +28,9 @@ const INTERNAL_ONLY_DOCS = new Set(
     'AI_BRIDGE_ADR',
     'DEPENDENCY_MANAGER_ADR',
     'VITE_UPGRADE_ADR',
+    // Internal, gitignored strategy notes (never shipped with the
+    // source-available repo) — the same category as ROADMAP/PLAN/BACKLOG.
+    'STRATEGIC_REVIEW_2026-07',
   ].map((base) => `${base}.md`)
 );
 

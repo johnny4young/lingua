@@ -4,6 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
+  HttpAssertion,
   HttpCaptureRule,
   HttpMethod,
   HttpQueryParam,
@@ -13,11 +14,18 @@ import type {
   HttpRequestHeader,
 } from '../../../shared/httpWorkspace';
 import { cn } from '../../utils/cn';
+import { HttpAssertionsTab } from './HttpAssertionsTab';
 import { HttpAuthTab } from './HttpAuthTab';
 import { HttpCaptureTab } from './HttpCaptureTab';
 import { HttpParamsTab } from './HttpParamsTab';
 
-export type HttpRequestBuilderTab = 'params' | 'auth' | 'headers' | 'body' | 'capture';
+export type HttpRequestBuilderTab =
+  | 'params'
+  | 'auth'
+  | 'headers'
+  | 'body'
+  | 'capture'
+  | 'assert';
 
 interface HttpRequestBuilderTabsProps {
   readonly method: HttpMethod;
@@ -40,6 +48,10 @@ interface HttpRequestBuilderTabsProps {
   readonly onAddCapture: () => void;
   readonly onUpdateCapture: (index: number, patch: Partial<HttpCaptureRule>) => void;
   readonly onRemoveCapture: (index: number) => void;
+  readonly assertions: readonly HttpAssertion[];
+  readonly onAddAssertion: () => void;
+  readonly onUpdateAssertion: (index: number, patch: Partial<HttpAssertion>) => void;
+  readonly onRemoveAssertion: (index: number) => void;
 }
 
 export function HttpRequestBuilderTabs({
@@ -63,6 +75,10 @@ export function HttpRequestBuilderTabs({
   onAddCapture,
   onUpdateCapture,
   onRemoveCapture,
+  assertions,
+  onAddAssertion,
+  onUpdateAssertion,
+  onRemoveAssertion,
 }: HttpRequestBuilderTabsProps) {
   const { t } = useTranslation();
   const supportsBody = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
@@ -105,8 +121,14 @@ export function HttpRequestBuilderTabs({
       label: t('httpWorkspace.editor.tab.capture'),
       ...(enabledCaptureCount > 0 ? { badge: String(enabledCaptureCount) } : {}),
     });
+    const enabledAssertionCount = assertions.filter((a) => a.enabled).length;
+    tabs.push({
+      id: 'assert',
+      label: t('httpWorkspace.editor.tab.assert'),
+      ...(enabledAssertionCount > 0 ? { badge: String(enabledAssertionCount) } : {}),
+    });
     return tabs;
-  }, [auth?.kind, bodyKind, captures, headers, params, supportsBody, t]);
+  }, [assertions, auth?.kind, bodyKind, captures, headers, params, supportsBody, t]);
 
   // A method switch can remove the Body tab. Derive the fallback during
   // render so the editor never flashes an empty pane or needs a reset effect.
@@ -201,7 +223,7 @@ export function HttpRequestBuilderTabs({
                     value={header.name}
                     onChange={event => onUpdateHeader(index, { name: event.target.value })}
                     placeholder={t('httpWorkspace.editor.headers.name.placeholder')}
-                    aria-label={t('httpWorkspace.editor.headers.name.placeholder')}
+                    aria-label={t('httpWorkspace.editor.headers.nameAria', { index: index + 1 })}
                     data-testid="http-request-editor-header-name"
                     className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
                   />
@@ -210,14 +232,14 @@ export function HttpRequestBuilderTabs({
                     value={header.value}
                     onChange={event => onUpdateHeader(index, { value: event.target.value })}
                     placeholder={t('httpWorkspace.editor.headers.value.placeholder')}
-                    aria-label={t('httpWorkspace.editor.headers.value.placeholder')}
+                    aria-label={t('httpWorkspace.editor.headers.valueAria', { index: index + 1 })}
                     data-testid="http-request-editor-header-value"
                     className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => onRemoveHeader(index)}
-                    aria-label={t('httpWorkspace.editor.headers.remove.aria')}
+                    aria-label={t('httpWorkspace.editor.headers.removeAria', { index: index + 1 })}
                     className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-fg-subtle transition-colors hover:text-error-fg"
                   >
                     <Trash2 size={11} aria-hidden="true" />
@@ -265,6 +287,14 @@ export function HttpRequestBuilderTabs({
             onAdd={onAddCapture}
             onUpdate={onUpdateCapture}
             onRemove={onRemoveCapture}
+          />
+        ) : null}
+        {effectiveTab === 'assert' ? (
+          <HttpAssertionsTab
+            assertions={assertions}
+            onAdd={onAddAssertion}
+            onUpdate={onUpdateAssertion}
+            onRemove={onRemoveAssertion}
           />
         ) : null}
       </div>

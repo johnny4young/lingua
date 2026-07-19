@@ -28,11 +28,13 @@ import {
   HTTP_METHODS,
   MAX_REQUEST_BODY_BYTES,
   buildCurlCommand,
+  createBlankAssertion,
   createBlankCaptureRule,
   paramsToUrl,
   reconcileParamsWithUrl,
   urlToParams,
   utf8ByteLength,
+  type HttpAssertion,
   type HttpCaptureRule,
   type HttpMethod,
   type HttpQueryParam,
@@ -130,6 +132,7 @@ export function HttpRequestEditor({
   );
   const [auth, setAuth] = useState<HttpRequestAuth | undefined>(request.auth);
   const [captures, setCaptures] = useState<HttpCaptureRule[]>(request.captures ?? []);
+  const [assertions, setAssertions] = useState<HttpAssertion[]>(request.assertions ?? []);
   const [builderTab, setBuilderTab] = useState<HttpRequestBuilderTab>('params');
 
   // RL-097 Slice 3a — the active environment, resolved from props.
@@ -206,6 +209,7 @@ export function HttpRequestEditor({
     setParams(request.queryParams ?? urlToParams(request.url));
     setAuth(request.auth);
     setCaptures(request.captures ?? []);
+    setAssertions(request.assertions ?? []);
   }, [
     request.id,
     request.url,
@@ -215,6 +219,7 @@ export function HttpRequestEditor({
     request.queryParams,
     request.auth,
     request.captures,
+    request.assertions,
     flushPendingPatch,
   ]);
 
@@ -238,6 +243,12 @@ export function HttpRequestEditor({
       queryParams: patch.queryParams ?? params,
       auth: patch.auth ?? auth,
       body: patch.body ?? body ?? { kind: 'none' },
+      // Carry through the list fields (captures/assertions) when the
+      // caller is editing them — the debounced patch is a full snapshot,
+      // and omitting these dropped every capture/assertion edit before it
+      // reached the store.
+      ...(patch.captures !== undefined ? { captures: patch.captures } : {}),
+      ...(patch.assertions !== undefined ? { assertions: patch.assertions } : {}),
     }),
     [method, url, headers, params, auth, body]
   );
@@ -269,8 +280,10 @@ export function HttpRequestEditor({
       queryParams: params,
       ...(auth ? { auth } : {}),
       body: body ?? { kind: 'none' },
+      captures,
+      assertions,
     };
-  }, [request, method, url, headers, params, auth, body]);
+  }, [request, method, url, headers, params, auth, body, captures, assertions]);
 
   const flushDraftBeforeSend = useCallback((): HttpRequestV1 | null => {
     const draft = buildDraftRequest();
@@ -295,6 +308,8 @@ export function HttpRequestEditor({
       queryParams: draft.queryParams,
       ...(draft.auth ? { auth: draft.auth } : {}),
       body: draft.body,
+      captures: draft.captures,
+      assertions: draft.assertions,
     });
     return draft;
   }, [buildDraftRequest, bodyExceedsCap, onPatch, pushBodyTooLargeNotice, request.id]);
@@ -457,6 +472,38 @@ export function HttpRequestEditor({
       applyCaptures(captures.filter((_, i) => i !== index));
     },
     [captures, applyCaptures]
+  );
+
+  // SR-27 — response assertions. Same local-state + debounced-patch
+  // pattern as captures.
+  const applyAssertions = useCallback(
+    (nextAssertions: HttpAssertion[]) => {
+      setAssertions(nextAssertions);
+      scheduleAutoSave({ assertions: nextAssertions });
+    },
+    [scheduleAutoSave]
+  );
+
+  const handleAddAssertion = useCallback(() => {
+    applyAssertions([...assertions, createBlankAssertion()]);
+  }, [assertions, applyAssertions]);
+
+  const handleUpdateAssertion = useCallback(
+    (index: number, patch: Partial<HttpAssertion>) => {
+      const next = assertions.slice();
+      const current = next[index];
+      if (!current) return;
+      next[index] = { ...current, ...patch };
+      applyAssertions(next);
+    },
+    [assertions, applyAssertions]
+  );
+
+  const handleRemoveAssertion = useCallback(
+    (index: number) => {
+      applyAssertions(assertions.filter((_, i) => i !== index));
+    },
+    [assertions, applyAssertions]
   );
 
   const handleAuthChange = useCallback(
@@ -714,6 +761,10 @@ export function HttpRequestEditor({
         onAddCapture={handleAddCapture}
         onUpdateCapture={handleUpdateCapture}
         onRemoveCapture={handleRemoveCapture}
+        assertions={assertions}
+        onAddAssertion={handleAddAssertion}
+        onUpdateAssertion={handleUpdateAssertion}
+        onRemoveAssertion={handleRemoveAssertion}
       />
     </div>
   );

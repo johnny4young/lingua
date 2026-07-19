@@ -34,6 +34,8 @@ import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
 import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { notifyDependencyDetectionPaste } from '../../hooks/useDependencyDetection';
+import { useEntitlement } from '../../hooks/useEntitlement';
+import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
@@ -101,6 +103,20 @@ export function CodeEditor() {
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
 
   const activeTab = useActiveTab();
+
+  // SR-20a — "Explain with AI" over a selection (or the whole buffer) is
+  // the first main-editor AI affordance. Registered as a Monaco context-menu
+  // action, gated by LOCAL_AI (invisible on Free); it opens a consent-first
+  // dialog rendered by AiExplainCodeHost (also reachable from the command
+  // palette). The action closure reads live tab context through a ref so it
+  // never needs re-registering on every keystroke.
+  const aiEntitled = useEntitlement('LOCAL_AI');
+  const explainCtxRef = useRef<{ language: string; name: string } | null>(null);
+  useEffect(() => {
+    explainCtxRef.current = activeTab
+      ? { language: activeTab.language, name: activeTab.name }
+      : null;
+  }, [activeTab]);
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
   // RL-108 — inline lint: per-language toggle over Monaco's native JS/TS
   // diagnostics + custom 'lingua-lint' markers + quick-fix provider.
@@ -236,6 +252,26 @@ export function CodeEditor() {
       setActiveEditor(null);
     };
   }, []);
+
+  // SR-20a — register/dispose the "Explain with AI" context-menu action.
+  // Only mounted when entitled, so it stays invisible on Free (matching
+  // the ExplainErrorButton/AskSqlButton convention).
+  useEffect(() => {
+    const editor = editorInstance;
+    if (!editor || !aiEntitled) return;
+    const action = editor.addAction({
+      id: 'lingua.ai.explainSelection',
+      label: t('ai.explainCode.action'),
+      contextMenuGroupId: '9_ai',
+      contextMenuOrder: 1,
+      run: (ed) => {
+        const ctx = explainCtxRef.current;
+        if (!ctx) return;
+        openExplainCodeForEditor(ed, ctx.language, ctx.name);
+      },
+    });
+    return () => action.dispose();
+  }, [editorInstance, aiEntitled, t]);
 
   useEffect(() => {
     clearDecorations(editorRef.current);

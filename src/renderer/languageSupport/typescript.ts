@@ -6,7 +6,7 @@ export const typescriptLanguageSupport = {
     id: 'typescript',
     extensions: ['.ts', '.tsx'],
     aliases: ['TypeScript', 'typescript'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/typescript/typescript.js'),
+    basicLanguage: 'typescript',
   },
   loadEditorProviders: async () => {
     const { createMagicCommentCompletionProvider, createMagicCommentHoverProvider } =

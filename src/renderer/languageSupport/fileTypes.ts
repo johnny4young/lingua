@@ -17,7 +17,7 @@ export const fileTypeLanguageSupports = [
       id: 'yaml',
       extensions: ['.yaml', '.yml'],
       aliases: ['YAML', 'yaml'],
-      loader: () => import('monaco-editor/esm/vs/basic-languages/yaml/yaml.js'),
+      basicLanguage: 'yaml',
     },
   },
   {
@@ -26,8 +26,7 @@ export const fileTypeLanguageSupports = [
       id: 'dockerfile',
       extensions: ['.dockerfile'],
       aliases: ['Dockerfile', 'dockerfile'],
-      loader: () =>
-        import('monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.js'),
+      basicLanguage: 'dockerfile',
     },
   },
   {
@@ -36,7 +35,7 @@ export const fileTypeLanguageSupports = [
       id: 'shell',
       extensions: ['.sh', '.bash'],
       aliases: ['Shell', 'shell'],
-      loader: () => import('monaco-editor/esm/vs/basic-languages/shell/shell.js'),
+      basicLanguage: 'shell',
     },
   },
   {
@@ -55,7 +54,7 @@ export const fileTypeLanguageSupports = [
       id: 'ini',
       extensions: ['.ini', '.cfg', '.conf'],
       aliases: ['INI', 'ini'],
-      loader: () => import('monaco-editor/esm/vs/basic-languages/ini/ini.js'),
+      basicLanguage: 'ini',
     },
   },
   {
