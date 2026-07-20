@@ -3,10 +3,10 @@
 /**
  * Release infra-readiness probe.
  *
- * Hits the PUBLIC R2 mirror base (`R2_PUBLIC_BASE`, no secret required) and
+ * Hits the public R2 runtime base (`R2_PUBLIC_BASE`, no secret required) and
  * asserts the web-runtime WASM assets the standalone web build depends on are
  * publicly readable WITH a CORS header for the web app origin. This is the
- * exact condition that broke the v0.7.0 release at deploy/mirror time (HTTP
+ * exact condition that broke the v0.7.0 web deploy (HTTP
  * 403, missing Access-Control-Allow-Origin) — but here it runs in seconds,
  * before any build, so a misconfigured bucket fails the preflight instead of a
  * 4-minute macOS build + a published draft release.
@@ -76,7 +76,7 @@ async function probe(url, { attempts = 2, backoffMs = 2000 } = {}) {
       acao = null;
       cfMitigated = null;
     }
-    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    if (attempt < attempts) await new Promise(resolve => setTimeout(resolve, backoffMs));
   }
   return { status, acao, cfMitigated };
 }
@@ -84,11 +84,11 @@ async function probe(url, { attempts = 2, backoffMs = 2000 } = {}) {
 function printHelp() {
   console.log(`Usage: node scripts/check-release-infra.mjs [--public-base <url>]
 
-Probes the public R2 mirror so a misconfigured bucket (no public access / no
+Probes the public R2 web-runtime store so a misconfigured bucket (no public access / no
 CORS for ${APP_ORIGIN}) fails the release preflight instead of the deploy job.
 
 Options:
-  --public-base <url>  Override R2_PUBLIC_BASE (the public mirror base URL).
+  --public-base <url>  Override R2_PUBLIC_BASE (the public runtime base URL).
 `);
 }
 
@@ -113,14 +113,14 @@ export async function main(argv = process.argv.slice(2)) {
     // runs WITHOUT this flag, so the bucket is still strictly probed there).
     if (values['allow-missing-base']) {
       console.log(
-        'release-infra: R2_PUBLIC_BASE not set — skipping the public-mirror probe (set it to verify R2 readiness locally; CI probes it strictly).'
+        'release-infra: R2_PUBLIC_BASE not set — skipping the web-runtime probe (set it to verify R2 readiness locally; CI probes it strictly).'
       );
       return 0;
     }
     const summary = summarizeInfraReadiness({ publicBaseConfigured: false, probes: [] });
     console.error(`release-infra: ${summary.configError}`);
     console.error(
-      'release-infra: set R2_PUBLIC_BASE (the public mirror base, e.g. https://downloads.linguacode.dev) to probe readiness.'
+      'release-infra: set R2_PUBLIC_BASE (the public runtime base, e.g. https://downloads.linguacode.dev) to probe readiness.'
     );
     return 1;
   }
@@ -139,18 +139,17 @@ export async function main(argv = process.argv.slice(2)) {
       url: buildRuntimeAssetUrl(publicBase, { lib: asset.lib, version, file: asset.file }),
     });
   }
-  // Sentinel: a stable object that exists once the mirror is initialized. A 403
-  // here means the bucket itself is private; a 404 means it was never seeded.
-  targets.push({
-    kind: 'sentinel',
-    url: `${publicBase.replace(/\/+$/u, '')}/latest/SHA256SUMS.txt`,
-  });
-
-  console.log(`release-infra: probing public mirror ${publicBase} (origin ${APP_ORIGIN})`);
+  console.log(`release-infra: probing web runtimes at ${publicBase} (origin ${APP_ORIGIN})`);
   const probes = [];
   for (const target of targets) {
     const { status, acao, cfMitigated } = await probe(target.url);
-    const result = classifyInfraProbe({ url: target.url, kind: target.kind, status, acao, cfMitigated });
+    const result = classifyInfraProbe({
+      url: target.url,
+      kind: target.kind,
+      status,
+      acao,
+      cfMitigated,
+    });
     probes.push(result);
     const glyph = result.level === 'ok' ? 'ok ' : result.level === 'warn' ? 'warn' : 'FAIL';
     console.log(`  [${glyph}] ${target.url} — ${result.detail}`);
@@ -159,26 +158,26 @@ export async function main(argv = process.argv.slice(2)) {
   const summary = summarizeInfraReadiness({ publicBaseConfigured: true, probes });
   if (!summary.ok) {
     console.error(
-      `release-infra: NOT ready — ${summary.failures.length} blocking finding(s). Configure the lingua-releases bucket public access + CORS (docs/runbooks/r2-release-mirror-setup.md) before releasing.`
+      `release-infra: NOT ready — ${summary.failures.length} blocking finding(s). Configure the web-runtime bucket public access + CORS (docs/runbooks/r2-web-runtime-setup.md) before releasing.`
     );
     return 1;
   }
   if (summary.warnings.length > 0) {
     console.log(
-      `release-infra: ready with ${summary.warnings.length} warning(s) — version-bumped runtime assets the deploy job will mirror.`
+      `release-infra: ready with ${summary.warnings.length} warning(s) — version-bumped runtime assets the deploy job will upload.`
     );
   } else {
-    console.log('release-infra: ready (web-runtime mirror is public + CORS-enabled).');
+    console.log('release-infra: ready (web-runtime assets are public + CORS-enabled).');
   }
   return 0;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().then(
-    (code) => {
+    code => {
       process.exitCode = code;
     },
-    (error) => {
+    error => {
       console.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;
     }

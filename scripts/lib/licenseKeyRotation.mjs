@@ -1,5 +1,5 @@
 /**
- * internal — license-signing-key rotation policy, pure logic.
+ * License-signing-key rotation policy, pure logic.
  *
  * The app embeds exactly one Ed25519 public key — committed in `.env.production`
  * as `LINGUA_LICENSE_PUBLIC_KEY_JWK` (the dev `.env` is gitignored, so it is the
@@ -15,14 +15,12 @@
  * `computeJwkThumbprint` here must stay byte-equal with
  * `computeLicenseJwkThumbprint` in `src/shared/license.ts` (the renderer
  * twin behind the Settings → License fingerprint row). The equivalence is
- * pinned by `tests/scripts/licenseKeyRotation.test.ts`, mirroring the
- * `scripts/lib/darwinAsset.mjs` ↔ `update-server/src/darwinAsset.ts`
- * twin pattern.
+ * pinned by `tests/scripts/licenseKeyRotation.test.ts`.
  */
 
 import { createHash } from 'node:crypto';
 
-/** Suggested baseline from PROJECT_AUDIT_2026_05_24 §2.5 / internal */
+/** Operational maximum age for the currently embedded production key. */
 export const DEFAULT_ROTATION_SLA_DAYS = 90;
 /** Days before the SLA breach during which the guard warns but passes. */
 export const DEFAULT_WARN_WINDOW_DAYS = 14;
@@ -43,12 +41,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * @returns {string | null}
  */
 export function computeJwkThumbprint(jwk) {
-  if (
-    !jwk ||
-    jwk.kty !== 'OKP' ||
-    jwk.crv !== 'Ed25519' ||
-    typeof jwk.x !== 'string'
-  ) {
+  if (!jwk || jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519' || typeof jwk.x !== 'string') {
     return null;
   }
   const canonical = `{"crv":${JSON.stringify(jwk.crv)},"kty":${JSON.stringify(jwk.kty)},"x":${JSON.stringify(jwk.x)}}`;
@@ -89,7 +82,7 @@ export function extractEnvValue(envText, name) {
  * @property {string} issuedAt ISO date the keypair was minted and embedded.
  * @property {'active'|'retired'} status Exactly one entry may be `active` at a time.
  * @property {string} [retiredAt] ISO date the key was rotated out.
- * @property {string} [note] Operator-facing provenance (where the private half lives, which RL minted it).
+ * @property {string} [note] Operator-facing provenance for the key material.
  */
 
 /**
@@ -195,16 +188,14 @@ export function evaluateLicenseKeyRotation({ productionEnvText, devEnvText, regi
     return { ok: failures.length === 0, failures, warnings, thumbprint, ageDays: null, slaDays };
   }
 
-  const activeCount = keys.filter((entry) => entry?.status === 'active').length;
+  const activeCount = keys.filter(entry => entry?.status === 'active').length;
   if (activeCount !== 1) {
-    failures.push(
-      `The key registry must have exactly one active entry; found ${activeCount}.`
-    );
+    failures.push(`The key registry must have exactly one active entry; found ${activeCount}.`);
   }
 
   let ageDays = null;
   if (thumbprint !== null) {
-    const entry = keys.find((candidate) => candidate?.thumbprint === thumbprint);
+    const entry = keys.find(candidate => candidate?.thumbprint === thumbprint);
     if (!entry) {
       failures.push(
         `Embedded license public key (thumbprint ${thumbprint}) is not documented in docs/security/license-key-registry.json. Add a registry entry before shipping it.`

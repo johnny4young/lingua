@@ -1,8 +1,8 @@
 ---
 /**
- * Visual representation of the install verification flow:
- * SHA256SUMS check + signed binary stamp. Real divs, real text — no fake
- * terminal animation, no aspirational copy.
+ * Visual representation of the install verification flow. Keep the claims
+ * aligned with the release workflow: every artifact has a checksum, while
+ * platform signatures depend on the configured release credentials.
  */
 import { Icon } from 'astro-icon/components';
 import type { Locale } from '~/lib/i18n';
@@ -15,55 +15,55 @@ const { locale } = Astro.props;
 const isEs = locale === 'es';
 ---
 
-<div class="internal">
-  <div class="internal">
+<div class="security-grid">
+  <div class="verification-card">
     <header>
       <Icon name="lucide:terminal" />
       <span>{isEs ? 'Verificar descarga' : 'Verify your download'}</span>
     </header>
-    <pre class="internal"><code><span class="cmd-prefix">$</span> shasum -a 256 -c SHA256SUMS.txt
-<span class="ok">Lingua-0.2.1-arm64.zip:</span> <span class="ok-mark">OK</span>
-<span class="ok">Lingua-0.2.1-x64.zip:</span>   <span class="ok-mark">OK</span>
-<span class="ok">LinguaSetup.exe:</span>        <span class="ok-mark">OK</span>
-<span class="ok">lingua_0.2.1_amd64.deb:</span> <span class="ok-mark">OK</span></code></pre>
+    <pre class="verification-code"><code><span class="cmd-prefix">$</span> shasum -a 256 -c SHA256SUMS.txt
+<span class="ok">Lingua-&lt;version&gt;-mac-arm64.dmg:</span>        <span class="ok-mark">OK</span>
+<span class="ok">Lingua-&lt;version&gt;-mac-x64.dmg:</span>          <span class="ok-mark">OK</span>
+<span class="ok">Lingua-&lt;version&gt;-win-x64.exe:</span>          <span class="ok-mark">OK</span>
+<span class="ok">Lingua-&lt;version&gt;-linux-x86_64.AppImage:</span> <span class="ok-mark">OK</span></code></pre>
   </div>
 
-  <div class="internal">
+  <div class="verification-card">
     <header>
       <Icon name="lucide:badge-check" />
-      <span>{isEs ? 'Firmado y notarizado' : 'Signed & notarized'}</span>
+      <span>{isEs ? 'Controles de distribución' : 'Distribution checks'}</span>
     </header>
     <ul class="sig-list">
       <li>
         <span class="sig-platform">macOS</span>
-        <span class="sig-detail">{isEs ? 'Apple Developer ID · notarizado · limpio para Gatekeeper' : 'Apple Developer ID · notarized · Gatekeeper-clean'}</span>
+        <span class="sig-detail">{isEs ? 'Firma Developer ID y notarización verificadas en releases públicas' : 'Developer ID signing and notarization verified for public releases'}</span>
       </li>
       <li>
         <span class="sig-platform">Windows</span>
-        <span class="sig-detail">{isEs ? 'Authenticode · reputación SmartScreen en progreso' : 'Authenticode · SmartScreen reputation accruing'}</span>
+        <span class="sig-detail">{isEs ? 'SHA-256 · Authenticode cuando hay certificado configurado' : 'SHA-256 · Authenticode when a certificate is configured'}</span>
       </li>
       <li>
         <span class="sig-platform">Linux</span>
-        <span class="sig-detail">{isEs ? '.deb y .rpm con firma de maintainer' : '.deb & .rpm with maintainer signature'}</span>
+        <span class="sig-detail">{isEs ? 'AppImage · integridad verificada con SHA-256' : 'AppImage · integrity verified with SHA-256'}</span>
       </li>
     </ul>
   </div>
 </div>
 
 <style>
-  .internal {
+  .security-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  .internal {
+  .verification-card {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-bg-sunken);
     overflow: hidden;
     min-width: 0;
   }
-  .internal header {
+  .verification-card header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -73,8 +73,8 @@ const isEs = locale === 'es';
     font-size: var(--text-small);
     font-weight: 600;
   }
-  .internal header svg { width: 14px; height: 14px; color: var(--color-accent); }
-  .internal {
+  .verification-card header svg { width: 14px; height: 14px; color: var(--color-accent); }
+  .verification-code {
     margin: 0;
     padding: 0.875rem 1rem;
     font-family: var(--font-mono);
@@ -83,7 +83,7 @@ const isEs = locale === 'es';
     color: var(--color-text);
     overflow-x: auto;
   }
-  .internal code { font-family: inherit; white-space: pre; }
+  .verification-code code { font-family: inherit; white-space: pre; }
   .cmd-prefix { color: var(--color-accent); user-select: none; margin-right: 6px; }
   .ok { color: var(--color-text); }
   .ok-mark { color: var(--color-success); font-weight: 700; }
@@ -112,6 +112,6 @@ const isEs = locale === 'es';
   .sig-detail { color: var(--color-text-muted); }
 
   @media (min-width: 720px) {
-    .internal { grid-template-columns: 1.1fr 1fr; }
+    .security-grid { grid-template-columns: 1.1fr 1fr; }
   }
 </style>

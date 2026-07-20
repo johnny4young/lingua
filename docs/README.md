@@ -58,7 +58,8 @@ supersedes the old one instead of rewriting historical rationale.
 - [`runbooks/github-degraded.md`](./runbooks/github-degraded.md)
 - [`runbooks/license-recovery.md`](./runbooks/license-recovery.md)
 - [`runbooks/local-ai-smoke.md`](./runbooks/local-ai-smoke.md)
-- [`runbooks/r2-release-mirror-setup.md`](./runbooks/r2-release-mirror-setup.md)
+- [`runbooks/r2-web-runtime-setup.md`](./runbooks/r2-web-runtime-setup.md)
+- [`runbooks/r2-release-mirror-setup.md`](./runbooks/r2-release-mirror-setup.md) — retired desktop-mirror compatibility note kept for historical links.
 - [`runbooks/refund-handling.md`](./runbooks/refund-handling.md)
 - [`runbooks/telemetry-pipeline.md`](./runbooks/telemetry-pipeline.md)
 - [`runbooks/update-rollback.md`](./runbooks/update-rollback.md)

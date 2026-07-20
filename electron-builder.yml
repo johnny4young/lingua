@@ -62,7 +62,7 @@ electronFuses:
 mac:
   icon: assets/icon.icns
   category: public.app-category.developer-tools
-  # internal — ship BOTH mac arches. Through 0.12.0 the release only carried
+  # Ship BOTH mac arches. Through 0.12.0 the release only carried
   # arm64, so an Intel Mac could not install Lingua at all. Two per-arch
   # artifacts (not a `universal` build) because Lingua bundles ~96 MB of WASM
   # runtimes: a universal binary would double the download for every user to
@@ -88,7 +88,9 @@ mac:
 win:
   icon: assets/icon.ico
   target:
-    - nsis
+    - target: nsis
+      arch:
+        - x64
 nsis:
   # Per-user install (no UAC elevation) so the silent electron-updater install
   # works without a prompt; one-click keeps the manual download a double-click

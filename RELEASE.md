@@ -1,114 +1,96 @@
-# Release Checklist
+# Release checklist
 
-This repository uses a draft-first manual release process, with the release tag created by the workflow from `main`. The checklist below complements the automation; every step is required before a build leaves the draft state.
+Lingua uses a draft-first manual release process. The workflow creates the tag
+from `main`, builds every selected surface, and uploads desktop artifacts to a
+draft GitHub Release. GitHub Releases is the canonical desktop download and
+auto-update source. Cloudflare R2 stores only oversized web runtimes.
 
 ## Preconditions
 
-- CI is green on `main`
-- The release preflight passes locally: `pnpm run release:preflight`. It runs the release-blocking gates the way CI runs them — license-key rotation with an absent `.env` (so a gitignored dev key cannot mask a CI failure), the R2 web-runtime mirror readiness probe (public access + CORS), changelog/version, production audit, third-party licenses, performance budget, compliance artifacts, and the production web build — so breakage surfaces here instead of after a signed build and a published draft. The gate list is pinned to this workflow by `tests/scripts/releasePreflight.test.ts`.
-- No open P0 incidents
-- Release tag will be a stable tag in the form `vX.Y.Z`
-- `package.json` `version` and root [`CHANGELOG.md`](./CHANGELOG.md) have both been bumped to the target version in a merged commit
-- GitHub Actions secrets are configured:
-  - macOS:
-    - `APPLE_ID`
-    - `APPLE_ID_PASSWORD`
-    - `APPLE_TEAM_ID`
-    - `APPLE_SIGNING_IDENTITY`
-    - `APPLE_CERT_P12_BASE64`
-    - `APPLE_CERT_PASSWORD`
-  - Windows:
-    - `WIN_CERT_FILE`
-    - `WIN_CERT_PASSWORD`
-  - Cloudflare web deploy:
-    - `CLOUDFLARE_API_TOKEN`
-    - `CLOUDFLARE_ACCOUNT_ID`
-    - `CLOUDFLARE_ZONE_ID` (optional; cache purge only)
-  - Cloudflare R2 release mirror (private-repo download surface — see [`docs/runbooks/r2-release-mirror-setup.md`](./docs/runbooks/r2-release-mirror-setup.md)):
-    - `R2_ACCESS_KEY_ID`
-    - `R2_SECRET_ACCESS_KEY`
-    - `R2_ENDPOINT`
-    - `R2_PUBLIC_BASE`
-- Apple Developer signing and notarization credentials are still valid
-- macOS signing setup has been checked against
-  [`docs/MACOS_SIGNING.md`](./docs/MACOS_SIGNING.md)
-- Windows code-signing setup has been checked against
-  [`docs/WINDOWS_SIGNING.md`](./docs/WINDOWS_SIGNING.md)
+- CI is green on `main`.
+- `pnpm run release:preflight` passes locally.
+- `package.json` and [`CHANGELOG.md`](./CHANGELOG.md) contain the target version.
+- The target is a stable `vX.Y.Z` tag and there are no open release-blocking incidents.
+- Cloudflare Pages and R2 web-runtime credentials are configured:
+  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, and `R2_PUBLIC_BASE`.
+- macOS signing/notarization is configured according to
+  [`docs/MACOS_SIGNING.md`](./docs/MACOS_SIGNING.md).
+- Windows signing is configured according to
+  [`docs/WINDOWS_SIGNING.md`](./docs/WINDOWS_SIGNING.md), or the maintainer has
+  explicitly accepted an unsigned preview installer and its SmartScreen warning.
+- [`docs/RELEASE_SECURITY.md`](./docs/RELEASE_SECURITY.md) has been reviewed for
+  the candidate's Electron, IPC, runtime, update, licensing, telemetry, and
+  dependency surfaces.
 
 ## Release steps
 
-1. Draft release notes with `pnpm run changelog:draft`, then update versioned product changes in the repository as needed (final doc sweep, root `CHANGELOG.md`, any release-gated copy). Run `pnpm run changelog:check` before merging the release-ready state.
-2. Commit and merge the release-ready state into `main`.
-3. Open GitHub Actions and run the `Release` workflow manually.
-4. Provide `release_tag`, the stable tag/version to create and publish, for example `vX.Y.Z`.
-5. Wait for the `Release` GitHub Actions workflow to complete.
-6. Inspect the workflow summary:
-   - Production dependency audit (release-blocking `pnpm run check:prod-audit`)
-   - Changelog/version guard with exact release-tag validation
-   - Third-party license policy and release compliance artifact generation
-   - macOS signing verification
-   - Packaged desktop smoke (release-blocking offline 2-runtime-case subset against the produced `Lingua.app`)
-   - Windows signing verification
-   - Linux package validation (`linux-package-validation` artifact with Debian install smoke + RPM metadata)
-   - Desktop update feed validation (`check:update-feed` evidence for any macOS/Windows release)
-   - generated checksums
-   - re-verified checksums (`node ./scripts/prepare-release-payload.mjs --root out/make --verify-checksums`)
-   - Cloudflare deploy validation artifact for web releases
-7. Open the draft GitHub Release created by the workflow.
-8. Verify attached artifacts, `SHA256SUMS.txt`, `lingua-sbom.cyclonedx.json`, and `THIRD_PARTY_LICENSE_REPORT.md`.
-9. Verify release notes and artifact naming.
-10. CI already runs the **packaged desktop smoke** against the macOS `.app` inside the `build-macos` job. It is a **release-blocking offline** 2-runtime-case subset (javascript + python, plus the no-CDN assertion) that proves the binary boots, the renderer chunks load, and the vendored Pyodide runtime works offline. The full 9-case matrix (JS, TS, Python, Go, Rust + the timeout and env-isolation cases) still runs against the dev server in `pnpm run smoke:desktop` as part of pre-merge CI. Optionally, download the macOS artifact locally and run `pnpm run smoke:desktop` for a sanity check against the dev server, or `pnpm run smoke:desktop:packaged` for the same packaged subset CI ran.
-11. Confirm the workflow summary lists the packaged smoke as `passed`. Optional: if you ran a local smoke, confirm the artifacts under `output/playwright/desktop-smoke` captured a screenshot + console log for each runner with zero unexpected errors.
-12. Before promotion, run the desktop update draft validation runbook for any selected macOS/Windows release: [`docs/runbooks/desktop-update-draft-validation.md`](./docs/runbooks/desktop-update-draft-validation.md). Attach or archive `output/update-feed-validation/update-feed-validation.json` with the release evidence.
-13. Confirm the **R2 release mirror** is in sync. The `mirror-r2` job runs automatically after `publish` and validates itself via `check:r2-mirror`. Re-run locally if the workflow summary surfaces a skip / warning: `pnpm run check:r2-mirror -- --release-tag vX.Y.Z`. Attach or archive `output/r2-mirror-validation/<tag>.json` with the release evidence. Marketing-site download CTAs (in `website/`) depend on this mirror; if it is skipped the public download links will 404. Full setup in [`docs/runbooks/r2-release-mirror-setup.md`](./docs/runbooks/r2-release-mirror-setup.md).
-14. Promote the draft release manually when validation is complete.
-15. Immediately after promotion, run a **post-publish smoke**: from a clean install location, download the published artifact through the update channel (or the GitHub release page), launch, and confirm the app opens to the default tab without errors.
-16. Announce the release (changelog link + download link). Do not announce before post-publish smoke passes.
+1. Run `pnpm run changelog:draft`, finish the release notes, and run
+   `pnpm run changelog:check`.
+2. Merge the release-ready state into `main`.
+3. Dispatch the `Release` workflow with the target `release_tag`.
+4. For a stable desktop release, leave macOS, Windows, and Linux enabled. A
+   partial platform selection is for draft diagnostics only.
+5. Wait for every selected build and the web deploy to complete.
+6. Inspect the workflow summary and artifacts:
+   - production dependency audit, license-key policy, and compliance artifacts;
+   - macOS arm64 + x64 dmg/zip outputs and the architecture-correct packaged smoke;
+   - Windows NSIS structure, `latest.yml`, blockmap, GitHub updater provider,
+     and explicit Authenticode state;
+   - Linux AppImage and `latest-linux.yml`;
+   - `SHA256SUMS.txt`, SBOM, and third-party license report;
+   - Cloudflare web deployment and R2 web-runtime readiness.
+7. Open the draft GitHub Release and confirm that every enabled platform is
+   represented. The website reads these public GitHub assets directly.
+8. Follow [`docs/runbooks/desktop-update-draft-validation.md`](./docs/runbooks/desktop-update-draft-validation.md)
+   for static draft checks and manual candidate installation.
+9. Promote the draft only after the checklist is complete.
+10. Run a post-publish smoke from the previous stable desktop version on every
+    supported updater platform, and verify `https://updates.linguacode.dev/web/version`.
+11. Announce only after the post-publish smoke passes.
 
 ## Validation checklist
 
-- Release preflight passed locally before the workflow was dispatched (`pnpm run release:preflight`)
-- R2 web-runtime mirror readiness passed early in the workflow (`infra-readiness` job → `pnpm run check:release-infra`), before the build + publish jobs, so a misconfigured bucket (no public access / no CORS) fails fast instead of after a signed build and a published draft
-- Release-blocking production dependency audit passed (`pnpm run check:prod-audit` in the `security-audit` job); the same job also prints full dependency audit output as advisory signal for build-tool drift
-- Changelog/version guard passed (`pnpm run changelog:check`)
-- Performance budget guard passed (`pnpm run check:performance`)
-- Third-party license policy passed (`pnpm run check:licenses`)
-- Release compliance artifacts generated (`pnpm run compliance:release`)
-- Release security checklist completed (`docs/RELEASE_SECURITY.md`)
-- macOS build completed
-- Windows build completed
-- Linux build completed
-- Linux package validation artifact `linux-package-validation` is attached to the workflow run and records Debian metadata, RPM metadata, Debian install, packaged launch smoke, and uninstall verification
-- macOS signing verification passed
-- Windows signing verification passed
-- `SHA256SUMS.txt` is attached or present in the release payload
-- `SHA256SUMS.txt` re-verified against the downloaded payload during `publish` (`node ./scripts/prepare-release-payload.mjs --root out/make --verify-checksums`)
-- `lingua-sbom.cyclonedx.json` is attached or present in the release payload
-- `THIRD_PARTY_LICENSE_REPORT.md` is attached or present in the release payload
-- Packaged desktop smoke passed in CI (the `Packaged desktop smoke` step in `build-macos`; release-blocking offline, 2-runtime-case subset against the actual `.app`)
-- `pnpm run smoke:desktop` passed against the dev server in pre-merge CI (the existing 9-case matrix gate)
-- For macOS/Windows releases, `pnpm run check:update-feed -- --base-url <staging-updates> --old-version <previous> --expected-version <target>` passed against the draft-channel staging feed and wrote `output/update-feed-validation/update-feed-validation.json`
-- Post-publish smoke succeeded against the channel-distributed artifact
-- Web release artifact `cloudflare-deploy-validation` is attached to the workflow run and records the Wrangler deploy log, `app.linguacode.dev` app-shell check, service-worker update-endpoint bypass, and `updates.linguacode.dev/web/version` response
-- R2 release mirror artifact `r2-mirror-validation` is attached to the workflow run and records the per-asset parity check between the draft GitHub Release and the public mirror at `downloads.linguacode.dev` (`check:r2-mirror`). Marketing-site download CTAs in `website/` point at this mirror — a skipped/failed mirror means the public download links are stale or broken.
-- Release remains draft until human review is complete
-- macOS signing and notarization evidence is attached or visible in the
-  workflow logs for any macOS artifact
-- Windows Authenticode signing evidence is attached or visible in the workflow
-  logs for any Windows artifact
+- `pnpm run release:preflight` passed.
+- `pnpm run smoke:desktop` passed before release dispatch; the packaged macOS
+  subset passed again against the produced host-native app.
+- R2 web-runtime assets passed public-access and CORS probes via
+  `pnpm run check:release-infra`.
+- macOS arm64 and x64 artifacts are present; the packaged smoke launched the
+  host-native app, not an Intel build under Rosetta.
+- Windows contains exactly one top-level NSIS `.exe`, its `.blockmap`, and a
+  `latest.yml` that references it.
+- `win-unpacked/lingua.exe`, `resources/app.asar`, and
+  `resources/app-update.yml` passed the Windows structure validator.
+- Windows Authenticode is `Valid` when signing secrets are configured. If the
+  installer is unsigned, the workflow summary says so and the release is
+  treated as preview-quality for Windows.
+- Linux AppImage and `latest-linux.yml` are present.
+- GitHub Release includes the matching `latest-mac.yml`, `latest.yml`, and
+  `latest-linux.yml` manifests for enabled platforms.
+- `SHA256SUMS.txt`, `lingua-sbom.cyclonedx.json`, and
+  `THIRD_PARTY_LICENSE_REPORT.md` are attached.
+- The website release page exposes GitHub download URLs for every published platform.
+- Post-publish install/update smoke passed on the supported target machines.
+- The release remains draft until human review is complete.
 
 ## Rollback plan
 
-- If the desktop smoke or post-publish smoke fails, keep the GitHub Release in **draft** and open a rollback issue. Do not promote.
-- If a regression is discovered after promotion, re-draft the release (GitHub: Edit → "Save draft"), publish a `-hotfix` patch tag, and repeat the checklist. The update channel will serve the hotfix on the next client check.
-- The update bridge tolerates a skipped version — clients on the broken release move directly to the hotfix without manual intervention.
+- Before promotion, keep the release draft and replace its artifacts only after
+  the failing platform gate is green.
+- After promotion, remove a broken release from the public channel and publish
+  a higher patch version. Clients skip directly to the next valid GitHub Release.
+- Follow [`docs/runbooks/update-rollback.md`](./docs/runbooks/update-rollback.md)
+  for the operator sequence and customer communication.
 
 ## Current policy
 
-- Stable channel only
-- Draft-first publishing
-- macOS artifacts are ZIP-only in the active path
-- The checklist above is the acceptance gate for the release process. Any change to the gate must update this file and `tests/docs/releaseChecklist.test.ts` in the same commit.
-- Both public web surfaces deploy from this repo to Cloudflare Pages (two separate deploys), and a release refreshes **both**:
-  - **Web app** ([app.linguacode.dev](https://app.linguacode.dev), Pages project `lingua-app`) — `deploy-web.yml`, invoked by this release pipeline via `workflow_call` after the security gate.
-  - **Marketing site** ([linguacode.dev](https://linguacode.dev), Pages project `lingua-web`) — a standalone Astro package under `website/`; its `deploy-website.yml` triggers on the published release (also on `website/` changes and manual dispatch). Content is vendored locally from the repo root — no cross-repo sync.
+- Stable channel, draft-first publishing.
+- macOS: arm64 + x64 dmg for installation and zip for auto-update.
+- Windows: x64 NSIS `.exe`; unsigned distribution is allowed as an explicitly
+  labeled preview until Authenticode credentials are configured.
+- Linux: x64 AppImage.
+- GitHub Releases owns desktop binaries and updater manifests.
+- R2 owns only versioned web runtimes under `web-runtime/`.
+- This file and `tests/docs/releaseChecklist.test.ts` are the acceptance gate
+  for release-process changes.

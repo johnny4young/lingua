@@ -1,108 +1,46 @@
-# Runbook — desktop update draft validation
+# Runbook — desktop update candidate validation
 
-**Severity:** S1 (release-blocking). A desktop release must not leave draft
-until a signed older install can update to the signed candidate through an
-isolated update feed.
-
+**Severity:** release-blocking.
 **Owner:** maintainer.
+**Related:** `RELEASE.md`, `electron-builder.yml`, `src/main/updater.ts`,
+`docs/MACOS_SIGNING.md`, `docs/WINDOWS_SIGNING.md`.
 
-**Related:** `RELEASE.md`, `docs/MACOS_SIGNING.md`,
-`docs/WINDOWS_SIGNING.md`, `src/main/updater.ts`,
-`update-server/src/index.ts`, `scripts/validate-update-feed.mjs`.
+## Architecture
 
-## Intent
+Packaged desktop apps use `electron-updater` with the GitHub provider embedded
+in `resources/app-update.yml`. GitHub Releases hosts both the installers and
+the `latest*.yml` manifests. `updates.linguacode.dev` is not the desktop binary
+feed; its `/web/version` route serves the browser update banner.
 
-Production `updates.linguacode.dev` serves only non-draft, non-prerelease
-GitHub Releases. Draft validation uses a separate staging deployment of the
-update worker with:
+GitHub does not expose a draft Release as the stable updater channel. Draft
+validation is therefore static plus manual installation. The real previous →
+current auto-update smoke happens immediately after promotion.
 
-```text
-GITHUB_RELEASE_CHANNEL=draft
-```
+## Draft checks
 
-Never set that variable on the production update worker. The staging worker can
-share the same GitHub token scope, but it must use a separate route or
-Cloudflare preview URL so stable users cannot discover draft artifacts.
+1. Keep the candidate GitHub Release in draft.
+2. Confirm the workflow validated:
+   - `latest-mac.yml` references the arm64 and x64 zip assets;
+   - `latest.yml` references the Windows NSIS installer and its blockmap;
+   - `latest-linux.yml` references the AppImage;
+   - each packaged app embeds `provider: github`, owner `johnny4young`, repo `lingua`.
+3. Install the candidate manually on each selected target and launch it.
+4. Exercise Settings → Updates, one native runtime, and one bundled offline runtime.
+5. Save workflow logs and screenshots with the release evidence.
 
-## Preconditions
+An unsigned Windows candidate may be exercised as a preview, but the evidence
+must record the expected SmartScreen warning. When signing secrets are present,
+`Get-AuthenticodeSignature` must report `Valid`.
 
-- `package.json` and `CHANGELOG.md` already match the target stable tag.
-- The `Release` workflow produced a GitHub Release that is still **draft**.
-- macOS artifacts are Developer ID signed and notarized.
-- Windows artifacts are Authenticode signed.
-- The previous public version is installed on the target machine or VM.
-- A staging update worker is deployed with `GITHUB_RELEASE_CHANNEL=draft`.
-- You know:
-  - `OLD_VERSION` — the installed app version, for example `0.2.4`.
-  - `EXPECTED_VERSION` — the draft candidate, for example `0.2.5`.
-  - `STAGING_UPDATE_URL` — the staging update worker base URL.
+## Post-publish updater smoke
 
-## Feed validation
+1. Start from the previous stable version on macOS arm64, macOS x64, and
+   Windows x64 when those platforms are published.
+2. Publish the candidate.
+3. Trigger Settings → Updates or wait for the scheduled check.
+4. Confirm checking → available → downloaded → restart.
+5. Confirm the relaunched app reports the new version and architecture.
+6. Verify `https://updates.linguacode.dev/web/version` reports the same version.
 
-Run the feed check against staging before launching the app:
-
-```bash
-pnpm run check:update-feed -- \
-  --base-url "$STAGING_UPDATE_URL" \
-  --old-version "$OLD_VERSION" \
-  --expected-version "$EXPECTED_VERSION"
-```
-
-Expected result:
-
-- `darwin` returns Squirrel.Mac JSON with a signed `.zip` URL, release name,
-  notes, and `pub_date`.
-- `win32` returns a rewritten `RELEASES` file where `.nupkg` entries point to
-  `/download/:assetId/:filename`.
-- Evidence is written to `output/update-feed-validation/`.
-
-Also run the stable-feed no-update check so production cannot accidentally see
-the draft:
-
-```bash
-pnpm run check:update-feed -- \
-  --base-url https://updates.linguacode.dev \
-  --old-version "$EXPECTED_VERSION"
-```
-
-Expected result: `204` for each platform, or the latest already-published
-stable version if a newer stable hotfix exists. It must not reference the draft
-candidate before promotion.
-
-## App update validation
-
-1. Install the previous signed release on macOS and/or Windows.
-2. Override the update endpoint to the staging worker in the packaged build
-   configuration used for this validation. Do not ship that override.
-3. Launch the app and open Settings > Updates.
-4. Trigger or wait for the update check.
-5. Confirm the update state transitions through checking, available, and
-   downloaded.
-6. Restart through the app update action.
-7. Confirm the relaunched app reports `EXPECTED_VERSION`.
-8. Save the updater log, screenshots, and the generated
-   `output/update-feed-validation/update-feed-validation.json` artifact.
-
-## Rollback validation
-
-1. Remove the draft candidate from the staging feed or point staging back to
-   stable.
-2. Purge the staging update route cache if Cloudflare cached the candidate.
-3. Re-run:
-
-   ```bash
-   pnpm run check:update-feed -- \
-     --base-url "$STAGING_UPDATE_URL" \
-     --old-version "$OLD_VERSION"
-   ```
-
-4. Confirm the draft candidate is no longer served.
-
-## Promotion rule
-
-Promote the GitHub Release only after:
-
-- feed validation passes for both platforms selected for release,
-- at least one signed packaged install updates successfully through staging,
-- rollback validation proves the candidate can be removed from the feed,
-- `docs/RELEASE_SECURITY.md` is complete for the release.
+If any platform cannot update, stop announcements and follow
+[`update-rollback.md`](./update-rollback.md).

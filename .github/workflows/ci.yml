@@ -101,7 +101,7 @@ jobs:
       - name: Production dependency audit (blocking)
         run: pnpm run check:prod-audit
       - name: Security audit (advisory, full graph)
-        run: pnpm audit --internal high
+        run: pnpm audit --audit-level high
         continue-on-error: true
 
   windows-path-hardening:

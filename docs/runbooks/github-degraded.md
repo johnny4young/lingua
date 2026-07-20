@@ -1,82 +1,72 @@
-# Runbook — GitHub API degraded
+# Runbook — GitHub degraded
 
-**Severity:** S2 (degraded). Update feed cannot reach GitHub; existing users see no breakage thanks to the cache, but new releases stall.
+**Severity:** S2 (degraded). New downloads, desktop update checks, and the web
+version banner may be unavailable; installed Lingua runtimes continue working.
+
 **Owner:** maintainer.
-**Related:** `update-server/src/index.ts`, `update-server/src/lib/health.ts`, GitHub status page.
+
+**Related:** `src/main/updater.ts`, `update-server/src/index.ts`,
+`update-server/src/lib/health.ts`, and the
+[GitHub status page](https://www.githubstatus.com/).
+
+## Current dependency boundary
+
+- Desktop installers and `electron-updater` metadata are served directly from
+  public GitHub Releases.
+- The marketing site reads the latest public release from the GitHub API and
+  has a committed offline fixture for static builds.
+- `update-server` uses GitHub for `/web/version`; its old platform-specific
+  update routes remain only for compatibility and are not the desktop release
+  feed.
+- Browser runtimes come from the dedicated R2 runtime bucket and are unaffected
+  by a GitHub API-only incident.
 
 ## Detection
 
-- GitHub status page (https://www.githubstatus.com/) reports an incident affecting REST API.
-- `update-server` health: `GET /health/ready` returns `{ ok: false, degraded: ['github'] }`.
-- Log alert: `request.completed { route: 'update.feed', errorClass: 'upstream', status: 502 }` rate spikes.
-- Crash report ingestion is steady (the desktop app handles update fetch failures gracefully).
+- GitHub reports an incident affecting Releases, the REST API, or downloads.
+- `GET https://updates.linguacode.dev/health/ready` reports GitHub as degraded.
+- `/web/version` returns an upstream error or an older cached version.
+- Desktop logs show an updater network/upstream failure.
 
-The update-server caches successful responses for 5 minutes. As long as a release is in cache, users keep getting served the right answer; the degraded signal fires only when the cache misses (e.g., a new platform/version combination first asks for a release).
+The update service caches successful `/web/version` responses briefly. That
+cache can soften a short API incident, but it does not proxy desktop release
+artifacts or updater manifests.
 
 ## Mitigation
 
-### Path A — ride out the incident
+### Short incident
 
-For most degradations (<1h), the existing 5-minute cache TTL plus the desktop client's 1h auto-update interval mean very few users actually feel the outage. Action: nothing. Just monitor.
+Monitor GitHub status and avoid publishing or promoting a release while the API
+or release downloads are degraded. Lingua remains usable; the desktop updater
+will retry during a later check.
 
-### Path B — extend cache TTL temporarily
+### Longer incident
 
-If the GitHub incident is going to last more than ~30 minutes, bump the update-server cache TTL to keep the existing release available longer:
+If the outage is visible for more than two hours:
 
-1. Edit `update-server/src/index.ts` constant `CACHE_TTL` from `300` to `3600` (1 hour).
-2. Deploy: `cd update-server && pnpm run deploy`.
-3. Set a calendar reminder to revert after the incident.
+1. Add a temporary banner to `website/` explaining that downloads or update
+   checks are delayed by a GitHub incident.
+2. Link to the GitHub status page and state that installed Lingua sessions keep
+   working.
+3. Do not create an ad-hoc binary mirror. A new distribution host requires its
+   own integrity, signing, rollback, and updater design review.
 
-This keeps the cache warm so users who haven't yet updated continue to see the latest release even while GitHub is down. Users currently updating won't be affected — Squirrel.Mac and Squirrel.Windows handle 4xx/5xx by retrying on the next interval.
+If only `/web/version` is affected and a longer cache is justified, change the
+cache TTL in `update-server/src/index.ts`, deploy the Worker, and record a
+specific rollback time. This does not restore desktop downloads.
 
-### Path C — communicate to users
+## Recovery
 
-If the incident is highly visible (GitHub status page widely shared) and the degradation lasts >2h:
+1. Confirm GitHub Releases and REST API are healthy for at least 30 minutes.
+2. Verify the current release page and one checksum-protected asset download.
+3. Confirm `https://updates.linguacode.dev/web/version` returns the current
+   production version.
+4. In an installed desktop build, run **Check for Updates** and confirm the
+   request completes without an updater error.
+5. Revert any temporary cache-TTL change and remove the website banner.
 
-1. Add a banner to the marketing site (`website/` in this repo) reading:
-   "GitHub-side issue is delaying our auto-update feed. Lingua continues to work fine; we'll resume regular updates once GitHub is healthy."
-2. Pin the banner until GitHub status is green for 30+ minutes.
+## Support response
 
-## Rollback
-
-When GitHub is healthy again:
-
-1. Revert the cache TTL bump (set `CACHE_TTL` back to `300`):
-   ```bash
-   cd update-server
-   git checkout src/index.ts # if uncommitted
-   pnpm run deploy
-   ```
-2. Purge the cache so users re-fetch the latest release within the standard 5-minute window:
-   ```bash
-   curl -X POST https://api.cloudflare.com/client/v4/zones/<zone_id>/purge_cache \
-     -H "Authorization: Bearer <CLOUDFLARE_API_TOKEN>" \
-     -H "Content-Type: application/json" \
-     -d '{"purge_everything": true}'
-   ```
-3. Confirm the cache is fresh: `curl https://updates.linguacode.dev/web/version` should refresh from GitHub.
-4. Remove the marketing-site banner.
-
-## Customer-support note
-
-Most users won't notice the incident because of the cache. For the few who report "Check for Updates" failing:
-
-```
-Hi <name>,
-
-GitHub (where we host our release artifacts) is having an issue right
-now — see https://www.githubstatus.com/. Lingua itself is working fine;
-auto-updates will resume automatically once GitHub recovers.
-
-You don't need to do anything; the app will catch up on its own.
-
-— Lingua support
-```
-
-## Validation
-
-1. `update-server` health: `curl https://updates.linguacode.dev/health/ready` returns `{ ok: true, degraded: [] }`.
-2. `request.completed` volume for `"route":"update.feed"` returns to baseline.
-3. `request.completed` with `"route":"update.feed"` and `"errorClass":"upstream"` returns to <0.1% of requests.
-4. GitHub status page green for 30+ continuous minutes.
-5. Marketing-site banner removed (if Path C was triggered).
+Tell affected users that Lingua itself remains operational, GitHub hosts the
+official downloads, and update checks will retry after the upstream service
+recovers. Do not direct users to unofficial binary copies.

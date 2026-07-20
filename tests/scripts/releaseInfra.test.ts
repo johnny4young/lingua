@@ -17,12 +17,16 @@ import {
 
 describe('buildRuntimeAssetUrl', () => {
   it('joins the public base + versioned web-runtime key without a double slash', () => {
-    expect(buildRuntimeAssetUrl('https://d.example.com/', { lib: 'duckdb', version: '1.2.3', file: 'x.wasm' })).toBe(
-      'https://d.example.com/web-runtime/duckdb/1.2.3/x.wasm'
-    );
-    expect(buildRuntimeAssetUrl('https://d.example.com', { lib: 'ruby', version: '9.9', file: 'r.wasm' })).toBe(
-      'https://d.example.com/web-runtime/ruby/9.9/r.wasm'
-    );
+    expect(
+      buildRuntimeAssetUrl('https://d.example.com/', {
+        lib: 'duckdb',
+        version: '1.2.3',
+        file: 'x.wasm',
+      })
+    ).toBe('https://d.example.com/web-runtime/duckdb/1.2.3/x.wasm');
+    expect(
+      buildRuntimeAssetUrl('https://d.example.com', { lib: 'ruby', version: '9.9', file: 'r.wasm' })
+    ).toBe('https://d.example.com/web-runtime/ruby/9.9/r.wasm');
   });
 });
 
@@ -54,8 +58,12 @@ describe('classifyInfraProbe', () => {
   const url = 'https://d.example.com/web-runtime/duckdb/1/x.wasm';
 
   it('200 + app-origin CORS → ok', () => {
-    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: 200, acao: APP_ORIGIN }).level).toBe('ok');
-    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: 200, acao: '*' }).level).toBe('ok');
+    expect(
+      classifyInfraProbe({ url, kind: 'runtime-asset', status: 200, acao: APP_ORIGIN }).level
+    ).toBe('ok');
+    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: 200, acao: '*' }).level).toBe(
+      'ok'
+    );
   });
 
   it('200 without CORS → fail (the browser would block it)', () => {
@@ -71,7 +79,13 @@ describe('classifyInfraProbe', () => {
   });
 
   it('cf-mitigated challenge → fail with a bot-mitigation cause, NOT a CORS one', () => {
-    const r = classifyInfraProbe({ url, kind: 'runtime-asset', status: 403, acao: null, cfMitigated: 'challenge' });
+    const r = classifyInfraProbe({
+      url,
+      kind: 'runtime-asset',
+      status: 403,
+      acao: null,
+      cfMitigated: 'challenge',
+    });
     expect(r.level).toBe('fail');
     expect(r.detail).toMatch(/Bot Fight Mode/u);
     expect(r.detail).toMatch(/cf-mitigated: challenge/u);
@@ -81,22 +95,30 @@ describe('classifyInfraProbe', () => {
   });
 
   it('the challenge cause wins even when the status looks otherwise ok', () => {
-    const r = classifyInfraProbe({ url, kind: 'runtime-asset', status: 200, acao: '*', cfMitigated: 'challenge' });
+    const r = classifyInfraProbe({
+      url,
+      kind: 'runtime-asset',
+      status: 200,
+      acao: '*',
+      cfMitigated: 'challenge',
+    });
     expect(r.level).toBe('fail');
     expect(r.detail).toMatch(/Bot Fight Mode/u);
   });
 
   it('404 on a runtime asset → warn (version bump not yet mirrored)', () => {
-    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: 404, acao: null }).level).toBe('warn');
-  });
-
-  it('404 on the sentinel → fail (mirror never initialized)', () => {
-    expect(classifyInfraProbe({ url, kind: 'sentinel', status: 404, acao: null }).level).toBe('fail');
+    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: 404, acao: null }).level).toBe(
+      'warn'
+    );
   });
 
   it('network error / unexpected status → fail', () => {
-    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: null, acao: null }).level).toBe('fail');
-    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: 500, acao: null }).level).toBe('fail');
+    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: null, acao: null }).level).toBe(
+      'fail'
+    );
+    expect(classifyInfraProbe({ url, kind: 'runtime-asset', status: 500, acao: null }).level).toBe(
+      'fail'
+    );
   });
 });
 

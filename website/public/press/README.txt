@@ -5,8 +5,8 @@ Source: https://linguacode.dev/press
 Contact: press@linguacode.dev
 
 This bundle contains the launch boilerplate, founder bio, and pricing summary
-for Lingua. Brand assets (logo, monochrome icon, color tokens, typography
-spec) ship with Lingua v0.3 — this README will be replaced when they land.
+for Lingua. A dedicated logo, monochrome icon, color-token, and typography
+asset pack is not published yet; contact us for approved visual assets.
 
 Use the descriptions verbatim or trim to fit. Please don't describe Lingua as
 "open source" — the LICENSE is source-available, which is a legally distinct

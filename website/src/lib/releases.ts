@@ -5,9 +5,9 @@
  *
  * The lingua repo is public, so the latest release + its assets come straight
  * from `api.github.com/.../releases/latest`, and download links point at
- * `github.com/.../releases/download/...`. (Historically this read an R2 mirror
- * because the repo was private; the R2 bucket now only hosts the oversized web
- * WASM runtime, not release binaries.) Asset sizes come from the API response —
+ * `github.com/.../releases/download/...`. Historically this read a separate
+ * mirror; the R2 bucket now only hosts oversized web runtimes, not release
+ * binaries. Asset sizes come from the API response —
  * no HEAD probes needed. Older releases still come from the committed
  * `changelog.json` (history without download buttons).
  *
@@ -49,7 +49,7 @@ export interface Release {
   tag: string;
   version: string;
   publishedAt: string;
-  /** Link users can follow for more context. Internal /changelog anchor — the source repo is private. */
+  /** Local changelog anchor used for release context. */
   htmlUrl: string;
   assets: ReleaseAsset[];
   channel: string;
@@ -62,12 +62,7 @@ export interface OlderReleaseSummary {
   changelogAnchor: string;
 }
 
-const DEFAULT_DOWNLOADS_BASE = 'https://downloads.linguacode.dev';
 const RETRY_DELAYS_MS = [500, 1000, 2000];
-
-function downloadsBase(): string {
-  return (process.env.LINGUA_DOWNLOADS_BASE ?? DEFAULT_DOWNLOADS_BASE).replace(/\/$/, '');
-}
 
 function isOfflineMode(): boolean {
   return process.env.LINGUA_SOURCE === 'local';
@@ -77,7 +72,11 @@ function isOfflineMode(): boolean {
 // Filename inference for platform / arch / format
 // ────────────────────────────────────────────────────────────────────────────
 
-function inferPlatformAndArch(name: string): { platform: Platform; arch: Arch; format: Format } {
+export function inferPlatformAndArch(name: string): {
+  platform: Platform;
+  arch: Arch;
+  format: Format;
+} {
   const lower = name.toLowerCase();
 
   if (lower === 'sha256sums.txt' || lower.endsWith('.sha256') || lower.endsWith('.sha256sums')) {
@@ -89,7 +88,8 @@ function inferPlatformAndArch(name: string): { platform: Platform; arch: Arch; f
   if (lower.includes('third_party_license') || lower.includes('third-party-license')) {
     return { platform: 'unknown', arch: 'unknown', format: 'third-party-licenses' };
   }
-  if (lower === 'releases') return { platform: 'windows', arch: 'unknown', format: 'releases-manifest' };
+  if (lower === 'releases')
+    return { platform: 'windows', arch: 'unknown', format: 'releases-manifest' };
   if (lower.endsWith('.nupkg')) return { platform: 'windows', arch: 'x64', format: 'nupkg' };
 
   let format: Format = 'other';
@@ -102,20 +102,36 @@ function inferPlatformAndArch(name: string): { platform: Platform; arch: Arch; f
   else if (lower.endsWith('.appimage')) format = 'appimage';
 
   let platform: Platform = 'unknown';
-  if (lower.includes('darwin') || lower.includes('mac') || lower.includes('osx') || format === 'dmg') {
+  if (
+    lower.includes('darwin') ||
+    lower.includes('mac') ||
+    lower.includes('osx') ||
+    format === 'dmg'
+  ) {
     platform = 'macos';
   } else if (format === 'zip' && /\barm64\b|\bx64\b|\bx86_64\b/.test(lower)) {
     // Bare .zip without darwin/mac in name but with mac-style arch — assume mac.
     platform = 'macos';
-  } else if (format === 'exe' || format === 'msi' || lower.includes('win32') || lower.includes('windows')) {
+  } else if (
+    format === 'exe' ||
+    format === 'msi' ||
+    lower.includes('win32') ||
+    lower.includes('windows')
+  ) {
     platform = 'windows';
-  } else if (format === 'deb' || format === 'rpm' || format === 'appimage' || lower.includes('linux')) {
+  } else if (
+    format === 'deb' ||
+    format === 'rpm' ||
+    format === 'appimage' ||
+    lower.includes('linux')
+  ) {
     platform = 'linux';
   }
 
   let arch: Arch = 'unknown';
   if (lower.includes('arm64') || lower.includes('aarch64')) arch = 'arm64';
-  else if (lower.includes('x86_64') || lower.includes('x64') || lower.includes('amd64')) arch = 'x64';
+  else if (lower.includes('x86_64') || lower.includes('x64') || lower.includes('amd64'))
+    arch = 'x64';
   else if (lower.includes('universal')) arch = 'universal';
 
   if ((format === 'exe' || format === 'msi') && arch === 'unknown') arch = 'x64';
@@ -155,10 +171,12 @@ async function fetchWithRetry(url: string, init?: RequestInit): Promise<Response
       lastErr = err;
       const delay = RETRY_DELAYS_MS[attempt];
       if (delay == null) break;
-      await new Promise((r) => setTimeout(r, delay));
+      await new Promise(r => setTimeout(r, delay));
     }
   }
-  throw new Error(`fetch failed after ${RETRY_DELAYS_MS.length + 1} attempts: ${url} — ${(lastErr as Error)?.message ?? lastErr}`);
+  throw new Error(
+    `fetch failed after ${RETRY_DELAYS_MS.length + 1} attempts: ${url} — ${(lastErr as Error)?.message ?? lastErr}`
+  );
 }
 
 function normalizeVersion(tag: string): string {
@@ -177,12 +195,20 @@ async function offlineLatest(): Promise<Release | null> {
   const entries = await loadChangelog();
   const entry = entries[0];
   if (!entry) return null;
-  const base = `${downloadsBase()}/v${entry.version}`;
-  const macZipName = `lingua-${entry.version}-darwin-arm64.zip`;
-  const assets: ReleaseAsset[] = [
-    { name: macZipName, downloadUrl: `${base}/${macZipName}`, sizeBytes: null, ...inferPlatformAndArch(macZipName) },
-    { name: 'SHA256SUMS.txt', downloadUrl: `${base}/SHA256SUMS.txt`, sizeBytes: null, ...inferPlatformAndArch('SHA256SUMS.txt') },
+  const base = `https://github.com/${GITHUB_REPO}/releases/download/v${entry.version}`;
+  const fixtureNames = [
+    `Lingua-${entry.version}-mac-arm64.dmg`,
+    `Lingua-${entry.version}-mac-x64.dmg`,
+    `Lingua-${entry.version}-win-x64.exe`,
+    `Lingua-${entry.version}-linux-x86_64.AppImage`,
+    'SHA256SUMS.txt',
   ];
+  const assets: ReleaseAsset[] = fixtureNames.map(name => ({
+    name,
+    downloadUrl: `${base}/${name}`,
+    sizeBytes: null,
+    ...inferPlatformAndArch(name),
+  }));
   return {
     tag: `v${entry.version}`,
     version: entry.version,
@@ -215,7 +241,9 @@ export async function fetchLatestRelease(): Promise<Release | null> {
     const res = await fetchWithRetry(apiUrl, { headers });
     gh = (await res.json()) as GithubRelease;
   } catch (err) {
-    throw new Error(`Could not load the latest GitHub release from ${apiUrl}: ${(err as Error).message}`);
+    throw new Error(
+      `Could not load the latest GitHub release from ${apiUrl}: ${(err as Error).message}`
+    );
   }
 
   if (!gh.tag_name) {
@@ -224,8 +252,8 @@ export async function fetchLatestRelease(): Promise<Release | null> {
 
   const version = normalizeVersion(gh.tag_name);
   const assets: ReleaseAsset[] = (gh.assets ?? [])
-    .filter((a) => !isMetadataAsset(a.name))
-    .map((a) => ({
+    .filter(a => !isMetadataAsset(a.name))
+    .map(a => ({
       name: a.name,
       downloadUrl: a.browser_download_url,
       sizeBytes: typeof a.size === 'number' ? a.size : null,
@@ -243,21 +271,19 @@ export async function fetchLatestRelease(): Promise<Release | null> {
 }
 
 /**
- * Older releases, sourced from the committed changelog. No download URLs:
- * the lingua source repo is private and only the latest release is mirrored
- * to R2. Older entries are kept here so the page can still surface release
- * history without dead "Download" links.
+ * Older releases are sourced from the committed changelog. The latest release
+ * owns the download matrix; historical entries link to their changelog anchors.
  */
 export async function fetchOlderReleaseSummaries(
   maxCount: number,
-  options: { excludeVersion?: string } = {},
+  options: { excludeVersion?: string } = {}
 ): Promise<OlderReleaseSummary[]> {
   const entries = await loadChangelog();
   const exclude = options.excludeVersion ? normalizeVersion(options.excludeVersion) : null;
   return entries
-    .filter((e) => e.version !== exclude)
+    .filter(e => e.version !== exclude)
     .slice(0, maxCount)
-    .map((e) => ({
+    .map(e => ({
       version: e.version,
       date: e.date,
       notesExcerpt: excerptItems(e, 4),
@@ -281,19 +307,56 @@ function excerptItems(entry: { sections: { items: string[] }[] }, max: number): 
 // ────────────────────────────────────────────────────────────────────────────
 
 export function groupAssetsByPlatform(release: Release): Record<Platform, ReleaseAsset[]> {
-  const grouped: Record<Platform, ReleaseAsset[]> = { macos: [], windows: [], linux: [], unknown: [] };
+  const grouped: Record<Platform, ReleaseAsset[]> = {
+    macos: [],
+    windows: [],
+    linux: [],
+    unknown: [],
+  };
   for (const a of release.assets) grouped[a.platform].push(a);
   return grouped;
 }
 
-const SIDECAR_FORMATS: Format[] = ['checksums', 'sbom', 'third-party-licenses', 'releases-manifest', 'nupkg'];
+const SIDECAR_FORMATS: Format[] = [
+  'checksums',
+  'sbom',
+  'third-party-licenses',
+  'releases-manifest',
+  'nupkg',
+];
 
 export function isSidecarAsset(asset: ReleaseAsset): boolean {
   return SIDECAR_FORMATS.includes(asset.format);
 }
 
+/**
+ * Keep the human download grid focused on installers. macOS zip files remain
+ * attached for electron-updater, but a person should choose the dmg for their
+ * architecture; showing both made the Intel build easier to select by mistake.
+ */
+export function downloadableAssets(assets: ReleaseAsset[]): ReleaseAsset[] {
+  const installerAssets = assets.filter(asset => !isSidecarAsset(asset));
+  const dmgArches = new Set(
+    installerAssets.filter(asset => asset.format === 'dmg').map(asset => asset.arch)
+  );
+  const archRank: Record<Arch, number> = {
+    arm64: 0,
+    x64: 1,
+    universal: 2,
+    unknown: 3,
+  };
+  return installerAssets
+    .filter(
+      asset => !(asset.platform === 'macos' && asset.format === 'zip' && dmgArches.has(asset.arch))
+    )
+    .sort(
+      (left, right) =>
+        archRank[left.arch] - archRank[right.arch] || left.name.localeCompare(right.name)
+    );
+}
+
 export function findChecksumsAsset(release: Release): ReleaseAsset | null {
-  return release.assets.find((a) => a.format === 'checksums') ?? null;
+  return release.assets.find(a => a.format === 'checksums') ?? null;
 }
 
 export function formatBytes(n: number | null): string {

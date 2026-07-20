@@ -94,7 +94,7 @@ export const es = {
         {
           icon: 'wifi-off',
           title: 'Python sin internet',
-          body: 'Pyodide v0.26.4 viene dentro del binario desktop. Abre Lingua en un avión, escribe Python y ejecuta. La versión web hace lo mismo después de la primera carga.',
+          body: 'Pyodide v0.29.4 viene dentro del binario desktop. Abre Lingua en un avión, escribe Python y ejecuta. La versión web hace lo mismo después de la primera carga.',
         },
         {
           icon: 'terminal',
@@ -273,7 +273,7 @@ export const es = {
       notes: {
         js: 'Runtime en Worker',
         ts: 'esbuild-wasm → Worker',
-        py: 'Pyodide v0.26.4 incluido',
+        py: 'Pyodide v0.29.4 incluido',
         go: 'Toolchain local de Go',
         rust: 'Toolchain local de Rust',
         monaco: 'Vista de sintaxis Monaco',
@@ -561,7 +561,7 @@ export const es = {
       'Descripciones, bio del fundador, resumen de precios y ZIP del press kit. Para periodistas y partners que escriben sobre Lingua.',
     eyebrow: 'Prensa',
     heading: 'Kit de prensa',
-    lede: 'Todo lo necesario para escribir sobre Lingua con precisión. Copy listo en tres extensiones, bio del fundador y contacto. Los assets de marca llegan con v0.3; hasta entonces esta página y el ZIP contienen el mismo texto.',
+    lede: 'Todo lo necesario para escribir sobre Lingua con precisión: textos en tres extensiones, bio del fundador, contexto de precios y contacto. El ZIP actual es editorial; todavía no publicamos un paquete dedicado de recursos de marca.',
     downloadZip: 'Descargar press kit (ZIP)',
     contact: 'Contacto de prensa',
     contactMetaStart: 'Contacto de prensa —',
@@ -608,7 +608,7 @@ export const es = {
     },
     brand: {
       title: 'Assets de marca',
-      body: 'Logo, icono monocromático, tokens de color y especificación tipográfica llegan con Lingua v0.3. Actualizaremos esta página y el ZIP el día que estén listos.',
+      body: 'Todavía no publicamos un paquete dedicado con logo, icono monocromático, tokens de color y tipografía. Contáctanos si necesitas recursos visuales aprobados para una publicación.',
     },
   },
 } as const;

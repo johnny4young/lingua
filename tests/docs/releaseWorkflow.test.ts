@@ -85,6 +85,11 @@ describe('release workflow', () => {
     expect(workflow).toContain('latest-mac.yml does not reference a macOS .zip update asset');
     expect(workflow).toContain('latest-mac.yml references missing macOS .zip asset');
     expect(workflow).toContain('Verify Windows artifacts');
+    expect(workflow).toContain('scripts/validate-windows-package.mjs');
+    expect(workflow).toContain('Verify Windows Authenticode state');
+    expect(workflow).toContain("$signature.Status -ne 'Valid'");
+    expect(workflow).toContain('Configure both WIN_CERT_FILE and WIN_CERT_PASSWORD, or neither.');
+    expect(workflow).toContain('unsigned preview build');
     expect(workflow).toContain('Verify Linux artifacts');
   });
 
@@ -114,8 +119,9 @@ describe('release workflow', () => {
     expect(workflow).toMatch(/security-audit:\s*\n\s*name: Security audit \(release-blocking\)/u);
     expect(workflow).toMatch(/Run blocking production audit[\s\S]*?pnpm run check:prod-audit/u);
     expect(workflow).toMatch(
-      /Run advisory full audit[\s\S]*?pnpm audit --internal high[\s\S]*?continue-on-error: true/u
+      /Run advisory full audit[\s\S]*?pnpm audit --audit-level high[\s\S]*?continue-on-error: true/u
     );
+    expect(workflow).not.toContain('pnpm audit --internal');
     expect(workflow).toMatch(
       /Check changelog and release version[\s\S]*?pnpm run changelog:check -- --release-tag "\$\{RELEASE_TAG\}" --from "\$\{RELEASE_TAG\}"/u
     );

@@ -44,10 +44,8 @@ describe('Script naming docs guard', () => {
   const release = existsSync(RELEASE_PATH) ? readFileSync(RELEASE_PATH, 'utf-8') : '';
   const changelog = existsSync(CHANGELOG_PATH) ? readFileSync(CHANGELOG_PATH, 'utf-8') : '';
   const gitignore = existsSync(GITIGNORE_PATH) ? readFileSync(GITIGNORE_PATH, 'utf-8') : '';
-  const development = existsSync(DEVELOPMENT_PATH)
-    ? readFileSync(DEVELOPMENT_PATH, 'utf-8')
-    : '';
-  const workflows = WORKFLOW_PATHS.map((path) =>
+  const development = existsSync(DEVELOPMENT_PATH) ? readFileSync(DEVELOPMENT_PATH, 'utf-8') : '';
+  const workflows = WORKFLOW_PATHS.map(path =>
     existsSync(path) ? readFileSync(path, 'utf-8') : ''
   );
   const packageJson = existsSync(PACKAGE_PATH)
@@ -112,15 +110,7 @@ describe('Script naming docs guard', () => {
       'check:licenses',
       'license:report',
       'compliance:release',
-      // Desktop auto-update feed validation — stable production feed
-      // or draft-channel staging feed evidence before release promotion.
-      'check:update-feed',
-      // internal follow-up — R2 release mirror parity check (private
-      // repo means GitHub Releases assets are not public-downloadable,
-      // mirror-r2 keeps `downloads.linguacode.dev` in sync for
-      // marketing-site CTAs). See `docs/runbooks/r2-release-mirror-setup.md`.
-      'check:r2-mirror',
-      // Release hardening — probe the public R2 web-runtime mirror
+      // Release hardening — probe the public R2 web-runtime assets
       // (public access + CORS) and the local release preflight that
       // runs the release-blocking gates CI-faithfully before dispatch.
       'check:release-infra',
@@ -185,8 +175,8 @@ describe('Script naming docs guard', () => {
     expect(scripts).not.toHaveProperty('test:smoke:license-web:unit');
     expect(scripts['smoke:desktop:packaged']).toContain('--offline');
     expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out-builder');
-    expect(scripts['check:update-feed']).toContain('validate-update-feed.mjs');
-    expect(scripts['check:r2-mirror']).toContain('check-r2-mirror.mjs');
+    expect(scripts).not.toHaveProperty('check:update-feed');
+    expect(scripts).not.toHaveProperty('check:r2-mirror');
   });
 
   it('keeps the first-party Node policy on the 24.x family, not a fixed patch', () => {
@@ -209,12 +199,13 @@ describe('Script naming docs guard', () => {
 
   it('keeps every first-party package manager policy pnpm-only', () => {
     for (const path of FIRST_PARTY_PACKAGE_PATHS) {
-      const json = JSON.parse(
-        readFileSync(resolve(__dirname, '../..', path), 'utf-8')
-      ) as { packageManager?: string };
+      const json = JSON.parse(readFileSync(resolve(__dirname, '../..', path), 'utf-8')) as {
+        packageManager?: string;
+      };
       expect(json, path).toMatchObject({ packageManager: 'pnpm@11.3.0' });
     }
-    expect(development).toMatch(/pnpm-only across all first-party\s+Node packages/u);
+    expect(development).toMatch(/app, license server, and update server are pnpm-only/u);
+    expect(development).toContain('website/` remains a standalone npm package');
     expect(development).toContain('license-server/package.json');
     expect(development).toContain('update-server/package.json');
     expect(gitignore).toContain('package-lock.json');
@@ -227,15 +218,13 @@ describe('Script naming docs guard', () => {
 
     expect(development).toContain('## Package script reference');
     for (const script of scripts) {
-      expect(development, `docs/DEVELOPMENT.md must document ${script}`).toContain(
-        `\`${script}\``
-      );
+      expect(development, `docs/DEVELOPMENT.md must document ${script}`).toContain(`\`${script}\``);
     }
   });
 
   it('keeps current operator docs on pnpm commands', () => {
     const forbiddenCommand = /\b(?:npm run|npx\s|npm install|npm ci|npm --prefix)\b/u;
-    const offenders = CURRENT_OPERATOR_DOC_PATHS.filter((path) => {
+    const offenders = CURRENT_OPERATOR_DOC_PATHS.filter(path => {
       const text = readFileSync(resolve(__dirname, '../..', path), 'utf-8');
       return forbiddenCommand.test(text);
     });

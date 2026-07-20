@@ -1,14 +1,14 @@
 ---
-title: "Python REPL Desktop — Lingua"
-description: "Python offline en una app desktop con Pyodide vendored, resultados inline, Monaco y utilidades developer integradas."
-canonical: "https://linguacode.dev/es/python-repl-desktop"
-ogImage: "/assets/og/python-repl-desktop.png"
+title: 'Python REPL Desktop — Lingua'
+description: 'Python offline en una app desktop con Pyodide vendored, resultados inline, Monaco y utilidades developer integradas.'
+canonical: 'https://linguacode.dev/es/python-repl-desktop'
+ogImage: '/assets/og/python-repl-desktop.png'
 language: python
 ---
 
 # Python REPL desktop — offline desde el primer binario
 
-Lingua incluye Pyodide v0.26.4 dentro del binario desktop. Eso significa que puedes abrir la app sin internet y ejecutar snippets Python en la misma superficie donde también trabajas JS, TS, Go o Rust.
+Lingua incluye Pyodide v0.29.4 dentro del binario desktop. Eso significa que puedes abrir la app sin internet y ejecutar snippets Python en la misma superficie donde también trabajas JS, TS, Go o Rust.
 
 ## Lo que sí corre
 

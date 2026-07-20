@@ -8,17 +8,15 @@ redistribute or host this website independently.
 
 ## Local Setup
 
-Requires Node `>=22.12`. For content sync work you also need the main `lingua`
-repo cloned next to this one (`../lingua`); override the path with
-`LINGUA_LOCAL_PATH=/some/where`.
+Requires Node `>=22.12`. The content sync reads the Lingua repository root by
+default; `LINGUA_LOCAL_PATH=/some/where` is available only for local experiments.
 
 ```sh
 npm install
 npm run dev                # http://localhost:4321 — no env vars needed
 ```
 
-The site builds from committed content. You do not need access to the private
-`lingua` app repository for normal site changes.
+The site builds from committed content plus the public GitHub Releases API.
 
 ## Environment variables
 
@@ -33,7 +31,7 @@ Run these before opening a PR:
 ```sh
 npm run check
 env LINGUA_SOURCE=local npm run build
-npm audit --internal=moderate
+npm audit --audit-level=moderate
 ```
 
 ## Build and deploy
@@ -50,14 +48,14 @@ with:
 - Environment variables: set the ones documented in `.env.example` in the CF
   dashboard. `PUBLIC_POLAR_CHECKOUT_*` left blank renders disabled buttons.
 
-The default build fetches the public release manifest from
-`https://downloads.linguacode.dev/manifest.json` at build time and HEAD-checks
-each asset URL for `Content-Length`. The lingua source repo is private, so
-this R2 mirror is the only public download surface.
+The default build fetches the latest public release from the GitHub Releases
+API. Download links point directly at the attached GitHub assets. Cloudflare R2
+is not a desktop download source; it hosts only oversized web runtimes used by
+the app at `downloads.linguacode.dev/web-runtime/`.
 
 Set `LINGUA_SOURCE=local` to skip the network fetch and synthesize a
-placeholder release from the committed `changelog.json` — useful for offline
-dev builds. Set `LINGUA_DOWNLOADS_BASE` to point at a staging bucket.
+multi-platform placeholder release from the committed `changelog.json` — useful
+for offline development and responsive download-page smoke tests.
 
 ## Content sync
 
@@ -72,8 +70,8 @@ everything the build needs into this repo. It produces:
 The public roadmap in `src/data/roadmap.json` is curated independently. It is a
 small product-direction projection and must never copy private planning IDs,
 acceptance notes, or sprint history. Generated content and the curated roadmap
-are committed. The Astro build never reads from the main repo or hits GitHub —
-CF Pages and CI build with zero auth.
+are committed. Content sync reads the repository root; the release page may
+read the public GitHub Releases API and needs no authentication.
 
 Three ways to run a sync:
 
@@ -81,11 +79,8 @@ Three ways to run a sync:
 2. **One-shot.** `npm run sync:commit` (no push) or `npm run sync:push`.
    Aborts if unstaged work under those paths exists, so a sync commit never
    bundles unrelated edits.
-3. **Scheduled.** `.github/workflows/sync-content.yml` runs daily at 12:00 UTC
-   and on demand from the Actions tab. It opens or updates a PR titled
-   `sync: refresh content from lingua@main` whenever anything changed. Requires
-   a fine-grained PAT (Contents: Read, Metadata: Read) on the private `lingua`
-   repo, stored as the `LINGUA_REPO_TOKEN` repo secret.
+3. **Deployment.** `.github/workflows/deploy-website.yml` syncs content from the
+   checked-out repository before every Cloudflare Pages build.
 
 When pricing changes, update `src/components/PricingTable.astro` to match the
 new tier text. When a new SEO page lands in `docs/seo-pages/`, add it to the

@@ -26,6 +26,7 @@ function collectPublishedTextFiles(): string[] {
     .filter(Boolean)
     .filter(file => file !== '.gitignore')
     .map(file => resolve(ROOT, file))
+    .filter(file => existsSync(file))
     .filter(file => {
       const content = readFileSync(file);
       return !content.includes(0);

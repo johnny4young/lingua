@@ -38,10 +38,30 @@
  */
 export const PREFLIGHT_GATES = [
   { id: 'lint', label: 'Lint', script: 'lint', argv: ['pnpm', 'run', 'lint'] },
-  { id: 'typecheck', label: 'Type check (src)', script: null, argv: ['pnpm', 'exec', 'tsc', '--noEmit'] },
-  { id: 'typecheck:tests', label: 'Type check (test guards)', script: 'typecheck:tests', argv: ['pnpm', 'run', 'typecheck:tests'] },
-  { id: 'check:i18n', label: 'i18n keys', script: 'check:i18n', argv: ['pnpm', 'run', 'check:i18n'] },
-  { id: 'check:i18n:copy', label: 'i18n copy guard', script: 'check:i18n:copy', argv: ['pnpm', 'run', 'check:i18n:copy'] },
+  {
+    id: 'typecheck',
+    label: 'Type check (src)',
+    script: null,
+    argv: ['pnpm', 'exec', 'tsc', '--noEmit'],
+  },
+  {
+    id: 'typecheck:tests',
+    label: 'Type check (test guards)',
+    script: 'typecheck:tests',
+    argv: ['pnpm', 'run', 'typecheck:tests'],
+  },
+  {
+    id: 'check:i18n',
+    label: 'i18n keys',
+    script: 'check:i18n',
+    argv: ['pnpm', 'run', 'check:i18n'],
+  },
+  {
+    id: 'check:i18n:copy',
+    label: 'i18n copy guard',
+    script: 'check:i18n:copy',
+    argv: ['pnpm', 'run', 'check:i18n:copy'],
+  },
   {
     id: 'changelog:check',
     label: 'Changelog / version guard',
@@ -56,19 +76,51 @@ export const PREFLIGHT_GATES = [
     argv: ['node', './scripts/assert-license-key-rotation.mjs', '--env', '__NO_ENV__'],
     note: 'runs with an absent .env to reproduce CI exactly (the v0.7.0 run-1 break)',
   },
-  { id: 'check:prod-audit', label: 'Production dependency audit', script: 'check:prod-audit', argv: ['pnpm', 'run', 'check:prod-audit'] },
-  { id: 'check:licenses', label: 'Third-party license policy', script: 'check:licenses', argv: ['pnpm', 'run', 'check:licenses'] },
-  { id: 'check:performance', label: 'Performance budget', script: 'check:performance', argv: ['pnpm', 'run', 'check:performance'] },
-  { id: 'compliance:release', label: 'Release compliance artifacts', script: 'compliance:release', argv: ['pnpm', 'run', 'compliance:release'] },
+  {
+    id: 'check:prod-audit',
+    label: 'Production dependency audit',
+    script: 'check:prod-audit',
+    argv: ['pnpm', 'run', 'check:prod-audit'],
+  },
+  {
+    id: 'check:licenses',
+    label: 'Third-party license policy',
+    script: 'check:licenses',
+    argv: ['pnpm', 'run', 'check:licenses'],
+  },
+  {
+    id: 'check:performance',
+    label: 'Performance budget',
+    script: 'check:performance',
+    argv: ['pnpm', 'run', 'check:performance'],
+  },
+  {
+    id: 'compliance:release',
+    label: 'Release compliance artifacts',
+    script: 'compliance:release',
+    argv: ['pnpm', 'run', 'compliance:release'],
+  },
   {
     id: 'check:release-infra',
-    label: 'R2 web-runtime mirror readiness (public + CORS)',
+    label: 'R2 web-runtime readiness (public + CORS)',
     script: 'check:release-infra',
     argv: ['pnpm', 'run', 'check:release-infra', '--', '--allow-missing-base'],
-    note: 'probes the public R2 mirror for 403 / missing CORS (the v0.7.0 run-2 break)',
+    note: 'probes the public R2 runtime assets for 403 / missing CORS (the v0.7.0 run-2 break)',
   },
-  { id: 'test', label: 'Unit + integration tests', script: 'test', argv: ['pnpm', 'test'], heavy: true },
-  { id: 'build:web', label: 'Production web build', script: 'build:web', argv: ['pnpm', 'run', 'build:web'], heavy: true },
+  {
+    id: 'test',
+    label: 'Unit + integration tests',
+    script: 'test',
+    argv: ['pnpm', 'test'],
+    heavy: true,
+  },
+  {
+    id: 'build:web',
+    label: 'Production web build',
+    script: 'build:web',
+    argv: ['pnpm', 'run', 'build:web'],
+    heavy: true,
+  },
   {
     id: 'smoke:desktop:offline',
     label: 'Desktop smoke (offline, dev server)',
@@ -82,22 +134,20 @@ export const PREFLIGHT_GATES = [
 
 /**
  * Release-blocking gates the workflows run that the LOCAL preflight cannot
- * reproduce (they need a published release, the built signed `.app`, the
- * staging update feed, or R2 write creds). The drift test allows these to
+ * reproduce (they need a published release or a built signed application).
+ * The drift test allows these to
  * appear in the workflows without a preflight entry — but anything NOT here and
  * NOT a preflight gate fails the test, forcing a conscious decision.
  *
  * @type {ReadonlyArray<string>}
  */
 export const CI_ONLY_GATE_SCRIPTS = [
-  'check:update-feed', // needs the staging update feed + draft channel
-  'check:r2-mirror', // needs the published GitHub Release + R2 write
   'smoke:desktop', // full 9-case matrix against the dev server (pre-merge CI)
   'smoke:desktop:packaged', // needs the built, signed macOS .app
   'smoke:desktop:stagewright',
 ];
 
 /** npm script names the preflight covers (used by the drift guard). */
-export const PREFLIGHT_GATE_SCRIPTS = PREFLIGHT_GATES.map((gate) => gate.script).filter(
-  (script) => script !== null
+export const PREFLIGHT_GATE_SCRIPTS = PREFLIGHT_GATES.map(gate => gate.script).filter(
+  script => script !== null
 );
