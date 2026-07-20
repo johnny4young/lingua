@@ -1,10 +1,10 @@
 /**
- * RL-094 Slice 3 — tests for the capsule browse overlay.
+ * implementation — tests for the capsule browse overlay.
  *
  * Covers the Pro list (rows + count + preview + browse_opened
  * telemetry), the per-row actions (export → list-export telemetry,
- * delete → store mutation), the status filter (fold C), the Free-tier
- * upsell variant (fold G funnel still fires browse_opened), and ES
+ * delete → store mutation), the status filter (implementation note), the Free-tier
+ * upsell variant (implementation note funnel still fires browse_opened), and ES
  * tuteo copy.
  */
 
@@ -33,7 +33,7 @@ vi.mock('../../../src/renderer/utils/upsellNotice', () => ({
   pushUpsellNotice: (...args: unknown[]) => pushUpsellNotice(...args),
 }));
 
-// IT2-F7 — HTML export orchestration is unit-covered in
+// internal — HTML export orchestration is unit-covered in
 // `tests/utils/exportCapsuleHtml.test.ts`; the overlay only needs to
 // wire the row's capsule + list trigger into it.
 const exportCapsuleAsHtml = vi.fn();
@@ -119,7 +119,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     }
   });
 
-  it('fires capsule.browse_opened with surface + tier on mount (fold G)', () => {
+  it('fires capsule.browse_opened with surface + tier on mount (implementation note)', () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     expect(trackEvent).toHaveBeenCalledWith('capsule.browse_opened', {
@@ -146,7 +146,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     });
   });
 
-  it('exports a row as HTML with the list trigger (IT2-F7)', async () => {
+  it('exports a row as HTML with the list trigger', async () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     fireEvent.click(screen.getAllByTestId('capsule-list-row-export-html')[0]!);
@@ -163,7 +163,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     expect(context.locale).toBe('en');
   });
 
-  it('deletes a row capsule via clearCapsule (fold B)', () => {
+  it('deletes a row capsule via clearCapsule (implementation note)', () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(2);
@@ -175,7 +175,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(1);
   });
 
-  it('delete offers an Undo that restores the capsule (fold E)', () => {
+  it('delete offers an Undo that restores the capsule (implementation note)', () => {
     useUIStore.setState({ statusNotice: null });
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
@@ -214,7 +214,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('filters rows by status (fold C)', () => {
+  it('filters rows by status (implementation note)', () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('capsule-list-filter-status-error'));
@@ -222,7 +222,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
   });
 });
 
-describe('CapsuleListOverlay — compare selection (RL-094 Slice 4)', () => {
+describe('CapsuleListOverlay — compare selection ', () => {
   it('gates the Compare button until exactly two capsules are selected', () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
@@ -322,7 +322,7 @@ describe('CapsuleListOverlay — compare selection (RL-094 Slice 4)', () => {
   });
 });
 
-describe('CapsuleListOverlay — Free tier hides compare UI (RL-094 Slice 4)', () => {
+describe('CapsuleListOverlay — Free tier hides compare UI ', () => {
   beforeEach(() => {
     mockEntitled = false;
     mockTier = 'free';
@@ -337,7 +337,7 @@ describe('CapsuleListOverlay — Free tier hides compare UI (RL-094 Slice 4)', (
   });
 });
 
-describe('CapsuleListOverlay — Free tier upsell (fold G)', () => {
+describe('CapsuleListOverlay — Free tier upsell (implementation note)', () => {
   beforeEach(() => {
     mockEntitled = false;
     mockTier = 'free';

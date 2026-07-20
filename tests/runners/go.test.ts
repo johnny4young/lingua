@@ -245,7 +245,7 @@ describe('GoRunner', () => {
     expect(mockDetect).toHaveBeenCalledOnce();
   });
 
-  it('RL-011 Slice D — forwards the merged user env (global + project + tab) to go:compile', async () => {
+  it('implementation — forwards the merged user env (global + project + tab) to go:compile', async () => {
     mockDetect.mockResolvedValue({
       installed: true,
       version: 'go1.22.0',
@@ -254,7 +254,7 @@ describe('GoRunner', () => {
     mockCompile.mockResolvedValue({ success: false, error: 'mock' });
 
     // Seed the renderer stores with user-space env across three tiers
-    // so the runner must compose all of them through the Slice A
+    // so the runner must compose all of them through the implementation
     // merger before firing the IPC.
     useEnvVarsStore.setState({
       global: { SHARED: 'from-global', GLOBAL_ONLY: 'g' },
@@ -315,7 +315,7 @@ describe('GoRunner', () => {
     });
   });
 
-  it('RL-011 Slice D — forwards an empty env when no tiers have values', async () => {
+  it('implementation — forwards an empty env when no tiers have values', async () => {
     mockDetect.mockResolvedValue({
       installed: true,
       version: 'go1.22.0',

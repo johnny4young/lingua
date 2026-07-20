@@ -1,5 +1,5 @@
 /**
- * RL-070 Sub-slice 1 — Signal-Slate UI primitives.
+ * internal implementation — Signal-Slate UI primitives.
  *
  * Low-level building blocks the design system uses everywhere:
  * `Eyebrow` (uppercase section label), `RowDense` (label/hint/control

@@ -1,5 +1,5 @@
 /**
- * T6 — shared native-run machinery for the desktop language runners.
+ * implementation — shared native-run machinery for the desktop language runners.
  *
  * The Node, Ruby, and Rust runners each hand-rolled the same
  * `spawn(...)` + timeout + SIGTERM→SIGKILL escalation + output-cap +
@@ -63,7 +63,7 @@ export interface SpawnNativeRunOptions {
    * stream so the child hits EOF on first read. Omit it entirely to
    * leave the child's stdin untouched (Rust's posture).
    *
-   * F-7 interactive mode: when `keepOpen` is true the helper writes `data`
+   * implementation interactive mode: when `keepOpen` is true the helper writes `data`
    * but does NOT close the stream, and hands the writable to `onStream` so
    * the caller can forward later input (and owns closing it). The default
    * (write-once-then-close) posture is unchanged when `keepOpen` is falsy.
@@ -205,7 +205,7 @@ export function spawnNativeRun(
           child.stdin.write(stdin.data);
         }
         if (stdin.keepOpen) {
-          // F-7 — leave stdin open for later interactive writes; hand the
+          // implementation — leave stdin open for later interactive writes; hand the
           // stream to the caller, which owns closing it (e.g. a stdin-close
           // IPC or the run finishing).
           stdin.onStream?.(child.stdin);
@@ -253,7 +253,7 @@ export function spawnNativeRun(
     };
     child.stderr.on('data', onStderrData);
 
-    // Parent-owned timeout. Mirrors RL-078's pattern for the worker
+    // Parent-owned timeout. Mirrors internal's pattern for the worker
     // runners — main owns the kill timer; the subprocess never schedules
     // its own.
     const killTimer: NodeJS.Timeout = setTimeout(() => {

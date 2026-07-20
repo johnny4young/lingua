@@ -1,7 +1,7 @@
 /**
- * RL-024 Slice 1 — file tree first-paint defense.
+ * implementation — file tree first-paint defense.
  *
- * The Slice 1 acceptance criterion is: opening a folder with ~50
+ * The implementation acceptance criterion is: opening a folder with ~50
  * files renders the tree within 500 ms. The cost we lock here is
  * `entriesToNodes` + the immutable `setNodeChildren` shape the
  * store hands the renderer on every `expandDirectory` / refresh.

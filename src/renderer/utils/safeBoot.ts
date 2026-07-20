@@ -1,5 +1,5 @@
 /**
- * RL-090 — safe-boot detection and crash escalation.
+ * internal — safe-boot detection and crash escalation.
  *
  * The app boots in one of three modes:
  *
@@ -215,7 +215,7 @@ export function applyFactoryReset(): void {
   try {
     localStorage.clear();
   } catch {
-    // RL-090 — `clear()` can throw under quota pressure (Firefox
+    // internal — `clear()` can throw under quota pressure (Firefox
     // private mode, some WebKit builds). Fall through to per-key
     // removal AND skip the preserved keys directly so the license
     // survives even if the post-clear `setItem` re-write fails.

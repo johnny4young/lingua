@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 fold F — `--json` output snapshot tests.
+ * implementation note — `--json` output snapshot tests.
  *
  * Pins the `--json` envelope shape across all 5 adapters. Adding
  * fields to the envelope is allowed (downstream consumers can
@@ -17,7 +17,7 @@ import { runValidateCapsuleCommand } from '../../src/cli/commands/capsule';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 import { createFakeIo } from './io-fake';
 
-describe('--json envelope snapshots (fold F)', () => {
+describe('--json envelope snapshots (implementation note)', () => {
   it('utility json-format: success', async () => {
     const { io, state } = createFakeIo({ stdin: '{"a":1}' });
     await runUtilityCommand(

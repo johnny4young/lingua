@@ -1,5 +1,5 @@
 /**
- * RL-065 Slice 5 fold G — telemetry POST emission gate.
+ * implementation note — telemetry POST emission gate.
  *
  * Locks the consent + endpoint contract behind CI rather than
  * manual web smoke:
@@ -111,7 +111,7 @@ test.describe('Telemetry consent gate', () => {
       (entry) => entry.event === 'overlay.opened'
     );
     expect(overlayOpened, `expected overlay.opened POST; captured: ${JSON.stringify(captured)}`).toBeDefined();
-    // RL-149 — the React hook must be wire-transparent. The palette call site
+    // internal — the React hook must be wire-transparent. The palette call site
     // still emits the exact pre-migration event and property object after the
     // shared runtime redactor runs.
     expect(overlayOpened?.properties).toEqual({ overlayId: 'palette' });

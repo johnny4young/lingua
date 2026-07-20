@@ -1,5 +1,5 @@
 /**
- * T3 — notebook rich outputs. A stdout output that is a homogeneous
+ * implementation — notebook rich outputs. A stdout output that is a homogeneous
  * JSON array of objects renders as a table grid; everything else stays
  * plain text; stderr is never tabled.
  */
@@ -54,7 +54,7 @@ const stdout = (text: string): NotebookCellOutputV1 => ({
   text,
 });
 
-describe('NotebookCodeCellRow — rich table output (T3)', () => {
+describe('NotebookCodeCellRow — rich table output ', () => {
   beforeAll(async () => {
     await initI18n('en');
     await i18next.changeLanguage('en');

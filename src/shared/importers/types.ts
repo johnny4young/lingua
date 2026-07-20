@@ -1,10 +1,10 @@
 /**
- * RL-100 Slice 1 — Importer adapter contract.
+ * implementation — Importer adapter contract.
  *
  * Importers turn an external payload (cURL command, `.ipynb` JSON,
  * Postman collection, etc.) into a Lingua domain object the user can
- * confirm into a workspace. Slice 1 ships the registry shape + the
- * cURL → HTTP request adapter only; later slices add `.ipynb`,
+ * confirm into a workspace. implementation ships the registry shape + the
+ * cURL → HTTP request adapter only; later work add `.ipynb`,
  * Bruno/Postman, and CodePen/JSFiddle URL flows.
  *
  * Three-phase contract — every adapter implements all three:
@@ -18,7 +18,7 @@
  *      (e.g. `-F file=@photo.jpg` in cURL). Returns a discriminated
  *      `{ ok: true, preview, warnings } | { ok: false, reason }`.
  *   3. `import(preview)` — commit. Builds the canonical domain
- *      object (in Slice 1: `HttpRequestV1`) that the caller writes
+ *      object (in implementation: `HttpRequestV1`) that the caller writes
  *      into the appropriate Zustand store.
  *
  * Closed-enum reject reasons keep the surface honest: every reject
@@ -30,7 +30,7 @@
  *   - Importers run entirely in the renderer. NO IPC, NO network
  *     fetches.
  *   - Sensitive headers (`Authorization`, `Cookie`, etc. — the
- *     RL-097 `BASELINE_SENSITIVE_HEADERS` set) are REDACTED in the
+ *     internal `BASELINE_SENSITIVE_HEADERS` set) are REDACTED in the
  *     preview shape so the user's screen never displays them, even
  *     mid-import. The actual `HttpRequestV1` written on confirm
  *     keeps the unredacted value — that's the whole point of
@@ -41,12 +41,12 @@
  */
 
 /**
- * Closed enum of importer ids. Slice 1 shipped `'curl-http'`;
- * Slice 2 (2026-05-27) added `'ipynb-notebook'`; Slice 3 (2026-05-28)
- * adds `'postman-collection'` + `'bruno-collection'`. RL-043 Slice E
+ * Closed enum of importer ids. implementation shipped `'curl-http'`;
+ * implementation (2026-05-27) added `'ipynb-notebook'`; implementation (2026-05-28)
+ * adds `'postman-collection'` + `'bruno-collection'`. implementation
  * (2026-06-21) adds `'linguanb-notebook'` — the lossless native
  * notebook document (counterpart to the lossy `.ipynb` import). The
- * enum stays open for `'codepen-url'` (Slice 4+).
+ * enum stays open for `'codepen-url'` .
  *
  * Mirrored on `update-server/src/telemetry.ts` as
  * `IMPORTER_IDS_SET` — see the parity test there.
@@ -78,7 +78,7 @@ export type ImporterRejectReason = (typeof IMPORTER_REJECT_REASONS)[number];
  * declares which codes it can emit. The UI maps codes to localized
  * hint copy via `importPreview.warning.lossy.<code>` keys.
  *
- * Slice 1 codes are cURL-specific; future adapters add their own
+ * implementation codes are cURL-specific; future adapters add their own
  * (e.g. `'notebook-cell-output-stripped'` for `.ipynb`).
  */
 export const IMPORTER_LOSSY_WARNINGS = [
@@ -89,24 +89,24 @@ export const IMPORTER_LOSSY_WARNINGS = [
   'curl-cookie-write',
   'curl-output-file',
   'curl-other-flag',
-  // RL-100 Slice 2 — `.ipynb` adapter lossy codes. The `.ipynb`
-  // → `NotebookV1` mapping is intentionally lossy in Slice 2:
+  // implementation — `.ipynb` adapter lossy codes. The `.ipynb`
+  // → `NotebookV1` mapping is intentionally lossy in implementation:
   //   - `cell_type: 'raw'` cells are dropped (Lingua has no raw kind);
   //   - rich outputs (`image/png`, `text/html`, `application/json`,
   //     etc.) are dropped, only the `text/plain` MIME variant survives
   //     as a `NotebookCellOutputV1`;
   //   - cells whose kernelspec language is not in
-  //     `NOTEBOOK_CELL_LANGUAGES` (Slice A: JS / TS / Python) fall
+  //     `NOTEBOOK_CELL_LANGUAGES` (implementation: JS / TS / Python) fall
   //     back to JS with `ipynb-unknown-language`;
   //   - cells with `execute_count` metadata lose it on import (only
   //     content + outputs survive).
-  // Slice B+ promotes via RL-043 Slice B rich outputs + RL-043 Slice D
+  // future work promotes via implementation rich outputs + implementation
   // round-trip export.
   'ipynb-raw-cell-dropped',
   'ipynb-rich-output-dropped',
   'ipynb-unknown-language',
   'ipynb-execute-result-stripped',
-  // RL-100 Slice 3 — Postman / Bruno collection lossy codes. A
+  // implementation — Postman / Bruno collection lossy codes. A
   // collection import is intentionally lossy: Postman's auth helpers,
   // pre-request / test scripts, environment variables, and non-text
   // body modes have no Lingua HTTP-workspace equivalent, so they are
@@ -141,7 +141,7 @@ export const IMPORTER_LOSSY_WARNINGS = [
 export type ImporterLossyWarning = (typeof IMPORTER_LOSSY_WARNINGS)[number];
 
 /**
- * RL-100 Slice 2 — `.ipynb` adapter's internal reject taxonomy.
+ * implementation — `.ipynb` adapter's internal reject taxonomy.
  *
  * Surfaced via `ImporterPreviewOutcome.detail` (NOT a new closed
  * enum on the outer outcome) so the generic `IMPORTER_REJECT_REASONS`
@@ -164,7 +164,7 @@ export const IPYNB_REJECT_REASONS = [
 export type IpynbRejectReason = (typeof IPYNB_REJECT_REASONS)[number];
 
 /**
- * RL-100 Slice 2 fold E — closed enum of `.ipynb` warning kinds
+ * implementation note — closed enum of `.ipynb` warning kinds
  * surfaced via the `import.notebook_warnings_surfaced` telemetry
  * event. The renderer derives `dominantKind` from the warnings
  * array on a successful import; if no warnings, the event does NOT
@@ -182,7 +182,7 @@ export const NOTEBOOK_WARNING_KINDS = [
 export type NotebookWarningKind = (typeof NOTEBOOK_WARNING_KINDS)[number];
 
 /**
- * RL-100 Slice 3 — Postman Collection adapter's internal reject
+ * implementation — Postman Collection adapter's internal reject
  * taxonomy. Surfaced via `ImporterPreviewOutcome.detail` (same
  * pattern as `IPYNB_REJECT_REASONS`) so the generic
  * `IMPORTER_REJECT_REASONS` shape stays uniform across importers.
@@ -202,7 +202,7 @@ export const POSTMAN_REJECT_REASONS = [
 export type PostmanRejectReason = (typeof POSTMAN_REJECT_REASONS)[number];
 
 /**
- * RL-100 Slice 3 — Bruno `.bru` adapter's internal reject taxonomy.
+ * implementation — Bruno `.bru` adapter's internal reject taxonomy.
  * Surfaced via `ImporterPreviewOutcome.detail`. Outward mapping:
  *   - `'malformed'` / `'invalid-shape'` → `'malformed'`.
  *   - `'empty-input'` → `'empty-input'`.

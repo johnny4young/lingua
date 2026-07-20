@@ -1,10 +1,10 @@
 /**
- * RL-043 Slice (Monaco cells) — NotebookCellEditor coverage.
+ * implementation (Monaco cells) — NotebookCellEditor coverage.
  *
  * Pins the mount-virtualization contract (static colorized view until
  * edited; a live Monaco editor only on the editing cell, so a multi-cell
  * notebook never mounts more than one), the run / Esc keybind forwarding,
- * the plain-text colorize fallback, and the fold-E mount telemetry.
+ * the plain-text colorize fallback, and the implementation note mount telemetry.
  */
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -91,7 +91,7 @@ describe('NotebookCellEditor', () => {
     );
   });
 
-  it('mounts a Monaco editor when editing and fires the mount telemetry (fold E)', () => {
+  it('mounts a Monaco editor when editing and fires the mount telemetry (implementation note)', () => {
     render(<NotebookCellEditor {...props({ editing: true, language: 'typescript' })} />);
     expect(screen.getByTestId('notebook-code-cell-source')).toBeTruthy();
     expect(cellMockHarness.mountCount).toBe(1);

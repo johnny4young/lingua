@@ -1,5 +1,5 @@
 /**
- * RL-068 — Unit tests for `renderMarkdownPreview`. Async because the
+ * internal — Unit tests for `renderMarkdownPreview`. Async because the
  * helper lazy-imports `marked` + `dompurify`. Covers happy-path
  * render, GFM toggle, sanitization (script tag stripped), the
  * "no remote image fetch" AC (img src cleared), and the empty /

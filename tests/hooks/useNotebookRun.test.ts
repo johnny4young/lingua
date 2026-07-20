@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A — `useNotebookRun` orchestration coverage.
+ * implementation — `useNotebookRun` orchestration coverage.
  */
 
 import { act, renderHook } from '@testing-library/react';
@@ -12,7 +12,7 @@ vi.mock('../../src/renderer/runners', () => ({
   runnerManager: {
     execute: vi.fn(),
     stop: vi.fn(),
-    // RL-043 Slice F (fold B) — the hook checks this before a Python run
+    // implementation Slice F (implementation note) — the hook checks this before a Python run
     // to decide whether to surface the "starting Python" notice. Default
     // false so the bulk of the suite never trips the notice.
     needsInitialization: vi.fn(() => false),
@@ -126,7 +126,7 @@ describe('useNotebookRun', () => {
     if (cell.kind === 'code') {
       expect(cell.outputs.map((o) => o.text)).toContain('hi');
     }
-    // UX Sweep T4 — a successful single-cell run is announced to AT.
+    // accessibility pass — a successful single-cell run is announced to AT.
     expect(useAnnouncerStore.getState().message).toMatch(/successfully/i);
   });
 
@@ -211,11 +211,11 @@ describe('useNotebookRun', () => {
     });
     // Second cell never runs.
     expect(mockExecute).toHaveBeenCalledTimes(1);
-    // UX Sweep T4 reviewer fix — range runs also announce their terminal outcome.
+    // accessibility pass reviewer fix — range runs also announce their terminal outcome.
     expect(useAnnouncerStore.getState().message).toMatch(/failed after 1 cell/i);
   });
 
-  it('runAll runs a Python-only notebook through the python runner (Slice F)', async () => {
+  it('runAll runs a Python-only notebook through the python runner ', async () => {
     seedSingleCodeCellNotebook('tab-python', 'python');
     mockExecute.mockResolvedValue({
       kind: 'ok',
@@ -240,7 +240,7 @@ describe('useNotebookRun', () => {
   });
 
   it('runAll surfaces a notice when every code cell is an unsupported language', async () => {
-    // All three real code-cell languages run now (Slice F), so the
+    // All three real code-cell languages run now , so the
     // notice path is exercised with an out-of-enum language cast.
     seedSingleCodeCellNotebook('tab-unsupported', 'ruby' as NotebookCellLanguage);
     const { result } = renderHook(() => useNotebookRun());
@@ -256,7 +256,7 @@ describe('useNotebookRun', () => {
     });
   });
 
-  it('surfaces the "starting Python" notice on a cold Python run (Slice F fold B)', async () => {
+  it('surfaces the "starting Python" notice on a cold Python run (Slice F implementation note)', async () => {
     seedSingleCodeCellNotebook('tab-cold', 'python');
     mockNeedsInit.mockReturnValueOnce(true);
     mockExecute.mockResolvedValue({
@@ -369,7 +369,7 @@ describe('useNotebookRun', () => {
     act(() => {
       result.current.stop();
     });
-    // JS / TS share the 'javascript' worker; Python (Slice F) runs on the
+    // JS / TS share the 'javascript' worker; Python  runs on the
     // 'python' runner. stop() hits both since the hook doesn't track the
     // in-flight language.
     expect(mockStop).toHaveBeenCalledWith('javascript');

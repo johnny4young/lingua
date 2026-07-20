@@ -24,7 +24,7 @@ function normalizeInputArgs(args: readonly string[] | null): string[] | undefine
   return cleaned.slice(0, MAX_INPUT_ARGS_PER_SET);
 }
 
-/** IT2-F5 — per-tab stdin, argv, and named input-set actions. */
+/** internal — per-tab stdin, argv, and named input-set actions. */
 export function createInputActions(
   set: EditorSet,
   get: EditorGet

@@ -33,7 +33,7 @@ interface WatcherEntry {
 
 const watchers = new Map<WatchId, WatcherEntry>();
 const watcherIdsByTarget = new Map<string, WatchId>();
-// RL-146 hardening (B14) — tie each watcher to the webContents that
+// internal hardening  — tie each watcher to the webContents that
 // created it so a window close (macOS keeps the app alive with no
 // window) or a renderer reload does not leak the recursive project
 // watcher. Without this, `before-quit` was the ONLY cleanup for these
@@ -67,7 +67,7 @@ function stopWatcherById(watchId: WatchId): boolean {
   if (entry.senderId !== undefined) {
     forgetWatcherForSender(entry.senderId, watchId);
   }
-  // RL-087 — drop the per-watcher burst tracker entry so a long
+  // internal — drop the per-watcher burst tracker entry so a long
   // session that opens + closes many projects under inotify load
   // does not accumulate dead UUIDs in the map.
   nullFilenameBursts.delete(watchId);
@@ -91,7 +91,7 @@ function stopWatchersForSender(senderId: number): void {
 }
 
 /**
- * RL-087 — purge every active watcher. Called from `before-quit` so
+ * internal — purge every active watcher. Called from `before-quit` so
  * Node's fs.watch handles never outlive the process.
  */
 export function stopAllWatchers(): void {
@@ -116,7 +116,7 @@ export function stopAllWatchers(): void {
 let beforeQuitListenerInstalled = false;
 
 /**
- * RL-087 — install the `before-quit` handler exactly once. Called
+ * internal — install the `before-quit` handler exactly once. Called
  * lazily from `registerFileSystemHandlers` because Electron's `app`
  * is not safe to `app.on(...)` against in test setup that mocks the
  * module without a real lifecycle.
@@ -129,7 +129,7 @@ function ensureBeforeQuitCleanup(): void {
 }
 
 /**
- * RL-087 — null-filename burst tracker. Some platforms (Linux inotify
+ * internal — null-filename burst tracker. Some platforms (Linux inotify
  * under load) drop the entry name from `fs.watch` callbacks; a sustained
  * burst suggests the watcher is overwhelmed. Track per-watchId and emit
  * `fs:watcher-degraded` once per 5s window when the count crosses the
@@ -164,7 +164,7 @@ function recordNullFilenameBurst(watchId: WatchId): boolean {
 }
 
 /**
- * RL-087 — exported for tests so we can simulate a burst without
+ * internal — exported for tests so we can simulate a burst without
  * spinning up a real watcher.
  */
 export function _resetWatcherBurstTrackerForTests(): void {
@@ -172,7 +172,7 @@ export function _resetWatcherBurstTrackerForTests(): void {
 }
 
 /**
- * RL-087 — exported for tests that re-run `registerFileSystemHandlers`
+ * internal — exported for tests that re-run `registerFileSystemHandlers`
  * across cases. Without this, the `beforeQuitListenerInstalled` flag
  * stays true between cases and the second `registerFileSystemHandlers`
  * call becomes a silent no-op.
@@ -203,7 +203,7 @@ export function registerWatcherHandlers(): void {
       }
       const watchId = asWatchId(randomUUID());
 
-      // RL-087 — wrap fs.watch in try/catch so registration failures
+      // internal — wrap fs.watch in try/catch so registration failures
       // (EACCES, EMFILE, ENOSPC, ENOENT) surface as a typed diagnostic
       // to the renderer instead of crashing the IPC handler.
       let watcher: ReturnType<typeof watch>;

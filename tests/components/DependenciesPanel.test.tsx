@@ -1,5 +1,5 @@
 /**
- * RL-025 Slice A - DependenciesPanel rendering smoke tests.
+ * implementation - DependenciesPanel rendering smoke tests.
  *
  * Pins the empty / mixed / disabled-toggle states, the disabled
  * Install button tooltip variants (web vs desktop vs `needs-desktop`

@@ -1,7 +1,7 @@
 /**
- * RL-043 Slice D — `.ipynb` export serializer + round-trip against the
- * RL-100 importer (fold A) with per-cell language preservation (fold B)
- * and execution-count (fold C).
+ * implementation — `.ipynb` export serializer + round-trip against the
+ * implementation importer (implementation note) with per-cell language preservation (implementation note)
+ * and execution-count (implementation note).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -44,7 +44,7 @@ describe('exportNotebookAsIpynb', () => {
     expect(doc.cells[1].cell_type).toBe('code');
     expect(doc.cells[1].id).toBe('c1');
     expect(doc.cells[1].source.join('')).toBe('const x: number = 1;');
-    // Fold B — per-cell language stashed in private metadata.
+    // implementation note — per-cell language stashed in private metadata.
     expect(doc.cells[1].metadata.lingua.language).toBe('typescript');
     expect(doc.cells[1].outputs[0]).toMatchObject({
       output_type: 'stream',
@@ -65,7 +65,7 @@ describe('exportNotebookAsIpynb', () => {
     expect(doc.cells[0].source).toEqual(['a\n', 'b\n', 'c']);
   });
 
-  it('fold C — exports execution_count from the [N] map, null when unknown', () => {
+  it('implementation note — exports execution_count from the [N] map, null when unknown', () => {
     const stamped = JSON.parse(
       exportNotebookAsIpynb(
         makeNotebook([
@@ -85,7 +85,7 @@ describe('exportNotebookAsIpynb', () => {
     expect(unstamped.cells[0].execution_count).toBeNull();
   });
 
-  it('fold A + B — round-trips through the importer, preserving mixed per-cell languages', () => {
+  it('implementation note — round-trips through the importer, preserving mixed per-cell languages', () => {
     const original = makeNotebook([
       { kind: 'code', id: 'c1', language: 'javascript', source: 'const a = 1;', outputs: [] },
       {
@@ -106,7 +106,7 @@ describe('exportNotebookAsIpynb', () => {
     expect(cells.map((c) => c.kind)).toEqual(['code', 'code', 'markdown']);
     expect(cells.map((c) => c.id)).toEqual(['c1', 'c2', 'm1']);
     const code = cells.filter((c) => c.kind === 'code');
-    // Fold B — the kernelspec is single-language, but the per-cell
+    // implementation note — the kernelspec is single-language, but the per-cell
     // metadata kept c2 as TypeScript across the round-trip.
     if (code[0]?.kind === 'code') expect(code[0].language).toBe('javascript');
     if (code[1]?.kind === 'code') expect(code[1].language).toBe('typescript');

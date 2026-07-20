@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 fold F + Slice 3a fold D — HTTP workspace telemetry
+ * implementation note — HTTP workspace telemetry
  * helper.
  *
  * Single event: `http.request_executed { method, statusBucket,

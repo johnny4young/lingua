@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 1 — auto-run completion gate end-to-end smoke.
+ * implementation — auto-run completion gate end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -8,7 +8,7 @@
  *     in the panel.
  *   - Completing the expression dismisses the notice and the run
  *     fires.
- *   - Fold E: under `runtimeMode === 'browser-preview'`, the notice
+ *   - implementation note: under `runtimeMode === 'browser-preview'`, the notice
  *     swaps to the "Preview paused" copy variant so a DOM-oriented
  *     user knows the iframe re-render is what is paused.
  *
@@ -40,7 +40,7 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
   await page.keyboard.insertText(source);
 }
 
-test.describe('Auto-run completion gate (RL-020 Slice 1)', () => {
+test.describe('Auto-run completion gate ', () => {
   test('typing an incomplete JS line shows the paused notice without throwing SyntaxError', async ({
     page,
   }) => {
@@ -82,7 +82,7 @@ test.describe('Auto-run completion gate (RL-020 Slice 1)', () => {
     await expect(page.getByTestId('auto-run-gate-notice')).toHaveCount(0);
   });
 
-  test('Fold E — under Browser preview, the notice uses the preview-paused copy variant', async ({
+  test('implementation note — under Browser preview, the notice uses the preview-paused copy variant', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });

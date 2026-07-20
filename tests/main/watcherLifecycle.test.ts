@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * RL-087 — watcher lifecycle, failure-path, and `before-quit` cleanup.
+ * internal — watcher lifecycle, failure-path, and `before-quit` cleanup.
  *
  * Runs under the `node` environment because the source module's
  * `node:fs` import cannot be intercepted via `vi.mock` from the
@@ -94,7 +94,7 @@ interface FakeSender {
   isDestroyed: () => boolean;
   send: ReturnType<typeof vi.fn>;
   // The watch-start handler registers a one-time 'destroyed' listener to
-  // tie watcher lifecycle to the sender (B14). Capture it so tests can
+  // tie watcher lifecycle to the sender . Capture it so tests can
   // fire it and assert the watchers are torn down.
   once: ReturnType<typeof vi.fn>;
   emitDestroyed: () => void;
@@ -226,7 +226,7 @@ describe('fs:watch-start happy path', () => {
     expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
   });
 
-  it('disposes a sender-owned watcher when the webContents is destroyed (B14)', async () => {
+  it('disposes a sender-owned watcher when the webContents is destroyed ', async () => {
     const { rootId } = mintFor(tmpRoot);
     const sender = makeSender();
     await invoke('fs:watch-start', sender, rootId, '');

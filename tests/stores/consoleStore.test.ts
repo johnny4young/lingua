@@ -64,7 +64,7 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().entries).toHaveLength(0);
   });
 
-  // RL-044 Slice 1B fold A — `clear` also resets the payload-kind
+  // implementation note — `clear` also resets the payload-kind
   // chip filter so a fresh run never displays "No entries match the
   // active filters" against stale filter state.
   it('clear also resets payload-kind chip filters', () => {
@@ -75,7 +75,7 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
   });
 
-  // UX Sweep T2 fold B — restore() backs the clear-undo toast.
+  // accessibility pass — restore() backs the clear-undo toast.
   it('restore re-instates a cleared snapshot (entries + collapsed + filters)', () => {
     useConsoleStore.getState().addEntry({ type: 'log', content: 'First' });
     useConsoleStore.getState().addEntry({ type: 'error', content: 'Second' });
@@ -204,7 +204,7 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().showTimestamps).toBe(true);
   });
 
-  // --- RL-044 Slice 1B fold A — payload-kind filter tests ---
+  // --- implementation note — payload-kind filter tests ---
 
   it('starts with an empty hiddenPayloadKinds set', () => {
     expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
@@ -226,7 +226,7 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
   });
 
-  // --- RL-044 Slice 1B — additive payload field on entries ---
+  // --- implementation — additive payload field on entries ---
 
   it('preserves the rich payload alongside content when present', () => {
     useConsoleStore.getState().addEntry({
@@ -246,7 +246,7 @@ describe('consoleStore', () => {
     expect(entry.payload).toBeUndefined();
   });
 
-  // --- RL-123 / AUDIT-03 — store-side collapse + equality hash ---
+  // --- implementation detail — store-side collapse + equality hash ---
 
   it('stamps a stable equalityHash on each entry', () => {
     useConsoleStore.getState().addEntry({ type: 'log', content: 'same' });

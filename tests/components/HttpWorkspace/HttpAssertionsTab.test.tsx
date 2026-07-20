@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HttpAssertionsTab } from '../../../src/renderer/components/HttpWorkspace/HttpAssertionsTab';
 import { createBlankAssertion } from '../../../src/shared/httpWorkspace';
 
-describe('HttpAssertionsTab (SR-27)', () => {
+describe('HttpAssertionsTab', () => {
   it('shows the empty state and adds a row', async () => {
     const user = userEvent.setup();
     const onAdd = vi.fn();

@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — Recipe `js-palindrome`.
+ * implementation — Recipe `js-palindrome`.
  *
  * Detect palindromes. Exercises string normalization + reverse-and-
  * compare. Tests cover punctuation + casing.

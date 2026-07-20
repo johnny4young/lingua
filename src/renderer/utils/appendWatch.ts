@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 3 fold E — pure helper that decides how to append a
+ * implementation note — pure helper that decides how to append a
  * `// @watch <expr>` (or `# @watch <expr>` for Python) marker to a
  * line of code.
  *

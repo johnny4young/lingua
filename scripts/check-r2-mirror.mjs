@@ -37,7 +37,7 @@
  *   `output/r2-mirror-validation/<tag>.json` — full diff machine-
  *   readable record, attached to the release evidence.
  *
- * RL-061 sibling — same evidence-artifact pattern as
+ * internal sibling — same evidence-artifact pattern as
  * `update-feed-validation.json`.
  */
 

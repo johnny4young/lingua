@@ -1,5 +1,5 @@
 /**
- * RL-090 — build a redacted error report and copy it to the
+ * internal — build a redacted error report and copy it to the
  * clipboard from the error-boundary fallback UI.
  *
  * The report is intentionally minimal: enough for a support ticket

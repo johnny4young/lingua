@@ -1,5 +1,5 @@
 /**
- * RL-068 — String Case Converter component tests. Pure helper is covered in
+ * internal — String Case Converter component tests. Pure helper is covered in
  * tests/utils/stringCase.test.ts, so this suite only checks the wiring:
  * every output cell receives a value, propagation is live, copy buttons are
  * present per casing, and ES copy resolves.

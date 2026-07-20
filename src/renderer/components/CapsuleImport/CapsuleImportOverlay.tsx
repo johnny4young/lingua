@@ -1,25 +1,25 @@
 /**
- * RL-094 Slice 2 — Capsule import overlay.
+ * implementation — Capsule import overlay.
  *
  * 3-section modal:
  *   - Top: Load source (Paste textarea + Open file button + Drop zone).
  *   - Middle: <CapsuleImportPreview> when a valid capsule decoded;
  *     otherwise an inline reject banner with the closed-enum reason.
  *   - Bottom: Action bar — Cancel + "Open as new tab" (disabled until
- *     valid capsule). Fold E adds "Copy source to clipboard"; Fold G
+ *     valid capsule). implementation note adds "Copy source to clipboard"; implementation note
  *     adds "Open in HTTP workspace" when the capsule's
  *     `tab.language === 'http'`.
  *
- * Source surfaces (fold B + C):
+ * Source surfaces (implementation note):
  *   - Paste textarea — manual JSON paste; primary surface.
  *   - File picker — hidden `<input type="file">` triggered by the
  *     button so web + desktop both go through `File.text()` (no IPC).
  *   - Drag-drop — full-overlay drop zone with visual feedback ring.
- *   - Clipboard auto-detect (fold C) — only fires when consent is
+ *   - Clipboard auto-detect (implementation note) — only fires when consent is
  *     `'granted'`; the row also exposes "Detect clipboard now" so
  *     users with consent can re-trigger after copying.
  *
- * Telemetry (fold D) is owned by `useCapsuleImport`; this component
+ * Telemetry (implementation note) is owned by `useCapsuleImport`; this component
  * passes through. The overlay itself fires NO telemetry directly.
  *
  * Escape closes the overlay; click-outside closes too. Body scroll
@@ -71,7 +71,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   // No document-level listener here, otherwise the close would fire
   // twice when the shell already handles the key.
 
-  // ─── Clipboard auto-detect (Fold C) ─────────────────────────────
+  // ─── Clipboard auto-detect (implementation note) ─────────────────────────────
   const clipboardConsent = useSettingsStore(
     (s) => s.capsuleImportClipboardOnFocusConsent
   );
@@ -80,7 +80,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   );
   const [pasteValue, setPasteValue] = useState('');
   const autoDetectedRef = useRef(false);
-  // RL-110 fold E — when the overlay was opened by a smart-paste capsule
+  // implementation — when the overlay was opened by a smart-paste capsule
   // import, decode the stashed JSON on mount so the preview opens pre-filled.
   // Takes precedence over the clipboard auto-detect below (seed wins) and is
   // one-shot (the holder clears itself).
@@ -101,7 +101,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     if (autoDetectedRef.current) return;
     if (clipboardConsent !== 'granted') return;
     autoDetectedRef.current = true;
-    // Reviewer fix (RL-094 Slice 2 final pass) — `cancelled` flag
+    // Reviewer fix (implementation final pass) — `cancelled` flag
     // guards against a state update on an unmounted overlay when the
     // user closes the overlay during the async clipboard read. React 19
     // silenced the warning but the work is still wasted, and the
@@ -139,7 +139,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     [decodeFromFile]
   );
 
-  // ─── Drag-drop (Fold B) ─────────────────────────────────────────
+  // ─── Drag-drop (implementation note) ─────────────────────────────────────────
   const [isDragOver, setIsDragOver] = useState(false);
   const handleDragOver = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -210,7 +210,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     closeRef.current();
   }, [decoded, openInNewTab, pushStatusNotice]);
 
-  // Fold E — copy source to clipboard secondary action.
+  // implementation note — copy source to clipboard secondary action.
   const handleCopySource = useCallback(async () => {
     if (!decoded) return;
     try {
@@ -227,7 +227,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     }
   }, [decoded, pushStatusNotice, sourceJson]);
 
-  // Fold G — when the capsule originated from RL-097's HTTP workspace,
+  // implementation note — when the capsule originated from implementation's HTTP workspace,
   // offer to recreate the request in the workspace store instead of
   // dropping the source as a JSON tab.
   const handleOpenInHttpWorkspace = useCallback(() => {
@@ -273,7 +273,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
       onClose={onClose}
       size="max-w-4xl"
       labelledById="capsule-import-title"
-      // UX Sweep T3 — `esc` (not the `button` X) so ModalShell seeds initial
+      // accessibility pass — `esc` (not the `button` X) so ModalShell seeds initial
       // focus on the first body control (the paste textarea) rather than the
       // close button: a keyboard user lands on the primary input. The Esc
       // keycap hint stays in the header; the footer Cancel + scrim still close.

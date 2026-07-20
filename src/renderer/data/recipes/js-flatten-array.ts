@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — Recipe `js-flatten-array`.
+ * implementation — Recipe `js-flatten-array`.
  *
  * Recursively flatten a nested array. Exercises recursion vs the
  * built-in `Array.prototype.flat(Infinity)` decision.

@@ -1,5 +1,5 @@
 /**
- * F-1 (install lane) — desktop install runner for Go / Rust / Ruby deps.
+ * implementation (install lane) — desktop install runner for Go / Rust / Ruby deps.
  *
  * Pairs with the pure detection + planning in
  * `src/shared/dependencies/nativeDependencies.ts`: the renderer detects
@@ -10,7 +10,7 @@
  * Security posture mirrors the language runners (node/ruby/rust):
  *   - `spawn()` only, never a shell; argv comes from `buildInstallCommand`,
  *     which already rejects specifiers with shell metacharacters.
- *   - Env filtered through the RL-079 allowlist per language; the host env
+ *   - Env filtered through the internal allowlist per language; the host env
  *     is not forwarded wholesale.
  *   - Runs in the project directory (the saved tab's dir) so the manifest
  *     (`go.mod` / `Cargo.toml` / `Gemfile`) is found; refuses without one.

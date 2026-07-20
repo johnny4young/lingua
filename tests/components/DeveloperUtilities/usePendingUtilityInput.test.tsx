@@ -1,5 +1,5 @@
 /**
- * IT2-F4 — the one-shot pending-input consumer.
+ * internal — the one-shot pending-input consumer.
  *
  * Locks the handoff contract between the smart-paste router and a
  * utility panel: the seed applies exactly once (fresh mount AND

@@ -8,7 +8,7 @@ import {
   test,
 } from './licenseWeb.helpers';
 
-test.describe('boot timings — IT2-G1', () => {
+test.describe('boot timings — internal', () => {
   test('publishes DevTools marks and copies duration-only JSON', async ({ page }) => {
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await seedSession(page, { language: 'en' });

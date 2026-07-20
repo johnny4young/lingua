@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 3a — exhaustive coverage of the HTTP environment engine.
+ * implementation — exhaustive coverage of the HTTP environment engine.
  *
  * The privacy-critical functions (`maskSecretsForCapsule`,
  * `collectSecretResolvedValues`, `maskSecretValuesInResponse`) get the
@@ -33,7 +33,7 @@ import {
 
 /**
  * Build a variable row from `{key, value, secret}` with a deterministic
- * opaque id (RL-097 Slice 3b added `HttpEnvVariableV1.id`). Tests assert on
+ * opaque id (implementation added `HttpEnvVariableV1.id`). Tests assert on
  * key/value/secret semantics, not the opaque id, so a stable synthetic id
  * keeps the literals readable.
  */
@@ -165,10 +165,10 @@ describe('interpolateRequest (outbound — resolves ALL vars)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RL-097 Slice 3b — auth is a first-class env surface.
+// implementation — auth is a first-class env surface.
 // ---------------------------------------------------------------------------
 
-describe('auth interpolation (RL-097 Slice 3b)', () => {
+describe('auth interpolation ', () => {
   function authReq(auth: HttpRequestAuth): HttpRequestV1 {
     return req({ url: 'https://api.example.com', auth });
   }
@@ -454,7 +454,7 @@ describe('parseHttpEnvironment', () => {
       value: 'x',
       secret: true,
     });
-    // Slice 3b — a row with no `id` is backfilled with a fresh UUID.
+    // implementation — a row with no `id` is backfilled with a fresh UUID.
     expect(typeof parsed?.variables[0]?.id).toBe('string');
     expect(parsed?.variables[0]?.id.length).toBeGreaterThan(0);
   });
@@ -543,7 +543,7 @@ describe('createBlankHttpEnvironment', () => {
   });
 });
 
-describe('createEnvVariable (RL-097 Slice 3b)', () => {
+describe('createEnvVariable ', () => {
   it('mints a fresh id and carries the fields through', () => {
     const a = createEnvVariable({ key: 'k', value: 'v', secret: true });
     const b = createEnvVariable({ key: 'k', value: 'v', secret: true });
@@ -554,7 +554,7 @@ describe('createEnvVariable (RL-097 Slice 3b)', () => {
   });
 });
 
-describe('looksSecret (RL-097 Slice 3b)', () => {
+describe('looksSecret ', () => {
   it('matches token-like keys (suffix + whole-word, case-insensitive)', () => {
     for (const key of [
       'API_TOKEN',
@@ -594,7 +594,7 @@ describe('looksSecret (RL-097 Slice 3b)', () => {
   });
 });
 
-describe('toExportableEnvironment (RL-097 Slice 3b — privacy)', () => {
+describe('toExportableEnvironment (implementation — privacy)', () => {
   it('blanks secret values, keeps non-secret values, strips all ids', () => {
     const e = env(
       [

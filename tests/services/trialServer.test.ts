@@ -1,6 +1,6 @@
 /**
  * Unit tests for the renderer's `POST /trials/start` wrapper
- * (RL-061 Slice 4). Mirrors the licenseServer.test.ts pattern: stub
+ * . Mirrors the licenseServer.test.ts pattern: stub
  * `import.meta.env`, mock `fetch`, pin request + response shapes.
  */
 

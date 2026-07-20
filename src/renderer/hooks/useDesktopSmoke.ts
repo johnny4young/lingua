@@ -11,7 +11,7 @@ import { desktopSmokeApi } from '../utils/desktopSmoke';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 
 /**
- * RL-078 timeout-shaped smoke cases set `expectFailure` so the
+ * internal timeout-shaped smoke cases set `expectFailure` so the
  * harness inverts the verification logic: success == the runner
  * surfaced an error whose message matches `expectFailure` (the
  * localized timeout string in either EN or ES). `runnerTimeoutMs`
@@ -27,7 +27,7 @@ type SmokeCase = {
   expectText?: string;
   expectFailure?: RegExp;
   /**
-   * RL-079 — substring whose presence in any captured console entry
+   * internal — substring whose presence in any captured console entry
    * fails the case. Used by the env-isolation smokes to assert that
    * a sentinel secret seeded into `process.env` did NOT leak through
    * the env builder into the spawned subprocess.
@@ -89,7 +89,7 @@ const SMOKE_CASES: SmokeCase[] = [
     content: 'fn main() {\n    println!("smoke-rust");\n}\n',
     expectText: 'smoke-rust',
   },
-  // RL-078 — verify the parent kill timer terminates a CPU-bound
+  // internal — verify the parent kill timer terminates a CPU-bound
   // worker in JS and Python. Keep budgets tight so the smoke runner
   // does not balloon by 90 s.
   {
@@ -111,7 +111,7 @@ const SMOKE_CASES: SmokeCase[] = [
     timeoutMs: 20_000,
     maxLoopIterations: 1_000_000_000,
   },
-  // RL-079 — verify the env-leak gate end-to-end with a real
+  // internal — verify the env-leak gate end-to-end with a real
   // subprocess. `scripts/run-desktop-smoke.mjs` seeds
   // `LINGUA_SMOKE_SECRET=__lingua_smoke_secret__` into the spawned
   // Electron's env. The smoke case prints `LINGUA_SMOKE_SECRET`; the
@@ -295,7 +295,7 @@ export function useDesktopSmoke(enabled: boolean) {
           ? Math.max(0, Math.round(Date.now() - config.launchedAtMs))
           : null;
 
-      // RL-080 Slice 3 — packaged-subset gate: when the smoke runs
+      // implementation — packaged-subset gate: when the smoke runs
       // against a release `.app` (CI release pipeline), we narrow
       // SMOKE_CASES to javascript + python — the runtime-critical
       // pair that proves the binary boots, the renderer chunks load,
@@ -325,7 +325,7 @@ export function useDesktopSmoke(enabled: boolean) {
 
         useSettingsStore.setState({
           layoutPreset: 'horizontal',
-          // Slice 2 — `loopProtection` was removed; the runtime always
+          // implementation — `loopProtection` was removed; the runtime always
           // applies the guard. Parent-timeout smoke cases can override
           // `maxLoopIterations` per case so they still exercise the
           // runner deadline instead of the loop guard.
@@ -421,7 +421,7 @@ export function useDesktopSmoke(enabled: boolean) {
                 ? entry.content.includes(smokeCase.expectText)
                 : false
             );
-            // RL-079 — env-isolation gate: a sentinel secret must NOT
+            // internal — env-isolation gate: a sentinel secret must NOT
             // appear anywhere in captured console output.
             const leakedForbidden =
               smokeCase.forbidText !== undefined &&
@@ -451,7 +451,7 @@ export function useDesktopSmoke(enabled: boolean) {
           memorySnapshots.push(await captureMemorySnapshot(`after-${smokeCase.caseId}`));
         }
 
-        // RL-083 Slice 1 — offline-mode synthetic case. When the
+        // implementation — offline-mode synthetic case. When the
         // smoke is launched with --offline, the main-process
         // webRequest filter cancels any non-loopback HTTP/HTTPS
         // request and records the URL. The Python case already had

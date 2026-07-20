@@ -1,24 +1,24 @@
 /**
- * Lingua license-server (RL-061 Slice 2).
+ * Lingua license-server .
  *
  * Cloudflare Worker hosted at `licenses.linguacode.dev`. Sibling of the
  * `update-server/` worker (which proxies GitHub Releases for Squirrel).
  * Source-of-truth for license issuance, device tracking, trial minting,
  * and renewal token refresh — see the internal licensing ADR Decision 2.
  *
- * Slice 1 shipped the router skeleton + D1 schema + 501 stubs.
- * Slice 2 promotes /webhooks/polar + /licenses/{activate,status,
+ * implementation shipped the router skeleton + D1 schema + 501 stubs.
+ * implementation promotes /webhooks/polar + /licenses/{activate,status,
  * devices/remove} to real D1-backed implementations, with split-bucket
  * device limit (3 desktop + 3 web) per the 2026-04-26 design lock.
- * Slice 3 ships the device-management UI in the Electron renderer;
- * Slice 4 wires trial + education + recovery; Slice 5 ships the
+ * implementation ships the device-management UI in the Electron renderer;
+ * implementation wires trial + education + recovery; implementation ships the
  * release pipeline + web update banner.
  *
  * Every route returns the same tagged-union shape:
  *   { ok: true,  ...payload }
  *   { ok: false, reason, message?, issues? }
  *
- * matching the `licenseStore` IPC bridge contract from RL-059 Slice 0.
+ * matching the `licenseStore` IPC bridge contract from implementation
  */
 
 import { Context, Hono } from 'hono';
@@ -35,15 +35,15 @@ import { classifyError, log, requestObservabilityMiddleware } from './lib/observ
 
 export interface Env {
   /**
-   * D1 binding declared in wrangler.toml. Slice 2 wires `licenses` +
-   * `devices` reads/writes; `trials` + `educations` come in Slice 4.
+   * D1 binding declared in wrangler.toml. implementation wires `licenses` +
+   * `devices` reads/writes; `trials` + `educations` come in implementation.
    */
   DB: D1Database;
   /**
    * Workers KV binding for rate-limit buckets. Declared in
-   * wrangler.toml; Slice 4 consumes it from /trials/start and
-   * /licenses/recover. Slice 2 leaves it unused but the binding is
-   * declared so Slice 4 doesn't need a wrangler.toml change.
+   * wrangler.toml; implementation consumes it from /trials/start and
+   * /licenses/recover. implementation leaves it unused but the binding is
+   * declared so implementation doesn't need a wrangler.toml change.
    */
   RATE_LIMIT: KVNamespace;
   /**
@@ -52,9 +52,9 @@ export interface Env {
    */
   POLAR_WEBHOOK_SECRET: string;
   /**
-   * Polar API key. Slice 2 declares it but does not call back into
+   * Polar API key. implementation declares it but does not call back into
    * Polar — webhook signature + D1 idempotency are sufficient.
-   * Reserved for Slice 5 (checkout-link generation).
+   * Reserved for implementation (checkout-link generation).
    */
   POLAR_API_KEY: string;
   /**
@@ -69,7 +69,7 @@ export interface Env {
   LINGUA_LICENSE_PUBLIC_KEY_JWK: string;
   /**
    * Resend API key. Set via `wrangler secret put RESEND_API_KEY`.
-   * Slice 2 sends the buyer email when a Polar webhook successfully
+   * implementation sends the buyer email when a Polar webhook successfully
    * mints a license.
    */
   RESEND_API_KEY: string;
@@ -83,7 +83,7 @@ export interface Env {
 
 export const app = new Hono<{ Bindings: Env }>();
 
-// RL-091 — global observability middleware. Emits a request.received /
+// internal — global observability middleware. Emits a request.received /
 // request.completed envelope per request with route name, status, and
 // duration. Sensitive fields are redacted by the logger before
 // emission. Mounted before any other middleware so the timing window
@@ -133,7 +133,7 @@ app.use('/trials/*', (c, next) =>
   })(c, next)
 );
 
-// Slice 4 — `/education/*` and `/licenses/recover/*` accept browser
+// implementation — `/education/*` and `/licenses/recover/*` accept browser
 // CORS the same way `/licenses/*` does. The /confirm endpoints
 // return HTML (no CORS needed for direct email-link clicks) but
 // the /start endpoints are POSTed from the renderer.
@@ -182,7 +182,7 @@ app.notFound((c) => errorResponse(c, 'not-found', { message: `unknown route: ${c
 // captures the original `console.error` so the maintainer can debug
 // without the response body leaking stack traces.
 app.onError((err, c) => {
-  // RL-091 — structured-log the unhandled error with classification so
+  // internal — structured-log the unhandled error with classification so
   // alerts can route by errorClass. The legacy `console.error` line
   // stays as a human-readable fallback for `wrangler tail` sessions
   // until the operator's dashboard is wired up.

@@ -1,5 +1,5 @@
 /**
- * IT2-C1 — Run Ledger contract tests against an injected mock engine
+ * internal — Run Ledger contract tests against an injected mock engine
  * (same seam as duckdbClient.test). Locks: opt-in gating (OFF writes
  * NOTHING), DDL-once-per-session, escaped inserts with hashes instead
  * of source, Free-tier retention pruning vs paid no-pruning, clear as
@@ -74,7 +74,7 @@ afterEach(() => {
   _resetRunLedgerForTests();
 });
 
-describe('runLedger (IT2-C1)', () => {
+describe('runLedger', () => {
   it('writes NOTHING while the opt-in is off', async () => {
     useSettingsStore.setState({ runLedgerEnabled: false });
     const statements = installSpyEngine();

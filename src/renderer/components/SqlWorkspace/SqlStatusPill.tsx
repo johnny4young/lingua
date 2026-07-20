@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 fold A — Color-coded SQL status pill.
+ * implementation note — Color-coded SQL status pill.
  *
  * FASE 2b (MOV.05) — converged onto the shared `<StatusBadge>`
  * primitive. The five-state classifier survives; only the chip shell

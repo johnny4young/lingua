@@ -7,7 +7,7 @@ describe('getEditorOptions', () => {
       getEditorOptions({
         fontSize: 16,
         fontFamily: 'JetBrains Mono',
-        // Slice 2 — `fontLigatures` is now derived from the font stack
+        // implementation — `fontLigatures` is now derived from the font stack
         // (see CodeEditor `effectiveFontLigatures`); kept as an input
         // here so the helper signature stays explicit.
         fontLigatures: true,
@@ -19,7 +19,7 @@ describe('getEditorOptions', () => {
       fontFamily: 'JetBrains Mono',
       fontLigatures: true,
       glyphMargin: true,
-      // Slice 2 — line numbers are baseline editor primitive; always on.
+      // implementation — line numbers are baseline editor primitive; always on.
       lineNumbers: 'on',
       wordWrap: 'on',
       minimap: { enabled: false },

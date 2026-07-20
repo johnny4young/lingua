@@ -1,5 +1,5 @@
 /**
- * RL-061 Slice 3 — exhausted-devices remediation modal.
+ * implementation — exhausted-devices remediation modal.
  *
  * Drives the modal in isolation: stubs the licenseStore actions
  * (`removeDevice`, `setLicenseToken`, `clearLicense`, `revalidate`)
@@ -188,7 +188,7 @@ describe('ExhaustedDevicesModal', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
-  it('labels the discard button truthfully (UX Sweep T2 relabel)', () => {
+  it('labels the discard button truthfully (accessibility pass relabel)', () => {
     seedExhaustedState();
     vi.spyOn(useLicenseStore.getState(), 'revalidate').mockResolvedValue(exhaustedStatus());
 

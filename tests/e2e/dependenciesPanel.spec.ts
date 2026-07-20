@@ -1,10 +1,10 @@
 /**
- * RL-025 Slice A — Dependencies bottom-panel smoke.
+ * implementation — Dependencies bottom-panel smoke.
  *
  * The detector runs from the real Monaco buffer, then the shortcut
  * opens the bottom-panel tab. Web classifies JS/TS packages as
- * desktop-only in Slice A, which is the honest state until install
- * support lands in later slices.
+ * desktop-only in implementation, which is the honest state until install
+ * support lands in later work.
  */
 
 import type { Page } from '@playwright/test';
@@ -46,7 +46,7 @@ async function openDependenciesFromShortcut(page: Page): Promise<void> {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('Dependencies panel — RL-025 Slice A', () => {
+test.describe('Dependencies panel — implementation', () => {
   test('detects a JS import and opens the panel in English', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await enableDependencyDetection(page);

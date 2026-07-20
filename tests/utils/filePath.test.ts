@@ -50,7 +50,7 @@ describe('renderer filePath helpers', () => {
   });
 });
 
-describe('smartTruncatePath (RL-024 Slice 1 fold E)', () => {
+describe('smartTruncatePath (implementation note)', () => {
   it('collapses the home prefix to ~ when it matches', () => {
     expect(
       smartTruncatePath('/Users/alice/projects/foo', {

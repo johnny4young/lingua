@@ -18,7 +18,7 @@ function snapshot(
   };
 }
 
-describe('RL-020 Slice 8 — diffSnapshot', () => {
+describe('implementation — diffSnapshot', () => {
   describe('dynamic mode', () => {
     it('flags identical snapshots as identical', () => {
       const result = diffSnapshot({

@@ -75,7 +75,7 @@ export function UrlParserPanel() {
 
   const parsed = useMemo(() => parseUrl(input), [input]);
 
-  // RL-069 Slice 2 — origin is the most useful clipboard target for
+  // implementation — origin is the most useful clipboard target for
   // a parsed URL; href stays available via the per-row CopyButton.
   const registerOutput = useCallback(
     () => (isParsedUrl(parsed) ? parsed.origin || parsed.href || null : null),
@@ -177,7 +177,7 @@ export function UrlParserPanel() {
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-center gap-2 pb-1 text-caption uppercase tracking-[0.16em] text-muted">
                   <span>{t('utilities.tool.urlParser.query.header.key')}</span>
                   <span>{t('utilities.tool.urlParser.query.header.value')}</span>
-                  <span className="sr-only">
+                  <span className="internal">
                     {t('utilities.tool.urlParser.query.header.copy')}
                   </span>
                 </div>

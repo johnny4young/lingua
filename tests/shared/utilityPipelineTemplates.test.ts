@@ -1,6 +1,6 @@
 /**
- * RL-099 Slice 5 — pipeline template catalog + instantiate tests,
- * including the fold-D registry/i18n completeness guard.
+ * implementation — pipeline template catalog + instantiate tests,
+ * including the implementation note registry/i18n completeness guard.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -107,8 +107,8 @@ describe('instantiatePipelineTemplate', () => {
   });
 });
 
-// Fold D — every template id carries name + description in both locales.
-describe('template i18n completeness (RL-099 Slice 5 fold D)', () => {
+// implementation note — every template id carries name + description in both locales.
+describe('template i18n completeness (implementation note)', () => {
   const en = enCommon as Record<string, string>;
   const es = esCommon as Record<string, string>;
 

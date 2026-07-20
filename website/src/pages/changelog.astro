@@ -42,10 +42,7 @@ function formatDate(iso: string): string {
       <p class="eyebrow">{copy.eyebrow}</p>
       <h1>{copy.heading}</h1>
       <p class="lede">
-        {copy.ledeBefore}
-        <a href="https://github.com/johnny4young/lingua/blob/main/docs/ROADMAP.md" rel="external noopener">
-          ROADMAP.md
-        </a> {copy.ledeAfter}
+        {copy.ledeBefore} {copy.ledeAfter}
       </p>
 
       <ul class="head-stats" aria-label={copy.aria.roadmapTotals}>
@@ -63,7 +60,7 @@ function formatDate(iso: string): string {
         </li>
       </ul>
 
-      <nav class="phase-jump" aria-label={copy.aria.jumpToPhase}>
+      <nav class="phase-jump" aria-label={copy.aria.jumpToSection}>
         <a href="#planned"><span class="dot dot-planned"></span> {copy.planned}</a>
         <a href="#in-progress"><span class="dot dot-progress"></span> {copy.inProgress}</a>
         {hasUnreleased && <a href="#unreleased"><span class="dot dot-brewing"></span> {copy.brewing}</a>}
@@ -91,10 +88,10 @@ function formatDate(iso: string): string {
                 <h3>{group.theme}</h3>
                 <span>{group.items.length}</span>
               </header>
-              <ul class="ticket-list">
+              <ul class="roadmap-item-list">
                 {
                   group.items.map((t) => (
-                    <li class="ticket">
+                    <li class="roadmap-item">
                       <span class="status-pill is-planned">{copy.planned}</span>
                       <div>
                         <h4>{t.title}</h4>
@@ -130,10 +127,10 @@ function formatDate(iso: string): string {
                 <h3>{group.theme}</h3>
                 <span>{group.items.length}</span>
               </header>
-              <ul class="ticket-list">
+              <ul class="roadmap-item-list">
                 {
                   group.items.map((t) => (
-                    <li class="ticket">
+                    <li class="roadmap-item">
                       <span class="status-pill is-progress">
                         <Icon name="lucide:loader" /> {copy.inProgress}
                       </span>
@@ -344,7 +341,7 @@ function formatDate(iso: string): string {
   .dot-brewing { background: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent); }
   .dot-shipped { background: var(--color-success); }
 
-  /* Phase shell */
+  /* iteration */
   .phase {
     padding-block: var(--space-section-lg);
     border-top: 1px solid var(--color-border);
@@ -451,12 +448,12 @@ function formatDate(iso: string): string {
     color: var(--color-text-subtle);
   }
 
-  .ticket-list {
+  .roadmap-item-list {
     list-style: none;
     margin: 0;
     padding: 0;
   }
-  .ticket {
+  .roadmap-item {
     display: grid;
     grid-template-columns: 1fr;
     gap: 0.625rem;
@@ -464,14 +461,14 @@ function formatDate(iso: string): string {
     border-top: 1px solid var(--color-border);
     align-items: start;
   }
-  .ticket:first-child { border-top: 0; }
-  .ticket h4 {
+  .roadmap-item:first-child { border-top: 0; }
+  .roadmap-item h4 {
     margin: 0 0 0.4rem;
     font-size: 1rem;
     font-weight: 700;
     color: var(--color-text);
   }
-  .ticket p {
+  .roadmap-item p {
     margin: 0;
     color: var(--color-text-muted);
     font-size: var(--text-small);
@@ -514,7 +511,7 @@ function formatDate(iso: string): string {
   }
 
   @media (min-width: 720px) {
-    .ticket {
+    .roadmap-item {
       grid-template-columns: 130px 1fr;
       gap: 1rem;
       align-items: baseline;

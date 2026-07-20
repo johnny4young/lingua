@@ -4,7 +4,7 @@ import {
   collectTopLevelScopeNames,
 } from '../../src/renderer/utils/scopeCapture';
 
-describe('RL-020 Slice 9 — JS scope-capture transform', () => {
+describe('implementation — JS scope-capture transform', () => {
   it('collects top-level lexical, function, class, and destructured bindings', () => {
     expect(
       collectTopLevelScopeNames(`

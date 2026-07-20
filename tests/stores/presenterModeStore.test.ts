@@ -1,5 +1,5 @@
 /**
- * RL-116 Slice 1 — presenter mode is a render-time override, so the
+ * implementation — presenter mode is a render-time override, so the
  * lock here is twofold: the toggle flips cleanly, and the underlying
  * preference stores are NEVER mutated by entering/leaving the mode
  * (that is what makes restoration lossless across toggles or reloads).

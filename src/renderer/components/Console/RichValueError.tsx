@@ -1,13 +1,13 @@
 /**
- * RL-044 Slice 2a — Sub-slice F clickable error stacks.
+ * implementation — implementation clickable error stacks.
  *
  * Renders `kind: 'error'` payloads with a structured stack. Each
  * `ClickableStackFrame` with a `file` + `line` becomes a focusable
  * `<button>` that emits a typed `file.open` command the rest
- * of the app can wire to (RL-024 multi-file lane). Frames without a
+ * of the app can wire to (internal multi-file lane). Frames without a
  * `file` render as a non-clickable `<span>`.
  *
- * Fold F — frame context menu (right-click): "Copy file:line",
+ * implementation note — frame context menu (right-click): "Copy file:line",
  * "Open in tab", "Copy frame text". The menu is rendered inline below
  * the row when active; Escape / outside-click closes it.
  *
@@ -42,7 +42,7 @@ interface FrameMenuState {
 /**
  * Typed command the rest of the renderer listens for. Wired up
  * incrementally: today the default consumer shows a notice
- * (RL-024 Slice 1 will wire the actual "open file at line" flow).
+ * (implementation will wire the actual "open file at line" flow).
  */
 function dispatchOpenSource(frame: ClickableStackFrame): void {
   const detail = {
@@ -51,7 +51,7 @@ function dispatchOpenSource(frame: ClickableStackFrame): void {
     column: frame.column,
     fnName: frame.fnName,
   };
-  // A future RL-024 multi-file consumer can claim this command at a
+  // A future internal multi-file consumer can claim this command at a
   // higher priority to suppress the default fallback notice.
   emitCommand('file.open', detail);
 }
@@ -195,7 +195,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
                   line: frame.line,
                 })
               : t('console.rich.errorFrameUnclickable');
-          // RL-044 Slice 2b-β-β-α fold C — PEP 3134 chain separator
+          // implementation-β-β-α implementation note — PEP 3134 chain separator
           // frames stay non-clickable. Rendered as a presentational
           // <li> (role=none) with a decorative border + italic /
           // low-contrast styling. ARIA forbids `role="separator"`

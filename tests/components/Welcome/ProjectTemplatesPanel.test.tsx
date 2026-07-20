@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * RL-103 Slice 1 — Component tests for the Welcome project
+ * implementation — Component tests for the Welcome project
  * templates panel. Locks the visible card count, the disabled-during-
  * scaffold guard, and the web-build short-circuit.
  */

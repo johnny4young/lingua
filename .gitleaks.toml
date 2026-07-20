@@ -46,15 +46,12 @@ paths = ['''tests/utils/redactionPreview\.test\.ts''']
 regexes = ['''sk-test-[A-Za-z0-9]+''']
 
 [[allowlists]]
-description = "Planning docs show curl -u admin:hunter2 as a cURL-import example, not a credential."
+description = "Historic smart-paste tests used a deterministic unsigned JWT-shaped fixture."
 condition = "AND"
 regexTarget = "match"
-paths = ['''docs/(PLAN|SPRINT-PLAN)\.md''']
-regexes = ['''admin:hunter2''']
-
-[[allowlists]]
-description = "Project-audit prose Compare/Variables is a false positive for generic-api-key."
-condition = "AND"
-regexTarget = "match"
-paths = ['''docs/PROJECT_AUDIT_2026_05_24\.md''']
-regexes = ['''Compare/Variables''']
+paths = [
+  '''tests/hooks/useSmartPaste\.test\.tsx''',
+  '''tests/renderer/clipboard/pasteHandlers\.test\.ts''',
+  '''tests/e2e/smartPasteUtilities\.spec\.ts''',
+]
+regexes = ['''eyJhbGciOiJIUzI1Ni[^[:space:]'\"]+c2lnbmF0dXJl''']

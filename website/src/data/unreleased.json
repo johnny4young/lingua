@@ -1,79 +1,16 @@
 {
-  "generatedAt": "2026-07-16T21:33:18.096Z",
-  "baseRef": "v0.11.0",
-  "commitCount": 8,
-  "totalSinceBase": 12,
+  "generatedAt": "2026-07-20T05:01:58.237Z",
+  "baseRef": "v0.12.0",
+  "commitCount": 1,
+  "totalSinceBase": 2,
   "commits": [
     {
-      "hash": "7bfa156",
-      "date": "2026-07-16",
+      "hash": "47c1139",
+      "date": "2026-07-19",
       "type": "feat",
       "typeLabel": "New",
       "scope": null,
-      "message": "improve editor and empty-state discoverability (#77)",
-      "breaking": false
-    },
-    {
-      "hash": "5521300",
-      "date": "2026-07-16",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": null,
-      "message": "inline timing, presenter mode, runtime bootstrap progress (#79)",
-      "breaking": false
-    },
-    {
-      "hash": "9ffc42d",
-      "date": "2026-07-16",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": null,
-      "message": "capsule HTML export, smart-paste utility suggestions, recent commands stack (#78)",
-      "breaking": false
-    },
-    {
-      "hash": "f521a4f",
-      "date": "2026-07-15",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": null,
-      "message": "harden workspace recovery and accessibility (#76)",
-      "breaking": false
-    },
-    {
-      "hash": "d264770",
-      "date": "2026-07-15",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": null,
-      "message": "add resilience affordances (#75)",
-      "breaking": false
-    },
-    {
-      "hash": "a6eb2b2",
-      "date": "2026-07-15",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "preview",
-      "message": "add configurable live refresh (#74)",
-      "breaking": false
-    },
-    {
-      "hash": "76fe05c",
-      "date": "2026-07-15",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "recipes",
-      "message": "add TypeScript and Python practice packs (#73)",
-      "breaking": false
-    },
-    {
-      "hash": "0823255",
-      "date": "2026-07-15",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "licensing",
-      "message": "version license server protocol (#71)",
+      "message": "positioning, comparison pages, mac universal, Monaco lazy loaders (#81)",
       "breaking": false
     }
   ]

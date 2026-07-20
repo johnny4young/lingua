@@ -6,7 +6,7 @@ import { useGoLanguageStore } from '../stores/goLanguageStore';
 import { useLspDocumentSync, useLspLifecycle } from './useLspLifecycle';
 
 /**
- * RL-026 Slice 4 — gopls lifecycle wiring. Thin facade around
+ * implementation — gopls lifecycle wiring. Thin facade around
  * `useLspLifecycle` matching the rust-analyzer counterpart in
  * `useRustLspLifecycle.ts`.
  */

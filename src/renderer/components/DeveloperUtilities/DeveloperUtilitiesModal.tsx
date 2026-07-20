@@ -59,7 +59,7 @@ interface DeveloperUtilitiesModalProps {
 
 function useFavoriteTelemetry(): void {
   const { track } = useTelemetry();
-  // RL-069 Slice 3 — emit favorite-pinned telemetry from a one-shot
+  // implementation — emit favorite-pinned telemetry from a one-shot
   // store subscription. We listen on the store so the telemetry call
   // lives in one place even when the user pins from the sidebar OR
   // (potentially) from a future shortcut.
@@ -141,11 +141,11 @@ export function DeveloperUtilitiesWorkspaceBody({
 
   const filteredUtilities = useMemo(() => {
     const q = searchQuery.trim();
-    // SR-36 — the no-query browse view groups by category, so the flat
+    // internal — the no-query browse view groups by category, so the flat
     // nav array follows the category order too (keyboard nav + headers
     // then read the same sequence). Search stays purely rank-ordered.
     if (q.length === 0) return CATEGORY_SORTED_UTILITIES;
-    // RL-069 Slice 1 — fuzzy match against title, description,
+    // implementation — fuzzy match against title, description,
     // keywords, and aliases. Score the best match across those fields
     // so a hit on the title outranks a hit on a tangential keyword.
     type Ranked = { utility: DeveloperUtilityDefinition; score: number };
@@ -174,7 +174,7 @@ export function DeveloperUtilitiesWorkspaceBody({
     return ranked.map(r => r.utility);
   }, [searchQuery, t]);
 
-  // SR-36 — category headings only make sense in the ungrouped browse
+  // internal — category headings only make sense in the ungrouped browse
   // view; while searching, the list is a single ranked run.
   const showCategoryHeadings = searchQuery.trim().length === 0;
 
@@ -348,7 +348,7 @@ export function DeveloperUtilitiesWorkspaceBody({
             filteredUtilities.map((utility, index) => {
               const isSelected = utility.id === activeSelectedUtilityId;
               const isLocked = isUtilityLocked(utility);
-              // SR-36 — in the no-query browse view, emit a category
+              // internal — in the no-query browse view, emit a category
               // heading before the first utility of each category. The
               // heading is skipped while searching (the list is ranked,
               // not grouped).
@@ -461,10 +461,10 @@ export function DeveloperUtilitiesWorkspaceBody({
       <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
         {/* Space-saving header: the utility is already identified by the
             selected sidebar item, so the big title collapses to an
-            sr-only heading (screen readers and heading-based tests keep
+            internal heading (screen readers and heading-based tests keep
             their landmark) and only the one-line description renders. */}
         <div className="border-b border-border-subtle px-7 py-3">
-          <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
+          <h2 className="internal">{t(selectedUtility.titleKey)}</h2>
           <p className="max-w-3xl text-body-sm leading-[1.5] text-fg-muted">
             {t(selectedUtility.descriptionKey)}
           </p>
@@ -543,8 +543,8 @@ export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: bo
           tool counter render in the shell's editor chips row (one shared
           row) via UtilityHeaderPills — see AppLayout's PanelChipsRow
           trailing. Screen readers still need a landmark heading for the
-          surface, hence the sr-only h2. */}
-      <h2 className="sr-only">{t('utilities.title')}</h2>
+          surface, hence the internal h2. */}
+      <h2 className="internal">{t('utilities.title')}</h2>
       <DeveloperUtilitiesWorkspaceBody
         selectedUtilityId={activeUtilityId}
         onSelectUtility={setActiveUtilityId}

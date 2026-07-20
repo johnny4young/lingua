@@ -7,7 +7,7 @@ import { copyRuntimeAssetsPlugin } from './build/copyRuntimeAssetsPlugin.mts';
 
 // Seed VITE_LINGUA_APP_VERSION from package.json before Vite reads
 // process.env so the telemetry consumer and web update banner pick
-// up the real version. RL-061 Slice 5.
+// up the real version. implementation
 applySharedEnvDefaults();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,7 +18,7 @@ export default defineConfig({
     ...getSharedBuildDefines(),
     // Desktop renderer loads Pyodide from the local copy placed under
     // <renderer-out-dir>/pyodide/. The web build overrides this to
-    // the CDN until RL-083 Slice 2 picks the first-party hosting path.
+    // the CDN until implementation picks the first-party hosting path.
     __LINGUA_PYODIDE_INDEX_URL__: JSON.stringify(null),
     // Desktop packages keep large WASM runtimes inside the app bundle.
     // The standalone web build overrides these to public R2 URLs so
@@ -93,7 +93,7 @@ export default defineConfig({
             return 'monaco';
           }
           // Pyodide static assets are copied to <outDir>/pyodide/ by
-          // copyRuntimeAssetsPlugin (RL-083 Slice 1) — no JS chunking
+          // copyRuntimeAssetsPlugin  — no JS chunking
           // is involved. esbuild-wasm still ships in-bundle.
           if (id.includes('esbuild-wasm')) {
             return 'esbuild-wasm';
@@ -110,7 +110,7 @@ export default defineConfig({
           if (id.includes('lucide-react')) {
             return 'lucide';
           }
-          // RL-044 Slice 2b-beta — mirror the web chart chunk split
+          // implementation — mirror the web chart chunk split
           // for the packaged desktop renderer. <RichValueChart>
           // lazy-loads vega-embed, so these deps should stay grouped
           // behind that first chart render in both shipped surfaces.
@@ -121,7 +121,7 @@ export default defineConfig({
           ) {
             return 'vega-embed';
           }
-          // RL-097 Slice 2 — mirror the web SQL chunk split for the
+          // implementation — mirror the web SQL chunk split for the
           // packaged desktop renderer. <SqlWorkspacePanel> lazy-loads
           // @duckdb/duckdb-wasm + apache-arrow, so these deps should
           // stay grouped behind that first SQL tab open in both

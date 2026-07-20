@@ -1,5 +1,5 @@
 /**
- * RL-024 Slice 3 — tests for the project bundle import overlay.
+ * implementation — tests for the project bundle import overlay.
  * Exercises the empty state, file-pick → preview, the malformed reject
  * banner, the disabled-until-valid Import CTA, the confirm → hook call,
  * and an ES-locale render.
@@ -42,7 +42,7 @@ afterEach(async () => {
   await i18next.changeLanguage('en');
 });
 
-describe('RL-024 — ProjectBundleImportOverlay', () => {
+describe('internal — ProjectBundleImportOverlay', () => {
   it('renders the empty state with a disabled Import CTA', () => {
     render(<ProjectBundleImportOverlay onClose={vi.fn()} />);
     expect(screen.getByTestId('project-bundle-import-empty')).toBeTruthy();
@@ -50,7 +50,7 @@ describe('RL-024 — ProjectBundleImportOverlay', () => {
     expect(cta.disabled).toBe(true);
   });
 
-  it('gives the drop-zone affordance a visible keyboard focus ring (UX Sweep T1)', () => {
+  it('gives the drop-zone affordance a visible keyboard focus ring (accessibility pass)', () => {
     render(<ProjectBundleImportOverlay onClose={vi.fn()} />);
     expect(
       screen.getByTestId('project-bundle-import-open-file').className

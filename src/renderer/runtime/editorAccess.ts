@@ -1,7 +1,7 @@
 import type * as monacoTypes from 'monaco-editor';
 
 /**
- * RL-027 Slice 1.5 fold C — module-level access to the active Monaco
+ * implementation note — module-level access to the active Monaco
  * editor so the global shortcut bus can read the current cursor line
  * without piping a ref through the entire renderer tree.
  *
@@ -16,7 +16,7 @@ import type * as monacoTypes from 'monaco-editor';
  * module-level ref is read-on-demand from the keydown handler and
  * never participates in React render cycles.
  *
- * RL-112 — the persistent status bar also needs the active editor (cursor
+ * internal — the persistent status bar also needs the active editor (cursor
  * position, indent, markers) and the monaco namespace (marker severities +
  * `getModelMarkers`). It cannot read on demand only: the bar must re-bind its
  * listeners whenever the active editor instance swaps. So this module now also
@@ -30,7 +30,7 @@ const ref: {
 } = { editor: null, monaco: null };
 
 /**
- * RL-112 — listeners notified whenever the active editor instance changes
+ * internal — listeners notified whenever the active editor instance changes
  * (mount / unmount / tab swap). The status-bar model hook subscribes so it can
  * dispose and re-attach its per-editor listeners on the new instance.
  */
@@ -43,7 +43,7 @@ export function setActiveEditor(
   monaco?: typeof monacoTypes
 ): void {
   ref.editor = editor;
-  // RL-112 — keep the last-known monaco namespace when the editor unmounts
+  // internal — keep the last-known monaco namespace when the editor unmounts
   // (`setActiveEditor(null)` passes no monaco) so a re-mount that omits it
   // still has the namespace available.
   ref.monaco = monaco ?? ref.monaco;
@@ -53,7 +53,7 @@ export function setActiveEditor(
 }
 
 /**
- * RL-110 fold D — return the active Monaco editor instance (or null). Used by
+ * implementation — return the active Monaco editor instance (or null). Used by
  * the command-palette "Paste as plain text" action to drive a detection-
  * bypassing paste without threading the editor ref through the palette tree.
  */
@@ -62,7 +62,7 @@ export function getActiveEditor(): monacoTypes.editor.IStandaloneCodeEditor | nu
 }
 
 /**
- * RL-112 — return the active Monaco namespace (or null). The status bar reads
+ * internal — return the active Monaco namespace (or null). The status bar reads
  * marker severities (`MarkerSeverity`) and `editor.getModelMarkers` /
  * `editor.onDidChangeMarkers` from it to compute lint counts.
  */
@@ -71,7 +71,7 @@ export function getActiveMonaco(): typeof monacoTypes | null {
 }
 
 /**
- * RL-112 — subscribe to active-editor changes. Returns an unsubscribe. The
+ * internal — subscribe to active-editor changes. Returns an unsubscribe. The
  * status-bar model hook uses this to re-bind its per-editor listeners whenever
  * the active editor instance swaps (mount / unmount / tab switch).
  */
@@ -93,7 +93,7 @@ export function getActiveEditorCursorLine(): number | null {
 }
 
 /**
- * RL-112 — read the active editor's full cursor position (1-based line +
+ * internal — read the active editor's full cursor position (1-based line +
  * column). Returns null when no editor is registered or the position is
  * unavailable / out of range. Used by the status bar's cursor segment.
  */
@@ -116,7 +116,7 @@ export function getActiveEditorCursorPosition(): {
 }
 
 /**
- * RL-020 Slice 3 fold E — read the active editor's current line text
+ * implementation note — read the active editor's current line text
  * (without trailing newline). Used by the "Pin watch on current line"
  * command-palette action to derive a sensible default expression
  * from whatever the user's cursor sits on. Returns `null` when no

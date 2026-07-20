@@ -10,7 +10,7 @@ interface Props {
 const { locale } = Astro.props;
 const copy = t(locale).home.trust;
 
-// SR-44 — social proof that is verifiable, not testimonial theatre. The
+// internal — social proof that is verifiable, not testimonial theatre. The
 // release count + first-release month come from the synced changelog.json
 // at build time so the velocity claim can never drift out of date.
 const entries = await loadChangelog();

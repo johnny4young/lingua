@@ -27,13 +27,13 @@ export function JwtUtilityPanel() {
   const [input, setInput] = useState(
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsaW5ndWEiLCJyb2xlIjoiZGV2In0.signature'
   );
-  // IT2-F4 — a smart-pasted token lands in decode mode (the common case).
+  // internal — a smart-pasted token lands in decode mode (the common case).
   usePendingUtilityInput('jwt', pending => {
     setMode('decode');
     setInput(pending);
   });
 
-  // RL-069 Slice 2 — Apply forces the panel into decode mode against
+  // implementation — Apply forces the panel into decode mode against
   // the current token. Verify and Sign sub-modes have their own
   // explicit "Run" buttons; the productivity gesture targets the
   // common case (paste a token, see its claims).
@@ -98,9 +98,9 @@ function JwtDecodeSection({
   const { t } = useTranslation();
   const analysis = useMemo(() => decodeJwt(input), [input]);
 
-  // RL-069 Slice 1 — register the decoded payload (the user-meaningful
+  // implementation — register the decoded payload (the user-meaningful
   // half of a decoded JWT) as the panel's output for Cmd+Shift+C.
-  // verify and sign sub-modes don't register in Slice 1; Slice 2 will
+  // verify and sign sub-modes don't register in implementation; implementation will
   // unify all 3 modes once detect()-driven Apply lands.
   const registerOutput = useCallback(
     () => (analysis.payload ? JSON.stringify(analysis.payload, null, 2) : null),

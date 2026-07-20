@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extractTimeoutMagicComment } from '../../src/renderer/utils/magicComments';
 
-describe('RL-020 Slice 7 fold B — extractTimeoutMagicComment', () => {
+describe('implementation note — extractTimeoutMagicComment', () => {
   it('reads a bare-integer directive as seconds', () => {
     expect(extractTimeoutMagicComment('javascript', '// @timeout 5')).toBe(
       5_000

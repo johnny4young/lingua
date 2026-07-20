@@ -12,7 +12,7 @@ import {
   RUNTIME_TIMEOUT_SUPPORTED_LANGUAGE_SET,
 } from '../../src/shared/runtimeTimeoutPresets';
 
-describe('RL-020 Slice 7 — runtimeTimeoutPresets', () => {
+describe('implementation — runtimeTimeoutPresets', () => {
   it('exposes the closed preset enum', () => {
     expect(RUNTIME_TIMEOUT_PRESETS).toEqual([
       'quick',
@@ -23,7 +23,7 @@ describe('RL-020 Slice 7 — runtimeTimeoutPresets', () => {
     expect(RUNTIME_TIMEOUT_PRESET_VALUES.size).toBe(4);
   });
 
-  it('exposes the closed supported-language enum (no Rust; Ruby joined in RL-042 Slice 5)', () => {
+  it('exposes the closed supported-language enum (no Rust; Ruby joined in implementation)', () => {
     expect(RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES).toEqual([
       'javascript',
       'typescript',
@@ -45,7 +45,7 @@ describe('RL-020 Slice 7 — runtimeTimeoutPresets', () => {
     expect(isRuntimeTimeoutPreset(5)).toBe(false);
   });
 
-  it('isRuntimeTimeoutSupportedLanguage gates only the enrolled runners (RL-042 Slice 5 added Ruby)', () => {
+  it('isRuntimeTimeoutSupportedLanguage gates only the enrolled runners (implementation added Ruby)', () => {
     expect(isRuntimeTimeoutSupportedLanguage('javascript')).toBe(true);
     expect(isRuntimeTimeoutSupportedLanguage('typescript')).toBe(true);
     expect(isRuntimeTimeoutSupportedLanguage('python')).toBe(true);

@@ -398,7 +398,7 @@ describe('developerUtilities', () => {
   });
 });
 
-describe('detectsAs* predicates (RL-069 Slice 2)', () => {
+describe('detectsAs* predicates ', () => {
   it('detectsAsJson recognises only structural payloads', () => {
     expect(detectsAsJson('{"a":1}')).toBe(true);
     expect(detectsAsJson('[1,2]')).toBe(true);

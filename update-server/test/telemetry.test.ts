@@ -1,5 +1,5 @@
 /**
- * RL-065 Slice 5 — `/telemetry` ingest endpoint tests.
+ * implementation — `/telemetry` ingest endpoint tests.
  *
  * Covers:
  *   - Method negotiation: POST, OPTIONS preflight, 405 for everything else.
@@ -8,10 +8,10 @@
  *     property bag).
  *   - Allowlist enforcement: unknown property keys silently dropped
  *     so a sneaky `sourceCode` field never reaches the log line.
- *   - Fold A — `DENY_SUBSTRINGS` substring deny pass mirrored from
+ *   - implementation note — `DENY_SUBSTRINGS` substring deny pass mirrored from
  *     `src/shared/telemetry.ts`.
- *   - Fold B — per-IP rate limit (5 req/s ceiling, CF Cache API).
- *   - Fold C — parity test: `TELEMETRY_EVENT_NAMES` and
+ *   - implementation note — per-IP rate limit (5 req/s ceiling, CF Cache API).
+ *   - implementation note — parity test: `TELEMETRY_EVENT_NAMES` and
  *     `EVENT_PROPERTY_ALLOWLIST` here must equal the renderer copies
  *     in `src/shared/telemetry.ts`. Drift between the two is exactly
  *     the failure mode this test guards.
@@ -82,28 +82,28 @@ import {
   IMPORTER_IDS as RENDERER_IMPORTER_IDS,
   NOTEBOOK_WARNING_KINDS as RENDERER_NOTEBOOK_WARNING_KINDS,
 } from '../../src/shared/importers/types';
-// RL-097 Slice 3 (SQL OPFS) fold F — cross-import the canonical
+// implementation (SQL OPFS) implementation note — cross-import the canonical
 // SQL_STORAGE_MODES tuple so the 3-way parity check below catches drift
 // between the canonical list and either telemetry Set copy.
 import { SQL_STORAGE_MODES as CANONICAL_SQL_STORAGE_MODES } from '../../src/shared/sqlWorkspace';
-// RL-099 Slice 5 fold A — canonical pipeline template ids for the 3-way
+// implementation note — canonical pipeline template ids for the 3-way
 // parity check (worker <-> renderer telemetry copy <-> catalog source).
 import { PIPELINE_TEMPLATE_IDS as CANONICAL_PIPELINE_TEMPLATE_IDS } from '../../src/shared/utilityPipelineTemplates';
-// RL-039 Slice B fold B — cross-import the canonical `RECIPE_RUN_STATUSES`
+// implementation Slice B implementation note — cross-import the canonical `RECIPE_RUN_STATUSES`
 // const tuple from the renderer source-of-truth (`lessonRunner.ts`).
 // The two `_SET` duplicates in `src/shared/telemetry.ts` +
 // `update-server/src/telemetry.ts` are derived from this tuple; the
 // 3-way parity check catches drift between the canonical tuple and
-// either Set (mirrors the RL-100 importer parity precedent).
+// either Set (mirrors the internal importer parity precedent).
 import { RECIPE_RUN_STATUSES as RENDERER_RECIPE_RUN_STATUSES } from '../../src/shared/lessonRunner';
-// RL-043 Slice A fold B — cross-import the canonical
+// implementation Slice A implementation note — cross-import the canonical
 // `NOTEBOOK_CELL_STATUSES` const tuple from the renderer
 // source-of-truth (`notebookSession.ts`). The two `_SET` duplicates
 // in `src/shared/telemetry.ts` + `update-server/src/telemetry.ts`
 // are derived from this tuple; the 3-way parity check catches drift
 // between the canonical tuple and either Set.
 import { NOTEBOOK_CELL_STATUSES as RENDERER_NOTEBOOK_CELL_STATUSES } from '../../src/renderer/runtime/notebookSession';
-// RL-096 Slice 1 reviewer pass — cross-import the renderer's
+// implementation reviewer pass — cross-import the renderer's
 // canonical DENY_SUBSTRINGS so the parity test cannot silently
 // drift when the renderer extends the deny pass (as it did in this
 // slice for apiKey / secret / credential / authorization /
@@ -113,7 +113,7 @@ import { NOTEBOOK_CELL_STATUSES as RENDERER_NOTEBOOK_CELL_STATUSES } from '../..
 // it can't redact LESS than the renderer does.
 import { DENY_SUBSTRINGS as RENDERER_DENY_SUBSTRINGS } from '../../src/shared/redaction';
 import { LANGUAGE_PACKS } from '../../src/shared/languagePacks';
-// RL-137 / AUDIT-17 — cross-import the canonical filesystem-denylist family
+// implementation detail — cross-import the canonical filesystem-denylist family
 // tuple from the main-process source of truth so the 3-way parity check below
 // catches drift between it and either telemetry mirror.
 import { BLOCKED_PATH_FAMILIES } from '../../src/main/ipc/permissions';
@@ -312,7 +312,7 @@ describe('POST /telemetry — silent property drop (no signal leakage)', () => {
   });
 });
 
-describe('POST /telemetry — fold A: deny-substring guard', () => {
+describe('POST /telemetry — implementation note: deny-substring guard', () => {
   it('keyLooksSensitive returns true for every DENY_SUBSTRING entry', () => {
     for (const deny of DENY_SUBSTRINGS) {
       // Bare substring as the whole key (e.g., `token`).
@@ -395,7 +395,7 @@ describe('POST /telemetry — payload size cap (8 KB)', () => {
   });
 });
 
-describe('POST /telemetry — fold B: per-IP rate limit', () => {
+describe('POST /telemetry — implementation note: per-IP rate limit', () => {
   it('allows up to RATE_LIMIT_PER_SECOND requests in the same second', async () => {
     const ip = '198.51.100.1';
     const now = Math.floor(Date.now() / 1000);
@@ -472,7 +472,7 @@ describe('telemetry observability log line', () => {
   });
 });
 
-describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
+describe('implementation note — allowlist parity vs src/shared/telemetry.ts', () => {
   it('TELEMETRY_EVENT_NAMES matches the renderer authority verbatim', () => {
     // Same order, same length, same entries. Drift here is exactly
     // the failure mode the parity test guards.
@@ -513,7 +513,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     }
   });
 
-  it('FS_BLOCKED_FAMILIES stays in 3-way sync (worker / renderer / permissions) — RL-137 / AUDIT-17', () => {
+  it('FS_BLOCKED_FAMILIES stays in 3-way sync (worker / renderer / permissions) — implementation detail', () => {
     const worker = [...WORKER_FS_BLOCKED_FAMILIES].sort();
     const renderer = [...RENDERER_FS_BLOCKED_FAMILIES].sort();
     const canonical = [...BLOCKED_PATH_FAMILIES].sort();
@@ -521,7 +521,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(worker).toEqual(canonical);
   });
 
-  it('LANGUAGE_SCORECARD_PLATFORMS stays in sync with the renderer enum (RL-095 Slice 2)', () => {
+  it('LANGUAGE_SCORECARD_PLATFORMS stays in sync with the renderer enum ', () => {
     expect([...WORKER_LANGUAGE_SCORECARD_PLATFORMS].sort()).toEqual(
       [...RENDERER_LANGUAGE_SCORECARD_PLATFORMS].sort()
     );
@@ -532,7 +532,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('CAPSULE_EXPORT_TRIGGERS stays in sync with the renderer enum (RL-094 Slice 1 fold A)', async () => {
+  it('CAPSULE_EXPORT_TRIGGERS stays in sync with the renderer enum (implementation note)', async () => {
     // Closed-enum parity for the `capsule.exported.trigger` field.
     // Drift here would silently widen the surface the export
     // telemetry accepts on one side without the other.
@@ -556,18 +556,18 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(sharedValues);
     expect(workerValues).toEqual([
       'list-export',
-      // IT2-F7 — self-contained HTML export from the browse overlay row.
+      // internal — self-contained HTML export from the browse overlay row.
       'list-export-html',
       'palette-export',
       'pipeline-run',
       'result-panel-export',
       'settings-export',
-      // IT2-F7 — self-contained HTML export from Settings latest-run.
+      // internal — self-contained HTML export from Settings latest-run.
       'settings-export-html',
     ]);
   });
 
-  it('IMAGE_CLIPBOARD_PASTE_STATUSES stays in sync with the renderer enum (RL-044 next slice)', async () => {
+  it('IMAGE_CLIPBOARD_PASTE_STATUSES stays in sync with the renderer enum (implementation detail)', async () => {
     // Closed-enum parity for `runtime.image_clipboard_pasted.status`.
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
@@ -596,7 +596,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('SQL_IMPORT_FORMATS_SET + SQL_IMPORT_SOURCES_SET stay in sync with shared (RL-097 SQL import fold B)', async () => {
+  it('SQL_IMPORT_FORMATS_SET + SQL_IMPORT_SOURCES_SET stay in sync with shared (implementation SQL import implementation note)', async () => {
     // Closed-enum parity for the `sql.table_imported.{format,source}`
     // fields. Source-regex (not import) so the worker bundle stays free
     // of a renderer/shared import.
@@ -631,7 +631,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('PROJECT_BUNDLE_* enums stay in sync across worker, shared, and projectBundle (RL-024 Slice 3)', async () => {
+  it('PROJECT_BUNDLE_* enums stay in sync across worker, shared, and projectBundle ', async () => {
     // 3-way closed-enum parity for the project zip bundle events. The
     // status enums live in worker + shared telemetry; the reject-reason
     // enum additionally mirrors the canonical `BUNDLE_REJECT_REASONS`
@@ -694,7 +694,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     );
   });
 
-  it('CAPSULE_BROWSE_SURFACES stays in sync with the renderer enum (RL-094 Slice 3 fold G)', async () => {
+  it('CAPSULE_BROWSE_SURFACES stays in sync with the renderer enum (implementation note)', async () => {
     // Closed-enum parity for the `capsule.browse_opened.surface` field.
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
@@ -722,7 +722,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('CAPSULE_SIZE_BUCKETS stays in sync with the renderer enum (RL-094 Slice 1 fold A)', async () => {
+  it('CAPSULE_SIZE_BUCKETS stays in sync with the renderer enum (implementation note)', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
@@ -750,7 +750,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('CAPSULE_IMPORT_SOURCES stays in sync with the renderer enum (RL-094 Slice 2 fold D)', async () => {
+  it('CAPSULE_IMPORT_SOURCES stays in sync with the renderer enum (implementation note)', async () => {
     // Closed-enum parity for the `capsule.imported.sourceSurface`
     // field. Drift on either side would silently widen which import
     // surfaces telemetry accepts.
@@ -775,7 +775,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['drag-drop', 'file-picker', 'paste']);
   });
 
-  it('CAPSULE_IMPORT_STATUSES stays in sync with the renderer enum (RL-094 Slice 2 fold D)', async () => {
+  it('CAPSULE_IMPORT_STATUSES stays in sync with the renderer enum (implementation note)', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
@@ -802,7 +802,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('capsule.imported accepts closed-enum sourceSurface+status+sizeBucket, drops unknown (RL-094 Slice 2 fold D)', async () => {
+  it('capsule.imported accepts closed-enum sourceSurface+status+sizeBucket, drops unknown (implementation note)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'capsule.imported',
@@ -853,7 +853,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('capsule.exported accepts closed-enum trigger+sizeBucket, drops unknown (RL-094 Slice 1 fold A)', async () => {
+  it('capsule.exported accepts closed-enum trigger+sizeBucket, drops unknown (implementation note)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'capsule.exported',
@@ -891,7 +891,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('capsule.browse_opened accepts closed-enum surface + safe-token tier, drops unknown (RL-094 Slice 3 fold G)', async () => {
+  it('capsule.browse_opened accepts closed-enum surface + safe-token tier, drops unknown (implementation note)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'capsule.browse_opened',
@@ -918,7 +918,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('language_scorecard_platform_toggled accepts closed-enum platform, drops unknown values (RL-095 Slice 2)', async () => {
+  it('language_scorecard_platform_toggled accepts closed-enum platform, drops unknown values ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'language_scorecard_platform_toggled',
@@ -946,7 +946,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('onboarding closed enums stay in sync with the renderer source of truth (RL-101 Slice 1)', () => {
+  it('onboarding closed enums stay in sync with the renderer source of truth ', () => {
     expect([...WORKER_ONBOARDING_TOAST_STAGES].sort()).toEqual(
       [...RENDERER_ONBOARDING_TOAST_STAGES].sort()
     );
@@ -958,7 +958,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     );
   });
 
-  it('onboarding telemetry accepts closed payloads and drops unknown values (RL-101 Slice 1)', async () => {
+  it('onboarding telemetry accepts closed payloads and drops unknown values ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const firstRunOk = await postTelemetry({
       event: 'onboarding.first_run_completed',
@@ -1029,21 +1029,21 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('privacy dashboard surfaces stay in sync with the renderer source of truth (RL-096 Slice 1)', () => {
+  it('privacy dashboard surfaces stay in sync with the renderer source of truth ', () => {
     expect([...WORKER_PRIVACY_DASHBOARD_SURFACES].sort()).toEqual(
       [...RENDERER_PRIVACY_DASHBOARD_SURFACES].sort()
     );
   });
 
-  it('output origin surfaces stay in sync with the renderer source of truth (RL-044 Sub-slice G)', () => {
+  it('output origin surfaces stay in sync with the renderer source of truth ', () => {
     expect([...WORKER_OUTPUT_ORIGIN_SURFACES].sort()).toEqual(
       [...RENDERER_OUTPUT_ORIGIN_SURFACES].sort()
     );
   });
 
-  it('git layer repo states stay in sync with the renderer source of truth (RL-102 Slice 1 fold D)', () => {
+  it('git layer repo states stay in sync with the renderer source of truth (implementation note)', () => {
     // Closed-enum parity for the `git.layer_attached.repoState` field.
-    // A future Slice 2 addition (e.g. `'detached-head'`, `'submodule'`)
+    // A future implementation addition (e.g. `'detached-head'`, `'submodule'`)
     // must land in both copies at the same time or this guard fails
     // CI before the diff reaches main.
     expect([...WORKER_GIT_LAYER_REPO_STATES].sort()).toEqual(
@@ -1051,9 +1051,9 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     );
   });
 
-  it('git reveal-in-source-control targets stay in sync (RL-102 Slice 2)', () => {
+  it('git reveal-in-source-control targets stay in sync ', () => {
     // Closed-enum parity for `git.reveal_in_source_control_clicked.target`.
-    // Single value today; any future Slice 3+ extension (e.g.
+    // Single value today; any future implementation extension (e.g.
     // `'commit-hash'`, `'branch-history'`) must land in both copies
     // at the same time.
     expect([...WORKER_REVEAL_IN_SC_TARGETS].sort()).toEqual(
@@ -1062,7 +1062,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect([...WORKER_REVEAL_IN_SC_TARGETS]).toEqual(['repo-root']);
   });
 
-  it('git external-modification reload modes stay in sync (RL-102 Slice 2 fold E)', () => {
+  it('git external-modification reload modes stay in sync (implementation note)', () => {
     // Closed-enum parity for `git.external_modification_reload.mode`.
     // `'auto-applied'` is reserved; renderer never emits it today.
     expect([...WORKER_EXTERNAL_RELOAD_MODES].sort()).toEqual(
@@ -1075,7 +1075,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('HTTP methods stay in sync (RL-097 Slice 1 fold F)', () => {
+  it('HTTP methods stay in sync (implementation note)', () => {
     // Closed-enum parity for `http.request_executed.method`. The
     // canonical source of truth is `HTTP_METHODS` in
     // `src/shared/httpWorkspace.ts`; both telemetry copies mirror it.
@@ -1095,7 +1095,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('HTTP status buckets stay in sync (RL-097 Slice 1 fold F)', () => {
+  it('HTTP status buckets stay in sync (implementation note)', () => {
     // Closed-enum parity for `http.request_executed.statusBucket`.
     // The renderer + worker copies BOTH carry the typed runtime
     // failures (`'network-error'`, `'timeout'`, `'cors-error'`)
@@ -1114,7 +1114,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('HTTP redactedHeadersBucket uses the same DEPENDENCY_COUNT_BUCKETS as the renderer (RL-097 Slice 1 fold F)', () => {
+  it('HTTP redactedHeadersBucket uses the same DEPENDENCY_COUNT_BUCKETS as the renderer (implementation note)', () => {
     // Reviewer pass — the worker validates `redactedHeadersBucket`
     // against `DEPENDENCY_COUNT_BUCKETS` while the renderer uses
     // `DEPENDENCY_COUNT_BUCKETS_SET`. Both copies live in their
@@ -1133,8 +1133,8 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('http.request_executed allowlist carries resolvedVarsBucket + validator accepts it (RL-097 Slice 3a fold D)', () => {
-    // The Slice 3a fold-D property must be on the worker allowlist, and
+  it('http.request_executed allowlist carries resolvedVarsBucket + validator accepts it (implementation note)', () => {
+    // The implementation note property must be on the worker allowlist, and
     // the validator must accept a DEPENDENCY_COUNT_BUCKETS value for it
     // while rejecting an off-enum value. Guards drift between the
     // allowlist array and the validator switch.
@@ -1170,12 +1170,12 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ).toBeUndefined();
   });
 
-  it('SQL query statuses stay in sync (RL-097 Slice 2 fold F)', () => {
+  it('SQL query statuses stay in sync (implementation note)', () => {
     // Closed-enum parity for `sql.query_executed.status`. The
     // canonical source of truth is `SQL_QUERY_STATUSES` in
     // `src/shared/sqlWorkspace.ts`; both telemetry copies mirror
     // the same five-status list. Adding a new status (e.g. when a
-    // future slice surfaces `cancelled` for user-initiated abort)
+    // future work surfaces `cancelled` for user-initiated abort)
     // requires touching BOTH copies — this guard fails CI when
     // only one side drifts.
     expect([...WORKER_SQL_QUERY_STATUSES_SET].sort()).toEqual(
@@ -1190,7 +1190,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('SQL duration buckets stay in sync (RL-097 Slice 2 fold F)', () => {
+  it('SQL duration buckets stay in sync (implementation note)', () => {
     // Closed-enum parity for `sql.query_executed.durationBucket`.
     // The renderer + worker copies BOTH carry the same six buckets
     // tuned to the SQL workspace shape (sub-10ms hot path through
@@ -1208,7 +1208,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('SQL storage modes stay in sync (RL-097 Slice 3 fold F)', () => {
+  it('SQL storage modes stay in sync (implementation note)', () => {
     // Closed-enum parity for `sql.storage_mode.{mode,requested}`. The
     // canonical source of truth is `SQL_STORAGE_MODES` in
     // `src/shared/sqlWorkspace.ts`; both telemetry copies mirror it.
@@ -1226,7 +1226,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('utility pipeline run statuses stay in sync (RL-099 Slice 1 fold F)', () => {
+  it('utility pipeline run statuses stay in sync (implementation note)', () => {
     // Closed-enum parity for `utility.pipeline_executed.status`. The
     // canonical source of truth is `PIPELINE_RUN_STATUSES` in
     // `src/shared/utilityPipeline.ts`; both telemetry copies mirror
@@ -1244,7 +1244,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('pipeline template ids stay in sync (RL-099 Slice 5 fold A)', () => {
+  it('pipeline template ids stay in sync (implementation note)', () => {
     // Closed-enum parity for `utility.pipeline_template_used.templateId`.
     // Canonical source is `PIPELINE_TEMPLATE_IDS` in
     // `src/shared/utilityPipelineTemplates.ts`; both telemetry copies
@@ -1268,7 +1268,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('notebook cell statuses stay in sync (RL-043 Slice A fold B)', () => {
+  it('notebook cell statuses stay in sync (implementation Slice A implementation note)', () => {
     // 3-way closed-enum parity for `notebook.cell_executed.status`:
     //   1. canonical const tuple `NOTEBOOK_CELL_STATUSES` in
     //      `src/renderer/runtime/notebookSession.ts`,
@@ -1278,7 +1278,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     //      `update-server/src/telemetry.ts`.
     // Drift between any pair would let the renderer or worker accept
     // a status the canonical rollup would never produce. Mirrors the
-    // RL-039 Slice B Recipes 3-way pattern.
+    // implementation Recipes 3-way pattern.
     expect([...WORKER_NOTEBOOK_CELL_STATUSES_SET].sort()).toEqual(
       [...RENDERER_NOTEBOOK_CELL_STATUSES].sort()
     );
@@ -1292,7 +1292,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('recipe run statuses stay in sync (RL-039 Slice B fold B)', () => {
+  it('recipe run statuses stay in sync (implementation Slice B implementation note)', () => {
     // 3-way closed-enum parity for `recipe.test_run.status`:
     //   1. canonical const tuple `RECIPE_RUN_STATUSES` in
     //      `src/shared/lessonRunner.ts` (the source of truth that
@@ -1307,7 +1307,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     // status the canonical rollup would never produce; a drift
     // between (2) ↔ (3) would let the worker drop a status the
     // renderer happily wrote. Mirrors the 3-way pattern from
-    // RL-100 (`IMPORTER_IDS`). NO `recipe.opened` parity needed —
+    // internal (`IMPORTER_IDS`). NO `recipe.opened` parity needed —
     // its payload is a language string validated by `isSafeToken`.
     expect([...WORKER_RECIPE_RUN_STATUSES_SET].sort()).toEqual(
       [...RENDERER_RECIPE_RUN_STATUSES].sort()
@@ -1324,7 +1324,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('importer ids + import statuses stay in sync (RL-100 Slice 1 fold E)', () => {
+  it('importer ids + import statuses stay in sync (implementation note)', () => {
     // Closed-enum parity for `import.applied.importerId` +
     // `import.applied.status`. The canonical source of truth is
     // `IMPORTER_IDS` in `src/shared/importers/types.ts` (renderer)
@@ -1338,8 +1338,8 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual(
       [...RENDERER_IMPORTER_IDS_SET].sort()
     );
-    // RL-100 Slice 2 widened to include the `.ipynb` adapter; Slice 3
-    // added the Postman + Bruno collection adapters; RL-043 Slice E
+    // implementation widened to include the `.ipynb` adapter; implementation
+    // added the Postman + Bruno collection adapters; implementation
     // added the native `.linguanb` adapter.
     expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual([
       'bruno-collection',
@@ -1358,7 +1358,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('notebook warning kinds stay in sync (RL-100 Slice 2 fold E)', () => {
+  it('notebook warning kinds stay in sync (implementation note)', () => {
     // 3-way closed-enum parity for `import.notebook_warnings_surfaced.dominantKind`:
     //   1. canonical const tuple `NOTEBOOK_WARNING_KINDS` in
     //      `src/shared/importers/types.ts`,
@@ -1367,7 +1367,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     //   3. duplicated Set `NOTEBOOK_WARNING_KINDS_SET` in
     //      `update-server/src/telemetry.ts`.
     // Drift between any pair would let either side accept a kind the
-    // others reject. Mirrors the RL-039 Slice B 3-way parity precedent.
+    // others reject. Mirrors the implementation 3-way parity precedent.
     expect([...WORKER_NOTEBOOK_WARNING_KINDS_SET].sort()).toEqual(
       [...RENDERER_NOTEBOOK_WARNING_KINDS].sort()
     );
@@ -1382,7 +1382,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('template project ids stay in sync with the renderer source of truth (RL-103 Slice 1 fold B)', () => {
+  it('template project ids stay in sync with the renderer source of truth (implementation note)', () => {
     // Closed-enum parity for the `template_project_applied.templateId`
     // field. The renderer-side catalog
     // (`src/renderer/data/projectTemplates/index.ts`) is the design
@@ -1402,12 +1402,12 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('DENY_SUBSTRINGS stays a byte-for-byte mirror of the renderer source of truth (RL-096 Slice 1 reviewer pass)', () => {
+  it('DENY_SUBSTRINGS stays a byte-for-byte mirror of the renderer source of truth (implementation reviewer pass)', () => {
     // The worker is defense-in-depth: if the renderer redactor
     // regresses and a sneaky key reaches the wire, the worker's
     // DENY pass strips it. That guarantee fails the moment the
     // worker list is a SUBSET of the renderer list — drift
-    // observed in this slice's initial pass when the renderer
+    // observed in this change's initial pass when the renderer
     // added apikey/secret/credential/authorization/privatekey/
     // accesskey/licensekey patterns without updating the mirror.
     // Cross-import asserts byte-for-byte equality so the slot
@@ -1417,7 +1417,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     );
   });
 
-  it('privacy dashboard telemetry accepts closed payloads and drops unknown values (RL-096 Slice 1)', async () => {
+  it('privacy dashboard telemetry accepts closed payloads and drops unknown values ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const settingsOk = await postTelemetry(
       {
@@ -1462,7 +1462,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('output origin telemetry accepts badge surface and drops unknown values (RL-044 Sub-slice G)', async () => {
+  it('output origin telemetry accepts badge surface and drops unknown values ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry(
       {
@@ -1498,10 +1498,10 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('RICH_MEDIA_REJECTED_KINDS stays in sync with the renderer enum (RL-044 Slice 2a)', async () => {
+  it('RICH_MEDIA_REJECTED_KINDS stays in sync with the renderer enum ', async () => {
     // Closed-enum parity for the rich-media rejection / adoption surface.
     // Both `runtime.rich_media_payload_rejected` and the new
-    // `runtime.python_rich_media_used` (RL-044 Slice 2b-β-β-α fold E)
+    // `runtime.python_rich_media_used` (implementation-β-β-α implementation note)
     // validate `kind` against this set. Drift here would silently let
     // a worker-emitted unknown kind through one validator and not the
     // other.
@@ -1526,7 +1526,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['chart', 'html', 'image']);
   });
 
-  it('RICH_MEDIA_REJECTED_REASONS stays in sync with the renderer enum (RL-044 Slice 2a)', async () => {
+  it('RICH_MEDIA_REJECTED_REASONS stays in sync with the renderer enum ', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
@@ -1552,7 +1552,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('AUTO_RUN_GATE_REASONS stays in sync with the renderer enum (RL-020 Slice 1)', async () => {
+  it('AUTO_RUN_GATE_REASONS stays in sync with the renderer enum ', async () => {
     // Mirror of the RUNTIME_MODE parity check: closed-enum lists for
     // `runtime.auto_run_gated` live in two places (renderer + worker)
     // and must stay aligned. A heuristic expansion that adds a new
@@ -1575,7 +1575,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       .map((match) => match[1]!)
       .sort();
     expect(workerValues).toEqual(sharedValues);
-    // Slice 1 lock — only `'incomplete'` ships. If this assertion
+    // implementation lock — only `'incomplete'` ships. If this assertion
     // ever loosens, the comment in `useAutoRun.ts` must be updated
     // and the renderer surface widened too.
     expect(workerValues).toEqual(['incomplete']);
@@ -1630,7 +1630,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('WORKFLOW_MODE_VALUES stays in sync with the renderer enum (RL-020 Slice 2)', async () => {
+  it('WORKFLOW_MODE_VALUES stays in sync with the renderer enum ', async () => {
     // Parity guard for the closed `WorkflowMode` enum used by
     // `runtime.workflow_mode_changed`. Adding a new mode (e.g. a
     // future `notebook` workflow) has to amend BOTH the worker
@@ -1654,13 +1654,13 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       .map((match) => match[1]!)
       .sort();
     expect(workerValues).toEqual(sharedValues);
-    // Slice 2 lock — three workflow modes ship. If this loosens,
+    // implementation lock — three workflow modes ship. If this loosens,
     // the renderer surface (segmented control + Settings rows)
     // must widen too.
     expect(workerValues).toEqual(['debug', 'run', 'scratchpad']);
   });
 
-  it('WORKFLOW_MODE_CHANGE_TRIGGERS stays in sync with the renderer enum (RL-020 Slice 2)', async () => {
+  it('WORKFLOW_MODE_CHANGE_TRIGGERS stays in sync with the renderer enum ', async () => {
     // Parity guard for the `trigger` closed enum. Adding a new
     // trigger (e.g. `'command_palette'`, `'settings_default'`)
     // requires updating both mirrors AND the comment in the
@@ -1686,7 +1686,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['language_change', 'toolbar']);
   });
 
-  it('HISTORY_REPLAY_SURFACES stays in sync with the renderer enum (RL-020 Slice 4)', async () => {
+  it('HISTORY_REPLAY_SURFACES stays in sync with the renderer enum ', async () => {
     // Parity guard for the closed `surface` enum used by
     // `runtime.history_replay`. Adding a new replay surface (e.g.
     // `'sidebar'`) requires updating BOTH the worker mirror and the
@@ -1712,7 +1712,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['palette', 'popover', 'tab_pill']);
   });
 
-  it('runtime.history_replay accepts the closed enum, drops unknown surface (RL-020 Slice 4)', async () => {
+  it('runtime.history_replay accepts the closed enum, drops unknown surface ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.history_replay',
@@ -1735,7 +1735,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('surface');
   });
 
-  it('AUTO_LOG_COUNT_BUCKETS stays in sync with the renderer enum (RL-020 Slice 5)', async () => {
+  it('AUTO_LOG_COUNT_BUCKETS stays in sync with the renderer enum ', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
@@ -1757,7 +1757,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['1', '2-5', '20-plus', '6-20']);
   });
 
-  it('CONSOLE_RICH_KIND_BUCKETS stays in sync with the renderer (RL-044 Slice 1B)', async () => {
+  it('CONSOLE_RICH_KIND_BUCKETS stays in sync with the renderer ', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
@@ -1779,7 +1779,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(sharedValues);
     // Lock the kind enum so any future widening must amend both Sets
     // explicitly. text / rawText are catch-all buckets — the renderer
-    // renders them through the text path. `html` lands in Slice 2a.
+    // renders them through the text path. `html` lands in implementation.
     expect(workerValues).toEqual([
       'array',
       'chart',
@@ -1796,7 +1796,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
-  it('runtime.console_rich_rendered accepts closed-enum kind, drops unknown (RL-044 Slice 1B)', async () => {
+  it('runtime.console_rich_rendered accepts closed-enum kind, drops unknown ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.console_rich_rendered',
@@ -1827,7 +1827,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('runtime.console_table_called accepts safe-token language (RL-044 Slice 1B fold F)', async () => {
+  it('runtime.console_table_called accepts safe-token language (implementation note)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.console_table_called',
@@ -1847,7 +1847,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('runtime.cursor_pulse_emitted accepts safe-token language, drops unsafe (RL-044 Sub-slice G.1)', async () => {
+  it('runtime.cursor_pulse_emitted accepts safe-token language, drops unsafe ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.cursor_pulse_emitted',
@@ -1872,7 +1872,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('RUBY_DISPATCHED_MODE_VALUES + RUBY_SPAWN_BUCKETS stay in sync with the renderer (RL-042 Slice 6)', async () => {
+  it('RUBY_DISPATCHED_MODE_VALUES + RUBY_SPAWN_BUCKETS stay in sync with the renderer ', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
@@ -1904,7 +1904,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     }
   });
 
-  it('runtime.ruby_runner_dispatched accepts closed-enum mode + bucket, drops unknown (RL-042 Slice 6)', async () => {
+  it('runtime.ruby_runner_dispatched accepts closed-enum mode + bucket, drops unknown ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.ruby_runner_dispatched',
@@ -1933,7 +1933,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('runtime.python_console_payload_emitted accepts closed-enum kind, drops unknown (RL-044 Slice 1C fold B)', async () => {
+  it('runtime.python_console_payload_emitted accepts closed-enum kind, drops unknown (implementation note)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.python_console_payload_emitted',
@@ -1960,7 +1960,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('runtime.console_rich_rendered accepts the html bucket (RL-044 Slice 2a)', async () => {
+  it('runtime.console_rich_rendered accepts the html bucket ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.console_rich_rendered',
@@ -1975,7 +1975,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('runtime.error_stack_frame_clicked accepts closed-enum language, drops unsafe (RL-044 Slice 2a)', async () => {
+  it('runtime.error_stack_frame_clicked accepts closed-enum language, drops unsafe ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.error_stack_frame_clicked',
@@ -2002,7 +2002,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('runtime.rich_media_payload_rejected accepts closed-enum kind+reason, drops unknown (RL-044 Slice 2a)', async () => {
+  it('runtime.rich_media_payload_rejected accepts closed-enum kind+reason, drops unknown ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.rich_media_payload_rejected',
@@ -2033,7 +2033,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     const spicyLine = eventLines.find((line) => line.includes('too-spicy'));
     expect(spicyLine).toBeUndefined();
 
-    // RL-044 Slice 2b-α — chart added to RICH_MEDIA_REJECTED_KINDS.
+    // implementation — chart added to RICH_MEDIA_REJECTED_KINDS.
     const chartResponse = await postTelemetry({
       event: 'runtime.rich_media_payload_rejected',
       properties: { kind: 'chart', reason: 'validation-failed' },
@@ -2050,7 +2050,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('runtime.python_rich_media_used accepts closed-enum kind, drops unknown (RL-044 Slice 2b-β-β-α fold E)', async () => {
+  it('runtime.python_rich_media_used accepts closed-enum kind, drops unknown (implementation-β-β-α implementation note)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     for (const kind of ['chart', 'image', 'html'] as const) {
       const okResponse = await postTelemetry({
@@ -2075,7 +2075,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
-  it('runtime.auto_log_enabled accepts boolean enabled, drops non-boolean (RL-020 Slice 5)', async () => {
+  it('runtime.auto_log_enabled accepts boolean enabled, drops non-boolean ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.auto_log_enabled',
@@ -2098,7 +2098,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('enabled');
   });
 
-  it('runtime.auto_log_emitted accepts the closed bucket enum, drops unknown values (RL-020 Slice 5)', async () => {
+  it('runtime.auto_log_emitted accepts the closed bucket enum, drops unknown values ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.auto_log_emitted',
@@ -2121,7 +2121,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('countBucket');
   });
 
-  it('runtime.stdin_used accepts the closed payload, drops unknown keys (RL-020 Slice 6)', async () => {
+  it('runtime.stdin_used accepts the closed payload, drops unknown keys ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.stdin_used',
@@ -2146,7 +2146,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('linesRead');
   });
 
-  it('runtime.magic_comment_emitted accepts boolean flags, drops non-boolean (RL-020 Slice 3)', async () => {
+  it('runtime.magic_comment_emitted accepts boolean flags, drops non-boolean ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.magic_comment_emitted',
@@ -2204,8 +2204,8 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('trigger');
   });
 
-  it('RUNNER_STATUS_VALUES stays in sync with the renderer enum (RL-020 Slice 7)', async () => {
-    // Slice 7 widened the renderer status enum from {ok, error} to
+  it('RUNNER_STATUS_VALUES stays in sync with the renderer enum ', async () => {
+    // implementation widened the renderer status enum from {ok, error} to
     // {ok, error, timeout, stopped}. The worker mirror must keep
     // pace so the dashboard distinguishes operator-stop from
     // organic timeout from real errors.
@@ -2231,7 +2231,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['error', 'ok', 'stopped', 'timeout']);
   });
 
-  it('RUNTIME_TIMEOUT_PRESET_VALUES stays in sync with the renderer (RL-020 Slice 7)', async () => {
+  it('RUNTIME_TIMEOUT_PRESET_VALUES stays in sync with the renderer ', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
@@ -2277,12 +2277,12 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(dropped).toBeDefined();
   });
 
-  it('RUNTIME_MODE_VALUES stays in sync with the renderer enum (RL-019 Slice 1)', async () => {
+  it('RUNTIME_MODE_VALUES stays in sync with the renderer enum ', async () => {
     // Both the worker (`update-server/src/telemetry.ts`) and the
     // renderer (`src/shared/telemetry.ts`) maintain a private Set of
     // the closed `RuntimeMode` values for the `runtime.mode_changed`
     // event. The Set is duplicated by design (no import cycle); this
-    // parity test guards against drift so a Slice 2 addition of
+    // parity test guards against drift so a implementation addition of
     // `'node'` lights up both sides together.
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
@@ -2306,7 +2306,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(sharedValues);
   });
 
-  it('FS_DIRECTORY_PICKER_UA_BUCKETS stays in sync between worker and renderer (RL-024 Slice 1)', async () => {
+  it('FS_DIRECTORY_PICKER_UA_BUCKETS stays in sync between worker and renderer ', async () => {
     // Mirror discipline for the new browser bucket enum behind
     // `runtime.fs_directory_picker_unsupported`. Adding `'chromium-old'`
     // (for example) without updating the renderer would let the worker
@@ -2332,7 +2332,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(sharedValues);
   });
 
-  it('runtime.fs_directory_picker_unsupported accepts closed-enum bucket, drops unknown (RL-024 Slice 1)', async () => {
+  it('runtime.fs_directory_picker_unsupported accepts closed-enum bucket, drops unknown ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'runtime.fs_directory_picker_unsupported',
@@ -2362,7 +2362,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
   });
 });
 
-describe('RL-025 Slice B — dependency install lifecycle events', () => {
+describe('implementation — dependency install lifecycle events', () => {
   it('DEPENDENCY_INSTALL_OUTCOMES + DEPENDENCY_INSTALL_FAILURE_REASONS stay in sync with the renderer', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
@@ -2476,7 +2476,7 @@ describe('RL-025 Slice B — dependency install lifecycle events', () => {
     consoleSpy.mockRestore();
   });
 
-  it('dependency.install_failed_reason accepts the unsupported-wheel reason (RL-025 Slice C)', async () => {
+  it('dependency.install_failed_reason accepts the unsupported-wheel reason ', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
       event: 'dependency.install_failed_reason',

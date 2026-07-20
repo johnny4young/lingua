@@ -7,7 +7,7 @@ import { createWebActions } from './licenseWebActions';
 import { createWebRevalidate } from './licenseWebRevalidate';
 
 /**
- * RL-130 — web license store, extracted from `licenseStore.ts`. Assembles the
+ * internal — web license store, extracted from `licenseStore.ts`. Assembles the
  * web-flow state creator (initial state + the action factories) and wraps it in
  * the `lingua-license` persist boundary (version 1 + central migrate +
  * token-scoped partialize + the rehydrate revalidate), then attaches the

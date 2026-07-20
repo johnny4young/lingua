@@ -1,5 +1,5 @@
 /**
- * RL-093 / T8 — Mode-aware action button + workflow picker for the
+ * internal / implementation — Mode-aware action button + workflow picker for the
  * floating action pill. The main button fires the active workflow (or
  * stops a running task); the chevron opens a dropdown that switches the
  * per-tab workflow AND fires it in one click. Extracted verbatim.
@@ -26,7 +26,7 @@ interface RunGroupProps {
   currentWorkflow: WorkflowMode;
   isRunning: boolean;
   isInitializing: boolean;
-  /** IT2-D3 — live bootstrap text (static message or MB counter). */
+  /** internal — live bootstrap text (static message or MB counter). */
   loadingMessage: string | null;
   runDisabled: boolean;
   runDisabledTooltip: string | undefined;
@@ -67,7 +67,7 @@ export function FloatingActionPillRunGroup({
   setTabWorkflowMode,
 }: RunGroupProps) {
   const { t } = useTranslation();
-  // IT2-D3 — live runtime-bootstrap progress, path-agnostic: the
+  // internal — live runtime-bootstrap progress, path-agnostic: the
   // store is fed by the worker whether the boot started from a manual
   // run's initialization window OR the scratchpad auto-run, so the
   // pill shows the download counter either way.
@@ -171,7 +171,7 @@ export function FloatingActionPillRunGroup({
                 onClick={() => {
                   setOpenMenu(null);
                   if (item.disabled) return;
-                  // RL-093 follow-up — same fallback as the
+                  // internal follow-up — same fallback as the
                   // Runtime chip: create a tab in the chip's
                   // current language if there's none so the
                   // workflow picker always advances the user.

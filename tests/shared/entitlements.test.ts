@@ -1,5 +1,5 @@
 /**
- * Guards the RL-060 tier policy. Every Free-tier ceiling lives in one place
+ * Guards the internal tier policy. Every Free-tier ceiling lives in one place
  * and paid tiers collapse to the full entitlement set; this test locks that
  * invariant so an accidental refactor cannot silently grant paid features
  * to Free or vice versa.
@@ -19,8 +19,8 @@ import {
 } from '../../src/shared/entitlements';
 import { LICENSE_TIERS } from '../../src/shared/license';
 
-describe('entitlements policy (RL-060)', () => {
-  it('ENTITLEMENTS enum covers the 11 entries named in the RL-060 scope', () => {
+describe('entitlements policy', () => {
+  it('ENTITLEMENTS enum covers the 11 entries named in the internal scope', () => {
     expect([...ENTITLEMENTS].sort()).toEqual(
       [
         'BENCHMARK',
@@ -59,7 +59,7 @@ describe('entitlements policy (RL-060)', () => {
     expect([...FREE_TIER_LIMITS.allowedLanguages].sort()).toEqual([
       'javascript',
       'python',
-      // RL-042 Slice 5 — Ruby joined Free with the @ruby/wasm-wasi
+      // implementation — Ruby joined Free with the @ruby/wasm-wasi
       // web worker (same posture as Python's Pyodide).
       'ruby',
       'typescript',
@@ -90,7 +90,7 @@ describe('entitlements policy (RL-060)', () => {
     expect(isLanguageAllowed('free', 'javascript')).toBe(true);
     expect(isLanguageAllowed('free', 'typescript')).toBe(true);
     expect(isLanguageAllowed('free', 'python')).toBe(true);
-    // RL-042 Slice 5 — Ruby (@ruby/wasm-wasi) joined Free.
+    // implementation — Ruby (@ruby/wasm-wasi) joined Free.
     expect(isLanguageAllowed('free', 'ruby')).toBe(true);
     expect(isLanguageAllowed('free', 'go')).toBe(false);
     expect(isLanguageAllowed('free', 'rust')).toBe(false);

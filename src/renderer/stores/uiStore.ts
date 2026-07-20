@@ -15,23 +15,23 @@ export type BottomPanelTab =
   | 'browser-preview'
   | 'stdin'
   | 'variables'
-  // RL-025 Slice A — bottom-panel sibling for the Dependencies tab.
+  // implementation — bottom-panel sibling for the Dependencies tab.
   // Conditional render in `AppLayout.tsx` keeps the button hidden
   // until the active tab has ≥1 detected dependency, so users who
   // never paste an import never see the chrome.
   | 'dependencies'
-  // RL-102 Slice 1 — bottom-panel sibling for the Git diff view.
+  // implementation — bottom-panel sibling for the Git diff view.
   // Conditional render in `AppLayout.tsx` gates on
   // `gitLayerAvailable(posture)` so users opening a folder that is
   // not a git repo never see the chrome. Mount fires the
-  // `git.diff_panel_opened` telemetry (fold D).
+  // `git.diff_panel_opened` telemetry (implementation note).
   | 'git-diff'
   // MOV.02 (FASE 3) — the HTTP and SQL workspaces are no longer dock
   // panels. They ascended to full-screen `FileTab`s owned by
   // `useEditorStore` (one stable tab per workspace). `'http'` / `'sql'`
   // were removed from this union; the dock keeps only the ephemeral
   // streams (Console, Input) + the contextual panels below.
-  // RL-039 Slice B — bottom-panel sibling for the Recipes Run + Test
+  // implementation — bottom-panel sibling for the Recipes Run + Test
   // surface. Conditional render in `AppLayout.tsx` gates on the
   // active tab having a `recipeBindingId` (set by the overlay's
   // open-recipe flow), so tabs that are not bound to a recipe never
@@ -41,18 +41,18 @@ export type BottomPanelTab =
 export type VariablesViewMode = 'list' | 'cards';
 
 /**
- * RL-101 Slice 1 fold A — optional interactive CTA on a status
+ * implementation note — optional interactive CTA on a status
  * notice. Lets the first-run / first-snippet onboarding toasts
  * surface a single-click action (Save as snippet / Open snippets)
  * without lifting custom toast components per surface. Designed
- * as an array (fold A) so future variants (Save + Skip, Confirm
+ * as an array (implementation note) so future variants (Save + Skip, Confirm
  * + Settings) can grow without re-shaping the type.
  *
  * The banner renders the action label via i18n (`t(labelKey)`),
  * dismisses the original notice as `'cta'`, then invokes `onClick`
  * once. That order lets the CTA publish a replacement notice without
  * the banner clearing it afterwards; manual X dismisses report
- * `'manual'` and the timeout reports `'auto'` (fold B).
+ * `'manual'` and the timeout reports `'auto'` (implementation note).
  */
 export interface StatusNoticeAction {
   readonly labelKey: string;
@@ -62,9 +62,9 @@ export interface StatusNoticeAction {
 export type StatusNoticeDismissMode = 'cta' | 'manual' | 'auto';
 
 /**
- * RL-101 Slice 1.5 fold B — priority tier for notice replacement.
+ * implementation note — priority tier for notice replacement.
  *
- * Surfaced during pre-commit review of RL-101 Slice 1: the
+ * Surfaced during pre-commit review of implementation: the
  * onboarding first-run toast was being clobbered within ~600 ms by
  * an unrelated boot-time notice push, so fresh-install users never
  * saw the Save-as-snippet CTA. The 134 existing `pushStatusNotice`
@@ -91,10 +91,10 @@ export interface StatusNotice {
   values?: Record<string, string | number>;
   /** Optional longer detail appended after the translated message. */
   detail?: string;
-  /** RL-101 fold A — optional interactive CTAs rendered as buttons. */
+  /** implementation — optional interactive CTAs rendered as buttons. */
   actions?: ReadonlyArray<StatusNoticeAction>;
   /**
-   * RL-101 fold B — optional callback invoked exactly once whenever
+   * implementation — optional callback invoked exactly once whenever
    * the notice goes away, with the route that closed it. Lets the
    * pusher attribute dismiss telemetry across CTA / manual X / auto
    * timeout without coupling the notice schema to telemetry itself.
@@ -102,7 +102,7 @@ export interface StatusNotice {
    */
   onDismiss?: (mode: StatusNoticeDismissMode) => void;
   /**
-   * RL-101 Slice 1.5 fold B — replacement priority. Default
+   * implementation note — replacement priority. Default
    * `'normal'` preserves the legacy "last writer wins" behaviour
    * for the 134 existing callers. `'high'` is for onboarding /
    * choreographed toasts that must survive any same-tone push.
@@ -110,7 +110,7 @@ export interface StatusNotice {
    */
   priority?: StatusNoticePriority;
   /**
-   * RL-101 Slice 1.5 fold A — optional callback fired when this
+   * implementation note — optional callback fired when this
    * notice REFUSES a lower-priority replacement attempt. Lets the
    * pusher (e.g. `useOnboardingChoreography`) emit
    * `onboarding.toast_clobbered` telemetry so we can see in
@@ -136,7 +136,7 @@ const VARIABLES_BOTTOM_VIEW_MODE_KEY = 'lingua-ui:variables-bottom-view-mode';
  * missing or the JSON is malformed. Used to hydrate `actionPillPosition`
  * and `variablesCardPosition` on first render so the layout doesn't
  * jump after the persist middleware kicks in (we never adopted that
- * middleware for uiStore — see RL-071 plan).
+ * middleware for uiStore — see implementation notes).
  */
 function readPersistedPosition(key: string): UIPosition | null {
   if (typeof window === 'undefined') return null;
@@ -221,7 +221,7 @@ interface UIState {
   /** When true the Variables floating card shrinks to a pill chip. */
   variablesCardCollapsed: boolean;
   /**
-   * RL-093 Slice 3 fold G — persisted List ↔ Cards mode for the bottom
+   * implementation note — persisted List ↔ Cards mode for the bottom
    * panel Variables tab. Floating card has its own dedicated render so
    * this only applies when `variableInspectorSurface === 'bottom'`.
    */
@@ -236,7 +236,7 @@ interface UIState {
   setConsoleVisible: (v: boolean) => void;
   pushStatusNotice: (notice: Omit<StatusNotice, 'id'>) => void;
   /**
-   * RL-101 fold B — `mode` records how the dismiss happened so the
+   * implementation — `mode` records how the dismiss happened so the
    * pusher's `onDismiss` callback can attribute telemetry. Defaults
    * to `'manual'` because the banner X-button is the most common
    * caller; the auto-dismiss timeout and CTA handlers pass their own
@@ -255,7 +255,7 @@ interface UIState {
 let statusNoticeCounter = 0;
 
 /**
- * RL-101 Slice 1.5 fold B — priority comparator helper. `'high'` >
+ * implementation note — priority comparator helper. `'high'` >
  * `'normal'` > `'low'`. Pure function for testability.
  */
 function priorityRank(priority: StatusNoticePriority): number {
@@ -289,7 +289,7 @@ export const useUIStore = create<UIState>((set) => ({
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
   pushStatusNotice: (notice) => {
-    // RL-101 Slice 1.5 fold B — priority-respecting replacement.
+    // implementation note — priority-respecting replacement.
     // A `'normal'` (the implicit default for the 134 legacy callers)
     // notice CANNOT overwrite an outstanding `'high'` notice. The
     // incoming notice is dropped and its own `onDismiss('auto')`
@@ -329,7 +329,7 @@ export const useUIStore = create<UIState>((set) => ({
       }
       return;
     }
-    // RL-101 fold B — if a previous notice is still up when a new one
+    // implementation — if a previous notice is still up when a new one
     // arrives (race between toast 1 + toast 2), close the outgoing
     // notice as `'auto'` so the pusher's telemetry doesn't lose the
     // signal. Mirrors the spec edge-case "toast 2 reemplaza toast 1

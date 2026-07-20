@@ -1,5 +1,5 @@
 /**
- * SR-52 — guard: every macOS release must carry BOTH arches.
+ * internal — guard: every macOS release must carry BOTH arches.
  *
  * Through 0.12.0 the release only published `mac-arm64` artifacts, so an
  * Intel Mac had literally nothing to download — a silent sales blocker, not
@@ -37,7 +37,7 @@ interface BuilderConfig {
 const config = load(readFileSync(BUILDER_CONFIG_PATH, 'utf-8')) as BuilderConfig;
 const workflow = readFileSync(WORKFLOW_PATH, 'utf-8');
 
-describe('macOS architecture coverage (SR-52)', () => {
+describe('macOS architecture coverage', () => {
   const macTargets = config.mac?.target ?? [];
 
   it('declares both dmg and zip mac targets', () => {

@@ -7,7 +7,7 @@ import {
   UTILITY_CATEGORY_ORDER,
 } from '../../src/renderer/data/utilityCategories';
 
-describe('utilityCategories (SR-36)', () => {
+describe('utilityCategories', () => {
   it('assigns every catalog utility to a category', () => {
     for (const utility of DEVELOPER_UTILITIES) {
       expect(UTILITY_CATEGORY[utility.id]).toBeTruthy();

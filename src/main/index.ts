@@ -158,7 +158,7 @@ const createWindow = () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      // SEC-01 — pin the same-origin policy explicitly. This is the
+      // internal — pin the same-origin policy explicitly. This is the
       // Electron default, but pinning it ensures a future edit cannot
       // silently disable web security (which would let a compromised
       // renderer bypass CORS and read cross-origin resources).
@@ -270,13 +270,13 @@ app.on('open-url', (event, url) => {
 });
 
 app.on('ready', async () => {
-  // RL-127 / AUDIT-07 — deny-by-default permission posture. Install before any
+  // implementation detail — deny-by-default permission posture. Install before any
   // window loads so the very first renderer request is already gated. Only the
   // main-frame clipboard read/write grants in `permissionHandlers` are allowed;
   // media / geolocation / notifications / subframe requests / etc. are refused.
   installPermissionHandlers(session.defaultSession);
 
-  // RL-083 Slice 1 — install the offline-smoke webRequest filter
+  // implementation — install the offline-smoke webRequest filter
   // before any window loads, so the very first renderer request is
   // already gated. Production sessions never set the env var.
   if (isOfflineSmokeRequested()) {
@@ -290,13 +290,13 @@ app.on('ready', async () => {
   registerConsentHandlers(mirrorPath);
   // Boot the crash reporter BEFORE `createWindow()` so the reporter is
   // attached for the renderer process from its first tick — fixes the
-  // RL-067 early-crash-coverage gap the staged-diff review flagged.
+  // internal early-crash-coverage gap the staged-diff review flagged.
   await bootCrashReporter({
     appVersion: app.getVersion(),
     readConsentAtBoot: () => readConsentMirror(mirrorPath),
   });
 
-  // IT2-G2 — start the RL-059 runtime before the window, but do not keep its
+  // internal — start the internal runtime before the window, but do not keep its
   // disk read + token verification on the first-paint critical path. The IPC
   // handlers register synchronously against the shared promise; a renderer
   // getState call that wins the race waits for the verified snapshot instead
@@ -318,7 +318,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  // RL-026 Slice 3/4 — make sure desktop LSP children do not outlive
+  // implementation — make sure desktop LSP children do not outlive
   // Lingua's main process.
   disposeLspBridge();
 });

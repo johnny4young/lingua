@@ -1,14 +1,14 @@
 /**
- * RL-098 Slice 1 — argv parser.
+ * implementation — argv parser.
  *
- * Tiny hand-rolled parser (no commander dep) covering the Slice 1
+ * Tiny hand-rolled parser (no commander dep) covering the implementation
  * surface:
  *
  *   lingua utility <utility-id> [--input <file>] [--json] [--quiet]
  *                               [--option key=value ...]
  *   lingua capsule validate <file> [--json] [--quiet]
- *   lingua list utilities [--json]            (fold B)
- *   lingua --version                          (fold A)
+ *   lingua list utilities [--json]            (implementation note)
+ *   lingua --version                          (implementation note)
  *   lingua --help | lingua <cmd> --help
  *
  * Anything unrecognized throws a `CliUsageError` so the entry can
@@ -198,7 +198,7 @@ function parseUtility(rest: ReadonlyArray<string>): ParsedArgs {
 function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
   if (rest.length === 0) {
     throw new CliUsageError(
-      'lingua capsule requires a subcommand. Slice 1 ships: validate <file>'
+      'lingua capsule requires a subcommand. implementation ships: validate <file>'
     );
   }
   const sub = rest[0]!;
@@ -207,7 +207,7 @@ function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
   }
   if (sub !== 'validate') {
     throw new CliUsageError(
-      `Unknown capsule subcommand "${sub}". Slice 1 ships: validate <file>`
+      `Unknown capsule subcommand "${sub}". implementation ships: validate <file>`
     );
   }
   const flags = freshFlags();
@@ -249,7 +249,7 @@ function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
 function parseList(rest: ReadonlyArray<string>): ParsedArgs {
   if (rest.length === 0) {
     throw new CliUsageError(
-      'lingua list requires a subcommand. Slice 1 ships: utilities'
+      'lingua list requires a subcommand. implementation ships: utilities'
     );
   }
   const sub = rest[0]!;
@@ -258,7 +258,7 @@ function parseList(rest: ReadonlyArray<string>): ParsedArgs {
   }
   if (sub !== 'utilities') {
     throw new CliUsageError(
-      `Unknown list subcommand "${sub}". Slice 1 ships: utilities`
+      `Unknown list subcommand "${sub}". implementation ships: utilities`
     );
   }
   const flags = freshFlags();

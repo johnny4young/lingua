@@ -5,7 +5,7 @@ import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildM
 import { loadRepoRootEnv, resolveBuildTimeEnvVar } from './build/resolveEnv.mts';
 
 // Seed VITE_LINGUA_APP_VERSION from package.json before Vite reads
-// process.env. RL-061 Slice 5.
+// process.env. implementation
 applySharedEnvDefaults();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
   const env = loadRepoRootEnv(mode, __dirname);
   const publicKeyJwk = resolveBuildTimeEnvVar(env, 'LINGUA_LICENSE_PUBLIC_KEY_JWK');
 
-  // RL-061 Slice 3.5 — license-server base URL for the main-side
+  // implementation — license-server base URL for the main-side
   // wrappers in `src/main/licenseServer.ts`. Same sources as the
   // public key so packaged `make:desktop` builds pick up
   // `licenses.linguacode.dev` from `.env.production` without any
@@ -44,14 +44,14 @@ export default defineConfig(({ mode }) => {
 
   return {
     define: {
-      // RL-059 main-side bridge — embed the same Ed25519 public key the
+      // internal main-side bridge — embed the same Ed25519 public key the
       // renderer uses, so packaged builds can verify license tokens in
       // main without crossing the renderer boundary. Empty string means
       // "no key configured", which the main verifier surfaces as a
       // `no-public-key` failure (never silently "verifies" against
       // nothing).
       __LINGUA_LICENSE_PUBLIC_KEY_JWK__: JSON.stringify(publicKeyJwk),
-      // RL-061 Slice 3.5 — license-server base URL baked at build time
+      // implementation — license-server base URL baked at build time
       // for the main-side wrappers.
       __LINGUA_LICENSE_SERVER_URL__: JSON.stringify(licenseServerUrl),
       ...getSharedBuildDefines(),

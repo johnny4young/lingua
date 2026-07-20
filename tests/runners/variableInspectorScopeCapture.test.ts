@@ -52,7 +52,7 @@ function installCapturingWorker() {
   };
 }
 
-describe('RL-020 Slice 9 — runner scope-capture wiring', () => {
+describe('implementation — runner scope-capture wiring', () => {
   it('injects a lexical scope capture into JavaScript runs', async () => {
     const worker = installCapturingWorker();
     try {

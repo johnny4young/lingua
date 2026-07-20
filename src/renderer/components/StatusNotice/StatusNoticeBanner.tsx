@@ -11,7 +11,7 @@ import { cn } from '../../utils/cn';
 const AUTO_DISMISS_MS = 6000;
 
 /**
- * RL-070 Sub-slice 4 — Signal-Slate toast.
+ * internal implementation — Signal-Slate toast.
  *
  * Refresh of the bottom-right toast for transient notices (format-on-save
  * parse errors, missing formatter binaries, license activation outcomes,
@@ -35,7 +35,7 @@ export function StatusNoticeBanner() {
   const notice = useUIStore((state) => state.statusNotice);
   const dismissStatusNotice = useUIStore((state) => state.dismissStatusNotice);
 
-  // RL-101 fold B — track whether the visible notice ever fires a
+  // implementation — track whether the visible notice ever fires a
   // CTA so the auto-dismiss timeout doesn't mis-attribute a
   // user-triggered close as `'auto'`.
   const ctaFiredRef = useRef(false);

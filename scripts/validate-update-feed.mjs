@@ -111,7 +111,7 @@ export function validateDarwinPayload(payload, expectedVersion = null) {
   if (expectedVersion && !name.includes(expectedVersion) && !url.includes(expectedVersion)) {
     throw new Error(`darwin update payload does not reference ${expectedVersion}.`);
   }
-  // RL-139 — when the signed URL still carries the asset filename, assert it
+  // internal — when the signed URL still carries the asset filename, assert it
   // honors the darwin update-asset contract shared with the release-time guard
   // (scripts/lib/darwinAsset.mjs). Opaque signed URLs without a filename fall
   // back to the version-reference check above.

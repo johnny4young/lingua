@@ -1,5 +1,5 @@
 /**
- * RL-091 guard: the server observability docs and runbooks must only
+ * internal guard: the server observability docs and runbooks must only
  * reference events that the Workers actually emit today.
  */
 

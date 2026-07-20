@@ -1,5 +1,5 @@
 /**
- * License lifecycle endpoints — RL-061 Slice 2.
+ * License lifecycle endpoints — implementation
  *
  *   POST /licenses/activate         register a device (per-surface) on a verified license
  *   GET  /licenses/status           snapshot + refreshedToken when newer

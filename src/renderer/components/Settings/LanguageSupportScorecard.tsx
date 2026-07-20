@@ -24,7 +24,7 @@ import {
 } from './languageSupportScorecardTelemetry';
 
 /**
- * RL-095 Slice 1 — Language Support Scorecard.
+ * implementation — Language Support Scorecard.
  *
  * Renders `LANGUAGE_SUPPORT_PROFILES` as a table inside Settings →
  * Languages. The table is the user-facing
@@ -40,16 +40,16 @@ import {
  *     family as license / run / unsaved signals elsewhere: the user
  *     scans vertically (which languages are fully supported) and
  *     horizontally (where a language is weak).
- *   - **Fold C — per-platform chips**: capabilities with
+ *   - **implementation note — per-platform chips**: capabilities with
  *     `perPlatform` overrides render two small W / D `<StatusBadge>`
  *     pills inside the cell, each carrying its own status tone. The
  *     default `capabilities` value still drives the primary cell badge
  *     so the at-a-glance read stays simple.
- *   - **Fold D — status legend popover**: a "?" button in the
+ *   - **implementation note — status legend popover**: a "?" button in the
  *     header opens a popover with the definition of each
  *     `LanguageCapabilityStatus` so first-time readers don't have
  *     to guess what "partial" vs "desktop-only" mean.
- *   - **Fold A — adoption telemetry**: `language_scorecard_viewed`
+ *   - **implementation note — adoption telemetry**: `language_scorecard_viewed`
  *     fires once per session when the scorecard enters the viewport,
  *     tagged `surface: 'settings'` (the palette path tags
  *     `'palette'` independently). The palette callback claims the
@@ -94,14 +94,14 @@ export function LanguageSupportScorecard({
   const { t } = useTranslation();
   const [legendOpen, setLegendOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // RL-095 Slice 2 — sticky Web/Desktop filter (persisted in settings,
-  // fold C). `all` is the default cross-platform view.
+  // implementation — sticky Web/Desktop filter (persisted in settings,
+  // implementation note). `all` is the default cross-platform view.
   const platform = useSettingsStore((s) => s.languageScorecardPlatform);
   const setPlatform = useSettingsStore((s) => s.setLanguageScorecardPlatform);
   const onPlatformChange = (next: ScorecardPlatform) => {
     if (next === platform) return;
     setPlatform(next);
-    // Fold D — adoption signal; content-free closed enum, no PII.
+    // implementation note — adoption signal; content-free closed enum, no PII.
     void trackEvent('language_scorecard_platform_toggled', { platform: next });
   };
   // Read the override at mount via `useState` init (pure read; both
@@ -119,7 +119,7 @@ export function LanguageSupportScorecard({
     clearLanguageScorecardSurfaceClaim();
   }, []);
 
-  // Fold A — fire `language_scorecard_viewed` once per session per
+  // implementation note — fire `language_scorecard_viewed` once per session per
   // surface when the scorecard enters the viewport. Falls back to
   // an immediate fire when IntersectionObserver is unavailable
   // (older Electron, jsdom).
@@ -165,7 +165,7 @@ export function LanguageSupportScorecard({
             {t('languageSupport.scorecard.tableLabel')}
           </span>
           <div className="flex items-center gap-2">
-            {/* RL-095 Slice 2 — Web/Desktop platform filter. `all` is the
+            {/* implementation — Web/Desktop platform filter. `all` is the
                 cross-platform view; `web`/`desktop` collapse each cell to its
                 resolved status for that platform. */}
             <div
@@ -227,7 +227,7 @@ export function LanguageSupportScorecard({
           </ul>
         ) : null}
         {/*
-         * RL-095 / FASE 2a — horizontal scroll wrapper. The cell badges
+         * internal / FASE 2a — horizontal scroll wrapper. The cell badges
          * never wrap, so the 9-column table is wider than the panel. A
          * fixed `min-w-[720px]` (matches the mockup's `minWidth: 720`)
          * forces every column — including the rightmost DEBUG axis,
@@ -289,7 +289,7 @@ export function LanguageSupportScorecard({
 interface ScorecardCellProps {
   capability: LanguageCapability;
   profile: LanguageSupportProfile;
-  /** RL-095 Slice 2 — active platform filter; `all` keeps the default view. */
+  /** implementation — active platform filter; `all` keeps the default view. */
   platform: ScorecardPlatform;
   t: (key: string, options?: Record<string, unknown>) => string;
 }
@@ -297,9 +297,9 @@ interface ScorecardCellProps {
 function ScorecardCell({ capability, profile, platform, t }: ScorecardCellProps) {
   const note = profile.notes?.[capability];
 
-  // RL-095 Slice 2 — per-platform view: collapse the cell to the resolved
+  // implementation — per-platform view: collapse the cell to the resolved
   // status for the selected platform (single chip, no W/D pills — the
-  // column IS the platform). Fold B: the tooltip ALWAYS leads with the
+  // column IS the platform). implementation note: the tooltip ALWAYS leads with the
   // resolved "{platform}: {status}" line so a desktop-only -> unsupported
   // flip reads clearly, then appends the axis note for context. (Leading
   // with `note ??` instead would hide the resolved status whenever a note

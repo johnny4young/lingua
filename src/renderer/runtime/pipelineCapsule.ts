@@ -1,10 +1,10 @@
 /**
- * RL-099 Slice 3 — Build a `RunCapsuleV1` from a utility-pipeline run.
+ * implementation — Build a `RunCapsuleV1` from a utility-pipeline run.
  *
  * Mirrors `httpResponseCapsule.ts`: a pipeline run is wrapped in the
  * same wire format every other Lingua run uses (script execution, HTTP
  * responses, future SQL queries) so share-links, CLI replay, AI prompt
- * inclusion, the Pro capsule browse overlay, and the RL-094 side-by-side
+ * inclusion, the Pro capsule browse overlay, and the internal side-by-side
  * comparator ALL handle a pipeline run through the same redaction + size
  * + version-migration machinery without special-casing the pipeline path.
  *
@@ -13,11 +13,11 @@
  *   - `tab.language = 'pipeline'` — distinguishes pipeline capsules from
  *     `'javascript'` / `'http'` / etc. so the consumer can render them
  *     with the right surface (see `languageMeta.ts` for the friendly
- *     "Pipeline" label, fold E).
+ *     "Pipeline" label, implementation note).
  *   - `tab.runtimeMode = 'utility-pipeline'` + `environment.runner =
  *     'utility-pipeline'` — reserved literals the existing capsule shape
  *     allows.
- *   - `source.content` (fold F) carries the RECIPE ONLY — never the input
+ *   - `source.content` (implementation note) carries the RECIPE ONLY — never the input
  *     data. A deterministic header line plus one line per step
  *     (`#<n> <utilityId> <options JSON>`). The content-hash on that
  *     string lets the consumer dedup repeats; two runs of the same
@@ -29,7 +29,7 @@
  *     `'all-failed'` / `'incompatible'` → `'error'`.
  *   - `result.stdout` carries the FINAL output — the last `'ok'` step's
  *     output (the pipeline's effective result).
- *   - `result.stderr` (fold D) carries a compact failed-step summary.
+ *   - `result.stderr` (implementation note) carries a compact failed-step summary.
  *   - `result.durationMs` mirrors the run's total duration.
  *
  * The existing capsule sanitiser (`sanitizeRunCapsule`) handles
@@ -65,7 +65,7 @@ function mapRunStatusToCapsuleStatus(
  * Serialize the pipeline steps into a deterministic recipe string for
  * `source.content`.
  *
- * **Privacy gate (fold F)** — this is the RECIPE, never the data. The
+ * **Privacy gate (implementation note)** — this is the RECIPE, never the data. The
  * input the pipeline ran against rides `input.stdin` (where the
  * sanitiser applies); the per-step OUTPUTS never enter the source. The
  * recipe is only the step ids + their options blobs, which are the same
@@ -108,7 +108,7 @@ function finalOutput(outcome: PipelineRunOutcome): string {
 }
 
 /**
- * Build a compact failed-step summary for `result.stderr` (fold D). One
+ * Build a compact failed-step summary for `result.stderr` (implementation note). One
  * line per result whose status is in `{error, timeout, incompatible}`:
  * `#<index> <utilityId>: <errorMessage ?? status>`. The index is
  * 1-based to match the recipe lines. Returns `''` when no step failed,
@@ -134,7 +134,7 @@ export interface BuildPipelineCapsuleInput {
   appVersion: string;
   /** Display name of the pipeline. Falls back to a neutral label when empty. */
   pipelineName: string;
-  /** The pipeline's ordered steps — serialized as the recipe (fold F). */
+  /** The pipeline's ordered steps — serialized as the recipe (implementation note). */
   steps: readonly PipelineStepV1[];
   /** The input string the pipeline ran against. Rides `input.stdin`. */
   input: string;

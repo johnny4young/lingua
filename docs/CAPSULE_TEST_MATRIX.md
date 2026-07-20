@@ -1,19 +1,18 @@
 # Run Capsule test matrix
 
-> **Status:** Live — RL-094 Slice 1 (`2026-05-21`).
+> **Status:** Live — implementation (`2026-05-21`).
 >
-> Reference for downstream world-class tickets (RL-036, RL-097, RL-098,
-> RL-099, RL-100, RL-039 Slice B) that consume the
+> Reference for downstream integrations that consume the
 > `tests/shared/runCapsule.fixtures.ts` catalog and the
 > `tests/shared/runCapsule.test.ts` cross-cut assertions.
 
 ## Why this doc exists
 
 `RunCapsuleV1` is the universal wire format every downstream
-world-class ticket serialises through. Each downstream slice adds at
+integration serialises through. Each downstream consumer adds at
 least one new consumer (URL fragment, CLI replay, AI prompt preview,
 HTTP response, pipeline step, lesson assertion). Re-inventing a
-fixture catalog per ticket would cause silent drift between consumer
+fixture catalog per integration would cause silent drift between consumer
 expectations and capsule reality.
 
 This doc pins:
@@ -22,7 +21,7 @@ This doc pins:
    consumer.
 2. The **fixture catalog** in `tests/shared/runCapsule.fixtures.ts`
    that exercises those dimensions.
-3. The **per-ticket consumption guide** so each downstream slice
+3. The **integration consumption guide** so each downstream consumer
    imports the right fixtures and runs the right assertions.
 
 The matrix is enforced at CI time via `tests/shared/runCapsule.test.ts`;
@@ -43,8 +42,8 @@ verify coverage by reading.
 | 7 | Summary helper format stability | `runCapsule.test.ts → "summarizeRunCapsule"` |
 | 8 | `contentHash` collision-resistance smoke (10 000 inputs) | `runCapsule.test.ts → "computeContentHash — collision smoke (Dimension 8)"` |
 
-If a downstream ticket needs an additional dimension (e.g. URL
-fragment percent-encoding round-trip for RL-036) that dimension goes
+If a downstream integration needs an additional dimension (e.g. URL
+fragment percent-encoding round-trip for internal) that dimension goes
 in the consumer's own test file but MUST import from
 `runCapsule.fixtures.ts` instead of inlining a capsule literal.
 
@@ -53,22 +52,22 @@ in the consumer's own test file but MUST import from
 `tests/shared/runCapsule.fixtures.ts` exports ten frozen capsules
 plus the `ALL_FIXTURES` array. Names match the import re-exports:
 
-| Fixture | Why it exists | Primary consumer (Slice 1 + downstream) |
+| Fixture | Why it exists | Primary consumer (implementation + downstream) |
 |---|---|---|
-| `FIXTURE_MINIMAL_JS` | Minimal happy-path, no rich output. | Settings export smoke, RL-036 fragment encoder default. |
-| `FIXTURE_FULL_TS` | Every field populated incl. `lineResults` + `diagnostics`. | RL-097 HTTP step assertion, RL-099 pipeline step. |
-| `FIXTURE_PYTHON_CHART` | Vega-Lite chart embedded under `richOutputs`. | RL-036 cross-language preview test, RL-098 CLI render. |
-| `FIXTURE_PYTHON_ERROR` | Status `'error'` + structured stderr. | RL-039 Slice B lesson assertion (negative). |
-| `FIXTURE_TIMEOUT` | Status `'timeout'` with the parent-killer message. | RL-098 CLI replay status-bucket coverage. |
-| `FIXTURE_STOPPED` | Status `'stopped'` (user clicked Stop). | RL-098 CLI replay status-bucket coverage. |
-| `FIXTURE_LARGE_STDOUT` | 1.2 MiB stdout — exercises the sanitiser truncation. | Stream-cap coverage, RL-036 share-link size budget. |
-| `FIXTURE_LICENSE_LEAK_PROBE` | Source content contains a fake JWT substring. | Sanitiser must NEVER strip `source.content` (capsules ARE replay artifacts); the consumer-side flow MUST surface a preview before publishing. RL-036 share-link confirmation modal. |
+| `FIXTURE_MINIMAL_JS` | Minimal happy-path, no rich output. | Settings export smoke, internal fragment encoder default. |
+| `FIXTURE_FULL_TS` | Every field populated incl. `lineResults` + `diagnostics`. | internal HTTP step assertion, internal pipeline step. |
+| `FIXTURE_PYTHON_CHART` | Vega-Lite chart embedded under `richOutputs`. | internal cross-language preview test, internal CLI render. |
+| `FIXTURE_PYTHON_ERROR` | Status `'error'` + structured stderr. | implementation lesson assertion (negative). |
+| `FIXTURE_TIMEOUT` | Status `'timeout'` with the parent-killer message. | internal CLI replay status-bucket coverage. |
+| `FIXTURE_STOPPED` | Status `'stopped'` (user clicked Stop). | internal CLI replay status-bucket coverage. |
+| `FIXTURE_LARGE_STDOUT` | 1.2 MiB stdout — exercises the sanitiser truncation. | Stream-cap coverage, internal share-link size budget. |
+| `FIXTURE_LICENSE_LEAK_PROBE` | Source content contains a fake JWT substring. | Sanitiser must NEVER strip `source.content` (capsules ARE replay artifacts); the consumer-side flow MUST surface a preview before publishing. internal share-link confirmation modal. |
 | `FIXTURE_DESKTOP_DEP_SUMMARY` | Desktop platform + flat dependency summary with one nested object. | Sanitiser drops nested objects + records the field in `omittedFields`. |
-| `FIXTURE_LESSON_ASSERTION` | Stable timestamp + minimal env so two runs on different days byte-equal after sanitise. | RL-039 Slice B lesson expected-output reference. |
+| `FIXTURE_LESSON_ASSERTION` | Stable timestamp + minimal env so two runs on different days byte-equal after sanitise. | implementation lesson expected-output reference. |
 
-## Per-ticket consumption guide
+## Integration consumption guide
 
-### RL-036 share-links (slot 14)
+### internal share-links (slot 14)
 
 ```ts
 import {
@@ -86,7 +85,7 @@ import {
   fails closed (HTTP-error-style) rather than silently truncating
   beyond what the URL fragment can hold.
 
-### RL-097 HTTP + SQL workspace (slot 20)
+### internal HTTP + SQL workspace (slot 20)
 
 ```ts
 import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
@@ -95,7 +94,7 @@ import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
 - HTTP step emits a capsule shaped like `FIXTURE_FULL_TS` with
   `environment.runner = 'http'`. Use the fixture as a baseline.
 
-### RL-098 CLI companion (slot 23)
+### internal CLI companion (slot 23)
 
 ```ts
 import {
@@ -110,7 +109,7 @@ import {
   asserts exit codes (0 for happy, 0 for chart, 0 for timeout / stopped
   — they're valid capsules even if the run wasn't successful).
 
-### RL-099 utility pipelines (slot 21)
+### internal utility pipelines (slot 21)
 
 ```ts
 import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
@@ -119,7 +118,7 @@ import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
 - Pipeline step output is a capsule. Use `FIXTURE_FULL_TS` as the
   baseline shape for `step.output`.
 
-### RL-100 importers (slot 24)
+### internal importers (slot 24)
 
 ```ts
 import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
@@ -128,7 +127,7 @@ import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
 - cURL importer produces a capsule shaped like `FIXTURE_FULL_TS`
   with `environment.runner = 'http'`. Assert the shape.
 
-### RL-039 Slice B lessons (slot 25)
+### implementation lessons (slot 25)
 
 ```ts
 import { FIXTURE_LESSON_ASSERTION } from '../shared/runCapsule.fixtures';
@@ -145,8 +144,8 @@ import { FIXTURE_LESSON_ASSERTION } from '../shared/runCapsule.fixtures';
    block comment describing the dimension it covers.
 2. Append to the `ALL_FIXTURES` array so cross-cut tests pick it up.
 3. Add a row to the **Fixture catalog** table above.
-4. Add a row under **Per-ticket consumption guide** if the fixture
-   targets a specific downstream ticket.
+4. Add a row under **Integration consumption guide** if the fixture
+   targets a specific downstream integration.
 5. The cross-cut tests in `runCapsule.test.ts` automatically widen
    coverage — no test-file edit needed unless the fixture exercises
    a new dimension.
@@ -170,6 +169,6 @@ import { FIXTURE_LESSON_ASSERTION } from '../shared/runCapsule.fixtures';
 - **Asserting on `createdAt` byte-equality without overriding.** Pass
   `createdAtMs` to `buildRunCapsule` for byte-stable tests.
 - **Bypassing `sanitizeRunCapsule` before serialising.** All export
-  paths (Settings, palette, RL-036, RL-098, etc.) MUST call the
+  paths (Settings, palette, share links, etc.) MUST call the
   sanitiser before `JSON.stringify` so `privacy.omittedFields` is
   honest and the redactor's rule set is applied uniformly.

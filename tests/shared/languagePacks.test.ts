@@ -1,8 +1,8 @@
 /**
- * RL-038 Slice A — pack array integrity. Locks the descriptor shape so
+ * implementation — pack array integrity. Locks the descriptor shape so
  * future additions can't drift on a required field, and verifies the
  * resolver helpers round-trip every built-in language id, extension, and
- * file name. Slice B + C tests will pin runner dispatch and capability
+ * file name. implementation + C tests will pin runner dispatch and capability
  * UI separately; this file is the foundation.
  */
 
@@ -124,7 +124,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
     }
   });
 
-  it('ships Java and Scala as validate-only packs (RL-042 fourth slice)', () => {
+  it('ships Java and Scala as validate-only packs (implementation)', () => {
     const java = getLanguagePackById('java') as LanguagePack;
     const scala = getLanguagePackById('scala') as LanguagePack;
     for (const pack of [java, scala]) {
@@ -148,7 +148,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
     expect(getLanguagePackForExtension('sc')?.id).toBe('scala');
   });
 
-  it('ships Swift and Kotlin as validate-only packs (RL-042 third slice)', () => {
+  it('ships Swift and Kotlin as validate-only packs (implementation)', () => {
     const swift = getLanguagePackById('swift') as LanguagePack;
     const kotlin = getLanguagePackById('kotlin') as LanguagePack;
     for (const pack of [swift, kotlin]) {
@@ -172,7 +172,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
     expect(getLanguagePackForExtension('kts')?.id).toBe('kotlin');
   });
 
-  it('ships C and C++ as validate-only packs (RL-042 second slice)', () => {
+  it('ships C and C++ as validate-only packs (implementation)', () => {
     const cPack = getLanguagePackById('c') as LanguagePack;
     const cppPack = getLanguagePackById('cpp') as LanguagePack;
     for (const pack of [cPack, cppPack]) {
@@ -198,12 +198,12 @@ describe('LANGUAGE_PACKS array integrity', () => {
     expect(getLanguagePackForExtension('cxx')?.id).toBe('cpp');
   });
 
-  it('ships Ruby as a runnable pack (RL-042 Slice 5 — web @ruby/wasm-wasi runtime)', () => {
+  it('ships Ruby as a runnable pack (implementation — web @ruby/wasm-wasi runtime)', () => {
     const ruby = getLanguagePackById('ruby') as LanguagePack;
     expect(ruby).toBeDefined();
     expect(ruby.execution).toBe('run');
     expect(ruby.runnerId).toBe('ruby');
-    // Formatter stays `none` this slice — wiring `ipc:ruby` (gem
+    // Formatter stays `none` this change — wiring `ipc:ruby` (gem
     // rubocop / standardrb) is a separate desktop-only follow-up.
     expect(ruby.formatter).toBe('none');
     expect(ruby.monacoLanguage).toBe('ruby');
@@ -219,7 +219,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
     expect(getLanguagePackForExtension('.rb')?.id).toBe('ruby');
   });
 
-  it('ships Lua as a first-class pack entry (Slice B) with plugin-sourced runner', () => {
+  it('ships Lua as a first-class pack entry  with plugin-sourced runner', () => {
     const lua = getLanguagePackById('lua') as LanguagePack;
     expect(lua).toBeDefined();
     expect(lua.execution).toBe('run');
@@ -242,7 +242,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
     expect(rubyPack.capabilities.runtimeDependencyMode).toBe('optional');
   });
 
-  it('marks Python language intelligence as the renderer adapter slice', () => {
+  it('marks Python language intelligence as the renderer adapter implementation', () => {
     const python = getLanguagePackById('python') as LanguagePack;
     expect(python.capabilities.lsp).toBe('adapter');
     expect(python.execution).toBe('run');
@@ -250,7 +250,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
   });
 });
 
-describe('RL-020 Slice 3 — Scratchpad default templates demo arrow + watch', () => {
+describe('implementation — Scratchpad default templates demo arrow + watch', () => {
   it.each([['javascript'], ['typescript'], ['python']])(
     '%s default template contains both arrow and @watch markers',
     (langId) => {
@@ -272,7 +272,7 @@ describe('RL-020 Slice 3 — Scratchpad default templates demo arrow + watch', (
   );
 });
 
-describe('templateIds contract (RL-038 Slice C polish)', () => {
+describe('templateIds contract (implementation polish)', () => {
   it('every runnable built-in pack declares at least one starter template', () => {
     for (const pack of LANGUAGE_PACKS) {
       if (pack.execution !== 'run' && pack.execution !== 'compile') continue;
@@ -344,7 +344,7 @@ describe('resolver helpers', () => {
   });
 });
 
-// RL-038 drift guard: the language-pack capabilities should stay in sync
+// internal drift guard: the language-pack capabilities should stay in sync
 // with the actual validators registered in `src/renderer/validation`. If a
 // new validator ships without the corresponding pack flag, this test fails
 // and points at the mismatch so the registry can't silently lie about what
@@ -352,11 +352,11 @@ describe('resolver helpers', () => {
 //
 // Known overload: a few packs use `execution: 'validate'` as a "visible but
 // no runtime yet" placeholder (see the Ruby pack comment in
-// `src/shared/languagePacks.ts`). A future schema slice can split that into
+// `src/shared/languagePacks.ts`). A future schema future work can split that into
 // a dedicated `placeholder` mode; until then we allow-list those ids so the
 // drift check stays strict on the real validators without blocking the
 // placeholder UX.
-// RL-042 ships several languages as "validate-mode placeholders" — file
+// internal ships several languages as "validate-mode placeholders" — file
 // detection + Monaco highlighting work but there's no runtime or validator
 // yet. See the inline comments on each of these packs in
 // `src/shared/languagePacks.ts`. When a real validator lands, remove the

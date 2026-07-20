@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 2 — keyboard contract for the capsule import overlay.
+ * implementation — keyboard contract for the capsule import overlay.
  *
  * Acceptance: Mod+Shift+Y opens the import overlay; Escape closes it.
  * The full decode + open-tab flow is covered by the component test

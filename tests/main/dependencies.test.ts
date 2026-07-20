@@ -1,5 +1,5 @@
 /**
- * RL-025 Slice A - main-side dependency resolver tests.
+ * implementation - main-side dependency resolver tests.
  *
  * Pins specifier validation (no path traversal, npm-shape regex),
  * the `node_modules/<scope>/<pkg>` walk for scoped packages, and

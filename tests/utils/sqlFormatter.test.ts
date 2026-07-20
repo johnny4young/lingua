@@ -1,5 +1,5 @@
 /**
- * RL-068 — Unit tests for `formatSql`. Async because the helper
+ * internal — Unit tests for `formatSql`. Async because the helper
  * lazy-imports `sql-formatter`. Covers all three dialects, the
  * keyword-case toggle, the indent option, the empty / tooLarge
  * branches, and a parse-failure surface.
@@ -11,7 +11,7 @@ import {
   formatSql,
 } from '../../src/renderer/utils/sqlFormatter';
 
-// `formatSql` now loads `sql-formatter` via a dynamic import (RL-125). Resolve
+// `formatSql` now loads `sql-formatter` via a dynamic import. Resolve
 // it through the actual module up front so the cold-import path that previously
 // timed out in vitest's jsdom never runs at test time, while still exercising
 // the real formatter so these assertions stay meaningful.

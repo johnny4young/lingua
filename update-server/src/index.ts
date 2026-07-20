@@ -59,7 +59,7 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
   }
 
   // Readiness check — probes upstream GitHub reachability with a 30s
-  // cache. RL-091 contract: always 200, the snapshot itself is the
+  // cache. internal contract: always 200, the snapshot itself is the
   // signal so dashboards can read the dependencies map regardless.
   if (path === '/health/ready') {
     if (request.method !== 'GET') {
@@ -99,7 +99,7 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     return handleDownload(env, parseInt(downloadMatch[1], 10));
   }
 
-  // GET /web/version — RL-061 Slice 5
+  // GET /web/version — implementation
   // Returns the latest published GitHub release tag so the web build's
   // update banner can compare against its build-time pin. Cached for
   // 5 minutes at the edge to absorb spikes from many concurrent tabs
@@ -118,7 +118,7 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     return handleWebVersion(request, env);
   }
 
-  // RL-065 Slice 5 — telemetry export endpoint. Method negotiation,
+  // implementation — telemetry export endpoint. Method negotiation,
   // CORS preflight, payload guard, rate limit, allowlist, and
   // persistence all live inside `handleTelemetry`. The renderer
   // POSTs here from `src/renderer/utils/telemetry.ts` only after the
@@ -284,7 +284,7 @@ async function buildWin32Response(
 // ---------------------------------------------------------------------------
 
 /**
- * RL-061 Slice 5 — version probe for the web build's update banner.
+ * implementation — version probe for the web build's update banner.
  *
  * Strips the leading `v` from the tag (e.g. `v0.2.1` → `0.2.1`) so the
  * renderer can compare directly against `package.json#version` which

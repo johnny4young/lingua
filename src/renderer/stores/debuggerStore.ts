@@ -3,26 +3,26 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
 
 /**
- * RL-027 Slice 1 — Debugger state machine store.
+ * implementation — Debugger state machine store.
  *
  * # Purpose
  *
  * Source of truth for the active debug session, registered breakpoints
  * (per file), watch expressions (global), and the last call-stack frame
- * snapshot. The store is intentionally **runtime-agnostic** — Slice 1
+ * snapshot. The store is intentionally **runtime-agnostic** — implementation
  * implements only the JS adapter, but the shape carries a discriminated
- * `runtime` field so Slice 2 (Python `pdb`), Slice 3 (Go Delve), and
- * Slice 4 (Rust lldb) can plug in without re-architecting.
+ * `runtime` field so implementation (Python `pdb`), implementation (Go Delve), and
+ * implementation (Rust lldb) can plug in without re-architecting.
  *
  * # Persistence
  *
  * Lives in a dedicated localStorage key `lingua-debugger-state` (Vite
- * config `envDir` precedent set by RL-069 Slice 3 so the persisted
+ * config `envDir` precedent set by implementation so the persisted
  * blob never collides with `lingua-settings`). Persisted: `breakpoints`
  * + `watches`. NOT persisted: `session` (transient, dies on reload),
  * `pausedFrame` (only meaningful while paused).
  *
- * # Caps (fold F)
+ * # Caps (implementation note)
  *
  * `MAX_BREAKPOINTS_GLOBAL = 100` with FIFO eviction of the
  * oldest-by-line breakpoint when the cap is hit. The cap is global
@@ -36,7 +36,7 @@ import { createMigrate } from './persistence/migrationRegistry';
  * Every mutator returns a new state object so React subscribers
  * re-render correctly.
  *
- * Reference: RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
+ * Reference: implementation and `docs/DEBUGGER_ADR.md`.
  */
 
 export const DEBUGGER_STORAGE_KEY = 'lingua-debugger-state';
@@ -52,7 +52,7 @@ export interface Breakpoint {
   /** 1-indexed line number in the user's source (NOT the instrumented JS). */
   line: number;
   /**
-   * Optional predicate (fold D — conditional breakpoints). When set,
+   * Optional predicate (implementation note — conditional breakpoints). When set,
    * the worker evaluates the expression in the paused-frame closure
    * and only pauses if the result is truthy. Empty string === no
    * condition.
@@ -92,14 +92,14 @@ export interface PausedFrame {
   /**
    * Latest watch evaluations, keyed by the user-typed expression. Each
    * entry is `{ value, error }` (exactly one defined when evaluated)
-   * OR `{ pending: true }` while Slice 1 ships without the eval pass —
-   * Slice 1.5 introduces predicate evaluation under a security review.
+   * OR `{ pending: true }` while implementation ships without the eval pass —
+   * implementation introduces predicate evaluation under a security review.
    */
   watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
 }
 
 export interface DebuggerSession {
-  /** Which language adapter is attached. Slice 1 only emits `'js'`. */
+  /** Which language adapter is attached. implementation only emits `'js'`. */
   runtime: DebuggerRuntime;
   /** Tab the session is bound to. */
   tabId: string;
@@ -127,7 +127,7 @@ export interface DebuggerState {
   session: DebuggerSession | null;
   pausedFrame: PausedFrame | null;
   /**
-   * Slice 1.5 fold B — drawer collapse state. Persists across reloads
+   * implementation note — drawer collapse state. Persists across reloads
    * (folded users want it folded when they reopen) but defaults to
    * expanded so first-time users discover the panel.
    */
@@ -138,7 +138,7 @@ export interface DebuggerState {
   setBreakpointCondition: (tabId: string, line: number, condition: string) => void;
   setBreakpointEnabled: (tabId: string, line: number, enabled: boolean) => void;
   /**
-   * Slice 1.5 fold F — batch-update `enabled` on every breakpoint.
+   * implementation note — batch-update `enabled` on every breakpoint.
    * Used by the Debugger panel's Disable all / Enable all control: a
    * single mutator avoids tearing UI re-render across 100 individual calls.
    */
@@ -158,7 +158,7 @@ export interface DebuggerState {
     results: Record<string, { value?: string; error?: string; pending?: boolean }>
   ) => void;
 
-  // Mutators — drawer collapse (fold B).
+  // Mutators — drawer collapse (implementation note).
   toggleDrawerCollapsed: () => void;
 }
 
@@ -391,7 +391,7 @@ export const useDebuggerStore = create<DebuggerState>()(
       version: 1,
       migrate: createMigrate(DEBUGGER_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
-      // Slice 1 — only persist breakpoints + watches. Session +
+      // implementation — only persist breakpoints + watches. Session +
       // pausedFrame are transient (rebooting the renderer always
       // detaches; a stale paused frame would be incoherent).
       partialize: (state) => ({

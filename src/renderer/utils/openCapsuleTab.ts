@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 3 — open a capsule's source in a fresh editor tab.
+ * implementation — open a capsule's source in a fresh editor tab.
  *
  * Shared by the capsule import flow (`useCapsuleImport`) and the
  * capsule browse overlay (`<CapsuleListOverlay>`) so both surfaces
@@ -8,13 +8,13 @@
  * Runtime + workflow mode are deliberately NOT threaded from the
  * capsule — the new tab starts in `createDefaultTab` defaults so the
  * user has to explicitly Run / Cmd+Enter to re-execute. "No silent
- * execution" is the core RL-094 promise; opening a capsule must never
- * run code on its own. IT2-F5 restores the inert stdin/argv snapshot and
+ * execution" is the core internal promise; opening a capsule must never
+ * run code on its own. internal restores the inert stdin/argv snapshot and
  * optional set name so an explicitly-triggered replay receives the same input.
  *
- * RL-099 Slice 3 fold C — non-code capsules. `capsule.tab.language`
+ * implementation note — non-code capsules. `capsule.tab.language`
  * is a string that, for workspace-kind capsules, is NOT a real editor
- * language pack id: `'http'` (RL-097) and now `'pipeline'` (RL-099)
+ * language pack id: `'http'` and now `'pipeline'`
  * are neutral markers, not packs. The previous code cast the token
  * straight to `Language` and handed it to `createDefaultTab`, which
  * minted a tab whose `language` was an unrunnable, mis-highlighted

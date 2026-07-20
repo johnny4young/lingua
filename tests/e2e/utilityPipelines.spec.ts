@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — keyboard contract for the Utility Pipelines panel.
+ * implementation — keyboard contract for the Utility Pipelines panel.
  *
  * Acceptance: Mod+Shift+G opens the Developer Utilities workspace with
  * the Pipelines panel preselected. EN + ES locales verify the
@@ -34,7 +34,7 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
     await expect(page.getByText(/no pipelines yet/i)).toBeVisible();
   });
 
-  test('surfaces a Slice 6 adapter (line-sort) in the step dropdown and runs it (EN)', async ({
+  test('surfaces a implementation adapter (line-sort) in the step dropdown and runs it (EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
@@ -47,7 +47,7 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
     await page.getByTestId('utility-pipeline-list-create').click();
     await page.getByTestId('utility-pipeline-editor-add-step').click();
 
-    // Fold E — the new line-sort adapter is selectable from the step
+    // implementation note — the new line-sort adapter is selectable from the step
     // dropdown (the vocabulary expansion reached the UI), then runs.
     await page
       .getByTestId('utility-pipeline-step-utility')
@@ -88,7 +88,7 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
 
     await page.getByTestId('utility-pipeline-list-create').click();
 
-    // Step 1 — a Slice 7 generator: it ignores the chained input and
+    // Step 1 — a implementation generator: it ignores the chained input and
     // emits placeholder text (source-step semantics).
     await page.getByTestId('utility-pipeline-editor-add-step').click();
     await page

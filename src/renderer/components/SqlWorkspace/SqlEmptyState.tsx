@@ -5,7 +5,7 @@ import { SQL_IMPORT_FILE_ACCEPT } from '../../../shared/sqlWorkspace';
 import { EmptyState } from '../ui/EmptyState';
 
 /**
- * SR-38 — actionable empty state for the SQL workspace.
+ * internal — actionable empty state for the SQL workspace.
  *
  * A brand-new SQL workspace has no queries AND no tables, so the old
  * "New query" CTA alone dropped the user onto a query with nothing to
@@ -59,7 +59,7 @@ export function SqlEmptyState({
               accept={SQL_IMPORT_FILE_ACCEPT}
               aria-label={t('sqlWorkspace.import.buttonAria')}
               data-testid="sql-workspace-empty-import-input"
-              className="sr-only"
+              className="internal"
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) onImportFile(file);

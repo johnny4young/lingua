@@ -1,8 +1,8 @@
 /**
- * RL-043 Slice A — Mod+Alt+N opens a new notebook tab + notebook UI
+ * implementation — Mod+Alt+N opens a new notebook tab + notebook UI
  * responds to the toolbar. Cross-locale (EN + ES tuteo) regression.
  *
- * RL-043 Slice B — real cross-cell variable sharing through the actual
+ * implementation — real cross-cell variable sharing through the actual
  * JS worker round-trip (no mocked runner). This is the coverage gap
  * that hid the pre-existing bug where the worker serialized the cell's
  * return value to a truncatable display string and the renderer never
@@ -16,7 +16,7 @@ import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
 test.describe.configure({ mode: 'parallel' });
 
 /**
- * RL-043 Slice (Monaco cells): a code cell is a static colorized view until
+ * implementation (Monaco cells): a code cell is a static colorized view until
  * edited, and the editing surface is a real Monaco editor (no
  * `notebook-code-cell-source` textarea). This clicks the cell to mount its
  * Monaco editor, selects all, and inserts the code via `insertText` —
@@ -79,7 +79,7 @@ test.describe('Notebook foundation — Mod+Alt+N binding', () => {
   });
 });
 
-test.describe('Notebook — cross-cell variable sharing (Slice B)', () => {
+test.describe('Notebook — cross-cell variable sharing ', () => {
   test('a later cell reads a destructured binding declared by an earlier cell', async ({
     page,
   }) => {
@@ -162,7 +162,7 @@ test.describe('Notebook — cross-cell variable sharing (Slice B)', () => {
   });
 });
 
-test.describe('Notebook — TypeScript cells (Slice C)', () => {
+test.describe('Notebook — TypeScript cells ', () => {
   test('a TypeScript cell type-strips, runs, and shares a binding with a JS cell', async ({
     page,
   }) => {
@@ -234,7 +234,7 @@ test.describe('Notebook — TypeScript cells (Slice C)', () => {
   });
 });
 
-test.describe('Notebook — Python cells (Slice F)', () => {
+test.describe('Notebook — Python cells ', () => {
   test('a Python cell runs through Pyodide and shows its stdout', async ({
     page,
   }) => {
@@ -250,7 +250,7 @@ test.describe('Notebook — Python cells (Slice F)', () => {
     await firstRow
       .getByTestId('notebook-code-cell-language')
       .selectOption('python');
-    // Fold A — the independent-run hint is visible on Python cells.
+    // implementation note — the independent-run hint is visible on Python cells.
     await expect(
       firstRow.getByTestId('notebook-code-cell-python-hint')
     ).toBeVisible();
@@ -269,7 +269,7 @@ test.describe('Notebook — Python cells (Slice F)', () => {
   });
 });
 
-test.describe('Notebook — export (Slice D)', () => {
+test.describe('Notebook — export ', () => {
   test('the export menu downloads a Jupyter .ipynb file', async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
@@ -289,8 +289,8 @@ test.describe('Notebook — export (Slice D)', () => {
   });
 });
 
-test.describe('Notebook — Monaco cells + mount-virtualization (Slice G)', () => {
-  test('mounts at most one Monaco editor across a multi-cell notebook (fold F)', async ({
+test.describe('Notebook — Monaco cells + mount-virtualization ', () => {
+  test('mounts at most one Monaco editor across a multi-cell notebook (implementation note)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
@@ -335,7 +335,7 @@ test.describe('Notebook — Monaco cells + mount-virtualization (Slice G)', () =
   });
 });
 
-test.describe('Notebook — row virtualization (Slice H)', () => {
+test.describe('Notebook — row virtualization ', () => {
   test('a large notebook mounts only a viewport-sized slice of rows', async ({
     page,
   }) => {
@@ -384,7 +384,7 @@ test.describe('Notebook — row virtualization (Slice H)', () => {
     // assertion is robust to viewport height without being a no-op.
     expect(renderedRows).toBeLessThan(40);
 
-    // Slice G's invariant still holds: at most one Monaco editor is mounted
+    // implementation's invariant still holds: at most one Monaco editor is mounted
     // across the whole (now windowed) notebook.
     await expect(page.locator('.monaco-editor')).toHaveCount(0);
     await page.getByTestId('notebook-code-cell-static').first().click();

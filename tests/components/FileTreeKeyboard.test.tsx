@@ -1,5 +1,5 @@
 /**
- * UX Sweep T7 — file-tree keyboard navigation + ARIA tree semantics.
+ * accessibility pass — file-tree keyboard navigation + ARIA tree semantics.
  *
  * Asserts role=tree/treeitem + aria-level/aria-expanded, ArrowUp/Down
  * roving across the visible rows, ArrowLeft (collapse / move-to-parent),
@@ -85,7 +85,7 @@ import { FileTree } from '../../src/renderer/components/FileTree/FileTree';
 
 const row = (name: string) => screen.getByRole('button', { name });
 
-describe('FileTree keyboard navigation (UX Sweep T7)', () => {
+describe('FileTree keyboard navigation (accessibility pass)', () => {
   beforeEach(async () => {
     mockExpandDirectory.mockClear();
     mockCollapseDirectory.mockClear();

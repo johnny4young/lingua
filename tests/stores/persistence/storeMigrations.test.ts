@@ -1,11 +1,11 @@
 /**
- * RL-126 / AUDIT-06 — cross-store coverage for schema versioning.
+ * implementation detail — cross-store coverage for schema versioning.
  *
- *  - Fold A: a forward-migration (v0 back-compat) fixture for every persisted
+ *  - implementation note: a forward-migration (v0 back-compat) fixture for every persisted
  *    store, driven off the registry so adding a store automatically adds a case.
- *  - Fold B: a drift guard that fails if any `persist(...)` store ships without
+ *  - implementation note: a drift guard that fails if any `persist(...)` store ships without
  *    a `version` + `createMigrate(...)` (or is missing from the registry).
- *  - Fold G: a dedicated guard that a pre-version license payload survives the
+ *  - implementation note: a dedicated guard that a pre-version license payload survives the
  *    migrate path with its token + active status intact (security seam).
  *  - A real `persist.rehydrate()` round-trip proving an unversioned localStorage
  *    payload still loads.
@@ -23,11 +23,11 @@ import { useRecentFilesStore } from '../../../src/renderer/stores/recentFilesSto
 
 const STORE_NAMES = Object.keys(migrationRegistry) as PersistedStoreName[];
 
-describe('Fold A — v0 back-compat per persisted store', () => {
+describe('implementation note — v0 back-compat per persisted store', () => {
   // The AC: rehydrating a v0 (unversioned) payload still works. Stores with an
   // identity migration map must return their persisted shape unchanged so no
   // returning user loses data on the version bump. Stores that have grown a
-  // real forward step (RL-111: lingua-settings 1->2) are exercised by their
+  // real forward step (internal: lingua-settings 1->2) are exercised by their
   // own dedicated test below — the generic identity assertion does not apply.
   const IDENTITY_STORES = STORE_NAMES.filter(
     (name) => Object.keys(migrationRegistry[name]).length === 0
@@ -54,7 +54,7 @@ describe('Fold A — v0 back-compat per persisted store', () => {
   }
 });
 
-describe('lingua-settings v1->v2 — restoreSession boolean to restoreSessionMode enum (RL-111)', () => {
+describe('lingua-settings v1->v2 — restoreSession boolean to restoreSessionMode enum', () => {
   const migrate = createMigrate('lingua-settings');
 
   it('maps legacy restoreSession:true to always', () => {
@@ -64,7 +64,7 @@ describe('lingua-settings v1->v2 — restoreSession boolean to restoreSessionMod
     expect(result.theme).toBe('dark');
   });
 
-  it('maps legacy restoreSession:false to ask (fold B — better default for everyone)', () => {
+  it('maps legacy restoreSession:false to ask (implementation note — better default for everyone)', () => {
     const result = migrate({ restoreSession: false }, 1) as Record<string, unknown>;
     expect(result.restoreSessionMode).toBe('ask');
     expect(result).not.toHaveProperty('restoreSession');
@@ -81,7 +81,7 @@ describe('lingua-settings v1->v2 — restoreSession boolean to restoreSessionMod
   });
 });
 
-describe('Fold B — drift guard: every persisted store is versioned + registered', () => {
+describe('implementation note — drift guard: every persisted store is versioned + registered', () => {
   const storesDir = resolve(__dirname, '../../../src/renderer/stores');
 
   function stripComments(src: string): string {
@@ -147,7 +147,7 @@ describe('Fold B — drift guard: every persisted store is versioned + registere
   });
 });
 
-describe('Fold G — license store schema seam', () => {
+describe('implementation note — license store schema seam', () => {
   it('preserves a pre-version license token + active status through migrate', () => {
     const migrate = createMigrate('lingua-license');
     const persisted = {

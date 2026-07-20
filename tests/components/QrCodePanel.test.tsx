@@ -1,5 +1,5 @@
 /**
- * RL-072 — QR Code panel tests. The pure helper is covered in
+ * internal — QR Code panel tests. The pure helper is covered in
  * tests/utils/qrCode.test.ts, so this suite only checks wiring:
  * the live preview image renders, the level selector re-triggers the
  * async regen, empty payload surfaces the placeholder, Spanish copy
@@ -147,9 +147,9 @@ describe('QrCodePanel', () => {
     expect(labels.some((label) => label && label.startsWith('Alta'))).toBe(true);
   });
 
-  // ----------------------------------------------------------- Fold A: decode
+  // ----------------------------------------------------------- implementation note: decode
 
-  it('switches between generate and decode modes and renders the dropzone (fold A)', async () => {
+  it('switches between generate and decode modes and renders the dropzone (implementation note)', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
@@ -162,7 +162,7 @@ describe('QrCodePanel', () => {
     expect(screen.queryByTestId('qr-code-input')).toBeNull();
   });
 
-  it('decodes a dropped image file and renders the payload (fold A)', async () => {
+  it('decodes a dropped image file and renders the payload (implementation note)', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
@@ -179,7 +179,7 @@ describe('QrCodePanel', () => {
     });
   });
 
-  it('renders a localized error when decoding fails (fold A)', async () => {
+  it('renders a localized error when decoding fails (implementation note)', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
@@ -202,7 +202,7 @@ describe('QrCodePanel', () => {
     });
   });
 
-  it('keeps the latest decode result when two uploads resolve out of order (fold A)', async () => {
+  it('keeps the latest decode result when two uploads resolve out of order (implementation note)', async () => {
     const user = userEvent.setup();
     const first = deferred<QrDecodeResult>();
     const second = deferred<QrDecodeResult>();
@@ -244,9 +244,9 @@ describe('QrCodePanel', () => {
     expect(decoded.value).toBe('newer decode');
   });
 
-  // ------------------------------------------------ Fold B: high-contrast preset
+  // ------------------------------------------------ implementation note: high-contrast preset
 
-  it('toggles the high-contrast preset and disables the color pickers (fold B)', async () => {
+  it('toggles the high-contrast preset and disables the color pickers (implementation note)', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
@@ -270,9 +270,9 @@ describe('QrCodePanel', () => {
     ).toBe('#FFFFFF');
   });
 
-  // ----------------------------------------------- Fold C: copy as PNG
+  // ----------------------------------------------- implementation note: copy as PNG
 
-  it('flips the Copy-as-PNG label after a successful clipboard write (fold C)', async () => {
+  it('flips the Copy-as-PNG label after a successful clipboard write (implementation note)', async () => {
     const user = userEvent.setup();
     type Clip = typeof navigator.clipboard | undefined;
     const original: Clip = navigator.clipboard;
@@ -305,7 +305,7 @@ describe('QrCodePanel', () => {
     }
   });
 
-  it('shows the unsupported label when the clipboard image API is missing (fold C)', async () => {
+  it('shows the unsupported label when the clipboard image API is missing (implementation note)', async () => {
     const user = userEvent.setup();
     type Clip = typeof navigator.clipboard | undefined;
     const original: Clip = navigator.clipboard;
@@ -334,9 +334,9 @@ describe('QrCodePanel', () => {
     }
   });
 
-  // ------------------------------- Fold D: color picker + WCAG contrast guard
+  // ------------------------------- implementation note: color picker + WCAG contrast guard
 
-  it('shows the contrast warning when colors fail the WCAG-AA threshold (fold D)', async () => {
+  it('shows the contrast warning when colors fail the WCAG-AA threshold (implementation note)', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
     await screen.findByTestId('qr-code-image');
@@ -357,7 +357,7 @@ describe('QrCodePanel', () => {
     });
   });
 
-  it('resets the colors and disables the high-contrast preset on reset (fold D)', async () => {
+  it('resets the colors and disables the high-contrast preset on reset (implementation note)', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
@@ -377,9 +377,9 @@ describe('QrCodePanel', () => {
     ).toBe('#000000');
   });
 
-  // ------------------------------------------------- Fold E: SVG download
+  // ------------------------------------------------- implementation note: SVG download
 
-  it('exposes a Download as SVG anchor with a base64 SVG data URL (fold E)', async () => {
+  it('exposes a Download as SVG anchor with a base64 SVG data URL (implementation note)', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
     const anchor = (await screen.findByTestId('qr-code-download-svg')) as HTMLAnchorElement;
@@ -387,9 +387,9 @@ describe('QrCodePanel', () => {
     expect(anchor.getAttribute('download')).toBe('qr-code.svg');
   });
 
-  // -------------------------------------- Fold F: utilityOutputStore wiring
+  // -------------------------------------- implementation note: utilityOutputStore wiring
 
-  it('registers the active PNG data URL with utilityOutputStore in generate mode (fold F)', async () => {
+  it('registers the active PNG data URL with utilityOutputStore in generate mode (implementation note)', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
     await screen.findByTestId('qr-code-image');
@@ -401,7 +401,7 @@ describe('QrCodePanel', () => {
     });
   });
 
-  it('switches the registered output to the decoded text in decode mode (fold F)', async () => {
+  it('switches the registered output to the decoded text in decode mode (implementation note)', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 

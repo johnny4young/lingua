@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — Recipes overlay (`Mod+Alt+L`).
+ * implementation — Recipes overlay (`Mod+Alt+L`).
  *
  * FASE 1 (MOV.01): chrome migrated onto the Signal-Slate `<ModalShell>`.
  * The four zones map as:
@@ -13,7 +13,7 @@
  *              slot — matching the MOV.01 prototype.
  *
  * Each list row carries the title, the first-line prompt preview
- * (fold D), tag chips, and a progress badge (passed / attempted) via
+ * (implementation note), tag chips, and a progress badge (passed / attempted) via
  * the shared `<StatusBadge>` primitive.
  *
  * Selection opens a NEW editor tab with the recipe's `starterCode`
@@ -30,7 +30,7 @@
  *   - Cancel button
  *
  * Telemetry: `recipe.opened { language }` on confirm. NO recipe id on
- * the wire (fold B in the plan — privacy posture).
+ * the wire (implementation note in the plan — privacy posture).
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -241,7 +241,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
         {/* TOP — search + language chips */}
         <div className="grid gap-2 px-1.5 pb-2.5 pt-1.5">
           {/*
-            UX Sweep T11 — the list is a listbox driven by this search input, so
+            accessibility pass — the list is a listbox driven by this search input, so
             wire the combobox pattern: the input owns aria-activedescendant so a
             screen reader announces the active recipe as Arrow keys move it.
           */}

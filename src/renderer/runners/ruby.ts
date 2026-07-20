@@ -26,16 +26,16 @@ import { trackEvent } from '../utils/telemetry';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
 /**
- * Ruby runtime dispatcher — RL-042 Slice 5 (WASM) + Slice 6 (desktop).
+ * Ruby runtime dispatcher — implementation (WASM) + implementation (desktop).
  *
  * `RubyRunner` is now a thin façade. On every `execute()` call it
  * inspects the platform (`window.lingua.ruby?` for the desktop bridge)
  * and the user preference (`Settings → Editor → Ruby runtime`) and
  * forwards to one of two implementations:
  *
- *   - `WasmRubyRunner` (Slice 5) — persistent web worker hosting
+ *   - `WasmRubyRunner`  — persistent web worker hosting
  *     CRuby + stdlib via `@ruby/wasm-wasi`. Always available.
- *   - `DesktopRubySubprocessRunner` (Slice 6) — spawns the host
+ *   - `DesktopRubySubprocessRunner`  — spawns the host
  *     `ruby` binary via the `window.lingua.ruby.*` IPC bridge.
  *     Available only on desktop builds when `ruby --version` succeeds.
  *
@@ -48,7 +48,7 @@ import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
  * Telemetry: every dispatch emits `runtime.ruby_runner_dispatched`
  * with `{ mode: 'system' | 'wasm' | 'missing', bucketedSpawnMs }` so
  * dashboards can isolate the two paths and detect spawn-latency
- * regressions (fold C).
+ * regressions (implementation note).
  */
 
 const RUBY_LOAD_TIMEOUT = 90_000;
@@ -65,7 +65,7 @@ function workerLoadErrorMessage(event: Event): string {
 }
 
 /**
- * RL-042 Slice 6 fold C — bucket the spawn-to-result latency so a
+ * implementation note — bucket the spawn-to-result latency so a
  * future regression in the IPC marshalling or the spawn path surfaces
  * in telemetry without leaking real timings. Closed-enum values; the
  * update-server parity test pins them.
@@ -79,7 +79,7 @@ function bucketRubySpawnMs(ms: number): '<100ms' | '<300ms' | '<1s' | '<3s' | '>
 }
 
 // ----------------------------------------------------------------------
-// WASM runtime (was the entire `RubyRunner` in Slice 5)
+// WASM runtime (was the entire `RubyRunner` in implementation)
 // ----------------------------------------------------------------------
 
 export class WasmRubyRunner implements LanguageRunner {
@@ -164,7 +164,7 @@ export class WasmRubyRunner implements LanguageRunner {
         const handler = (event: MessageEvent) => {
           const msg = event.data;
           if (msg.type === 'bootstrap-progress') {
-            // IT2-D3 — Ruby WASM download progress during the init
+            // internal — Ruby WASM download progress during the init
             // handshake; mirrors the Python runner.
             useBootstrapProgressStore.getState().report({
               language: 'ruby',
@@ -294,7 +294,7 @@ export class WasmRubyRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'bootstrap-progress':
-            // IT2-D3 — live runtime download progress; the
+            // internal — live runtime download progress; the
             // initialization window in executeTabManually composes it
             // into the loading message.
             useBootstrapProgressStore.getState().report({
@@ -333,7 +333,7 @@ export class WasmRubyRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
-            // IT2-D3 — boot finished (or was already warm); drop the
+            // internal — boot finished (or was already warm); drop the
             // progress line so the pill returns to its normal label.
             useBootstrapProgressStore.getState().clear('ruby');
             finish({
@@ -394,7 +394,7 @@ export class WasmRubyRunner implements LanguageRunner {
 }
 
 // ----------------------------------------------------------------------
-// Desktop subprocess runtime (RL-042 Slice 6)
+// Desktop subprocess runtime
 // ----------------------------------------------------------------------
 
 interface DesktopBridge {

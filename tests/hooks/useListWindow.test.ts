@@ -1,11 +1,11 @@
 /**
- * RL-123 / AUDIT-03 Slice 2 — pure windowing math.
+ * implementation detail implementation — pure windowing math.
  *
  * `computeWindow` and `offsetForIndex` are the only non-trivial parts of the
  * windower, and jsdom cannot measure layout, so they are extracted as pure
  * functions and exhaustively tested here. The React hook (`useListWindow`)
  * is exercised end-to-end by `tests/e2e/consoleWindowing.spec.ts` (console)
- * and `tests/e2e/notebook.spec.ts` (notebook rows, RL-043 Slice H) in real
+ * and `tests/e2e/notebook.spec.ts` (notebook rows, implementation) in real
  * Chromium.
  */
 
@@ -17,7 +17,7 @@ import {
 
 const BASE = { overscanPx: 0, estimate: 28 };
 
-describe('computeWindow (RL-123 Slice 2)', () => {
+describe('computeWindow ', () => {
   it('returns an empty window for an empty list', () => {
     expect(
       computeWindow({ count: 0, heights: [], scrollTop: 0, viewportHeight: 300, ...BASE })
@@ -114,8 +114,8 @@ describe('computeWindow (RL-123 Slice 2)', () => {
     );
   });
 
-  it('keeps the windowed set small for a flooded 500-row console (fold E)', () => {
-    // Fold E — lock the windowing bound: a 500-row session must mount only a
+  it('keeps the windowed set small for a flooded 500-row console (implementation note)', () => {
+    // implementation note — lock the windowing bound: a 500-row session must mount only a
     // viewport-sized slice, not all 500 rows.
     const heights = Array.from({ length: 500 }, () => 28);
     const result = computeWindow({
@@ -148,7 +148,7 @@ describe('computeWindow (RL-123 Slice 2)', () => {
   });
 });
 
-describe('offsetForIndex (RL-043 Slice H)', () => {
+describe('offsetForIndex ', () => {
   it('returns 0 for index 0 and for an empty list', () => {
     expect(offsetForIndex([], 0, 120)).toBe(0);
     expect(offsetForIndex([20, 20, 20], 0, 120)).toBe(0);

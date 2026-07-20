@@ -1,7 +1,6 @@
 # Lingua — press kit
 
-Single source of truth for every Phase 2 launch asset. When the website
-(RL-063) ships the downloadable ZIP at `linguacode.dev/press`, it builds
+Single source of truth for every Phase 2 launch asset. When the website ships the downloadable ZIP at `linguacode.dev/press`, it builds
 directly from this directory.
 
 ## Contents

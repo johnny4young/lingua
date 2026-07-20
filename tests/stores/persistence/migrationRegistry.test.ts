@@ -1,5 +1,5 @@
 /**
- * RL-126 / AUDIT-06 — unit tests for the central persisted-store migration core.
+ * implementation detail — unit tests for the central persisted-store migration core.
  *
  * `migrateState` is the pure engine (step ordering, identity, corrupt/throw
  * reset); `createMigrate` is the thin per-store wrapper used in each persist
@@ -93,7 +93,7 @@ describe('migrateState (pure core)', () => {
 
 describe('createMigrate (per-store wrapper)', () => {
   it('preserves a v0 payload unchanged for an identity store (no telemetry)', () => {
-    // RL-111 — lingua-settings is no longer identity (it has a 1->2 step);
+    // internal — lingua-settings is no longer identity (it has a 1->2 step);
     // use lingua-snippets, which still has an empty migration map.
     const migrate = createMigrate('lingua-snippets');
     const payload = { snippets: [{ id: 's1' }] };

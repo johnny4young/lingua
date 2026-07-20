@@ -1,19 +1,19 @@
 /**
- * RL-094 Slice 1 fold G — RunCapsuleV1 fixture catalog.
+ * implementation note — RunCapsuleV1 fixture catalog.
  *
  * 10 representative capsule shapes that every downstream world-class
- * ticket consumes as a shared smoke surface:
+ * integration consumes as a shared smoke surface:
  *
- *   - RL-036 share-link tests round-trip these through the URL
+ *   - internal share-link tests round-trip these through the URL
  *     fragment encoder + decoder.
- *   - RL-098 CLI tests pipe each through `lingua capsule validate`
+ *   - internal CLI tests pipe each through `lingua capsule validate`
  *     and assert the exit codes.
- *   - RL-097 HTTP request tests embed `http` fixtures and the
+ *   - internal HTTP request tests embed `http` fixtures and the
  *     pipeline emits a capsule per response.
- *   - RL-099 pipeline tests stamp one capsule per step.
- *   - RL-100 importer tests assert cURL → capsule produces the
+ *   - internal pipeline tests stamp one capsule per step.
+ *   - internal importer tests assert cURL → capsule produces the
  *     `http-get-200` fixture shape.
- *   - RL-039 Slice B lesson tests reference `lesson-assertion` as the
+ *   - implementation lesson tests reference `lesson-assertion` as the
  *     expected-output baseline.
  *
  * The catalog is intentionally JSON-serialisable (no helper closures,
@@ -104,7 +104,7 @@ export const FIXTURE_FULL_TS: RunCapsuleV1 = baseCapsule({
   environment: { platform: 'web', runner: 'typescript' },
 });
 
-/** 3. Python with chart payload (RL-044 cross-language parity). */
+/** 3. Python with chart payload (internal cross-language parity). */
 export const FIXTURE_PYTHON_CHART: RunCapsuleV1 = baseCapsule({
   capsuleId: '00000000-0000-4000-8000-000000000003',
   tab: {
@@ -235,7 +235,7 @@ export const FIXTURE_LARGE_STDOUT: RunCapsuleV1 = baseCapsule({
  * substring so a forgotten redactor regression is loud. The capsule
  * is intentionally honest about embedding the source — that's the
  * whole replay-artifact promise — so the consumer sees the token
- * in `source.content`. Downstream RL-036 share-link emission MUST
+ * in `source.content`. Downstream internal share-link emission MUST
  * route any user-confirmation flow through this fixture so the UI
  * never silently publishes a token.
  */
@@ -297,7 +297,7 @@ export const FIXTURE_DESKTOP_DEP_SUMMARY: RunCapsuleV1 = baseCapsule({
 });
 
 /**
- * 10. Lesson-assertion baseline (RL-039 Slice B reference). Identical
+ * 10. Lesson-assertion baseline (implementation reference). Identical
  * shape to FIXTURE_FULL_TS but with a stable timestamp + stripped
  * dependencySummary so two snapshots taken on different days produce
  * byte-identical capsule JSON when sanitised. Downstream lesson
@@ -329,7 +329,7 @@ export const FIXTURE_LESSON_ASSERTION: RunCapsuleV1 = baseCapsule({
 /**
  * Catalog used by `runCapsule.test.ts` to apply property-based
  * assertions to every fixture (round-trip, redaction, omittedFields
- * shape, etc.). Downstream tickets MAY import individual fixtures
+ * shape, etc.). Downstream integrations MAY import individual fixtures
  * directly when they need a specific shape.
  */
 export const ALL_FIXTURES: ReadonlyArray<{

@@ -50,7 +50,7 @@ import {
 } from './limits';
 import { loadEsbuild } from './esbuildLoader';
 
-// RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the runner
+// implementation — the literal DEFAULT_TIMEOUT is gone; the runner
 // resolves the deadline from the per-language Settings preset on
 // every call to `execute()`.
 
@@ -65,10 +65,10 @@ export class TypeScriptRunner implements LanguageRunner {
 
   private worker: Worker | null = null;
   private ready = false;
-  /** RL-078 — see JavaScriptRunner.currentRunId. */
+  /** internal — see JavaScriptRunner.currentRunId. */
   private currentRunId: string | null = null;
   private debugSessionActive = false;
-  /** RL-078 — see JavaScriptRunner.cancelInFlight. */
+  /** internal — see JavaScriptRunner.cancelInFlight. */
   private cancelInFlight: (() => void) | null = null;
   /**
    * TypeScript has an async transpile phase before the worker starts.
@@ -111,7 +111,7 @@ export class TypeScriptRunner implements LanguageRunner {
   /**
    * Transpile TypeScript to JavaScript using esbuild-wasm.
    *
-   * Slice 1.5 fold G — when `withMap` is true we ask esbuild for an
+   * implementation note — when `withMap` is true we ask esbuild for an
    * external source map. Debug runs compose it with the debugger
    * instrumenter map; normal worker runs use it to report console
    * output on the original TS line instead of the post-transpile JS line.
@@ -156,11 +156,11 @@ export class TypeScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // RL-027 debugger refinement — debug mode resolution mirrors the JS
+    // internal debugger refinement — debug mode resolution mirrors the JS
     // runner: only an explicit Debug action attaches the pause protocol.
     const sourceMappingEnabled = true;
     const settings = useSettingsStore.getState();
-    // RL-020 Slice 7 — resolve timeout from the per-language preset
+    // implementation — resolve timeout from the per-language preset
     // unless the caller passed an explicit override.
     const callerOverrode = typeof context?.timeout === 'number';
     const presetForLanguage: RuntimeTimeoutPreset | undefined =
@@ -191,11 +191,11 @@ export class TypeScriptRunner implements LanguageRunner {
     const magicTransformed = hasMagic
       ? transformJSMagicComments(processedCode)
       : processedCode;
-    // RL-020 Slice 3 — per-line kind side-table keyed by the
+    // implementation — per-line kind side-table keyed by the
     // PRE-transpile line number (which is what `__mc` carries into
     // the worker; the transpile pass preserves that argument as-is).
     const magicKindByLine: Record<number, MagicCommentKind> = {};
-    // RL-044 Slice 1A — parallel directive side-table for `//=> table`.
+    // implementation — parallel directive side-table for `//=> table`.
     const magicDirectiveByLine: Record<number, MagicCommentDirective> = {};
     for (const entry of magicEntries) {
       magicKindByLine[entry.line] = entry.kind;
@@ -203,7 +203,7 @@ export class TypeScriptRunner implements LanguageRunner {
         magicDirectiveByLine[entry.line] = entry.directive;
       }
     }
-    // RL-020 Slice 5 — opt-in auto-log pass before transpile. The
+    // implementation — opt-in auto-log pass before transpile. The
     // detector reads the PRE-transpile source (TypeScript syntax) so
     // a TypeScript-only construct like a type-only `as` cast does
     // not throw the bracket scanner off; esbuild strips the type
@@ -223,7 +223,7 @@ export class TypeScriptRunner implements LanguageRunner {
       }
     }
 
-    // RL-115 Slice 1 — timing markers BEFORE transpile, mirroring the
+    // implementation — timing markers BEFORE transpile, mirroring the
     // auto-log strategy: the line number is baked into the call
     // argument, so esbuild's line shifts downstream cannot corrupt the
     // attribution. Debug runs never instrument.
@@ -261,14 +261,14 @@ export class TypeScriptRunner implements LanguageRunner {
         result: undefined,
         executionTime: 0,
         error: transpileError,
-        // RL-020 Slice 7 — transpile failures count as `'error'` so
+        // implementation — transpile failures count as `'error'` so
         // the result-panel pill surfaces a clear failure variant.
         kind: 'error',
       };
     }
 
-    // RL-027 Slice 1 — instrument the transpiled JS when debug is on.
-    // Slice 1.5 fold G — pass the esbuild TS→JS map so the instrumenter
+    // implementation — instrument the transpiled JS when debug is on.
+    // implementation note — pass the esbuild TS→JS map so the instrumenter
     // can compose it with its own JS→JS map and emit yields that fire
     // on the user's TS line numbers (which is what the breakpoint store
     // already keeps).
@@ -306,11 +306,11 @@ export class TypeScriptRunner implements LanguageRunner {
     let lineTimings: LineTimingEntry[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
-    // RL-020 Slice 6 fold G — see JavaScriptRunner; the same JS
+    // implementation note — see JavaScriptRunner; the same JS
     // worker hosts the TS path post-transpile, so the same
     // `stdin-consumed` message arrives here too.
     let stdinConsumed: { count: number; total: number } | undefined;
-    // RL-020 Slice 9 — scope snapshot relay; same shape as JS runner.
+    // implementation — scope snapshot relay; same shape as JS runner.
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — see JavaScriptRunner.
     let droppedStdout = 0;
@@ -339,7 +339,7 @@ export class TypeScriptRunner implements LanguageRunner {
         timeoutHandle = setTimeout(() => {
           worker.terminate();
           if (this.worker === worker) this.worker = null;
-          // RL-027 Slice 1 — clear the debugger bridge + session on
+          // implementation — clear the debugger bridge + session on
           // timeout so a follow-up F5/F10 doesn't post to a dead worker.
           this.clearDebuggerSession('stop');
           finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
@@ -371,7 +371,7 @@ export class TypeScriptRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'console': {
-            // RL-044 Slice 1B — same payload pass-through as the JS
+            // implementation — same payload pass-through as the JS
             // runner; TS rides the JS worker post-esbuild so it gets
             // the typed `RichOutputPayload[]` array for free.
             const output: ConsoleOutput = msg.payload
@@ -382,7 +382,7 @@ export class TypeScriptRunner implements LanguageRunner {
                 language: 'typescript',
               });
             }
-            // RL-044 Slice 2b-β-β-α fold A — mirror of the JS runner
+            // implementation-β-β-α implementation note — mirror of the JS runner
             // rejection forwarding (TS rides the JS worker, so the
             // bridge emits the same `richMediaRejected` flag shape).
             if (msg.richMediaRejected) {
@@ -430,7 +430,7 @@ export class TypeScriptRunner implements LanguageRunner {
             break;
           }
           case 'scope-snapshot': {
-            // RL-020 Slice 9 — relay scope capture; same defensive
+            // implementation — relay scope capture; same defensive
             // shape coercion as the JS runner.
             const incoming = msg as unknown as {
               snapshot?: { language?: unknown; variables?: unknown };
@@ -445,7 +445,7 @@ export class TypeScriptRunner implements LanguageRunner {
             break;
           }
           case 'magic-comment': {
-            // RL-044 Slice 1A — mirror of the JS runner: when the
+            // implementation — mirror of the JS runner: when the
             // user attached a `//=> table` directive, parse the
             // worker's stringified JSON-compatible value back into a
             // typed payload while keeping `value` as the text fallback.
@@ -473,7 +473,7 @@ export class TypeScriptRunner implements LanguageRunner {
             break;
           }
           case 'line-timing':
-            // RL-115 — batched per-statement timings (one message per run).
+            // internal — batched per-statement timings (one message per run).
             lineTimings = msg.entries;
             break;
           case 'result':
@@ -543,13 +543,13 @@ export class TypeScriptRunner implements LanguageRunner {
           timeoutPreset,
           timeoutMs: timeout,
         });
-        // RL-027 Slice 1 — same cleanup as the JS runner crash path.
+        // implementation — same cleanup as the JS runner crash path.
         this.clearDebuggerSession('crash');
         worker.terminate();
         if (this.worker === worker) this.worker = null;
       });
 
-      // RL-078 — parent-owned kill timer. Debug pauses clear and
+      // internal — parent-owned kill timer. Debug pauses clear and
       // re-arm this deadline around user-controlled stepping.
       armDeadline();
 
@@ -561,7 +561,7 @@ export class TypeScriptRunner implements LanguageRunner {
           attachedAt: Date.now(),
         });
         setActiveDebugWorker(worker);
-        // RL-027 Slice 1.5 — `language: 'js'` is correct because the
+        // implementation — `language: 'js'` is correct because the
         // runtime adapter is the JS worker (TS transpiles through
         // esbuild and runs in the same worker).
         void trackEvent('debugger.attached', { language: 'js', reasonBucket: 'attach' });
@@ -578,7 +578,7 @@ export class TypeScriptRunner implements LanguageRunner {
         sourceLineMap,
         sourceMappingEnabled,
         stdin: context?.stdin,
-        // RL-020 Slice 9 — TS pipes through the JS worker post
+        // implementation — TS pipes through the JS worker post
         // transpile; stamp `'typescript'` on the snapshot so the
         // toggle in the renderer self-gates on the right language.
         captureScope: !debug && context?.captureScope === true,

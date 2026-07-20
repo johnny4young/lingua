@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 — sqlResponseCapsule tests.
+ * implementation — sqlResponseCapsule tests.
  *
  * Mirrors the httpResponseCapsule shape tests: status mapping per
  * SQL status + language/runner pin + stdout/stderr routing.

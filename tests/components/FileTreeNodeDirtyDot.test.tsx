@@ -1,5 +1,5 @@
 /**
- * RL-024 Slice 1 — file tree dirty dot.
+ * implementation — file tree dirty dot.
  *
  * The dot appears next to a file's name iff there is an open tab that
  * is dirty AND whose `{ rootId, relativePath }` matches the tree
@@ -138,7 +138,7 @@ describe('FileTreeNode — dirty dot', () => {
     ).toBe('Cambios sin guardar');
   });
 
-  it('carries the shared focus ring on the name button (UX Sweep T1)', () => {
+  it('carries the shared focus ring on the name button (accessibility pass)', () => {
     setProject('root-proj', '/proj');
     renderNode(makeFile({ path: 'src/main.ts' }));
 
@@ -146,7 +146,7 @@ describe('FileTreeNode — dirty dot', () => {
     expect(nameButton.className).toContain('focus-ring');
   });
 
-  it('reveals the row delete action when a keyboard user focuses into the row (UX Sweep T1 fold B)', () => {
+  it('reveals the row delete action when a keyboard user focuses into the row (accessibility pass)', () => {
     setProject('root-proj', '/proj');
     renderNode(makeFile({ path: 'src/main.ts' }));
 

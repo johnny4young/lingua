@@ -140,7 +140,7 @@ describe('licenseStore', () => {
 });
 
 /**
- * RL-061 Slice 2.5 — server-aware web branch.
+ * implementation — server-aware web branch.
  *
  * The base test block above keeps `VITE_LINGUA_LICENSE_SERVER_URL`
  * unset so the store runs in local-verify-only mode (the
@@ -149,7 +149,7 @@ describe('licenseStore', () => {
  * `fetch` per-case to drive each setLicenseToken / revalidate /
  * clearLicense branch the plan calls out.
  */
-describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
+describe('licenseStore — server-aware web branch ', () => {
   const SERVER_URL = 'https://licenses.test.local';
 
   function buildPayload(overrides: Partial<{ tier: string; issuedAt: string; supportWindowEndsAt: string }> = {}) {
@@ -298,7 +298,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
     expect(store.getState().deviceLimit).toBeNull();
   });
 
-  it('surfaces server-side `exhausted` as invalid:devices-exhausted and KEEPS the token so Slice 3 can remediate', async () => {
+  it('surfaces server-side `exhausted` as invalid:devices-exhausted and KEEPS the token so implementation can remediate', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
@@ -321,7 +321,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
 
     expect(status.kind).toBe('invalid');
     if (status.kind === 'invalid') expect(status.reason).toBe('devices-exhausted');
-    // Token kept so a future Slice 3 modal can remove a device + retry
+    // Token kept so a future implementation modal can remove a device + retry
     // without forcing the user to paste again.
     expect(store.getState().token).toBe(token);
   });
@@ -444,7 +444,7 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
     expect(store.getState().token).toBe(newToken);
   });
 
-  it('persists devices + deviceLimit on activate-success so Slice 3 UI can render the bucket', async () => {
+  it('persists devices + deviceLimit on activate-success so implementation UI can render the bucket', async () => {
     const desktopDevice = {
       id: 'dev_d1',
       deviceId: 'd-uuid-1',
@@ -883,17 +883,17 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
 });
 
 /**
- * RL-061 Slice 3.5 — desktop branch with the extended bridge contract.
+ * implementation — desktop branch with the extended bridge contract.
  *
  * The desktop branch detects `window.lingua.license` at module-load
- * time and routes every action through it. Slice 3.5 makes the bridge
+ * time and routes every action through it. implementation makes the bridge
  * snapshot carry `serverSync` / `devices` / `deviceLimit` so the
  * Devices section can render under the same gate the web build uses.
  * These tests stub the bridge with a controllable mock to assert that
  * the snapshot mirrors all six fields and that `removeDevice`
  * delegates correctly.
  */
-describe('licenseStore — desktop bridge branch (Slice 3.5)', () => {
+describe('licenseStore — desktop bridge branch ', () => {
   type LicenseSnapshotMock = {
     token: string | null;
     status:

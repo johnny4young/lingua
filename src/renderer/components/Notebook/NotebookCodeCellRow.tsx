@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A — Single code-cell row.
+ * implementation — Single code-cell row.
  *
  * Layout:
  *   - Header: language badge + cell index + status pill + action row
@@ -8,7 +8,7 @@
  *   - Outputs: stdout (foreground) + stderr (error tone) inline below
  *     the source.
  *
- * Slice G promotes code cells to a mount-virtualized Monaco editor — the
+ * implementation promotes code cells to a mount-virtualized Monaco editor — the
  * surface contract (source string, language, run handler) stays unchanged.
  */
 
@@ -71,7 +71,7 @@ export interface NotebookCodeCellRowProps {
    */
   readonly isActive: boolean;
   /**
-   * RL-043 Slice (Monaco cells) — command-mode "enter edit" signal. The
+   * implementation (Monaco cells) — command-mode "enter edit" signal. The
    * view bumps a `{ cellId, nonce }` request (Jupyter Enter / run-and-
    * advance / insert-below); when this cell's nonce changes the row mounts
    * its Monaco editor. `null` when no request targets this cell. The nonce
@@ -100,7 +100,7 @@ export interface NotebookCodeCellRowProps {
   onMoveUp: (cellId: string) => void;
   onMoveDown: (cellId: string) => void;
   onDelete: (cellId: string) => void;
-  /** RL-043 Slice C — change this cell's language via the header
+  /** implementation — change this cell's language via the header
    * selector (JavaScript ↔ TypeScript; Python is shown but disabled). */
   onLanguageChange: (cellId: string, language: NotebookCellLanguage) => void;
 }
@@ -168,7 +168,7 @@ function outputStatusKey(status: NotebookCellRunStatus): string {
 }
 
 /**
- * T3 — try to upgrade a plain-text output to a rich table. Only a
+ * implementation — try to upgrade a plain-text output to a rich table. Only a
  * string that trims to a JSON array of homogeneous plain objects
  * qualifies (a terminal-expression array, `console.log([{…}])`, or a
  * Python `print` of a JSON list). Returns `null` for everything else —
@@ -212,7 +212,7 @@ function NotebookCodeCellRowImpl({
   const { t } = useTranslation();
   const shellRef = useRef<HTMLElement | null>(null);
   const label = languageLabel(cell.language);
-  // T19 — "Explain this error": on an errored cell, LOCAL_AI users get the
+  // implementation — "Explain this error": on an errored cell, LOCAL_AI users get the
   // consent-gated AI trigger (shared ExplainErrorButton owns the dialog +
   // open state). `canExplainError` gates the wrapper so Free users don't get
   // an empty padded slot.
@@ -224,7 +224,7 @@ function NotebookCodeCellRowImpl({
   const [editing, setEditing] = useState(false);
   const mode: 'command' | 'edit' = editing ? 'edit' : 'command';
 
-  // PERF-003 / PERF-004 — keep the source in local React state and
+  // implementation detail — keep the source in local React state and
   // debounce the persisted-store write, exactly like
   // `SqlQueryEditor` / `HttpRequestEditor`. Previously every keystroke
   // called `onSourceChange` → `updateCellSource`, which writes the
@@ -352,7 +352,7 @@ function NotebookCodeCellRowImpl({
   const usesKeys = varFlow?.uses ?? [];
   const producesKeys = varFlow?.produces ?? [];
 
-  // RL-043 Slice (Monaco cells) — command-mode "enter edit" requests
+  // implementation (Monaco cells) — command-mode "enter edit" requests
   // (Jupyter Enter / run-and-advance / insert-below) flow in as a bumped
   // nonce; mount the Monaco editor in response (it focuses itself on mount).
   // Match NotebookMarkdownCellRow: depend ONLY on the nonce.
@@ -413,7 +413,7 @@ function NotebookCodeCellRowImpl({
       ) : null}
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          {/* RL-043 Slice F — language selector. JS / TS / Python are all
+          {/* implementation — language selector. JS / TS / Python are all
               runnable now (Python runs independently per cell). Styled as
               the canonical language-tone pill. */}
           <select
@@ -499,7 +499,7 @@ function NotebookCodeCellRowImpl({
               })}
             </span>
           ) : null}
-          {/* RL-043 Slice F / T17 — Python cells share a per-notebook
+          {/* implementation — Python cells share a per-notebook
               kernel scope, so cell 2 sees cell 1's imports/vars (Restart
               kernel clears it). The chip truncates; the full sentence is
               the hover title. */}
@@ -512,7 +512,7 @@ function NotebookCodeCellRowImpl({
               {t('notebook.cell.pythonIndependentHint')}
             </span>
           ) : null}
-          {/* T16 — SQL cells run on the shared DuckDB engine, so tables
+          {/* implementation — SQL cells run on the shared DuckDB engine, so tables
               created in one cell persist to later SQL cells (and the SQL
               workspace). The chip truncates; the hover title carries the
               full sentence. */}
@@ -587,7 +587,7 @@ function NotebookCodeCellRowImpl({
           </button>
         </div>
       </header>
-      {/* RL-043 Slice (Monaco cells) — the body is a Monaco editor while
+      {/* implementation (Monaco cells) — the body is a Monaco editor while
           editing and a cheap colorized static view otherwise, so a large
           notebook never mounts more than ~1 editor. The run / Esc keybinds
           and the draft-flush-before-run contract are preserved through the
@@ -680,7 +680,7 @@ function NotebookCodeCellRowImpl({
               className="grid gap-0.5 p-2"
             >
               {cell.outputs.map((output, idx) => {
-                // T3 — a stdout output that is a homogeneous JSON array of
+                // implementation — a stdout output that is a homogeneous JSON array of
                 // objects renders as a table (mirroring the console's
                 // auto-table), instead of raw JSON text. stderr always
                 // stays plain error-toned text.
@@ -752,7 +752,7 @@ function NotebookCodeCellRowImpl({
 }
 
 /**
- * RL-043 Slice H fold C — memoized so the windowed cell list only re-renders
+ * implementation Slice H implementation note — memoized so the windowed cell list only re-renders
  * the rows whose props actually change. Every handler the view passes is a
  * stable `useCallback`, and the per-cell data props (cell, status, latency,
  * var-flow, execution order, active/move flags) are referentially stable

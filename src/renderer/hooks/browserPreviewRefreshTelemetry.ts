@@ -4,7 +4,7 @@ import type { TelemetryTrack } from './useTelemetry';
 let emittedThisSession = false;
 
 /**
- * RL-119 Slice 1 — record adoption once per renderer session, never per
+ * implementation — record adoption once per renderer session, never per
  * keystroke or refresh. Off cannot reach this helper because no run starts.
  */
 export function trackBrowserPreviewAutoRefreshOnce(

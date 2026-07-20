@@ -1,5 +1,5 @@
 /**
- * RL-093 / T8 — Runtime chip + engine picker for the floating action
+ * internal / implementation — Runtime chip + engine picker for the floating action
  * pill ("what engine": Worker / Node / Browser preview / Deno / Bun).
  * Only mounted for languages with runtime modes (JS/TS). Extracted
  * verbatim.
@@ -100,7 +100,7 @@ export function FloatingActionPillRuntimeSegment({
                   data-active={isActive ? 'true' : 'false'}
                   onClick={() => {
                     setOpenMenu(null);
-                    // RL-093 follow-up — when the user opens
+                    // internal follow-up — when the user opens
                     // the Runtime picker without a tab, create
                     // one in the chip's current language and
                     // apply the chosen runtime to it. Avoids

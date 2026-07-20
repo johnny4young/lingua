@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 — argv parser tests.
+ * implementation — argv parser tests.
  *
  * Pin the CLI's user-input surface. Adding new flags is allowed via
  * code change; silent acceptance of unknown flags is not.

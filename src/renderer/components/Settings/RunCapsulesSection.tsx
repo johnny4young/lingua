@@ -9,7 +9,7 @@ import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { emitCommand } from '../../stores/commandBus';
 
 /**
- * RL-094 Slice 1 — Settings → Account → Run Capsules.
+ * implementation — Settings → Account → Run Capsules.
  *
  * Reads the latest captured `RunCapsuleV1` from the execution-history
  * store via the `latestCapsule()` selector, renders a one-line
@@ -18,30 +18,30 @@ import { emitCommand } from '../../stores/commandBus';
  *   1. Runs the capsule through `sanitizeRunCapsule` (truncates
  *      oversized streams + drops non-primitive `dependencySummary`
  *      shapes; records what was omitted in `privacy.omittedFields`).
- *   2. Serialises with `JSON.stringify`. Fold C exposes a pretty /
- *      minified toggle so users heading to RL-036 share-links (URL
+ *   2. Serialises with `JSON.stringify`. implementation note exposes a pretty /
+ *      minified toggle so users heading to internal share-links (URL
  *      fragment) can keep the payload tight.
  *   3. Writes to the clipboard via `navigator.clipboard.writeText`,
  *      falls back to a read-only textarea exposed inline when the
  *      clipboard API rejects (Safari private mode, iframe context).
  *   4. Fires the `capsule.exported { trigger, sizeBucket }` adoption
- *      telemetry (Fold A) — closed-enum, no payload content leaks.
+ *      telemetry (implementation note) — closed-enum, no payload content leaks.
  *
- * No new IPC. No desktop saveDialog — Slice 1 ships pure
- * clipboard-or-inline; a future slice can promote saveDialog when
+ * No new IPC. No desktop saveDialog — implementation ships pure
+ * clipboard-or-inline; a future work can promote saveDialog when
  * the IPC surface exists. The Settings copy is explicit that nothing
  * leaves the device unless the user pastes it themselves (per
  * Anti-feature §A-006: no mandatory cloud sync).
  */
 export function RunCapsulesSection() {
   const { t, i18n } = useTranslation();
-  // RL-094 Slice 1 reviewer fix — select the CALL RESULT of
+  // implementation reviewer fix — select the CALL RESULT of
   // `latestCapsule()`, not the function reference. The reference is
   // stable across store updates so subscribing to it would never
   // trigger a re-render when a new run lands; selecting the result
   // returns a new RunCapsuleV1 reference (or `null`) on each entries
   // change, so the component re-renders correctly. Mirrors the
-  // pattern used in `CommandPalette.tsx` (RL-094 Slice 1 fold B).
+  // pattern used in `CommandPalette.tsx` (implementation note).
   const capsule = useExecutionHistoryStore(state => state.latestCapsule());
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const [prettyPrint, setPrettyPrint] = useState(true);
@@ -72,7 +72,7 @@ export function RunCapsulesSection() {
     });
   }, [capsule, prettyPrint, pushStatusNotice]);
 
-  // IT2-F7 — one-file HTML export of the same latest capsule. Save /
+  // internal — one-file HTML export of the same latest capsule. Save /
   // download orchestration (native dialog on desktop, blob on web)
   // lives in the helper; this surface only routes the outcome notices.
   const handleExportHtml = useCallback(async () => {
@@ -116,7 +116,7 @@ export function RunCapsulesSection() {
               </label>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 {/*
-                 * RL-094 Slice 2 — Import button mirrors the Export
+                 * implementation — Import button mirrors the Export
                  * affordance so the surface advertises both directions of
                  * the capsule loop. Click emits a command the App-level
                  * overlay consumer handles; this keeps the
@@ -124,7 +124,7 @@ export function RunCapsulesSection() {
                  * slot (same pattern as the snippets surface).
                  */}
                 {/*
-                 * RL-094 Slice 3 — Browse opens the Pro-gated capsule
+                 * implementation — Browse opens the Pro-gated capsule
                  * browse overlay. Same typed-command decoupling as Import;
                  * the surface tag drives the overlay's
                  * `capsule.browse_opened` telemetry.

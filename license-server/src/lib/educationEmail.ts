@@ -1,5 +1,5 @@
 /**
- * Educational-email validation for RL-061 Slice 4.
+ * Educational-email validation for implementation
  *
  * Phase 1 strategy per LICENSING_ADR Decision 5: cheap regex
  * gate on `.edu` plus an explicit allow-list of additional
@@ -9,7 +9,7 @@
  *
  * Phase 2 enhancement (BACKLOG): GitHub Education API integration
  * for stronger verification. OAuth flow is non-trivial and would
- * gate a full slice on its own.
+ * gate a standalone change on its own.
  *
  * Anti-spoof note: a `.edu` regex catches the obvious case but not
  * a determined attacker. The schema-level UNIQUE(email) +

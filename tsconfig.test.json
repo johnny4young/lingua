@@ -1,5 +1,5 @@
 {
-  // RL-132 / AUDIT-12 — scoped type-check gate for the branded-id
+  // implementation detail — scoped type-check gate for the branded-id
   // swap-attack compile guard. The root tsconfig.json only includes
   // `src/**`, and `pnpm test` runs vitest in transpile-only mode, so
   // neither existing gate ever type-checks files under `tests/`. That

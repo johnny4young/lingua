@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 1 — executeTabManually capsule attach.
+ * implementation — executeTabManually capsule attach.
  *
  * Asserts that the runtime pipeline:
  *
@@ -104,7 +104,7 @@ import {
 import { useGitStore } from '../../src/renderer/stores/gitStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
-describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
+describe('executeTabManually — capsule attach ', () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
@@ -238,7 +238,7 @@ describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
     });
   });
 
-  // Slice 2 — `outputSourceMappingEnabled` was removed; origin
+  // implementation — `outputSourceMappingEnabled` was removed; origin
   // metadata is always passed through. The "OFF state strips origin"
   // case no longer applies; per-file `// @origin off` directive
   // remains the user-controlled escape hatch (covered by

@@ -1,5 +1,5 @@
 /**
- * Test-only helpers for exercising the RL-059 license verifier. Kept out of
+ * Test-only helpers for exercising the internal license verifier. Kept out of
  * `src/shared/license.ts` so a signing primitive can never accidentally
  * ship in the renderer or main bundle — only the verifier is allowed to
  * live in production code.

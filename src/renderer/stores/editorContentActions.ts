@@ -3,7 +3,7 @@ import { useRecipeStore } from './recipeStore';
 import type { EditorSet } from './editorStoreContext';
 
 /**
- * RL-128 fold A/B — per-tab content-write action factory for the editor store.
+ * implementation — per-tab content-write action factory for the editor store.
  *
  * Bundles the buffer writers (`updateContent`, `setTabContentFromDisk`), the
  * execution-state setter, the recipe-binding clear, and the one-shot
@@ -25,7 +25,7 @@ export function createContentActions(
   return {
     updateContent: (id, content) =>
       set((state) => ({
-        // RL-070 — clear lifecycle markers when the user edits the buffer.
+        // internal — clear lifecycle markers when the user edits the buffer.
         // A stale `error` dot or `running` state would mislead the user
         // about the current code's outcome; reset to `idle` so the next
         // run produces a fresh signal.
@@ -43,7 +43,7 @@ export function createContentActions(
       })),
 
     /**
-     * RL-024 Slice 2 — refresh a tab's buffer from disk content WITHOUT
+     * implementation — refresh a tab's buffer from disk content WITHOUT
      * marking it dirty. Used by the Replace in files overlay after a
      * successful IPC apply so the tab visually reflects the on-disk
      * change. Unlike `updateContent` (which is the user-edit path),

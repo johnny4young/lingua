@@ -1,4 +1,4 @@
-/** RL-039 Slice C — Recipe `py-group-records`. */
+/** implementation — Recipe `py-group-records`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

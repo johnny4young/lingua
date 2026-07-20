@@ -2,7 +2,7 @@ import { useAiExplainCodeStore } from '../../stores/aiExplainCodeStore';
 import { ExplainCodeDialog } from './ExplainCodeDialog';
 
 /**
- * SR-20a (Wave 4) — single mount point for the "Explain this code" dialog.
+ * internal  — single mount point for the "Explain this code" dialog.
  * Renders it whenever the store holds an open request, so both the editor
  * context-menu action and the command-palette command open the same
  * dialog. Mounted once near the app root.

@@ -1,7 +1,7 @@
 /**
- * RL-100 Slice 1 — Importer registry unit tests.
+ * implementation — Importer registry unit tests.
  *
- * Pins the closed enum + the basic registry contract (Slice 2+
+ * Pins the closed enum + the basic registry contract (implementation
  * adapters extend the same shape; renaming the API here breaks
  * downstream importers).
  */
@@ -22,7 +22,7 @@ describe('IMPORTER_REGISTRY', () => {
     );
   });
 
-  it('ships curl-http + ipynb-notebook + postman/bruno collections + linguanb (RL-043 Slice E)', () => {
+  it('ships curl-http + ipynb-notebook + postman/bruno collections + linguanb ', () => {
     expect([...IMPORTER_IDS].sort()).toEqual([
       'bruno-collection',
       'curl-http',

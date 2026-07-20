@@ -1,5 +1,5 @@
 /**
- * RL-038 Slice C closeout — EditorEmptyState capability-aware quick-start
+ * implementation closeout — EditorEmptyState capability-aware quick-start
  * buttons. The empty-state hero now walks `LANGUAGE_PACKS` instead of a
  * hardcoded `['javascript', 'typescript', 'go', 'python', 'rust']`
  * array, and renders a localized "Desktop only" pill alongside the
@@ -76,7 +76,7 @@ function clearPlatform(): void {
   delete (globalThis as unknown as LinguaWindow).lingua;
 }
 
-describe('EditorEmptyState — capability badges (RL-038)', () => {
+describe('EditorEmptyState — capability badges', () => {
   beforeEach(async () => {
     initI18n('en');
     await i18next.changeLanguage('en');

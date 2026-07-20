@@ -29,11 +29,11 @@ Before making non-trivial changes, open these files (in order).
 
 - Do not describe plugin support as a finished user-facing extension system until the typing and UI flows go beyond the built-in language set.
 - If a change touches shortcuts, execution behavior, or workflow behavior, update the related docs in the same change.
-- Never invent new `RL-XXX` ticket ids; reuse the ids already referenced in the codebase and docs.
-- **Vite env consumers — audit ALL THREE configs.** When a slice introduces a new consumer of `import.meta.env.VITE_*` (renderer / web) or of a build-time `process.env.LINGUA_*` (main `define`), it must be wired into every Vite config that reaches a packaged surface, not only the one where the bug first showed up. Concretely:
+- Keep ticket IDs and private planning labels out of source, tests, commit messages, and public documentation. Describe the behavior or invariant directly instead.
+- **Vite env consumers — audit ALL THREE configs.** When a change introduces a new consumer of `import.meta.env.VITE_*` (renderer / web) or of a build-time `process.env.LINGUA_*` (main `define`), it must be wired into every Vite config that reaches a packaged surface, not only the one where the bug first showed up. Concretely:
   - `vite.web.config.mts` and `vite.renderer.config.mts` need `envDir: __dirname` so repo-root `.env` / `.env.production` actually substitute `import.meta.env.VITE_*` defines into their bundles.
   - `vite.main.config.mts` needs the function form of `defineConfig` calling `loadEnv(mode, __dirname, '')` because main reads from `process.env` at config-load time, BEFORE Vite's automatic env loading runs.
-  - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `pnpm run make:desktop` build and a paste, not just the dev launchers. RL-061 Slice 2.5 fixed only the web symptom; Slice 3 surfaced the renderer + main gaps when the production .app rejected every paste with `no-public-key`.
+  - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `pnpm run make:desktop` build and a paste, not just the dev launchers. implementation fixed only the web symptom; implementation surfaced the renderer + main gaps when the production .app rejected every paste with `no-public-key`.
   - **This landmine is now partially mechanized**: `tests/build/envDefineWiring.test.ts` fails CI when a `__LINGUA_*__` define is consumed by a surface whose config never provides it, when `envDir` drifts off the repo root in the renderer/web configs, or when `vite.main.config.mts` stops using the shared four-source cascade (`build/resolveEnv.mts`). New env-sourced main defines MUST go through `resolveBuildTimeEnvVar`. The packaged-build validation advice above still applies for anything the resolved-config check cannot see (dev-launcher injection, electron-builder packaging).
 
 ## UI verification — MANDATORY when the diff touches user-facing surfaces
@@ -41,7 +41,7 @@ Before making non-trivial changes, open these files (in order).
 **Hard rule**: any change that touches a React component, a Settings
 section, a status notice, a keyboard shortcut, an i18n copy string, or
 any other user-facing surface MUST be verified in a running app before
-the slice is declared done. Tests passing is necessary but not
+the change is declared done. Tests passing is necessary but not
 sufficient — they do not catch runtime render errors, Tailwind class
 collisions, store rehydration timing, or i18n interpolation bugs.
 
@@ -56,7 +56,7 @@ Order of preference:
    and stay queryable). Always end the pass with
    `browser_console_messages({ level: 'error' })` — zero errors is
    the gate.
-3. **Electron shell** (fallback when the slice only works in desktop
+3. **Electron shell** (fallback when the change only works in desktop
    — IPC handlers that have no web stub, `crashReporter` boot,
    `protocol.registerFileProtocol`, etc.) → prefer the configured
    Electron Stagewright MCP for agent-driven desktop UI checks
@@ -74,7 +74,7 @@ Minimum smoke pass for a renderer-side slice:
 
 - Start `pnpm run preview:web` in background, navigate to
   `http://localhost:4173/`.
-- Open the surface the slice touched. Exercise the happy path plus
+- Open the surface the change touched. Exercise the happy path plus
   the primary error path.
 - Flip `lingua-settings.language` to `es`, reload, re-exercise — at
   least confirm the changed strings render without missing keys.
@@ -89,7 +89,7 @@ purely a dependency bump with no behavior delta. When in doubt, run
 the web smoke. The token cost is small; a shipped runtime bug is
 larger.
 
-Corollary: if the slice CAN'T be validated via web (it's Electron
+Corollary: if the future work can'T be validated via web (it's Electron
 main-only or needs IPC shapes the web adapter stubs out), fall
 through to Electron smoke. Never skip both tiers silently.
 
@@ -115,7 +115,7 @@ through to Electron smoke. Never skip both tiers silently.
   the same tsc pass so `pnpm test` alone enforces it.
 - Web builds: `pnpm run build:web`. Desktop dev: `pnpm run dev:desktop`.
 - Keep scope tight. If a review surfaces something out of scope, flag
-  it in the internal plan rather than expanding the current slice.
+  it in the implementation notes rather than expanding the current change.
 
 ## Copy style — Spanish locale
 

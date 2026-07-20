@@ -25,18 +25,18 @@ interface ConsoleEntryPopoverProps {
 }
 
 /**
- * RL-044 Slice 1B — detail surface for a single rich console entry.
+ * implementation — detail surface for a single rich console entry.
  * Two tabs:
  *
  *   - **Preview** — a tree-style rendering that exposes the typed
- *     structure (Maps / Sets / Tables / arrays of objects). Slice 1B
+ *     structure (Maps / Sets / Tables / arrays of objects). implementation
  *     keeps the preview deliberately compact — `MAX_SCOPE_DEPTH = 4`
  *     mirrors the `<VariableInspectorPanel>` cap.
  *   - **Raw JSON** — `JSON.stringify(payload)` with a CopyButton.
- *     Pro-gated via `EXECUTION_HISTORY` (fold C); free tier sees an
+ *     Pro-gated via `EXECUTION_HISTORY` (implementation note); free tier sees an
  *     inline upsell.
  *
- * Tooltip refinement (fold B + user ask): the Raw JSON tab carries
+ * Tooltip refinement (implementation note ask): the Raw JSON tab carries
  * the platform-aware `⌘⇧J` keybinding chip + a one-line description.
  * The Preview tab carries the parallel description tooltip without
  * a keybinding (it's the default focus).
@@ -49,7 +49,7 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
   const [tab, setTab] = useState<Tab>('preview');
   const canCopyJson = useEntitlement('EXECUTION_HISTORY');
 
-  // Mod+Shift+J — switch to the Raw JSON tab (fold B). Mod = ⌘ on
+  // Mod+Shift+J — switch to the Raw JSON tab (implementation note). Mod = ⌘ on
   // macOS, Ctrl elsewhere; we accept either modifier so the shortcut
   // works without sniffing `platform`.
   useEffect(() => {

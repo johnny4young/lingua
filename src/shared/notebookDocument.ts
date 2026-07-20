@@ -1,15 +1,15 @@
 /**
- * RL-043 Slice E — `.linguanb` native notebook document.
+ * implementation — `.linguanb` native notebook document.
  *
  * The lossless, Lingua-native counterpart to the lossy `.ipynb`
- * export/import (Slice D, `notebookExportToIpynb.ts` +
+ * export/import (implementation, `notebookExportToIpynb.ts` +
  * `ipynbImporter.ts`). Where `.ipynb` is a single-kernel interchange
  * format that flattens per-cell language and drops detail, a
  * `.linguanb` document round-trips a `NotebookV1` with NOTHING lost:
  * cell ids, per-cell language (incl. TypeScript), markdown, outputs,
  * title, and createdAt all survive, plus the per-cell Jupyter-style
  * `[N]` execution-order stamps the in-app store tracks transiently
- * (fold B).
+ * (implementation note).
  *
  * The document is an ENVELOPE around `NotebookV1` (not the bare
  * notebook) for two reasons:
@@ -22,7 +22,7 @@
  *
  * Pure module — no IPC, no clipboard. The renderer wraps the JSON in a
  * Blob for download (web) or hands it to the capability IPC for a disk
- * save (desktop, fold A); the importer adapter parses it back.
+ * save (desktop, implementation note); the importer adapter parses it back.
  */
 
 import {
@@ -75,7 +75,7 @@ export type LinguanbRejectReason = (typeof LINGUANB_REJECT_REASONS)[number];
 
 /**
  * The `.linguanb` document envelope. `notebook` is the lossless
- * payload; `executionOrder` (fold B) is the per-cell `[N]` stamp map
+ * payload; `executionOrder` (implementation note) is the per-cell `[N]` stamp map
  * (`cellId -> positive integer`) captured from the runtime store at
  * export time, restored on import so a round-trip is faithful down to
  * the execution counters. Cells absent from the map were never run.

@@ -1,5 +1,5 @@
 /**
- * RL-115 Slice 1 — inline per-line timing end-to-end.
+ * implementation — inline per-line timing end-to-end.
  *
  * Locks the acceptance criteria on the production web build:
  *   - a buffer with `// @time` renders a timing chip per top-level
@@ -43,7 +43,7 @@ const TIMED_SOURCE = [
   'console.log(total);',
 ].join('\n');
 
-test.describe('inline per-line timing (RL-115)', () => {
+test.describe('inline per-line timing', () => {
   test('a // @time buffer renders per-statement chips with one hot spot', async ({
     page,
   }) => {

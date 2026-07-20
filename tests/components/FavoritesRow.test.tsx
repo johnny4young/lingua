@@ -26,7 +26,7 @@ afterEach(() => {
   localStorage.removeItem(UTILITY_HISTORY_STORAGE_KEY);
 });
 
-describe('FavoritesRow (RL-069 Slice 3)', () => {
+describe('FavoritesRow ', () => {
   it('renders nothing when there are no pinned utilities', () => {
     const { container } = render(
       <FavoritesRow selectedUtilityId="json" onSelect={vi.fn()} />

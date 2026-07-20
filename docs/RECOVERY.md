@@ -1,4 +1,4 @@
-# Recovery and safe-mode boot (RL-090)
+# Recovery and safe-mode boot
 
 When something in Lingua corrupts persisted state — a bad import, a
 faulty plugin, a half-written settings JSON — the app exposes three

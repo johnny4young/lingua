@@ -12,7 +12,7 @@ interface FileTreeEmptyStateProps {
   /**
    * Fired after the open-tabs foot selects a tab so the caller can
    * close a mobile drawer. The tab selection itself is owned by
-   * `FileTreeOpenTabs` (PERF-001 — it self-subscribes to a narrowed
+   * `FileTreeOpenTabs` (internal — it self-subscribes to a narrowed
    * tab projection so editor keystrokes don't re-render the explorer).
    */
   onSelectTab?: () => void;

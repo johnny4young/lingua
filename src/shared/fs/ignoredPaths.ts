@@ -1,6 +1,6 @@
 /**
- * RL-087 — single source of truth for path prefixes that should never
- * trigger re-index work in the renderer (or, in future tickets,
+ * internal — single source of truth for path prefixes that should never
+ * trigger re-index work in the renderer (or, in future work,
  * search-in-files / find-in-tree / project-wide indexing).
  *
  * The list deliberately stays short and conservative — directories

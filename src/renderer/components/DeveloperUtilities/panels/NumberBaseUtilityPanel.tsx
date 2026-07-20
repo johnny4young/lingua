@@ -82,7 +82,7 @@ export function NumberBaseUtilityPanel() {
     setInvalidId(null);
   };
 
-  // RL-069 Slice 2 — decimal is the canonical interchange format for
+  // implementation — decimal is the canonical interchange format for
   // copy. Hex / binary / octal stay reachable through the per-row
   // CopyButtons.
   const registerOutput = useCallback(

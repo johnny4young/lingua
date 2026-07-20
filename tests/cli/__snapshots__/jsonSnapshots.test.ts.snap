@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`--json envelope snapshots (fold F) > capsule validate: invalid-json failure 1`] = `
+exports[`--json envelope snapshots (implementation note) > capsule validate: invalid-json failure 1`] = `
 {
   "detail": "<stripped>",
   "ok": false,
@@ -8,28 +8,28 @@ exports[`--json envelope snapshots (fold F) > capsule validate: invalid-json fai
 }
 `;
 
-exports[`--json envelope snapshots (fold F) > capsule validate: success 1`] = `
+exports[`--json envelope snapshots (implementation note) > capsule validate: success 1`] = `
 {
   "ok": true,
   "summary": "<stripped>",
 }
 `;
 
-exports[`--json envelope snapshots (fold F) > utility base64-decode: success 1`] = `
+exports[`--json envelope snapshots (implementation note) > utility base64-decode: success 1`] = `
 {
   "ok": true,
   "value": "hello",
 }
 `;
 
-exports[`--json envelope snapshots (fold F) > utility base64-encode: success 1`] = `
+exports[`--json envelope snapshots (implementation note) > utility base64-encode: success 1`] = `
 {
   "ok": true,
   "value": "aGVsbG8=",
 }
 `;
 
-exports[`--json envelope snapshots (fold F) > utility diff-text: success 1`] = `
+exports[`--json envelope snapshots (implementation note) > utility diff-text: success 1`] = `
 {
   "ok": true,
   "value": "- line1
@@ -37,7 +37,7 @@ exports[`--json envelope snapshots (fold F) > utility diff-text: success 1`] = `
 }
 `;
 
-exports[`--json envelope snapshots (fold F) > utility json-format: failure 1`] = `
+exports[`--json envelope snapshots (implementation note) > utility json-format: failure 1`] = `
 {
   "detail": "<stripped>",
   "ok": false,
@@ -45,7 +45,7 @@ exports[`--json envelope snapshots (fold F) > utility json-format: failure 1`] =
 }
 `;
 
-exports[`--json envelope snapshots (fold F) > utility json-format: success 1`] = `
+exports[`--json envelope snapshots (implementation note) > utility json-format: success 1`] = `
 {
   "ok": true,
   "value": "{
@@ -54,14 +54,14 @@ exports[`--json envelope snapshots (fold F) > utility json-format: success 1`] =
 }
 `;
 
-exports[`--json envelope snapshots (fold F) > utility regex-replace: success 1`] = `
+exports[`--json envelope snapshots (implementation note) > utility regex-replace: success 1`] = `
 {
   "ok": true,
   "value": "abcNdef",
 }
 `;
 
-exports[`--json envelope snapshots (fold F) > utility url-parse: success 1`] = `
+exports[`--json envelope snapshots (implementation note) > utility url-parse: success 1`] = `
 {
   "ok": true,
   "value": "{

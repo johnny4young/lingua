@@ -9,7 +9,7 @@ import { runVerifyWeb } from './licenseWebVerify';
 import type { LicenseStatus } from './licenseTypes';
 
 /**
- * RL-130 — license-token helpers, extracted verbatim from `licenseStore.ts`:
+ * internal — license-token helpers, extracted verbatim from `licenseStore.ts`:
  * the `issuedAt` / `issuedTo` payload decoders + the stale-token auto-pickup.
  * Depends on `licenseWebVerify` (it re-verifies any server-provided replacement
  * locally) + the license server service; never on the store or action factories.
@@ -37,14 +37,14 @@ export function decodeIssuedTo(token: string): string | null {
 }
 
 /**
- * RL-061 Slice 4 — stale-token auto-pickup.
+ * implementation — stale-token auto-pickup.
  *
  * When local verify on a paste / rehydrate produces
  * `{ kind: 'invalid', reason: 'expired' }`, the signature was still
  * valid (otherwise we'd see `'invalid-signature'`). The server's
  * `findCurrentLicenseForToken` walks the licenseId path and returns
  * the canonical `licenses.token` via `refreshedToken`, so a stale T1
- * resolves to the active T2 silently.
+ * resolves to the active implementation silently.
  *
  * Grace-window contract: this helper is only allowed to run after
  * local verification has proven the stale token is authentic but

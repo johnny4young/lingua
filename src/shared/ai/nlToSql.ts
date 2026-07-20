@@ -1,5 +1,5 @@
 /**
- * T19 follow-on — natural-language → SQL request builder (pure core).
+ * implementation follow-on — natural-language → SQL request builder (pure core).
  *
  * The SQL workspace already knows the live DuckDB schema (the single
  * `information_schema.columns` probe that feeds the browser + autocomplete).

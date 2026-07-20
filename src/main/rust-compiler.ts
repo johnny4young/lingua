@@ -6,7 +6,7 @@
  * - Compiling Rust source code to a native binary via `rustc`
  * - Running the compiled binary and capturing stdout/stderr
  *
- * RL-079 — the subprocess env is filtered through
+ * internal — the subprocess env is filtered through
  * `buildNativeRunnerEnv` so secrets in `process.env` (CI tokens,
  * OPENAI_API_KEY, etc.) cannot reach the spawned `rustc` or the
  * compiled user binary. Temp dirs use `mkdtemp` for collision
@@ -91,8 +91,8 @@ interface RustRunResult {
 /**
  * Build the env passed to `rustc` and the compiled binary.
  *
- * RL-079: only allowlisted host keys flow through; the user-tier env
- * from RL-011 layers on top. There are no runner-owned overrides for
+ * internal: only allowlisted host keys flow through; the user-tier env
+ * from internal layers on top. There are no runner-owned overrides for
  * Rust — rustc respects the host toolchain on its own and the
  * spawned binary gets whatever the user explicitly configured.
  */
@@ -157,7 +157,7 @@ async function runRustCode(
     };
   }
 
-  // RL-079 — `mkdtemp` returns a unique directory under the OS temp
+  // internal — `mkdtemp` returns a unique directory under the OS temp
   // root with 6 random suffix chars, eliminating the collision window
   // a `Date.now()` filename would leave open for two concurrent runs.
   const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-rust-'));

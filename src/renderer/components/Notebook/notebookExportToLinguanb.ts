@@ -1,15 +1,15 @@
 /**
- * RL-043 Slice E — export a Lingua notebook to its native `.linguanb`
+ * implementation — export a Lingua notebook to its native `.linguanb`
  * document, the lossless counterpart of `notebookExportToIpynb.ts`.
  *
  * Pure helper (mirrors `notebookExportToScript` / `notebookExportToIpynb`):
  * the component layer wraps the JSON in a `Blob` + `URL.createObjectURL`
  * for download (web) or hands it to the capability IPC for a disk save
- * (desktop, fold A). No clipboard / no IPC here.
+ * (desktop, implementation note). No clipboard / no IPC here.
  *
  * Unlike the `.ipynb` export, `.linguanb` is lossless — it embeds the
  * full `NotebookV1` plus the transient per-cell `[N]` execution-order
- * map (fold B), so re-importing it via the `linguanbImporter` restores
+ * map (implementation note), so re-importing it via the `linguanbImporter` restores
  * the notebook with nothing dropped.
  */
 
@@ -31,7 +31,7 @@ export interface NotebookLinguanbExportResult {
  * Serialize a notebook to a `.linguanb` document.
  *
  * @param notebook the notebook to export.
- * @param opts.executionOrder per-cell Jupyter `[N]` stamps (fold B); the
+ * @param opts.executionOrder per-cell Jupyter `[N]` stamps (implementation note); the
  *   serializer sanitizes them to the document's cells + positive ints.
  *   The map is transient store state, so the caller threads it in.
  */

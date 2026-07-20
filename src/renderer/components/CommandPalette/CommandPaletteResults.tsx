@@ -48,7 +48,7 @@ interface CommandPaletteResultsProps {
   /** Stable per-row option id, for the input's aria-activedescendant. */
   optionId: (index: number) => string;
   /**
-   * RL-113 — present ONLY in the Cmd+; recent-commands variant: maps a
+   * internal — present ONLY in the Cmd+; recent-commands variant: maps a
    * command id to its last execution epoch. Switches the list to a flat
    * numbered stack (1-8 badges + relative "2m ago" column) and skips
    * the category grouping.
@@ -115,7 +115,7 @@ export function CommandPaletteResults({
 }
 
 /**
- * RL-113 — compact relative timestamp for the recent stack. Reuses the
+ * internal — compact relative timestamp for the recent stack. Reuses the
  * existing `executionHistory.relative.*` plural keys so the palette and
  * the Recent-runs pill describe time identically.
  */

@@ -1,5 +1,5 @@
 /**
- * Runtime-asset registry — RL-083 Slice 1, extended by RL-042.
+ * Runtime-asset registry — implementation, extended by internal
  *
  * Single source of truth for any runtime asset that ships outside the
  * normal JS / CSS bundles. Consumed by:
@@ -85,7 +85,7 @@ export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry
       'package.json',
     ],
   },
-  // RL-042 Slice 5 — Ruby web runtime via `@ruby/wasm-wasi`. The
+  // implementation — Ruby web runtime via `@ruby/wasm-wasi`. The
   // bytecode lives in the version-specific `@ruby/3.4-wasm-wasi`
   // package; the renderer worker resolves the URL via
   // `new URL('../ruby/ruby+stdlib.wasm', import.meta.url)`, which the

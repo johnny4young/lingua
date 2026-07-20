@@ -1,5 +1,5 @@
 /**
- * Unit tests for the educational-email validator (RL-061 Slice 4).
+ * Unit tests for the educational-email validator .
  *
  * Pin the regex positives + negatives plus the additional TLD
  * allow-list so a maintainer extending it doesn't accidentally

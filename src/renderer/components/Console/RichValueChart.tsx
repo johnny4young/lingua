@@ -1,5 +1,5 @@
 /**
- * RL-044 Slice 2b-β-α — `chart` payload renderer.
+ * implementation — `chart` payload renderer.
  *
  * Lazy-imports `vega-embed` on first mount; the resolved chunk lives
  * in its own Vite bundle (`vega-embed`) so the main entry stays
@@ -9,7 +9,7 @@
  * `useSettingsStore` (the `useAppTheme()` hook is side-effect only
  * and does not return the theme).
  *
- * Fold B (Pro-gated export): right-aligned actions menu offers
+ * implementation note (Pro-gated export): right-aligned actions menu offers
  * "Export as SVG" / "Export as PNG"; free-tier shows "Export (Pro)"
  * with `pushUpsellNotice` mirroring the `ConsoleEntryPopover`
  * Copy-as-JSON pattern.
@@ -69,7 +69,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
   const rootRef = useRef<HTMLSpanElement | null>(null);
   const containerRef = useRef<HTMLSpanElement | null>(null);
   const vegaResultRef = useRef<VegaResult | null>(null);
-  // UX Sweep T3 — the actions menu trigger + popover, for focus
+  // accessibility pass — the actions menu trigger + popover, for focus
   // management (focus into the menu on open, back to the trigger on close).
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLSpanElement | null>(null);
@@ -83,7 +83,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
   // theme change because the selector subscriptions trigger render.
   const theme = useSettingsStore((s) => s.theme);
   const editorTheme = useSettingsStore((s) => s.editorTheme);
-  // Slice 2 — shell polarity always follows the active editor theme.
+  // implementation — shell polarity always follows the active editor theme.
   const effectiveTheme = resolveEffectiveShellTheme(theme, editorTheme, true);
 
   useEffect(() => {
@@ -129,7 +129,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
       if (event.key === 'Escape') {
         event.preventDefault();
         setShowMenu(false);
-        // UX Sweep T3 — return focus to the trigger so a keyboard user
+        // accessibility pass — return focus to the trigger so a keyboard user
         // is not dropped to the document body when the menu closes.
         menuTriggerRef.current?.focus();
       }
@@ -147,7 +147,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
     };
   }, [showMenu]);
 
-  // UX Sweep T3 — move focus to the first action when the menu opens so
+  // accessibility pass — move focus to the first action when the menu opens so
   // arrow keys have a starting point and a keyboard user is inside the menu.
   useEffect(() => {
     if (!showMenu) return;
@@ -156,7 +156,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
       ?.focus();
   }, [showMenu]);
 
-  // UX Sweep T3 — ↑↓ / Home / End roving across the menu actions.
+  // accessibility pass — ↑↓ / Home / End roving across the menu actions.
   const handleMenuKeyDown = useCallback((event: ReactKeyboardEvent<HTMLSpanElement>) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     const buttons = Array.from(
@@ -204,7 +204,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
         // Export failures are non-fatal; the chart stays rendered.
       } finally {
         setShowMenu(false);
-        // UX Sweep T3 — activating an item (keyboard Enter) also returns
+        // accessibility pass — activating an item (keyboard Enter) also returns
         // focus to the trigger so a keyboard user is not dropped to body.
         menuTriggerRef.current?.focus();
       }

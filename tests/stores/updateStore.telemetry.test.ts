@@ -1,5 +1,5 @@
 /**
- * RL-065 Slice 5 fold D — `update.checked` telemetry callsite.
+ * implementation note — `update.checked` telemetry callsite.
  *
  * The store subscribes at module-load and emits `update.checked`
  * once per transition out of the `checking` state. Closed-enum
@@ -33,7 +33,7 @@ vi.mock('@/utils/telemetry', () => ({
   })),
 }));
 
-describe('updateStore — update.checked telemetry (fold D)', () => {
+describe('updateStore — update.checked telemetry (implementation note)', () => {
   beforeEach(async () => {
     trackEventMock.mockClear();
     // Reset the store to the default unavailable state at the start
@@ -119,7 +119,7 @@ describe('updateStore — update.checked telemetry (fold D)', () => {
     expect(trackEventMock).toHaveBeenCalledWith('update.checked', { status: 'available' });
   });
 
-  it('records a metadata-only updates trust event on a real check (RL-096 Slice 2 fold A)', async () => {
+  it('records a metadata-only updates trust event on a real check (implementation note)', async () => {
     const { useUpdateStore } = await import('@/stores/updateStore');
     const { useTrustEventStore } = await import('@/stores/trustEventStore');
     useTrustEventStore.getState().clear();

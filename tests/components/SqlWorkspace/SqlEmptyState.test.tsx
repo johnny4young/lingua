@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SqlEmptyState } from '../../../src/renderer/components/SqlWorkspace/SqlEmptyState';
 import { SQL_IMPORT_FILE_ACCEPT } from '../../../src/shared/sqlWorkspace';
 
-describe('SqlEmptyState (SR-38)', () => {
+describe('SqlEmptyState', () => {
   it('renders New query and Import data actions', () => {
     render(<SqlEmptyState onCreate={vi.fn()} onImportFile={vi.fn()} />);
     expect(screen.getByTestId('sql-workspace-empty-create')).toBeTruthy();

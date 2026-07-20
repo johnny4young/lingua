@@ -26,7 +26,7 @@ describe('ErrorBoundary', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
     localStorage.clear();
-    // RL-090 — recordCrash dedupes by fingerprint within a 50ms
+    // internal — recordCrash dedupes by fingerprint within a 50ms
     // window, and tests fire identical errors back-to-back.
     // Reset the dedupe map so each test sees a fresh counter.
     _resetCrashFingerprintsForTests();

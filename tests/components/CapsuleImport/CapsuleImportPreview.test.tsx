@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 2 — tests for the pure preview component.
+ * implementation — tests for the pure preview component.
  * Asserts the metadata strip + tab switching + redacted banner.
  */
 
@@ -62,7 +62,7 @@ describe('CapsuleImportPreview', () => {
     ).toBeTruthy();
   });
 
-  it('surfaces the omitted-fields privacy banner when present (Fold F)', () => {
+  it('surfaces the omitted-fields privacy banner when present (implementation note)', () => {
     const withOmitted: RunCapsuleV1 = {
       ...FIXTURE_LARGE_STDOUT,
       privacy: {

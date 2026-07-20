@@ -6,7 +6,7 @@ interface RichValueObjectProps {
 }
 
 /**
- * RL-044 Slice 1B — compact preview for `{ kind: 'object' }`. Echoes
+ * implementation — compact preview for `{ kind: 'object' }`. Echoes
  * the `<VariableInspectorPanel>` row's visual shape: type icon +
  * `Type{key1, key2, …}` preview clipped at three keys.
  */

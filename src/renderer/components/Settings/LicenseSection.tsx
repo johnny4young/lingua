@@ -16,7 +16,7 @@ import { RecoveryCta } from './RecoveryCta';
 import { TrialCta } from './TrialCta';
 
 /**
- * License paste / clear surface for RL-059. Intentionally minimal — the
+ * License paste / clear surface for internal Intentionally minimal — the
  * verifier + store already own the state machine; this component just
  * gives users a way to hand a token over and read the result back.
  *
@@ -82,7 +82,7 @@ function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid
       return 'license.notice.invalid.unsupportedTier';
     case 'no-public-key':
       return 'license.notice.invalid.notAccepted';
-    // RL-061 Slice 2.5 — server-rejection reasons. Slice 3 will surface
+    // implementation — server-rejection reasons. implementation will surface
     // the device-management modal that lets the user remediate the
     // `devices-exhausted` case without re-pasting the token.
     case 'devices-exhausted':
@@ -91,7 +91,7 @@ function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid
       return 'license.notice.invalid.refunded';
     case 'unknown-license':
       return 'license.notice.invalid.unknownLicense';
-    // RL-061 Slice 3 follow-up. `invalid-input` means the renderer's
+    // implementation follow-up. `invalid-input` means the renderer's
     // request body was rejected by the worker validator — the token is
     // fine but the client and server disagree on the request shape
     // (e.g. an `os` value the worker enum did not accept). Distinct
@@ -141,13 +141,13 @@ function formatLifetimeUpdateDate(timestamp: number, locale: string): string {
 export function LicenseSection() {
   const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState('');
-  // UX Sweep T14 — reflect a rejected paste on the input itself (aria-invalid
+  // accessibility pass — reflect a rejected paste on the input itself (aria-invalid
   // + an inline message), not only via the transient toast.
   const [applyErrorKey, setApplyErrorKey] = useState<string | null>(null);
   const applyErrorId = useId();
   const [isApplying, setIsApplying] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  // UX Sweep T2 fold C — whether the remove-license confirm is open.
+  // accessibility pass — whether the remove-license confirm is open.
   // Removing the token drops the user Pro->Free, so it confirms first.
   const [confirmClear, setConfirmClear] = useState(false);
   const [pendingRemovalId, setPendingRemovalId] = useState<string | null>(null);
@@ -159,7 +159,7 @@ export function LicenseSection() {
   const [exhaustedModalOpen, setExhaustedModalOpen] = useState(false);
   const [dismissedExhaustedModal, setDismissedExhaustedModal] = useState(false);
 
-  // RL-143 — RFC 7638 thumbprint of the build-embedded signing key, shown
+  // internal — RFC 7638 thumbprint of the build-embedded signing key, shown
   // so the operator can verify the running build against the rotation
   // registry (docs/security/license-key-registry.json). Async because the
   // digest goes through WebCrypto; stays null (row hidden) on dev builds
@@ -190,7 +190,7 @@ export function LicenseSection() {
   const isDevicesExhausted = status.kind === 'invalid' && status.reason === 'devices-exhausted';
   const lifetimeNotice = lifetimeUpdateNotice(status);
 
-  // Slice 4 — when a child CTA hits a duplicate-email branch with
+  // implementation — when a child CTA hits a duplicate-email branch with
   // `canRecover: true`, we capture the email here and pass it down to
   // RecoveryCta as a prefill so the user can recover with one click. The
   // renderer-driven recoverHint (stale-token branch) stays derived at render
@@ -379,7 +379,7 @@ export function LicenseSection() {
         </div>
       ) : null}
 
-      {/* RL-143 — embedded signing-key fingerprint. Rendered only when the
+      {/* internal — embedded signing-key fingerprint. Rendered only when the
           build embeds a public key; the operator cross-checks this value
           against docs/security/license-key-registry.json when rotating. */}
       {keyThumbprint ? (

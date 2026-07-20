@@ -1,5 +1,5 @@
 /**
- * RL-097 Slices 3a + 3b — HttpEnvironmentManager.
+ * implementationa + 3b — HttpEnvironmentManager.
  *
  * Pins (3a): empty state; add environment; add / edit / delete variable;
  * secret toggle flips the value input to a masked password field; delete
@@ -38,7 +38,7 @@ function env(
   };
 }
 
-/** Build a variable row with an explicit id (Slice 3b). */
+/** Build a variable row with an explicit id . */
 function v(
   id: string,
   key: string,
@@ -220,7 +220,7 @@ describe('HttpEnvironmentManager', () => {
     expect(onDelete).toHaveBeenCalledWith('e1');
   });
 
-  // ---------------- Slice 3b — secret-by-default heuristic ----------------
+  // ---------------- implementation — secret-by-default heuristic ----------------
 
   it('secret-by-default: a token-like NEW key auto-suggests secret: true', async () => {
     const onUpdateVariables = vi.fn();
@@ -267,7 +267,7 @@ describe('HttpEnvironmentManager', () => {
     expect(next[0].secret).toBe(false);
   });
 
-  // ------------------------ Slice 3b — duplicate env ----------------------
+  // ------------------------ implementation — duplicate env ----------------------
 
   it('the duplicate button fires onDuplicate with the env id', async () => {
     const onDuplicate = vi.fn();
@@ -280,7 +280,7 @@ describe('HttpEnvironmentManager', () => {
     expect(onDuplicate).toHaveBeenCalledWith('e1');
   });
 
-  // -------------------------- Slice 3b — export ---------------------------
+  // -------------------------- implementation — export ---------------------------
 
   it('export copies the share-safe JSON to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -300,7 +300,7 @@ describe('HttpEnvironmentManager', () => {
     );
   });
 
-  // -------------------------- Slice 3b — import ---------------------------
+  // -------------------------- implementation — import ---------------------------
 
   it('import: textarea → confirm calls onImport with the pasted JSON', async () => {
     const onImport = vi.fn(() => ({ ok: true as const, id: 'new-env' }));
@@ -339,7 +339,7 @@ describe('HttpEnvironmentManager', () => {
     ).not.toBeNull();
   });
 
-  // ------------------------- Slice 3b — reorder ---------------------------
+  // ------------------------- implementation — reorder ---------------------------
 
   it('renders a drag handle per variable row + uses stable variable.id keys', () => {
     render(

@@ -37,7 +37,7 @@ export function HttpAuthTab({ auth, onChange }: HttpAuthTabProps) {
         <span className="text-caption font-semibold text-fg-base">
           {t('httpWorkspace.editor.auth.label')}
         </span>
-        <label className="sr-only" htmlFor="http-request-auth-kind">
+        <label className="internal" htmlFor="http-request-auth-kind">
           {t('httpWorkspace.editor.auth.kind.label')}
         </label>
         <select

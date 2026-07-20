@@ -41,8 +41,8 @@ export interface ThemePresetInputs {
   fontFamily: SettingsState['fontFamily'];
   fontSize: SettingsState['fontSize'];
   layoutPreset: SettingsState['layoutPreset'];
-  // Slice 2 — preserved fields for backward compatibility with older
-  // exports. Always `true` on a Slice 2+ build; older builds keep their
+  // implementation — preserved fields for backward compatibility with older
+  // exports. Always `true` on a implementation build; older builds keep their
   // persisted value when round-tripping a preset.
   fontLigatures: boolean;
   syncShellWithEditorTheme: boolean;

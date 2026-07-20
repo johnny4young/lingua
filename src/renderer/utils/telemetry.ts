@@ -10,7 +10,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 
 /**
- * Telemetry emitter (RL-065). Never fires without:
+ * Telemetry emitter. Never fires without:
  *   1. the user having explicitly granted consent via Settings
  *   2. the build honoring the `LINGUA_TELEMETRY_DISABLED=1` kill switch
  *   3. a configured endpoint via `VITE_LINGUA_TELEMETRY_URL`
@@ -50,7 +50,7 @@ export function _resetEndpointCacheForTesting(): void {
 }
 
 /**
- * RL-096 Slice 2 fold B — coalesce window for the `telemetry` trust event.
+ * implementation note — coalesce window for the `telemetry` trust event.
  * One record per minute is enough for the Privacy dashboard's "last call"
  * read while keeping the cap-200 trust log from filling with telemetry rows.
  */
@@ -99,7 +99,7 @@ function warnInvalidEndpointOnce(raw: string, reason: 'parse' | 'scheme' | 'plai
  * or uses a non-https scheme — telemetry never flies over plaintext
  * to a misconfigured host.
  *
- * RL-065 Slice 5 fold F — a build-time typo (`http:/telemetry`)
+ * implementation note — a build-time typo (`http:/telemetry`)
  * used to silently swallow events because the emitter accepted any
  * non-empty string. The misconfigured-build warning above is fired
  * once per launch so a developer running the web bundle locally can
@@ -154,7 +154,7 @@ export function isTelemetryEnabled(): boolean {
   if (resolveKillSwitch()) return false;
   if (!resolveEndpoint()) return false;
   // `useSettingsStore` can be undefined here if telemetry fires during the
-  // settings store's own persist migrate — `reportMigration` (RL-126/RL-111)
+  // settings store's own persist migrate — `reportMigration`
   // calls `trackEvent` inside `createMigrate`, before the module binding is
   // assigned (a call-time import cycle). Treat an unavailable store as
   // no-consent: privacy-safe (defaults to NOT sending) and crash-free, which
@@ -175,7 +175,7 @@ export async function emitTelemetryEvent(
   const endpoint = resolveEndpoint();
   if (!isTelemetryEnabled() || !endpoint) return;
 
-  // RL-096 Slice 2 fold B — mirror the outbound telemetry into the local
+  // implementation note — mirror the outbound telemetry into the local
   // trust log so the Privacy dashboard's `telemetry` row shows a real last
   // call. Coalesced (<=1 / TELEMETRY_TRUST_THROTTLE_MS) because telemetry is
   // high-frequency and would otherwise churn the cap-200 trust log. `record`
@@ -260,7 +260,7 @@ export async function trackEvent(
 }
 
 /**
- * RL-044 Sub-slice G Fold B — burst-throttled emit for
+ * implementation Sub-slice G implementation note — burst-throttled emit for
  * `runtime.output_origin_clicked`. Users debugging a loop frequently
  * click 10-20 `<OutputLineBadge>` chips in a few seconds; without a
  * throttle the dashboard fills with noise indistinguishable from

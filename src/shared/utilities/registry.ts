@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — utility adapter registry.
+ * implementation — utility adapter registry.
  *
  * Single source of truth for `id → adapter` lookup. Both the pipeline
  * engine and the UI step dropdown consume this map. Adding an
@@ -54,7 +54,7 @@ export const UTILITY_ADAPTER_REGISTRY: Readonly<
   'url-parse': urlParseAdapter as UtilityAdapter<unknown>,
   'regex-replace': regexReplaceAdapter as UtilityAdapter<unknown>,
   'diff-text': diffTextAdapter as UtilityAdapter<unknown>,
-  // RL-099 Slice 4 — vocabulary expansion (core 4 + folds A/B/C/E).
+  // implementation — vocabulary expansion (core 4 + implementation note/B/C/E).
   hash: hashAdapter as UtilityAdapter<unknown>,
   'jwt-decode': jwtDecodeAdapter as UtilityAdapter<unknown>,
   'url-encode': urlEncodeAdapter as UtilityAdapter<unknown>,
@@ -64,13 +64,13 @@ export const UTILITY_ADAPTER_REGISTRY: Readonly<
   'string-case': stringCaseAdapter as UtilityAdapter<unknown>,
   'html-entity-encode': htmlEntityEncodeAdapter as UtilityAdapter<unknown>,
   'html-entity-decode': htmlEntityDecodeAdapter as UtilityAdapter<unknown>,
-  // RL-099 Slice 6 — vocabulary expansion round 2.
+  // implementation — vocabulary expansion round 2.
   'number-base': numberBaseAdapter as UtilityAdapter<unknown>,
   'line-sort': lineSortAdapter as UtilityAdapter<unknown>,
   slugify: slugifyAdapter as UtilityAdapter<unknown>,
   'json-minify': jsonMinifyAdapter as UtilityAdapter<unknown>,
   'text-stats': textStatsAdapter as UtilityAdapter<unknown>,
-  // RL-099 Slice 7 — generator-style holdouts (uuid / lorem / inspect).
+  // implementation — generator-style holdouts (uuid / lorem / inspect).
   uuid: uuidAdapter as UtilityAdapter<unknown>,
   'lorem-ipsum': loremIpsumAdapter as UtilityAdapter<unknown>,
   'string-inspect': stringInspectAdapter as UtilityAdapter<unknown>,

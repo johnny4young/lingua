@@ -73,7 +73,7 @@ describe('languageMeta', () => {
     expect(languageSupportsFileName('editorconfig', '.editorconfig')).toBe(true);
   });
 
-  it('resolves Java and Scala through the LanguagePack descriptor (RL-042 fourth slice)', () => {
+  it('resolves Java and Scala through the LanguagePack descriptor (implementation)', () => {
     expect(languageForExtension('java')).toBe('java');
     expect(languageForExtension('.java')).toBe('java');
     expect(languageForExtension('scala')).toBe('scala');
@@ -86,7 +86,7 @@ describe('languageMeta', () => {
     expect(executionModeForLanguage('scala')).toBe('validate');
   });
 
-  it('resolves Swift and Kotlin through the LanguagePack descriptor (RL-042 third slice)', () => {
+  it('resolves Swift and Kotlin through the LanguagePack descriptor (implementation)', () => {
     expect(languageForExtension('swift')).toBe('swift');
     expect(languageForExtension('.swift')).toBe('swift');
     expect(languageForExtension('kt')).toBe('kotlin');
@@ -99,7 +99,7 @@ describe('languageMeta', () => {
     expect(executionModeForLanguage('kotlin')).toBe('validate');
   });
 
-  it('resolves C and C++ through the LanguagePack descriptor (RL-042 second slice)', () => {
+  it('resolves C and C++ through the LanguagePack descriptor (implementation)', () => {
     expect(languageForExtension('c')).toBe('c');
     expect(languageForExtension('.h')).toBe('c');
     expect(languageForExtension('cpp')).toBe('cpp');
@@ -113,16 +113,16 @@ describe('languageMeta', () => {
     expect(executionModeForLanguage('cpp')).toBe('validate');
   });
 
-  it('resolves Ruby through the LanguagePack descriptor (runnable since RL-042 Slice 5)', () => {
+  it('resolves Ruby through the LanguagePack descriptor (runnable since implementation)', () => {
     expect(languageForExtension('rb')?.toString()).toBe('ruby');
     expect(extensionForLanguage('ruby')).toBe('rb');
     expect(monacoLanguageFor('ruby')).toBe('ruby');
-    // RL-042 Slice 5 flipped Ruby from validate-only to runnable via
+    // implementation flipped Ruby from validate-only to runnable via
     // the `@ruby/wasm-wasi` web worker.
     expect(executionModeForLanguage('ruby')).toBe('run');
   });
 
-  it('flags languages that need a host toolchain with a capability badge key (RL-038 Slice C)', () => {
+  it('flags languages that need a host toolchain with a capability badge key ', () => {
     // Go + Rust depend on host binaries declared in LANGUAGE_PACKS.
     expect(languageCapabilityBadgeKey('go')).toBe('language.capability.desktopOnly');
     expect(languageCapabilityBadgeKey('rust')).toBe('language.capability.desktopOnly');

@@ -1,5 +1,5 @@
 /**
- * RL-036 Phase A1 — No-backend share-link payload schema.
+ * implementation — No-backend share-link payload schema.
  *
  * `SharePayloadV1` is the wire format for the
  * `#share=v1.<gzip-base64url>` URL fragment. Phase A1 is single-tab,
@@ -68,7 +68,7 @@ export const MAX_SHARE_STDIN_BYTES = 4096;
 
 /**
  * Cap on the decompressed payload byte length, mirroring the
- * gzip-bomb defence pattern in `parseRunCapsule` (RL-094).
+ * gzip-bomb defence pattern in `parseRunCapsule`.
  * Decompressed payloads larger than this are treated as adversarial.
  */
 export const MAX_SHARE_DECOMPRESSED_BYTES = 64 * 1024; // 64 KiB
@@ -365,7 +365,7 @@ export async function decodeShareFragment(
 }
 
 // ---------------------------------------------------------------------------
-// Telemetry size bucket — Fold G. Closed enum mirrored on
+// Telemetry size bucket — implementation note. Closed enum mirrored on
 // update-server with parity test.
 // ---------------------------------------------------------------------------
 

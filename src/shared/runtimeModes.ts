@@ -1,14 +1,14 @@
 /**
- * RL-019 Slice 1 — explicit per-tab JS/TS runtime modes.
+ * implementation — explicit per-tab JS/TS runtime modes.
  *
  * Contract:
  *   - `worker` — current default. Sandboxed Web Worker, no DOM, no
  *     Node built-ins. Fast and isolated; ideal for algorithm work.
  *   - `node` — desktop child-process Node. Built-ins (`fs`, `path`,
- *     `http`, `process`, ...) available through the Slice 2
+ *     `http`, `process`, ...) available through the implementation
  *     subprocess spawn, timeout, and env allowlist in the desktop
  *     main process.
- *   - `browser-preview` — iframe-isolated context with DOM. Slice 3
+ *   - `browser-preview` — iframe-isolated context with DOM. implementation
  *     ships the preview pane.
  *   - `deno` / `bun` — desktop child-process alternatives for JS/TS.
  *     They execute TypeScript directly when the matching binary is on
@@ -18,11 +18,11 @@
  * `null` for every other language. Non-JS/TS tabs intentionally
  * carry NO runtime-mode field — the selector renders only for
  * `javascript` / `typescript`, mirroring the language-pack
- * capability contract from RL-038.
+ * capability contract from internal
  *
  * `isRuntimeModeImplemented(mode)` gates writes from the UI / the
- * keyboard cycle helper / the command palette. All three RL-019
- * RL-019 modes plus the F-4 Deno / Bun extension are implemented.
+ * keyboard cycle helper / the command palette. All three internal
+ * internal modes plus the implementation Deno / Bun extension are implemented.
  */
 
 import { isJavaScriptFamily } from './languageFamilies';
@@ -54,8 +54,8 @@ export function defaultRuntimeModeFor(language: string | undefined): RuntimeMode
 }
 
 /**
- * Whether a mode is wired today. Slice 1 shipped `worker`; Slice 3
- * (2026-05-12) added `browser-preview`; **Slice 2 (2026-05-14)
+ * Whether a mode is wired today. implementation shipped `worker`; implementation
+ * (2026-05-12) added `browser-preview`; **implementation (2026-05-14)
  * flipped `node` to enabled** once the desktop Node child-spawn
  * backend landed. The UI still renders the option as disabled when
  * the detector cannot find a `node` binary on PATH — that's a
@@ -66,7 +66,7 @@ export function isRuntimeModeImplemented(mode: RuntimeMode): boolean {
     mode === 'worker' ||
     mode === 'browser-preview' ||
     mode === 'node' ||
-    // F-4 — Deno / Bun desktop backends (src/main/altJsRuntimes.ts). Like
+    // implementation — Deno / Bun desktop backends (src/main/altJsRuntimes.ts). Like
     // `node`, the UI still renders these disabled when the detector cannot
     // find the binary on PATH; that is a platform gate, not an impl gate.
     mode === 'deno' ||
@@ -98,7 +98,7 @@ export function coerceRuntimeMode(
 
 /**
  * Return the next implemented mode after `current`, cycling through
- * `RUNTIME_MODES`. Used by the `Mod+Alt+M` shortcut (fold D).
+ * `RUNTIME_MODES`. Used by the `Mod+Alt+M` shortcut (implementation note).
  */
 export function cycleRuntimeMode(current: RuntimeMode): RuntimeMode {
   const implemented = RUNTIME_MODES.filter(isRuntimeModeImplemented);

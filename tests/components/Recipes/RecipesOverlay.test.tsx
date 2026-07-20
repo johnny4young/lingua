@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — `<RecipesOverlay>` tests.
+ * implementation — `<RecipesOverlay>` tests.
  *
  * Drives the overlay through the user-event surface:
  *   - Empty / unfiltered render shows every recipe.
@@ -57,7 +57,7 @@ describe('RecipesOverlay', () => {
     });
   });
 
-  it('wires the combobox aria-activedescendant to the active recipe (UX Sweep T11)', async () => {
+  it('wires the combobox aria-activedescendant to the active recipe (accessibility pass)', async () => {
     const user = userEvent.setup();
     render(<RecipesOverlay onClose={() => {}} />);
     const input = screen.getByTestId('recipes-search-input');

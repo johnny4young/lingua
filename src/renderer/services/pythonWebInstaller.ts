@@ -1,9 +1,9 @@
 /**
- * RL-025 Slice C — renderer-side wrapper for the Pyodide worker's
+ * implementation — renderer-side wrapper for the Pyodide worker's
  * dependency-management protocol.
  *
  * Mirrors the shape `window.lingua.dependencies.installJs / cancel /
- * onInstallLog` exposes on the desktop JS/TS side (Slice B), but the
+ * onInstallLog` exposes on the desktop JS/TS side , but the
  * transport is a Web Worker postMessage protocol instead of an
  * Electron IPC. The worker handlers live in
  * `src/renderer/workers/python-worker.ts` under message types
@@ -14,7 +14,7 @@
  * immediately after — there is one Pyodide runtime per session. The
  * shared accessor is `runnerManager.getPythonRunner()?.getOrEnsurePyodideWorker()`.
  *
- * Folds active in this surface:
+ * implementation note in this surface:
  *
  *   - C — `listLoadedPackages()` queries `pyodide.loadedPackages` so
  *     the renderer can mark Pyodide builtins (`numpy`, `pandas`,
@@ -24,13 +24,13 @@
  *     frees the runId and surfaces `'timed-out'` instead of blocking
  *     the panel forever.
  *
- * Out of scope (Slice C):
+ * Out of scope :
  *
  *   - Hard cancel mid-install. Pyodide doesn't expose mid-microtask
  *     kill semantics; honest cancel needs a fresh worker which
- *     defeats the shared-runtime principle. Soft cancel UX (fold D)
- *     was considered and rejected for Slice C.
- *   - Coalescing rapid clicks (fold E rejected). Each click on a
+ *     defeats the shared-runtime principle. Soft cancel UX (implementation note)
+ *     was considered and rejected for implementation.
+ *   - Coalescing rapid clicks (implementation note rejected). Each click on a
  *     Python row triggers its own install round-trip.
  */
 
@@ -230,7 +230,7 @@ async function getSharedWorker(): Promise<Worker | null> {
 }
 
 /**
- * RL-025 Slice C (fold C) — query Pyodide for the set of currently-
+ * implementation Slice C (implementation note) — query Pyodide for the set of currently-
  * loaded packages so the renderer can mark them as `'installed'`
  * honestly. Returns an empty array if the worker isn't ready (the
  * hook falls back to `'detected'` for every name).
@@ -255,7 +255,7 @@ export async function listLoadedPackages(): Promise<readonly string[]> {
     pendingLoadedQueries.set(requestId, settle);
     // 5 s soft timeout — if Pyodide is slow to answer, the hook
     // treats the response as empty (every detected name becomes
-    // `'detected'`), which is the same UX we had before Slice C
+    // `'detected'`), which is the same UX we had before implementation
     // shipped. The timer handle is captured + cleared on early
     // resolve so a worker reply that wins the race does not leak a
     // pending setTimeout.
@@ -272,10 +272,10 @@ export async function listLoadedPackages(): Promise<readonly string[]> {
 }
 
 /**
- * RL-025 Slice C — install one or more packages via `micropip` in
+ * implementation — install one or more packages via `micropip` in
  * the shared Pyodide worker.
  *
- * Fold F applies — the renderer races the install promise against a
+ * implementation note applies — the renderer races the install promise against a
  * 90 s timeout so a hung micropip frees the runId. The worker keeps
  * running in the background; we just stop tracking the result.
  */

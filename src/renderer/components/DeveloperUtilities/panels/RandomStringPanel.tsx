@@ -32,7 +32,7 @@ export function RandomStringPanel() {
   const charset = useMemo(() => buildCharset(toggles), [toggles]);
   const charsetEmpty = charset.length === 0;
 
-  // RL-069 Slice 2 — pure generator: no detect, no Apply button.
+  // implementation — pure generator: no detect, no Apply button.
   // The first generated string is the canonical output for
   // Cmd+Shift+C; users can always Generate again to refresh.
   const registerOutput = useCallback(() => values[0] ?? null, [values]);

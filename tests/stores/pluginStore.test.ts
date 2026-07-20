@@ -52,8 +52,8 @@ describe('pluginStore', () => {
     expect(pluginRegistry.get('lua')).toBeDefined();
   });
 
-  it('passes through the unknown status that main emits for non-bundled ids (RL-084)', async () => {
-    // RL-084 — main now classifies `pluginId: 'ruby'` as `unknown`
+  it('passes through the unknown status that main emits for non-bundled ids', async () => {
+    // internal — main now classifies `pluginId: 'ruby'` as `unknown`
     // directly via the shared validator's allowlist check. The
     // store no longer downgrades; it just preserves the status.
     mockGetInstallDirectory.mockResolvedValue('/tmp/lingua/plugins');
@@ -77,7 +77,7 @@ describe('pluginStore', () => {
     expect(pluginRegistry.get('ruby')).toBeUndefined();
   });
 
-  it('falls back to unavailable when main optimistically returns loaded for a runtime we can not load (RL-084 defensive path)', async () => {
+  it('falls back to unavailable when main optimistically returns loaded for a runtime we can not load (internal defensive path)', async () => {
     // Defensive scenario — if a future build prunes the lua loader
     // but main still has `lua` in its allowlist (config drift), main
     // returns `loaded` and the renderer downgrades to `unavailable`.

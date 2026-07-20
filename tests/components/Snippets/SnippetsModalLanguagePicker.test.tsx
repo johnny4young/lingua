@@ -1,5 +1,5 @@
 /**
- * RL-038 Slice C closeout — SnippetsModal language picker.
+ * implementation closeout — SnippetsModal language picker.
  *
  * The picker now walks `LANGUAGE_PACKS` (runnable + compile execution
  * modes) instead of a hardcoded `['javascript', 'typescript', 'go',
@@ -59,7 +59,7 @@ function getOptionTexts(): string[] {
   return Array.from(select.querySelectorAll('option')).map((option) => option.textContent ?? '');
 }
 
-describe('SnippetsModal — language picker (RL-038)', () => {
+describe('SnippetsModal — language picker', () => {
   beforeEach(async () => {
     initI18n('en');
     await act(async () => {

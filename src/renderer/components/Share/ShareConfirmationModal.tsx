@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
 /**
- * RL-036 Phase A1 fold A — pre-share confirmation modal.
+ * implementation Phase A1 implementation note — pre-share confirmation modal.
  *
  * Shown before the share-link URL lands on the clipboard so the user
  * can preview the exact source + stdin content being serialised. Required by
@@ -13,7 +13,7 @@ import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
  * is the explicit consent surface that mitigates accidental token
  * leakage.
  *
- * Gated by `settings.shareLinkConfirmEnabled` (fold F). When the
+ * Gated by `settings.shareLinkConfirmEnabled` (implementation note). When the
  * setting is OFF the caller skips the modal entirely and writes to
  * the clipboard directly.
  *

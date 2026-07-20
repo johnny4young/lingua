@@ -1,5 +1,5 @@
 /**
- * T19 / RL-031 Slice 2 — AI provider client. Covers the OpenAI-compatible
+ * implementation — AI provider client. Covers the OpenAI-compatible
  * success mapping, config/auth/http/timeout/parse failure envelope, and the
  * guarantee that the API key never leaks into an error message.
  */

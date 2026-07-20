@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * RL-145 release/PR-time guard: fail closed when the PRODUCTION dependency
+ * Release/PR-time guard: fail closed when the PRODUCTION dependency
  * graph carries an advisory at or above a severity threshold (default high).
  *
  * What this closes: the blocking `pnpm audit --prod` gate existed only at
- * release time (RL-080's release.yml). PR CI ran the full audit as advisory
+ * release time (the implementation's release.yml). PR CI ran the full audit as advisory
  * (`continue-on-error`), so a prod high-severity dependency could merge with
  * nothing but a warning. This script is the single tested mechanism wired into
  * both ci.yml (PR gate) and release.yml.
  *
  * Modes:
- *   - default: spawn `pnpm audit --prod --json`, capturing stdout regardless
- *     of pnpm's own exit code, then apply our own threshold via
- *     scripts/lib/prodAudit.mjs.
- *   - `--fixture <path>`: read a saved audit JSON instead of spawning pnpm, so
- *     the "synthetic high advisory fails CI" acceptance criterion is provable
- *     in tests/scripts/prodAudit.test.ts without a live registry advisory.
+ * - default: spawn `pnpm audit --prod --json`, capturing stdout regardless
+ * of pnpm's own exit code, then apply our own threshold via
+ * scripts/lib/prodAudit.mjs.
+ * - `--fixture <path>`: read a saved audit JSON instead of spawning pnpm, so
+ * the "synthetic high advisory fails CI" acceptance criterion is provable
+ * in tests/scripts/prodAudit.test.ts without a live registry advisory.
  *
  * Fail-closed: a spawn failure, a non-zero pnpm exit with no JSON, or an
  * unparseable payload exits 1 with a named error — we never green-light an
@@ -54,10 +54,15 @@ const repoRoot = path.resolve(__dirname, '..');
  * @returns {string}
  */
 function runPnpmAudit() {
+  const configuredTimeout = Number(process.env.LINGUA_PROD_AUDIT_TIMEOUT_MS);
+  const timeout = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? configuredTimeout
+    : 60_000;
   const result = spawnSync('pnpm', ['audit', '--prod', '--json'], {
     cwd: repoRoot,
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
+    timeout,
   });
   if (result.error) {
     throw new Error(`Could not run pnpm audit: ${result.error.message}`);

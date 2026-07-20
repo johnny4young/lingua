@@ -1,12 +1,12 @@
 /**
- * RL-020 Slice 3 — `@watch` magic-comment pin end-to-end smoke.
+ * implementation — `@watch` magic-comment pin end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
  *   - A JS scratchpad with an arrow (`=>`) and a pin watch
  *     (`data-result-kind="watch"`) surfaces both inline.
- *   - Breaking the buffer fires Slice 1's gate AND the pin watches
- *     stay on screen (Slice 1 snapshot restore + Slice 3 watch
+ *   - Breaking the buffer fires implementation's gate AND the pin watches
+ *     stay on screen (implementation snapshot restore + implementation watch
  *     persistence).
  *   - Repairing the buffer updates the watch values cleanly.
  *
@@ -35,7 +35,7 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
 /**
  * Append text at the end of the active editor buffer without clearing
  * what's already there. This avoids the Cmd+A → Backspace empty-state
- * transit that defeats the Slice 1 snapshot-restore flow when the
+ * transit that defeats the implementation snapshot-restore flow when the
  * caller's intent is "edit incrementally and observe the gate".
  */
 async function appendToEditor(page: Page, source: string): Promise<void> {
@@ -59,7 +59,7 @@ async function seedWatchBuffer(page: Page, counter = 5): Promise<void> {
   );
 }
 
-test.describe('@watch magic-comment pin (RL-020 Slice 3)', () => {
+test.describe('@watch magic-comment pin ', () => {
   test('JS scratchpad surfaces both an arrow and a pinned watch', async ({
     page,
   }) => {
@@ -93,12 +93,12 @@ test.describe('@watch magic-comment pin (RL-020 Slice 3)', () => {
     // Append a clearly-incomplete fragment at the END of the seeded
     // buffer (no Cmd+A → Backspace empty transit that would defeat
     // the snapshot-restore). The trailing `+` operator triggers the
-    // Slice 1 gate cleanly.
+    // implementation gate cleanly.
     await appendToEditor(page, '\nconst y = 1 +');
 
     // Gate notice appears (toBeVisible waits out the debounce).
     await expect(page.getByTestId('auto-run-gate-notice')).toBeVisible();
-    // Watch SURVIVES the gated keystroke (Slice 1 snapshot restore).
+    // Watch SURVIVES the gated keystroke (implementation snapshot restore).
     await expect(page.locator('[data-result-kind="watch"]').first()).toBeVisible();
   });
 

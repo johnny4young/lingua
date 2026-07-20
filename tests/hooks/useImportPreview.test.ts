@@ -1,8 +1,8 @@
 /**
- * RL-100 Slice 1 — `useImportPreview` hook tests.
+ * implementation — `useImportPreview` hook tests.
  *
  * Drives the detect → preview → import lifecycle in jsdom + asserts
- * the store / bottom-panel side effects on confirm (fold G).
+ * the store / bottom-panel side effects on confirm (implementation note).
  */
 
 import { act, renderHook } from '@testing-library/react';
@@ -32,7 +32,7 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 }));
 
 function seedProTier() {
-  // RL-100 Slice 2 — `addNotebookTab` gates on the NOTEBOOK_MODE
+  // implementation — `addNotebookTab` gates on the NOTEBOOK_MODE
   // entitlement (Pro+). Seed a Pro license so the ipynb confirm flow
   // can mint a tab in the test environment. Mirrors the pattern in
   // `tests/stores/editorStore.test.ts`.
@@ -112,7 +112,7 @@ describe('useImportPreview', () => {
     expect(result.current.state.preview?.original.method).toBe('POST');
   });
 
-  it('surfaces lossy warnings (fold C)', () => {
+  it('surfaces lossy warnings (implementation note)', () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(
@@ -122,7 +122,7 @@ describe('useImportPreview', () => {
     expect(result.current.warnings).toContain('curl-basic-auth');
   });
 
-  it('confirm writes a request + opens a full-screen HTTP tab (fold G, MOV.02)', () => {
+  it('confirm writes a request + opens a full-screen HTTP tab (implementation note, MOV.02)', () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(
@@ -179,7 +179,7 @@ describe('useImportPreview', () => {
   });
 });
 
-describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
+describe('useImportPreview — ipynb arm ', () => {
   const sampleIpynb = JSON.stringify({
     nbformat: 4,
     nbformat_minor: 5,
@@ -234,7 +234,7 @@ describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
     expect(useUIStore.getState().activeBottomPanel).toBe('console');
   });
 
-  it('confirm writes every collection request + opens a full-screen HTTP tab (Slice 3, MOV.02)', () => {
+  it('confirm writes every collection request + opens a full-screen HTTP tab (implementation, MOV.02)', () => {
     const postman = JSON.stringify({
       info: {
         name: 'Demo',
@@ -329,7 +329,7 @@ describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
   });
 });
 
-describe('useImportPreview — .linguanb arm (RL-043 Slice E)', () => {
+describe('useImportPreview — .linguanb arm ', () => {
   const linguanbNotebook: NotebookV1 = {
     version: 1,
     id: 'nb-saved',
@@ -354,7 +354,7 @@ describe('useImportPreview — .linguanb arm (RL-043 Slice E)', () => {
     expect(result.current.state.preview?.kind).toBe('linguanb-notebook');
   });
 
-  it('confirm installs the notebook losslessly (preserves cell ids + restores [N]) — fold B/F', () => {
+  it('confirm installs the notebook losslessly (preserves cell ids + restores [N]) — implementation note/F', () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(sampleLinguanb);
@@ -371,7 +371,7 @@ describe('useImportPreview — .linguanb arm (RL-043 Slice E)', () => {
     // Lossless — the document's own cell ids survive (no regeneration).
     expect(installed?.cells.map((c) => c.id)).toEqual(['m1', 'c1']);
     expect(installed?.title).toBe('Saved Notebook');
-    // Fold B — the [N] execution stamp is restored into the store.
+    // implementation note — the [N] execution stamp is restored into the store.
     expect(useNotebookStore.getState().getCellExecutionOrder(tabId, 'c1')).toBe(3);
   });
 });
@@ -406,7 +406,7 @@ describe('import notebook warning telemetry helpers', () => {
     expect(bucketWarningKindCount(11)).toBe('>10');
   });
 
-  it('buckets Postman variable counts on the same dependency-count ladder (fold B)', () => {
+  it('buckets Postman variable counts on the same dependency-count ladder (implementation note)', () => {
     expect(bucketImportVariableCount(0)).toBe('0');
     expect(bucketImportVariableCount(1)).toBe('1');
     expect(bucketImportVariableCount(4)).toBe('2-5');
@@ -415,7 +415,7 @@ describe('import notebook warning telemetry helpers', () => {
   });
 });
 
-describe('useImportPreview — Postman environment/globals sources (RL-100 Slice 4)', () => {
+describe('useImportPreview — Postman environment/globals sources ', () => {
   const collectionWithVar = JSON.stringify({
     info: {
       name: 'Vars',
@@ -453,7 +453,7 @@ describe('useImportPreview — Postman environment/globals sources (RL-100 Slice
       ok: true,
       count: 2,
     });
-    // The display URL redacts the sensitive apiKey value (fold E).
+    // The display URL redacts the sensitive apiKey value (implementation note).
     expect(preview.requests[0]?.displayUrl).toContain('<redacted>');
     expect(preview.requests[0]?.url).toContain('supersecret');
   });

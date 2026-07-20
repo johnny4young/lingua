@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 6 fold B — `json-minify` adapter.
+ * implementation note — `json-minify` adapter.
  *
  * The compaction counterpart to the `json-format` prettifier: parse
  * the input as JSON and re-emit it with no insignificant whitespace

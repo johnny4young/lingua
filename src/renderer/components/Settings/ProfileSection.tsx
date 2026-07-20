@@ -1,5 +1,5 @@
 /**
- * RL-089 — Profile backup section. Lives under Settings → General.
+ * internal — Profile backup section. Lives under Settings → General.
  *
  * Two stacked rows:
  *

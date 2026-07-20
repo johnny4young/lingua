@@ -1,5 +1,5 @@
 /**
- * RL-093 polish #7 — smoke tests for the +N tabs overflow dropdown
+ * internal polish #7 — smoke tests for the +N tabs overflow dropdown
  * exposed by `EditorTabs.tsx` when the open-tab list grows past 5.
  *
  * The dropdown is internal to the EditorTabs component (no public
@@ -87,7 +87,7 @@ describe('TabsOverflowDropdown (via EditorTabs)', () => {
     expect(setActiveTabMock).toHaveBeenCalledWith('t7');
   });
 
-  // RL-093 review — when the user activates a tab past the 5-tab cap
+  // internal review — when the user activates a tab past the 5-tab cap
   // (typically via the overflow dropdown) the active tab MUST stay
   // in the strip; otherwise the visible row has no `data-active=true`
   // and the user loses orientation.

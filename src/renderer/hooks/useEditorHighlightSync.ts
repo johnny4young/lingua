@@ -7,7 +7,7 @@ type MonacoEditorInstance = Parameters<OnMount>[0];
 type DecorationsCollection = ReturnType<MonacoEditorInstance['createDecorationsCollection']>;
 
 /**
- * RL-044 Sub-slice G — applies a Monaco line-flash decoration when an
+ * implementation — applies a Monaco line-flash decoration when an
  * `<OutputLineBadge>` chip is hovered. The chip emits an
  * `editor.highlightLine` command; this hook listens for it and applies
  * the `lingua-highlight-flash` decoration to the
@@ -21,7 +21,7 @@ type DecorationsCollection = ReturnType<MonacoEditorInstance['createDecorationsC
  * Output-to-source linking is a baseline affordance: valid commands flash
  * the target and reveal it when it is outside the current viewport.
  *
- * Symmetric inverse direction (Fold G — `editor.sourceLineHovered`)
+ * Symmetric inverse direction (implementation note — `editor.sourceLineHovered`)
  * is wired inline in `ConsolePanel.tsx` (the listener lives next to
  * the panel-local `pulseLine` useState) so the console pulse does not
  * depend on an editor instance and so it survives when CodeEditor is
@@ -32,7 +32,7 @@ type DecorationsCollection = ReturnType<MonacoEditorInstance['createDecorationsC
 const DEFAULT_DURATION_MS = 1500;
 
 export function useEditorHighlightSync(editorRef: RefObject<MonacoEditorInstance | null>): void {
-  // Slice 2 — the master + sub-gates are gone; output→source linking
+  // implementation — the master + sub-gates are gone; output→source linking
   // and smooth offscreen reveal are baseline.
   // Reviewer pass — single mutable ref so rapid hover bursts (e.g. a
   // user dragging across 5 console rows) clear the previous flash

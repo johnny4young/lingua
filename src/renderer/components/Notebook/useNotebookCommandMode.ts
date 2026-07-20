@@ -186,7 +186,7 @@ export function useNotebookCommandMode({
         target &&
         (target.tagName === 'TEXTAREA' ||
           target.tagName === 'INPUT' ||
-          // RL-043 Slice C — the cell-header language `<select>` is
+          // implementation — the cell-header language `<select>` is
           // focusable; without this a keyboard user operating the
           // selector (option type-ahead) would also trigger single-letter
           // command-mode ops (j/k/d/a/b/m) on the cell.

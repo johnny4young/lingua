@@ -66,7 +66,7 @@ describe('PrivacySection', () => {
     expect(screen.getByTestId('run-ledger-status').textContent).toContain('this session only');
   });
 
-  // Slice 2 — `shareLinkConfirmEnabled` was removed; the share-link
+  // implementation — `shareLinkConfirmEnabled` was removed; the share-link
   // confirmation modal is now the only path before clipboard writes
   // (safer default for accidental shares). The toggle no longer
   // renders.

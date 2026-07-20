@@ -38,7 +38,7 @@ describe('PythonRunner', () => {
     expect(() => runner.stop()).not.toThrow();
   });
 
-  it('T17 — resetScope is a no-op when the worker was never created', () => {
+  it('implementation — resetScope is a no-op when the worker was never created', () => {
     const runner = new PythonRunner();
     // Pyodide is never booted just to clear an empty scope.
     expect(() => runner.resetScope('nb-1')).not.toThrow();
@@ -195,7 +195,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(result.stdinConsumed).toEqual({ count: 1, total: 2 });
   });
 
-  // RL-044 Slice 1C — payload pass-through + telemetry coverage.
+  // implementation — payload pass-through + telemetry coverage.
 
   it('forwards rich console payload from the Pyodide worker to ConsoleOutput', async () => {
     class PayloadWorker {
@@ -256,7 +256,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
   it('omits payload when the worker emits the legacy text-only console shape', async () => {
     // Drive a REAL console message that lacks the `payload` field to
     // exercise the runner's `msg.payload ? … : …` branch. This is the
-    // path triggered when fold-E is OFF or when sys.stdout.write
+    // path triggered when implementation note is OFF or when sys.stdout.write
     // bypasses the print override.
     class TextOnlyWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();
@@ -359,7 +359,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(executeMessage?.richConsoleEnabled).toBe(true);
   });
 
-  // Slice 2 — `consoleRichRenderingEnabled` + `outputSourceMappingEnabled`
+  // implementation — `consoleRichRenderingEnabled` + `outputSourceMappingEnabled`
   // were removed; the worker always receives both flags as `true`.
 
   it('forwards sourceMappingEnabled = true by default to the Pyodide worker', async () => {
@@ -548,7 +548,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(terminateCount).toBe(1);
   });
 
-  // RL-044 Slice 2b-β-β-α — Python paridad rich-media.
+  // implementation — Python paridad rich-media.
 
   it('upgrades a magic-comment chart directive to a typed payload', async () => {
     class ChartDirectiveWorker {
@@ -707,7 +707,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(magic?.payload).toBeUndefined();
   });
 
-  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (fold A telemetry fires fire-and-forget)', async () => {
+  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (implementation note telemetry fires fire-and-forget)', async () => {
     class RejectingWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();
       addEventListener(type: string, handler: (event: MessageEvent) => void): void {
@@ -755,7 +755,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(entry.payload).toBeUndefined();
   });
 
-  it('T17 — forwards scopeId on the execute message for a notebook cell run', async () => {
+  it('implementation — forwards scopeId on the execute message for a notebook cell run', async () => {
     const runner = new PythonRunner();
     await runner.init();
     await runner.execute('x = 1', { scopeId: 'nb-1' });
@@ -763,7 +763,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(executeMessage?.scopeId).toBe('nb-1');
   });
 
-  it('T17 — resetScope posts a reset-scope message once the worker exists', async () => {
+  it('implementation — resetScope posts a reset-scope message once the worker exists', async () => {
     const runner = new PythonRunner();
     await runner.init();
     await runner.execute('x = 1', { scopeId: 'nb-1' });

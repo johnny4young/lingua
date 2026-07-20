@@ -1,12 +1,12 @@
 /**
- * RL-025 Slice C — DependenciesPanel Python web install lifecycle tests.
+ * implementation — DependenciesPanel Python web install lifecycle tests.
  *
  * Pins:
  *   - Web Python tab enables the Install button without a filePath or
  *     package.json (the install path is Pyodide micropip, not npm).
  *   - Click → row transitions to `'installing'` then to `'installed'`.
  *   - unsupported-wheel failureReason maps the row to `'unsupported'`.
- *   - Cancel button is HIDDEN for Python web installs (fold D rejected).
+ *   - Cancel button is HIDDEN for Python web installs (implementation note rejected).
  *   - ES locale renders the new tuteo strings.
  */
 
@@ -36,7 +36,7 @@ vi.mock('../../src/renderer/services/pythonWebInstaller', () => ({
 function setWebPlatform(): void {
   (window as unknown as { lingua: unknown }).lingua = {
     platform: 'web',
-    // Slice C does not need a bridge for Python web — the service
+    // implementation does not need a bridge for Python web — the service
     // module handles micropip.
   };
 }
@@ -99,7 +99,7 @@ beforeEach(async () => {
   setWebPlatform();
 });
 
-describe('DependenciesPanel — Python web install (Slice C)', () => {
+describe('DependenciesPanel — Python web install ', () => {
   it('enables Install on a Python web row without filePath / package.json', () => {
     setActivePythonTab('tab-py');
     seedPythonDetection({
@@ -186,7 +186,7 @@ describe('DependenciesPanel — Python web install (Slice C)', () => {
   });
 
   it('keeps multi-name unsupported-wheel batches as failed (reviewer fix)', async () => {
-    // RL-025 Slice C reviewer fix — `micropip.install` reports one
+    // implementation reviewer fix — `micropip.install` reports one
     // batch-level error. If the user clicks "Install all" on two
     // detected Python rows and Pyodide rejects the batch with
     // `unsupported-wheel`, we cannot disambiguate which name was the
@@ -235,7 +235,7 @@ describe('DependenciesPanel — Python web install (Slice C)', () => {
     expect(btn.title).toMatch(/Pyodide has no compatible wheel/u);
   });
 
-  it('hides the cancel button for Python web installs (fold D rejected)', async () => {
+  it('hides the cancel button for Python web installs (implementation note rejected)', async () => {
     installPythonMock.mockImplementation(
       () => new Promise<never>(() => {})
     );

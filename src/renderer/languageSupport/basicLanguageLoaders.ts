@@ -1,7 +1,7 @@
 import type { MonacoBasicLanguageId, MonacoBasicLanguageModule } from './types';
 
 /**
- * SR-01 — the single home for every `import('monaco-editor/esm/vs/basic-languages/…')`.
+ * internal — the single home for every `import('monaco-editor/esm/vs/basic-languages/…')`.
  *
  * These dynamic imports used to live inline on each language descriptor
  * (`javascript.ts`, `fileTypes.ts`, …). Because those descriptor modules are

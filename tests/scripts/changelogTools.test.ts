@@ -8,6 +8,7 @@ import {
 } from '../../scripts/changelog-draft.mjs';
 import {
   main as checkMain,
+  resolveCommitRangeBase,
   validateChangelogState,
 } from '../../scripts/changelog-check.mjs';
 import { stripArgSeparator } from '../../scripts/lib/cli-args.mjs';
@@ -47,6 +48,20 @@ describe('changelog automation scripts', () => {
     expect(item).toMatchObject({
       section: 'Security',
       text: 'Rotated release signing material.',
+    });
+  });
+
+  it('removes private planning labels from generated release copy', () => {
+    const item = classifyCommit({
+      hash: '7777777777777777777777777777777777777777',
+      shortHash: '7777777',
+      subject: 'feat: strategic review wave 1 — improve comparison pages',
+      body: '',
+    });
+
+    expect(item).toMatchObject({
+      section: 'Added',
+      text: 'improve comparison pages',
     });
   });
 
@@ -139,6 +154,11 @@ describe('changelog automation scripts', () => {
     });
 
     expect(result.ok).toBe(true);
+  });
+
+  it('uses the latest existing tag for preflight before the requested release tag exists', () => {
+    expect(resolveCommitRangeBase(undefined, 'v0.12.0')).toBe('v0.12.0');
+    expect(resolveCommitRangeBase('v0.13.0', 'v0.12.0')).toBe('v0.13.0');
   });
 });
 

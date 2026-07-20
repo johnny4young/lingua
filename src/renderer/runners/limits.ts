@@ -1,5 +1,5 @@
 /**
- * RL-078 — Shared resource limits + truncation helpers for the
+ * internal — Shared resource limits + truncation helpers for the
  * JavaScript / TypeScript / Python runners.
  *
  * The runner stack used to rely on a `setTimeout` scheduled INSIDE the
@@ -8,7 +8,7 @@
  * loop, so the timer never fires and the UI hangs until the user
  * clicks Stop.
  *
- * RL-078 moves the kill timer to the parent renderer thread (the only
+ * internal moves the kill timer to the parent renderer thread (the only
  * thread still responsive when the worker is wedged) and adds these
  * caps so a non-infinite-but-busy run cannot flood the IPC channel,
  * the console panel, or the result panel.
@@ -24,7 +24,7 @@ import type {
   RuntimeTimeoutPreset,
 } from '../types';
 
-// RL-079: re-export the main-side native subprocess caps so renderer
+// internal: re-export the main-side native subprocess caps so renderer
 // surfaces stay co-located and a future bump can update both worker
 // and subprocess heaps in lockstep. The renderer caps below are
 // intentionally tighter (worker heap shares with the UI thread); see
@@ -131,7 +131,7 @@ export function runnerTimeoutResult(
   timeoutPreset?: RuntimeTimeoutPreset | 'override'
 ): ExecutionResult {
   const seconds = Math.max(1, Math.round(timeoutMs / 1000));
-  // RL-020 Slice 7 fold F — point users at the Settings field they
+  // implementation note — point users at the Settings field they
   // need so the timed-out message becomes actionable. The hint copy
   // is appended only when the run did NOT come from an explicit
   // caller override; for one-shot extended runs and magic-comment
@@ -148,7 +148,7 @@ export function runnerTimeoutResult(
     result: undefined,
     executionTime: timeoutMs,
     error,
-    // RL-020 Slice 7 — explicit kind + preset + duration so the
+    // implementation — explicit kind + preset + duration so the
     // renderer's <RunStatusPill> renders the right variant + tooltip
     // without string-matching on `error.message`.
     kind: 'timeout',
@@ -176,7 +176,7 @@ export function runnerStoppedResult(
     error: {
       message: t('runner.stopped.message'),
     },
-    // RL-020 Slice 7 — explicit `'stopped'` kind so the renderer
+    // implementation — explicit `'stopped'` kind so the renderer
     // can render the dedicated <RunStatusPill> variant instead of
     // re-deriving stop vs. timeout vs. error from `error.message`.
     kind: 'stopped',

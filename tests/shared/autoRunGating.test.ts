@@ -1,11 +1,11 @@
 /**
- * RL-020 Slice 1 — auto-run gating heuristics.
+ * implementation — auto-run gating heuristics.
  *
  * Coverage:
  *
  *   - `empty` reason for whitespace-only / empty buffers.
  *   - `ok` reason for non-JS/TS languages (Python / Go / Rust /
- *     JSON stay opaque this slice).
+ *     JSON stay opaque this change).
  *   - JS / TS `incomplete` cases: unbalanced brackets, open quotes,
  *     open template placeholders, trailing operators, trailing
  *     keywords, mid-block-comment.

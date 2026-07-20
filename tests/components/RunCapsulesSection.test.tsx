@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 1 — Settings → Account → Run Capsules surface test.
+ * implementation — Settings → Account → Run Capsules surface test.
  *
  * Covers the four user-facing flows of `RunCapsulesSection`:
  *
@@ -43,7 +43,7 @@ vi.mock('../../src/renderer/stores/uiStore', () => ({
   ),
 }));
 
-// IT2-F7 — the HTML export orchestration is covered by its own unit
+// internal — the HTML export orchestration is covered by its own unit
 // suite (`tests/utils/exportCapsuleHtml.test.ts`); here we only assert
 // the surface wires the right capsule + trigger + outcome notices.
 const { mockExportCapsuleAsHtml } = vi.hoisted(() => ({
@@ -93,7 +93,7 @@ describe('RunCapsulesSection', () => {
     ).not.toBeNull();
   });
 
-  it('emits capsule.openList with the settings surface when Browse is clicked (RL-094 Slice 3)', () => {
+  it('emits capsule.openList with the settings surface when Browse is clicked ', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeCommand('capsule.openList', listener);
     try {
@@ -137,7 +137,7 @@ describe('RunCapsulesSection', () => {
     );
   });
 
-  it('exports the latest capsule as HTML with the settings trigger (IT2-F7)', async () => {
+  it('exports the latest capsule as HTML with the settings trigger', async () => {
     latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     mockExportCapsuleAsHtml.mockImplementation(
       async (_capsule, _trigger, context: { onOk: () => void }) => {
@@ -163,7 +163,7 @@ describe('RunCapsulesSection', () => {
     );
   });
 
-  it('surfaces the error notice when the HTML export fails (IT2-F7)', async () => {
+  it('surfaces the error notice when the HTML export fails', async () => {
     latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     mockExportCapsuleAsHtml.mockImplementation(
       async (_capsule, _trigger, context: { onError: () => void }) => {

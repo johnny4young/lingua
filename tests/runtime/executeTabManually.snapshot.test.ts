@@ -1,5 +1,5 @@
 /**
- * RL-028 sixth slice — executeTabManually snapshot gate.
+ * implementation — executeTabManually snapshot gate.
  *
  * The runtime path attaches an opt-in code snapshot to the
  * execution-history record only when both gates pass:
@@ -56,15 +56,15 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setLineResults: vi.fn(),
     setStdinConsumed: vi.fn(),
     setDiagnostics: vi.fn(),
-    // RL-020 Slice 7 — pill state setters required by the
+    // implementation — pill state setters required by the
     // executeTabManually result-store destructure.
     setRunTermination: vi.fn(),
     setRunDeadlineAt: vi.fn(),
-    // RL-020 Slice 8 — manual Run captures the snapshot on clean
+    // implementation — manual Run captures the snapshot on clean
     // success. The vi.fn() lets tests assert that the capture
     // fires (and never fires on cancel / timeout / error).
     captureSuccessfulSnapshot: vi.fn(),
-    // RL-020 Slice 9 — variable inspector snapshot setter.
+    // implementation — variable inspector snapshot setter.
     setScopeSnapshot: vi.fn(),
   };
   return { useResultStore: { getState: () => state } };
@@ -131,7 +131,7 @@ const runError = () =>
     initialized: false,
   });
 
-describe('executeTabManually — snapshot gate (RL-028)', () => {
+describe('executeTabManually — snapshot gate', () => {
   beforeEach(() => {
     useExecutionHistoryStore.setState(initialHistory, true);
     mockTrackEvent.mockClear();
@@ -269,7 +269,7 @@ describe('executeTabManually — snapshot gate (RL-028)', () => {
     expect(entries[1]?.snapshot).toBeNull();
   });
 
-  it('RL-020 Slice 4 — records tabId on the success branch', async () => {
+  it('implementation — records tabId on the success branch', async () => {
     mockCurrentEffectiveTier.mockReturnValue('pro');
     runOk();
     await executeTabManually({
@@ -283,7 +283,7 @@ describe('executeTabManually — snapshot gate (RL-028)', () => {
     expect(entry?.tabId).toBe('tab-perf');
   });
 
-  it('RL-020 Slice 4 — records tabId on the error branch too', async () => {
+  it('implementation — records tabId on the error branch too', async () => {
     mockCurrentEffectiveTier.mockReturnValue('pro');
     runError();
     await executeTabManually({

@@ -1,5 +1,5 @@
 /**
- * Consent-mirror IPC handler (RL-067 follow-up).
+ * Consent-mirror IPC handler (internal follow-up).
  *
  * The renderer owns consent (source of truth lives in zustand-persist
  * localStorage). Main needs consent **before** `createWindow()` so

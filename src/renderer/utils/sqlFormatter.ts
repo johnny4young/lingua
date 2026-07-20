@@ -1,10 +1,10 @@
 /**
- * RL-068 — SQL Formatter helper.
+ * internal — SQL Formatter helper.
  *
  * Pure, offline, renderer-side. Lazily imports `sql-formatter`
  * (MIT, ~30 KB gz) so the largest single-use Developer Utilities dep
  * ships in its own chunk and only downloads when a user opens the SQL
- * Formatter tool (RL-125 / AUDIT-05) — not for every DevUtils open.
+ * Formatter tool — not for every DevUtils open.
  *
  * Supported dialects line up with the AC: ANSI standard, PostgreSQL,
  * MySQL — the three the audience runs into most often. Other dialects

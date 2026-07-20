@@ -161,7 +161,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
     await expect(page.getByTestId('utilities-search-input')).toBeFocused();
 
-    // SR-36 — the browse view is grouped by category, so ArrowDown from
+    // internal — the browse view is grouped by category, so ArrowDown from
     // the default (json) walks the "Data" section: json → number-base →
     // mock-data.
     await page.keyboard.press('ArrowDown');
@@ -954,7 +954,7 @@ test.describe('Keyboard shortcuts modal', () => {
     await expect(goToSymbolRow).toContainText('R');
 
     // Reset to restore default combos. Sublime seeded overrides, so the
-    // switch now confirms first (UX Sweep T2 preset wipe guard).
+    // switch now confirms first (accessibility pass preset wipe guard).
     await page.getByTestId('shortcut-preset-select').selectOption('default');
     await page.getByTestId('shortcut-preset-confirm-confirm').click();
     await expect(goToSymbolRow).toContainText(/⇧|Shift/);

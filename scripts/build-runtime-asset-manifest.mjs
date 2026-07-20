@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * RL-083 Slice 1 — runtime-asset lock builder + checker.
+ * implementation — runtime-asset lock builder + checker.
  *
  * Modes:
  *   --write  Compute sha256 over the critical files in

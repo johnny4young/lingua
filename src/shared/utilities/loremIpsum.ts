@@ -1,8 +1,8 @@
 /**
  * Lorem Ipsum generator.
  *
- * Originally RL-068 (renderer-side); moved into the shared utility layer
- * under RL-099 Slice 7 (fold A) so the pipeline `lorem-ipsum` adapter and
+ * Originally internal (renderer-side); moved into the shared utility layer
+ * under implementation (implementation note) so the pipeline `lorem-ipsum` adapter and
  * the renderer's Lorem Ipsum panel share one corpus + assembler — the
  * renderer's `src/renderer/utils/loremIpsum.ts` is now a re-export shim,
  * so the Latin word list can no longer drift between two copies.
@@ -239,7 +239,7 @@ export function generateLorem(options: LoremIpsumOptions): string {
 }
 
 // ---------------------------------------------------------------------------
-// RL-099 Slice 7 — `lorem-ipsum` pipeline adapter (generator).
+// implementation — `lorem-ipsum` pipeline adapter (generator).
 // ---------------------------------------------------------------------------
 
 const LOREM_UNITS: readonly LoremIpsumUnit[] = ['words', 'sentences', 'paragraphs'];

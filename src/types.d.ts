@@ -121,7 +121,7 @@ interface RustRunResult {
 }
 
 // -------------------------------------------------------------- Node types
-// RL-019 Slice 2 — desktop Node child-spawn IPC. Detection + run.
+// implementation — desktop Node child-spawn IPC. Detection + run.
 
 interface NodeDetectResult {
   installed: boolean;
@@ -142,7 +142,7 @@ interface NodeRunInvokeOptions {
   filePath?: string;
   userEnv?: Record<string, string>;
   stdin?: string;
-  /** F-7 — keep stdin open for `node.writeStdin` streaming. */
+  /** implementation — keep stdin open for `node.writeStdin` streaming. */
   interactive?: boolean;
   messages?: NativeRunnerMessages;
 }
@@ -158,7 +158,7 @@ interface NodeRunResult {
 }
 
 // -------------------------------------------------------------- Ruby types
-// RL-042 Slice 6 — desktop Ruby child-spawn IPC. Web build does not
+// implementation — desktop Ruby child-spawn IPC. Web build does not
 // expose `window.lingua.ruby` (the renderer falls through to the
 // `@ruby/wasm-wasi` worker instead).
 
@@ -166,9 +166,9 @@ interface RubyDetectResult {
   installed: boolean;
   /** Full `ruby --version` line. */
   version?: string;
-  /** Fold A — parsed semver (e.g. `3.3.6`). Absent when parsing fails. */
+  /** implementation note — parsed semver (e.g. `3.3.6`). Absent when parsing fails. */
   semver?: string;
-  /** Fold A — parsed platform tuple (e.g. `arm64-darwin23`). */
+  /** implementation note — parsed platform tuple (e.g. `arm64-darwin23`). */
   platform?: string;
   error?: string;
 }
@@ -186,7 +186,7 @@ interface RubyRunInvokeOptions {
   filePath?: string;
   userEnv?: Record<string, string>;
   stdin?: string;
-  /** F-7 — keep stdin open for `ruby.writeStdin` streaming. */
+  /** implementation — keep stdin open for `ruby.writeStdin` streaming. */
   interactive?: boolean;
   messages?: NativeRunnerMessages;
 }
@@ -201,7 +201,7 @@ interface RubyRunResult {
   timeoutMs: number;
 }
 
-// F-4 — Deno / Bun desktop runtime IPC shapes. Both runtimes share one
+// implementation — Deno / Bun desktop runtime IPC shapes. Both runtimes share one
 // generic backend (src/main/altJsRuntimes.ts), so they share these types.
 type AltJsRunKind = 'success' | 'error' | 'timeout' | 'stopped' | 'missing-binary';
 interface AltJsDetectResult {
@@ -225,7 +225,7 @@ interface AltJsRunResult {
   timeoutMs: number;
 }
 
-// F-1 — Go / Rust / Ruby dependency install IPC shapes. Mirrors the
+// implementation — Go / Rust / Ruby dependency install IPC shapes. Mirrors the
 // module types in src/shared/dependencies/nativeDependencies.ts and
 // src/main/nativeDependencyInstall.ts (ambient copy for the import-free
 // ipcContract, same pattern as the Node/Ruby types above).
@@ -245,14 +245,14 @@ interface NativeInstallResult {
   error?: string;
 }
 
-// F-7 — a live output chunk from an interactive run (REPL streaming).
+// implementation — a live output chunk from an interactive run (REPL streaming).
 interface RuntimeOutputChunk {
   runId: string;
   stream: 'stdout' | 'stderr';
   chunk: string;
 }
 
-// RL-026 Slice 3 + Slice 4 — desktop LSP launcher status surface.
+// implementation — desktop LSP launcher status surface.
 // `RustAnalyzerStatus` and `GoplsStatus` share the same discriminated
 // union so the renderer and preload can use a single contract; the
 // language-specific aliases exist for readability at the IPC handles.
@@ -334,13 +334,13 @@ interface FsSearchResult {
   matches: FsSearchMatch[];
 }
 
-// RL-024 Slice 2 — replace-in-files preview + apply IPC contract.
+// implementation — replace-in-files preview + apply IPC contract.
 
 interface FsReplaceOptions extends FsSearchOptions {
   /** When true, treat `query` as a JavaScript regex (with `g` flag implicit). */
   regex?: boolean;
   /**
-   * RL-024 Slice 2 fold C — per-line cooperative cancel for regex
+   * implementation note — per-line cooperative cancel for regex
    * preview. If the regex engine spends longer than this on a single
    * line, that file is aborted with `'regex-timeout'` and the panel
    * surfaces a localized notice. Defaults to 50 ms.
@@ -350,7 +350,7 @@ interface FsReplaceOptions extends FsSearchOptions {
 
 interface FsReplaceMatch extends FsSearchMatch {
   /**
-   * RL-024 Slice 2 — the preview text after the regex / literal
+   * implementation — the preview text after the regex / literal
    * substitution has been applied to the matched line. Includes the
    * same `matchStart` / `matchEnd` window as `preview`. Renderer-side
    * before/after rendering reads from `preview` (before) +
@@ -358,7 +358,7 @@ interface FsReplaceMatch extends FsSearchMatch {
    */
   replacedPreview: string;
   /**
-   * RL-024 Slice 2 — the substituted text for THIS match only (no
+   * implementation — the substituted text for THIS match only (no
    * surrounding context). Used by Monaco's `executeEdits` path when
    * applying through an open tab.
    */
@@ -369,7 +369,7 @@ interface FsReplaceResult {
   relativePath: RelativePath;
   matches: FsReplaceMatch[];
   /**
-   * RL-024 Slice 2 fold C — set when the file was skipped because the
+   * implementation note — set when the file was skipped because the
    * cooperative-cancel deadline fired on a line. Renderer surfaces a
    * localized "regex took too long" notice and skips this file in the
    * apply path.
@@ -472,13 +472,13 @@ interface DesktopSmokeConfig {
    */
   launchedAtMs?: number;
   /**
-   * RL-083 Slice 1 — true when the smoke harness is running with
+   * implementation — true when the smoke harness is running with
    * `LINGUA_DESKTOP_SMOKE_OFFLINE=1`. The renderer adds a final
    * synthetic case that asserts no remote URL was attempted.
    */
   offline?: boolean;
   /**
-   * RL-080 Slice 3 — true when the smoke harness is running against
+   * implementation — true when the smoke harness is running against
    * a packaged release artifact (`Lingua.app`) instead of the Vite
    * dev server. The renderer narrows SMOKE_CASES to a 2-case subset
    * (javascript + python) so the release gate stays under ~2 minutes
@@ -546,7 +546,7 @@ type LicenseStatus =
   | { kind: 'active'; verification: LicenseVerificationOk }
   | { kind: 'grace'; verification: LicenseVerificationOk };
 
-// RL-061 Slice 3.5 — server-derived fields shipped from main to
+// implementation — server-derived fields shipped from main to
 // renderer via the IPC bridge so the desktop branch of `licenseStore`
 // can render the Devices section under the same gate the web build
 // already passes (`serverSync === 'synced'` + non-null `devices` +
@@ -610,7 +610,7 @@ type LicenseRemoveDeviceResult = Result<LicenseRemoveDeviceData> & { issues?: st
 
 // ------------------------------------------------------------- Plugin types
 //
-// RL-084 — single source of truth lives in `src/shared/plugins/manifest.ts`
+// internal — single source of truth lives in `src/shared/plugins/manifest.ts`
 // alongside the validator + the bundled-runtime allowlist. The ambient
 // type aliases below keep existing call sites compiling without an
 // explicit import; new code is encouraged to import directly from the
@@ -622,7 +622,7 @@ type InstalledPluginRecord = import('./shared/plugins/manifest').InstalledPlugin
 
 // ---------------------------------------------------------- Watcher types
 //
-// RL-087 — single source of truth lives in
+// internal — single source of truth lives in
 // `src/shared/fs/watcherDiagnostic.ts`. Ambient aliases keep existing
 // call sites compiling without explicit imports.
 
@@ -632,7 +632,7 @@ type PluginDiagnostic = import('./shared/plugins/manifest').PluginDiagnostic;
 
 // --------------------------------------------------------- Branded fs ids
 //
-// RL-132 / AUDIT-12 — branded `string` ids so a `WatchId` / `RelativePath`
+// implementation detail — branded `string` ids so a `WatchId` / `RelativePath`
 // can never be swapped in where a `RootId` is expected at the IPC seam.
 // Single source of truth: `src/shared/fs/brandedIds.ts`. Aliasing them
 // here makes the renderer see branded types on `window.lingua.fs` without
@@ -645,7 +645,7 @@ type RelativePath = import('./shared/fs/brandedIds').RelativePath;
 
 // ----------------------------------------------------------- Profile types
 //
-// RL-089 — single source of truth lives in `src/shared/profile/profile.ts`.
+// internal — single source of truth lives in `src/shared/profile/profile.ts`.
 // Ambient aliases keep call sites compiling without explicit imports.
 
 type LinguaProfile = import('./shared/profile/profile').LinguaProfile;
@@ -661,7 +661,7 @@ type ProfileConfirmReplaceResult = Result<number, 'confirm-failed'>;
 
 // ---------------------------------------------------------- Recovery types
 //
-// RL-090 — error boundaries + recovery UX. The renderer-side helpers
+// internal — error boundaries + recovery UX. The renderer-side helpers
 // live in `src/renderer/utils/safeBoot.ts` and
 // `src/renderer/utils/redactedErrorReport.ts`. Ambient aliases keep
 // the IPC + web-stub call sites compiling without explicit imports.
@@ -670,7 +670,7 @@ type RecoveryResetScope = 'settings' | 'snippets' | 'envVars' | 'session' | 'fac
 type RecoveryConfirmResetResult = Result<number, 'confirm-failed'>;
 type RecoveryRevealFolderResult = Result<null, 'unsupported' | 'open-failed'>;
 
-// RL-025 Slice A — JS/TS dependency resolver IPC contract. Closed
+// implementation — JS/TS dependency resolver IPC contract. Closed
 // status set; the renderer maps these to its broader
 // `DependencyStatus` enum in `src/shared/dependencies/types.ts`.
 type DependencyResolveStatus = 'installed' | 'detected' | 'invalid';
@@ -679,7 +679,7 @@ interface DependencyResolveResult {
   /** Absolute path of the resolved cwd, or null when no cwd was discoverable (e.g. unsaved tab on web stub). */
   cwd: string | null;
   /**
-   * RL-025 Slice B — whether the resolved cwd contains a
+   * implementation — whether the resolved cwd contains a
    * `package.json`. Renderer-side guard for the Install button so
    * we refuse to spawn `npm install` in a directory that would be
    * silently turned into a project by the install.
@@ -687,7 +687,7 @@ interface DependencyResolveResult {
   hasPackageJson: boolean | null;
 }
 
-// RL-025 Slice B — install batch IPC contract. Closed-enum outcome
+// implementation — install batch IPC contract. Closed-enum outcome
 // and failure reason mirrored in
 // `src/shared/dependencies/types.ts` and validated by the closed-enum
 // telemetry redactor.
@@ -725,7 +725,7 @@ interface DependencyInstallLogEvent {
   chunk: string;
 }
 
-// RL-102 Slice 1 — Git read-only layer IPC contracts. Three shapes
+// implementation — Git read-only layer IPC contracts. Three shapes
 // mirrored verbatim in `src/main/git.ts`. The renderer reads them
 // off `window.lingua.git.*` (Electron preload) or treats the bridge
 // as absent on web (graceful degradation — pill + panel are hidden).
@@ -752,7 +752,7 @@ interface GitFileDiff {
   truncated: boolean;
 }
 
-// RL-102 Slice 2 — head-watch + reveal payload contracts. Mirrored
+// implementation — head-watch + reveal payload contracts. Mirrored
 // verbatim from `src/main/git.ts` so the renderer can consume them
 // off `window.lingua.git.onHeadChanged` without an extra import.
 interface GitHeadChangePayload {
@@ -811,7 +811,7 @@ interface LinguaAPI {
     ) => Promise<RustRunResult>;
   };
 
-  // RL-019 Slice 2 — desktop Node child-spawn IPC. Worker-mode JS
+  // implementation — desktop Node child-spawn IPC. Worker-mode JS
   // does not use this bridge; only `runtimeMode === 'node'` tabs.
   // Optional because the web build's adapter (src/web/adapter.ts)
   // deliberately omits this surface — Node mode is desktop-only.
@@ -826,15 +826,15 @@ interface LinguaAPI {
       options?: NodeRunInvokeOptions
     ) => Promise<NodeRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
-    // F-7 — interactive stdin.
+    // implementation — interactive stdin.
     writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
     closeStdin: (runId: string) => Promise<{ closed: boolean }>;
-    // F-7 — live stdout/stderr chunks from an interactive run. Returns an
+    // implementation — live stdout/stderr chunks from an interactive run. Returns an
     // unsubscribe fn. Consumers filter by `runId`.
     onOutput: (handler: (event: RuntimeOutputChunk) => void) => () => void;
   };
 
-  // F-4 — desktop Deno / Bun child-spawn IPC. Optional; web adapter omits
+  // implementation — desktop Deno / Bun child-spawn IPC. Optional; web adapter omits
   // them (desktop-only). Callers MUST check `window.lingua.deno` / `.bun`.
   deno?: {
     detect: (userEnv?: Record<string, string>, force?: boolean) => Promise<AltJsDetectResult>;
@@ -847,7 +847,7 @@ interface LinguaAPI {
     stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 
-  // RL-042 Slice 6 — desktop Ruby child-spawn IPC. Optional because
+  // implementation — desktop Ruby child-spawn IPC. Optional because
   // the web build's adapter (src/web/adapter.ts) deliberately omits
   // this surface — the renderer falls back to the @ruby/wasm-wasi
   // worker instead. Callers MUST check `window.lingua.ruby` before
@@ -862,10 +862,10 @@ interface LinguaAPI {
       options?: RubyRunInvokeOptions
     ) => Promise<RubyRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
-    // F-7 — interactive stdin.
+    // implementation — interactive stdin.
     writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
     closeStdin: (runId: string) => Promise<{ closed: boolean }>;
-    // F-7 — live stdout/stderr chunks from an interactive run. Returns an
+    // implementation — live stdout/stderr chunks from an interactive run. Returns an
     // unsubscribe fn. Consumers filter by `runId`.
     onOutput: (handler: (event: RuntimeOutputChunk) => void) => () => void;
   };
@@ -888,7 +888,7 @@ interface LinguaAPI {
     snapshot: () => Promise<Record<string, string>>;
   };
 
-  // RL-026 Slice 3 (Rust) + Slice 4 (Go) — desktop LSP bridges.
+  // implementation (Rust) + implementation (Go) — desktop LSP bridges.
   lsp: {
     rust: {
       start: () => Promise<RustAnalyzerStatus>;
@@ -920,7 +920,7 @@ interface LinguaAPI {
 
   fs: {
     /**
-     * RL-077 capability-based sandbox: pickers mint an opaque `rootId`
+     * internal capability-based sandbox: pickers mint an opaque `rootId`
      * tied to the directory the user explicitly approved. Subsequent
      * filesystem operations supply `{ rootId, relativePath }` instead
      * of absolute paths so a compromised renderer cannot operate on a
@@ -983,7 +983,7 @@ interface LinguaAPI {
         }
     >;
     /**
-     * RL-137 / AUDIT-17 — classify a path against the filesystem denylist so a
+     * implementation detail — classify a path against the filesystem denylist so a
      * blocked reopen/pick can be surfaced with an actionable, localized notice.
      * `family` mirrors `BLOCKED_PATH_FAMILIES` in `src/main/ipc/permissions.ts`;
      * `null` means the path is allowed. The web build always returns `null`.
@@ -1008,7 +1008,7 @@ interface LinguaAPI {
       options?: FsSearchOptions
     ) => Promise<FsSearchResult[]>;
     /**
-     * RL-024 Slice 2 — preview replace-in-files. Walks the project
+     * implementation — preview replace-in-files. Walks the project
      * the same way as `searchInFiles`, but each match also carries
      * a per-match `replacement` + `replacedPreview` so the renderer
      * can render before/after diffs without re-deriving regex
@@ -1022,7 +1022,7 @@ interface LinguaAPI {
       options?: FsReplaceOptions
     ) => Promise<FsReplaceResult[]>;
     /**
-     * RL-024 Slice 2 — atomically apply the substitution to a
+     * implementation — atomically apply the substitution to a
      * single file. Writes to a tmpfile in the same directory then
      * renames over the original (Windows AV retry x3). Returns
      * `{ ok, replaced, reason? }` with a closed-enum reason for
@@ -1056,13 +1056,13 @@ interface LinguaAPI {
     mkdir: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
     touch: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
     /**
-     * RL-024 Slice 1 fold A — open the OS file manager with the
+     * implementation note — open the OS file manager with the
      * entry selected. Desktop: `shell.showItemInFolder`. Web build:
      * no-op (no underlying absolute path).
      */
     revealInFinder: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
     /**
-     * RL-024 Slice 3 — pack every visible file under the capability
+     * implementation — pack every visible file under the capability
      * root into a `.zip` bundle (with a `lingua-bundle.json` manifest)
      * and write it to a user-chosen path. Desktop-only; the web stub
      * resolves `{ ok: false, reason: 'write-failed' }` since the web
@@ -1079,7 +1079,7 @@ interface LinguaAPI {
       | { ok: false; reason: 'empty' | 'too-many-files' | 'write-failed' }
     >;
     /**
-     * RL-024 Slice 3 — extract a `.zip` bundle (raw bytes from the
+     * implementation — extract a `.zip` bundle (raw bytes from the
      * renderer) into a user-chosen empty folder, after authoritative
      * zip-slip / zip-bomb / cap re-validation in main. Returns the new
      * root path so the renderer adopts it via `openProject(rootPath)`.
@@ -1107,7 +1107,7 @@ interface LinguaAPI {
         }
     >;
     /**
-     * RL-087 — returns either the `watchId` string on success or a
+     * internal — returns either the `watchId` string on success or a
      * tagged-union `{ ok: false, diagnostic }` shape when fs.watch
      * registration fails (EACCES, EMFILE, ENOSPC, ENOENT). Callers
      * should branch on the response shape. The diagnostic is also
@@ -1121,12 +1121,12 @@ interface LinguaAPI {
     watchStop: (watchId: WatchId) => Promise<boolean>;
     onChanged: (callback: (event: FsChangedEvent) => void) => () => void;
     /**
-     * RL-087 — push subscription for typed watcher failures. Main emits
+     * internal — push subscription for typed watcher failures. Main emits
      * one `WatcherDiagnostic` per failed `fs.watch()` registration.
      */
     onWatcherFailed: (callback: (diagnostic: WatcherDiagnostic) => void) => () => void;
     /**
-     * RL-087 — informational push when the watcher reports a sustained
+     * internal — informational push when the watcher reports a sustained
      * burst of null-filename events (Linux inotify overflow, etc.).
      * Renderer surfaces a warning-tone notice; not an error.
      */
@@ -1166,7 +1166,7 @@ interface LinguaAPI {
     writeJsonArtifact: (name: string, payload: unknown) => Promise<string | null>;
     finish: (success: boolean) => void;
     /**
-     * RL-083 Slice 1 — list of URLs the offline-mode webRequest
+     * implementation — list of URLs the offline-mode webRequest
      * filter cancelled during the smoke run. Empty when offline mode
      * is off or no requests were attempted.
      */
@@ -1175,7 +1175,7 @@ interface LinguaAPI {
   };
 
   /**
-   * RL-089 — destructive `replace` policy of the profile-restore flow
+   * internal — destructive `replace` policy of the profile-restore flow
    * gates behind a native confirm modal. Result data is 0 to confirm or
    * 1 to cancel (matching `app:confirm-close`); operational dialog
    * failures use the Result error branch. The web stub resolves to a
@@ -1190,7 +1190,7 @@ interface LinguaAPI {
   };
 
   /**
-   * RL-090 — recovery surface (Settings → Account → Recovery).
+   * internal — recovery surface (Settings → Account → Recovery).
    * `confirmReset` returns Result data 0 (Reset) or 1 (Cancel).
    * `revealFolder` opens the OS file browser at the userData path so a
    * user with a corrupted persisted state can wipe files manually. Web
@@ -1205,8 +1205,8 @@ interface LinguaAPI {
   };
 
   /**
-   * RL-025 Slice A + Slice B — JS/TS dependency resolution and
-   * installation. Slice C will extend this surface with
+   * implementation — JS/TS dependency resolution and
+   * installation. implementation will extend this surface with
    * `installPython` (Pyodide `micropip`) on web.
    */
   dependencies: {
@@ -1223,7 +1223,7 @@ interface LinguaAPI {
     onInstallLogJs: (
       handler: (event: DependencyInstallLogEvent) => void
     ) => () => void;
-    // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+    // implementation — Go / Rust / Ruby install (go get / cargo add / bundle add).
     installNative: (
       language: NativePackageLanguage,
       specifiers: readonly string[],
@@ -1232,22 +1232,22 @@ interface LinguaAPI {
   };
 
   /**
-   * RL-102 Slice 1 — Git read-only layer. Desktop-only; on web the
+   * implementation — Git read-only layer. Desktop-only; on web the
    * `git` key is absent and the renderer hides the pill + panel.
    *   - `detect` resolves binary + repo root + branch for a folder.
    *   - `status` returns the per-file porcelain status bucket.
    *   - `diff` returns paired strings for Monaco's diff editor.
-   * Slice 2+ will add `add`/`commit`/`branch` write surfaces behind
+   * implementation will add `add`/`commit`/`branch` write surfaces behind
    * an explicit gate.
    */
   git?: {
     detect: (folderPath?: string) => Promise<GitDetectResult>;
     status: (repoRoot: string, filePath: string) => Promise<GitFileStatus>;
     diff: (repoRoot: string, filePath: string) => Promise<GitFileDiff>;
-    // RL-102 Slice 2 — Reveal repo root in OS file manager. Returns
+    // implementation — Reveal repo root in OS file manager. Returns
     // false when the OS refused the open or the path vanished.
     reveal: (repoRoot: string) => Promise<boolean>;
-    // RL-102 Slice 2 — start / stop a `.git/HEAD` watcher for the
+    // implementation — start / stop a `.git/HEAD` watcher for the
     // given repoRoot. Main streams `git:on-head-changed` events to
     // the renderer; the renderer subscribes via `onHeadChanged`.
     watchHead: (repoRoot: string) => Promise<{ ok: boolean }>;

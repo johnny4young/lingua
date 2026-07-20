@@ -1,5 +1,5 @@
 /**
- * RL-089 — apply a parsed LinguaProfile to the live renderer stores
+ * internal — apply a parsed LinguaProfile to the live renderer stores
  * under one of three policies:
  *
  *   - `replace`: overwrite existing data wholesale.
@@ -16,7 +16,7 @@
  * Snippet Free-tier ceiling is grandfathered on import: the existing
  * `addSnippet` gate would refuse the 26th snippet on a Free account,
  * which would silently drop user data. Instead we write the snippets
- * directly via `setState`, mirroring RL-060's grandfather rule for
+ * directly via `setState`, mirroring internal's grandfather rule for
  * already-saved snippets above the cap.
  */
 
@@ -59,7 +59,7 @@ function applySettings(
     next[key] = value;
     applied += 1;
   }
-  // RL-089 — the persist-middleware merge would normally sanitize
+  // internal — the persist-middleware merge would normally sanitize
   // shortcutOverrides on rehydrate. The import path goes around
   // persist (writes through setState directly), so a crafted profile
   // could otherwise install unknown shortcut ids or oversized token

@@ -55,8 +55,8 @@ export class RustRunner implements LanguageRunner {
       };
     }
 
-    // RL-011 Slice D — same resolver Go uses. processEnv stays empty
-    // in the renderer; the RL-079 host allowlist merge happens in main
+    // implementation — same resolver Go uses. processEnv stays empty
+    // in the renderer; the internal host allowlist merge happens in main
     // so host secrets never cross the preload boundary.
     const userEnv = resolveUserEnvForRunner();
     const runResult = await window.lingua.rust.run(
@@ -67,7 +67,7 @@ export class RustRunner implements LanguageRunner {
 
     const sourceMappingEnabled = true;
 
-    // RL-044 Sub-slice G — best-effort `file.rs:N` splitter enriches
+    // implementation — best-effort `file.rs:N` splitter enriches
     // `ConsoleOutput.line` so the renderer's `<OutputLineBadge>`
     // surfaces a chip on panic / debug rows that mention a source.
     const stdout: ConsoleOutput[] = runResult.stdout

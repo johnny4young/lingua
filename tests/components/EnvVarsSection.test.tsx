@@ -1,7 +1,7 @@
 /**
- * RL-011 Slice C — Settings panel covers the global env-var tier.
+ * implementation — Settings panel covers the global env-var tier.
  *
- * The Slice B store already has full unit coverage; these component tests
+ * The implementation store already has full unit coverage; these component tests
  * pin the rendered affordances (empty state, add form, list + remove,
  * validator error path, precedence hint, and the Spanish locale).
  */
@@ -146,7 +146,7 @@ describe('EnvVarsSection', () => {
   });
 
   // ----------------------------------------------------------------
-  // Slice C second increment — tab-tier editor
+  // implementation second increment — tab-tier editor
   // ----------------------------------------------------------------
 
   it('shows the tab-scope no-active placeholder when there is no active tab', () => {
@@ -228,7 +228,7 @@ describe('EnvVarsSection', () => {
   });
 
   // ----------------------------------------------------------------
-  // Slice C third increment — project tier + effective-env trace view
+  // implementation third increment — project tier + effective-env trace view
   // ----------------------------------------------------------------
 
   it('shows the project-scope no-active placeholder when there is no current project', () => {

@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 — utility command tests.
+ * implementation — utility command tests.
  *
  * Drives `runUtilityCommand` + `runListUtilitiesCommand` through the
  * in-memory IO fake. Covers happy path per adapter, stdin path,
@@ -219,7 +219,7 @@ describe('runListUtilitiesCommand', () => {
     expect(state.stdout).toContain('url-parse');
     expect(state.stdout).toContain('regex-replace');
     expect(state.stdout).toContain('diff-text');
-    // RL-099 Slice 4 — vocabulary expansion adapters.
+    // implementation — vocabulary expansion adapters.
     expect(state.stdout).toContain('hash');
     expect(state.stdout).toContain('jwt-decode');
     expect(state.stdout).toContain('url-encode');
@@ -229,13 +229,13 @@ describe('runListUtilitiesCommand', () => {
     expect(state.stdout).toContain('string-case');
     expect(state.stdout).toContain('html-entity-encode');
     expect(state.stdout).toContain('html-entity-decode');
-    // RL-099 Slice 6 — vocabulary expansion round 2.
+    // implementation — vocabulary expansion round 2.
     expect(state.stdout).toContain('number-base');
     expect(state.stdout).toContain('line-sort');
     expect(state.stdout).toContain('slugify');
     expect(state.stdout).toContain('json-minify');
     expect(state.stdout).toContain('text-stats');
-    // RL-099 Slice 7 — generator-style holdouts.
+    // implementation — generator-style holdouts.
     expect(state.stdout).toContain('uuid');
     expect(state.stdout).toContain('lorem-ipsum');
     expect(state.stdout).toContain('string-inspect');
@@ -251,7 +251,7 @@ describe('runListUtilitiesCommand', () => {
     expect(parsed.utilities).toHaveLength(23);
     const jsonFormat = parsed.utilities.find((u) => u.id === 'json-format');
     expect(jsonFormat?.optionKeys).toEqual(['indent']);
-    // RL-099 Slice 4 — the hash adapter surfaces its algorithm option.
+    // implementation — the hash adapter surfaces its algorithm option.
     const hash = parsed.utilities.find((u) => u.id === 'hash');
     expect(hash?.optionKeys).toEqual(['algorithm']);
   });

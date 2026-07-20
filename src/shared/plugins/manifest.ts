@@ -1,5 +1,5 @@
 /**
- * RL-084 — Local plugin manifest contract.
+ * internal — Local plugin manifest contract.
  *
  * Single source of truth for the plugin manifest schema, the bundled
  * runtime allowlist, and the validator function. Pure module — no

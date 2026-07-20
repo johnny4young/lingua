@@ -11,7 +11,7 @@ export function StringCasePanel() {
   const [input, setInput] = useState('user profile page');
   const outputs = useMemo(() => formatAllCases(input), [input]);
 
-  // RL-069 Slice 2 — camelCase is the most common copy target across
+  // implementation — camelCase is the most common copy target across
   // the case variants. Other variants stay reachable via CopyButton.
   const registerOutput = useCallback(
     () => outputs.camel || null,

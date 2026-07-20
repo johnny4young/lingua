@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 2 — Capsule import barrel.
+ * implementation — Capsule import barrel.
  * Centralises the public surface (overlay + preview) so call sites
  * import from `components/CapsuleImport` without reaching into files.
  */

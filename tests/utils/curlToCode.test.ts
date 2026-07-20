@@ -1,6 +1,6 @@
 /**
- * RL-070 — Unit tests for the cURL → Code helper. The 10-invocation
- * fixture required by the RL-070 acceptance criteria lives below
+ * internal — Unit tests for the cURL → Code helper. The 10-invocation
+ * fixture required by the internal acceptance criteria lives below
  * (bare GET, GET with query, POST JSON, POST form, PUT, DELETE, basic
  * auth, custom header stack, line continuation, cookie). Each fixture
  * is pinned against the primary target (fetch) with spot checks
@@ -330,7 +330,7 @@ describe('generateCode — warning comments', () => {
 
 describe('convertCurlToCode — 10-invocation acceptance fixture', () => {
   // Each fixture exercises a distinct cURL shape documented in the
-  // acceptance criteria for RL-070. Only the primary assertion is
+  // acceptance criteria for internal Only the primary assertion is
   // pinned here; the target-specific tests above cover the codegen
   // branches individually.
   const fixtures: Array<{ label: string; curl: string; expectIn: string[] }> = [

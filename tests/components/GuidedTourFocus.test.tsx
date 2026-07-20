@@ -1,5 +1,5 @@
 /**
- * UX Sweep T8 — guided tour dialog focus management.
+ * accessibility pass — guided tour dialog focus management.
  *
  * The tour panel already declared role=dialog + aria-modal but trapped
  * nothing. These tests assert that opening the tour moves focus into the
@@ -100,7 +100,7 @@ function renderTour() {
   );
 }
 
-describe('GuidedTour focus management (UX Sweep T8)', () => {
+describe('GuidedTour focus management (accessibility pass)', () => {
   // jsdom does not implement scrollIntoView; the step highlighter calls it.
   // Capture and restore around each test so the stub does not leak globally.
   let originalScrollIntoView: typeof Element.prototype.scrollIntoView | undefined;

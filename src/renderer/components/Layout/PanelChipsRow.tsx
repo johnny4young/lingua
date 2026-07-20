@@ -17,7 +17,7 @@ import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableIns
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 
 /**
- * RL-131 ownership split — the editor chips row moved out of
+ * internal ownership split — the editor chips row moved out of
  * `AppLayout.tsx` (shell size budget) into its own feature file. Verbatim
  * extraction: descriptors, the memoized chip, and the row itself.
  */
@@ -30,7 +30,7 @@ function countStdinLines(buffer: string | undefined): number {
 }
 
 /**
- * RL-122 — descriptor for one context chip in {@link PanelChipsRow}. The
+ * internal — descriptor for one context chip in {@link PanelChipsRow}. The
  * row builds these in a memoized array; {@link PanelChip} renders one.
  * `onClick` carries the per-chip toggle behavior so the renderer stays a
  * pure presentation component.
@@ -47,7 +47,7 @@ interface PanelChipDescriptor {
 }
 
 /**
- * RL-122 fold D — single context chip, extracted and `memo`-wrapped so a
+ * implementation — single context chip, extracted and `memo`-wrapped so a
  * `PanelChipsRow` re-render does not re-render a chip whose descriptor is
  * referentially unchanged.
  */
@@ -75,7 +75,7 @@ const PanelChip = memo(function PanelChip({ chip }: { chip: PanelChipDescriptor 
 });
 
 /**
- * PERF-001 — the chips row subscribes to narrow PRIMITIVE derivations of
+ * internal — the chips row subscribes to narrow PRIMITIVE derivations of
  * the active tab (id / language / runtimeMode / stdin line count / the two
  * per-tab toggle flags) instead of the whole `FileTab` through
  * `useActiveTab()`: `content` is a shallow field of the tab object, so a
@@ -110,7 +110,7 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
   const consoleVisible = useUIStore(state => state.consoleVisible);
   const openBottomPanel = useUIStore(state => state.openBottomPanel);
   const setConsoleVisible = useUIStore(state => state.setConsoleVisible);
-  // RL-122 — subscribe to identity-stable PRIMITIVE derivations instead
+  // internal — subscribe to identity-stable PRIMITIVE derivations instead
   // of the raw `snapshotRing` array + `scopeSnapshot` object, so this row
   // re-renders only when the comparator count or the captured variable
   // count for the active language actually changes — not on every run
@@ -122,7 +122,7 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
     scopeSnapshotVariableCountFor(state, activeTabLanguage ?? undefined)
   );
 
-  // RL-122 — build the chip descriptors in a memo keyed on the real
+  // internal — build the chip descriptors in a memo keyed on the real
   // inputs (active tab, the two snapshot derivations, panel + settings
   // state, and the store actions). Returns [] when there is no active
   // tab so the hook order stays stable across the early return below.
@@ -189,7 +189,7 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
         icon: Eye,
         label: t('panelChips.variables'),
         badge: variableAvailable ? String(scopeVariableCount ?? 0) : null,
-        // RL-093 Slice 3 — when surface=bottom, active state mirrors the
+        // implementation — when surface=bottom, active state mirrors the
         // bottom-panel tab selection so clicking the chip when the
         // bottom Variables tab is showing toggles the drawer off.
         active:
@@ -201,7 +201,7 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
           ? t('panelChips.variables.tooltip')
           : t('variableInspector.toggle.tooltipDisabled'),
         onClick: () => {
-          // RL-093 Slice 3 — bottom mode treats the drawer selection as the
+          // implementation — bottom mode treats the drawer selection as the
           // visible toggle. If the per-tab flag is already true but the drawer
           // is not showing Variables, clicking the inactive chip must open the
           // Variables tab rather than silently turning the feature off.

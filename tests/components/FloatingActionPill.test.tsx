@@ -1,5 +1,5 @@
 /**
- * RL-093 polish #7 — smoke tests for FloatingActionPill.
+ * internal polish #7 — smoke tests for FloatingActionPill.
  *
  * Covers the pieces a regression would silently break:
  *   1. The pill renders with the active tab's language label and the

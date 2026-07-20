@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — renderer-side pipeline runner.
+ * implementation — renderer-side pipeline runner.
  *
  * Thin wrapper around `runPipeline` (in `src/shared/utilityPipeline.ts`)
  * that surfaces per-step results as a React-friendly array via the
@@ -8,7 +8,7 @@
  * `{idle | running | settled}` state machine.
  *
  * The runner is its own module (not just inlined in the hook) so
- * future RL-098 CLI Companion can reuse it for `lingua pipeline run`
+ * future internal CLI Companion can reuse it for `lingua pipeline run`
  * without dragging React in.
  */
 

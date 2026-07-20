@@ -1,5 +1,5 @@
 /**
- * RL-091 — license-server observability layer.
+ * internal — license-server observability layer.
  *
  * Cloudflare Workers default-pipe `console.log` to Logpush, so a typed
  * structured logger emitting JSON to stdout is the right wire format —

@@ -1,5 +1,5 @@
 /**
- * Thin fetch wrappers for the RL-061 license-server endpoints.
+ * Thin fetch wrappers for the internal license-server endpoints.
  *
  * The web build calls these to enforce the split-bucket device limit
  * (3 desktop + 3 web concurrent activations per license, per
@@ -9,7 +9,7 @@
  *
  * Desktop renderer never calls these — it goes through the
  * `window.lingua.license.*` IPC bridge which the main process owns.
- * Slice 3.5 ships the parallel main-side implementation in
+ * implementation ships the parallel main-side implementation in
  * `src/main/licenseServer.ts`; both sides import their request /
  * response types from `src/shared/licenseServerTypes.ts` so the
  * contract cannot drift.

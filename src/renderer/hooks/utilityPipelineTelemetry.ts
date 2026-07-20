@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 fold F — Utility pipeline telemetry helper.
+ * implementation note — Utility pipeline telemetry helper.
  *
  * Single event: `utility.pipeline_executed { stepCount, status }`.
  *

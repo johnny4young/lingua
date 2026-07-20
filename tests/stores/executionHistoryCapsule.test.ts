@@ -1,9 +1,9 @@
 /**
- * RL-094 Slice 3 — capsule browse store surface.
+ * implementation — capsule browse store surface.
  *
  * Pins the `capsuleEntries()` selector (newest-first, capsule-only),
- * the `clearCapsule()` action (fold B — drop the capsule, keep the
- * run row), and the tier-aware LRU cap (fold A — Free keeps
+ * the `clearCapsule()` action (implementation note — drop the capsule, keep the
+ * run row), and the tier-aware LRU cap (implementation note — Free keeps
  * `CAPSULE_LRU_CAP`, paid tiers keep `CAPSULE_LRU_CAP_PRO`).
  *
  * `currentEffectiveTier` is mocked so the cap can be exercised on both
@@ -57,7 +57,7 @@ afterEach(() => {
   useExecutionHistoryStore.setState(initial, true);
 });
 
-describe('executionHistoryStore — capsule browse surface (RL-094 Slice 3)', () => {
+describe('executionHistoryStore — capsule browse surface ', () => {
   it('capsuleEntries returns only entries with a capsule, newest first', () => {
     recordCapsule('javascript');
     useExecutionHistoryStore.getState().record({
@@ -76,7 +76,7 @@ describe('executionHistoryStore — capsule browse surface (RL-094 Slice 3)', ()
     expect(entries.every((entry) => entry.lastCapsule !== undefined)).toBe(true);
   });
 
-  it('clearCapsule drops the capsule but keeps the run row (fold B)', () => {
+  it('clearCapsule drops the capsule but keeps the run row (implementation note)', () => {
     const first = recordCapsule('javascript');
     recordCapsule('typescript');
 
@@ -102,7 +102,7 @@ describe('executionHistoryStore — capsule browse surface (RL-094 Slice 3)', ()
     expect(useExecutionHistoryStore.getState().entries).toBe(before);
   });
 
-  // UX Sweep T2 fold E — restoreCapsule backs the capsule-delete undo.
+  // accessibility pass — restoreCapsule backs the capsule-delete undo.
   it('restoreCapsule re-attaches a cleared capsule to the same run row', () => {
     const first = recordCapsule('javascript');
     recordCapsule('typescript');
@@ -153,7 +153,7 @@ describe('executionHistoryStore — capsule browse surface (RL-094 Slice 3)', ()
     ).toBeUndefined();
   });
 
-  it('Free tier retains only CAPSULE_LRU_CAP capsules (fold A)', () => {
+  it('Free tier retains only CAPSULE_LRU_CAP capsules (implementation note)', () => {
     mockTier = 'free';
     for (let i = 0; i < CAPSULE_LRU_CAP + 3; i += 1) {
       recordCapsule('javascript');
@@ -163,7 +163,7 @@ describe('executionHistoryStore — capsule browse surface (RL-094 Slice 3)', ()
     ).toHaveLength(CAPSULE_LRU_CAP);
   });
 
-  it('paid tiers retain up to CAPSULE_LRU_CAP_PRO capsules (fold A)', () => {
+  it('paid tiers retain up to CAPSULE_LRU_CAP_PRO capsules (implementation note)', () => {
     mockTier = 'pro';
     for (let i = 0; i < CAPSULE_LRU_CAP_PRO + 3; i += 1) {
       recordCapsule('javascript');

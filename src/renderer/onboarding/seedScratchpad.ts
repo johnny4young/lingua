@@ -1,5 +1,5 @@
 /**
- * RL-101 Onboarding Choreography Slice 1 — pre-seeded JS scratchpad.
+ * internal Onboarding Choreography implementation — pre-seeded JS scratchpad.
  *
  * On a fresh install (zero persisted tabs, `hasCompletedOnboardingWelcome
  * !== true`, `onboardingWelcomeSeedVersion !== SEEDED_SCRATCHPAD_VERSION`)
@@ -15,7 +15,7 @@
  *    immediately in the console panel — the most "this app is alive"
  *    moment a Lingua user can have on the first try.
  *
- * Fold E (seed versioning): bump `SEEDED_SCRATCHPAD_VERSION` whenever
+ * implementation note (seed versioning): bump `SEEDED_SCRATCHPAD_VERSION` whenever
  * we materially change the snippet. The hook re-seeds existing users
  * once when their persisted `onboardingWelcomeSeedVersion` is older
  * than the constant here, so demo improvements actually reach the

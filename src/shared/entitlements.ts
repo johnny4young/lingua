@@ -1,5 +1,5 @@
 /**
- * Entitlement + tier gating shared between renderer and main (RL-060).
+ * Entitlement + tier gating shared between renderer and main.
  *
  * All tier policy lives in this module so limits cannot drift across stores.
  * Callers that need to check "is this action allowed" should ask
@@ -36,11 +36,11 @@ export type Entitlement = (typeof ENTITLEMENTS)[number];
  * entitlement flag above.
  */
 export const FREE_TIER_LIMITS = {
-  // IT2-D1 — three tabs let Free users compare the core JS/TS/Python
+  // internal — three tabs let Free users compare the core JS/TS/Python
   // workflows before the unlimited-tabs upgrade becomes relevant.
   maxOpenTabs: 3,
   maxSnippets: 5,
-  // RL-042 Slice 5 — Ruby (@ruby/wasm-wasi) joins the Free set with
+  // implementation — Ruby (@ruby/wasm-wasi) joins the Free set with
   // the same posture as Python (Pyodide): pure browser WASM, no host
   // binary, no proprietary toolchain. Go / Rust stay Pro because they
   // need a desktop subprocess (or a research-tier WASM compile).
@@ -60,7 +60,7 @@ export function snippetCeilingForTier(tier: LicenseTier): number {
  * The Free tier entitlement matrix — everything enumerated here is
  * explicitly denied for `free` and granted for every paid tier. Keep this
  * aligned with the marketing tiers on `linguacode.dev` and the Polar.sh
- * metadata (RL-061).
+ * metadata.
  */
 const FREE_TIER_ENTITLEMENTS: ReadonlySet<Entitlement> = new Set([
   // Free tier access to base product surfaces (for example single-shot

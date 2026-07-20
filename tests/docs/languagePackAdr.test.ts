@@ -1,7 +1,7 @@
 /**
- * RL-038 language-pack design guard — the ADR locks the descriptor
- * shape, the three-slice migration plan, and the no-marketplace
- * constraint so future RL-042 / RL-026 work proceeds against a written
+ * Language-pack design guard — the ADR locks the descriptor
+ * shape, the migration history, and the no-marketplace
+ * constraint so future implementation detail work proceeds against a written
  * contract instead of reinventing a plugin story.
  */
 
@@ -23,7 +23,7 @@ describe('LANGUAGE_PACK_ADR.md', () => {
     expect(adr).toMatch(/declarative `LanguagePack` descriptor/i);
   });
 
-  it('declares the descriptor fields the RL-038 scope enumerates', () => {
+  it('declares the descriptor fields the internal scope enumerates', () => {
     for (const field of [
       'labelKey',
       'extensions',
@@ -38,11 +38,10 @@ describe('LANGUAGE_PACK_ADR.md', () => {
     }
   });
 
-  it('enumerates the shipped three-slice migration plan', () => {
-    expect(adr).toContain('Slice A');
-    expect(adr).toContain('Slice B');
-    expect(adr).toContain('Slice C');
-    expect(adr).toMatch(/Slice C[\s\S]*Shipped 2026-05-01/i);
+  it('enumerates the shipped migration history', () => {
+    expect(adr).toContain('Descriptor and built-in metadata');
+    expect(adr).toContain('Runner dispatch');
+    expect(adr).toMatch(/Capability-aware UI\. Shipped 2026-05-01/i);
     expect(adr).toContain('SnippetsModal');
     expect(adr).toContain('EditorEmptyState');
     expect(adr).toMatch(/no per-language Settings surface today/i);
@@ -58,10 +57,10 @@ describe('LANGUAGE_PACK_ADR.md', () => {
       'CAPABILITY_MATRIX.md',
       'BUILD_SYSTEM_ADR.md',
       'TAURI_SPIKE_ADR.md',
-      'RL-042',
-      'RL-058',
-      'RL-026',
-      'RL-027',
+      'internal',
+      'internal',
+      'internal',
+      'internal',
     ]) {
       expect(adr).toContain(pointer);
     }

@@ -1,5 +1,5 @@
 /**
- * RL-025 Slice A — JS / TS dependency detector backed by acorn.
+ * implementation — JS / TS dependency detector backed by acorn.
  *
  * The detector extracts every external package referenced by an
  * `import` declaration, dynamic `import(…)`, or `require(…)` call.

@@ -24,7 +24,7 @@ describe('quoteSqlIdentifier', () => {
     expect(quoteSqlIdentifier('my table')).toBe('"my table"');
   });
 
-  it('preserves mixed case (DuckDB folds unquoted identifiers to lowercase)', () => {
+  it('preserves mixed case (DuckDB implementation note identifiers to lowercase)', () => {
     expect(quoteSqlIdentifier('UserProfiles')).toBe('"UserProfiles"');
   });
 

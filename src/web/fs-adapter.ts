@@ -4,7 +4,7 @@
  * Implements the LinguaAPI `fs` namespace using the browser's File
  * System Access API (showDirectoryPicker / showOpenFilePicker), with
  * a synthetic capability registry mirroring the desktop sandbox shape
- * (RL-077). Pickers mint synthetic `rootId` strings keyed to the FSA
+ *. Pickers mint synthetic `rootId` strings keyed to the FSA
  * `FileSystemDirectoryHandle` they returned; subsequent operations
  * supply `{ rootId, relativePath }` and the adapter walks the
  * approved root's handle tree to reach the target.
@@ -234,7 +234,7 @@ function shouldHide(name: string): boolean {
 // ----------------------------------------------------- fs adapter
 
 /**
- * RL-024 Slice 1 — bucket the user agent into one of the
+ * implementation — bucket the user agent into one of the
  * `FS_DIRECTORY_PICKER_UA_BUCKETS` closed-enum values for the
  * `runtime.fs_directory_picker_unsupported` telemetry. Order matters:
  * Safari and Edge both inject their tokens into UA strings that also
@@ -313,7 +313,7 @@ function pushDirectoryUnsupportedNoticeDebounced(): void {
 export const webFsAdapter: LinguaAPI['fs'] = {
   selectDirectory: async () => {
     const picker = window as unknown as FileSystemPickerWindow;
-    // RL-024 Slice 1 — probe before invoking. The pre-RL-024
+    // implementation — probe before invoking. The pre-internal
     // implementation wrapped `showDirectoryPicker(...)` in a bare
     // try/catch which collapsed "user clicked cancel" and "the API
     // is not implemented" into the same `{ canceled: true }` result.
@@ -444,7 +444,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return { ok: false, error: 'not-found' } as const;
   },
 
-  // RL-137 / AUDIT-17 — the web FSA sandbox has no OS-path denylist (every
+  // implementation detail — the web FSA sandbox has no OS-path denylist (every
   // handle is user-granted through the picker), so nothing is ever classified
   // as blocked here.
   classifyBlockedPath: async (_absolutePath: string) => {
@@ -606,7 +606,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return results;
   },
 
-  // RL-024 Slice 2 — web does not expose a replace-in-files API (no
+  // implementation — web does not expose a replace-in-files API (no
   // atomic-rename primitive over the File System Access API; the
   // safe-by-default posture is to disable the action entirely and
   // surface "Open Lingua Desktop" copy via the panel context). Both
@@ -744,7 +744,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return webFsAdapter.write(rootId, relativePath, '');
   },
 
-  // RL-024 Slice 1 fold A — the web build has no concept of an OS
+  // implementation note — the web build has no concept of an OS
   // file manager, so "Reveal in Finder" is a no-op that resolves to
   // `false` (consistent with the rest of the adapter's "feature
   // unsupported here" convention). The renderer treats `false` as "do
@@ -756,7 +756,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return false;
   },
 
-  // RL-024 Slice 3 — project zip bundles. The web build branches on
+  // implementation — project zip bundles. The web build branches on
   // `platform === 'web'` BEFORE calling these (export does an in-renderer
   // Blob download via the shared `packBundle`; import surfaces
   // `projectBundle.web.unsupported`), so these stubs only exist to keep
@@ -812,7 +812,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return () => {};
   },
 
-  // RL-087 — web has no native watcher, so failure / degraded events
+  // internal — web has no native watcher, so failure / degraded events
   // never fire. The subscription methods exist to keep the renderer
   // contract uniform across platforms (web, desktop, future targets).
   onWatcherFailed: (

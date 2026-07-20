@@ -111,7 +111,7 @@ describe('QuickOpen', () => {
     expect(screen.getByText('src/tree-only.ts')).toBeTruthy();
   });
 
-  it('exposes the result count as a polite live region (UX Sweep T4)', () => {
+  it('exposes the result count as a polite live region (accessibility pass)', () => {
     render(<QuickOpen onClose={vi.fn()} />);
     const count = screen.getByTestId('quick-open-result-count');
     expect(count.getAttribute('role')).toBe('status');
@@ -119,14 +119,14 @@ describe('QuickOpen', () => {
     expect(count.getAttribute('aria-atomic')).toBe('true');
   });
 
-  it('uses the shared focus ring on bespoke result rows (UX Sweep T5)', () => {
+  it('uses the shared focus ring on bespoke result rows (accessibility pass)', () => {
     render(<QuickOpen onClose={vi.fn()} />);
 
     const row = screen.getByRole('option', { name: /tree-only\.ts/ });
     expect(row.className).toContain('focus-ring');
   });
 
-  it('exposes combobox + listbox semantics with aria-activedescendant (UX Sweep T6)', () => {
+  it('exposes combobox + listbox semantics with aria-activedescendant (accessibility pass)', () => {
     render(<QuickOpen onClose={vi.fn()} />);
     const input = screen.getByRole('combobox');
     const listbox = screen.getByRole('listbox');

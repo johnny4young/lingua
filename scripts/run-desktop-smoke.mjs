@@ -216,7 +216,7 @@ async function main() {
     console.log('[desktop-smoke] offline mode: blocking non-loopback HTTP/HTTPS requests');
   }
 
-  // RL-080 Slice 3 — packaged-mode flag. When set, skip the Vite dev
+  // implementation — packaged-mode flag. When set, skip the Vite dev
   // server + run-electron-desktop launcher entirely and run the smoke
   // directly against the produced `Lingua.app`. macOS-only for now.
   // Forces the renderer hook into the 2-runtime-case subset
@@ -229,7 +229,7 @@ async function main() {
     process.exit(1);
   }
   if (packagedInput && process.platform !== 'darwin') {
-    console.error('[desktop-smoke] --against-packaged is macOS-only at this slice.');
+    console.error('[desktop-smoke] --against-packaged is macOS-only at this change.');
     process.exit(1);
   }
 
@@ -297,14 +297,14 @@ async function main() {
           LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
           LINGUA_SMOKE_USER_DATA_DIR: smokeUserDataDir,
           LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
-          // RL-079 — sentinel secret seeded into Electron's process.env.
+          // internal — sentinel secret seeded into Electron's process.env.
           // The go-env-isolation / rust-env-isolation smoke cases run a
           // user-toolchain subprocess that prints the value of this
           // variable; the smoke harness fails if the captured stdout
           // contains the secret, which would mean the env builder
           // leaked it. Real CI environments do not set this name.
           LINGUA_SMOKE_SECRET: '__lingua_smoke_secret__',
-          // RL-083 Slice 1 — propagate offline mode to the spawned
+          // implementation — propagate offline mode to the spawned
           // Electron so its main process installs the webRequest
           // filter before any window loads.
           ...(offlineMode ? { LINGUA_DESKTOP_SMOKE_OFFLINE: '1' } : {}),

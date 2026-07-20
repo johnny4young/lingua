@@ -13,7 +13,7 @@ import {
 } from '../../shared/workflowMode';
 
 /**
- * RL-128 — runtime/workflow mode resolution helpers, extracted verbatim from
+ * internal — runtime/workflow mode resolution helpers, extracted verbatim from
  * `editorStore.ts`. These resolve the per-tab `runtimeMode` / `workflowMode`
  * for freshly-created vs session-restored tabs, honouring the user's Settings
  * defaults and snapping tampered/stale persisted values back to a supported
@@ -43,7 +43,7 @@ export function runtimeModeForRestoredTab(
 }
 
 /**
- * RL-020 Slice 2 — resolve the workflow mode for a freshly created
+ * implementation — resolve the workflow mode for a freshly created
  * tab. Honours the per-language default the user set in Settings
  * (when present) and falls through to the shared
  * `defaultWorkflowMode` helper otherwise. The Settings lookup is
@@ -69,7 +69,7 @@ export function workflowModeForNewTab(
 }
 
 /**
- * RL-020 Slice 2 — resolve the workflow mode for a tab restored from
+ * implementation — resolve the workflow mode for a tab restored from
  * a previous session. Same shape as the runtime-mode restore helper
  * — `coerceWorkflowMode` snaps an unknown / unsupported persisted
  * value back to the language's default so a tampered or stale

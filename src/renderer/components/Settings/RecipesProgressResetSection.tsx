@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B fold F — Settings → General → Reset recipe progress.
+ * implementation Slice B implementation note — Settings → General → Reset recipe progress.
  *
  * Single button: clears the persisted `useLessonProgressStore`
  * entries after a `window.confirm()`. The OnboardingSection sits

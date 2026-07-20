@@ -1,11 +1,11 @@
 /**
- * RL-025 Slice A + Slice B - main-side JS / TS dependency resolver
+ * implementation - main-side JS / TS dependency resolver
  * and installer.
  *
- * Slice A — read-only existence check against the active tab's
+ * implementation — read-only existence check against the active tab's
  * resolved cwd (`resolveNodeCwd` re-uses the Node-runner walker).
  *
- * Slice B — install path via `child_process.spawn` with a platform-safe
+ * implementation — install path via `child_process.spawn` with a platform-safe
  * launcher and `{ shell: false }`. POSIX invokes `npm` directly; Windows
  * explicitly invokes `cmd.exe /d /c npm.cmd` because `.cmd` files are not
  * executables on their own. Reuses every safety primitive already in this
@@ -17,14 +17,14 @@
  * absolute paths, no `node:` built-ins). Main re-validates so a
  * compromised renderer cannot probe arbitrary filesystem paths.
  *
- * Install policy (fold A): we refuse to spawn when the resolved cwd
+ * Install policy (implementation note): we refuse to spawn when the resolved cwd
  * has no `package.json`. Without this guard `npm install <name>`
  * silently creates a `package.json` next to a one-off scratchpad,
  * which violates the "no silent installs" line in
  * the internal dependency-manager ADR.
  *
- * Fold C — pre-flight integrity check: before spawning we re-run
- * the Slice A resolver against the batch and drop any specifier
+ * implementation note — pre-flight integrity check: before spawning we re-run
+ * the implementation resolver against the batch and drop any specifier
  * that already maps to `installed`. Common case ("install" clicked
  * twice in a row) avoids a no-op `npm install`.
  */
@@ -65,9 +65,9 @@ export interface DependencyResolveResult {
   readonly statuses: Record<string, DependencyResolveStatus>;
   readonly cwd: string | null;
   /**
-   * RL-025 Slice B — whether the resolved cwd contains a
+   * implementation — whether the resolved cwd contains a
    * `package.json`. The renderer disables the Install button when
-   * this is false (fold A: refuse silent project creation in a
+   * this is false (implementation note: refuse silent project creation in a
    * scratchpad directory). `null` when no cwd was discoverable.
    */
   readonly hasPackageJson: boolean | null;
@@ -148,7 +148,7 @@ export async function resolveJsDependencyBatch(
 }
 
 // ────────────────────────────────────────────────────────────────
-// RL-025 Slice B — JS / TS desktop install path.
+// implementation — JS / TS desktop install path.
 // ────────────────────────────────────────────────────────────────
 
 export type DependencyInstallResultStatus =
@@ -320,9 +320,9 @@ async function npmInstallSpawnCommand(
  *     so PATH and Windows COMSPEC/PATHEXT survive the secret-filtering boundary.
  *   - cwd via `resolveNodeCwd(filePath)` (saved tab only).
  *   - Refuse without spawning when the cwd has no `package.json`
- *     (fold A: avoid silently turning a scratchpad into a project).
- *   - Pre-flight: re-run the Slice A resolver and skip already-
- *     installed names without spawning (fold C).
+ *     (implementation note: avoid silently turning a scratchpad into a project).
+ *   - Pre-flight: re-run the implementation resolver and skip already-
+ *     installed names without spawning (implementation note).
  *   - No `-g` / `--global` / `--prefix` flags ever — project
  *     isolation is part of the contract.
  */
@@ -375,7 +375,7 @@ export async function installJsDependencyBatch(
     };
   }
 
-  // Fold C — pre-flight integrity check. Skip names that already
+  // implementation note — pre-flight integrity check. Skip names that already
   // resolve as `installed`; we never invoke npm for a no-op.
   const preflight = await resolveJsDependencyBatch(safeNames, filePath);
   const toInstall: string[] = [];
@@ -598,7 +598,7 @@ export async function installJsDependencyBatch(
       }
       // Reference the accumulated logs so eslint does not warn about
       // unused captures — they exist as a safety net for future
-      // ipc-level diagnostics even though Slice B streams via onLog.
+      // ipc-level diagnostics even though implementation streams via onLog.
       void stdoutAcc;
       void stderrAcc;
     });

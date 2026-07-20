@@ -1,5 +1,5 @@
 /**
- * SR-20a / RL-031 — "Explain selected code" request builder (pure core).
+ * implementation detail — "Explain selected code" request builder (pure core).
  *
  * The sibling of `explainError.ts`, but for the MAIN editor: instead of
  * explaining a run error, it explains a code excerpt (a selection, or

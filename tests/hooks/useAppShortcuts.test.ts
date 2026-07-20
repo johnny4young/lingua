@@ -1,5 +1,5 @@
 /**
- * RL-131 (AUDIT-11) — mount smoke for the extracted shortcut-payload hook.
+ * internal — mount smoke for the extracted shortcut-payload hook.
  * The actual keystroke→handler behavior is exercised end-to-end by the e2e
  * shortcut specs; this guards that `useAppShortcuts` wires its deps into
  * `useGlobalShortcuts` and registers without throwing (catches a broken import

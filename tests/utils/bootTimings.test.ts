@@ -7,7 +7,7 @@ import {
   startBootTiming,
 } from '../../src/renderer/utils/bootTimings';
 
-describe('bootTimings (IT2-G1)', () => {
+describe('bootTimings', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     resetBootTimingsForTesting();

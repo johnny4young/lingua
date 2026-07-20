@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 — `workspaceToolStore` CRUD + LRU + active-request
+ * implementation — `workspaceToolStore` CRUD + LRU + active-request
  * lifecycle.
  */
 
@@ -42,7 +42,7 @@ function makeResponse(overrides: Partial<HttpResponseV1> = {}): HttpResponseV1 {
   };
 }
 
-describe('useWorkspaceToolStore (RL-097 Slice 1)', () => {
+describe('useWorkspaceToolStore ', () => {
   beforeEach(() => {
     localStorage.removeItem('lingua-workspace-tool-state');
     resetWorkspaceToolStoreForTests();
@@ -60,7 +60,7 @@ describe('useWorkspaceToolStore (RL-097 Slice 1)', () => {
     expect(useWorkspaceToolStore.getState().requests).toHaveLength(1);
   });
 
-  it('createRequests bulk-appends in order + selects the first (RL-100 Slice 3)', () => {
+  it('createRequests bulk-appends in order + selects the first ', () => {
     useWorkspaceToolStore.getState().createRequest(makeRequest('existing', 'E'));
     useWorkspaceToolStore
       .getState()
@@ -199,7 +199,7 @@ describe('useWorkspaceToolStore (RL-097 Slice 1)', () => {
   });
 });
 
-describe('useWorkspaceToolStore environments (RL-097 Slice 3a)', () => {
+describe('useWorkspaceToolStore environments ', () => {
   beforeEach(() => {
     localStorage.removeItem('lingua-workspace-tool-state');
     resetWorkspaceToolStoreForTests();
@@ -278,7 +278,7 @@ describe('useWorkspaceToolStore environments (RL-097 Slice 3a)', () => {
   });
 
   it('a v1 blob with NO environments key rehydrates environments to [] (no version bump)', () => {
-    // Simulate a pre-Slice-3a persisted blob: version 1, no env keys.
+    // Simulate a legacy persisted blob: version 1, no env keys.
     localStorage.setItem(
       'lingua-workspace-tool-state',
       JSON.stringify({

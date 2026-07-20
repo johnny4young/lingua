@@ -1,5 +1,5 @@
 /**
- * T19 / RL-031 Slice 3 — Settings → AI. BYO-API-key entry for the "Explain
+ * implementation — Settings → AI. BYO-API-key entry for the "Explain
  * this error" feature. Gated by `LOCAL_AI`. Values live in the isolated
  * `aiConfigStore` (persist boundary `lingua-ai`) — never in the settings blob,
  * exports, capsules, or telemetry.

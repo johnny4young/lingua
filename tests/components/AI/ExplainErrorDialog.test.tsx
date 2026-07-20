@@ -1,5 +1,5 @@
 /**
- * T19 / RL-031 Slice 4 — "Explain this error" dialog. Verifies the consent
+ * implementation — "Explain this error" dialog. Verifies the consent
  * gate (nothing sends on mount), the entitlement + configuration degradations,
  * and the send → result path — all in a real React render with real i18n.
  */
@@ -31,7 +31,7 @@ const baseProps = {
   onClose: () => {},
 };
 
-describe('ExplainErrorDialog (T19)', () => {
+describe('ExplainErrorDialog ', () => {
   beforeAll(async () => {
     await initI18n('en');
     await i18next.changeLanguage('en');

@@ -1,5 +1,5 @@
 /**
- * RL-079 — Trust-boundary modal renders + acknowledge / cancel
+ * internal — Trust-boundary modal renders + acknowledge / cancel
  * paths + Escape semantics + persisted-flag flip.
  */
 

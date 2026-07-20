@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 1 — non-persisted git posture cache.
+ * implementation — non-persisted git posture cache.
  *
  * The store mirrors `useDependencyDetectionStore` in shape (zustand,
  * keyed maps, evict-on-change) but caches THREE distinct things:
@@ -11,7 +11,7 @@
  *     last porcelain status + numstat counts + a millisecond
  *     `updatedAt`. Hot path; flips on every watcher tick.
  *   - `lastDetectAt` — millisecond timestamp of the most recent
- *     `git:detect` resolution (Fold B). Used by
+ *     `git:detect` resolution (implementation note). Used by
  *     `useGitDetectOnProjectChange` to skip re-detect calls within
  *     30s of the previous result; the project-root key still
  *     invalidates on user-driven folder change.
@@ -53,16 +53,16 @@ export interface GitRepoPosture {
   readonly repoRoot?: string;
   /**
    * Current branch name, e.g. `main`. Absent on detached HEAD.
-   * Threaded to the pill (Fold A — branch indicator inline) and
-   * — RL-102 Slice 2 — refreshed via `applyHeadChange` whenever
+   * Threaded to the pill (implementation note — branch indicator inline) and
+   * — implementation — refreshed via `applyHeadChange` whenever
    * the main-side HEAD watcher broadcasts a settled change.
    */
   readonly branch?: string;
   /**
-   * RL-102 Slice 2 — current commit (full hash from
+   * implementation — current commit (full hash from
    * `git rev-parse HEAD`). Absent on detached HEAD or watcher
-   * resolution error. Folded into capsule pre-run snapshot (fold A)
-   * so RL-094 capsules carry the actual commit the run was against.
+   * resolution error. Folded into capsule pre-run snapshot (implementation note)
+   * so internal capsules carry the actual commit the run was against.
    */
   readonly commit?: string;
   /**
@@ -104,7 +104,7 @@ interface GitStateShape {
   evictFile: (filePath: string) => void;
   markDetectAttempt: (timestamp: number, key: string) => void;
   /**
-   * RL-102 Slice 2 — apply a HEAD-change broadcast from the main
+   * implementation — apply a HEAD-change broadcast from the main
    * watcher. Cheaply updates `branch` + `commit` on the existing
    * posture without re-running full detect, and bumps `lastDetectAt`
    * so the 30s TTL stays honest (a fresh head-change is functionally
@@ -232,7 +232,7 @@ export const useGitStore = create<GitStateShape>((set) => ({
 }));
 
 /**
- * Fold B — Detection cache TTL. Calls to `git:detect` within this
+ * implementation note — Detection cache TTL. Calls to `git:detect` within this
  * window of the previous resolution are skipped (the renderer reuses
  * the cached posture). User-driven folder change explicitly bypasses
  * this via `clear()` followed by a fresh attempt — the TTL only

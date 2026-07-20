@@ -1,10 +1,10 @@
-# ADR — JS/TS runtime modes (RL-019)
+# ADR — JS/TS runtime modes
 
 | Field   | Value      |
 |---------|------------|
 | Status  | Accepted   |
 | Date    | 2026-05-12 |
-| Slice   | 1 + 2 + 3 of 3 (closed); F-4 Deno/Bun extension |
+| Implementation | Worker, Node, Browser Preview, Deno, and Bun are shipping |
 
 ## Context
 
@@ -23,16 +23,16 @@ scratchpad. But it costs reach:
 
 Users hitting any of the failing cases bail out to external
 scratchpads, browser playgrounds, or terminal `node script.js`.
-RL-019 closes that gap
+Lingua closes that gap
 **without** losing the Worker speed for pure language work, by making
 the runtime an explicit per-tab choice instead of one-size-fits-all.
 
-The ticket also unlocks two downstream stories:
+The runtime model also unlocks two capabilities:
 
-- The debugger surface (RL-027) can specialise breakpoint semantics
+- The debugger surface can specialise breakpoint semantics
   per mode (Worker-only today; Node-mode breakpoints would land via
-  the Node inspector protocol in a future debugger slice).
-- RL-020 (best-in-class REPL) depends on the per-tab runtime model
+  the Node inspector protocol in future debugger work).
+- Interactive REPL work depends on the per-tab runtime model
   to offer language-aware auto-run hints (Worker: instant; Node:
   warn on long-running fs operations; Browser preview: detect when
   to flush DOM mutations).
@@ -43,15 +43,15 @@ The ticket also unlocks two downstream stories:
 
 | Mode               | Surface           | Status |
 |--------------------|-------------------|-----------------------|
-| `worker`           | Sandboxed Web Worker — no DOM, no Node built-ins | **Shipping (Slice 1)** |
-| `node`             | Desktop child-process Node with built-ins (`fs`, `path`, `http`) | **Shipping (Slice 2)** |
-| `browser-preview`  | Iframe-isolated context with DOM access + preview pane | **Shipping (Slice 3)** |
-| `deno`             | Desktop child-process Deno running JS/TS directly with temp-dir-scoped `--allow-read` | **Shipping (F-4)** |
-| `bun`              | Desktop child-process Bun running JS/TS directly with Lingua's native env allowlist | **Shipping (F-4)** |
+| `worker`           | Sandboxed Web Worker — no DOM, no Node built-ins | **Shipping** |
+| `node`             | Desktop child-process Node with built-ins (`fs`, `path`, `http`) | **Shipping** |
+| `browser-preview`  | Iframe-isolated context with DOM access + preview pane | **Shipping** |
+| `deno`             | Desktop child-process Deno running JS/TS directly with temp-dir-scoped `--allow-read` | **Shipping** |
+| `bun`              | Desktop child-process Bun running JS/TS directly with Lingua's native env allowlist | **Shipping** |
 
 Other languages keep their existing single-runtime model. Adding
 `runtimeMode` to a Python / Go / Rust tab is out of scope here; the
-language-pack capability contract from RL-038 already covers their
+shared language-pack capability contract already covers their
 runner identity. The shared helper `languageHasRuntimeModes()` gates
 both the UI surface and the editor-store action.
 
@@ -72,11 +72,11 @@ leaves the other two intact:
 
 ### 3. Disabled-with-tooltip vs hidden while a mode is unimplemented
 
-Slice 1 ships only `worker`. Two alternatives for `node` and
-`browser-preview` were considered:
+The initial implementation shipped only `worker`. Two alternatives for the
+remaining modes were considered:
 
 a. **Hide the unimplemented options entirely.** Cleanest UX
-   today; defers discoverability until Slice 2 / Slice 3. Risk:
+   initially; defers discoverability until each backend is ready. Risk:
    users keep falling back to external scratchpads, terminal runs,
    or browser playgrounds because
    Lingua doesn't telegraph the roadmap.
@@ -88,13 +88,11 @@ b. **Render disabled with a clear "Coming soon" tooltip.**
 **Decision: option (b).** The audience is senior dev. They prefer
 to see the roadmap and self-route to the right tool, even when the
 "right tool" is "wait for the next runtime backend." The tooltip uses
-plain product copy, while this ADR and the release plan keep the Slice
-2 / Slice 3 delivery detail.
+plain product copy, while this ADR keeps the delivery detail.
 
-Post-closeout note: Slice 3 enabled `browser-preview` on 2026-05-12,
-Slice 2 enabled `node` on 2026-05-14, and the F-4 roadmap extension
-adds Deno/Bun as desktop-native JS/TS modes. The selector and Settings
-default-mode select now show all five options enabled at the implementation
+Post-closeout note: Browser Preview shipped on 2026-05-12, Node mode on
+2026-05-14, and Deno/Bun later joined as desktop-native JS/TS modes. The selector and Settings
+default-mode select now show all five options enabled at the entitlement
 gate; each desktop runner still self-gates on bridge availability and local
 binary detection, so web builds and hosts without Deno/Bun degrade with a
 clear runtime error rather than silently falling back to Worker.
@@ -105,8 +103,8 @@ When a user tries to switch to an unimplemented mode (via shortcut,
 palette, or programmatic call), the editor store rejects the write
 and pushes a status notice. We do NOT silently fall back to
 `worker` because that would (a) lie about the user's intent and
-(b) make a future backend debut surprising. After Slice 2 closed
-RL-019, this branch is defensive for future enum additions rather
+(b) make a future backend debut surprising. With all five backends shipping,
+this branch is defensive for future enum additions rather
 than an active Node-mode path.
 
 ### 5. Telemetry: closed enum, no expression content
@@ -118,30 +116,29 @@ session id beyond the per-launch coarse identifier already attached
 by the redactor.
 
 Adoption metrics from this event drive prioritisation once additional
-runtime backends are implemented. Slice 1 validates the allowlist and
+runtime backends are implemented. Tests validate the allowlist and
 payload contract, but rejected attempts to select unimplemented modes
 remain local status notices rather than telemetry so the event name
 stays literal.
 
 The closed-enum payload contract is the same shape used by the
-debugger telemetry (RL-027 Slice 1.5) and the update funnel (`update.checked`
-from RL-065). The pattern is now
+debugger telemetry and the update funnel (`update.checked`). The pattern is now
 load-bearing — see `docs/SERVER_OBSERVABILITY.md` for the worker
 log-line envelope.
 
 ### 6. Runner dispatch stays language-keyed, with runtime overrides
 
 The runner registry in `src/renderer/runners/manager.ts` continues
-to dispatch by `language`. Slice 1 routes `(language: 'javascript',
+to dispatch by `language`. Worker mode routes `(language: 'javascript',
 runtimeMode: 'worker')` to the existing JavaScript runner; the
 contract surface for routing `(language: 'javascript', runtimeMode:
-`'node')` to `NodeRunner` shipped in Slice 2 by extending the
+`'node')` to `NodeRunner` by extending the
 registry with a runtime-mode override — not by hijacking the
 language dispatch.
 
-The reason: per-language plugin registration (RL-038) is the canon;
+The reason: per-language plugin registration is the canon;
 introducing a per-runtime registry now would double the surface
-without payoff. Slice 2 built a sibling `NodeRunner`; the dispatcher
+without payoff. Node mode uses a sibling `NodeRunner`; the dispatcher
 gained a small runtime-mode map while the default language-keyed
 path stayed intact.
 
@@ -151,19 +148,18 @@ path stayed intact.
 
 - Senior-dev users see Lingua's runtime ambition without us
   shipping half-functional modes.
-- The telemetry contract is ready before Slice 2 / Slice 3 add
-  additional successful runtime transitions.
+- The telemetry contract supports additional runtime transitions.
 - The contract surface is locked: `RuntimeMode` is a closed enum,
   the editor store and session store both coerce defensively, and
   the new helper `cycleRuntimeMode()` future-proofs the keyboard
-  shortcut so Slice 2 / Slice 3 land without re-wiring the
+  shortcut so new modes can land without re-wiring the
   shortcut catalog.
 
 **Negative:**
 
-- During Slice 1, disabled future-mode options created some visual
-  noise. This was temporary: Slice 2, Slice 3, and F-4 now enable all
-  five known options at the implementation gate, and the disabled copy
+- During early implementation, disabled future-mode options created some visual
+  noise. This was temporary: all five known options are now enabled at the
+  entitlement gate, and the disabled copy
   only protects future enum or detection gaps.
 
 **Neutral:**
@@ -173,7 +169,7 @@ path stayed intact.
   possible. The shared helper would extend its `JS_TS_LANGUAGES`
   set; everything else stays the same. Not in this ADR's scope.
 
-## Implementation surface (Slice 1)
+## Implementation surface
 
 | File                                                  | Purpose                                              |
 |-------------------------------------------------------|------------------------------------------------------|
@@ -185,14 +181,14 @@ path stayed intact.
 | `src/renderer/components/Toolbar/RuntimeModeSelector.tsx` | JS/TS-only dropdown                              |
 | `src/renderer/components/Toolbar/Toolbar.tsx`         | Mount the selector behind a JS/TS guard              |
 | `src/renderer/components/Settings/EditorSection.tsx`  | Default mode select                                  |
-| `src/renderer/components/CommandPalette/commandPaletteModel.ts` | Runtime-mode palette entries (fold E) |
+| `src/renderer/components/CommandPalette/commandPaletteModel.ts` | Runtime-mode palette entries (implementation note) |
 | `src/renderer/runners/manager.ts`                     | Runtime-mode override map layered on top of the language-keyed registry |
 | `src/renderer/data/keyboardShortcuts.ts`              | `Mod+Alt+M` shortcut entry                           |
 | `src/renderer/hooks/useGlobalShortcuts.ts`            | Cycle dispatcher                                     |
 | `src/renderer/App.tsx`                                | Cycle implementation                                 |
-| `src/shared/telemetry.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event (fold A)         |
+| `src/shared/telemetry.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event (implementation note)         |
 
-## F-4 extension ship notes — 2026-07-06
+## Deno and Bun extension ship notes — 2026-07-06
 
 - `src/main/altJsRuntimes.ts` — desktop Deno/Bun backend. It writes
   source to a temp `.js` / `.ts` file, spawns without a shell, applies
@@ -212,7 +208,7 @@ path stayed intact.
   `deno` / `bun` so persisted sessions and emitted events stay closed-enum
   safe.
 
-## Slice 2 ship notes — 2026-05-14
+## Node mode ship notes — 2026-05-14
 
 ### Architecture
 
@@ -238,7 +234,7 @@ path stayed intact.
 - **No shell interpolation.** User source is never concatenated into a
   shell command; it is either an argv element or a temp-file payload.
 - **Filtered environment.** Main builds the subprocess env from
-  `combinedAllowlist(NODE_TOOLCHAIN_KEYS)` plus the explicit RL-011
+  `combinedAllowlist(NODE_TOOLCHAIN_KEYS)` plus the explicit internal
   user-env tiers. Host secrets such as API keys do not cross the IPC
   boundary by default.
 - **Project-aware cwd.** Saved tabs use the nearest ancestor that owns
@@ -255,7 +251,7 @@ path stayed intact.
   `{ language, status }`, where status is the closed enum
   `success | error | timeout | stopped | missing-binary`.
 
-## Slice 3 ship notes — 2026-05-12
+## Browser Preview ship notes — 2026-05-12
 
 ### Architecture
 
@@ -324,7 +320,7 @@ Bridge message types:
   No `connect-src` → `fetch`/`XHR`/`WebSocket` blocked. No
   `frame-src` → nested iframes blocked. The `unsafe-inline` on
   script + style is intentional: user code IS the inline script,
-  and Fold A (multi-file seed) injects a sibling `.css` tab as
+  and implementation note (multi-file seed) injects a sibling `.css` tab as
   `<style>` inside the doc.
 
 ### Timeout kill
@@ -335,7 +331,7 @@ navigation — user code execution is terminated. The runner
 resolves with `runnerTimeoutResult(...)` and detaches the
 message listener.
 
-### Fold A — multi-file preview seed
+### Multi-file preview seed
 
 `executeTabManually` looks for sibling `.css` and `.html` tabs
 in the editor store BEFORE calling `runnerManager.prepareRunner`.
@@ -348,7 +344,7 @@ threads them into the next `srcdoc`:
 
 Both are optional; a JS-only tab still works.
 
-### Fold F — inspect button
+### Inspect button
 
 The panel's "Open in window" button (`browserPreview.inspect.*`)
 serializes the current `iframe.srcdoc` as a top-level `data:` URL
@@ -367,32 +363,28 @@ release security review consults.
 | Mode | Origin | Network | DOM | Filesystem | Process | Notes |
 |------|--------|---------|-----|------------|---------|-------|
 | `worker` | Web Worker (same-origin) | Restricted by the app CSP; the JS runner does not call `fetch` from user code | None (`document` is `undefined` in a Worker) | None | None | The Pyodide worker for Python is a separate Worker with its own asset trust boundary; documented in `RUNTIME_ASSETS_ADR.md`. |
-| `node` (Slice 2) | Desktop child process | Inherits the desktop network stack; first-run trust notice warns before adoption | None | Full Node `fs` API, with cwd scoped to the saved file's project directory or temp for unsaved tabs | Spawned via `child_process.spawn` with the Node env allowlist from `nativeEnv.ts`; Stop and timeout both SIGTERM then SIGKILL | Shipping as of 2026-05-14. Node 22 permission flags remain a deferred hardening fold. |
-| `browser-preview` (Slice 3) | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the srcdoc CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
+| `node`  | Desktop child process | Inherits the desktop network stack; first-run trust notice warns before adoption | None | Full Node `fs` API, with cwd scoped to the saved file's project directory or temp for unsaved tabs | Spawned via `child_process.spawn` with the Node env allowlist from `nativeEnv.ts`; Stop and timeout both SIGTERM then SIGKILL | Shipping as of 2026-05-14. Node permission flags remain follow-up hardening. |
+| `browser-preview`  | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the srcdoc CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
 
-The matrix is the reference for any future mode (e.g., a
-hypothetical WebContainer mode in `RL-029`). Every new mode adds
+The matrix is the reference for any future mode (for example, a
+hypothetical WebContainer mode). Every new mode adds
 a row before it lands a backend.
 
 ## Cross-references
 
-- The internal plan § RL-019 — ticket scope and per-slice acceptance.
 - `CAPABILITY_MATRIX.md` — three new rows tracking per-mode
   availability per execution class.
-- The internal plan § RL-019 — closed in full after Slice 2; per-slice
-  status and the Iter 24 per-commit detail live there.
 - `DEBUGGER_ADR.md` § Coupled invariants — the debugger surface
-  consumes `tab.runtimeMode` once Slice 2 lands a Node debugger
+  consumes `tab.runtimeMode` when a Node debugger
   backend.
-- `RL-078` — child-process timeouts + resource limits; Slice 2's
-  Node backend rides this contract.
+- `src/main/node-runner.ts` — child-process timeouts and resource limits.
 
 ## Reviewers
 
 - First recorded decision: 2026-05-12.
-- Slice 1 implementation: 2026-05-12, same day as the decision.
-- Slice 2 implementation: 2026-05-14, closing the Node backend.
-- Slice 3 implementation: 2026-05-12, closing the Browser preview backend.
+- Initial decision: 2026-05-12.
+- Node backend: 2026-05-14.
+- Browser Preview backend: 2026-05-12.
 
 ## Rollback
 
@@ -410,5 +402,5 @@ If the selector turns out to confuse users more than it helps:
    `tests/stores/sessionStore.test.ts` would need an entry for the
    version bump.
 
-Full revert by `git revert <slice-1-commit>` is supported — the
-slice is contained.
+The selector can be removed independently because the runtime field is
+defensively coerced during session rehydration.

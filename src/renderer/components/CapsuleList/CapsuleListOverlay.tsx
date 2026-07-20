@@ -1,9 +1,9 @@
 /**
- * RL-094 Slice 3 — Capsule browse overlay.
+ * implementation — Capsule browse overlay.
  *
  * A Pro-gated master/detail surface over the in-memory run capsules
  * the execution-history store retains (`capsuleEntries()` — the newest
- * `resolveCapsuleCap()` entries that carry a `lastCapsule`). Slices 1
+ * `resolveCapsuleCap()` entries that carry a `lastCapsule`). implementation
  * / 1.5 / 2 only let the user export the LATEST capsule or import an
  * external one; this overlay finally lets them browse, preview and
  * export ANY retained capsule.
@@ -14,17 +14,17 @@
  *     footer `trailing` slot; the legend rail shows just `esc close`
  *     since navigation here is click-driven, not ↑↓/↵.
  *   - Free tier: an upsell card instead of the list (mirror of
- *     `RecentRunsPill` fold E). The `capsule.browse_opened` telemetry
- *     still fires so the upsell funnel is measurable (fold G).
- *   - Pro tier: filter chips (language + status — fold C) over a
+ *     `RecentRunsPill` implementation note). The `capsule.browse_opened` telemetry
+ *     still fires so the upsell funnel is measurable (implementation note).
+ *   - Pro tier: filter chips (language + status — implementation note) over a
  *     two-pane grid: left = scrollable capsule rows with per-row
  *     actions (Preview / Export / Open in tab / Copy summary / Delete
- *     — folds B + D), right = `<CapsuleImportPreview>` of the selected
+ *     — implementation note), right = `<CapsuleImportPreview>` of the selected
  *     capsule (reused verbatim — pure, no side effects).
  *
  * Capsules are in-memory only and never persisted, so a reload empties
  * the list until the next run. No new IPC, no disk writes; the only
- * mutation is fold B's per-row Delete which strips `lastCapsule` from
+ * mutation is implementation note's per-row Delete which strips `lastCapsule` from
  * one history entry.
  */
 
@@ -64,7 +64,7 @@ export interface CapsuleListOverlayProps {
 type StatusFilter = 'all' | 'ok' | 'error';
 
 /**
- * RL-094 Slice 4 — sort two capsule entries oldest → newest so the
+ * implementation — sort two capsule entries oldest → newest so the
  * comparison modal renders Older / Newer panes deterministically.
  * Mirror of `compareHistoryEntries` in `ExecutionHistoryPopover`:
  * timestamp first, then a stable `id` tie-break for entries captured in
@@ -124,7 +124,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     return out;
   }, [allEntries]);
 
-  // ─── Telemetry on mount (fold G) — fires for Free + Pro so the
+  // ─── Telemetry on mount (implementation note) — fires for Free + Pro so the
   // upsell funnel is measurable. Once per mount via a ref guard.
   const firedRef = useRef(false);
   useEffect(() => {
@@ -134,7 +134,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     void trackEvent('capsule.browse_opened', { surface, tier });
   }, [tier]);
 
-  // ─── Filters (fold C) ────────────────────────────────────────────
+  // ─── Filters (implementation note) ────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [languageFilter, setLanguageFilter] = useState<string>('all');
   const languages = useMemo<readonly string[]>(() => {
@@ -158,7 +158,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     });
   }, [capsuleEntries, statusFilter, languageFilter]);
 
-  // ─── Compare selection (fold A) ──────────────────────────────────
+  // ─── Compare selection (implementation note) ──────────────────────────────────
   // Mirror `ExecutionHistoryPopover`: a free-toggle multiselect whose
   // Compare action is gated at exactly two. We do NOT cap the set at two
   // — toggling is unconstrained and only `compareEnabled` enforces the
@@ -185,7 +185,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   }, [filtered, pickedId]);
   const selectedId = selected?.id ?? null;
   const setSelectedId = setPickedId;
-  // Reviewer fix (RL-094 Slice 3): memoize the preview byte count on the
+  // Reviewer fix : memoize the preview byte count on the
   // selected capsule. A capsule can carry up to ~2 MiB (1 MiB stdout +
   // 1 MiB stderr); without this, `JSON.stringify` + `utf8ByteLength` ran
   // on every render — including each 60s relative-timestamp tick below —
@@ -199,7 +199,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     [selected]
   );
 
-  // ─── Compare derivations (fold A) ────────────────────────────────
+  // ─── Compare derivations (implementation note) ────────────────────────────────
   // Only count selections that survive the current filter so a
   // filtered-out pick can never form a stale pair. Every capsule entry
   // carries a `lastCapsule`, so the predicate is just set-membership.
@@ -282,7 +282,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     [pushStatusNotice]
   );
 
-  // IT2-F7 — per-row self-contained HTML export (native save dialog on
+  // internal — per-row self-contained HTML export (native save dialog on
   // desktop, blob download on web). Outcome notices mirror handleExport.
   const handleExportHtml = useCallback(
     async (entry: ExecutionHistoryEntry) => {
@@ -349,7 +349,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
 
   const handleDelete = useCallback(
     (entry: ExecutionHistoryEntry) => {
-      // UX Sweep T2 fold E — removing a capsule only strips `lastCapsule`
+      // accessibility pass — removing a capsule only strips `lastCapsule`
       // from a run row that stays in the history; it is fully
       // recoverable, so it deletes optimistically and offers an Undo
       // toast instead of confirming. Stash the capsule so Undo can
@@ -467,7 +467,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
         />
       ) : (
         <div className="grid h-[min(56vh,400px)] min-h-0 grid-rows-[auto_1fr] gap-3">
-          {/* Filter chips (fold C) */}
+          {/* Filter chips (implementation note) */}
           <div
             data-testid="capsule-list-filters"
             className="flex flex-wrap items-center gap-1.5 text-caption"
@@ -539,7 +539,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                       )}
                     >
                       <div className="flex items-start gap-2">
-                        {/* fold A — compare multiselect. A real checkbox so
+                        {/* implementation note — compare multiselect. A real checkbox so
                             keyboard + screen-reader users can build the pair;
                             sits outside the row-select button (no nested
                             interactive controls). */}
@@ -650,7 +650,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
         </div>
       )}
     </CapsuleShell>
-    {/* fold A — the comparator renders as a sibling so it layers above
+    {/* implementation note — the comparator renders as a sibling so it layers above
         the list overlay. `comparePair` is null until the user presses
         Compare; closing it clears the pair but leaves the multiselect
         intact so they can adjust and re-compare. */}

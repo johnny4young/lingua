@@ -1,5 +1,5 @@
 /**
- * RL-100 Slice 1 — `<ImportPreviewOverlay>` tests.
+ * implementation — `<ImportPreviewOverlay>` tests.
  *
  * Drives the overlay from the user-event perspective: empty state,
  * paste a valid cURL, confirm, see the new request in the workspace
@@ -116,7 +116,7 @@ describe('ImportPreviewOverlay', () => {
     });
   });
 
-  it('shows the warning band for lossy cURL flags (fold C)', async () => {
+  it('shows the warning band for lossy cURL flags (implementation note)', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -127,7 +127,7 @@ describe('ImportPreviewOverlay', () => {
     });
   });
 
-  it('redacts sensitive headers in the preview (fold D)', async () => {
+  it('redacts sensitive headers in the preview (implementation note)', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -143,7 +143,7 @@ describe('ImportPreviewOverlay', () => {
     expect(headers.textContent).not.toContain('Bearer xyz');
   });
 
-  it('confirm writes the request + opens a full-screen HTTP tab + closes (fold G, MOV.02)', async () => {
+  it('confirm writes the request + opens a full-screen HTTP tab + closes (implementation note, MOV.02)', async () => {
     let closed = false;
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => (closed = true)} />);
@@ -193,7 +193,7 @@ describe('ImportPreviewOverlay', () => {
   });
 });
 
-describe('ImportPreviewOverlay — ipynb arm (RL-100 Slice 2)', () => {
+describe('ImportPreviewOverlay — ipynb arm ', () => {
   const sampleIpynb = JSON.stringify({
     nbformat: 4,
     nbformat_minor: 5,
@@ -219,7 +219,7 @@ describe('ImportPreviewOverlay — ipynb arm (RL-100 Slice 2)', () => {
     );
   });
 
-  it('flips the confirm button label to the notebook variant (fold C)', async () => {
+  it('flips the confirm button label to the notebook variant (implementation note)', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -262,7 +262,7 @@ describe('ImportPreviewOverlay — ipynb arm (RL-100 Slice 2)', () => {
   });
 });
 
-describe('ImportPreviewOverlay — .linguanb arm (RL-043 Slice E)', () => {
+describe('ImportPreviewOverlay — .linguanb arm ', () => {
   const sampleLinguanb = JSON.stringify({
     format: 'linguanb',
     documentVersion: 1,
@@ -278,7 +278,7 @@ describe('ImportPreviewOverlay — .linguanb arm (RL-043 Slice E)', () => {
     },
   });
 
-  it('renders the notebook band with the lossless badge on paste (fold C)', async () => {
+  it('renders the notebook band with the lossless badge on paste (implementation note)', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -288,7 +288,7 @@ describe('ImportPreviewOverlay — .linguanb arm (RL-043 Slice E)', () => {
       const body = screen.getByTestId('import-preview-body');
       expect(body.getAttribute('data-preview-kind')).toBe('linguanb-notebook');
     });
-    // Fold C — the native lossless badge, not the Jupyter badge.
+    // implementation note — the native lossless badge, not the Jupyter badge.
     expect(screen.getByTestId('import-preview-ipynb-badge').textContent).toMatch(/lossless/i);
     expect(screen.getByTestId('import-preview-notebook-summary').textContent).toMatch(/2 cells/);
   });
@@ -312,7 +312,7 @@ describe('ImportPreviewOverlay — .linguanb arm (RL-043 Slice E)', () => {
   });
 });
 
-describe('ImportPreviewOverlay — collection arm (RL-100 Slice 3)', () => {
+describe('ImportPreviewOverlay — collection arm ', () => {
   const samplePostman = JSON.stringify({
     info: {
       name: 'Demo API',
@@ -344,7 +344,7 @@ describe('ImportPreviewOverlay — collection arm (RL-100 Slice 3)', () => {
     ).toBe(2);
   });
 
-  it('surfaces a resolved-variables chip when collection vars are substituted (fold C)', async () => {
+  it('surfaces a resolved-variables chip when collection vars are substituted (implementation note)', async () => {
     const withVars = JSON.stringify({
       info: {
         name: 'Var API',
@@ -371,7 +371,7 @@ describe('ImportPreviewOverlay — collection arm (RL-100 Slice 3)', () => {
     ).toMatch(/api\.example\.com/);
   });
 
-  it('flips the confirm label to the collection variant with the count (fold C)', async () => {
+  it('flips the confirm label to the collection variant with the count (implementation note)', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -423,7 +423,7 @@ describe('ImportPreviewOverlay — collection arm (RL-100 Slice 3)', () => {
   });
 });
 
-describe('ImportPreviewOverlay — Postman variables (RL-100 Slice 4)', () => {
+describe('ImportPreviewOverlay — Postman variables ', () => {
   const postmanColl = JSON.stringify({
     info: {
       name: 'Demo',
@@ -445,7 +445,7 @@ describe('ImportPreviewOverlay — Postman variables (RL-100 Slice 4)', () => {
     ],
   });
 
-  it('renders the variables section for a Postman collection (fold B)', async () => {
+  it('renders the variables section for a Postman collection (implementation note)', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     await user.click(screen.getByTestId('import-preview-paste'));
@@ -470,7 +470,7 @@ describe('ImportPreviewOverlay — Postman variables (RL-100 Slice 4)', () => {
     expect(screen.queryByTestId('import-preview-variables')).toBeNull();
   });
 
-  it('resolves variables from a pasted environment, redacting secrets (folds A + E)', async () => {
+  it('resolves variables from a pasted environment, redacting secrets (implementation note)', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     await user.click(screen.getByTestId('import-preview-paste'));

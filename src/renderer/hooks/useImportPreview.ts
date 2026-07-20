@@ -1,5 +1,5 @@
 /**
- * RL-100 — React coordinator for the global Import overlay.
+ * internal — React coordinator for the global Import overlay.
  * Parsing and Postman re-previewing live in importPreviewModel; confirmed
  * store writes live in importPreviewConfirm.
  */

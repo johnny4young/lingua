@@ -26,7 +26,7 @@ interface ConsoleEntryRendererProps {
   /** Source language for the entry. Forwarded to clickable-stack telemetry. */
   language?: string;
   /**
-   * RL-044 Sub-slice G — fallback source line used by
+   * implementation — fallback source line used by
    * `<OutputLineBadge>` when no payload carries an `origin`. This is
    * the `ConsoleEntry.line` field the legacy non-interactive chip
    * used to render — the new chip claims that surface when the
@@ -35,7 +35,7 @@ interface ConsoleEntryRendererProps {
    */
   entryLine?: number;
   /**
-   * RL-044 Sub-slice G Fold F — whether the active tab buffer
+   * implementation Sub-slice G implementation note — whether the active tab buffer
    * currently carries the `// @origin off` / `# @origin off`
    * directive. Lifted to `ConsolePanel` so the regex runs once per
    * editor-store change instead of once per console row. Defaults
@@ -48,7 +48,7 @@ interface ConsoleEntryRendererProps {
 const reportedPayloadRows = new WeakSet<RichOutputPayload[]>();
 
 /**
- * RL-044 Slice 1B — dispatch wrapper that paints a row of rich
+ * implementation — dispatch wrapper that paints a row of rich
  * payloads. Click on any payload-bearing chip opens
  * `<ConsoleEntryPopover>` with the Preview / Raw JSON tabs.
  *
@@ -66,18 +66,18 @@ export function ConsoleEntryRenderer({
   const { track } = useTelemetry();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-  // RL-044 Sub-slice G — derive a single origin per row. All payloads
+  // implementation — derive a single origin per row. All payloads
   // in a row come from the same `console.log(...)` call so they share
   // a source line; we don't render multiple chips for multi-arg logs.
   // Prefer payload.origin (worker-stamped), fall back to entryLine
-  // (legacy ConsoleEntry.line, e.g. Python pre-Sub-slice-G worker).
+  // (legacy ConsoleEntry.line, e.g. Python pre-implementation worker).
   const rowOrigin =
     payloads.find((p) => p.origin)?.origin ??
     (typeof entryLine === 'number' && entryLine > 0
       ? { line: entryLine }
       : undefined);
 
-  // Fold F — `originSuppressed` is derived ONCE at `ConsolePanel` from
+  // implementation note — `originSuppressed` is derived ONCE at `ConsolePanel` from
   // the active tab content and threaded through as a prop so the
   // regex does not run N times per editor-store change (one per
   // rendered row). When the prop is omitted (isolated component
@@ -136,7 +136,7 @@ export function ConsoleEntryRenderer({
                   aria-label={t('console.rich.openDetails')}
                   title={labelTitle}
                   data-testid="console-rich-open-details"
-                  // RL-044 Slice 2b-β-α Prerequisite fix — the chip
+                  // implementation Prerequisite fix — the chip
                   // used a tiny obscure Unicode glyph (`◰` / `⌗` / `▣`)
                   // that users couldn't decode; replaced with a
                   // recognizable Lucide `Maximize2` icon + visible

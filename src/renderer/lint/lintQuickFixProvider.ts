@@ -1,5 +1,5 @@
 /**
- * RL-108 Slice 1 — Monaco CodeActionProvider for the custom JS/TS quick-fixes
+ * implementation — Monaco CodeActionProvider for the custom JS/TS quick-fixes
  * Monaco's built-in TypeScript worker does not offer (they are style/refactor
  * concerns, not type errors). Registered once per Monaco instance for
  * `javascript` + `typescript` by `useInlineLint`.
@@ -87,7 +87,7 @@ export function createLintQuickFixProvider(
       if (!isLanguageEnabled(language)) {
         return { actions: [], dispose() {} };
       }
-      // Reviewer note (RL-108): every code-action pass — including the
+      // Reviewer note: every code-action pass — including the
       // lightbulb's cursor-idle probe and format-on-save's source pass — lands
       // here. When the caller scopes the request to a kind our `quickfix`
       // actions can't satisfy (`source.*`, `refactor.*`), skip the full-buffer

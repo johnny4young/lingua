@@ -19,7 +19,7 @@ import {
 } from './fsShared';
 
 /**
- * IT2-A1 — project-wide text search + literal/regex replace handlers,
+ * internal — project-wide text search + literal/regex replace handlers,
  * extracted VERBATIM from `fileSystem.ts`. These three handlers are
  * fully self-contained: they close over no mutable module state, only
  * the pure `fsShared` helpers and capability-resolved paths. The
@@ -335,7 +335,7 @@ export function registerSearchReplaceHandlers(): void {
           const lines = content.split(/\r?\n/);
           let fileTimedOut = false;
           const fileDeadline = Date.now() + perLineTimeoutMs * lines.length;
-          // RL-024 Slice 2 — extra cap beyond the per-file deadline.
+          // implementation — extra cap beyond the per-file deadline.
           // `String.prototype.matchAll` runs synchronously per line; a
           // single catastrophic-backtracking pattern (e.g. `(a+)+$`
           // against a megabyte-wide minified line) blocks the Node
@@ -361,7 +361,7 @@ export function registerSearchReplaceHandlers(): void {
               fileTimedOut = true;
               continue;
             }
-            // RL-024 Slice 2 fold C — `matchAll` returns an iterator
+            // implementation note — `matchAll` returns an iterator
             // so we never call the `.exec` method directly. The `g`
             // flag is required for matchAll and already set by
             // `buildSearchRegex`.
@@ -393,7 +393,7 @@ export function registerSearchReplaceHandlers(): void {
                 replacement,
                 regexMode
               );
-              // RL-024 Slice 2 — substitute ONLY this match's text in
+              // implementation — substitute ONLY this match's text in
               // place. The previous implementation called
               // `rawLine.replace(re, replacement)` (global) and sliced
               // the result with the original line's offsets, which was

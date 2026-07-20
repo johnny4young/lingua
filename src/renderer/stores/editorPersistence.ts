@@ -19,7 +19,7 @@ import { isRecipeRunnableLanguage } from '../../shared/lessonRunner';
 import { notifyBlockedFamily } from '../utils/blockedPath';
 
 /**
- * RL-128 — disk-persistence helpers extracted verbatim from `editorStore.ts`:
+ * internal — disk-persistence helpers extracted verbatim from `editorStore.ts`:
  * format-on-save resolution and `persistTab` (the Save / Save-As write path
  * with its capability-revoke ladder). Depends on `editorTabUtils` +
  * `editorModeHelpers` and the settings/UI stores, never on `editorStore`, so
@@ -70,7 +70,7 @@ export function basename(filePath: string): string {
 }
 
 /**
- * RL-077 — write the tab to disk through the capability registry.
+ * internal — write the tab to disk through the capability registry.
  *
  *   - If the tab already carries a `{ rootId, relativePath }` pair
  *     and we are not in Save-As, write through that capability.
@@ -114,7 +114,7 @@ export async function persistTab(
   const name = basename(absolutePath);
   const language = resolveFileLanguageOrPlaintext(name);
   const runtimeMode = runtimeModeForRestoredTab(language, tab.runtimeMode);
-  // RL-020 Slice 2 — re-resolve the workflow mode against the
+  // implementation — re-resolve the workflow mode against the
   // possibly-changed language (Save-As may flip `.js` → `.py`). The
   // coerce helper snaps an unsupported choice back to the language
   // default; this branch is the silent equivalent of the explicit
@@ -126,7 +126,7 @@ export async function persistTab(
   const autoLogEnabled = languageSupportsAutoLog(language)
     ? tab.autoLogEnabled
     : undefined;
-  // RL-020 Slice 6 — same Save-As cleanup for the stdin buffer.
+  // implementation — same Save-As cleanup for the stdin buffer.
   // `foo.js` → `foo.go` must drop the JS-only buffer so the worker
   // never receives a value it can't honor and the tab stops
   // surfacing the Input panel.
@@ -138,7 +138,7 @@ export async function persistTab(
     ? tab.activeInputSetId
     : undefined;
   const inputArgs = languageSupportsStdin(language) ? tab.inputArgs : undefined;
-  // RL-020 Slice 8 — Save-As that changes the language drops the
+  // implementation — Save-As that changes the language drops the
   // Compare toggle. Same-language Save-As (renaming `foo.js` →
   // `bar.js`) keeps the toggle on so the user's workflow isn't
   // interrupted.
@@ -146,7 +146,7 @@ export async function persistTab(
     tab.language === language && tab.compareWithSnapshotEnabled === true
       ? true
       : undefined;
-  // RL-020 Slice 9 — Save-As that lands on an unsupported language
+  // implementation — Save-As that lands on an unsupported language
   // drops the Variables toggle. Same-language Save-As keeps it on.
   const variableInspectorEnabled =
     tab.language === language &&
@@ -154,7 +154,7 @@ export async function persistTab(
     VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES.has(language)
       ? true
       : undefined;
-  // RL-039 Slice C — Save-As keeps a recipe binding only when the tab
+  // implementation — Save-As keeps a recipe binding only when the tab
   // remains on the exact same runnable language. A cross-language save
   // would pair the old assertion pack with incompatible source syntax.
   const recipeBindingId =
@@ -167,7 +167,7 @@ export async function persistTab(
     inputSets: _staleInputSets,
     activeInputSetId: _staleActiveInputSetId,
     inputArgs: _staleInputArgs,
-    // RL-020 Slice 7 — the per-tab one-shot extended-timeout
+    // implementation — the per-tab one-shot extended-timeout
     // override is always scoped to the code the user was looking
     // at when they armed it. A Save-As that retitles or changes
     // language drops the override.

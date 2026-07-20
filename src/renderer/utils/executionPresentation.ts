@@ -52,9 +52,9 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
 
   if (result.magicResults) {
     for (const magicResult of result.magicResults) {
-      // RL-020 Slice 3 — runners tag each result with `kind` so the
+      // implementation — runners tag each result with `kind` so the
       // panel can render the `@watch` pin distinct from the `=>`
-      // arrow. RL-020 Slice 5 — adds `'autoLog'` (bare-expression
+      // arrow. implementation — adds `'autoLog'` (bare-expression
       // auto-capture). Default to `'magic'` for any runner that
       // emits a result without a kind (forward-compat with future
       // adapters).
@@ -64,9 +64,9 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
           : magicResult.kind === 'autoLog'
             ? 'autoLog'
             : 'magic';
-      // RL-044 Slice 1A — thread the typed payload through if the
+      // implementation — thread the typed payload through if the
       // runner attached one. `LineResult.payload` is optional so
-      // results without rich data stay identical to pre-Slice-1A
+      // results without rich data stay identical to legacy
       // behaviour.
       const entry: LineResult = {
         line: magicResult.line,

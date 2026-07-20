@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 /**
- * RL-103 Slice 1 — Structural tests for the curated 5 project
+ * implementation — Structural tests for the curated 5 project
  * templates. The catalog is a closed enum and its shape is locked
  * here so future additions can't silently regress the contract.
  *
  * Per-template invariants:
  *
- *   - `parseProjectTemplate(template).ok === true` (folds A-F payload
+ *   - `parseProjectTemplate(template).ok === true` (implementation note-F payload
  *     surfaces would silently break otherwise).
  *   - Every file content contains an SPDX-License-Identifier line OR
  *     (for `package.json`) the JSON declares `"license": "MIT"`.
- *   - A `.gitignore` is present per fold E so the first commit is
+ *   - A `.gitignore` is present per implementation note so the first commit is
  *     never a `node_modules/` / `.venv/` footgun.
  *   - The entry file is one of the declared files (defense in depth
  *     vs. parseProjectTemplate; structural guard reads more clearly
@@ -62,7 +62,7 @@ describe('PROJECT_TEMPLATES — structural invariants', () => {
   );
 
   it.each(PROJECT_TEMPLATES.map((t) => [t.id, t] as const))(
-    '%s ships a .gitignore (fold E)',
+    '%s ships a .gitignore (implementation note)',
     (_id, template) => {
       const ignore = template.files.find((f) => f.relPath === '.gitignore');
       expect(ignore).toBeDefined();
@@ -71,7 +71,7 @@ describe('PROJECT_TEMPLATES — structural invariants', () => {
   );
 
   it.each(PROJECT_TEMPLATES.map((t) => [t.id, t] as const))(
-    '%s emits SPDX or license=MIT on every file (fold F)',
+    '%s emits SPDX or license=MIT on every file (implementation note)',
     (_id, template) => {
       for (const file of template.files) {
         const hasSpdx = file.content.includes('SPDX-License-Identifier:');

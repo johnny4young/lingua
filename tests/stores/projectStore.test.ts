@@ -266,7 +266,7 @@ describe('collectExpandedPaths', () => {
 });
 
 // ---------------------------------------------------------------------------
-// depthOf — RL-024 Slice 1 depth guard
+// depthOf — implementation depth guard
 // ---------------------------------------------------------------------------
 
 describe('depthOf', () => {
@@ -292,7 +292,7 @@ describe('depthOf', () => {
 });
 
 // ---------------------------------------------------------------------------
-// countFiles + collapseAll — RL-024 Slice 1 folds B + F
+// countFiles + collapseAll — implementation note
 // ---------------------------------------------------------------------------
 
 describe('countFiles', () => {
@@ -595,10 +595,10 @@ describe('projectStore refreshTree', () => {
 });
 
 // ---------------------------------------------------------------------------
-// applyWatchChanges — RL-146 / AUDIT-26 delta refresh
+// applyWatchChanges — implementation detail delta refresh
 // ---------------------------------------------------------------------------
 
-describe('projectStore applyWatchChanges (RL-146 / AUDIT-26)', () => {
+describe('projectStore applyWatchChanges', () => {
   function expandedDir(
     name: string,
     path: string,
@@ -634,7 +634,7 @@ describe('projectStore applyWatchChanges (RL-146 / AUDIT-26)', () => {
     ];
   }
 
-  it('skips pure file change events: no readdir, tree identity unchanged (fold B)', async () => {
+  it('skips pure file change events: no readdir, tree identity unchanged (implementation note)', async () => {
     const mockReaddir = vi.mocked(window.lingua.fs.readdir);
     seedTree(baseTree());
     const before = useProjectStore.getState().nodes;
@@ -648,7 +648,7 @@ describe('projectStore applyWatchChanges (RL-146 / AUDIT-26)', () => {
     expect(useProjectStore.getState().nodes).toBe(before);
   });
 
-  it('re-reads only the changed directory on a rename, preserving sibling identity (fold D)', async () => {
+  it('re-reads only the changed directory on a rename, preserving sibling identity (implementation note)', async () => {
     const mockReaddir = vi.mocked(window.lingua.fs.readdir);
     mockReaddir.mockImplementation(async (_rootId, relativePath) => {
       if (relativePath === 'src') {
@@ -889,10 +889,10 @@ describe('projectStore applyWatchChanges (RL-146 / AUDIT-26)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// updateChildrenAtPath — structural-sharing branch replace (RL-146)
+// updateChildrenAtPath — structural-sharing branch replace
 // ---------------------------------------------------------------------------
 
-describe('updateChildrenAtPath (RL-146 / AUDIT-26)', () => {
+describe('updateChildrenAtPath', () => {
   it('returns the original array reference when the target path is absent', () => {
     const nodes: FileTreeNode[] = [
       { ...makeDir('src', 'src', []), isExpanded: true },

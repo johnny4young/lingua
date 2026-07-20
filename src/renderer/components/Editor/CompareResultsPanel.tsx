@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 8 — Compare body. Renders the diff between the
+ * implementation — Compare body. Renders the diff between the
  * latest stable run (`lastSuccessfulSnapshot`) and the current
  * result-store output. Mounted by `ResultPanel.tsx` in place of
  * `<LineAlignedResults>` when the active tab's
@@ -13,13 +13,13 @@
  *   - **compiled**: a single-column unified diff (reuses the
  *     `DiffUtilityPanel` row shape style with `+ / − / ` prefixes).
  *
- * Fold B — the header surfaces a small `<select>` to pick a
+ * implementation note — the header surfaces a small `<select>` to pick a
  * comparator from the snapshot ring. Default target is the newest
  * entry; the user can step back through up to 3 prior runs. The
- * pin button (fold F) lives next to each entry so the user can
+ * pin button (implementation note) lives next to each entry so the user can
  * lock a known-good snapshot.
  *
- * Fold E — the granularity selector lives at the top of the
+ * implementation note — the granularity selector lives at the top of the
  * compiled mode (Line / Word / Character). Dynamic mode is always
  * line-keyed, so the selector is hidden there.
  */
@@ -132,7 +132,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
         granularity,
       };
 
-  // RL-033 dep-sweep follow-up — Date.now() in render is a react-hooks/purity
+  // internal dep-sweep follow-up — Date.now() in render is a react-hooks/purity
   // violation. Use the newest snapshot's capturedAt as the reference time so
   // the "X min ago" labels stay stable across renders.
   const now = ringOptions[0]?.capturedAt ?? targetEntry.capturedAt;
@@ -148,7 +148,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
           </MonoBadge>
           {ringOptions.length > 1 && (
             <label className="flex items-center gap-1.5 text-caption text-fg-muted">
-              <span className="sr-only">{t('compare.target.selectLabel')}</span>
+              <span className="internal">{t('compare.target.selectLabel')}</span>
               <select
                 aria-label={t('compare.target.selectLabel')}
                 data-testid="compare-target-select"
@@ -228,7 +228,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
           </span>
         </div>
       ) : diff.mode === 'dynamic' ? (
-        // RL-093 polish #9 — dense, four-column comparison table.
+        // internal polish #9 — dense, four-column comparison table.
         // Columns: line · before · after · Δ. The Δ column carries a
         // small chip indicating add/remove/change so the user gets a
         // glanceable signal even when before/after differ only by

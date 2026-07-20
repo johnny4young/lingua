@@ -18,7 +18,7 @@ export function useTransformUtilityPanel({
   initialInput: string;
   transform: (input: string) => TransformUtilityResult;
   /**
-   * IT2-F4 — invoked right before a smart-pasted seed replaces the
+   * internal — invoked right before a smart-pasted seed replaces the
    * input, so a panel can flip its own mode state (e.g. Base64 switches
    * to decode for a pasted encoded value).
    */
@@ -30,7 +30,7 @@ export function useTransformUtilityPanel({
   errorKey: string | null;
 } {
   const [input, setInput] = useState(initialInput);
-  // IT2-F4 — adopting panels consume a smart-pasted seed for free.
+  // internal — adopting panels consume a smart-pasted seed for free.
   usePendingUtilityInput(utilityId, pending => {
     onPendingInput?.(pending);
     setInput(pending);

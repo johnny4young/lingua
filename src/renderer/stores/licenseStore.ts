@@ -1,5 +1,5 @@
 /**
- * Renderer license store — factory + facade (RL-130 / AUDIT-10).
+ * Renderer license store — factory + facade.
  *
  * The 972-line monolith was carved along the web/desktop seam with ZERO public
  * API change; this file is the thin facade that picks the right implementation
@@ -34,7 +34,7 @@ function createLicenseStore() {
 
 export const useLicenseStore = createLicenseStore();
 
-// RL-096 Slice 2 fold C — wire license-verify trust capture (logic extracted
+// implementation note — wire license-verify trust capture (logic extracted
 // to keep this facade thin; see licenseTrustCapture.ts).
 registerLicenseTrustCapture(useLicenseStore);
 

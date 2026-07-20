@@ -1,11 +1,11 @@
 /**
- * RL-020 Slice 2 — per-tab workflow mode (Run / Debug / Scratchpad).
+ * implementation — per-tab workflow mode (Run / Debug / Scratchpad).
  *
  * Three discrete user intents that constrain what fires automatically
  * around the manual Run gesture:
  *
  *   - `scratchpad` — auto-run fires on debounced keystrokes (subject
- *     to the RL-020 Slice 1 completion gate). Default for languages
+ *     to the implementation completion gate). Default for languages
  *     that have a Scratchpad-class runner (JS / TS / Python today).
  *   - `run` — auto-run is OFF. Cmd+R still executes manually. Default
  *     for compiled / validate / view-only tabs.
@@ -51,7 +51,7 @@ const WORKFLOW_MODE_SET: ReadonlySet<string> = new Set(WORKFLOW_MODES);
  *
  * Picking a slightly wider set than the language defaults preserves
  * existing user behavior: anybody who was using auto-run on a Go or
- * Rust tab keeps that experience. A future slice may narrow the
+ * Rust tab keeps that experience. A future work may narrow the
  * Scratchpad default for heavy compile languages — but only behind a
  * setting change, not silently.
  */
@@ -64,7 +64,7 @@ const SCRATCHPAD_CAPABLE_LANGUAGES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Languages that have a debugger adapter today (RL-027 Slice 1.5).
+ * Languages that have a debugger adapter today .
  * Stays in sync with `languageSupportsDebugger` for the JS / TS pair.
  * Future debugger adapters (Python, Go, Rust) extend this set when
  * their language-pack capability flips to `available`.
@@ -113,7 +113,7 @@ export function supportsWorkflowMode(
  * so the live-results experience stays the discoverable default;
  * everything else defaults to `run` so a compiled-language buffer
  * does not look like a no-op (no auto-run = no surprise empty
- * panel until the user presses Cmd+R, paired with fold G's
+ * panel until the user presses Cmd+R, paired with implementation note's
  * mode-aware empty-state copy).
  */
 export function defaultWorkflowMode(language: string | undefined): WorkflowMode {
@@ -153,7 +153,7 @@ export function coerceWorkflowMode(
  * through `WORKFLOW_MODES` in declaration order while skipping
  * unsupported segments for the given language.
  *
- * Used by the `Mod+Shift+M` keyboard cycle (fold A). Behaviour:
+ * Used by the `Mod+Shift+M` keyboard cycle (implementation note). Behaviour:
  *
  *   - Only one supported mode → returns `current` unchanged (cycle
  *     would be a no-op).

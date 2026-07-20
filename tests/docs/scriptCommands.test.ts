@@ -19,9 +19,9 @@ const CURRENT_OPERATOR_DOC_PATHS = [
   'RELEASE.md',
   'docs/DEVELOPMENT.md',
   'docs/README.md',
-  'docs/PUBLIC_READINESS_AUDIT.md',
   'docs/PUBLIC_RELEASE_CHECKLIST.md',
-  'docs/TEST_PLAN.md',
+  'docs/PUBLIC_RELEASE_CHECKLIST.md',
+  'docs/TESTING.md',
   'license-server/README.md',
   'license-server/migrations/0001_initial.sql',
   'license-server/migrations/0002_add_surface_column.sql',
@@ -96,18 +96,18 @@ describe('Script naming docs guard', () => {
       'dev:desktop:pro',
       'dev:desktop:prod',
       'build:web',
-      // RL-098 Slice 1 — CLI bundle (lingua utility, lingua capsule validate)
+      // implementation — CLI bundle (lingua utility, lingua capsule validate)
       'build:cli',
       'preview:web',
       'smoke:desktop',
       'smoke:desktop:stagewright',
-      // RL-083 Slice 1 — runtime-asset lock + offline desktop smoke
+      // implementation — runtime-asset lock + offline desktop smoke
       'smoke:desktop:offline',
-      // RL-080 Slice 3 — packaged desktop smoke (release-blocking)
+      // implementation — packaged desktop smoke (release-blocking)
       'smoke:desktop:packaged',
       'build:runtime-assets',
       'check:runtime-assets',
-      // RL-085 — public-release SBOM + third-party license compliance
+      // internal — public-release SBOM + third-party license compliance
       'sbom:release',
       'check:licenses',
       'license:report',
@@ -115,7 +115,7 @@ describe('Script naming docs guard', () => {
       // Desktop auto-update feed validation — stable production feed
       // or draft-channel staging feed evidence before release promotion.
       'check:update-feed',
-      // RL-061 follow-up — R2 release mirror parity check (private
+      // internal follow-up — R2 release mirror parity check (private
       // repo means GitHub Releases assets are not public-downloadable,
       // mirror-r2 keeps `downloads.linguacode.dev` in sync for
       // marketing-site CTAs). See `docs/runbooks/r2-release-mirror-setup.md`.
@@ -125,16 +125,16 @@ describe('Script naming docs guard', () => {
       // runs the release-blocking gates CI-faithfully before dispatch.
       'check:release-infra',
       'release:preflight',
-      // RL-143 — license-signing-key rotation gate (registry +
+      // internal — license-signing-key rotation gate (registry +
       // SLA + env-drift assertions); also wired into release.yml,
       // deploy-web.yml, and ci.yml. See docs/RELEASE_SECURITY.md
       // § Licensing for the rotation runbook.
       'check:license-rotation',
-      // RL-145 — blocking production-graph audit gate (pnpm audit --prod
+      // internal — blocking production-graph audit gate (pnpm audit --prod
       // wrapper); wired into ci.yml (PR) and release.yml. See
       // docs/RELEASE_SECURITY.md for the prod-vs-full split rationale.
       'check:prod-audit',
-      // RL-086 — bundle/runtime performance budgets and reports
+      // internal — bundle/runtime performance budgets and reports
       'performance:report',
       'performance:baseline',
       'check:performance',
@@ -146,14 +146,14 @@ describe('Script naming docs guard', () => {
       // Dead-code gate (knip.jsonc): unreferenced files, unused/unlisted
       // dependencies. Unused exports stay advisory via `pnpm exec knip`.
       'check:deadcode',
-      // RL-132 / AUDIT-12 — scoped tsc gate that type-checks the branded-id
+      // implementation detail — scoped tsc gate that type-checks the branded-id
       // swap-attack compile guard under tests/ (tsconfig.test.json).
       'typecheck:tests',
       'test:e2e:web',
       'test:smoke:web:license',
       'test:watch',
       'lint',
-      // RL-149 / AUDIT-29 — ratcheting AST guard for direct telemetry callers.
+      // implementation detail — ratcheting AST guard for direct telemetry callers.
       'check:telemetry-call-sites',
       'check:i18n',
       'check:i18n:copy',
@@ -167,7 +167,7 @@ describe('Script naming docs guard', () => {
       'make:desktop:linux',
       'make:desktop:win',
       'publish:desktop',
-      // RL-098 Slice 1 fold G — rebuild CLI bundle on `pnpm install`
+      // implementation note — rebuild CLI bundle on `pnpm install`
       // so a `git pull` doesn't require remembering `pnpm run build:cli`.
       'prepare',
     ]);

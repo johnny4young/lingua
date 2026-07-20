@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — e2e for the Recipes overlay.
+ * implementation — e2e for the Recipes overlay.
  *
  * Acceptance: Mod+Alt+L opens the Recipes overlay from anywhere. EN
  * + ES locales render with tuteo copy. The full open + Run + Test
@@ -30,7 +30,7 @@ async function replaceActiveEditor(page: Page, source: string): Promise<void> {
   await page.keyboard.press('ControlOrMeta+V');
 }
 
-test.describe('Recipes overlay — Mod+Alt+L binding (RL-039 Slices B/C)', () => {
+test.describe('Recipes overlay — Mod+Alt+L binding ', () => {
   test('opens via Mod+Alt+L (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);

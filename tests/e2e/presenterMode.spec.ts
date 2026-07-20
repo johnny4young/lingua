@@ -1,5 +1,5 @@
 /**
- * RL-116 Slice 1 — presenter / focus mode end-to-end.
+ * implementation — presenter / focus mode end-to-end.
  *
  * Locks the acceptance criteria on the production web build:
  *   - the shortcut hides the toolbar chrome and lifts the editor font,
@@ -26,7 +26,7 @@ async function editorFontSize(page: Page): Promise<string> {
   });
 }
 
-test.describe('presenter mode (RL-116)', () => {
+test.describe('presenter mode', () => {
   test('the shortcut hides the toolbar, lifts the font, and restores exactly', async ({
     page,
   }) => {

@@ -2,8 +2,8 @@
  * Resend HTTP client — handles every transactional email Lingua's
  * license-server sends.
  *
- * Slice 2 introduced `sendLicenseEmail` for the paid Polar
- * `order.paid` flow. Slice 4 adds five more wrappers for the
+ * implementation introduced `sendLicenseEmail` for the paid Polar
+ * `order.paid` flow. implementation adds five more wrappers for the
  * trial / education / recovery surfaces, each backed by an HTML
  * template under `src/emails/*.html` rendered through
  * `lib/renderTemplate.ts`. All six wrappers share the same
@@ -140,7 +140,7 @@ function formatExpiresOn(epochSeconds: number): string {
   });
 }
 
-// ---------------------------------------- Slice 2: paid licenses
+// ---------------------------------------- implementation: paid licenses
 
 export type PaidTier = 'pro' | 'pro_lifetime' | 'team';
 
@@ -253,7 +253,7 @@ export async function sendLicenseEmail(input: SendLicenseEmailInput): Promise<Re
   });
 }
 
-// ---------------------------------------- Slice 4: trial / education / recovery
+// ---------------------------------------- implementation: trial / education / recovery
 
 export interface SendTrialEmailInput {
   to: string;

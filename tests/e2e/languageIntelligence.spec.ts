@@ -1,5 +1,5 @@
 /**
- * RL-026 Slice 4 fold F — cross-language smoke for the Settings rows.
+ * implementation note — cross-language smoke for the Settings rows.
  *
  * The unit tests cover each row in isolation. This spec verifies the
  * real assembled Settings → Editor panel renders BOTH Rust and Go
@@ -25,7 +25,7 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('Language intelligence Settings rows (RL-026 Slice 3 + 4)', () => {
+test.describe('Language intelligence Settings rows (implementation + 4)', () => {
   test('web build surfaces both Rust and Go install hints in English', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {

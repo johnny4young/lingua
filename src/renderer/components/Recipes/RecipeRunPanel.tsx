@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — `<RecipeRunPanel>`.
+ * implementation — `<RecipeRunPanel>`.
  *
  * Body of the bottom-panel `'recipe'` sibling tab. Only mounts when
  * the active tab has a persistent `recipeBindingId`.
@@ -19,7 +19,7 @@
  *   - Action  : Run + Test button (disabled while running) + the
  *               last assertion summary.
  *   - Results : per-assertion rows with pass / fail / thrown / missing
- *               badges + collapsible `details` (fold C).
+ *               badges + collapsible `details` (implementation note).
  */
 
 import { useTranslation } from 'react-i18next';

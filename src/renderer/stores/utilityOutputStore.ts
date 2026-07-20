@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 /**
- * RL-069 Slice 1 — current utility panel output provider.
- * RL-069 Slice 2 — adds an `applyHandler` slot so the global
+ * implementation — current utility panel output provider.
+ * implementation — adds an `applyHandler` slot so the global
  * `Mod+Shift+A` shortcut can fire the focused panel's ⚡ Apply.
  *
  * The Developer Utilities workspace/modal mounts one panel at a time. That panel
@@ -11,7 +11,7 @@ import { create } from 'zustand';
  * user presses Cmd+Shift+C / Cmd+Alt+R. Nothing is "captured" — we
  * call the getter at dispatch time so the value is always fresh.
  *
- * Slice 2 closes Slice 1's deliberate gap: every panel that is not a
+ * implementation closes implementation's deliberate gap: every panel that is not a
  * pure generator (random-string, lorem-ipsum) registers an output
  * provider AND, where applicable, an apply handler. The store remains
  * intentionally state-light: two function references plus their

@@ -55,7 +55,7 @@ const BUTTON_LABEL_KEYS: Record<GuidedTourButtonKind, string> = {
   skip: 'tour.buttons.skip',
 };
 
-// UX Sweep T8 — focusable descendants of the tour dialog, for the Tab trap.
+// accessibility pass — focusable descendants of the tour dialog, for the Tab trap.
 const TOUR_FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
@@ -193,12 +193,12 @@ function GuidedTourRuntime({
   const [targetRect, setTargetRect] = useState<GuidedTourTargetRect | null>(null);
   const activeStepIndexRef = useRef<number | null>(null);
   const controlsRef = useRef(controls);
-  // UX Sweep T8 — focus management for the tour dialog (it declared
+  // accessibility pass — focus management for the tour dialog (it declared
   // role=dialog + aria-modal but trapped nothing). Focus the dialog when the
   // tour opens and restore focus to the trigger when it closes.
   const dialogRef = useRef<HTMLElement>(null);
   const tourReturnFocusRef = useRef<HTMLElement | null>(null);
-  // UX Sweep T8 — the layer used to wrap the whole card in aria-live, which
+  // accessibility pass — the layer used to wrap the whole card in aria-live, which
   // re-announced the buttons + checkbox on every step. Announce only the new
   // step's title + body (the open is handled by focus + aria-describedby).
   const announce = useAnnounce();
@@ -238,7 +238,7 @@ function GuidedTourRuntime({
     controlsRef.current.closeOverlay();
   }, []);
 
-  // UX Sweep T8 — capture the trigger when the tour opens, move focus into
+  // accessibility pass — capture the trigger when the tour opens, move focus into
   // the dialog, and restore focus to the trigger when it closes.
   const tourActive = activeStepIndex !== null;
   useEffect(() => {

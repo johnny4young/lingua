@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — `url-parse` adapter.
+ * implementation — `url-parse` adapter.
  *
  * Decodes a URL into its structured components (protocol, host,
  * port, pathname, search params, hash). Output is a JSON-stringified
@@ -10,7 +10,7 @@
 
 import type { UtilityAdapter } from './types';
 
-/** No options Slice 1. Slice 2+ could add `outputShape: 'flat' | 'tree'`. */
+/** No options implementation. implementation could add `outputShape: 'flat' | 'tree'`. */
 export type UrlParseOptions = Record<string, never>;
 
 interface ParsedUrl {

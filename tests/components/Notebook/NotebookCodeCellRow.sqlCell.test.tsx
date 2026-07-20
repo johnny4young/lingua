@@ -1,11 +1,11 @@
 /**
- * T16 — SQL notebook cells (user-facing render surface).
+ * implementation — SQL notebook cells (user-facing render surface).
  *
  * Verifies the pieces the runner tests cannot: that a `language: 'sql'`
  * code cell renders in the real React tree with real i18n — the language
  * selector offers an enabled SQL option, the shared-engine hint renders
  * (no missing i18n key), and a SQL result set (emitted by the runner as a
- * JSON-array stdout entry) upgrades to the same `rich-table-grid` the T3
+ * JSON-array stdout entry) upgrades to the same `rich-table-grid` the implementation
  * table path produces.
  */
 
@@ -59,7 +59,7 @@ const stdout = (text: string): NotebookCellOutputV1 => ({
   text,
 });
 
-describe('NotebookCodeCellRow — SQL cell (T16)', () => {
+describe('NotebookCodeCellRow — SQL cell ', () => {
   beforeAll(async () => {
     await initI18n('en');
     await i18next.changeLanguage('en');
@@ -95,7 +95,7 @@ describe('NotebookCodeCellRow — SQL cell (T16)', () => {
     const headers = Array.from(grid.querySelectorAll('th')).map((h) => h.textContent);
     expect(headers).toEqual(['n', 'label']);
     const firstRow = grid.querySelector('tbody tr');
-    // The T3 grid renders numbers bare and strings quoted.
+    // The implementation grid renders numbers bare and strings quoted.
     expect(
       Array.from(firstRow!.querySelectorAll('td')).map((c) => c.textContent)
     ).toEqual(['1', '"a"']);

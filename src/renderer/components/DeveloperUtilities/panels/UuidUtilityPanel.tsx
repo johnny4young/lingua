@@ -29,7 +29,7 @@ export function UuidUtilityPanel() {
     Array.from({ length: 3 }, () => generateIdentifier('v4'))
   );
   const [decoderInput, setDecoderInput] = useState('');
-  // IT2-F4 — a smart-pasted UUID lands in the decoder input.
+  // internal — a smart-pasted UUID lands in the decoder input.
   usePendingUtilityInput('uuid', setDecoderInput);
   const decoded = useMemo(() => {
     const trimmed = decoderInput.trim();
@@ -40,14 +40,14 @@ export function UuidUtilityPanel() {
     setValues(Array.from({ length: 3 }, () => generateIdentifier(nextKind)));
   };
 
-  // RL-069 Slice 1 — the first generated identifier is the canonical
+  // implementation — the first generated identifier is the canonical
   // copyable value; users can always Regenerate to refresh it. The
   // existing per-row CopyButtons remain so a user can still grab any
   // of the three explicitly.
   const registerOutput = useCallback(() => values[0] ?? null, [values]);
   useRegisterUtilityOutput(registerOutput);
 
-  // RL-069 Slice 2 — Apply targets the decoder input only. The
+  // implementation — Apply targets the decoder input only. The
   // Regenerate button remains the explicit action for new IDs.
   const runApply = useCallback(() => undefined, []);
 

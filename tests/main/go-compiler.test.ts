@@ -72,7 +72,7 @@ describe('main go compiler helpers', () => {
   });
 });
 
-describe('main go compiler env resolver (RL-079 minimal allowlist)', () => {
+describe('main go compiler env resolver (internal minimal allowlist)', () => {
   const SECRET = 'LINGUA_SMOKE_SECRET';
   const INJECTED = 'LINGUA_TEST_FIXTURE_INJECT';
   const ALLOWED = 'GOROOT';

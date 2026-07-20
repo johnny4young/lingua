@@ -7,18 +7,18 @@
  *   { ok: false, reason: <code>, message?: string, issues?: string[] }
  *
  * The renderer's `licenseStore` already handles tagged-union failure
- * shapes from the IPC bridge (Slice 0); using the same convention on the
- * HTTP surface means Slice 2's wiring code can pass server responses
+ * shapes from the IPC bridge ; using the same convention on the
+ * HTTP surface means implementation's wiring code can pass server responses
  * straight through without re-mapping.
  *
- * `reason` codes used in Slice 1:
+ * `reason` codes used in implementation:
  *   - 'invalid-input'      — body shape failed validation (400)
  *   - 'method-not-allowed' — HTTP verb mismatch on a known route (405)
  *   - 'not-found'          — unknown route (404)
  *   - 'not-implemented'    — endpoint scaffolded but Polar/D1 wiring
- *                            still pending Slice 2 (501)
+ *                            still pending implementation (501)
  *
- * Slice 2 will add 'exhausted', 'expired', 'invalid-signature',
+ * implementation will add 'exhausted', 'expired', 'invalid-signature',
  * 'unknown-license', 'rate-limited', and friends. They land on this same
  * shape so the renderer fallback chain stays uniform.
  */
@@ -69,7 +69,7 @@ export function methodNotAllowedResponse(
   return response;
 }
 
-/** Slice 1 placeholder for endpoints that exist but defer real work to Slice 2. */
+/** implementation placeholder for endpoints that exist but defer real work to implementation. */
 export function notImplementedResponse(c: Context, message: string): Response {
   return errorResponse(c, 'not-implemented', { message });
 }

@@ -7,7 +7,7 @@ import type {
 } from '../services/licenseServer';
 
 /**
- * RL-130 — shared license-store types + status constants + store-binding
+ * internal — shared license-store types + status constants + store-binding
  * aliases, extracted verbatim from `licenseStore.ts`. Leaf module: it imports
  * only the shared license/server contracts, never the facade or the web/desktop
  * stores, so every split module (and the facade's public re-export) can depend
@@ -32,7 +32,7 @@ export type LicenseStatus =
 export type ServerSyncState = 'synced' | 'unreachable' | 'disabled' | null;
 
 /**
- * RL-061 Slice 4 — recover-hint surfaced when a paste/rehydrate
+ * implementation — recover-hint surfaced when a paste/rehydrate
  * resolves to an expired-but-signature-valid token AND the server
  * cannot auto-refresh (license cancelled, refunded, or unknown). The
  * `LicenseSection` reads this and renders an inline "Recover via
@@ -53,7 +53,7 @@ export interface LicenseState {
   devices: LicenseServerDevicesBucket | null;
   deviceLimit: LicenseServerDeviceLimit | null;
   /**
-   * Slice 4 — non-null when the renderer detected a stale token
+   * implementation — non-null when the renderer detected a stale token
    * and the server could not refresh it. The LicenseSection shows
    * an inline "Recover via email" button pre-filled with this email.
    */
@@ -65,15 +65,15 @@ export interface LicenseState {
   /** Remove the token and return to the free tier. */
   clearLicense: () => Promise<LicenseStatus>;
   /**
-   * Slice 3 — remove a device from the active license via the server's
+   * implementation — remove a device from the active license via the server's
    * `/licenses/devices/remove` endpoint and refresh the cached bucket.
    * Returns the server's response so the caller can decide whether to
    * surface the success notice or a translated error. The web store calls
-   * the endpoint directly; the desktop store (Slice 3.5) delegates to the
+   * the endpoint directly; the desktop store  delegates to the
    * main bridge, which calls the same endpoint with the persisted token.
    */
   removeDevice: (deviceIdToRemove: string) => Promise<RemoveDeviceResult>;
-  /** Slice 4 — dismiss the inline recover-hint after user acknowledgement. */
+  /** implementation — dismiss the inline recover-hint after user acknowledgement. */
   clearRecoverHint: () => void;
 }
 
@@ -83,7 +83,7 @@ export const FREE_STATUS: LicenseStatus = { kind: 'free' };
 export const VERIFYING_STATUS: LicenseStatus = { kind: 'verifying' };
 
 /**
- * RL-130 — shared store-binding types for the web license action factories.
+ * internal — shared store-binding types for the web license action factories.
  * The web flow's setters live in `licenseWebActions` / `licenseWebRevalidate`
  * as factories of the form `createX(set, get) => Pick<LicenseState, …>`; these
  * give them the exact zustand `set` / `get` signatures the `StateCreator`

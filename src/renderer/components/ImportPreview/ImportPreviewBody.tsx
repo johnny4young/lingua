@@ -1,17 +1,17 @@
 /**
- * RL-100 Slice 1 + Slice 2 — read-only preview band for the Import
+ * implementation — read-only preview band for the Import
  * overlay.
  *
  * Pure presentation. Branches on the preview's `kind` discriminator:
  *
- *   - `'curl-http'` (Slice 1) — method pill, URL, headers table with
+ *   - `'curl-http'`  — method pill, URL, headers table with
  *     redaction badges, body kind preview. Sensitive headers visibly
  *     redacted (the actual originals stay in the preview's `original`
  *     slot and round-trip on confirm).
- *   - `'ipynb-notebook'` (Slice 2) — notebook title, fold D summary
+ *   - `'ipynb-notebook'` (implementation) — notebook title, implementation note summary
  *     chip (cell count + dominant language), first-cells preview band.
  *
- * Fold D — the summary chip shows `{total} cells · {code} code ·
+ * implementation note — the summary chip shows `{total} cells · {code} code ·
  * {markdown} markdown` plus a dominant-language hint when one stands
  * out.
  */
@@ -89,7 +89,7 @@ function countSensitiveHeaders(request: ParsedCollectionRequest): number {
 }
 
 // ---------------------------------------------------------------------------
-// Slice 1 — cURL preview
+// implementation — cURL preview
 // ---------------------------------------------------------------------------
 
 function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
@@ -200,7 +200,7 @@ function CurlPreviewBand({ preview }: { preview: CurlImporterPreview }) {
 }
 
 // ---------------------------------------------------------------------------
-// Slice 2 — `.ipynb` preview
+// implementation — `.ipynb` preview
 // ---------------------------------------------------------------------------
 
 function NotebookPreviewBand({
@@ -210,7 +210,7 @@ function NotebookPreviewBand({
 }) {
   const { t } = useTranslation();
   const { cellCounts, dominantLanguage, title, cellSnippets } = preview;
-  // RL-043 Slice E fold C — a `.linguanb` import is the lossless native
+  // implementation Slice E implementation note — a `.linguanb` import is the lossless native
   // format; flag it with a success-tone badge so the user sees it
   // preserves everything, distinct from the lossy `.ipynb` (info tone).
   const isLossless = preview.kind === 'linguanb-notebook';
@@ -330,7 +330,7 @@ function CellSnippetRow({ snippet }: { snippet: IpynbCellSnippet }) {
 }
 
 // ---------------------------------------------------------------------------
-// Slice 3 — Postman / Bruno collection preview
+// implementation — Postman / Bruno collection preview
 // ---------------------------------------------------------------------------
 
 function CollectionPreviewBand({

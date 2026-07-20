@@ -5,7 +5,7 @@ import { startRecovery } from '../../services/recoveryServer';
 import { SpecRow } from '../ui/SpecRow';
 
 /**
- * RL-061 Slice 4 — License recovery magic-link start CTA.
+ * implementation — License recovery magic-link start CTA.
  *
  * Two visual states:
  *

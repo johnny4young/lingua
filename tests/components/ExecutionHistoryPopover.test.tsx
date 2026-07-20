@@ -39,7 +39,7 @@ describe('ExecutionHistoryPopover', () => {
     ).toBeTruthy();
   });
 
-  it('moves focus into the popover on open and restores it on close (UX Sweep T12)', async () => {
+  it('moves focus into the popover on open and restores it on close (accessibility pass)', async () => {
     const user = userEvent.setup();
     render(<ExecutionHistoryPopover />);
     const toggle = screen.getByTestId('execution-history-toggle');
@@ -177,7 +177,7 @@ describe('ExecutionHistoryPopover', () => {
   });
 
   // ------------------------------------------------------------------
-  // RL-028 Slice 7 — Compare two runs (code diff)
+  // implementation — Compare two runs (code diff)
   // ------------------------------------------------------------------
 
   it('hides the Compare button and the checkbox column when onCompare is not wired', async () => {

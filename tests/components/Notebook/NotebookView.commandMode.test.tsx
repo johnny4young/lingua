@@ -19,7 +19,7 @@ vi.mock('../../../src/renderer/runners', () => ({
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
 }));
-// RL-043 Slice (Monaco cells) — cells host Monaco; jsdom needs the mock.
+// implementation (Monaco cells) — cells host Monaco; jsdom needs the mock.
 vi.mock('@monaco-editor/react', async () => {
   const m = await import('../../__fixtures__/monacoEditorMock');
   return m.makeMonacoEditorMock();
@@ -122,7 +122,7 @@ describe('<NotebookView /> command mode', () => {
     await waitFor(() =>
       expect(shell('c1').getAttribute('data-cell-mode')).toBe('edit')
     );
-    // Monaco's Esc command (fold G) routes to the row's command-mode drop.
+    // Monaco's Esc command (implementation note) routes to the row's command-mode drop.
     act(() => {
       cellMockHarness.commands.get(ESCAPE_CHORD)?.();
     });
@@ -312,7 +312,7 @@ describe('<NotebookView /> command mode', () => {
     ).toHaveLength(2);
   });
 
-  it('does not fire command keybinds while the cell language selector is focused (RL-043 Slice C)', () => {
+  it('does not fire command keybinds while the cell language selector is focused ', () => {
     seed([codeCell('c1'), codeCell('c2')], 'c1');
     render(<NotebookView tabId={TAB_ID} />);
     const select = screen.getAllByTestId('notebook-code-cell-language')[0]!;

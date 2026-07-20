@@ -1,5 +1,5 @@
 /**
- * RL-078 — parent-owned execution timeout, runId guard, and console
+ * internal — parent-owned execution timeout, runId guard, and console
  * cap behavior for the JavaScript / TypeScript runners.
  *
  * The existing MockWorker fixture only emitted `console` + `done` on
@@ -98,7 +98,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('JavaScriptRunner — RL-078 parent-owned timeout', () => {
+describe('JavaScriptRunner — internal parent-owned timeout', () => {
   it('mints a runId per execute() and posts it to the worker', async () => {
     const { JavaScriptRunner } = await import('@/runners/javascript');
     const runner = new JavaScriptRunner();
@@ -394,7 +394,7 @@ describe('JavaScriptRunner — RL-078 parent-owned timeout', () => {
   });
 });
 
-describe('TypeScriptRunner — RL-078 parent-owned timeout', () => {
+describe('TypeScriptRunner — internal parent-owned timeout', () => {
   // Stub esbuild-wasm so init() doesn't try to fetch the wasm bundle.
   beforeEach(() => {
     vi.doMock('esbuild-wasm', () => ({

@@ -28,7 +28,7 @@ export function HtmlEntityPanel() {
     return { output: encodeHtmlEntities(input, strategy), unresolvedCount: 0 };
   }, [input, mode]);
 
-  // RL-069 Slice 2 — register the encoded / decoded value.
+  // implementation — register the encoded / decoded value.
   const registerOutput = useCallback(() => output || null, [output]);
   useRegisterUtilityOutput(registerOutput);
 

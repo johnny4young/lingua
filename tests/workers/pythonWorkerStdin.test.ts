@@ -43,7 +43,7 @@ describe('python-worker stdin line reader', () => {
     }
   });
 
-  it('counts consumption incrementally for the fold-G summary reply', () => {
+  it('counts consumption incrementally for the implementation note summary reply', () => {
     const reader = createStdinLineReader('x\ny\nz');
     expect(reader.consumedCount()).toBe(0);
     reader.read();

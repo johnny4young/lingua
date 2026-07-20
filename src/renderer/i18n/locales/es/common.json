@@ -529,7 +529,7 @@
   "importPreview.notebook.cellSnippetCode": "Código ({{language}})",
   "importPreview.notebook.titleLabel": "Título del notebook",
   "importPreview.warning.lossy.ipynb-raw-cell-dropped": "Las celdas raw no están soportadas — se descartaron al importar.",
-  "importPreview.warning.lossy.ipynb-rich-output-dropped": "Los outputs ricos (imágenes, HTML, gráficos) se descartan al importar — Slice B+ los va a preservar.",
+  "importPreview.warning.lossy.ipynb-rich-output-dropped": "Los outputs ricos (imágenes, HTML, gráficos) se descartan al importar — future work los va a preservar.",
   "importPreview.warning.lossy.ipynb-unknown-language": "El lenguaje del kernel no está soportado; las celdas usan JavaScript por defecto.",
   "importPreview.warning.lossy.ipynb-execute-result-stripped": "El metadato `execute_count` se descarta al importar.",
   "importPreview.reject.ipynb.malformed-json": "No se pudo parsear el JSON del `.ipynb`. Revisa que el archivo no esté truncado.",

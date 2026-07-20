@@ -2,7 +2,7 @@ import { useGoLanguageStore } from '../../stores/goLanguageStore';
 import { LanguageIntelligenceRow } from './LanguageIntelligenceRow';
 
 /**
- * RL-026 Slice 4 — conditional Settings → Languages row for the Go LSP. Mirrors
+ * implementation — conditional Settings → Languages row for the Go LSP. Mirrors
  * `RustLanguageIntelligenceRow` via the shared `LanguageIntelligenceRow`
  * component.
  */

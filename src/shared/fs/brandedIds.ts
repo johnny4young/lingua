@@ -1,5 +1,5 @@
 /**
- * RL-132 / AUDIT-12 — branded id types for the capability filesystem IPC
+ * implementation detail — branded id types for the capability filesystem IPC
  * boundary.
  *
  * Pure module — no Electron, no React, no Node-only APIs — so it imports

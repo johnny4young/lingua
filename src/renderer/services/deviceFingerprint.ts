@@ -1,5 +1,5 @@
 /**
- * Web-build device fingerprint helpers — RL-061 Slice 2.5.
+ * Web-build device fingerprint helpers — implementation
  *
  * The desktop bridge owns the device id on disk
  * (`device-id.json` under `app.getPath('userData')`, see
@@ -12,7 +12,7 @@
  *
  * `deviceName` and `os` are derived from `navigator.userAgent` and
  * platform hints. They are display-only fields the user sees in
- * Settings → License (Slice 3) — never used as authentication
+ * Settings → License  — never used as authentication
  * material. The server stores them as free-form text.
  *
  * Per LICENSING_ADR Decision 4 + Decision 6 (web licensing model).
@@ -66,7 +66,7 @@ export function getOrMintDeviceId(): string {
 
 /**
  * Derive a human-readable device name from `navigator.userAgent` for
- * the Settings → License device list (Slice 3). Falls back to
+ * the Settings → License device list . Falls back to
  * generic placeholders when UA strings are unrecognisable so the
  * server never receives empty or shell-injection-bait values.
  */

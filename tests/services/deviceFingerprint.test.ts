@@ -1,5 +1,5 @@
 /**
- * Unit tests for the RL-061 Slice 2.5 web-side device fingerprint
+ * Unit tests for the implementation web-side device fingerprint
  * helpers. All three exports (`getOrMintDeviceId`, `getDeviceName`,
  * `getOs`) are derived from `localStorage` + `navigator.userAgent`,
  * so the tests just stub those globals and pin the contract.

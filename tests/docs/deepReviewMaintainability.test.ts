@@ -25,7 +25,7 @@ describe('deep-review maintainability boundaries', () => {
     ]) {
       expect(
         physicalLines(`src/main/ipc/fs/${moduleName}.ts`),
-        `${moduleName} exceeded the IT2-A1 module budget`
+        `${moduleName} exceeded the internal module budget`
       ).toBeLessThanOrEqual(600);
     }
   });
@@ -97,7 +97,7 @@ describe('deep-review maintainability boundaries', () => {
     ] as const) {
       expect(
         physicalLines(relativePath),
-        `${relativePath} regressed above its IT2-A5 budget`
+        `${relativePath} regressed above its internal budget`
       ).toBeLessThanOrEqual(budget);
     }
   });

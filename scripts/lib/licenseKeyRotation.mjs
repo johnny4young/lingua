@@ -1,5 +1,5 @@
 /**
- * RL-143 — license-signing-key rotation policy, pure logic.
+ * internal — license-signing-key rotation policy, pure logic.
  *
  * The app embeds exactly one Ed25519 public key — committed in `.env.production`
  * as `LINGUA_LICENSE_PUBLIC_KEY_JWK` (the dev `.env` is gitignored, so it is the
@@ -22,7 +22,7 @@
 
 import { createHash } from 'node:crypto';
 
-/** Suggested baseline from PROJECT_AUDIT_2026_05_24 §2.5 / AUDIT-23. */
+/** Suggested baseline from PROJECT_AUDIT_2026_05_24 §2.5 / internal */
 export const DEFAULT_ROTATION_SLA_DAYS = 90;
 /** Days before the SLA breach during which the guard warns but passes. */
 export const DEFAULT_WARN_WINDOW_DAYS = 14;

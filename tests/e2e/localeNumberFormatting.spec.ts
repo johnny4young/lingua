@@ -8,7 +8,7 @@ import {
   test,
 } from './licenseWeb.helpers';
 
-const evidenceDir = 'output/review/it2-g6-g7-product-hardening';
+const evidenceDir = 'output/review/internal';
 
 function captureEnabled(): boolean {
   return process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1';
@@ -20,7 +20,7 @@ async function selectedMaxIterations(page: import('@playwright/test').Page) {
   return select.locator('option:checked');
 }
 
-test.describe('IT2-G7 locale-aware numeric formatting', () => {
+test.describe('internal locale-aware numeric formatting', () => {
   test('uses English grouping in Settings', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);

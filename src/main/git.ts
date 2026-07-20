@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 1 — main-process Git read-only layer.
+ * implementation — main-process Git read-only layer.
  *
  * Surface (exposed via `src/main/ipc/git.ts`):
  *
@@ -27,15 +27,15 @@
  *     find itself and HOME to read `~/.gitconfig`; both are already in
  *     `process.env`. We intentionally do NOT use `buildNativeRunnerEnv`
  *     here because git is purely read-only and the user-tier env from
- *     RL-011 does not apply (no toolchain to influence).
+ *     internal does not apply (no toolchain to influence).
  *   - Output caps: stdout capped at 64 KiB per side for diffs (the
  *     unified-diff `truncated` flag tells the renderer it must surface
  *     the cap instead of pretending the diff is complete).
  *   - Timeout: 5s per invocation. A hung `git` (network filesystem
  *     stall, repo corruption) cannot block IPC forever.
  *
- * Slice 1 is read-only: there is no `git add`, no `git commit`, no
- * `git checkout`. Slice 2+ adds branch indicator refresh + Slice 3+
+ * implementation is read-only: there is no `git add`, no `git commit`, no
+ * `git checkout`. implementation adds branch indicator refresh + implementation
  * adds the write surface. Today we read.
  */
 
@@ -392,7 +392,7 @@ export async function getFileStatus(
     }
     // Anything else with a porcelain line means "tracked + changed
     // in some way (modified, deleted, renamed, added)". Bucket all
-    // of these as `modified` for Slice 1 — Slice 2 can split them.
+    // of these as `modified` for implementation — implementation can split them.
     const counts = await getNumstatForFile(binary, repoRoot, relative);
     return { status: 'modified', ...counts };
   } catch {
@@ -560,7 +560,7 @@ export function resetGitProbeCacheForTests(): void {
 }
 
 // ---------------------------------------------------------------------------
-// RL-102 Slice 2 — `.git/HEAD` watcher + `Reveal in Source Control` action.
+// implementation — `.git/HEAD` watcher + `Reveal in Source Control` action.
 // ---------------------------------------------------------------------------
 
 /**
@@ -604,7 +604,7 @@ export interface GitHeadChangePayload {
 
 /**
  * Watcher diagnostic payload. Mirrors the shape of `fs:watcher-failed`
- * from RL-087 so the renderer can route it through a unified notice
+ * from internal so the renderer can route it through a unified notice
  * surface.
  */
 export interface GitHeadWatcherDiagnostic {
@@ -693,7 +693,7 @@ async function resolveHeadSummary(
   // Reuse the same execFileAsync envelope the rest of the module
   // uses (shell: false, 5s timeout, no shell evaluation). The argv
   // is a fixed array — no user-controlled tokens between `git` and
-  // the literal subcommand. SAFE per Slice 1 security posture.
+  // the literal subcommand. SAFE per implementation security posture.
   const runner = execFileAsync;
   try {
     const { stdout } = await runner(binary, ['rev-parse', 'HEAD'], {
@@ -837,7 +837,7 @@ export async function watchRepoHead(
       // non-idiomatic and untestable against the actual watch path.
       watcher = fsWatch(headDir, (_eventType, filename) => {
         // Some platforms drop the filename in the callback under
-        // load (RL-087 §) — when absent, schedule the resolve
+        // load (internal §) — when absent, schedule the resolve
         // unconditionally and let the diff vs `lastBranch` decide
         // whether to fire. When present, only fire for `HEAD` to
         // avoid double-firing on sibling-file noise (`ORIG_HEAD`,
@@ -895,7 +895,7 @@ export async function revealRepo(repoRoot: string): Promise<boolean> {
   } catch {
     return false;
   }
-  // Defense in depth — make sure the path still exists. Slice 1's
+  // Defense in depth — make sure the path still exists. implementation's
   // `validateGitRepoRoot` re-runs `git rev-parse --show-toplevel` on
   // every diff call; reveal is a cheaper action so we settle for an
   // `fs.stat` existence probe.

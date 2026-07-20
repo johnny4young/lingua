@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 3 fold G — surface claim for the capsule browse
+ * implementation note — surface claim for the capsule browse
  * overlay's `capsule.browse_opened` telemetry.
  *
  * The overlay fires the event once per mount, but it can be opened

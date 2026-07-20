@@ -86,7 +86,7 @@ describe('JS/TS magic comments', () => {
     });
   });
 
-  describe('RL-020 Slice 3 — @watch JS/TS detection', () => {
+  describe('implementation — @watch JS/TS detection', () => {
     it('detects `// @watch <expr>` with the watch kind + empty preserve when alone', () => {
       const code = '// @watch counter';
       // The line is comment-only with no prefix code, so `preserve` is empty.
@@ -127,7 +127,7 @@ describe('JS/TS magic comments', () => {
     });
   });
 
-  describe('RL-020 Slice 3 — @watch JS/TS transform', () => {
+  describe('implementation — @watch JS/TS transform', () => {
     it('preserves the prefix and appends __mc for the watched expression', () => {
       const code = 'const x = 5; // @watch x * 2';
       const transformed = transformJSMagicComments(code);
@@ -182,7 +182,7 @@ describe('JS/TS magic comments', () => {
     });
   });
 
-  describe('RL-020 Slice 5 — JS/TS auto-log detector', () => {
+  describe('implementation — JS/TS auto-log detector', () => {
     it('flags a bare identifier expression', () => {
       expect(detectJSAutoLogLines('x')).toEqual([1]);
     });
@@ -435,7 +435,7 @@ describe('JS/TS magic comments', () => {
     });
   });
 
-  describe('RL-020 Slice 5 — JS/TS auto-log transform', () => {
+  describe('implementation — JS/TS auto-log transform', () => {
     it('replaces a bare expression line with a single `__mc(line, ...)` capture', () => {
       const out = transformJSAutoLog('x + 1', [1]);
       expect(out).toContain('__mc(1,');
@@ -538,7 +538,7 @@ describe('Python magic comments', () => {
     });
   });
 
-  describe('RL-020 Slice 3 — @watch Python detection + transform', () => {
+  describe('implementation — @watch Python detection + transform', () => {
     it('detects `# @watch <expr>` with watch kind', () => {
       const code = 'counter = 5  # @watch counter * 2';
       const results = detectPythonMagicComments(code);
@@ -598,7 +598,7 @@ describe('Python magic comments', () => {
   });
 });
 
-describe('RL-044 Slice 1A — //=> table directive', () => {
+describe('implementation — //=> table directive', () => {
   describe('JS arrow directive', () => {
     it('parses the table directive on an arrow comment', () => {
       const code = '[{a:1}] //=> table';
@@ -621,9 +621,9 @@ describe('RL-044 Slice 1A — //=> table directive', () => {
       expect(entry?.directive).toBeUndefined();
     });
 
-    it('recognises chart / image / html directives (RL-044 Slice 2b-α)', () => {
-      // Slice 2b-α widens the parser's closed enum ahead of Slice
-      // 2b-β runner consumption. A typo (e.g. `chartt`) still falls
+    it('recognises chart / image / html directives ', () => {
+      // implementation widens the parser's closed enum ahead of implementation
+      // implementation runner consumption. A typo (e.g. `chartt`) still falls
       // through to legacy.
       const chart = detectJSMagicComments('[1,2] //=> chart')[0];
       expect(chart?.kind).toBe('arrow');
@@ -649,7 +649,7 @@ describe('RL-044 Slice 1A — //=> table directive', () => {
       expect(entry?.directive).toBe('table');
     });
 
-    it('resolves the figure alias to the chart directive (RL-044 Slice 2b-β-β-α fold G)', () => {
+    it('resolves the figure alias to the chart directive (implementation-β-β-α implementation note)', () => {
       // matplotlib convention: users say `figure`, runner sees `chart`.
       const [entry] = detectJSMagicComments('spec //=> figure');
       expect(entry?.kind).toBe('arrow');
@@ -671,7 +671,7 @@ describe('RL-044 Slice 1A — //=> table directive', () => {
       expect(entry?.directive).toBeUndefined();
     });
 
-    it('resolves the figure alias on Python too (RL-044 Slice 2b-β-β-α fold G)', () => {
+    it('resolves the figure alias on Python too (implementation-β-β-α implementation note)', () => {
       const code = 'spec  #=> figure';
       const [entry] = detectPythonMagicComments(code);
       expect(entry?.directive).toBe('chart');
@@ -679,7 +679,7 @@ describe('RL-044 Slice 1A — //=> table directive', () => {
   });
 });
 
-describe('originSuppressedByMagicComment — RL-044 Sub-slice G Fold F', () => {
+describe('originSuppressedByMagicComment — implementation Sub-slice G implementation note', () => {
   it('detects `// @origin off` in a JS buffer', () => {
     expect(originSuppressedByMagicComment('javascript', '// @origin off\nconsole.log("x")')).toBe(true);
     expect(originSuppressedByMagicComment('typescript', '// @origin off')).toBe(true);
@@ -713,7 +713,7 @@ describe('originSuppressedByMagicComment — RL-044 Sub-slice G Fold F', () => {
   });
 });
 
-describe('gitStatusSuppressedByMagicComment — RL-102 Slice 1 Fold F', () => {
+describe('gitStatusSuppressedByMagicComment — implementation note', () => {
   it('detects `// @git-ignore-status` in a JS / TS buffer', () => {
     expect(
       gitStatusSuppressedByMagicComment('javascript', '// @git-ignore-status')
@@ -781,7 +781,7 @@ describe('gitStatusSuppressedByMagicComment — RL-102 Slice 1 Fold F', () => {
   });
 });
 
-describe('gitWatchHeadSuppressedByMagicComment (RL-102 Slice 2 Fold F)', () => {
+describe('gitWatchHeadSuppressedByMagicComment (implementation note)', () => {
   it('matches the `// @git-watch-head off` JS / TS directive', () => {
     expect(
       gitWatchHeadSuppressedByMagicComment(
@@ -882,10 +882,10 @@ describe('gitWatchHeadSuppressedByMagicComment (RL-102 Slice 2 Fold F)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RL-115 Slice 1 — per-line timing
+// implementation — per-line timing
 // ---------------------------------------------------------------------------
 
-describe('lineTimingRequestedByMagicComment (RL-115)', () => {
+describe('lineTimingRequestedByMagicComment', () => {
   it('detects real // @time comments anywhere in a JS/TS buffer', () => {
     expect(lineTimingRequestedByMagicComment('javascript', '// @time\nconst x = 1;')).toBe(true);
     expect(lineTimingRequestedByMagicComment('typescript', 'const x = 1;\n// @TIME')).toBe(true);
@@ -901,7 +901,7 @@ describe('lineTimingRequestedByMagicComment (RL-115)', () => {
   });
 });
 
-describe('detectJSStatementStartLines (RL-115)', () => {
+describe('detectJSStatementStartLines', () => {
   it('marks each top-level statement start, spanning multi-line statements', () => {
     const code = [
       'const a = 1;', // 1 ✓
@@ -962,7 +962,7 @@ describe('detectJSStatementStartLines (RL-115)', () => {
   });
 });
 
-describe('transformJSLineTiming (RL-115)', () => {
+describe('transformJSLineTiming', () => {
   it('prefixes targets in place and preserves the line count', () => {
     const code = ['const a = 1;', '  indented();', 'const b = 2;'].join('\n');
     const out = transformJSLineTiming(code, [1, 3]);

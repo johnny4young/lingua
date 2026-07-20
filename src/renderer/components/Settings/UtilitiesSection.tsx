@@ -9,11 +9,11 @@ import { Toggle } from './shared';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 
 /**
- * RL-069 Slice 3 — Developer Utilities settings.
+ * implementation — Developer Utilities settings.
  *
  * Houses two surfaces:
  *   1. Clipboard-on-focus consent toggle. The state machine matches
- *      RL-065 telemetry: `unset` → `granted`/`declined`, never back.
+ *      internal telemetry: `unset` → `granted`/`declined`, never back.
  *      Default off; the user has to flip it on to opt in.
  *   2. "Clear all utility history" — bulk affordance for users who
  *      enabled per-tool persistence and want to wipe everything in a

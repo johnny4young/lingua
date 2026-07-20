@@ -15,7 +15,7 @@
  *     `MAX_COMPILE_OUTPUT_BYTES` below). The subprocess has its own
  *     heap, and verbose toolchain output is part of normal operation,
  *     so we allow up to 1 MiB before truncating. Bumping these to
- *     1 MiB is a deliberate user-facing decision (RL-079); do not
+ *     1 MiB is a deliberate user-facing decision; do not
  *     homogenize them with the renderer-side caps without updating
  *     both surfaces in lockstep.
  *
@@ -27,7 +27,7 @@
 export const MAX_NATIVE_STDERR_BYTES = 1024 * 1024;
 
 /**
- * Cap on a single interactive-stdin write forwarded to a native run (F-7).
+ * Cap on a single interactive-stdin write forwarded to a native run .
  * Bounds how much a renderer can push into a child's stdin buffer in one IPC
  * call if the child never reads it. Generous for line-oriented REPL input.
  */
@@ -40,7 +40,7 @@ export const MAX_COMPILE_OUTPUT_BYTES = 1024 * 1024;
 export const MAX_GO_WASM_BYTES = 10 * 1024 * 1024;
 
 /**
- * Slice `value` to fit in `maxBytes` (UTF-16 code units, matching
+ * implementation `value` to fit in `maxBytes` (UTF-16 code units, matching
  * `String.prototype.length`) and append `marker` so the user can tell
  * the output was clipped. Returns the input unchanged when it already
  * fits. Marker is always appended in full; if `maxBytes` would not

@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — UtilityPipelinePanel tests.
+ * implementation — UtilityPipelinePanel tests.
  *
  * Focused on the orchestration the panel owns: create + add step +
  * run + result rendering. Adapter behavior is covered by the unit
@@ -98,7 +98,7 @@ describe('UtilityPipelinePanel', () => {
     expect(screen.getByText(/no pipelines yet/i)).toBeTruthy();
   });
 
-  it('import panel: Escape dismisses it, returns focus to the trigger, and does not bubble (UX Sweep T3)', async () => {
+  it('import panel: Escape dismisses it, returns focus to the trigger, and does not bubble (accessibility pass)', async () => {
     const user = userEvent.setup();
     // Stands in for the Developer Utilities overlay's own Escape handler.
     const parentKeyDown = vi.fn();
@@ -123,10 +123,10 @@ describe('UtilityPipelinePanel', () => {
     expect(parentKeyDown).not.toHaveBeenCalled();
   });
 
-  it('shows the template gallery in the empty state (RL-099 Slice 5)', () => {
+  it('shows the template gallery in the empty state ', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('pipeline-template-gallery')).toBeTruthy();
-    // One card per catalog template (9 after RL-099 Slice 7 fold D added
+    // One card per catalog template (9 after implementation note added
     // the inspect-hidden-chars starter).
     expect(screen.getAllByTestId('pipeline-template-card')).toHaveLength(9);
   });
@@ -151,9 +151,9 @@ describe('UtilityPipelinePanel', () => {
       separator: 'hyphen',
       lowercase: true,
     });
-    // Fold F — the sample input is seeded so the pipeline is runnable.
+    // implementation note — the sample input is seeded so the pipeline is runnable.
     expect(state.getPipelineInput(created.id)).toBe('Hello World Example');
-    // Fold A — adoption telemetry with the curated template id.
+    // implementation note — adoption telemetry with the curated template id.
     expect(mockTrackEvent).toHaveBeenCalledWith('utility.pipeline_template_used', {
       templateId: 'slugify',
     });
@@ -192,7 +192,7 @@ describe('UtilityPipelinePanel', () => {
     expect(outputs[0]).toContain('{"a":1}');
     expect(outputs[1]).toContain('"a": 1');
 
-    // UX Sweep T4 — the run result is announced to screen readers.
+    // accessibility pass — the run result is announced to screen readers.
     expect(useAnnouncerStore.getState().message).toContain('2 of 2 steps succeeded');
   });
 
@@ -236,7 +236,7 @@ describe('UtilityPipelinePanel', () => {
     });
   });
 
-  it('selects a pipeline when its name input is focused (UX Sweep T10)', async () => {
+  it('selects a pipeline when its name input is focused (accessibility pass)', async () => {
     useUtilityPipelineStore.getState().createPipeline(
       createBlankPipeline({ id: 'p1', name: 'first' })
     );
@@ -263,7 +263,7 @@ describe('UtilityPipelinePanel', () => {
     });
   });
 
-  it('deletes a pipeline only after the ConfirmDialog is confirmed (UX Sweep T2)', async () => {
+  it('deletes a pipeline only after the ConfirmDialog is confirmed (accessibility pass)', async () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'doomed' });
     useUtilityPipelineStore.getState().createPipeline(pipeline);
     const user = userEvent.setup();
@@ -288,12 +288,12 @@ describe('UtilityPipelinePanel', () => {
     });
   });
 
-  it('reveals the hover-only row actions for keyboard users and rings them (UX Sweep T1 fold B)', () => {
+  it('reveals the hover-only row actions for keyboard users and rings them (accessibility pass)', () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'one' });
     useUtilityPipelineStore.getState().createPipeline(pipeline);
     render(<UtilityPipelinePanel />);
 
-    // UX Sweep T10 — the row is no longer a button; the name input is the
+    // accessibility pass — the row is no longer a button; the name input is the
     // focusable selection affordance and carries the focus ring.
     const row = screen.getByTestId('utility-pipeline-list-row');
     expect(row.getAttribute('role')).toBeNull();
@@ -343,7 +343,7 @@ describe('UtilityPipelinePanel', () => {
     );
   });
 
-  // RL-099 Slice 3 fold A — explicit Save-as-capsule button.
+  // implementation note — explicit Save-as-capsule button.
   it('disables Save-as-capsule before a run completes', async () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
     pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));

@@ -1,5 +1,5 @@
 /**
- * RL-044 Slice 2b-β-β-α fold D — sandboxed-iframe security e2e.
+ * implementation-β-β-α implementation note — sandboxed-iframe security e2e.
  *
  * Asserts that scripts running inside the `<RichValueHtml>` sandboxed
  * iframe cannot escape to mutate the parent renderer DOM. The
@@ -31,7 +31,7 @@ test('sandboxed HTML payload cannot mutate parent DOM (cross-origin write blocke
   page,
 }) => {
   await seedSession(page, { language: 'en' });
-  await page.goto('/?e2e=rich-console-slice2a');
+  await page.goto('/?e2e=rich-console-gallery');
   await expect(page.getByTestId('rich-console-e2e-fixture')).toBeVisible();
   await expect.poll(() => page.evaluate(() => Boolean(window.__linguaE2e))).toBe(true);
 

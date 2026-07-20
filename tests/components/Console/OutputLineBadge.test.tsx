@@ -1,5 +1,5 @@
 /**
- * RL-044 Sub-slice G — `<OutputLineBadge>` render contract.
+ * implementation — `<OutputLineBadge>` render contract.
  *
  * Covers:
  *   - Renders as a button with the `L<n>` label and aria-label.
@@ -48,7 +48,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-describe('RL-044 Sub-slice G — <OutputLineBadge>', () => {
+describe('implementation — <OutputLineBadge>', () => {
   beforeEach(() => {
     trackOutputOriginClickedMock.mockClear();
     vi.useFakeTimers();
@@ -86,7 +86,7 @@ describe('RL-044 Sub-slice G — <OutputLineBadge>', () => {
     }
   });
 
-  it('forwards repeated clicks to the throttled helper (Fold B handles burst dedup)', () => {
+  it('forwards repeated clicks to the throttled helper (implementation note handles burst dedup)', () => {
     const { getByTestId } = render(<OutputLineBadge origin={{ line: 5 }} language="javascript" />);
     fireEvent.click(getByTestId('output-line-badge'));
     fireEvent.click(getByTestId('output-line-badge'));
@@ -115,7 +115,7 @@ describe('RL-044 Sub-slice G — <OutputLineBadge>', () => {
     }
   });
 
-  // Slice 2 — the master + hover sub-gate Settings toggles were
+  // implementation — the master + hover sub-gate Settings toggles were
   // removed; the badge always renders (subject to the per-tab
   // `// @origin off` directive which is exercised by the parent
   // `<ConsoleEntryRenderer>` suppression path, not here).

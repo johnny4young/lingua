@@ -1,5 +1,5 @@
 /**
- * RL-069 Slice 2 — Cross-panel coverage of the ⚡ Apply button +
+ * implementation — Cross-panel coverage of the ⚡ Apply button +
  * Mod+Shift+A descriptor wiring through `UtilityToolbar`. We pick one
  * panel per shape (live transform, mode-flip, generator carve-out,
  * dual-input) so a regression in any of these axes shows up.
@@ -33,7 +33,7 @@ vi.mock('../../src/renderer/components/ui/chrome', () => ({
   ),
 }));
 
-describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
+describe('UtilityToolbar Apply ', () => {
   beforeEach(async () => {
     initI18n('en');
     await i18next.changeLanguage('en');

@@ -17,7 +17,7 @@ import { emitCommand } from '../../stores/commandBus';
 import { useCommandListener } from '../../hooks/useCommandListener';
 
 /**
- * RL-036 Phase A1 fold E — primary surface for "Copy share link".
+ * implementation Phase A1 implementation note — primary surface for "Copy share link".
  *
  * Icon-only button mounted in the result-panel header next to
  * `<RunCapsuleExportButton>` so the share affordance lives ONE click
@@ -29,7 +29,7 @@ import { useCommandListener } from '../../hooks/useCommandListener';
  *   - **Lazy render to `null` when no active tab exists.** Without a
  *     tab there is nothing to share; surfacing a disabled button
  *     would advertise an action that doesn't exist.
- *   - **Two-stage flow gated by `shareLinkConfirmEnabled` (fold F).**
+ *   - **Two-stage flow gated by `shareLinkConfirmEnabled` (implementation note).**
  *     Click → prepare the share link in memory → if the setting is
  *     ON show `<ShareConfirmationModal>` with source + stdin previews;
  *     the user must confirm before the URL lands on the clipboard. When
@@ -62,7 +62,7 @@ function releaseShareFlow(): void {
 function useShareLinkFlow() {
   const activeTab = useActiveTab();
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
-  // Slice 2 — `shareLinkConfirmEnabled` removed; the confirmation
+  // implementation — `shareLinkConfirmEnabled` removed; the confirmation
   // modal is now the only path. Safer default for clipboard writes.
   const shareLinkConfirmEnabled = true;
 
@@ -252,7 +252,7 @@ export function ShareLinkController() {
   const { runShareFlow, modal } = useShareLinkFlow();
 
   // Listen for the typed cross-component command from the palette
-  // (fold C) and keyboard shortcut (fold D). This controller is
+  // (implementation note) and keyboard shortcut (implementation note). This controller is
   // mounted at AppChrome scope, so those paths keep working even when
   // the result panel is hidden and the header button is not mounted.
   useCommandListener('share.trigger', ({ trigger }) => {

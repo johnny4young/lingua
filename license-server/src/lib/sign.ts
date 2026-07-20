@@ -10,7 +10,7 @@
  * is set in wrangler.toml. Adding a JS implementation would bloat the
  * worker bundle by 30-50KB for zero functional gain.
  *
- * Slice 2 only signs tokens issued from the worker (Polar webhook +
+ * implementation only signs tokens issued from the worker (Polar webhook +
  * future trial / education / recovery endpoints). Verification of
  * tokens received from clients (`/licenses/activate`, `/licenses/status`,
  * `/licenses/devices/remove`) uses the public key stored as a worker
@@ -111,13 +111,13 @@ function getSubtle(): SubtleCrypto | null {
  * Returns the canonical `<payloadPart>.<signaturePart>` token string,
  * or a tagged-union failure shape.
  *
- * Slice 2 callers:
+ * implementation callers:
  * - Polar webhook handler (mints a fresh token on `order.paid` and
  *   `subscription.created`).
  * - Polar webhook handler (re-mints on `subscription.updated` so the
  *   client picks up a refreshed `expires_at` via `/licenses/status`).
  *
- * Future Slice 4 callers:
+ * Future implementation callers:
  * - `/trials/start` — mints `tier: 'trial'`.
  * - `/education/start` + `/education/renew` — mints `tier: 'education'`.
  * - `/licenses/recover` — re-emits the existing `licenses.token` row,

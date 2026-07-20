@@ -133,7 +133,7 @@ Revisit this decision when **any** of the following becomes true:
 - Confirm the `Assert license-key rotation policy` gate passed (it runs in
   `release.yml` `security-audit`, `deploy-web.yml`, and CI).
 
-### License-signing key rotation (RL-143)
+### License-signing key rotation
 
 The app embeds exactly one Ed25519 public key
 (`LINGUA_LICENSE_PUBLIC_KEY_JWK` in `.env` + `.env.production`); the private
@@ -206,7 +206,7 @@ key that ever shipped.
 - Confirm the `pnpm run check:prod-audit` gate passed (it runs in CI on every
   PR and in `release.yml` security-audit).
 
-### Production dependency audit gate (RL-145)
+### Production dependency audit gate
 
 `pnpm run check:prod-audit` (`scripts/assert-prod-audit.mjs` over the pure
 `scripts/lib/prodAudit.mjs`) runs `pnpm audit --prod --json`, applies a
@@ -217,7 +217,7 @@ into `ci.yml` (PR gate) and `release.yml` (security-audit job), so a prod
 advisory is caught before merge, not only at release time.
 
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
-is blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
+is blocking. The dev-inclusive full audit (`pnpm audit --internal high`)
 stays advisory (`continue-on-error: true`): its `high` findings (e.g. the
 `esbuild` GHSA reached through `vite` / `@electron-forge/*`, and the dev-only
 `tar` advisory) are unfixable without upstream electron-forge / vite upgrades
@@ -236,7 +236,7 @@ no available fix and the risk is assessed acceptable for a release:
 3. If no patched version exists, raise the gate threshold for that single run
    only via `node scripts/assert-prod-audit.mjs --level critical` in a
    dedicated commit whose message records the vendored exception, and open a
-   tracking entry in the internal backlog. Never weaken the default `high`
+   tracking entry in the maintenance notes. Never weaken the default `high`
    threshold in CI without that paper trail. `critical` production advisories
    remain release-blocking under this procedure; they need a patched dependency
    or a separate maintainer-approved incident exception.

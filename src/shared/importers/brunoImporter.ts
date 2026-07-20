@@ -1,5 +1,5 @@
 /**
- * RL-100 Slice 3 (fold D) — Bruno `.bru` → HTTP request importer.
+ * implementation (implementation note) — Bruno `.bru` → HTTP request importer.
  *
  * Parses a single Bruno request file (the `.bru` text DSL) into one
  * Lingua request, wrapped in the shared `CollectionImporterPreview`

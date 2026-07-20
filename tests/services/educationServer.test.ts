@@ -1,6 +1,6 @@
 /**
  * Unit tests for `/education/start` + `/education/renew` wrappers
- * (RL-061 Slice 4).
+ * .
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';

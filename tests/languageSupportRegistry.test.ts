@@ -25,7 +25,7 @@ describe('language support registry', () => {
       id: 'ruby',
       extensions: ['.rb'],
     });
-    // RL-124 — editor providers are now lazily imported via loadEditorProviders
+    // internal — editor providers are now lazily imported via loadEditorProviders
     // so the provider modules stay out of the initial bundle.
     expect(ruby?.loadEditorProviders).toEqual(expect.any(Function));
     const providers = await ruby?.loadEditorProviders?.();

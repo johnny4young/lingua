@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 5 fold C — per-tab `autoLogEnabled` override.
+ * implementation note — per-tab `autoLogEnabled` override.
  *
  * Covers:
  *   - `setTabAutoLogEnabled(true | false)` writes the override.
@@ -47,7 +47,7 @@ function setActiveProLicense(): void {
   });
 }
 
-describe('editorStore — autoLogEnabled per-tab override (RL-020 Slice 5)', () => {
+describe('editorStore — autoLogEnabled per-tab override ', () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     useEditorStore.setState({ tabs: [], activeTabId: null });

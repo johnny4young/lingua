@@ -1,5 +1,5 @@
 /**
- * RL-091 — update-server observability layer.
+ * internal — update-server observability layer.
  *
  * Sister module to `license-server/src/lib/observability.ts`. Cloudflare
  * Workers can't easily share TypeScript across project boundaries

@@ -1,7 +1,7 @@
 /**
- * RL-025 Slice C — pythonWebInstaller service unit tests.
+ * implementation — pythonWebInstaller service unit tests.
  *
- * Pins the postMessage protocol shape, the 90s soft timeout (fold F),
+ * Pins the postMessage protocol shape, the 90s soft timeout (implementation note),
  * the loaded-packages query, and the closed-enum mapping for the
  * `'unsupported-wheel'` failure reason.
  */
@@ -158,7 +158,7 @@ describe('pythonWebInstaller', () => {
     expect(result.statuses.psycopg2).toBe('failed');
   });
 
-  it('installPython times out after 90s with timed-out outcome (fold F)', async () => {
+  it('installPython times out after 90s with timed-out outcome (implementation note)', async () => {
     vi.useFakeTimers();
     const { installPython } = await import(
       '../../../src/renderer/services/pythonWebInstaller'

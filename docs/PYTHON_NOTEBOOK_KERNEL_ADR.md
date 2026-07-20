@@ -1,8 +1,7 @@
-# Python notebook kernel — cross-cell state (T17) ADR
+# Python notebook kernel — cross-cell state ADR
 
 **Status:** Accepted — implemented (worker per-scope namespace + runner/session wiring + UI reuse of Restart kernel)
-**Roadmap item:** T17 (`docs/ROADMAP_2026_H2.md`, Tier 4)
-**Related:** RL-043 (notebook runner), RL-020 (Pyodide worker), T16 (SQL cells)
+**Related:** notebook runner, Pyodide worker, and SQL-cell architecture
 
 ## Context
 
@@ -30,7 +29,7 @@ execution path — `docs/CAPABILITY_MATRIX.md`'s "native (desktop)" note is
 about asset resolution, not a separate interpreter). So one design covers both
 platforms.
 
-T17's goal: **intentional, isolated per-notebook Python state** — cells within
+implementation's goal: **intentional, isolated per-notebook Python state** — cells within
 one notebook share a namespace (so cell 2 sees cell 1's `import pandas as pd`
 and `df`), while notebook A, notebook B, and the editor scratchpad stay
 isolated from each other. Plus an explicit **Restart kernel** that clears one
@@ -103,7 +102,7 @@ worker (memory + a reopened same-id tab starting dirty).
    `editorStore.removeTab` both already route through `disposeNotebookSession`,
    restart + tab-close reset the scope for free; no new session API is added.
 4. **UI**: no new control — the notebook toolbar already has a "Restart kernel"
-   button, so T17 only wires the reset through the existing dispose path.
+   button, so implementation only wires the reset through the existing dispose path.
    Update the Python cell hint ("shares state with other Python cells in this
    notebook") in i18n en/es (neutral LatAm tuteo).
 5. **Docs**: flip the `CAPABILITY_MATRIX.md` notebook row + a CHANGELOG entry.

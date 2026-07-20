@@ -57,7 +57,7 @@ export function applyAutoRunResult({
   }
 
   setLineResults(nextLineResults);
-  // RL-115 — publish per-statement timings alongside the line results.
+  // internal — publish per-statement timings alongside the line results.
   setLineTimings(result.lineTimings ?? []);
   setFullOutput(presentation.fullOutput);
 

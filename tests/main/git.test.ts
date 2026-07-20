@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 1 — main-side Git read-only handlers.
+ * implementation — main-side Git read-only handlers.
  *
  * Mocks the promisified `execFile` via the standard codebase pattern
  * (`vi.hoisted` + `nodejs.util.promisify.custom` symbol). Pinned
@@ -371,10 +371,10 @@ describe('getFileDiff', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RL-102 Slice 2 — `.git/HEAD` watcher + `revealRepo` action.
+// implementation — `.git/HEAD` watcher + `revealRepo` action.
 // ---------------------------------------------------------------------------
 
-describe('resolveRepoHeadPath (RL-102 Slice 2)', () => {
+describe('resolveRepoHeadPath ', () => {
   let workdir = '';
 
   beforeEach(() => {
@@ -431,7 +431,7 @@ describe('resolveRepoHeadPath (RL-102 Slice 2)', () => {
   });
 });
 
-describe('watchRepoHead (RL-102 Slice 2)', () => {
+describe('watchRepoHead ', () => {
   let workdir = '';
 
   beforeEach(() => {
@@ -514,7 +514,7 @@ describe('watchRepoHead (RL-102 Slice 2)', () => {
   });
 });
 
-describe('revealRepo (RL-102 Slice 2)', () => {
+describe('revealRepo ', () => {
   let workdir = '';
 
   beforeEach(() => {

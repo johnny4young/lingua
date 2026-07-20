@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 3 — Browser preview runtime.
+ * implementation — Browser preview runtime.
  *
  * Routes JS / TS user code through an iframe-isolated DOM context.
  * The iframe is owned by `<BrowserPreviewPanel>` (the React surface
@@ -65,7 +65,7 @@ import {
   type TranslateFn,
 } from './limits';
 
-// RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the browser
+// implementation — the literal DEFAULT_TIMEOUT is gone; the browser
 // preview runner inherits the host tab's JS / TS preset on every
 // call to `execute()`. The JS host is canonical: when the user
 // renames the tab to TS or HTML/CSS, the runner is dispatched per
@@ -75,9 +75,9 @@ const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
 
 export interface BrowserPreviewSiblingSources {
-  /** Sibling `.css` tab content (Fold A multi-file seed). */
+  /** Sibling `.css` tab content (implementation note multi-file seed). */
   css?: string;
-  /** Sibling `.html` tab content (Fold A — sets initial body markup). */
+  /** Sibling `.html` tab content (implementation note — sets initial body markup). */
   html?: string;
 }
 
@@ -105,7 +105,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
   }
 
   /**
-   * Fold A wiring — the runner manager calls this BEFORE
+   * implementation note wiring — the runner manager calls this BEFORE
    * `execute()` so the iframe srcdoc can splice sibling CSS /
    * HTML. Optional; missing or null clears the seed.
    */
@@ -114,7 +114,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // RL-020 Slice 7 — browser preview inherits the JS preset (the
+    // implementation — browser preview inherits the JS preset (the
     // canonical host language for the iframe). When the host tab is
     // TS, the preset under `'typescript'` wins because the runner is
     // already dispatched per language.
@@ -153,7 +153,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
         error: {
           message: t('browserPreview.error.panelMissing'),
         },
-        // RL-020 Slice 7 — panel-missing counts as `'error'`.
+        // implementation — panel-missing counts as `'error'`.
         kind: 'error',
       };
     }

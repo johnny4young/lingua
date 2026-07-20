@@ -1,7 +1,7 @@
 /**
  * File system IPC assembly for the Electron main process.
  *
- * RL-077 capability enforcement remains inside each focused handler group.
+ * internal capability enforcement remains inside each focused handler group.
  * This module only installs the protected-path denylist and composes approvals,
  * core operations, search/replace, bundles, and watcher lifecycle handlers.
  */
@@ -23,7 +23,7 @@ export {
 } from './fs/fsWatchers';
 
 export function registerFileSystemHandlers(): void {
-  // RL-137 / AUDIT-17 — resolve Electron-owned data dirs from the live app so
+  // implementation detail — resolve Electron-owned data dirs from the live app so
   // the defense-in-depth denylist follows the actual platform paths.
   registerBlockedPaths(
     (['userData', 'sessionData', 'logs'] as const).flatMap((name) => {

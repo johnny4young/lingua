@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 1 fold D — Git layer telemetry helpers.
+ * implementation note — Git layer telemetry helpers.
  *
  * Two events:
  *
@@ -9,7 +9,7 @@
  *   - `git.diff_panel_opened` — once per Git diff panel mount.
  *     Pure counter; no payload.
  *
- * Both go through the same RL-065 telemetry pipeline (`recordEvent`)
+ * Both go through the same internal telemetry pipeline (`recordEvent`)
  * that gates on consent + closed-enum validation. The renderer
  * cannot bypass the gate — the redactor drops events whose
  * `repoState` doesn't pass `GIT_LAYER_REPO_STATES.has(value)`.
@@ -37,7 +37,7 @@ export function trackGitDiffPanelOpened(): void {
 }
 
 /**
- * RL-102 Slice 2 — head-change telemetry. Closed-enum `repoState`
+ * implementation — head-change telemetry. Closed-enum `repoState`
  * reuses `GIT_LAYER_REPO_STATES` so the dashboard groups head
  * changes by posture. `branchChanged` is a boolean payload field;
  * callers only invoke this when the branch genuinely changed (the
@@ -52,8 +52,8 @@ export function trackGitHeadChanged(
 }
 
 /**
- * RL-102 Slice 2 — Reveal-in-Source-Control click telemetry.
- * Closed-enum `target ∈ {'repo-root'}` (extensible for Slice 3+).
+ * implementation — Reveal-in-Source-Control click telemetry.
+ * Closed-enum `target ∈ {'repo-root'}` (extensible for implementation).
  * Mirrored on update-server with parity test.
  */
 export function trackGitRevealInSourceControlClicked(
@@ -63,10 +63,10 @@ export function trackGitRevealInSourceControlClicked(
 }
 
 /**
- * RL-102 Slice 2 fold E — outcome telemetry for the
+ * implementation note — outcome telemetry for the
  * reload-from-disk notice. Closed-enum `mode` captures whether the
  * user accepted the reload, rejected it (dismissed the modal /
- * notice), or auto-applied (reserved for a future Slice 3+
+ * notice), or auto-applied (reserved for a future implementation
  * "auto-reload clean tabs" surface that does not exist today).
  */
 export function trackGitExternalModificationReload(

@@ -130,7 +130,7 @@ describe('AppChrome', () => {
     expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 
-  it('license badge opens Settings and navigates to the Account tab (UX Sweep T5)', async () => {
+  it('license badge opens Settings and navigates to the Account tab (accessibility pass)', async () => {
     seedTab();
     const user = userEvent.setup();
     const onOpenSettings = vi.fn();

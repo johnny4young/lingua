@@ -10,7 +10,7 @@ import {
 } from '../shared/plugins/manifest';
 
 /**
- * RL-084 — main-side plugin discovery.
+ * internal — main-side plugin discovery.
  *
  * Reads `<userData>/plugins/<id>/plugin.json` and runs each through
  * the shared validator (`src/shared/plugins/manifest.ts`). The shared

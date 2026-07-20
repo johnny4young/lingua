@@ -1,5 +1,5 @@
 /**
- * T19 UX pack — Settings → AI "Detect local AI (Ollama)". Verifies the
+ * implementation UX pack — Settings → AI "Detect local AI (Ollama)". Verifies the
  * zero-config path: a reachable local server fills the endpoint + placeholder
  * key and lists models to pick; an unreachable one shows the honest failure
  * copy. All network is stubbed via the fetchImpl seam.

@@ -1,5 +1,5 @@
 /**
- * IT2-F4 — smart-paste utility suggestions end-to-end.
+ * internal — smart-paste utility suggestions end-to-end.
  *
  * Locks the user-visible contract on the production web build:
  *
@@ -38,7 +38,7 @@ async function pasteIntoEditor(page: Page, text: string): Promise<void> {
   await page.keyboard.press(PASTE_CHORD);
 }
 
-test.describe('smart paste — utility suggestions (IT2-F4)', () => {
+test.describe('smart paste — utility suggestions', () => {
   test('pasting a JWT offers the JWT Debugger with the token pre-loaded', async ({
     page,
     context,

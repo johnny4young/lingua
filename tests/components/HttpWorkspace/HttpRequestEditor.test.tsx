@@ -386,7 +386,7 @@ describe('HttpRequestEditor', () => {
     );
   });
 
-  // RL-097 Slice 3a folds A + C — resolution preview + secret-safe cURL.
+  // implementation note — resolution preview + secret-safe cURL.
   it('renders the resolution preview (resolved URL + var chips) with an active env', () => {
     const request = {
       ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }),
@@ -422,16 +422,16 @@ describe('HttpRequestEditor', () => {
       (screen.getByTestId('http-environment-selector') as HTMLSelectElement)
         .value
     ).toBe('e1');
-    // Fold A — the resolved URL shows host resolved, missing token kept.
+    // implementation note — the resolved URL shows host resolved, missing token kept.
     const previewUrl = screen.getByTestId('http-environment-preview-url');
     expect(previewUrl.textContent).toBe('https://api.example.com/{{missing}}');
-    // Fold C — unresolved chip for {{missing}}.
+    // implementation note — unresolved chip for {{missing}}.
     expect(
       screen.getByTestId('http-environment-preview-chip-unresolved').textContent
     ).toContain('missing');
   });
 
-  it('does NOT print a resolved secret value anywhere in the preview (fold A/C privacy)', () => {
+  it('does NOT print a resolved secret value anywhere in the preview (implementation note/C privacy)', () => {
     const request = {
       ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }),
       method: 'GET' as const,
@@ -473,7 +473,7 @@ describe('HttpRequestEditor', () => {
     ).toContain('token');
   });
 
-  it('Copy as cURL masks env secrets but resolves non-secret vars (fold B)', async () => {
+  it('Copy as cURL masks env secrets but resolves non-secret vars (implementation note)', async () => {
     vi.useRealTimers();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

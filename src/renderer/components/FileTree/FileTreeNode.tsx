@@ -29,14 +29,14 @@ interface FileTreeNodeProps {
   node: ProjectFileTreeNode;
   depth: number;
   /**
-   * IT2-B2 — height-measure callback ref from the tree's `useListWindow`
+   * internal — height-measure callback ref from the tree's `useListWindow`
    * (`measureRef(key)`), attached to the row's outer element so the
    * windower learns real row heights. Optional so direct-render tests
    * and future non-windowed callers stay valid.
    */
   rowRef?: (element: HTMLElement | null) => void;
   /**
-   * RL-024 Slice 1 — set of `rootId::relativePath` keys for tabs
+   * implementation — set of `rootId::relativePath` keys for tabs
    * with unsaved edits. Lifted to the tree root in `FileTree` so
    * recursive children share a single Zustand subscription instead
    * of mounting one per node. Default to an empty set for callers
@@ -56,7 +56,7 @@ interface FileTreeNodeProps {
   onNewFileIn?: (node: ProjectFileTreeNode) => void;
   onNewDirIn?: (node: ProjectFileTreeNode) => void;
   /**
-   * UX Sweep T7 — the tree keyboard navigator, owned by `FileTree` (it
+   * accessibility pass — the tree keyboard navigator, owned by `FileTree` (it
    * holds the flat visible-node list + parent links). Each row's name
    * button delegates Arrow/Home/End to it, passing its own path.
    */
@@ -79,7 +79,7 @@ export function FileTreeNode({
 }: FileTreeNodeProps) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
-  // UX Sweep T1 fold B — keyboard users never trigger the mouse-only
+  // accessibility pass — keyboard users never trigger the mouse-only
   // hover state, so the row actions (New / Delete) were unreachable by
   // Tab. Track focus-within so the same affordances mount + reveal when
   // a keyboard user focuses into the row.
@@ -88,7 +88,7 @@ export function FileTreeNode({
   const [contextMenu, setContextMenu] = useState<
     { top: number; left: number } | null
   >(null);
-  // PERF-001 — select each action individually. The previous
+  // internal — select each action individually. The previous
   // store-wide `useProjectStore()` destructure subscribed every node to
   // the whole project store, so any `nodes` mutation (expand / collapse
   // / create / delete) re-rendered the entire recursive tree. Zustand
@@ -99,12 +99,12 @@ export function FileTreeNode({
   const collapseDirectory = useProjectStore((state) => state.collapseDirectory);
   const renameEntry = useProjectStore((state) => state.renameEntry);
   const currentProject = useProjectStore((state) => state.currentProject);
-  // RL-024 Slice 1 fold A — only surface the "Reveal in Finder"
+  // implementation note — only surface the "Reveal in Finder"
   // menu item on the desktop build. The web FSA wrapper resolves
   // revealInFinder to `false`, so the menu would be empty there.
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
-  // RL-024 Slice 1 — light up a dot next to the file name whenever a
+  // implementation — light up a dot next to the file name whenever a
   // matching tab is dirty. Keyed by capability id + relative path so
   // the match is exact across platforms; only files inside the
   // currently-open project root can carry the dot.
@@ -125,7 +125,7 @@ export function FileTreeNode({
 
   const indent = depth * 12;
 
-  // RL-038 Slice C fifth increment — surface the capability badge in
+  // implementation fifth increment — surface the capability badge in
   // the file tree when the user is on the web build and the file
   // belongs to a host-toolchain language (Go, Rust). Stays hidden on
   // desktop and for self-contained runtimes.
@@ -154,7 +154,7 @@ export function FileTreeNode({
     setRenaming(false);
   };
 
-  // RL-024 Slice 1 fold A — assemble the context-menu items. Today
+  // implementation note — assemble the context-menu items. Today
   // we surface a single action on desktop builds; the web FSA wrapper
   // has no underlying absolute path, so the menu collapses to empty
   // and we skip showing it altogether (no point in a blank popover).
@@ -188,14 +188,14 @@ export function FileTreeNode({
   };
 
   const handleNameKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    // UX Sweep T7 — F2 starts an inline rename from the keyboard (the
+    // accessibility pass — F2 starts an inline rename from the keyboard (the
     // rename UI was previously double-click only).
     if (event.key === 'F2') {
       event.preventDefault();
       setRenaming(true);
       return;
     }
-    // UX Sweep T7 — Arrow/Home/End move between rows; delegate to the
+    // accessibility pass — Arrow/Home/End move between rows; delegate to the
     // tree-level navigator (it owns the flat visible-node list).
     if (
       onTreeKeyDown &&
@@ -375,7 +375,7 @@ export function FileTreeNode({
         )}
       </div>
 
-      {/* IT2-B2 — children, the inline-creation input, and the
+      {/* internal — children, the inline-creation input, and the
           empty-directory hint are no longer rendered here: the tree is
           one windowed flat list owned by `FileTree` (see
           `fileTreeRows.ts`), so this component renders exactly ONE row. */}

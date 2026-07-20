@@ -189,7 +189,7 @@ describe('snippetsStore', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });
 
-  it('RL-065 — emits feature.blocked telemetry when addSnippet hits the Free ceiling', async () => {
+  it('internal — emits feature.blocked telemetry when addSnippet hits the Free ceiling', async () => {
     const { useLicenseStore } = await import('@/stores/licenseStore');
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     mockTrackEvent.mockClear();

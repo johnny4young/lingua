@@ -1,5 +1,5 @@
 /**
- * RL-125 / AUDIT-05 — lazy Developer Utilities panels.
+ * implementation detail — lazy Developer Utilities panels.
  *
  * Locks the per-tool code-splitting win: opening the workspace on the default
  * (JSON) tool must NOT fetch the heavier QR / SQL panel chunks, and selecting
@@ -17,7 +17,7 @@ import {
 
 const HEAVY_PANEL_CHUNK = /(QrCodePanel|SqlFormatterPanel)-[A-Za-z0-9_-]+\.js/;
 
-test.describe('Lazy Developer Utilities panels (RL-125)', () => {
+test.describe('Lazy Developer Utilities panels', () => {
   test('default tool skips heavy panel chunks; selecting QR loads its chunk on demand', async ({
     page,
   }) => {

@@ -60,8 +60,7 @@ Why:
 ## Store persistence and schema versioning
 
 Every Zustand store that uses `persist(...)` is schema-versioned through one
-central registry: `src/renderer/stores/persistence/migrationRegistry.ts`
-(RL-126 / AUDIT-06). This exists so that when a persisted shape changes, old
+central registry: `src/renderer/stores/persistence/migrationRegistry.ts`. This exists so that when a persisted shape changes, old
 `localStorage` payloads upgrade cleanly instead of corrupting returning users.
 
 ### The contract
@@ -88,7 +87,7 @@ rehydrate, zustand calls it with `(persistedState, storedVersion)`; it replays
 every registered step whose target version is newer than the stored version, in
 ascending order, then returns the upgraded state.
 
-Two safety properties (RL-126 fold D):
+Two safety properties :
 
 - A **non-record payload** (garbage, a bare string, an array, `null`) or **a
   step that throws** resets that store to its in-memory defaults instead of
@@ -130,8 +129,7 @@ unversioned.
 
 ## Browser permission posture
 
-The Electron shell is **deny-by-default** for browser permissions (RL-127 /
-AUDIT-07). `src/main/permissionHandlers.ts` installs both
+The Electron shell is **deny-by-default** for browser permissions. `src/main/permissionHandlers.ts` installs both
 `setPermissionRequestHandler` (interactive requests) and
 `setPermissionCheckHandler` (synchronous capability checks) on
 `session.defaultSession` at the top of `app.on('ready')`, before any window
@@ -240,7 +238,7 @@ Current behavior:
 
 Important nuance:
 
-- this does **not** scaffold a project structure
+- this does **not** scaffold project structure
 - it is effectively “pick or create a directory, then open it”
 
 #### `openProject(dirPath?)`
@@ -284,7 +282,7 @@ filesystem watcher does **not** call it on every event — see
 
 #### `applyWatchChanges(changes)`
 
-`applyWatchChanges()` is the watcher hot path (RL-146 / AUDIT-26). On a
+`applyWatchChanges()` is the watcher hot path. On a
 coalesced burst of `fs:changed` events it refreshes the tree
 incrementally instead of re-walking it:
 
@@ -513,7 +511,7 @@ It exists to keep the explorer coherent when something changes on disk outside t
 Typical examples:
 
 - a file is edited by another tool
-- a folder is created in Finder/Explorer
+- a implementation detail is created in Finder/Explorer
 - a build process writes generated files
 
 ### Desktop watch flow
@@ -527,7 +525,7 @@ The desktop watch flow is:
 5. `useProjectWatchSync()` debounces the burst and collects the touched
    relative paths.
 6. Content `change` events that identify an open tab schedule a reload-from-disk notice.
-7. The renderer calls `applyWatchChanges(changes)` (RL-146) with the
+7. The renderer calls `applyWatchChanges(changes)` with the
    collected paths, which re-reads only the affected directories and
    patches the tree in place.
 8. When the batch cannot be scoped (null-filename burst, watcher
@@ -569,7 +567,7 @@ granularity:
 - re-read the affected directories from disk (`applyWatchChanges()`)
   and patch the committed tree with what the `readdir` actually returned
 
-History: before RL-146 the invalidation was root-granular — every burst
+History: before internal the invalidation was root-granular — every burst
 triggered a full `refreshTree()` walk. The incremental path replaced it
 as the hot path because full walks scaled poorly on large projects, but
 the DESIGN principle is unchanged: disk is the source of truth and the

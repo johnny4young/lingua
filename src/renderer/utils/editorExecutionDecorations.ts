@@ -18,7 +18,7 @@ export interface ExecutionMarkerEntry {
 
 function toInlineContent(result: LineResult): string {
   if (result.payload) {
-    // RL-044 Slice 1A — reuse the shared formatter so the editor-
+    // implementation — reuse the shared formatter so the editor-
     // decoration path and the overlay-widget path can never diverge.
     const summary = formatPayloadInlineSummary(result.payload);
     if (summary !== null) {

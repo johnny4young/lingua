@@ -3,7 +3,7 @@ import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { recordRun } from '../runtime/runLedger';
 
 /**
- * IT2-C1 — the Run Ledger tap. Subscribes ONCE (app-level, mounted from
+ * internal — the Run Ledger tap. Subscribes ONCE (app-level, mounted from
  * `App` next to the onboarding choreography) to the execution history
  * store and forwards each NEW entry to the ledger, fire-and-forget.
  *

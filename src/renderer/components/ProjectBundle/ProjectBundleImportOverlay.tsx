@@ -1,5 +1,5 @@
 /**
- * RL-024 Slice 3 — project bundle import overlay (fold E).
+ * implementation — project bundle import overlay (implementation note).
  *
  * Reuses the `<CapsuleImportOverlay>` shell language: a `<ModalShell>`
  * with a 3-section body (load source / read-only preview / action bar),

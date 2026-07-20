@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — `useUtilityPipelineRun` hook.
+ * implementation — `useUtilityPipelineRun` hook.
  *
  * State machine `{idle | running | settled}` over the pipeline
  * runner. Components subscribe to the streaming step results array

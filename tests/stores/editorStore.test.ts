@@ -26,9 +26,9 @@ import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
 
 function setActiveProLicense(): void {
-  // The existing editor-store suite predates RL-060 and opens multiple
+  // The existing editor-store suite predates internal and opens multiple
   // tabs per test. Seed a Pro license so those flows bypass the Free
-  // ceiling — each RL-060 gate test below resets the tier back to free
+  // ceiling — each internal gate test below resets the tier back to free
   // inside its own body.
   useLicenseStore.setState({
     token: 'test.token',
@@ -121,7 +121,7 @@ describe('editorStore', () => {
     const tab = createDefaultTab('javascript');
     expect(tab.language).toBe('javascript');
     expect(tab.name).toMatch(/\.js$/);
-    // RL-020 Slice 3 — the Scratchpad seed showcases `//=>` + the
+    // implementation — the Scratchpad seed showcases `//=>` + the
     // pinned `// @watch` instead of a `console.log`. Asserting the
     // marker survives template refreshes (a contributor reverting
     // the demo would fail this test).
@@ -1005,7 +1005,7 @@ describe('editorStore', () => {
     });
   });
 
-  describe('RL-060 tab budget enforcement', () => {
+  describe('internal tab budget enforcement', () => {
     it('blocks notebook tabs on Free even when the tab budget is empty', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       const { useUIStore } = await import('@/stores/uiStore');
@@ -1088,7 +1088,7 @@ describe('editorStore', () => {
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     });
 
-    it('RL-065 — emits feature.blocked telemetry when addTab hits the Free ceiling', async () => {
+    it('internal — emits feature.blocked telemetry when addTab hits the Free ceiling', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
       mockTrackEvent.mockClear();
@@ -1107,7 +1107,7 @@ describe('editorStore', () => {
       );
     });
 
-    it('RL-065 — emits feature.blocked telemetry when openFile hits the Free ceiling', async () => {
+    it('internal — emits feature.blocked telemetry when openFile hits the Free ceiling', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
       mockTrackEvent.mockClear();
@@ -1127,7 +1127,7 @@ describe('editorStore', () => {
       );
     });
 
-    it('RL-065 — does NOT emit feature.blocked when a Pro user opens additional tabs', async () => {
+    it('internal — does NOT emit feature.blocked when a Pro user opens additional tabs', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       useLicenseStore.setState({
         token: 'pro.token',

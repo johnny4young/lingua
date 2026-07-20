@@ -1,5 +1,5 @@
 /**
- * RL-124 / AUDIT-04 — lazy Monaco language registration.
+ * implementation detail — lazy Monaco language registration.
  *
  * Locks the runtime win of `registerLanguageOnce`: a fresh JavaScript
  * scratchpad must NOT fetch any other language's completion / hover / signature
@@ -21,7 +21,7 @@ import {
 const NON_JS_PROVIDER_CHUNK =
   /(go|rust|python|ruby|lua)(Completions|HoverProvider|SignatureProvider)-[A-Za-z0-9_-]+\.js/i;
 
-test.describe('Lazy Monaco language registration (RL-124)', () => {
+test.describe('Lazy Monaco language registration', () => {
   test('JS scratchpad skips other-language provider chunks; Python loads on demand', async ({
     page,
   }) => {

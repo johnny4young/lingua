@@ -1,6 +1,6 @@
 /**
  * Renderer-side wrapper for `POST /licenses/recover/start`
- * (RL-061 Slice 4 — magic-link recovery flow).
+ * (implementation — magic-link recovery flow).
  *
  * The worker is no-info-leak: it ALWAYS responds with the same
  * pending shape regardless of whether the email matches a known

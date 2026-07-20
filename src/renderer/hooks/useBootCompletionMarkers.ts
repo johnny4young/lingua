@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { finishBootTiming, markBootPhase } from '../utils/bootTimings';
 
-/** IT2-G1 — mark the first painted AppLayout and completed boot rehydration. */
+/** internal — mark the first painted AppLayout and completed boot rehydration. */
 export function useBootCompletionMarkers(rehydrationReady: boolean): void {
   useEffect(() => {
     const firstPaintFrame = window.requestAnimationFrame(() => {

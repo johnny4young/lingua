@@ -45,7 +45,7 @@ export function rowsToMarkdownTable(
  * into generated SQL. DuckDB follows ANSI quoting: wrap in double
  * quotes and double any embedded double quote. Without this a table
  * name with a space, a reserved word (e.g. `select`), mixed case (which
- * DuckDB folds to lowercase when unquoted), or an injected `";` would
+ * DuckDB implementation note lowercase when unquoted), or an injected `";` would
  * produce broken — or statement-chaining — SQL when interpolated as a
  * bare identifier.
  */

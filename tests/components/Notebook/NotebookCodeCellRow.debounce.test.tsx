@@ -1,5 +1,5 @@
 /**
- * PERF-003 / PERF-004 — notebook code-cell source auto-save debounce.
+ * implementation detail — notebook code-cell source auto-save debounce.
  *
  * The code cell keeps its source in local React state and only writes
  * through the persisted `notebookStore` (`onSourceChange`) after a quiet
@@ -12,7 +12,7 @@
  *   - switching the row to a different cell flushes the previous cell's
  *     pending edit onto the cell it was typed into (never the new one).
  *
- * RL-043 Slice (Monaco cells): the editor surface is now Monaco. The
+ * implementation (Monaco cells): the editor surface is now Monaco. The
  * `@monaco-editor/react` mock renders a `notebook-code-cell-source`
  * textarea while editing, so these tests first click the static cell to
  * enter edit mode, then drive the same draft/flush contract through it.

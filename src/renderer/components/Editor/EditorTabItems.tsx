@@ -114,7 +114,7 @@ export const EditorTabItem = memo(function EditorTabItem({
           )}
         </div>
 
-        {/* RL-102 Slice 1 — Git status pill (clean / modified /
+        {/* implementation — Git status pill (clean / modified /
             untracked / unknown) inline between the filename and
             the execution status dot. Self-renders to null when
             git posture is unavailable, settings master is OFF,
@@ -228,7 +228,7 @@ function RenameInput({
 /* ---------------------------------------------------------------- */
 
 /**
- * RL-070 — single source of truth for the tab's right-edge state
+ * internal — single source of truth for the tab's right-edge state
  * indicator. The close button replaces whatever dot is showing on
  * hover so the user always has one click to close, regardless of
  * the tab's current lifecycle state.
@@ -339,7 +339,7 @@ function resolveTabTooltip(tab: EditorTabSummary, t: TFn): string {
 }
 
 /**
- * RL-093 Slice 3 — `+N` overflow popover. Provides a single jump
+ * implementation — `+N` overflow popover. Provides a single jump
  * point across every open tab without horizontal-scrolling the tab
  * strip. Renders a chevron button at the right of the strip; opening
  * the popover gives a scrollable tab list with lang chip, filename,
@@ -366,7 +366,7 @@ export function TabsOverflowDropdown({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // UX Sweep T3 — close the popover and return focus to the chevron
+  // accessibility pass — close the popover and return focus to the chevron
   // trigger, so a keyboard user who Escapes (or selects) lands back on
   // the tab strip instead of having focus dumped to the document body.
   const closeToTrigger = useCallback(() => {
@@ -393,7 +393,7 @@ export function TabsOverflowDropdown({
     };
   }, [open, closeToTrigger]);
 
-  // UX Sweep T3 — move focus into the menu on open (the active tab's row
+  // accessibility pass — move focus into the menu on open (the active tab's row
   // if present, else the first), so the ↑↓ navigation the footer
   // advertises actually has a starting point.
   useEffect(() => {
@@ -407,7 +407,7 @@ export function TabsOverflowDropdown({
     target?.focus();
   }, [open]);
 
-  // UX Sweep T3 — implement the ↑↓ / Home / End roving the footer legend
+  // accessibility pass — implement the ↑↓ / Home / End roving the footer legend
   // promises (it was previously decorative). Mirrors the tab context
   // menu's keyboard pattern.
   const handleMenuKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {

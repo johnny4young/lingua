@@ -1,5 +1,5 @@
 /**
- * F-4 — desktop Deno & Bun execution backends.
+ * implementation — desktop Deno & Bun execution backends.
  *
  * Deno and Bun both run JavaScript AND TypeScript directly (no separate
  * transpile step), so a single generic runner drives both — parameterized
@@ -8,7 +8,7 @@
  *
  *   - `spawn()` only, never a shell. Source is written to a temp file
  *     under `mkdtemp()` and passed by path — no command-line interpolation.
- *   - Env filtered through the RL-079 allowlist + RL-011 user tier; the
+ *   - Env filtered through the internal allowlist + internal user tier; the
  *     host env is never forwarded wholesale.
  *   - Parent-owned timeout with SIGTERM→SIGKILL escalation via
  *     `killProcessTree` (process-group leader on POSIX).
@@ -17,7 +17,7 @@
  * Deno is spawned with an explicit permission allowlist argument
  * (`--allow-read=<tempdir>` only) so user code is sandboxed to its own
  * temp directory by default — network and broader filesystem access stay
- * denied unless a future slice surfaces an opt-in. Bun has no built-in
+ * denied unless a future work surfaces an opt-in. Bun has no built-in
  * permission model; it runs with the filtered env as its only boundary,
  * documented here so the trust posture is explicit.
  *
@@ -82,7 +82,7 @@ interface RuntimeConfig {
   ext: (language: string | undefined) => string;
   /** Build the run argv given the temp entry path and its dir. */
   runArgs: (entryFile: string, entryDir: string) => string[];
-  /** Toolchain env keys these runtimes honor (kept minimal, RL-079). */
+  /** Toolchain env keys these runtimes honor (kept minimal, internal). */
   toolchainKeys: readonly string[];
 }
 

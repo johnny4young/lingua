@@ -1,11 +1,11 @@
 /**
- * F-2 — offline, rule-based runtime-error explainer.
+ * implementation — offline, rule-based runtime-error explainer.
  *
  * Turns a raw runner error message into a plain-language explanation plus
  * a few concrete fix hints, entirely locally — no network, no model, no
  * user code leaving the machine. This is the shippable v1 of the "explain
  * this error" surface reserved under the `LOCAL_AI` entitlement; a future
- * slice can swap in an on-device model behind the same `explainError`
+ * future work can swap in an on-device model behind the same `explainError`
  * contract (the return shape is provider-agnostic on purpose).
  *
  * Pure and dependency-free so it is exhaustively unit-testable and can run

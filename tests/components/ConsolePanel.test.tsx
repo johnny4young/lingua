@@ -26,7 +26,7 @@ const { mockTrackEvent, mockTrackOutputOriginClicked } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn(),
   mockTrackOutputOriginClicked: vi.fn(),
 }));
-// RL-044 — controllable `readPastedImageFile` so tests can drive the
+// internal — controllable `readPastedImageFile` so tests can drive the
 // resized / unreadable handler branches that jsdom cannot reach through a
 // real paste (no `createImageBitmap`; image bytes always yield a valid
 // `data:image/` URI). Defaults to the real reader so the existing paste
@@ -62,7 +62,7 @@ let mockState: Omit<
   showTimestamps: false,
 };
 
-// RL-123 — the store now collapses consecutive identical entries at push
+// internal — the store now collapses consecutive identical entries at push
 // time and exposes `collapsedEntries`; the panel reads those. Mirror that
 // collapse here so the mocked store hands the panel the same rows the real
 // store would (same type + line + content + payload equality).
@@ -107,7 +107,7 @@ function consoleStoreSnapshot() {
 }
 
 vi.mock('../../src/renderer/stores/consoleStore', () => {
-  // Callable as a hook AND via `getState()` — UX Sweep T2's clear-undo
+  // Callable as a hook AND via `getState()` — accessibility pass's clear-undo
   // handler reads `useConsoleStore.getState()` to snapshot before clear.
   const useConsoleStore = (() => consoleStoreSnapshot()) as (() => ReturnType<
     typeof consoleStoreSnapshot
@@ -137,9 +137,9 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
       setActiveTab: mockSetActiveTab,
     };
   }
-  // RL-020 Slice 4 — ExecutionHistoryPopover reads
+  // implementation — ExecutionHistoryPopover reads
   // `useEditorStore((state) => state.activeTabId)` to surface the
-  // fold-C "This tab only" filter. The mock therefore needs to be
+  // implementation note "This tab only" filter. The mock therefore needs to be
   // callable as both a selector hook AND a `getState()` accessor so
   // pre-existing call sites keep working.
   const useEditorStore = ((selector?: (state: ReturnType<typeof editorStoreState>) => unknown) => {
@@ -176,7 +176,7 @@ vi.mock('lucide-react', () => ({
   Clock: () => null,
   Trash2: () => null,
   History: () => null,
-  // RL-044 Slice 2b-β-α — `<ConsoleEntryRenderer>` now uses Maximize2
+  // implementation — `<ConsoleEntryRenderer>` now uses Maximize2
   // for the "Open details" chip in place of the old Unicode glyph.
   Maximize2: () => null,
   Lightbulb: () => null,
@@ -203,7 +203,7 @@ function resetState(partial: Partial<typeof mockState> = {}) {
   mockState = {
     entries: [],
     activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'warn', 'error', 'result']),
-    // RL-044 Slice 1B fold A — payload-kind filter; empty Set means
+    // implementation note — payload-kind filter; empty Set means
     // every kind is visible. Without this default the ConsolePanel
     // throws in the new chip-row + filter loops.
     hiddenPayloadKinds: new Set(),
@@ -279,14 +279,14 @@ describe('ConsolePanel', () => {
     );
   });
 
-  it('gives the filter chips the shared keyboard focus ring (UX Sweep T1)', () => {
+  it('gives the filter chips the shared keyboard focus ring (accessibility pass)', () => {
     render(<ConsolePanel />);
     // The payload-kind chips render unconditionally and share the same
     // bespoke chip className as the log-type chips.
     expect(screen.getByTestId('console-payload-chip-table').className).toContain('focus-ring');
   });
 
-  // RL-044 next slice — image clipboard paste into the console.
+  // implementation detail — image clipboard paste into the console.
   describe('image clipboard paste', () => {
     function dispatchImagePaste(opts: { mime?: string; bytes?: number; asText?: boolean }) {
       const event = new Event('paste', { bubbles: true });
@@ -514,11 +514,11 @@ describe('ConsolePanel', () => {
     expect(errLabels.length).toBeGreaterThanOrEqual(2);
   });
 
-  // Slice 2 — `outputSourceMappingEnabled` was removed; the cursor
+  // implementation — `outputSourceMappingEnabled` was removed; the cursor
   // pulse listener is always installed. The "silence when OFF" and
   // "clear in-flight on flip" cases no longer apply.
 
-  // RL-044 Sub-slice G.1 Fold D — adoption telemetry fires once per
+  // implementation Sub-slice G.1 implementation note — adoption telemetry fires once per
   // successful pulse with the active tab's language.
   it('emits runtime.cursor_pulse_emitted telemetry on a successful pulse', () => {
     vi.useFakeTimers();
@@ -714,7 +714,7 @@ describe('ConsolePanel', () => {
     });
   });
 
-  it('renders Slice 2a html, image, and error previews inside the details popover', async () => {
+  it('renders implementation html, image, and error previews inside the details popover', async () => {
     const user = userEvent.setup();
     resetState({
       entries: [
@@ -839,11 +839,11 @@ describe('ConsolePanel', () => {
     const clearButton = screen.getByRole('button', { name: 'Clear console' });
     await user.click(clearButton);
     expect(mockClear).toHaveBeenCalledTimes(1);
-    // Nothing to undo, so no toast is pushed (UX Sweep T2 fold B).
+    // Nothing to undo, so no toast is pushed (accessibility pass).
     expect(mockPushStatusNotice).not.toHaveBeenCalled();
   });
 
-  it('clearing a non-empty console offers an Undo that restores it (fold B)', async () => {
+  it('clearing a non-empty console offers an Undo that restores it (implementation note)', async () => {
     const user = userEvent.setup();
     resetState({
       entries: [

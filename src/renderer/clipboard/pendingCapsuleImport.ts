@@ -1,5 +1,5 @@
 /**
- * RL-110 fold E — one-shot handoff for a pasted capsule.
+ * implementation — one-shot handoff for a pasted capsule.
  *
  * The smart-paste router (`applyPasteIntent`) cannot open the capsule-import
  * overlay directly (the overlay slot is App-local state). Instead it stashes

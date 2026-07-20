@@ -1,8 +1,8 @@
 /**
- * RL-043 Slice E — `.linguanb` native notebook document round-trip +
+ * implementation — `.linguanb` native notebook document round-trip +
  * reject coverage. Pins the lossless serialize/parse contract, the
  * closed-enum rejects, the detect probe, and the execution-order
- * (fold B) sanitization.
+ * (implementation note) sanitization.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -66,7 +66,7 @@ describe('serializeNotebookDocument / parseNotebookDocument', () => {
     expect(doc.notebook.title).toBe('My Notebook');
   });
 
-  it('fold B — round-trips the execution-order map, sanitized to cells + positive ints', () => {
+  it('implementation note — round-trips the execution-order map, sanitized to cells + positive ints', () => {
     const json = serializeNotebookDocument(notebook(SAMPLE_CELLS), {
       executionOrder: { c1: 2, c2: 1, ghost: 9, c1bad: -3 },
     });

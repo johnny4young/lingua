@@ -1,5 +1,5 @@
 /**
- * RL-113 Slice 1 — per-session ring buffer of executed palette commands.
+ * implementation — per-session ring buffer of executed palette commands.
  *
  * Records the closed-enum ACTION ids the command palette executes so
  * Cmd+; can offer "run it again" without the open-palette → retype →

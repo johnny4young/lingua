@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B fold E — `useLessonProgressStore` tests.
+ * implementation Slice B implementation note — `useLessonProgressStore` tests.
  *
  * Covers:
  *   - Initial empty state.
@@ -7,7 +7,7 @@
  *   - recordRun promotes to `'passed'` when all assertions pass.
  *   - Sticky `'passed'` survives a follow-up failed run (lastResult updates).
  *   - markSkipped sets status, no downgrade from `'passed'`.
- *   - resetAll wipes every entry (fold F).
+ *   - resetAll wipes every entry (implementation note).
  *   - LRU cap drops the oldest entry.
  *   - Sanitize-on-rehydrate drops tampered values silently.
  */
@@ -89,7 +89,7 @@ describe('useLessonProgressStore', () => {
     );
   });
 
-  it('resetAll wipes every entry (fold F)', () => {
+  it('resetAll wipes every entry (implementation note)', () => {
     useLessonProgressStore.getState().recordOpened('js-a');
     useLessonProgressStore.getState().recordOpened('js-b');
     expect(useLessonProgressStore.getState().touchedCount()).toBe(2);

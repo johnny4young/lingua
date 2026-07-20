@@ -1,9 +1,9 @@
 /**
- * Crash reporting bootstrap for RL-067.
+ * Crash reporting bootstrap for internal
  *
  * The Electron `crashReporter` captures main + renderer crashes and uploads
- * minidumps to a configured endpoint. Per the RL-067 acceptance criteria:
- *   - Opt-in is unified with the RL-065 telemetry consent — this module
+ * minidumps to a configured endpoint. Per the internal acceptance criteria:
+ *   - Opt-in is unified with the internal telemetry consent — this module
  *     reads the same renderer-persisted flag (`lingua-settings.
  *     telemetryConsent`) via the `readConsent` helper the renderer sets up.
  *   - The endpoint is env-configurable so dev / staging / prod can point at

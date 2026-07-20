@@ -1,10 +1,10 @@
 /**
- * RL-024 Slice 3 — project zip bundle export + import choreography.
+ * implementation — project zip bundle export + import choreography.
  *
  * Export:
  *   - Desktop: `fs:exportBundle(rootId, { entryFile, languageHint })`
  *     packs every visible file (main excludes `node_modules` / `.git` /
- *     `dist` / `build` via `shouldHide` — fold G) and writes the `.zip`
+ *     `dist` / `build` via `shouldHide` — implementation note) and writes the `.zip`
  *     through a save dialog.
  *   - Web: collect the loaded project files via the FSA adapter, pack
  *     with the shared `packBundle`, and trigger a Blob download

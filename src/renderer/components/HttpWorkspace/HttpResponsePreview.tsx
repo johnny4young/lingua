@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 — Right column: response preview.
+ * implementation — Right column: response preview.
  *
  * FASE 3 (MOV.02/03) — converged the bespoke status/meta/tabs bar onto
  * the shared `<ResultHeader>` primitive and the no-response / loading
@@ -16,15 +16,15 @@
  *   - `application/json` (+ variants) → JSON tree (pretty-printed
  *     via `JSON.parse` + `JSON.stringify(_, null, 2)`).
  *   - `text/*` → raw text.
- *   - `image/*` → `<img>` from a data URL (Slice 1 only supports the
+ *   - `image/*` → `<img>` from a data URL (implementation only supports the
  *     happy-path where the body decoded as UTF-8 is a valid image —
  *     base64 / binary streams are deferred).
  *   - Anything else → raw text fallback.
  *
- * Fold E — pretty/raw toggle on the Body tab. The toggle stays
+ * implementation note — pretty/raw toggle on the Body tab. The toggle stays
  * local state (resetting on tab change is the desired UX).
  *
- * Fold C — `<HttpStatusPill>` renders the status color-coded.
+ * implementation note — `<HttpStatusPill>` renders the status color-coded.
  */
 
 import { Loader2, SendHorizontal, X } from 'lucide-react';
@@ -136,12 +136,12 @@ export interface HttpResponsePreviewProps {
   response: HttpResponseV1 | undefined;
   isExecuting: boolean;
   /**
-   * T19 — a one-line `METHOD url` summary of the active request. Lets a
+   * implementation — a one-line `METHOD url` summary of the active request. Lets a
    * failed request (CORS / network / timeout) offer the AI "Explain this
    * error" trigger with the request as the code context.
    */
   requestSummary?: string;
-  /** SR-27 — the active request's assertions, evaluated against the response. */
+  /** internal — the active request's assertions, evaluated against the response. */
   assertions?: readonly HttpAssertion[];
 }
 
@@ -152,7 +152,7 @@ export function HttpResponsePreview({
   assertions,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
-  // SR-27 — evaluate assertions against the settled response. Enabled
+  // internal — evaluate assertions against the settled response. Enabled
   // rows only; disabled rows are excluded by runAssertions.
   const assertionResults = useMemo(() => {
     if (!response || !assertions || assertions.length === 0) return [];
@@ -160,7 +160,7 @@ export function HttpResponsePreview({
   }, [response, assertions]);
   const assertionPassCount = assertionResults.filter((r) => r.pass).length;
   const [tab, setTab] = useState<PreviewTab>('body');
-  // Fold E — pretty/raw toggle.
+  // implementation note — pretty/raw toggle.
   const [prettyJson, setPrettyJson] = useState<boolean>(true);
   // Response body search/filter (Body tab). Highlights matches inline.
   const [search, setSearch] = useState<string>('');
@@ -280,7 +280,7 @@ export function HttpResponsePreview({
         }
       />
 
-      {/* SR-27 — assertion results strip. Only shown when the request has
+      {/* internal — assertion results strip. Only shown when the request has
           enabled assertions; a green/red summary plus a per-row verdict. */}
       {assertionResults.length > 0 ? (
         <div

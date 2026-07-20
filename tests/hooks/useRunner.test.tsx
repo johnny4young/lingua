@@ -69,9 +69,9 @@ describe('useRunner', () => {
     });
     useResultStore.setState(initialResultState, true);
     useUIStore.setState({ statusNotice: null });
-    // RL-079 — pre-acknowledge native execution by default so the
+    // internal — pre-acknowledge native execution by default so the
     // existing Rust/Go test cases bypass the gate. The dedicated
-    // RL-079 describe block resets this to `false` to exercise the
+    // internal describe block resets this to `false` to exercise the
     // gate behaviour.
     useSettingsStore.setState({ nativeExecutionAcknowledged: true });
     useNativeExecutionGateStore.setState(
@@ -295,7 +295,7 @@ describe('useRunner', () => {
     });
   });
 
-  describe('RL-079 native-execution gate', () => {
+  describe('internal native-execution gate', () => {
     const initialGateState = useNativeExecutionGateStore.getState();
     const initialSettings = useSettingsStore.getState();
 
@@ -640,9 +640,9 @@ describe('useRunner', () => {
     );
   });
 
-  // UX Sweep T9 — the console is silent to screen readers; a finished run must
+  // accessibility pass — the console is silent to screen readers; a finished run must
   // push exactly one coalesced summary into the shared live region.
-  describe('screen-reader run summary (UX Sweep T9)', () => {
+  describe('screen-reader run summary (accessibility pass)', () => {
     it('announces a coalesced output summary after a successful run', async () => {
       mockPrepareRunner.mockResolvedValue({
         runner: {

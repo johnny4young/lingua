@@ -348,9 +348,9 @@ export async function markDeviceRemoved(
   return { affected: result.meta?.changes ?? 0 };
 }
 
-// =============================================================== Slice 4
+// =============================================================== implementation
 
-// ------------------------------------------------------ trials (Slice 4)
+// ------------------------------------------------------ trials
 
 export interface TrialRow {
   id: string;
@@ -398,7 +398,7 @@ export async function insertTrial(db: D1Database, input: InsertTrialInput): Prom
     .run();
 }
 
-// -------------------------------------------------- educations (Slice 4)
+// -------------------------------------------------- educations
 
 export interface EducationRow {
   id: string;
@@ -449,7 +449,7 @@ export async function insertEducation(
     .run();
 }
 
-// -------------------------- education_pending_confirmations (Slice 4)
+// -------------------------- education_pending_confirmations
 
 export interface EducationPendingRow {
   id: string;
@@ -520,7 +520,7 @@ export async function markEducationPendingConfirmed(
   return { affected: result.meta?.changes ?? 0 };
 }
 
-// --------------------------- recovery_pending_confirmations (Slice 4)
+// --------------------------- recovery_pending_confirmations
 
 export interface RecoveryPendingRow {
   id: string;

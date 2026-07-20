@@ -1,5 +1,5 @@
 /**
- * T19 — renders the AI "Explain this error" answer.
+ * implementation — renders the AI "Explain this error" answer.
  *
  * Models reply in Markdown, so showing `phase.content` as raw
  * `whitespace-pre-wrap` text leaks the syntax (```` ``` ````, `**`, `1.`) and

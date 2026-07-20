@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fetchLatestWebVersion } from '../services/webUpdateServer';
 
 /**
- * RL-061 Slice 5 — web update banner polling driver.
+ * implementation — web update banner polling driver.
  *
  * Polls `updates.linguacode.dev/web/version` every 12 hours so the
  * banner can compare against the build-time pin (`__LINGUA_APP_VERSION__`,

@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — `diff-text` adapter.
+ * implementation — `diff-text` adapter.
  *
  * Diffs the chained input against a baseline carried in
  * `options.baseline`. The pipeline model is linear (one input per

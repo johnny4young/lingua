@@ -1,5 +1,5 @@
 /**
- * RL-070 — HTML → JSX converter helper.
+ * internal — HTML → JSX converter helper.
  *
  * Pure, offline, renderer-side. Takes HTML markup and returns a JSX-safe
  * string suitable for dropping into a React component. No runtime deps:

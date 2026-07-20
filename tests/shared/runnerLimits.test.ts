@@ -44,7 +44,7 @@ describe('truncateBytes', () => {
     expect(clipped.length).toBe(19);
   });
 
-  it('keeps the main-process caps on their RL-079 deliberate values', () => {
+  it('keeps the main-process caps on their internal deliberate values', () => {
     // 1 MiB subprocess caps and the 10 MiB Go WASM ceiling are
     // user-facing decisions; homogenizing them with the tighter
     // renderer-side caps requires updating both surfaces in lockstep.

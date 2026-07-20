@@ -5,7 +5,7 @@ import { UtilityPanelActiveContext } from '../../hooks/utilityPanelActive';
 import { DEVELOPER_UTILITY_PANEL_COMPONENTS } from './UtilityPanelRegistry';
 
 /**
- * RL-125 — Suspense fallback shown while a tool's lazily-imported panel chunk
+ * internal — Suspense fallback shown while a tool's lazily-imported panel chunk
  * loads on first selection. Copy routes through i18n so it localizes; the
  * `role="status"` + `aria-live` keep screen readers informed of the transient
  * loading state without stealing focus.

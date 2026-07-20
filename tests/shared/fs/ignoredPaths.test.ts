@@ -65,9 +65,9 @@ describe('isIgnoredPath', () => {
   it('handles deeply nested paths', () => {
     expect(isIgnoredPath('node_modules/@scope/pkg/dist/index.js')).toBe(true);
     expect(isIgnoredPath('app/dist/foo.js')).toBe(false);
-    // RL-087 honest call: the slice ignores top-level `dist/` only,
+    // internal honest call: the slice ignores top-level `dist/` only,
     // not nested `dist/` directories deeper in the tree. A nested
-    // build artefact still triggers a re-index. Future ticket can
+    // build artefact still triggers a re-index. Future work can
     // extend if it becomes a real problem.
   });
 });

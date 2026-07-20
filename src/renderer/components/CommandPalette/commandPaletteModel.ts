@@ -36,7 +36,7 @@ interface BuildCommandPaletteModelArgs {
   templates: readonly Template[];
   snippets: Snippet[];
   /**
-   * RL-028 third slice — the most recent executions surfaced as palette
+   * implementation — the most recent executions surfaced as palette
    * entries so the user can jump back to "what I just ran" without
    * navigating the Settings panel. Optional for legacy callers.
    */
@@ -44,24 +44,24 @@ interface BuildCommandPaletteModelArgs {
   /**
    * Called when the user activates a Recent-runs entry. The caller
    * decides what focus means — today it's a no-op or a tab-focus;
-   * Slice D of RL-028 may wire it to a real replay action.
+   * implementation of internal may wire it to a real replay action.
    */
   onFocusLanguageTab?: (language: Language) => void;
   /**
-   * RL-028 fourth slice — fires when the user runs the "Re-run last
+   * implementation — fires when the user runs the "Re-run last
    * execution" palette action. Optional so legacy callers without an
    * execution surface keep working; when omitted the action is hidden.
    */
   onRerunLast?: () => void;
   /**
-   * RL-103 Slice 1 fold C — fires when the user picks the "New
+   * implementation note — fires when the user picks the "New
    * project from template…" palette action. Optional so callers
    * without a Welcome surface (e.g. test scaffolds) keep working;
    * when omitted the action is hidden.
    */
   onNewProjectFromTemplate?: () => void;
   /**
-   * RL-111 fold D — fires when the user activates "Restore last session".
+   * implementation — fires when the user activates "Restore last session".
    * Optional; surfaced only when the caller wires it AND a persisted or
    * ask-mode-pinned snapshot with ≥1 tab exists ({@link savedSessionTabCount}),
    * so the command never offers to restore nothing. Lets a `never`/`ask` user
@@ -69,32 +69,32 @@ interface BuildCommandPaletteModelArgs {
    */
   onRestoreSession?: () => void;
   /**
-   * RL-108 fold B — fires when the user activates "Toggle inline lint".
+   * implementation — fires when the user activates "Toggle inline lint".
    * Optional; surfaced only when the active tab is a lintable JS/TS language
    * (the caller decides). Flips the per-language inline-lint setting.
    */
   onToggleInlineLint?: () => void;
   /**
-   * RL-108 fold D — custom-lint issue count for the active JS/TS tab. When > 0
+   * implementation — custom-lint issue count for the active JS/TS tab. When > 0
    * the "Toggle inline lint" command description previews it (e.g. "… · 2
    * issues"). Defaults to 0 (plain description). Computed by the caller via
    * `countCustomLintIssues` so the model stays free of editor coupling.
    */
   inlineLintActiveIssueCount?: number;
   /**
-   * RL-110 fold D — fires the "Paste as plain text" action, a discoverable
+   * implementation — fires the "Paste as plain text" action, a discoverable
    * surface for the editor's Cmd+Shift+V bypass. The caller drives a
    * detection-bypassing paste on the active editor via `requestPlainPaste`.
    * Optional; surfaced only when wired (i.e. an editor is active).
    */
   onPastePlainText?: () => void;
   /**
-   * RL-112 fold C — fires the "Toggle status bar" action, flipping the
+   * implementation — fires the "Toggle status bar" action, flipping the
    * `showStatusBar` setting. Optional; when omitted the command is hidden.
    */
   onToggleStatusBar?: () => void;
   /**
-   * F-5 — fires the "Benchmark this tab" action, which re-runs the active
+   * implementation — fires the "Benchmark this tab" action, which re-runs the active
    * tab's code N times and reports timing stats to the console. Optional;
    * the caller wires it only when the active tab is a worker-runner
    * language AND the effective tier holds the `BENCHMARK` entitlement, so
@@ -102,7 +102,7 @@ interface BuildCommandPaletteModelArgs {
    */
   onBenchmarkActiveTab?: () => void;
   /**
-   * F-2 — fires the "Explain last error" action, which runs the offline
+   * implementation — fires the "Explain last error" action, which runs the offline
    * error explainer against the most recent run error and reports the
    * explanation to the console. Optional; the caller wires it only when
    * there is an error to explain AND the effective tier holds the
@@ -110,14 +110,14 @@ interface BuildCommandPaletteModelArgs {
    */
   onExplainLastError?: () => void;
   /**
-   * SR-20a (Wave 4) — fires "Explain selected code with AI", opening the
+   * internal  — fires "Explain selected code with AI", opening the
    * consent-first ExplainCodeDialog over the current editor selection (or
    * the whole buffer). Optional; wired only when the tier holds `LOCAL_AI`
    * and an editor tab is active, so the command stays hidden otherwise.
    */
   onExplainSelectedCode?: () => void;
   /**
-   * F-1 — fires the "Install detected packages" action for a Go / Rust /
+   * implementation — fires the "Install detected packages" action for a Go / Rust /
    * Ruby tab: detects imports/crates/gems in the active buffer and runs
    * the toolchain install (go get / cargo add / bundle add). Optional; the
    * caller wires it only when the active tab is a saved Go/Rust/Ruby file
@@ -125,7 +125,7 @@ interface BuildCommandPaletteModelArgs {
    */
   onInstallNativeDependencies?: () => void;
   /**
-   * RL-112 fold C — fires the "Focus status bar" action, moving keyboard
+   * implementation — fires the "Focus status bar" action, moving keyboard
    * focus to the bar's first segment via `focusStatusBar()`. Optional;
    * surfaced only when wired AND the bar is currently visible (the caller
    * gates on `showStatusBar`) so the palette never offers to focus a bar
@@ -133,14 +133,14 @@ interface BuildCommandPaletteModelArgs {
    */
   onFocusStatusBar?: () => void;
   /**
-   * RL-111 fold D — saved-session tab count, gating the Restore command's
+   * implementation — saved-session tab count, gating the Restore command's
    * visibility. The caller may pass an in-memory pending ask-mode snapshot
    * count here. Defaults to 0 (command hidden) for callers without a session
    * surface.
    */
   savedSessionTabCount?: number;
   /**
-   * RL-028 sixth slice trailer — fires when the user activates a per-entry
+   * implementation detail — fires when the user activates a per-entry
    * "Replay {language} run · {status} · {duration}" palette command.
    * Optional; when omitted no replay commands are emitted. Caller is
    * expected to dispatch `replayHistoryEntry(entry, ...)` so the run
@@ -148,7 +148,7 @@ interface BuildCommandPaletteModelArgs {
    */
   onReplayEntry?: (entry: ExecutionHistoryEntry) => void;
   /**
-   * RL-037 Vim slice — fires when the user activates the
+   * implementation — fires when the user activates the
    * "Toggle Vim mode" palette command. Optional; when omitted the
    * command is hidden.
    */
@@ -162,11 +162,11 @@ interface BuildCommandPaletteModelArgs {
    */
   vimModeEnabled?: boolean;
   /**
-   * RL-019 Slice 1 fold E — fires when the user activates one of
+   * implementation note — fires when the user activates one of
    * the "Switch runtime to X" palette entries. Optional; when
    * omitted the three entries are hidden. The caller forwards to
    * `editorStore.setTabRuntimeMode` which enforces the
-   * implementation-status guard and emits the
+   * implementation guard and emits the
    * `runtime.mode_changed` telemetry.
    */
   onSetRuntimeMode?: (mode: RuntimeMode) => void;
@@ -177,7 +177,7 @@ interface BuildCommandPaletteModelArgs {
    */
   activeRuntimeMode?: RuntimeMode | null;
   /**
-   * RL-020 Slice 3 fold E — fires when the user activates the "Pin
+   * implementation note — fires when the user activates the "Pin
    * watch on current line" palette action. The caller in `App.tsx`
    * reads the active editor's cursor + line text, infers an
    * expression via `appendWatchAtLine`, and writes the updated
@@ -191,7 +191,7 @@ interface BuildCommandPaletteModelArgs {
   onAddWatchToCurrentLine?: () => void;
   activeWatchLanguage?: Language | null;
   /**
-   * RL-020 Slice 5 fold D — fires when the user activates the
+   * implementation note — fires when the user activates the
    * "Toggle auto-log for this tab" palette action. The caller in
    * `App.tsx` flips the per-tab `autoLogEnabled` field by reading
    * the resolved current state and writing the opposite via
@@ -202,7 +202,7 @@ interface BuildCommandPaletteModelArgs {
   onToggleAutoLogOnActiveTab?: () => void;
   activeAutoLogResolved?: boolean;
   /**
-   * RL-020 Slice 6 fold E — focus the Input tab on the bottom
+   * implementation note — focus the Input tab on the bottom
    * panel from the command palette. The caller in `CommandPalette.tsx`
    * calls `openBottomPanel('stdin')`; the action is hidden when the
    * active tab's language is not JS / TS / Python or when the
@@ -210,13 +210,13 @@ interface BuildCommandPaletteModelArgs {
    */
   onFocusStdinPanel?: () => void;
   /**
-   * RL-020 Slice 6 fold E — true when the language + Settings flag
+   * implementation note — true when the language + Settings flag
    * combination permits the stdin panel; the model uses this to
    * gate the palette entry's visibility.
    */
   stdinPanelAvailable?: boolean;
   /**
-   * RL-020 Slice 7 fold C — set the active language's timeout
+   * implementation note — set the active language's timeout
    * preset. Hidden when the active language isn't in the supported
    * set (JS / TS / Python / Go) or when the caller didn't wire it.
    */
@@ -224,9 +224,9 @@ interface BuildCommandPaletteModelArgs {
     preset: 'quick' | 'normal' | 'long' | 'extended'
   ) => void;
   /**
-   * RL-020 Slice 7 fold C — the language the palette will adjust.
+   * implementation note — the language the palette will adjust.
    * Used as a closed-enum gate so the action is only visible on
-   * supported languages. RL-042 Slice 5 added Ruby to the enrolled
+   * supported languages. implementation added Ruby to the enrolled
    * set when the @ruby/wasm-wasi web runner shipped.
    */
   activeTimeoutLanguage?:
@@ -237,13 +237,13 @@ interface BuildCommandPaletteModelArgs {
     | 'ruby'
     | null;
   /**
-   * RL-020 Slice 7 fold C — the active preset for the language
+   * implementation note — the active preset for the language
    * above. Drives the dynamic description on each palette entry so
    * the user sees which preset is currently active.
    */
   activeTimeoutPreset?: 'quick' | 'normal' | 'long' | 'extended' | null;
   /**
-   * RL-020 Slice 7 fold D — fires the "Run with extended timeout"
+   * implementation note — fires the "Run with extended timeout"
    * one-shot action. Caller is responsible for wiring the override
    * into the next run via `setTabNextRunTimeoutOverride` and
    * dispatching the run. Hidden when omitted or when the active
@@ -251,53 +251,53 @@ interface BuildCommandPaletteModelArgs {
    */
   onRunWithExtendedTimeout?: () => void;
   /**
-   * RL-020 Slice 8 fold C — fires the "Toggle compare with last
+   * implementation note — fires the "Toggle compare with last
    * stable run" palette action. Caller wires it via
    * `setTabCompareEnabled` on the active tab. Optional; hidden
    * when the active tab is missing or `executionMode === 'view'`.
    */
   onToggleCompareWithSnapshot?: () => void;
   /**
-   * RL-020 Slice 8 fold C — `true` when the active tab currently
+   * implementation note — `true` when the active tab currently
    * has the Compare toggle on. The palette description flips
    * between "Show diff" and "Hide diff" based on this flag, the
    * same way the auto-log entry flips between enabled / disabled.
    */
   activeCompareEnabled?: boolean;
   /**
-   * RL-020 Slice 8 fold C — `true` when the result store carries a
+   * implementation note — `true` when the result store carries a
    * comparator snapshot for the active language. Drives the
    * palette gate so the action stays hidden when there's nothing
    * to diff against — same UX contract as the toggle button.
    */
   compareSnapshotAvailable?: boolean;
   /**
-   * RL-020 Slice 9 fold B — fires the "Toggle variable inspector"
+   * implementation note — fires the "Toggle variable inspector"
    * palette action. Caller wires it via
    * `setTabVariableInspectorEnabled` on the active tab. Optional;
    * hidden when omitted or when the active tab is missing.
    */
   onToggleVariableInspector?: () => void;
   /**
-   * RL-020 Slice 9 fold B — `true` when the active tab currently
+   * implementation note — `true` when the active tab currently
    * has the Variables toggle on. The palette description flips
    * between "Show / Hide" based on this flag.
    */
   activeVariableInspectorEnabled?: boolean;
   /**
-   * RL-020 Slice 9 fold B — `true` when the result store carries a
+   * implementation note — `true` when the result store carries a
    * scope snapshot for the active language. Drives the palette
    * gate so the action stays hidden when there's nothing to
    * inspect.
    */
   variableInspectorScopeAvailable?: boolean;
-  // Slice 2 reviewer pass — `onToggleConsoleRichRendering` and
+  // implementation reviewer pass — `onToggleConsoleRichRendering` and
   // `consoleRichRenderingEnabled` removed. The
   // `consoleRichRenderingEnabled` Settings toggle was killed; rich
   // rendering is baseline. The palette no longer surfaces a way to
   // resurrect the legacy text-only console output.
   /**
-   * RL-020 Slice 4 fold G — id of the active editor tab. Used to
+   * implementation note — id of the active editor tab. Used to
    * surface a parallel "Recent runs (this tab)" group ranked above
    * the global recent-runs entries when at least one history entry
    * has a matching `tabId`. Optional; when omitted or null, the
@@ -309,7 +309,7 @@ interface BuildCommandPaletteModelArgs {
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
   setLayoutPreset: (preset: LayoutPreset) => void;
-  /** RL-116 — presenter/focus mode toggle; hidden when omitted. */
+  /** internal — presenter/focus mode toggle; hidden when omitted. */
   onTogglePresenterMode?: () => void;
   onClose: () => void;
   onOpenSettings: () => void;
@@ -317,16 +317,16 @@ interface BuildCommandPaletteModelArgs {
   onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
   onOpenProjectSearch?: () => void;
-  // RL-024 Slice 2 — invoked when the user picks the
+  // implementation — invoked when the user picks the
   // `action-project-replace` palette entry.
   onOpenProjectReplace?: () => void;
-  // RL-097 Slice 1 — invoked when the user picks the
+  // implementation — invoked when the user picks the
   // `action-open-http-workspace` palette entry. MOV.02 (FASE 3):
   // opens or focuses the full-screen HTTP workspace tab (the dock
   // panel was removed); the caller wires this to
   // `openHttpWorkspaceTab()`.
   onOpenHttpWorkspace?: () => void;
-  // RL-097 Slice 2 — invoked when the user picks the
+  // implementation — invoked when the user picks the
   // `action-open-sql-workspace` palette entry. Mirror of
   // `onOpenHttpWorkspace`.
   onOpenSqlWorkspace?: () => void;
@@ -339,7 +339,7 @@ interface BuildCommandPaletteModelArgs {
   saveActiveTabAs?: () => Promise<void>;
   duplicateActiveTab?: () => void;
   /**
-   * RL-094 Slice 1 fold B — fires when the user activates the "Export
+   * implementation note — fires when the user activates the "Export
    * latest run as capsule" palette command. The caller in `App.tsx`
    * mirrors the Settings → Account → Run Capsules export flow:
    * sanitises + serialises the latest captured `RunCapsuleV1`,
@@ -356,14 +356,14 @@ interface BuildCommandPaletteModelArgs {
    */
   latestCapsuleAvailable?: boolean;
   /**
-   * RL-094 Slice 2 — fires when the user activates the "Import
+   * implementation — fires when the user activates the "Import
    * capsule from JSON" palette command. App.tsx opens the
    * `capsule-import` AppOverlay; the overlay owns the rest of the
    * flow. Optional; when omitted the action hides.
    */
   onOpenCapsuleImport?: () => void;
   /**
-   * RL-094 Slice 3 — fires when the user activates the "Browse run
+   * implementation — fires when the user activates the "Browse run
    * capsules" palette command. App.tsx claims the `palette` surface
    * and opens the `capsule-list` AppOverlay; the overlay owns the
    * Pro-gating + per-row actions. Optional; when omitted the action
@@ -372,67 +372,67 @@ interface BuildCommandPaletteModelArgs {
    */
   onBrowseCapsules?: () => void;
   /**
-   * RL-024 Slice 3 — fires when the user activates "Export project as
+   * implementation — fires when the user activates "Export project as
    * zip". Direct action (App.tsx calls `useProjectBundle().
    * exportProjectBundle`); no overlay. Optional; hides when omitted.
    */
   onExportProjectBundle?: () => void;
   /**
-   * RL-024 Slice 3 — fires when the user activates "Import project from
+   * implementation — fires when the user activates "Import project from
    * zip". App.tsx opens the `project-bundle-import` AppOverlay.
    * Optional; hides when omitted.
    */
   onImportProjectBundle?: () => void;
   /**
-   * RL-100 Slice 1 — fires when the user activates the "Import
+   * implementation — fires when the user activates the "Import
    * data…" palette command. App.tsx opens the `import-preview`
    * AppOverlay; the overlay owns the rest of the flow. Optional;
    * when omitted the action hides.
    */
   onOpenImportOverlay?: () => void;
   /**
-   * RL-039 Slice B fold A — opens the Recipes overlay (`Mod+Alt+L`).
+   * implementation Slice B implementation note — opens the Recipes overlay (`Mod+Alt+L`).
    * Visibility lives on `useRecipeStore.overlayOpen`, not the
    * single-slot AppOverlay union. Optional; when omitted the action
    * hides.
    */
   onOpenRecipes?: () => void;
   /**
-   * RL-043 Slice A fold A — creates a fresh notebook tab via
+   * implementation Slice A implementation note — creates a fresh notebook tab via
    * `Mod+Alt+N`. Optional; when omitted the palette entry hides.
    */
   onNewNotebook?: () => void;
   /**
-   * RL-043 Slice E fold E — export the ACTIVE notebook to a `.linguanb`
+   * implementation Slice E implementation note — export the ACTIVE notebook to a `.linguanb`
    * document. Optional; when omitted the palette entry hides. The
    * callback no-ops with a status notice when the active tab is not a
    * notebook, so the entry can stay always-listed.
    */
   onExportActiveNotebookLinguanb?: () => void;
   /**
-   * RL-095 Slice 1 fold B — opens Settings on the Languages tab and
+   * implementation note — opens Settings on the Languages tab and
    * scrolls to the Language Support Scorecard. Optional; when
    * omitted the palette entry is hidden.
    */
   onShowLanguageSupport?: () => void;
   /**
-   * RL-095 Slice 1 fold F — renders `LANGUAGE_SUPPORT_PROFILES` as a
+   * implementation note — renders `LANGUAGE_SUPPORT_PROFILES` as a
    * Markdown table and copies it to the clipboard. Optional; when
    * omitted the palette entry is hidden.
    */
   onCopyLanguageScorecardMarkdown?: () => void;
-  /** IT2-G1 — copies the local duration-only boot timing snapshot as JSON. */
+  /** internal — copies the local duration-only boot timing snapshot as JSON. */
   onCopyBootTimings?: () => void;
   /**
-   * RL-036 Phase A1 fold C — encodes the active tab as a share-link
+   * implementation Phase A1 implementation note — encodes the active tab as a share-link
    * URL fragment and copies it to the clipboard (via the
-   * confirmation modal gate from fold A, unless the user disabled
+   * confirmation modal gate from implementation note, unless the user disabled
    * it). Optional; when omitted the palette entry is hidden so the
    * model stays honest about what surfaces are wired.
    */
   onCopyShareLink?: () => void;
   /**
-   * RL-101 Slice 1 fold G — three palette entries that re-arm a
+   * implementation note — three palette entries that re-arm a
    * single onboarding stage each (welcome seed / first-run tip /
    * first-snippet tip). Each callback flips ONLY its stage's flag
    * back to `false`. The welcome callback additionally resets the
@@ -444,14 +444,14 @@ interface BuildCommandPaletteModelArgs {
   onReplayOnboardingFirstRun?: () => void;
   onReplayOnboardingFirstSnippet?: () => void;
   /**
-   * RL-096 Slice 1 fold B — opens Settings on the Privacy tab. Espejo
-   * del patrón `onShowLanguageSupport` from RL-095 (closes the
+   * implementation note — opens Settings on the Privacy tab. Espejo
+   * del patrón `onShowLanguageSupport` from internal (closes the
    * palette first, then runs the callback so both overlays don't
    * compete for the same App state slot).
    */
   onShowPrivacyDashboard?: () => void;
   /**
-   * RL-025 Slice A — opens the bottom-panel Dependencies tab for the
+   * implementation — opens the bottom-panel Dependencies tab for the
    * active file. Optional; when omitted (or when the active tab has
    * no detected dependencies) the palette entry is hidden so the
    * model stays honest about what surfaces are wired right now.
@@ -460,7 +460,7 @@ interface BuildCommandPaletteModelArgs {
    */
   onShowDependencies?: () => void;
   /**
-   * RL-044 Sub-slice G Fold C — flips the
+   * implementation Sub-slice G implementation note — flips the
    * `outputSourceMappingEnabled` master toggle. Same close-palette-
    * first ordering as the other action callbacks. When omitted the
    * palette entry is hidden so model stays honest about wired
@@ -498,7 +498,7 @@ function buildTemplateCommand(
     language: template.language,
     // Keep the English `fileStem` in the keyword index so the command palette
     // stays bilingually searchable even when the active locale is not `en`
-    // (see RL-018 Phase 3: discoverability aliases must survive localization).
+    // (see implementation: discoverability aliases must survive localization).
     keywords: normalizeKeywords([label, fileStem, template.language, description]),
     action: () => {
       const tab = createDefaultTab(template.language);
@@ -566,7 +566,7 @@ function identityTranslate(key: string): string {
 }
 
 /**
- * RL-028 third slice — surface up to 5 recent runs as palette actions.
+ * implementation — surface up to 5 recent runs as palette actions.
  * Label format is `{{language}} · {{status}} · {{duration}}`,
  * all localized. `onFocusLanguageTab` is optional; when it's missing
  * the action just closes the palette (a harmless "I saw the entry"
@@ -614,7 +614,7 @@ function buildRecentRunCommand(
 }
 
 /**
- * RL-020 Slice 4 fold G — parallel "Recent runs (this tab)" entry.
+ * implementation note — parallel "Recent runs (this tab)" entry.
  * Same shape as `buildRecentRunCommand` but labels itself with a
  * dedicated copy key so the palette result list visibly distinguishes
  * per-tab entries from the legacy global group. The action is
@@ -663,7 +663,7 @@ function buildRecentRunOnTabCommand(
 }
 
 /**
- * RL-028 Slice 6 trailer — per-entry Replay command.
+ * implementation trailer — per-entry Replay command.
  *
  * Emitted only for snapshot-bearing entries so the user can fuzzy-search
  * "replay python ok 1.2s" and re-run any of the recent captures from the
@@ -818,7 +818,7 @@ export function buildCommandPaletteModel({
     .slice(-MAX_RECENT_RUNS_IN_PALETTE)
     .reverse();
 
-  // RL-020 Slice 4 fold G — per-tab recent runs ranked above the
+  // implementation note — per-tab recent runs ranked above the
   // global group when the active tab has at least one matching
   // entry. Same `MAX_RECENT_RUNS_IN_PALETTE` ceiling so neither
   // group dominates the palette.
@@ -847,7 +847,7 @@ export function buildCommandPaletteModel({
     ...snippets.map((snippet) =>
       buildSnippetCommand(snippet, createTab, createDefaultTab, onClose, translate)
     ),
-    // RL-020 Slice 4 fold G — per-tab group FIRST so the user sees
+    // implementation note — per-tab group FIRST so the user sees
     // "what I just ran on this tab" before the global recents.
     ...recentRunOnTabEntries.map((entry) =>
       buildRecentRunOnTabCommand(entry, onClose, translate, onFocusLanguageTab)
@@ -863,7 +863,7 @@ export function buildCommandPaletteModel({
         onReplayEntry as (entry: ExecutionHistoryEntry) => void
       )
     ),
-    // RL-028 fourth slice — Re-run last execution. Hidden when the
+    // implementation — Re-run last execution. Hidden when the
     // caller does not wire `onRerunLast` so legacy callers (or
     // surfaces with no execution context) keep working.
     ...(onRerunLast
@@ -880,7 +880,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-103 Slice 1 fold C — New project from curated template.
+    // implementation note — New project from curated template.
     // Hidden when the caller omits the handler so test scaffolds that
     // don't wire a Welcome surface keep working.
     ...(onNewProjectFromTemplate
@@ -911,7 +911,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-111 fold D — Restore last session. Surfaces only when the caller
+    // implementation — Restore last session. Surfaces only when the caller
     // wires the handler AND a persisted/pending snapshot with ≥1 tab exists,
     // so the command never offers to restore nothing.
     ...(onRestoreSession && savedSessionTabCount > 0
@@ -928,7 +928,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-094 Slice 1 fold B — Export latest run as capsule. Surfaces
+    // implementation note — Export latest run as capsule. Surfaces
     // only when the caller wires the handler AND the history store
     // confirms at least one entry still carries a `lastCapsule`. Hiding
     // the entry when no capsule exists keeps the palette honest about
@@ -947,7 +947,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-094 Slice 2 — Import capsule from JSON. Surfaces only when
+    // implementation — Import capsule from JSON. Surfaces only when
     // App.tsx wires the AppOverlay branch. Always available (no
     // history precondition) so the user can import even when their
     // own session has no runs yet — a fresh user pasting a capsule
@@ -976,7 +976,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-094 Slice 3 — Browse run capsules. Surfaces whenever App.tsx
+    // implementation — Browse run capsules. Surfaces whenever App.tsx
     // wires the AppOverlay branch, with no history precondition: a
     // Free user must be able to discover the surface and hit the
     // upsell, and a Pro user with an empty session sees the empty
@@ -1005,7 +1005,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-094 Slice 4 fold C — Compare two capsules. Gated on the SAME
+    // implementation note — Compare two capsules. Gated on the SAME
     // `onBrowseCapsules` handler: the comparator selection lives inline
     // in the capsule browser (per-row checkboxes + a Compare button), so
     // this command just opens that overlay where the user picks the pair.
@@ -1038,7 +1038,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-100 Slice 1 — open the global Import overlay. Mirror of the
+    // implementation — open the global Import overlay. Mirror of the
     // capsule-import wiring above. Surfaces only when App.tsx wires
     // the AppOverlay branch; the `Mod+Alt+I` shortcut hits the same
     // path via `useGlobalShortcuts.openImportOverlay`.
@@ -1056,7 +1056,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-024 Slice 3 — export the open project as a `.zip` bundle. Same
+    // implementation — export the open project as a `.zip` bundle. Same
     // create path as the FileTree button + `Mod+Alt+E`. Direct action
     // (no overlay); `onClose` first so the palette dismisses before the
     // save dialog opens.
@@ -1074,7 +1074,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-024 Slice 3 — open the bundle import overlay. Mirror of the
+    // implementation — open the bundle import overlay. Mirror of the
     // capsule-import wiring; App.tsx opens the `project-bundle-import`
     // AppOverlay branch.
     ...(onImportProjectBundle
@@ -1091,7 +1091,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-039 Slice B fold A — open the global Recipes overlay. Hits
+    // implementation Slice B implementation note — open the global Recipes overlay. Hits
     // the same path as `Mod+Alt+L`. `onClose` first so the palette
     // dismisses before the recipes overlay opens (single-event-loop
     // batch order, mirror of the import overlay entry above).
@@ -1109,7 +1109,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-043 Slice A fold A — create a fresh notebook tab. Mirror of
+    // implementation Slice A implementation note — create a fresh notebook tab. Mirror of
     // the recipes overlay wiring above; `onClose` runs before the
     // callback so the palette dismisses cleanly before the new tab
     // takes focus.
@@ -1127,7 +1127,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-043 Slice E fold E — export the active notebook as a native
+    // implementation Slice E implementation note — export the active notebook as a native
     // lossless `.linguanb` document, the palette twin of the toolbar
     // export menu so it is reachable without the notebook toolbar.
     ...(onExportActiveNotebookLinguanb
@@ -1144,7 +1144,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-095 Slice 1 fold B — opens Settings on the Languages tab and
+    // implementation note — opens Settings on the Languages tab and
     // scrolls to the scorecard. `onClose()` MUST run before the user
     // callback: both helpers set the single `overlay` slot in App
     // state, and within one React event handler the last setState
@@ -1165,7 +1165,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-095 Slice 1 fold F — copies the markdown rendering of the
+    // implementation note — copies the markdown rendering of the
     // scorecard so users can paste into issues / PRs / docs.
     ...(onCopyLanguageScorecardMarkdown
       ? [
@@ -1195,9 +1195,9 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-036 Phase A1 fold C — copies a share-link URL fragment that
+    // implementation Phase A1 implementation note — copies a share-link URL fragment that
     // recreates the active tab. The user callback may surface the
-    // confirmation modal (fold A); we close the palette FIRST so
+    // confirmation modal (implementation note); we close the palette FIRST so
     // both overlays don't compete for the same App state slot
     // (same overlay-survival pattern as `action-settings`).
     ...(onCopyShareLink
@@ -1222,7 +1222,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-101 Slice 1 fold G — three palette entries, one per stage.
+    // implementation note — three palette entries, one per stage.
     // Each closes the palette FIRST, then runs the reset callback so
     // any follow-up status notice the renderer emits doesn't compete
     // with the palette overlay for the same App state slot.
@@ -1268,7 +1268,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-096 Slice 1 fold B — palette entry that opens Settings on
+    // implementation note — palette entry that opens Settings on
     // the Privacy tab. Closes the palette FIRST so the Settings
     // overlay isn't competing with it for the App state slot. Same
     // overlay-survival pattern as `action-settings` and
@@ -1298,7 +1298,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-025 Slice A fold C — opens the bottom-panel Dependencies
+    // implementation Slice A implementation note — opens the bottom-panel Dependencies
     // tab for the active file. Mirrors the `action-show-*` overlay
     // ordering: close the palette FIRST so the tab activation does
     // not compete with the palette overlay for the App state slot.
@@ -1325,7 +1325,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-044 Sub-slice G Fold C — flips the master toggle for the
+    // implementation Sub-slice G implementation note — flips the master toggle for the
     // output→source line affordance. Keyword set covers EN + ES so
     // the palette finds it under "line badge", "output", "mapeo",
     // "origen", "chip" without forcing memorisation.
@@ -1357,7 +1357,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-020 Slice 3 fold E — "Pin watch on current line". Only
+    // implementation note — "Pin watch on current line". Only
     // surfaces when the caller wires `onAddWatchToCurrentLine`
     // AND the active tab's language supports `@watch` (JS / TS /
     // Python). For other languages the action is hidden entirely
@@ -1377,7 +1377,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-020 Slice 6 fold E — focus the Input bottom-panel tab from
+    // implementation note — focus the Input bottom-panel tab from
     // the command palette. Hidden when the master toggle is OFF or
     // when the active tab's language doesn't support stdin.
     ...(onFocusStdinPanel && stdinPanelAvailable
@@ -1394,7 +1394,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-020 Slice 5 fold D — toggle auto-log on the active tab.
+    // implementation note — toggle auto-log on the active tab.
     // Only surfaces for JS / TS active tabs; non-JS/TS tabs hide
     // the entry entirely so the palette never advertises an action
     // it would refuse. Reuses the per-tab override path so the
@@ -1418,7 +1418,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-020 Slice 7 fold C — "Set execution timeout: Quick / Normal /
+    // implementation note — "Set execution timeout: Quick / Normal /
     // Long / Extended" entries on the active language. Hidden when
     // the active language isn't in the supported set or when the
     // caller didn't wire `onSetActiveLanguageTimeoutPreset`. Active
@@ -1448,7 +1448,7 @@ export function buildCommandPaletteModel({
           )
         )
       : []),
-    // RL-020 Slice 7 fold D — one-shot "Run with extended timeout".
+    // implementation note — one-shot "Run with extended timeout".
     // Sets `nextRunTimeoutOverrideMs` on the active tab and
     // dispatches the run; the override is consumed once. Hidden when
     // the caller did not wire the handler or the active language is
@@ -1467,7 +1467,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-020 Slice 8 fold C — toggle the Compare panel on the
+    // implementation note — toggle the Compare panel on the
     // active tab. Hidden when there's no comparator snapshot for
     // the active language (matches the toggle-button gate). The
     // description flips between "Show" and "Hide" so the palette
@@ -1490,7 +1490,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-020 Slice 9 fold B — toggle the variable inspector on the
+    // implementation note — toggle the variable inspector on the
     // active tab. Hidden when there's no scope snapshot for the
     // active language (matches the toggle-button gate). Description
     // flips between Show / Hide.
@@ -1512,10 +1512,10 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // Slice 2 reviewer pass — the rich-console toggle was removed
+    // implementation reviewer pass — the rich-console toggle was removed
     // from the catalog: `consoleRichRenderingEnabled` is no longer a
     // Settings preference, rich rendering is baseline.
-    // RL-037 Vim slice — Toggle Vim mode. Hidden when the caller does
+    // implementation — Toggle Vim mode. Hidden when the caller does
     // not wire `onToggleVimMode`; description text flips based on
     // `vimModeEnabled` so the palette honestly previews the next state.
     ...(onToggleVimMode
@@ -1536,7 +1536,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-108 fold B — toggle inline lint for the active language. Surfaced
+    // implementation — toggle inline lint for the active language. Surfaced
     // only when the caller wires it (i.e. the active tab is a lintable JS/TS
     // language).
     ...(onToggleInlineLint
@@ -1544,7 +1544,7 @@ export function buildCommandPaletteModel({
           buildActionCommand(
             'action-toggle-inline-lint',
             translate('commandPalette.action.toggleInlineLint.label'),
-            // RL-108 fold D — when the active JS/TS buffer has custom-lint
+            // implementation — when the active JS/TS buffer has custom-lint
             // issues, preview the count so the palette surfaces "there are N
             // things to fix here" without opening the editor gutter.
             inlineLintActiveIssueCount > 0
@@ -1560,7 +1560,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-110 fold D — "Paste as plain text", the discoverable twin of the
+    // implementation — "Paste as plain text", the discoverable twin of the
     // editor's Cmd+Shift+V bypass. Surfaced only when the caller wires it
     // (an editor is active). Closes the palette first, then pastes.
     ...(onPastePlainText
@@ -1577,7 +1577,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-112 fold C — toggle the persistent status bar. Hidden when the
+    // implementation — toggle the persistent status bar. Hidden when the
     // caller does not wire `onToggleStatusBar` so legacy callers keep working.
     ...(onToggleStatusBar
       ? [
@@ -1593,7 +1593,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // F-5 — benchmark the active tab. Wired only when the tab is a
+    // implementation — benchmark the active tab. Wired only when the tab is a
     // worker-runner language AND the tier holds `BENCHMARK`, so the entry
     // stays hidden otherwise.
     ...(onBenchmarkActiveTab
@@ -1610,7 +1610,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // F-1 — install detected Go/Rust/Ruby packages for the active tab.
+    // implementation — install detected Go/Rust/Ruby packages for the active tab.
     ...(onInstallNativeDependencies
       ? [
           buildActionCommand(
@@ -1625,7 +1625,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // F-2 — explain the last run error. Wired only when there is an error
+    // implementation — explain the last run error. Wired only when there is an error
     // to explain AND the tier holds LOCAL_AI.
     ...(onExplainLastError
       ? [
@@ -1641,7 +1641,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // SR-20a (Wave 4) — explain the current selection / buffer with the
+    // internal  — explain the current selection / buffer with the
     // local AI model. Wired only when LOCAL_AI is held and an editor is
     // active.
     ...(onExplainSelectedCode
@@ -1658,7 +1658,7 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-112 fold C — focus the status bar's first segment. Surfaced only
+    // implementation — focus the status bar's first segment. Surfaced only
     // when wired AND the bar is visible (the caller gates on `showStatusBar`).
     ...(onFocusStatusBar
       ? [
@@ -1728,7 +1728,7 @@ export function buildCommandPaletteModel({
         onOpenSnippets();
       }
     ),
-    // RL-019 Slice 1 fold E — Switch runtime to {Worker | Node |
+    // implementation note — Switch runtime to {Worker | Node |
     // Browser preview}. Only emitted when the caller wires
     // `onSetRuntimeMode` AND the active tab actually owns the
     // runtime-mode surface (JS/TS today, signalled by a non-null
@@ -1766,7 +1766,7 @@ export function buildCommandPaletteModel({
               onClose();
             }
           ),
-          // F-4 — Deno / Bun desktop runtimes.
+          // implementation — Deno / Bun desktop runtimes.
           buildActionCommand(
             'action-runtime-mode-deno',
             translate('commandPalette.action.runtimeMode.deno.label'),
@@ -1867,7 +1867,7 @@ export function buildCommandPaletteModel({
     );
   }
 
-  // RL-024 Slice 2 — Replace in files. Mirrors the projectSearch
+  // implementation — Replace in files. Mirrors the projectSearch
   // entry so users with VSCode muscle memory find both Find AND
   // Replace via the palette without leaving Lingua.
   if (onOpenProjectReplace) {
@@ -1885,7 +1885,7 @@ export function buildCommandPaletteModel({
     );
   }
 
-  // RL-097 Slice 1 — Open the full-screen HTTP workspace tab
+  // implementation — Open the full-screen HTTP workspace tab
   // (MOV.02 moved it out of the dock). Surface aliases pick up the
   // common "fetch / api / rest / request" mental model.
   if (onOpenHttpWorkspace) {
@@ -1903,7 +1903,7 @@ export function buildCommandPaletteModel({
     );
   }
 
-  // RL-097 Slice 2 — Open the full-screen SQL workspace tab
+  // implementation — Open the full-screen SQL workspace tab
   // (MOV.02 moved it out of the dock). Surface aliases pick up the
   // common "sql / query / duckdb / table" mental model. Mirror of
   // `action-open-http-workspace`.

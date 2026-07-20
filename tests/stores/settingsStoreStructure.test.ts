@@ -1,15 +1,15 @@
 /**
- * RL-129 (AUDIT-09) structure guard — locks the settingsStore split so a future
- * edit cannot silently regress it. Mirrors the RL-128 editorStore guard.
+ * internal structure guard — locks the settingsStore split so a future
+ * edit cannot silently regress it. Mirrors the internal editorStore guard.
  *
- * - fold C (public API barrel): the assembled store exposes EXACTLY the
+ * - implementation note (public API barrel): the assembled store exposes EXACTLY the
  *   `SettingsState` surface (state fields + setters), and `settingsStore.ts`
  *   re-exports EXACTLY `{ useSettingsStore, sanitizeShortcutOverrides }`. Catches
  *   an accidentally-dropped setter during the split AND a new public export
  *   sneaking in.
- * - fold D (size budget): the assembly point stays thin and no extracted module
+ * - implementation note (size budget): the assembly point stays thin and no extracted module
  *   grows back toward a monolith.
- * - fold E (import acyclicity): no split module imports the store assembly, and
+ * - implementation note (import acyclicity): no split module imports the store assembly, and
  *   the helper/persistence leaves import neither the store nor an action factory.
  */
 
@@ -244,7 +244,7 @@ function lineCount(file: string): number {
   return read(file).split('\n').length;
 }
 
-describe('RL-129 settingsStore split — public API barrel (fold C)', () => {
+describe('implementation settingsStore split — public API barrel (implementation note)', () => {
   it('the assembled store exposes exactly the SettingsState surface', () => {
     const keys = Object.keys(useSettingsStore.getState()).sort();
     expect(keys).toEqual(EXPECTED_STORE_KEYS);
@@ -265,7 +265,7 @@ describe('RL-129 settingsStore split — public API barrel (fold C)', () => {
   });
 });
 
-describe('RL-129 settingsStore split — size budget (fold D)', () => {
+describe('implementation settingsStore split — size budget (implementation note)', () => {
   it('the assembly point stays thin', () => {
     expect(lineCount(ASSEMBLY_FILE)).toBeLessThanOrEqual(ASSEMBLY_MAX_LINES);
   });
@@ -275,7 +275,7 @@ describe('RL-129 settingsStore split — size budget (fold D)', () => {
   });
 });
 
-describe('RL-129 settingsStore split — import acyclicity (fold E)', () => {
+describe('implementation settingsStore split — import acyclicity (implementation note)', () => {
   it.each([...SPLIT_MODULES])('%s does not import the store assembly', (file) => {
     expect(read(file)).not.toMatch(/from\s+['"]\.\/settingsStore['"]/);
   });

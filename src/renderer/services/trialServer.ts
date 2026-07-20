@@ -1,5 +1,5 @@
 /**
- * Renderer-side wrapper for `POST /trials/start` (RL-061 Slice 4).
+ * Renderer-side wrapper for `POST /trials/start` .
  *
  * Mirrors the conventions in `licenseServer.ts`:
  *   - reads the base URL from `import.meta.env.VITE_LINGUA_LICENSE_SERVER_URL`

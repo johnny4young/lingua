@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 8 — CompareResultsPanel render contract.
+ * implementation — CompareResultsPanel render contract.
  *
  * Covers:
  *   - "No snapshot" empty state when the ring is empty for the
@@ -40,7 +40,7 @@ function makeSnapshot(partial: Partial<ResultSnapshot>): ResultSnapshot {
   };
 }
 
-describe('RL-020 Slice 8 — <CompareResultsPanel>', () => {
+describe('implementation — <CompareResultsPanel>', () => {
   beforeEach(() => {
     useResultStore.setState({
       snapshotRing: [],

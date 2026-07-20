@@ -1,5 +1,5 @@
 /**
- * RL-090 — recovery IPC handlers.
+ * internal — recovery IPC handlers.
  *
  *   - `recovery:confirm-reset` — destructive-action confirm dialog
  *     for the five RecoverySection actions. Different copy per

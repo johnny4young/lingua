@@ -1,5 +1,5 @@
 /**
- * RL-039 first slice — guard the lesson scaffolds. Every lesson must
+ * implementation first slice — guard the lesson scaffolds. Every lesson must
  * carry the schema fields the future runner depends on, ship en + es
  * sections, and never claim a feature that hasn't shipped.
  */
@@ -50,7 +50,7 @@ function readFrontMatter(file: string): Record<string, string> {
   return out;
 }
 
-describe('docs/lessons (RL-039)', () => {
+describe('docs/lessons', () => {
   it('ships the README + at least the two seed lessons', () => {
     expect(existsSync(resolve(LESSONS_DIR, 'README.md'))).toBe(true);
     const lessons = listLessons();

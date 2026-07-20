@@ -185,7 +185,7 @@ export async function mintDevLicense({
   const normalizedPublicJwk = normalizeEd25519PublicJwk(publicKeyJwk);
   return {
     publicKeyJwk: JSON.stringify(normalizedPublicJwk),
-    // RL-143 — RFC 7638 thumbprint of the session keypair. Matches what
+    // internal — RFC 7638 thumbprint of the session keypair. Matches what
     // Settings → License renders, so a dev can eyeball-verify the running
     // app embeds THIS session's key (a mismatch means a stale tab/server
     // from a previous mint — the classic stale-5174 paste failure).

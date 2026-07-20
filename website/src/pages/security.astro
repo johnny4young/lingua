@@ -34,7 +34,7 @@ import Legal from '~/layouts/Legal.astro';
 
   <h2>Release-blocking dependency audit</h2>
   <p>
-    Every release pipeline run executes <code>npm audit --omit=dev --audit-level=high</code> as a
+    Every release pipeline run executes <code>npm audit --omit=dev --internal=high</code> as a
     blocking gate. A high or critical vulnerability in a runtime dependency stops the release
     train.
   </p>

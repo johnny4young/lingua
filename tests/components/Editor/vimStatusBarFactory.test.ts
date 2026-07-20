@@ -1,5 +1,5 @@
 /**
- * RL-037 Vim mode integration — `createLocalizedStatusBarClass` translates
+ * internal Vim mode integration — `createLocalizedStatusBarClass` translates
  * upstream `monaco-vim` mode change events into i18n-backed status bar
  * text. The subclass keeps every other surface (`setSec` for ex commands,
  * `setKeyBuffer` for partial chords) flowing through the upstream class

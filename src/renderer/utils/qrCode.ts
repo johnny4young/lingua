@@ -1,10 +1,10 @@
 /**
- * RL-072 — QR Code generator + decoder helpers.
+ * internal — QR Code generator + decoder helpers.
  *
  * Pure, offline, renderer-side. Wraps `qrcode` (MIT, ~10 KB gzipped,
  * no WASM, no runtime network) for generation and `jsqr` (Apache 2.0,
  * ~50 KB gzipped, pure JS, no WASM) for upload-based decoding. The
- * "camera capture" path is still deferred per the original RL-072
+ * "camera capture" path is still deferred per the original internal
  * scope decision — file upload + drag-drop covers the recognizable
  * QR-reader use case without requesting webcam permission.
  *
@@ -23,12 +23,12 @@
 import jsQR from 'jsqr';
 
 /**
- * RL-125 / AUDIT-05 — `qrcode` is a single-use dependency only the QR generator
+ * implementation detail — `qrcode` is a single-use dependency only the QR generator
  * needs, so it loads on demand via a cached dynamic import instead of shipping
  * inside the Developer Utilities chunk eagerly. The generation helpers are
  * already async, so awaiting the loader adds no caller ripple. (`jsqr`, the
  * decode path, stays static — it sits behind the sync `decodeQrFromImageData`
- * contract and is out of this slice's scope.)
+ * contract and is out of this change's scope.)
  */
 type QrCodeApi = typeof import('qrcode');
 let qrCodeModulePromise: Promise<QrCodeApi> | null = null;
@@ -67,7 +67,7 @@ export type QrGenerationResult<T> =
   | ({ ok: false } & QrGenerationError);
 
 /**
- * Color customization for the rendered QR (folds B + D). The `qrcode`
+ * Color customization for the rendered QR (implementation note). The `qrcode`
  * library accepts hex strings (with or without a leading `#`) for both
  * the dark module and the light background. We default to neutral
  * black-on-white because that is the contrast-safest baseline a phone
@@ -82,7 +82,7 @@ export interface QrColorOptions {
 
 export const QR_DEFAULT_DARK = '#000000';
 export const QR_DEFAULT_LIGHT = '#ffffff';
-/** Pure black on pure white — the high-contrast preset (fold B). */
+/** Pure black on pure white — the high-contrast preset (implementation note). */
 export const QR_HIGH_CONTRAST_DARK = '#000000';
 export const QR_HIGH_CONTRAST_LIGHT = '#ffffff';
 /**
@@ -224,7 +224,7 @@ function validatePayload(
  *
  * The panel today renders PNG through a standard `<img src>` element
  * so the bundle does not need an HTML sanitizer. The SVG entry point
- * is exposed for the "Download as SVG" action (fold E), where the
+ * is exposed for the "Download as SVG" action (implementation note), where the
  * vector lands in the user's filesystem rather than the live DOM.
  */
 export async function generateQrSvg(
@@ -256,7 +256,7 @@ export async function generateQrSvg(
  * Generate an SVG data URL suitable for an `<a download>` anchor.
  * Same tagged-union contract as `generateQrSvg`. The renderer never
  * inlines the SVG into the DOM; the data URL only flows into the
- * `href` of the download anchor (fold E).
+ * `href` of the download anchor (implementation note).
  */
 export async function generateQrSvgDataUrl(
   payload: string,
@@ -371,7 +371,7 @@ async function readImageBitmap(
   // — allowing `blob:` would widen the policy site-wide just for this
   // panel, while the data-URL path costs nothing in performance for
   // the 10 MiB cap we already enforce upstream. Caught by the dev
-  // smoke for RL-072.
+  // smoke for internal
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -470,7 +470,7 @@ export function decodeQrFromImageData(data: ImageData): QrDecodeResult {
   }
 }
 
-// ------------------------------------------------------- Copy-as-PNG (fold C)
+// ------------------------------------------------------- Copy-as-PNG (implementation note)
 
 export type CopyPngResult =
   | { ok: true }

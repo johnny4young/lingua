@@ -26,7 +26,7 @@ function unregisterManagedPlugins(): void {
 }
 
 async function normalizePluginRecord(record: InstalledPluginRecord): Promise<PluginStoreRecord> {
-  // RL-084 — main now emits `unknown` directly when a manifest's
+  // internal — main now emits `unknown` directly when a manifest's
   // pluginId is not in the bundled allowlist. The renderer used to
   // re-map `loaded` → `unavailable` for that case; that mapping is
   // gone. The remaining defensive path catches the unlikely scenario

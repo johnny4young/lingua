@@ -1,4 +1,4 @@
-/** RL-039 Slice C — Recipe `py-sliding-window-maximum`. */
+/** implementation — Recipe `py-sliding-window-maximum`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

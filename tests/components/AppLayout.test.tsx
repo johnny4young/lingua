@@ -82,7 +82,7 @@ vi.mock('../../src/renderer/components/Toolbar', () => ({
   ),
 }));
 
-// RL-093 — FloatingActionPill is mounted by AppLayout and transitively
+// internal — FloatingActionPill is mounted by AppLayout and transitively
 // imports `useRunner` → `nodeRunner` → `esbuild-wasm`, which fails to
 // initialise under jsdom. Stub it out — its behaviour is covered by
 // its own component tests.
@@ -152,7 +152,7 @@ vi.mock('../../src/renderer/components/BrowserPreview', () => ({
   BrowserPreviewPanel: () => <div data-testid="browser-preview-panel">Browser preview</div>,
 }));
 
-// RL-039 Slice B — mock the Recipe Run panel to avoid pulling
+// implementation — mock the Recipe Run panel to avoid pulling
 // `runnerManager` (and its esbuild-wasm transitive dep, which jsdom
 // rejects with the `TextEncoder().encode("") instanceof Uint8Array`
 // invariant) into the AppLayout test harness. The conditional render
@@ -609,7 +609,7 @@ describe('AppLayout responsive shell', () => {
     expect(document.body.style.overflow).toBe('');
   });
 
-  it('shares one header row with the Utilities pills and folds the console on a utilities tab', async () => {
+  it('shares one header row with the Utilities pills and implementation note console on a utilities tab', async () => {
     editorTabs = [{ id: 'utilities-tab', kind: 'utilities', language: 'javascript' }];
     activeTabId = 'utilities-tab';
     useUIStore.getState().setConsoleVisible(true);
@@ -625,7 +625,7 @@ describe('AppLayout responsive shell', () => {
       expect(chipsRow.textContent).toMatch(/\d+ tools/u);
     });
 
-    // Utilities has no runtime output: activating the tab folds the
+    // Utilities has no runtime output: activating the tab implementation note
     // console down to the restore strip without destroying its state.
     await waitFor(() => {
       expect(useUIStore.getState().consoleVisible).toBe(false);

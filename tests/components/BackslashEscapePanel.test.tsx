@@ -1,5 +1,5 @@
 /**
- * RL-068 — Backslash Escape / Unescape panel tests. The pure helper is
+ * internal — Backslash Escape / Unescape panel tests. The pure helper is
  * covered in tests/utils/backslashEscape.test.ts, so this suite only
  * verifies wiring: mode switch, preset switch, live output updates, the
  * SQL wildcard hint, error banner for malformed input, and Spanish locale

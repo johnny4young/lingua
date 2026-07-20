@@ -1,12 +1,12 @@
 /**
- * RL-039 Slice B fold B — Recipe telemetry helpers.
+ * implementation Slice B implementation note — Recipe telemetry helpers.
  *
  * Two closed-enum events:
  *
  *   - `recipe.opened { language }` — fires once per overlay-driven
  *     `Open recipe` confirm. NO recipe id on the wire (privacy
- *     posture, fold B in the plan). Per-recipe granularity can land
- *     Slice C+ behind a closed `RECIPE_IDS_SET` parity test.
+ *     posture, implementation note in the plan). Per-recipe granularity can land
+ *     future work behind a closed `RECIPE_IDS_SET` parity test.
  *   - `recipe.test_run { language, status }` — fires once per
  *     `Run + Test` settle. `status ∈ RECIPE_RUN_STATUSES`.
  *

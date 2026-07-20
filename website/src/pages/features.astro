@@ -60,12 +60,12 @@ const sections = [
 
     <!-- LANGUAGES ───────────────────────────────────────────────── -->
     <section class="feat-section" id="languages">
-      <header class="sec-head">
-        <span class="sec-num">01</span>
+      <header class="internal">
+        <span class="internal">01</span>
         <div>
           <p class="eyebrow">{isEs ? 'Lenguajes' : 'Languages'}</p>
           <h2>{isEs ? 'Cinco runners. Una ventana.' : 'Five runners. One window.'}</h2>
-          <p class="sec-lede">
+          <p class="internal">
             {isEs
               ? 'Cada lenguaje tiene su runner con defaults adecuados. JS / TS / Python vienen con Lingua. Go y Rust usan las toolchains que ya tienes en tu máquina.'
               : 'Each language has its own runner with the right defaults. JS / TS / Python ship with Lingua. Go and Rust use the toolchains already on your machine.'}
@@ -82,7 +82,7 @@ const sections = [
             : ' — switch any JS or TS tab to local Node and you get the full standard library (fs, path, http) plus require() of every package already installed in your project node_modules: the runner walks up from the saved file to find them. Node is spawned directly, never through a shell, with an allow-listed environment, a parent-owned timeout, and capped output. ESM and CJS are detected for you.'}
         </div>
       </div>
-      <p class="sec-foot">
+      <p class="internal">
         <Icon name="lucide:circle-alert" />
         {isEs
           ? 'Ruby también se ejecuta hoy (WASM en todas partes, subproceso del sistema en desktop cuando lo prefieres). Java, Kotlin, Scala, Swift, C y C++ están registrados pero todavía no se ejecutan dentro de Lingua. No pretendemos lo contrario.'
@@ -92,12 +92,12 @@ const sections = [
 
     <!-- EDITOR ──────────────────────────────────────────────────── -->
     <section class="feat-section" id="editor">
-      <header class="sec-head">
-        <span class="sec-num">02</span>
+      <header class="internal">
+        <span class="internal">02</span>
         <div>
           <p class="eyebrow">Editor</p>
           <h2>{isEs ? 'Monaco, con lo que realmente usas.' : 'Monaco, with the things you actually use.'}</h2>
-          <p class="sec-lede">
+          <p class="internal">
             {isEs
               ? 'El editor que impulsa VS Code, conectado como espera un developer senior: modo Vim que no pelea con la app, paleta de comandos real y atajos personalizables.'
               : "The editor that powers VS Code, wired up the way a senior dev expects: vim mode that doesn't fight the host, a real command palette, customizable shortcuts."}
@@ -131,12 +131,12 @@ const sections = [
 
     <!-- WORKFLOW ────────────────────────────────────────────────── -->
     <section class="feat-section" id="workflow">
-      <header class="sec-head">
-        <span class="sec-num">03</span>
+      <header class="internal">
+        <span class="internal">03</span>
         <div>
           <p class="eyebrow">{isEs ? 'Flujo' : 'Workflow'}</p>
           <h2>{isEs ? 'Snippets, historial y un modelo sano de env.' : 'Snippets, history, and a sane env model.'}</h2>
-          <p class="sec-lede">
+          <p class="internal">
             {isEs
               ? 'La infraestructura alrededor del editor evita que un scratchpad se convierta en desorden después de la tercera pestaña.'
               : 'The plumbing around the editor is what keeps a scratchpad from becoming a mess after the third tab.'}
@@ -198,12 +198,12 @@ const sections = [
 
     <!-- UTILITIES ──────────────────────────────────────────────── -->
     <section class="feat-section" id="utilities">
-      <header class="sec-head">
-        <span class="sec-num">04</span>
+      <header class="internal">
+        <span class="internal">04</span>
         <div>
           <p class="eyebrow">{isEs ? 'Utilidades' : 'Utilities'}</p>
           <h2>{isEs ? 'Los 31 paneles que reemplazan tus tabs del navegador.' : 'The 31 panels that replace your browser tabs.'}</h2>
-          <p class="sec-lede">
+          <p class="internal">
             {isEs
               ? 'Formateador JSON, tester regex, decodificador JWT, hash, parser cron, conversor de color y veintitrés más. Todo integrado, accesible por teclado y offline.'
               : 'JSON formatter, regex tester, JWT decoder, hash, cron parser, color converter — and twenty-three more. All built in, all keyboard-reachable, all offline.'}
@@ -215,12 +215,12 @@ const sections = [
 
     <!-- PRIVACY & SECURITY ─────────────────────────────────────── -->
     <section class="feat-section" id="privacy">
-      <header class="sec-head">
-        <span class="sec-num">05</span>
+      <header class="internal">
+        <span class="internal">05</span>
         <div>
           <p class="eyebrow">{isEs ? 'Privacidad y seguridad' : 'Privacy & security'}</p>
           <h2>{isEs ? 'Los detalles aburridos que necesitas para confiar.' : 'The boring details you need to trust this.'}</h2>
-          <p class="sec-lede">
+          <p class="internal">
             {isEs
               ? 'Lingua ejecuta el código que escribes. Lo tomamos en serio: tanto en lo que nunca recopilamos como en cómo el runtime contiene tus snippets.'
               : 'Lingua executes whatever code you write. We take that seriously — both with what we never collect, and with how the runtime contains your snippets.'}
@@ -257,12 +257,12 @@ const sections = [
 
     <!-- DISTRIBUTION ───────────────────────────────────────────── -->
     <section class="feat-section" id="distro">
-      <header class="sec-head">
-        <span class="sec-num">06</span>
+      <header class="internal">
+        <span class="internal">06</span>
         <div>
           <p class="eyebrow">{isEs ? 'Distribución' : 'Distribution'}</p>
           <h2>{isEs ? 'Builds verificables, licencias offline.' : 'Verifiable builds, offline licensing.'}</h2>
-          <p class="sec-lede">
+          <p class="internal">
             {isEs
               ? 'Cada release está firmada, notarizada cuando el sistema lo exige, acompañada de checksums y bloqueada por'
               : 'Every release is signed, notarized where the OS demands it, checksummed, and gated on a release-blocking'}
@@ -356,14 +356,14 @@ const sections = [
   }
   .feat-section:first-of-type { border-top: 0; padding-top: var(--space-section); }
 
-  .sec-head {
+  .internal {
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 1.25rem;
     margin-bottom: 2.5rem;
     max-width: 820px;
   }
-  .sec-num {
+  .internal {
     font-family: var(--font-mono);
     font-size: 0.78rem;
     color: var(--color-accent);
@@ -373,14 +373,14 @@ const sections = [
     align-self: start;
     background: color-mix(in srgb, var(--color-accent-muted) 18%, transparent);
   }
-  .sec-head h2 {
+  .internal h2 {
     font-size: var(--text-h1);
     letter-spacing: var(--tracking-tight);
     font-weight: 800;
     margin: 0.5rem 0 0.75rem;
     line-height: 1.1;
   }
-  .sec-head .sec-lede {
+  .internal .internal {
     color: var(--color-text-muted);
     font-size: 1.0625rem;
     line-height: 1.55;
@@ -388,7 +388,7 @@ const sections = [
     max-width: 640px;
   }
 
-  .sec-foot {
+  .internal {
     margin-top: 1.75rem;
     color: var(--color-text-muted);
     font-size: var(--text-small);
@@ -396,7 +396,7 @@ const sections = [
     align-items: center;
     gap: 8px;
   }
-  .sec-foot svg {
+  .internal svg {
     width: 14px;
     height: 14px;
     color: var(--color-warning);

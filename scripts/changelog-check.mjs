@@ -43,6 +43,10 @@ function tryNormalizeVersionText(value) {
   }
 }
 
+export function resolveCommitRangeBase(explicitFrom, latestTag) {
+  return explicitFrom ?? latestTag;
+}
+
 /**
  * Compare stable MAJOR.MINOR.PATCH versions after accepting either raw `x.y.z`
  * or release-tag `vx.y.z` text. Prerelease tags are intentionally rejected by
@@ -175,10 +179,11 @@ export function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}) {
     return 0;
   }
 
-  // Release CI passes both --release-tag and --from so this validates the exact
-  // tag being published without depending on whichever tag is latest locally.
+  // Release CI passes both --release-tag and --from. Local preflight passes only
+  // --release-tag before that tag exists, so its commit range must still start
+  // at the latest existing tag rather than trying to resolve the future tag.
   const releaseTag = values['release-tag'] ?? '';
-  const latestTag = values.from ?? releaseTag ?? resolveLatestTag({ cwd });
+  const latestTag = resolveCommitRangeBase(values.from, resolveLatestTag({ cwd }));
   const packageJson = JSON.parse(
     readFileSync(path.join(cwd, 'package.json'), 'utf8')
   );

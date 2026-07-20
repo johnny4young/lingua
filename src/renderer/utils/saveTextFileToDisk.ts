@@ -1,13 +1,13 @@
 /**
- * IT2-F7 — generic "save a text document to disk" orchestration,
- * extracted from the `.linguanb` exporter (RL-043 Slice E fold A) so
+ * internal — generic "save a text document to disk" orchestration,
+ * extracted from the `.linguanb` exporter (implementation Slice E implementation note) so
  * the capsule HTML export shares the exact same native-dialog →
  * capability-write → blob-download fallback instead of copying it.
  *
  * No NEW IPC or security surface: `fs.saveDialog` mints a one-file
  * write capability for the user-chosen path, `fs.write` is validated
  * against that exact capability, and the capability is revoked
- * afterward (RL-077 sandbox). Web reports `'unavailable'` so callers
+ * afterward (internal sandbox). Web reports `'unavailable'` so callers
  * fall back to the blob download — unsupported/cancelled browser
  * save-pickers never swallow an export.
  */

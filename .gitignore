@@ -18,7 +18,7 @@ dist/
 test-results/
 Library/
 
-# Website (Astro) generated artifacts. website/ ships its own .gitignore for
+# Website (Astro) generated artifacts. website/ ships its own.gitignore for
 # these, but branches predating the website migration (and stray worktree
 # state after a branch switch) have no website/.gitignore — this repo-root rule
 # stops the Astro cache and the generated press-kit zip from being staged
@@ -33,7 +33,7 @@ output/
 .audit/
 tmp/
 /PLAN.md
-/TEST_PLAN.md
+/TESTING.md
 dev-license.json
 assets/icon.iconset/
 
@@ -63,7 +63,7 @@ Thumbs.db
 .env.*.local
 
 # Secret material — belt-and-suspenders so a new worker/package dir without
-# its own .gitignore cannot slip a credentials file into a now-public repo.
+# its own.gitignore cannot slip a credentials file into a now-public repo.
 *.dev.vars
 .dev.vars
 *.p12
@@ -79,14 +79,15 @@ Thumbs.db
 
 # Optional caches
 .npm
+.pnpm-store/
 .eslintcache
 .cache
 
 # Agent per-developer state, including local command skills such as:
-# .claude/skills/lingua-review/
-# .claude/skills/lingua-ship/
-# .agents/skills/lingua-review/
-# .agents/skills/lingua-ship/
+#.claude/skills/lingua-review/
+#.claude/skills/lingua-ship/
+#.agents/skills/lingua-review/
+#.agents/skills/lingua-ship/
 .mcp.json
 .claude/
 .agents/skills/lingua-review/
@@ -94,8 +95,21 @@ Thumbs.db
 prod-keypair.json
 default.profraw
 
-# Internal planning/strategy + agent workflow — local, never committed (public repo)
+# implementation notesning/strategy + agent workflow — local, never committed (public repo)
 .agents/
+/.audit/
+/.planning/
+/planning/
+/docs/internal/
+/docs/PENDING.md
+/docs/*ROADMAP*.md
+/docs/*BACKLOG*.md
+/docs/*SPRINT*.md
+/docs/*STRATEG*.md
+/docs/*TICKET*.md
+/docs/*PROPOSAL*.md
+/docs/*AUDIT*.md
+/docs/*PLAN*.md
 /docs/ROADMAP.md
 /docs/PLAN.md
 /docs/BACKLOG.md

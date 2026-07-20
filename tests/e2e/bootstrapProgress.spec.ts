@@ -1,5 +1,5 @@
 /**
- * IT2-D3 Slice 1 — runtime bootstrap progress end-to-end.
+ * implementation — runtime bootstrap progress end-to-end.
  *
  * Locks the pipeline on the production web build: the first Python run
  * boots Pyodide, and while its WASM downloads the run button's loading
@@ -18,7 +18,7 @@ import {
   test,
 } from './licenseWeb.helpers';
 
-test.describe('runtime bootstrap progress (IT2-D3)', () => {
+test.describe('runtime bootstrap progress', () => {
   test('the first Python run streams download progress into the loading label', async ({
     page,
   }) => {

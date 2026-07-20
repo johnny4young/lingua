@@ -48,7 +48,7 @@ import {
   type TranslateFn,
 } from './limits';
 
-// RL-020 Slice 7 — the literal `DEFAULT_TIMEOUT` is gone; the
+// implementation — the literal `DEFAULT_TIMEOUT` is gone; the
 // runner reads the per-language preset from settings every time
 // `execute()` is called so a Settings change picks up on the very
 // next run without restarting the worker.
@@ -65,7 +65,7 @@ export class JavaScriptRunner implements LanguageRunner {
   private worker: Worker | null = null;
   private ready = false;
   /**
-   * RL-078 — opaque token of the currently-running execute() call.
+   * internal — opaque token of the currently-running execute() call.
    * Worker replies whose `runId` does not match are dropped, so a
    * stale `done` arriving after `terminate()` cannot poison the
    * next run.
@@ -73,7 +73,7 @@ export class JavaScriptRunner implements LanguageRunner {
   private currentRunId: string | null = null;
   private debugSessionActive = false;
   /**
-   * RL-078 — `stop()` ends an in-flight run by terminating the
+   * internal — `stop()` ends an in-flight run by terminating the
    * worker. The closure that owns the resolve / cleanup pair lives
    * inside `execute()`; we expose it here so the stop button (or a
    * follow-up `execute()` call) can shut the promise down cleanly
@@ -98,7 +98,7 @@ export class JavaScriptRunner implements LanguageRunner {
     const userDetachedAlready = useDebuggerStore.getState().session === null;
     useDebuggerStore.getState().detachSession();
     setActiveDebugWorker(null);
-    // RL-027 Slice 1.5 fold E — `debugger.detached` carries `language`
+    // implementation note — `debugger.detached` carries `language`
     // (closed enum) + `reasonBucket` (closed enum). No code, no
     // breakpoint coordinates. Honors the ADR §4 privacy contract.
     if (!userDetachedAlready) {
@@ -115,24 +115,24 @@ export class JavaScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // Slice 2 — origin capture is baseline; no runtime opt-out.
+    // implementation — origin capture is baseline; no runtime opt-out.
     const sourceMappingEnabled = true;
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     const magicResults: MagicCommentResult[] = [];
     let lineTimings: LineTimingEntry[] = [];
     let result: unknown;
-    // RL-043 Slice B — the worker's structured return value, forwarded
+    // implementation — the worker's structured return value, forwarded
     // losslessly when the caller set `captureStructuredResult` (notebook
     // path). Stays `undefined` for normal runs.
     let structuredResult: unknown;
     let error: ExecutionError | undefined;
-    // RL-020 Slice 6 fold G — the worker echoes its stdin
+    // implementation note — the worker echoes its stdin
     // consumption summary as a `stdin-consumed` message; relay
     // forward via the canonical ExecutionResult shape so the UI
     // panel can surface "Used N of M lines".
     let stdinConsumed: { count: number; total: number } | undefined;
-    // RL-020 Slice 9 — scope snapshot relay; worker emits at most
+    // implementation — scope snapshot relay; worker emits at most
     // one `scope-snapshot` reply per run, and only when we asked.
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — stdout overflowing should not
@@ -141,13 +141,13 @@ export class JavaScriptRunner implements LanguageRunner {
     let droppedStderr = 0;
     let stderrByteTruncated = false;
 
-    // RL-027 debugger refinement — debug mode is now an explicit UI
+    // internal debugger refinement — debug mode is now an explicit UI
     // intent. Normal Run ignores breakpoints so gutter marks do not
     // silently change execution semantics; Debug instruments the source
     // and auto-disables loop protection only when an enabled breakpoint
     // exists in the active tab.
     const settings = useSettingsStore.getState();
-    // RL-020 Slice 7 — resolve the run-time deadline from the
+    // implementation — resolve the run-time deadline from the
     // per-language preset whenever the caller did NOT pass an
     // explicit timeout. Caller overrides (one-shot extended,
     // magic-comment `// @timeout`) keep the original number and
@@ -162,7 +162,7 @@ export class JavaScriptRunner implements LanguageRunner {
     const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
       ? 'override'
       : presetForLanguage ?? 'normal';
-    // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+    // implementation — debugger is baseline; the Settings master toggle is gone.
     const debuggerSettings = true;
     const debugStore = useDebuggerStore.getState();
     const tabBreakpoints = context?.tabId
@@ -170,7 +170,7 @@ export class JavaScriptRunner implements LanguageRunner {
       : [];
     const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
 
-    // Slice 2 — loop protection is baseline (the runtime kill switch
+    // implementation — loop protection is baseline (the runtime kill switch
     // against `while(true)` cannot be user-tunable on a code editor).
     const { maxLoopIterations } = settings;
     const protectedCode = !debug
@@ -181,10 +181,10 @@ export class JavaScriptRunner implements LanguageRunner {
     const magicEntries = detectJSMagicComments(protectedCode);
     const hasMagic = magicEntries.length > 0;
     const magicTransformed = hasMagic ? transformJSMagicComments(protectedCode) : protectedCode;
-    // RL-020 Slice 3 — side-table the worker reads is per-line. The
+    // implementation — side-table the worker reads is per-line. The
     // worker postMessage protocol stays kind-agnostic.
     const magicKindByLine: Record<number, MagicCommentKind> = {};
-    // RL-044 Slice 1A — parallel side-table for `//=> table`
+    // implementation — parallel side-table for `//=> table`
     // directives. The runner consults this when stitching back the
     // magic-comment result so it can upgrade the stringified value
     // to a typed `RichOutputPayload` before the renderer reads it.
@@ -195,7 +195,7 @@ export class JavaScriptRunner implements LanguageRunner {
         magicDirectiveByLine[entry.line] = entry.directive;
       }
     }
-    // RL-020 Slice 5 — opt-in auto-log pass after the magic-comment
+    // implementation — opt-in auto-log pass after the magic-comment
     // transform. The detector excludes lines already claimed by an
     // arrow / watch (magic-comment precedence is preserved), and the
     // transform replaces each bare expression with a single
@@ -218,7 +218,7 @@ export class JavaScriptRunner implements LanguageRunner {
       }
     }
 
-    // RL-115 Slice 1 — per-statement timing markers, AFTER auto-log
+    // implementation — per-statement timing markers, AFTER auto-log
     // (the transformed capture lines are still single top-level
     // statements) and BEFORE scope capture so the appended capture code
     // is never attributed to a user statement. Enabled by the Settings
@@ -290,7 +290,7 @@ export class JavaScriptRunner implements LanguageRunner {
         timeoutHandle = setTimeout(() => {
           worker.terminate();
           if (this.worker === worker) this.worker = null;
-          // RL-027 Slice 1 — same cleanup as the crash path so an F5/F10
+          // implementation — same cleanup as the crash path so an F5/F10
           // after a timeout does not post to a dead worker.
           this.clearDebuggerSession('stop');
           finish(
@@ -320,31 +320,31 @@ export class JavaScriptRunner implements LanguageRunner {
 
       worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
-        // RL-078 — runId guard. Drop stale messages from terminated workers.
+        // internal — runId guard. Drop stale messages from terminated workers.
         if (!('runId' in msg) || msg.runId !== runId) return;
         if (this.currentRunId !== runId) return;
 
         switch (msg.type) {
           case 'console': {
-            // RL-044 Slice 1B — thread the additive `payload` from the
+            // implementation — thread the additive `payload` from the
             // worker through to `ConsoleOutput`. Absent when the
             // (legacy) protocol omits the field, so the renderer text
             // path keeps working unchanged.
             const output: ConsoleOutput = msg.payload
               ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
               : { type: msg.method, args: msg.args, line: msg.line };
-            // RL-044 Slice 1B fold F — `console.table` adoption signal.
+            // implementation note — `console.table` adoption signal.
             // Fire-and-forget; the renderer never blocks on telemetry.
             if (msg.consoleTableInvoked === true) {
               void trackEvent('runtime.console_table_called', {
                 language: 'javascript',
               });
             }
-            // RL-044 Slice 2b-β-β-α fold A — runner-side forwarding of
+            // implementation-β-β-α implementation note — runner-side forwarding of
             // `lingua.{chart,image,html}` rejection flags emitted by
             // `buildLinguaWorkerBridge` (js-worker.ts:380). Closes the
-            // hook explicitly deferred in Slice 2a (see js-worker.ts
-            // pre-2b-β comment).
+            // hook explicitly deferred in implementation (see js-worker.ts
+            // implementation comment).
             if (msg.richMediaRejected) {
               const { kind, reason } = msg.richMediaRejected;
               void trackEvent('runtime.rich_media_payload_rejected', {
@@ -374,7 +374,7 @@ export class JavaScriptRunner implements LanguageRunner {
             break;
           }
           case 'stdin-consumed': {
-            // RL-020 Slice 6 fold G — defensively coerce to a
+            // implementation note — defensively coerce to a
             // bounded shape; the worker is trusted but the panel
             // only renders integer counts.
             const summary = msg as unknown as {
@@ -393,7 +393,7 @@ export class JavaScriptRunner implements LanguageRunner {
             break;
           }
           case 'scope-snapshot': {
-            // RL-020 Slice 9 — relay the worker's scope capture onto
+            // implementation — relay the worker's scope capture onto
             // the eventual ExecutionResult. The worker already
             // applied the boot-time filter + internal-symbol filter
             // and bounded the payload; this side just defensively
@@ -412,12 +412,12 @@ export class JavaScriptRunner implements LanguageRunner {
             break;
           }
           case 'magic-comment': {
-            // RL-020 Slice 5 — the kind table now carries `'arrow'`,
+            // implementation — the kind table now carries `'arrow'`,
             // `'watch'`, or `'autoLog'`. The worker postMessage
             // protocol stays kind-agnostic; the runner stitches the
             // kind back in via this side table.
             const directive = magicDirectiveByLine[msg.line];
-            // RL-044 Slice 1A — when the user attached a `table`
+            // implementation — when the user attached a `table`
             // directive, attempt to recover structure from the
             // worker's stringified value via JSON. The serializer in
             // the worker uses `JSON.stringify` so JSON-compatible
@@ -446,13 +446,13 @@ export class JavaScriptRunner implements LanguageRunner {
             break;
           }
           case 'line-timing':
-            // RL-115 — batched per-statement timings, one message per
+            // internal — batched per-statement timings, one message per
             // run, posted right before done.
             lineTimings = msg.entries;
             break;
           case 'result':
             result = msg.value;
-            // RL-043 Slice B — capture the structured value when the
+            // implementation — capture the structured value when the
             // worker forwarded it (only when we asked via
             // `captureStructuredResult`).
             if (msg.structured !== undefined) structuredResult = msg.structured;
@@ -461,7 +461,7 @@ export class JavaScriptRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'paused': {
-            // RL-027 Slice 1 — relay paused frames into the debugger
+            // implementation — relay paused frames into the debugger
             // store so the UI can render the variables / call stack.
             const paused = msg as unknown as {
               line: number;
@@ -480,7 +480,7 @@ export class JavaScriptRunner implements LanguageRunner {
                 callStack: paused.callStack,
                 watchResults: paused.watchResults,
               });
-              // RL-027 Slice 1.5 — `debugger.paused` carries the
+              // implementation — `debugger.paused` carries the
               // closed-enum reason bucket. No source, no expression
               // content, no line numbers in the payload.
               void trackEvent('debugger.paused', {
@@ -492,7 +492,7 @@ export class JavaScriptRunner implements LanguageRunner {
             // user input. Keep the runaway-code deadline for active
             // execution, but suspend it while Continue/Step is pending.
             clearDeadline();
-            // RL-027 Slice 1.5 — `conditionalPending` is dropped here;
+            // implementation — `conditionalPending` is dropped here;
             // when conditional-bp evaluation lands, thread the flag
             // into PausedFrame so the drawer can flag "predicate
             // stored, evaluation pending".
@@ -507,17 +507,17 @@ export class JavaScriptRunner implements LanguageRunner {
               stdout,
               stderr,
               result,
-              // RL-043 Slice B — surface the lossless structured value
+              // implementation — surface the lossless structured value
               // when the worker forwarded it; `undefined` for normal runs.
               structuredResult,
               executionTime: msg.executionTime,
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
-              // RL-115 — per-statement wall-clock timings when the
+              // internal — per-statement wall-clock timings when the
               // run was instrumented (setting or // @time directive).
               ...(lineTimings.length > 0 ? { lineTimings } : {}),
               stdinConsumed,
-              // RL-020 Slice 7 — explicit kind so the result-panel
+              // implementation — explicit kind so the result-panel
               // pill self-gates on a field instead of regexing the
               // error message. `'success'` when there is no thrown
               // error; `'error'` otherwise (timeout / stop paths
@@ -526,7 +526,7 @@ export class JavaScriptRunner implements LanguageRunner {
               kind: error ? 'error' : 'success',
               timeoutPreset,
               timeoutMs: timeout,
-              // RL-020 Slice 9 — surface the worker capture if it
+              // implementation — surface the worker capture if it
               // ran; `null` keeps the contract simple for runners
               // that didn't capture this round.
               scopeSnapshot,
@@ -549,21 +549,21 @@ export class JavaScriptRunner implements LanguageRunner {
           error: {
             message: event.message || 'Worker error',
           },
-          // RL-020 Slice 7 — worker crashes count as `'error'` in
+          // implementation — worker crashes count as `'error'` in
           // the pill so the user sees the "Run failed" variant
           // instead of a silent state.
           kind: 'error',
           timeoutPreset,
           timeoutMs: timeout,
         });
-        // RL-027 Slice 1 — clear the debugger bridge + session on
+        // implementation — clear the debugger bridge + session on
         // crash so a follow-up F5/F10 doesn't post to a dead worker.
         this.clearDebuggerSession('crash');
         worker.terminate();
         if (this.worker === worker) this.worker = null;
       });
 
-      // RL-078 — parent-owned kill timer. If user code never yields,
+      // internal — parent-owned kill timer. If user code never yields,
       // the in-worker handlers above never fire; this timer is the
       // only thing that can recover the UI. Debug pauses clear and
       // re-arm this deadline around user-controlled stepping.
@@ -577,7 +577,7 @@ export class JavaScriptRunner implements LanguageRunner {
           attachedAt: Date.now(),
         });
         setActiveDebugWorker(worker);
-        // RL-027 Slice 1.5 — `debugger.attached` fires once per debug
+        // implementation — `debugger.attached` fires once per debug
         // session so dashboard can derive median session length and
         // attach→pause latency. ADR §4 payload contract.
         void trackEvent('debugger.attached', { language: 'js', reasonBucket: 'attach' });
@@ -595,18 +595,18 @@ export class JavaScriptRunner implements LanguageRunner {
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
         sourceLineMap,
         sourceMappingEnabled,
-        // RL-020 Slice 6 — pre-set stdin buffer the worker installs
+        // implementation — pre-set stdin buffer the worker installs
         // as the source of `prompt()` / `readline()` answers. Empty
         // / undefined leaves the native worker behavior in place.
         stdin: context?.stdin,
-        // RL-020 Slice 9 — variable inspector capture. Debug runs
+        // implementation — variable inspector capture. Debug runs
         // skip capture; the debugger drawer already exposes the
         // paused-frame locals and a second snapshot would race with
         // the resume protocol.
         captureScope: !debug && context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
         scopeLanguage: 'javascript',
-        // RL-043 Slice B — ask the worker to forward the structured
+        // implementation — ask the worker to forward the structured
         // return value (notebook reads it from `structuredResult`).
         captureStructuredResult: context?.captureStructuredResult === true,
       });

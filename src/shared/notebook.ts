@@ -1,12 +1,12 @@
 /**
- * RL-043 Slice A — `NotebookV1` schema.
+ * implementation — `NotebookV1` schema.
  *
- * The versioned schema for `.linguanb` notebooks. Slice A ships the
+ * The versioned schema for `.linguanb` notebooks. implementation ships the
  * schema + parser + serializer + closed-enum reject reasons; later
- * slices add disk persistence (Slice B), reactive dataflow (Slice
- * C), and full export to script / markdown / HTML (Slice D).
+ * implementations add disk persistence , reactive dataflow (implementation
+ * C), and full export to script / markdown / HTML .
  *
- * Design notes (from the 2026-05-20 research triage for RL-043):
+ * Design notes (from the 2026-05-20 research triage for internal):
  *
  *   - Notebooks live as a distinct tab kind in `editorStore`. They
  *     are NOT overloaded onto plain file tabs — the per-tab `kind`
@@ -16,13 +16,13 @@
  *     `globalThis.eval()`. The runtime session lifetime is bound to
  *     the tab lifetime so `removeTab` always disposes the session.
  *   - Cell language is per-cell, not per-tab. The notebook is
- *     multi-language by design even though Slice A's runner only
+ *     multi-language by design even though implementation's runner only
  *     wires JavaScript + TypeScript.
  *
  * Privacy posture:
  *
- *   - Notebooks live ONLY on the device (Slice A persists via
- *     `notebookStore`'s isolated localStorage key; Slice B+ adds
+ *   - Notebooks live ONLY on the device (implementation persists via
+ *     `notebookStore`'s isolated localStorage key; future work adds
  *     opt-in disk persistence to `.linguanb` files).
  *   - Telemetry (`notebook.cell_executed`) carries only closed-enum
  *     `language` + `status`. NO cell source, NO output bytes reach
@@ -51,9 +51,9 @@ export type NotebookRejectReason = (typeof NOTEBOOK_REJECT_REASONS)[number];
 /**
  * Closed enum of code-cell languages. Markdown cells are NOT in this
  * set — they're a separate cell kind. JavaScript + TypeScript share the
- * JS worker pipeline (cross-cell state); Python (RL-043 Slice F) runs
+ * JS worker pipeline (cross-cell state); Python  runs
  * through the Python runner independently per cell (no cross-cell state
- * yet); SQL (T16) runs through the shared DuckDB-WASM engine and renders
+ * yet); SQL  runs through the shared DuckDB-WASM engine and renders
  * its result set as a table output. All four are accepted by the
  * `notebookSession` runner.
  *
@@ -84,9 +84,9 @@ export type NotebookCellKind = (typeof NOTEBOOK_CELL_KINDS)[number];
 // ---------------------------------------------------------------------------
 
 /**
- * Per-cell output. Slice A stores text-only outputs from
- * `console.log` + the cell's terminal expression (if any). Slice B+
- * extends with RL-044 rich payloads via a discriminated union; the
+ * Per-cell output. implementation stores text-only outputs from
+ * `console.log` + the cell's terminal expression (if any). future work
+ * extends with internal rich payloads via a discriminated union; the
  * current shape is forward-compatible because `kind: 'text'` is the
  * default arm and unknown future kinds are rejected by the parser.
  */
@@ -96,7 +96,7 @@ export type NotebookCellOutputV1 = {
    * `MAX_CELL_SOURCE_LENGTH` chars to bound storage growth. */
   readonly text: string;
   /** `'stdout'` for regular `console.log`; `'stderr'` for `console.error`
-   * + thrown errors. Mirrors RL-044's bucketed source identity. */
+   * + thrown errors. Mirrors internal's bucketed source identity. */
   readonly stream: 'stdout' | 'stderr';
 };
 
@@ -118,7 +118,7 @@ export type NotebookCellV1 = NotebookCodeCellV1 | NotebookMarkdownCellV1;
 
 /**
  * Top-level notebook document. `version: 1` literal pins the schema;
- * Slice B+ flips to `version: 2` for fields like cell metadata,
+ * future work flips to `version: 2` for fields like cell metadata,
  * reactive deps, and pinned outputs. The parser rejects unknown
  * versions so a downgrade can't silently load future data.
  */
@@ -144,7 +144,7 @@ export const MAX_NOTEBOOK_BYTES = 256 * 1024;
  * tries to mount thousands of cells. */
 export const MAX_CELLS_PER_NOTEBOOK = 200;
 /** Cap per cell source. 32 KiB comfortably accommodates the largest
- * realistic cell. Slice B+ can promote to Monaco with virtualization
+ * realistic cell. future work can promote to Monaco with virtualization
  * which can handle larger inputs. */
 export const MAX_CELL_SOURCE_LENGTH = 32 * 1024;
 /** Cap per cell output count. Prevents a `for (i=0;i<1e6;i++) console.log(i)`
@@ -171,7 +171,7 @@ export type NotebookParseOutcome =
  * throws. Used by:
  *
  *   - `notebookStore`'s sanitize-on-rehydrate path.
- *   - Slice B+'s `.linguanb` file open flow.
+ *   - future work's `.linguanb` file open flow.
  *   - The future `.ipynb` importer adapter (Jupyter compat).
  */
 export function parseNotebook(input: unknown): NotebookParseOutcome {
@@ -313,7 +313,7 @@ function parseOutput(raw: unknown): NotebookCellOutputV1 | null {
 
 /**
  * Serialize a `NotebookV1` document to a JSON string suitable for
- * disk persistence (Slice B+) and the in-memory localStorage blob.
+ * disk persistence (future work) and the in-memory localStorage blob.
  * Pretty-printed with 2-space indent so a `.linguanb` opened in any
  * text editor is human-readable. Returns `null` when the document
  * exceeds the byte cap (defensive — the runtime store enforces caps
@@ -335,9 +335,9 @@ export function serializeNotebook(notebook: NotebookV1): string | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Build a fresh empty notebook scaffold. Slice A seeds two cells —
+ * Build a fresh empty notebook scaffold. implementation seeds two cells —
  * one markdown welcome + one runnable code cell — so the user lands on
- * a canvas that matches their default notebook-cell language. Slice B+
+ * a canvas that matches their default notebook-cell language. future work
  * can promote this to a richer starter template once the notebook editor
  * matures.
  */
@@ -376,8 +376,8 @@ export function createBlankNotebook(opts: {
 /**
  * Convenience guard for store callers + UI gating. The runner executes
  * all four code-cell languages — `'javascript' | 'typescript'` (JS
- * worker, cross-cell state), `'python'` (RL-043 Slice F, independent per
- * cell), and `'sql'` (T16, shared DuckDB engine, table output). See
+ * worker, cross-cell state), `'python'` (implementation, independent per
+ * cell), and `'sql'` (implementation, shared DuckDB engine, table output). See
  * `notebookSession.ts`.
  */
 export function isNotebookCodeCell(

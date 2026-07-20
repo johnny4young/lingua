@@ -25,7 +25,7 @@ afterEach(() => {
   localStorage.removeItem(DEBUGGER_STORAGE_KEY);
 });
 
-describe('debuggerStore (RL-027 Slice 1)', () => {
+describe('debuggerStore ', () => {
   it('toggleBreakpoint adds and removes idempotently', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 5);
     expect(Object.keys(useDebuggerStore.getState().breakpoints)).toHaveLength(1);
@@ -126,7 +126,7 @@ describe('debuggerStore (RL-027 Slice 1)', () => {
     expect(parsed.state.session).toBeUndefined();
   });
 
-  it('setAllBreakpointsEnabled toggles every breakpoint in batch (Slice 1.5 fold F)', () => {
+  it('setAllBreakpointsEnabled toggles every breakpoint in batch (implementation note)', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 3);
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 7);
     useDebuggerStore.getState().toggleBreakpoint('tab-2', 5);
@@ -149,7 +149,7 @@ describe('debuggerStore (RL-027 Slice 1)', () => {
     expect(useDebuggerStore.getState().breakpoints).toBe(before);
   });
 
-  it('toggleDrawerCollapsed flips the drawer state (Slice 1.5 fold B)', () => {
+  it('toggleDrawerCollapsed flips the drawer state (implementation note)', () => {
     expect(useDebuggerStore.getState().drawerCollapsed).toBe(false);
     useDebuggerStore.getState().toggleDrawerCollapsed();
     expect(useDebuggerStore.getState().drawerCollapsed).toBe(true);
@@ -157,7 +157,7 @@ describe('debuggerStore (RL-027 Slice 1)', () => {
     expect(useDebuggerStore.getState().drawerCollapsed).toBe(false);
   });
 
-  it('persists drawerCollapsed across reloads (Slice 1.5 fold B)', async () => {
+  it('persists drawerCollapsed across reloads (implementation note)', async () => {
     useDebuggerStore.getState().toggleDrawerCollapsed();
     await Promise.resolve();
     const raw = localStorage.getItem(DEBUGGER_STORAGE_KEY);

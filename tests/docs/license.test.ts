@@ -1,5 +1,5 @@
 /**
- * RL-062 requires the repo to ship a real LICENSE file matching the README's
+ * internal requires the repo to ship a real LICENSE file matching the README's
  * distribution posture. This guard fails CI if anyone lands a change that
  * removes LICENSE, drops the README posture section, or reintroduces an MIT
  * badge — any of those would republish the product under the wrong terms.
@@ -14,7 +14,7 @@ const LICENSE_PATH = resolve(REPO_ROOT, 'LICENSE');
 const README_PATH = resolve(REPO_ROOT, 'README.md');
 const PACKAGE_PATH = resolve(REPO_ROOT, 'package.json');
 
-describe('repository license posture (RL-062)', () => {
+describe('repository license posture', () => {
   it('ships a LICENSE file at the repo root', () => {
     expect(existsSync(LICENSE_PATH)).toBe(true);
   });
@@ -44,9 +44,9 @@ describe('repository license posture (RL-062)', () => {
     expect(readme).toContain('linguacode.dev');
   });
 
-  it('README declares the post-RL-063 live-checkout posture', () => {
-    // Before RL-063 shipped (2026-05-05) the README said "checkout
-    // planned … once `RL-063` ships". Now the marketing site is live
+  it('README declares the post-internal live-checkout posture', () => {
+    // Before internal shipped (2026-05-05) the README said "checkout
+    // planned … once `internal` ships". Now the marketing site is live
     // at linguacode.dev, so the README must say so. The licensing
     // posture itself ("separate commercial license from the Licensor")
     // and the rejection of the "purchased via …" pattern still hold.

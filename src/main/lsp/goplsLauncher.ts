@@ -13,15 +13,15 @@ import type { JsonRpcNotification } from './lspProcess';
 import { pathToFileUri } from './rustAnalyzerLauncher';
 
 /**
- * RL-026 Slice 4 — gopls launcher.
+ * implementation — gopls launcher.
  *
  * Mirrors the shape of `rustAnalyzerLauncher.ts` because the lifecycle
  * concerns are the same — detection, initialize handshake, single
  * auto-restart on crash, env-filtered subprocess. The launcher is
  * intentionally a copy rather than a shared base class: with only two
  * desktop LSPs in the tree the abstraction would be speculative, and
- * Slice 3 picked the copy path deliberately so the rust path can keep
- * stabilising without churn from Slice 4.
+ * implementation picked the copy path deliberately so the rust path can keep
+ * stabilising without churn from implementation.
  *
  * Go-specific concerns the launcher owns:
  *   - Detection: PATH first, then `$GOPATH/bin/gopls`, then
@@ -155,7 +155,7 @@ function execFileOutputText(result: unknown): string {
 }
 
 function buildLauncherEnv(): NodeJS.ProcessEnv {
-  // RL-079 / Slice 3 fold G — host secrets stay out of the subprocess.
+  // implementation note — host secrets stay out of the subprocess.
   // User env is intentionally NOT layered: an LSP server should not
   // inherit arbitrary user vars.
   return buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS), undefined);

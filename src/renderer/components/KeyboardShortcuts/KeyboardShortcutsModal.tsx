@@ -210,7 +210,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [recordingId, setRecordingId] = useState<string | null>(null);
-  // UX Sweep T2 — the preset id awaiting a wipe confirmation, and
+  // accessibility pass — the preset id awaiting a wipe confirmation, and
   // whether the import-overwrite confirm is open.
   const [pendingPresetId, setPendingPresetId] = useState<string | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
@@ -325,7 +325,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         detail: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      // RL-077 — revoke the picker-minted capability after the one-shot
+      // internal — revoke the picker-minted capability after the one-shot
       // write so transient tokens for shortcut exports don't accumulate.
       if (mintedRootId && revokeRoot) {
         await revokeRoot(mintedRootId).catch(() => {});
@@ -378,7 +378,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     }
   }, [pushError, pushSuccess, resetShortcutOverrides, setShortcutOverride]);
 
-  // UX Sweep T2 — importing a preset wipes the user's existing
+  // accessibility pass — importing a preset wipes the user's existing
   // per-shortcut overrides. Confirm before that overwrite, but only
   // when there is something to lose; with no overrides the import is
   // a clean seed and the confirm would be friction with no payoff.
@@ -390,7 +390,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     void runImport();
   }, [hasOverrides, runImport]);
 
-  // UX Sweep T2 — applying a keymap preset replaces ALL per-shortcut
+  // accessibility pass — applying a keymap preset replaces ALL per-shortcut
   // overrides with the preset's set. Confirm only when overrides exist
   // AND the chosen preset actually differs from the active one, so the
   // dialog never fires on a no-op re-selection (and never on mount —
@@ -509,7 +509,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                   <section key={group.id}>
                     <Eyebrow>
                       {t(group.labelKey)}
-                      {/* RL-088 — was `text-muted/70` at 4.26:1 contrast.
+                      {/* internal — was `text-muted/70` at 4.26:1 contrast.
                           Bumped to `text-muted` (full token) so the group
                           count meets the WCAG 2.1 AA threshold (>=4.5:1). */}
                       <span className="ml-2 text-muted normal-case tracking-normal">

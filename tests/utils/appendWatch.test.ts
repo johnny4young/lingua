@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 3 fold E — `appendWatch` helper coverage.
+ * implementation note — `appendWatch` helper coverage.
  *
  * Locks:
  *   - Idempotent when the line is already a watch.

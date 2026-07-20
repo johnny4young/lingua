@@ -7,7 +7,7 @@ import {
 } from '../../shared/fs/brandedIds';
 
 /**
- * RL-077 — Tree-node `path` is the relative path of this entry inside
+ * internal — Tree-node `path` is the relative path of this entry inside
  * the active project root. The capability `rootId` lives on the
  * project store; combining `currentProject.rootId` with `node.path`
  * yields the `{ rootId, relativePath }` pair every IPC handler now
@@ -34,7 +34,7 @@ export function joinPath(base: string, name: string): string {
 }
 
 /**
- * RL-024 Slice 1 — depth guard for `expandDirectory`. Tree paths are
+ * implementation — depth guard for `expandDirectory`. Tree paths are
  * stored as POSIX-style relative strings (`'a/b/c'`); the empty string
  * is the project root and counts as depth 0. Pathological projects
  * (symlink loops, deeply nested dependency trees) are capped at 8
@@ -57,14 +57,14 @@ export function depthOf(relativePath: string): number {
 }
 
 /**
- * RL-024 Slice 1 fold B — recursive file count for the header badge.
+ * implementation note — recursive file count for the header badge.
  * Only counts file nodes (directories don't contribute to the
  * "{{count}} files" badge). The lazy-load contract means this is a
  * lower bound — directories not yet expanded contribute zero. The
  * header copy treats it as "discovered files" rather than "total
  * files on disk" by design; an accurate count would require eagerly
  * walking every subtree on every refresh and burn the 500 ms budget
- * the Slice 1 perf bench locks.
+ * the implementation perf bench locks.
  */
 export function countFiles(nodes: ReadonlyArray<FileTreeNode>): number {
   let total = 0;
@@ -79,7 +79,7 @@ export function countFiles(nodes: ReadonlyArray<FileTreeNode>): number {
 }
 
 /**
- * RL-024 Slice 1 fold F — collapse-all. Walks every expanded
+ * implementation note — collapse-all. Walks every expanded
  * directory and flips `isExpanded` to false. Children are preserved
  * so re-expanding doesn't re-fetch (lazy load only triggers when
  * `children === undefined`).
@@ -278,7 +278,7 @@ export function parentRelativeOf(relativePath: string): string {
 }
 
 /**
- * RL-146 / AUDIT-26 — flat `path -> node` index over the loaded tree.
+ * implementation detail — flat `path -> node` index over the loaded tree.
  *
  * A pure derivation of `nodes`: the project store rebuilds it on every
  * node commit, so it can never drift from the tree it indexes. The
@@ -317,7 +317,7 @@ export function isLoadedDirectory(
 }
 
 /**
- * RL-146 / AUDIT-26 — replace the children of the directory at
+ * implementation detail — replace the children of the directory at
  * `targetPath`, rebuilding ONLY the nodes along that directory's
  * ancestor chain. Sibling subtrees keep their existing object identity,
  * so a watcher delta re-renders O(branch) rather than O(N) — unlike

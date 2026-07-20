@@ -5,12 +5,12 @@ import { SpecRow } from '../ui/SpecRow';
 import { StatusBadge } from '../ui/StatusBadge';
 
 /**
- * RL-026 Slice 4 — generic conditional Settings row for a desktop LSP.
+ * implementation — generic conditional Settings row for a desktop LSP.
  *
- * Slice 3 inlined this for Rust; Slice 4 lifted it into a config-
+ * implementation inlined this for Rust; implementation lifted it into a config-
  * driven component so the Rust + Go (and any future LSP) rows stay
  * byte-identical. Mounts ONLY when the LSP is not in the happy
- * `'available'` state. Folds B + E + F of Slice 3 collapsed into a
+ * `'available'` state. implementation note of implementation collapsed into a
  * single surface:
  *   - Happy path (`available` / `unknown`): row hides entirely — the
  *     toast already announced readiness.

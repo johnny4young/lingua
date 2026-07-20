@@ -24,7 +24,7 @@ export function useDeepLinks({ openOverlay }: UseDeepLinksOptions): boolean {
       if (target.kind === 'open-file') {
         const name = fileNameFromPath(target.filePath);
         const language = resolveFileLanguageOrPlaintext(name);
-        // RL-077 — mint a capability for this approved file only.
+        // internal — mint a capability for this approved file only.
         // Re-mint failures (path missing, denylisted, not approved)
         // just skip the open; the user-visible feedback is no tab
         // appearing.

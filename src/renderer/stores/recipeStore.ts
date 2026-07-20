@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — Recipe overlay + tab-binding store.
+ * implementation — Recipe overlay + tab-binding store.
  *
  * Owns transient UI state — overlay open flag, per-tab recipe
  * binding, last-run results buffer, per-tab in-flight flag. NOT

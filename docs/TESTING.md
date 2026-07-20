@@ -1,4 +1,4 @@
-# TEST_PLAN.md
+# Lingua testing guide
 
 ## Purpose
 
@@ -17,7 +17,9 @@ place:
 - managed Electron desktop smoke through `pnpm run smoke:desktop`
 - packaged-app smoke through `pnpm run smoke:desktop:packaged`
 
-This file is intentionally implementation-oriented. It is not a roadmap; it is the source of truth for future E2E coverage planning.
+This is an executable test reference, not a product roadmap. Add a flow when it
+ships or when it becomes a required release gate; keep speculative planning out
+of this document.
 
 ## Status Legend
 
@@ -51,7 +53,7 @@ Use the desktop flow for:
 
 - Go and Rust execution
 - local filesystem integration
-- project explorer against real folders
+- project explorer against real implementation detail
 - file watching
 - plugin discovery
 - updater state and actions
@@ -62,7 +64,7 @@ Use the desktop flow for:
 
 ### Baseline Gates
 
-Run these before treating a broad UI/runtime slice as healthy:
+Run these before treating a broad UI/runtime the implementations healthy:
 
 ```bash
 pnpm test -- --run
@@ -73,7 +75,7 @@ pnpm run check:i18n:copy
 ```
 
 Add `pnpm run check:performance`, `pnpm run check:licenses`, and
-`pnpm run compliance:release` when the slice touches release posture,
+`pnpm run compliance:release` when the change touches release posture,
 dependency/runtime assets, or public release evidence.
 
 ### Web Base
@@ -238,10 +240,10 @@ Use this order when automating:
 | ✅ | `TC-058` | `ELEC` | `developer` | Expand/collapse directories | Directory state changes correctly |
 | ✅ | `TC-059` | `ELEC` | `developer` | Open file from explorer | Tab opens with correct content |
 | ✅ | `TC-060` | `ELEC` | `developer` | Create root file | File appears in tree |
-| ✅ | `TC-061` | `ELEC` | `developer` | Create root folder | Folder appears in tree |
-| ✅ | `TC-062` | `ELEC` | `developer` | Create file inside folder | File appears in correct directory |
-| ✅ | `TC-063` | `ELEC` | `developer` | Rename file/folder | Tree updates with new name |
-| ✅ | `TC-064` | `ELEC` | `developer` | Delete file/folder | Entry disappears |
+| ✅ | `TC-061` | `ELEC` | `developer` | Create root implementation detail | implementation detail appears in tree |
+| ✅ | `TC-062` | `ELEC` | `developer` | Create file inside implementation detail | File appears in correct directory |
+| ✅ | `TC-063` | `ELEC` | `developer` | Rename file/implementation detail | Tree updates with new name |
+| ✅ | `TC-064` | `ELEC` | `developer` | Delete file/implementation detail | Entry disappears |
 | ✅ | `TC-065` | `ELEC` | `developer` | Click refresh tree | Tree reloads and expansion remains coherent |
 | ✅ | `TC-066` | `ELEC` | `developer` | Modify filesystem outside app | Watch sync updates tree automatically |
 

@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 — dispatcher tests.
+ * implementation — dispatcher tests.
  *
  * Drives the top-level `dispatch()` directly. Validates argv → exit
  * code mapping for the cross-cutting flows (help, version, parse
@@ -64,7 +64,7 @@ describe('dispatch', () => {
     const code = await dispatch(['list', 'utilities', '--json'], io);
     expect(code).toBe(CLI_EXIT_CODES.ok);
     const parsed = JSON.parse(state.stdout) as { utilities: unknown[] };
-    // RL-099 Slice 7 — 23 adapters after the generator-style holdouts
+    // implementation — 23 adapters after the generator-style holdouts
     // (uuid / lorem-ipsum / string-inspect) landed.
     expect(parsed.utilities).toHaveLength(23);
   });

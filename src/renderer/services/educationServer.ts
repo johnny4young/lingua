@@ -1,5 +1,5 @@
 /**
- * Renderer-side wrappers for the RL-061 Slice 4 Education flow.
+ * Renderer-side wrappers for the implementation Education flow.
  *
  *   POST /education/start  — magic-link first step. Body returns
  *                            { ok: true, pending: true, message }

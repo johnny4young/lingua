@@ -33,13 +33,13 @@ import type { TrustEvent, TrustFeature, TrustSensitivity } from '../../stores/tr
 import { emitCommand } from '../../stores/commandBus';
 import type { TabId } from './settingsRailModel';
 
-/** RL-096 Slice 2 — newest N trust events shown in the Recent activity feed. */
+/** implementation — newest N trust events shown in the Recent activity feed. */
 const RECENT_ACTIVITY_LIMIT = 8;
 
-/** RL-096 Slice 2 fold E — sensitivity filter options (render order). */
+/** implementation note — sensitivity filter options (render order). */
 const SENSITIVITY_FILTER_OPTIONS = ['all', 'low', 'medium', 'high'] as const;
 
-/** RL-096 Slice 2 — sensitivity → StatusBadge tone for the feed chips. */
+/** implementation — sensitivity → StatusBadge tone for the feed chips. */
 const SENSITIVITY_TONE: Record<TrustSensitivity, StatusBadgeTone> = {
   low: 'neutral',
   medium: 'warning',
@@ -47,7 +47,7 @@ const SENSITIVITY_TONE: Record<TrustSensitivity, StatusBadgeTone> = {
 };
 
 /**
- * RL-096 Slice 2 fold F — Network rows deep-link to the Settings tab that
+ * implementation note — Network rows deep-link to the Settings tab that
  * owns the matching control. Only features with a real destination appear
  * here; the rest render as plain text. Tab ids mirror `RAIL_ITEMS` in
  * `SettingsModal` (telemetry consent + license live under Account; the
@@ -84,7 +84,7 @@ function trustActionLabel(action: string): string {
 }
 
 /**
- * RL-096 Slice 1 — Privacy + Trust Dashboard root component.
+ * implementation — Privacy + Trust Dashboard root component.
  *
  * Mounted as the `'privacy'` tab in `<SettingsModal>`. Three
  * stacked sub-sections:
@@ -95,7 +95,7 @@ function trustActionLabel(action: string): string {
  *      the preview cannot drift from the real export.
  *   2. Local stores audit — table of the localStorage keys
  *      Lingua owns, with byte size estimates and per-row Clear
- *      action (gated by a confirmation modal — fold C).
+ *      action (gated by a confirmation modal — implementation note).
  *   3. Network activity summary — one-line status per feature that
  *      may send data off the device.
  *
@@ -110,11 +110,11 @@ export function PrivacyTrustSection() {
   const licenseToken = useLicenseStore(s => s.token);
   const clearLicense = useLicenseStore(s => s.clearLicense);
   const pushStatusNotice = useUIStore(s => s.pushStatusNotice);
-  // RL-025 Slice B — reach into the dependency install state to
+  // implementation — reach into the dependency install state to
   // surface the most recent install timestamp in the network
   // activity table. We take the max across every tab so the row
   // reflects "any install in this session", not just the active tab.
-  // RL-094 Slice 3 fold E — count of run capsules retained in memory.
+  // implementation note — count of run capsules retained in memory.
   // Derive a primitive (not the `capsuleEntries()` array) so the
   // subscription stays stable and never trips zustand v5's update loop.
   const capsulesRetained = useExecutionHistoryStore(
@@ -132,10 +132,10 @@ export function PrivacyTrustSection() {
     return latest;
   });
 
-  // RL-096 Slice 2 — the live trust-event log drives both the Network
+  // implementation — the live trust-event log drives both the Network
   // table's real "last call" timestamps and the Recent activity feed.
   const trustEvents = useTrustEventStore(s => s.events);
-  // RL-096 Slice 2 fold E — Recent-activity sensitivity filter. `all`
+  // implementation note — Recent-activity sensitivity filter. `all`
   // shows every captured event; the others narrow to one severity.
   const [sensitivityFilter, setSensitivityFilter] = useState<'all' | TrustSensitivity>('all');
 
@@ -161,8 +161,8 @@ export function PrivacyTrustSection() {
   const localRows = getLocalStoreRows();
 
   const networkRows = useMemo(() => {
-    // RL-096 Slice 2 — derive the per-feature "last call" from the live
-    // trust log instead of the Slice-1 hardcoded nulls.
+    // implementation — derive the per-feature "last call" from the live
+    // trust log instead of the implementation hardcoded nulls.
     const lastAt = latestEventAtByFeature(trustEvents);
     return buildNetworkActivityRows({
       telemetryConsent,
@@ -175,8 +175,8 @@ export function PrivacyTrustSection() {
     });
   }, [telemetryConsent, licenseToken, dependencyInstallLastAt, trustEvents]);
 
-  // RL-096 Slice 2 — newest-first slice of the trust log for the Recent
-  // activity feed, narrowed by the fold-E sensitivity filter.
+  // implementation — newest-initial implementation of the trust log for the Recent
+  // activity feed, narrowed by the implementation note sensitivity filter.
   const recentEvents = useMemo(() => {
     const filtered =
       sensitivityFilter === 'all'
@@ -276,7 +276,7 @@ export function PrivacyTrustSection() {
           </table>
         </div>
         {/*
-         * RL-094 Slice 3 fold E — run capsules live in the in-memory
+         * implementation note — run capsules live in the in-memory
          * execution-history ring, NOT in localStorage, so they are
          * called out separately from the audit table above. The count
          * makes the Pro-gated capsule browse retention transparent;
@@ -348,7 +348,7 @@ export function PrivacyTrustSection() {
         eyebrow={t('settings.privacy.recent.title')}
         description={t('settings.privacy.recent.hint')}
       >
-        {/* RL-096 Slice 2 fold E — narrow the feed by captured sensitivity. */}
+        {/* implementation note — narrow the feed by captured sensitivity. */}
         <div
           role="group"
           aria-label={t('settings.privacy.recent.filterLabel')}
@@ -457,7 +457,7 @@ function RedactionPreviewBlock({
 }
 
 /**
- * RL-096 Slice 2 — a single Recent-activity feed row. Renders the feature
+ * implementation — a single Recent-activity feed row. Renders the feature
  * label + localized action + sensitivity-toned badge + relative time, with
  * the (metadata-only) summary on its own line. The summary is rendered as a
  * dynamic value — it never carries code, field values, or a share URL by

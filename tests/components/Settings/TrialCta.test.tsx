@@ -9,7 +9,7 @@ vi.mock('../../../src/renderer/services/trialServer', () => ({
   startTrial: vi.fn(),
 }));
 
-describe('TrialCta email validation (SR-39)', () => {
+describe('TrialCta email validation', () => {
   it('flags a malformed email with aria-invalid and an inline error', async () => {
     const user = userEvent.setup();
     render(<TrialCta />);

@@ -17,12 +17,12 @@ import {
 import { Kbd } from '../ui/chrome';
 import { ProjectTemplatesPanel } from '../Welcome/ProjectTemplatesPanel';
 
-// RL-038 Slice C closeout — the quick-start row used to be a hardcoded
+// implementation closeout — the quick-start row used to be a hardcoded
 // `['javascript', 'typescript', 'go', 'python', 'rust']`. Walking
 // `LANGUAGE_PACKS` with the runnable + has-templates predicate keeps
 // the list in sync with the registry: future runnable packs that ship
 // with starter templates land here automatically; Lua stays out until
-// it gains a starter (its `templateIds` is empty per the Slice A
+// it gains a starter (its `templateIds` is empty per the implementation
 // guard test).
 const QUICK_START_PACKS = LANGUAGE_PACKS.filter(
   (pack) =>
@@ -62,7 +62,7 @@ export function EditorEmptyState() {
   };
 
   return (
-    // RL-093 polish #5 — Welcome screen migrated from the legacy
+    // internal polish #5 — Welcome screen migrated from the legacy
     // purple-gradient + `text-foreground` / `text-muted` palette to the
     // Signal-Slate tokens shipping with the v2 design (slate accent at
     // hue 210, semantic bg-/fg- variables). The gradient now reads as a
@@ -116,7 +116,7 @@ export function EditorEmptyState() {
                   {showDesktopOnlyBadge ? (
                     <span
                       data-testid={`empty-state-desktop-only-${language}`}
-                      // RL-088 — bumped from `text-muted` to `text-foreground` so the
+                      // internal — bumped from `text-muted` to `text-foreground` so the
                       // 10px badge passes WCAG 2.1 AA contrast (>=4.5:1) on top of the
                       // language button's tinted background. axe-core flagged the
                       // previous combo at 4.35:1.

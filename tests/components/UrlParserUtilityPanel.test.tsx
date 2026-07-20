@@ -1,5 +1,5 @@
 /**
- * RL-068 — URL Parser utility component tests. The pure parser is covered
+ * internal — URL Parser utility component tests. The pure parser is covered
  * end-to-end in tests/utils/urlParser.test.ts, so this suite focuses on
  * the panel behaviors that matter to users: live propagation, error
  * states, password masking, query table rendering, and ES locale parity.

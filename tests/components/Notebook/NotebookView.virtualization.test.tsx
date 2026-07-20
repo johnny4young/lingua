@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice H — notebook cell-list row virtualization (degrade-to-full).
+ * implementation — notebook cell-list row virtualization (degrade-to-full).
  *
  * Verifies the windowed cell list under jsdom (where `clientHeight === 0`
  * makes `useListWindow` degrade to the full list) against the REAL hook:
@@ -134,7 +134,7 @@ describe('<NotebookView /> row virtualization (degrade-to-full)', () => {
     );
   });
 
-  // Reviewer fix (RL-043 Slice H a11y): windowing drops off-screen rows
+  // Reviewer fix (implementation a11y): windowing drops off-screen rows
   // from the DOM, so each mounted row must report the TRUE list size +
   // 1-based position via aria-setsize / aria-posinset, otherwise a screen
   // reader sees only the mounted slice.

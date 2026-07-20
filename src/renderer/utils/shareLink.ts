@@ -1,15 +1,15 @@
 /**
- * RL-036 Phase A1 — Renderer-side share-link helper.
+ * implementation — Renderer-side share-link helper.
  *
  * Three call sites need the same FileTab → SharePayloadV1 → encoded
  * fragment → clipboard + telemetry pipeline:
  *
- *   - Result-panel header icon button (`<ShareLinkButton>`, Fold E)
- *   - Command palette `Copy share link` action (Fold C)
- *   - `Mod+Shift+P` keyboard shortcut (Fold D)
+ *   - Result-panel header icon button (`<ShareLinkButton>`, implementation note)
+ *   - Command palette `Copy share link` action (implementation note)
+ *   - `Mod+Shift+P` keyboard shortcut (implementation note)
  *
  * The helper splits the work into two pure async stages so the
- * caller can interpose a confirmation modal (Fold A) between encode
+ * caller can interpose a confirmation modal (implementation note) between encode
  * and clipboard write without duplicating the encode logic:
  *
  *   1. `prepareShareLinkFromTab(tab)` — encodes and composes the URL.
@@ -20,7 +20,7 @@
  *      Returns a discriminated result with `no-clipboard` or
  *      `clipboard-rejected` failure shapes.
  *
- * Telemetry (Fold B + G) fires fire-and-forget through
+ * Telemetry (implementation note) fires fire-and-forget through
  * `trackShareCreated` — closed-enum `{ trigger, status, sizeBucket }`
  * mirrored on update-server with parity test.
  */
@@ -115,7 +115,7 @@ function getShareBaseUrl(): string {
  * Stage 1: encode + compose. Pure async, no side effects beyond the
  * gzip stream. The caller is responsible for whatever UX gating
  * happens between encode and clipboard write (e.g. confirmation
- * modal in Fold A).
+ * modal in implementation note).
  */
 export async function prepareShareLinkFromTab(
   tab: Pick<
@@ -156,7 +156,7 @@ export async function prepareShareLinkFromTab(
 
 /**
  * Stage 2: clipboard-only. Defers all telemetry to the caller so a
- * `cancelled` status (user dismissed Fold A modal) doesn't get
+ * `cancelled` status (user dismissed implementation note modal) doesn't get
  * miscounted as a successful clipboard write.
  */
 export async function writeShareLinkToClipboard(
@@ -183,7 +183,7 @@ export function trackShareCreated(args: {
   readonly sizeBucket: ShareSizeBucket;
 }): void {
   void trackEvent('share.created', args);
-  // RL-096 Slice 2 fold D — record the egress in the local trust log only
+  // implementation note — record the egress in the local trust log only
   // when a usable link was actually produced. Summary is METADATA ONLY
   // (trigger + size bucket); the share URL encodes the payload and must
   // NEVER reach the trust log.
@@ -206,7 +206,7 @@ export function trackShareOpened(args: {
   readonly sizeBucket: ShareSizeBucket;
 }): void {
   void trackEvent('share.opened', args);
-  // RL-096 Slice 2 fold D — the inbound (decode/import) side of sharing.
+  // implementation note — the inbound (decode/import) side of sharing.
   // Recorded only on a successful decode so the trust log reflects data
   // that actually entered the workspace. Metadata only (size bucket).
   if (args.status === 'success') {

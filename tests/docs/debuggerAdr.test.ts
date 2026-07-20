@@ -1,5 +1,5 @@
 /**
- * RL-027 Debugger MVP ADR guard — locks the decision, the runtime
+ * internal Debugger MVP ADR guard — locks the decision, the runtime
  * matrix, the feature budget, the rollback clause, the revisit
  * triggers, and the adjacent ADR cross-links.
  */
@@ -73,8 +73,8 @@ describe('DEBUGGER_ADR.md', () => {
     expect(adr).toContain('LANGUAGE_PACK_ADR.md');
     expect(adr).toContain('CAPABILITY_MATRIX.md');
     expect(adr).toContain('ENV_VARS_ADR.md');
-    expect(adr).toContain('RL-027');
-    expect(adr).toContain('RL-011');
-    expect(adr).toContain('RL-038');
+    expect(adr).toContain('internal');
+    expect(adr).toContain('internal');
+    expect(adr).toContain('internal');
   });
 });

@@ -137,7 +137,7 @@ const webLingua: LinguaAPI = {
   env: {
     snapshot: async () => ({}),
   },
-  // RL-026 Slice 3 + Slice 4 — desktop LSPs (rust-analyzer + gopls)
+  // implementation — desktop LSPs (rust-analyzer + gopls)
   // are desktop-only. The web build resolves every entry point to a
   // stable `'missing'` status so the renderer renders the install
   // hint and never tries to send JSON-RPC requests that have no
@@ -180,13 +180,13 @@ const webLingua: LinguaAPI = {
     markReady: () => {},
     onLink: () => () => {},
   },
-  // RL-089 — web has no native confirm modal. Resolve to Result data 1
+  // internal — web has no native confirm modal. Resolve to Result data 1
   // (cancel) so the renderer preserves current data and surfaces an
   // explicit cancellation notice instead of silently doing nothing.
   profile: {
     confirmReplace: async () => ({ ok: true, data: 1 }),
   },
-  // RL-090 — recovery surface. Web has no native confirm dialog (Result
+  // internal — recovery surface. Web has no native confirm dialog (Result
   // data 1 = cancel; RecoverySection surfaces an inline notice) and no
   // shell.openPath equivalent (revealFolder reports unsupported so the
   // button hides on web).
@@ -194,7 +194,7 @@ const webLingua: LinguaAPI = {
     confirmReset: async () => ({ ok: true, data: 1 }),
     revealFolder: async () => ({ ok: false, reason: 'unsupported' as const }),
   },
-  // RL-025 Slice A + Slice B — dependency resolver + installer. Web
+  // implementation — dependency resolver + installer. Web
   // has no `node_modules` tree to probe and (per AGENTS.md
   // `CAPABILITY_MATRIX.md`) cannot run an install path either. The
   // resolver stub maps every entry to `'detected'` so the renderer's
@@ -221,7 +221,7 @@ const webLingua: LinguaAPI = {
     }),
     cancelInstallJs: async () => ({ cancelled: false }),
     onInstallLogJs: () => () => {},
-    // F-1 — native installs are desktop-only (no toolchain in the browser).
+    // implementation — native installs are desktop-only (no toolchain in the browser).
     installNative: async () => ({
       status: 'missing-binary' as const,
       stdout: '',

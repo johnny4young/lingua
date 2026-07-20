@@ -252,7 +252,7 @@ async function terminateChild(label, child, options = {}) {
 }
 
 async function runEsbuild(args) {
-  // RL-033 / esbuild 0.28 — `node_modules/esbuild/bin/esbuild` is now
+  // internal / esbuild 0.28 — `node_modules/esbuild/bin/esbuild` is now
   // the platform binary directly (not a Node JS shim), so it must be
   // spawned without `process.execPath`. The binary is self-contained
   // and resolves its own runtime.

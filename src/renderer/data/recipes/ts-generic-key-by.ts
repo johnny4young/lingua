@@ -1,4 +1,4 @@
-/** RL-039 Slice C — Recipe `ts-generic-key-by`. */
+/** implementation — Recipe `ts-generic-key-by`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

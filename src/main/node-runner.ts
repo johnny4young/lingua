@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 2 — desktop Node child-spawn backend.
+ * implementation — desktop Node child-spawn backend.
  *
  * The renderer-side `NodeRunner` (`src/renderer/runners/nodeRunner.ts`)
  * calls `window.lingua.node.run(code, options)` and the preload
@@ -14,11 +14,11 @@
  *     We never interpolate user input into a shell command line,
  *     so command injection is impossible at this layer.
  *   - Env: `buildNativeRunnerEnv(['PATH', 'HOME', 'LANG',
- *     'TMPDIR'] + NODE_TOOLCHAIN_KEYS, userEnv)`. RL-079 allowlist
- *     + RL-011 user-tier env. Lingua's full host env is NOT
+ *     'TMPDIR'] + NODE_TOOLCHAIN_KEYS, userEnv)`. internal allowlist
+ *     + internal user-tier env. Lingua's full host env is NOT
  *     forwarded.
  *   - Cwd: `app.getPath('temp')` for unsaved tabs (Scratchpad);
- *     `path.dirname(filePath)` for saved tabs (fold F — when a
+ *     `path.dirname(filePath)` for saved tabs (implementation note — when a
  *     `node_modules/` neighbor exists, that dir wins so
  *     `require('lodash')` resolves).
  *   - Timeout: parent-owned. The renderer sets a per-call
@@ -28,15 +28,15 @@
  *     `MAX_NATIVE_STDERR_BYTES` (1 MiB) with the existing
  *     `truncateBytes` helper.
  *
- * Folds shipped here:
+ * implementation note here:
  *
- *   - Fold A — `runtime.node_runner_used` adoption telemetry is
+ *   - implementation note — `runtime.node_runner_used` adoption telemetry is
  *     emitted on the renderer side (where i18n lives); main just
  *     returns the kind + outcome.
- *   - Fold F — module-resolution helper: `resolveNodeCwd()` walks
+ *   - implementation note — module-resolution helper: `resolveNodeCwd()` walks
  *     up from the saved tab's `filePath` directory looking for
  *     `node_modules/`; if found, that dir is the cwd.
- *   - Fold G — module-mode selection: explicit ESM/CJS extensions,
+ *   - implementation note — module-mode selection: explicit ESM/CJS extensions,
  *     source syntax (`import` / `export` / top-level `await` /
  *     `import.meta`), and the nearest `package.json#type` pick the
  *     `--input-type` mode used by inline snippets and temp files.
@@ -85,7 +85,7 @@ const KILL_ESCALATION_DELAY_MS = 200;
 
 /**
  * Default parent-owned timeout for a single Node run. The renderer
- * always passes an explicit `timeout` (Slice 7 plumbing), but main
+ * always passes an explicit `timeout` (implementation plumbing), but main
  * defends with a sensible default if the IPC was malformed.
  */
 const DEFAULT_NODE_TIMEOUT_MS = 30_000;
@@ -153,12 +153,12 @@ export interface NodeRunOptions {
   timeoutMs?: number;
   /** Source-file path of the active tab. `undefined` for Scratchpad. */
   filePath?: string;
-  /** Per-run user-env tier from RL-011. */
+  /** Per-run user-env tier from internal */
   userEnv?: Record<string, string>;
-  /** Stdin buffer (Slice 6). Empty / undefined closes stdin. */
+  /** Stdin buffer . Empty / undefined closes stdin. */
   stdin?: string;
   /**
-   * F-7 — interactive stdin. When `true` the child's stdin stays OPEN
+   * implementation — interactive stdin. When `true` the child's stdin stays OPEN
    * after the initial `stdin` buffer is written, so the renderer can
    * stream further lines via `node:stdin-write` (keyed by `runId`) and
    * close it with `node:stdin-close`. Requires a `runId`; ignored
@@ -167,7 +167,7 @@ export interface NodeRunOptions {
    */
   interactive?: boolean;
   /**
-   * F-7 — main-internal live-output sink. Set by the IPC handler (never
+   * implementation — main-internal live-output sink. Set by the IPC handler (never
    * from the serialized IPC payload) to stream stdout/stderr chunks to the
    * renderer as they arrive during an interactive run. Only invoked when
    * `interactive` is true.
@@ -191,7 +191,7 @@ export interface NodeRunResult {
 let cachedDetect: NodeDetectResult | null = null;
 const activeNodeRuns = new Map<string, () => void>();
 /**
- * F-7 — open stdin streams for in-flight interactive runs, keyed by
+ * implementation — open stdin streams for in-flight interactive runs, keyed by
  * `runId`. Populated only when a run is started with `interactive: true`;
  * cleared when the child exits. `node:stdin-write` / `node:stdin-close`
  * look the stream up here.
@@ -470,7 +470,7 @@ function envWithNodeBinary(env: NodeJS.ProcessEnv, binary: string): NodeJS.Proce
  * lifetime so each Run does not re-spawn the detector. Cache
  * invalidates when the renderer opens Settings → Native
  * Toolchains (the renderer calls `detect()` with a `force` flag —
- * see fold B in `nodeRunner.ts`).
+ * see implementation note in `nodeRunner.ts`).
  */
 export async function detectNode(
   userEnv?: Record<string, string>,
@@ -563,7 +563,7 @@ function invalidNodeRunResult(message: string): NodeRunResult {
 }
 
 /**
- * RL-019 Slice 2 fold F — pick the subprocess cwd. Walks from the
+ * implementation note — pick the subprocess cwd. Walks from the
  * saved tab's directory looking for a `node_modules` neighbor; if
  * found, that directory is the cwd so `require('lodash')` resolves
  * naturally. Falls back to `path.dirname(filePath)` for saved
@@ -585,7 +585,7 @@ export async function resolveNodeCwd(filePath?: string): Promise<string> {
 }
 
 /**
- * RL-019 Slice 2 fold G — pick the source input type (CommonJS vs
+ * implementation note — pick the source input type (CommonJS vs
  * ESM). Saved extension wins for the explicit Node suffixes
  * (`.mjs` / `.mts` / `.cjs` / `.cts`), then we sniff the inline
  * source for syntax that cannot run in CommonJS, then fall back to
@@ -752,7 +752,7 @@ async function spawnNode(
     activeNodeRuns.set(options.runId, () => controller.abort());
   }
 
-  // F-7 — interactive mode keeps stdin open so the renderer can stream further
+  // implementation — interactive mode keeps stdin open so the renderer can stream further
   // input via `node:stdin-write`. Requires a runId to key the stream registry;
   // without one there is no way to route later writes, so it falls back to the
   // request/response close-immediately posture.
@@ -769,8 +769,8 @@ async function spawnNode(
       maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
       stdoutTruncationMarker: markers.stdout,
       stderrTruncationMarker: markers.stderr,
-      // Slice 6 stdin forwarding — write when non-empty, then close so
-      // `process.stdin` reads hit EOF. F-7 interactive runs instead keep stdin
+      // implementation stdin forwarding — write when non-empty, then close so
+      // `process.stdin` reads hit EOF. implementation interactive runs instead keep stdin
       // open and register the stream so a later `node:stdin-write` can reach it.
       stdin: {
         data: options.stdin,
@@ -780,7 +780,7 @@ async function spawnNode(
             ? (stdin) => activeNodeStdins.set(options.runId!, stdin)
             : undefined,
       },
-      // F-7 — stream live output to the renderer before buffering/truncation.
+      // implementation — stream live output to the renderer before buffering/truncation.
       onStdout:
         interactive && options.onOutput
           ? (chunk) => options.onOutput?.('stdout', chunk)
@@ -802,7 +802,7 @@ async function spawnNode(
   } finally {
     if (options.runId) {
       activeNodeRuns.delete(options.runId);
-      // F-7 — drop the interactive stdin registration once the run ends.
+      // implementation — drop the interactive stdin registration once the run ends.
       activeNodeStdins.delete(options.runId);
     }
   }
@@ -903,7 +903,7 @@ export function stopNodeRun(runId: unknown): { stopped: boolean } {
 }
 
 /**
- * F-7 — write a chunk to an interactive run's stdin. Returns
+ * implementation — write a chunk to an interactive run's stdin. Returns
  * `{ written: false }` when the runId is unknown (run already finished,
  * or was not started interactively) so the renderer can drop the input
  * quietly instead of throwing.
@@ -925,7 +925,7 @@ export function writeNodeStdin(runId: unknown, data: unknown): { written: boolea
   }
 }
 
-/** F-7 — close an interactive run's stdin (sends EOF to the child). */
+/** implementation — close an interactive run's stdin (sends EOF to the child). */
 export function closeNodeStdin(runId: unknown): { closed: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { closed: false };
@@ -959,7 +959,7 @@ export function registerNodeJSHandlers(): void {
         return invalidNodeRunResult('Node runner received invalid source.');
       }
       const normalized = normalizeNodeRunOptions(options);
-      // F-7 — stream live output to the renderer for interactive runs.
+      // implementation — stream live output to the renderer for interactive runs.
       if (normalized.interactive && normalized.runId) {
         const runId = normalized.runId;
         const sender = event.sender;
@@ -980,7 +980,7 @@ export function registerNodeJSHandlers(): void {
     async (_event, runId?: unknown) =>
       stopNodeRun(runId)
   );
-  // F-7 — interactive stdin channels.
+  // implementation — interactive stdin channels.
   typedHandle(
     'node:stdin-write',
     async (_event, runId: string, data: string) =>

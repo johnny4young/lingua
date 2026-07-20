@@ -1,4 +1,4 @@
-# ADR — Vim mode integration (RL-037 personalization slice)
+# ADR — Vim mode integration (implementation)
 
 | Status | Accepted — Vim integration shipped on 2026-05-01 |
 | ------ | ----------------- |
@@ -8,7 +8,7 @@
 
 ## Context
 
-RL-037 "Add deep editor personalization" is partly shipped (keymap
+internal "Add deep editor personalization" is partly shipped (keymap
 presets, theme presets, custom shortcut editor) but Vim mode is the
 last outstanding item. Monaco ships no built-in Vim layer, so the
 decision is which third-party surface we wire in and how we reconcile
@@ -50,14 +50,14 @@ users who never flip it on.
   the file tree, the console, a modal, or anywhere outside Monaco,
   `Ctrl/Cmd+P`, `Ctrl/Cmd+Shift+P`, `Ctrl/Cmd+K`, `Ctrl/Cmd+,`, etc.
   resolve exactly as today. The existing `useGlobalShortcuts` hook already gates on
-  focus and is not modified by this slice.
+  focus and is not modified by this change.
 - **`Ctrl/Cmd+P` conflict.** Vim binds `Ctrl+P` as "previous
   completion" in insert mode. Lingua globally binds `Ctrl/Cmd+P` to
   Quick Open. The conflict is narrow: a Vim user in **insert mode
   with editor focus** would hit Vim's binding. Decision: Vim's
   binding wins only inside the editor. The Command Palette and
   Quick Open remain reachable from any other focus target, and the
-  user can remap Quick Open via the existing RL-057 custom shortcut
+  user can remap Quick Open via the existing internal custom shortcut
   editor if they prefer another combo when they're heavy into Vim.
 - **`:q` closes the tab through the existing unsaved-changes guard.**
   Vim's `:q`, `:qa`, and `:wq` are wired to the same `closeTab` /
@@ -95,7 +95,7 @@ users who never flip it on.
 - **Persistence.** The toggle persists through the existing
   `settingsStore` persist middleware. No new storage key.
 
-## Verification matrix (for the follow-up slice)
+## Verification matrix (for the follow-up work)
 
 | Scenario | Expectation |
 |----------|-------------|
@@ -135,7 +135,7 @@ users who never flip it on.
 - `BUILD_SYSTEM_ADR.md` — governs the bundler choices that the lazy
   import path depends on.
 - `LANGUAGE_PACK_ADR.md` — the CodeEditor language plumbing the
-  Vim layer attaches to. Slice B already unified runner dispatch;
+  Vim layer attaches to. implementation already unified runner dispatch;
   Vim mode is language-agnostic.
 - `CAPABILITY_MATRIX.md` — Vim mode is a renderer-only
   personalization layer. Capability matrix is unaffected.
@@ -144,7 +144,7 @@ users who never flip it on.
 
 ## Cross-links
 
-- RL-037 in the internal plan — this ADR flips the Vim-mode portion of that
+- internal in the implementation notes — this ADR flips the Vim-mode portion of that
   item to "design accepted".
-- RL-057 (custom shortcut editor) in the internal plan — referenced by the
+- internal (custom shortcut editor) in the implementation notes — referenced by the
   `Ctrl/Cmd+P` conflict resolution.

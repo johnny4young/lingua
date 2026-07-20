@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 2 — per-tab workflow-mode segmented control e2e smoke.
+ * implementation — per-tab workflow-mode segmented control e2e smoke.
  *
  * Locks the user-visible contract:
  *
@@ -34,7 +34,7 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
   await page.keyboard.insertText(source);
 }
 
-test.describe('Workflow mode action pill (RL-020 Slice 2)', () => {
+test.describe('Workflow mode action pill ', () => {
   test('renders the workflow action with Scratchpad active on a fresh JS tab', async ({
     page,
   }) => {
@@ -82,7 +82,7 @@ test.describe('Workflow mode action pill (RL-020 Slice 2)', () => {
     );
 
     // Type an obviously-incomplete buffer; with auto-run off, the
-    // Slice-1 gate never fires either — the result panel stays still.
+    // implementation gate never fires either — the result panel stays still.
     await replaceEditorText(page, 'const y = ');
     await page.waitForTimeout(1_400);
     // No auto-run gate notice (no auto-run fires at all).
@@ -110,7 +110,7 @@ test.describe('Workflow mode action pill (RL-020 Slice 2)', () => {
       'scratchpad'
     );
 
-    // The Slice-1 gate should still fire on an incomplete buffer.
+    // The implementation gate should still fire on an incomplete buffer.
     await replaceEditorText(page, 'const x = ');
     await expect(page.getByTestId('auto-run-gate-notice')).toBeVisible();
   });

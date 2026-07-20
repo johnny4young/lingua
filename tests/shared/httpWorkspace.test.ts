@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 — Schema + validators for `HttpRequestV1` /
+ * implementation — Schema + validators for `HttpRequestV1` /
  * `HttpResponseV1` + header-sensitivity helper.
  *
  * Pinned coverage:
@@ -28,7 +28,7 @@ import {
 } from '../../src/shared/httpWorkspace';
 
 describe('HTTP_METHODS / HTTP_STATUS_BUCKETS closed enums', () => {
-  it('exposes the seven Slice 1 methods', () => {
+  it('exposes the seven implementation methods', () => {
     expect([...HTTP_METHODS]).toEqual([
       'GET',
       'POST',

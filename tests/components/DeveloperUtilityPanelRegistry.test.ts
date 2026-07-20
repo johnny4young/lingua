@@ -32,13 +32,13 @@ describe('DeveloperUtilityPanel registry', () => {
     expect(source).not.toContain('useMemo(');
   });
 
-  // RL-069 Slice 2 (fold G) — every panel registers an output provider
+  // implementation (implementation note) — every panel registers an output provider
   // so the global Cmd+Shift+C / Cmd+Alt+R shortcuts cover the full
   // catalog. The static-source check catches a regression where a new
   // panel forgot to wire either registration path without paying the
   // cost of rendering the full panel catalog.
   it('every panel module registers exactly one output provider', () => {
-    // RL-099 Slice 1 — `utility-pipelines` is opt-out: the panel
+    // implementation — `utility-pipelines` is opt-out: the panel
     // produces a streamed multi-step result table, not a single
     // text output, so the Cmd+Shift+C / Cmd+Alt+R global handlers
     // intentionally bypass it. Documented opt-out so future audits
@@ -98,12 +98,12 @@ describe('DeveloperUtilityPanel registry', () => {
     }
   });
 
-  // RL-069 Slice 2 — non-generator panels also wire UtilityToolbar so
+  // implementation — non-generator panels also wire UtilityToolbar so
   // the ⚡ Apply button and Mod+Shift+A apply descriptor get
   // registered. Generators (random-string, lorem-ipsum) intentionally
   // skip the toolbar.
   it('every non-generator panel renders a UtilityToolbar', () => {
-    // RL-099 Slice 1 — `utility-pipelines` is treated as a generator
+    // implementation — `utility-pipelines` is treated as a generator
     // because the pipeline editor owns its own input surface and
     // doesn't share the ⚡ Apply contract with the rest of the catalog.
     const generators = new Set(['random-string', 'mock-data', 'lorem-ipsum', 'utility-pipelines']);

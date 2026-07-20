@@ -43,7 +43,7 @@ describe('SettingsModal', () => {
       />
     );
 
-    // RL-070 — sections are now grouped under rail tabs. Walk through
+    // internal — sections are now grouped under rail tabs. Walk through
     // each tab and assert its contents instead of expecting everything
     // on the default tab. Default tab is `general` (About + Updates).
     expect(screen.getByText('Acerca de')).toBeTruthy();
@@ -54,7 +54,7 @@ describe('SettingsModal', () => {
     expect(screen.getByText('No disponible')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cerrar configuración' })).toBeTruthy();
 
-    // UX Sweep T1 — rail tabs carry the .settings-rail-row class, which now
+    // accessibility pass — rail tabs carry the .settings-rail-row class, which now
     // bakes in the shared .focus-ring (the ring itself is verified live).
     expect(
       screen.getByTestId('settings-tab-appearance').className
@@ -71,14 +71,14 @@ describe('SettingsModal', () => {
     const themePackSelect = screen.getByTestId('theme-pack-select');
     fireEvent.keyDown(themePackSelect, { key: 'ArrowRight' });
     expect(appearanceTab.getAttribute('aria-selected')).toBe('true');
-    // RL-071 — v2 nav uses ⌘N (metaKey + digit) instead of arrow keys.
+    // internal — v2 nav uses ⌘N (metaKey + digit) instead of arrow keys.
     fireEvent.keyDown(window, { key: '3', metaKey: true });
     expect(screen.getByTestId('settings-tab-editor').getAttribute('aria-selected')).toBe('true');
 
     // Switch to Editor → editor theme lives here.
     fireEvent.click(screen.getByTestId('settings-tab-editor'));
     expect(screen.getByText('Tema del editor')).toBeTruthy();
-    // RL-071 — Plugins moved to its own rail entry under Advanced.
+    // internal — Plugins moved to its own rail entry under Advanced.
     fireEvent.click(screen.getByTestId('settings-tab-plugins'));
     expect(screen.getAllByText('Plugins').length).toBeGreaterThan(0);
     expect(screen.getByText('Directorio local de plugins')).toBeTruthy();
@@ -112,7 +112,7 @@ describe('SettingsModal', () => {
     ).toBeTruthy();
   }, 10000);
 
-  // Slice 2 — the standalone ligatures toggle was removed; ligatures
+  // implementation — the standalone ligatures toggle was removed; ligatures
   // now auto-render when the active font stack supports them. The
   // "disables ligatures for non-ligature fonts" case no longer
   // applies (the font preview row still shows the visual state).
@@ -128,7 +128,7 @@ describe('SettingsModal', () => {
 
     expect(await screen.findByText('MIT')).toBeTruthy();
 
-    // RL-095 inserted Languages visually between Editor and Environment,
+    // internal inserted Languages visually between Editor and Environment,
     // while preserving Environment on Cmd+4 and assigning Languages to Cmd+8.
     fireEvent.keyDown(window, { key: '8', metaKey: true });
     expect(screen.getByTestId('settings-tab-languages').getAttribute('aria-selected')).toBe(

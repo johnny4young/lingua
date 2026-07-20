@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 — DuckDB-WASM client wrapper.
+ * implementation — DuckDB-WASM client wrapper.
  *
  * Lazy-bootstrap layer between the renderer and `@duckdb/duckdb-wasm`.
  * Three responsibilities:
@@ -24,7 +24,7 @@
  * Privacy posture:
  *
  *   - WASM blob is bundled with the app — no CDN fetch, no
- *     third-party origin. Matches the RL-083 Slice 1 precedent of
+ *     third-party origin. Matches the implementation precedent of
  *     same-origin copied runtime assets.
  *   - Result cells are user content and never leave the renderer
  *     unless the user explicitly exports a capsule.
@@ -91,7 +91,7 @@ export interface DuckDbConnection {
  * inject a mock without standing up the whole DuckDB engine. The
  * production loader resolves to the real instance.
  *
- * RL-097 (SQL import) — `registerFile` / `dropFile` are OPTIONAL on the
+ * internal (SQL import) — `registerFile` / `dropFile` are OPTIONAL on the
  * handle so the existing in-memory test stubs (which only implement
  * `connect` + `terminate`) keep type-checking. The import helpers fall
  * back gracefully (and tests opt in by implementing them).
@@ -124,7 +124,7 @@ let cachedEngine: Promise<DuckDbEngineHandle> | null = null;
 let activeFactory: DuckDbEngineFactory | null = null;
 
 // ---------------------------------------------------------------------------
-// RL-097 Slice 3 (SQL OPFS) — opt-in table persistence.
+// implementation (SQL OPFS) — opt-in table persistence.
 //
 // The engine is a session singleton. The user's persistence preference
 // is captured into `desiredPersistence` BEFORE the first instantiate
@@ -132,7 +132,7 @@ let activeFactory: DuckDbEngineFactory | null = null;
 // reads it once and resolves the actual backing into
 // `resolvedStorageMode`. Changing the toggle therefore takes effect on
 // the next reload — or immediately after `flushAndReleaseDuckDbEngine`
-// drops the singleton (the Settings "Reconnect now" action, fold E).
+// drops the singleton (the Settings "Reconnect now" action, implementation note).
 // ---------------------------------------------------------------------------
 
 /** The user's requested persistence preference, applied on next instantiate. */
@@ -264,11 +264,11 @@ async function terminateDuckDbEngine(): Promise<void> {
 }
 
 /**
- * Fold B — flush + release on app/tab teardown (or the Settings
+ * implementation note — flush + release on app/tab teardown (or the Settings
  * "Reconnect now" action). Checkpoints first when persistent so the WAL
  * lands in the OPFS file, then terminates so the handle releases
  * cleanly and the next session/tab re-opens without a stale-lock
- * fallback. Durability does not depend on this completing — fold A
+ * fallback. Durability does not depend on this completing — implementation note
  * already checkpoints after every write.
  */
 export async function flushAndReleaseDuckDbEngine(): Promise<void> {
@@ -314,7 +314,7 @@ export async function clearPersistedSqlDatabase(): Promise<void> {
 }
 
 /**
- * Fold C — approximate origin storage in use, in bytes, via
+ * implementation note — approximate origin storage in use, in bytes, via
  * `navigator.storage.estimate()`. This is ORIGIN-WIDE (OPFS + caches +
  * IndexedDB + localStorage), not the database file alone, so the UI
  * labels it as approximate. Returns `null` when the API is absent.
@@ -352,7 +352,7 @@ export function __setDuckDbEngineFactoryForTests(
 
 /**
  * Test seam — force the resolved storage mode so the CHECKPOINT-on-write
- * path (fold A) can be exercised without a real OPFS-backed engine.
+ * path (implementation note) can be exercised without a real OPFS-backed engine.
  */
 export function __setResolvedSqlStorageModeForTests(
   mode: SqlStorageMode,
@@ -366,7 +366,7 @@ export function __setResolvedSqlStorageModeForTests(
  * Get-or-instantiate the engine. First call lazy-imports the
  * `@duckdb/duckdb-wasm` chunk; subsequent calls return the cached
  * Promise. Failures cache as rejected Promises and require a manual
- * `__setDuckDbEngineFactoryForTests(null)` to retry — Slice 2
+ * `__setDuckDbEngineFactoryForTests(null)` to retry — implementation
  * surfaces this as `engine-load-failed` with a retry button.
  */
 export async function getDuckDbEngine(): Promise<DuckDbEngineHandle> {
@@ -515,7 +515,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
     // completes; revoking frees the duplicated WASM bytes.
     revokeWasmUrl?.();
     revokeWasmUrl = null;
-    // RL-097 Slice 3 (SQL OPFS) — resolve the storage backing. When the
+    // implementation (SQL OPFS) — resolve the storage backing. When the
     // user opted into persistence and OPFS is available this opens the
     // `opfs://` database so tables survive a reload; otherwise it stays
     // in-memory. Failures fall back to in-memory inside the helper, so
@@ -542,7 +542,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
           },
         };
       },
-      // RL-097 (SQL import) — virtual-file registration surface. DuckDB's
+      // internal (SQL import) — virtual-file registration surface. DuckDB's
       // `read_*` table functions read by registered `name`; the import
       // helpers register the file bytes here, run the reader, then drop
       // the file. `registerFileBuffer` accepts both text (CSV/JSON) and
@@ -844,7 +844,7 @@ export async function executeQuery(
       };
     }
     const { columns, rows, rowCount, tooLarge } = raceResult;
-    // Fold A — flush the WAL to the OPFS database file so a hard reload
+    // implementation note — flush the WAL to the OPFS database file so a hard reload
     // or crash does not lose the writes from this statement. Best-effort
     // on the same connection before it closes: a failed CHECKPOINT must
     // never turn a successful query into an error, and it is a cheap
@@ -887,7 +887,7 @@ export async function executeQuery(
 }
 
 // ---------------------------------------------------------------------------
-// RL-097 (SQL import) — file → DuckDB table.
+// internal (SQL import) — file → DuckDB table.
 //
 // `previewImportFile` registers the file bytes and reads a 10-row sample
 // + a total count WITHOUT creating a table, so the preview modal can show
@@ -924,7 +924,7 @@ function readerExpression(format: SqlImportFormat, name: string): string {
  * a transferable, which DETACHES the original `Uint8Array` on the main
  * thread. The import flow registers the same file twice (preview then
  * import), so handing the worker a fresh copy each time keeps the caller's
- * buffer alive for the second registration. A 25 MiB cap (fold E) bounds
+ * buffer alive for the second registration. A 25 MiB cap (implementation note) bounds
  * the copy cost.
  */
 async function registerFileCopy(
@@ -1027,7 +1027,7 @@ export async function previewImportFile(args: {
  * either way.
  *
  * When persistent (OPFS), a best-effort CHECKPOINT flushes the new table
- * to disk so it survives a reload — mirroring `executeQuery`'s fold-A
+ * to disk so it survives a reload — mirroring `executeQuery`'s implementation note
  * durability pass.
  */
 export async function importFileAsTable(args: {

@@ -12,7 +12,7 @@ import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { Toggle } from './shared';
 
 /**
- * RL-101 Slice 1 — Settings → General → Onboarding section.
+ * implementation — Settings → General → Onboarding section.
  *
  * Three "reset" toggles. Each toggle's visible state mirrors the
  * persisted flag's value: when the user has already seen a stage
@@ -22,7 +22,7 @@ import { Toggle } from './shared';
  * so the next eligible event re-fires the toast. Flipping it back on
  * is a no-op (you can't pretend you've seen something you haven't).
  *
- * Fold F — collapsible read-only preview of the welcome scratchpad
+ * implementation note — collapsible read-only preview of the welcome scratchpad
  * source so power users can audit what gets auto-injected without
  * triggering the seed by mistake.
  */

@@ -4,7 +4,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useDefaultOpenFileConsumer } from '../hooks/useDefaultOpenFileConsumer';
 
 /**
- * Playwright-only fixture for RL-044 visual smoke. The production build never
+ * Playwright-only fixture for internal visual smoke. The production build never
  * reaches this component because web/main gates it behind __LINGUA_E2E_HOOKS__.
  */
 export function RichConsoleE2eFixture() {

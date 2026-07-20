@@ -1,5 +1,5 @@
 /**
- * RL-097 T7 — main-process HTTP proxy (SSRF-guarded).
+ * internal implementation — main-process HTTP proxy (SSRF-guarded).
  *
  * The renderer's `executeHttpRequest` (src/renderer/runtime/httpClient.ts)
  * runs inside the browser sandbox, so it is bound by the browser's CORS

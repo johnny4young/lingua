@@ -54,7 +54,7 @@ export function formatExecutionError(result: ExecutionResult): ConsoleEntryInput
     content: `${result.error.message}${location}`,
   };
 
-  // RL-044 Slice 2b-α — Sub-slice F end-to-end completion. When the
+  // implementation — implementation end-to-end completion. When the
   // worker reports structured frames, attach a `kind: 'error'`
   // payload so the renderer paints the clickable-stack surface.
   // Absent frames falls through to the legacy text path (no chip).
@@ -78,7 +78,7 @@ export function toConsoleEntries(
   const entries: ConsoleEntryInput[] = [];
 
   for (const output of result.stdout) {
-    // RL-044 Slice 1B — forward the optional rich payload alongside
+    // implementation — forward the optional rich payload alongside
     // the legacy text content so the console renderer can dispatch.
     entries.push(
       output.payload

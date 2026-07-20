@@ -1,22 +1,22 @@
 /**
- * RL-100 Slice 1 + Slice 2 — global Import overlay.
+ * implementation — global Import overlay.
  *
  * Mod+Alt+I from anywhere opens this overlay. 3-section layout
- * mirroring `<CapsuleImportOverlay>` (RL-094 Slice 2):
+ * mirroring `<CapsuleImportOverlay>` :
  *
  *   - TOP    : Load source (Paste textarea + Pick-a-file button +
- *              full-overlay drag-drop). Fold B = drag-drop with
+ *              full-overlay drag-drop). implementation note = drag-drop with
  *              visible ring on `dragover`.
  *   - MIDDLE : Read-only preview band (<ImportPreviewBody>) OR a
  *              reject band when the source doesn't parse.
- *              Warning band lists lossy cURL flags (fold C codes).
+ *              Warning band lists lossy cURL flags (implementation note codes).
  *   - BOTTOM : Action bar — Cancel + Import (disabled until valid
- *              preview). Fold G (Slice 1) — confirm flips the
+ *              preview). implementation note (implementation) — confirm flips the
  *              opens or focuses the HTTP workspace editor tab for cURL;
- *              fold F (Slice 2) — the hook creates notebook tabs with
+ *              implementation note (implementation) — the hook creates notebook tabs with
  *              the detected dominant code-cell language.
  *
- * Slice 2 folds:
+ * implementation folds:
  *   A. Drag-drop accepts notebook files (file input `accept` widened).
  *   B. `detectImporter` content-sniff handles both adapters; file
  *      extension hint kicks in for drop events.
@@ -26,7 +26,7 @@
  *   F. After-confirm language chip auto-flip.
  *   G. Clipboard auto-detect on overlay focus when consent granted.
  *
- * Escape closes. Click-outside closes. Telemetry (fold E) is
+ * Escape closes. Click-outside closes. Telemetry (implementation note) is
  * owned by `useImportPreview`; the overlay just calls
  * `trackCancelled()` on dismiss.
  *
@@ -112,7 +112,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   // (`handleClose`), which fires `trackCancelled()`. No document-level
   // listener here, otherwise the cancel telemetry would double-fire.
 
-  // Fold G — when consent is granted and the clipboard contains
+  // implementation note — when consent is granted and the clipboard contains
   // recognized content, auto-populate the paste textarea on mount.
   // ALWAYS gated on consent. NEVER auto-imports — only previews;
   // the user must still click Confirm.
@@ -224,7 +224,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         }
         return;
       }
-      // Fold C — multiple files: detect a Postman collection + route any
+      // implementation note — multiple files: detect a Postman collection + route any
       // environment/globals exports into the variable slots. Falls back to
       // first-file-wins when no collection+variables combo is present.
       if (files.length > 1) {
@@ -341,7 +341,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     importerId === 'postman-collection' || importerId === 'bruno-collection';
   const collectionCount =
     previewed && previewed.kind === 'http-collection' ? previewed.counts.total : 0;
-  // Fold C — confirm label per importer kind.
+  // implementation note — confirm label per importer kind.
   const confirmLabel =
     importerId === 'ipynb-notebook' || importerId === 'linguanb-notebook'
       ? t('importPreview.action.confirm.notebook')
@@ -484,7 +484,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
             type="file"
             accept=".curl,.txt,.ipynb,.linguanb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json,application/x-linguanb+json"
             onChange={handleFileChange}
-            className="sr-only"
+            className="internal"
             data-testid="import-preview-file-input"
           />
         </div>
@@ -534,7 +534,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
                   `.ipynb` `wrong-version` / `oversized` reject), the
                   detail IS the accurate message — promote it to the
                   bold header and skip the generic outer-reason copy,
-                  which is written for the Slice 1 "importer not
+                  which is written for the implementation "importer not
                   wired" meaning and reads wrong for these cases. */}
               {rejectDetailKey ? (
                 <div
@@ -566,7 +566,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
 }
 
 /**
- * RL-100 Slice 4 fold B — optional environment + globals variable sources for
+ * implementation note — optional environment + globals variable sources for
  * a Postman collection import. Each slot accepts a paste or a file; providing
  * one re-runs the preview with the merged variables (env > globals >
  * collection). Rendered only for `postman-collection`.
@@ -655,7 +655,7 @@ function VariableSlot({
           ref={fileRef}
           type="file"
           accept=".json,.postman_environment.json,.postman_globals.json,application/json"
-          className="sr-only"
+          className="internal"
           onChange={async (event) => {
             const file = event.target.files?.[0];
             if (file) {

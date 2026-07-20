@@ -73,7 +73,7 @@ function compareHistoryEntries(older: ExecutionHistoryEntry, newer: ExecutionHis
   return older.id.localeCompare(newer.id);
 }
 
-// UX Sweep T12 — focusable descendants of the popover, for the Tab trap.
+// accessibility pass — focusable descendants of the popover, for the Tab trap.
 const POPOVER_FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
@@ -107,19 +107,19 @@ export function ExecutionHistoryPopover({
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  // RL-020 Slice 4 fold C — "This tab only" filter toggle. Defaults
+  // implementation note — "This tab only" filter toggle. Defaults
   // off so the historical popover behavior is preserved; the user
   // opts into per-tab filtering. State stays open-scoped — closing
   // and reopening the popover resets the filter (consistent with the
   // existing selection-reset hygiene below).
   const [thisTabOnly, setThisTabOnly] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  // UX Sweep T12 — focus management: the popover declared role=dialog but
+  // accessibility pass — focus management: the popover declared role=dialog but
   // never moved focus in, trapped Tab, or restored focus on close.
   const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const popoverId = useId();
-  // Apply the fold C filter at the source so every downstream
+  // Apply the implementation note filter at the source so every downstream
   // computation (compare candidates, list render, empty state)
   // honors it consistently.
   const visibleEntries = useMemo(() => {
@@ -142,7 +142,7 @@ export function ExecutionHistoryPopover({
     resetEphemeralState();
   }, [resetEphemeralState]);
 
-  // UX Sweep T12 — move focus into the popover on open and restore it to the
+  // accessibility pass — move focus into the popover on open and restore it to the
   // trigger on close. (Escape / outside-click dismissal is handled below.)
   useEffect(() => {
     if (!open) return;
@@ -275,7 +275,7 @@ export function ExecutionHistoryPopover({
   };
 
   const hasEntries = visibleEntries.length > 0;
-  // Show the fold C toggle only when there's something on the source
+  // Show the implementation note toggle only when there's something on the source
   // tab to filter against; otherwise checking it would surface zero
   // entries and confuse the user. Mirror the same predicate as
   // `visibleEntries` (require an explicit non-undefined `tabId`

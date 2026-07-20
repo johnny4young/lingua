@@ -1,5 +1,5 @@
 /**
- * UX Sweep T4 — the single polite live region for the app.
+ * accessibility pass — the single polite live region for the app.
  *
  * Mounted once near `StatusNoticeBanner`. Subscribes to the shared
  * {@link useAnnouncerStore} and renders the latest message into a
@@ -13,7 +13,7 @@
  * no-break space on alternating announces, guaranteeing the text node
  * mutates on every announce even when the message string is unchanged. A
  * no-break space (not a plain space, which the DOM would collapse) is
- * used so the change is real; it lives inside an `sr-only` region and is
+ * used so the change is real; it lives inside an `internal` region and is
  * never seen.
  */
 import { useAnnouncerStore } from '../../stores/announcerStore';
@@ -33,7 +33,7 @@ export function LiveAnnouncer() {
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className="sr-only"
+      className="internal"
     >
       {text}
     </div>

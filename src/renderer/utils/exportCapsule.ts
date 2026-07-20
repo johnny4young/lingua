@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 1.5 fold B — shared capsule export flow.
+ * implementation note — shared capsule export flow.
  *
  * Three call sites need the same sanitize → JSON.stringify (pretty)
  * → clipboard write → telemetry → status notice pipeline:
@@ -7,7 +7,7 @@
  *   - Settings → Account → Run Capsules (`RunCapsulesSection`)
  *   - Command palette `Export latest run as capsule`
  *   - Result-panel header icon button (`RunCapsuleExportButton`,
- *     shipped this slice)
+ *     shipped this change)
  *
  * Without this helper each surface would re-implement the flow,
  * meaning a future telemetry contract change (new sizeBucket, new
@@ -17,7 +17,7 @@
  * / fallback notices.
  *
  * `pretty` defaults to `true` for human-readable clipboard payloads;
- * `RL-036` share-links can pass `pretty: false` later when the URL
+ * `internal` share-links can pass `pretty: false` later when the URL
  * fragment encoder needs the minified form.
  *
  * Returns a discriminated result so the caller can render a
@@ -39,7 +39,7 @@ export type CapsuleExportTrigger =
   | 'settings-export'
   | 'palette-export'
   | 'result-panel-export'
-  // RL-094 Slice 3 — per-row export from the capsule browse overlay.
+  // implementation — per-row export from the capsule browse overlay.
   | 'list-export';
 
 export interface CapsuleExportOptions {
@@ -78,7 +78,7 @@ export async function exportCapsuleToClipboard(
   }
   try {
     await navigator.clipboard.writeText(json);
-    // RL-096 Slice 2 fold D — record the egress in the local trust log
+    // implementation note — record the egress in the local trust log
     // ONLY after the clipboard write succeeds (a rejected write means
     // nothing left the app). Summary is METADATA ONLY — the capsule
     // language + size bucket, never the capsule body or any field value.

@@ -1,6 +1,6 @@
 /**
- * RL-147 (AUDIT-27, fold D) — render-count probe for the audit's
- * literal AC: the App-level editorStore selectors (RL-121 vintage,
+ * implementation (implementation, implementation note) — render-count probe for the audit's
+ * literal AC: the App-level editorStore selectors (internal vintage,
  * e.g. `s => s.activeTabId`) must not re-render their component on
  * unrelated store mutations such as `pendingReveal`. Asserted in both
  * directions so the test is a real contract, not a vacuous pass: an
@@ -14,7 +14,7 @@ import { useEditorStore } from '@/stores/editorStore';
 
 const initialEditorState = useEditorStore.getState();
 
-describe('App-level editorStore selectors (RL-147 fold D)', () => {
+describe('App-level editorStore selectors ', () => {
   beforeEach(() => {
     useEditorStore.setState({
       tabs: [

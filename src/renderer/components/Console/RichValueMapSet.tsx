@@ -7,7 +7,7 @@ interface RichValueMapSetProps {
 }
 
 /**
- * RL-044 Slice 1B — compact preview for `{ kind: 'map' | 'set' }`.
+ * implementation — compact preview for `{ kind: 'map' | 'set' }`.
  * Echoes the `Map(N)` / `Set(N)` summary surface the inline pill
  * already emits (`formatPayloadInlineSummary`), with the type icon
  * promoted into the chrome.

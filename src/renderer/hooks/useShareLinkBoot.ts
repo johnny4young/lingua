@@ -16,7 +16,7 @@ import { isSafeMode } from '../utils/safeBoot';
 import type { Language } from '../types';
 
 /**
- * RL-036 Phase A1 — Hash-fragment share-link importer.
+ * implementation — Hash-fragment share-link importer.
  *
  * Mounted once AppChrome marks session restore ready (so
  * user-restored tabs land first; the imported tab is the active

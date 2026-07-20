@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 7 — execution timeout preset end-to-end smoke.
+ * implementation — execution timeout preset end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -57,7 +57,7 @@ async function seedTimeoutPreset(
   );
 }
 
-test.describe('execution timeout preset (RL-020 Slice 7)', () => {
+test.describe('execution timeout preset ', () => {
   test('JS preset quick (5s) trips the timeout pill on an infinite loop', async ({
     page,
   }) => {

@@ -28,7 +28,7 @@ interface SnippetsState {
   addSnippet: (snippet: Omit<Snippet, 'id' | 'createdAt'>) => string | null;
   removeSnippet: (id: string) => void;
   /**
-   * UX Sweep T2 fold B — re-insert a previously-removed snippet at its
+   * accessibility pass — re-insert a previously-removed snippet at its
    * original list index so the undo toast can restore it verbatim
    * (same id, same `createdAt`). `maxCountAfterRestore` is the list
    * length before deletion; undo may restore grandfathered snippets up to
@@ -57,7 +57,7 @@ export const useSnippetsStore = create<SnippetsState>()(
       pendingLinkedSnippetId: null,
 
       addSnippet: (snippet) => {
-        // RL-060: enforce the Free tier snippet ceiling. Grandfather any
+        // internal: enforce the Free tier snippet ceiling. Grandfather any
         // snippets already saved above the ceiling (users don't lose
         // data); only future additions are refused.
         const current = useSnippetsStore.getState().snippets.length;
@@ -66,7 +66,7 @@ export const useSnippetsStore = create<SnippetsState>()(
             messageKey: 'upsell.freeCeilingReached',
             featureLabel: i18next.t('upsell.feature.extraSnippets'),
           });
-          // RL-065 — emit feature.blocked so the consenting user's
+          // internal — emit feature.blocked so the consenting user's
           // telemetry reflects the snippet-ceiling friction.
           void trackEvent('feature.blocked', {
             entitlement: 'snippets',

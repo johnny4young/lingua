@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 9 — shared variable-inspector primitives.
+ * implementation — shared variable-inspector primitives.
  *
  * Both the JS worker, the Python worker, and the renderer talk to the
  * same `ScopeSnapshot` shape so a regression on one side surfaces
@@ -9,7 +9,7 @@
  *   - Structural, not pre-stringified. The renderer can expand
  *     objects / arrays without re-running user code.
  *   - 1-level expansion is the base scope; recursive expansion
- *     (fold E) walks deeper via the `entries[].value` recursion.
+ *     (implementation note) walks deeper via the `entries[].value` recursion.
  *     The walker is capped by `maxDepth` so a self-referential
  *     graph terminates.
  *   - Payload caps (`MAX_TOP_LEVEL_VARS`, `MAX_OBJECT_ENTRIES`,
@@ -70,7 +70,7 @@ export interface ScopeValueError {
   kind: 'error';
   message: string;
   /**
-   * RL-044 Slice 2a — Sub-slice F. Optional structured stack frames
+   * implementation — implementation. Optional structured stack frames
    * for the renderer to paint as clickable rows. Parsed worker-side
    * by `parseJsErrorStack` / `parsePythonTraceback` from
    * `src/shared/errorStack.ts`. Absent on every call site that hasn't
@@ -125,7 +125,7 @@ export const MAX_ARRAY_ENTRIES = 100;
 
 /**
  * Maximum recursion depth for the worker's `serializeScopeValue`.
- * The default base-scope value is `1`; fold E bumps to `4`. Deeper
+ * The default base-scope value is `1`; implementation note bumps to `4`. Deeper
  * than that and the panel becomes noise on a small screen — users
  * who want unbounded depth should reach for the debugger pause UI.
  */
@@ -145,7 +145,7 @@ export const MAX_SNAPSHOT_PAYLOAD_BYTES = 256 * 1024;
 // ---------------------------------------------------------------------------
 
 /**
- * Slice 9 — exact-match filter for JS worker globals that are
+ * implementation — exact-match filter for JS worker globals that are
  * always non-user (the worker's helpers, the runner's bridge
  * functions, debugger frame helpers, stdin helpers).
  *
@@ -160,7 +160,7 @@ export const INTERNAL_JS_SYMBOLS: ReadonlySet<string> = new Set([
   '__lingua_dbg_yield',
   '__lingua_dbg_frame',
   '__lingua_dbg_pop',
-  // Stdin helpers installed dynamically before user code runs (Slice 6).
+  // Stdin helpers installed dynamically before user code runs .
   'prompt',
   'readline',
   // Console proxy capture target — never user-relevant.
@@ -220,7 +220,7 @@ export interface SerializeScopeValueOptions {
   truncate: (input: string) => string;
   /**
    * Maximum recursion depth. Defaults to `DEFAULT_SCOPE_DEPTH` (1)
-   * for the base scope; fold E bumps to `MAX_SCOPE_DEPTH` (4).
+   * for the base scope; implementation note bumps to `MAX_SCOPE_DEPTH` (4).
    */
   maxDepth?: number;
   /**

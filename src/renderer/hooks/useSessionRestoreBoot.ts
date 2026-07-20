@@ -9,8 +9,8 @@ import { isSafeMode } from '../utils/safeBoot';
 import { trackEvent } from '../utils/telemetry';
 
 /**
- * RL-111 — boot-time session restore, extracted from App.tsx (RL-131
- * hook-extraction pattern; keeps App.tsx under the AUDIT-11 size budget).
+ * internal — boot-time session restore, extracted from App.tsx (internal
+ * hook-extraction pattern; keeps App.tsx under the internal size budget).
  *
  * Owns the one-time restore decision and returns `sessionRestoreReady`, which
  * gates the rest of the boot sequence. Three closed modes
@@ -28,7 +28,7 @@ import { trackEvent } from '../utils/telemetry';
  *     auto-surfaces code.
  *   - `never`  — ignore the snapshot; mark ready.
  *
- * RL-090 — safe mode short-circuits restore so a corrupted persisted tab
+ * internal — safe mode short-circuits restore so a corrupted persisted tab
  * state cannot keep the renderer in a crash loop. `smokeEnabled` keeps the
  * hook inert during desktop smoke runs. The `hasRestoredSessionRef` guard
  * makes the effect idempotent under React 18/19 StrictMode double-mount.
@@ -95,7 +95,7 @@ export function useSessionRestoreBoot(smokeEnabled: boolean): boolean {
               },
             },
           ],
-          // Fold C — the user let the prompt go (auto-timeout or manual X)
+          // implementation note — the user let the prompt go (auto-timeout or manual X)
           // without restoring. Measures how often `ask` is declined so we
           // can tune whether `ask` or `always` should be the default.
           onDismiss: (mode) => {

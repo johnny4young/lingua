@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 2 — `workflowMode` extension to FileTab + editorStore.
+ * implementation — `workflowMode` extension to FileTab + editorStore.
  *
  * Covers:
  *   - `createDefaultTab` resolves workflow mode by language defaults.
@@ -9,7 +9,7 @@
  *     no-ops on same-mode write.
  *   - `renameTab` auto-corrects an unsupported mode after a language
  *     change and emits telemetry with `trigger: 'language_change'`.
- *   - `restoreTabs` backfills missing `workflowMode` for pre-Slice-2
+ *   - `restoreTabs` backfills missing `workflowMode` for legacy
  *     sessions; snaps tampered values back to a supported default.
  *   - Per-language settings default seeds new tabs.
  */
@@ -63,7 +63,7 @@ function resetSettingsWorkflowDefaults(): void {
   });
 }
 
-describe('editorStore — workflowMode (RL-020 Slice 2)', () => {
+describe('editorStore — workflowMode ', () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     useEditorStore.setState({ tabs: [], activeTabId: null });
@@ -215,7 +215,7 @@ describe('editorStore — workflowMode (RL-020 Slice 2)', () => {
     });
   });
 
-  describe('renameTab — fold D auto-correction', () => {
+  describe('renameTab — implementation note auto-correction', () => {
     it('emits language_change telemetry when the new language no longer supports the mode', () => {
       const { addTab, setTabWorkflowMode, renameTab } = useEditorStore.getState();
       addTab({
@@ -261,7 +261,7 @@ describe('editorStore — workflowMode (RL-020 Slice 2)', () => {
     it('backfills missing workflowMode using the language default', () => {
       const { restoreTabs } = useEditorStore.getState();
       restoreTabs([
-        // No workflowMode — pre-Slice-2 persisted shape.
+        // No workflowMode — legacy persisted shape.
         { id: 't1', name: 'main.js', language: 'javascript', content: '' },
         { id: 't2', name: 'data.json', language: 'json', content: '' },
       ]);

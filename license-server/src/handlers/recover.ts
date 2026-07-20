@@ -1,5 +1,5 @@
 /**
- * RL-061 Slice 4 — Recovery endpoints (magic-link two-step).
+ * implementation — Recovery endpoints (magic-link two-step).
  *
  *   POST /licenses/recover/start                 validates email,
  *                                                 persists pending row,

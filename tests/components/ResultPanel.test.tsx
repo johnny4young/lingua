@@ -40,7 +40,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
     s.activeTabId == null ? -1 : s.tabs.findIndex((t) => t.id === s.activeTabId),
 }));
 
-// RL-020 Slice 4 — RecentRunsPill transitively imports useRunner →
+// implementation — RecentRunsPill transitively imports useRunner →
 // executeTabManually → esbuild-wasm, which fails to initialize under
 // the jsdom test environment. The ResultPanel test doesn't exercise
 // the pill's behavior (the pill has its own dedicated tests); mock
@@ -83,7 +83,7 @@ describe('ResultPanel', () => {
     expect(screen.queryByRole('button', { name: 'undefined' })).toBeNull();
   });
 
-  // Slice 2 — `hideUndefined` was removed (baseline ON, no escape
+  // implementation — `hideUndefined` was removed (baseline ON, no escape
   // hatch). The "reveal undefined on demand" button no longer
   // renders; `undefined` rows are always filtered from inline
   // results.
@@ -162,7 +162,7 @@ describe('ResultPanel', () => {
   });
 
   /*
-   * RL-093 Slice 3 — the inline result body that mirrored
+   * implementation — the inline result body that mirrored
    * @watch / autoLog / undefined entries was removed from the
    * result panel; those values now render inside the editor via
    * Monaco overlay widgets driven by `useInlineResultWidgets`.
@@ -172,10 +172,10 @@ describe('ResultPanel', () => {
    * into the displayed value) is covered by:
    *   - tests/runners/* — runner emits the right LineResult shape
    *   - tests/hooks/runnerOutput.test.ts — output reducer
-   *   - the manual web smoke pass per RL-093 Slice 3 verification
+   *   - the manual web smoke pass per implementation verification
    */
 
-  describe('RL-019 Slice 2 — Node runtime exclusions', () => {
+  describe('implementation — Node runtime exclusions', () => {
     it('hides the variable inspector toggle in Node mode even when a stale worker snapshot exists', () => {
       editorState.tabs = [
         {

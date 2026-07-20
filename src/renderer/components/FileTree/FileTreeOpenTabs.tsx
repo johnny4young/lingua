@@ -13,7 +13,7 @@ interface FileTreeOpenTabsProps {
 }
 
 /**
- * PERF-001 — the open-tabs foot is the only part of the explorer that
+ * internal — the open-tabs foot is the only part of the explorer that
  * legitimately needs the tab list, but it only needs a *projection* of
  * it (id / name / language / isDirty + the active id), never the tab
  * `content`. Subscribing to a derived projection through `useShallow`
@@ -41,7 +41,7 @@ interface OpenTabSummary {
 }
 
 /**
- * PERF-001 — encode each tab's rendered fields as a single string so
+ * internal — encode each tab's rendered fields as a single string so
  * `useShallow` (which compares array elements with `Object.is`) treats
  * an unchanged projection as equal. A naive `.map(tab => ({...}))`
  * mints fresh objects every render, which `Object.is` always reports as

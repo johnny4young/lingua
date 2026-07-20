@@ -1,22 +1,22 @@
 /**
- * RL-097 Slice 2 + Slice 3 — Center column: edit the active SQL query
- * (Monaco editor on the `sql` language as of Slice 3, Run, format) with
+ * implementation — Center column: edit the active SQL query
+ * (Monaco editor on the `sql` language as of implementation, Run, format) with
  * auto-save + Cmd+Enter run shortcut.
  *
- * Folds wired here:
+ * implementation note here:
  *
- *   - **A** (Slice 2): Cmd/Ctrl+Enter fires the Run handler. As of
- *     Slice 3 (fold E below) it runs the SELECTION when non-empty, else
+ *   - **A** : Cmd/Ctrl+Enter fires the Run handler. As of
+ *     implementation (implementation note below) it runs the SELECTION when non-empty, else
  *     the full query. Mirrors the HTTP workspace `Cmd+Enter` muscle
  *     memory + the scratchpad run shortcut.
  *   - **B**: pretty-print SQL via `sql-formatter` (lazy-imported so
  *     the formatter ~30 KB chunk lands separately). Triggered by a
- *     toolbar button OR Shift+Alt+F inside the editor (Slice 3 fold C).
+ *     toolbar button OR Shift+Alt+F inside the editor (implementation note).
  *     Reformat on save would be too aggressive — explicit action only.
  *   - **D-mirror**: every keystroke debounced 500 ms auto-saves via
- *     `onPatch` — no explicit Save button. Mirrors HTTP Slice 1 fold D.
+ *     `onPatch` — no explicit Save button. Mirrors HTTP implementation note.
  *
- * Slice 3 swaps the Slice 2 `<textarea>` for `<SqlMonacoEditor>` (folds
+ * implementation swaps the implementation `<textarea>` for `<SqlMonacoEditor>` (folds
  * A/B/C/E live in that host). The auto-save debounce, RQ-02 id-pinning,
  * byte-cap, and schema-browser insert (via the controlled `value`) are
  * preserved exactly — the editor's `text` state stays the source of
@@ -64,13 +64,13 @@ export interface SqlQueryEditorProps {
    */
   insertSignal?: { text: string; nonce: number };
   /**
-   * Slice 3 fold A — live session tables, threaded from the panel's
+   * implementation note — live session tables, threaded from the panel's
    * schema browser. Fed to the Monaco completion provider so table names
    * autocomplete. Empty until the user runs a `SHOW TABLES` refresh.
    */
   tables: ReadonlyArray<SqlSchemaTable>;
   /**
-   * T19 — optional extra header control (the Ask-AI trigger). A slot
+   * implementation — optional extra header control (the Ask-AI trigger). A slot
    * rather than a baked-in button so the editor stays AI-agnostic.
    */
   headerExtra?: ReactNode;
@@ -144,7 +144,7 @@ export function SqlQueryEditor({
     if (insertSignal.nonce === lastInsertNonceRef.current) return;
     lastInsertNonceRef.current = insertSignal.nonce;
     if (insertSignal.text.length === 0) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the schema browser's table-insert nonce) and folds it into the editor draft. The functional update reads the latest draft so concurrent typing is preserved.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the schema browser's table-insert nonce) and implementation note into the editor draft. The functional update reads the latest draft so concurrent typing is preserved.
     setText((current) => {
       const trimmed = current.replace(/\s+$/, '');
       return trimmed.length === 0
@@ -197,7 +197,7 @@ export function SqlQueryEditor({
     onRun({ ...query, query: text });
   }, [isExecuting, overCap, text, query, onPatch, onRun]);
 
-  // Slice 3 fold E — Cmd/Ctrl+Enter inside the editor runs the SELECTION
+  // implementation note — Cmd/Ctrl+Enter inside the editor runs the SELECTION
   // when it is non-empty, else the full query. The auto-save always
   // flushes (and persists) the FULL `text` — never the selection — so a
   // partial run never truncates the saved query. The toolbar Run button
@@ -225,7 +225,7 @@ export function SqlQueryEditor({
     [isExecuting, overCap, text, query, onPatch, onRun]
   );
 
-  // Fold B — pretty-print via sql-formatter. Lazy-import keeps the
+  // implementation note — pretty-print via sql-formatter. Lazy-import keeps the
   // formatter out of the main chunk. The dialect default `'duckdb'`
   // exists since sql-formatter 13; older versions fall back to
   // `'sql'` (no DuckDB-specific keywords but acceptable).

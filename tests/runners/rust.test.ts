@@ -146,7 +146,7 @@ describe('RustRunner', () => {
     expect(mockDetect).toHaveBeenCalledOnce();
   });
 
-  it('RL-011 Slice D — forwards the merged user env to rust:run', async () => {
+  it('implementation — forwards the merged user env to rust:run', async () => {
     mockDetect.mockResolvedValue({ installed: true, version: 'rustc 1.75.0' });
     mockRun.mockResolvedValue({
       success: true,
@@ -214,7 +214,7 @@ describe('RustRunner', () => {
     });
   });
 
-  it('RL-011 Slice D — forwards an empty env when no tiers have values', async () => {
+  it('implementation — forwards an empty env when no tiers have values', async () => {
     mockDetect.mockResolvedValue({ installed: true, version: 'rustc 1.75.0' });
     mockRun.mockResolvedValue({
       success: true,

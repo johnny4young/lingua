@@ -1,6 +1,6 @@
 # Dependency baseline — 2026-05-17 (pre-sweep)
 
-Captured immediately before the post-RL-033 modernization sweep.
+Captured immediately before the post-internal modernization sweep.
 
 ## `npm outdated`
 

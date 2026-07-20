@@ -78,7 +78,7 @@ describe('parseJsErrorStack', () => {
     expect(() => parseJsErrorStack('at :NaN:NaN')).not.toThrow();
   });
 
-  it('demotes eval-internal worker frames to text-only (RL-044 Slice 2b-β-α)', () => {
+  it('demotes eval-internal worker frames to text-only ', () => {
     // The actual frame Lingua's AsyncFunction-in-Worker pipeline
     // produces when user code throws. The greedy regex captures the
     // worker URL as `file` — but no editor can open it. Mark as
@@ -166,7 +166,7 @@ describe('parsePythonTraceback', () => {
     expect(() => parsePythonTraceback('Traceback (no frames)')).not.toThrow();
   });
 
-  // RL-044 Slice 2b-β-β-α fold C — PEP 3134 cause chain awareness.
+  // implementation-β-β-α implementation note — PEP 3134 cause chain awareness.
 
   it('tags explicit `raise … from …` cause separator with causedBy: cause', () => {
     const tb = [

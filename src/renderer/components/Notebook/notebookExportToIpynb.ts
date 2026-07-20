@@ -1,6 +1,6 @@
 /**
- * RL-043 Slice D — export a Lingua notebook to a Jupyter `.ipynb`
- * (nbformat v4) document, the symmetric counterpart of the RL-100
+ * implementation — export a Lingua notebook to a Jupyter `.ipynb`
+ * (nbformat v4) document, the symmetric counterpart of the internal
  * `.ipynb` importer (`src/shared/importers/ipynbImporter.ts`).
  *
  * Pure helper (mirrors `notebookExportToScript`): the component layer
@@ -10,13 +10,13 @@
  * Fidelity notes:
  *   - nbformat is a SINGLE-kernel format, so `metadata.kernelspec.language`
  *     carries the dominant code-cell language. To keep a Lingua→Lingua
- *     round-trip lossless for MIXED-language notebooks (fold B), each code
+ *     round-trip lossless for MIXED-language notebooks (implementation note), each code
  *     cell ALSO stashes its real language in `metadata.lingua.language`
  *     (Jupyter ignores unknown metadata; the importer reads it back).
  *   - `execution_count` carries Lingua's Jupyter `[N]` stamp when known
- *     (fold C), else `null`.
- *   - Slice A/B/C cells only carry text outputs, mapped to nbformat
- *     `stream` outputs (fold D of the importer's vocabulary).
+ *     (implementation note), else `null`.
+ *   - implementation cells only carry text outputs, mapped to nbformat
+ *     `stream` outputs (implementation note of the importer's vocabulary).
  */
 
 import {
@@ -37,7 +37,7 @@ interface IpynbStreamOutput {
 
 /**
  * nbformat v4 code cell. `metadata.lingua.language` is a Lingua-private
- * extension (fold B) that the importer reads back so a mixed-language
+ * extension (implementation note) that the importer reads back so a mixed-language
  * notebook round-trips losslessly; standard Jupyter ignores it.
  */
 interface IpynbCodeCell {
@@ -61,7 +61,7 @@ type IpynbCell = IpynbCodeCell | IpynbMarkdownCell;
 
 /**
  * nbformat v4 notebook document. `metadata.lingua` marks Lingua-origin
- * files for the round-trip; `kernelspec` + `language_info` (fold E) make
+ * files for the round-trip; `kernelspec` + `language_info` (implementation note) make
  * the file open cleanly in real Jupyter / VS Code / Colab.
  */
 interface IpynbNotebookV4 {
@@ -91,7 +91,7 @@ export interface NotebookIpynbExportResult {
   readonly suggestedFileName: string;
 }
 
-/** Per-language `language_info` block (fold E) for Jupyter compatibility. */
+/** Per-language `language_info` block (implementation note) for Jupyter compatibility. */
 const LANGUAGE_INFO: Record<
   NotebookCellLanguage,
   { name: string; file_extension: string; version: string }
@@ -133,7 +133,7 @@ function toIpynbOutput(output: NotebookCellOutputV1): IpynbStreamOutput {
  * Serialize a Lingua notebook to an nbformat v4 `.ipynb` document.
  *
  * @param notebook the notebook to export.
- * @param opts.executionOrder per-cell Jupyter `[N]` stamps (fold C); a
+ * @param opts.executionOrder per-cell Jupyter `[N]` stamps (implementation note); a
  *   cell absent from the map exports `execution_count: null`. The map is
  *   transient store state, so the caller (NotebookView) threads it in.
  */

@@ -1,10 +1,10 @@
 /**
- * RL-099 Slice 1 — `json-format` adapter.
+ * implementation — `json-format` adapter.
  *
  * Pretty-prints (or minifies) a JSON document. Thin wrapper around
  * the existing `analyzeJson` helper in
  * `src/renderer/utils/developerUtilities.ts` — kept pure here so the
- * pipeline engine + CLI (future RL-098 Slice 1) can import without
+ * pipeline engine + CLI (future implementation) can import without
  * dragging React or renderer-only deps.
  */
 

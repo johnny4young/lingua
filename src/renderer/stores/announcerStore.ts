@@ -1,11 +1,11 @@
 /**
- * UX Sweep T4 — shared screen-reader announcer.
+ * accessibility pass — shared screen-reader announcer.
  *
  * A single polite live region (rendered once by {@link LiveAnnouncer})
  * that any surface can push a transient message into for assistive tech:
  * "Ran 3 steps", "12 results", "Query returned 40 rows", etc.
  *
- * This is the SR-only sibling of the visible `StatusNoticeBanner` toast.
+ * This is the internal sibling of the visible `StatusNoticeBanner` toast.
  * Use it for dynamic state changes that a sighted user perceives visually
  * (a result count updating, a run finishing) but that are otherwise
  * silent to a screen-reader user. It is NOT a replacement for the toast

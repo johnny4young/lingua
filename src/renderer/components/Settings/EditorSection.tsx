@@ -91,15 +91,15 @@ export function EditorSection() {
   const setBrowserPreviewRefreshInterval = useSettingsStore(
     (state) => state.setBrowserPreviewRefreshInterval
   );
-  // RL-108 — inline lint is stored + surfaced per language, so adding a
-  // language's lint in a later slice lights up a new row without a re-layout.
+  // internal — inline lint is stored + surfaced per language, so adding a
+  // language's lint in a later work lights up a new row without a re-layout.
   const inlineLintEnabledByLanguage = useSettingsStore(
     (state) => state.inlineLintEnabledByLanguage
   );
   const setInlineLintEnabled = useSettingsStore((state) => state.setInlineLintEnabled);
   const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
   const toggleShowStdinPanel = useSettingsStore((state) => state.toggleShowStdinPanel);
-  // RL-112 — master visibility toggle for the persistent bottom status bar.
+  // internal — master visibility toggle for the persistent bottom status bar.
   const showStatusBar = useSettingsStore((state) => state.showStatusBar);
   const setShowStatusBar = useSettingsStore((state) => state.setShowStatusBar);
   const variableInspectorSurface = useSettingsStore(
@@ -130,7 +130,7 @@ export function EditorSection() {
   const toggleExecutionHistorySnapshot = useSettingsStore(
     (state) => state.toggleExecutionHistorySnapshot
   );
-  // RL-025 Slice A — dependency detection master switch.
+  // implementation — dependency detection master switch.
   const dependencyDetectionEnabled = useSettingsStore(
     (state) => state.dependencyDetectionEnabled
   );
@@ -138,7 +138,7 @@ export function EditorSection() {
     (state) => state.toggleDependencyDetectionEnabled
   );
   const { t, i18n } = useTranslation();
-  // Slice 2 — ligatures auto-enable when the active font supports them.
+  // implementation — ligatures auto-enable when the active font supports them.
   // Settings → Editor no longer surfaces a toggle.
   const ligaturesAvailable = true;
 
@@ -284,7 +284,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-019 — default JS/TS runtime mode for new tabs. Disabled
+        {/* internal — default JS/TS runtime mode for new tabs. Disabled
             options still render with explanatory tooltips, while
             shipped modes keep their operational hints in Settings. */}
         <SpecRow
@@ -320,7 +320,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-043 Slice C fold D — default language for new notebook code
+        {/* implementation Slice C implementation note — default language for new notebook code
             cells. Only the two runnable cell languages are offered. */}
         <SpecRow
           label={t('notebook.settings.defaultLanguage.title')}
@@ -345,7 +345,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-093 Slice 3 — variable inspector surface preference. */}
+        {/* implementation — variable inspector surface preference. */}
         <SpecRow
           label={t('settings.editor.variableInspectorSurface.label')}
           description={t('settings.editor.variableInspectorSurface.hint')}
@@ -387,7 +387,7 @@ export function EditorSection() {
           control={<Toggle value={minimap} onChange={toggleMinimap} />}
         />
 
-        {/* RL-108 — one row per lintable language. Slice 1 = JS/TS; a third
+        {/* internal — one row per lintable language. implementation = JS/TS; a third
             language's lint adds a row here automatically. */}
         {(['javascript', 'typescript'] as const).map((lang, index) => (
           <SpecRow
@@ -433,7 +433,7 @@ export function EditorSection() {
           control={<Toggle value={formatOnSave} onChange={toggleFormatOnSave} />}
         />
 
-        {/* RL-110 — smart paste detection master toggle. */}
+        {/* internal — smart paste detection master toggle. */}
         <SpecRow
           label={t('editor.smartPaste.label')}
           description={t('editor.smartPaste.hint')}
@@ -485,7 +485,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-020 Slice 6 fold D — bottom-panel Input tab visibility.
+        {/* implementation note — bottom-panel Input tab visibility.
             The buffer state per tab is preserved either way; hiding the
             tab keeps the leaner three-tab strip without losing data. */}
         <SpecRow
@@ -501,7 +501,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-112 — persistent bottom status bar visibility. Default ON
+        {/* internal — persistent bottom status bar visibility. Default ON
             desktop / OFF web; when OFF the bar fully unmounts. */}
         <SpecRow
           label={t('settings.editor.showStatusBar.label')}
@@ -529,7 +529,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-020 Slice 7 fold E — countdown pill toggle. Default OFF
+        {/* implementation note — countdown pill toggle. Default OFF
             so the result panel header stays quiet by default. */}
         <SpecRow
           label={t('runtime.timeout.countdown.label')}
@@ -544,7 +544,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-115 Slice 1 — per-line timing toggle. Default OFF: the
+        {/* implementation — per-line timing toggle. Default OFF: the
             instrumentation adds a small overhead per statement, so it
             is a deliberate opt-in (or per-buffer via // @time). */}
         <SpecRow
@@ -566,7 +566,7 @@ export function EditorSection() {
           execution timeout) each keep their nested per-language grid as
           the spec-row control; the wide control fills a fixed column. */}
       <SpecCard>
-        {/* RL-119 Slice 1 — Browser preview reuses Scratchpad auto-run, but
+        {/* implementation — Browser preview reuses Scratchpad auto-run, but
             carries its own fast closed-enum debounce. The first-line magic
             comment can override this setting per tab. */}
         <SpecRow
@@ -599,7 +599,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-020 Slice 2 — per-language default workflow mode.
+        {/* implementation — per-language default workflow mode.
             Settings intentionally surfaces the lightweight in-process
             languages first (JS / TS / Python); Go / Rust keep the
             shared Scratchpad default until native-runner workflow
@@ -647,8 +647,8 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-020 Slice 5 — per-language opt-in for the bare-expression
-            auto-log mode. JS / TS only this slice. Default OFF so the
+        {/* implementation — per-language opt-in for the bare-expression
+            auto-log mode. JS / TS only this change. Default OFF so the
             first install never surfaces a wall of inline values before
             the user explicitly enables the feature. */}
         <SpecRow
@@ -679,7 +679,7 @@ export function EditorSection() {
           }
         />
 
-        {/* RL-020 Slice 7 — per-language execution timeout preset.
+        {/* implementation — per-language execution timeout preset.
             Four supported languages (JS / TS / Python / Go). Rust is
             intentionally absent because its desktop kill path is in
             main and unchanged. */}
@@ -709,7 +709,7 @@ export function EditorSection() {
                     <Select
                       value={value}
                       data-testid={`settings-runtime-timeout-preset-${lang}`}
-                      // RL-020 Slice 7 — the localized preset labels carry
+                      // implementation — the localized preset labels carry
                       // a parenthetical duration (`Quick (5s)` /
                       // `Rápida (5s)`). Tablet widths truncate the
                       // default `Select` so the duration disappears.
@@ -743,7 +743,7 @@ export function EditorSection() {
 
       <SqlWorkspaceSettingsSection />
 
-      {/* RL-095 Slice 1 (post-review refactor) — the Language Support
+      {/* implementation (post-review refactor) — the Language Support
           Scorecard + per-language preference rows (Rust / Go LSP, Ruby
           runtime) moved to their own Settings → Languages tab
           (`LanguagesSection.tsx`, Cmd+8). The Editor tab now stays

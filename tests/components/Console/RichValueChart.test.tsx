@@ -1,5 +1,5 @@
 /**
- * UX Sweep T3 — focus management for the rich-chart actions menu.
+ * accessibility pass — focus management for the rich-chart actions menu.
  *
  * The chart's Vega rendering is irrelevant here (and stubbed), so these
  * tests only exercise the actions popover: focus moves into the menu on
@@ -27,7 +27,7 @@ vi.mock('@/hooks/useEntitlement', () => ({
 
 import { RichValueChart } from '@/components/Console/RichValueChart';
 
-describe('RichValueChart actions menu — focus management (UX Sweep T3)', () => {
+describe('RichValueChart actions menu — focus management (accessibility pass)', () => {
   beforeEach(async () => {
     await initI18n();
     await i18next.changeLanguage('en');

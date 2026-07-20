@@ -34,7 +34,7 @@ describe('trustEventStore', () => {
   });
 
   it('strips extra props callers may smuggle in (shape integrity)', () => {
-    // RL-096 Slice 1 — the store's `record` signature is typed but a
+    // implementation — the store's `record` signature is typed but a
     // JS caller could pass extra keys. The shape contract for the
     // dashboard's privacy guarantee is that NOTHING beyond
     // {feature, action, sensitivity, summary} ever lands in the

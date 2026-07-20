@@ -27,7 +27,7 @@ allowBuilds:
   sharp: true
   workerd: true
 
-# T15 (D-2) — supply-chain hardening re-enabled. electron-forge 7.x pulls
+# implementation  — supply-chain hardening re-enabled. electron-forge 7.x pulls
 # @electron/rebuild@3.7.2 → @electron/node-gyp, which was declared as a
 # git-URL dependency, forcing pnpm to fetch an exotic codeload.github.com
 # tarball and making us relax this block. The fork now publishes to the npm
@@ -46,7 +46,7 @@ blockExoticSubdeps: true
 # npm-style `overrides` block stays in package.json too (npm-compat +
 # asserted by the depFreshness test).
 overrides:
-  # T15 (D-2) — @electron/rebuild@3.7.2 (pulled by @electron-forge 7.x)
+  # implementation  — @electron/rebuild@3.7.2 (pulled by @electron-forge 7.x)
   # declared @electron/node-gyp as a git-URL dependency, forcing pnpm to
   # fetch an exotic codeload.github.com tarball and keeping
   # `blockExoticSubdeps` disabled above. The fork now publishes to the npm

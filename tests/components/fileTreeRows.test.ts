@@ -1,5 +1,5 @@
 /**
- * IT2-B2 — display-order contract for the virtualized explorer's flat row
+ * internal — display-order contract for the virtualized explorer's flat row
  * model, plus the windowing guarantee that motivated the change: a
  * 5,000-row tree mounts a viewport-sized slice, never the whole list.
  */
@@ -23,7 +23,7 @@ function dir(
   return { path, name, isDirectory: true, isExpanded, children } as FileTreeNode;
 }
 
-describe('flattenVisibleRows (IT2-B2)', () => {
+describe('flattenVisibleRows', () => {
   const tree: FileTreeNode[] = [
     dir('src', [file('src/a.ts'), dir('src/lib', [file('src/lib/b.ts')], false)], true),
     dir('empty', [], true),
@@ -70,7 +70,7 @@ describe('flattenVisibleRows (IT2-B2)', () => {
   });
 });
 
-describe('tree windowing guarantee (IT2-B2)', () => {
+describe('tree windowing guarantee', () => {
   it('mounts a viewport-sized slice of a 5,000-row tree', () => {
     const estimate = 26;
     const window = computeWindow({

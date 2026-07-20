@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 4 — per-tab Recent Runs pill end-to-end smoke.
+ * implementation — per-tab Recent Runs pill end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -9,7 +9,7 @@
  *     working Replay action.
  *   - Per-tab isolation: a second tab does not see the first tab's
  *     history.
- *   - Mod+Shift+H (fold B) toggles the popover from the keyboard.
+ *   - Mod+Shift+H (implementation note) toggles the popover from the keyboard.
  *
  * Pre-seeded Pro license required (the pill gates on the
  * `EXECUTION_HISTORY` entitlement).
@@ -34,7 +34,7 @@ async function pressRun(page: Page): Promise<void> {
   await clickRun(page);
 }
 
-test.describe('Recent Runs pill (RL-020 Slice 4)', () => {
+test.describe('Recent Runs pill ', () => {
   test('auto-run alone does not surface the pill — manual Cmd+R does', async ({
     page,
   }) => {
@@ -83,10 +83,10 @@ test.describe('Recent Runs pill (RL-020 Slice 4)', () => {
     await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
   });
 
-  test('Mod+Alt+H toggles the popover from the keyboard (fold B)', async ({
+  test('Mod+Alt+H toggles the popover from the keyboard (implementation note)', async ({
     page,
   }) => {
-    // RL-024 Slice 2 — moved from Mod+Shift+H to Mod+Alt+H so the
+    // implementation — moved from Mod+Shift+H to Mod+Alt+H so the
     // VSCode-parity Mod+Shift+H binding can map to project-replace.
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);

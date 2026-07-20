@@ -1,5 +1,5 @@
 /**
- * SR-20a / RL-031 — "Explain this code" consent + result dialog.
+ * implementation detail — "Explain this code" consent + result dialog.
  *
  * The main-editor sibling of `ExplainErrorDialog`: it explains a code
  * excerpt (a selection, or the whole buffer) instead of a run error. It

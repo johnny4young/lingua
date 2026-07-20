@@ -1,5 +1,5 @@
 /**
- * T19 / RL-031 Slice 3 — AI config store. Isolated persist boundary; setters +
+ * implementation — AI config store. Isolated persist boundary; setters +
  * the `isAiConfigured` gate.
  */
 

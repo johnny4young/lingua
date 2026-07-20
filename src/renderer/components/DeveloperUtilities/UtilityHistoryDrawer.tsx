@@ -13,7 +13,7 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 const EMPTY_ENTRIES: readonly UtilityHistoryEntry[] = Object.freeze([]);
 
 /**
- * RL-069 Slice 3 — Inline collapsible "Recent runs" drawer rendered
+ * implementation — Inline collapsible "Recent runs" drawer rendered
  * next to each panel's <UtilityToolbar>. Default collapsed so the
  * existing layout stays intact; expanding shows the last N entries
  * (capped by `MAX_ENTRIES_PER_TOOL`) plus the Save-across-reloads

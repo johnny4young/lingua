@@ -1,5 +1,5 @@
 /**
- * RL-131 (AUDIT-11) — coverage for the extracted layout-availability hook.
+ * internal — coverage for the extracted layout-availability hook.
  * Locks the load-bearing invariant (editor-only layout forces every bottom-panel
  * gate off) and the hook's return shape, so the extraction from `AppLayout`
  * cannot silently drop or flip a gate.

@@ -154,7 +154,7 @@ describe('desktop smoke IPC handlers', () => {
     }
   });
 
-  it('flags packaged-subset mode when LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET is set (RL-080 Slice 3)', async () => {
+  it('flags packaged-subset mode when LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET is set ', async () => {
     process.env.LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET = '1';
     try {
       const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');

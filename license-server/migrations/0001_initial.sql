@@ -1,12 +1,12 @@
--- RL-061 Slice 1 — initial D1 schema.
+-- implementation — initial D1 schema.
 --
--- Three tables, mirroring the LICENSING_ADR Decision 2 Slice 1 design:
+-- Three tables, mirroring the LICENSING_ADR Decision 2 implementation design:
 --   licenses — one row per minted license token
 --   devices  — up to N active devices per license (device_limit drives N)
 --   trials   — anti-abuse ledger (one trial per email + per device_id)
 --
--- Slice 1 ships only the schema. The handlers in src/handlers/* return 501
--- stubs; nothing writes to D1 yet. Slice 2 wires Polar webhook + Resend
+-- implementation ships only the schema. The handlers in src/handlers/* return 501
+-- stubs; nothing writes to D1 yet. implementation wires Polar webhook + Resend
 -- email and will populate the licenses + devices + trials tables.
 --
 -- Apply locally during development:
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS licenses (
   --   'lingua_trial'     — server-minted, no Polar (14d, one-shot)
   --   'lingua_education' — server-minted, no Polar (1yr, renewable
   --                        via /education/renew on .edu/GitHub-Education
-  --                        re-validation; lands in Slice 4)
+  --                        re-validation; lands in implementation)
   product_id               TEXT NOT NULL CHECK (
     product_id IN (
       'lingua_monthly',
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS trials (
   license_id   TEXT NOT NULL REFERENCES licenses(id) ON DELETE CASCADE,
   issued_at    INTEGER NOT NULL,
   -- Anti-abuse: one trial per email AND one trial per device_id.
-  -- Slice 2 layers a per-IP rate limit on /trials/start via Workers KV.
+  -- implementation layers a per-IP rate limit on /trials/start via Workers KV.
   UNIQUE(email),
   UNIQUE(device_id)
 );

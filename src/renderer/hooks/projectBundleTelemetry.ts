@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * RL-024 Slice 3 — project zip bundle telemetry helpers.
+ * implementation — project zip bundle telemetry helpers.
  *
  * Three closed-enum events fire here and only here:
  *   - `project.bundle_exported { status, fileCountBucket }`

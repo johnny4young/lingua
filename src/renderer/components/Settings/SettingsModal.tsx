@@ -44,7 +44,7 @@ import { SettingsRail } from './SettingsRail';
 import { RAIL_ITEMS, matchesFilter, type TabId } from './settingsRailModel';
 
 /**
- * RL-071 Signal-Slate v2 — Settings modal with a left rail.
+ * internal Signal-Slate v2 — Settings modal with a left rail.
  *
  * The v1 layout used top tabs. v2 moves navigation to a 220px rail
  * with two groups (Workspace + Advanced) so the modal feels closer to
@@ -169,7 +169,7 @@ interface EffectiveConfigTileProps {
   tab: TabId;
 }
 
-// RL-093 review — keys are listed per tab. Missing keys are silently
+// internal review — keys are listed per tab. Missing keys are silently
 // skipped at runtime by the `pick` helper, so adding a new setting
 // just requires adding the key here.
 const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
@@ -196,7 +196,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
     'workflowModeDefaultsByLanguage',
     'showStdinPanel',
   ],
-  // RL-095 Slice 1 (post-review refactor) — Languages tab shows
+  // implementation (post-review refactor) — Languages tab shows
   // per-language LSP toggles + the capability scorecard; those don't
   // map to specific store keys (the LSP rows write into language-
   // specific stores like `rustLanguageStore`, and the scorecard is
@@ -204,7 +204,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
   // renders an empty slice rather than misattributing editor state.
   languages: [],
   environment: ['envVars'],
-  // RL-096 Slice 1 — Privacy + Trust dashboard is a passive audit
+  // implementation — Privacy + Trust dashboard is a passive audit
   // surface. The Clear actions remove localStorage keys directly;
   // they don't mutate any settings store slice. Empty list keeps the
   // effective-config tile honest about what this tab can change.
@@ -221,7 +221,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
  * — only the keys this tab can mutate — so the user can verify "what
  * I changed here is what runtime X reads."
  *
- * RL-093 review — the tile used to call `useSettingsStore()` without a
+ * internal review — the tile used to call `useSettingsStore()` without a
  * selector and re-render on every store change, blowing the
  * `JSON.stringify` budget each time. It now subscribes only to the
  * exact slice the active tab cares about via a per-tab selector.
@@ -247,7 +247,7 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
 
   if (Object.keys(slice).length === 0) return null;
 
-  // RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
+  // implementation — Prerequisite fix surfaced during validation.
   // The raw JSON dump dominated the bottom of every Settings tab and
   // was visually noisy for the typical user. Hide it behind a native
   // <details> so the surface stays clean by default; power users
@@ -381,7 +381,7 @@ export function SettingsModal({
   const [filter, setFilter] = useState('');
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
-  // RL-095 / RL-135 — siblings request a typed tab jump after opening
+  // implementation detail — siblings request a typed tab jump after opening
   // Settings, while SettingsModal remains the sole owner of activeTab.
   useCommandListener('settings.navigate', ({ tab }) => {
     if (RAIL_ITEMS.some(it => it.id === tab)) {
@@ -432,9 +432,9 @@ export function SettingsModal({
           <div className="space-y-6">
             <AboutSection onOpenWhatsNew={onOpenWhatsNew} onStartGuidedTour={onStartGuidedTour} />
             <UpdatesSection />
-            {/* RL-101 Slice 1 — Onboarding choreography reset toggles */}
+            {/* implementation — Onboarding choreography reset toggles */}
             <OnboardingSection />
-            {/* RL-039 Slice B fold F — Reset recipe progress */}
+            {/* implementation Slice B implementation note — Reset recipe progress */}
             <RecipesProgressResetSection />
           </div>
         );
@@ -510,7 +510,7 @@ export function SettingsModal({
                 >
                   <Keyboard size={12} />
                   {t('settings.shortcuts.modal.cta')}
-                  {/* UX Sweep T5 — no global keybinding opens this modal
+                  {/* accessibility pass — no global keybinding opens this modal
                       (no `keyboard-shortcuts` combo in the catalog), so the
                       advertised Cmd+/ keycap was misleading; removed. */}
                 </button>
@@ -542,7 +542,7 @@ export function SettingsModal({
         className="relative grid w-[min(96vw,1240px)] max-w-none grid-cols-[220px_1fr] grid-rows-[auto_1fr_auto] overflow-hidden"
         style={{ height: 'min(86vh, 820px)' }}
       >
-        <h2 id="settings-modal-title" className="sr-only">
+        <h2 id="settings-modal-title" className="internal">
           {t('settings.subtitle')}
         </h2>
 

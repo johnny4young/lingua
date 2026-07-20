@@ -5,7 +5,7 @@ import { useWebVersionPolling } from '../hooks/useWebVersionPolling';
 import { isVersionNewer } from '../utils/version';
 
 /**
- * RL-061 Slice 5 — top-of-app banner that tells web users when the
+ * implementation — top-of-app banner that tells web users when the
  * deployed bundle is older than the latest published release.
  *
  * Renders only when:

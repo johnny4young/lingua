@@ -11,7 +11,7 @@ import 'monaco-editor/esm/vs/editor/editor.all.js';
 // TypeScript contribution, not by the raw editor API surface.
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
 import 'monaco-editor/esm/vs/language/json/monaco.contribution.js';
-// RL-097 Slice 3 — the SQL workspace editor renders Monaco on the `sql`
+// implementation — the SQL workspace editor renders Monaco on the `sql`
 // language. SQL is a basic-language (Monarch tokenizer + language config),
 // so its contribution is imported eagerly here alongside JS/TS/JSON. It is
 // not routed through the lazy `registerLanguageOnce` registry because the
@@ -130,7 +130,7 @@ export function getConfiguredMonaco(): Monaco {
  * once. Returns the shared registration promise so callers can await readiness
  * or fire-and-forget. Unknown language ids resolve to a no-op.
  *
- * Lazy-registration contract (RL-124 / AUDIT-04): JS/TS are pre-registered by
+ * Lazy-registration contract: JS/TS are pre-registered by
  * the editor mount for the scratchpad happy path; every other language is
  * registered the first time a tab activates it. Opening a JavaScript scratchpad
  * therefore never pulls the Go / Rust / Python / Ruby / Lua tokenizer or
@@ -169,7 +169,7 @@ async function registerLanguageContribution(m: Monaco, languageId: string): Prom
 
     if (lang.basicLanguage) {
       try {
-        // SR-01 — the monaco basic-language imports live in a module that is
+        // internal — the monaco basic-language imports live in a module that is
         // ONLY dynamically imported (here), never statically reachable from
         // the app entry, so Monaco core stays out of the web `initial` bundle.
         const { loadBasicLanguage } = await import('./languageSupport/basicLanguageLoaders');
@@ -355,7 +355,7 @@ export function applyTypeScriptDefaults(m: Monaco): void {
 }
 
 /**
- * RL-108 — toggle Monaco's built-in TS/JS live diagnostics for one language.
+ * internal — toggle Monaco's built-in TS/JS live diagnostics for one language.
  * `applyTypeScriptDefaults` enables them by default; this lets the Settings
  * "Inline lint" toggle silence (or restore) the squiggles per language by
  * flipping `noSemanticValidation` / `noSyntaxValidation`. Monaco's TS/JS

@@ -7,7 +7,7 @@ import {
 import { useUtilityPanelActive } from './utilityPanelActive';
 
 /**
- * RL-069 Slice 1 — Per-panel registration helper.
+ * implementation — Per-panel registration helper.
  *
  * A utility panel calls `useRegisterUtilityOutput(() => output)` to
  * advertise its current output to the global Cmd+Shift+C / Cmd+Alt+R
@@ -43,7 +43,7 @@ export function useRegisterUtilityOutput(provider: UtilityOutputProvider): void 
 }
 
 /**
- * RL-069 Slice 2 — Per-panel registration helper for ⚡ Apply.
+ * implementation — Per-panel registration helper for ⚡ Apply.
  *
  * Mirrors `useRegisterUtilityOutput` but registers an apply descriptor
  * resolver rather than an output provider. The Mod+Shift+A shortcut

@@ -38,7 +38,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const labelId = useId();
-  // UX Sweep T6 — combobox/listbox semantics: the input is the combobox,
+  // accessibility pass — combobox/listbox semantics: the input is the combobox,
   // the results are its listbox, and aria-activedescendant points at the
   // active option so a screen reader announces the highlighted row as the
   // user arrows through (focus stays in the input).
@@ -222,7 +222,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
       headerClose="esc"
       header={
         <>
-          <span id={labelId} className="sr-only">
+          <span id={labelId} className="internal">
             {t('shortcuts.item.quickOpen.label')}
           </span>
           <input
@@ -247,7 +247,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
       }
       footerLegend={<ModalFooterLegend navigate open select={false} close={false} />}
       trailing={
-        // UX Sweep T4 — polite live region so the result count is announced
+        // accessibility pass — polite live region so the result count is announced
         // to screen readers as the query narrows (covers the empty state too).
         <span
           role="status"

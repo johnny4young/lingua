@@ -1,7 +1,7 @@
 /**
- * RL-094 Slice 2 — tests for the import overlay.
+ * implementation — tests for the import overlay.
  * Exercises paste decoding, file picker, reject banner, consent prompt,
- * cancel + confirm, and the Fold G HTTP capsule bridge.
+ * cancel + confirm, and the implementation note HTTP capsule bridge.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -60,7 +60,7 @@ beforeEach(() => {
     activeRequestId: null,
     isExecutingActive: false,
   });
-  // Reviewer fix (RL-094 Slice 2 final pass) — clear any status notice
+  // Reviewer fix (implementation final pass) — clear any status notice
   // a sibling test may have left in `useUIStore`. `setState({})` was a
   // no-op (zustand merges by default). The notice slot is the only
   // ui-store field the overlay touches, so resetting it is enough.
@@ -74,7 +74,7 @@ describe('CapsuleImportOverlay', () => {
     expect(screen.getByTestId('capsule-import-empty')).toBeTruthy();
   });
 
-  it('seeds initial focus on the paste textarea, not a close button (UX Sweep T3)', async () => {
+  it('seeds initial focus on the paste textarea, not a close button (accessibility pass)', async () => {
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     const textarea = screen.getByTestId('capsule-import-paste-textarea');
     // ModalShell focuses the first focusable in DOM order on the next frame;
@@ -95,7 +95,7 @@ describe('CapsuleImportOverlay', () => {
     expect(screen.getByTestId('capsule-import-preview')).toBeTruthy();
   });
 
-  it('RL-110 fold E — decodes a smart-paste seed on mount (pre-filled preview)', async () => {
+  it('implementation — decodes a smart-paste seed on mount (pre-filled preview)', async () => {
     setPendingCapsuleImportSource(MINIMAL_JSON);
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     // The preview + enabled confirm appear without any user interaction.
@@ -134,7 +134,7 @@ describe('CapsuleImportOverlay', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('shows clipboard consent prompt when consent is unset (Fold C)', () => {
+  it('shows clipboard consent prompt when consent is unset (implementation note)', () => {
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     expect(
       screen.getByTestId('capsule-import-clipboard-consent')
@@ -189,7 +189,7 @@ describe('CapsuleImportOverlay', () => {
     ).toBeNull();
   });
 
-  it('Fold G — HTTP capsule offers Open-in-HTTP-workspace + creates a request', async () => {
+  it('implementation note — HTTP capsule offers Open-in-HTTP-workspace + creates a request', async () => {
     const onClose = vi.fn();
     const httpCapsule = buildHttpCapsule();
     render(<CapsuleImportOverlay onClose={onClose} />);
@@ -209,7 +209,7 @@ describe('CapsuleImportOverlay', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('Fold E — Copy source button is rendered when decoded', () => {
+  it('implementation note — Copy source button is rendered when decoded', () => {
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     fireEvent.change(screen.getByTestId('capsule-import-paste-textarea'), {
       target: { value: MINIMAL_JSON },

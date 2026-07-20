@@ -1,5 +1,5 @@
 /**
- * Unit tests for `/licenses/recover/start` wrapper (RL-061 Slice 4).
+ * Unit tests for `/licenses/recover/start` wrapper .
  *
  * The worker is no-info-leak: every successful call returns the
  * same neutral pending shape. The renderer service mirrors this

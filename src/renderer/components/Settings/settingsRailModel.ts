@@ -51,7 +51,7 @@ export const RAIL_ITEMS: readonly RailItem[] = [
     kbdToken: '3',
     keywords: ['editor', 'monaco', 'format', 'history', 'utilities', 'autosave', 'wrap', 'indent'],
   },
-  // RL-095 Slice 1 (post-review refactor) — own tab for the Language
+  // implementation (post-review refactor) — own tab for the Language
   // Support Scorecard plus the per-language preference rows that
   // used to live at the bottom of Editor.
   {
@@ -89,7 +89,7 @@ export const RAIL_ITEMS: readonly RailItem[] = [
     kbdToken: '4',
     keywords: ['env', 'environment', 'variable', 'variables', 'secret'],
   },
-  // RL-096 Slice 1 — Privacy + Trust dashboard. Position 5 in the
+  // implementation — Privacy + Trust dashboard. Position 5 in the
   // workspace group so it sits between Environment (which is read by
   // every runner) and Account (which stores the license token). The
   // existing `'4'` slot is taken by environment; this row picks `'9'`

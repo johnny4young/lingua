@@ -56,7 +56,7 @@ const mockEditorState = {
   saveTabById: vi.fn().mockResolvedValue(true),
   openFileFromDisk: vi.fn().mockResolvedValue(undefined),
   closeTab: vi.fn().mockResolvedValue(true),
-  // RL-101 Slice 1 — `useOnboardingChoreography` calls `addTab`
+  // implementation — `useOnboardingChoreography` calls `addTab`
   // when seeding the welcome scratchpad on a fresh install. Stub
   // it so the hook is a silent no-op in App.test.tsx.
   addTab: vi.fn(),
@@ -79,7 +79,7 @@ const mockSettingsState = {
   suppressTourAutoStart: false,
   setLastSeenVersion: mockSetLastSeenVersion,
   setHasCompletedTour: mockSetHasCompletedTour,
-  // RL-101 Slice 1 — onboarding flags + setters consumed by
+  // implementation — onboarding flags + setters consumed by
   // `useOnboardingChoreography`. Default `true` so the welcome
   // seed path does NOT fire during App.test.tsx (the test asserts
   // unrelated boot behaviours and doesn't seed snippets / tabs).
@@ -178,7 +178,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     selector ? selector(mockEditorState) : mockEditorState;
   useEditorStore.getState = () => mockEditorState;
   useEditorStore.subscribe = mockEditorSubscribe;
-  // RL-101 Slice 1 — `useOnboardingChoreography` imports
+  // implementation — `useOnboardingChoreography` imports
   // `createDefaultTab` to construct the seed tab. Stub it to a
   // minimal FileTab-shaped object; tests never assert on the seed
   // contents here.
@@ -215,7 +215,7 @@ vi.mock('../../src/renderer/stores/sessionStore', () => ({
     getState: () => ({
       restoreSession: mockRestoreSession,
       saveSession: mockSaveSession,
-      // RL-111 — the boot hook reads savedTabs.length for the restore
+      // internal — the boot hook reads savedTabs.length for the restore
       // telemetry tabCount and the ask-mode prompt gate.
       savedTabs: [],
     }),
@@ -452,7 +452,7 @@ describe('App', () => {
     });
   });
 
-  it('fires overlay.opened when the upgrade notice CTA opens whats new (RL-065)', async () => {
+  it('fires overlay.opened when the upgrade notice CTA opens whats new', async () => {
     mockSettingsState.lastSeenVersion = '0.0.9';
     render(<App />);
 
@@ -473,7 +473,7 @@ describe('App', () => {
     });
   });
 
-  // RL-061 Slice 5 — desktop builds must NOT mount the
+  // implementation — desktop builds must NOT mount the
   // WebUpdateBanner. The native autoupdater handles updates.
   it('does NOT mount the WebUpdateBanner on desktop builds', async () => {
     render(<App />);

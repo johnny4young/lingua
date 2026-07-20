@@ -1,5 +1,5 @@
 /**
- * SR-20a — "Explain this code" dialog. Verifies the consent gate (nothing
+ * internal — "Explain this code" dialog. Verifies the consent gate (nothing
  * sends on mount), the entitlement + configuration degradations, and the
  * send → streamed result path, all in a real React render with real i18n.
  */
@@ -31,7 +31,7 @@ const baseProps = {
   onClose: () => {},
 };
 
-describe('ExplainCodeDialog (SR-20a)', () => {
+describe('ExplainCodeDialog', () => {
   beforeAll(async () => {
     await initI18n('en');
     await i18next.changeLanguage('en');

@@ -54,7 +54,7 @@ provider before buying.
 
 If the provider requires hardware-token, HSM, or cloud-managed signing instead
 of an exportable PFX, do not force it into `WIN_CERT_FILE`. Use a follow-up
-release-infra slice to wire `@electron/windows-sign` through provider-specific
+release infrastructure work to wire `@electron/windows-sign` through provider-specific
 `signWithParams`, `signToolPath`, or a signing hook, or sign the produced
 artifacts after `make:desktop:win` using Azure Artifact Signing / DigiCert
 KeyLocker / another supported HSM-backed service.

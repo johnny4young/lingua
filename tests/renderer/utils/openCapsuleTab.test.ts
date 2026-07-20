@@ -1,9 +1,9 @@
 /**
- * RL-099 Slice 3 fold C — `openCapsuleSourceInNewTab` safe-language
+ * implementation note — `openCapsuleSourceInNewTab` safe-language
  * fallback.
  *
  * A capsule whose `tab.language` is a workspace-kind marker (`'http'`
- * from RL-097, `'pipeline'` from RL-099) is NOT a real editor language
+ * from internal, `'pipeline'` from internal) is NOT a real editor language
  * pack. The opener must not hand that token to the editor as a
  * language; it falls back to `createDefaultTab`'s default so the
  * recipe/text renders in a normal, runnable tab. A real pack language
@@ -35,7 +35,7 @@ function makeCapsule(language: string, name = 'My capsule'): RunCapsuleV1 {
   };
 }
 
-describe('openCapsuleSourceInNewTab — non-code language fallback (RL-099 Slice 3 fold C)', () => {
+describe('openCapsuleSourceInNewTab — non-code language fallback (implementation note)', () => {
   beforeEach(() => {
     useEditorStore.setState({ tabs: [], activeTabId: null });
   });

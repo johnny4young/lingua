@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RUNTIME_ASSETS } from '#src/shared/runtimeAssets';
 
 /**
- * RL-083 Slice 1 review pass — unit coverage for
+ * implementation review pass — unit coverage for
  * `src/main/offlineSmoke.ts`. The end-to-end desktop smoke proves
  * the offline gate works in practice, but a regression in the
  * protocol allowlist or the loopback check would only surface as a

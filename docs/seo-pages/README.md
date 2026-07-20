@@ -1,7 +1,7 @@
-# SEO landing pages (RL-066)
+# SEO landing pages
 
 Content scaffolds for the language-intent landing pages that
-`linguacode.dev` (RL-063) will host:
+`linguacode.dev` will host:
 
 - `/go-playground-desktop/`
 - `/rust-code-runner-desktop/`
@@ -17,7 +17,7 @@ plus YAML front-matter).
 
 ## Shared rules — read before editing any page here
 
-1. **Every claim has to match shipped reality**. The RL-066 acceptance
+1. **Every claim has to match shipped reality**. The internal acceptance
    line is explicit: "every page must say something true about
    Lingua's real support for that language, or we do not ship the
    page." Cross-check against features that have actually shipped

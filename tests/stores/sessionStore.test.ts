@@ -632,7 +632,7 @@ describe('sessionStore', () => {
     });
   });
 
-  describe('sessionSnapshotEqual (RL-147)', () => {
+  describe('sessionSnapshotEqual', () => {
     const baseTab = (overrides: Record<string, unknown> = {}) => ({
       id: 'tab-1',
       name: 'untitled.ts',
@@ -693,7 +693,7 @@ describe('sessionStore', () => {
       expect(sessionSnapshotEqual(snapshot([tabA, tabB]), snapshot([tabB, tabA]))).toBe(false);
     });
 
-    // Fold B — serialization-identity lock. The helper's BINDING
+    // implementation note — serialization-identity lock. The helper's BINDING
     // CONTRACT with saveSession() is enforced here: states the helper
     // calls equal must serialize byte-identically, and every persisted
     // field must both flip the equality and change the serialized

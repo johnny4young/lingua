@@ -1,13 +1,13 @@
 /**
- * Language pack descriptor (RL-038 Slice A).
+ * Language pack descriptor .
  *
  * Single source of truth for built-in language metadata. The legacy
  * helpers in `src/renderer/utils/languageMeta.ts`, `language.ts`, and
  * `languageCapabilities.ts` now proxy to this array so adding a new
  * built-in language only requires a new entry here plus an i18n key.
  *
- * Slice A is intentionally **zero-behavior-change**: every consumer
- * still goes through the legacy helper names. Slices B (runner
+ * implementation is intentionally **zero-behavior-change**: every consumer
+ * still goes through the legacy helper names. implementation (runner
  * dispatch) and C (capability-aware UI) live in
  * `docs/LANGUAGE_PACK_ADR.md` and ship in follow-up sessions.
  *
@@ -61,11 +61,11 @@ export interface LanguagePackCapabilities {
   /**
    * Where richer-than-Monaco language services come from. `builtin` =
    * Monaco's bundled service (TS / JS), `adapter` = a local renderer
-   * adapter, `desktop` = an LSP that needs a desktop bridge (RL-026),
+   * adapter, `desktop` = an LSP that needs a desktop bridge,
    * `none` = keyword + snippet completions only.
    */
   lsp: LanguagePackLspSupport;
-  /** RL-027 debugger MVP gate. */
+  /** internal debugger MVP gate. */
   debugger: LanguagePackDebuggerSupport;
   /**
    * Things the runtime expects on the host. Empty for self-contained
@@ -134,7 +134,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     textColorClass: 'text-yellow-400',
     extensions: ['js', 'jsx', 'mjs', 'cjs'],
     monacoLanguage: 'javascript',
-    // RL-020 Slice 3 — the Scratchpad seed shows both magic-comment
+    // implementation — the Scratchpad seed shows both magic-comment
     // shapes side-by-side so new users discover `=>` (ad-hoc peek)
     // and `@watch` (pinned, sticky) without reading the docs.
     defaultCode:
@@ -154,7 +154,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     textColorClass: 'text-blue-400',
     extensions: ['ts', 'tsx'],
     monacoLanguage: 'typescript',
-    // RL-020 Slice 3 — Scratchpad seed showcases arrow + watch with
+    // implementation — Scratchpad seed showcases arrow + watch with
     // explicit TypeScript types so the demo doubles as a TS smoke.
     defaultCode:
       '// Welcome to Lingua\nconst counter: number = 5;\nconst doubled: number = counter * 2;\ndoubled //=> doubled\ncounter * 10 // @watch counter * 10\n',
@@ -190,7 +190,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     textColorClass: 'text-green-400',
     extensions: ['py'],
     monacoLanguage: 'python',
-    // RL-020 Slice 3 — same arrow + watch seed as JS / TS, adapted
+    // implementation — same arrow + watch seed as JS / TS, adapted
     // to Python's `#=>` / `# @watch` syntax.
     defaultCode:
       '# Welcome to Lingua\ncounter = 5\ndoubled = counter * 2\ndoubled  #=> doubled\ncounter * 10  # @watch counter * 10\n',
@@ -230,7 +230,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
       '-- Lua example\nlocal function greet(name)\n  print("Hello, " .. name .. "!")\nend\n\ngreet("Lingua")\n',
     execution: 'run',
     // Lua's runner is plugin-sourced (see src/renderer/plugins/lua-runner.ts
-    // + plugins/catalog.ts). Slice B keeps `runnerId` populated so the pack
+    // + plugins/catalog.ts). implementation keeps `runnerId` populated so the pack
     // array's invariant ("every runnable pack ships a runnerId") stays
     // intact, but `RunnerManager` intentionally has no factory for it —
     // resolution falls through to `pluginRegistry`. This proves the
@@ -250,7 +250,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     extensions: ['rb'],
     monacoLanguage: 'ruby',
     defaultCode: "# Ruby example\nputs 'Hello, Lingua'\n",
-    // RL-042 Slice 5/6: Ruby runs through the bundled @ruby/wasm-wasi
+    // implementation: Ruby runs through the bundled @ruby/wasm-wasi
     // worker on web and can prefer the host `ruby` subprocess on desktop.
     // The desktop path is optional because the WASM worker remains a
     // runnable fallback when the system binary is absent.
@@ -275,8 +275,8 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     extensions: ['c', 'h'],
     monacoLanguage: 'c',
     defaultCode: "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello, Lingua\\n\");\n    return 0;\n}\n",
-    // RL-042 second slice: C ships validate-only, same posture as Ruby.
-    // A native toolchain runner (gcc / clang) lands in a follow-up slice
+    // implementation: C ships validate-only, same posture as Ruby.
+    // A native toolchain runner (gcc / clang) lands in a follow-up work
     // that deals with desktop-only subprocess wiring; the pack entry
     // today exists so file detection + Monaco highlighting work for any
     // `.c` / `.h` source the user opens.

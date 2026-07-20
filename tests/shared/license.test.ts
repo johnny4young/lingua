@@ -1,5 +1,5 @@
 /**
- * Covers the RL-059 shared license verifier: signature validity, tampered
+ * Covers the internal shared license verifier: signature validity, tampered
  * payloads, clock skew, grace/expired windows, and the malformed/token-shape
  * failure branches. Tokens are produced against a freshly generated Ed25519
  * key pair so the suite does not need a fixture on disk.
@@ -86,7 +86,7 @@ describe('decodeLicenseToken', () => {
     }
   });
 
-  it('rejects a token minted for a foreign product (audit B-3)', async () => {
+  it('rejects a token minted for a foreign product (audit implementation)', async () => {
     // A well-formed, correctly-signed token whose productId is NOT in the
     // Lingua family must not decode — a cross-product token minted under
     // the same signing key cannot grant Lingua entitlements.

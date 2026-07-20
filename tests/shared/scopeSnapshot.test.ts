@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 9 — shared scope-snapshot helpers.
+ * implementation — shared scope-snapshot helpers.
  *
  * Covers the pure layer of the variable inspector:
  *   - `serializeScopeValue` recurses 1 level by default, deeper
@@ -24,7 +24,7 @@ import {
 
 const identityTruncate = (input: string) => input;
 
-describe('RL-020 Slice 9 — serializeScopeValue', () => {
+describe('implementation — serializeScopeValue', () => {
   it('renders primitives with the right kind + repr', () => {
     expect(serializeScopeValue(1, { truncate: identityTruncate })).toEqual({
       kind: 'primitive',
@@ -153,7 +153,7 @@ describe('RL-020 Slice 9 — serializeScopeValue', () => {
   });
 });
 
-describe('RL-020 Slice 9 — bucketVariableCount', () => {
+describe('implementation — bucketVariableCount', () => {
   it('maps each count to the closed-enum bucket', () => {
     expect(bucketVariableCount(0)).toBe('0');
     expect(bucketVariableCount(1)).toBe('1-5');
@@ -173,7 +173,7 @@ describe('RL-020 Slice 9 — bucketVariableCount', () => {
   });
 });
 
-describe('RL-020 Slice 9 — finalizeScopeSnapshot', () => {
+describe('implementation — finalizeScopeSnapshot', () => {
   it('caps top-level variables at MAX_TOP_LEVEL_VARS', () => {
     const variables = Array.from({ length: MAX_TOP_LEVEL_VARS + 25 }, (_, index) => ({
       name: `v${index}`,

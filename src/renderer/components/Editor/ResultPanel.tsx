@@ -45,14 +45,14 @@ export function ResultPanel() {
   const { lineResults, fullOutput, error, executionTime, isAutoRunning } = useResultStore();
   const activeTab = useActiveTab();
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Slice 2 — hide-undefined is baseline; the runtime button + Settings
+  // implementation — hide-undefined is baseline; the runtime button + Settings
   // toggle were removed. `undefined` rows never reach the inline panel.
   const settingsFontSize = useSettingsStore(state => state.fontSize);
 
   const language = activeTab?.language ?? 'javascript';
   const dynamic = isInlineResultLanguage(language);
   const executionMode = executionModeForLanguage(language);
-  // RL-020 Slice 8 — the Compare panel renders when the active
+  // implementation — the Compare panel renders when the active
   // tab opted in AND the result store carries a comparator
   // snapshot for the same language. Falsy by default so nothing
   // changes for users who don't touch the toggle.
@@ -75,14 +75,14 @@ export function ResultPanel() {
     activeTab?.compareWithSnapshotEnabled === true &&
     compareTargetSnapshot !== null;
 
-  // RL-020 Slice 9 — variable inspector visibility gate. The toggle
+  // implementation — variable inspector visibility gate. The toggle
   // is only meaningful when the active language is in the
   // inspector's supported set AND the result store carries a
   // language-matching snapshot. Mutually exclusive with Compare:
   // turning Variables on flips Compare off via the editor-store
   // setter (`setTabVariableInspectorEnabled`).
-  // RL-020 Slice 8 fold G — inline diff badges. Only render in
-  // RL-093 Slice 3 — `inlineDiffMarkers` previously fed
+  // implementation note — inline diff badges. Only render in
+  // implementation — `inlineDiffMarkers` previously fed
   // <LineAlignedResults> with per-line diff badges (+/−/~) when
   // Compare wasn't the active view. With the scratchpad inline
   // results now rendered in-editor via Monaco overlay widgets, the
@@ -109,7 +109,7 @@ export function ResultPanel() {
   // dynamic modes (run / debug / validate / view).
   const fontSize = settingsFontSize;
 
-  // RL-093 Slice 3 — the "Resultado en línea / Sincronizado con las
+  // implementation — the "Resultado en línea / Sincronizado con las
   // líneas del editor" title was dropped from the scratchpad path
   // because (a) the workflow mode is now visible in the floating
   // action pill and (b) the per-line values render inside the editor
@@ -131,7 +131,7 @@ export function ResultPanel() {
       : executionMode === 'view'
         ? 'results.view.description'
         : 'results.output.description';
-  // RL-020 Slice 2 fold G — mode-aware empty-state copy. In Run /
+  // implementation note — mode-aware empty-state copy. In Run /
   // Debug mode the user has to press Cmd+R, so a generic "Run to
   // see output" reads stale. Scratchpad-mode tabs keep the live-
   // updates copy; validate / view modes stay on their language-
@@ -151,7 +151,7 @@ export function ResultPanel() {
 
   return (
     <div className="flex h-full flex-col bg-[var(--color-editor-bg)]">
-      {/* RL-093 Slice 3 — header layout differs by execution mode.
+      {/* implementation — header layout differs by execution mode.
           For scratchpad / run / debug we drop the redundant "Resultado
           en línea" copy (workflow mode is on the pill; inline values
           render inside the editor via overlay widgets) and only keep
@@ -180,11 +180,11 @@ export function ResultPanel() {
               {formatExecTime(executionTime)}
             </span>
           )}
-          {/* RL-094 Slice 1.5 — primary export surface. Lazy-renders
+          {/* implementation — primary export surface. Lazy-renders
               null when there's no captured capsule so it never
               advertises a no-op; safe to mount unconditionally. */}
           <RunCapsuleExportButton />
-          {/* RL-036 Phase A1 fold E — primary share-link surface.
+          {/* implementation Phase A1 implementation note — primary share-link surface.
               Lazy-renders null when there's no active tab. */}
           <ShareLinkButton />
         </div>
@@ -192,7 +192,7 @@ export function ResultPanel() {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
         {compareEnabled ? (
-          // RL-020 Slice 8 — re-mount the compare body on tab switch
+          // implementation — re-mount the compare body on tab switch
           // so the internal granularity state resets to `'line'` for
           // each tab. Without this `key`, a `'word'` granularity
           // picked on a compiled-language tab would persist across
@@ -206,7 +206,7 @@ export function ResultPanel() {
             <span className="text-body-sm italic text-muted">{t(emptyKey)}</span>
           </div>
         ) : dynamic ? (
-          // RL-093 Slice 3 — in scratchpad mode the per-line values
+          // implementation — in scratchpad mode the per-line values
           // render inside the editor via Monaco overlay widgets
           // (`useInlineResultWidgets`), so the result panel body no
           // longer mirrors them. The body keeps the error pane (when

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * RL-103 Slice 1 — Project template scaffold hook.
+ * implementation — Project template scaffold hook.
  *
  * Owns the multi-file write choreography for a curated
  * `ProjectTemplateV1`. The flow is intentionally per-step so failures
@@ -10,12 +10,12 @@
  *   1. Folder picker (`fs:select-directory`) — mints a capability
  *      `rootId` we hold for the safety check + the writes. If the
  *      user cancels we bail without touching any store.
- *   2. Empty-dir safety (fold D) — `readdir('')` and filter against
+ *   2. Empty-dir safety (implementation note) — `readdir('')` and filter against
  *      `EMPTY_DIR_IGNORE` (`.DS_Store`, `.localized`, `Icon\r`,
  *      `.AppleDouble`, `Thumbs.db`, `desktop.ini`). If anything
  *      meaningful remains we revoke the capability and return
  *      `non-empty-dir`. The user picks a different folder.
- *   3. mkdir + write (folds E, F honored at template-content level) —
+ *   3. mkdir + write (implementation note, F honored at template-content level) —
  *      iterate `template.files` once, collect distinct parent dirs,
  *      run `fs.mkdir` for each (recursive on the main side) before
  *      `fs.write` for each file. The order matters because the main
@@ -26,11 +26,11 @@
  *      watcher; the new files surface in the tree automatically.
  *   5. Open the entry file — `editorStore.openFile(rootId, entryFile…)`
  *      reads the content we just wrote and creates a tab.
- *   6. Telemetry (fold B) — `trackTemplateProjectApplied` fires
+ *   6. Telemetry (implementation note) — `trackTemplateProjectApplied` fires
  *      after the entry file opens so a partial scaffold (write
  *      errored mid-way) never registers a "success" signal.
  *   7. Return `{ kind: 'success', rootId, rootPath, entryFile }`
- *      so the caller can offer a Reveal-in-Finder CTA (fold A)
+ *      so the caller can offer a Reveal-in-Finder CTA (implementation note)
  *      against the freshly-minted rootId.
  *
  * The web build never reaches this hook — `ProjectTemplatesPanel`
@@ -66,7 +66,7 @@ import {
  * generation. Refusing to scaffold into a directory that happens to
  * contain just these would be a user-hostile false positive.
  *
- * Reviewer-pass additions (RL-103 fold A):
+ * Reviewer-pass additions :
  *   - `Icon\r` (carriage-return char in filename) — written by macOS
  *     Finder when the user sets a custom folder icon. Extremely
  *     common in user-curated folders; without this guard every

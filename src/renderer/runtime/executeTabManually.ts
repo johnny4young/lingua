@@ -41,7 +41,7 @@ import { executionModeForLanguage } from '../utils/languageMeta';
 import { validateDocument } from '../validation';
 
 /**
- * RL-028 sixth slice — gate the optional code snapshot for the
+ * implementation — gate the optional code snapshot for the
  * execution-history ring buffer. The snapshot only attaches when the
  * user opted in via Settings AND the active tier covers
  * `EXECUTION_HISTORY`. The Pro check is a defense-in-depth gate —
@@ -101,7 +101,7 @@ function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
   return richOutputs.length > 0 ? richOutputs : undefined;
 }
 
-// Slice 2 reviewer pass — `stripRichOutputOrigin`,
+// implementation reviewer pass — `stripRichOutputOrigin`,
 // `stripConsoleOutputOrigin`, and `stripExecutionOutputOrigins`
 // were dead code once `outputSourceMappingEnabled` became a
 // hardcoded `true`. Removed entirely; the per-tab
@@ -110,7 +110,7 @@ function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
 // surfaces still consult `originSuppressedByMagicComment`).
 
 /**
- * RL-094 Slice 1 — capsule construction wrapper. Returns the built
+ * implementation — capsule construction wrapper. Returns the built
  * capsule on the happy path; returns `null` and swallows the error
  * on any failure (Web Crypto unavailable in a test env, etc.) so a
  * capsule failure never breaks the actual execution / history record.
@@ -139,7 +139,7 @@ async function tryBuildCapsule(args: {
   inputSetName?: string;
   inputArgs?: string[];
   /**
-   * RL-102 Slice 2 fold A — pre-run branch snapshot. Captured at
+   * implementation note — pre-run branch snapshot. Captured at
    * run-START (not at this builder-call time) so a mid-run sibling
    * checkout does not pollute the capsule. The caller threads the
    * pre-run snapshot through; this builder simply forwards it onto
@@ -195,7 +195,7 @@ async function tryBuildCapsule(args: {
       environment: {
         platform,
         runner: args.runnerId,
-        // Fold A — branch snapshot from run START. Omitted (rather
+        // implementation note — branch snapshot from run START. Omitted (rather
         // than included as an empty object) when the snapshot carries
         // neither branch nor commit so a no-git run keeps the
         // existing capsule shape unchanged.
@@ -221,7 +221,7 @@ async function tryBuildCapsule(args: {
 }
 
 /**
- * RL-102 Slice 2 fold A — snapshot the current git posture for the
+ * implementation note — snapshot the current git posture for the
  * capsule. Reads `useGitStore.posture` synchronously at run START
  * so a mid-run `git checkout` from a sibling terminal does NOT
  * change the capture. Returns `undefined` when the posture is
@@ -292,7 +292,7 @@ export interface ManualExecutionLifecycle {
    */
   recordHistory?: boolean;
   /**
-   * RL-078 — opt-in override for the runner's deadline (ms). Used by
+   * internal — opt-in override for the runner's deadline (ms). Used by
    * the desktop smoke timeout cases so the parent kill timer fires
    * within a few seconds instead of the language default. End-user
    * surfaces leave this undefined and inherit each runner's default.
@@ -454,7 +454,7 @@ export async function executeTabManually(
   lifecycle.setIsRunning?.(true);
 
   const shouldShowInitialization = runnerManager.needsInitialization(language, runtimeMode);
-  // IT2-D3 — while the runtime bootstraps, compose the live download
+  // internal — while the runtime bootstraps, compose the live download
   // progress the worker streams into the static loading message
   // ("Loading Python runtime (Pyodide)... 34 MB / 60 MB"). The
   // subscription lives exactly as long as the initialization window.
@@ -485,14 +485,14 @@ export async function executeTabManually(
   };
 
   let runnerPrepared = false;
-  // RL-102 Slice 2 fold A — snapshot the git posture at run START,
+  // implementation note — snapshot the git posture at run START,
   // before runner preparation can await. The same value is reused on
   // the outer throw path so a long failed prepare / execute cannot
   // capture a later sibling-terminal checkout instead.
   const gitSnapshot = snapshotGitPosture();
 
   try {
-    // RL-019 Slice 3 fold A — feed sibling .css / .html tabs to
+    // implementation note — feed sibling .css / .html tabs to
     // the browser-preview runner BEFORE prepareRunner so the
     // first execute() picks them up. Editor store is already a
     // hard dep elsewhere in this module (other surfaces import
@@ -524,7 +524,7 @@ export async function executeTabManually(
     runnerPrepared = true;
 
     if (shouldShowInitialization) {
-      // IT2-D3 — bucketed adoption signal; exact durations stay local.
+      // internal — bucketed adoption signal; exact durations stay local.
       settleBootstrap({
         kind: 'completed',
         durationMs: performance.now() - bootstrapStartedAt,
@@ -549,7 +549,7 @@ export async function executeTabManually(
       } else {
         streamedStdout.push(visibleOutput);
       }
-      // RL-044 Slice 1B — forward the additive rich payload alongside
+      // implementation — forward the additive rich payload alongside
       // the legacy text content so the console renderer can dispatch
       // even on the streamed path (manual Run, hot scratchpad).
       addRunEntry(
@@ -582,10 +582,10 @@ export async function executeTabManually(
       setExecutionTime(null);
     };
 
-    // RL-020 Slice 7 — resolve the per-run timeout in priority
+    // implementation — resolve the per-run timeout in priority
     // order: lifecycle override (desktop smoke / test) → one-shot
-    // tab override (fold D, palette "Run with extended timeout") →
-    // magic-comment `// @timeout 60s` (fold B) → undefined, which
+    // tab override (implementation note, palette "Run with extended timeout") →
+    // magic-comment `// @timeout 60s` (implementation note) → undefined, which
     // lets the runner read the Settings preset for the language.
     const magicTimeoutMs = extractTimeoutMagicComment(language, content);
     const resolvedTimeoutMs =
@@ -600,7 +600,7 @@ export async function executeTabManually(
       useEditorStore.getState().setTabNextRunTimeoutOverride(activeTab.id, null);
     }
 
-    // RL-020 Slice 9 — capture the post-execute scope when the
+    // implementation — capture the post-execute scope when the
     // active language supports the inspector. We pass `captureScope`
     // eagerly (not gated on the toggle being on) so the toggle can
     // light up after the first clean run; the worker cost is bounded
@@ -624,14 +624,14 @@ export async function executeTabManually(
       tabId: activeTab.id,
       onConsole: streamConsoleOutput,
       ...(debugRequested ? { debug: true } : {}),
-      // RL-020 Slice 6 — manual Run feeds the same pre-set buffer
+      // implementation — manual Run feeds the same pre-set buffer
       // that auto-run uses. Runners that do not consume stdin
       // ignore the field.
       ...(activeTab.stdinBuffer ? { stdin: activeTab.stdinBuffer } : {}),
       ...(activeTab.inputArgs && activeTab.inputArgs.length > 0
         ? { args: activeTab.inputArgs }
         : {}),
-      // RL-115 — per-line timing toggle; the runner also honors an
+      // internal — per-line timing toggle; the runner also honors an
       // in-buffer // @time directive on its own.
       ...(useSettingsStore.getState().showLineTiming ? { lineTiming: true } : {}),
       ...(wantsScopeCapture ? { captureScope: true } : {}),
@@ -648,7 +648,7 @@ export async function executeTabManually(
       : undefined;
     const deadlineTimeoutMs = resolvedTimeoutMs ?? settingsTimeoutMs;
 
-    // RL-020 Slice 7 fold E — set the in-flight deadline so the
+    // implementation note — set the in-flight deadline so the
     // countdown pill can render `mm:ss` until termination. The
     // resolved timeout the runner armed is either an explicit
     // override or the active Settings preset for the language; the
@@ -662,7 +662,7 @@ export async function executeTabManually(
     // Tear down the in-flight deadline immediately; the pill flips
     // to the termination variant on the next render.
     setRunDeadlineAt(null);
-    // RL-020 Slice 7 — propagate the termination summary to the
+    // implementation — propagate the termination summary to the
     // result store so `<RunStatusPill>` can render the right
     // variant. Runners that don't set `kind` default to a
     // best-effort guess based on `error` / `cancelled`.
@@ -730,7 +730,7 @@ export async function executeTabManually(
     setLineResults(presentation.lineResults);
     setLineTimings(result.lineTimings ?? []);
     setFullOutput(presentation.fullOutput);
-    // RL-020 Slice 6 fold G — surface the consumption summary
+    // implementation note — surface the consumption summary
     // alongside the manual-run results, same as the auto-run path.
     setStdinConsumed(result.stdinConsumed ?? null);
     setError(result.error ?? null);
@@ -738,8 +738,8 @@ export async function executeTabManually(
     setDiagnostics(diagnostics);
     setExecutionTime(result.executionTime);
 
-    // RL-020 Slice 8 — manual Run captures the snapshot too on the
-    // clean-success branch. Slice 1 only captured on auto-run so
+    // implementation — manual Run captures the snapshot too on the
+    // clean-success branch. implementation only captured on auto-run so
     // Compare was effectively scratchpad-only. Skip on cancelled
     // (already returned above) and on error — neither is a
     // restoration target. Capture happens AFTER setLineResults +
@@ -747,7 +747,7 @@ export async function executeTabManually(
     // saw.
     if (!result.error && !result.cancelled) {
       useResultStore.getState().captureSuccessfulSnapshot(language);
-      // RL-020 Slice 9 — surface the variable inspector snapshot if
+      // implementation — surface the variable inspector snapshot if
       // the worker emitted one. `null` clears any stale snapshot
       // from the previous run so the toggle reflects the latest
       // capture state.
@@ -763,7 +763,7 @@ export async function executeTabManually(
       addRunEntry(entry);
     }
 
-    // RL-020 Slice 7 fold G — `runner.executed.status` enum widens
+    // implementation note — `runner.executed.status` enum widens
     // to distinguish `'timeout'` and `'stopped'` from generic
     // `'error'`. Prefer the explicit `result.kind` set by the
     // runner; fall back to the legacy boolean for runners that
@@ -778,7 +778,7 @@ export async function executeTabManually(
             : 'ok';
     const historyStatus: 'ok' | 'error' =
       runStatus === 'ok' ? 'ok' : 'error';
-    // RL-094 Slice 1 — build the capsule for this run (best-effort,
+    // implementation — build the capsule for this run (best-effort,
     // never throws past the helper). Awaited before history.record so
     // the entry carries the capsule atomically and the LRU prune
     // sees the latest entry-with-capsule on the same set() tick.
@@ -811,12 +811,12 @@ export async function executeTabManually(
           (inputSet) => inputSet.id === activeTab.activeInputSetId
         )?.name,
         inputArgs: activeTab.inputArgs,
-        // RL-102 Slice 2 fold A — pre-run branch snapshot.
+        // implementation note — pre-run branch snapshot.
         ...(gitSnapshot !== undefined ? { gitSnapshot } : {}),
       });
     }
 
-    // RL-028 first slice — record metadata always. RL-028 sixth slice —
+    // implementation — record metadata always. implementation —
     // attach the optional code snapshot when the user opted in AND the
     // active tier covers `EXECUTION_HISTORY`. `snapshotPayloadFor`
     // returns `null` otherwise, preserving the metadata-only contract.
@@ -826,17 +826,17 @@ export async function executeTabManually(
         status: historyStatus,
         durationMs: result.executionTime ?? null,
         snapshot: snapshotPayloadFor(content, language),
-        // RL-020 Slice 4 — anchor the entry to the source tab so the
+        // implementation — anchor the entry to the source tab so the
         // per-tab pill can filter via `byTabId`.
         tabId: activeTab.id,
-        // RL-094 Slice 1 — capsule already built above. Omit when
+        // implementation — capsule already built above. Omit when
         // capsule construction failed so the entry's wire shape stays
         // clean.
         ...(capsule !== null ? { lastCapsule: capsule } : {}),
       });
     }
 
-    // RL-065 — emit runner.executed so consenting users' telemetry
+    // internal — emit runner.executed so consenting users' telemetry
     // reflects runtime usage. `durationBucketMs` is already coarse
     // (from shared/telemetry), and the property allowlist rejects
     // anything beyond language/status/durationBucketMs.
@@ -845,7 +845,7 @@ export async function executeTabManually(
       status: runStatus,
       durationBucketMs: bucketDurationMs(result.executionTime ?? 0),
     });
-    // RL-020 Slice 6 fold C — same adoption signal as the auto-run
+    // implementation note — same adoption signal as the auto-run
     // path. Both run surfaces share the same buffer and worker, so
     // the same gate applies (≥1 line consumed, JS / TS / Python).
     if (
@@ -866,15 +866,15 @@ export async function executeTabManually(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // RL-020 Slice 7 — surface the failure via the pill too.
+    // implementation — surface the failure via the pill too.
     setRunDeadlineAt(null);
     setRunTermination({ kind: 'error' });
-    // RL-028 — record the failure so "Recent runs" still reflects the
+    // internal — record the failure so "Recent runs" still reflects the
     // error outcome. `durationMs: null` when timing never ran. The
     // snapshot still attaches when opted-in + Pro: a failure is the
     // case where the user most likely wants to replay.
     //
-    // RL-094 Slice 1 — also try to build a capsule for the throw
+    // implementation — also try to build a capsule for the throw
     // path. Capsule status is `'error'` and `errorMessage` carries
     // the thrown message (already redactable by sanitizeRunCapsule).
     // The capsule still allows exporting a failed run for replay /
@@ -902,13 +902,13 @@ export async function executeTabManually(
         status: 'error',
         durationMs: null,
         snapshot: snapshotPayloadFor(content, language),
-        // RL-020 Slice 4 — same tabId anchor on the error path.
+        // implementation — same tabId anchor on the error path.
         tabId: activeTab.id,
         ...(throwCapsule !== null ? { lastCapsule: throwCapsule } : {}),
       });
     }
 
-    // RL-065 — mirror the error path in telemetry. `durationBucketMs: 0`
+    // internal — mirror the error path in telemetry. `durationBucketMs: 0`
     // because the runner never completed a timed window.
     void trackEvent('runner.executed', {
       language,

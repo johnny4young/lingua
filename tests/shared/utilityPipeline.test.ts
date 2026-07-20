@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — utilityPipeline schema + engine tests.
+ * implementation — utilityPipeline schema + engine tests.
  *
  * Exercises: parsers (happy + every shape rejection),
  * `tryImportPipelineJson` closed reject reasons, the `runPipeline`

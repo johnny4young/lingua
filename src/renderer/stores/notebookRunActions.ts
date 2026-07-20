@@ -3,7 +3,7 @@ import { isNotebookCellRunStatus, type NotebookState } from './notebookStore';
 import type { NotebookSet } from './notebookStoreContext';
 
 /**
- * T9 — notebook run-state action factory.
+ * implementation — notebook run-state action factory.
  *
  * Owns the outputs / run-status / duration / var-flow / execution-order writes
  * plus the clear + restart flows. Every action is a pure `set` update (plus

@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 — HTTP client that wraps native `fetch` with the
+ * implementation — HTTP client that wraps native `fetch` with the
  * full privacy + safety envelope:
  *
  *   - `AbortController` timeout (30 s default; user-configurable per

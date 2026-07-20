@@ -1,5 +1,5 @@
 /**
- * RL-071 — Base64 Image Encode / Decode helper.
+ * internal — Base64 Image Encode / Decode helper.
  *
  * Pure, offline, renderer-side. Two entry points:
  *

@@ -1,5 +1,5 @@
 /**
- * RL-067 bootstrap — every skip branch (kill switch, missing endpoint, no
+ * internal bootstrap — every skip branch (kill switch, missing endpoint, no
  * consent) must short-circuit before the reporter starts. Unified-consent is
  * verified by making the `readConsentAtBoot` hook the only way consent
  * enters `bootCrashReporter`, so if the renderer persists `declined` the
@@ -50,7 +50,7 @@ describe('bootCrashReporter', () => {
     expect(crashReporterStart).not.toHaveBeenCalled();
   });
 
-  it('skips when consent is unset or declined — unified with RL-065 telemetry flag', async () => {
+  it('skips when consent is unset or declined — unified with internal telemetry flag', async () => {
     const { bootCrashReporter } = await import('../../src/main/crashReporter');
     for (const consent of ['unset', 'declined'] as const) {
       crashReporterStart.mockClear();

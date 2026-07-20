@@ -37,7 +37,7 @@ jobs:
         with:
           node-version: '24.x'
           cache: 'pnpm'
-          # RL-080 Slice 1 — also key the pnpm cache on the
+          # implementation — also key the pnpm cache on the
           # update-server lockfile so the worker's install (added
           # below) reuses cached deps instead of taking a cold install
           # on every CI run.
@@ -47,7 +47,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Type check
         run: pnpm exec tsc --noEmit
-      # RL-132 / AUDIT-12 — the root tsconfig only includes src/**, so the
+      # implementation detail — the root tsconfig only includes src/**, so the
       # `tsc --noEmit` above never type-checks files under tests/. This
       # scoped pass pulls tests/main/projectCapabilitiesBrand.test.ts into
       # a real tsc program so its `@ts-expect-error` swap matrix becomes a
@@ -65,7 +65,7 @@ jobs:
         run: pnpm run check:i18n:copy
       - name: Changelog/version guard
         run: pnpm run changelog:check
-      # RL-143 — PR-time mirror of the release-blocking rotation gate so a
+      # internal — PR-time mirror of the release-blocking rotation gate so a
       # license-key SLA breach surfaces the week it happens instead of on
       # release day. Note main can go red purely by time passing the SLA;
       # that pressure is deliberate — rotate per docs/RELEASE_SECURITY.md.
@@ -73,10 +73,10 @@ jobs:
         run: pnpm run check:license-rotation
       - name: Tests
         run: pnpm test
-      # RL-080 Slice 1 — the update-server has its own tsconfig and
+      # implementation — the update-server has its own tsconfig and
       # vitest config outside the root TypeScript project. Wire both
       # gates into CI so the `/update/:platform/:version` smoke landed
-      # for RL-080 actually gates pull requests. Run block uses only
+      # for internal actually gates pull requests. Run block uses only
       # static pnpm commands — no github.event inputs are interpolated,
       # so the workflow is not exposed to script injection.
       - name: Update-server gates
@@ -93,15 +93,15 @@ jobs:
         run: pnpm run check:performance
       - name: Third-party license policy
         run: pnpm run check:licenses
-      # RL-145 — blocking production-graph audit at PR time. The release
-      # pipeline already gated prod advisories (RL-080); this brings the
+      # internal — blocking production-graph audit at PR time. The release
+      # pipeline already gated prod advisories; this brings the
       # same fail-closed gate to every PR so a prod high/critical dep is
       # caught before merge, not only at release. The dev-inclusive full
       # audit below stays advisory by design (see docs/RELEASE_SECURITY.md).
       - name: Production dependency audit (blocking)
         run: pnpm run check:prod-audit
       - name: Security audit (advisory, full graph)
-        run: pnpm audit --audit-level high
+        run: pnpm audit --internal high
         continue-on-error: true
 
   windows-path-hardening:

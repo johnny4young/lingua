@@ -1,12 +1,12 @@
 /**
- * RL-039 Slice B — Minimal Markdown subset renderer for recipe
+ * implementation — Minimal Markdown subset renderer for recipe
  * prompts.
  *
- * Slice B prompts are 1–3 paragraphs + an inline `code` block + a
+ * implementation prompts are 1–3 paragraphs + an inline `code` block + a
  * `fenced` code block + the occasional bullet list. That's exactly
  * what this renderer handles — no HTML pass-through, no
  * `dangerouslySetInnerHTML`, no arbitrary tag whitelist. If a
- * future Slice needs richer markdown (tables, images, footnotes),
+ * future implementation needs richer markdown (tables, images, footnotes),
  * swap in `react-markdown` (~30 KB) at that point; today it's
  * unjustified.
  *

@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 — bundled CJS integration tests.
+ * implementation — bundled CJS integration tests.
  *
  * Spawns `dist/cli/lingua.cjs` via `child_process.spawnSync` to
  * verify the artifact actually runs end-to-end. Skips automatically
@@ -7,7 +7,7 @@
  * checkout that hasn't run `pnpm run build:cli` yet).
  *
  * The pre-stage Phase 2 build step (and the future `prepare` hook,
- * fold G) ensures the bundle is fresh whenever these tests run in
+ * implementation note) ensures the bundle is fresh whenever these tests run in
  * CI.
  */
 
@@ -66,7 +66,7 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     const out = runCli(['list', 'utilities', '--json']);
     expect(out.code).toBe(0);
     const parsed = JSON.parse(out.stdout) as { utilities: unknown[] };
-    // RL-099 Slice 7 — 23 adapters after the generator-style holdouts
+    // implementation — 23 adapters after the generator-style holdouts
     // (uuid / lorem-ipsum / string-inspect) landed. Runs against the
     // on-disk dist/cli bundle, so build:cli must run before this spec.
     expect(parsed.utilities).toHaveLength(23);

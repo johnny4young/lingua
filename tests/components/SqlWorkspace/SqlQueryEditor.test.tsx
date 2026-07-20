@@ -8,7 +8,7 @@ import { createBlankSqlQuery } from '../../../src/shared/sqlWorkspace';
 // Monaco mock
 // ---------------------------------------------------------------------------
 //
-// Slice 3 swapped the textarea for `<SqlMonacoEditor>`, which renders
+// implementation swapped the textarea for `<SqlMonacoEditor>`, which renders
 // `@monaco-editor/react`'s `<MonacoEditor>`. The mock renders a stand-in
 // `<textarea>` (keeping the original `sql-query-editor-textarea` testid so the
 // auto-save / insert / byte-cap assertions are unchanged) wired to `onChange`,
@@ -17,7 +17,7 @@ import { createBlankSqlQuery } from '../../../src/shared/sqlWorkspace';
 // onDidDispose, and the completion-provider registry.
 //
 // `monacoHarness` captures the registered keybinding callbacks + the configured
-// selection so a test can fire Cmd+Enter (fold E) and assert the selection-vs-
+// selection so a test can fire Cmd+Enter (implementation note) and assert the selection-vs-
 // full-buffer run.
 
 interface FakeKeybindingCommands {

@@ -1,5 +1,5 @@
 /**
- * RL-059 Slice 0 — main-side license runtime + IPC bridge.
+ * implementation — main-side license runtime + IPC bridge.
  *
  * Coverage:
  * - persisted-license atomic round trip (write / read / clear)
@@ -630,17 +630,17 @@ describe('registerLicenseHandlers', () => {
 });
 
 /**
- * RL-061 Slice 3.5 — server-aware desktop runtime.
+ * implementation — server-aware desktop runtime.
  *
  * The base `createLicenseRuntime` block above keeps
  * `LINGUA_LICENSE_SERVER_URL` unset so the runtime stays in
- * local-verify-only mode (matches the pre-Slice-3.5 contract). This
+ * local-verify-only mode (matches the legacy contract). This
  * block opts the runtime into the server path by setting the env var
  * before each test, then mocks `fetch` per-case to drive each
  * applyToken / revalidate / removeDevice / clear branch the plan
  * calls out.
  */
-describe('createLicenseRuntime — server-aware desktop branch (Slice 3.5)', () => {
+describe('createLicenseRuntime — server-aware desktop branch ', () => {
   const SERVER_URL = 'https://licenses.test.local';
   let tempDir: string;
 

@@ -1,5 +1,5 @@
 /**
- * RL-126 / AUDIT-06 — central schema-version + migration registry for every
+ * implementation detail — central schema-version + migration registry for every
  * persisted Zustand store.
  *
  * Each persisted store declares a zustand `version` (the schema version, stored
@@ -77,8 +77,8 @@ export type PersistedStoreName =
  * and bump `version: 2` in settingsStore's persist config.
  */
 export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrationMap>> = {
-  // RL-111 v1->v2 — the legacy `restoreSession` boolean becomes the
-  // `restoreSessionMode` closed enum. Fold B: legacy `false` (the old
+  // internal v1->v2 — the legacy `restoreSession` boolean becomes the
+  // `restoreSessionMode` closed enum. implementation note: legacy `false` (the old
   // default, no restore) maps to `'ask'` so every user gets the new
   // privacy-conscious prompt default, not silent never-restore; legacy
   // `true` (explicit auto-restore) maps to `'always'` to preserve that
@@ -96,7 +96,7 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
       };
     },
   },
-  // IT2-F5 v1->v2 — input-set fields are additive optional fields on each
+  // internal v1->v2 — input-set fields are additive optional fields on each
   // saved tab. The identity step re-stamps the envelope without inventing
   // values for older sessions; restore sanitizes any future/tampered payload.
   'lingua-session': {
@@ -115,12 +115,12 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
   'lingua-utility-pipeline-state': {},
   'lingua-workspace-sql-state': {},
   'lingua-workspace-tool-state': {},
-  // T19 — BYO-key AI config (endpoint / apiKey / model). No shape change yet.
+  // implementation — BYO-key AI config (endpoint / apiKey / model). No shape change yet.
   'lingua-ai': {},
 };
 
 /**
- * Fire-and-forget migration telemetry (RL-126 fold C). Only the store name is
+ * Fire-and-forget migration telemetry . Only the store name is
  * emitted (a safe token); no version numbers, no payload. `trackEvent` is
  * itself best-effort and swallows its own errors, so this never affects
  * rehydration.
@@ -148,14 +148,14 @@ function isPersistedStateRecord(value: unknown): value is Record<string, unknown
  * identity, and reset paths are exhaustively unit-testable with synthetic
  * steps. Replays every step whose target version is newer than `fromVersion`,
  * in ascending order. Resets (returns `state: undefined`) when the payload is
- * not a record object or any step throws (RL-126 fold D).
+ * not a record object or any step throws .
  */
 export function migrateState(
   steps: StoreMigrationMap,
   persistedState: unknown,
   fromVersion: number
 ): MigrateResult {
-  // Fold D — a non-record payload (garbage, null, array, bare string) can never
+  // implementation note — a non-record payload (garbage, null, array, bare string) can never
   // be a valid partialized Zustand state; reset to defaults instead of letting
   // a migration step or the merge throw during boot.
   if (!isPersistedStateRecord(persistedState)) {
@@ -184,7 +184,7 @@ export function migrateState(
       if (step) state = step(state);
     }
   } catch {
-    // Fold D — a throwing migration must not crash boot; reset to defaults.
+    // implementation note — a throwing migration must not crash boot; reset to defaults.
     return { state: undefined, migrated: false };
   }
 

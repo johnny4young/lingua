@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
 
 // Seed VITE_LINGUA_APP_VERSION from package.json so jsdom-based tests
-// see the real version through `import.meta.env`. RL-061 Slice 5.
+// see the real version through `import.meta.env`. implementation
 applySharedEnvDefaults();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

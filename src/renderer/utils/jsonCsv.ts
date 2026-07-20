@@ -1,5 +1,5 @@
 /**
- * RL-068 — JSON ↔ CSV converter helper.
+ * internal — JSON ↔ CSV converter helper.
  *
  * Pure, offline, renderer-side. Implements RFC 4180 CSV with a
  * configurable delimiter (`,` default, `\t`, `;`, `|`) and an

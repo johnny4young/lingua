@@ -1,8 +1,8 @@
 /**
  * String Inspector.
  *
- * Originally RL-072 (renderer-side); moved into the shared utility layer
- * under RL-099 Slice 7 (fold A) so the pipeline `string-inspect` adapter
+ * Originally internal (renderer-side); moved into the shared utility layer
+ * under implementation (implementation note) so the pipeline `string-inspect` adapter
  * and the renderer's String Inspector panel share one implementation —
  * the renderer's `src/renderer/utils/stringInspector.ts` is now a
  * re-export shim, so the detection tables (zero-width / BiDi ranges,
@@ -252,7 +252,7 @@ export function inspect(input: string): InspectionReport {
 }
 
 // ---------------------------------------------------------------------------
-// RL-099 Slice 7 — `string-inspect` pipeline adapter (transform).
+// implementation — `string-inspect` pipeline adapter (transform).
 // ---------------------------------------------------------------------------
 
 let segmenter: Intl.Segmenter | null = null;
@@ -308,7 +308,7 @@ export const stringInspectAdapter: UtilityAdapter<StringInspectOptions> = {
     // rendered verbatim in the result <pre> and kept `text` so a later
     // step can still consume it. Graphemes = true clusters; code points =
     // Unicode scalars; UTF-16 units = JS string length; UTF-8 bytes =
-    // encoded length. The Warnings line (fold E) is the inspector's
+    // encoded length. The Warnings line (implementation note) is the inspector's
     // headline security signal that text-stats does not surface.
     const graphemes = countGraphemes(input);
     const codePoints = [...input].length;

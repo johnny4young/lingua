@@ -1,5 +1,5 @@
 /**
- * RL-036 Phase A1 — `SharePayloadV1` round-trip + reject path matrix.
+ * implementation — `SharePayloadV1` round-trip + reject path matrix.
  *
  * Pinning the wire format end-to-end (build → encode → decode →
  * matches), every reject path, the URL-safe alphabet contract, the
@@ -431,7 +431,7 @@ describe('decodeShareFragment — drops unknown mode values silently', () => {
   });
 });
 
-describe('bucketShareSize — Fold G', () => {
+describe('bucketShareSize — implementation note', () => {
   it('maps every boundary into a closed enum value', () => {
     expect(bucketShareSize(0)).toBe('<1kb');
     expect(bucketShareSize(1023)).toBe('<1kb');

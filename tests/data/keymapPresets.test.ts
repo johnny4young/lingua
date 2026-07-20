@@ -30,7 +30,7 @@ describe('keymapPresets catalog', () => {
     }
   });
 
-  it('ships at least one non-default preset (RL-037 acceptance criterion)', () => {
+  it('ships at least one non-default preset (internal acceptance criterion)', () => {
     const alternates = KEYMAP_PRESETS.filter((preset) => preset.id !== DEFAULT_KEYMAP_PRESET_ID);
     expect(alternates.length).toBeGreaterThanOrEqual(1);
     for (const alt of alternates) {

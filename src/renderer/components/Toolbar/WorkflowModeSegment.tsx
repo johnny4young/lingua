@@ -13,7 +13,7 @@ import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
 
 /**
- * RL-020 Slice 2 — per-tab workflow-mode segmented control.
+ * implementation — per-tab workflow-mode segmented control.
  *
  * Renders three segments — Run / Debug / Scratchpad — next to the
  * existing Run button. The active tab's mode is highlighted; segments
@@ -23,7 +23,7 @@ import { cn } from '../../utils/cn';
  * Layout:
  *
  *   - Mode segments are <button>s inside a `role="group"` container
- *     with arrow-key navigation. Fold E — arrow keys SKIP disabled
+ *     with arrow-key navigation. implementation note — arrow keys SKIP disabled
  *     segments instead of stopping on them so keyboard users never
  *     land on a no-op slot.
  *
@@ -42,7 +42,7 @@ import { cn } from '../../utils/cn';
  *   - Click a disabled segment → noop; the tooltip already explains
  *     when the mode lands.
  *
- *   - Fold F — first time the user switches AWAY from Scratchpad,
+ *   - implementation note — first time the user switches AWAY from Scratchpad,
  *     `editorStore.setTabWorkflowMode` surfaces a one-shot status
  *     notice explaining the modes. Centralizing it in the store keeps
  *     toolbar clicks and the keyboard cycle consistent.
@@ -107,7 +107,7 @@ export function WorkflowModeSegment() {
     setTabWorkflowMode(activeTab.id, mode);
   };
 
-  // Fold E — arrow-key navigation that SKIPS disabled segments.
+  // implementation note — arrow-key navigation that SKIPS disabled segments.
   // Tab still moves focus to the next focusable element outside the
   // group; arrows cycle inside the supported subset.
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {

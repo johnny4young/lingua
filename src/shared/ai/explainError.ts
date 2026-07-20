@@ -1,5 +1,5 @@
 /**
- * T19 / RL-031 Slice 1 — "Explain this error" request builder (pure core).
+ * implementation — "Explain this error" request builder (pure core).
  *
  * Per `docs/LOCAL_AI_ADR.md`, the first AI feature is opt-in error
  * explanation over a BYO-API-key, OpenAI-compatible `/chat/completions`
@@ -13,7 +13,7 @@
  *     even built (defense in depth; the preview is the real control).
  *   - The excerpt + error text are bounded so a giant buffer can't be sent by
  *     accident.
- *   - Nothing here reaches the wire; a later slice does the POST, only on an
+ *   - Nothing here reaches the wire; a later work does the POST, only on an
  *     explicit user action.
  */
 

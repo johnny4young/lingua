@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice E fold E — export the ACTIVE notebook as a `.linguanb`
+ * implementation Slice E implementation note — export the ACTIVE notebook as a `.linguanb`
  * document from outside the notebook toolbar (the command-palette
  * "Export notebook as .linguanb" action).
  *
@@ -42,7 +42,7 @@ export function exportActiveNotebookAsLinguanb(): void {
   const result = exportNotebookAsLinguanb(notebook, {
     ...(executionOrder ? { executionOrder } : {}),
   });
-  // Fold A — native Save dialog on desktop; blob download on web.
+  // implementation note — native Save dialog on desktop; blob download on web.
   void saveOrDownloadLinguanb(result.json, result.suggestedFileName, {
     onOk: () => {
       trackNotebookExported('linguanb');

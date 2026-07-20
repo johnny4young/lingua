@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A — runner-owned session manager coverage.
+ * implementation — runner-owned session manager coverage.
  *
  * Tests the pure helpers (`composeNotebookCellSource`,
  * `rewriteTopLevelDeclarationsForSession`, `extractSerializableDelta`)
@@ -14,14 +14,14 @@ vi.mock('../../../src/renderer/runners', () => {
     runnerManager: {
       execute: vi.fn(),
       stop: vi.fn(),
-      // T17 — the session reaches the Python runner to reset a notebook's
+      // implementation — the session reaches the Python runner to reset a notebook's
       // kernel scope on dispose / restart.
       getPythonRunner: vi.fn(() => ({ resetScope: mockResetScope })),
     },
   };
 });
 
-// T16 — the SQL cell branch calls `executeQuery` from the DuckDB client.
+// implementation — the SQL cell branch calls `executeQuery` from the DuckDB client.
 // Mock just that export so the session tests never stand up the WASM engine.
 vi.mock('../../../src/renderer/runtime/duckdbClient', () => {
   return { executeQuery: vi.fn() };
@@ -76,7 +76,7 @@ const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>
 /**
  * Count parser-level syntax errors in a source string. `parseDiagnostics`
  * is the parser's own syntax-error list — not in the public typings, but
- * the canonical way TS tooling reads parse errors. Used by the fold-B
+ * the canonical way TS tooling reads parse errors. Used by the implementation note
  * round-trip guard to assert the rewriter introduces no new syntax error.
  */
 function syntaxErrorCount(source: string): number {
@@ -107,11 +107,11 @@ describe('notebookSession closed enums', () => {
     );
   });
 
-  it('isNotebookRunnableLanguage runs JS + TS + Python (Slice F)', () => {
+  it('isNotebookRunnableLanguage runs JS + TS + Python ', () => {
     expect(isNotebookRunnableLanguage('javascript')).toBe(true);
-    // RL-043 Slice C — TypeScript is type-stripped + run through the JS pipeline.
+    // implementation — TypeScript is type-stripped + run through the JS pipeline.
     expect(isNotebookRunnableLanguage('typescript')).toBe(true);
-    // RL-043 Slice F — Python runs independently through the Python runner.
+    // implementation — Python runs independently through the Python runner.
     expect(isNotebookRunnableLanguage('python')).toBe(true);
   });
 });
@@ -142,7 +142,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(out).toContain('_sessionDelta.v = v');
   });
 
-  it('captures multi-line declarations (RL-043 Slice B — was skipped)', async () => {
+  it('captures multi-line declarations (implementation — was skipped)', async () => {
     const src = 'const obj = {\n  a: 1,\n};';
     const out = await rewriteTopLevelDeclarationsForSession(src);
     expect(out).toContain('_sessionDelta.obj = obj');
@@ -150,12 +150,12 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(out).not.toContain('_sessionDelta.obj = obj;\n  a:');
   });
 
-  it('captures `class` declarations (RL-043 Slice B — was skipped)', async () => {
+  it('captures `class` declarations (implementation — was skipped)', async () => {
     const out = await rewriteTopLevelDeclarationsForSession('class Greeter { hi() { return 1; } }');
     expect(out).toContain('_sessionDelta.Greeter = Greeter');
   });
 
-  it('captures object destructuring incl. renamed + rest (RL-043 Slice B)', async () => {
+  it('captures object destructuring incl. renamed + rest ', async () => {
     const out = await rewriteTopLevelDeclarationsForSession(
       'const { a, b: c, ...rest } = obj;'
     );
@@ -165,7 +165,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(out).toContain('_sessionDelta.rest = rest');
   });
 
-  it('captures array destructuring and skips holes (RL-043 Slice B)', async () => {
+  it('captures array destructuring and skips holes ', async () => {
     const out = await rewriteTopLevelDeclarationsForSession('const [x, , y] = arr;');
     expect(out).toContain('_sessionDelta.x = x');
     expect(out).toContain('_sessionDelta.y = y');
@@ -179,7 +179,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
 
   it('leaves declarations nested inside a block local', async () => {
     // A real nested decl (inside an `if` block) is NOT a top-level
-    // statement, so it is never hoisted — unlike the Slice A regex,
+    // statement, so it is never hoisted — unlike the implementation regex,
     // which used a crude column-zero proxy.
     const out = await rewriteTopLevelDeclarationsForSession(
       'if (true) {\n  const nested = 1;\n}'
@@ -203,11 +203,11 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(await rewriteTopLevelDeclarationsForSession(src)).toBe(src);
   });
 
-  // Fold B — the injection must never corrupt the source: the rewriter
+  // implementation note — the injection must never corrupt the source: the rewriter
   // introduces no NEW syntax error vs the input (re-parsed with the TS
   // parser). Guards against a future regression that splices a broken
   // assignment mid-expression.
-  it('introduces no new syntax errors for every shape (fold B)', async () => {
+  it('introduces no new syntax errors for every shape (implementation note)', async () => {
     const inputs = [
       'const x = 1;',
       'const { a, b: c, ...rest } = obj;',
@@ -225,10 +225,10 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     }
   });
 
-  // Fold E — a destructuring default with a side effect must run once.
+  // implementation note — a destructuring default with a side effect must run once.
   // The hoist reads the BOUND name (`a`), never re-invokes the default,
   // so the delta capture has no double-evaluation hazard.
-  it('hoists a destructuring default by binding name, not re-eval (fold E)', async () => {
+  it('hoists a destructuring default by binding name, not re-eval (implementation note)', async () => {
     const out = await rewriteTopLevelDeclarationsForSession(
       'const { a = sideEffect() } = obj;'
     );
@@ -328,7 +328,7 @@ describe('composeNotebookCellSource', () => {
   });
 });
 
-describe('transpileTypescriptCell (RL-043 Slice C)', () => {
+describe('transpileTypescriptCell ', () => {
   it('type-strips a typed declaration to runnable JavaScript', async () => {
     const result = await transpileTypescriptCell('const x: number = 41 + 1;');
     expect(result.ok).toBe(true);
@@ -360,7 +360,7 @@ describe('transpileTypescriptCell (RL-043 Slice C)', () => {
     expect(result.js).not.toContain('export {}');
   });
 
-  it('fold F — emits a serializable runtime value for `enum` so it crosses cells', async () => {
+  it('implementation note — emits a serializable runtime value for `enum` so it crosses cells', async () => {
     const result = await transpileTypescriptCell('enum Color { Red, Green }');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -372,7 +372,7 @@ describe('transpileTypescriptCell (RL-043 Slice C)', () => {
     expect(safe.Color).toMatchObject({ Red: 0, Green: 1 });
   });
 
-  it('fold F — lowers a `namespace` to a captured object', async () => {
+  it('implementation note — lowers a `namespace` to a captured object', async () => {
     const result = await transpileTypescriptCell(
       'namespace NS { export const v = 1; }'
     );
@@ -383,7 +383,7 @@ describe('transpileTypescriptCell (RL-043 Slice C)', () => {
     expect(safe.NS).toMatchObject({ v: 1 });
   });
 
-  it('fold B — surfaces a syntax error with a 1-based line:col position', async () => {
+  it('implementation note — surfaces a syntax error with a 1-based line:col position', async () => {
     const result = await transpileTypescriptCell('const y: number = ;');
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -448,7 +448,7 @@ describe('runNotebookCell + session manager', () => {
     expect(result).toEqual({ ok: false, reason: 'language-not-supported' });
   });
 
-  it('runs a Python cell through the python runner, independent of the JS sandbox (Slice F)', async () => {
+  it('runs a Python cell through the python runner, independent of the JS sandbox ', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
       result: 'hello',
@@ -473,7 +473,7 @@ describe('runNotebookCell + session manager', () => {
     // WITHOUT the JS-only structured-result channel.
     expect(mockExecute.mock.calls[0]?.[0]).toBe('python');
     expect(mockExecute.mock.calls[0]?.[1]).toBe('print("hello")');
-    // T17 — the cell runs against a per-notebook kernel scope keyed by tabId.
+    // implementation — the cell runs against a per-notebook kernel scope keyed by tabId.
     expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({
       language: 'python',
       scopeId: 'tab-py',
@@ -483,13 +483,13 @@ describe('runNotebookCell + session manager', () => {
     );
   });
 
-  it('T17 — disposing a notebook session resets its Python kernel scope', () => {
+  it('implementation — disposing a notebook session resets its Python kernel scope', () => {
     mockResetScope.mockClear();
     disposeNotebookSession('tab-restart');
     expect(mockResetScope).toHaveBeenCalledWith('tab-restart');
   });
 
-  it('surfaces a Python runtime error on the cell outcome (Slice F)', async () => {
+  it('surfaces a Python runtime error on the cell outcome ', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
       result: '',
@@ -511,7 +511,7 @@ describe('runNotebookCell + session manager', () => {
     );
   });
 
-  it('maps a stopped Python run to a stopped outcome (Slice F)', async () => {
+  it('maps a stopped Python run to a stopped outcome ', async () => {
     // The real Python runner returns `runnerStoppedResult`: `cancelled:
     // true` WITH an `error.message` set (the "stopped" message). The
     // branch must check `cancelled` BEFORE `error.message`, so the outcome
@@ -537,7 +537,7 @@ describe('runNotebookCell + session manager', () => {
     expect(result.outcome.stderr).toEqual([]);
   });
 
-  it('keeps Python isolated from the JS cross-cell sandbox (Slice F)', async () => {
+  it('keeps Python isolated from the JS cross-cell sandbox ', async () => {
     // A JS cell declares `x`; a later Python cell must NOT see it injected
     // and must NOT mutate the JS sandbox.
     mockExecute.mockResolvedValueOnce({
@@ -574,7 +574,7 @@ describe('runNotebookCell + session manager', () => {
   it('records ok + merges sessionDelta into the per-tab sandbox', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
-      // Faithful worker shape (RL-043 Slice B): `result` is a truncatable
+      // Faithful worker shape : `result` is a truncatable
       // display STRING; the live `{ stdout, stderr, sessionDelta }` rides
       // the dedicated `structuredResult` channel. The cross-cell merge
       // reads `structuredResult` — NOT `result` — so a stale mock that
@@ -608,7 +608,7 @@ describe('runNotebookCell + session manager', () => {
   });
 
   it('does NOT merge from the display string when structuredResult is absent', async () => {
-    // Regression guard for the pre-RL-043-Slice-B bug: the worker only
+    // Regression guard for the pre-internal bug: the worker only
     // ever returned the delta inside the `result` DISPLAY STRING (which it
     // truncates at MAX_RESULT_BYTES), and the merge read it as if it were a
     // structured object — so nothing ever shared cross-cell in the real
@@ -771,7 +771,7 @@ describe('runNotebookCell + session manager', () => {
   });
 });
 
-describe('runNotebookCell — SQL cells (T16)', () => {
+describe('runNotebookCell — SQL cells ', () => {
   beforeEach(() => {
     resetNotebookSessionsForTests();
     mockExecuteQuery.mockReset();

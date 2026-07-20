@@ -130,7 +130,7 @@ describe('ProjectReplace', () => {
     ).toBeTruthy();
   });
 
-  it('renders the excludes chips in the header (fold F)', () => {
+  it('renders the excludes chips in the header (implementation note)', () => {
     render(<ProjectReplace onClose={vi.fn()} />);
     const chips = screen.getByTestId('project-replace-excludes-chips');
     expect(chips.textContent).toContain('node_modules');
@@ -364,7 +364,7 @@ describe('ProjectReplace', () => {
     );
   });
 
-  it('renders a regex-timed-out notice when a file is flagged (fold C)', async () => {
+  it('renders a regex-timed-out notice when a file is flagged (implementation note)', async () => {
     mockReplaceInFiles.mockResolvedValue([
       {
         relativePath: 'slow.ts',
@@ -387,7 +387,7 @@ describe('ProjectReplace', () => {
     });
   });
 
-  it('renders the progress strip when apply-to-all is running (fold A)', async () => {
+  it('renders the progress strip when apply-to-all is running (implementation note)', async () => {
     mockReplaceInFiles.mockResolvedValue([
       { relativePath: 'a.ts', matches: [previewMatch(1, 1)] },
     ]);

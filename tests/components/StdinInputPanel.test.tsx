@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 6 — StdinInputPanel render contract.
+ * implementation — StdinInputPanel render contract.
  *
  * Covers:
  *   - Renders the textarea for JS / TS / Python tabs.
@@ -55,7 +55,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
     s.activeTabId == null ? -1 : s.tabs.findIndex((t) => t.id === s.activeTabId),
 }));
 
-describe('StdinInputPanel (RL-020 Slice 6)', () => {
+describe('StdinInputPanel ', () => {
   const initialResultState = useResultStore.getState();
 
   beforeEach(() => {
@@ -84,7 +84,7 @@ describe('StdinInputPanel (RL-020 Slice 6)', () => {
   });
 
   it('renders per-line inputs for a JS tab and writes via the action', () => {
-    // RL-093 — the v2 panel replaced the single textarea with one input
+    // internal — the v2 panel replaced the single textarea with one input
     // per ordered-queue row. The test now writes into the first row and
     // expects the action to be called with the same `'5'` buffer.
     editorState.tabs = [

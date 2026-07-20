@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 9 — Variable inspector body.
+ * implementation — Variable inspector body.
  *
  * Renders the current scope captured by the worker after the last
  * clean execute. Two layers:
@@ -7,15 +7,15 @@
  *   - **Top-level variables**: one row per user-declared binding.
  *     Layout: name (mono) · type tag (muted) · value (mono). Click
  *     a row with `kind: 'object'` or `kind: 'array'` to toggle
- *     inline expansion (1 level by default; fold E adds depth).
+ *     inline expansion (1 level by default; implementation note adds depth).
  *   - **Inline expansion**: shows the entry's `entries` array
  *     directly below the parent, indented. When `truncatedCount`
  *     is set, an "N more entries truncated." footer renders.
  *
- * Folds baked in:
+ * implementation note in:
  *   - **D — type-icon prefix**: each row gets a tiny glyph by kind.
  *   - **F — diff badges between runs**: each row carries a
- *     `+ / − / ~` badge vs. the previous snapshot in the Slice 8
+ *     `+ / − / ~` badge vs. the previous snapshot in the implementation
  *     ring. Memoized so the auto-run stream doesn't re-diff.
  *   - **H — name filter**: a top-bar input narrows visible rows
  *     by case-insensitive substring match.
@@ -57,7 +57,7 @@ function indexByName(
 
 /**
  * Compare the current scope against a comparator (the previous
- * stable snapshot from Slice 8's ring) and return a name-keyed
+ * stable snapshot from implementation's ring) and return a name-keyed
  * map of `added / removed / changed / unchanged`. Cheap shallow
  * comparator — recursive deep equality would defeat the cap.
  */
@@ -137,7 +137,7 @@ function typeTag(value: ScopeValue, t: (key: string, opts?: Record<string, unkno
   }
 }
 
-/** Fold D — single-character glyph per kind. Pure visual cue. */
+/** implementation note — single-character glyph per kind. Pure visual cue. */
 function typeIcon(value: ScopeValue): string {
   switch (value.kind) {
     case 'primitive':
@@ -315,7 +315,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
   const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
   const snapshotRing = useResultStore((state) => state.snapshotRing);
   const [filter, setFilter] = useState('');
-  // RL-093 Slice 3 fold G — list ↔ cards mode persists to uiStore so
+  // implementation note — list ↔ cards mode persists to uiStore so
   // the choice survives unmounts (the bottom-panel mount in particular
   // remounts every time the user collapses the drawer).
   const viewMode = useUIStore((state) => state.variablesBottomViewMode);
@@ -327,16 +327,16 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
   const matchedSnapshot: ScopeSnapshot | null =
     scopeSnapshot && scopeSnapshot.language === language ? scopeSnapshot : null;
 
-  // Fold F — diff against the prior stable snapshot in the
-  // language-matched ring (Slice 8). We only diff against snapshots
+  // implementation note — diff against the prior stable snapshot in the
+  // language-matched ring . We only diff against snapshots
   // that pre-date the current capture so the badges represent
   // change since the last stable run rather than self-diff.
   const previousVariables = useMemo<readonly ScopeVariable[] | null>(() => {
     if (!matchedSnapshot) return null;
-    // Snapshot ring is line-aligned (Slice 8); but it stores
+    // Snapshot ring is line-aligned ; but it stores
     // `ResultSnapshot` (lineResults / fullOutput) not
     // `ScopeSnapshot`. We don't have a multi-`ScopeSnapshot` ring
-    // yet — for fold F we compare against the current snapshot's
+    // yet — for implementation note we compare against the current snapshot's
     // OWN variables baseline at capture time. To keep the slice
     // surface bounded, the inspector remembers the last
     // `previousVariables` via the ring's secondary signal: a
@@ -349,11 +349,11 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
         entry.capturedAt !== matchedSnapshot.capturedAt
     );
     void candidates;
-    // For Slice 9 we ship a self-comparator stub: the current
+    // For implementation we ship a self-comparator stub: the current
     // snapshot's variables are compared against an empty list on
     // the very first capture, so every row badges as `added`.
     // This is intentional — the user gets visible feedback that
-    // the capture worked. A future slice can wire a dedicated
+    // the capture worked. A future work can wire a dedicated
     // `<ScopeSnapshot>` ring if richer cross-run diffs are needed.
     return [];
   }, [matchedSnapshot, snapshotRing, language]);
@@ -393,7 +393,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
           <Eye size={12} className="text-accent-fg" aria-hidden />
           <EyebrowMono>{t('variableInspector.panel.title')}</EyebrowMono>
           <MonoBadge tone="accent">{matchedSnapshot.variables.length}</MonoBadge>
-          {/* RL-093 Slice 3 — segmented control between the dense
+          {/* implementation — segmented control between the dense
               list view (default) and the richer cards view. */}
           <div
             role="group"
@@ -429,7 +429,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
           </div>
         </div>
         <label className="flex items-center gap-1.5 text-caption text-fg-muted">
-          <span className="sr-only">{t('variableInspector.filter.label')}</span>
+          <span className="internal">{t('variableInspector.filter.label')}</span>
           <Search size={11} aria-hidden className="text-fg-subtle" />
           <input
             type="search"
@@ -495,7 +495,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
 }
 
 /**
- * RL-093 polish #2 — group the cards view by diffKind so the user
+ * internal polish #2 — group the cards view by diffKind so the user
  * scans the most-interesting changes first. Order: added → changed →
  * unchanged → removed. Each group renders a small heading + count
  * pill. When there is no diff at all (initial capture or comparator
@@ -621,7 +621,7 @@ function CardsByDiff({
 }
 
 /**
- * RL-093 Slice 3 — single-variable card for the bottom-drawer cards
+ * implementation — single-variable card for the bottom-drawer cards
  * view. Each card surfaces:
  *
  *   - name (mono, accent color when the variable was added/changed)

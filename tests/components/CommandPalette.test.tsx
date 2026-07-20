@@ -45,7 +45,7 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
       updateContent: vi.fn(),
       setTabNextRunTimeoutOverride: vi.fn(),
       setTabCompareEnabled: vi.fn(),
-      // RL-020 Slice 9 — variable inspector palette wiring depends on
+      // implementation — variable inspector palette wiring depends on
       // the setter being present even when not exercised.
       setTabVariableInspectorEnabled: vi.fn(),
     },
@@ -66,7 +66,7 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
         language: string;
         capturedAt: number;
       }>,
-      // RL-020 Slice 9 — variable inspector snapshot for palette gate.
+      // implementation — variable inspector snapshot for palette gate.
       scopeSnapshot: null as null | {
         language: string;
         capturedAt: number;
@@ -283,7 +283,7 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('Snippets')).toBeNull();
   });
 
-  it('exposes the result count as a polite live region (UX Sweep T4)', () => {
+  it('exposes the result count as a polite live region (accessibility pass)', () => {
     render(
       <CommandPalette
         onClose={vi.fn()}
@@ -299,7 +299,7 @@ describe('CommandPalette', () => {
     expect(count.getAttribute('aria-atomic')).toBe('true');
   });
 
-  it('exposes combobox + listbox semantics with aria-activedescendant (UX Sweep T6)', () => {
+  it('exposes combobox + listbox semantics with aria-activedescendant (accessibility pass)', () => {
     render(
       <CommandPalette
         onClose={vi.fn()}
@@ -488,7 +488,7 @@ describe('CommandPalette', () => {
     });
   });
 
-  // Slice 2 — the "Toggle rich console output" palette action was
+  // implementation — the "Toggle rich console output" palette action was
   // removed; rich rendering is baseline (charts/tables/images render
   // unconditionally when the worker emits a payload).
 
@@ -726,7 +726,7 @@ describe('CommandPalette', () => {
     });
   });
 
-  // ─── RL-113 — recent commands stack ───────────────────────────────
+  // ─── internal — recent commands stack ───────────────────────────────
 
   it('records executed actions into the per-session command history', () => {
     useCommandHistoryStore.getState()._clearForTesting();

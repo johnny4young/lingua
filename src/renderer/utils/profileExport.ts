@@ -1,5 +1,5 @@
 /**
- * RL-089 — collect a portable user profile from the renderer stores
+ * internal — collect a portable user profile from the renderer stores
  * and trigger a download as JSON.
  *
  * Allowlist-driven: only fields the schema declares portable are
@@ -33,7 +33,7 @@ function pickPortableSettings(): PortableSettings {
     editorTheme: state.editorTheme,
     fontSize: state.fontSize,
     fontFamily: state.fontFamily,
-    // Slice 2 baseline values — kept in the export schema for
+    // implementation baseline values — kept in the export schema for
     // backward compatibility with older readers that still expect them.
     fontLigatures: true,
     showLineNumbers: true,

@@ -8,11 +8,11 @@ import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { DeviceList } from './DeviceList';
 
 /**
- * RL-061 Slice 3 — exhausted-devices remediation modal.
+ * implementation — exhausted-devices remediation modal.
  *
  * Mounts when `setLicenseToken(...)` returned
  * `{ kind: 'invalid', reason: 'devices-exhausted' }`. The store keeps
- * the original token in that case (Slice 2.5 contract) so the user can
+ * the original token in that case (implementation contract) so the user can
  * remove a device + click Retry without re-pasting from their email.
  *
  * On open the modal calls `revalidate()` so the device list reflects
@@ -22,7 +22,7 @@ import { DeviceList } from './DeviceList';
  * `clearLicense()`.
  *
  * Web-only — desktop's licenseStore branch returns `not-implemented`
- * from `removeDevice` until Slice 3.5 wires the main bridge into the
+ * from `removeDevice` until implementation wires the main bridge into the
  * server. The modal therefore never opens on desktop because the
  * `devices-exhausted` reason is web-side only.
  */
@@ -122,7 +122,7 @@ export function ExhaustedDevicesModal({ onClose }: ExhaustedDevicesModalProps) {
     onClose();
   };
 
-  // UX Sweep T3 — this modal is nested inside the Settings overlay, whose
+  // accessibility pass — this modal is nested inside the Settings overlay, whose
   // Escape is handled by a global window keydown listener that closes the
   // WHOLE Settings surface. Handle Escape locally (dismiss just this modal,
   // non-destructively) and stop propagation so the global listener never
@@ -171,7 +171,7 @@ export function ExhaustedDevicesModal({ onClose }: ExhaustedDevicesModalProps) {
             disabled={pendingRemovalId !== null || isRetrying}
             data-testid="license-exhausted-cancel"
           >
-            {/* UX Sweep T2 — this button calls clearLicense(), which
+            {/* accessibility pass — this button calls clearLicense(), which
                 discards the license and drops the user to Free. Labelling
                 it Cancel was a lie (Cancel implies "keep things as they
                 are"); it is relabelled to name what it actually does. */}

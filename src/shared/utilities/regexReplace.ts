@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — `regex-replace` adapter.
+ * implementation — `regex-replace` adapter.
  *
  * Thin port of the renderer's `applyRegexReplace` helper. Takes a
  * pattern + flags + replacement and runs them against the chained

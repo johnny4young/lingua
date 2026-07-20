@@ -1,5 +1,5 @@
 /**
- * RL-070 — cURL → Code converter helper.
+ * internal — cURL → Code converter helper.
  *
  * Pure, offline, renderer-side. Takes a cURL invocation and produces
  * equivalent code in one of four targets:

@@ -1,7 +1,7 @@
-# Local / hybrid AI — "Explain this error" (T19) ADR
+# Local / hybrid AI — "Explain this error"  ADR
 
-**Status:** Accepted (2026-07-03) — initial T19 wiring shipped
-**Roadmap item:** T19 / RL-031 (Tier 4)
+**Status:** Accepted (2026-07-03) — initial implementation wiring shipped
+**Roadmap item:** implementation / internal (Tier 4)
 **Reserved entitlement:** `LOCAL_AI` (already in `src/shared/entitlements.ts`)
 
 ## Why this needs a decision (not just code)
@@ -31,7 +31,7 @@ action and a preview of exactly what is sent.
 2. **First feature: "Explain this error."** Smallest useful surface: when a run
    errors, an opt-in "Explain" action sends the *error message* + a *bounded
    code excerpt* + the language, and renders the explanation. No autocomplete,
-   no whole-repo context, no agentic file access in slice 1.
+   no whole-repo context, no agentic file access in implementation.
 3. **Strict consent, every time.**
    - The action is **explicit** (a button on the error surface). Nothing is
      ever sent automatically, on a timer, or in the background.
@@ -46,14 +46,14 @@ action and a preview of exactly what is sent.
      workspace secrets.
 4. **Entitlement-gated.** `LOCAL_AI` is a paid entitlement; the UI is hidden /
    upsells on free, consistent with the free-vs-paid model.
-5. **Transport.** On desktop the request can ride the RL-097 T7 SSRF-guarded
+5. **Transport.** On desktop the request can ride the internal implementation SSRF-guarded
    main proxy (arbitrary user endpoint, no CORS). On web it uses `fetch` and is
    subject to the provider's CORS policy (documented limitation; local servers
    often need a CORS flag). No telemetry payload ever includes prompt content.
 
 ## Considered alternatives
 
-- **Bundled hosted model (Lingua-keyed).** Rejected for slice 1: it makes
+- **Bundled hosted model (Lingua-keyed).** Rejected for implementation: it makes
   Lingua the data processor for users' source, contradicts the local-first
   brand, and adds cost + liability. Can be a *later, clearly-labelled* opt-in.
 - **On-device model (transformers.js / Ollama-in-app).** Attractive for the
@@ -63,7 +63,7 @@ action and a preview of exactly what is sent.
 - **Silent/auto "explain on every error."** Rejected outright — violates the
   no-silent-network principle.
 
-## Implemented slices
+## implemented scope
 
 - `src/shared/ai/explainError.ts`:
   - `redactSecretsFromCode(code)` — mask secret-looking assignments + token
@@ -86,7 +86,7 @@ action and a preview of exactly what is sent.
 ## Follow-up transport work
 
 - Desktop currently allows loopback local AI servers directly from the
-  renderer CSP. Remote desktop endpoints should move through the RL-097 T7
+  renderer CSP. Remote desktop endpoints should move through the internal implementation
   SSRF-guarded main proxy before they are enabled broadly.
 - The web build keeps the documented CORS limitation: remote HTTPS providers
   work only when their CORS policy allows the Lingua origin, while production
@@ -102,7 +102,7 @@ action and a preview of exactly what is sent.
 - **Web transport:** ✅ accept the CORS limitation. The feature ships on **both**
   web and desktop via `fetch`; on web it works only with CORS-enabled endpoints
   (documented; local servers often need a CORS flag). Desktop can later route
-  through the RL-097 T7 SSRF-guarded main proxy once that transport seam is
+  through the internal implementation SSRF-guarded main proxy once that transport seam is
   wired to the renderer — a follow-up, not a blocker.
 - **Redaction strength:** **preview-only, no hard block** (implementer's call).
   Rationale: the payload **preview** is the real consent control — the user sees

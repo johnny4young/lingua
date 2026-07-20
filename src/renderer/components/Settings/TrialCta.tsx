@@ -8,7 +8,7 @@ import { isLikelyEmail } from '../../utils/email';
 import { SpecRow } from '../ui/SpecRow';
 
 /**
- * RL-061 Slice 4 — Trial start CTA.
+ * implementation — Trial start CTA.
  *
  * Sits under `status.kind === 'free'` in LicenseSection. Posts the
  * email/device tuple to `POST /trials/start`; on success the worker
@@ -32,8 +32,8 @@ export function TrialCta({
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
-  // UX-audit tail (SR-39) — reflect a rejected email on the input itself
-  // (aria-invalid + inline error), mirroring the T14 license-paste pattern,
+  // UX-audit tail — reflect a rejected email on the input itself
+  // (aria-invalid + inline error), mirroring the implementation license-paste pattern,
   // instead of only surfacing a transient toast.
   const [emailError, setEmailError] = useState(false);
   const emailErrorId = useId();

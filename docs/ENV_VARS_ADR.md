@@ -1,12 +1,12 @@
-# ADR — Environment variables for execution contexts (RL-011)
+# ADR — Environment variables for execution contexts
 
-| Status | Accepted — design; Slices A / B / C / D-Go shipped |
+| Status | Accepted — implemented |
 | ------ | ----------------- |
 | Decision | Add a tab-overrides-project-overrides-global env-var stack for desktop child-process runners (Go, Rust, Python). JS/TS Worker mode and the web build remain env-var free. |
 | Date | 2026-04-20 |
-| Implementation start | Slice A (pure merger), Slice B (store + snapshot bridge shell), Slice C (Settings UI for all three tiers + trace preview), and Slice D first increment (Go compile IPC receives the merged user env, `GOOS`/`GOARCH` stay runner-owned) have shipped. Rust and Python subprocess integration each follow as their own slice. |
+| Implementation status | Scope merging, persisted settings, the Settings UI, and Go/Rust/Python runtime wiring have shipped. |
 
-## Slice D — final merge order (2026-04-20 ter)
+## Runtime merge order
 
 The Go compile path is the first runtime to consume the merged env end-
 to-end. The merge order lives in `resolveGoCompileEnv` in
@@ -19,7 +19,7 @@ precedence:
    in the renderer (global → project → tab).
 3. Runner-owned keys (`GOOS=js`, `GOARCH=wasm` for Go) — these
    **cannot** be overridden by the user env. Writing them in the user
-   tier is allowed (the Slice A validator lets them through) but they
+   tier is allowed (the implementation validator lets them through) but they
    get dropped during this final merge so the WASM build never breaks
    silently.
 
@@ -40,7 +40,7 @@ same env via `std::env::var` that the compiler saw.
 
 ### Python (shipped 2026-04-20 quinquies)
 
-Python is the only Slice-D runtime that does NOT use a subprocess
+Python is the only implementation runtime that does NOT use a subprocess
 — Pyodide runs in a Web Worker inside the renderer. The env crosses
 via the `execute` postMessage payload (`userEnv` field) instead of
 through `ipcRenderer.invoke`. Inside the worker, before user code
@@ -59,22 +59,20 @@ untouched. `os.getenv(...)` from user code reflects the merged
 record exactly the way Go and Rust subprocesses see their env.
 
 There is no `process.env` tier here — Pyodide has no host process
-to read from, and the Slice B contract explicitly keeps host env
+to read from, and the implementation contract explicitly keeps host env
 out of the renderer. The merge is therefore "global → project →
 tab" with no host underlay; that is honest about Pyodide's
 sandbox.
 
 ## Context
 
-RL-011 has been parked since the original plan because it required
-three scoping decisions written down before any implementation
-slice could land:
+The feature required three scoping decisions before implementation:
 
 1. **Which runtimes receive env vars in desktop mode.**
 2. **Which env vars (if any) exist in web mode.**
 3. **Whether env vars are tab-scoped, project-scoped, or global.**
 
-This ADR answers all three so the implementation slices can ship
+This ADR answers all three so the implementation steps can ship
 without re-litigating the policy in every PR.
 
 ## Decisions
@@ -137,15 +135,14 @@ handler that builds the `execFile` options).
 
 ## What stays out of this ADR
 
-- **No real implementation in this slice.** The acceptance
-  criterion for RL-011 is "scoping decisions written down."
-  Code lands in the implementation slices below.
+- **No secret transport outside the declared scopes.** The resolver only
+  consumes the host, global, project, and tab tiers documented here.
 - **No secret-storage UI.** Env vars persist in plain JSON in
   localStorage / on disk. Users who want secrets should use the
   host shell or a vault — Lingua is a scratchpad, not a vault.
   Settings copy MUST flag this explicitly when the UI lands.
-- **No `.env` file ingestion** in the first slice. The `.env`
-  validate-only mode (RL-058) is editor-only and intentionally
+- **No `.env` file ingestion** in the initial implementation. The `.env`
+  validate-only mode is editor-only and intentionally
   does not feed the runner env. A future "import .env" button is
   tracked under `Future` follow-ups.
 - **No global → project → tab precedence inversion** as a setting.
@@ -154,7 +151,7 @@ handler that builds the `execFile` options).
 
 ## Implementation status
 
-### Slice A — pure scope merger
+### Pure scope merger
 
 - `src/shared/envVarScopes.ts` — types + the
   `mergeEnvScopes(scopes)` pure function. Empty string preserved.
@@ -163,7 +160,7 @@ handler that builds the `execFile` options).
 - `tests/shared/envVarScopes.test.ts` — merge precedence, empty
   string overrides, key validation, cap enforcement.
 
-### Slice B — settings + project + tab plumbing
+### Settings, project, and tab plumbing
 
 - `src/renderer/stores/envVarsStore.ts` owns all three user tiers
   (`global`, `project[projectId]`, `tab[tabId]`) under the
@@ -175,7 +172,7 @@ handler that builds the `execFile` options).
   execute time and hand the merged user record to the runtime-specific
   bridge.
 
-### Slice C — Settings UI
+### Settings UI
 
 - `EnvVarsSection` in Settings exposes the global/project/tab tiers
   with the secret-storage warning from this ADR.
@@ -186,15 +183,15 @@ handler that builds the `execFile` options).
 - i18n: labels, validation feedback, column headers, and warning copy
   live in both English and Spanish locale files.
 
-### Slice D — Honest web-mode limit
+### Honest web-mode limit
 
 - Web mode still has no host `process.env` tier. Renderer-owned user
   env values can flow into Pyodide because that runtime is already
   renderer-local; Go/Rust host env forwarding remains desktop-only.
 
-## Verification matrix (for the implementation slices, not this ADR)
+## Verification matrix (for the implementation steps, not this ADR)
 
-After Slice B + C ship:
+With the implementation shipped:
 
 1. Define a global env var `DEMO=global` and a tab env var
    `DEMO=tab`. Run the active tab — expect Go/Rust/Python to see
@@ -221,7 +218,7 @@ Open a successor ADR when **any** of these becomes true:
    ADR is the right path, not bolting it onto envVars.
 3. Pyodide ships native `os.environ` parity that requires a
    different shim than today's renderer-injected dict.
-4. WebContainers (RL-029) ship and grow a real Node environment in
+4. WebContainers ship and grow a real Node environment in
    the browser — that flips the web-mode answer.
 
 ## Cross-links
@@ -229,14 +226,14 @@ Open a successor ADR when **any** of these becomes true:
 - `BUILD_SYSTEM_ADR.md` — unchanged. Stay-on-Forge means env
   forwarding goes through the existing `execFile` IPC path.
 - `CAPABILITY_MATRIX.md` — env vars become a new row in the
-  shell-feature matrix when Slice C ships ("Hybrid: desktop-native
+  shell-feature matrix when implementation ships ("Hybrid: desktop-native
   for child processes, renderer-only for Pyodide").
-- `LANGUAGE_PACK_ADR.md` — RL-038 Slice A's `LanguagePack` already
-  carries the runtime-deps array; Slice B can hang an
+- `LANGUAGE_PACK_ADR.md` — implementation's `LanguagePack` already
+  carries the runtime-deps array; implementation can hang an
   `acceptsHostEnv: boolean` capability flag on the same descriptor
   if needed.
-- RL-011 in the internal plan — flips from `Planned` to `Partial` once this
-  ADR lands, with the implementation slices unblocked.
+- internal in the implementation notes — flips from `Planned` to `Partial` once this
+  ADR lands, with the implementation steps unblocked.
 
 ## Reviewers
 

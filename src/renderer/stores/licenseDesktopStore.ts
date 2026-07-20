@@ -9,7 +9,7 @@ import {
 import type { LicenseBridge } from './licenseBridge';
 
 /**
- * RL-130 — desktop license store, extracted verbatim from `licenseStore.ts`.
+ * internal — desktop license store, extracted verbatim from `licenseStore.ts`.
  * Unlike the web store, the desktop flow does NOT verify or persist locally: the
  * main process owns the Ed25519 verification + server sync, and every action
  * delegates to the `window.lingua.license` bridge and mirrors the returned
@@ -37,11 +37,11 @@ export function createDesktopStore(bridge: LicenseBridge) {
   }
 
   /**
-   * RL-061 Slice 3.5 — apply the full main-side snapshot to the
+   * implementation — apply the full main-side snapshot to the
    * renderer state, including the new server-derived fields
-   * (`serverSync`, `devices`, `deviceLimit`). Slice 0 only mirrored
+   * (`serverSync`, `devices`, `deviceLimit`). implementation only mirrored
    * the local-verify trio (token / status / lastVerifiedAt) because
-   * main was local-verify-only; Slice 3.5 makes main the source of
+   * main was local-verify-only; implementation makes main the source of
    * truth for the server bucket too.
    */
   function applySnapshot(snapshot: LicenseSnapshot): void {
@@ -67,12 +67,12 @@ export function createDesktopStore(bridge: LicenseBridge) {
 
   const store = create<LicenseState>()((set, get) => ({
     token: null,
-    // IT2-G2 — main now initializes the verified snapshot in parallel with
+    // internal — main now initializes the verified snapshot in parallel with
     // the first paint. Model that interval explicitly instead of flashing a
     // free/invalid state before the promise-backed IPC handler settles.
     status: VERIFYING_STATUS,
     lastVerifiedAt: null,
-    // Slice 3.5 — main now talks to /licenses/* and reports the
+    // implementation — main now talks to /licenses/* and reports the
     // outcome through `serverSync`. The renderer mirrors whatever
     // main snapshots; the initial `'disabled'` is just the
     // pre-rehydrate placeholder and gets overwritten on the first
@@ -80,7 +80,7 @@ export function createDesktopStore(bridge: LicenseBridge) {
     serverSync: 'disabled' as const,
     devices: null,
     deviceLimit: null,
-    // Slice 4 — recoverHint is desktop-side a no-op for now. The
+    // implementation — recoverHint is desktop-side a no-op for now. The
     // main-process equivalent of the stale-token auto-pickup +
     // recover-hint fallback is filed as a Phase 2 follow-up; the
     // desktop user's stale-token UX still works via Settings →
@@ -148,7 +148,7 @@ export function createDesktopStore(bridge: LicenseBridge) {
       }
     },
     /**
-     * Slice 3.5 — desktop now delegates removeDevice to the main
+     * implementation — desktop now delegates removeDevice to the main
      * bridge, which calls `/licenses/devices/remove` with the
      * persisted token. The bridge adapter exposes a flat snapshot on
      * success; on failure we forward the tagged-union shape so the

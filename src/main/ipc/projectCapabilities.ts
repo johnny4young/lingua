@@ -1,5 +1,5 @@
 /**
- * RL-077 — Capability-based filesystem IPC sandbox.
+ * internal — Capability-based filesystem IPC sandbox.
  *
  * The renderer used to hand main absolute filesystem paths and trust
  * that a denylist (`isPathBlocked`) caught the dangerous ones. A
@@ -45,7 +45,7 @@ import {
 } from '../../shared/fs/brandedIds';
 
 /**
- * RL-132 / AUDIT-12 — the capability ids are branded `string` types so a
+ * implementation detail — the capability ids are branded `string` types so a
  * `WatchId` or a `RelativePath` can never be swapped in where a `RootId`
  * is expected (and vice versa). The brands are compile-time only and
  * erase to `string` over the IPC wire; the canonical definitions + cast

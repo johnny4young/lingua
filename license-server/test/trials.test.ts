@@ -22,7 +22,7 @@ async function postJson(path: string, body: unknown): Promise<Response> {
 }
 
 describe('POST /trials/start', () => {
-  it('returns 501 not-implemented when LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured (Slice 4 dev-disabled fallback)', async () => {
+  it('returns 501 not-implemented when LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured (implementation dev-disabled fallback)', async () => {
     const response = await postJson('/trials/start', VALID_BODY);
     expect(response.status).toBe(501);
     const body = (await response.json()) as { ok: boolean; reason: string; message?: string };
@@ -58,7 +58,7 @@ describe('POST /trials/start', () => {
   });
 
   it('rejects a malformed OS string (uppercase, whitespace, HTML-bait)', async () => {
-    // Slice 3 follow-up: the os field is informational so we no longer
+    // implementation follow-up: the os field is informational so we no longer
     // gate on a fixed enum. The validator still bounces shape
     // violations.
     const response = await postJson('/trials/start', { ...VALID_BODY, os: 'Beos OS' });
@@ -70,7 +70,7 @@ describe('POST /trials/start', () => {
   });
 
   it('accepts the web build OS string family alongside the desktop triple', async () => {
-    // Regression guard for the Slice 2.5 wiring. Slice 4 will surface
+    // Regression guard for the implementation wiring. implementation will surface
     // /trials/start to web users too; without the validator
     // relaxation, every web trial-start would bounce with
     // `invalid-input` for the same reason every web activate did.
@@ -104,7 +104,7 @@ describe('POST /trials/start', () => {
     expect(body.issues[0]).toMatch(/JSON object/);
   });
 
-  it('rejects oversized fields so a megabyte deviceName never reaches the D1 INSERT path in Slice 2', async () => {
+  it('rejects oversized fields so a megabyte deviceName never reaches the D1 INSERT path in implementation', async () => {
     const oversized = 'a'.repeat(10_000);
     const response = await postJson('/trials/start', {
       ...VALID_BODY,
@@ -160,9 +160,9 @@ describe('POST /trials/start', () => {
   });
 });
 
-// --------------------------------------------- Slice 4 — real flow tests
+// --------------------------------------------- implementation — real flow tests
 
-describe('POST /trials/start — real flow (Slice 4)', () => {
+describe('POST /trials/start — real flow ', () => {
   async function generateKeypair(): Promise<{ privateKeyJwk: JsonWebKey; publicKeyJwk: JsonWebKey }> {
     const keys = (await crypto.subtle.generateKey(
       { name: 'Ed25519' },

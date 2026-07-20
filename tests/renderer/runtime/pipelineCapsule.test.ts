@@ -1,13 +1,13 @@
 /**
- * RL-099 Slice 3 — `pipelineCapsule.ts` mapping rules.
+ * implementation — `pipelineCapsule.ts` mapping rules.
  *
  * Pinned coverage:
  *   - all-ok → capsule status 'success'; partial / all-failed /
  *     incompatible → 'error' (all 4 run-status mappings).
  *   - source.content is the RECIPE ONLY — the input data is never in it
- *     (fold F) — and is order-stable / content-hash stable.
+ *     (implementation note) — and is order-stable / content-hash stable.
  *   - result.stdout is the FINAL output (last 'ok' step's output).
- *   - result.stderr is the compact failed-step summary (fold D),
+ *   - result.stderr is the compact failed-step summary (implementation note),
  *     omitted when no step failed.
  *   - result.durationMs mirrors the run total.
  *   - input passthrough rides input.stdin.
@@ -53,7 +53,7 @@ const ARGS = {
   platform: 'web' as const,
 };
 
-describe('buildPipelineCapsule (RL-099 Slice 3 fold A bridge)', () => {
+describe('buildPipelineCapsule (implementation note bridge)', () => {
   it('maps all-ok run to capsule status "success"', async () => {
     const capsule = await buildPipelineCapsule({
       ...ARGS,
@@ -140,7 +140,7 @@ describe('buildPipelineCapsule (RL-099 Slice 3 fold A bridge)', () => {
     expect(capsule.tab.name).toBe('Utility pipeline');
   });
 
-  it('serializes the RECIPE ONLY — the input data is never in source.content (fold F)', async () => {
+  it('serializes the RECIPE ONLY — the input data is never in source.content (implementation note)', async () => {
     const secretInput = 'SUPER-SECRET-INPUT-PAYLOAD-12345';
     const capsule = await buildPipelineCapsule({
       ...ARGS,
@@ -252,7 +252,7 @@ describe('buildPipelineCapsule (RL-099 Slice 3 fold A bridge)', () => {
     expect(capsule.result.stdout).toBeUndefined();
   });
 
-  it('summarizes failed steps onto stderr (fold D)', async () => {
+  it('summarizes failed steps onto stderr (implementation note)', async () => {
     const capsule = await buildPipelineCapsule({
       ...ARGS,
       steps: [makeStep('base64-decode'), makeStep('json-format'), makeStep('base64-encode')],

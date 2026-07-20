@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 /**
- * RL-026 Slice 3 — generic LSP child-process wrapper.
+ * implementation — generic LSP child-process wrapper.
  *
  * Owns the JSON-RPC v2 framing every LSP server speaks over stdio
  * (`Content-Length: N\r\n\r\n<JSON>`). The wrapper is intentionally

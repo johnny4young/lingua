@@ -2,7 +2,7 @@
 /**
  * Dev-only helper that mints a signed Ed25519 license token for manually
  * flipping the renderer into a paid tier while you test locally. Production
- * licenses come from the RL-061 issuer — this script exists so a developer
+ * licenses come from the internal issuer — this script exists so a developer
  * can exercise Pro-gated UI in web or Electron without hitting the issuer.
  *
  * Output: JSON on stdout with FIVE fields. The two JWK fields are
@@ -16,7 +16,7 @@
  *     `jq -c` / `jq` (those re-encode and produce a JSON-string with
  *     escaped quotes — see "Common pitfall" below).
  *   - publicKeyJwkThumbprint: RFC 7638 thumbprint of publicKeyJwk
- *     (plain string, not double-encoded). RL-143 — matches the
+ *     (plain string, not double-encoded). internal — matches the
  *     'Signing key fingerprint' row in Settings → License and the
  *     key-registry id in docs/security/license-key-registry.json.
  *   - privateKeyJwkDoNotShip: STRING, same shape (`kty`, `crv`, `d`,

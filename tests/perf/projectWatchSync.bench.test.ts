@@ -1,5 +1,5 @@
 /**
- * RL-146 / AUDIT-26 — watcher delta-refresh budget.
+ * implementation detail — watcher delta-refresh budget.
  *
  * Locks the win the delta refresh delivers over the legacy full walk: on
  * a watcher burst, `applyWatchChanges` re-reads only the directories that
@@ -15,8 +15,8 @@
  *     the delta exactly 1 (the dominant real-world cost is IPC round
  *     trips, so this readdir-count drop IS the perf win);
  *   - timing: the delta completes >5x faster than the full walk
- *     (AUDIT-26 acceptance criterion), min-of-iterations to dampen noise;
- *   - structural sharing (fold D): untouched sibling branches keep their
+ *     (internal acceptance criterion), min-of-iterations to dampen noise;
+ *   - structural sharing (implementation note): untouched sibling branches keep their
  *     object identity, so React re-renders O(branch) not O(N).
  *
  * CI gets a 1.5x leniency multiplier on the required speedup, mirroring
@@ -28,7 +28,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { buildNodeIndex, type FileTreeNode } from '@/stores/projectTree';
 
 const IS_CI = process.env.CI === 'true';
-// AUDIT-26 requires >5x; on the noisier CI box, require the same headline
+// internal requires >5x; on the noisier CI box, require the same headline
 // 5x but divided by the standard 1.5 leniency so transient scheduling
 // jitter does not flake the gate (the deterministic readdir-count lock
 // below stays exact regardless).
@@ -77,7 +77,7 @@ function buildTree(byDir: Map<string, DirEntry[]>): FileTreeNode[] {
   }));
 }
 
-describe('useProjectWatchSync delta refresh — burst budget (RL-146 / AUDIT-26)', () => {
+describe('useProjectWatchSync delta refresh — burst budget', () => {
   const mockReaddir = vi.fn<(rootId: string, rel: string) => Promise<DirEntry[]>>();
 
   beforeEach(() => {
@@ -160,7 +160,7 @@ describe('useProjectWatchSync delta refresh — burst budget (RL-146 / AUDIT-26)
     // Timing lock: the delta is at least REQUIRED_SPEEDUP times faster.
     expect(deltaMs * REQUIRED_SPEEDUP).toBeLessThan(fullMs);
 
-    // Structural sharing (fold D): an untouched sibling branch keeps its
+    // Structural sharing (implementation note): an untouched sibling branch keeps its
     // object identity across the delta.
     seed();
     const before = useProjectStore.getState().nodes;
@@ -174,7 +174,7 @@ describe('useProjectWatchSync delta refresh — burst budget (RL-146 / AUDIT-26)
     );
   });
 
-  it('does zero readdir work for a pure file-content burst (fold B)', async () => {
+  it('does zero readdir work for a pure file-content burst (implementation note)', async () => {
     const byDir = buildEntries();
     mockReaddir.mockImplementation(async (_rootId, rel) => byDir.get(rel) ?? []);
     const tree = buildTree(byDir);

@@ -8,12 +8,12 @@ interface RichValueTextProps {
 }
 
 /**
- * RL-044 Slice 1B — catch-all renderer for payload kinds that don't
+ * implementation — catch-all renderer for payload kinds that don't
  * deserve their own widget today (primitives, functions, errors,
  * dates, promises, rawText, plus defensive media fallbacks).
  *
  * Prefers `formatPayloadInlineSummary` for kinds where the shared
- * Slice-1A formatter has a usable display string (`Date` / `Promise`),
+ * implementation formatter has a usable display string (`Date` / `Promise`),
  * otherwise reads the kind's natural shape (function name, error
  * message, primitive repr). The runner's pre-stringified
  * `fallbackText` is the absolute backstop — used when the payload's

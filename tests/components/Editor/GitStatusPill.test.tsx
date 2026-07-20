@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 1 — `<GitStatusPill>` render contract.
+ * implementation — `<GitStatusPill>` render contract.
  *
  * Covers:
  *   - All 4 status buckets render with their distinct visual class
@@ -96,7 +96,7 @@ describe('GitStatusPill', () => {
     expect(queryByTestId('git-status-pill')).toBeNull();
   });
 
-  it('renders null when `// @git-ignore-status` is in the buffer (fold F)', () => {
+  it('renders null when `// @git-ignore-status` is in the buffer (implementation note)', () => {
     primePosture();
     primeStatus('modified');
     const { queryByTestId } = render(
@@ -121,7 +121,7 @@ describe('GitStatusPill', () => {
     expect(useUIStore.getState().activeBottomPanel).toBe('git-diff');
   });
 
-  it('renders the context menu on right-click with 3 actions (fold C)', () => {
+  it('renders the context menu on right-click with 3 actions (implementation note)', () => {
     primePosture();
     primeStatus('modified');
     const { getByTestId, queryByTestId, getAllByRole } = render(
@@ -151,10 +151,10 @@ describe('GitStatusPill', () => {
   });
 
   // -------------------------------------------------------------------------
-  // RL-102 Slice 2 — Reveal in Source Control row enabled.
+  // implementation — Reveal in Source Control row enabled.
   // -------------------------------------------------------------------------
 
-  describe('Reveal in Source Control action (RL-102 Slice 2)', () => {
+  describe('Reveal in Source Control action ', () => {
     beforeEach(() => {
       // Install a minimal `window.lingua.git.reveal` so the menu
       // item is enabled. The actual call is tested via its return

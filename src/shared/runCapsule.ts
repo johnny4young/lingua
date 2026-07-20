@@ -1,30 +1,30 @@
 /**
- * RL-094 Slice 1 — Run Capsules.
+ * implementation — Run Capsules.
  *
  * `RunCapsuleV1` is the versioned, sanitised, JSON-serialisable record
  * of one Lingua execution: "I ran this code with this input, in this
  * environment, and got this output". The schema is the wire format
- * every downstream world-class ticket consumes:
+ * every downstream integration consumes:
  *
- *   - RL-036 share-links serialise a capsule as the URL fragment.
- *   - RL-098 CLI replays a capsule outside the GUI.
- *   - RL-031 Slice 2 attaches a capsule to AI prompt previews.
- *   - RL-097 records HTTP responses as capsules.
- *   - RL-099 pipelines emit one capsule per step.
- *   - RL-039 Slice B references a known-good capsule as the expected
+ *   - internal share-links serialise a capsule as the URL fragment.
+ *   - internal CLI replays a capsule outside the GUI.
+ *   - implementation attaches a capsule to AI prompt previews.
+ *   - internal records HTTP responses as capsules.
+ *   - internal pipelines emit one capsule per step.
+ *   - implementation references a known-good capsule as the expected
  *     output reference for a lesson.
- *   - RL-100 importers produce capsules from external formats.
+ *   - internal importers produce capsules from external formats.
  *
- * Shipping the schema first means each downstream ticket inherits the
+ * Shipping the schema first means each downstream integration inherits the
  * same redaction registry (`src/shared/redaction.ts`), the same
  * version-migration discipline (`version: 1` literal, future
  * versions hard-rejected by `parseRunCapsule`), and the same
  * round-trip contract.
  *
- * Slice 1 ships the schema + builder + sanitiser + parser + a single
+ * implementation ships the schema + builder + sanitiser + parser + a single
  * consumer (Settings → Account "Export latest run"). Import preview,
- * list view, and auto-capsule belong to Slices 2/3+. See the
- * RL-094 scope for the full sequence and
+ * list view, and auto-capsule belong to future work. See the
+ * internal scope for the full sequence and
  * `docs/CAPSULE_TEST_MATRIX.md` for the test matrix.
  */
 
@@ -39,7 +39,7 @@ import { REDACTION_VERSION, redactFlatRecord } from './redaction';
  * tells the consumer the run outcome without re-parsing the error
  * string. The four-state enum widens the legacy `'ok' | 'error'`
  * to include `'timeout'` (parent-killed) and `'stopped'` (user-Stop)
- * per RL-020 Slice 7.
+ * per implementation
  */
 export type RunCapsuleStatus = 'success' | 'error' | 'timeout' | 'stopped';
 
@@ -84,7 +84,7 @@ export interface RunCapsuleEnvironment {
   /** Optional dependency summary opaque to the schema. */
   dependencySummary?: unknown;
   /**
-   * RL-102 Slice 2 fold A — pre-run branch snapshot. Captured at
+   * implementation note — pre-run branch snapshot. Captured at
    * `executeTabManually.record()` START so a mid-run sibling-terminal
    * `git checkout` does NOT pollute the capsule with the post-checkout
    * branch. Absent on web builds (no git layer), in detached-HEAD
@@ -106,11 +106,11 @@ export interface RunCapsulePrivacy {
 }
 
 export interface RunCapsuleInput {
-  /** Optional pre-set stdin buffer (RL-020 Slice 6). May be empty. */
+  /** Optional pre-set stdin buffer . May be empty. */
   stdin?: string;
-  /** IT2-F5 — optional name of the saved input set used for this run. */
+  /** internal — optional name of the saved input set used for this run. */
   setName?: string;
-  /** IT2-F5 — optional argv snapshot, one array item per argument. */
+  /** internal — optional argv snapshot, one array item per argument. */
   args?: string[];
 }
 
@@ -256,7 +256,7 @@ export async function buildRunCapsule(
  *   - NEVER touches `source.content` — capsules are explicitly
  *     allowed to carry the source the user ran (that IS the whole
  *     point of a replay artifact). The Privacy + Trust Dashboard
- *     (RL-096) surfaces this clearly; here we just record the
+ * surfaces this clearly; here we just record the
  *     decision in `omittedFields` when the stream was clamped so
  *     downstream tooling can flag the partial capsule.
  *
@@ -277,7 +277,7 @@ export function sanitizeRunCapsule(capsule: RunCapsuleV1): RunCapsuleV1 {
     omittedFields.push('result.stderr');
   }
 
-  // RL-094 Slice 1 — dependencySummary is opaque-to-the-schema but
+  // implementation — dependencySummary is opaque-to-the-schema but
   // when it is a flat object we delegate to `redactFlatRecord` so
   // any future rule change in `shared/redaction.ts` propagates here
   // automatically (the reviewer-driven extraction guards against
@@ -347,7 +347,7 @@ export type ParseRunCapsuleResult =
 /**
  * Parses + validates a capsule JSON string. Defence in depth: even
  * when the source is a Lingua-emitted capsule we re-validate so an
- * adversarial fragment (RL-036 share-link) cannot ship a forged
+ * adversarial fragment (internal share-link) cannot ship a forged
  * version: 2 or a bag of unknown fields and reach the renderer.
  */
 export function parseRunCapsule(json: string): ParseRunCapsuleResult {
@@ -379,7 +379,7 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
       detail: `version=${String(candidate.version)}`,
     };
   }
-  // Shallow required-field check. Downstream tickets that need
+  // Shallow required-field check. Downstream integrations that need
   // tighter assertions wrap this with their own schema validator
   // (cheaper than pulling Zod into shared).
   const required: Array<keyof RunCapsuleV1> = [
@@ -571,7 +571,7 @@ export function summarizeRunCapsule(capsule: RunCapsuleV1): string {
  *     is always present in Lingua's Electron target.
  *   - **Web Workers** — `crypto.subtle` is present in Workers since
  *     Chromium 95; safe for Lingua's pinned Electron.
- *   - **Node (CLI / tests / future RL-098)** — present since Node 19.
+ *   - **Node (CLI / tests / future internal)** — present since Node 19.
  *     Older Node would need a polyfill before calling.
  *
  * Throw path: reachable only in environments without Web Crypto

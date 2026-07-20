@@ -18,11 +18,11 @@ function evt(overrides: Partial<TrustEvent> & Pick<TrustEvent, 'feature' | 'at'>
 }
 
 /**
- * RL-044 next slice fold E — the console image clipboard paste surface
+ * implementation next slice implementation note — the console image clipboard paste surface
  * is disclosed in the Privacy + Trust dashboard network table as a
  * local-only, in-memory feature.
  */
-describe('Privacy dashboard — consoleImagePaste row (RL-044 fold E)', () => {
+describe('Privacy dashboard — consoleImagePaste row ', () => {
   it('registers consoleImagePaste in the closed feature enum', () => {
     expect(NETWORK_ACTIVITY_FEATURES).toContain('consoleImagePaste');
   });
@@ -44,7 +44,7 @@ describe('Privacy dashboard — consoleImagePaste row (RL-044 fold E)', () => {
   });
 });
 
-describe('latestEventAtByFeature (RL-096 Slice 2)', () => {
+describe('latestEventAtByFeature ', () => {
   it('returns the newest at per feature from an unordered log', () => {
     const latest = latestEventAtByFeature([
       evt({ feature: 'capsule-export', at: 100 }),
@@ -69,7 +69,7 @@ describe('latestEventAtByFeature (RL-096 Slice 2)', () => {
   });
 });
 
-describe('buildNetworkActivityRows — license lastCall (RL-096 Slice 2 fold C)', () => {
+describe('buildNetworkActivityRows — license lastCall (implementation note)', () => {
   it('threads licenseVerifyLastAt onto the license row', () => {
     const rows = buildNetworkActivityRows({
       telemetryConsent: 'granted',

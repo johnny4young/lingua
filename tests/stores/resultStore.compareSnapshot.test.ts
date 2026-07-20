@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 8 — result store snapshot ring + pin coverage.
+ * implementation — result store snapshot ring + pin coverage.
  *
  * Covers:
  *   - `captureSuccessfulSnapshot(language)` writes `language` +
@@ -16,7 +16,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
 
-describe('RL-020 Slice 8 — result store snapshot ring', () => {
+describe('implementation — result store snapshot ring', () => {
   beforeEach(() => {
     useResultStore.getState().clear();
   });

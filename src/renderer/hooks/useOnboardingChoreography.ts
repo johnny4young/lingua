@@ -23,7 +23,7 @@ import { emitCommand } from '../stores/commandBus';
 import { useTelemetry, type TelemetryTrack } from './useTelemetry';
 
 /**
- * RL-101 Onboarding Choreography Slice 1.
+ * internal Onboarding Choreography implementation.
  *
  * Three persisted one-shot flags drive a silent three-step welcome
  * sequence whose goal is "a fresh user reaches their first successful
@@ -32,16 +32,16 @@ import { useTelemetry, type TelemetryTrack } from './useTelemetry';
  *   1. **Welcome seed** — when no tabs survived `restoreSession` and
  *      `hasCompletedOnboardingWelcome !== true` (or the persisted
  *      `onboardingWelcomeSeedVersion` is older than the current
- *      `SEEDED_SCRATCHPAD_VERSION` — fold E), inject a pre-seeded
+ *      `SEEDED_SCRATCHPAD_VERSION` — implementation note), inject a pre-seeded
  *      JavaScript scratchpad so the editor is never empty on first
  *      open.
  *
  *   2. **First successful run** — subscribe to the execution-history
  *      store; the first time an `ok` entry lands and the flag is
  *      still false, fire a success toast with a single "Save as
- *      snippet" CTA (fold A's `StatusNotice.actions` field). The
+ *      snippet" CTA (implementation note's `StatusNotice.actions` field). The
  *      CTA calls `useSnippetsStore.addSnippet({label: activeTab.name,
- *      ...})` directly (fold C — no naming modal) and the snippet's
+ *      ...})` directly (implementation note — no naming modal) and the snippet's
  *      arrival drives stage 3.
  *
  *   3. **First snippet save** — subscribe to the snippets-store
@@ -220,7 +220,7 @@ function handleFirstSuccessfulRun(track: TelemetryTrack, language: string): void
   const saveAction: StatusNoticeAction = {
     labelKey: 'onboarding.firstRun.cta',
     onClick: () => {
-      // Fold C — save the active tab with its current name, no
+      // implementation note — save the active tab with its current name, no
       // modal prompt. Falls back to a generic name if the tab is
       // somehow unnamed (defensive — the seeded scratchpad is
       // always named).
@@ -250,13 +250,13 @@ function handleFirstSuccessfulRun(track: TelemetryTrack, language: string): void
     tone: 'success',
     messageKey: 'onboarding.firstRun.message',
     actions: [saveAction],
-    // RL-101 Slice 1.5 fold B — `'high'` priority guarantees this
+    // implementation note — `'high'` priority guarantees this
     // toast cannot be clobbered by any `'normal'` notice push
     // (the implicit default for 134 existing callers). Surfaced by
-    // the Slice 1 reviewer pass after a boot-time notice was
+    // the implementation reviewer pass after a boot-time notice was
     // observed displacing the first-run toast within ~600 ms.
     priority: 'high',
-    // RL-101 Slice 1.5 fold A — production diagnostic when the
+    // implementation note — production diagnostic when the
     // priority saves the toast. Tells us how often the new field
     // does real work in the wild.
     onSurvived: () => {
@@ -299,12 +299,12 @@ function handleFirstSnippetSave(track: TelemetryTrack): void {
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: 'onboarding.firstSnippet.message',
-    // RL-101 Slice 1.5 fold B — same priority rationale as the
+    // implementation note — same priority rationale as the
     // first-run toast above; the library-tip toast must survive any
     // normal-tier notice push for the ~6 s the user needs to read
     // it.
     priority: 'high',
-    // RL-101 Slice 1.5 fold A — clobber-attempt telemetry.
+    // implementation note — clobber-attempt telemetry.
     onSurvived: () => {
       track('onboarding.toast_clobbered', {
         outstandingStage: 'first_snippet',

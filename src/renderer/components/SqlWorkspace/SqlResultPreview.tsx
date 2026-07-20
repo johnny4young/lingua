@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 — Right column: render the latest SQL response.
+ * implementation — Right column: render the latest SQL response.
  *
  * FASE 3 (MOV.02/03) — Signal-Slate polish. The header converged onto
  * the shared `<ResultHeader>` (StatusBadge + mono `rows · timing` meta +
@@ -17,7 +17,7 @@
  *     active body tab.
  *   - Footer: Save-as-snippet nudge on a successful run.
  *
- * Folds wired here:
+ * implementation note here:
  *
  *   - **D** — Copy as CSV / JSON / Markdown buttons in the header when
  *     a successful result is in view.
@@ -125,7 +125,7 @@ export interface SqlResultPreviewProps {
   /** Select a history entry to view (by index into `responses`). */
   onSelectResponse?: (index: number) => void;
   /**
-   * T19 — the current editor text of the active query, used as the code
+   * implementation — the current editor text of the active query, used as the code
    * context for the AI "Explain this error" trigger. A recorded response does
    * NOT store the SQL that produced it, so a historical run being viewed can't
    * be reconstructed; the trigger is therefore only offered for the newest run
@@ -134,7 +134,7 @@ export interface SqlResultPreviewProps {
    */
   querySource?: string;
   /**
-   * T19 apply-&-re-run: replace the active query's SQL with the AI
+   * implementation apply-&-re-run: replace the active query's SQL with the AI
    * suggestion and run it. Offered only alongside `querySource` (newest
    * run), since applying over a historical view would be incoherent.
    */

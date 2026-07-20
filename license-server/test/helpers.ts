@@ -5,7 +5,7 @@
  * requires vitest 4.x which the parent repo isn't on yet, and
  * better-sqlite3 needs native compilation. The tests we run here only
  * need three SQL shapes (INSERT, SELECT one, UPDATE) so a 100-line
- * Map-backed double covers everything Slice 2 exercises.
+ * Map-backed double covers everything implementation exercises.
  *
  * The mock is permissive: it does NOT enforce CHECK constraints or
  * UNIQUE indexes. Tests that need to verify those constraints belong
@@ -86,7 +86,7 @@ function recoveryTierPriority(tier: string): number {
 class MockD1Database {
   licenses = new Map<string, LicenseRow>();
   devices = new Map<string, DeviceRow>();
-  // Slice 4 — RL-061
+  // implementation — internal
   trials = new Map<string, TrialRow>();
   educations = new Map<string, EducationRow>();
   educationPending = new Map<string, PendingConfirmationRow>();
@@ -184,7 +184,7 @@ class MockStatement {
       ).length;
       return [{ n: count }];
     }
-    // ------- Slice 4 — trials / educations / pending tables / email lookup
+    // ------- implementation — trials / educations / pending tables / email lookup
     if (q.startsWith('SELECT * FROM trials WHERE email =')) {
       const [email] = this.boundParams as [string];
       const row = [...this.db.trials.values()].find((r) => r.email === email);
@@ -446,7 +446,7 @@ class MockStatement {
       }
       return changes;
     }
-    // ------------------------------------------ Slice 4 — RL-061 inserts
+    // ------------------------------------------ implementation — internal inserts
     if (q.startsWith('INSERT INTO trials')) {
       const [id, email, device_id, license_id, issued_at] = this.boundParams as [
         string,

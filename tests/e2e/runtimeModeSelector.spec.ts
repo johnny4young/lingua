@@ -1,10 +1,10 @@
 /**
- * RL-019 Slice 1 — Playwright smoke for the JS/TS runtime-mode
+ * implementation — Playwright smoke for the JS/TS runtime-mode
  * selector.
  *
- * Locks the Slice 1 contract surface:
+ * Locks the implementation contract surface:
  *   - The action pill runtime chip renders for JS tabs (default `Worker`).
- *   - Dropdown shows three enabled runtime choices after Slice 2 closed RL-019.
+ *   - Dropdown shows three enabled runtime choices after implementation closed internal
  *   - The chip is hidden for non-JS/TS tabs.
  *   - Spanish locale renders the localized menu descriptions.
  */
@@ -23,7 +23,7 @@ import {
   test,
 } from './licenseWeb.helpers';
 
-test.describe('Runtime mode selector (RL-019)', () => {
+test.describe('Runtime mode selector', () => {
   test('renders Worker as the active mode on a fresh JS tab', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
@@ -35,7 +35,7 @@ test.describe('Runtime mode selector (RL-019)', () => {
     await expect(button).toContainText('Worker');
   });
 
-  test('dropdown lists three enabled options after Slice 2', async ({ page }) => {
+  test('dropdown lists three enabled options after implementation', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -87,7 +87,7 @@ test.describe('Runtime mode selector (RL-019)', () => {
     const optionValues = await select.locator('option').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)
     );
-    // F-1 runtimes added Deno and Bun as first-class desktop modes.
+    // implementation runtimes added Deno and Bun as first-class desktop modes.
     expect(optionValues).toEqual(['worker', 'node', 'browser-preview', 'deno', 'bun']);
     const disabledValues = await select.locator('option[disabled]').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)

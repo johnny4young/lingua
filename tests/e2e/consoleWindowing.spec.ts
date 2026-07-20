@@ -1,5 +1,5 @@
 /**
- * RL-123 / AUDIT-03 Slice 2 — console list windower (web e2e).
+ * implementation detail implementation — console list windower (web e2e).
  *
  * Validates in real Chromium what jsdom cannot: that a flooded 500-row
  * console mounts only a viewport-sized slice of rows, that sticky
@@ -50,7 +50,7 @@ async function seedConsole(
   entries: ConsoleEntrySeed[]
 ): Promise<void> {
   await seedSession(page, { language: 'en' });
-  await page.goto('/?e2e=rich-console-slice2a');
+  await page.goto('/?e2e=rich-console-gallery');
   await expect(page.getByTestId('rich-console-e2e-fixture')).toBeVisible();
   await expect.poll(() => page.evaluate(() => Boolean(window.__linguaE2e))).toBe(true);
   await page.evaluate((seeded) => {
@@ -61,7 +61,7 @@ async function seedConsole(
   }, entries);
 }
 
-test.describe('console windowing (RL-123 / AUDIT-03 Slice 2)', () => {
+test.describe('console windowing (implementation detail implementation)', () => {
   test('mounts only a viewport-sized slice for a 500-row session and pins to bottom', async ({
     page,
   }) => {

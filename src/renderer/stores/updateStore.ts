@@ -12,7 +12,7 @@ type UpdateStore = UpdateState & {
 };
 
 /**
- * RL-065 Slice 5 fold D — fire `update.checked` telemetry on every
+ * implementation note — fire `update.checked` telemetry on every
  * transition out of `checking`. Closed-enum status:
  *   `available`  — autoupdater found an update (available/downloaded).
  *   `no-update`  — autoupdater confirmed we're current.
@@ -86,7 +86,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   restartToApply: async () => window.lingua.updates.restartToApply(),
 }));
 
-// RL-065 Slice 5 fold D — subscribe at module load so every transition
+// implementation note — subscribe at module load so every transition
 // out of `checking` (whether triggered by the manual check action, the
 // autoupdater's hourly setInterval, or a direct refresh()) yields one
 // `update.checked` telemetry event. Subscribing covers all three call
@@ -97,7 +97,7 @@ useUpdateStore.subscribe((next, prev) => {
   const status = resolveCheckedStatus(next.status);
   if (status === null) return;
   void trackEvent('update.checked', { status });
-  // RL-096 Slice 2 fold A — mirror the update-check egress into the local
+  // implementation note — mirror the update-check egress into the local
   // trust log so the Privacy dashboard's `updates` row shows a real last
   // call. Metadata only (closed-enum outcome status); no version strings.
   recordTrustEventBestEffort({

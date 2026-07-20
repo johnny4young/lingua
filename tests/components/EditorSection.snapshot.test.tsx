@@ -1,5 +1,5 @@
 /**
- * RL-028 sixth slice — Editor settings: execution-history snapshot toggle.
+ * implementation — Editor settings: execution-history snapshot toggle.
  *
  * Verifies the toggle is visible + functional for Pro users, locked
  * behind an upsell CTA for Free users, and that flipping it persists
@@ -48,7 +48,7 @@ function setFreeLicense() {
   });
 }
 
-describe('EditorSection — execution-history snapshot toggle (RL-028)', () => {
+describe('EditorSection — execution-history snapshot toggle', () => {
   const initialSettings = useSettingsStore.getState();
   const initialLicense = useLicenseStore.getState();
 

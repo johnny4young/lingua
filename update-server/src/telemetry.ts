@@ -1,5 +1,5 @@
 /**
- * RL-065 Slice 5 — telemetry export endpoint.
+ * implementation — telemetry export endpoint.
  *
  * Accepts privacy-respecting events POSTed from the renderer (only
  * after the user has granted consent in Settings → Privacy). Every
@@ -29,7 +29,7 @@ import { log } from './lib/observability';
 export const TELEMETRY_EVENT_NAMES = [
   'app.launched',
   'app.boot_phase',
-  // IT2-D3 — mirror of the runtime bootstrap events.
+  // internal — mirror of the runtime bootstrap events.
   'runtime.bootstrap_completed',
   'runtime.bootstrap_failed',
   'runner.executed',
@@ -45,265 +45,265 @@ export const TELEMETRY_EVENT_NAMES = [
   'runtime.mode_changed',
   'runtime.auto_run_gated',
   'runtime.browser_preview_auto_refresh',
-  // RL-020 Slice 8 — mirror of `runtime.compare_view_toggled`.
+  // implementation — mirror of `runtime.compare_view_toggled`.
   'runtime.compare_view_toggled',
   'runtime.workflow_mode_changed',
   'runtime.magic_comment_emitted',
   'runtime.history_replay',
-  // RL-044 next slice — mirror of `runtime.image_clipboard_pasted`.
+  // implementation detail — mirror of `runtime.image_clipboard_pasted`.
   // The parity test enforces both event arrays + the status set stay
   // aligned at CI time.
   'runtime.image_clipboard_pasted',
-  // RL-020 Slice 5 — mirror of `runtime.auto_log_enabled` /
+  // implementation — mirror of `runtime.auto_log_enabled` /
   // `runtime.auto_log_emitted` in `src/shared/telemetry.ts`. The
   // parity test enforces both arrays stay aligned at CI time.
   'runtime.auto_log_enabled',
   'runtime.auto_log_emitted',
-  // RL-020 Slice 6 — mirror of `runtime.stdin_used` in
+  // implementation — mirror of `runtime.stdin_used` in
   // `src/shared/telemetry.ts`. The parity test enforces drift.
   'runtime.stdin_used',
-  // RL-019 Slice 2 — mirror of `runtime.node_runner_used`.
+  // implementation — mirror of `runtime.node_runner_used`.
   'runtime.node_runner_used',
-  // RL-020 Slice 7 — mirror of `runtime.timeout_preset_changed`.
+  // implementation — mirror of `runtime.timeout_preset_changed`.
   'runtime.timeout_preset_changed',
-  // RL-020 Slice 9 — mirror of `runtime.variable_inspector_opened`.
+  // implementation — mirror of `runtime.variable_inspector_opened`.
   'runtime.variable_inspector_opened',
-  // RL-093 Slice 3 fold F — mirror of
+  // implementation note — mirror of
   // `runtime.variable_inspector_surface_changed`. Closed-enum payload
   // `{ surface }` where `surface` is `'floating'` or `'bottom'`.
   'runtime.variable_inspector_surface_changed',
-  // RL-044 Slice 1B — mirror of `runtime.console_rich_rendered`.
+  // implementation — mirror of `runtime.console_rich_rendered`.
   // Closed-enum payload `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
   'runtime.console_rich_rendered',
-  // RL-044 Slice 1B fold F — mirror of `runtime.console_table_called`.
+  // implementation note — mirror of `runtime.console_table_called`.
   // Closed-enum payload `{ language }` only.
   'runtime.console_table_called',
-  // RL-044 Sub-slice G.1 Fold D — mirror of
+  // implementation Sub-slice G.1 implementation note — mirror of
   // `runtime.cursor_pulse_emitted`. Closed-enum `{ language }` only.
   'runtime.cursor_pulse_emitted',
-  // RL-044 Slice 1C fold B — mirror of
+  // implementation note — mirror of
   // `runtime.python_console_payload_emitted`. Closed-enum
   // `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
   'runtime.python_console_payload_emitted',
-  // RL-044 Slice 2a — mirror of `runtime.error_stack_frame_clicked`.
+  // implementation — mirror of `runtime.error_stack_frame_clicked`.
   // Closed-enum `{ language }` only.
   'runtime.error_stack_frame_clicked',
-  // RL-044 Slice 2a — mirror of `runtime.rich_media_payload_rejected`.
+  // implementation — mirror of `runtime.rich_media_payload_rejected`.
   // Closed-enum `{ kind, reason }`.
   'runtime.rich_media_payload_rejected',
-  // RL-044 Slice 2b-β-β-α fold E — mirror of
+  // implementation-β-β-α implementation note — mirror of
   // `runtime.python_rich_media_used`. Closed-enum `{ kind }` from
   // `RICH_MEDIA_REJECTED_KINDS` (chart / image / html).
   'runtime.python_rich_media_used',
-  // RL-042 Slice 6 — mirror of `runtime.ruby_runner_dispatched`.
+  // implementation — mirror of `runtime.ruby_runner_dispatched`.
   // Closed-enum `{ mode, bucketedSpawnMs }`.
   'runtime.ruby_runner_dispatched',
-  // RL-042 Slice 6 — mirror of `runtime.ruby_runtime_preference_changed`.
+  // implementation — mirror of `runtime.ruby_runtime_preference_changed`.
   // Closed-enum `{ preference }`.
   'runtime.ruby_runtime_preference_changed',
-  // RL-024 Slice 1 — mirror of
+  // implementation — mirror of
   // `runtime.fs_directory_picker_unsupported`. Closed-enum
   // `{ userAgentBucket }`.
   'runtime.fs_directory_picker_unsupported',
-  // RL-094 Slice 3 fold G — mirror of `capsule.browse_opened`.
+  // implementation note — mirror of `capsule.browse_opened`.
   // Closed-enum `{ surface, tier }` where `surface ∈
   // CAPSULE_BROWSE_SURFACES` and `tier` is an open safe-token.
   'capsule.browse_opened',
-  // RL-094 Slice 4 — mirror of `capsule.compared`. Closed-enum
+  // implementation — mirror of `capsule.compared`. Closed-enum
   // `{ sameLanguage }` boolean. Sorts after `capsule.browse_opened`,
   // before `capsule.exported`.
   'capsule.compared',
-  // RL-094 Slice 1 fold A — mirror of `capsule.exported`. Closed-enum
+  // implementation note — mirror of `capsule.exported`. Closed-enum
   // `{ trigger, sizeBucket }` from `CAPSULE_EXPORT_TRIGGERS` /
   // `CAPSULE_SIZE_BUCKETS`.
   'capsule.exported',
-  // RL-094 Slice 2 fold D — mirror of `capsule.imported`. Closed-
+  // implementation note — mirror of `capsule.imported`. Closed-
   // enum `{ surface, status, sizeBucket }` from
   // `CAPSULE_IMPORT_SOURCES` / `CAPSULE_IMPORT_STATUSES` /
   // `CAPSULE_SIZE_BUCKETS`. Property is named `surface` (not
   // `sourceSurface`) because `source` is in DENY_SUBSTRINGS —
-  // same precedent as `language_scorecard_viewed` from RL-095.
+  // same precedent as `language_scorecard_viewed` from internal
   // Parity test below extracts the literal arrays from both files
   // so an edit on the renderer side that forgets the server side
   // fails CI.
   'capsule.imported',
-  // RL-095 Slice 1 fold A — mirror of `language_scorecard_viewed`.
+  // implementation note — mirror of `language_scorecard_viewed`.
   // Closed-enum `{ surface }` from `LANGUAGE_SCORECARD_SURFACES`. The
   // property is named `surface` (not `source`) because the redactor
   // strips any key whose lowercased name contains 'source'.
-  // RL-095 Slice 2 — scorecard Web/Desktop toggle adoption signal.
+  // implementation — scorecard Web/Desktop toggle adoption signal.
   'language_scorecard_platform_toggled',
   'language_scorecard_viewed',
-  // RL-036 Phase A1 fold B + G — mirror of `share.created`. Closed-
+  // implementation Phase A1 implementation note — mirror of `share.created`. Closed-
   // enum `{ trigger, status, sizeBucket }` from
   // `SHARE_CREATE_TRIGGERS` / `SHARE_CREATE_STATUSES` /
   // `SHARE_SIZE_BUCKETS`.
   'share.created',
-  // RL-036 Phase A1 fold B + G — mirror of `share.opened`. Closed-
+  // implementation Phase A1 implementation note — mirror of `share.opened`. Closed-
   // enum `{ status, sizeBucket }` from `SHARE_OPEN_STATUSES` /
   // `SHARE_SIZE_BUCKETS`.
   'share.opened',
-  // RL-101 Slice 1 — mirrors of the onboarding choreography events.
+  // implementation — mirrors of the onboarding choreography events.
   // Closed-enum payloads match the renderer side: `language` ∈
   // `ONBOARDING_LANGUAGE_IDS`, `stage` ∈ `ONBOARDING_TOAST_STAGES`,
-  // `dismissMode` ∈ `ONBOARDING_DISMISS_MODES` (fold B).
+  // `dismissMode` ∈ `ONBOARDING_DISMISS_MODES` (implementation note).
   'onboarding.first_run_completed',
   'onboarding.first_snippet_saved',
   'onboarding.toast_dismissed',
-  // RL-101 Slice 1.5 fold A — mirror of `onboarding.toast_clobbered`.
+  // implementation note — mirror of `onboarding.toast_clobbered`.
   // Closed-enum `{ outstandingStage }` from `ONBOARDING_TOAST_STAGES`.
   'onboarding.toast_clobbered',
-  // RL-096 Slice 1 fold A — mirror of `privacy.dashboard_opened`.
+  // implementation note — mirror of `privacy.dashboard_opened`.
   // Closed-enum `{ surface }` from `PRIVACY_DASHBOARD_SURFACES`.
   'privacy.dashboard_opened',
-  // RL-024 Slice 3 — mirrors of the project zip bundle events.
+  // implementation — mirrors of the project zip bundle events.
   'project.bundle_exported',
   'project.bundle_imported',
   'project.bundle_rejected',
-  // RL-025 Slice A — mirrors of the dependency detection events.
+  // implementation — mirrors of the dependency detection events.
   // Closed-enum `{ language, countBucket }` for per-cycle detection;
   // `{ language }` for the once-per-(tab, language) banner; bucketed
-  // rollup for fold F. `language` is validated by the renderer-side
+  // rollup for implementation note. `language` is validated by the renderer-side
   // `isSafeToken`; both sides drop unknown property keys silently.
   'dependency.detected_in_tab',
   'dependency.banner_shown',
   'dependency.classifications_summary',
-  // RL-025 Slice B — mirrors of the install lifecycle events. Closed
+  // implementation — mirrors of the install lifecycle events. Closed
   // enums DEPENDENCY_INSTALL_OUTCOMES / DEPENDENCY_INSTALL_FAILURE_REASONS
   // duplicated below; the parity test cross-imports the renderer source
   // of truth so the two copies cannot drift.
   'dependency.install_started',
   'dependency.install_completed',
   'dependency.install_failed_reason',
-  // RL-044 Sub-slice G — mirror of `runtime.output_origin_clicked`.
+  // implementation — mirror of `runtime.output_origin_clicked`.
   // Closed-enum `{ language, surface }` where `surface` ∈
   // `OUTPUT_ORIGIN_SURFACES` (`'badge'` only today). Hover path
   // intentionally does not emit; widening would require a paired
   // edit here + in `src/shared/telemetry.ts`.
   'runtime.output_origin_clicked',
-  // RL-102 Slice 1 fold D — Git read-only layer attachment signal.
+  // implementation note — Git read-only layer attachment signal.
   // Closed-enum `{ repoState }` ∈ `GIT_LAYER_REPO_STATES`.
   'git.layer_attached',
-  // RL-102 Slice 1 fold D — Git diff panel discovery signal. Pure
+  // implementation note — Git diff panel discovery signal. Pure
   // counter; no payload.
   'git.diff_panel_opened',
-  // RL-102 Slice 2 — `.git/HEAD` change signal. Closed-enum
+  // implementation — `.git/HEAD` change signal. Closed-enum
   // `{ repoState, branchChanged }` mirrored from src/shared/telemetry.ts.
   // Renderer only emits when the branch actually changed; the
   // boolean field stays as future-proofing for commit-only signal.
   'git.head_changed',
-  // RL-102 Slice 2 — Reveal-in-Source-Control click. Closed-enum
+  // implementation — Reveal-in-Source-Control click. Closed-enum
   // `{ target }` ∈ REVEAL_IN_SC_TARGETS.
   'git.reveal_in_source_control_clicked',
-  // RL-102 Slice 2 fold E — external-modification reload outcome.
+  // implementation note — external-modification reload outcome.
   // Closed-enum `{ mode }` ∈ EXTERNAL_RELOAD_MODES. The
   // `'auto-applied'` slot is reserved; renderer never emits it
   // today.
   'git.external_modification_reload',
-  // RL-103 Slice 1 fold B — Curated project template applied. Mirror
+  // implementation note — Curated project template applied. Mirror
   // of src/shared/telemetry.ts. Closed-enum
   // `{ templateId, language }` where `templateId` ∈
   // `TEMPLATE_PROJECT_IDS` and `language` ∈ language pack ids.
   'template_project_applied',
-  // RL-024 Slice 2 — Replace in files applied. Closed-enum
+  // implementation — Replace in files applied. Closed-enum
   // `{ scope, countBucket, regex }` mirrored from
   // src/shared/telemetry.ts. Parity test cross-imports the renderer
   // REPLACE_IN_FILES_SCOPES set.
   'editor.replace_in_files_applied',
-  // RL-097 Slice 1 fold F — HTTP workspace request execution. Closed-enum
+  // implementation note — HTTP workspace request execution. Closed-enum
   // `{ method, statusBucket, redactedHeadersBucket }` mirrored from
   // src/shared/telemetry.ts. Parity test cross-imports HTTP_METHODS_SET
   // and HTTP_STATUS_BUCKETS_SET.
   'http.request_executed',
-  // RL-100 Slice 1 fold E — Importer registry commit. Closed-enum
+  // implementation note — Importer registry commit. Closed-enum
   // `{ importerId, status, sizeBucket }` mirrored from
   // src/shared/telemetry.ts. Parity test cross-imports
   // IMPORTER_IDS_SET and IMPORT_STATUSES_SET.
   'import.applied',
-  // RL-100 Slice 2 fold E — `.ipynb` warning band. Closed-enum
+  // implementation note — `.ipynb` warning band. Closed-enum
   // `{ warningKindCount, dominantKind }` mirrored from
   // src/shared/telemetry.ts. Parity test cross-imports
   // NOTEBOOK_WARNING_KINDS_SET.
   'import.notebook_warnings_surfaced',
-  // RL-100 Slice 3.5 (Postman vars) fold B — collection-variable
+  // implementation (Postman vars) implementation note — collection-variable
   // resolution outcome. Closed-enum `{ resolvedBucket, unresolvedBucket }`
   // (both ∈ DEPENDENCY_COUNT_BUCKETS) mirrored from
   // src/shared/telemetry.ts. NO variable names / values / URLs on the wire.
   'import.postman_variables_resolved',
-  // RL-097 Slice 2 fold F — SQL workspace query execution. Closed-enum
+  // implementation note — SQL workspace query execution. Closed-enum
   // `{ status, rowCountBucket, durationBucket }` mirrored from
   // src/shared/telemetry.ts. Parity test cross-imports
   // SQL_QUERY_STATUSES_SET and SQL_DURATION_BUCKETS_SET.
   'sql.query_executed',
-  // IT2-F3 — Column Explorer opened. Deliberately has no payload.
+  // internal — Column Explorer opened. Deliberately has no payload.
   'sql.profile_opened',
-  // RL-097 Slice 3 (SQL OPFS) fold F — SQL workspace storage backing.
+  // implementation (SQL OPFS) implementation note — SQL workspace storage backing.
   // Closed-enum `{ mode, requested }` (both ∈ SQL_STORAGE_MODES_SET)
   // mirrored from src/shared/telemetry.ts. Parity test cross-imports
   // SQL_STORAGE_MODES_SET.
   'sql.storage_mode',
-  // RL-097 (SQL import) fold B — file imported as a DuckDB table.
+  // implementation (SQL import) implementation note — file imported as a DuckDB table.
   // Closed-enum `{ format, source }` where `format` ∈
   // SQL_IMPORT_FORMATS_SET and `source` ∈ SQL_IMPORT_SOURCES_SET,
   // mirrored from src/shared/telemetry.ts. Parity test cross-imports
   // both sets. NO file name / column names / row values on the wire.
   'sql.table_imported',
-  // RL-099 Slice 1 fold F — utility pipeline execution. Closed-enum
+  // implementation note — utility pipeline execution. Closed-enum
   // `{ stepCount, status }` mirrored from src/shared/telemetry.ts.
   // Parity test cross-imports PIPELINE_RUN_STATUSES_SET.
   'utility.pipeline_executed',
-  // RL-099 Slice 5 fold A — pipeline template gallery adoption.
+  // implementation note — pipeline template gallery adoption.
   // Closed-enum `{ templateId }` (∈ PIPELINE_TEMPLATE_IDS_SET) mirrored
   // from src/shared/telemetry.ts. Parity test cross-imports the set.
   'utility.pipeline_template_used',
-  // RL-039 Slice B fold B — Recipes overlay open + Run + Test
+  // implementation Slice B implementation note — Recipes overlay open + Run + Test
   // settle. Closed-enum `{ language }` + `{ language, status }`
   // mirrored from src/shared/telemetry.ts. Parity test cross-imports
   // RECIPE_RUN_STATUSES_SET.
   'recipe.opened',
   'recipe.test_run',
-  // RL-043 Slice A fold B — notebook cell execution. Closed-enum
+  // implementation Slice A implementation note — notebook cell execution. Closed-enum
   // `{ language, status }` mirrored from src/shared/telemetry.ts.
   // 3-way parity test cross-imports the canonical
   // NOTEBOOK_CELL_STATUSES tuple from
   // src/renderer/runtime/notebookSession.ts.
-  // RL-043 Slice (Monaco cells) fold E — cell editor mounted. Closed-enum
+  // implementation Slice (Monaco cells) implementation note — cell editor mounted. Closed-enum
   // `{ language }` mirrored from src/shared/telemetry.ts. Sorts before
   // `cell_executed`.
   'notebook.cell_editor_mounted',
   'notebook.cell_executed',
-  // RL-043 Slice C fold E — notebook cell language switch. Closed-enum
+  // implementation Slice C implementation note — notebook cell language switch. Closed-enum
   // `{ to }` mirrored from src/shared/telemetry.ts.
   'notebook.cell_language_changed',
-  // RL-043 Slice D fold D — notebook export. Closed-enum `{ format }`
+  // implementation Slice D implementation note — notebook export. Closed-enum `{ format }`
   // mirrored from src/shared/telemetry.ts.
   'notebook.exported',
-  // RL-126 — persisted-store schema migration. Mirror of
+  // internal — persisted-store schema migration. Mirror of
   // src/shared/telemetry.ts; `store` is a safe localStorage key token
   // (closed-enum at the renderer call site).
   'persistence.migrated',
-  // RL-137 / AUDIT-17 — mirror of src/shared/telemetry.ts. Closed payload
+  // implementation detail — mirror of src/shared/telemetry.ts. Closed payload
   // `{ family }` ∈ FS_BLOCKED_FAMILIES; no path reaches the wire.
   'fs.blocked',
-  // RL-111 — mirror of src/shared/telemetry.ts. `session.restored`
+  // internal — mirror of src/shared/telemetry.ts. `session.restored`
   // `{ tabCount, source∈{auto,prompt} }`; `session.snapshotDiscarded`
   // `{ tabCount }`. Count only; no tab names/paths/content.
   'session.restored',
   'session.snapshotDiscarded',
-  // RL-108 — mirror of src/shared/telemetry.ts. `{ language, severity, ruleId }`;
+  // internal — mirror of src/shared/telemetry.ts. `{ language, severity, ruleId }`;
   // counts/enums only, no code or positions.
   'editor.lint_diagnostic_emitted',
-  // RL-110 — mirror of src/shared/telemetry.ts. `{ handler }` and
+  // internal — mirror of src/shared/telemetry.ts. `{ handler }` and
   // `{ handler, accepted }`; enums/boolean only, no pasted content.
   'editor.smart_paste_shown',
   'editor.smart_paste_applied',
-  // RL-112 — mirror of src/shared/telemetry.ts. `{ enabled }`; boolean only.
+  // internal — mirror of src/shared/telemetry.ts. `{ enabled }`; boolean only.
   'editor.status_bar_toggled',
-  // IT2-C1 — mirror of src/shared/telemetry.ts. The Run Ledger opt-in
+  // internal — mirror of src/shared/telemetry.ts. The Run Ledger opt-in
   // carries only `{ enabled }`; clearing it intentionally carries no data.
   'ledger.toggled',
   'ledger.cleared',
-  // RL-109 close-out — mirror of src/shared/telemetry.ts. `{ hasProjectVars }`;
+  // internal close-out — mirror of src/shared/telemetry.ts. `{ hasProjectVars }`;
   // boolean only, no env keys/values/paths.
   'env.project_scope_used',
 ] as const;
@@ -333,81 +333,81 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.mode_changed': ['mode', 'language'],
   'runtime.auto_run_gated': ['language', 'reason'],
   'runtime.browser_preview_auto_refresh': ['language', 'intervalMs'],
-  // RL-020 Slice 8 — mirror of `runtime.compare_view_toggled`.
+  // implementation — mirror of `runtime.compare_view_toggled`.
   'runtime.compare_view_toggled': ['language', 'enabled'],
   'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
   'runtime.magic_comment_emitted': ['language', 'hasArrow', 'hasWatch'],
   'runtime.history_replay': ['language', 'status', 'surface'],
-  // RL-044 next slice — mirror of `runtime.image_clipboard_pasted`.
+  // implementation detail — mirror of `runtime.image_clipboard_pasted`.
   'runtime.image_clipboard_pasted': ['status', 'sizeBucket'],
   'runtime.auto_log_enabled': ['language', 'enabled'],
   'runtime.auto_log_emitted': ['language', 'countBucket'],
   'runtime.stdin_used': ['language'],
-  // RL-019 Slice 2 — mirror of `runtime.node_runner_used`.
+  // implementation — mirror of `runtime.node_runner_used`.
   'runtime.node_runner_used': ['language', 'status'],
-  // RL-020 Slice 7 — mirror of `runtime.timeout_preset_changed`.
+  // implementation — mirror of `runtime.timeout_preset_changed`.
   'runtime.timeout_preset_changed': ['language', 'preset'],
-  // RL-020 Slice 9 — mirror of `runtime.variable_inspector_opened`.
+  // implementation — mirror of `runtime.variable_inspector_opened`.
   'runtime.variable_inspector_opened': ['language', 'variableCount'],
-  // RL-093 Slice 3 fold F — mirror of
+  // implementation note — mirror of
   // `runtime.variable_inspector_surface_changed`.
   'runtime.variable_inspector_surface_changed': ['surface'],
-  // RL-044 Slice 1B — mirror of `runtime.console_rich_rendered`.
+  // implementation — mirror of `runtime.console_rich_rendered`.
   'runtime.console_rich_rendered': ['kind'],
-  // RL-044 Slice 1B fold F — mirror of `runtime.console_table_called`.
+  // implementation note — mirror of `runtime.console_table_called`.
   'runtime.console_table_called': ['language'],
-  // RL-044 Sub-slice G.1 Fold D — mirror of `runtime.cursor_pulse_emitted`.
+  // implementation Sub-slice G.1 implementation note — mirror of `runtime.cursor_pulse_emitted`.
   'runtime.cursor_pulse_emitted': ['language'],
-  // RL-044 Slice 1C fold B — mirror of
+  // implementation note — mirror of
   // `runtime.python_console_payload_emitted`.
   'runtime.python_console_payload_emitted': ['kind'],
-  // RL-044 Slice 2a — mirror of `runtime.error_stack_frame_clicked`.
+  // implementation — mirror of `runtime.error_stack_frame_clicked`.
   'runtime.error_stack_frame_clicked': ['language'],
-  // RL-044 Slice 2a — mirror of `runtime.rich_media_payload_rejected`.
+  // implementation — mirror of `runtime.rich_media_payload_rejected`.
   'runtime.rich_media_payload_rejected': ['kind', 'reason'],
-  // RL-044 Slice 2b-β-β-α fold E — mirror of `runtime.python_rich_media_used`.
+  // implementation-β-β-α implementation note — mirror of `runtime.python_rich_media_used`.
   'runtime.python_rich_media_used': ['kind'],
-  // RL-042 Slice 6 — mirror of `runtime.ruby_runner_dispatched`.
+  // implementation — mirror of `runtime.ruby_runner_dispatched`.
   'runtime.ruby_runner_dispatched': ['mode', 'bucketedSpawnMs'],
-  // RL-042 Slice 6 — mirror of `runtime.ruby_runtime_preference_changed`.
+  // implementation — mirror of `runtime.ruby_runtime_preference_changed`.
   'runtime.ruby_runtime_preference_changed': ['preference'],
-  // RL-024 Slice 1 — mirror of
+  // implementation — mirror of
   // `runtime.fs_directory_picker_unsupported`. Closed-enum
   // `{ userAgentBucket }`.
   'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
-  // RL-094 Slice 3 fold G — mirror of `capsule.browse_opened`.
+  // implementation note — mirror of `capsule.browse_opened`.
   'capsule.browse_opened': ['surface', 'tier'],
-  // RL-094 Slice 4 — mirror of `capsule.compared`. Boolean `sameLanguage`.
+  // implementation — mirror of `capsule.compared`. Boolean `sameLanguage`.
   'capsule.compared': ['sameLanguage'],
-  // RL-094 Slice 1 fold A — mirror of `capsule.exported`.
+  // implementation note — mirror of `capsule.exported`.
   'capsule.exported': ['trigger', 'sizeBucket'],
-  // RL-094 Slice 2 fold D — mirror of `capsule.imported`. All three
+  // implementation note — mirror of `capsule.imported`. All three
   // values come from closed enums; the validator below enforces.
   'capsule.imported': ['surface', 'status', 'sizeBucket'],
-  // RL-095 Slice 2 — `platform` ∈ `LANGUAGE_SCORECARD_PLATFORMS`.
+  // implementation — `platform` ∈ `LANGUAGE_SCORECARD_PLATFORMS`.
   'language_scorecard_platform_toggled': ['platform'],
-  // RL-095 Slice 1 fold A — mirror of `language_scorecard_viewed`.
+  // implementation note — mirror of `language_scorecard_viewed`.
   'language_scorecard_viewed': ['surface'],
-  // RL-036 Phase A1 fold B + G — mirror of `share.created`.
+  // implementation Phase A1 implementation note — mirror of `share.created`.
   'share.created': ['trigger', 'status', 'sizeBucket'],
-  // RL-036 Phase A1 fold B + G — mirror of `share.opened`.
+  // implementation Phase A1 implementation note — mirror of `share.opened`.
   'share.opened': ['status', 'sizeBucket'],
-  // RL-101 Slice 1 — mirrors of the onboarding events.
+  // implementation — mirrors of the onboarding events.
   'onboarding.first_run_completed': ['language'],
   'onboarding.first_snippet_saved': [],
   'onboarding.toast_dismissed': ['stage', 'dismissMode'],
-  // RL-101 Slice 1.5 fold A — mirror.
+  // implementation note — mirror.
   'onboarding.toast_clobbered': ['outstandingStage'],
-  // RL-096 Slice 1 fold A — mirror.
+  // implementation note — mirror.
   'privacy.dashboard_opened': ['surface'],
-  // RL-024 Slice 3 — mirror of the project zip bundle allow-lists.
+  // implementation — mirror of the project zip bundle allow-lists.
   'project.bundle_exported': ['status', 'fileCountBucket'],
   'project.bundle_imported': ['status', 'fileCountBucket'],
   'project.bundle_rejected': ['reason'],
-  // RL-025 Slice A — mirrors of dependency detection allow-lists.
+  // implementation — mirrors of dependency detection allow-lists.
   'dependency.detected_in_tab': ['language', 'countBucket'],
   'dependency.banner_shown': ['language'],
-  // RL-025 Slice A fold F — bucketed rollup; four `${status}Bucket`
+  // implementation Slice A implementation note — bucketed rollup; four `${status}Bucket`
   // keys validated against `DEPENDENCY_COUNT_BUCKETS`.
   'dependency.classifications_summary': [
     'language',
@@ -416,91 +416,91 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
     'needsDesktopBucket',
     'unsupportedBucket',
   ],
-  // RL-025 Slice B — install lifecycle mirrors. `language` ∈
+  // implementation — install lifecycle mirrors. `language` ∈
   // isSafeToken; `countBucket` ∈ DEPENDENCY_COUNT_BUCKETS; `outcome`
   // ∈ DEPENDENCY_INSTALL_OUTCOMES; `reason` ∈
   // DEPENDENCY_INSTALL_FAILURE_REASONS.
   'dependency.install_started': ['language', 'countBucket'],
   'dependency.install_completed': ['language', 'outcome'],
   'dependency.install_failed_reason': ['language', 'reason'],
-  // RL-044 Sub-slice G — `language` is the language-pack id
+  // implementation — `language` is the language-pack id
   // (`isSafeToken`); `surface` ∈ `OUTPUT_ORIGIN_SURFACES`. Mirror of
   // src/shared/telemetry.ts entry.
   'runtime.output_origin_clicked': ['language', 'surface'],
-  // RL-102 Slice 1 fold D — mirror of src/shared/telemetry.ts.
+  // implementation note — mirror of src/shared/telemetry.ts.
   'git.layer_attached': ['repoState'],
   'git.diff_panel_opened': [],
-  // RL-102 Slice 2 — mirror of src/shared/telemetry.ts.
+  // implementation — mirror of src/shared/telemetry.ts.
   'git.head_changed': ['repoState', 'branchChanged'],
   'git.reveal_in_source_control_clicked': ['target'],
   'git.external_modification_reload': ['mode'],
-  // RL-103 Slice 1 fold B — mirror of src/shared/telemetry.ts.
+  // implementation note — mirror of src/shared/telemetry.ts.
   'template_project_applied': ['templateId', 'language'],
-  // RL-024 Slice 2 — mirror.
+  // implementation — mirror.
   'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
-  // RL-097 Slice 1 fold F + Slice 3a fold D — mirror of src/shared/telemetry.ts.
+  // implementation note — mirror of src/shared/telemetry.ts.
   'http.request_executed': [
     'method',
     'statusBucket',
     'redactedHeadersBucket',
     'resolvedVarsBucket',
   ],
-  // RL-100 Slice 1 fold E — mirror of src/shared/telemetry.ts.
+  // implementation note — mirror of src/shared/telemetry.ts.
   'import.applied': ['importerId', 'status', 'sizeBucket'],
   'import.notebook_warnings_surfaced': ['warningKindCount', 'dominantKind'],
   'import.postman_variables_resolved': ['resolvedBucket', 'unresolvedBucket'],
-  // RL-097 Slice 2 fold F — mirror of src/shared/telemetry.ts.
+  // implementation note — mirror of src/shared/telemetry.ts.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
   'sql.profile_opened': [],
-  // RL-097 Slice 3 (SQL OPFS) fold F — mirror of src/shared/telemetry.ts.
+  // implementation (SQL OPFS) implementation note — mirror of src/shared/telemetry.ts.
   'sql.storage_mode': ['mode', 'requested'],
-  // RL-097 (SQL import) fold B — mirror of src/shared/telemetry.ts.
+  // implementation (SQL import) implementation note — mirror of src/shared/telemetry.ts.
   'sql.table_imported': ['format', 'source'],
-  // RL-099 Slice 1 fold F — mirror of src/shared/telemetry.ts.
+  // implementation note — mirror of src/shared/telemetry.ts.
   'utility.pipeline_executed': ['stepCount', 'status'],
-  // RL-099 Slice 5 fold A — mirror of src/shared/telemetry.ts.
+  // implementation note — mirror of src/shared/telemetry.ts.
   'utility.pipeline_template_used': ['templateId'],
-  // RL-039 Slice B fold B — mirror of src/shared/telemetry.ts.
+  // implementation Slice B implementation note — mirror of src/shared/telemetry.ts.
   'recipe.opened': ['language'],
   'recipe.test_run': ['language', 'status'],
-  // RL-043 Slice (Monaco cells) fold E — mirror of src/shared/telemetry.ts.
+  // implementation Slice (Monaco cells) implementation note — mirror of src/shared/telemetry.ts.
   'notebook.cell_editor_mounted': ['language'],
-  // RL-043 Slice A fold B — mirror of src/shared/telemetry.ts.
+  // implementation Slice A implementation note — mirror of src/shared/telemetry.ts.
   'notebook.cell_executed': ['language', 'status'],
-  // RL-043 Slice C fold E — mirror of src/shared/telemetry.ts.
+  // implementation Slice C implementation note — mirror of src/shared/telemetry.ts.
   'notebook.cell_language_changed': ['to'],
-  // RL-043 Slice D fold D — mirror of src/shared/telemetry.ts.
+  // implementation Slice D implementation note — mirror of src/shared/telemetry.ts.
   'notebook.exported': ['format'],
-  // RL-126 — mirror of src/shared/telemetry.ts.
+  // internal — mirror of src/shared/telemetry.ts.
   'persistence.migrated': ['store'],
-  // RL-137 / AUDIT-17 — mirror of src/shared/telemetry.ts.
+  // implementation detail — mirror of src/shared/telemetry.ts.
   'fs.blocked': ['family'],
-  // RL-111 — mirror of src/shared/telemetry.ts.
+  // internal — mirror of src/shared/telemetry.ts.
   'session.restored': ['tabCount', 'source'],
   'session.snapshotDiscarded': ['tabCount'],
-  // RL-108 — mirror of src/shared/telemetry.ts.
+  // internal — mirror of src/shared/telemetry.ts.
   'editor.lint_diagnostic_emitted': ['language', 'severity', 'ruleId'],
-  // RL-110 — mirror of src/shared/telemetry.ts.
+  // internal — mirror of src/shared/telemetry.ts.
   'editor.smart_paste_shown': ['handler'],
   'editor.smart_paste_applied': ['handler', 'accepted'],
-  // RL-112 — mirror of src/shared/telemetry.ts.
+  // internal — mirror of src/shared/telemetry.ts.
   'editor.status_bar_toggled': ['enabled'],
-  // IT2-C1 — mirror of src/shared/telemetry.ts.
+  // internal — mirror of src/shared/telemetry.ts.
   'ledger.toggled': ['enabled'],
   'ledger.cleared': [],
-  // RL-109 close-out — mirror of src/shared/telemetry.ts.
+  // internal close-out — mirror of src/shared/telemetry.ts.
   'env.project_scope_used': ['hasProjectVars'],
 };
 
-// (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
-// `src/shared/redaction.ts` (canonical home post-RL-094 extract;
+// (implementation note) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
+// `src/shared/redaction.ts` (canonical home post-internal extract;
 // the renderer's `src/shared/telemetry.ts` re-exports from there).
 // Defense in depth: even if the renderer redactor regressed and a
 // sneaky key slipped through, the worker drops it on the wire.
 // Mirror discipline matches the allowlist — changes go in the same
 // commit and the parity test asserts both.
 //
-// RL-096 Slice 1.x prerequisite fix: the renderer expanded this set
+// implementation prerequisite fix: the renderer expanded this set
 // to catch apiKey / secret / credential / authorization / privateKey
 // / accessKey / licenseKey patterns (plus snake_case variants) for
 // the Privacy + Trust dashboard's redaction preview. This server
@@ -533,7 +533,7 @@ export const DENY_SUBSTRINGS = [
 
 const SAFE_TOKEN_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 
-// RL-137 / AUDIT-17 — mirror of FS_BLOCKED_FAMILIES in src/shared/telemetry.ts
+// implementation detail — mirror of FS_BLOCKED_FAMILIES in src/shared/telemetry.ts
 // (itself a mirror of BLOCKED_PATH_FAMILIES in src/main/ipc/permissions.ts). A
 // parity test cross-imports the renderer source of truth to keep both aligned.
 export const FS_BLOCKED_FAMILIES = new Set([
@@ -543,14 +543,14 @@ export const FS_BLOCKED_FAMILIES = new Set([
   'browser-profile',
   'lingua-data',
 ]);
-// RL-111 — mirror of SESSION_RESTORE_SOURCES in src/shared/telemetry.ts.
+// internal — mirror of SESSION_RESTORE_SOURCES in src/shared/telemetry.ts.
 export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
 
-// RL-108 — mirror of LINT_RULE_IDS / LINT_SEVERITIES in src/shared/telemetry.ts.
+// internal — mirror of LINT_RULE_IDS / LINT_SEVERITIES in src/shared/telemetry.ts.
 export const LINT_RULE_IDS = new Set(['strict-equality', 'ts-native']);
 export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
-// RL-110 — mirror of SMART_PASTE_HANDLERS in src/shared/telemetry.ts.
-// IT2-F4 — utility suggestions report per-format as utility-<id>.
+// internal — mirror of SMART_PASTE_HANDLERS in src/shared/telemetry.ts.
+// internal — utility suggestions report per-format as utility-<id>.
 export const SMART_PASTE_HANDLERS = new Set([
   'share-link',
   'capsule',
@@ -565,10 +565,10 @@ export const SMART_PASTE_HANDLERS = new Set([
   'utility-base64',
   'utility-json',
 ]);
-// RL-020 Slice 7 — widened to mirror the renderer (`'timeout'` and
+// implementation — widened to mirror the renderer (`'timeout'` and
 // `'stopped'` are the two distinct termination kinds the renderer
 // now reports). The parity test asserts both Sets stay in lockstep.
-// IT2-D3 — mirror of BOOTSTRAP_FAILURE_REASONS in src/shared/telemetry.ts.
+// internal — mirror of BOOTSTRAP_FAILURE_REASONS in src/shared/telemetry.ts.
 const BOOTSTRAP_FAILURE_REASONS = new Set(['prepare-error']);
 const RUNNER_STATUS_VALUES = new Set([
   'ok',
@@ -576,7 +576,7 @@ const RUNNER_STATUS_VALUES = new Set([
   'timeout',
   'stopped',
 ]);
-// RL-020 Slice 7 — closed-enum mirror of
+// implementation — closed-enum mirror of
 // `RUNTIME_TIMEOUT_PRESET_VALUES` in `src/shared/telemetry.ts`.
 // The parity test asserts both Sets stay aligned.
 const RUNTIME_TIMEOUT_PRESET_VALUES = new Set([
@@ -585,7 +585,7 @@ const RUNTIME_TIMEOUT_PRESET_VALUES = new Set([
   'long',
   'extended',
 ]);
-// RL-019 Slice 2 — closed-enum mirror of `NODE_RUNNER_STATUS_VALUES`
+// implementation — closed-enum mirror of `NODE_RUNNER_STATUS_VALUES`
 // in `src/shared/telemetry.ts`. Parity test enforces lockstep.
 const NODE_RUNNER_STATUS_VALUES = new Set([
   'success',
@@ -594,7 +594,7 @@ const NODE_RUNNER_STATUS_VALUES = new Set([
   'stopped',
   'missing-binary',
 ]);
-// RL-020 Slice 9 — closed-enum mirror of
+// implementation — closed-enum mirror of
 // `VARIABLE_INSPECTOR_COUNT_BUCKETS` in `src/shared/telemetry.ts`.
 const VARIABLE_INSPECTOR_COUNT_BUCKETS = new Set([
   '0',
@@ -603,7 +603,7 @@ const VARIABLE_INSPECTOR_COUNT_BUCKETS = new Set([
   '21-50',
   '51+',
 ]);
-// RL-044 Slice 1B — closed-enum mirror of
+// implementation — closed-enum mirror of
 // `CONSOLE_RICH_KIND_BUCKETS` in `src/shared/telemetry.ts`. Parity
 // test asserts both Sets stay aligned.
 export const CONSOLE_RICH_KIND_BUCKETS = new Set([
@@ -617,14 +617,14 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
   'rawText',
   'image',
   'chart',
-  // RL-044 Slice 1C fold F — Python BaseException payloads ship the
+  // implementation note — Python BaseException payloads ship the
   // error kind. Mirrors the renderer addition.
   'error',
-  // RL-044 Slice 2a — sandboxed HTML payloads. Mirrors the renderer
+  // implementation — sandboxed HTML payloads. Mirrors the renderer
   // addition.
   'html',
 ]);
-// RL-044 Slice 2a — closed-enum mirrors of
+// implementation — closed-enum mirrors of
 // `RICH_MEDIA_REJECTED_KINDS` / `RICH_MEDIA_REJECTED_REASONS` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
 export const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html', 'chart']);
@@ -633,7 +633,7 @@ export const RICH_MEDIA_REJECTED_REASONS = new Set([
   'size-limit',
   'validation-failed',
 ]);
-// RL-042 Slice 6 — mirrors of the Ruby dispatcher enums in
+// implementation — mirrors of the Ruby dispatcher enums in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
 export const RUBY_DISPATCHED_MODE_VALUES = new Set([
   'system',
@@ -652,7 +652,7 @@ export const RUBY_RUNTIME_PREFERENCE_VALUES = new Set([
   'system',
   'wasm',
 ]);
-// RL-024 Slice 1 — mirror of `FS_DIRECTORY_PICKER_UA_BUCKETS` in
+// implementation — mirror of `FS_DIRECTORY_PICKER_UA_BUCKETS` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
 export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
   'safari',
@@ -660,23 +660,23 @@ export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
   'edge-old',
   'other',
 ]);
-// RL-094 Slice 1 fold A — mirror of `CAPSULE_EXPORT_TRIGGERS` /
+// implementation note — mirror of `CAPSULE_EXPORT_TRIGGERS` /
 // `CAPSULE_SIZE_BUCKETS` in `src/shared/telemetry.ts`. Parity test
 // asserts alignment for both Sets.
 export const CAPSULE_EXPORT_TRIGGERS = new Set([
   'settings-export',
   'palette-export',
-  // RL-094 Slice 1.5 — mirror of the result-panel-export trigger.
+  // implementation — mirror of the result-panel-export trigger.
   'result-panel-export',
-  // RL-094 Slice 3 — mirror of the list-export trigger.
+  // implementation — mirror of the list-export trigger.
   'list-export',
-  // RL-099 Slice 3 — mirror of the pipeline-run trigger.
+  // implementation — mirror of the pipeline-run trigger.
   'pipeline-run',
-  // IT2-F7 — mirror of the HTML-export triggers.
+  // internal — mirror of the HTML-export triggers.
   'settings-export-html',
   'list-export-html',
 ]);
-// RL-094 Slice 3 fold G — mirror of `CAPSULE_BROWSE_SURFACES` in
+// implementation note — mirror of `CAPSULE_BROWSE_SURFACES` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
 export const CAPSULE_BROWSE_SURFACES = new Set([
   'palette',
@@ -691,7 +691,7 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<4mb',
   '>=4mb',
 ]);
-// RL-044 — mirror of `IMAGE_CLIPBOARD_PASTE_STATUSES` in
+// internal — mirror of `IMAGE_CLIPBOARD_PASTE_STATUSES` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment. `'resized'`
 // = an over-cap image was downscaled to fit before appending.
 export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
@@ -700,7 +700,7 @@ export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
   'rejected-oversized',
   'rejected-unreadable',
 ]);
-// RL-094 Slice 2 fold D — mirrors of `CAPSULE_IMPORT_SOURCES` /
+// implementation note — mirrors of `CAPSULE_IMPORT_SOURCES` /
 // `CAPSULE_IMPORT_STATUSES` in `src/shared/telemetry.ts`. Parity
 // test asserts alignment for both Sets.
 export const CAPSULE_IMPORT_SOURCES = new Set([
@@ -714,7 +714,7 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
   'cancelled',
   'rejected',
 ]);
-// RL-100 Slice 1 fold E — mirrors of `IMPORTER_IDS_SET` /
+// implementation note — mirrors of `IMPORTER_IDS_SET` /
 // `IMPORT_STATUSES_SET` in `src/shared/telemetry.ts`. Parity test
 // cross-imports the renderer source-of-truth `IMPORTER_IDS` from
 // `src/shared/importers/types.ts` to keep them in sync.
@@ -726,7 +726,7 @@ export const IMPORTER_IDS_SET = new Set([
   'linguanb-notebook',
 ]);
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
-// RL-100 Slice 2 fold E — mirrors `NOTEBOOK_WARNING_KINDS_SET` in
+// implementation note — mirrors `NOTEBOOK_WARNING_KINDS_SET` in
 // `src/shared/telemetry.ts`. Parity test cross-imports the renderer
 // source of truth from `src/shared/importers/types.ts`.
 export const NOTEBOOK_WARNING_KINDS_SET = new Set([
@@ -735,7 +735,7 @@ export const NOTEBOOK_WARNING_KINDS_SET = new Set([
   'unknown-language',
   'execute-result-stripped',
 ]);
-// RL-039 Slice B fold B — mirror of `RECIPE_RUN_STATUSES_SET` in
+// implementation Slice B implementation note — mirror of `RECIPE_RUN_STATUSES_SET` in
 // `src/shared/telemetry.ts`. Parity test cross-imports the renderer
 // source-of-truth `RECIPE_RUN_STATUSES` from
 // `src/shared/lessonRunner.ts` so a future widening (e.g. adding a
@@ -747,7 +747,7 @@ export const RECIPE_RUN_STATUSES_SET = new Set([
   'execution-error',
   'sentinel-missing',
 ]);
-// RL-043 Slice A fold B — mirror of `NOTEBOOK_CELL_STATUSES_SET` in
+// implementation Slice A implementation note — mirror of `NOTEBOOK_CELL_STATUSES_SET` in
 // `src/shared/telemetry.ts`. 3-way parity test cross-imports the
 // canonical `NOTEBOOK_CELL_STATUSES` tuple from
 // `src/renderer/runtime/notebookSession.ts`.
@@ -761,25 +761,25 @@ export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
   'typescript',
   'python',
 ]);
-// RL-043 Slice D fold D — mirror of src/shared/telemetry.ts.
+// implementation Slice D implementation note — mirror of src/shared/telemetry.ts.
 export const NOTEBOOK_EXPORT_FORMATS_SET = new Set([
   'script',
   'ipynb',
   'linguanb',
 ]);
-// RL-095 Slice 1 fold A — mirror of `LANGUAGE_SCORECARD_SURFACES`.
+// implementation note — mirror of `LANGUAGE_SCORECARD_SURFACES`.
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
   'palette',
 ]);
-// RL-095 Slice 2 — mirror of `LANGUAGE_SCORECARD_PLATFORMS` /
+// implementation — mirror of `LANGUAGE_SCORECARD_PLATFORMS` /
 // `SCORECARD_PLATFORMS`. Parity test asserts alignment.
 export const LANGUAGE_SCORECARD_PLATFORMS = new Set([
   'all',
   'web',
   'desktop',
 ]);
-// RL-036 Phase A1 fold B + G — mirrors of the share-link enums.
+// implementation Phase A1 implementation note — mirrors of the share-link enums.
 // `cancelled` currently covers user dismissal and clipboard-write failure.
 export const SHARE_CREATE_TRIGGERS = new Set([
   'button',
@@ -806,7 +806,7 @@ export const SHARE_SIZE_BUCKETS = new Set([
   '<6kb',
   '>=6kb',
 ]);
-// RL-101 Slice 1 — mirrors of the onboarding closed enums. The
+// implementation — mirrors of the onboarding closed enums. The
 // language id set is intentionally duplicated verbatim from
 // `src/shared/languagePacks.ts` because the update-server cannot
 // import from the renderer tree; the parity test asserts both
@@ -820,27 +820,27 @@ export const ONBOARDING_DISMISS_MODES = new Set([
   'manual',
   'auto',
 ]);
-// RL-096 Slice 1 fold A — mirror of PRIVACY_DASHBOARD_SURFACES.
+// implementation note — mirror of PRIVACY_DASHBOARD_SURFACES.
 export const PRIVACY_DASHBOARD_SURFACES = new Set([
   'settings',
   'palette',
 ]);
-// RL-044 Sub-slice G — mirror of OUTPUT_ORIGIN_SURFACES. Closed enum
+// implementation — mirror of OUTPUT_ORIGIN_SURFACES. Closed enum
 // for the discovery surface of `runtime.output_origin_clicked`. Only
 // badge clicks emit telemetry today; hover is intentionally silent.
 export const OUTPUT_ORIGIN_SURFACES = new Set(['badge']);
-// RL-102 Slice 1 fold D — mirror of GIT_LAYER_REPO_STATES. Closed
+// implementation note — mirror of GIT_LAYER_REPO_STATES. Closed
 // enum for the `repoState` property on `git.layer_attached`.
 export const GIT_LAYER_REPO_STATES = new Set([
   'git-repo',
   'no-git',
   'no-binary',
 ]);
-// RL-102 Slice 2 — mirror of REVEAL_IN_SC_TARGETS. Closed enum for
+// implementation — mirror of REVEAL_IN_SC_TARGETS. Closed enum for
 // the `target` property on `git.reveal_in_source_control_clicked`.
-// Single value today; closed set stays future-proof for Slice 3+.
+// Single value today; closed set stays future-proof for implementation.
 export const REVEAL_IN_SC_TARGETS = new Set(['repo-root']);
-// RL-102 Slice 2 fold E — mirror of EXTERNAL_RELOAD_MODES. Closed
+// implementation note — mirror of EXTERNAL_RELOAD_MODES. Closed
 // enum for the `mode` property on `git.external_modification_reload`.
 // The `'auto-applied'` slot is reserved; renderer never emits it
 // today (no silent file mutation per AGENTS.md).
@@ -849,7 +849,7 @@ export const EXTERNAL_RELOAD_MODES = new Set([
   'user-rejected',
   'auto-applied',
 ]);
-// RL-103 Slice 1 fold B — mirror of TEMPLATE_PROJECT_IDS. Closed
+// implementation note — mirror of TEMPLATE_PROJECT_IDS. Closed
 // enum for the `templateId` property on `template_project_applied`.
 // Source of truth duplicated from src/shared/telemetry.ts because
 // update-server cannot import from src/. The parity test asserts
@@ -861,7 +861,7 @@ export const TEMPLATE_PROJECT_IDS = new Set([
   'react-component-sandbox',
   'python-data-explorer',
 ]);
-// RL-025 Slice A — mirror of DEPENDENCY_COUNT_BUCKETS_SET from
+// implementation — mirror of DEPENDENCY_COUNT_BUCKETS_SET from
 // `src/shared/telemetry.ts` (canonical home in
 // `src/shared/dependencies/types.ts`). Parity test keeps both copies
 // aligned.
@@ -872,14 +872,14 @@ export const DEPENDENCY_COUNT_BUCKETS = new Set([
   '6-10',
   '>10',
 ]);
-// RL-024 Slice 2 — mirror of REPLACE_IN_FILES_SCOPES in
+// implementation — mirror of REPLACE_IN_FILES_SCOPES in
 // `src/shared/telemetry.ts`. Parity test enforces both copies stay
 // aligned.
 export const REPLACE_IN_FILES_SCOPES = new Set([
   'single-file',
   'all-files',
 ]);
-// RL-024 Slice 3 — mirrors of the project zip bundle enums in
+// implementation — mirrors of the project zip bundle enums in
 // `src/shared/telemetry.ts`. `PROJECT_BUNDLE_REJECT_REASONS` also
 // mirrors `BUNDLE_REJECT_REASONS` in `src/shared/projectBundle.ts`; the
 // parity test cross-imports that canonical tuple.
@@ -905,7 +905,7 @@ export const PROJECT_BUNDLE_REJECT_REASONS = new Set([
   'too-many-files',
   'zip-bomb',
 ]);
-// RL-097 Slice 1 fold F — mirror of HTTP_METHODS_SET. Source of
+// implementation note — mirror of HTTP_METHODS_SET. Source of
 // truth on the renderer side at `src/shared/httpWorkspace.ts`;
 // duplicated here so the worker validator does not import a
 // renderer-only module. Parity test cross-imports the renderer set
@@ -919,7 +919,7 @@ export const HTTP_METHODS_SET = new Set([
   'HEAD',
   'OPTIONS',
 ]);
-// RL-097 Slice 1 fold F — mirror of HTTP_STATUS_BUCKETS_SET.
+// implementation note — mirror of HTTP_STATUS_BUCKETS_SET.
 export const HTTP_STATUS_BUCKETS_SET = new Set([
   '2xx',
   '3xx',
@@ -929,7 +929,7 @@ export const HTTP_STATUS_BUCKETS_SET = new Set([
   'timeout',
   'cors-error',
 ]);
-// RL-097 Slice 2 fold F — mirror of SQL_QUERY_STATUSES_SET. Source
+// implementation note — mirror of SQL_QUERY_STATUSES_SET. Source
 // of truth is `SQL_QUERY_STATUSES` in `src/shared/sqlWorkspace.ts`;
 // duplicated here so the worker validator can live without an
 // import that would drag renderer-only modules into the worker.
@@ -942,7 +942,7 @@ export const SQL_QUERY_STATUSES_SET = new Set([
   'too-large',
   'engine-load-failed',
 ]);
-// RL-097 Slice 2 fold F — mirror of SQL_DURATION_BUCKETS_SET.
+// implementation note — mirror of SQL_DURATION_BUCKETS_SET.
 export const SQL_DURATION_BUCKETS_SET = new Set([
   '<10ms',
   '<100ms',
@@ -951,18 +951,18 @@ export const SQL_DURATION_BUCKETS_SET = new Set([
   '<30s',
   '>=30s',
 ]);
-// RL-097 Slice 3 (SQL OPFS) fold F — mirror of SQL_STORAGE_MODES_SET.
+// implementation (SQL OPFS) implementation note — mirror of SQL_STORAGE_MODES_SET.
 // Source of truth is `SQL_STORAGE_MODES` in
 // `src/shared/sqlWorkspace.ts`; parity test cross-imports it.
 export const SQL_STORAGE_MODES_SET = new Set(['opfs', 'memory']);
-// RL-097 (SQL import) fold B — mirror of SQL_IMPORT_FORMATS_SET. Source
+// implementation (SQL import) implementation note — mirror of SQL_IMPORT_FORMATS_SET. Source
 // of truth is `SUPPORTED_IMPORT_FORMATS` in
 // `src/shared/sqlWorkspace.ts`; parity test cross-imports it.
 export const SQL_IMPORT_FORMATS_SET = new Set(['csv', 'json', 'parquet']);
-// RL-097 (SQL import) fold B — mirror of SQL_IMPORT_SOURCES_SET. Parity
+// implementation (SQL import) implementation note — mirror of SQL_IMPORT_SOURCES_SET. Parity
 // test cross-imports the shared set.
 export const SQL_IMPORT_SOURCES_SET = new Set(['drop', 'picker']);
-// RL-099 Slice 1 fold F — mirror of PIPELINE_RUN_STATUSES_SET. Source
+// implementation note — mirror of PIPELINE_RUN_STATUSES_SET. Source
 // of truth lives in `src/shared/utilityPipeline.ts`; duplicated here
 // so the worker validator can stay free of renderer-only imports.
 // Parity test cross-imports the renderer set.
@@ -972,7 +972,7 @@ export const PIPELINE_RUN_STATUSES_SET = new Set([
   'all-failed',
   'incompatible',
 ]);
-// RL-099 Slice 5 fold A — mirror of PIPELINE_TEMPLATE_IDS. Source of
+// implementation note — mirror of PIPELINE_TEMPLATE_IDS. Source of
 // truth is `src/shared/utilityPipelineTemplates.ts`; parity test
 // cross-imports it.
 export const PIPELINE_TEMPLATE_IDS_SET = new Set([
@@ -984,10 +984,10 @@ export const PIPELINE_TEMPLATE_IDS_SET = new Set([
   'base64-decode-json',
   'humanize-timestamp',
   'convert-color',
-  // RL-099 Slice 7 — string-inspect template gallery starter.
+  // implementation — string-inspect template gallery starter.
   'inspect-hidden-chars',
 ]);
-// RL-025 Slice B — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
+// implementation — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
 // DEPENDENCY_INSTALL_FAILURE_REASONS from
 // `src/shared/dependencies/types.ts`. Parity test cross-imports the
 // renderer authority so the two copies cannot drift.
@@ -998,7 +998,7 @@ export const DEPENDENCY_INSTALL_OUTCOMES = new Set([
   'cancelled',
   'timed-out',
 ]);
-// RL-025 Slice C — `unsupported-wheel` mirrors the canonical
+// implementation — `unsupported-wheel` mirrors the canonical
 // DEPENDENCY_INSTALL_FAILURE_REASONS in
 // `src/shared/dependencies/types.ts`. Kept outside the literal so
 // the regex parity test below stays single-quote clean.
@@ -1060,26 +1060,26 @@ const UPDATE_CHECKED_STATUS_VALUES = new Set([
   'failure',
 ]);
 const HISTORY_CLEAR_SCOPES = new Set(['session', 'persisted', 'all']);
-// RL-019 Slice 1 — closed enum mirroring `RuntimeMode` in
+// implementation — closed enum mirroring `RuntimeMode` in
 // `src/shared/runtimeModes.ts`. The parity test asserts the worker
 // + renderer copies stay in sync.
 const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview', 'deno', 'bun']);
-// RL-020 Slice 1 — closed enum mirror of `AUTO_RUN_GATE_REASONS` in
-// `src/shared/telemetry.ts`. Locked to `'incomplete'` for Slice 1.
+// implementation — closed enum mirror of `AUTO_RUN_GATE_REASONS` in
+// `src/shared/telemetry.ts`. Locked to `'incomplete'` for implementation.
 const AUTO_RUN_GATE_REASONS = new Set(['incomplete']);
 const BROWSER_PREVIEW_AUTO_REFRESH_INTERVALS = new Set([300, 1_000]);
-// RL-020 Slice 2 — closed enum mirror of `WORKFLOW_MODE_VALUES` in
+// implementation — closed enum mirror of `WORKFLOW_MODE_VALUES` in
 // `src/shared/telemetry.ts`. The parity test asserts the worker +
 // renderer copies stay in sync.
 const WORKFLOW_MODE_VALUES = new Set(['run', 'debug', 'scratchpad']);
-// RL-020 Slice 2 — closed enum mirror of `WORKFLOW_MODE_CHANGE_TRIGGERS`
+// implementation — closed enum mirror of `WORKFLOW_MODE_CHANGE_TRIGGERS`
 // in `src/shared/telemetry.ts`. Mirrors the trigger taxonomy so the
 // worker drops events whose `trigger` field is unknown to either side.
 const WORKFLOW_MODE_CHANGE_TRIGGERS = new Set([
   'toolbar',
   'language_change',
 ]);
-// RL-020 Slice 4 — closed enum mirror of `HISTORY_REPLAY_SURFACES`
+// implementation — closed enum mirror of `HISTORY_REPLAY_SURFACES`
 // in `src/shared/telemetry.ts`. Adding a new replay surface in the
 // renderer must amend both this Set + the renderer copy in the same
 // commit; the parity test enforces it at CI time.
@@ -1088,7 +1088,7 @@ const HISTORY_REPLAY_SURFACES = new Set([
   'palette',
   'popover',
 ]);
-// RL-020 Slice 5 fold A — closed enum mirror of
+// implementation note — closed enum mirror of
 // `AUTO_LOG_COUNT_BUCKETS` in `src/shared/telemetry.ts`.
 const AUTO_LOG_COUNT_BUCKETS = new Set([
   '1',
@@ -1110,7 +1110,7 @@ const DEBUGGER_REASON_BUCKETS: Record<
 
 const MAX_PAYLOAD_BYTES = 8 * 1024;
 
-// (Fold B) Per-IP rate limit. Renderer emits at most ~6 events per
+// (implementation note) Per-IP rate limit. Renderer emits at most ~6 events per
 // launch under normal use; a 5-req/sec ceiling caps a runaway tab
 // without blocking legitimate traffic. CF Cache API is the only
 // durable storage available without standing up KV/D1.
@@ -1189,7 +1189,7 @@ export function validateTelemetryPayload(body: unknown): ValidationResult {
 }
 
 /**
- * Exported only for the fold-A unit test — the privacy contract
+ * Exported only for the implementation note unit test — the privacy contract
  * requires that `keyLooksSensitive` actually filters keys that pass
  * the allowlist, which is currently impossible to demonstrate
  * indirectly because every allowed property name is benign. The
@@ -1619,7 +1619,7 @@ function isAllowedValue(
         return (
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
         );
-      // RL-097 Slice 3a fold D — bucketed count of resolved env vars.
+      // implementation note — bucketed count of resolved env vars.
       if (key === 'resolvedVarsBucket')
         return (
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
@@ -1726,7 +1726,7 @@ function isAllowedValue(
         NOTEBOOK_EXPORT_FORMATS_SET.has(value)
       );
     case 'persistence.migrated':
-      // RL-126 — `store` is a localStorage key (a safe token like
+      // internal — `store` is a localStorage key (a safe token like
       // `lingua-settings`); the closed-enum membership is enforced at the
       // renderer call site, the token shape is enough on the wire.
       if (key === 'store') return isSafeToken(value);
@@ -1775,7 +1775,7 @@ export interface RateLimitInput {
 }
 
 /**
- * Per-IP rate limiter (fold B). Uses the CF Cache API as a poor-man
+ * Per-IP rate limiter (implementation note). Uses the CF Cache API as a poor-man
  * KV: a counter keyed on `(ip, now-second)` with a 1s TTL so the
  * bucket auto-expires. Race conditions are tolerated — under
  * contention the worst case is a near-doubling of the effective

@@ -1,5 +1,5 @@
  /**
- * RL-064 press kit guard — the launch assets live in `docs/press-kit/`
+ * internal press kit guard — the launch assets live in `docs/press-kit/`
  * and must (a) exist, (b) ship en + es variants where a file is
  * customer-facing, (c) carry the honesty disclaimers the press-kit
  * README enforces. This test keeps a future overhaul from silently
@@ -17,7 +17,7 @@ const EXPECTED_FILES = ['README.md', 'boilerplate.md', 'pricing-one-pager.md', '
 
 const BILINGUAL_FILES = ['boilerplate.md', 'pricing-one-pager.md', 'founder-bio.md'];
 
-describe('docs/press-kit (RL-064)', () => {
+describe('docs/press-kit', () => {
   it('ships every canonical launch-asset file', () => {
     for (const filename of EXPECTED_FILES) {
       const path = resolve(KIT_DIR, filename);

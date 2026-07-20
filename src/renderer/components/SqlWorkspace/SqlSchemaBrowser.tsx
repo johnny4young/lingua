@@ -85,7 +85,7 @@ export interface SqlSchemaBrowserProps {
   /** Whether a query is active to receive the inserted starter. */
   canInsert: boolean;
   /**
-   * RL-097 Slice 3 (SQL OPFS) — resolved storage backing of the live
+   * implementation (SQL OPFS) — resolved storage backing of the live
    * DuckDB engine. Drives the storage chip below the header. Optional
    * (defaults to `'memory'`) so isolated renders need not wire it; the
    * panel always passes the live value.
@@ -98,12 +98,12 @@ export interface SqlSchemaBrowserProps {
    */
   persistRequested?: boolean;
   /**
-   * Fold C — approximate origin storage label (e.g. `~12 MB`), shown
+   * implementation note — approximate origin storage label (e.g. `~12 MB`), shown
    * next to the persistent chip. `null` hides it.
    */
   storageUsageLabel?: string | null;
   /**
-   * RL-097 (SQL import) fold F — import a dropped or picked file as a
+   * implementation (SQL import) implementation note — import a dropped or picked file as a
    * table. `source` tells the caller whether the file came from the
    * keyboard-accessible picker or a drag-drop, for telemetry. Optional so
    * isolated renders need not wire it; when omitted, the import
@@ -143,7 +143,7 @@ export function SqlSchemaBrowser({
       return next;
     });
 
-  // RL-097 (SQL import) fold F — the import affordance. A real <button>
+  // implementation (SQL import) implementation note — the import affordance. A real <button>
   // opens a hidden <input type="file"> via `.click()`, so the import is
   // fully keyboard-operable (Enter/Space on the button → native dialog,
   // which is itself keyboard-accessible). Drag-drop is an ADDITIVE mouse
@@ -157,7 +157,7 @@ export function SqlSchemaBrowser({
     accept: (item) => !isImportBusy && acceptImportItem(item),
   });
 
-  // RL-097 Slice 3 (SQL OPFS) — the chip label depends on BOTH the
+  // implementation (SQL OPFS) — the chip label depends on BOTH the
   // resolved mode and whether persistence was requested: in-memory while
   // persistence was off is normal; in-memory while it was requested means
   // OPFS was unavailable.
@@ -235,7 +235,7 @@ export function SqlSchemaBrowser({
             disabled={isImportBusy}
             aria-label={t('sqlWorkspace.schema.import')}
             data-testid="sql-schema-browser-import-input"
-            className="sr-only"
+            className="internal"
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) onImportFile(file, 'picker');
@@ -245,7 +245,7 @@ export function SqlSchemaBrowser({
           />
         ) : null}
       </header>
-      {/* RL-097 Slice 3 (SQL OPFS) — storage-backing chip. Always
+      {/* implementation (SQL OPFS) — storage-backing chip. Always
           visible (even collapsed) so the persistence state is never
           hidden. */}
       <div
@@ -274,7 +274,7 @@ export function SqlSchemaBrowser({
       </div>
       {collapsed ? null : (
         <div className="max-h-[34vh] overflow-y-auto px-1.5 pb-2">
-          {/* RL-097 (SQL import) fold F — additive drag-drop target.
+          {/* implementation (SQL import) implementation note — additive drag-drop target.
               The keyboard path is the header "+" button → native picker;
               this drop zone is a mouse-only convenience. The hint names
               the keyboard alternative so a keyboard user is never stranded

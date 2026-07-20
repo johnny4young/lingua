@@ -1,5 +1,5 @@
 /**
- * RL-112 fold C — module-level focuser for the persistent status bar.
+ * implementation — module-level focuser for the persistent status bar.
  *
  * Same module-handle idiom as `editorAccess`: the mounted `<StatusBar>`
  * registers a function that moves keyboard focus to its first segment
@@ -11,13 +11,13 @@
 
 let focuser: (() => void) | null = null;
 
-/** RL-112 — register / clear the status-bar focuser. Pass `null` on unmount. */
+/** internal — register / clear the status-bar focuser. Pass `null` on unmount. */
 export function setStatusBarFocuser(fn: (() => void) | null): void {
   focuser = fn;
 }
 
 /**
- * RL-112 — focus the status bar's first segment. Returns `true` when a focuser
+ * internal — focus the status bar's first segment. Returns `true` when a focuser
  * was registered (bar mounted) and invoked, `false` otherwise.
  */
 export function focusStatusBar(): boolean {

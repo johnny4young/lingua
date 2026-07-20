@@ -1,5 +1,5 @@
 /**
- * Main-side license runtime (RL-059 Slice 0).
+ * Main-side license runtime .
  *
  * Owns the desktop build's license + device-id persistence so packaged
  * apps can verify entitlement without depending on the renderer's
@@ -47,7 +47,7 @@ export type LicenseStatus =
   | { kind: 'grace'; verification: Extract<LicenseVerificationResult, { ok: true }> };
 
 /**
- * Snapshot the IPC bridge ships to the renderer. Slice 3.5 extends it
+ * Snapshot the IPC bridge ships to the renderer. implementation extends it
  * with three server-derived fields so the renderer's desktop branch
  * can render the Devices section under the same gate the web build
  * already passes (`serverSync === 'synced'` + non-null `devices` +
@@ -230,7 +230,7 @@ export interface LicenseRuntime {
   clear(): Promise<void>;
   revalidate(): Promise<LicenseStatus>;
   /**
-   * Slice 3.5 — remove a device from the active license via the
+   * implementation — remove a device from the active license via the
    * server's `/licenses/devices/remove` endpoint and refresh the
    * cached bucket. Returns the wrapper's result so the IPC handler
    * can forward the success / failure shape unchanged. Returns
@@ -262,7 +262,7 @@ export interface CreateLicenseRuntimeOptions {
  * "build-server-01" — what the renderer shows in the Devices list
  * under Settings → License. `os` mirrors Node's `process.platform`
  * values (`darwin` / `win32` / `linux`) so the worker validator's
- * permissive shape check accepts it (post Slice 3 the validator no
+ * permissive shape check accepts it (current implementation the validator no
  * longer pins to the desktop triple, but we stay in the canonical
  * vocabulary anyway).
  */
@@ -524,7 +524,7 @@ export async function createLicenseRuntime(
         lastVerifiedAt: verifiedAt,
       });
       // Local verify succeeded; consult the license-server for the
-      // per-surface bucket + device registration. Slice 3.5 wires this;
+      // per-surface bucket + device registration. implementation wires this;
       // pre-3.5 behaviour (no server) is preserved when
       // `isLicenseServerEnabled()` is false.
       return activateAfterVerify(trimmed, status, verifiedAt);

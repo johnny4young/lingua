@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
-      RL-140 (AUDIT-20) — declares both schemes so the browser paints
+      internal — declares both schemes so the browser paints
       scrollbars and form controls correctly before the theme bootstrap
       script below narrows it via root.style.colorScheme. Dark first:
       it is the app default when no preference is persisted.
@@ -16,23 +16,23 @@
         under /pyodide/ (see docs/RUNTIME_ASSETS_ADR.md).
       - blob: workers are needed for Monaco and JS/TS/Python web workers
       - 'unsafe-eval' is required by esbuild-wasm and Monaco language workers
-      - licenses.linguacode.dev — RL-061 Slice 2.5 license-server endpoints
+      - licenses.linguacode.dev — implementation license-server endpoints
         (/licenses/activate, /licenses/status, /licenses/devices/remove);
         without this allow the per-surface device cap is silently bypassed
-        and Slice 3's Devices section never reaches `serverSync='synced'`.
-      - updates.linguacode.dev — RL-061 Slice 5 web update banner
+        and implementation's Devices section never reaches `serverSync='synced'`.
+      - updates.linguacode.dev — implementation web update banner
         (/web/version polling); whitelisted now to avoid a follow-up CSP
         churn when the banner ships.
-      - RL-097 Slice 1 / T11 (B-2) — `https:` on connect-src is a
+      - implementation  — `https:` on connect-src is a
         DELIBERATE, documented product exception: the web HTTP workspace
         is a first-class feature whose entire purpose is issuing
         user-initiated `fetch` calls to arbitrary HTTPS endpoints, so its
         origins cannot be enumerated in an allowlist. Users still cannot
         make plain-HTTP requests (no `http:`), preserving mixed-content
-        protections. The desktop-native SSRF-guarded proxy (RL-097 T7)
+        protections. The desktop-native SSRF-guarded proxy (internal implementation)
         does NOT change this: the WEB build has no main process, so its
         HTTP workspace must use the browser `fetch` path and therefore
-        keeps the broad `https:`. `wss:` was removed (T11) — nothing in
+        keeps the broad `https:`. `wss:` was removed  — nothing in
         the web bundle opens a WebSocket, so an arbitrary-origin `wss:`
         was pure attack surface with no consumer.
       - `img-src https:` lets the HTTP response preview render image
@@ -43,7 +43,7 @@
       content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev https:; base-uri 'self'; form-action 'self';"
     />
     <!--
-      RL-140 (AUDIT-20) — early TLS handshakes for the two boot-time
+      internal — early TLS handshakes for the two boot-time
       consumers: useWebVersionPolling.ts polls updates.linguacode.dev
       unconditionally at boot, and /licenses/status revalidates against
       licenses.linguacode.dev on boot for licensed users. crossorigin
@@ -52,7 +52,7 @@
     <link rel="preconnect" href="https://licenses.linguacode.dev" crossorigin />
     <link rel="preconnect" href="https://updates.linguacode.dev" crossorigin />
     <!--
-      RL-140 (AUDIT-20) — vendored JetBrains Mono (latin subset, OFL;
+      internal — vendored JetBrains Mono (latin subset, OFL;
       see public/fonts/OFL.txt) so the Monaco default editor stack
       renders the same glyphs whether or not the user installed the
       font locally. URLs are document-relative and @font-face lives
@@ -101,7 +101,7 @@
     <meta name="theme-color" content="#0c1017" />
     <title>Lingua</title>
     <!--
-      RL-140 fold B — theme bootstrap ported verbatim from the root
+      implementation — theme bootstrap ported verbatim from the root
       index.html (desktop entry). Before this, the web build applied
       the persisted theme only after React hydrated, so light-theme
       users got a dark flash on every load. The stale theme-color
@@ -110,7 +110,7 @@
     -->
     <script>
       (() => {
-        // IT2-G3 prerequisite: capture module download/evaluation and the
+        // internal prerequisite: capture module download/evaluation and the
         // import-time hydration work that runs before renderer/main.tsx.
         try {
           window.performance?.mark?.('lingua:boot:start');
@@ -187,7 +187,7 @@
       })();
     </script>
     <!--
-      IT2-G2 — first-paint shell. This block intentionally has no runtime
+      internal — first-paint shell. This block intentionally has no runtime
       dependency: it renders while the module graph, i18n catalog, and React
       bootstrap are still loading. The theme bootstrap above has already put
       dark/light on <html>, so these tokens match the persisted shell polarity

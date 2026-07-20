@@ -1,7 +1,7 @@
 /**
- * RL-020 Slice 9 — Variables toggle in the result-panel header.
+ * implementation — Variables toggle in the result-panel header.
  *
- * Mirrors `<CompareToggleButton>` (Slice 8) — button-secondary
+ * Mirrors `<CompareToggleButton>`  — button-secondary
  * shape, three states (hidden / disabled / enabled), pressed-state
  * indicator. The two toggles are mutually exclusive in
  * `ResultPanel.tsx`: toggling one ON forces the other OFF.

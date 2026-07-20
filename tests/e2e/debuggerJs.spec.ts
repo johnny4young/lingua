@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 /**
- * RL-027 Slice 1.5 — Debugger end-to-end smoke (JS).
+ * implementation — Debugger end-to-end smoke (JS).
  *
  * Drives the user-facing surface that the slice unlocks:
  *
@@ -67,7 +67,7 @@ async function clickDebug(page: Page) {
   await selectWorkflowMode(page, 'debug');
 }
 
-test.describe('Debugger (RL-027 Slice 1.5)', () => {
+test.describe('Debugger ', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
@@ -283,7 +283,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
   });
 });
 
-test.describe('Debugger TypeScript smoke (RL-027 Slice 1.5)', () => {
+test.describe('Debugger TypeScript smoke ', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);

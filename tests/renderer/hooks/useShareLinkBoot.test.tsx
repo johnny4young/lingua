@@ -1,5 +1,5 @@
 /**
- * RL-036 Phase A1 — useShareLinkBoot hook coverage.
+ * implementation — useShareLinkBoot hook coverage.
  *
  * The hook owns the boot-time + `hashchange` decode pipeline. The
  * test matrix covers:

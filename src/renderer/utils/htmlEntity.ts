@@ -1,5 +1,5 @@
 /**
- * RL-068 — HTML Entity Encode/Decode helper.
+ * internal — HTML Entity Encode/Decode helper.
  *
  * Pure, offline, renderer-side. Ships three encoding strategies + a single
  * decoder that handles named, decimal numeric, and hex numeric references.

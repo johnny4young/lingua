@@ -1,5 +1,5 @@
 /**
- * RL-039 Slices B/C — Bundled recipe catalog audits.
+ * implementation — Bundled recipe catalog audits.
  *
  * Pins:
  *   - All 16 recipes load + parse cleanly via `parseLessonPack`.

@@ -8,8 +8,8 @@
  *   - `lingua_monthly`   → tier `'pro'`, expires_at = subscription period_end
  *   - `lingua_lifetime`  → tier `'pro_lifetime'`, expires_at = null (public Pro)
  *   - `lingua_team`      → tier `'team'`, expires_at = subscription period_end (legacy internal)
- *   - `lingua_trial`     → tier `'trial'` (Slice 4)
- *   - `lingua_education` → tier `'education'` (Slice 4)
+ *   - `lingua_trial`     → tier `'trial'`
+ *   - `lingua_education` → tier `'education'`
  *
  * The renderer's `useEntitlement()` collapses tier → entitlements set;
  * here we only emit the `tier` string + the canonical entitlement
@@ -96,7 +96,7 @@ export function buildLicensePayload(input: MintInput): LicensePayload {
 
 /**
  * Mint + sign in one call. Wraps `buildLicensePayload` + `signLicenseToken`.
- * Slice 2 callers reach this from the Polar webhook handler.
+ * implementation callers reach this from the Polar webhook handler.
  */
 export async function mintAndSignToken(
   input: MintInput,

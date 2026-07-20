@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 8 — Compare-with-last-stable end-to-end smoke.
+ * implementation — Compare-with-last-stable end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -32,7 +32,7 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
   await page.keyboard.insertText(source);
 }
 
-test.describe('compare with last stable run (RL-020 Slice 8)', () => {
+test.describe('compare with last stable run ', () => {
   test('toggle is disabled until the first clean run captures a snapshot', async ({
     page,
   }) => {

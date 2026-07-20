@@ -1,5 +1,5 @@
 /**
- * UX Sweep T4 — convenience hook returning the shared `announce` action.
+ * accessibility pass — convenience hook returning the shared `announce` action.
  *
  * The action is stable (a zustand setter), so this never re-renders the
  * caller. Use it inside components; in pure event handlers you can also

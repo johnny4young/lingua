@@ -18,7 +18,7 @@ import {
 } from './licenseTypes';
 
 /**
- * RL-130 — web-flow action factory for the license store, extracted verbatim
+ * internal — web-flow action factory for the license store, extracted verbatim
  * from `licenseStore.ts`. Bundles `setLicenseToken` (local verify → stale-token
  * pickup → server activate), `clearLicense` (optimistic flip + fire-and-forget
  * device removal), `removeDevice`, and `clearRecoverHint`. The ~198-line
@@ -45,7 +45,7 @@ export function createWebActions(
       let activeToken = trimmed;
       let localStatus = await runVerifyWeb(trimmed);
       if (localStatus.kind === 'invalid') {
-        // Slice 4 — stale-token auto-pickup. When the local verify
+        // implementation — stale-token auto-pickup. When the local verify
         // failed with `expired` (signature was still valid), try
         // /licenses/status before giving up. The server walks the
         // licenseId path and may return a refreshedToken via the
@@ -142,7 +142,7 @@ export function createWebActions(
 
       // Terminal server rejection: revoked / exhausted / invalid-token /
       // invalid-input. Map to a discrete invalid status. Keep the token in
-      // state for `exhausted` so the Slice 3 modal can remediate without
+      // state for `exhausted` so the implementation modal can remediate without
       // forcing the user to re-paste; wipe it for everything else.
       const invalid =
         serverFailureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };

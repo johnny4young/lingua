@@ -1,5 +1,5 @@
 {
-  "$comment": "RL-143 — registry of every Ed25519 license-signing public key ever embedded in a Lingua build, keyed by RFC 7638 JWK thumbprint (the key itself carries no kid: CF Workers rejects JWK fields beyond RFC 8037 §2). Exactly one entry is 'active'. The release/deploy/CI guard scripts/assert-license-key-rotation.mjs fails closed when the embedded key is undocumented here, not active, drifted between .env and .env.production, or older than rotationSlaDays. Rotation runbook: docs/RELEASE_SECURITY.md § Licensing.",
+  "$comment": "internal — registry of every Ed25519 license-signing public key ever embedded in a Lingua build, keyed by RFC 7638 JWK thumbprint (the key itself carries no kid: CF Workers rejects JWK fields beyond RFC 8037 §2). Exactly one entry is 'active'. The release/deploy/CI guard scripts/assert-license-key-rotation.mjs fails closed when the embedded key is undocumented here, not active, drifted between .env and .env.production, or older than rotationSlaDays. Rotation runbook: docs/RELEASE_SECURITY.md § Licensing.",
   "rotationSlaDays": 90,
   "warnWindowDays": 14,
   "keys": [
@@ -7,7 +7,7 @@
       "thumbprint": "U0WxZzfZ6Ql5ztLrXohowxMxnik8NMUOsaRixXYdfOs",
       "issuedAt": "2026-04-28",
       "status": "active",
-      "note": "Initial production keypair, embedded by RL-061 Slice 2.5 (commit 8d2836b8). Private half lives only as the Cloudflare Workers secret LINGUA_LICENSE_PRIVATE_KEY_JWK in license-server."
+      "note": "Initial production keypair, embedded by implementation (commit 8d2836b8). Private half lives only as the Cloudflare Workers secret LINGUA_LICENSE_PRIVATE_KEY_JWK in license-server."
     }
   ]
 }

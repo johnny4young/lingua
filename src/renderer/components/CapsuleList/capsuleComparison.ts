@@ -1,7 +1,7 @@
 /**
- * RL-094 Slice 4 — pure capsule comparison model.
+ * implementation — pure capsule comparison model.
  *
- * Mirrors the `ExecutionComparisonModal` precedent (RL-028 Slice 7) but
+ * Mirrors the `ExecutionComparisonModal` precedent  but
  * over two `RunCapsuleV1` records instead of two execution-history
  * snapshots. The model is pure (no React, no side effects) so the modal
  * stays presentational and the math is unit-testable in isolation.

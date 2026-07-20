@@ -1,7 +1,7 @@
 /**
- * RL-112 — persistent 24px bottom status bar.
+ * internal — persistent 24px bottom status bar.
  *
- * A fixed-height flex strip mounted at the bottom of the app shell. Folds in
+ * A fixed-height flex strip mounted at the bottom of the app shell. implementation note
  * the project Git branch chip (A), a display-only encoding segment (B), the
  * focus-from-palette affordance (C), click-to-next-problem on the lint segment
  * (D), the toggle telemetry (E, in the store setter), the compact run-status
@@ -35,7 +35,7 @@ import { setStatusBarFocuser } from './statusBarAccess';
 import { useStatusBarModel } from './useStatusBarModel';
 
 /**
- * RL-112 — the runnable-language cycle for the language segment. Same filter as
+ * internal — the runnable-language cycle for the language segment. Same filter as
  * the Toolbar's new-file menu (`execution` is run/compile AND the pack ships
  * starter templates), so clicking the segment cycles through the exact set the
  * Toolbar offers, in declaration order.
@@ -46,7 +46,7 @@ const CYCLEABLE_LANGUAGES: readonly Language[] = LANGUAGE_PACKS.filter(
     pack.templateIds.length > 0
 ).map((pack) => pack.id as Language);
 
-/** RL-112 fold G — the indent cycle: spaces-2 → spaces-4 → tabs-4 → (wrap). */
+/** implementation — the indent cycle: spaces-2 → spaces-4 → tabs-4 → (wrap). */
 interface IndentConfig {
   insertSpaces: boolean;
   tabSize: number;
@@ -64,7 +64,7 @@ function nextIndent(current: IndentConfig): IndentConfig {
       entry.insertSpaces === current.insertSpaces &&
       entry.tabSize === current.tabSize
   );
-  // Unknown current config (e.g. tabs-2) folds back to the start of the cycle.
+  // Unknown current config (e.g. tabs-2) implementation note to the start of the cycle.
   const nextIndex = index === -1 ? 0 : (index + 1) % INDENT_CYCLE.length;
   return INDENT_CYCLE[nextIndex] ?? INDENT_SPACES_2;
 }
@@ -89,7 +89,7 @@ function InformativeStatus({
       aria-live={live}
       aria-atomic="true"
       data-testid={id}
-      className="sr-only"
+      className="internal"
     >
       {children}
     </span>
@@ -98,7 +98,7 @@ function InformativeStatus({
 
 export function StatusBar() {
   const showStatusBar = useSettingsStore((state) => state.showStatusBar);
-  // RL-116 — presenter mode hides the status bar without touching the
+  // internal — presenter mode hides the status bar without touching the
   // user's showStatusBar preference.
   const presenterActive = usePresenterModeStore((state) => state.active);
   if (!showStatusBar || presenterActive) return null;
@@ -119,12 +119,12 @@ function StatusBarContent() {
   const showTimeoutCountdown = useSettingsStore((state) => state.showTimeoutCountdown);
 
   const firstSegmentRef = useRef<HTMLButtonElement | null>(null);
-  // RL-112 fold G — a render bump so the indent segment reflects the new model
+  // implementation — a render bump so the indent segment reflects the new model
   // options immediately after a click (Monaco's `updateOptions` does not fire a
   // cursor-change event the model hook would otherwise key off).
   const [, setIndentBump] = useState(0);
 
-  // RL-112 fold C — register a focuser that moves keyboard focus to the first
+  // implementation — register a focuser that moves keyboard focus to the first
   // segment button. Cleared on unmount so a stale closure never fires.
   useEffect(() => {
     setStatusBarFocuser(() => firstSegmentRef.current?.focus());
@@ -161,7 +161,7 @@ function StatusBarContent() {
     setIndentBump((value) => value + 1);
   }, []);
 
-  // RL-112 fold G — read indent live from the model so the click-driven bump
+  // implementation — read indent live from the model so the click-driven bump
   // surfaces the new value even before the model hook re-fires.
   const liveIndent = getActiveEditor()?.getModel()?.getOptions() ?? null;
   const indent = liveIndent
@@ -262,7 +262,7 @@ function StatusBarContent() {
           : t('statusBar.cursor', { line: '—', column: '—' })}
       </InformativeStatus>
 
-      {/* 4 — Encoding (fold B): display-only but still keyboard-focusable. */}
+      {/* 4 — Encoding (implementation note): display-only but still keyboard-focusable. */}
       <button
         type="button"
         data-testid="status-bar-encoding"
@@ -276,7 +276,7 @@ function StatusBarContent() {
         {t('statusBar.encoding')}
       </InformativeStatus>
 
-      {/* 5 — Indent (fold G): click cycles the active model's indentation. */}
+      {/* 5 — Indent (implementation note): click cycles the active model's indentation. */}
       <button
         type="button"
         data-testid="status-bar-indent"
@@ -305,7 +305,7 @@ function StatusBarContent() {
           : null}
       </button>
 
-      {/* 6 — Git branch (fold A): self-hides when no posture is available. */}
+      {/* 6 — Git branch (implementation note): self-hides when no posture is available. */}
       {posture?.available ? (
         <>
           <button
@@ -323,7 +323,7 @@ function StatusBarContent() {
         </>
       ) : null}
 
-      {/* IT2-G5 — Offline is a positive local-capability state, not an alert. */}
+      {/* internal — Offline is a positive local-capability state, not an alert. */}
       {!isOnline ? (
         <>
           <button
@@ -345,7 +345,7 @@ function StatusBarContent() {
         </>
       ) : null}
 
-      {/* 7 — Run status (fold F): compact icon-only pill, pushed right. */}
+      {/* 7 — Run status (implementation note): compact icon-only pill, pushed right. */}
       <button
         type="button"
         data-testid="status-bar-run"

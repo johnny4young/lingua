@@ -1,11 +1,11 @@
 /**
- * RL-099 Slice 1 — single-step row in the pipeline editor.
+ * implementation — single-step row in the pipeline editor.
  *
  * Renders the utility dropdown, the schema-driven options form
- * (fold C: each adapter declares its options shape; this component
+ * (implementation note: each adapter declares its options shape; this component
  * auto-renders the matching `<input>` / `<select>` / `<textarea>` /
  * checkbox), and the step status badge. Sortable via @dnd-kit
- * (fold B).
+ * (implementation note).
  */
 
 import { GripVertical, Trash2 } from 'lucide-react';

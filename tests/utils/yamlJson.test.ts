@@ -1,5 +1,5 @@
 /**
- * RL-068 — Unit tests for the YAML ↔ JSON converter helper. Covers
+ * internal — Unit tests for the YAML ↔ JSON converter helper. Covers
  * round-trips for both directions, comment-detection edge cases,
  * indent options, multi-doc rejection, and the empty / invalid
  * branches.

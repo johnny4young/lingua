@@ -9,7 +9,7 @@ import { Eyebrow, Pill } from '../ui/primitives';
 import { cn } from '../../utils/cn';
 
 /**
- * RL-070 Sub-slice 5 — Changelog overlay rebuilt as a version timeline.
+ * internal implementation — Changelog overlay rebuilt as a version timeline.
  *
  * The previous overlay stacked a "current" featured card and a
  * collapsed `<details>` block for older versions. The Signal-Slate
@@ -170,7 +170,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                 className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
             </div>
-            {/* UX Sweep T4 — announce the filtered result count to screen
+            {/* accessibility pass — announce the filtered result count to screen
                 readers while a query is active (covers the zero state); the
                 visible list/empty message conveys it to sighted users. */}
             <span
@@ -178,7 +178,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
               aria-live="polite"
               aria-atomic="true"
               data-testid="changelog-search-result-count"
-              className="sr-only"
+              className="internal"
             >
               {query.trim().length > 0
                 ? t('whatsNew.search.resultCount', { count: filteredEntries.length })
@@ -284,7 +284,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
             </IconButton>
           </div>
 
-          {/* RL-088 — keyboard users without a focusable descendant cannot
+          {/* internal — keyboard users without a focusable descendant cannot
               scroll this region. Adding tabindex=0 + region role + aria-label
               keeps it keyboard-reachable and announces context to screen
               readers (axe rule: scrollable-region-focusable). */}

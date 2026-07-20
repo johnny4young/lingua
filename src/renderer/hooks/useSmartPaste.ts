@@ -17,7 +17,7 @@ type EditorInstance = Parameters<OnMount>[0];
  * One-shot module flag: when set, the next `onDidPaste` skips smart-paste
  * detection and leaves the paste literal. Module-scoped (not a hook ref) so
  * both the editor's Cmd+Shift+V keybinding AND the command-palette "Paste as
- * plain text" action (RL-110 fold D) can request a bypass through the same
+ * plain text" action  can request a bypass through the same
  * `requestPlainPaste` entry point. Lingua mounts a single Monaco editor, so a
  * shared flag is unambiguous.
  */
@@ -43,7 +43,7 @@ function armPlainPasteBypass(): void {
 }
 
 /**
- * RL-110 fold D — request a detection-bypassing paste on the given editor: set
+ * implementation — request a detection-bypassing paste on the given editor: set
  * the one-shot skip flag, then trigger Monaco's standard clipboard paste so the
  * resulting `onDidPaste` is left literal. Shared by the Cmd+Shift+V keybinding
  * and the command-palette action.
@@ -71,7 +71,7 @@ const IMPORT_LABEL_KEY: Record<Exclude<PasteIntentKind, 'utility'>, string> = {
   'large-json': 'paste.intent.action.importLargeJson',
 };
 
-/** IT2-F4 — toast message per suggested utility. */
+/** internal — toast message per suggested utility. */
 const UTILITY_MESSAGE_KEY: Record<UtilitySuggestionId, string> = {
   jwt: 'paste.intent.utility.jwt.message',
   uuid: 'paste.intent.utility.uuid.message',
@@ -83,7 +83,7 @@ const UTILITY_MESSAGE_KEY: Record<UtilitySuggestionId, string> = {
 };
 
 /**
- * IT2-F4 — primary action label per suggested utility. Reuses the
+ * internal — primary action label per suggested utility. Reuses the
  * catalog's own localized "Open <utility>" strings so the toast and the
  * command palette always name the tool identically.
  */
@@ -98,8 +98,8 @@ const UTILITY_ACTION_KEY: Record<UtilitySuggestionId, string> = {
 };
 
 /**
- * Telemetry `handler` token: RL-110 intents report their kind verbatim;
- * IT2-F4 utility suggestions report per-format as `utility-<utilityId>`
+ * Telemetry `handler` token: internal intents report their kind verbatim;
+ * internal utility suggestions report per-format as `utility-<utilityId>`
  * (each token allowlisted in `SMART_PASTE_HANDLERS`).
  */
 function handlerToken(intent: PasteIntent): string {
@@ -119,7 +119,7 @@ function actionLabelKeyFor(intent: PasteIntent): string {
 }
 
 /**
- * RL-110 — smart paste detection. Registers a second `onDidPaste` listener
+ * internal — smart paste detection. Registers a second `onDidPaste` listener
  * (Monaco allows many) that reads the exact pasted text from the event range,
  * asks the pure detectors what it is, and — when the master toggle is on and
  * the paste was not a Cmd+Shift+V plain paste — surfaces a non-blocking status
@@ -194,7 +194,7 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
     });
 
     // Cmd+Shift+V — paste as plain text, bypassing detection for one paste.
-    // Shares `requestPlainPaste` with the command-palette action (fold D).
+    // Shares `requestPlainPaste` with the command-palette action (implementation note).
     if (!commandBoundRef.current) {
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyV, () => {
         requestPlainPaste(editor);

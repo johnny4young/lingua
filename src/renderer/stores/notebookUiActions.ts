@@ -2,7 +2,7 @@ import type { NotebookState } from './notebookStore';
 import type { NotebookSet } from './notebookStoreContext';
 
 /**
- * T9 — notebook session-UI action factory.
+ * implementation — notebook session-UI action factory.
  *
  * Owns the active-cell + scroll-position writes. Both are pure `set` updates,
  * so the factory only needs zustand `set`. Extracted verbatim from

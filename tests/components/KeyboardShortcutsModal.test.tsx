@@ -47,7 +47,7 @@ describe('KeyboardShortcutsModal', () => {
     expect(screen.getByText('Navigation')).toBeTruthy();
     // A concrete combo label for save
     expect(screen.getByTestId('file-save-combo-0').getAttribute('aria-label')).toBe('Ctrl+S');
-    // UX Sweep T1 — the per-row Edit affordance carries the focus ring.
+    // accessibility pass — the per-row Edit affordance carries the focus ring.
     expect(
       screen.getByTestId('shortcut-edit-view-toggle-sidebar').className
     ).toContain('focus-ring');
@@ -108,8 +108,8 @@ describe('KeyboardShortcutsModal', () => {
     // `Mod+Shift+U` is a free combo in the production catalog —
     // verified by `tests/data/keyboardShortcuts.test.ts` (no two
     // shortcut ids share a combo). The earlier choice was `Mod+Shift+J`
-    // but RL-025 Slice A bound that to `view-show-dependencies`; the
-    // follow-up choice `Mod+Shift+Y` was taken by RL-094 Slice 2
+    // but implementation bound that to `view-show-dependencies`; the
+    // follow-up choice `Mod+Shift+Y` was taken by implementation
     // (capsule import overlay). U remains free.
     await act(async () => {
       fireEvent.keyDown(window, { key: 'u', ctrlKey: true, shiftKey: true });

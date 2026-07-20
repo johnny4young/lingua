@@ -1,12 +1,12 @@
 /**
- * RL-025 Slice A + Slice B - IPC handlers for JS / TS dependency
+ * implementation - IPC handlers for JS / TS dependency
  * resolution and installation.
  *
- * Slice A channels:
+ * implementation channels:
  *   - `dependencies:js:resolve` — read-only batch resolver. Returns
  *     one status per name from the active tab's resolved cwd.
  *
- * Slice B channels:
+ * implementation channels:
  *   - `dependencies:js:install` — `npm install` batch via
  *     `child_process.spawn` with `shell: false`. Streams log lines
  *     back to the renderer via `webContents.send('dependencies:js:install:log', …)`
@@ -99,7 +99,7 @@ export function registerDependencyHandlers(): void {
     }
   );
 
-  // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add). The
+  // implementation — Go / Rust / Ruby install (go get / cargo add / bundle add). The
   // cwd is the directory of the active tab's saved file; main derives it
   // and `installNativeDependencies` refuses without the project manifest.
   typedHandle(

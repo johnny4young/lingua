@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A — Per-tab notebook store.
+ * implementation — Per-tab notebook store.
  *
  * Owns the cells + last-run outputs + per-cell run status keyed by
  * `tabId`. Persisted on an isolated `lingua-notebook-state`
@@ -14,12 +14,12 @@
  *     has cells + per-cell outputs + per-cell run status that don't
  *     belong on the FileTab itself (would balloon the persisted blob
  *     + break per-language fields like `content`).
- *   - Keeping notebook state in its own store mirrors the RL-094
- *     capsule / RL-097 HTTP / RL-099 utility-pipeline pattern.
+ *   - Keeping notebook state in its own store mirrors the internal
+ *     capsule / internal HTTP / internal utility-pipeline pattern.
  *   - The tab discriminator + the notebook store stay in sync via
  *     `editorStore.removeTab` + `editorStore.renameTab` hooks that
  *     call `notebookStore.disposeNotebookForTab(tabId)` (mirror of
- *     the RL-039 Slice B recipeStore unbind pattern).
+ *     the implementation recipeStore unbind pattern).
  *
  * Per-cell run outputs persist alongside the cells so a reload
  * surfaces the last-known output state. Cell run status (`idle` /
@@ -127,7 +127,7 @@ export interface NotebookState {
   /** Per-tabId notebook state. Persisted via `partialize`. */
   readonly notebooks: Readonly<Record<string, NotebookTabState>>;
   /**
-   * RL-043 Slice H fold B — last-known scroll position (px from top) of
+   * implementation Slice H implementation note — last-known scroll position (px from top) of
    * each tab's cell list, keyed by `tabId`. TRANSIENT session UI state:
    * excluded from `partialize` so a reload starts at the top rather than
    * restoring a stale offset against a possibly-changed notebook. Lets the
@@ -144,10 +144,10 @@ export interface NotebookState {
     initialCodeCellLanguage?: NotebookCellLanguage
   ) => void;
   /**
-   * RL-043 Slice E — install a fully-formed `NotebookV1` (parsed from a
+   * implementation — install a fully-formed `NotebookV1` (parsed from a
    * `.linguanb` import) into a tab, preserving the document's own cell
    * ids / title / createdAt and restoring the per-cell `[N]` execution
-   * stamps (fold B). Unlike the `addCell` walk the `.ipynb` import uses,
+   * stamps (implementation note). Unlike the `addCell` walk the `.ipynb` import uses,
    * this keeps the import lossless. Overwrites any existing slice for the
    * tab; transient run state (status / durations / var-flow) starts clean
    * since the imported run did not happen in this session.
@@ -186,7 +186,7 @@ export interface NotebookState {
     cellId: string,
     newKind: NotebookCellKind
   ) => void;
-  /** RL-043 Slice C — change a code cell's language (JS↔TS). Clears the
+  /** implementation — change a code cell's language (JS↔TS). Clears the
    * cell's outputs + transient run state (the prior run no longer
    * describes the new language). No-op on a markdown cell or when the
    * language is unchanged. */
@@ -233,7 +233,7 @@ export interface NotebookState {
   /** Set the active cell. */
   setActiveCell: (tabId: string, cellId: string | null) => void;
   /**
-   * RL-043 Slice H fold B — record the cell list's scroll position for a
+   * implementation Slice H implementation note — record the cell list's scroll position for a
    * tab so a later tab switch can restore it. No-op when the value is
    * unchanged. Transient (not persisted).
    */
@@ -255,7 +255,7 @@ function createInitialState(): Pick<
 }
 
 /**
- * T9 — exported so the extracted run-action factory (`notebookRunActions`)
+ * implementation — exported so the extracted run-action factory (`notebookRunActions`)
  * can guard `setCellRunStatus` against an out-of-enum value exactly as the
  * inline body did.
  */
@@ -269,7 +269,7 @@ export function isNotebookCellRunStatus(
 }
 
 /**
- * T9 — exported so the extracted cell-action factory (`notebookCellActions`)
+ * implementation — exported so the extracted cell-action factory (`notebookCellActions`)
  * can mint new cell ids exactly as the inline `addCell` body did.
  */
 export function createCellId(prefix: 'cell'): string {

@@ -9,11 +9,11 @@ import {
 } from '../../src/renderer/stores/trustEventStore';
 
 /**
- * RL-096 Slice 2 fold D — share-link create/open record metadata-only trust
+ * implementation note — share-link create/open record metadata-only trust
  * events, and ONLY on a real success (a usable link produced / a clean
  * decode). The share URL encodes the payload and must never reach the log.
  */
-describe('shareLink trust capture (RL-096 Slice 2)', () => {
+describe('shareLink trust capture ', () => {
   beforeEach(() => {
     _resetTrustEventCounterForTesting();
     useTrustEventStore.getState().clear();

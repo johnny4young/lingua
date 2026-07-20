@@ -1,9 +1,9 @@
 /**
- * RL-100 Slice 1 — cURL importer adapter unit tests.
+ * implementation — cURL importer adapter unit tests.
  *
  * Covers detect → preview → import phases plus the new lossy-flag
  * warning scanner + sensitive-header redaction layer that the
- * RL-097 fold B `tryParseCurl` did not have.
+ * implementation `tryParseCurl` did not have.
  */
 
 import { describe, expect, it } from 'vitest';

@@ -1,10 +1,10 @@
 /**
- * RL-099 Slice 5 — pipeline template gallery.
+ * implementation — pipeline template gallery.
  *
  * Presentational grid of curated starter pipelines shown in the
  * pipeline panel's empty state (and via the list-header button — fold
  * B). Each card shows the template name, description, and the adapter
- * chain it runs (fold C), with a "Use template" button that hands the
+ * chain it runs (implementation note), with a "Use template" button that hands the
  * template back to the panel to instantiate. All copy via `t()`;
  * token-only visuals.
  */
@@ -56,7 +56,7 @@ export function PipelineTemplateGallery({
               <div className="flex-1 text-body-sm leading-relaxed text-muted">
                 {t(template.descriptionKey)}
               </div>
-              {/* Fold C — adapter chain preview so the card is self-
+              {/* implementation note — adapter chain preview so the card is self-
                   explanatory before the user commits. */}
               <div
                 data-testid="pipeline-template-chain"

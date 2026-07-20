@@ -1,5 +1,5 @@
 /**
- * RL-070 — Unit tests for `convertSvgToCss`. Covers both encodings, size
+ * internal — Unit tests for `convertSvgToCss`. Covers both encodings, size
  * detection (width/height vs viewBox fallback vs missing), round-trip
  * decodability, percent-encoding safety for CSS string delimiters, and
  * all three error branches (empty, not-SVG, too-large).

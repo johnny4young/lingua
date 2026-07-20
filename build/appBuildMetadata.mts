@@ -30,7 +30,7 @@ function resolveChangelogJson() {
  * identifiers (`__LINGUA_BUILD_DATE__` etc.) at bundle time. These
  * read from JS code, NOT from `import.meta.env`.
  *
- * RL-061 Slice 5 adds `__LINGUA_APP_VERSION__` so the web update
+ * implementation adds `__LINGUA_APP_VERSION__` so the web update
  * banner can compare its build-time pin to the latest GitHub
  * release without depending on an env var being set externally.
  * Sourced from `package.json#version` so a `npm version` bump
@@ -49,7 +49,7 @@ export function getSharedBuildDefines() {
 /**
  * `import.meta.env.VITE_*` overrides applied via `process.env` at
  * config-load time. Vite inlines these into the bundle the same way
- * `.env.production` does. RL-061 Slice 5 sets
+ * `.env.production` does. implementation sets
  * `VITE_LINGUA_APP_VERSION` from `package.json#version` so the
  * existing telemetry consumer in
  * `src/renderer/utils/telemetry.ts:resolveTelemetryBase` reports the

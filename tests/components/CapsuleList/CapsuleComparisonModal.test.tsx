@@ -1,9 +1,9 @@
 /**
- * RL-094 Slice 4 — CapsuleComparisonModal.
+ * implementation — CapsuleComparisonModal.
  *
  * Pins: null off-state; summary strip (language match + mismatch, status
- * + duration deltas); fold A section tabs (Code → Input → Output) with
- * the two panes; fold E env deltas; the contentIdentical collapse; fold G
+ * + duration deltas); implementation note section tabs (Code → Input → Output) with
+ * the two panes; implementation note env deltas; the contentIdentical collapse; implementation note
  * a11y (role=dialog + aria-modal, Escape closes, close button is a real
  * <button> with an aria-label); and the ES tuteo locale.
  */
@@ -119,7 +119,7 @@ describe('CapsuleComparisonModal', () => {
     ).toBe('Language: python → javascript');
   });
 
-  it('shows env deltas only when they differ (fold E)', () => {
+  it('shows env deltas only when they differ (implementation note)', () => {
     const older = capsule({ id: 'o', platform: 'web', runner: 'javascript' });
     const newer = capsule({ id: 'n', platform: 'desktop', runner: 'node-22' });
 
@@ -145,7 +145,7 @@ describe('CapsuleComparisonModal', () => {
     expect(screen.queryByTestId('capsule-compare-summary-runner')).toBeNull();
   });
 
-  it('renders the Code panes by default and switches sections (fold A)', async () => {
+  it('renders the Code panes by default and switches sections (implementation note)', async () => {
     const older = capsule({
       id: 'o',
       content: 'console.log(1)',
@@ -189,7 +189,7 @@ describe('CapsuleComparisonModal', () => {
     );
   });
 
-  it('moves between section tabs with the keyboard (UX Sweep T11)', async () => {
+  it('moves between section tabs with the keyboard (accessibility pass)', async () => {
     const older = capsule({
       id: 'o',
       content: 'console.log(1)',
@@ -230,7 +230,7 @@ describe('CapsuleComparisonModal', () => {
     );
   });
 
-  it('exposes the scroll panes as focusable, labelled regions (UX Sweep T3)', () => {
+  it('exposes the scroll panes as focusable, labelled regions (accessibility pass)', () => {
     const older = capsule({ id: 'o', content: 'console.log(1)', stdout: 'a' });
     const newer = capsule({ id: 'n', content: 'console.log(2)', stdout: 'b' });
     render(<CapsuleComparisonModal capsules={[older, newer]} onClose={vi.fn()} />);
@@ -274,7 +274,7 @@ describe('CapsuleComparisonModal', () => {
     expect(screen.getByTestId('capsule-compare-summary')).not.toBeNull();
   });
 
-  it('a11y: role=dialog + aria-modal, Escape closes, close is a real button (fold G)', async () => {
+  it('a11y: role=dialog + aria-modal, Escape closes, close is a real button (implementation note)', async () => {
     const onClose = vi.fn();
     const older = capsule({ id: 'o', content: 'a' });
     const newer = capsule({ id: 'n', content: 'b' });

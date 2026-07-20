@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 — `lingua capsule validate <file>` subcommand.
+ * implementation — `lingua capsule validate <file>` subcommand.
  *
  * Reads a capsule JSON blob and validates it against the SAME
  * `parseRunCapsule` validator the renderer uses (single source of
@@ -8,7 +8,7 @@
  * stderr (or the structured `--json` body on stdout when `--json`
  * is set).
  *
- * `--json` output shape (snapshot-stable per fold F):
+ * `--json` output shape (snapshot-stable per implementation note):
  *
  *   { ok: true, summary: string }
  *   { ok: false, reason: ParseRunCapsuleReason, detail?: string }

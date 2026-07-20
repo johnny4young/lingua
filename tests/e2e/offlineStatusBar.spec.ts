@@ -1,13 +1,13 @@
 import { mkdirSync } from 'node:fs';
 import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
 
-const evidenceDir = 'output/review/it2-g4-g5-resilience';
+const evidenceDir = 'output/review/internal';
 
 function captureEnabled(): boolean {
   return process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1';
 }
 
-test.describe('IT2-G5 offline status bar', () => {
+test.describe('internal offline status bar', () => {
   test('celebrates offline operation in English and clears when online', async ({
     context,
     page,

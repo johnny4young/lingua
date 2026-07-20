@@ -1,10 +1,10 @@
 /**
- * RL-020 Slice 6 — stdin / input end-to-end smoke.
+ * implementation — stdin / input end-to-end smoke.
  *
  * Locks the user-visible contract via diverse paths:
  *
  *   1. JavaScript `prompt()` consumes the buffer line-by-line and
- *      surfaces the value through auto-log (Slice 5).
+ *      surfaces the value through auto-log .
  *   2. TypeScript `readline()` reads the same buffer (the runners
  *      share the JS worker, but the test exercises the TS surface
  *      so we catch a regression that breaks transpile threading).
@@ -66,7 +66,7 @@ async function openStdinTab(page: Page): Promise<void> {
   await page.getByTestId('bottom-panel-stdin-tab').click();
 }
 
-test.describe('stdin / input — JS + TS + Python (RL-020 Slice 6)', () => {
+test.describe('stdin / input — JS + TS + Python ', () => {
   test('1. JS prompt() consumes the buffer and surfaces via auto-log', async ({
     page,
   }) => {

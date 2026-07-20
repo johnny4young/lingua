@@ -1,5 +1,5 @@
 /**
- * Unit tests for the KV-backed rate limiter (RL-061 Slice 4).
+ * Unit tests for the KV-backed rate limiter .
  *
  * The limiter ships under `src/lib/rateLimit.ts` and is consumed by
  * `/trials/start`, `/education/start`, and `/licenses/recover/start`.

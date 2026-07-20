@@ -1,5 +1,5 @@
 /**
- * RL-097 / IT2-F3 — on-demand DuckDB column summaries.
+ * implementation detail — on-demand DuckDB column summaries.
  *
  * A profile intentionally re-runs only a single read query after an explicit
  * user action. It never writes a workspace response, run-history entry, or

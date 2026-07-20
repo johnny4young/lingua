@@ -33,7 +33,7 @@ export function Section({
 }
 
 /**
- * RL-088 — Row binds its visible label to the interactive control
+ * internal — Row binds its visible label to the interactive control
  * inside `children` for screen readers. When `children` is a single
  * React element that has not declared its own `aria-label` or
  * `aria-labelledby`, Row clones it with `aria-labelledby` pointing at
@@ -78,7 +78,7 @@ export function Row({
         {hint && <p className="mt-1 text-body-sm leading-5 text-muted">{hint}</p>}
       </div>
       {/*
-       * RL-044 Slice 2b-β-α Prerequisite fix — Settings panel vertical
+       * implementation Prerequisite fix — Settings panel vertical
        * alignment. Previously the right column used
        * `sm:max-w-[52%] sm:min-w-[11rem]`, so its width tracked the
        * intrinsic width of whatever control it held: textareas fanned

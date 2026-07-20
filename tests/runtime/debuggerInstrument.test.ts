@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { instrumentForDebugger } from '@/runtime/debuggerInstrument';
 
-describe('instrumentForDebugger (RL-027 Slice 1)', () => {
+describe('instrumentForDebugger ', () => {
   it('injects __lingua_dbg_yield before each top-level statement', () => {
     const result = instrumentForDebugger(
       `const a = 1;\nconst b = 2;\nconst c = a + b;\n`
@@ -91,7 +91,7 @@ describe('instrumentForDebugger (RL-027 Slice 1)', () => {
     expect(result.instrumentedLines).toEqual([1, 2]);
   });
 
-  describe('TS source-map composition (RL-027 Slice 1.5 fold G)', () => {
+  describe('TS source-map composition (implementation note)', () => {
     // Each JS line N maps to source line N+1 in the original TS source.
     // VLQ "AACA" decodes to deltas (genCol 0, srcIdx 0, srcLine 1, srcCol 0).
     // First segment lands on (0, 0, 1, 0); subsequent `;AACA` segments

@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 4 — `jwt-decode` adapter.
+ * implementation — `jwt-decode` adapter.
  *
  * Decodes a JWT into pretty-printed JSON of its header + payload.
  * DECODE ONLY — it does NOT verify the signature (the copy says so). A

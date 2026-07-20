@@ -17,7 +17,7 @@ import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 import { Select, Toggle } from './shared';
 
 /**
- * RL-097 Slice 3 fold D — SQL query timeout presets (milliseconds). The
+ * implementation note — SQL query timeout presets (milliseconds). The
  * setter clamps to [1s, 5min]; these are the surfaced choices. The label
  * key per preset lives in `settings.editor.sqlWorkspace.queryTimeout.*`.
  */
@@ -57,7 +57,7 @@ export function SqlWorkspaceSettingsSection() {
   );
   const { t, i18n } = useTranslation();
 
-  // RL-097 Slice 3 (SQL OPFS) — whether this browser exposes OPFS at
+  // implementation (SQL OPFS) — whether this browser exposes OPFS at
   // all. When false the toggle still works (the runtime falls back to
   // in-memory + notifies) but we surface an inline note so the user
   // understands persistence won't take.
@@ -88,7 +88,7 @@ export function SqlWorkspaceSettingsSection() {
     });
   };
 
-  // RL-097 Slice 3 (SQL OPFS) fold E — delete the persisted database.
+  // implementation (SQL OPFS) implementation note — delete the persisted database.
   // Destructive (drops every saved table + row), so it confirms first.
   // `clearPersistedSqlDatabase` terminates the engine before removing
   // the OPFS file. Reconnect immediately afterwards so the SQL panel chip
@@ -109,7 +109,7 @@ export function SqlWorkspaceSettingsSection() {
     })();
   };
 
-  // RL-097 Slice 3 (SQL OPFS) fold E — apply the persistence toggle to
+  // implementation (SQL OPFS) implementation note — apply the persistence toggle to
   // the live engine without a full reload. Terminating drops the current
   // session's in-memory tables, so it confirms first. Re-instantiates,
   // records the resolved mode (chip updates live), and fires the
@@ -180,7 +180,7 @@ export function SqlWorkspaceSettingsSection() {
           }
         />
 
-        {/* RL-097 Slice 3 (SQL OPFS) — opt into persisting the DuckDB
+        {/* implementation (SQL OPFS) — opt into persisting the DuckDB
             database to OPFS. Off by default; the runtime falls back to
             in-memory when OPFS is unavailable. Takes effect on the next
             reload or via the Reconnect now action below. */}
@@ -204,7 +204,7 @@ export function SqlWorkspaceSettingsSection() {
         />
       </SpecCard>
 
-      {/* RL-097 Slice 3 (SQL OPFS) folds E — apply the toggle to the
+      {/* implementation (SQL OPFS) implementation note — apply the toggle to the
           live engine without a reload, and wipe the persisted database.
           Both are session-affecting, so each confirms first. */}
       <div className="mt-2 flex flex-wrap gap-2">

@@ -1,7 +1,7 @@
 import type { Locale } from '~/lib/i18n';
 
 /**
- * SR-42 — honest head-to-head comparison pages. High-intent SEO ("X
+ * internal — honest head-to-head comparison pages. High-intent SEO ("X
  * alternative") with a capability matrix and a genuine "when to choose the
  * other tool" section, because a comparison that pretends the competitor has
  * no strengths reads as marketing and converts worse than an honest one.

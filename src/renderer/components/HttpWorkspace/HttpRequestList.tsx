@@ -1,10 +1,10 @@
 /**
- * RL-097 Slice 1 — Left column of the HTTP workspace: list of saved
+ * implementation — Left column of the HTTP workspace: list of saved
  * requests + create / activate / rename / delete affordances.
  *
  * Each row renders the method + name. Click activates the request;
  * double-click on the name starts an inline rename. Trash icon
- * opens a native confirm before deleting (RL-024 Slice 2 pattern —
+ * opens a native confirm before deleting (implementation pattern —
  * native confirm matches the "no silent mutation" principle).
  */
 

@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 2 — capsule import orchestration hook.
+ * implementation — capsule import orchestration hook.
  *
  * Owns the side-effect-free preview state that `<CapsuleImportOverlay>`
  * renders. The hook itself never calls `editorStore.addTab` until the
@@ -10,13 +10,13 @@
  * telemetry enum):
  *
  *   - `paste` — `decodeFromText(json)` directly from the textarea AND
- *     the optional clipboard auto-detect on mount (fold C, gated on
+ *     the optional clipboard auto-detect on mount (implementation note, gated on
  *     `capsuleImportClipboardOnFocusConsent === 'granted'`).
  *   - `file-picker` — `decodeFromFile(file)` after the hidden
  *     `<input type="file">` resolves; web + desktop both go through
  *     the same `File.text()` so there's no IPC dependency.
  *   - `drag-drop` — `decodeFromFile(file)` from the overlay's drop
- *     zone (fold B). Multi-file drag picks ONLY the first file.
+ *     zone (implementation note). Multi-file drag picks ONLY the first file.
  *
  * All three converge on `tryDecodeCapsuleJson` (from
  * `src/renderer/utils/importCapsule.ts`) which delegates to the
@@ -24,7 +24,7 @@
  * smaller renderer-facing enum that drives the overlay's i18n keys
  * directly + telemetry status bucket.
  *
- * Telemetry (fold D):
+ * Telemetry (implementation note):
  *   - `decode` → `capsule.imported { surface, status, sizeBucket }`
  *     with `status ∈ {'decoded', 'rejected'}`.
  *   - `openInNewTab` → `status: 'open-confirmed'`.
@@ -60,7 +60,7 @@ export interface CapsuleImportDecodedState {
   sizeBucket: CapsuleSizeBucket;
   byteLength: number;
   sourceSurface: CapsuleImportSourceSurface;
-  /** Raw JSON the user fed in. Held so the overlay can copy it back to clipboard (fold E). */
+  /** Raw JSON the user fed in. Held so the overlay can copy it back to clipboard (implementation note). */
   rawJson: string;
 }
 
@@ -142,8 +142,8 @@ export function useCapsuleImport(
       sizeBucket: CapsuleImportDecodedState['sizeBucket']
     ) => {
       // Property is named `surface` (not `sourceSurface`) on the wire
-      // because `source` is in DENY_SUBSTRINGS — see RL-094 Slice 2
-      // fold D telemetry comment in `src/shared/telemetry.ts`.
+      // because `source` is in DENY_SUBSTRINGS — see implementation
+      // implementation note telemetry comment in `src/shared/telemetry.ts`.
       void trackEvent('capsule.imported', {
         surface,
         status,
@@ -247,7 +247,7 @@ export function useCapsuleImport(
   const openInNewTab = useCallback(() => {
     const decoded = decodedRef.current;
     if (!decoded) return;
-    // Reviewer fix (RL-094 Slice 2 final pass) — clear the decoded
+    // Reviewer fix (implementation final pass) — clear the decoded
     // ref BEFORE side effects so a fast double-click on the confirm
     // button (the overlay closes async via React commit, the second
     // click can fire before unmount) cannot create two identical
@@ -259,7 +259,7 @@ export function useCapsuleImport(
     } else {
       // Default flow — push the capsule's source.content as a new
       // editor tab. Drops the result/stdin/environment on purpose:
-      // Slice 2 promises "open the SOURCE in a new tab", NOT auto-
+      // implementation promises "open the SOURCE in a new tab", NOT auto-
       // replay. The user has to click Run to re-execute.
       pushCapsuleAsTab(decoded.capsule);
     }
@@ -325,10 +325,10 @@ async function defaultReadClipboard(): Promise<string> {
  * Default openInNewTab handler — creates a new editor tab whose
  * content matches `capsule.source.content`. Delegates to the shared
  * `openCapsuleSourceInNewTab` helper so the import flow and the
- * capsule browse overlay (RL-094 Slice 3) stay identical in how they
+ * capsule browse overlay  stay identical in how they
  * materialise a capsule's source.
  *
- * RL-094 Slice 2 fold G — when the capsule's `tab.language === 'http'`
+ * implementation note — when the capsule's `tab.language === 'http'`
  * the consumer (overlay) should offer "Open in HTTP workspace" as a
  * secondary affordance. Here we ALWAYS fall back to a plain text/json
  * tab — the HTTP-specific bridge is rendered by the overlay and is

@@ -1,6 +1,6 @@
 /**
- * RL-011 Slice A tests — lock the scope-merger contract so future
- * store plumbing + Settings UI slices can't drift on the precedence,
+ * implementation tests — lock the scope-merger contract so future
+ * store plumbing + Settings UI implementations can't drift on the precedence,
  * the empty-string-as-real-value POSIX rule, the key validator, or
  * the reserved-key deny list.
  */

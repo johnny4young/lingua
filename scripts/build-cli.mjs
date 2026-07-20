@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * RL-098 Slice 1 — bundle src/cli/lingua.ts into dist/cli/lingua.cjs.
+ * implementation — bundle src/cli/lingua.ts into dist/cli/lingua.cjs.
  *
  * Single CJS file, Node 22+ target, everything bundled (the 5
  * utility adapters + the capsule schema + the registry). No
  * Electron, no React — the ESLint rule + this bundle's
  * shape-check at the end of the run keep it that way.
  *
- * Fold D — the bundled artifact is prefixed with `#!/usr/bin/env node`
+ * implementation note — the bundled artifact is prefixed with `#!/usr/bin/env node`
  * and gets `chmod +x` so it is directly executable on Unix shells.
  *
  * The `__LINGUA_CLI_VERSION__` placeholder in `src/cli/lingua.ts`
@@ -61,7 +61,7 @@ await build({
   logLevel: 'info',
 });
 
-// Fold D — make the bundle directly executable on Unix.
+// implementation note — make the bundle directly executable on Unix.
 try {
   chmodSync(outFile, 0o755);
 } catch (err) {
@@ -75,7 +75,7 @@ const sizeKb = (stats.size / 1024).toFixed(1);
 console.log(`[build-cli] wrote ${path.relative(repoRoot, outFile)} (${sizeKb} KiB)`);
 
 // Defensive bundle-size budget: warn loudly if the artifact grows
-// past 500 KiB. The realistic Slice 1 size is ~35 KiB.
+// past 500 KiB. The realistic implementation size is ~35 KiB.
 const SOFT_CAP_BYTES = 500 * 1024;
 if (stats.size > SOFT_CAP_BYTES) {
   console.warn(

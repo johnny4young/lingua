@@ -1,5 +1,5 @@
 /**
- * RL-068 closeout panels — combined component-level smoke tests for
+ * internal closeout panels — combined component-level smoke tests for
  * YamlJsonPanel, JsonCsvPanel, MarkdownPreviewPanel, SqlFormatterPanel.
  * Helper coverage lives in `tests/utils/{yamlJson,jsonCsv,markdownPreview,sqlFormatter}.test.ts`;
  * these cases verify the panels mount, render their seeded outputs,
