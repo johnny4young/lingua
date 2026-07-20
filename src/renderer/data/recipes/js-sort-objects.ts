@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — Recipe `js-sort-objects`.
+ * implementation — Recipe `js-sort-objects`.
  *
  * Sort an array of objects by a key with a tie-breaker. Mid-difficulty
  * starter; exercises `Array.prototype.sort` + the stable-sort

@@ -1,5 +1,5 @@
 /**
- * RL-037 Vim mode integration — factory for a localized status bar
+ * internal Vim mode integration — factory for a localized status bar
  * subclass. `monaco-vim` ships an English-only `VimStatusBar` whose
  * `setMode({ mode, subMode })` calls `setText('--INSERT--')` etc.
  * We subclass it and replace `setMode` with a translator-backed

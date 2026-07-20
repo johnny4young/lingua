@@ -23,7 +23,7 @@ import {
 } from './editorTabUtils';
 
 /**
- * RL-128 fold A/B — close + rename action factory for the editor store.
+ * implementation — close + rename action factory for the editor store.
  *
  * Bundles `closeTab` (dirty-confirm dialog, then `removeTab`) and its bulk
  * variants (`closeOtherTabs`, `closeTabsToRight`, `closeAllTabs` — each
@@ -107,7 +107,7 @@ export function createCloseActions(
         useNotebookStore.getState().renameNotebookForTab(id, title);
         return;
       }
-      // RL-020 Slice 2 fold D — when a rename auto-corrects the
+      // implementation note — when a rename auto-corrects the
       // workflow mode (e.g. JS Debug → Rust forces Run because Rust
       // has no debugger adapter), emit telemetry with
       // `trigger: 'language_change'` so the audit trail covers the
@@ -117,7 +117,7 @@ export function createCloseActions(
         from: WorkflowMode;
         to: WorkflowMode;
       }> = [];
-      // RL-020 Slice 8 — track whether the rename flipped the active
+      // implementation — track whether the rename flipped the active
       // tab's language so we can drop the result-store comparator
       // snapshot below.
       let activeTabLanguageChanged = false;
@@ -144,7 +144,7 @@ export function createCloseActions(
           if (previousLanguage !== language) {
             tabLanguageChanged = true;
           }
-          // RL-020 Slice 5 fold C — when the new language is not
+          // implementation note — when the new language is not
           // JS / TS, clear any persisted per-tab auto-log override so a
           // stale flag from before the rename does not influence the
           // resolved gate. The per-language Settings default is the
@@ -158,7 +158,7 @@ export function createCloseActions(
             isDirty: true,
           };
           if (languageSupportsAutoLog(language)) {
-            // RL-020 Slice 7 — the per-tab one-shot extended timeout
+            // implementation — the per-tab one-shot extended timeout
             // override is always scoped to the code the user was
             // looking at when they armed it. A rename to ANY new
             // language clears the override, even if the new language
@@ -193,7 +193,7 @@ export function createCloseActions(
         });
         return { tabs: next };
       });
-      // RL-020 Slice 8 — same-tab language change invalidates the
+      // implementation — same-tab language change invalidates the
       // result-store snapshot ring (it was captured for the previous
       // language and would surface as a stale comparator). Tab
       // switches handle their own cascade via `clear()`.

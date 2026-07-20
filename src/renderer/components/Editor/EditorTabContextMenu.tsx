@@ -46,7 +46,7 @@ export function EditorTabContextMenu({
 }: EditorTabContextMenuProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
-  // UX Sweep T3 — remember what was focused before the menu opened
+  // accessibility pass — remember what was focused before the menu opened
   // (the triggering tab, for Shift+F10 / ContextMenu key) so focus can
   // return there on close instead of falling to the document body.
   const previouslyFocusedRef = useRef<HTMLElement | null>(

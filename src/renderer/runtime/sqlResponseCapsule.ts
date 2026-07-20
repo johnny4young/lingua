@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 — Build a `RunCapsuleV1` from a SQL query + response
+ * implementation — Build a `RunCapsuleV1` from a SQL query + response
  * pair. Mirror of `httpResponseCapsule.ts` so the SQL workspace
  * inherits the same share / CLI / AI / export contract.
  *

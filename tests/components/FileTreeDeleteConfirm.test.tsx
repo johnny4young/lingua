@@ -1,5 +1,5 @@
 /**
- * UX Sweep T2 BLOCKER #1 — file/folder delete confirmation.
+ * regression guard — file/folder delete confirmation.
  *
  * The FileTree must confirm web deletes through the shared ConfirmDialog.
  * Desktop keeps the final confirmation inside main-process IPC, so the

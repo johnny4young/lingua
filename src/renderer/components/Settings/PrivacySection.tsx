@@ -11,8 +11,8 @@ import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { Toggle } from './shared';
 
 /**
- * Privacy section — owns the RL-065 telemetry consent toggle and the
- * RL-079 native-execution acknowledgement reset. Three-state telemetry
+ * Privacy section — owns the internal telemetry consent toggle and the
+ * internal native-execution acknowledgement reset. Three-state telemetry
  * consent: `unset` (default, treated as opt-out), `granted`, `declined`.
  * Flipping the toggle moves between `granted` and `declined`; we never
  * revert to `unset` from the UI so the future first-run prompt stays
@@ -98,7 +98,7 @@ export function PrivacySection() {
         />
         <SensitiveHeadersRow />
       </SpecCard>
-      {/* IT2-C1 — the local Run Ledger card: opt-in, clear, export. */}
+      {/* internal — the local Run Ledger card: opt-in, clear, export. */}
       <SpecCard>
         <RunLedgerRows />
       </SpecCard>
@@ -107,7 +107,7 @@ export function PrivacySection() {
 }
 
 /**
- * IT2-C1 — Run Ledger controls. The ledger records MANUAL runs into the
+ * internal — Run Ledger controls. The ledger records MANUAL runs into the
  * `lingua_ledger` schema of the SQL workspace's DuckDB database. It keeps
  * source hashes and a metadata-only capsule summary; code, stdin, output,
  * error text, tab names, and Git metadata never persist. Off by default;
@@ -251,7 +251,7 @@ function RunLedgerRows() {
 }
 
 /**
- * RL-097 Slice 1 — Sensitive HTTP headers editor. Chip list with an
+ * implementation — Sensitive HTTP headers editor. Chip list with an
  * add-by-typing-Enter input. Baseline chips render disabled (the
  * baseline list is immutable from the UI; the renderer always merges
  * them at redaction time). User-added chips have an X to remove.

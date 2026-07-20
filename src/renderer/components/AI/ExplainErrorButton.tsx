@@ -1,5 +1,5 @@
 /**
- * T19 — reusable "Explain this error" trigger.
+ * implementation — reusable "Explain this error" trigger.
  *
  * Renders nothing without the `LOCAL_AI` entitlement, so a Free user never
  * sees it. Owns the open state and mounts the consent-gated
@@ -64,7 +64,7 @@ export function ExplainErrorButton({
   const { t } = useTranslation();
   const entitled = useEntitlement('LOCAL_AI');
   const [open, setOpen] = useState(false);
-  // T19 — runtime-aware context: every surface routes through this button,
+  // implementation — runtime-aware context: every surface routes through this button,
   // so the note is derived once here instead of at each caller.
   const runtimeNote = runtimeNoteFor({
     language,

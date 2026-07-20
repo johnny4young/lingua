@@ -1,5 +1,5 @@
 /**
- * PERF-001 — render-count probe for the PanelChipsRow subscription
+ * internal — render-count probe for the PanelChipsRow subscription
  * contract: the chips row reads only PRIMITIVE derivations of the active
  * tab (id / language / runtimeMode / stdin line count / per-tab toggle
  * flags), so an editor keystroke (`updateContent` mints a new `tabs`
@@ -21,7 +21,7 @@ import { useEditorStore } from '@/stores/editorStore';
 
 const initialEditorState = useEditorStore.getState();
 
-describe('PanelChipsRow subscription contract (PERF-001)', () => {
+describe('PanelChipsRow subscription contract', () => {
   beforeEach(() => {
     useEditorStore.setState({
       tabs: [

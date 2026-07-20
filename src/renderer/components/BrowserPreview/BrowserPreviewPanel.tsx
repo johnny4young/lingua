@@ -11,7 +11,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { resolveBrowserPreviewRefreshInterval } from '../../../shared/browserPreviewRefresh';
 
 /**
- * RL-019 Slice 3 — bottom-panel surface for the Browser preview
+ * implementation — bottom-panel surface for the Browser preview
  * runtime. Renders a sandboxed iframe + a thin status footer.
  *
  *   - On mount, registers the iframe element with the
@@ -21,7 +21,7 @@ import { resolveBrowserPreviewRefreshInterval } from '../../../shared/browserPre
  *   - The footer reflects running / idle / error / timeout states
  *     by consuming the existing result store (`isManualRunning`,
  *     `error`).
- *   - Fold F — inspect button opens the current iframe document in
+ *   - implementation note — inspect button opens the current iframe document in
  *     a new opaque-origin data URL. Implemented as a best-effort
  *     affordance — wrapped in try/catch so the panel never breaks
  *     if the host blocks popups.

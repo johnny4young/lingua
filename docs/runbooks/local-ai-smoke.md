@@ -1,6 +1,6 @@
 # Local AI smoke — "Explain this error" with a real model
 
-How to exercise the T19 **Explain this error** feature end to end against a
+How to exercise the implementation **Explain this error** feature end to end against a
 **real** local model (no mock), on the web build. Covers both interactive use
 in your own browser and agent-driven Playwright smokes.
 

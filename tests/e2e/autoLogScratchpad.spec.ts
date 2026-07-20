@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 5 — bare-expression auto-log end-to-end smoke.
+ * implementation — bare-expression auto-log end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -57,7 +57,7 @@ async function enableAutoLogForJavaScript(page: Page): Promise<void> {
   });
 }
 
-test.describe('expression auto-log (RL-020 Slice 5)', () => {
+test.describe('expression auto-log ', () => {
   test('surfaces autoLog rows for bare expressions in a JS Scratchpad tab', async ({
     page,
   }) => {

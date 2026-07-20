@@ -76,7 +76,7 @@ export interface LanguageIntelligenceAdapter {
 
 /**
  * Async streaming contract for adapters that delegate to a long-running
- * out-of-process server (RL-026 Slice 3 — rust-analyzer). The contract is
+ * out-of-process server (implementation — rust-analyzer). The contract is
  * intentionally separate from the sync adapter so renderer-only adapters
  * (Python) do not have to opt in. The same Monaco provider can route to
  * either flavor based on the language id.

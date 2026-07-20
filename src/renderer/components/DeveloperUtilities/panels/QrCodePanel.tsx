@@ -101,7 +101,7 @@ export function QrCodePanel() {
     };
   }, [copyPngState]);
 
-  // Wire into utilityOutputStore (RL-069 Slice 1) so the global
+  // Wire into utilityOutputStore  so the global
   // Cmd+Shift+C / Cmd+Alt+R shortcuts target the active QR output:
   // the PNG data URL in generate mode, the decoded text in decode mode.
   const registerOutput = useCallback(() => {
@@ -112,7 +112,7 @@ export function QrCodePanel() {
   }, [mode, decodeResult, pngResult]);
   useRegisterUtilityOutput(registerOutput);
 
-  // RL-069 Slice 2 — Apply re-runs the live generation pipeline.
+  // implementation — Apply re-runs the live generation pipeline.
   // The output is already memoised via useEffect; the gesture exists
   // so a keyboard-only user can confirm "yes, encode this" and read
   // the success toast.

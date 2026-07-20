@@ -1,14 +1,14 @@
 /**
- * RL-025 Slice A + Slice B - dependency detection + install cache.
+ * implementation - dependency detection + install cache.
  *
- * Slice A: non-persisted per-tab detection cache. Keyed by `tabId`.
- * Memoised by a cheap `detectionHash` (length plus a fold over the
+ * implementation: non-persisted per-tab detection cache. Keyed by `tabId`.
+ * Memoised by a cheap `detectionHash` (length plus a implementation note the
  * whole capped buffer) so re-detection only runs when the buffer
  * actually changed. Cleared on tab close via `editorStore.removeTab`.
  *
- * Slice B: per-tab install lifecycle state (status overlays on
+ * implementation: per-tab install lifecycle state (status overlays on
  * `ClassifiedDependency` rows + a streamed log buffer keyed by
- * tabId). Fold E persists the log buffer across panel hide/show
+ * tabId). implementation note persists the log buffer across panel hide/show
  * within the session (in-memory only; never written to localStorage).
  *
  * No persistence on purpose - detection state and install logs are
@@ -42,7 +42,7 @@ export interface TabDetectionState {
    */
   readonly skippedReason?: 'buffer-too-large';
   /**
-   * RL-025 Slice B — whether the resolved cwd carries a
+   * implementation — whether the resolved cwd carries a
    * `package.json`. Used by the Install button to switch between
    * the enabled state and the `noPackageJsonTooltip`. `null` when
    * no cwd was discoverable (web stub, unsaved tab).
@@ -51,11 +51,11 @@ export interface TabDetectionState {
 }
 
 /**
- * RL-025 Slice B - install lifecycle state for the active tab.
+ * implementation - install lifecycle state for the active tab.
  * `runId` is null when no install is in flight. The `log` buffer is
  * appended chunk by chunk from main and retained in-memory after the
  * install finishes so the user can re-read the output without
- * re-running the install (fold E).
+ * re-running the install (implementation note).
  */
 export interface TabInstallState {
   readonly tabId: string;
@@ -93,7 +93,7 @@ interface DependencyDetectionStateShape {
   setDetection: (tabId: string, next: TabDetectionState) => void;
   evictTab: (tabId: string) => void;
   clear: () => void;
-  // RL-025 Slice B — install lifecycle actions.
+  // implementation — install lifecycle actions.
   startInstall: (
     tabId: string,
     runId: string,
@@ -121,7 +121,7 @@ export const useDependencyDetectionStore = create<DependencyDetectionStateShape>
     installByTab: new Map(),
     setDetection: (tabId, next) =>
       set((state) => {
-        // RL-025 Slice B coupled invariant — a re-detection cycle
+        // implementation coupled invariant — a re-detection cycle
         // that fires during an in-flight install (typical: the user
         // edits the buffer while `npm install` is running for 60+ s)
         // must NOT overwrite the optimistic `'installing'` status
@@ -269,7 +269,7 @@ export const useDependencyDetectionStore = create<DependencyDetectionStateShape>
 
 /**
  * Cheap content fingerprint. The detector is capped at 500 KB, so a
- * full linear fold is still small next to the parse pass and avoids
+ * full linear implementation note still small next to the parse pass and avoids
  * stale rows when an import changes in the middle of a same-length
  * buffer.
  */

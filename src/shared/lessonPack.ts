@@ -1,13 +1,13 @@
 /**
- * RL-039 Slice B — Recipe / `LessonPackV1` schema.
+ * implementation — Recipe / `LessonPackV1` schema.
  *
  * `LessonPackV1` is the JSON-serialisable record of one curated
  * Lingua practice problem: a problem statement, a starter code
  * scaffold, and a handful of assertions that decide whether the
  * user's edits solved the problem. The schema deliberately stays
- * language-generic — Slice B shipped 10 JavaScript recipes and Slice C
+ * language-generic — implementation shipped 10 JavaScript recipes and implementation
  * adds TypeScript / Python packs — and capsule-friendly so a future
- * "reference solution" Slice can embed a known-good
+ * "reference solution" implementation can embed a known-good
  * `RunCapsuleV1.contentHash` next to each assertion.
  *
  * Downstream consumers (today or planned):
@@ -15,10 +15,10 @@
  *   - The Recipes overlay (`Mod+Alt+L`) renders the catalog list.
  *   - `<RecipeRunPanel>` mounts when a tab is bound to a recipe and
  *     wires the Run + Test button to `buildLessonRunSource`.
- *   - RL-098 Slice 2 (planned) ships `lingua lesson validate
+ *   - implementation (planned) ships `lingua lesson validate
  *     path/to/recipe.json` — depends on this schema staying
  *     `version: 1` literal.
- *   - RL-031 Slice 2 (planned) attaches an AI-generated hint to a
+ *   - implementation (planned) attaches an AI-generated hint to a
  *     recipe via a fresh `aiHint` field (additive; won't break the
  *     `version: 1` invariant).
  *
@@ -28,7 +28,7 @@
  *     return on `{ok: false}`. The Recipes overlay maps each code
  *     to a localized hint via `recipes.reject.<reason>` keys.
  *   - `ASSERTION_EXIT_KINDS` — what kind of assertion contract the
- *     `code` field uses. Slice B ships all three (`value` returns
+ *     `code` field uses. implementation ships all three (`value` returns
  *     a truthy result, `throw` expects the snippet to throw,
  *     `console-contains` looks for a substring on stdout). The
  *     runner switches on this to interpret the assertion's result.
@@ -36,12 +36,12 @@
  * Privacy posture:
  *
  *   - Bundled recipes are public domain catalog content; the schema
- *     can also represent user-authored recipes (Slice C+ import via
- *     the RL-100 registry). The `parseLessonPack` guard caps payload
+ *     can also represent user-authored recipes (future work import via
+ *     the internal registry). The `parseLessonPack` guard caps payload
  *     size + asserts the closed-enum surface so a hand-crafted JSON
  *     cannot bring down the overlay.
- *   - Per-recipe telemetry stays language-bucketed Slice B. No
- *     recipe id reaches the wire (fold B in the plan).
+ *   - Per-recipe telemetry stays language-bucketed implementation. No
+ *     recipe id reaches the wire (implementation note in the plan).
  */
 
 import { LANGUAGE_PACKS, type LanguagePackId } from './languagePacks';
@@ -65,7 +65,7 @@ export const LESSON_REJECT_REASONS = [
 export type LessonRejectReason = (typeof LESSON_REJECT_REASONS)[number];
 
 /**
- * Closed-enum assertion exit-kind discriminants. The Slice B runner
+ * Closed-enum assertion exit-kind discriminants. The implementation runner
  * (`src/shared/lessonRunner.ts`) switches on this to decide how to
  * interpret the snippet's effect.
  *
@@ -108,7 +108,7 @@ export interface AssertionV1 {
   readonly kind: AssertionExitKind;
   /**
    * Optional hint shown when the assertion fails — short, actionable
-   * (fold C in the plan). Capped at ~200 chars in the renderer.
+   * (implementation note in the plan). Capped at ~200 chars in the renderer.
    */
   readonly hint?: LessonProse;
 }
@@ -137,9 +137,9 @@ export interface LessonPackV1 {
 // ---------------------------------------------------------------------------
 
 /**
- * Recipes are bite-sized by design. Slice B's largest bundled recipe
+ * Recipes are bite-sized by design. implementation's largest bundled recipe
  * is ~3 KiB; the 32 KiB ceiling exists so a future user-authored
- * recipe (Slice C+ import) cannot smuggle a multi-MB blob into the
+ * recipe (future work import) cannot smuggle a multi-MB blob into the
  * overlay.
  */
 export const MAX_LESSON_PACK_BYTES = 32 * 1024;
@@ -166,8 +166,8 @@ export type LessonParseOutcome =
  *
  *   - `tests/data/recipes.test.ts` to assert every bundled recipe
  *     parses cleanly at build time (catches author drift).
- *   - The future CLI `lingua lesson validate` (RL-098 Slice 2).
- *   - Slice C+ import flow when user-authored recipes land.
+ *   - The future CLI `lingua lesson validate` .
+ *   - future work import flow when user-authored recipes land.
  */
 export function parseLessonPack(input: unknown): LessonParseOutcome {
   // 1. Decode + size cap.
@@ -330,7 +330,7 @@ function isKnownLanguage(value: string): value is LanguagePackId {
 /**
  * Pick the locale-appropriate prose, falling back to `en` when the
  * `es` field is missing. The renderer ALWAYS calls through this
- * helper so a future locale (Slice 2+) only has to add a new arm.
+ * helper so a future locale  only has to add a new arm.
  */
 export function pickProse(prose: LessonProse, locale: 'en' | 'es'): string {
   if (locale === 'es' && prose.es !== undefined) return prose.es;

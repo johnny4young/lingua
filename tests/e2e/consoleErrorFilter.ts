@@ -1,4 +1,4 @@
-// RL-019 Slice 3 — when the BrowserPreview panel mounts its
+// implementation — when the BrowserPreview panel mounts its
 // sandboxed iframe (`sandbox="allow-scripts"` without
 // `allow-same-origin`), Chromium logs a SecurityError if any
 // script inside the iframe tries to probe `navigator.serviceWorker`
@@ -9,7 +9,7 @@ const KNOWN_BENIGN_CONSOLE_ERROR_PATTERNS: RegExp[] = [
   /Service worker is disabled because the context is sandboxed/i,
   /Failed to read the '(localStorage|sessionStorage|serviceWorker)' property from 'Window'.*sandboxed/i,
   /document is sandboxed and lacks the 'allow-same-origin'/i,
-  // RL-043 Slice (Monaco cells) — a notebook code cell mounts a Monaco
+  // implementation (Monaco cells) — a notebook code cell mounts a Monaco
   // editor only while focused and disposes it on blur (mount-virtualization).
   // When an editor disposes while its TS worker is mid-analysis, Monaco
   // logs its internal `CancellationError` (literal message "Canceled") to
@@ -17,7 +17,7 @@ const KNOWN_BENIGN_CONSOLE_ERROR_PATTERNS: RegExp[] = [
   // propagated to app code (so it cannot be caught/suppressed there) and
   // invisible to users. Exact-match so a real app "...Canceled" stays caught.
   /^(Error: )?Canceled$/,
-  // IT2-G6 — the regional-boundary spec deliberately throws this exact,
+  // internal — the regional-boundary spec deliberately throws this exact,
   // build-gated probe error to prove the shell survives and Retry remounts.
   // React may prepend its exact console.error interpolation template; keep
   // every accepted form start-anchored so unrelated errors cannot hide the

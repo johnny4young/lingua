@@ -1,5 +1,5 @@
 /**
- * RL-071 — Base64 Image panel tests. The pure helper is covered in
+ * internal — Base64 Image panel tests. The pure helper is covered in
  * tests/utils/base64Image.test.ts, so this suite focuses on wiring:
  * mode toggle, file-input encode path, pasted-data-URI decode path,
  * error banners, preview rendering, ES locale.

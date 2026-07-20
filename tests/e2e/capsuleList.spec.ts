@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 3 — keyboard contract for the capsule browse overlay.
+ * implementation — keyboard contract for the capsule browse overlay.
  *
  * Acceptance: Mod+Alt+C opens the browse overlay; Escape closes it.
  * The default web session is Free, so the overlay renders the
@@ -36,7 +36,7 @@ test.describe('Capsule browse — Mod+Alt+C binding', () => {
     await expect(dialog).toBeHidden();
   });
 
-  // RL-094 Slice 4 fold C — the "Compare two capsules" palette command
+  // implementation note — the "Compare two capsules" palette command
   // opens the SAME capsule browser. This locks the overlay-survival
   // ordering (onClose before onBrowseCapsules); a regression there would
   // close the overlay in the same tick it opens, so this would fail.

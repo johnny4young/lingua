@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — Recipe `js-count-vowels`.
+ * implementation — Recipe `js-count-vowels`.
  *
  * Count vowels in a string. Beginner-friendly; first recipe many
  * new users open.

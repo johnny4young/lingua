@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A — NotebookView component coverage.
+ * implementation — NotebookView component coverage.
  *
  * Validates the empty-state, toolbar handlers, code-cell render,
  * markdown-cell render, ES locale, and that the toolbar's `Run all`
@@ -15,7 +15,7 @@ vi.mock('../../../src/renderer/runners', () => ({
   runnerManager: {
     execute: vi.fn(),
     stop: vi.fn(),
-    // RL-043 Slice F (fold B) — the run hook probes this before a cold
+    // implementation Slice F (implementation note) — the run hook probes this before a cold
     // Python run; default false keeps existing run tests on the warm path.
     needsInitialization: vi.fn(() => false),
   },
@@ -23,7 +23,7 @@ vi.mock('../../../src/renderer/runners', () => ({
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
 }));
-// RL-043 Slice (Monaco cells) — cells now host Monaco; jsdom needs the mock.
+// implementation (Monaco cells) — cells now host Monaco; jsdom needs the mock.
 vi.mock('@monaco-editor/react', async () => {
   const m = await import('../../__fixtures__/monacoEditorMock');
   return m.makeMonacoEditorMock();
@@ -48,7 +48,7 @@ import {
 } from '../../__fixtures__/monacoEditorMock';
 
 /**
- * RL-043 Slice (Monaco cells): a code cell is a static colorized view until
+ * implementation (Monaco cells): a code cell is a static colorized view until
  * edited. This enters edit mode on the last code cell (mounting the mocked
  * Monaco, which captures the run keybind commands) and fires one.
  */
@@ -122,7 +122,7 @@ describe('<NotebookView />', () => {
     expect(screen.getAllByTestId(/^notebook-(code|markdown)-cell-row$/)).toHaveLength(2);
   });
 
-  it('gives every cell-row action button the shared focus ring (UX Sweep T1)', () => {
+  it('gives every cell-row action button the shared focus ring (accessibility pass)', () => {
     render(<NotebookView tabId={TAB_ID} />);
     for (const testId of [
       'notebook-code-cell-run',
@@ -142,7 +142,7 @@ describe('<NotebookView />', () => {
   });
 
 
-  it('gives the code-output collapse toggle the shared focus ring (UX Sweep T1)', () => {
+  it('gives the code-output collapse toggle the shared focus ring (accessibility pass)', () => {
     seedNotebookCells([
       {
         kind: 'code',
@@ -242,7 +242,7 @@ describe('<NotebookView />', () => {
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
     await user.click(screen.getByTestId('notebook-code-cell-run'));
-    // RL-043 Slice B — the run path now awaits a lazy `import('typescript')`
+    // implementation — the run path now awaits a lazy `import('typescript')`
     // before reaching the runner, so wait for the call (matching the other
     // run-cell assertions in this file).
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
@@ -268,7 +268,7 @@ describe('<NotebookView />', () => {
     );
   });
 
-  it('the cell language selector enables Python and switches to it (Slice F)', async () => {
+  it('the cell language selector enables Python and switches to it ', async () => {
     const telemetry = await import('../../../src/renderer/utils/telemetry');
     vi.mocked(telemetry.trackEvent).mockClear();
     render(<NotebookView tabId={TAB_ID} />);
@@ -277,7 +277,7 @@ describe('<NotebookView />', () => {
       'option[value="python"]'
     ) as HTMLOptionElement | null;
     expect(python).not.toBeNull();
-    // RL-043 Slice F — Python now runs, so the option is no longer disabled.
+    // implementation — Python now runs, so the option is no longer disabled.
     expect(python?.disabled).toBe(false);
 
     fireEvent.change(select, { target: { value: 'python' } });
@@ -294,7 +294,7 @@ describe('<NotebookView />', () => {
     );
   });
 
-  it('the export menu offers script + Jupyter .ipynb and the .ipynb action fires the export (RL-043 Slice D)', async () => {
+  it('the export menu offers script + Jupyter .ipynb and the .ipynb action fires the export ', async () => {
     const telemetry = await import('../../../src/renderer/utils/telemetry');
     vi.mocked(telemetry.trackEvent).mockClear();
     // jsdom has no URL.createObjectURL — stub it so the blob download path
@@ -320,7 +320,7 @@ describe('<NotebookView />', () => {
     expect(screen.queryByTestId('notebook-export-menu')).toBeNull();
   });
 
-  it('the export menu offers .linguanb and it fires the lossless export (RL-043 Slice E)', async () => {
+  it('the export menu offers .linguanb and it fires the lossless export ', async () => {
     const telemetry = await import('../../../src/renderer/utils/telemetry');
     vi.mocked(telemetry.trackEvent).mockClear();
     (URL as unknown as { createObjectURL: () => string }).createObjectURL =
@@ -417,7 +417,7 @@ describe('<NotebookView />', () => {
       cellMockHarness.commands.get(RUN_ADVANCE_CHORD)?.();
     });
 
-    // RL-043 Slice F — Python runs now, so Shift+Enter executes the cell
+    // implementation — Python runs now, so Shift+Enter executes the cell
     // through the python runner (it no longer no-ops on an unsupported
     // language) before appending the language-preserving cell below.
     expect(mockExecute).toHaveBeenCalledWith(

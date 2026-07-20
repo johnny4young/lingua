@@ -1,5 +1,5 @@
 /**
- * RL-130 — desktop license IPC bridge accessor, extracted verbatim from
+ * internal — desktop license IPC bridge accessor, extracted verbatim from
  * `licenseStore.ts`. Lives in its own leaf so both the facade (which calls
  * `readLicenseBridge()` to choose web vs desktop) and `licenseDesktopStore`
  * (which needs the `LicenseBridge` type) can import it without the facade and

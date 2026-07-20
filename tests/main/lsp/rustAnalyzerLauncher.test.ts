@@ -1,5 +1,5 @@
 /**
- * RL-026 Slice 3 — `RustAnalyzerLauncher` detection contract.
+ * implementation — `RustAnalyzerLauncher` detection contract.
  *
  * Most of the framing logic is covered by `lspProcess.test.ts`. Here we
  * pin the launcher-specific pieces:

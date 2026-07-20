@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 → MOV.02 (FASE 3) — keyboard + tab contract for the
+ * implementation → MOV.02 (FASE 3) — keyboard + tab contract for the
  * SQL workspace.
  *
  * The SQL workspace left the bottom dock to become a full-screen
@@ -62,7 +62,7 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     await expect(page.getByTestId('sql-workspace-panel')).toBeVisible();
   });
 
-  // RL-097 (SQL import) — import a small CSV via the keyboard-accessible
+  // internal (SQL import) — import a small CSV via the keyboard-accessible
   // picker and assert the new table shows in the schema browser. Drives
   // the REAL bundled DuckDB-WASM engine end-to-end (read_csv_auto).
   test('imports a CSV via the picker and lists the new table (EN)', async ({
@@ -133,10 +133,10 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     await expect(page.getByTestId('sql-column-profile-panel')).toContainText('50%');
     await expect(page.getByTestId('sql-column-profile-panel')).toContainText('0%');
     if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
-      // Review evidence lives under output/review/<ticket>/ (repo convention).
-      mkdirSync('output/review/rl-097-column-explorer', { recursive: true });
+      // Review evidence lives under output/review/<change>/ (repo convention).
+      mkdirSync('output/review/internal', { recursive: true });
       await page.screenshot({
-        path: 'output/review/rl-097-column-explorer/e2e-en-column-profile.png',
+        path: 'output/review/internal/e2e-en-column-profile.png',
       });
     }
     expect(consoleErrors).toEqual([]);
@@ -161,9 +161,9 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     );
     await expect(page.getByTestId('sql-column-profile-item').first()).toBeVisible();
     if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
-      mkdirSync('output/review/rl-097-column-explorer', { recursive: true });
+      mkdirSync('output/review/internal', { recursive: true });
       await page.screenshot({
-        path: 'output/review/rl-097-column-explorer/e2e-es-column-profile.png',
+        path: 'output/review/internal/e2e-es-column-profile.png',
       });
     }
   });

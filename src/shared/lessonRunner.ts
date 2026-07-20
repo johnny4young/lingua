@@ -1,5 +1,5 @@
 /**
- * RL-039 Slices B/C — Recipe assertion runner.
+ * implementation — Recipe assertion runner.
  *
  * Pure helpers used by the renderer-side `useRecipeRun` hook to:
  *
@@ -10,7 +10,7 @@
  *      payload each assertion emits (`parseAssertionResults`).
  *
  * No worker / IPC / DOM here — this module stays usable from the
- * upcoming CLI `lingua lesson validate` path (RL-098 Slice 2).
+ * upcoming CLI `lingua lesson validate` path .
  *
  * The sentinel format is intentionally simple — one line per
  * assertion, prefix + JSON. The renderer's stdout sink is line-
@@ -26,7 +26,7 @@
  *     surface a row for every declared assertion (vs silently
  *     dropping the missing ones).
  *   - `RECIPE_RUN_STATUSES` — run-level rollup used by the
- *     `recipe.test_run` telemetry event (fold B). Mirrored on
+ *     `recipe.test_run` telemetry event (implementation note). Mirrored on
  *     update-server with parity test.
  *
  * Privacy posture:
@@ -34,7 +34,7 @@
  *   - The composed source NEVER reads from the user's filesystem,
  *     network, or clipboard.
  *   - Assertion `code` strings come from the bundled catalog —
- *     Slices B/C have zero user-authored recipes. A later import slice will
+ *     implementation have zero user-authored recipes. A later import future work will
  *     route through `parseLessonPack` which caps `code` length.
  */
 
@@ -50,7 +50,7 @@ import type { LanguagePackId } from './languagePacks';
 
 /**
  * Prefix every assertion-result line carries. The double-bracket
- * shape mirrors the RL-044 / Pyodide payload conventions so a future
+ * shape mirrors the internal / Pyodide payload conventions so a future
  * rich-output integration can reuse the existing line-classifier.
  *
  * Collision probability with user code is negligible — even if a
@@ -89,7 +89,7 @@ export type RecipeRunStatus = (typeof RECIPE_RUN_STATUSES)[number];
 export interface AssertionRunResult {
   readonly assertionId: string;
   readonly status: AssertionResultStatus;
-  /** Optional short detail string (fold C) — failed/thrown assertions surface why. Cap ~200 chars. */
+  /** Optional short detail string (implementation note) — failed/thrown assertions surface why. Cap ~200 chars. */
   readonly details?: string;
 }
 
@@ -139,17 +139,17 @@ export const MAX_ASSERTION_DETAIL_LENGTH = 200;
  * defeat the point — the user's code is already running unsandboxed
  * via the same JS worker pipeline that ships every Lingua run).
  * The security posture is inherited from the JS worker:
- *   1. Slice B assertions come exclusively from the bundled,
+ *   1. implementation assertions come exclusively from the bundled,
  *      type-checked catalog under `src/renderer/data/recipes/*.ts`
- *      — zero user-authored recipes Slice B.
- *   2. `parseLessonPack` (used by Slice C+ import + the upcoming
+ *      — zero user-authored recipes implementation.
+ *   2. `parseLessonPack` (used by future work import + the upcoming
  *      `lingua lesson validate` CLI) caps `code` length at
  *      `MAX_ASSERTION_CODE_LENGTH = 2 000 chars` and asserts the
  *      `kind` discriminant before any source ever reaches this
  *      function.
  *   3. The composed source runs inside the existing JS worker which
- *      already enforces RL-020 Slice 7 timeout presets + RL-077 /
- *      RL-078 hardening (no access to renderer DOM, IPC bridge, or
+ *      already enforces implementation timeout presets + internal /
+ *      internal hardening (no access to renderer DOM, IPC bridge, or
  *      `window.lingua.*`).
  * Replacing `eval` with `new Function(code)` would carry identical
  * risk surface while losing access to the IIFE-scoped user
@@ -428,7 +428,7 @@ export function parseAssertionResults(
 
 /**
  * Roll the per-assertion results up to a single closed-enum status
- * suitable for the `recipe.test_run` telemetry event (fold B). The
+ * suitable for the `recipe.test_run` telemetry event (implementation note). The
  * priority order is: any thrown assertion → `'execution-error'`, all
  * missing → `'sentinel-missing'`, all pass → `'all-passed'`, no pass
  * → `'all-failed'`, otherwise → `'some-failed'`.
@@ -495,7 +495,7 @@ export function isRecipeRunnableLanguage(
 
 /**
  * Compose the assertion kind discriminant for tests / docs. Kept as a
- * named export so a future Slice can widen the kinds without rebroad-
+ * named export so a future implementation can widen the kinds without rebroad-
  * casting the import surface.
  */
 export type { AssertionExitKind };

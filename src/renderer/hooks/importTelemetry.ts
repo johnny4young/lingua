@@ -1,13 +1,13 @@
 /**
- * RL-100 Slice 1 fold E — Import telemetry helper.
+ * implementation note — Import telemetry helper.
  *
  * Single closed-enum event: `import.applied { importerId, status, sizeBucket }`.
  *
  *   - `importerId` ∈ `IMPORTER_IDS_SET` from `src/shared/telemetry.ts`
- *     (Slice 1: `'curl-http'` only; open for Slice 2 `'ipynb-notebook'`
- *     and Slice 3 `'postman-collection'` / `'bruno-collection'`).
+ *     (implementation: `'curl-http'` only; open for implementation `'ipynb-notebook'`
+ *     and implementation `'postman-collection'` / `'bruno-collection'`).
  *   - `status` ∈ `IMPORT_STATUSES_SET` (`'ok' | 'rejected' | 'cancelled'`).
- *   - `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS` reused from RL-094.
+ *   - `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS` reused from internal
  *
  * NO URL, NO header values, NO body content reach the wire — only
  * the bucketed source size + the closed importer + status enums.
@@ -44,7 +44,7 @@ export function trackImportApplied(payload: ImportAppliedPayload): void {
 }
 
 /**
- * RL-100 Slice 2 fold E — closed-enum buckets for the notebook
+ * implementation note — closed-enum buckets for the notebook
  * warning count. Mirrors `DEPENDENCY_COUNT_BUCKETS_SET` precedent
  * used by other count-bucketed events (e.g. `http.request_executed`
  * `redactedHeadersBucket`).
@@ -74,7 +74,7 @@ export function trackNotebookWarningsSurfaced(
 }
 
 /**
- * RL-100 Slice 2 fold E — derive `dominantKind` from the warning
+ * implementation note — derive `dominantKind` from the warning
  * codes array. Returns `null` when the array is empty (caller must
  * not fire the event in that case).
  */
@@ -110,7 +110,7 @@ export function countDistinctNotebookWarningKinds(
 }
 
 /**
- * RL-100 Slice 3.5 (Postman vars) fold B — `import.postman_variables_resolved`.
+ * implementation (Postman vars) implementation note — `import.postman_variables_resolved`.
  *
  * Buckets the distinct collection-variable resolution result of a
  * Postman import into the shared `DEPENDENCY_COUNT_BUCKETS` enum (the
@@ -133,7 +133,7 @@ export function trackPostmanVariablesResolved(
   });
 }
 
-/** Bucket a distinct variable count for the fold-B telemetry event. */
+/** Bucket a distinct variable count for the implementation note telemetry event. */
 export function bucketImportVariableCount(count: number): DependencyCountBucket {
   return bucketDependencyCount(count);
 }

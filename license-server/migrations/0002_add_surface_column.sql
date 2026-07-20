@@ -1,4 +1,4 @@
--- RL-061 Slice 2 — split-bucket device limit (web vs desktop).
+-- implementation — split-bucket device limit (web vs desktop).
 --
 -- The 2026-04-26 design lock decided that web counts as a first-class
 -- surface for licensing, but separately from desktop: a license carries

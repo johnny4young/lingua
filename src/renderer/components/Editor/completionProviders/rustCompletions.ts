@@ -68,7 +68,7 @@ const RUST_COMPLETIONS = [
 ] as const;
 
 /**
- * RL-026 Slice 3 — Monaco completion provider for Rust.
+ * implementation — Monaco completion provider for Rust.
  *
  * Layered strategy:
  *  - Static `RUST_COMPLETIONS` keep keyword + snippet suggestions

@@ -1,4 +1,4 @@
-/** RL-039 Slice C — Recipe `ts-group-by-property`. */
+/** implementation — Recipe `ts-group-by-property`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

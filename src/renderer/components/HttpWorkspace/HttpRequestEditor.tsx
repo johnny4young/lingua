@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 — Center column: edit the active request (method,
+ * implementation — Center column: edit the active request (method,
  * URL, headers, body, Send).
  *
  * HTTP workspace usability upgrade — the request builder gained
@@ -8,7 +8,7 @@
  * with the URL bar; the Auth tab injects an Authorization / API-key
  * header on send.
  *
- * Folds wired here:
+ * implementation note here:
  *
  *   - **A**: Cmd/Ctrl+Enter while focus is inside any input fires
  *     the Send handler. Mirrors the run-shortcut muscle memory the
@@ -75,7 +75,7 @@ export interface HttpRequestEditorProps {
   onStop?: () => void;
   isExecuting: boolean;
   /**
-   * RL-097 Slice 3a — environment wiring. The selector renders in the
+   * implementation — environment wiring. The selector renders in the
    * header; the resolution preview renders beneath the URL. The active
    * environment also drives the secret-safe Copy-as-cURL. Optional with
    * empty/no-op defaults so the editor still renders standalone (e.g. in
@@ -135,13 +135,13 @@ export function HttpRequestEditor({
   const [assertions, setAssertions] = useState<HttpAssertion[]>(request.assertions ?? []);
   const [builderTab, setBuilderTab] = useState<HttpRequestBuilderTab>('params');
 
-  // RL-097 Slice 3a — the active environment, resolved from props.
+  // implementation — the active environment, resolved from props.
   const activeEnv = useMemo<HttpEnvironmentV1 | null>(
     () => environments.find(e => e.id === activeEnvironmentId) ?? null,
     [environments, activeEnvironmentId]
   );
 
-  // RL-097 Slice 3a folds A + C — a LIVE request snapshot for the
+  // implementation note — a LIVE request snapshot for the
   // resolution preview, rebuilt from the in-editor draft state on every
   // keystroke (the persisted `request` lags behind the 500 ms debounce).
   const previewRequest = useMemo<HttpRequestV1>(
@@ -157,7 +157,7 @@ export function HttpRequestEditor({
     [request, method, url, headers, params, auth, body]
   );
 
-  // Fold D — debounced auto-save. One timer covers all fields so a
+  // implementation note — debounced auto-save. One timer covers all fields so a
   // rapid edit across URL + params + headers + body settles to a
   // single patch.
   //
@@ -325,7 +325,7 @@ export function HttpRequestEditor({
   // incl. params, composed headers incl. injected auth, body) and copy
   // it. A one-shot notice confirms / surfaces a clipboard failure.
   //
-  // RL-097 Slice 3a fold B — when an environment is active, feed the
+  // implementation note — when an environment is active, feed the
   // curl builder a request whose NON-secret vars are resolved (so the
   // printed command is runnable) but whose SECRET vars stay as their
   // `{{key}}` placeholder (no clipboard leak). With no env active, the
@@ -382,7 +382,7 @@ export function HttpRequestEditor({
     };
   }, [flushPendingPatch]);
 
-  // Fold A — Cmd/Ctrl+Enter sends.
+  // implementation note — Cmd/Ctrl+Enter sends.
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key !== 'Enter') return;
@@ -474,7 +474,7 @@ export function HttpRequestEditor({
     [captures, applyCaptures]
   );
 
-  // SR-27 — response assertions. Same local-state + debounced-patch
+  // internal — response assertions. Same local-state + debounced-patch
   // pattern as captures.
   const applyAssertions = useCallback(
     (nextAssertions: HttpAssertion[]) => {
@@ -514,7 +514,7 @@ export function HttpRequestEditor({
     [scheduleAutoSave]
   );
 
-  // Fold B — cURL paste import. Listens on the URL input only.
+  // implementation note — cURL paste import. Listens on the URL input only.
   const handleUrlPaste = useCallback(
     (event: React.ClipboardEvent<HTMLInputElement>) => {
       const pasted = event.clipboardData.getData('text');
@@ -618,7 +618,7 @@ export function HttpRequestEditor({
       onKeyDown={handleKeyDown}
       className="flex h-full min-w-0 flex-col gap-2 overflow-hidden p-3"
     >
-      {/* RL-097 Slice 3a — environment selector slot, above the
+      {/* implementation — environment selector slot, above the
           method/URL row so it reads as request-wide context. */}
       <div className="flex shrink-0 items-center justify-end">
         <HttpEnvironmentSelector
@@ -631,7 +631,7 @@ export function HttpRequestEditor({
 
       {/* Method + URL row */}
       <div className="flex shrink-0 items-center gap-2">
-        <label className="sr-only" htmlFor="http-request-method">
+        <label className="internal" htmlFor="http-request-method">
           {t('httpWorkspace.editor.method.label')}
         </label>
         <select
@@ -736,7 +736,7 @@ export function HttpRequestEditor({
         )}
       </div>
 
-      {/* RL-097 Slice 3a folds A + C — resolution preview beneath the
+      {/* implementation note — resolution preview beneath the
           URL. Resolved URL (secrets masked) + variable-state chips. */}
       <HttpEnvironmentPreview request={previewRequest} env={activeEnv} />
 

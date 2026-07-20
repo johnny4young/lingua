@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 — capsule validate command tests.
+ * implementation — capsule validate command tests.
  */
 
 import { describe, expect, it } from 'vitest';

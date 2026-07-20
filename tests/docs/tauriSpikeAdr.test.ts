@@ -1,5 +1,5 @@
 /**
- * RL-035 Tauri spike decision guard — this test fails CI if anyone strips
+ * internal Tauri spike decision guard — this test fails CI if anyone strips
  * the decision, the analysis, or the when-to-revisit triggers. Protects
  * the "no full migration work starts before a decision" acceptance line.
  */
@@ -22,7 +22,7 @@ describe('TAURI_SPIKE_ADR.md', () => {
     expect(adr).toMatch(/Decision\s*\|\s*Do not migrate/i);
   });
 
-  it('enumerates the RL-035 measurement axes so the trade-off is inspectable', () => {
+  it('enumerates the internal measurement axes so the trade-off is inspectable', () => {
     for (const axis of [
       'Cold start',
       'Bundle size',
@@ -45,7 +45,7 @@ describe('TAURI_SPIKE_ADR.md', () => {
   it('cross-links BUILD_SYSTEM_ADR and CAPABILITY_MATRIX so the adjacent decisions are traceable', () => {
     expect(adr).toContain('BUILD_SYSTEM_ADR.md');
     expect(adr).toContain('CAPABILITY_MATRIX.md');
-    expect(adr).toContain('RL-034');
-    expect(adr).toContain('RL-067');
+    expect(adr).toContain('internal');
+    expect(adr).toContain('internal');
   });
 });

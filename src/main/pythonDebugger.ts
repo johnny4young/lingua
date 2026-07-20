@@ -1,5 +1,5 @@
 /**
- * RL-027 Slice 2 / T18 — main-process Python debugger bridge (engine).
+ * implementation — main-process Python debugger bridge (engine).
  *
  * Lingua *runs* Python in Pyodide (WASM, in the renderer worker), but a
  * source-level debugger needs a real interpreter with `pdb`. This module is
@@ -9,7 +9,7 @@
  * the Python parallel of the JS/TS instrumentation debugger, per
  * `docs/DEBUGGER_ADR.md` (§Python, second slice).
  *
- * Scope of THIS slice: the process-management + `pdb`-REPL protocol engine,
+ * Scope of this change: the process-management + `pdb`-REPL protocol engine,
  * with real-`pdb` integration tests. The `debugger:python:*` IPC contract +
  * preload bridge + the renderer debugger UI (breakpoint gutter, variables
  * panel, step toolbar) are the following slice — this engine is designed to

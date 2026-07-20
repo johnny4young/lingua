@@ -16,7 +16,7 @@ import {
 } from './utils/safeBoot';
 import './index.css';
 
-// RL-090 — global handlers for async + event-handler errors.
+// internal — global handlers for async + event-handler errors.
 // React error boundaries only catch render-time throws inside the
 // component tree; without these listeners, a `setTimeout` reject or
 // an unhandled promise rejection would loop the user into a broken

@@ -1,5 +1,5 @@
 /**
- * RL-068 — Cron Parser helper.
+ * internal — Cron Parser helper.
  *
  * Renderer-side, offline. Wraps two npm deps (lazy-imported) behind a
  * single `parseCronExpression` call that returns a tagged-union result:

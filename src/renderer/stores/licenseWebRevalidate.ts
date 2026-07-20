@@ -24,9 +24,9 @@ import {
 } from './licenseTypes';
 
 /**
- * RL-130 — web-flow `revalidate` action factory, extracted verbatim from
+ * internal — web-flow `revalidate` action factory, extracted verbatim from
  * `licenseStore.ts`. Re-verifies the stored token locally, picks up a newer
- * subscription token when the server offers one, folds the authoritative server
+ * subscription token when the server offers one, implementation note authoritative server
  * status onto the local verdict, and re-activates this browser when the device
  * bucket is missing it (so a rehydrated exhausted token cannot bypass the
  * per-surface cap). Isolated in its own module because it is ~200 lines; same
@@ -61,7 +61,7 @@ export function createWebRevalidate(
       let activeToken = token;
       let localStatus = await runVerifyWeb(token);
       if (localStatus.kind === 'invalid') {
-        // Slice 4 — same stale-token auto-pickup as setLicenseToken.
+        // implementation — same stale-token auto-pickup as setLicenseToken.
         // A rehydrated `expired` token may already have a refresh waiting
         // on the server; surface that silently before wiping the row.
         if (localStatus.reason === 'expired') {
@@ -231,7 +231,7 @@ export function createWebRevalidate(
 
       const invalid =
         serverFailureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };
-      // Slice 4 — surface a recover-hint when the server says the
+      // implementation — surface a recover-hint when the server says the
       // license is gone (revoked / unknown), mirroring the setLicenseToken
       // branch in licenseWebActions.
       const issuedToForHint =

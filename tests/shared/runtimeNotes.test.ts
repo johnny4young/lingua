@@ -1,5 +1,5 @@
 /**
- * T19 — runtime context notes. The note keeps the model from suggesting
+ * implementation — runtime context notes. The note keeps the model from suggesting
  * fixes the runtime cannot execute; these tests pin the mapping per
  * language / platform / JS runtime mode.
  */

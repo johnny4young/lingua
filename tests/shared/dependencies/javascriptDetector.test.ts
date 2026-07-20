@@ -1,7 +1,7 @@
 /**
- * RL-025 Slice A — JS / TS dependency detector tests.
+ * implementation — JS / TS dependency detector tests.
  *
- * Covers the AC enumeration from the RL-025 scope (comments,
+ * Covers the AC enumeration from the internal scope (comments,
  * strings, relative imports, Node built-ins, scoped packages) plus
  * the AST + regex-fallback split surfaced by the implementation.
  */

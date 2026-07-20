@@ -315,9 +315,9 @@ describe('payload identity helpers', () => {
     expect(isRichOutputPayload({})).toBe(false);
     expect(isRichOutputPayload(null)).toBe(false);
     expect(isRichOutputPayload('string')).toBe(false);
-    // RL-044 reviewer follow-up — unknown discriminants must NOT
+    // internal reviewer follow-up — unknown discriminants must NOT
     // pass the type-guard so renderer dispatch switches can rely on
-    // exhaustiveness when Slice 1B / Slice 2 widen the union.
+    // exhaustiveness when implementation widen the union.
     expect(isRichOutputPayload({ kind: 'widget' })).toBe(false);
     expect(isRichOutputPayload({ kind: 'somethingElse' })).toBe(false);
   });
@@ -338,7 +338,7 @@ describe('wrapAsRawText', () => {
   });
 });
 
-describe('RichOutputOrigin (Sub-slice G)', () => {
+describe('RichOutputOrigin ', () => {
   it('accepts an origin field on every kind without breaking the discriminant', () => {
     const datePayload = { kind: 'date', iso: '2026-05-22T00:00:00.000Z', origin: { line: 7 } };
     const tablePayload = {

@@ -9,9 +9,9 @@ import type { LspLanguageIntelligenceAdapter } from '../languageIntelligence/typ
 import { LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER } from './useLanguageIntelligenceDiagnostics';
 
 /**
- * RL-026 Slice 4 — generic lifecycle hook for a desktop LSP language.
+ * implementation — generic lifecycle hook for a desktop LSP language.
  *
- * Slice 3 introduced this shape inline for Rust; Slice 4 lifts it
+ * implementation introduced this shape inline for Rust; implementation lifts it
  * into a config-driven helper so the Rust + Go (and any future LSP)
  * paths stay byte-identical. The hook is composed of four effects so
  * each concern stays auditable in isolation:
@@ -107,7 +107,7 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
   const bootRequested = store((state) => state.bootRequested);
   const status = store((state) => state.status);
   const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
-  // Fold to a primitive INSIDE the selector: subscribing to `state.tabs`
+  // implementation note a primitive INSIDE the selector: subscribing to `state.tabs`
   // would re-render this hook's host (AppChrome — the whole shell) on
   // every keystroke, because updateContent rebuilds the tabs array.
   const hasMatchingTab = useEditorStore((state) =>

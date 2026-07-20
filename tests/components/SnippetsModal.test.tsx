@@ -13,7 +13,7 @@ describe('SnippetsModal', () => {
     await act(async () => {
       await i18next.changeLanguage('en');
     });
-    // RL-060: these tests predate tier gating and open multiple tabs per
+    // internal: these tests predate tier gating and open multiple tabs per
     // case. Seed a Pro license so the editor-store ceiling doesn't block
     // the flows under test.
     useLicenseStore.setState({
@@ -130,7 +130,7 @@ describe('SnippetsModal', () => {
     expect(useSnippetsStore.getState().snippets[0].id).toBe(snippetId);
   });
 
-  it('marks the selected snippet row with aria-current (UX Sweep T5)', () => {
+  it('marks the selected snippet row with aria-current (accessibility pass)', () => {
     useSnippetsStore.getState().addSnippet({
       label: 'Console',
       description: 'Logging helper',
@@ -163,7 +163,7 @@ describe('SnippetsModal', () => {
     expect(screen.getByText('No snippets saved yet.')).toBeTruthy();
   });
 
-  it('delete offers an Undo that restores the snippet at its index (fold B)', async () => {
+  it('delete offers an Undo that restores the snippet at its index (implementation note)', async () => {
     const user = userEvent.setup();
     useUIStore.setState({ statusNotice: null });
 

@@ -275,7 +275,7 @@ describe('Unhandled errors (buildInternalErrorResponse)', () => {
     // The shared Hono `app` instance can't accept new routes once the
     // SmartRouter is frozen on first request. Tests the helper that
     // app.onError dispatches into so the contract regression is still
-    // caught if Slice 2 reshapes the wrapper.
+    // caught if implementation reshapes the wrapper.
     const { Hono } = await import('hono');
     const probe = new Hono();
     probe.get('/probe', (c) => buildInternalErrorResponse(c));

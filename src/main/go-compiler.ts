@@ -6,7 +6,7 @@
  * - Compiling Go source code to WASM using GOOS=js GOARCH=wasm
  * - Locating wasm_exec.js from the Go installation
  *
- * RL-079 — the toolchain subprocess env is filtered through
+ * internal — the toolchain subprocess env is filtered through
  * `buildNativeRunnerEnv` so secrets in `process.env` cannot reach the
  * spawned `go build`. `GOOS=js` and `GOARCH=wasm` are runner-owned
  * overrides that the user env tier cannot shadow. Temp dirs use
@@ -158,9 +158,9 @@ export function resetGoDetectCacheForTests(): void {
 /**
  * Build the env passed to `go build`.
  *
- * RL-079 + RL-011 contract:
+ * implementation detail contract:
  *  - Only allowlisted host keys flow through (`buildNativeRunnerEnv`).
- *  - User env from RL-011 layers on top.
+ *  - User env from internal layers on top.
  *  - `GOOS=js` / `GOARCH=wasm` are runner-owned overrides applied
  *    last; user env cannot shadow them — they would silently break
  *    the WASM pipeline.
@@ -188,7 +188,7 @@ async function compileGoToWasm(
     };
   }
 
-  // RL-079 — `mkdtemp` returns a unique directory with 6 random suffix
+  // internal — `mkdtemp` returns a unique directory with 6 random suffix
   // chars, eliminating the collision window a `Date.now()` filename
   // would leave open for two concurrent runs.
   const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-go-'));

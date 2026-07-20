@@ -1,7 +1,7 @@
 /**
- * POST /trials/start — RL-061 Slice 4 real implementation.
+ * POST /trials/start — implementation real implementation.
  *
- * Slice 1 shipped a 501 stub that validated the body shape. This
+ * implementation shipped a 501 stub that validated the body shape. This
  * commit replaces the stub with the actual trial flow per
  * LICENSING_ADR Decision 5: 14 days, 1 device, full Pro
  * entitlements, anti-abuse via UNIQUE(email) + UNIQUE(device_id)

@@ -9,7 +9,7 @@ import { languageSupportsDebugger } from '../utils/languageMeta';
 import { getRecipeById } from '../data/recipes';
 
 /**
- * RL-131 (AUDIT-11) — the bottom-panel availability gates the shell needs to
+ * internal — the bottom-panel availability gates the shell needs to
  * decide whether the console drawer (and which body inside it) should mount.
  * Each flag is `true` only when the active tab + settings + run-snapshot state
  * make that surface relevant; `editor-only` layout forces them all off.
@@ -30,10 +30,10 @@ export interface LayoutAvailability {
 }
 
 /**
- * RL-131 (AUDIT-11) — the AppLayout-root availability gate cluster, extracted
+ * internal — the AppLayout-root availability gate cluster, extracted
  * verbatim from `AppLayout`. Computes the six MainContent gates from the editor
  * / UI / settings / result / debugger stores. Moved as-is (same derivations,
- * same RL-122 primitive `hasScopeSnapshotFor` subscription) so the resolved gate
+ * same internal primitive `hasScopeSnapshotFor` subscription) so the resolved gate
  * values are identical to the inline original; only the store reads are now
  * fine-grained selectors rather than whole-store destructures, which can only
  * reduce re-renders, never change a gate's value.
@@ -44,7 +44,7 @@ export function useLayoutAvailability(): LayoutAvailability {
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const activeLanguage = useEditorStore((s) => getActiveTab(s)?.language);
   const activeRuntimeMode = useEditorStore((s) => getActiveTab(s)?.runtimeMode);
-  // Slice 2 — debugger is baseline; the Settings toggle is gone.
+  // implementation — debugger is baseline; the Settings toggle is gone.
   const debuggerEnabled = true;
   const debuggerSession = useDebuggerStore((state) => state.session);
   const activeBreakpointCount = useDebuggerStore((state) => {
@@ -66,7 +66,7 @@ export function useLayoutAvailability(): LayoutAvailability {
     layoutPreset !== 'editor-only' &&
     languageHasRuntimeModes(activeLanguage) &&
     activeRuntimeMode === 'browser-preview';
-  // RL-020 Slice 6 — when the user focuses the stdin tab from the
+  // implementation — when the user focuses the stdin tab from the
   // command palette while the console drawer is collapsed,
   // `openBottomPanel('stdin')` flips `activeBottomPanel` but does
   // NOT set `consoleVisible: true` reliably across navigation. We
@@ -81,7 +81,7 @@ export function useLayoutAvailability(): LayoutAvailability {
   const activeVariableInspectorEnabled = useEditorStore(
     (s) => getActiveTab(s)?.variableInspectorEnabled === true,
   );
-  // RL-122 — the bottom Variables drawer only needs the availability
+  // internal — the bottom Variables drawer only needs the availability
   // boolean, not the raw scope object; subscribe to the primitive so a
   // scope replacement that does not change availability is a no-op here.
   const hasScopeForActiveLayout = useResultStore((state) =>
@@ -93,7 +93,7 @@ export function useLayoutAvailability(): LayoutAvailability {
     activeBottomPanelForLayout === 'stdin' &&
     activeRuntimeMode !== 'browser-preview' &&
     isWorkerRunnerLanguage(activeLanguage);
-  // RL-093 Slice 3 — mirror BottomPanel.variablesAvailable so the
+  // implementation — mirror BottomPanel.variablesAvailable so the
   // MainContent gate keeps the drawer mounted when Variables is the
   // sole reason to show it (no console, no debugger, no stdin).
   const showVariablesTabBody =

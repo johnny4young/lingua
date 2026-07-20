@@ -4,13 +4,13 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 /**
- * RL-024 Slice 1 fold A — right-click context menu for the file
+ * implementation note — right-click context menu for the file
  * tree. Mirrors the `EditorTabContextMenu` portal pattern so the
  * menu is never clipped by the sidebar's `overflow-y-auto`.
  *
- * Slice 1 ships a single action — "Reveal in Finder" — that is only
+ * implementation ships a single action — "Reveal in Finder" — that is only
  * surfaced on the desktop build (the web FSA wrapper has no native
- * absolute path). Future folds can extend the `items` prop as new
+ * absolute path). Future implementation note extend the `items` prop as new
  * actions land (Copy path, Reveal in Tab, Open with…).
  */
 export interface FileTreeContextMenuItem {

@@ -1,11 +1,11 @@
 /**
- * RL-100 Slice 2 — Jupyter `.ipynb` → `NotebookV1` importer adapter.
+ * implementation — Jupyter `.ipynb` → `NotebookV1` importer adapter.
  *
  * Closes the bridge "bring your Jupyter notebook into Lingua". The
  * adapter walks nbformat v4 cells, maps each one to a
  * `NotebookCellV1` (`markdown` / `code`), drops unsupported cell
  * kinds (`raw`) and rich outputs with a closed-enum warning code,
- * and enforces RL-043 Slice A caps at the preview boundary so the
+ * and enforces implementation caps at the preview boundary so the
  * resulting notebook always passes `parseNotebook` on commit.
  *
  * Design boundaries (per the 2026-05-27 plan):
@@ -20,7 +20,7 @@
  *     MIME variant of each output survives as a
  *     `NotebookCellOutputV1`; `image/png`, `text/html`, `application/json`
  *     etc. are dropped with a `'ipynb-rich-output-dropped'` warning.
- *     RL-043 Slice B's rich-outputs wire-up closes this gap.
+ *     implementation's rich-outputs wire-up closes this gap.
  *   - Cell language defaults to `'javascript'` when
  *     `metadata.kernelspec.language` is missing / unsupported (warning
  *     `'ipynb-unknown-language'` surfaces). Python + TypeScript pass
@@ -28,8 +28,8 @@
  *
  * The adapter contract (`ImporterAdapter<IpynbImporterPreview,
  * IpynbImporterResult>`) is the same as the cURL adapter — `detect`
- * + `preview` + `import`. Folds B (detection by extension + content
- * sniff) lives in `detect`; folds D (cell-count + language summary
+ * + `preview` + `import`. implementation note (detection by extension + content
+ * sniff) lives in `detect`; implementation note (cell-count + language summary
  * chip) lives in the preview shape.
  */
 
@@ -79,7 +79,7 @@ export interface IpynbCellSnippet {
 /**
  * Preview shape returned by `adapter.preview(source)`. Holds the
  * already-mapped `NotebookV1` so `import(preview)` is a constant-time
- * round-trip. Fold D: `cellCounts` + `dominantLanguage` drive the
+ * round-trip. implementation note: `cellCounts` + `dominantLanguage` drive the
  * summary chip in `<ImportPreviewBody>`.
  */
 export interface IpynbImporterPreview {
@@ -89,7 +89,7 @@ export interface IpynbImporterPreview {
   readonly notebook: NotebookV1;
   /** Snippets of the first up-to-3 cells for the preview band. */
   readonly cellSnippets: ReadonlyArray<IpynbCellSnippet>;
-  /** Cell counts (fold D summary chip). */
+  /** Cell counts (implementation note summary chip). */
   readonly cellCounts: {
     readonly total: number;
     readonly code: number;
@@ -98,7 +98,7 @@ export interface IpynbImporterPreview {
   };
   /**
    * Dominant code-cell language. `null` when there are no code cells
-   * or the languages tie. Fold F uses this to auto-flip the
+   * or the languages tie. implementation note uses this to auto-flip the
    * FloatingActionPill language chip after confirm.
    */
   readonly dominantLanguage: NotebookCellLanguage | null;
@@ -120,7 +120,7 @@ export interface IpynbImporterResult {
   /**
    * The dominant code-cell language (`null` when none). Caller may
    * use this to auto-flip the FloatingActionPill language chip
-   * (fold F).
+   * (implementation note).
    */
   readonly dominantLanguage: NotebookCellLanguage | null;
 }
@@ -152,7 +152,7 @@ function mapKernelLanguage(
 
 /**
  * Map a closed-enum `IMPORTER_LOSSY_WARNINGS` ipynb code to the
- * `NOTEBOOK_WARNING_KINDS` telemetry bucket (fold E).
+ * `NOTEBOOK_WARNING_KINDS` telemetry bucket (implementation note).
  */
 export function mapWarningToTelemetryKind(
   code: ImporterLossyWarning
@@ -196,7 +196,7 @@ interface RawCellOutput {
  *   - `error` — `ename` + `evalue` + `traceback` join into stderr.
  *
  * Returned `kind: 'text'` matches `NotebookCellOutputV1`'s only
- * arm Slice A ships.
+ * arm implementation ships.
  */
 function flattenJupyterOutput(
   raw: RawCellOutput,
@@ -376,7 +376,7 @@ function mapMarkdownCell(
 }
 
 /**
- * RL-043 Slice D fold B — read a Lingua-private per-cell language from
+ * implementation Slice D implementation note — read a Lingua-private per-cell language from
  * `metadata.lingua.language` when present (and valid), so a notebook that
  * Lingua exported round-trips its real per-cell JS/TS even though
  * nbformat's single `kernelspec.language` can't express a mix. Standard
@@ -421,7 +421,7 @@ function mapCodeCell(
   return {
     kind: 'code',
     id: resolveCellId(raw.id, opts.index, opts.usedCellIds),
-    // Fold B — a Lingua-stamped per-cell language wins over the single
+    // implementation note — a Lingua-stamped per-cell language wins over the single
     // kernel language so mixed JS/TS round-trips losslessly.
     language: cellLanguage ?? opts.notebookLanguage,
     source,
@@ -441,7 +441,7 @@ function clampCellSource(source: string): string {
 /**
  * Probe: does this look like a Jupyter notebook?
  *
- * Fold B — accepts BOTH `.ipynb`-style content sniff (a `{"cells":`
+ * implementation note — accepts BOTH `.ipynb`-style content sniff (a `{"cells":`
  * substring inside the import cap) AND a relaxed `"nbformat":`
  * match. File extension alone is not trusted; the payload still has
  * to look like notebook JSON before the adapter claims it.
@@ -649,8 +649,8 @@ const CELL_SNIPPET_PREVIEW_LENGTH = 200;
 const CELL_SNIPPET_MAX_COUNT = 3;
 
 /**
- * Build the first-N-cells preview snippets. Exported so the RL-043
- * Slice E `.linguanb` importer reuses the identical band rendering.
+ * Build the first-N-cells preview snippets. Exported so the internal
+ * implementation `.linguanb` importer reuses the identical band rendering.
  */
 export function buildCellSnippets(
   cells: ReadonlyArray<NotebookCellV1>
@@ -675,7 +675,7 @@ export function buildCellSnippets(
 }
 
 /** Count code / markdown cells for the summary chip. Exported for reuse
- * by the RL-043 Slice E `.linguanb` importer (always `droppedRaw: 0`). */
+ * by the implementation `.linguanb` importer (always `droppedRaw: 0`). */
 export function countCells(
   cells: ReadonlyArray<NotebookCellV1>,
   droppedRaw: number
@@ -695,7 +695,7 @@ export function countCells(
 }
 
 /** Pick the dominant code-cell language (null on tie / no code cells).
- * Exported for reuse by the RL-043 Slice E `.linguanb` importer. */
+ * Exported for reuse by the implementation `.linguanb` importer. */
 export function pickDominantLanguage(
   cells: ReadonlyArray<NotebookCellV1>
 ): NotebookCellLanguage | null {

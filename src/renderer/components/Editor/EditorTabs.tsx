@@ -58,7 +58,7 @@ export function EditorTabs() {
   const visibleTabsRef = useRef<EditorTabSummary[]>([]);
   const activeTabIdRef = useRef<string | null>(activeTabId);
 
-  // UX Sweep T6 — roving-tabindex arrow navigation across the visible tab
+  // accessibility pass — roving-tabindex arrow navigation across the visible tab
   // strip. Selection follows focus (automatic activation), matching the
   // click/Enter behavior and the `tabIndex={isActive ? 0 : -1}` roving below.
   // Focus the target after the roving tabindex updates on the next frame.
@@ -166,7 +166,7 @@ export function EditorTabs() {
 
   const closeContextMenu = () => setContextMenu(null);
 
-  // RL-093 review — the handoff caps the strip at five tabs, but
+  // internal review — the handoff caps the strip at five tabs, but
   // showing only the first five hides the active tab whenever the
   // user activates anything past index 4 from the overflow dropdown
   // (or by keyboard). Without `data-active="true"` on any visible
@@ -180,7 +180,7 @@ export function EditorTabs() {
   // visible, and fill the remaining slots with code tabs in their
   // original order. Original strip order is always preserved so the
   // tabs don't reshuffle as priority changes.
-  // UX Sweep T6 — `const` (computed in a module helper) rather than a
+  // accessibility pass — `const` (computed in a module helper) rather than a
   // reassigned `let`, so the arrow-key handler can close over it without
   // tripping the "reassign after render" hazard.
   const visibleTabs = computeVisibleTabs(tabs, activeTabId);
@@ -221,7 +221,7 @@ export function EditorTabs() {
             onClose={handleCloseTab}
           />
         ))}
-        {/* RL-093 Slice 2 — the handoff keeps five tabs visible and
+        {/* implementation — the handoff keeps five tabs visible and
             collapses the rest into a compact +N file-list menu. */}
         {hiddenTabCount > 0 ? (
           <>

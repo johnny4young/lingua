@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * Project template schema (RL-103 Slice 1).
+ * Project template schema .
  *
  * A `ProjectTemplateV1` describes a multi-file scaffold the renderer
  * writes into an empty directory chosen by the user. Single-file
@@ -12,7 +12,7 @@
  * Why a TypeScript module rather than JSON: literal modules type-check
  * the language ids against `LANGUAGE_PACKS`, let editors jump-to-def
  * when reading a card, and keep the content inline with the file
- * tree so the SPDX header guarantee (fold F) is a single grep instead
+ * tree so the SPDX header guarantee (implementation note) is a single grep instead
  * of a generated artifact contract.
  *
  * The `parseProjectTemplate` validator owns three guards the writer
@@ -83,9 +83,9 @@ export interface ProjectTemplateV1 {
   readonly dependencies?: ProjectTemplateDependencies;
   /**
    * Optional human-runnable command (`npm start`, `python main.py`).
-   * Slice 1 does not execute it — the field is informational and
+   * implementation does not execute it — the field is informational and
    * may surface in a Reveal-in-Finder follow-up CTA. Stored so we
-   * never have to re-introduce a schema bump if a later slice wires
+   * never have to re-introduce a schema bump if a later work wires
    * a "Run after scaffold" affordance.
    */
   readonly runCommand?: string;

@@ -55,7 +55,7 @@ function sourceLineForEntry(entry: ConsoleEntry): number | null {
 }
 
 /**
- * RL-044 Slice 1B fold A — closed-enum list of payload-kind filter
+ * implementation note — closed-enum list of payload-kind filter
  * chips. Mirrors the order of the rendered RichValue dispatch so the
  * chip row reads the same left-to-right as a typical row of payloads.
  */
@@ -68,7 +68,7 @@ const PAYLOAD_KIND_CHIPS: ConsolePayloadKindFilter[] = [
   'errorish',
 ];
 
-// RL-123 / AUDIT-03 — consecutive-identical collapse moved to the console
+// implementation detail — consecutive-identical collapse moved to the console
 // store (computed once per push via a stable equality hash) instead of
 // re-running here on every render. The panel reads `collapsedEntries` and only
 // filters them; collapsed groups are homogeneous so filter-after-collapse
@@ -93,7 +93,7 @@ function entryFilteredByPayloadKind(
   }
   return entry.payload.some(p => {
     const bucket = richKindBucket(p);
-    // The Errors chip historically meant warn/error rows. Slice 1C
+    // The Errors chip historically meant warn/error rows. implementation
     // added payload-level `kind: 'error'` for Python BaseException
     // values, so the same chip must hide those log rows too.
     return hidden.has(bucket) || (bucket === 'error' && hidden.has('errorish'));
@@ -101,7 +101,7 @@ function entryFilteredByPayloadKind(
 }
 
 /**
- * RL-044 next slice — true when a paste should be left to its native
+ * implementation detail — true when a paste should be left to its native
  * target instead of being captured as a console image. Editors and
  * form fields own their own paste semantics (Monaco code paste, env-var
  * inputs, the share/import textareas), so an image paste while one of
@@ -138,7 +138,7 @@ export function ConsolePanel() {
   } = useConsoleStore();
   const presenterActive = usePresenterModeStore(state => state.active);
   const activeTab = useEditorStore(state => getActiveTab(state));
-  // T19 — offer "Explain this error" when the active tab's run left an error
+  // implementation — offer "Explain this error" when the active tab's run left an error
   // entry. The shared button self-gates on LOCAL_AI, so here we only assemble
   // the error text + the code context (the active tab's source). Use only the
   // MOST RECENT error entry: buildExplainErrorRequest clips from the start, so
@@ -150,7 +150,7 @@ export function ConsolePanel() {
   const originSuppressed = activeTab
     ? originSuppressedByMagicComment(activeTab.language ?? 'plaintext', activeTab.content)
     : false;
-  // RL-044 next slice — paste an image into the console. The listener
+  // implementation detail — paste an image into the console. The listener
   // lives on `document` (a read-only console row is not a focusable
   // paste target) but is scoped to the ConsolePanel lifetime via this
   // effect, and bails on editable targets so Monaco / inputs keep their
@@ -177,10 +177,10 @@ export function ConsolePanel() {
             content: `[image ${result.mime}]`,
             payload: [{ kind: 'image', src: result.dataUri, mime: result.mime }],
           });
-          // RL-044 — a resized paste gets its own toast + telemetry status
-          // (fold A) so the user knows it was downscaled and adoption is
+          // internal — a resized paste gets its own toast + telemetry status
+          // (implementation note) so the user knows it was downscaled and adoption is
           // measurable; `byteLength` is already the POST-resize size, so the
-          // bucket reflects what actually landed (fold D).
+          // bucket reflects what actually landed (implementation note).
           useUIStore.getState().pushStatusNotice({
             tone: 'success',
             messageKey: result.resized ? 'console.imagePaste.resized' : 'console.imagePaste.pasted',
@@ -201,7 +201,7 @@ export function ConsolePanel() {
             sizeBucket: bucketCapsuleSize(result.byteLength),
           });
         } else if (result.reason === 'unreadable') {
-          // RL-044 — surface the unreadable failure instead of dropping it
+          // internal — surface the unreadable failure instead of dropping it
           // silently (it previously emitted telemetry but no user notice).
           useUIStore.getState().pushStatusNotice({
             tone: 'warning',
@@ -217,10 +217,10 @@ export function ConsolePanel() {
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
   }, [addEntry, track]);
-  // RL-044 Slice 1B / RL-123 — entries are already collapsed store-side
+  // implementation / internal — entries are already collapsed store-side
   // (consecutive identical → one ×N row, computed once per push). Here we
   // only apply the legacy type filter AND the payload-kind chip filter
-  // (fold A) to those rows. Collapsed groups are homogeneous, so filtering
+  // (implementation note) to those rows. Collapsed groups are homogeneous, so filtering
   // after the collapse yields the same visible set as the previous
   // filter-then-collapse. Memoised so a flooded console only re-pays the
   // filter cost when entries or filters change.
@@ -246,14 +246,14 @@ export function ConsolePanel() {
   useEffect(() => {
     visibleSourceLinesRef.current = visibleSourceLines;
   }, [visibleSourceLines]);
-  // RL-044 Sub-slice G Fold G — symmetric inverse direction. Listens
+  // implementation Sub-slice G implementation note — symmetric inverse direction. Listens
   // for editor.sourceLineHovered commands emitted by CodeEditor
   // when the cursor settles on a line; pulses every console row
   // whose origin.line / entry.line matches. The state holds the
   // current pulse target line plus a generation so stale pulses from
   // a previous ON-state stay hidden after the master toggle flips OFF.
   //
-  // Slice 2 — the master toggle is removed; the listener is always
+  // implementation — the master toggle is removed; the listener is always
   // installed. The `generation` field remains to invalidate stale
   // pulses across remounts but no longer reacts to a master flip.
   const [pulse, setPulse] = useState<{ line: number; generation: number } | null>(null);
@@ -274,7 +274,7 @@ export function ConsolePanel() {
       return;
     }
     setPulse({ line, generation: pulseGenerationRef.current });
-    // RL-044 Sub-slice G.1 Fold D — adoption signal for the
+    // implementation Sub-slice G.1 implementation note — adoption signal for the
     // inverse direction. Once per pulse-settle (the upstream
     // CodeEditor debounce already collapses bursts), payload is
     // `{ language }` only. Read the active tab's language directly
@@ -307,7 +307,7 @@ export function ConsolePanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
   const rowKeys = useMemo(() => visibleEntries.map(row => row.entry.id), [visibleEntries]);
-  // RL-123 Slice 2 — window the (already collapsed + filtered) rows so only
+  // implementation — window the (already collapsed + filtered) rows so only
   // the viewport band mounts. Off-window rows unmount, releasing their
   // RichValueChart Vega canvases for free.
   const { listWindow, measureRef, scrollToBottom } = useListWindow({
@@ -322,7 +322,7 @@ export function ConsolePanel() {
     result: t('console.filters.type.result'),
   };
 
-  // RL-123 Slice 2 — re-pin to the bottom after every commit while the user is
+  // implementation — re-pin to the bottom after every commit while the user is
   // parked there (no dependency array on purpose). This covers BOTH new
   // entries and late row measurement: the windower seeds each row at an
   // estimated height, then the ResizeObserver grows the content as real
@@ -358,7 +358,7 @@ export function ConsolePanel() {
     [isRunning, run, track]
   );
 
-  // UX Sweep T2 fold B — console clear is recoverable: snapshot the
+  // accessibility pass — console clear is recoverable: snapshot the
   // cleared state, clear, then offer an Undo toast that restores it.
   // Skip the toast when there was nothing to clear so an empty console
   // never surfaces a meaningless Undo.
@@ -420,7 +420,7 @@ export function ConsolePanel() {
   const totalCount = entries.length;
   return (
     <div id="guided-tour-console" className="flex h-full flex-col bg-bg-base/65">
-      {/* RL-093 Slice 3 — prominent header: eyebrow + count badge +
+      {/* implementation — prominent header: eyebrow + count badge +
           inline level chips (LOG · INF · WRN · ERR · RESULT) + the
           ⌘\ keyboard hint so the toggle shortcut is discoverable. */}
       <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
@@ -458,7 +458,7 @@ export function ConsolePanel() {
             );
           })}
           <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
-          {/* RL-044 Slice 1B fold A — payload-kind chip row. Default
+          {/* implementation note — payload-kind chip row. Default
               empty (every kind visible); clicking a chip hides that
               kind. `text` is the catch-all bucket the renderer
               dispatches for primitive / function / error payloads +
@@ -539,7 +539,7 @@ export function ConsolePanel() {
         data-window-range={`${listWindow.startIndex}:${listWindow.endIndex}`}
         className="flex-1 overflow-y-auto px-3 py-2 font-mono text-body-sm leading-6"
         style={
-          // RL-116 — derive the +2px lift from the design token rather
+          // internal — derive the +2px lift from the design token rather
           // than hard-coding its current value; text-body-sm can evolve
           // without changing presenter mode's promised delta.
           presenterActive
@@ -568,7 +568,7 @@ export function ConsolePanel() {
           </div>
         ) : (
           <>
-            {/* RL-123 Slice 2 — top spacer reserves the height of the rows
+            {/* implementation — top spacer reserves the height of the rows
                 above the window so the scrollbar matches the full list. */}
             <div aria-hidden style={{ height: listWindow.topSpacer }} />
             {visibleEntries

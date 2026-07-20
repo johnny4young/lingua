@@ -1,5 +1,5 @@
 /**
- * RL-025 Slice A - Python dependency detector tests.
+ * implementation - Python dependency detector tests.
  */
 
 import { describe, expect, it } from 'vitest';

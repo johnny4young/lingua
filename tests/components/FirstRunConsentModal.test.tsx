@@ -1,5 +1,5 @@
 /**
- * RL-065 first-run telemetry consent prompt.
+ * internal first-run telemetry consent prompt.
  *
  * The modal renders once on boot while `telemetryConsent === 'unset'` AND
  * the desktop consent bridge (window.lingua.consent) is present. Either

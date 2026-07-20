@@ -1,7 +1,7 @@
 import { loadEnv } from 'vite';
 
 /**
- * Shared build-time env resolution for the Vite configs (RL-061 fallout,
+ * Shared build-time env resolution for the Vite configs (internal fallout,
  * deep-review A2).
  *
  * The main-process bundle reads env at CONFIG-LOAD time (its `define`
@@ -14,7 +14,7 @@ import { loadEnv } from 'vite';
  *   4. `.env*` file `VITE_NAME`  — repo-root, VITE alias
  *
  * Before this helper the cascade lived inline in `vite.main.config.mts`,
- * copied per variable — the exact shape that produced the RL-061
+ * copied per variable — the exact shape that produced the internal
  * `no-public-key` production incident (a variable wired in one config but
  * not another, masked in dev because the launchers inject `process.env`).
  * One implementation + the drift test in

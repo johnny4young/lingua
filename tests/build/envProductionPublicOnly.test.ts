@@ -1,5 +1,5 @@
 /**
- * T13/B-9 — public-only contract gate for the git-tracked `.env.production`.
+ * implementation — public-only contract gate for the git-tracked `.env.production`.
  *
  * `.env.production` ships in the repo and is loaded by `vite build` to point
  * the web bundle at the production license server + embed the PUBLIC license

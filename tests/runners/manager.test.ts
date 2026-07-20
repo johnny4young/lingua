@@ -82,7 +82,7 @@ describe('RunnerManager', () => {
     expect(manager.isSupported('go')).toBe(true);
     expect(manager.isSupported('python')).toBe(true);
     expect(manager.isSupported('rust')).toBe(true);
-    // RL-042 Slice 5 — Ruby joined the built-in factories.
+    // implementation — Ruby joined the built-in factories.
     expect(manager.isSupported('ruby')).toBe(true);
   });
 
@@ -140,8 +140,8 @@ describe('RunnerManager', () => {
     expect(() => manager.stop('rust')).not.toThrow(); // no-op (native runner)
   });
 
-  it('RL-038 Slice B: does not resolve lua from LANGUAGE_PACKS alone — plugin fallback required', () => {
-    // Lua ships as a first-class LanguagePack entry (Slice B) but its
+  it('implementation: does not resolve lua from LANGUAGE_PACKS alone — plugin fallback required', () => {
+    // Lua ships as a first-class LanguagePack entry  but its
     // runner is plugin-sourced. Without a plugin registration, the
     // manager must NOT claim support, which proves the pack walk is
     // additive — it did not secretly replace the pluginRegistry path.

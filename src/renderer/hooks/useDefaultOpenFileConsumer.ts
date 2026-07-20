@@ -1,16 +1,16 @@
 /**
- * RL-044 / RL-135 — default `file.open` command consumer.
+ * implementation detail — default `file.open` command consumer.
  *
  * When the user clicks a clickable stack frame in `<RichValueError>`
- * or an `<OutputLineBadge>` chip (RL-044 Sub-slice G), the component
+ * or an `<OutputLineBadge>` chip , the component
  * emits `file.open` with `{ file, line, column?, fnName? }`.
  *
  * Two routing paths:
  *   1. `file` is a non-empty string — cross-file click (stack frame).
- *      RL-024 multi-file workspace will register a higher-priority
+ *      internal multi-file workspace will register a higher-priority
  *      consumer that opens the file; until that ships, this hook
  *      falls back to a status notice so users get visible feedback.
- *   2. `file` is empty / absent — within-tab click (Sub-slice G
+ *   2. `file` is empty / absent — within-tab click (implementation
  *      `<OutputLineBadge>` from a single-tab session, plus a future
  *      stack frame whose `file` is unresolved). Move the cursor in
  *      the currently-active editor model via
@@ -61,7 +61,7 @@ export function useDefaultOpenFileConsumer(): void {
 
       if (file) {
         // Cross-file path — show the "coming soon" notice until
-        // RL-024 ships the higher-priority consumer.
+        // internal ships the higher-priority consumer.
         const key = `${file}:${line}`;
         const last = recentKeys.get(key) ?? 0;
         if (now - last < RECENT_DEBOUNCE_MS) {
@@ -79,7 +79,7 @@ export function useDefaultOpenFileConsumer(): void {
         return;
       }
 
-      // Within-tab path (RL-044 Sub-slice G).
+      // Within-tab path .
       const { activeTabId, requestReveal } = useEditorStore.getState();
       if (!activeTabId) return;
       const key = `tab:${activeTabId}:${line}`;

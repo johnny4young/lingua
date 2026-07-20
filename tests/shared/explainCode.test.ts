@@ -5,7 +5,7 @@ import {
 } from '../../src/shared/ai/explainCode';
 import { MAX_EXPLAIN_CODE_CHARS } from '../../src/shared/ai/explainError';
 
-describe('buildExplainCodeRequest (SR-20a)', () => {
+describe('buildExplainCodeRequest', () => {
   it('builds a system+user message pair and a verbatim preview', () => {
     const req = buildExplainCodeRequest({
       code: 'const x = 1;',

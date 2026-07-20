@@ -1,12 +1,12 @@
 /**
- * RL-079 — Minimal env builder for native runner subprocesses.
+ * internal — Minimal env builder for native runner subprocesses.
  *
  * Before this lived, the Go and Rust runners spread `process.env`
  * directly into `execFile`/`spawn`, which leaked every secret the
  * Electron main process happens to inherit (CI tokens, OPENAI_API_KEY,
  * etc.) into the spawned toolchain. The builder picks ONLY the keys
  * a toolchain actually needs from the host env, then layers the
- * user-tier env from RL-011 on top, then applies runner-owned
+ * user-tier env from internal on top, then applies runner-owned
  * overrides (e.g. `GOOS=js` / `GOARCH=wasm` for Go) last so user env
  * cannot shadow them.
  *
@@ -66,7 +66,7 @@ export const GO_TOOLCHAIN_KEYS = [
  * user output flag, so it belongs in the allowlist alongside
  * RUSTUP_HOME. RUSTFLAGS / RUST_BACKTRACE / RUST_LOG remain excluded
  * because they are user-controllable settings that belong in
- * RL-011's user env tier (where the user explicitly opts in), not
+ * internal's user env tier (where the user explicitly opts in), not
  * silently leaked from the host.
  */
 export const RUST_TOOLCHAIN_KEYS = [
@@ -78,7 +78,7 @@ export const RUST_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
- * RL-019 Slice 2 — Node-specific host-env keys. Node's binary
+ * implementation — Node-specific host-env keys. Node's binary
  * lookup honors `NODE_PATH` for global module resolution; the
  * other allowlisted entries (`NPM_CONFIG_CACHE`, `NPM_CONFIG_PREFIX`)
  * cover the user's local npm / npx layout when the saved tab is
@@ -88,7 +88,7 @@ export const RUST_TOOLCHAIN_KEYS = [
  *
  * Intentionally NOT here in v1: `NODE_OPTIONS`, `NODE_NO_WARNINGS`,
  * `NODE_DEBUG`, `NODE_ENV`. Those are user-controllable knobs that
- * belong in the RL-011 user env tier — silently leaking them from
+ * belong in the internal user env tier — silently leaking them from
  * the host widens the surface area in a way that breaks the
  * "trust your toolchain" model.
  */
@@ -99,12 +99,12 @@ export const NODE_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
- * RL-042 Slice 6 — Ruby-specific host-env keys. Covers:
+ * implementation — Ruby-specific host-env keys. Covers:
  *   - `GEM_HOME` / `GEM_PATH` / `BUNDLE_GEMFILE`: per-user gem caches
  *     + bundler context. Without these, system Ruby cannot see gems
  *     the user installed via `gem install --user`.
  *   - `RBENV_VERSION` / `ASDF_RUBY_VERSION`: version-pin selectors so
- *     shims pick the right interpreter. Fold D writes these from a
+ *     shims pick the right interpreter. implementation note writes these from a
  *     discovered `.ruby-version` file.
  *   - `RBENV_ROOT` / `RBENV_DIR`: rbenv installation paths so the
  *     shim wrapper can resolve.
@@ -112,7 +112,7 @@ export const NODE_TOOLCHAIN_KEYS = [
  *
  * Intentionally NOT here: `RUBYOPT`, `RUBYLIB`, `IRBRC`, `RUBYRC`,
  * `RACK_ENV`, `RAILS_ENV`. Those are user-controllable knobs that
- * belong in the RL-011 user env tier (Settings → Environment Variables)
+ * belong in the internal user env tier (Settings → Environment Variables)
  * — same posture as `NODE_OPTIONS` (excluded above) and `RUSTFLAGS`
  * (excluded above). `RUBYOPT` in particular is a command-line flag
  * injector that would let the host slip arbitrary `-r/some/path` /
@@ -132,7 +132,7 @@ export const RUBY_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
- * Env keys the RL-011 user tier may never set when it arrives over IPC.
+ * Env keys the internal user tier may never set when it arrives over IPC.
  * Running native code is already the user's own machine and their own
  * opt-in — this is not a privilege boundary — but a COMPROMISED renderer
  * should not get a free dynamic-loader injection primitive layered onto
@@ -160,7 +160,7 @@ const USER_ENV_DENYLIST = new Set([
  *      because Node's `child_process` stringifies that to the literal
  *      `"undefined"` on some platforms, which would silently shadow
  *      a real value the spawned binary might pick up from elsewhere.
- *   2. Merge the RL-011 user env tier on top. Non-string values are
+ *   2. Merge the internal user env tier on top. Non-string values are
  *      dropped defensively (the renderer's envVarsStore validates
  *      them, but the IPC boundary is untrusted).
  *   3. Apply runner-owned `overrides` last so they always win

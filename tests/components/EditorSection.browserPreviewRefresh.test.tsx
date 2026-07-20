@@ -6,7 +6,7 @@ import { EditorSection } from '@/components/Settings/EditorSection';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
-describe('EditorSection — Browser preview auto-refresh (RL-119 Slice 1)', () => {
+describe('EditorSection — Browser preview auto-refresh ', () => {
   const initialSettings = useSettingsStore.getState();
   const initialLicense = useLicenseStore.getState();
 

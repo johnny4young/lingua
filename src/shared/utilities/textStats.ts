@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 6 fold C — `text-stats` adapter.
+ * implementation note — `text-stats` adapter.
  *
  * A terminal "inspect" step: report line / word / character / byte
  * counts for the input. Pure shared implementation; no options.

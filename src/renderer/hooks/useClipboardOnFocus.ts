@@ -14,7 +14,7 @@ import { currentEffectiveTier } from './useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 
 /**
- * RL-069 Slice 3 — clipboard-on-focus apply.
+ * implementation — clipboard-on-focus apply.
  *
  * When the user has granted consent
  * (`utilitiesClipboardOnFocusConsent === 'granted'`), this hook reads
@@ -80,7 +80,7 @@ export function useClipboardOnFocus(
       });
 
       // Stash the value on a module-level singleton so the global
-      // Mod+Shift+A handler can fold it into the next apply. The
+      // Mod+Shift+A handler can implementation note into the next apply. The
       // store-based handoff keeps the hook's surface narrow — no need
       // to thread the clipboard value through every panel.
       pendingClipboardApplyRef.value = {

@@ -3,7 +3,7 @@ import { emitCommand } from '../stores/commandBus';
 
 /**
  * One-stop upsell notice helper so stores/components do not reinvent copy.
- * Pairs with RL-060: callers that block a Free-tier action push through
+ * Pairs with internal: callers that block a Free-tier action push through
  * this helper instead of calling `pushStatusNotice` directly, so the copy
  * and the checkout link stay centralized as we iterate on pricing.
  */

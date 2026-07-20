@@ -11,7 +11,7 @@ import { useComputedDiff } from '../../hooks/useComputedDiff';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
 /**
- * RL-028 Slice 7 — read-only comparison modal for two execution-history
+ * implementation — read-only comparison modal for two execution-history
  * entries. Renders the captured `snapshot.code` of each entry side-by-side
  * with a line-by-line diff strip below the panes. Always opened with two
  * snapshot-bearing entries (the popover guards selection to non-null

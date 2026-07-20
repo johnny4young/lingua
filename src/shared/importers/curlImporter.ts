@@ -1,7 +1,7 @@
 /**
- * RL-100 Slice 1 — cURL → HTTP request importer adapter.
+ * implementation — cURL → HTTP request importer adapter.
  *
- * Wraps the shared successor to the RL-097 fold B "paste in URL
+ * Wraps the shared successor to the implementation "paste in URL
  * field" auto-detect parser (`tryParseCurl` below) and adds three
  * layers on top:
  *
@@ -17,7 +17,7 @@
  *      the whole point of importing.
  *
  * The parser intentionally stays at "80% case" coverage (same scope
- * as RL-097 Slice 1 fold B):
+ * as implementation note):
  *
  *   Supported: `-X` / `--request`, `-H` / `--header`, `-d` /
  *              `--data` / `--data-raw`, `--data-urlencode`,
@@ -31,7 +31,7 @@
  *
  * `tryParseCurl` is re-exported from
  * `src/renderer/components/HttpWorkspace/curlImport.ts` so the
- * RL-097 inline editor surface keeps working byte-identically.
+ * internal inline editor surface keeps working byte-identically.
  */
 
 import {
@@ -126,7 +126,7 @@ const UNSUPPORTED_FLAGS_WITH_ARG: ReadonlySet<string> = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
-// Tokenizer — byte-identical to RL-097 fold B (single + double quotes,
+// Tokenizer — byte-identical to implementation (single + double quotes,
 // backslash-newline continuations).
 // ---------------------------------------------------------------------------
 
@@ -184,8 +184,8 @@ function isHttpMethod(value: string): value is HttpMethod {
 /**
  * Parse a cURL command string. Returns `null` on shape mismatch.
  *
- * This function is shared by the RL-097 inline "paste cURL into URL
- * field" auto-detect and the RL-100 global import overlay via the
+ * This function is shared by the internal inline "paste cURL into URL
+ * field" auto-detect and the internal global import overlay via the
  * renderer-side re-export shim. If you change the parser shape, run
  * the existing `tests/components/HttpWorkspace/curlImport.test.ts`
  * suite first and update it deliberately.

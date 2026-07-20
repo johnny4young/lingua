@@ -3,9 +3,9 @@
  *
  * `jsonResponse` matches the small surface from `update-server/src/index.ts`
  * but adds `Cache-Control: no-store` for license-server endpoints — none
- * of these are cacheable, and a stale 501 from a Slice 1 deploy held in a
- * CDN cache after Slice 2 ships would silently break activation.
- * RL-141 also stamps the versioned `/licenses/*` and `/trials/*` contract
+ * of these are cacheable, and a stale 501 from a implementation deploy held in a
+ * CDN cache after implementation ships would silently break activation.
+ * internal also stamps the versioned `/licenses/*` and `/trials/*` contract
  * here so success, validation, method, not-found, and internal errors cannot
  * drift independently.
  */

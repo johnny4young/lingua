@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 6 fold F — ambient pill that flags "a stdin buffer
+ * implementation note — ambient pill that flags "a stdin buffer
  * is staged for the next run on this tab". Mirrors the visual
  * language of `<AutoLogStatusPill>` / `<AutoRunGateNotice>` so
  * the run-time-affordance row in the result panel stays scannable.
@@ -7,7 +7,7 @@
  * Self-gates on language (JS / TS / Python) AND non-empty buffer.
  * Hidden when:
  *   - The active tab is on an unsupported language.
- *   - The Settings master toggle is off (Slice 6 fold D).
+ *   - The Settings master toggle is off (implementation note).
  *   - The buffer is empty / undefined.
  *   - The runtime mode is `browser-preview` (sandbox iframe has no
  *     stdin surface).

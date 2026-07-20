@@ -6,13 +6,13 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 
 /**
- * RL-028 second slice — Settings row that surfaces the in-memory
+ * implementation — Settings row that surfaces the in-memory
  * execution history counter and a Clear button.
  *
  * The store itself is intentionally never persisted across reloads
  * (privacy posture documented in executionHistoryStore.ts). This row
  * lets the user wipe the buffer manually without reloading. A richer
- * "Recent runs" table comes in a follow-up slice; keeping this minimal
+ * "Recent runs" table comes in a follow-up work; keeping this minimal
  * avoids committing to a specific UX before the surface has shipped.
  */
 export function ExecutionHistorySection() {

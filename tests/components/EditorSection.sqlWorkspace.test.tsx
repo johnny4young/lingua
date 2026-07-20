@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 3 fold D — Settings → Editor → SQL workspace subsection.
+ * implementation note — Settings → Editor → SQL workspace subsection.
  *
  * Verifies the row-display-limit + query-timeout selects render, reflect
  * the persisted settings, and route changes to the (clamped) store
@@ -13,7 +13,7 @@ import { initI18n } from '@/i18n';
 import { EditorSection } from '@/components/Settings/EditorSection';
 import { useSettingsStore } from '@/stores/settingsStore';
 
-describe('EditorSection — SQL workspace subsection (RL-097 Slice 3)', () => {
+describe('EditorSection — SQL workspace subsection ', () => {
   const initialSettings = useSettingsStore.getState();
 
   beforeEach(async () => {
@@ -65,7 +65,7 @@ describe('EditorSection — SQL workspace subsection (RL-097 Slice 3)', () => {
     expect(useSettingsStore.getState().sqlWorkspaceQueryTimeoutMs).toBe(60_000);
   });
 
-  it('renders the persist-tables toggle and flips the setting on click (RL-097 Slice 3 OPFS)', () => {
+  it('renders the persist-tables toggle and flips the setting on click (implementation OPFS)', () => {
     useSettingsStore.setState({ sqlWorkspacePersistTables: false });
     render(<EditorSection />);
 
@@ -77,7 +77,7 @@ describe('EditorSection — SQL workspace subsection (RL-097 Slice 3)', () => {
     expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(false);
   });
 
-  it('renders the clear + reconnect actions (RL-097 Slice 3 OPFS)', () => {
+  it('renders the clear + reconnect actions (implementation OPFS)', () => {
     render(<EditorSection />);
     // Present but not clicked here — both touch the live DuckDB engine
     // (reconnect re-instantiates; clear terminates), exercised in the
@@ -94,7 +94,7 @@ describe('EditorSection — SQL workspace subsection (RL-097 Slice 3)', () => {
     expect(
       screen.getByText('Tiempo de espera de la consulta')
     ).toBeTruthy();
-    // RL-097 Slice 3 — tuteo imperative for the persistence toggle.
+    // implementation — tuteo imperative for the persistence toggle.
     expect(
       screen.getByText('Conserva las tablas entre sesiones')
     ).toBeTruthy();

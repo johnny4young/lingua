@@ -1,5 +1,5 @@
 /**
- * IT2-F7 — renderer orchestration for the capsule → HTML export.
+ * internal — renderer orchestration for the capsule → HTML export.
  *
  * Mirrors `exportCapsule.trustCapture.test.ts`: the save layer is
  * mocked at the module seam (`saveTextFileToDisk`), Monaco is mocked

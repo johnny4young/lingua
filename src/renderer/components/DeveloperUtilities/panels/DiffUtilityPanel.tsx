@@ -15,7 +15,7 @@ export function DiffUtilityPanel() {
   const segments = useComputedDiff(left, right, granularity);
   const summary = useMemo(() => summarizeDiff(segments), [segments]);
 
-  // RL-069 Slice 2 — emit a unified-style summary line "+A −B =C" so
+  // implementation — emit a unified-style summary line "+A −B =C" so
   // Cmd+Shift+C lands a quick clipboard-friendly snapshot instead of
   // dumping the entire diff.
   const registerOutput = useCallback(() => {

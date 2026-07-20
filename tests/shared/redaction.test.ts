@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 1 — `src/shared/redaction.ts` extract proof.
+ * implementation — `src/shared/redaction.ts` extract proof.
  *
  * These tests assert two contracts:
  *

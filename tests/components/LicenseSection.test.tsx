@@ -1,5 +1,5 @@
 /**
- * RL-059 license UI — cover the four states the status pill must
+ * internal license UI — cover the four states the status pill must
  * represent (free / active / grace / invalid) and the Apply / Clear
  * buttons' state-machine transitions. The verifier itself is tested
  * elsewhere; this suite stubs `setLicenseToken` so we can script each
@@ -26,7 +26,7 @@ vi.mock('@/services/recoveryServer', () => ({
   startRecovery: vi.fn(),
 }));
 
-// RL-143 — the fingerprint row reads the module-scope PUBLIC_KEY_JWK, whose
+// internal — the fingerprint row reads the module-scope PUBLIC_KEY_JWK, whose
 // value in vitest depends on whether the root .env was loaded into
 // import.meta.env. A getter-backed mock makes the row deterministic: tests
 // flip `fingerprintMockState.jwk` instead of guessing the ambient env.
@@ -115,7 +115,7 @@ describe('LicenseSection', () => {
     render(<LicenseSection />);
     expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Monthly');
     expect(screen.getByTestId('license-clear')).toBeTruthy();
-    // UX Sweep T1 — the bespoke Remove-license button carries the focus ring.
+    // accessibility pass — the bespoke Remove-license button carries the focus ring.
     expect(screen.getByTestId('license-clear').className).toContain('focus-ring');
   });
 
@@ -236,7 +236,7 @@ describe('LicenseSection', () => {
     // Crucially: the raw developer message never reaches the banner.
     expect(notice?.detail).toBeUndefined();
 
-    // UX Sweep T14 — the input reflects the rejected state inline.
+    // accessibility pass — the input reflects the rejected state inline.
     expect(input.getAttribute('aria-invalid')).toBe('true');
     const inlineError = screen.getByTestId('license-input-error');
     expect(input.getAttribute('aria-describedby')).toBe(inlineError.id);
@@ -253,7 +253,7 @@ describe('LicenseSection', () => {
       ['clock-skew', 'license.notice.invalid.clockSkew'],
       ['unsupported-tier', 'license.notice.invalid.unsupportedTier'],
       ['no-public-key', 'license.notice.invalid.notAccepted'],
-      // RL-061 Slice 3 follow-up: server-side request rejection
+      // implementation follow-up: server-side request rejection
       // (validator drift between renderer + worker) gets its own copy
       // so users do not waste time re-pasting a perfectly good token.
       ['invalid-input', 'license.notice.invalid.requestRejected'],
@@ -306,7 +306,7 @@ describe('LicenseSection', () => {
     const spy = vi.spyOn(useLicenseStore.getState(), 'clearLicense').mockResolvedValue({ kind: 'free' });
     render(<LicenseSection />);
 
-    // UX Sweep T2 fold C — Remove now routes through a confirm dialog.
+    // accessibility pass — Remove now routes through a confirm dialog.
     await user.click(screen.getByTestId('license-clear'));
     expect(spy).not.toHaveBeenCalled();
     await user.click(screen.getByTestId('license-clear-confirm-confirm'));
@@ -432,7 +432,7 @@ describe('LicenseSection', () => {
     );
   });
 
-  // ----------- RL-061 Slice 3 — devices row + exhausted modal ------------
+  // ----------- implementation — devices row + exhausted modal ------------
 
   function activeStatusForDevices(): LicenseStatus {
     return {
@@ -592,7 +592,7 @@ describe('LicenseSection', () => {
       expect(currentRemove.title).toContain('Remove license');
       const otherRemove = screen.getByTestId('license-device-remove-dev_d2') as HTMLButtonElement;
       expect(otherRemove.disabled).toBe(false);
-      // UX Sweep T1 — device-remove buttons carry the shared focus ring.
+      // accessibility pass — device-remove buttons carry the shared focus ring.
       expect(otherRemove.className).toContain('focus-ring');
     } finally {
       localStorage.removeItem('lingua-device-id');
@@ -719,7 +719,7 @@ describe('LicenseSection', () => {
     }
   });
 
-  // ----------------------------------------------- RL-061 Slice 4 — CTAs
+  // ----------------------------------------------- implementation — CTAs
 
   it('renders the Trial / Education / Recovery CTAs under the free state', () => {
     render(<LicenseSection />);
@@ -885,7 +885,7 @@ describe('LicenseSection', () => {
     );
   });
 
-  describe('signing key fingerprint row (RL-143)', () => {
+  describe('signing key fingerprint row', () => {
     // The committed production key; the expected value is the
     // independently computed RFC 7638 vector also pinned in
     // tests/scripts/licenseKeyRotation.test.ts.
@@ -909,7 +909,7 @@ describe('LicenseSection', () => {
         expect(screen.getByTestId('license-key-fingerprint').textContent).toBe(PROD_THUMBPRINT),
       );
       expect(screen.getByTestId('license-key-fingerprint-copy')).toBeTruthy();
-      // UX Sweep T1 — the fingerprint Copy button carries the focus ring.
+      // accessibility pass — the fingerprint Copy button carries the focus ring.
       expect(
         screen.getByTestId('license-key-fingerprint-copy').className
       ).toContain('focus-ring');

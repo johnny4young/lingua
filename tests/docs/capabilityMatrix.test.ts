@@ -1,5 +1,5 @@
 /**
- * RL-030 locked the capability matrix as the decision record for where each
+ * internal locked the capability matrix as the decision record for where each
  * capability runs (browser WASM, browser interpreter, WebContainer, desktop
  * native, hybrid). The acceptance criterion is that every runtime and shell
  * feature has a documented recommended execution class. This test guards
@@ -51,7 +51,7 @@ const DECISION_SECTIONS = [
 ];
 
 describe('CAPABILITY_MATRIX.md', () => {
-  it('names every execution class the RL-030 scope calls out', () => {
+  it('names every execution class the internal scope calls out', () => {
     for (const cls of [
       'Browser WASM',
       'Browser interpreter',

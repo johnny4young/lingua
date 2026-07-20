@@ -2,7 +2,7 @@ import type { NotebookState } from './notebookStore';
 import type { NotebookGet } from './notebookStoreContext';
 
 /**
- * T9 — notebook read-only selector factory.
+ * implementation — notebook read-only selector factory.
  *
  * Bundles the derived reads (`getNotebookForTab`, `getCellRunStatus`,
  * `getCellExecutionOrder`, `getActiveCellId`). Every selector reads the

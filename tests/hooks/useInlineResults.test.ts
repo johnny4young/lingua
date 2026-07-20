@@ -35,7 +35,7 @@ describe('useInlineResults inline widget DOM', () => {
       .toBe(false);
   });
 
-  // RL-093 overflow Prerequisite fix (landed in the RL-044 Slice 1A
+  // internal overflow Prerequisite fix (landed in the implementation
   // commit). Long values used to paint past the editor right edge and
   // wrap onto a second line that overran the gutter; truncate to a
   // fixed cap and surface the full text via `title`.
@@ -58,7 +58,7 @@ describe('useInlineResults inline widget DOM', () => {
       expect(value?.getAttribute('data-truncated')).toBe('true');
     });
 
-    it('leaves RL-044 typed-payload summaries alone — they ship under the cap', () => {
+    it('leaves internal typed-payload summaries alone — they ship under the cap', () => {
       const node = renderInlineResultNode([
         {
           line: 1,
@@ -81,7 +81,7 @@ describe('useInlineResults inline widget DOM', () => {
   });
 });
 
-describe('RL-115 — inline timing chip', () => {
+describe('internal — inline timing chip', () => {
   it('renders the timing chip after the value parts', () => {
     const node = renderInlineResultNode(
       [{ line: 1, value: '42', type: 'autoLog' }],

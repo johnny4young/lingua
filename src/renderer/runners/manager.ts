@@ -19,12 +19,12 @@ export interface RunnerPreparationResult {
 }
 
 /**
- * Built-in runner factories keyed by `LanguagePack.runnerId` (RL-038 Slice B).
+ * Built-in runner factories keyed by `LanguagePack.runnerId` .
  *
  * The `RunnerManager` constructor walks `LANGUAGE_PACKS`, finds every pack
  * whose `runnerId` is present in this map, and instantiates the factory.
  * Packs whose `runnerId` is absent from the map (today: `lua`) intentionally
- * fall through to the plugin registry — Slice B is additive, not a
+ * fall through to the plugin registry — implementation is additive, not a
  * pluginRegistry replacement.
  */
 const BUILT_IN_RUNNER_FACTORIES: Record<string, () => LanguageRunner> = {
@@ -32,7 +32,7 @@ const BUILT_IN_RUNNER_FACTORIES: Record<string, () => LanguageRunner> = {
   typescript: () => new TypeScriptRunner(),
   go: () => new GoRunner(),
   python: () => new PythonRunner(),
-  // RL-042 Slice 5 — Ruby web runtime via `@ruby/wasm-wasi`. The
+  // implementation — Ruby web runtime via `@ruby/wasm-wasi`. The
   // pack's `runnerId` flipped from `null` to `'ruby'` in the same
   // slice; the factory must land alongside or the manager's
   // constructor walk skips the entry and Ruby tabs fall through to
@@ -50,7 +50,7 @@ export class RunnerManager {
   private runners: Map<string, LanguageRunner> = new Map();
   private initializing: Map<string, Promise<void>> = new Map();
   /**
-   * RL-019 Slice 3 — runtime-mode-aware runners that override the
+   * implementation — runtime-mode-aware runners that override the
    * default language-keyed dispatch when the active tab carries an
    * explicit `runtimeMode`. The keys mirror the implemented
    * RuntimeMode values; `'worker'` intentionally has no entry so
@@ -62,12 +62,12 @@ export class RunnerManager {
     LanguageRunner
   >([
     ['browser-preview', new BrowserPreviewRunner()],
-    // RL-019 Slice 2 — desktop Node child-spawn runner. Self-gates
+    // implementation — desktop Node child-spawn runner. Self-gates
     // on `window.lingua.node` availability inside `.execute()`
     // (web builds surface a clear renderer-side error instead of
     // crashing the manager registration on import).
     ['node', new NodeRunner()],
-    // F-4 — Deno / Bun desktop runtimes. Same self-gating: each runner
+    // implementation — Deno / Bun desktop runtimes. Same self-gating: each runner
     // checks `window.lingua.deno` / `.bun` inside `.execute()` and surfaces
     // a desktop-only error on the web build.
     ['deno', new AltJsRunner('deno')],
@@ -231,10 +231,10 @@ export class RunnerManager {
   }
 
   /**
-   * RL-019 Slice 3 — accessor for the BrowserPreviewRunner. Lets
-   * `executeTabManually` push fold-A sibling sources before
+   * implementation — accessor for the BrowserPreviewRunner. Lets
+   * `executeTabManually` push implementation note sibling sources before
    * calling `execute()`. Returns `null` when the runner is not
-   * registered (defensive — Slice 3 always registers it).
+   * registered (defensive — implementation always registers it).
    */
   getBrowserPreviewRunner(): BrowserPreviewRunner | null {
     const runner = this.runtimeModeRunners.get('browser-preview');
@@ -242,7 +242,7 @@ export class RunnerManager {
   }
 
   /**
-   * RL-025 Slice C — accessor for the PythonRunner so
+   * implementation — accessor for the PythonRunner so
    * `pythonWebInstaller` can reach the same Pyodide worker the
    * runner already manages. Returns `null` if Python isn't a
    * registered language pack (defensive — `LANGUAGE_PACKS` always
@@ -259,7 +259,7 @@ export class RunnerManager {
     for (const runner of this.runners.values()) {
       runner.stop();
     }
-    // RL-019 Slice 3 — runtime-mode-keyed runners (BrowserPreview
+    // implementation — runtime-mode-keyed runners (BrowserPreview
     // today) also need stopping; otherwise an in-flight iframe run
     // would keep streaming console events after a teardown.
     for (const runner of this.runtimeModeRunners.values()) {

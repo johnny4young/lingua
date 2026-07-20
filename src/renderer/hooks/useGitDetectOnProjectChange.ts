@@ -1,13 +1,13 @@
 /**
- * RL-102 Slice 1 — boot-time detect for the Git read-only layer.
+ * implementation — boot-time detect for the Git read-only layer.
  *
  * Runs on every project root change
  * (`useProjectStore.currentProject`). The `lastDetectAt` field in
- * `useGitStore` (fold B) suppresses redundant re-detect calls within
+ * `useGitStore` (implementation note) suppresses redundant re-detect calls within
  * `GIT_DETECT_CACHE_TTL_MS` so React re-renders or transient store
  * rehydration don't burn an IPC trip per render.
  *
- * Emits `git.layer_attached { repoState }` (fold D) once per posture
+ * Emits `git.layer_attached { repoState }` (implementation note) once per posture
  * transition. Three closed-enum values: `'git-repo'` when the folder
  * resolved to a working tree, `'no-git'` when git is installed but
  * the folder is not a repo, `'no-binary'` when the binary itself
@@ -55,7 +55,7 @@ export function useGitDetectOnProjectChange(): void {
       return;
     }
 
-    // Fold B — TTL cache, keyed by folder. Reviewer pass: the
+    // implementation note — TTL cache, keyed by folder. Reviewer pass: the
     // previous shape compared `now - lastDetectAt` globally, which
     // suppressed the detect on a fast project switch (A → B within
     // 30s would reuse A's posture as B's). Pinning the cache to the
@@ -112,7 +112,7 @@ export function useGitDetectOnProjectChange(): void {
     };
   }, [rootPath, rootId]);
 
-  // RL-102 Slice 2 — subscribe to `.git/HEAD` watch broadcasts once
+  // implementation — subscribe to `.git/HEAD` watch broadcasts once
   // the boot detect resolves to a real repo. Renderer keeps the
   // posture cache cheap-updated (no full detect re-run on a sibling
   // checkout). Subscribes per-repoRoot so a folder switch tears the
@@ -128,7 +128,7 @@ export function useGitDetectOnProjectChange(): void {
     let cancelled = false;
     const offChange = bridge.onHeadChanged((payload) => {
       if (cancelled) return;
-      // Fold F — per-file opt-out from HEAD refresh. Skip the
+      // implementation note — per-file opt-out from HEAD refresh. Skip the
       // store update entirely when the ACTIVE tab carries the
       // `// @git-watch-head off` directive. We scope the check
       // to the active tab (rather than ALL open tabs) because

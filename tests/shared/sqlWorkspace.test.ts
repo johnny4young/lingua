@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 — sqlWorkspace.ts unit tests.
+ * implementation — sqlWorkspace.ts unit tests.
  *
  * Exercises: parsers (happy path + every shape rejection), bucketing
  * helper, caps, closed-enum lock.
@@ -229,7 +229,7 @@ describe('createBlankSqlQuery', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RL-097 (SQL import) — shared import helpers.
+// internal (SQL import) — shared import helpers.
 // ---------------------------------------------------------------------------
 
 describe('detectImportFormat', () => {

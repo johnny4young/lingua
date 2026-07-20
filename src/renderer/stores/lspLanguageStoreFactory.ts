@@ -1,9 +1,9 @@
 import { create, type UseBoundStore, type StoreApi } from 'zustand';
 
 /**
- * RL-026 Slice 4 — shared shape for desktop-LSP runtime state.
+ * implementation — shared shape for desktop-LSP runtime state.
  *
- * Slice 3 introduced the `useRustLanguageStore`; Slice 4 mirrors the
+ * implementation introduced the `useRustLanguageStore`; implementation mirrors the
  * same fields for `useGoLanguageStore`. Rather than duplicate the
  * store body, both languages instantiate this factory. The static
  * language-pack descriptor in `src/shared/languagePacks.ts` records

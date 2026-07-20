@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 
 /**
- * RL-024 Slice 1 — tree dirty dot helper.
+ * implementation — tree dirty dot helper.
  *
  * Returns a set of `rootId::relativePath` keys for every open tab
  * that has unsaved edits. `FileTree` calls this hook ONCE at the

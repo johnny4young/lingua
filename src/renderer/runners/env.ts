@@ -4,7 +4,7 @@ import { useEnvVarsStore } from '../stores/envVarsStore';
 import { useProjectStore } from '../stores/projectStore';
 import { trackEvent } from '../utils/telemetry';
 
-// RL-109 close-out — fire `env.project_scope_used` at most once per renderer
+// internal close-out — fire `env.project_scope_used` at most once per renderer
 // session, the first time a native runner resolves env while a project is open.
 let projectScopeTelemetryEmitted = false;
 
@@ -14,7 +14,7 @@ let projectScopeTelemetryEmitted = false;
  * user/project/tab variables across the preload boundary.
  */
 export function resolveUserEnvForRunner(): Record<string, string> {
-  // RL-011 contract: user-defined env vars are a desktop-only feature.
+  // internal contract: user-defined env vars are a desktop-only feature.
   // The web build keeps the Settings surface honest for tier editing and
   // trace preview, but runnable paths must not leak those vars into the
   // browser runtimes.
@@ -27,7 +27,7 @@ export function resolveUserEnvForRunner(): Record<string, string> {
   const envState = useEnvVarsStore.getState();
   const projectId = currentProject?.id ?? null;
 
-  // RL-109 close-out — once-per-session adoption signal for project-scoped env.
+  // internal close-out — once-per-session adoption signal for project-scoped env.
   // Only when a project is open; `hasProjectVars` says whether that project
   // carries any project-tier overrides. No keys/values/paths leave the renderer.
   if (!projectScopeTelemetryEmitted && projectId) {

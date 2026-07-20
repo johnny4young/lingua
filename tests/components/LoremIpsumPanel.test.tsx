@@ -1,5 +1,5 @@
 /**
- * RL-068 — LoremIpsumPanel tests. The pure helper is covered in
+ * internal — LoremIpsumPanel tests. The pure helper is covered in
  * tests/utils/loremIpsum.test.ts, so this suite focuses on wiring:
  * default state, unit toggle resets count, classic-opening checkbox,
  * Generate click, CopyButton, ES locale.

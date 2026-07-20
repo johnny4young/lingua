@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice (Monaco cells) — code-cell edit-request handling.
+ * implementation (Monaco cells) — code-cell edit-request handling.
  *
  * Reviewer regression lock: a command-mode "enter edit" request
  * (`editRequestNonce`) must open the cell's Monaco editor even while

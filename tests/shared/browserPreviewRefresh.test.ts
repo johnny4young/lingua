@@ -7,7 +7,7 @@ import {
   sanitizeBrowserPreviewRefreshInterval,
 } from '../../src/shared/browserPreviewRefresh';
 
-describe('Browser preview refresh contract (RL-119 Slice 1)', () => {
+describe('Browser preview refresh contract ', () => {
   it('accepts only Off, 300 ms, and 1 second', () => {
     expect(isBrowserPreviewRefreshInterval(0)).toBe(true);
     expect(isBrowserPreviewRefreshInterval(300)).toBe(true);

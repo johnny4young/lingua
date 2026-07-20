@@ -1,5 +1,5 @@
 /**
- * RL-044 Slice 2a — `image` payload renderer. Validates the source
+ * implementation — `image` payload renderer. Validates the source
  * against the shared `validateImageSrc` whitelist (`data:image/...` /
  * `blob:` / `https://` only). Rejected sources fall through to a
  * localized text fallback and fire the

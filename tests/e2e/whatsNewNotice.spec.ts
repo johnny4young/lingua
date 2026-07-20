@@ -16,7 +16,7 @@ function captureEnabled(): boolean {
   return process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1';
 }
 
-test.describe("IT2-D5 active What's New notice", () => {
+test.describe("internal active What's New notice", () => {
   test('shows one upgrade notice and opens release highlights from its CTA', async ({ page }) => {
     await seedSession(page, { language: 'en', lastSeenVersion: '0.0.0' });
     await gotoApp(page);

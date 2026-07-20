@@ -6,7 +6,7 @@ describe('RubyRunner — metadata + lifecycle', () => {
   it('exposes the expected metadata (hybrid dispatcher)', () => {
     const runner = new RubyRunner();
     expect(runner.id).toBe('ruby');
-    // RL-042 Slice 6 — the public RubyRunner is now a dispatcher
+    // implementation — the public RubyRunner is now a dispatcher
     // that picks WASM vs desktop subprocess per call. Its `name`
     // reads as the generic "Ruby"; the inner WasmRubyRunner /
     // DesktopRubySubprocessRunner keep their specific labels.
@@ -365,7 +365,7 @@ describe('RubyRunner — parent-owned timeout', () => {
 });
 
 // ----------------------------------------------------------------------
-// RL-042 Slice 6 — hybrid dispatcher routing
+// implementation — hybrid dispatcher routing
 // ----------------------------------------------------------------------
 
 describe('RubyRunner — desktop dispatcher routing', () => {

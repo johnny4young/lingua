@@ -1,5 +1,5 @@
 /**
- * RL-071 — Diff viewer helper.
+ * internal — Diff viewer helper.
  *
  * Pure, offline, renderer-side. Ships Myers O((N+M)·D) diff over three
  * tokenization strategies: lines, word-aware segments, and characters
@@ -27,7 +27,7 @@ export type DiffGranularity = 'line' | 'word' | 'character';
 export const DIFF_MAX_INPUT_CHARS = 40_000;
 
 /**
- * Fold three tokenizers into a single entry point. `granularity` decides
+ * implementation note tokenizers into a single entry point. `granularity` decides
  * how both sides are tokenized; the output is always `DiffSegment[]` with
  * adjacent runs of the same kind merged.
  */

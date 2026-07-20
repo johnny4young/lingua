@@ -1,5 +1,5 @@
 /**
- * RL-025 Slice A - dependency detection store + content-hash helper.
+ * implementation - dependency detection store + content-hash helper.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -70,7 +70,7 @@ describe('useDependencyDetectionStore', () => {
   });
 
   it('setDetection preserves installing status for in-flight names', () => {
-    // RL-025 Slice B reviewer fix — a re-detection cycle that fires
+    // implementation reviewer fix — a re-detection cycle that fires
     // mid-install (typical: user edits the buffer while npm runs)
     // must not overwrite the optimistic `'installing'` status back
     // to `'detected'`. The resolver only sees what's on disk.

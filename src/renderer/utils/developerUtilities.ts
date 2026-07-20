@@ -1,5 +1,5 @@
 import { parseInAnyBase } from './numberBase';
-// RL-099 Slice 4 fold F — URL component encode/decode live in the
+// implementation note — URL component encode/decode live in the
 // shared utilities layer (the `url-encode` / `url-decode` pipeline
 // adapters) so the single-shot URL panel and the pipeline share one
 // implementation of the actual encode/decode call.
@@ -18,7 +18,7 @@ export interface TransformResult {
 }
 
 // `JwtAnalysis` and `decodeJwt` moved to `./jwt` alongside the new
-// verify/sign surfaces for RL-071. Re-exported here so existing import
+// verify/sign surfaces for internal Re-exported here so existing import
 // sites (developerUtilities.ts was the historical home) keep compiling.
 export type { JwtAnalysis } from './jwt';
 
@@ -108,7 +108,7 @@ function base64ToBytes(value: string): Uint8Array {
 }
 
 // `normalizeBase64Url` and `parseJsonObject` moved to `./jwt` as private
-// helpers alongside the decode/verify/sign surfaces for RL-071. No other
+// helpers alongside the decode/verify/sign surfaces for internal No other
 // consumer in this module needed them.
 
 export function analyzeJson(value: string): JsonAnalysis {
@@ -183,7 +183,7 @@ export function decodeUrlComponentValue(value: string): TransformResult {
 }
 
 /**
- * RL-071 — Hash Generator. Supports five plain digests (MD5, SHA-1/256/384/512)
+ * internal — Hash Generator. Supports five plain digests (MD5, SHA-1/256/384/512)
  * and HMAC variants for every SHA family member.
  *
  * - SHA digests route through `crypto.subtle.digest`, which is native in every
@@ -372,7 +372,7 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
- * Thin text-to-hex wrapper retained for historical parity with the pre-RL-071
+ * Thin text-to-hex wrapper retained for historical parity with the pre-internal
  * API. Routes through `computeHash` and throws on error to preserve the old
  * signature (pre-tagged-union callers).
  */
@@ -392,7 +392,7 @@ export function generateUuid(): string {
 }
 
 // `decodeJwt` moved to `src/renderer/utils/jwt.ts` together with the new
-// `verifyJwt` and `signJwt` surfaces for RL-071. Re-exported here so the
+// `verifyJwt` and `signJwt` surfaces for internal Re-exported here so the
 // existing import sites (developerUtilities.ts was the historical home)
 // do not have to migrate in this commit.
 export { decodeJwt } from './jwt';
@@ -885,7 +885,7 @@ export function computeLineDiff(leftInput: string, rightInput: string): LineDiff
 }
 
 /**
- * RL-069 Slice 2 — `detectsAs*` predicates.
+ * implementation — `detectsAs*` predicates.
  *
  * Each utility panel passes its current input through one of these
  * predicates to decide whether the ⚡ Apply-from-input button should

@@ -1,6 +1,6 @@
--- RL-061 Slice 3 follow-up — relax the `devices.os` CHECK constraint.
+-- implementation follow-up — relax the `devices.os` CHECK constraint.
 --
--- Slice 2.5 introduced `surface: 'web'` activation but left the original
+-- implementation introduced `surface: 'web'` activation but left the original
 -- 0001-era `CHECK (os IN ('darwin', 'win32', 'linux'))` constraint in
 -- place. The web renderer's `getOs()` helper emits `web-${browserFamily}`
 -- (chrome / firefox / safari / edge / opera / brave / chromium / unknown)

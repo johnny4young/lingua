@@ -1,5 +1,5 @@
 /**
- * RL-088 — Accessibility QA hardening.
+ * internal — Accessibility QA hardening.
  *
  * Three acceptance gates, all enforced via Playwright + axe-core:
  *
@@ -43,7 +43,7 @@ import {
 } from './licenseWeb.helpers';
 import { auditA11y } from './a11y.helpers';
 
-const evidenceDir = 'output/review/it2-g6-g7-product-hardening';
+const evidenceDir = 'output/review/internal';
 
 function captureEnabled(): boolean {
   return process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1';
@@ -138,7 +138,7 @@ test.describe('Automated axe scans', () => {
     await openDeveloperUtilities(page);
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
     // The workspace deliberately has no visible title (the shared chips row
-    // carries the header content); the heading contract is sr-only for
+    // carries the header content); the heading contract is internal for
     // assistive tech, so assert presence, not visibility.
     await expect(
       page.getByRole('heading', { name: /built-in utilities/i })

@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice H — programmatic scroll-into-view (the focus-after-scroll
+ * implementation — programmatic scroll-into-view (the focus-after-scroll
  * seam). The active cell hosts the live editor, and a windowed off-screen
  * row is unmounted, so command-mode navigation MUST scroll the target into
  * the window before focus is attempted. jsdom never produces a non-degrade
@@ -128,7 +128,7 @@ describe('<NotebookView /> scrollToIndex on command-mode nav', () => {
     expect(scrollToIndex).toHaveBeenCalledWith(1);
   });
 
-  it('scrolls the first code cell into view on Run all (fold F)', () => {
+  it('scrolls the first code cell into view on Run all (implementation note)', () => {
     seed([codeCell('c0'), codeCell('c1')], 'c0');
     render(<NotebookView tabId={TAB_ID} />);
     scrollToIndex.mockClear();

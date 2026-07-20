@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 1 fold F — ADR guard for runtime modes.
+ * ADR guard for runtime modes.
  *
  * Pins the load-bearing decisions in `docs/RUNTIME_MODES_ADR.md` so
  * a future revert that softens any of the contract surfaces fails
@@ -10,7 +10,7 @@
  *   - Disabled-with-tooltip vs. hidden (decision 3).
  *   - No silent fallback to worker on unimplemented mode writes.
  *   - Telemetry payload contract.
- *   - Slices 1, 2, and 3 are all shipped.
+ *   - All five runtime modes are shipped.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 
 const ADR_PATH = resolve(__dirname, '../../docs/RUNTIME_MODES_ADR.md');
 
-describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
+describe('RUNTIME_MODES_ADR.md', () => {
   it('exists under docs/', () => {
     expect(existsSync(ADR_PATH)).toBe(true);
   });
@@ -29,21 +29,18 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
   it('records an accepted decision plus a date', () => {
     expect(adr).toMatch(/Status\s*\|\s*Accepted/i);
     expect(adr).toMatch(/Date\s*\|\s*2026-05-12/u);
-    expect(adr).toMatch(/Slice\s*\|\s*1 \+ 2 \+ 3 of 3 \(closed\)/iu);
+    expect(adr).toMatch(/Implementation\s*\|[\s\S]*Deno[\s\S]*Bun/iu);
   });
 
-  it('locks the three-mode enum and their per-slice status', () => {
+  it('locks the three-mode enum and their per-change status', () => {
     for (const mode of ['worker', 'node', 'browser-preview']) {
       expect(adr).toContain(`\`${mode}\``);
     }
-    expect(adr).toMatch(/\*\*Shipping \(Slice 1\)\*\*/u);
-    expect(adr).toMatch(/\*\*Shipping \(Slice 2\)\*\*/u);
-    expect(adr).toMatch(/\*\*Shipping \(Slice 3\)\*\*/u);
-    expect(adr).not.toMatch(/Planned \(Slice 2\)/u);
+    expect(adr.match(/\*\*Shipping\*\*/gu)).toHaveLength(5);
   });
 
-  it('records the Slice 2 ship notes (Node runner + stop + env allowlist)', () => {
-    expect(adr).toMatch(/## Slice 2 ship notes/u);
+  it('records the Node mode ship notes (runner + stop + env allowlist)', () => {
+    expect(adr).toMatch(/## Node mode ship notes/u);
     expect(adr).toContain('src/main/node-runner.ts');
     expect(adr).toContain('src/preload/index.ts');
     expect(adr).toContain('src/renderer/runners/nodeRunner.ts');
@@ -52,8 +49,8 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
     expect(adr).toContain('runtime.node_runner_used');
   });
 
-  it('records the Slice 3 ship notes (architecture + postMessage + sandbox + timeout)', () => {
-    expect(adr).toMatch(/## Slice 3 ship notes/u);
+  it('records the Browser Preview ship notes (architecture + postMessage + sandbox + timeout)', () => {
+    expect(adr).toMatch(/## Browser Preview ship notes/u);
     // Architecture references
     expect(adr).toContain('src/renderer/runners/browserPreview.ts');
     expect(adr).toContain('src/renderer/components/BrowserPreview/iframeBridge.ts');
@@ -76,8 +73,8 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
     expect(adr).toMatch(/## CSP posture per runtime mode \(audit\)/u);
     // The audit table covers all three modes.
     expect(adr).toContain('`worker`');
-    expect(adr).toContain('`node` (Slice 2)');
-    expect(adr).toContain('`browser-preview` (Slice 3)');
+    expect(adr).toContain('`node` ');
+    expect(adr).toContain('`browser-preview` ');
   });
 
   it('records the JS/TS-only scope and the helper used to gate it', () => {
@@ -108,7 +105,7 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
     expect(adr).toMatch(/closed enum/iu);
   });
 
-  it('cross-references the adjacent docs the slice depends on', () => {
+  it('cross-references the adjacent docs the runtime model depends on', () => {
     for (const pointer of ['CAPABILITY_MATRIX.md', 'DEBUGGER_ADR.md']) {
       expect(adr).toContain(pointer);
     }
@@ -116,9 +113,9 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
 
   it('locks Decision 6 — runner dispatch stays language-keyed with runtime overrides', () => {
     // The runner registry contract is the most operationally
-    // fragile invariant for Slice 2 (which adds a NodeRunner). The
+    // fragile invariant for Node mode. The
     // ADR's Decision 6 says we keep dispatching by `language` for
-    // worker mode while Slice 2 extends the registry with a small
+    // worker mode while Node extends the registry with a small
     // runtime override map.
     expect(adr).toMatch(/Decision 6|runtime overrides/iu);
     expect(adr).toContain('src/renderer/runners/manager.ts');
@@ -126,6 +123,7 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
 
   it('keeps the rollback path documented and self-contained', () => {
     expect(adr).toMatch(/## Rollback/u);
-    expect(adr).toContain('git revert');
+    expect(adr).toContain('Revert the Toolbar mount');
+    expect(adr).toContain('defensively coerced');
   });
 });

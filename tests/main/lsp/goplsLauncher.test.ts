@@ -1,5 +1,5 @@
 /**
- * RL-026 Slice 4 — `GoplsLauncher` detection + init contract.
+ * implementation — `GoplsLauncher` detection + init contract.
  *
  * Mirrors the rust-analyzer launcher tests. Most of the LSP framing
  * is covered by `lspProcess.test.ts`; here we pin the Go-specific

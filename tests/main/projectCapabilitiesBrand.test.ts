@@ -1,5 +1,5 @@
 /**
- * RL-132 / AUDIT-12 — branded-id swap-attack compile guard.
+ * implementation detail — branded-id swap-attack compile guard.
  *
  * The three capability ids (`RootId`, `WatchId`, `RelativePath`) are all
  * `string` at runtime, so nothing stops a caller from feeding the
@@ -54,7 +54,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 function requiresRelativePath(_relativePath: RelativePath): void {}
 function requiresWatchId(_watchId: WatchId): void {}
 
-describe('branded fs ids — swap-attack compile guard (RL-132)', () => {
+describe('branded fs ids — swap-attack compile guard', () => {
   it('rejects every cross-brand and raw-string swap at compile time', () => {
     const rootId: RootId = asRootId('root-token');
     const watchId: WatchId = asWatchId('watch-token');

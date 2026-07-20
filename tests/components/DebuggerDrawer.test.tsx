@@ -221,7 +221,7 @@ describe('DebuggerDrawer', () => {
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
   });
 
-  it('chevron toggles drawerCollapsed and hides the body (Slice 1.5 fold B)', () => {
+  it('chevron toggles drawerCollapsed and hides the body (implementation note)', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
 
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);

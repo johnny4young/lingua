@@ -5,7 +5,7 @@ import type { LinguaPlugin } from './index';
  * Loader map for bundled runtimes. Keys MUST be a subset of
  * `BUNDLED_PLUGIN_IDS` from the shared manifest module — the type
  * assertion below enforces it at compile time so `BUNDLED_PLUGIN_IDS`
- * stays the single source of truth across main + renderer (RL-084).
+ * stays the single source of truth across main + renderer.
  */
 const bundledPluginLoaders: Record<(typeof BUNDLED_PLUGIN_IDS)[number], () => Promise<LinguaPlugin>> = {
   lua: async () => (await import('./lua-runner')).luaPlugin,

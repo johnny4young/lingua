@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 8 — `setTabCompareEnabled` + language-change cleanup.
+ * implementation — `setTabCompareEnabled` + language-change cleanup.
  *
  * Covers:
  *   - Setter writes / clears the per-tab flag.
@@ -30,7 +30,7 @@ function snapshotForLanguage(language: string): void {
   useResultStore.getState().captureSuccessfulSnapshot(language);
 }
 
-describe('RL-020 Slice 8 — editorStore compare flag', () => {
+describe('implementation — editorStore compare flag', () => {
   beforeEach(() => {
     useEditorStore.setState({ tabs: [], activeTabId: null });
     useResultStore.getState().clear();

@@ -3,15 +3,15 @@
  *
  * Runs user code in an isolated context with console capture.
  * Communication via structured messages (WorkerInboundMessage in /
- * WorkerResponse out — see IT2-A4 note above WorkerInboundMessage).
+ * WorkerResponse out — see internal note above WorkerInboundMessage).
  *
- * RL-078: this worker no longer schedules its own deadline. The
+ * internal: this worker no longer schedules its own deadline. The
  * parent renderer thread owns a kill timer and calls
  * `worker.terminate()` if user code does not yield in time. The
  * `runId` from each `execute` request is echoed on every reply so
  * the parent can drop messages from a previous (terminated) run.
  *
- * RL-027 Slice 1: when the renderer instrumented the source, the
+ * implementation: when the renderer instrumented the source, the
  * `execute` payload carries `{ debug: true, breakpoints, ... }`. The
  * worker injects two closure helpers — `__lingua_dbg_yield(line, getLocals)`
  * called before each statement, and `__lingua_dbg_frame(name, line)` /
@@ -20,9 +20,9 @@
  * contains the current line OR the current step mode dictates a stop;
  * otherwise the yield function fast-paths to `Promise.resolve()`.
  *
- * Reference: RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
+ * Reference: implementation and `docs/DEBUGGER_ADR.md`.
  *
- * RL-144 (AUDIT-24): trust boundary for the `new AsyncFunction(...)`
+ * internal: trust boundary for the `new AsyncFunction(...)`
  * eval below. The renderer/main thread is already trusted and hands
  * us the user's own source verbatim — no remote or adversarial input
  * reaches this surface, so this is NOT a sandbox for hostile code.
@@ -68,7 +68,7 @@ import type { DebuggerControlMessage } from '../runtime/debuggerWorkerBridge';
 const ctx = self as unknown as Worker;
 
 /**
- * RL-020 Slice 9 — snapshot of the worker's globals BEFORE any user
+ * implementation — snapshot of the worker's globals BEFORE any user
  * code runs. The variable inspector subtracts this set from the
  * post-execute `Object.getOwnPropertyNames(self)` so only user-
  * declared bindings survive. Anything injected after module load
@@ -86,7 +86,7 @@ const originalConsole = {
   warn: console.warn.bind(console),
   error: console.error.bind(console),
   info: console.info.bind(console),
-  // RL-044 Slice 1B — `console.table` becomes a first-class method via
+  // implementation — `console.table` becomes a first-class method via
   // the proxy shim. The native worker `console.table` is a no-op in
   // most environments; saving the bound original here keeps parity
   // with the other methods even though we never call it after
@@ -102,7 +102,7 @@ function truncate(value: string, marker: string): string {
 }
 
 /**
- * RL-020 Slice 9 — variable-inspector scope capture.
+ * implementation — variable-inspector scope capture.
  *
  * Walks `globalThis` keys, filters against the boot-time snapshot
  * + the static internal-symbol list, and serializes each remaining
@@ -247,7 +247,7 @@ function toJsonStructuredValue(
 }
 
 /**
- * RL-043 Slice B — resilient structured snapshot for the
+ * implementation — resilient structured snapshot for the
  * `captureStructuredResult` channel. `structuredClone` is lossless (Map /
  * Set / Date survive) but ALL-OR-NOTHING: a single non-cloneable leaf (a
  * function / symbol / DOM node) throws `DataCloneError` and would drop the
@@ -280,7 +280,7 @@ function safeStructuredResult(value: unknown): unknown {
 }
 
 /**
- * RL-044 Slice 1B — produce typed `RichOutputPayload` payloads aligned
+ * implementation — produce typed `RichOutputPayload` payloads aligned
  * by index with the legacy `args: string[]` array. The text path stays
  * the canonical fallback; payloads are *additive* on `ConsoleOutput`,
  * never replacing the strings the renderer already paints today.
@@ -294,7 +294,7 @@ function serializePayloads(args: unknown[], marker: string): RichOutputPayload[]
 }
 
 /**
- * RL-044 Slice 1B fold D — `console.table(rows, columns?)` honors a
+ * implementation note — `console.table(rows, columns?)` honors a
  * second-arg column-subset list, matching Chrome DevTools behavior.
  * The shim runs over the original `unknown[]`-shaped args, so it has
  * access to the runtime value (not just the stringified preview) and
@@ -372,7 +372,7 @@ function createConsoleProxy(
         ? extractCallingLine(sourceLineMap)
         : undefined;
       const payload = serializePayloads(args, marker);
-      // RL-044 Sub-slice G — stamp the captured source line onto each
+      // implementation — stamp the captured source line onto each
       // payload as `origin.line` so the renderer-side
       // `<OutputLineBadge>` can render a chip without re-deriving the
       // line from the top-level `line` field. The main-thread runner
@@ -397,7 +397,7 @@ function createConsoleProxy(
     };
   }
 
-  // RL-044 Slice 1B — `console.table(rows, columns?)` shim. Routes to
+  // implementation — `console.table(rows, columns?)` shim. Routes to
   // a `log` console entry (matches Chrome DevTools behavior) but
   // overrides the payload[0] with a forced `RichOutputTable`, honoring
   // the optional column-subset second argument.
@@ -415,7 +415,7 @@ function createConsoleProxy(
     const line = sourceMappingEnabled
       ? extractCallingLine(sourceLineMap)
       : undefined;
-    // RL-044 Sub-slice G.1 — mirror the per-method `origin.line`
+    // implementation — mirror the per-method `origin.line`
     // stamp from `createConsoleProxy` (lines 282-292) so the
     // `console.table` shim's table payload also carries an origin.
     // Without this, `console.table([...])` rows never render the
@@ -468,7 +468,7 @@ function createConsoleProxy(
       args: textArgs,
       payload: payloads,
       line,
-      // Fold F adoption signal — surfaced as a separate
+      // implementation note adoption signal — surfaced as a separate
       // `runtime.console_table_called` telemetry event by the runner
       // when it sees this flag (the worker is renderer-blind).
       consoleTableInvoked: true,
@@ -489,14 +489,14 @@ function restoreConsole() {
 }
 
 /**
- * RL-044 Slice 2b-α — `lingua` worker bridge factory. Returns the
+ * implementation — `lingua` worker bridge factory. Returns the
  * `{ chart, image, html }` helpers user code calls inside the
  * AsyncFunction sandbox. Each helper:
  *
  *   1. Runs the matching `validate*` whitelist from `shared/richOutput`.
  *   2. On reject → posts a `console` message with a text fallback +
  *      a `richMediaRejected` flag. Runner-side telemetry forwarding
- *      landed in Slice 2b-β-β-α — JS / TS / Python runners all
+ *      landed in implementation — JS / TS / Python runners all
  *      forward the flag to `runtime.rich_media_payload_rejected`.
  *   3. On accept → posts a `console` log with `args: [<rawText>]`
  *      and `payload: [<typed payload>]` so the renderer dispatches to
@@ -536,14 +536,14 @@ function buildLinguaWorkerBridge(
     });
   };
 
-  // RL-044 Slice 2b-β-α Prerequisite fix — informative rejection text.
+  // implementation Prerequisite fix — informative rejection text.
   // The bridge previously emitted a generic `[chart spec rejected]` /
   // `[image rejected: invalid source]` / `[html payload rejected]`
   // with no actionable context. Users couldn't tell whether they hit
   // the spec-security whitelist (data.url/data.name), the size cap,
   // a missing required field, or just a typo. The reasons below map
   // 1:1 to the closed-enum `RICH_MEDIA_REJECTED_REASONS` shipped on
-  // Slice 2a, so dashboards and humans see the same diagnosis.
+  // implementation, so dashboards and humans see the same diagnosis.
   const rejectChart = (): void => {
     const reasonText = '[chart rejected: remote/named data not allowed (use data.values inline)]';
     postRejection('chart', 'validation-failed', reasonText);
@@ -607,8 +607,8 @@ function buildLinguaWorkerBridge(
 
 /**
  * Parse error to extract line/column from stack trace + structured
- * stack frames for the renderer's clickable-stack surface (RL-044
- * Sub-slice F).
+ * stack frames for the renderer's clickable-stack surface (internal
+ * implementation).
  */
 function parseError(err: unknown): {
   message: string;
@@ -643,7 +643,7 @@ function parseError(err: unknown): {
       result.line = parseInt(lineValue, 10);
       result.column = parseInt(columnValue, 10);
     }
-    // RL-044 Slice 2b-α — structured stack for the renderer's
+    // implementation — structured stack for the renderer's
     // `<RichValueError>` surface. Best-effort: unparseable frames stay
     // as text-only in the parsed array.
     const frames = parseJsErrorStack(err.stack);
@@ -656,14 +656,14 @@ function parseError(err: unknown): {
 }
 
 /**
- * RL-027 Slice 1 — debugger pause coordination.
+ * implementation — debugger pause coordination.
  *
- * Slice 1 ships the pause/resume/step protocol with frame-depth
+ * implementation ships the pause/resume/step protocol with frame-depth
  * tracking. Conditional breakpoint predicates and watch expressions
  * are STORED on the session (so the UI surfaces them) but their
- * evaluation lands in Slice 1.5 — the eval mechanism needs a
- * dedicated security review pass that this slice doesn't budget.
- * For Slice 1, conditional breakpoints always pause (as if the
+ * evaluation lands in implementation — the eval mechanism needs a
+ * dedicated security review pass that this change doesn't budget.
+ * For implementation, conditional breakpoints always pause (as if the
  * predicate were `true`), and watch results carry an
  * `evaluation: 'pending'` marker so the UI can render the deferred
  * state without misleading the user.
@@ -707,20 +707,20 @@ interface ExecuteMessage {
   watches?: string[];
   sourceLineMap?: Record<number, number>;
   /**
-   * RL-044 Sub-slice G — false disables console-origin stack capture
+   * implementation — false disables console-origin stack capture
    * so the worker does not attach `line` / `payload.origin` metadata
    * when the Settings master toggle is off.
    */
   sourceMappingEnabled?: boolean;
   /**
-   * RL-020 Slice 6 — pre-set stdin buffer for `prompt()` /
+   * implementation — pre-set stdin buffer for `prompt()` /
    * `readline()`. Newline-delimited. Empty / undefined leaves the
    * native worker behavior in place (worker has no `prompt`, so
    * calls throw `ReferenceError`).
    */
   stdin?: string;
   /**
-   * RL-020 Slice 9 — when `true`, capture the post-execute global
+   * implementation — when `true`, capture the post-execute global
    * scope and emit a `'scope-snapshot'` reply before `done`. The
    * runner sets this when the user has the variable inspector
    * toggle on for the active tab (or wants the data eagerly
@@ -729,19 +729,19 @@ interface ExecuteMessage {
    */
   captureScope?: boolean;
   /**
-   * RL-020 Slice 9 fold E — recursion depth for the scope walker.
+   * implementation note — recursion depth for the scope walker.
    * Defaults to `DEFAULT_SCOPE_DEPTH` (1). `MAX_SCOPE_DEPTH` (4)
    * is the runner-side cap.
    */
   scopeDepth?: number;
   /**
-   * RL-020 Slice 9 — language id stamped on the snapshot. Lets the
+   * implementation — language id stamped on the snapshot. Lets the
    * shared JS worker emit `'typescript'` when invoked by the TS
    * runner.
    */
   scopeLanguage?: string;
   /**
-   * RL-043 Slice B — when `true`, ALSO post the structured return
+   * implementation — when `true`, ALSO post the structured return
    * value on the `'result'` reply (`structured` field) so the notebook
    * runner round-trips `{ stdout, stderr, sessionDelta }` losslessly
    * instead of parsing the truncated display string. Snapshotted via
@@ -752,7 +752,7 @@ interface ExecuteMessage {
 }
 
 /**
- * IT2-A4 — every message the JS/TS worker can receive. `execute` starts
+ * internal — every message the JS/TS worker can receive. `execute` starts
  * a run; the debugger-control variants (`resume` / `step` /
  * `set-breakpoints`) reuse the SAME union the sender posts
  * (`DebuggerControlMessage` from `debuggerWorkerBridge`). Asserted once
@@ -763,11 +763,11 @@ interface ExecuteMessage {
 type WorkerInboundMessage = ExecuteMessage | DebuggerControlMessage;
 
 /**
- * RL-020 Slice 6 — line-by-line stdin reader. The worker constructs
+ * implementation — line-by-line stdin reader. The worker constructs
  * a fresh reader on each `execute` request; consumed lines are
  * tracked locally and reported back to the main thread via the
  * `stdin-consumed` reply right before `done`. `getCount()` and
- * `getTotal()` feed the fold-G "Used N of M lines" surface.
+ * `getTotal()` feed the implementation note "Used N of M lines" surface.
  */
 interface StdinReader {
   consume: () => string | null;
@@ -823,13 +823,13 @@ function applyExecutePayload(session: DebuggerSessionState, msg: ExecuteMessage)
 let activeSession: DebuggerSessionState | null = null;
 
 ctx.addEventListener('message', async (event) => {
-  // IT2-A4 — one deliberate boundary assertion; `MessageEvent.data` is
+  // internal — one deliberate boundary assertion; `MessageEvent.data` is
   // untyped by the DOM. Every branch below narrows by `msg.type` with no
   // further casts, and the exhaustiveness guard after the last branch
   // makes an unhandled variant a compile error.
   const msg = event.data as WorkerInboundMessage;
 
-  // RL-027 Slice 1 — debugger control messages from main. These
+  // implementation — debugger control messages from main. These
   // arrive WHILE a run is ongoing (the worker is paused awaiting a
   // resume), so we route them ahead of the `execute` branch.
   if (msg.type === 'resume' || msg.type === 'step') {
@@ -884,7 +884,7 @@ ctx.addEventListener('message', async (event) => {
     activeSession = session;
     let lexicalScopeVariables: ScopeVariable[] | null = null;
 
-    // RL-020 Slice 6 — install line-by-line stdin readers. We
+    // implementation — install line-by-line stdin readers. We
     // capture the previous values so a follow-up run starts from a
     // clean global scope (workers are single-shot today so this is
     // belt-and-braces, but if a future runner reuses the same
@@ -899,7 +899,7 @@ ctx.addEventListener('message', async (event) => {
       (self as unknown as { readline: () => string | null }).readline = consumer;
     }
 
-    // RL-115 Slice 1 — per-statement wall-clock ticks. The runner's
+    // implementation — per-statement wall-clock ticks. The runner's
     // transform prefixes each top-level statement with
     // `__mc_tick(<line>)`; each tick closes the PREVIOUS statement's
     // interval and opens its own, so the elapsed time between two
@@ -943,7 +943,7 @@ ctx.addEventListener('message', async (event) => {
           });
         };
 
-        // RL-027 Slice 1 — yield helper. Called before each
+        // implementation — yield helper. Called before each
         // instrumented statement. Fast path when debug is off OR
         // no breakpoint matches AND no step mode is armed.
         const __lingua_dbg_yield = async (
@@ -958,8 +958,8 @@ ctx.addEventListener('message', async (event) => {
               session.frames.length <= session.stepDepth) ||
             (session.stepMode === 'out' && session.frames.length < session.stepDepth);
 
-          // Slice 1: predicates are stored but always treated as true
-          // (no eval until Slice 1.5's security review). The UI badge
+          // implementation: predicates are stored but always treated as true
+          // (no eval until implementation's security review). The UI badge
           // surfaces this as "predicate stored, evaluation pending".
           const shouldPauseForBreakpoint = Boolean(breakpoint);
 
@@ -977,9 +977,9 @@ ctx.addEventListener('message', async (event) => {
             localsSerialized[name] = serialize([value], marker)[0]!;
           }
 
-          // Slice 1: watch expressions echo back as `pending` markers.
+          // implementation: watch expressions echo back as `pending` markers.
           // The Variables panel covers the actual locals; users who
-          // want richer expressions will get them in Slice 1.5.
+          // want richer expressions will get them in implementation.
           const watchResults: Record<
             string,
             { value?: string; error?: string; pending?: boolean }
@@ -1029,14 +1029,14 @@ ctx.addEventListener('message', async (event) => {
           );
         };
 
-        // RL-044 Slice 2b-α — rich-media helpers exposed to user code as
+        // implementation — rich-media helpers exposed to user code as
         // the `lingua` parameter. Closure-bound (not on globalThis) so
         // there's no global pollution and the binding goes out of scope
         // when the AsyncFunction returns. Each helper validates the
         // payload via the shared whitelist. Rejects include a
         // `richMediaRejected` flag; the JS / TS / Python runners
         // forward that flag to `runtime.rich_media_payload_rejected`
-        // (RL-044 Slice 2b-β-β-α fold A).
+        // (implementation-β-β-α implementation note).
         const lingua = buildLinguaWorkerBridge(ctx, runId);
 
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
@@ -1077,7 +1077,7 @@ ctx.addEventListener('message', async (event) => {
           runId,
           value: serialize([result], marker)[0],
         };
-        // RL-043 Slice B — forward the live structured value (the
+        // implementation — forward the live structured value (the
         // notebook's `{ stdout, stderr, sessionDelta }`) when asked, so
         // the runner can round-trip it losslessly instead of parsing the
         // display string that `serialize` truncates at MAX_RESULT_BYTES.
@@ -1093,7 +1093,7 @@ ctx.addEventListener('message', async (event) => {
         ctx.postMessage(resultMessage);
       }
 
-      // RL-020 Slice 9 — capture the post-execute scope BEFORE the
+      // implementation — capture the post-execute scope BEFORE the
       // stdin-consumed / done replies so the runner can stitch the
       // snapshot onto the `ExecutionResult` it builds at `done`.
       // The capture is gated on `exec.captureScope` to keep the hot
@@ -1136,7 +1136,7 @@ ctx.addEventListener('message', async (event) => {
       }
 
       const executionTime = performance.now() - startTime;
-      // RL-020 Slice 6 fold G — emit consumption summary BEFORE the
+      // implementation note — emit consumption summary BEFORE the
       // `done` reply so the runner can stitch it onto the
       // `ExecutionResult` the panel renders.
       if (stdinReader.getTotal() > 0) {
@@ -1200,7 +1200,7 @@ ctx.addEventListener('message', async (event) => {
     return;
   }
 
-  // IT2-A4 — exhaustiveness lock: adding a new WorkerInboundMessage
+  // internal — exhaustiveness lock: adding a new WorkerInboundMessage
   // variant without a branch above turns this assignment into a compile
   // error (the narrowed remainder must be `never`).
   const unhandled: never = msg;

@@ -1,7 +1,7 @@
 /**
- * RL-101 Slice 1.5 fold C — end-to-end smoke for the onboarding
- * choreography that wasn't covered by Slice 1's unit tests. The
- * Slice 1 reviewer pass surfaced the visual toast-clobber bug that
+ * implementation note — end-to-end smoke for the onboarding
+ * choreography that wasn't covered by implementation's unit tests. The
+ * implementation reviewer pass surfaced the visual toast-clobber bug that
  * 188 unit tests missed because they couldn't observe runtime
  * notice replacement under real boot timing — this e2e spec walks
  * a fresh install through all three stages (welcome seed, first-run
@@ -24,7 +24,7 @@ import {
   test,
 } from './licenseWeb.helpers';
 
-test.describe('RL-101 Onboarding choreography', () => {
+test.describe('internal Onboarding choreography', () => {
   test('fresh install seeds the welcome scratchpad with the JavaScript demo', async ({
     page,
   }) => {
@@ -93,9 +93,9 @@ test.describe('RL-101 Onboarding choreography', () => {
     // The welcome.js seed auto-runs in Scratchpad mode; the
     // post-first-successful-run toast lands once the console store
     // accepts the run's last entry (the one carrying
-    // `executionTime`). Slice 1.5 fold B's `'high'` priority guards
+    // `executionTime`). implementation note's `'high'` priority guards
     // it against any normal-priority boot notice (the regression
-    // this slice fixes).
+    // this change fixes).
     const banner = page.getByTestId('status-notice-banner');
     await expect(banner).toBeVisible({ timeout: 6_000 });
     await expect(banner).toContainText(/First run done/i);
@@ -178,7 +178,7 @@ test.describe('RL-101 Onboarding choreography', () => {
     await banner.getByRole('button', { name: /Open snippets/i }).click();
 
     // SnippetsModal renders with the saved snippet at the top of
-    // the list (default-label is the active tab name per fold C).
+    // the list (default-label is the active tab name per implementation note).
     const snippetsDialog = page.getByRole('dialog', { name: /snippets/i });
     await expect(snippetsDialog).toBeVisible();
     await expect(snippetsDialog).toContainText(/welcome\.js/u);

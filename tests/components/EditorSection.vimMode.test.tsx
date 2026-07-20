@@ -1,5 +1,5 @@
 /**
- * RL-037 Vim mode toggle.
+ * internal Vim mode toggle.
  *
  * The settings toggle persists the `vimMode` flag and the editor surface
  * lazy-loads `monaco-vim` against it. These tests pin the toggle UI
@@ -40,7 +40,7 @@ function setActiveProLicense() {
   });
 }
 
-describe('EditorSection — Vim mode toggle (RL-037)', () => {
+describe('EditorSection — Vim mode toggle', () => {
   const initial = useSettingsStore.getState();
   const initialLicense = useLicenseStore.getState();
 

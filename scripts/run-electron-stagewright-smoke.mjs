@@ -501,7 +501,7 @@ async function runStagewrightSmoke(options, rendererUrl) {
       'electron_expect_visible',
       {
         sessionId,
-        // IT2-G2 adds a static first-paint skeleton inside #root. Waiting on
+        // internal adds a static first-paint skeleton inside #root. Waiting on
         // the container would now race ahead of React and produce an empty
         // interactive snapshot; AppChrome is the first stable shell landmark.
         selector: '[data-testid="app-chrome"]',

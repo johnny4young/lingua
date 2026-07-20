@@ -107,8 +107,8 @@ function AppChrome({
   const appInfo = useAppInfo();
   const effectiveTier = useEffectiveTier();
   const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
-  // RL-026 Slice 3 — rust-analyzer lifecycle.
-  // RL-026 Slice 4 — gopls lifecycle. Same hook shape via the shared
+  // implementation — rust-analyzer lifecycle.
+  // implementation — gopls lifecycle. Same hook shape via the shared
   // `useLspLifecycle`; the two languages have independent stores so a
   // crash in one does not block the other.
   useRustLspLifecycle();
@@ -116,23 +116,23 @@ function AppChrome({
   const { hasCompletedTour, startTour } = useGuidedTour();
   const smokeEnabled = desktopSmokeEnabled();
   const hasHandledDeepLink = useDeepLinks({ openOverlay });
-  // RL-024 Slice 3 — project zip bundle export/import choreography,
+  // implementation — project zip bundle export/import choreography,
   // shared by the FileTree button, the Mod+Alt+E shortcut, and the
   // command-palette actions.
   const { exportProjectBundle } = useProjectBundle();
   const hasHandledAutoTourRef = useRef(false);
-  // RL-111 — boot-time session restore (extracted to a hook to keep App.tsx
-  // under the AUDIT-11 size budget). Owns the `always`/`ask`/`never` decision
+  // internal — boot-time session restore (extracted to a hook to keep App.tsx
+  // under the internal size budget). Owns the `always`/`ask`/`never` decision
   // and the `ask`-mode restore prompt; returns the boot-gating ready flag.
   const sessionRestoreReady = useSessionRestoreBoot(smokeEnabled);
   useBootCompletionMarkers(sessionRestoreReady);
 
-  // RL-147 — debounced session auto-save, narrowed to save-relevant
+  // internal — debounced session auto-save, narrowed to save-relevant
   // editor-store changes (see useSessionAutoSave for the contract).
   useSessionAutoSave(smokeEnabled);
 
   useEffect(() => {
-    // RL-090 — safe mode skips plugin discovery so a broken plugin
+    // internal — safe mode skips plugin discovery so a broken plugin
     // manifest cannot keep the renderer in a crash loop. The user
     // can re-enable plugins by reloading without `?safe-mode=1`.
     if (isSafeMode()) return;
@@ -155,31 +155,31 @@ function AppChrome({
     openOverlay,
     suppressed: smokeEnabled,
   });
-  // RL-044 Slice 2b-β-α Fold H — default consumer for the
+  // implementation-β-α implementation note — default consumer for the
   // `file.open` command emitted by <RichValueError>
-  // when users click a stack frame. Until RL-024 multi-file workspace
+  // when users click a stack frame. Until internal multi-file workspace
   // ships the real open-in-editor handler, this hook shows a
   // status-notice fallback so clicks get visible feedback.
   useDefaultOpenFileConsumer();
 
-  // RL-036 Phase A1 — hash-fragment share-link importer. Runs once
+  // implementation — hash-fragment share-link importer. Runs once
   // at mount + listens for `hashchange` so a user can paste a new
   // share link into the address bar without reloading. Skips in
   // safe mode so a poisoned link cannot trap a crash recovery cycle.
   useShareLinkBoot({ enabled: sessionRestoreReady });
-  // RL-101 Slice 1 — onboarding choreography. Seeds the welcome
+  // implementation — onboarding choreography. Seeds the welcome
   // scratchpad on fresh installs + subscribes to execution-history
   // and snippets stores so the first successful run and first
   // snippet save fire single-CTA toasts. Gated on
   // `sessionRestoreReady` so a real restored session always wins
   // over the seed; safe mode short-circuits the hook entirely.
   useOnboardingChoreography({ enabled: sessionRestoreReady });
-  // IT2-C1 — Run Ledger tap: forwards each NEW execution-history entry
+  // internal — Run Ledger tap: forwards each NEW execution-history entry
   // (manual runs only — auto-runs never reach that store) into the
   // opt-in lingua_ledger DuckDB schema, fire-and-forget. The hook
   // subscribes unconditionally; recordRun itself is the opt-in gate.
   useRunLedgerTap();
-  // RL-102 Slice 1 — Git read-only layer. The detect hook resolves
+  // implementation — Git read-only layer. The detect hook resolves
   // posture on every project root change; the status hook drives
   // per-file pill updates via the existing fs watcher. Both
   // self-gate on the `window.lingua.git` bridge being present
@@ -189,7 +189,7 @@ function AppChrome({
   useGitStatus();
 
   useEffect(() => {
-    // RL-065: fire the first telemetry event. `track` is a no-op
+    // internal: fire the first telemetry event. `track` is a no-op
     // unless the user has explicitly opted in, the endpoint is
     // configured, and the kill switch is not set. Safe to call
     // unconditionally here.
@@ -317,17 +317,17 @@ function AppChrome({
     exportProjectBundle,
   });
 
-  // RL-101 / RL-135 — keep overlay ownership in App while shared
+  // implementation detail — keep overlay ownership in App while shared
   // producers request the snippets surface through the typed bus.
   useCommandListener('overlay.openSnippets', () => openOverlay('snippets'));
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));
 
-  // RL-094 / RL-135 — Settings and paste importers request the
+  // implementation detail — Settings and paste importers request the
   // capsule-import overlay without reaching into App state.
   useCommandListener('capsule.openImport', () => openOverlay('capsule-import'));
 
-  // RL-094 / RL-135 — claim the typed originating surface for
+  // implementation detail — claim the typed originating surface for
   // capsule.browse_opened telemetry, then open the owned overlay.
   useCommandListener('capsule.openList', ({ surface }) => {
     claimCapsuleListSurface(surface);
@@ -339,7 +339,7 @@ function AppChrome({
     startTour();
   };
 
-  // RL-061 Slice 5 — surface the web-build update banner at the top
+  // implementation — surface the web-build update banner at the top
   // of the chrome. Browser builds expose `window.lingua` through
   // src/web/adapter.ts, so gate on the explicit platform instead of
   // bridge presence.
@@ -381,7 +381,7 @@ function AppChrome({
 
 /**
  * Hosts the hooks that must react to every keystroke: the auto-run
- * debounce (RL-020) and per-tab dependency detection (RL-025 Slice A).
+ * debounce and per-tab dependency detection .
  * Both subscribe to the active tab's content, so their host re-renders
  * on every keypress BY DESIGN — isolating them in a null-rendering leaf
  * keeps that churn out of AppChrome, whose re-render would otherwise
@@ -400,7 +400,7 @@ export function App() {
 
   const openOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
     setOverlay(nextOverlay);
-    // RL-065 — fire overlay.opened so a consenting user's telemetry can
+    // internal — fire overlay.opened so a consenting user's telemetry can
     // reflect which panels got use. track is a no-op unless consent
     // is granted and the endpoint + kill-switch let it through; the
     // allowlist already includes overlay.opened with an overlayId string

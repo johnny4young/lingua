@@ -4,7 +4,7 @@ import { syncConsentMirror } from './settingsPersistence';
 import type { SettingsSet } from './settingsStoreContext';
 
 /**
- * RL-129 fold B — privacy/consent setter factory for the settings store.
+ * implementation — privacy/consent setter factory for the settings store.
  * Bundles the execution-history-snapshot toggle, telemetry + three
  * clipboard-on-focus consents, the dependency-detection master switch, and the
  * sensitive-HTTP-header add/remove setters. Extracted verbatim from
@@ -34,28 +34,28 @@ export function createPrivacyActions(
       // next app boot, before createWindow().
       syncConsentMirror(telemetryConsent);
     },
-    // RL-069 Slice 3 — clipboard-on-focus consent. Local-only; no
+    // implementation — clipboard-on-focus consent. Local-only; no
     // mirror to main because the feature is renderer-scoped.
     setUtilitiesClipboardOnFocusConsent: (utilitiesClipboardOnFocusConsent) => {
       set({ utilitiesClipboardOnFocusConsent });
     },
-    // RL-094 Slice 2 fold C — capsule-import clipboard auto-detect
+    // implementation note — capsule-import clipboard auto-detect
     // consent. Same renderer-scoped boundary as the utilities one.
     setCapsuleImportClipboardOnFocusConsent: (
       capsuleImportClipboardOnFocusConsent
     ) => {
       set({ capsuleImportClipboardOnFocusConsent });
     },
-    // RL-100 Slice 1 fold F — import-preview clipboard auto-detect
-    // consent. Slice 1 ships the setter so Settings UI can land
+    // implementation note — import-preview clipboard auto-detect
+    // consent. implementation ships the setter so Settings UI can land
     // when needed; the actual auto-detect on overlay focus is
-    // deferred to Slice 2.
+    // deferred to implementation.
     setImportPreviewClipboardOnFocusConsent: (
       importPreviewClipboardOnFocusConsent
     ) => {
       set({ importPreviewClipboardOnFocusConsent });
     },
-    // RL-025 Slice A — dependency detection master switch.
+    // implementation — dependency detection master switch.
     toggleDependencyDetectionEnabled: () =>
       set((state) => ({
         dependencyDetectionEnabled: !state.dependencyDetectionEnabled,

@@ -1,5 +1,5 @@
 /**
- * RL-095 Slice 1 — Language Support Scorecard type contracts.
+ * implementation — Language Support Scorecard type contracts.
  *
  * Asserts the coupled invariants that keep `LANGUAGE_SUPPORT_PROFILES`
  * honest:
@@ -11,7 +11,7 @@
  *   3. Every profile fills all nine capabilities (the
  *      `Record<LanguageCapability, ...>` shape catches this at
  *      compile time, but the assertion documents the contract).
- *   4. JS + TS debugger is `'partial'` per AC (RL-027 Slice 1.5b
+ *   4. JS + TS debugger is `'partial'` per AC (implementation
  *      gated under security review).
  *   5. `renderLanguageScorecardMarkdown` produces a stable shape
  *      (header + separator + N data rows).
@@ -82,7 +82,7 @@ describe('LANGUAGE_SUPPORT_PROFILES — coupled invariants', () => {
     }
   });
 
-  it('JS + TS debugger is marked partial per RL-027 Slice 1.5b gate', () => {
+  it('JS + TS debugger is marked partial per implementation gate', () => {
     const js = LANGUAGE_SUPPORT_PROFILES.find(
       (profile) => profile.languageId === 'javascript'
     );
@@ -131,7 +131,7 @@ describe('renderLanguageScorecardMarkdown', () => {
   });
 });
 
-describe('resolveCapabilityStatus — per-platform resolution (RL-095 Slice 2)', () => {
+describe('resolveCapabilityStatus — per-platform resolution ', () => {
   it('is total + pure: every profile × axis × platform yields one stable closed-enum status', () => {
     for (const profile of LANGUAGE_SUPPORT_PROFILES) {
       for (const cap of LANGUAGE_CAPABILITIES) {
@@ -148,7 +148,7 @@ describe('resolveCapabilityStatus — per-platform resolution (RL-095 Slice 2)',
     }
   });
 
-  it('an explicit perPlatform override always wins (fold E consistency guard)', () => {
+  it('an explicit perPlatform override always wins (implementation note consistency guard)', () => {
     // Ruby is the canonical override profile. The resolver must surface
     // the declared override verbatim, never a remapped value.
     const ruby = profileById('ruby');
@@ -233,7 +233,7 @@ describe('resolveCapabilityStatus — per-platform resolution (RL-095 Slice 2)',
   });
 });
 
-describe('renderLanguageScorecardMarkdown — per-platform (RL-095 Slice 2 fold A)', () => {
+describe('renderLanguageScorecardMarkdown — per-platform (implementation note)', () => {
   it('keeps the header + separator + one-row-per-profile shape for web/desktop', () => {
     for (const platform of ['web', 'desktop'] as const) {
       const lines = renderLanguageScorecardMarkdown(undefined, platform).split('\n');

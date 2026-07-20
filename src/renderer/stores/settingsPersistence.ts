@@ -1,7 +1,7 @@
 import type { SettingsState } from '../types';
 
 /**
- * RL-129 — settings persist-boundary helpers, extracted verbatim from
+ * internal — settings persist-boundary helpers, extracted verbatim from
  * `settingsStore.ts`: the `partialize` durable-field projection and the
  * consent-mirror side-effect. The rehydrate sanitizer (`merge`) lives in
  * `settingsMerge.ts`; `onRehydrateStorage` stays inline in the assembly (it is
@@ -53,17 +53,17 @@ export function settingsPartialize(state: SettingsState) {
     executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,
     telemetryConsent: state.telemetryConsent,
     utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
-    // RL-094 Slice 2 fold C — persist consent so opted-in users
+    // implementation note — persist consent so opted-in users
     // don't have to re-grant every reload.
     capsuleImportClipboardOnFocusConsent:
       state.capsuleImportClipboardOnFocusConsent,
-    // RL-100 Slice 1 fold F — persist the import-preview consent
+    // implementation note — persist the import-preview consent
     // so the user's choice survives reloads.
     importPreviewClipboardOnFocusConsent:
       state.importPreviewClipboardOnFocusConsent,
-    // RL-025 Slice A — persist the dependency-detection toggle so
+    // implementation — persist the dependency-detection toggle so
     // the user's choice survives reloads. Rehydrate-merge applies
-    // the fold-G tier-aware default when this key is absent.
+    // the implementation note tier-aware default when this key is absent.
     dependencyDetectionEnabled: state.dependencyDetectionEnabled,
     defaultRuntimeMode: state.defaultRuntimeMode,
     workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
@@ -71,7 +71,7 @@ export function settingsPartialize(state: SettingsState) {
     browserPreviewRefreshIntervalMs: state.browserPreviewRefreshIntervalMs,
     inlineLintEnabledByLanguage: state.inlineLintEnabledByLanguage,
     showStdinPanel: state.showStdinPanel,
-    // RL-112 — persist the status-bar visibility so the user's choice
+    // internal — persist the status-bar visibility so the user's choice
     // survives reloads. Rehydrate-merge falls back to the platform default
     // when this key is absent.
     showStatusBar: state.showStatusBar,
@@ -88,7 +88,7 @@ export function settingsPartialize(state: SettingsState) {
     contextualHintsEnabled: state.contextualHintsEnabled,
     hasCompletedTour: state.hasCompletedTour,
     suppressTourAutoStart: state.suppressTourAutoStart,
-    // RL-101 Slice 1 — sticky onboarding choreography flags so a
+    // implementation — sticky onboarding choreography flags so a
     // user who has seen the welcome seed / first-run / first-snippet
     // toasts never sees them again across reloads. Reset toggles
     // in Settings re-arm each stage.
@@ -100,18 +100,18 @@ export function settingsPartialize(state: SettingsState) {
     shortcutOverrides: state.shortcutOverrides,
     keymapPreset: state.keymapPreset,
     themePack: state.themePack,
-    // RL-097 Slice 1 — persist user-added sensitive header names.
+    // implementation — persist user-added sensitive header names.
     // Baseline list is never persisted (it's a build-time
     // constant); only the delta the user added.
     sensitiveHttpHeaders: state.sensitiveHttpHeaders,
-    // RL-097 Slice 2 — persist SQL workspace preferences.
+    // implementation — persist SQL workspace preferences.
     sqlWorkspaceRowDisplayLimit: state.sqlWorkspaceRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,
-    // RL-097 Slice 3 (SQL OPFS) — persist the table-persistence toggle.
+    // implementation (SQL OPFS) — persist the table-persistence toggle.
     sqlWorkspacePersistTables: state.sqlWorkspacePersistTables,
-    // IT2-C1 — persist the Run Ledger opt-in.
+    // internal — persist the Run Ledger opt-in.
     runLedgerEnabled: state.runLedgerEnabled,
-    // RL-043 Slice C fold D — persist the user's default language for new
+    // implementation Slice C implementation note — persist the user's default language for new
     // notebook code cells; merge sanitizes it back to JS/TS on rehydrate.
     notebookDefaultCellLanguage: state.notebookDefaultCellLanguage,
   };

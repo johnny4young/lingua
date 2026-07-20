@@ -13,18 +13,18 @@ import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
 
 /**
- * RL-019 Slice 1 — explicit per-tab JS/TS runtime mode selector.
+ * implementation — explicit per-tab JS/TS runtime mode selector.
  *
  * Renders only when the active tab is a JS/TS buffer. Five options:
- *   - Worker — Slice 1, enabled.
- *   - Node — Slice 2, enabled in desktop.
- *   - Browser preview — Slice 3, enabled.
- *   - Deno — F-4, enabled in desktop when the binary is on PATH.
- *   - Bun — F-4, enabled in desktop when the binary is on PATH.
+ *   - Worker — implementation, enabled.
+ *   - Node — implementation, enabled in desktop.
+ *   - Browser preview — implementation, enabled.
+ *   - Deno — implementation, enabled in desktop when the binary is on PATH.
+ *   - Bun — implementation, enabled in desktop when the binary is on PATH.
  *
  * Behaviour:
  *   - Click an enabled option → calls `setTabRuntimeMode` which
- *     fires the `runtime.mode_changed` telemetry and (fold G)
+ *     fires the `runtime.mode_changed` telemetry and (implementation note)
  *     pushes a status-notice toast confirming the switch.
  *   - Click a disabled option → noop; the tooltip explains why the
  *     mode is unavailable.
@@ -35,21 +35,21 @@ const MODE_LABEL_KEY: Record<RuntimeMode, string> = {
   worker: 'runtimeMode.mode.worker',
   node: 'runtimeMode.mode.node',
   'browser-preview': 'runtimeMode.mode.browserPreview',
-  // F-4 — Deno / Bun desktop runtimes.
+  // implementation — Deno / Bun desktop runtimes.
   deno: 'runtimeMode.mode.deno',
   bun: 'runtimeMode.mode.bun',
 };
 
 const MODE_HINT_KEY: Record<RuntimeMode, string> = {
   worker: 'runtimeMode.hint.worker',
-  // RL-019 Slice 2 — node mode is shipping. Detector-failure path
+  // implementation — node mode is shipping. Detector-failure path
   // (missing binary on PATH) surfaces a different copy via the
   // detection notice handled at the click site.
   node: 'runtimeMode.hint.node.ready',
-  // RL-019 Slice 3 — browser-preview is implemented now; use the
-  // shipping copy instead of the Slice 1 disabled-state hint.
+  // implementation — browser-preview is implemented now; use the
+  // shipping copy instead of the implementation disabled-state hint.
   'browser-preview': 'runtimeMode.hint.browserPreview.shipping',
-  // F-4 — Deno / Bun shipping; the binary-detection gate handles the
+  // implementation — Deno / Bun shipping; the binary-detection gate handles the
   // "not installed on PATH" path at the click site, same as node.
   deno: 'runtimeMode.hint.deno.ready',
   bun: 'runtimeMode.hint.bun.ready',

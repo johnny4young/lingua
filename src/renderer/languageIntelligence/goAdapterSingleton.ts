@@ -1,7 +1,7 @@
 import { GoLanguageIntelligenceAdapter, type GoAdapterTransport } from './go';
 
 /**
- * RL-026 Slice 4 — process-wide singleton for the Go LSP adapter.
+ * implementation — process-wide singleton for the Go LSP adapter.
  *
  * Lazily constructed so the web build never instantiates it against a
  * live transport — `isGoLspAvailable()` short-circuits there. Tests

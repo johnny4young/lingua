@@ -1,5 +1,5 @@
 /**
- * KV-backed per-key rate limiter (RL-061 Slice 4).
+ * KV-backed per-key rate limiter .
  *
  * Counts hits against a daily-rolling key in the `RATE_LIMIT`
  * Workers KV namespace. Used by:
@@ -13,7 +13,7 @@
  * cleanup. KV automatically expires entries 48h after creation
  * so old keys cost nothing.
  *
- * Caveats documented in the internal backlog (security entry, 2026-04-29):
+ * Caveats documented in the maintenance notes (security entry, 2026-04-29):
  * KV is eventually consistent across CF PoPs (~60s window). An
  * attacker hitting four PoPs simultaneously can pass 4 hits
  * before the counter syncs. Acceptable for Phase 1 abuse model;

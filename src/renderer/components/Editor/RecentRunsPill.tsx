@@ -27,16 +27,16 @@ import {
 import { cn } from '../../utils/cn';
 
 /**
- * RL-020 Slice 4 — per-tab execution-history pill.
+ * implementation — per-tab execution-history pill.
  *
  * Renders a small status-pill button in the result-panel header that
  * lists the active tab's recent manual runs. Click opens a compact
  * popover with up to `MAX_VISIBLE_ENTRIES` rows; each row surfaces
  * language / status / duration / relative-time and a one-click Replay
- * affordance. Fold D adds a pin toggle per row so the user can keep
+ * affordance. implementation note adds a pin toggle per row so the user can keep
  * rare-but-valuable entries past the 50-entry ring buffer's eviction.
- * Fold E surfaces a Free-tier upsell pill instead of hiding the
- * surface entirely. Fold F refreshes the relative-time strings every
+ * implementation note surfaces a Free-tier upsell pill instead of hiding the
+ * surface entirely. implementation note refreshes the relative-time strings every
  * minute while the popover is open.
  */
 
@@ -107,7 +107,7 @@ export function RecentRunsPill() {
     tabEntries.length > 0;
   const open = activeTabId !== null && openTabId === activeTabId && canOpenRecentRuns;
 
-  // Fold F — refresh the rendered relative-time strings every minute
+  // implementation note — refresh the rendered relative-time strings every minute
   // while the popover is open. Clearing the interval on close keeps
   // the surface idle when nothing is on screen.
   useEffect(() => {
@@ -135,9 +135,9 @@ export function RecentRunsPill() {
     };
   }, [open]);
 
-  // Fold B — register a global opener so `Mod+Alt+H` can toggle the
+  // implementation note — register a global opener so `Mod+Alt+H` can toggle the
   // popover from the keyboard shortcut dispatcher. (Moved from
-  // `Mod+Shift+H` in RL-024 Slice 2 so the VSCode-parity binding maps
+  // `Mod+Shift+H` in implementation so the VSCode-parity binding maps
   // to project-replace.) Register only when
   // the pill is actually openable; otherwise the shortcut dispatcher
   // can surface its localized "no recent runs" status notice instead
@@ -165,7 +165,7 @@ export function RecentRunsPill() {
       // and must not inflate `runtime.history_replay` adoption.
       const dispatched = replayHistoryEntry(entry, { isRunning, run });
       if (dispatched) {
-        // Fold A — telemetry. Closed-enum status + surface; redactor
+        // implementation note — telemetry. Closed-enum status + surface; redactor
         // enforces the schema on both renderer + update-server.
         void trackEvent('runtime.history_replay', {
           language: entry.language,
@@ -178,7 +178,7 @@ export function RecentRunsPill() {
     [isManualRunning, isAutoRunning, run]
   );
 
-  // Fold E — Free tier upsell. The pill stays visible but shows the
+  // implementation note — Free tier upsell. The pill stays visible but shows the
   // upgrade copy; clicking uses the existing centralized upsell notice.
   if (!canUseExecutionHistory) {
     if (!activeTab || !runnableSurface) return null;

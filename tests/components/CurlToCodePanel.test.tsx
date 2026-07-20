@@ -1,5 +1,5 @@
 /**
- * RL-070 — CurlToCodePanel tests. Helper coverage lives in
+ * internal — CurlToCodePanel tests. Helper coverage lives in
  * tests/utils/curlToCode.test.ts; this suite focuses on wiring:
  * default target + output, target swap re-renders, error banner
  * for an invalid command, warnings surface for unknown flags, ES

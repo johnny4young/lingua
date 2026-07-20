@@ -1,128 +1,109 @@
 {
-  "generatedAt": "2026-07-16T21:33:18.061Z",
+  "generatedAt": "2026-07-19T17:25:00.000Z",
   "totals": {
-    "planned": 6,
+    "planned": 4,
     "inProgress": 6
   },
   "planned": [
     {
-      "theme": "Editor & runtime",
+      "theme": "Project workflows",
       "items": [
         {
-          "id": "RL-023",
-          "title": "Snippet Lab + algorithm practice",
-          "scope": "Tagged snippet collections + \"compare two snippets\" + saved assertions.",
+          "title": "Project test runner",
+          "scope": "Detect Vitest, Jest, Pytest, Go, and Cargo tests and run them from one local panel.",
           "status": "Planned",
-          "theme": "Editor & runtime"
-        },
-        {
-          "id": "RL-031",
-          "title": "Local AI code assistant",
-          "scope": "Desktop-local Ollama MVP first through `window.lingua.ai.*`; WebGPU, BYO keys, and hosted credits stay later phases under the internal AI bridge ADR.",
-          "status": "Planned",
-          "theme": "Editor & runtime"
-        },
-        {
-          "id": "RL-032",
-          "title": "Marketing website + docs hub",
-          "scope": "Separate marketing site at linguacode.dev with docs/download/pricing.",
-          "status": "Planned",
-          "theme": "Editor & runtime"
+          "theme": "Project workflows"
         }
       ]
     },
     {
-      "theme": "Execution & tooling",
+      "theme": "HTTP & data",
       "items": [
         {
-          "id": "RL-048",
-          "title": "Integrated terminal (desktop)",
-          "scope": "Embed xterm.js + node-pty panel in the desktop build.",
+          "title": "WebSocket and server-sent event sessions",
+          "scope": "Add long-lived HTTP workspace sessions while preserving secret handling and desktop network protections.",
           "status": "Planned",
-          "theme": "Execution & tooling"
+          "theme": "HTTP & data"
+        },
+        {
+          "title": "Cross-language notebook dataflow",
+          "scope": "Let notebook cells react to values produced by another language without making execution implicit or opaque.",
+          "status": "Planned",
+          "theme": "HTTP & data"
         }
       ]
     },
     {
-      "theme": "Personalization & polish",
+      "theme": "Desktop workflows",
       "items": [
         {
-          "id": "RL-041",
-          "title": "Static site export + publish",
-          "scope": "Export JS/TS/HTML projects as self-contained static ZIP; one-click publish to GitHub Pages.",
+          "title": "Integrated terminal",
+          "scope": "A project-scoped desktop terminal designed for the same local-first security model as native runners.",
           "status": "Planned",
-          "theme": "Personalization & polish"
-        },
-        {
-          "id": "RL-046",
-          "title": "Gamification + achievements",
-          "scope": "Achievement catalog, per-user progress, streaks.",
-          "status": "Planned",
-          "theme": "Personalization & polish"
+          "theme": "Desktop workflows"
         }
       ]
     }
   ],
   "inProgress": [
     {
-      "theme": "Editor & runtime",
+      "theme": "Performance",
       "items": [
         {
-          "id": "RL-024",
-          "title": "Multi-file playgrounds + starter galleries",
-          "scope": "Shipped so far: project tree/search ergonomics, replace-in-files, and project bundle export/import. Remaining: promote `fs:searchInFiles` to ripgrep, finish starter-gallery handoff with RL-103, improve binary-asset export fidelity, and keep total-uncompressed bundle caps honest. Landed details live in the internal plan notes; archive policy/index lives in the internal archive.",
+          "title": "Faster cold browser startup",
+          "scope": "Language tokenizers already load on demand; remaining editor integrations are being isolated so Monaco core can leave the initial bundle.",
           "status": "Partial",
-          "theme": "Editor & runtime"
+          "theme": "Performance"
+        }
+      ]
+    },
+    {
+      "theme": "Projects",
+      "items": [
+        {
+          "title": "Reliable multi-file projects",
+          "scope": "Project tree, search, replace, templates, and bundle import/export ship today. Remaining work focuses on faster desktop search, binary fidelity, and template runtime smoke.",
+          "status": "Partial",
+          "theme": "Projects"
+        }
+      ]
+    },
+    {
+      "theme": "CLI & compatibility",
+      "items": [
+        {
+          "title": "Complete CLI distribution",
+          "scope": "Utility commands and Capsule validation ship today. File execution, Capsule replay, completions, signed binaries, and package publication remain.",
+          "status": "Partial",
+          "theme": "CLI & compatibility"
         },
         {
-          "id": "RL-036",
-          "title": "Sharing, collaboration, publish flows",
-          "scope": "Shipped so far: no-backend URL-fragment share links with privacy confirmation, Settings toggle, safe hash boot, and telemetry. Remaining: split clipboard denial vs user-cancel telemetry, Phase A2 `.linguashare` multi-file artifacts after RL-024 project primitives, and backend-gated cloud/embed/collab.",
+          "title": "Version-to-version migration coverage",
+          "scope": "Add explicit Capsule migrations and automated upgrade journeys from an older stable release.",
           "status": "Partial",
-          "theme": "Editor & runtime"
+          "theme": "CLI & compatibility"
         }
       ]
     },
     {
-      "theme": "Languages",
+      "theme": "Debugger",
       "items": [
         {
-          "id": "RL-027",
-          "title": "Debugger MVP",
-          "scope": "Shipped so far: JS/TS breakpoint UI, debugger panel, source-map-aware pauses, run/debug split, stepping controls, telemetry, and docs. Remaining: conditional-breakpoint predicate evaluation and watch-expression evaluation after a security review of worker eval patterns; logpoints remain a later extension.",
+          "title": "Deeper debugging controls",
+          "scope": "JavaScript and TypeScript breakpoints and stepping ship today. Watch evaluation, conditional breakpoints, logpoints, and Python UI integration require additional security review and product work.",
           "status": "Partial",
-          "theme": "Languages"
-        },
-        {
-          "id": "RL-042",
-          "title": "Expand languages toward 15+",
-          "scope": "Shipped so far: Ruby web runtime and Ruby desktop native subprocess on the hybrid dispatcher, plus earlier validate-only language packs. Remaining: native execution for Java, Kotlin, Scala, Swift, C, and C++; each promotion is its own slice.",
-          "status": "Partial",
-          "theme": "Languages"
+          "theme": "Debugger"
         }
       ]
     },
     {
-      "theme": "Execution & tooling",
+      "theme": "Import & sharing",
       "items": [
         {
-          "id": "RL-043",
-          "title": "Notebook / cell-based execution",
-          "scope": "Shipped so far: schema + cell editor + runner-owned sessions + markdown/code cells + run controls + telemetry; cross-cell var sharing (Slice B, TS-AST rewriter + structured-result channel); TypeScript cells (C); Jupyter `.ipynb` export (D); native `.linguanb` export/import + desktop save (E); per-cell Python via Pyodide/native (F, 2026-06-23); and Monaco-backed cells with mount-virtualization (G, 2026-06-24 — the active cell hosts a live Monaco editor, others render a colorized static view so a 200-cell notebook never mounts >1 editor; inline lint + status-bar cursor + Vim parity inside the active cell); and row/scroll list virtualization (Slice H, 2026-06-27 — the cell list windows via the shared useListWindow so a 200-cell notebook mounts only a viewport-sized slice of rows; per-tab scroll persistence, run-into-view, memoized rows). Remaining: reactive dataflow, cross-cell Python (persistent interpreter), shared-globalThis worker.",
+          "title": "Multi-file import and sharing",
+          "scope": "Share links, Capsules, cURL, Postman, Bruno files, Jupyter notebooks, and native notebooks ship today. Directory import, external playground migration, and a privacy-first multi-file viewer remain.",
           "status": "Partial",
-          "theme": "Execution & tooling"
-        }
-      ]
-    },
-    {
-      "theme": "Personalization & polish",
-      "items": [
-        {
-          "id": "RL-039",
-          "title": "Guided lessons + app galleries",
-          "scope": "Shipped so far: guided-tour scaffolds plus Recipes search, 10 JavaScript + 3 TypeScript + 3 Python packs, language-aware Run + Test, persisted progress, reset UI, and telemetry. Remaining: AI hints via RL-031, user-authored recipe import/export through RL-100, lesson progression tree, and `lingua lesson validate`.",
-          "status": "Partial",
-          "theme": "Personalization & polish"
+          "theme": "Import & sharing"
         }
       ]
     }

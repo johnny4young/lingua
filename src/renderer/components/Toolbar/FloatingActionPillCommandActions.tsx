@@ -1,5 +1,5 @@
 /**
- * RL-093 / T8 — Command-action button row for the floating action pill
+ * internal / implementation — Command-action button row for the floating action pill
  * (Quick Open → Palette → Snippets → Utilities → Recipes → Browse
  * capsules) plus the Recipes progress badge. Extracted verbatim from
  * FloatingActionPill; behaviour is unchanged.
@@ -108,7 +108,7 @@ export function FloatingActionPillCommandActions({
         {onOpenRecipes ? (
           <RecipesActionPillButton onOpenRecipes={onOpenRecipes} onMenuClose={onCloseMenu} />
         ) : null}
-        {/* RL-094 Slice 3 fold F — Browse run capsules. Emits
+        {/* implementation note — Browse run capsules. Emits
             the typed command App.tsx consumes (no prop threading
             through AppLayout); the overlay owns Pro-gating. */}
         <Tooltip content={t('chrome.browseCapsules.tooltip')}>
@@ -131,7 +131,7 @@ export function FloatingActionPillCommandActions({
 }
 
 /**
- * RL-039 Slice B fold G — Recipes pill button + progress badge.
+ * implementation Slice B implementation note — Recipes pill button + progress badge.
  * Reads the lessonProgressStore directly so a passed-count change
  * does not force the parent pill to re-render (and so the badge
  * stays in sync the moment Run + Test flips a recipe to passed).

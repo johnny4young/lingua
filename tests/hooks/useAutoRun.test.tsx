@@ -89,8 +89,8 @@ describe('useAutoRun', () => {
     });
     useResultStore.setState(initialResult, true);
     useExecutionHistoryStore.setState(initialHistory, true);
-    // RL-079 — pre-acknowledge native execution so the existing
-    // Go/Rust auto-run cases bypass the gate. The dedicated RL-079
+    // internal — pre-acknowledge native execution so the existing
+    // Go/Rust auto-run cases bypass the gate. The dedicated internal
     // test below explicitly resets this to `false` to exercise the
     // gate behaviour.
     useSettingsStore.setState({ nativeExecutionAcknowledged: true });
@@ -112,7 +112,7 @@ describe('useAutoRun', () => {
     });
   });
 
-  it('RL-020 Slice 5 — buckets auto-log counts into the telemetry allowlist', () => {
+  it('implementation — buckets auto-log counts into the telemetry allowlist', () => {
     expect(bucketAutoLogCount(0)).toBe('1');
     expect(bucketAutoLogCount(1)).toBe('1');
     expect(bucketAutoLogCount(5)).toBe('2-5');
@@ -120,7 +120,7 @@ describe('useAutoRun', () => {
     expect(bucketAutoLogCount(21)).toBe('20-plus');
   });
 
-  it('RL-119 — debounces rapid Browser preview edits into one 300 ms refresh without history', async () => {
+  it('internal — debounces rapid Browser preview edits into one 300 ms refresh without history', async () => {
     const execute = mockSuccessfulRunner();
     seedBrowserPreviewTab();
     useExecutionHistoryStore.getState().record({
@@ -161,7 +161,7 @@ describe('useAutoRun', () => {
     expect(useExecutionHistoryStore.getState().entries).toEqual(historyBefore);
   });
 
-  it('RL-119 — Off leaves Browser preview manual-only', async () => {
+  it('internal — Off leaves Browser preview manual-only', async () => {
     mockSuccessfulRunner();
     useSettingsStore.setState({ browserPreviewRefreshIntervalMs: 0 });
     seedBrowserPreviewTab();
@@ -175,7 +175,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().isAutoRunning).toBe(false);
   });
 
-  it('RL-119 — a first-line 1000 override wins over the 300 ms setting', async () => {
+  it('internal — a first-line 1000 override wins over the 300 ms setting', async () => {
     const execute = mockSuccessfulRunner();
     seedBrowserPreviewTab(
       '// @preview-refresh 1000\ndocument.body.textContent = "slow";'
@@ -193,7 +193,7 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  it('RL-119 — switching runtime cancels an in-flight Browser preview refresh', async () => {
+  it('internal — switching runtime cancels an in-flight Browser preview refresh', async () => {
     const execute = vi.fn(() => new Promise(() => {}));
     vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
       runner: { execute },
@@ -224,7 +224,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('does not auto-run desktop-only languages on the web build (RL-038 Slice C)', async () => {
+  it('does not auto-run desktop-only languages on the web build ', async () => {
     Object.defineProperty(window, 'lingua', {
       configurable: true,
       writable: true,
@@ -294,7 +294,7 @@ describe('useAutoRun', () => {
       await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
     });
 
-    // RL-019 Slice 1 — prepareRunner gained an optional
+    // implementation — prepareRunner gained an optional
     // runtimeMode arg. Non-JS/TS tabs leave runtimeMode undefined.
     expect(runnerManager.prepareRunner).toHaveBeenCalledWith('go', undefined);
     expect(useResultStore.getState().executionSource).toBe('auto');
@@ -486,7 +486,7 @@ describe('useAutoRun', () => {
     ]);
   });
 
-  it('RL-020 Slice 1 — gates an incomplete JS buffer and never calls the runner', async () => {
+  it('implementation — gates an incomplete JS buffer and never calls the runner', async () => {
     useEditorStore.setState({
       tabs: [
         {
@@ -511,7 +511,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().isAutoRunning).toBe(false);
   });
 
-  it('RL-020 Slice 1 — clears the gate reason when the buffer becomes complete', async () => {
+  it('implementation — clears the gate reason when the buffer becomes complete', async () => {
     vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
       runner: {
         execute: vi.fn().mockResolvedValue({
@@ -546,7 +546,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().autoRunGateReason).toBe('ok');
   });
 
-  it('RL-020 Slice 1 — restores the last successful snapshot on a gated keystroke', async () => {
+  it('implementation — restores the last successful snapshot on a gated keystroke', async () => {
     // Land a real run first so the snapshot captures naturally — the
     // tab-switch useEffect intentionally clears the snapshot on
     // mount, so we cannot just seed it via setState ahead of time.
@@ -618,7 +618,7 @@ describe('useAutoRun', () => {
     });
   });
 
-  it('RL-020 Slice 2 — does NOT auto-run when workflow mode is `run`', async () => {
+  it('implementation — does NOT auto-run when workflow mode is `run`', async () => {
     // A complete JS buffer in Run mode must not auto-execute. The
     // user opted out of Scratchpad behavior on this tab; the only
     // way to produce output is the manual Run gesture.
@@ -647,7 +647,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().isAutoRunning).toBe(false);
   });
 
-  it('RL-020 Slice 2 — does NOT auto-run when workflow mode is `debug`', async () => {
+  it('implementation — does NOT auto-run when workflow mode is `debug`', async () => {
     useEditorStore.setState({
       tabs: [
         {
@@ -672,7 +672,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('RL-020 Slice 2 — clears a visible Scratchpad gate when switching to Run mode', async () => {
+  it('implementation — clears a visible Scratchpad gate when switching to Run mode', async () => {
     useEditorStore.setState({
       tabs: [
         {
@@ -709,7 +709,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('RL-020 Slice 2 — cancels an in-flight Scratchpad auto-run when switching to Run mode', async () => {
+  it('implementation — cancels an in-flight Scratchpad auto-run when switching to Run mode', async () => {
     let resolveExecute!: (value: {
       stdout: Array<{ type: 'log'; args: string[] }>;
       stderr: [];
@@ -782,7 +782,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('RL-020 Slice 3 — cancels an in-flight Scratchpad auto-run when the buffer becomes empty', async () => {
+  it('implementation — cancels an in-flight Scratchpad auto-run when the buffer becomes empty', async () => {
     let resolveExecute!: (value: {
       stdout: Array<{ type: 'log'; args: string[] }>;
       stderr: [];
@@ -855,7 +855,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('RL-020 Slice 2 — still auto-runs (and gates) when workflow mode is `scratchpad`', async () => {
+  it('implementation — still auto-runs (and gates) when workflow mode is `scratchpad`', async () => {
     // Sanity check that the workflow-mode short-circuit doesn't
     // accidentally suppress Scratchpad-mode auto-run.
     vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
@@ -895,7 +895,7 @@ describe('useAutoRun', () => {
     );
   });
 
-  it('RL-020 Slice 5 — re-runs the same Scratchpad buffer when auto-log is toggled', async () => {
+  it('implementation — re-runs the same Scratchpad buffer when auto-log is toggled', async () => {
     const execute = vi.fn().mockResolvedValue({
       stdout: [],
       stderr: [],
@@ -932,7 +932,7 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
       autoLog: false,
       language: 'javascript',
-      // RL-020 Slice 9 — auto-run requests a scope capture for
+      // implementation — auto-run requests a scope capture for
       // inspector-supported languages so the toggle lights up on
       // the first clean run.
       captureScope: true,
@@ -960,7 +960,7 @@ describe('useAutoRun', () => {
     });
   });
 
-  it('RL-020 Slice 6 — re-runs the same Scratchpad buffer when stdin changes', async () => {
+  it('implementation — re-runs the same Scratchpad buffer when stdin changes', async () => {
     const execute = vi.fn().mockResolvedValue({
       stdout: [],
       stderr: [],
@@ -1033,7 +1033,7 @@ describe('useAutoRun', () => {
     });
   });
 
-  it('RL-079 — does NOT auto-run Go when native execution is unacknowledged', async () => {
+  it('internal — does NOT auto-run Go when native execution is unacknowledged', async () => {
     // The trust-boundary modal lives behind manual Run; auto-run on a
     // Go tab the user never opted into would silently invoke the
     // host toolchain. The gate must short-circuit before

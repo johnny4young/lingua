@@ -117,7 +117,7 @@ export async function hasApprovedFile(absolutePath: string): Promise<boolean> {
  * handlers) gate on this so a compromised renderer cannot point them at
  * arbitrary disk locations — closing the one IPC door that previously
  * accepted raw absolute paths with no approval check, and aligning git
- * with the RL-077 defense-in-depth posture.
+ * with the internal defense-in-depth posture.
  */
 export async function pathIntersectsApprovedScope(
   absolutePath: string

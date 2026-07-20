@@ -1,5 +1,5 @@
 /**
- * RL-026 Slice 3 — `RustLanguageIntelligenceAdapter` contract tests.
+ * implementation — `RustLanguageIntelligenceAdapter` contract tests.
  *
  * The adapter is the renderer-side glue between the Monaco providers
  * and the main-process LSP bridge. These tests use a fake transport so

@@ -33,7 +33,7 @@ const EMPTY_SNIPPET_DRAFT: SnippetDraft = {
   code: '',
 };
 
-// RL-038 Slice C closeout — pull the runnable language set from the
+// implementation closeout — pull the runnable language set from the
 // shared `LANGUAGE_PACKS` registry instead of a hardcoded list. Walking
 // the registry means future languages added to `src/shared/languagePacks.ts`
 // surface in the snippet picker automatically. We keep the picker
@@ -190,7 +190,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
       return;
     }
 
-    // UX Sweep T2 fold B — snippet delete is recoverable, so it deletes
+    // accessibility pass — snippet delete is recoverable, so it deletes
     // optimistically and offers an Undo toast rather than blocking on a
     // confirm. Stash the snippet AND its index in the persisted store
     // array so Undo re-inserts it verbatim at the same position.
@@ -371,7 +371,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                   <button
                     key={snippet.id}
                     type="button"
-                    // UX Sweep T5 — aria-current conveys the selection to
+                    // accessibility pass — aria-current conveys the selection to
                     // assistive tech (it was color-only), and the active
                     // styling uses theme tokens instead of hardcoded light
                     // slate, which was invisible in the dark theme.

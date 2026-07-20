@@ -32,7 +32,7 @@ vi.mock('@/utils/upsellNotice', () => ({
   pushUpsellNotice: chartMocks.pushUpsellNotice,
 }));
 
-describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
+describe('richConsoleFormat — implementation helpers', () => {
   it('richKindBucket maps every payload kind into the closed-enum bucket', () => {
     const cases: Array<[RichOutputPayload, string]> = [
       [{ kind: 'table', columns: [], rows: [] }, 'table'],
@@ -65,7 +65,7 @@ describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
         'text',
       ],
       [{ kind: 'function', name: 'foo' }, 'text'],
-      // RL-044 Slice 1C fold F — error kind now bucketed distinctly
+      // implementation note — error kind now bucketed distinctly
       // so Python exception payloads survive the telemetry redactor
       // (and dashboards can count error payloads separately).
       [{ kind: 'error', message: 'nope' }, 'error'],
@@ -104,7 +104,7 @@ describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
       payloadHasRichSurface({ kind: 'primitive', type: 'string', repr: 'x' })
     ).toBe(false);
     expect(payloadHasRichSurface({ kind: 'function', name: 'f' })).toBe(false);
-    // RL-044 Slice 2a: stack-less errors stay on the text path; the
+    // implementation: stack-less errors stay on the text path; the
     // dispatcher only opens the popover when a structured `stack`
     // is present.
     expect(payloadHasRichSurface({ kind: 'error', message: 'oh' })).toBe(false);
@@ -117,14 +117,14 @@ describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
     expect(payloadHasRichSurface({ kind: 'date', iso: 'x' })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'promise', state: 'pending' })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'rawText', text: 'x' })).toBe(true);
-    // RL-044 Slice 2a — image / html have dedicated renderers.
+    // implementation — image / html have dedicated renderers.
     expect(
       payloadHasRichSurface({ kind: 'image', src: 'data:image/png;base64,a', mime: 'png' })
     ).toBe(true);
     expect(payloadHasRichSurface({ kind: 'html', html: '<p/>' })).toBe(true);
-    // RL-044 Slice 2b-β-α — chart now opens the popover (vega-embed UI).
+    // implementation — chart now opens the popover (vega-embed UI).
     expect(payloadHasRichSurface({ kind: 'chart', spec: {} })).toBe(true);
-    // RL-044 Slice 2a — error WITH stack opens the popover.
+    // implementation — error WITH stack opens the popover.
     expect(
       payloadHasRichSurface({
         kind: 'error',
@@ -157,7 +157,7 @@ const chartPayload = {
   },
 };
 
-describe('RichValueChart — RL-044 Slice 2b-beta', () => {
+describe('RichValueChart — implementation', () => {
   beforeEach(() => {
     chartMocks.canExportChart = false;
     chartMocks.finalize.mockReset();

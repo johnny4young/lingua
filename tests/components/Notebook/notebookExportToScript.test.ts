@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A fold F — language-aware notebook script export coverage.
+ * implementation Slice A implementation note — language-aware notebook script export coverage.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -81,7 +81,7 @@ describe('notebookExportToScript', () => {
     const exported = exportNotebookAsScript(source);
     expect(exported.language).toBeNull();
     expect(exported.suggestedFileName).toBe('data-check.txt');
-    // RL-043 Slice F (fold D) — the now-runnable Python cell's source +
+    // implementation Slice F (implementation note) — the now-runnable Python cell's source +
     // delimiter must survive the mixed export. A mixed export carries a
     // single `//` comment prefix (language is null), so the Python cell's
     // delimiter is `//`-style too, not `#`.

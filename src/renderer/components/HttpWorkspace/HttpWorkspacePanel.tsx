@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 — Root component of the HTTP workspace editor tab.
+ * implementation — Root component of the HTTP workspace editor tab.
  * Three-column layout (request list | editor | response).
  *
  * Wires the store actions, the runtime execution path, the capsule
@@ -54,7 +54,7 @@ export interface HttpWorkspacePanelProps {
 }
 
 /**
- * T2 — apply a request's resolved capture writes to the ACTIVE
+ * implementation — apply a request's resolved capture writes to the ACTIVE
  * environment. Upserts by variable key (existing key → value updated;
  * new key → appended, secret-by-default via the `looksSecret`
  * heuristic). Surfaces a warning when there is no active environment to
@@ -105,7 +105,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const announce = useAnnounce();
   // Persisted layout per the resizable-panels convention used
   // throughout AppLayout. Storage key isolated to this surface so a
-  // future SQL workspace (Slice 2) can have its own layout sibling.
+  // future SQL workspace  can have its own layout sibling.
   const layout = useDefaultLayout({
     id: 'lingua-http-workspace-layout',
     panelIds: [
@@ -130,7 +130,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const sensitiveHttpHeaders = useSettingsStore(
     (state) => state.sensitiveHttpHeaders
   );
-  // RL-097 Slice 3a — environments + active selection drive the
+  // implementation — environments + active selection drive the
   // selector, the resolution preview, and send-time interpolation.
   const environments = useWorkspaceToolStore((state) => state.environments);
   const activeEnvironmentId = useWorkspaceToolStore(
@@ -268,7 +268,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     []
   );
 
-  // RL-097 Slice 3a — send pipeline with environment interpolation +
+  // implementation — send pipeline with environment interpolation +
   // secret-aware redaction. The privacy invariant (no resolved secret on
   // any persisted / shared / displayed surface) is enforced here:
   //   - `interpolateRequest` resolves ALL vars into the OUTBOUND request
@@ -330,7 +330,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       useWorkspaceToolStore
         .getState()
         .recordResponse(requestToSend.id, response);
-      // T2 — request chaining. On a successful response, apply the
+      // implementation — request chaining. On a successful response, apply the
       // request's capture rules: extract values from the RAW response
       // (real values, before secret-masking) and upsert them into the
       // ACTIVE environment so the next request can interpolate them via
@@ -344,7 +344,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       }
       const resolvedCount = findResolvedVariables(requestToSend, env).length;
       trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
-      // UX Sweep T4 — announce the response to screen readers; the status
+      // accessibility pass — announce the response to screen readers; the status
       // pill + response panes only convey it visually. HTTP 4xx/5xx are
       // still real responses, so announce their status instead of flattening
       // them into a generic failure. Some servers omit statusText, so fall

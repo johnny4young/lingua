@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 3a — active-environment selector.
+ * implementation — active-environment selector.
  *
  * A compact dropdown bound to the store's `activeEnvironmentId` plus a
  * "Manage" affordance that opens the environment manager. Rendered in
@@ -30,7 +30,7 @@ export function HttpEnvironmentSelector({
   const { t } = useTranslation();
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <label className="sr-only" htmlFor="http-environment-selector">
+      <label className="internal" htmlFor="http-environment-selector">
         {t('httpWorkspace.environment.selector.label')}
       </label>
       <select

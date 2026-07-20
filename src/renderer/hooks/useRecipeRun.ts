@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — `useRecipeRun` hook.
+ * implementation — `useRecipeRun` hook.
  *
  * Orchestrates the Run + Test flow when a tab is bound to a recipe:
  *
@@ -28,7 +28,7 @@
  *
  * The hook is intentionally thin — most logic lives in the shared
  * `lessonRunner` helpers so the upcoming `lingua lesson validate`
- * CLI (RL-098 Slice 2) can reuse the same composition + parse path.
+ * CLI  can reuse the same composition + parse path.
  */
 
 import { useCallback } from 'react';

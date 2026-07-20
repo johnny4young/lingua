@@ -82,7 +82,7 @@ export async function copyRuntimeAssetFiles(
 }
 
 /**
- * RL-083 Slice 1 (extended in RL-042 Slice 5) — copy runtime assets
+ * implementation (extended in implementation) — copy runtime assets
  * into the renderer build output and serve them from the dev server.
  *
  * The plugin walks every entry in `RUNTIME_ASSETS` (Pyodide and Ruby

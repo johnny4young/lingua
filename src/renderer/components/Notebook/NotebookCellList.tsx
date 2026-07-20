@@ -73,7 +73,7 @@ export function NotebookCellList(props: NotebookCellListProps) {
             </div>
           </div>
         ) : (
-          // RL-043 Slice H — windowed cell list. Only rows in
+          // implementation — windowed cell list. Only rows in
           // `[startIndex, endIndex]` mount; two aria-hidden spacer <li>s
           // hold the scrollbar geometry. The inter-row gap lives in each
           // row's `pb-3` (border box) so the windower measures it exactly —
@@ -94,7 +94,7 @@ export function NotebookCellList(props: NotebookCellListProps) {
                 const canMoveUp = idx > 0;
                 const canMoveDown = idx < notebook.cells.length - 1;
                 const isActive = activeCellId === cell.id;
-                // Slice H a11y — windowing drops off-screen rows from the
+                // implementation a11y — windowing drops off-screen rows from the
                 // DOM, so each mounted row reports the TRUE list size + its
                 // 1-based position to assistive tech via aria-setsize /
                 // aria-posinset (the W3C pattern for virtualized lists);

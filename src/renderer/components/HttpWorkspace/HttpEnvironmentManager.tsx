@@ -1,14 +1,14 @@
 /**
- * RL-097 Slices 3a + 3b — HTTP environment manager modal.
+ * implementationa + 3b — HTTP environment manager modal.
  *
  * CRUD over the store's environments: add / rename / duplicate / delete an
  * environment, per-environment add / edit / delete / secret-toggle /
- * DRAG-REORDER of its variable rows (Slice 3b fold A), and environment
- * import / export as JSON (Slice 3b fold B). Reuses the canonical
+ * DRAG-REORDER of its variable rows (implementation note), and environment
+ * import / export as JSON (implementation note). Reuses the canonical
  * `ModalShell` chrome so it matches the snippets / utilities / capsules
  * overlays.
  *
- * Privacy notes (Slice 3b):
+ * Privacy notes :
  *
  *   - Secret variable values render in a masked `type="password"` input —
  *     a display nicety; the real secret-leak guarantees live in
@@ -19,7 +19,7 @@
  *     NEVER carries a resolved secret. The manager only copies that
  *     already-safe JSON to the clipboard.
  *
- * Mutation discipline (Slice 3b fold D): add / edit / delete / reorder of
+ * Mutation discipline (implementation note): add / edit / delete / reorder of
  * variable rows route through the store's FUNCTIONAL
  * `onUpdateVariables(updater)` rather than a render-time
  * `onUpdate({ variables: [...prop] })`, so two adds dispatched in one tick
@@ -55,7 +55,7 @@ export interface HttpEnvironmentManagerProps {
   onCreate: (env: HttpEnvironmentV1) => void;
   onUpdate: (id: string, patch: Partial<HttpEnvironmentV1>) => void;
   /**
-   * RL-097 Slice 3b — functional variable update (collapse-safe). The
+   * implementation — functional variable update (collapse-safe). The
    * manager passes an `updater` the store applies to the CURRENT variable
    * list. Routes every add / edit / delete / reorder so concurrent updates
    * compose.
@@ -65,15 +65,15 @@ export interface HttpEnvironmentManagerProps {
     updater: (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]
   ) => void;
   onDelete: (id: string) => void;
-  /** RL-097 Slice 3b — clone an environment (no auto-activate). */
+  /** implementation — clone an environment (no auto-activate). */
   onDuplicate: (id: string) => void;
   /**
-   * RL-097 Slice 3b — serialise the env to share-safe JSON (secrets
+   * implementation — serialise the env to share-safe JSON (secrets
    * blanked, ids stripped). Null on failure.
    */
   onExport: (id: string) => string | null;
   /**
-   * RL-097 Slice 3b — import an exported environment JSON (mints a fresh
+   * implementation — import an exported environment JSON (mints a fresh
    * id, appends). `{ ok: false }` on malformed input.
    */
   onImport: (json: string) => { ok: true; id: string } | { ok: false };
@@ -144,7 +144,7 @@ export function HttpEnvironmentManager({
     );
   };
 
-  // Secret-by-default (Slice 3b fold E) — on a KEY edit, auto-suggest
+  // Secret-by-default (implementation note) — on a KEY edit, auto-suggest
   // `secret: true` exactly once when the NEW key looks secret, the OLD key
   // did not, and the row is not already secret. Never overrides a user who
   // explicitly unset secret (the guard `!variable.secret` plus the
@@ -354,7 +354,7 @@ export function HttpEnvironmentManager({
             <section className="flex flex-col gap-2">
               {/* Name + duplicate + delete environment */}
               <div className="flex items-center gap-2">
-                <label className="sr-only" htmlFor="http-environment-name">
+                <label className="internal" htmlFor="http-environment-name">
                   {t('httpWorkspace.environment.manager.nameLabel')}
                 </label>
                 <input
@@ -479,7 +479,7 @@ interface HttpEnvironmentVariableRowProps {
 /**
  * One sortable variable row. Drag handle + key / value / secret-toggle /
  * delete. Sortable via @dnd-kit (keyed by the row's opaque
- * `variable.id` — Slice 3b fold A); keyboard-reorderable per dnd-kit
+ * `variable.id` — implementation note); keyboard-reorderable per dnd-kit
  * defaults (focus the handle, Space to lift, arrows to move).
  */
 function HttpEnvironmentVariableRow({

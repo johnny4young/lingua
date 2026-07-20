@@ -1,5 +1,5 @@
 /**
- * Renderer settings store — assembly point (RL-129 / AUDIT-09).
+ * Renderer settings store — assembly point.
  *
  * This is the long-lived `lingua-settings` localStorage boundary, so the store
  * treats every rehydrated value as untrusted user-controlled input. Runtime
@@ -53,9 +53,9 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'lingua-settings',
-      // RL-126 / AUDIT-06 — schema version + central migration. The 0->1 step
+      // implementation detail — schema version + central migration. The 0->1 step
       // is identity (no shape change yet); the existing onRehydrate/merge
-      // sanitizers still run after migrate. RL-111 added the 1->2 step
+      // sanitizers still run after migrate. internal added the 1->2 step
       // (restoreSession boolean -> restoreSessionMode enum) in
       // migrationRegistry; bump here in lockstep.
       version: 2,
@@ -68,7 +68,7 @@ export const useSettingsStore = create<SettingsState>()(
         }
         // Seed/refresh the main-process mirror after every startup
         // rehydrate so pre-existing opt-ins survive the upgrade to the
-        // RL-067 mirror path without forcing the user to toggle again.
+        // internal mirror path without forcing the user to toggle again.
         syncConsentMirror(state.telemetryConsent);
       },
     }

@@ -48,7 +48,7 @@ the report marks runtime observability as unavailable instead of
 failing; this keeps CI web builds readable while still surfacing the
 startup/runtime follow-up work in local release validation.
 
-## Lazy Monaco language registration (RL-124)
+## Lazy Monaco language registration
 
 Monaco language contributions register per active language through
 `registerLanguageOnce(monaco, languageId)` (see `src/renderer/monaco.ts`),
@@ -68,7 +68,7 @@ guards that contract. The web `initial` bundle dropped accordingly
 Refresh `docs/performance/baseline.json` to tighten the ceiling after a
 full `build:web` + desktop-renderer build per "Refreshing the baseline".
 
-## Lazy Developer Utilities panels (RL-125)
+## Lazy Developer Utilities panels
 
 The Developer Utilities workspace shell is itself a lazy chunk, and `UtilityPanelRegistry`
 now loads each tool's panel through `React.lazy` (see
@@ -137,7 +137,7 @@ artifact.
    drift.
 5. Confirm whether the file moved into `initial`; Pyodide and
    Developer Utilities chunks should not become initial assets.
-6. If the increase is intentional, document the reason in the ticket
+6. If the increase is intentional, document the reason in the change record
    closeout before refreshing `docs/performance/baseline.json`.
 
 ## Manual test

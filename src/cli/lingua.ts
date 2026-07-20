@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 — Lingua CLI entry.
+ * implementation — Lingua CLI entry.
  *
  * Pure shared/main code. NO renderer imports — an ESLint rule
  * enforces this so the bundled CJS stays React-free + Electron-free.
@@ -9,11 +9,11 @@
  *   lingua utility <id> [--input <file>] [--json] [--quiet]
  *                       [--option key=value ...]
  *   lingua capsule validate <file> [--json] [--quiet]
- *   lingua list utilities [--json] [--quiet]            (fold B)
- *   lingua --version                                    (fold A)
+ *   lingua list utilities [--json] [--quiet]            (implementation note)
+ *   lingua --version                                    (implementation note)
  *   lingua --help | <cmd> --help
  *
- * Fold D — the bundled artifact is prefixed with `#!/usr/bin/env node`
+ * implementation note — the bundled artifact is prefixed with `#!/usr/bin/env node`
  * at bundle time by `scripts/build-cli.mjs` (esbuild `banner.js`),
  * then chmod +x'd, so the binary is directly executable on Unix.
  * The shebang is NOT in this source file because it would interfere
@@ -162,7 +162,7 @@ export async function dispatch(
 
 async function main(): Promise<void> {
   const io = createDefaultIo();
-  // `process.argv` is `[node-bin, script-path, ...userArgs]`. Slice
+  // `process.argv` is `[node-bin, script-path, ...userArgs]`. implementation
   // past the first two so command handlers see the user's tail.
   const code = await dispatch(process.argv.slice(2), io);
   // Use `process.exitCode` instead of `process.exit(code)` so any

@@ -1,7 +1,7 @@
 @import 'tailwindcss' source(none);
 
 /*
- * RL-140 (AUDIT-20) — explicit Tailwind v4 content sources. Without
+ * internal — explicit Tailwind v4 content sources. Without
  * these, v4 auto-detection scans every non-gitignored file in the
  * repo (tests/, scripts/, docs/, e2e specs), so class-shaped strings
  * that only appear in test assertions or docs generate utilities the
@@ -762,7 +762,7 @@
   }
 }
 
-/* Shared keyboard focus indicator — UX Sweep T1. Bespoke interactive
+/* Shared keyboard focus indicator — accessibility pass. Bespoke interactive
    controls (chips, tree rows, status-bar segments, cell-row actions) that
    are NOT one of the .button-* / design-system primitives must carry this
    so a keyboard user always sees focus. Reuses the exact ring recipe of the
@@ -1055,7 +1055,7 @@
     padding-left: 1rem;
   }
 
-  /* RL-093 polish #1 — Monaco overlay widget that renders the rich
+  /* internal polish #1 — Monaco overlay widget that renders the rich
      inline result for each line that produced a value. The widget is
      placed in the editor's overlay layer (sibling to the lines, not
      a child), so we can pin it to the editor's right edge with
@@ -1093,7 +1093,7 @@
     /* The Monaco line height is 19px in the default theme — stretching
        the pill keeps it vertically centred on the line it annotates. */
     transform: translateY(3px);
-    /* RL-044 Slice 1C follow-up — cap the overlay width so long
+    /* implementation follow-up — cap the overlay width so long
        Python tracebacks or 3+ stacked results never paint past the
        editor padding. After MOV.05 the marker rides a quiet inset
        tint (not an opaque panel), so the cap is what keeps a long
@@ -1155,7 +1155,7 @@
   }
 
   .lingua-inline-result-timing {
-    /* RL-115 — per-statement wall-clock chip (`▸ 320 ms`). Quiet
+    /* internal — per-statement wall-clock chip (`▸ 320 ms`). Quiet
        italic gray so measurements never compete with values; only the
        run's slowest statement gets the hot-spot tint below. */
     display: inline-flex;
@@ -1247,7 +1247,7 @@
     color: var(--color-inline-pill-object);
   }
 
-  /* RL-027 Slice 1.5 — Monaco glyph-margin breakpoint dot. The class
+  /* implementation — Monaco glyph-margin breakpoint dot. The class
      is attached via Monaco IModelDeltaDecoration#glyphMarginClassName
      from `useBreakpointGutter`. Disabled breakpoints render as an
      outline ring so the user can still see them but execution does
@@ -1268,7 +1268,7 @@
     box-shadow: inset 0 0 0 1.5px var(--app-danger, #e1495d);
   }
 
-  /* RL-020 Slice 6 UX polish — make the breakpoint gutter
+  /* implementation UX polish — make the breakpoint gutter
      discoverable on hover. Without this, the glyph-margin column
      reads as inert black space until the user happens to click in
      it. We add:
@@ -1303,7 +1303,7 @@
   }
 
   /*
-    RL-044 Sub-slice G — flash decoration applied to a Monaco line
+    implementation — flash decoration applied to a Monaco line
     when the user hovers an `<OutputLineBadge>` chip on a console
     row. Lower specificity than the debugger paused-line above so
     the debugger highlight wins when both fire on the same line.
@@ -1323,7 +1323,7 @@
   }
 
   /*
-    RL-044 Sub-slice G Fold G — symmetric inverse: console-row pulse
+    implementation Sub-slice G implementation note — symmetric inverse: console-row pulse
     when the user's editor cursor settles on a line that produced
     output. Matches `lingua-highlight-flash-fade` timing so both
     directions feel like the same gesture.
@@ -1454,7 +1454,7 @@
   }
 
   /* ============================================================ */
-  /* RL-071 Signal-Slate v2 — composite primitives                */
+  /* internal Signal-Slate v2 — composite primitives                */
   /* ============================================================ */
 
   /* Action pill — the floating hero element above the editor. The
@@ -1552,7 +1552,7 @@
     }
   }
 
-  /* RL-093 Slice 3 — unified mode-aware action button.
+  /* implementation — unified mode-aware action button.
      The button colours itself by the active workflow:
        · run        → green (was the only colour previously)
        · debug      → red-soft
@@ -1943,7 +1943,7 @@
 }
 
 /* ============================================================ */
-/* RL-071 v2 keyframes — declared at the top level so Tailwind  */
+/* internal v2 keyframes — declared at the top level so Tailwind  */
 /* doesn't try to scope them inside @layer components.          */
 /* ============================================================ */
 
@@ -1967,7 +1967,7 @@
 }
 
 /* ============================================================ */
-/* UX Sweep T14 — WCAG 2.3.3: honor prefers-reduced-motion.     */
+/* accessibility pass — WCAG 2.3.3: honor prefers-reduced-motion.     */
 /* The run-button pulse, spinners, shell fade-in, rise-in, and  */
 /* the cursor/console pulse all animated unconditionally. This  */
 /* global guard collapses non-essential animation + transition  */

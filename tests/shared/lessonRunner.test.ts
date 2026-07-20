@@ -1,5 +1,5 @@
 /**
- * RL-039 Slices B/C — `lessonRunner` tests.
+ * implementation — `lessonRunner` tests.
  *
  * Covers:
  *   - `buildLessonRunSource` composition shape + sentinel inclusion.

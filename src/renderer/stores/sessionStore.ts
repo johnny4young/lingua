@@ -39,14 +39,14 @@ interface SessionTab {
    */
   filePath?: string;
   /**
-   * RL-019 Slice 1 — per-tab runtime mode for JS/TS tabs. Missing /
+   * implementation — per-tab runtime mode for JS/TS tabs. Missing /
    * unknown values are coerced back to `'worker'` for JS/TS at
    * restore time via `coerceRuntimeMode`, so a tampered or
-   * pre-Slice-1 session entry never lands in an unimplemented mode.
+   * legacy session entry never lands in an unimplemented mode.
    */
   runtimeMode?: RuntimeMode;
   /**
-   * RL-020 Slice 6 fold A — per-tab pre-set stdin buffer. Persisted
+   * implementation note — per-tab pre-set stdin buffer. Persisted
    * so a tab that ships an `input()` example survives a reload
    * alongside the editor content. Restored only for tabs whose
    * resolved language still supports stdin (JS / TS / Python); the
@@ -54,19 +54,19 @@ interface SessionTab {
    * language.
    */
   stdinBuffer?: string;
-  /** IT2-F5 — named stdin/argv snapshots and the currently loaded draft. */
+  /** internal — named stdin/argv snapshots and the currently loaded draft. */
   inputSets?: InputSet[];
   activeInputSetId?: string;
   inputArgs?: string[];
   /**
-   * RL-039 Slice B — persisted recipe binding for tabs opened from
+   * implementation — persisted recipe binding for tabs opened from
    * the Recipes overlay. Runtime run-results stay transient in
    * recipeStore; this id is enough to restore the prompt panel after
    * a reload.
    */
   recipeBindingId?: string;
   /**
-   * RL-043 Slice A — discriminator flag persisted so the restore
+   * implementation — discriminator flag persisted so the restore
    * path knows to route the tab through `<NotebookView>` instead of
    * the Monaco editor surface. The notebook payload itself lives in
    * the isolated `lingua-notebook-state` store keyed by the tab id
@@ -87,7 +87,7 @@ interface SessionTab {
    */
   kind?: 'notebook' | 'sql' | 'http' | 'utilities';
   /**
-   * RL-043 Slice A — original tabId captured at save time. Notebook
+   * implementation — original tabId captured at save time. Notebook
    * state in `useNotebookStore` is keyed by tabId; without this
    * field, restoring would mint a fresh UUID and orphan the
    * persisted notebook entry. Only populated when `kind === 'notebook'`.
@@ -129,7 +129,7 @@ function cloneSessionTabs(tabs: readonly SessionTab[]): SessionTab[] {
 }
 
 /**
- * RL-111 ask-mode boot prompt guard.
+ * internal ask-mode boot prompt guard.
  *
  * The saved-session store keeps auto-saving in ask mode so future restarts have
  * a fresh snapshot. That means the visible "Restore last session" prompt cannot
@@ -214,7 +214,7 @@ function inputSetsEqual(a: readonly InputSet[] | undefined, b: readonly InputSet
 }
 
 /**
- * RL-147 (AUDIT-27) — equality over the EXACT editor-store projection
+ * internal — equality over the EXACT editor-store projection
  * `saveSession()` serializes. `useSessionAutoSave` calls this with
  * zustand's `(state, prevState)` pair to skip re-arming the debounced
  * session save when a mutation cannot change the persisted snapshot
@@ -256,11 +256,11 @@ export const useSessionStore = create<SessionState>()(
           // content so the user does not lose unsaved work.
           content: tab.filePath ? '' : tab.content,
           filePath: tab.filePath,
-          // RL-019 Slice 1 — persist the runtime mode alongside the
+          // implementation — persist the runtime mode alongside the
           // tab. Non-JS/TS tabs have `runtimeMode === undefined`, so
           // the field is omitted from the serialized output.
           runtimeMode: tab.runtimeMode,
-          // RL-020 Slice 6 fold A — persist the per-tab stdin buffer
+          // implementation note — persist the per-tab stdin buffer
           // so an exploration session that ships pre-set input
           // survives a reload. The editor store drops the field on
           // rename / restore for languages that don't support it,
@@ -271,7 +271,7 @@ export const useSessionStore = create<SessionState>()(
           activeInputSetId: tab.activeInputSetId,
           inputArgs: tab.inputArgs,
           recipeBindingId: tab.recipeBindingId,
-          // RL-043 Slice A — preserve the notebook discriminator + the
+          // implementation — preserve the notebook discriminator + the
           // original tabId so the per-tab notebook payload in
           // `useNotebookStore` survives a reload (the store is keyed
           // by tabId; without this, restore would mint a fresh UUID
@@ -344,7 +344,7 @@ export const useSessionStore = create<SessionState>()(
           let relativePath: RelativePath | undefined;
 
           if (saved.filePath) {
-            // RL-077 — re-mint a single-file capability for the
+            // internal — re-mint a single-file capability for the
             // persisted tab. If the mint fails (path no longer exists,
             // denied, or not approved), fall through with empty content
             // so the user does not lose the tab outright.
@@ -355,7 +355,7 @@ export const useSessionStore = create<SessionState>()(
                 relativePath = reopen.fileRelativePath;
                 content = await window.lingua.fs.read(rootId, relativePath);
               } else {
-                // RL-137 — name the denylist refusal so a restored tab whose
+                // internal — name the denylist refusal so a restored tab whose
                 // file now sits in a protected family explains itself.
                 if (reopen.error === 'blocked') {
                   void notifyBlockedPath(saved.filePath);
@@ -371,14 +371,14 @@ export const useSessionStore = create<SessionState>()(
             ? resolveFileLanguageOrPlaintext(saved.filePath)
             : saved.language;
 
-          // RL-019 Slice 1 — restore the runtime mode for JS/TS
+          // implementation — restore the runtime mode for JS/TS
           // tabs, coercing missing / unknown / unimplemented values
           // back to `'worker'`. Non-JS/TS tabs always coerce to
           // `null`, so the spread below leaves `runtimeMode`
           // undefined on the restored FileTab.
           const restoredRuntimeMode = coerceRuntimeMode(saved.runtimeMode, language);
 
-          // RL-020 Slice 6 fold A — restore the buffer only when the
+          // implementation note — restore the buffer only when the
           // resolved language still supports stdin. The editorStore
           // restore path also drops it via `dropStdinIfUnsupported`,
           // but trimming here keeps the in-memory tab structure
@@ -406,7 +406,7 @@ export const useSessionStore = create<SessionState>()(
               ? saved.recipeBindingId
               : undefined;
 
-          // RL-043 Slice A — restore the notebook discriminator AND
+          // implementation — restore the notebook discriminator AND
           // reuse the original tabId so the per-tab notebook payload
           // in `useNotebookStore` (keyed by tabId) lines up with the
           // restored FileTab. If the saved entry is missing
@@ -524,7 +524,7 @@ export const useSessionStore = create<SessionState>()(
           savedIndexToRestoredId.push(restoredId);
         }
 
-        // Bypass the RL-060 tier ceiling — restoring a prior session must
+        // Bypass the internal tier ceiling — restoring a prior session must
         // grandfather the user's workspace, not truncate it. Resolve the
         // active id through the saved-index → restored-id remap so a
         // collapsed legacy workspace duplicate still focuses the right

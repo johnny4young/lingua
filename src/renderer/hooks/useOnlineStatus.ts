@@ -18,7 +18,7 @@ function getOnlineSnapshot(): boolean {
 }
 
 /**
- * IT2-G5 — reactive browser/Electron connectivity signal.
+ * internal — reactive browser/Electron connectivity signal.
  *
  * The browser owns the state, so `useSyncExternalStore` keeps React aligned
  * with `navigator.onLine` without duplicating it in a component or store. The

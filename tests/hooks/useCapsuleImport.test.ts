@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 2 — tests for the `useCapsuleImport` orchestration hook.
+ * implementation — tests for the `useCapsuleImport` orchestration hook.
  *
  * Renders the hook through `@testing-library/react`'s `renderHook` so
  * the React state updates land correctly. Telemetry is asserted via a
@@ -41,7 +41,7 @@ describe('useCapsuleImport', () => {
     if (result.current.state.kind !== 'decoded') return;
     expect(result.current.state.capsule.tab.language).toBe('javascript');
     expect(result.current.state.sourceSurface).toBe('paste');
-    // Fold D telemetry — decoded path.
+    // implementation note telemetry — decoded path.
     expect(trackSpy).toHaveBeenCalledWith(
       'capsule.imported',
       expect.objectContaining({
@@ -190,7 +190,7 @@ describe('useCapsuleImport', () => {
   });
 
   it('openInNewTab is idempotent — second click after confirm is a no-op', () => {
-    // Reviewer fix (RL-094 Slice 2 final pass) — fast double-click on
+    // Reviewer fix (implementation final pass) — fast double-click on
     // the confirm button would otherwise create two identical tabs
     // before the overlay-close commit unmounts the button. The hook
     // clears `decodedRef` on the first call so the second is no-op.

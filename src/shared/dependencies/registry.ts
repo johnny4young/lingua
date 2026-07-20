@@ -1,10 +1,10 @@
 /**
- * RL-025 Slice A - dependency adapter registry. Pure dispatcher so
+ * implementation - dependency adapter registry. Pure dispatcher so
  * the renderer's `useDependencyDetection` hook never reaches into a
  * language-specific module.
  *
- * Slice B / C will extend the registered set with desktop-only JS/TS
- * + Python adapters that own the install path; Slice A only ships
+ * implementation / C will extend the registered set with desktop-only JS/TS
+ * + Python adapters that own the install path; implementation only ships
  * the detection halves.
  */
 

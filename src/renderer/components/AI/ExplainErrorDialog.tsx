@@ -1,5 +1,5 @@
 /**
- * T19 / RL-031 Slice 4 — "Explain this error" consent + result dialog.
+ * implementation — "Explain this error" consent + result dialog.
  *
  * The user-facing surface for the AI feature. It NEVER sends anything on
  * mount: it first shows the exact payload preview (from

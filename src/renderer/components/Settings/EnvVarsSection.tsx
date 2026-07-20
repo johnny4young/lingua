@@ -10,7 +10,7 @@ import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { EmptyState } from '../ui/EmptyState';
 
 /**
- * RL-011 Slice C — Settings UI for the env-var tiers.
+ * implementation — Settings UI for the env-var tiers.
  *
  * FASE 2a (MOV.04) restructures the presentation onto the Signal-Slate
  * Settings rhythm: one `SettingsSection` (eyebrow + description) wraps
@@ -181,9 +181,9 @@ function EffectiveEnvPanel({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
-  // processEnv intentionally stays empty: Slice B put the host env
+  // processEnv intentionally stays empty: implementation put the host env
   // boundary on main-process side, so the renderer trace never claims a
-  // host-tier value it couldn't actually observe. Slice D will surface
+  // host-tier value it couldn't actually observe. implementation will surface
   // the main-side merge separately.
   const trace = useMemo(
     () =>

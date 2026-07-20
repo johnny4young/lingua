@@ -4,7 +4,7 @@ import {
   trackBrowserPreviewAutoRefreshOnce,
 } from '@/hooks/browserPreviewRefreshTelemetry';
 
-describe('Browser preview auto-refresh telemetry (RL-119 Slice 1)', () => {
+describe('Browser preview auto-refresh telemetry ', () => {
   const track = vi.fn();
 
   beforeEach(() => {

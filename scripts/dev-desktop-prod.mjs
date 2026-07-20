@@ -6,12 +6,12 @@
  * (`licenses.linguacode.dev`). Useful when smoking a paid Polar token
  * end-to-end without minting a throwaway dev keypair.
  *
- * Important: Slice 3 ships with the desktop main bridge in
+ * Important: implementation ships with the desktop main bridge in
  * **local-verify-only mode** — pasting a CF-issued token here flips
  * the pill to `Active · <tier>` and unlocks `useEntitlement(...)`,
  * but the desktop process does NOT call `/licenses/activate` (that
- * wiring is deferred to Slice 3.5, tracked under `[licensing]
- * 2026-04-28` in the internal backlog). Until Slice 3.5 lands, the
+ * wiring is deferred to implementation, tracked under `[licensing]
+ * 2026-04-28` in the maintenance notes). Until implementation lands, the
  * Devices section will not render on desktop because `serverSync`
  * stays `'disabled'` and `devices` stays `null`. To exercise the
  * full server-aware path today, use the web build with
@@ -112,7 +112,7 @@ try {
   console.log('');
   console.log('  Paste a CF-signed token in Settings → License → Apply.');
   console.log('  The pill flips to Active locally; no server roundtrip');
-  console.log('  happens (Slice 3.5 deferred).');
+  console.log('  happens (implementation deferred).');
   console.log('');
   console.log('  Close with Ctrl+C.');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

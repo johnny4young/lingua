@@ -12,7 +12,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { Kbd } from '../ui/ModalShell';
 
 /**
- * SR-38 — actionable empty state for the HTTP workspace collection.
+ * internal — actionable empty state for the HTTP workspace collection.
  *
  * The collection is a single COLLECTION workspace tab (not one tab per
  * request), so when it holds no requests the panel used to show a

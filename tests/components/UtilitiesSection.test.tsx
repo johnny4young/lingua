@@ -52,7 +52,7 @@ afterEach(() => {
   localStorage.removeItem(UTILITY_HISTORY_STORAGE_KEY);
 });
 
-describe('UtilitiesSection (RL-069 Slice 3)', () => {
+describe('UtilitiesSection ', () => {
   it('locks clipboard-on-focus automation on Free', () => {
     setFreeTier();
     render(<UtilitiesSection />);
@@ -89,7 +89,7 @@ describe('UtilitiesSection (RL-069 Slice 3)', () => {
     expect(useSettingsStore.getState().utilitiesClipboardOnFocusConsent).toBe('declined');
 
     // Decline is sticky — clicking again moves back to granted, never
-    // unset. (Same RL-065 pattern as telemetry consent.)
+    // unset. (Same internal pattern as telemetry consent.)
     fireEvent.click(toggle);
     expect(useSettingsStore.getState().utilitiesClipboardOnFocusConsent).toBe('granted');
   });

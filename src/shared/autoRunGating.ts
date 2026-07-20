@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 1 — Auto-run completion gate.
+ * implementation — Auto-run completion gate.
  *
  * Renderer hooks call `isLikelyComplete(language, code)` before
  * dispatching an auto-run. If `ready === false`, the hook short-
@@ -17,7 +17,7 @@
  *     trailing operators) — not to be a full JS parser. False
  *     positives are tolerable; false negatives (gating valid code)
  *     are the real risk and the test suite pins them.
- *   - JS / TS only this slice. Other languages return `ready: true`
+ *   - JS / TS only this change. Other languages return `ready: true`
  *     so existing auto-run flows (Python validate, Go validate,
  *     etc.) stay untouched.
  *   - Comments stripped before the trailing-token sweep so a
@@ -246,7 +246,7 @@ function scanSource(source: string): StripResult {
   // outer template is in raw mode (between `${`s); a `${` push flips
   // to JS mode (false) until the matching `}` pops back.
   const templateStack: boolean[] = [];
-  // RL-020 Slice 1 — per-placeholder snapshot of `braceDepth` at the
+  // implementation — per-placeholder snapshot of `braceDepth` at the
   // moment `${` opens its JS context. Pop back to raw template only
   // when a `}` returns the counter to this saved value; otherwise
   // the `}` closes a NESTED object literal / destructuring / arrow

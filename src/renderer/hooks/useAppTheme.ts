@@ -4,7 +4,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { applyAppTheme } from '../utils/appTheme';
 
 /**
- * Resolve the effective shell polarity. Slice 2 — the
+ * Resolve the effective shell polarity. implementation — the
  * `syncShellWithEditorTheme` toggle is gone; shell polarity always
  * follows the chosen Monaco theme so the console and run-result panels
  * stay visually consistent with the editor (the previous opt-out

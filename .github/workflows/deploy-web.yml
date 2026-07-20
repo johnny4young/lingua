@@ -1,6 +1,6 @@
 name: Deploy web build to Cloudflare Pages
 
-# RL-061 Slice 5 — migrated from GitHub Pages to Cloudflare Pages so
+# implementation — migrated from GitHub Pages to Cloudflare Pages so
 # the web build can live at the dedicated app.linguacode.dev
 # subdomain alongside the worker family (licenses.*, updates.*, app.*).
 # linguacode.dev itself is the marketing site, which now lives in
@@ -54,7 +54,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # RL-143 — manual workflow_dispatch deploys bypass release.yml's
+      # internal — manual workflow_dispatch deploys bypass release.yml's
       # security-audit job entirely, so the license-key rotation gate must
       # also run here before the bundle that embeds the key is built.
       - name: Assert license-key rotation policy
@@ -85,7 +85,7 @@ jobs:
           # The web build therefore references Ruby/DuckDB WASM from
           # the public R2 runtime prefix uploaded in the next step.
           VITE_LINGUA_WEB_RUNTIME_BASE: ${{ secrets.R2_PUBLIC_BASE }}/web-runtime
-          # RL-065 Slice 5 — point the web bundle at the telemetry
+          # implementation — point the web bundle at the telemetry
           # ingest endpoint on the update-server worker. Only the
           # web build sets this; the desktop release workflow leaves
           # it unset so packaged desktop builds stay telemetry-off

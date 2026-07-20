@@ -13,7 +13,7 @@ export interface ProjectSearchMatch {
 }
 
 /**
- * RL-077 — search results carry the relative path inside the project
+ * internal — search results carry the relative path inside the project
  * root. Consumers compose `currentProject.rootPath + '/' + relativePath`
  * for display only; the IPC layer never sees an absolute path.
  */

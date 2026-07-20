@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 2 — Capsule import.
+ * implementation — Capsule import.
  *
  * Inverse of `exportCapsule.ts`. Decodes a JSON string into a
  * `RunCapsuleV1` and returns a discriminated reject reason when the

@@ -79,7 +79,7 @@ describe('FileTreeEmptyState', () => {
 
   afterEach(() => {
     cleanup();
-    // PERF-001 — the open-tabs foot (`FileTreeOpenTabs`) now self-
+    // internal — the open-tabs foot (`FileTreeOpenTabs`) now self-
     // subscribes to a narrowed `editorStore.tabs` projection, so each
     // test seeds the store and resets it afterward.
     useEditorStore.setState(initialEditorState, true);
@@ -117,7 +117,7 @@ describe('FileTreeEmptyState', () => {
       />
     );
 
-    // UX Sweep T1 — the bespoke recent-project row and open-tab row carry
+    // accessibility pass — the bespoke recent-project row and open-tab row carry
     // the shared visible focus ring (the Create/Open CTAs use button-* which
     // already include it).
     expect(

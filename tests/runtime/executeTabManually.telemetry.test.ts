@@ -1,5 +1,5 @@
 /**
- * RL-065 — runner.executed telemetry wiring.
+ * internal — runner.executed telemetry wiring.
  *
  * These tests isolate `executeTabManually` behind hoisted mocks for
  * `runnerManager`, the telemetry emitter, and the console + result
@@ -62,16 +62,16 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setLineTimings: vi.fn(),
     setStdinConsumed: vi.fn(),
     setDiagnostics: vi.fn(),
-    // RL-020 Slice 7 — pill state setters; consumers must mock them
+    // implementation — pill state setters; consumers must mock them
     // or `executeTabManually` will throw `setRunDeadlineAt is not a
     // function` on the result-store destructure.
     setRunTermination: mockSetRunTermination,
     setRunDeadlineAt: mockSetRunDeadlineAt,
-    // RL-020 Slice 8 — manual Run captures the snapshot on clean
+    // implementation — manual Run captures the snapshot on clean
     // success. Mocked as vi.fn() so the telemetry tests don't crash
     // when the new capture branch fires.
     captureSuccessfulSnapshot: vi.fn(),
-    // RL-020 Slice 9 — manual Run also writes the variable inspector
+    // implementation — manual Run also writes the variable inspector
     // snapshot on the clean-success branch. Mocked so the
     // destructure doesn't crash.
     setScopeSnapshot: vi.fn(),
@@ -106,7 +106,7 @@ import { executeTabManually } from '../../src/renderer/runtime/executeTabManuall
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { defaultRuntimeTimeoutPresetSeed } from '../../src/shared/runtimeTimeoutPresets';
 
-describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
+describe('executeTabManually — runner.executed telemetry', () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();

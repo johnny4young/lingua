@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { HttpEmptyState } from '../../../src/renderer/components/HttpWorkspace/HttpEmptyState';
 
-describe('HttpEmptyState (SR-38)', () => {
+describe('HttpEmptyState', () => {
   it('renders the title, body, and a primary New request CTA', () => {
     render(<HttpEmptyState onCreate={vi.fn()} />);
     expect(screen.getByText('No request selected')).toBeTruthy();

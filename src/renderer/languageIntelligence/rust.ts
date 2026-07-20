@@ -11,7 +11,7 @@ import type {
 import { requestLspData, type LspRequestTransport } from './lspRequest';
 
 /**
- * RL-026 Slice 3 — renderer-side adapter for rust-analyzer.
+ * implementation — renderer-side adapter for rust-analyzer.
  *
  * The adapter is a thin transport layer between Monaco and the main-
  * process LSP bridge (`window.lingua.lsp.rust`). It does NOT cache

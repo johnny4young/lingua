@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 3 fold D — magic-comment parser performance defense.
+ * implementation note — magic-comment parser performance defense.
  *
  * The detect/transform pass runs on every auto-run, debounced
  * keystroke. A regression to "let's compile the whole buffer to AST"
@@ -9,7 +9,7 @@
  * Sizing rationale: 5 KB realistic JS buffer with a mix of regular
  * lines, `//=>` arrows, and `// @watch` watches × 10 000 iterations.
  * Budget: 400 ms CPU time (~40 µs / call). Same shape as
- * `autoRunGating.bench.test.ts` (Slice 1 fold F), with extra
+ * `autoRunGating.bench.test.ts` (implementation note), with extra
  * headroom because the magic-comment scanner also matches the
  * watch-shape regex which is materially slower per line.
  */
@@ -48,7 +48,7 @@ function buildBuffer(minBytes: number): string {
   // Realistic mix: variable declarations, arrow + watch markers,
   // multi-line comments, template literals.
   const sample = [
-    '// Generated benchmark fixture — RL-020 Slice 3 fold D.',
+    '// Generated benchmark fixture — implementation note.',
     'const items = [1, 2, 3, 4, 5].map((n) => n * n);',
     'items.length //=> length',
     'const greet = (name) => `hello ${name}`;',
@@ -93,13 +93,13 @@ describe('magicComments bench — 5 KB / 10 000 iterations', () => {
   });
 });
 
-describe('RL-020 Slice 5 fold F — auto-log detector bench', () => {
+describe('implementation note — auto-log detector bench', () => {
   it('detect + transform stay under 750 ms across 5 000 iterations on a 5 KB buffer', () => {
     // Realistic mix: declarations, bare expressions, function
     // bodies, arrows, watches, multi-line objects. The detector
     // must walk the buffer once per call; transform only runs when
     // there are candidate lines, so we batch one transform per 100
-    // detector calls (same shape as the Slice 3 bench above).
+    // detector calls (same shape as the implementation bench above).
     const sample = [
       'const xs = [1, 2, 3, 4, 5];',
       'xs.length',

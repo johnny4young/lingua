@@ -6,7 +6,7 @@ import ts from 'typescript';
 const TELEMETRY_HOOK_PATH = 'src/renderer/hooks/useTelemetry.ts';
 
 /**
- * RL-149 leaves the non-React and lower-traffic call-site long tail for later
+ * internal leaves the non-React and lower-traffic call-site long tail for later
  * sweeps. Each value is a ceiling, not a target: deleting or migrating calls is
  * always allowed, while adding a new direct caller or increasing a ceiling is
  * rejected. The only unrestricted entry point is useTelemetry itself.

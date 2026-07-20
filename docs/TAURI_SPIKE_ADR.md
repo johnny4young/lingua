@@ -1,4 +1,4 @@
-# ADR — Tauri 2 feasibility spike (RL-035)
+# ADR — Tauri 2 feasibility spike
 
 | Status | Accepted — no-go for now |
 | ------ | ------------------------ |
@@ -8,7 +8,7 @@
 
 ## Context
 
-RL-035 asks the team to run a bounded Tauri 2 spike — port one thin slice
+internal asks the team to run a bounded Tauri 2 spike — port one thin slice
 (editor shell, JS runner, filesystem open/save) and measure cold start,
 bundle size, update/signing path, permission model, maintenance cost of
 the Rust shell, and impact on current Go/Rust runner architecture. The
@@ -83,7 +83,7 @@ right move once the revisit triggers fire, not before.
 9. **Crash reporter (`src/main/crashReporter.ts`)** — Tauri has
    **no direct equivalent** to Electron's `crashReporter` minidump
    pipeline today. Community plugins exist (`tauri-plugin-sentry`)
-   but the unified-consent design we just landed (RL-067) depends on
+   but the unified-consent design we just landed depends on
    the `crashReporter.start`-before-createWindow timing. Rebuilding
    that in Tauri is possible but not free. **Net loss**.
 
@@ -98,7 +98,7 @@ right move once the revisit triggers fire, not before.
 
 ### Measured vs inherited work
 
-| Measurement line from RL-035 scope | Why we're not measuring yet |
+| Measurement line from internal scope | Why we're not measuring yet |
 |------------------------------------|-----------------------------|
 | Cold start | Would improve, but a POC does not answer whether Electron's cold start is a user-visible problem today. No customer feedback yet claims it is. |
 | Bundle size | Would improve by ~50–100 MB per platform. Compelling but not acceptance-gating without download-conversion data. |
@@ -122,8 +122,7 @@ A POC is **intentionally not shipped** with this ADR because:
 - The acceptance criterion "no full migration work starts before a
   decision" is satisfied by this written no-go.
 - The POC cost (1–2 days of engineering) is better spent on the
-  blocker slices the Phase 1/2 launch depends on (RL-061, RL-063,
-  RL-064).
+  blocker slices the Phase 1/2 launch depends on.
 
 ## When to revisit
 
@@ -131,7 +130,7 @@ Open a dated successor ADR and re-score when **any** of these becomes
 true:
 
 1. Tauri 2 ships (or a community plugin reaches stable) a
-   `crashReporter`-equivalent that matches our RL-067 minidump +
+   `crashReporter`-equivalent that matches our internal minidump +
    unified-consent contract.
 2. A customer-signal review shows Electron's cold start, bundle size,
    or memory footprint is a conversion-blocking objection — not a
@@ -150,11 +149,11 @@ work starts.
 
 ## Impact on adjacent items
 
-- `BUILD_SYSTEM_ADR.md` (RL-034) — unchanged. Stay on Forge.
-- `CAPABILITY_MATRIX.md` (RL-030) — unchanged. Tauri would not move
+- `BUILD_SYSTEM_ADR.md` — unchanged. Stay on Forge.
+- `CAPABILITY_MATRIX.md` — unchanged. Tauri would not move
   any capability into a different execution class; it would only swap
   the shell.
-- The internal plan — RL-035 flips to Done with this ADR as the artifact.
+- the implementation notes — internal flips to Done with this ADR as the artifact.
 
 ## Reviewers
 

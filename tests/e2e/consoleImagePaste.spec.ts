@@ -1,5 +1,5 @@
 /**
- * RL-044 next slice — paste an image into the console renders it as a
+ * implementation detail — paste an image into the console renders it as a
  * rich `image` entry. Exercises the real ConsolePanel document-level
  * paste listener with a synthetic `ClipboardEvent` carrying an image
  * `File` (chromium supports `DataTransfer.items.add`).
@@ -76,7 +76,7 @@ async function pasteImageAndExpectRendered(
 
 // Build + paste a >2 MiB PNG so the paste trips the cap and must be
 // downscaled. Random-noise pixels keep PNG incompressible → large file;
-// opaque (alpha 255) so the resize re-encodes to JPEG (fold C).
+// opaque (alpha 255) so the resize re-encodes to JPEG (implementation note).
 async function pasteOversizedImage(page: import('@playwright/test').Page) {
   await page.evaluate(async () => {
     const canvas = document.createElement('canvas');
@@ -109,7 +109,7 @@ async function pasteOversizedImage(page: import('@playwright/test').Page) {
   });
 }
 
-test.describe('Console image clipboard paste (RL-044)', () => {
+test.describe('Console image clipboard paste', () => {
   test('pasting an image renders it inline in the console (EN)', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {
@@ -138,7 +138,7 @@ test.describe('Console image clipboard paste (RL-044)', () => {
     await pasteImageAndExpectRendered(page, TINY_PNG);
   });
 
-  test('an oversized image is resized to fit and renders as a JPEG (fold B)', async ({
+  test('an oversized image is resized to fit and renders as a JPEG (implementation note)', async ({
     page,
   }) => {
     // Real-canvas resize path (jsdom can't run it): a >2 MiB PNG must be
@@ -160,7 +160,7 @@ test.describe('Console image clipboard paste (RL-044)', () => {
 
     const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
     await expect(img.first()).toBeVisible({ timeout: 30000 });
-    // Opaque source → resize re-encodes to JPEG (fold C); a non-resized
+    // Opaque source → resize re-encodes to JPEG (implementation note); a non-resized
     // paste would keep the source PNG mime.
     await expect(img.first()).toHaveAttribute('src', /^data:image\/jpeg/);
     // The resized toast (not the plain "added") confirms the resize branch.

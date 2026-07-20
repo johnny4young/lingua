@@ -42,7 +42,7 @@ const GitDiffPanel = lazy(async () => {
 });
 
 /**
- * RL-131 (AUDIT-11) — the bottom console/debugger/preview/stdin/variables/
+ * internal — the bottom console/debugger/preview/stdin/variables/
  * dependencies/git-diff/recipe drawer, extracted verbatim from `AppLayout.tsx`.
  * `debuggerAvailable` is computed by the shell (via `useLayoutAvailability`) and
  * passed in; every other availability gate + the `effectiveTab` resolution
@@ -60,15 +60,15 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   const activeVariableInspectorEnabled = useEditorStore(
     (s) => getActiveTab(s)?.variableInspectorEnabled === true
   );
-  // RL-019 Slice 3 — the Browser preview tab is only relevant for
+  // implementation — the Browser preview tab is only relevant for
   // JS/TS tabs whose runtime mode is `browser-preview`. Other tabs
   // hide the tab button entirely.
   const browserPreviewAvailable =
     languageHasRuntimeModes(activeLanguage) && activeRuntimeMode === 'browser-preview';
-  // RL-020 Slice 6 — the Input tab is offered for JS / TS / Python
+  // implementation — the Input tab is offered for JS / TS / Python
   // tabs whose runtime mode is NOT `browser-preview` (the iframe
   // sandbox has no stdin surface). The user can also hide it
-  // globally via Settings → Editor (fold D).
+  // globally via Settings → Editor (implementation note).
   const showStdinPanelSetting = useSettingsStore((state) => state.showStdinPanel);
   const variableInspectorSurface = useSettingsStore(
     (state) => state.variableInspectorSurface,
@@ -78,7 +78,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
     showStdinPanelSetting &&
     activeRuntimeMode !== 'browser-preview' &&
     isWorkerRunnerLanguage(activeLanguage);
-  // RL-093 Slice 3 — bottom-panel Variables tab is only offered when:
+  // implementation — bottom-panel Variables tab is only offered when:
   // the user picked the bottom surface, the language supports the
   // inspector, a scope snapshot exists, and the per-tab flag is on.
   // Mirrors `FloatingVariablesCard`'s gate so the two surfaces show /
@@ -94,7 +94,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
-  // RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
+  // implementation — Prerequisite fix surfaced during validation.
   // The "hide bottom panel" affordance disappeared from the header
   // some time ago (no chevron / X button to collapse the console
   // surface — users had to find the `Cmd+\` shortcut). Re-add a
@@ -103,7 +103,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   // that surfaces when the panel is hidden.
   const setConsoleVisible = useUIStore((state) => state.setConsoleVisible);
 
-  // RL-019 Slice 3 — register the activator so the
+  // implementation — register the activator so the
   // BrowserPreviewRunner can switch to the preview tab before it
   // assigns `srcdoc`. Cleanup clears the registration when the
   // panel unmounts.
@@ -129,7 +129,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   });
   const dependenciesAvailable = useDependenciesPanelAvailable();
   const gitDiffAvailable = useGitDiffTabAvailable();
-  // RL-039 Slice B — gate the `recipe` bottom-panel tab on the
+  // implementation — gate the `recipe` bottom-panel tab on the
   // persisted tab binding, not the transient recipeStore Map. The
   // Map only owns run results / in-flight state; the tab field is
   // what survives session restore and explicit unbind.
@@ -163,7 +163,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               ? 'dependencies'
               : gitDiffAvailable && activeBottomPanel === 'git-diff'
                 ? 'git-diff'
-                // RL-039 Slice B — Recipes Run + Test panel. Only when
+                // implementation — Recipes Run + Test panel. Only when
                 // the active tab is bound (the overlay's "open recipe"
                 // confirm flips here automatically).
                 : recipeTabAvailable && activeBottomPanel === 'recipe'
@@ -394,7 +394,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
             in the editor area (see EditorArea's activeSqlTabId /
             activeHttpTabId branches). The dock keeps only ephemeral
             streams + contextual panels. */}
-        {/* RL-039 Slice B — Recipes Run + Test tab. Only mounts when
+        {/* implementation — Recipes Run + Test tab. Only mounts when
             the active tab has a recipe binding (the overlay's open-
             recipe confirm sets the binding + flips the panel here). */}
         {recipeTabAvailable ? (

@@ -1,5 +1,5 @@
 /**
- * RL-071 — JwtUtilityPanel tests. The helper round-trips are covered in
+ * internal — JwtUtilityPanel tests. The helper round-trips are covered in
  * tests/utils/jwt.test.ts, so this suite focuses on wiring: mode
  * toggle swaps the rendered form, the Verify pass/fail indicators
  * appear with the right testids, Sign produces a copyable token, and

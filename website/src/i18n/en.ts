@@ -59,8 +59,7 @@ export const en = {
       headline: ['Run JS, TS,', 'Python, Go, and Rust', 'in'],
       headlineSuffix: 'one',
       headlineEnd: 'Monaco window.',
-      lede:
-        'Lingua is the playground senior developers reach for when they want to throw a 10-line script at five languages without spinning up a project. Desktop-first, source-available, and plain about what runs where.',
+      lede: 'Lingua is the playground senior developers reach for when they want to throw a 10-line script at five languages without spinning up a project. Desktop-first, source-available, and plain about what runs where.',
       proofLabel: 'Lingua product facts',
       proof: [
         { value: '5', label: 'runnable languages' },
@@ -90,7 +89,7 @@ export const en = {
         {
           icon: 'package',
           title: 'Five languages, one binary',
-          body: 'JavaScript, TypeScript, Python, Go, and Rust live inside the same Monaco-powered window. No project scaffold just to test an idea.',
+          body: 'JavaScript, TypeScript, Python, Go, and Rust live inside the same Monaco-powered window. No project scaffold to test an idea.',
         },
         {
           icon: 'wifi-off',
@@ -123,7 +122,8 @@ export const en = {
       ctaNote: 'No install, no account.',
       backToAll: 'All comparisons',
       indexTitle: 'How Lingua compares',
-      indexLede: 'Honest, verifiable side-by-sides with the tools developers actually weigh Lingua against. Each one says plainly when the other tool is the better pick.',
+      indexLede:
+        'Honest, verifiable side-by-sides with the tools developers actually weigh Lingua against. Each one says plainly when the other tool is the better pick.',
       indexCardCta: 'Read the comparison',
       vsLabel: 'Lingua vs',
     },
@@ -136,93 +136,90 @@ export const en = {
       velocity: '{count} releases since {since}',
     },
     whatsNew: {
-      eyebrow: "New in 0.12",
-      title: "The latest release, in four screenshots.",
-      lede:
-        "Every feature below shipped in v0.12 and works in the free tier. Full details live in the changelog.",
-      cta: "Read the full changelog",
+      eyebrow: 'New in 0.12',
+      title: 'The latest release, in four screenshots.',
+      lede: 'Every feature below shipped in v0.12 and works in the free tier. Full details live in the changelog.',
+      cta: 'Read the full changelog',
       history: {
-        title: "Every release before this one",
-        lede: "Fourteen releases of steady, local-first progress. Expand any version for its highlights.",
-        featuresLabel: "features",
-        featureLabel: "feature",
+        title: 'Every release before this one',
+        lede: 'Fourteen releases of steady, local-first progress. Expand any version for its highlights.',
+        featuresLabel: 'features',
+        featureLabel: 'feature',
       },
       items: [
         {
-          image: "/screenshots/v0.12/inline-timing.png",
-          alt: "Lingua editor showing per-line wall-clock timings at the right edge of each statement, with the slowest line highlighted in red",
-          title: "Per-line timing with // @time",
-          body: "Add one comment and every top-level statement shows its wall-clock duration inline — the slowest line of the run turns red. Perf hunting without leaving the editor, and timings survive errors.",
+          image: '/screenshots/v0.12/inline-timing.png',
+          alt: 'Lingua editor showing per-line wall-clock timings at the right edge of each statement, with the slowest line highlighted in red',
+          title: 'Per-line timing with // @time',
+          body: 'Add one comment and every top-level statement shows its wall-clock duration inline — the slowest line of the run turns red. Perf hunting without leaving the editor, and timings survive errors.',
         },
         {
-          image: "/screenshots/v0.12/smart-paste-jwt.png",
-          alt: "Smart-paste toast offering to open a pasted JWT in the JWT Debugger",
-          title: "Paste a value, open the right tool",
-          body: "Paste a JWT, UUID, color, Unix timestamp, cron expression, or Base64 into the editor and Lingua offers to open it pre-loaded in the matching developer utility. Conservative by design: code look-alikes stay silent.",
+          image: '/screenshots/v0.12/smart-paste-jwt.png',
+          alt: 'Smart-paste toast offering to open a pasted JWT in the JWT Debugger',
+          title: 'Paste a value, open the right tool',
+          body: 'Paste a JWT, UUID, color, Unix timestamp, cron expression, or Base64 into the editor and Lingua offers to open it pre-loaded in the matching developer utility. Conservative by design: code look-alikes stay silent.',
         },
         {
-          image: "/screenshots/v0.12/presenter-mode.png",
-          alt: "Lingua in presenter mode: no sidebar, toolbar, or status bar, with enlarged editor font",
-          title: "Presenter mode",
-          body: "One keystroke (Cmd+Alt+P) hides the chrome and enlarges the fonts for demos, pairing, and screen recordings. Toggle again and your exact layout comes back — it never touches your saved preferences.",
+          image: '/screenshots/v0.12/presenter-mode.png',
+          alt: 'Lingua in presenter mode: no sidebar, toolbar, or status bar, with enlarged editor font',
+          title: 'Presenter mode',
+          body: 'One keystroke (Cmd+Alt+P) hides the chrome and enlarges the fonts for demos, pairing, and screen recordings. Toggle again and your exact layout comes back — it never touches your saved preferences.',
         },
         {
-          image: "/screenshots/v0.12/bootstrap-progress.png",
-          alt: "Run button showing a live megabyte counter while the Python runtime downloads",
-          title: "Watch your runtime arrive",
-          body: "The first Python or Ruby run no longer sits on a static loading line: the run button streams a live MB counter while the WASM runtime downloads, on any network.",
+          image: '/screenshots/v0.12/bootstrap-progress.png',
+          alt: 'Run button showing a live megabyte counter while the Python runtime downloads',
+          title: 'Watch your runtime arrive',
+          body: 'The first Python or Ruby run no longer sits on a static loading line: the run button streams a live MB counter while the WASM runtime downloads, on any network.',
         },
       ],
     },
     tour: {
-      eyebrow: "Inside the app",
-      title: "The actual product, doing actual work.",
-      lede:
-        "No mockups below — every frame is the shipping app captured mid-task on the production web build.",
+      eyebrow: 'Inside the app',
+      title: 'The actual product, doing actual work.',
+      lede: 'No mockups below — every frame is the shipping app captured mid-task on the production web build.',
       items: [
         {
-          image: "/screenshots/tour/workspace-python.png",
-          alt: "Lingua workspace running a Python script: inline values next to each statement and real stdout in the console panel",
-          title: "Run Python, watch values land on every line",
-          body: "Pyodide boots in a worker, stdout streams into the console, and each top-level statement shows its value inline next to the code. The wall-clock time of every run lands in the console too — timing is output, not a claim.",
+          image: '/screenshots/tour/workspace-python.png',
+          alt: 'Lingua workspace running a Python script: inline values next to each statement and real stdout in the console panel',
+          title: 'Run Python, watch values land on every line',
+          body: 'Pyodide boots in a worker, stdout streams into the console, and each top-level statement shows its value inline next to the code. The wall-clock time of every run lands in the console too — timing is output, not a claim.',
         },
         {
-          image: "/screenshots/tour/command-palette.png",
-          alt: "Command palette filtered by the query sql, showing the SQL workspace, escape tool, and SQL formatter",
-          title: "One palette for commands, templates, and utilities",
-          body: "Cmd+K searches everything at once — commands, snippets, templates, and every developer utility. Type three letters, hit Enter, keep coding.",
+          image: '/screenshots/tour/command-palette.png',
+          alt: 'Command palette filtered by the query sql, showing the SQL workspace, escape tool, and SQL formatter',
+          title: 'One palette for commands, templates, and utilities',
+          body: 'Cmd+K searches everything at once — commands, snippets, templates, and every developer utility. Type three letters, hit Enter, keep coding.',
         },
         {
-          image: "/screenshots/tour/utilities.png",
-          alt: "Developer utilities workspace with the JSON formatter active: input panel, pretty-print controls, and a tree viewer",
-          title: "31 utilities live next to your code",
-          body: "JSON formatter with a tree viewer, JWT debugger, mock data, hash and UUID generators — plus Utility Pipelines that chain them into one-click workflows. Each one runs locally in the same window, so quick tasks stop costing you a browser tab.",
+          image: '/screenshots/tour/utilities.png',
+          alt: 'Developer utilities workspace with the JSON formatter active: input panel, pretty-print controls, and a tree viewer',
+          title: '31 utilities live next to your code',
+          body: 'JSON formatter with a tree viewer, JWT debugger, mock data, hash and UUID generators — plus Utility Pipelines that chain them into one-click workflows. Each one runs locally in the same window, so quick tasks stop costing you a browser tab.',
         },
         {
-          image: "/screenshots/tour/sql-workspace.png",
-          alt: "SQL workspace with an imported releases table, a formatted aggregate query, a results grid, and the column profile panel",
-          title: "A full SQL workspace on DuckDB",
-          body: "Drop a CSV, JSON, or Parquet file and it becomes a queryable table on the bundled DuckDB engine — results grid, one-keystroke query formatting, and per-column profiling included. Your local Run Ledger is queryable from here too.",
+          image: '/screenshots/tour/sql-workspace.png',
+          alt: 'SQL workspace with an imported releases table, a formatted aggregate query, a results grid, and the column profile panel',
+          title: 'A full SQL workspace on DuckDB',
+          body: 'Drop a CSV, JSON, or Parquet file and it becomes a queryable table on the bundled DuckDB engine — results grid, one-keystroke query formatting, and per-column profiling included. Your local Run Ledger is queryable from here too.',
         },
         {
-          image: "/screenshots/tour/http-workspace.png",
-          alt: "HTTP workspace showing a GET request with query params and a pretty-printed 200 OK JSON response",
-          title: "An HTTP client without the browser-tab tax",
-          body: "Requests, query params, auth, environments, and response capture live in one workspace tab. Send and read the pretty-printed body with status, timing, and size right where you code.",
+          image: '/screenshots/tour/http-workspace.png',
+          alt: 'HTTP workspace showing a GET request with query params and a pretty-printed 200 OK JSON response',
+          title: 'An HTTP client without the browser-tab tax',
+          body: 'Requests, query params, auth, environments, and response capture live in one workspace tab. Send and read the pretty-printed body with status, timing, and size right where you code.',
         },
         {
-          image: "/screenshots/tour/settings-privacy.png",
-          alt: "Privacy settings page: anonymous usage analytics off, Run Ledger off, sensitive HTTP header redaction list, and a redaction preview",
-          title: "Privacy is a settings page, not a promise",
-          body: "Telemetry ships off and stays off until you flip it. The Run Ledger records locally, sensitive headers are redacted by name, and the redaction preview shows exactly what would leave your machine — nothing.",
+          image: '/screenshots/tour/settings-privacy.png',
+          alt: 'Privacy settings page: anonymous usage analytics off, Run Ledger off, sensitive HTTP header redaction list, and a redaction preview',
+          title: 'Privacy is a settings page, not a promise',
+          body: 'Telemetry ships off and stays off until you flip it. The Run Ledger records locally, sensitive headers are redacted by name, and the redaction preview shows exactly what would leave your machine — nothing.',
         },
       ],
     },
     ai: {
       eyebrow: 'AI assistance · Pro',
       title: 'AI that never sends your code without asking.',
-      lede:
-        'Opt-in, bring-your-own-key, and local-first. Point it at a local model (Ollama, LM Studio) and your code never leaves the machine — or use any OpenAI-compatible endpoint. Lingua ships no default key and makes no background calls; every request shows you the exact payload first.',
+      lede: 'Opt-in, bring-your-own-key, and local-first. Point it at a local model (Ollama, LM Studio) and your code never leaves the machine — or use any OpenAI-compatible endpoint. Lingua ships no default key and makes no background calls; every request shows you the exact payload first.',
       shot: {
         image: '/screenshots/tour/ai-explain.png',
         alt: 'Explain-this-error dialog over a failed JavaScript run: the model explains the undefined property, proposes a guarded fix in a code block, and offers Ask and Apply and re-run actions',
@@ -255,8 +252,7 @@ export const en = {
     languageMatrix: {
       eyebrow: 'Language matrix',
       title: 'Honest support across 12 languages.',
-      lede:
-        'Five languages execute today. Seven more are useful for opening, reading, and lint-adjacent workflows, but they are not runnable yet.',
+      lede: 'Five languages execute today. Seven more are useful for opening, reading, and lint-adjacent workflows, but they are not runnable yet.',
       columns: {
         language: 'Language',
         status: 'Status',
@@ -287,20 +283,38 @@ export const en = {
     utilities: {
       eyebrow: 'Developer utilities',
       title: '31 panels, built in.',
-      lede:
-        'The browser tabs that usually orbit a code runner — JSON formatter, regex, JWT, diff, hash, cron, color, the lot — already live inside Lingua.',
+      lede: 'The browser tabs that usually orbit a code runner — JSON formatter, regex, JWT, diff, hash, cron, color, the lot — already live inside Lingua.',
       aria: 'Built-in developer utilities',
     },
     pricingTeaser: {
       eyebrow: 'Pricing',
       title: 'Four tiers, shown without the pricing-page ceremony.',
-      lede:
-        'The home page only needs the shape: Free is useful, Monthly unlocks the heavier runners, Pro is the pay-once tier, and Team is seat-based.',
+      lede: 'The home page only needs the shape: Free is useful, Monthly unlocks the heavier runners, Pro is the pay-once tier, and Team is seat-based.',
       tiers: [
-        { name: 'Free', price: '$0', tag: 'Default', desc: 'One tab, five snippets, JS / TS / Python / Ruby, single-shot utilities. No license needed.' },
-        { name: 'Monthly', price: '$5 / mo', tag: 'Subscription', desc: 'Unlimited tabs and snippets, Go and Rust, plus utility workflows.' },
-        { name: 'Pro', price: '$59 once', tag: 'Pay once', desc: 'Perpetual paid unlock — no recurring bill, with 12 months of updates included.' },
-        { name: 'Team', price: '$3 / seat / mo', tag: 'Per seat', desc: 'Team seats, invoicing, and organization-friendly license handling.' },
+        {
+          name: 'Free',
+          price: '$0',
+          tag: 'Default',
+          desc: 'One tab, five snippets, JS / TS / Python / Ruby, single-shot utilities. No license needed.',
+        },
+        {
+          name: 'Monthly',
+          price: '$5 / mo',
+          tag: 'Subscription',
+          desc: 'Unlimited tabs and snippets, Go and Rust, plus utility workflows.',
+        },
+        {
+          name: 'Pro',
+          price: '$59 once',
+          tag: 'Pay once',
+          desc: 'Perpetual paid unlock — no recurring bill, with 12 months of updates included.',
+        },
+        {
+          name: 'Team',
+          price: '$3 / seat / mo',
+          tag: 'Per seat',
+          desc: 'Team seats, invoicing, and organization-friendly license handling.',
+        },
       ],
     },
     privacyCallout: {
@@ -321,8 +335,7 @@ export const en = {
       'Free, Monthly at $5/mo, Pro at $59 one-time, and Team at $3/seat/mo. Offline-verified license keys. Free paid access for verified students and educators.',
     eyebrow: 'Pricing',
     heading: 'Four tiers. Pay only for what you need.',
-    lede:
-      'Monthly is a $5/month subscription. Pro is $59 once for a perpetual paid unlock and 12 months of updates; renew only if you want later releases. Team is $3/seat/month with invoicing. Free covers three-tab scratchpads forever. License keys verify offline.',
+    lede: 'Monthly is a $5/month subscription. Pro is $59 once for a perpetual paid unlock and 12 months of updates; renew only if you want later releases. Team is $3/seat/month with invoicing. Free covers three-tab scratchpads forever. License keys verify offline.',
     trialCallout: {
       text: 'First time? Try Pro free for 14 days — no credit card.',
       linkText: 'How to start →',
@@ -334,7 +347,8 @@ export const en = {
     table: {
       mostPopular: 'Most popular',
       disabled: 'Checkout coming soon',
-      disabledTitle: 'Polar checkout URL not configured yet — set PUBLIC_POLAR_CHECKOUT_* env vars in Cloudflare Pages',
+      disabledTitle:
+        'Polar checkout URL not configured yet — set PUBLIC_POLAR_CHECKOUT_* env vars in Cloudflare Pages',
       educationTitle: 'Education',
       education:
         'Free Pro for one year, renewable. Open Lingua → Settings → License → Educational license, enter your school email (any .edu domain plus .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br, .ac.in), and confirm with the magic link we send. The token arrives by email and pastes itself into the app.',
@@ -457,7 +471,8 @@ export const en = {
     fullChangelog: 'Full changelog →',
     older: (count: number) => `Older releases (${count})`,
     viewInChangelog: (version: string) => `Read v${version} notes →`,
-    zeroReleasesError: 'Release manifest came back empty — refusing to ship an empty downloads page.',
+    zeroReleasesError:
+      'Release manifest came back empty — refusing to ship an empty downloads page.',
     dates: {
       locale: 'en-US',
       long: { year: 'numeric', month: 'long', day: 'numeric' } as Intl.DateTimeFormatOptions,
@@ -480,13 +495,11 @@ export const en = {
   },
   changelog: {
     title: 'Roadmap & changelog — Lingua',
-    description:
-      "What's planned, what's in progress, and what's shipped. Every line maps to a public ticket or a stable release.",
+    description: "Lingua's product direction, active investments, and stable release history.",
     eyebrow: 'Roadmap & changelog',
     heading: 'Planned. In progress. Shipped.',
-    ledeBefore: 'Three phases of work, in that order. The first two come from the public',
-    ledeAfter:
-      'in the main repo — they change as tickets advance. The third is the actual release history pulled from CHANGELOG.md at every build.',
+    ledeBefore: 'A curated view of where Lingua is heading and what is actively improving.',
+    ledeAfter: 'Shipped history is generated from CHANGELOG.md at every build.',
     planned: 'Planned',
     inProgress: 'In progress',
     brewing: 'Brewing',
@@ -498,29 +511,29 @@ export const en = {
     },
     aria: {
       roadmapTotals: 'Roadmap totals',
-      jumpToPhase: 'Jump to phase',
+      jumpToSection: 'Jump to section',
       breakingChange: 'Breaking change',
     },
     phase1: {
-      eyebrow: 'Phase 1',
+      eyebrow: 'Direction',
       title: 'Planned',
-      lede: "Spec'd, scoped, and waiting in line. Each ticket has acceptance criteria written against the codebase before any work starts.",
+      lede: 'Product areas we intend to explore after the current foundations are ready.',
     },
     phase2: {
-      eyebrow: 'Phase 2',
+      eyebrow: 'Building',
       title: 'In progress',
-      lede: "Slices already shipped, more to come. Whatever's listed here has working code in the current binary — it's just not a finished story yet.",
+      lede: 'Capabilities with useful behavior today and a clearly defined next level of completeness.',
     },
     phaseBrewing: {
       eyebrow: 'Brewing',
       titlePrefix: 'Since',
-      lede:
-        "User-visible commits sitting on main that haven't been bundled into a stable release yet. Pulled straight from git log — no marketing edit in the middle.",
-      hidden: (count: number) => `Plus ${count} infrastructure / docs / test commits hidden from this view. Browse the full log on`,
+      lede: "User-visible commits sitting on main that haven't been bundled into a stable release yet. Pulled straight from git log — no marketing edit in the middle.",
+      hidden: (count: number) =>
+        `Plus ${count} infrastructure / docs / test commits hidden from this view. Browse the full log on`,
       github: 'GitHub',
     },
     phase3: {
-      eyebrow: 'Phase 3',
+      eyebrow: 'History',
       title: 'Shipped',
       lede: 'Stable releases on the public channel. Pulled from CHANGELOG.md at every build — never typed by hand.',
     },
@@ -546,12 +559,12 @@ export const en = {
       'Boilerplate descriptions, founder bio, pricing summary, and the press kit ZIP download. For journalists and partners writing about Lingua.',
     eyebrow: 'Press',
     heading: 'Press kit',
-    lede:
-      'Everything you need to write about Lingua honestly. Drop-in copy at three lengths, founder bio, and a contact address. Brand assets land with v0.3 — until then this page is copy and the ZIP carries the same.',
+    lede: 'Everything you need to write about Lingua honestly. Drop-in copy at three lengths, founder bio, and a contact address. Brand assets land with v0.3 — until then this page is copy and the ZIP carries the same.',
     downloadZip: 'Download press kit (ZIP)',
     contact: 'Press contact',
     contactMetaStart: 'Press contact —',
-    contactMetaEnd: 'For exclusive embargoed access ahead of a release, please give us at least 72 hours notice.',
+    contactMetaEnd:
+      'For exclusive embargoed access ahead of a release, please give us at least 72 hours notice.',
     sections: [
       {
         title: 'About Lingua — 25 words',
@@ -576,7 +589,8 @@ export const en = {
     ],
     pricing: {
       title: 'Pricing',
-      bodyStart: 'Four tiers — Free, Monthly at $5/mo, Pro at $59 one-time, Team at $3/seat/mo. Education is free for verified students and educators. See the',
+      bodyStart:
+        'Four tiers — Free, Monthly at $5/mo, Pro at $59 one-time, Team at $3/seat/mo. Education is free for verified students and educators. See the',
       link: 'full pricing page',
       bodyEnd: 'for what each tier unlocks.',
     },
@@ -586,7 +600,7 @@ export const en = {
       items: [
         "Lingua is source-available, not open source. Please don't describe it as MIT, Apache, or GPL.",
         'License keys are offline-verifiable — there is no phone-home or account check at launch time.',
-        "Five languages run today. Seven more are tracked but not yet shipped.",
+        'Five languages run today. Seven more are tracked but not yet shipped.',
         'The desktop app runs fully offline. The web build needs network for the first page load.',
       ],
     },

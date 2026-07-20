@@ -13,7 +13,7 @@ import { trackEvent } from '../utils/telemetry';
 
 type EditorInstance = Parameters<OnMount>[0];
 
-/** Languages Slice 1 lints. */
+/** Languages implementation lints. */
 const LINTABLE = new Set(['javascript', 'typescript']);
 
 /**
@@ -42,7 +42,7 @@ interface ActiveLintTab {
 }
 
 /**
- * RL-108 — wire inline lint over Monaco's existing JS/TS analysis. Three
+ * internal — wire inline lint over Monaco's existing JS/TS analysis. Three
  * concerns, all gated by the per-language `inlineLintEnabledByLanguage` setting:
  *
  *  1. Native toggle — flip Monaco's built-in TS/JS diagnostics on/off per
@@ -56,7 +56,7 @@ interface ActiveLintTab {
  *
  * Adoption telemetry (`editor.lint_diagnostic_emitted`) fires at most once per
  * session per (language, severity, ruleId), separating Monaco's `ts-native`
- * diagnostics from the custom rules (fold F). No code or positions are sent.
+ * diagnostics from the custom rules (implementation note). No code or positions are sent.
  */
 export function useInlineLint(
   editor: EditorInstance | null,

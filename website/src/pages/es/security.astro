@@ -35,7 +35,7 @@ import Legal from '~/layouts/Legal.astro';
   <h2>Auditoría de dependencias bloqueante</h2>
   <p>
     Cada ejecución del pipeline de release corre
-    <code>npm audit --omit=dev --audit-level=high</code> como gate bloqueante. Una vulnerabilidad
+    <code>npm audit --omit=dev --internal=high</code> como gate bloqueante. Una vulnerabilidad
     alta o crítica en una dependencia de runtime detiene la release.
   </p>
 

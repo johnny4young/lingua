@@ -1,6 +1,6 @@
 /**
- * RL-044 Slice 1C fold G — renderer-side Python console-payload
- * processing budget. Mirrors the JS Slice 1B fold G bench
+ * implementation note — renderer-side Python console-payload
+ * processing budget. Mirrors the JS implementation note bench
  * (`consoleRich.bench.test.ts`), but on the path the Python runner
  * actually exercises: a flooded Pyodide `print(...)` loop produces a
  * thousand-entry `print_entries` array, the renderer maps each entry

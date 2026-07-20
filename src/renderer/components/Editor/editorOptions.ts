@@ -2,7 +2,7 @@ interface EditorOptionInput {
   fontSize: number;
   fontFamily: string;
   /**
-   * Slice 2 — kept as a derived input from `effectiveFontLigatures`
+   * implementation — kept as a derived input from `effectiveFontLigatures`
    * (font-stack-dependent). Settings no longer exposes a ligatures
    * toggle; if the active font supports them, they render.
    */
@@ -12,7 +12,7 @@ interface EditorOptionInput {
 }
 
 /**
- * RL-043 Slice (Monaco cells) fold A — shared option builder for the
+ * implementation Slice (Monaco cells) implementation note — shared option builder for the
  * "satellite" Monaco surfaces that are NOT the main code editor: the SQL
  * workspace editor and the notebook cell editor. These surfaces want a
  * leaner config than the full `getEditorOptions` (no glyph margin, no
@@ -66,7 +66,7 @@ export function getEditorOptions({
     fontFamily,
     fontLigatures,
     glyphMargin: true,
-    // Slice 2 — line numbers are baseline editor primitive; always on.
+    // implementation — line numbers are baseline editor primitive; always on.
     lineNumbers: 'on',
     wordWrap: wordWrap ? 'on' : 'off',
     minimap: { enabled: minimap },

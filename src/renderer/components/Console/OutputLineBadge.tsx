@@ -5,20 +5,20 @@ import { trackOutputOriginClicked } from '../../utils/telemetry';
 import { emitCommand } from '../../stores/commandBus';
 
 /**
- * RL-044 Sub-slice G — clickable `L<n>` chip rendered on every
+ * implementation — clickable `L<n>` chip rendered on every
  * console row whose `RichOutputPayload` carries an `origin`. Click
- * emits the shared `file.open` command (reuses the Sub-slice
+ * emits the shared `file.open` command (reuses the implementation
  * F handler in `useDefaultOpenFileConsumer`); hover emits the
  * new `editor.highlightLine` command consumed by `useEditorHighlightSync`
  * which applies a Monaco decoration class.
  *
- * Slice 2 — the master/hover Settings toggles are gone; output→source
+ * implementation — the master/hover Settings toggles are gone; output→source
  * linking is a baseline affordance. The per-tab `// @origin off`
  * directive remains as the user-controlled escape hatch (the parent
  * `<ConsoleEntryRenderer>` suppresses the chip when the buffer
  * carries the directive).
  *
- * Telemetry: click emits `runtime.output_origin_clicked` (Fold B
+ * Telemetry: click emits `runtime.output_origin_clicked` (implementation note
  * burst-throttled at the helper level). Hover is intentionally
  * silent — see the comment on `OUTPUT_ORIGIN_SURFACES` in
  * `src/shared/telemetry.ts`.

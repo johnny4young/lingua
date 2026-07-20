@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 — `httpResponseCapsule.ts` mapping rules.
+ * implementation — `httpResponseCapsule.ts` mapping rules.
  *
  * Pinned coverage:
  *   - 2xx → capsule status 'success'.
@@ -53,7 +53,7 @@ function makeRes(overrides: Partial<HttpResponseV1> = {}): HttpResponseV1 {
   };
 }
 
-describe('buildHttpResponseCapsule (RL-097 Slice 1 fold A bridge)', () => {
+describe('buildHttpResponseCapsule (implementation note bridge)', () => {
   const ARGS = {
     appVersion: '0.4.0',
     requestName: 'My request',

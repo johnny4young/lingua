@@ -5,7 +5,7 @@ import { cn } from '../../utils/cn';
 import { useFileDropZone, type FileDropState } from '../../hooks/useFileDropZone';
 
 /**
- * RL-070 — Signal-Slate file drop zone.
+ * internal — Signal-Slate file drop zone.
  *
  * Visual states:
  *
@@ -99,7 +99,7 @@ export function FileDropZone({
         accept={acceptAttr}
         aria-label={typeof hint === 'string' ? hint : undefined}
         data-testid={inputTestId}
-        className="sr-only"
+        className="internal"
         onChange={(event) => {
           processFile(event.target.files?.[0]);
           event.target.value = '';

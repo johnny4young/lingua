@@ -1,5 +1,5 @@
 /**
- * UX Sweep T2 — shared destructive-action confirm dialog.
+ * accessibility pass — shared destructive-action confirm dialog.
  *
  * Extracted from the hand-rolled `role="alertdialog"` overlay that lived
  * inside `ProjectReplace` so every destructive call site (file/folder

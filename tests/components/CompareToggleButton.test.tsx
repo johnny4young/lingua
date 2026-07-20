@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 8 — CompareToggleButton render contract.
+ * implementation — CompareToggleButton render contract.
  *
  * Covers:
  *   - Disabled state when no comparator snapshot for the language.
@@ -77,7 +77,7 @@ function setSnapshot(language: string): void {
   });
 }
 
-describe('RL-020 Slice 8 — <CompareToggleButton>', () => {
+describe('implementation — <CompareToggleButton>', () => {
   beforeEach(() => {
     trackEventMock.mockReset();
     setTabCompareEnabledMock.mockReset();

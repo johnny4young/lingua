@@ -1,5 +1,5 @@
 /**
- * T19 / RL-031 Slice 3 — AI provider configuration (BYO-API-key).
+ * implementation — AI provider configuration (BYO-API-key).
  *
  * Kept in its OWN persist boundary (`lingua-ai`), deliberately isolated from
  * `lingua-settings`: the API key must never ride along in a settings export,

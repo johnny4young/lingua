@@ -1,5 +1,5 @@
 /**
- * IT2-A4 — contract test for the debugger worker bridge. The bridge's
+ * internal — contract test for the debugger worker bridge. The bridge's
  * `DebuggerControlMessage` union is now ALSO consumed by the worker's
  * inbound handler (`WorkerInboundMessage` in js-worker.ts), so this
  * locks the sender side: every variant round-trips verbatim to the
@@ -24,7 +24,7 @@ afterEach(() => {
   setActiveDebugWorker(null);
 });
 
-describe('debuggerWorkerBridge (IT2-A4)', () => {
+describe('debuggerWorkerBridge', () => {
   it('round-trips every control variant verbatim to the registered worker', () => {
     const worker = fakeWorker();
     setActiveDebugWorker(worker);

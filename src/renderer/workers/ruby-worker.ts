@@ -1,5 +1,5 @@
 /**
- * Ruby execution Web Worker (RL-042 Slice 5 — web runtime).
+ * Ruby execution Web Worker (implementation — web runtime).
  *
  * Boots CRuby + stdlib in WebAssembly via `@ruby/wasm-wasi` on first
  * init, captures `$stdout` / `$stderr` through the upstream
@@ -20,19 +20,19 @@
  * of this worker — same posture as Pyodide and the JS worker. User
  * code runs inside the @ruby/wasm-wasi sandbox (no host filesystem,
  * no native syscalls) and the parent renderer terminates the worker
- * on timeout per RL-078.
+ * on timeout per internal
  *
- * RL-078: the worker does NOT schedule its own deadline. The parent
+ * internal: the worker does NOT schedule its own deadline. The parent
  * renderer thread owns the kill timer and calls `worker.terminate()`
  * if user code does not yield in time. Each `execute` request carries
  * a `runId` that the worker echoes on every reply so the parent drops
  * messages from a previous (terminated) run.
  *
- * Out of scope this slice:
+ * Out of scope this change:
  *  - Magic-comment `#=>` peek (no detector wired for Ruby yet).
  *  - Rich console payload (Ruby flows through the legacy text path,
  *    same posture as Go / Rust today).
- *  - Stdin / `gets` (deferred fold F).
+ *  - Stdin / `gets` (deferred implementation note).
  *  - Variable inspector scope capture.
  */
 

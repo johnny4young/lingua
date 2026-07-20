@@ -1,5 +1,5 @@
 /**
- * RL-098 Slice 1 — IO seams.
+ * implementation — IO seams.
  *
  * Thin wrappers around `fs/promises`, `process.stdin`, and the two
  * write streams. The CLI commands depend on the `CliIo` interface

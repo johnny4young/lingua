@@ -33,7 +33,7 @@ Run these before opening a PR:
 ```sh
 npm run check
 env LINGUA_SOURCE=local npm run build
-npm audit --audit-level=moderate
+npm audit --internal=moderate
 ```
 
 ## Build and deploy
@@ -65,13 +65,15 @@ dev builds. Set `LINGUA_DOWNLOADS_BASE` to point at a staging bucket.
 everything the build needs into this repo. It produces:
 
 - `src/content/press-kit/*.md` and `src/content/seo/en/*.md` — vendored markdown
-- `src/data/roadmap.json` — parsed from `docs/ROADMAP.md` (Planned + Partial)
 - `src/data/changelog.json` — parsed from `CHANGELOG.md`
 - `src/data/unreleased.json` — `git log` since the latest stable tag, filtered
   to user-visible commits (`feat`/`fix`/`perf`)
 
-All four are committed. The Astro build never reads from the main repo or hits
-GitHub — CF Pages and CI build with zero auth.
+The public roadmap in `src/data/roadmap.json` is curated independently. It is a
+small product-direction projection and must never copy private planning IDs,
+acceptance notes, or sprint history. Generated content and the curated roadmap
+are committed. The Astro build never reads from the main repo or hits GitHub —
+CF Pages and CI build with zero auth.
 
 Three ways to run a sync:
 

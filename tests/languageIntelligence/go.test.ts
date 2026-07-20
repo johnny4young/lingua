@@ -1,5 +1,5 @@
 /**
- * RL-026 Slice 4 — `GoLanguageIntelligenceAdapter` contract tests.
+ * implementation — `GoLanguageIntelligenceAdapter` contract tests.
  *
  * Mirrors the rust adapter test suite. The adapter is the renderer-
  * side glue between the Monaco providers and the main-process LSP

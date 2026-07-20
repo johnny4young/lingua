@@ -1,5 +1,5 @@
 /**
- * RL-066 SEO scaffold guard — ensures every landing page the plan
+ * implementation SEO scaffold guard — ensures every landing page the plan
  * enumerates exists, carries the required front-matter keys, links to
  * the canonical download, and includes an honest-limitations section.
  */
@@ -37,7 +37,7 @@ function readFrontMatter(file: string): Record<string, string> {
   return out;
 }
 
-describe('docs/seo-pages (RL-066)', () => {
+describe('docs/seo-pages', () => {
   it('ships every enumerated landing-page scaffold', () => {
     for (const filename of EXPECTED_PAGES) {
       expect(existsSync(resolve(PAGES_DIR, filename))).toBe(true);

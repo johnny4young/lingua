@@ -21,8 +21,8 @@ La mayoría de "Go playgrounds" son sandboxes remotos. No puedes importar un mó
 ## Lo que no funciona hoy
 
 - Necesitas una toolchain local de Go instalada. La versión web lo muestra como "desktop only" en vez de fallar en silencio.
-- Aún no hay integración Go LSP; hoy solo hay completions básicas de Monaco. El camino LSP real está en RL-026.
-- No hay debugger integrado; RL-027 mantiene ese diseño.
+- Aún no hay integración Go LSP; hoy solo hay completions básicas de Monaco. El camino LSP real está en internal
+- No hay debugger integrado; internal mantiene ese diseño.
 - Lingua no administra tu `GOPATH` ni tu module proxy.
 
 ## Por qué está en el tier pago

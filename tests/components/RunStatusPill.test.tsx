@@ -1,11 +1,11 @@
 /**
- * RL-020 Slice 7 — RunStatusPill render contract.
+ * implementation — RunStatusPill render contract.
  *
  * Covers:
  *   - Hidden on success and when runTermination is null.
  *   - Renders timeout / stopped / error variants with the right
  *     icon + text + tooltip.
- *   - Renders the fold-E countdown variant when showTimeoutCountdown
+ *   - Renders the implementation note countdown variant when showTimeoutCountdown
  *     is on AND runDeadlineAt is set.
  */
 
@@ -47,7 +47,7 @@ function selectPill(): HTMLElement | null {
   );
 }
 
-describe('RL-020 Slice 7 — <RunStatusPill>', () => {
+describe('implementation — <RunStatusPill>', () => {
   beforeEach(() => {
     useResultStore.setState({
       runTermination: null,

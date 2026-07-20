@@ -1,5 +1,5 @@
 /**
- * RL-044 Slice 2a — Sub-slice F clickable error stacks.
+ * implementation — implementation clickable error stacks.
  *
  * Pure, no-DOM, no-React module that converts a runtime error's
  * `stack` string (Node / browser JS) or a Python traceback into a
@@ -12,8 +12,8 @@
  *     so the renderer paints it as a non-clickable span. We never
  *     throw on malformed input.
  *   - **No source-map resolution.** Whatever the worker reports
- *     literally is what we keep. Source-map resolution is RL-027
- *     lane crossover; not in this slice.
+ *     literally is what we keep. Source-map resolution is internal
+ *     lane crossover; not in this change.
  *   - **Pure shared module.** Used by JS worker + Python worker +
  *     renderer + tests. No imports from renderer-only code.
  */
@@ -33,7 +33,7 @@ export interface ClickableStackFrame {
    */
   fnName?: string;
   /**
-   * RL-044 Slice 2b-β-β-α fold C — separator marker emitted between
+   * implementation-β-β-α implementation note — separator marker emitted between
    * Python traceback segments linked by PEP 3134 `__cause__` /
    * `__context__` chains. The renderer styles these frames as
    * non-clickable separators (italic, low-contrast) so users can see
@@ -68,7 +68,7 @@ const V8_WITHOUT_NAME = /^\s*at\s+(?<file>.+?):(?<line>\d+):(?<col>\d+)\s*$/;
 const SPIDERMONKEY = /^\s*(?<fn>.*?)@(?<file>.+?):(?<line>\d+):(?<col>\d+)\s*$/;
 
 /**
- * RL-044 Slice 2b-β-α Prerequisite fix — eval-internal heuristic.
+ * implementation Prerequisite fix — eval-internal heuristic.
  *
  * In Lingua, user code runs inside an AsyncFunction inside the Web
  * Worker, so V8 produces frames like:
@@ -184,7 +184,7 @@ export function parseJsErrorStack(stack: string | undefined): ClickableStackFram
 const PYTHON_FILE_LINE =
   /^\s*File\s+"(?<file>.+?)",\s+line\s+(?<line>\d+)(?:,\s+in\s+(?<fn>.+))?\s*$/;
 
-// RL-044 Slice 2b-β-β-α fold C — PEP 3134 chain separators. Python
+// implementation-β-β-α implementation note — PEP 3134 chain separators. Python
 // formats these literal strings between linked traceback segments:
 //   - `raise … from …`               → `__cause__` chain.
 //   - implicit re-raise in handler   → `__context__` chain.

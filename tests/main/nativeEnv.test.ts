@@ -1,8 +1,8 @@
 /**
- * RL-079 — `buildNativeRunnerEnv` contract tests.
+ * internal — `buildNativeRunnerEnv` contract tests.
  *
  * Pins the env-leak defense: only allowlisted host keys should reach
- * the spawned toolchain, user env from RL-011 layers on top, and
+ * the spawned toolchain, user env from internal layers on top, and
  * runner-owned overrides always win.
  */
 
@@ -72,7 +72,7 @@ describe('buildNativeRunnerEnv', () => {
     expect(env.HOME).toBeUndefined();
   });
 
-  it('layers the RL-011 user env on top of the allowlisted host env', () => {
+  it('layers the internal user env on top of the allowlisted host env', () => {
     process.env.PATH = '/usr/bin';
 
     const env = buildNativeRunnerEnv(COMMON_TOOLCHAIN_KEYS, {

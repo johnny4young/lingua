@@ -1,8 +1,8 @@
 # Runtime Assets ADR
 
-> Owning ticket: `RL-083` — Offline runtime assets + strict CSP.
-> Status: Closed 2026-05-04; hardened 2026-05-08. Slice 1 vendored
-> Pyodide for desktop and tightened the desktop CSP. Slice 2 originally
+> Scope: offline runtime assets and strict CSP.
+> Status: Closed 2026-05-04; hardened 2026-05-08. implementation vendored
+> Pyodide for desktop and tightened the desktop CSP. implementation originally
 > used a cache-first CDN strategy for web; the hardening follow-up moved
 > web onto the same copied, same-origin Pyodide asset tree. The 2026-06-01
 > Cloudflare Pages hardening keeps Pyodide same-origin but serves oversized
@@ -38,7 +38,7 @@ directly through Cloudflare Pages.
 
 ## Decision
 
-### Desktop (this slice)
+### Desktop (this change)
 
 - Pin `pyodide@0.29.4` as a runtime npm dependency.
 - A small Vite plugin (`build/copyRuntimeAssetsPlugin.mts`) copies the
@@ -136,10 +136,10 @@ Concretely:
 
 - **Custom protocol scheme (`lingua-asset://`)** — would let main
   serve Pyodide assets through `protocol.handle` with stricter
-  same-origin guarantees than `file://`. Rejected for Slice 1 because
+  same-origin guarantees than `file://`. Rejected for implementation because
   the plain copy-into-renderer-output approach already works under
   Electron's existing `loadFile` flow and adds no new IPC surface.
-  The custom-protocol option remains open for a later slice if we want
+  The custom-protocol option remains open for a later work if we want
   per-asset SRI verification at request time.
 - **`asarUnpack: '**/pyodide/**'`** — would store the files outside
   asar and load them from disk. Not needed today because Electron's

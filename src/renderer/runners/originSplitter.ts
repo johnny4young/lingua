@@ -1,5 +1,5 @@
 /**
- * RL-044 Sub-slice G — best-effort `file.ext:N` splitter for the
+ * implementation — best-effort `file.ext:N` splitter for the
  * Go and Rust desktop runners.
  *
  * Go and Rust subprocesses emit panic / debug output that includes
@@ -49,7 +49,7 @@ const MAX_SCAN_BYTES = 4096;
 export type OriginLanguage = 'go' | 'rust';
 
 export interface SplittedOrigin {
-  /** The file path captured, useful for the Fold D guard when ConsoleEntry.tabId lands. */
+  /** The file path captured, useful for the implementation note guard when ConsoleEntry.tabId lands. */
   file: string;
   line: number;
 }

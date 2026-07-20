@@ -1,5 +1,5 @@
 /**
- * IT2-F4 — consume the one-shot input seed the smart-paste router leaves
+ * internal — consume the one-shot input seed the smart-paste router leaves
  * in the utility-history store.
  *
  * Each target panel calls this with its id and an `apply` callback that

@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice E fold A — desktop native `.linguanb` save via the
+ * implementation Slice E implementation note — desktop native `.linguanb` save via the
  * capability sandbox. Pins the saveDialog → write → revokeRoot flow and
  * the web-fallback signal (`'unavailable'` when no desktop bridge is
  * available, including the web FSA shim).

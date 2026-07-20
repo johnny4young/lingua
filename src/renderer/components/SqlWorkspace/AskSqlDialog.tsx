@@ -1,5 +1,5 @@
 /**
- * T19 follow-on — "Ask AI" for the SQL workspace: natural language → SQL
+ * implementation follow-on — "Ask AI" for the SQL workspace: natural language → SQL
  * over the LIVE DuckDB schema.
  *
  * Consent model (same contract as ExplainErrorDialog): the payload preview

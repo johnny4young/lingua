@@ -1,5 +1,5 @@
 /**
- * T19 follow-on — NL→SQL request builder. Pins the schema-only payload
+ * implementation follow-on — NL→SQL request builder. Pins the schema-only payload
  * contract: table/column names + types go to the model, never rows.
  */
 

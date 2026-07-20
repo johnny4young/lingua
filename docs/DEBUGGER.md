@@ -1,14 +1,13 @@
-# Debugger MVP — Slice 1 + 1.5 runbook (RL-027)
+# Debugger operator guide
 
-> Operator-oriented walkthrough of the JS/TS debugger that ships in
-> Slice 1 (instrument + worker protocol) and Slice 1.5 (user-facing
-> surface). Read alongside [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) for
-> the design rationale; RL-027 in the internal plan owns the
-> ticket-level scope and status.
+> Operator-oriented walkthrough of the JavaScript and TypeScript debugger.
+> Read alongside [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) for its design
+> rationale and [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) for the
+> current language and platform boundaries.
 
 ## What the user sees
 
-After Slice 1.5 ships:
+The current implementation provides:
 
 - A red dot in the Monaco gutter whenever a breakpoint is set on the
   current tab. Click an empty gutter cell to add a breakpoint; click
@@ -106,7 +105,7 @@ F10 / F11 / Shift+F11 fire, so they never compete with normal-mode
 keystrokes. `Mod+Shift+B` is exempt from the paused-worker gate, but
 still requires a debugger-capable JS / TS tab plus an editor cursor.
 
-## TS source-map composition (Slice 1.5 fold G)
+## TypeScript source-map composition
 
 When the active tab is TypeScript, the runner asks esbuild for an
 external source map and passes it to `instrumentForDebugger` via the
@@ -138,14 +137,13 @@ Every payload is closed-enum. The redactor in `src/shared/telemetry.ts`
 drops any key that isn't on the per-event allowlist. No source, no
 breakpoint coordinates, no expression content.
 
-## Limitations carried over to Slice 1.5b
+## Current limitations
 
 - **Conditional-breakpoint predicate evaluation** is not yet wired —
   the store accepts a `condition` string but the worker treats it as
-  always-true. Slice 1.5b will land the eval pass behind a dedicated
-  security note (the dynamic-Function-constructor pattern triggered
-  the security_reminder hook during Slice 1, and the carve-out in the
-  inline-fix policy keeps this deferred until the review).
+  always-true. Predicate evaluation remains disabled until its dynamic-code
+  execution model has a dedicated security review and explicit user-facing
+  controls.
 - **Watch-expression evaluation** has the same gate. The UI renders
   watches as `pending` markers until the eval pass lands.
 - **Python / Go / Rust** adapters are still `'planned'` in

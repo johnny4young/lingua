@@ -1,5 +1,5 @@
 /**
- * B5 — live Windows guard for the npm.cmd launch boundary.
+ * implementation — live Windows guard for the npm.cmd launch boundary.
  *
  * The general install suite injects spawn and pins the exact argv. This test
  * intentionally uses the real Node child_process implementation on win32 so
@@ -24,7 +24,7 @@ describe.runIf(process.platform === 'win32')(
     let workdir = '';
 
     beforeAll(async () => {
-      workdir = await mkdtemp(path.join(os.tmpdir(), 'lingua-b5-win-'));
+      workdir = await mkdtemp(path.join(os.tmpdir(), 'lingua-native-deps-win-'));
       await writeFile(path.join(workdir, 'package.json'), '{}');
       await writeFile(
         path.join(workdir, '.npmrc'),
@@ -51,9 +51,9 @@ describe.runIf(process.platform === 'win32')(
       );
       const logs: string[] = [];
       const result = await installJsDependencyBatch({
-        runId: 'b5-live-windows',
+        runId: 'native-deps-live-windows',
         filePath: path.join(workdir, 'probe.js'),
-        specifiers: ['lingua-b5-windows-spawn-probe-20260710'],
+        specifiers: ['lingua-windows-spawn-probe'],
         onLog: (_stream, chunk) => logs.push(chunk),
       });
 

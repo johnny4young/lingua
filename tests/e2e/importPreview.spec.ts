@@ -1,5 +1,5 @@
 /**
- * RL-100 Slice 1 — e2e for the global Import overlay.
+ * implementation — e2e for the global Import overlay.
  *
  * Acceptance: Mod+Alt+I opens the Import overlay from anywhere. EN
  * + ES locales render with tuteo copy. The full preview + confirm
@@ -16,7 +16,7 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('Import overlay — Mod+Alt+I binding (RL-100 Slice 1)', () => {
+test.describe('Import overlay — Mod+Alt+I binding ', () => {
   test('opens via Mod+Alt+I (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
@@ -37,7 +37,7 @@ test.describe('Import overlay — Mod+Alt+I binding (RL-100 Slice 1)', () => {
     await expect(page.getByText(/importa datos/i)).toBeVisible();
   });
 
-  test('pasting a Jupyter `.ipynb` payload previews the notebook (RL-100 Slice 2, EN)', async ({
+  test('pasting a Jupyter `.ipynb` payload previews the notebook (implementation, EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
@@ -67,13 +67,13 @@ test.describe('Import overlay — Mod+Alt+I binding (RL-100 Slice 1)', () => {
     await expect(
       page.getByTestId('import-preview-notebook-summary')
     ).toContainText(/2 cells/);
-    // Confirm button label flips to the notebook variant (fold C).
+    // Confirm button label flips to the notebook variant (implementation note).
     await expect(page.getByTestId('import-preview-confirm')).toContainText(
       /Import as notebook/i
     );
   });
 
-  test('rejects an .ipynb with nbformat 3 with a localized hint (ES tuteo, RL-100 Slice 2)', async ({
+  test('rejects an .ipynb with nbformat 3 with a localized hint (ES tuteo, implementation)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'es' });
@@ -91,7 +91,7 @@ test.describe('Import overlay — Mod+Alt+I binding (RL-100 Slice 1)', () => {
     ).toContainText(/formato v4/i);
   });
 
-  test('pasting a Postman collection previews every request (RL-100 Slice 3, EN)', async ({
+  test('pasting a Postman collection previews every request (implementation, EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
@@ -124,7 +124,7 @@ test.describe('Import overlay — Mod+Alt+I binding (RL-100 Slice 1)', () => {
     );
   });
 
-  test('confirming a collection lands every request in the stable HTTP workspace rail (RL-100 Slice 3 / MOV.02, EN)', async ({
+  test('confirming a collection lands every request in the stable HTTP workspace rail (implementation / MOV.02, EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });

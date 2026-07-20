@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 3 — BrowserPreviewPanel surface tests.
+ * implementation — BrowserPreviewPanel surface tests.
  *
  * Covers:
  *

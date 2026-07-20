@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isLikelyEmail } from '../../src/renderer/utils/email';
 
-describe('isLikelyEmail (SR-39)', () => {
+describe('isLikelyEmail', () => {
   it('accepts ordinary and unusual-but-valid addresses', () => {
     for (const value of [
       'ada@example.com',

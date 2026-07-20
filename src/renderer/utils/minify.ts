@@ -1,6 +1,6 @@
 /**
  * Minifiers that pair with `formatSource` (Prettier) for the
- * Beautify/Minify developer utility (RL-070). Coverage:
+ * Beautify/Minify developer utility. Coverage:
  *
  *   - JSON: pure parse + stringify round-trip.
  *   - JavaScript: terser v5 (real ECMAScript minifier — mangling,
@@ -9,7 +9,7 @@
  *   - HTML / XML: hand-rolled whitespace-only state machines that
  *     preserve preserve-tag / CDATA / PI / attribute-string contents
  *     byte-for-byte. A full html-minifier-terser / xml-minifier is a
- *     later slice; the panel surfaces a hint so expectations stay
+ *     later work; the panel surfaces a hint so expectations stay
  *     honest.
  *   - CSS / SCSS / LESS: shared state machine — same whitespace-only
  *     collapse, with `//` line comments stripped for SCSS / LESS (CSS

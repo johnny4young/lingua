@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 3 — bridge protocol between the iframe-isolated
+ * implementation — bridge protocol between the iframe-isolated
  * user-code context and the parent renderer.
  *
  * Two surfaces live here:
@@ -11,7 +11,7 @@
  *      parent can drop stale messages from a previous run.
  *
  *   2. `buildPreviewDocument(...)` — assembles the full HTML
- *      payload (CSP meta + bridge script + optional Fold A
+ *      payload (CSP meta + bridge script + optional implementation note
  *      stylesheet/scaffold + user code) that goes into the
  *      iframe's `srcdoc`. Keeping it pure makes the runner unit
  *      test trivial: feed inputs, assert the rendered string.
@@ -99,7 +99,7 @@ export const BRIDGE_DISCRIMINATOR = 'browser-preview' as const;
  *   - `script-src 'unsafe-inline'` — only the inline bridge +
  *     user code scripts. No remote fetches.
  *   - `style-src 'unsafe-inline'` — author CSS via `<style>` tags
- *     (fold A multi-file seed surfaces sibling .css here).
+ *     (implementation note multi-file seed surfaces sibling .css here).
  *   - `img-src data:` — let user code embed inline images for DOM
  *     experiments. No remote image fetches.
  *
@@ -225,7 +225,7 @@ export interface PreviewDocumentInput {
   /** Active tab content; the JS / TS body to execute. */
   userCode: string;
   /**
-   * Fold A — optional companion text from sibling tabs. The
+   * implementation note — optional companion text from sibling tabs. The
    * runner forwards whatever was discovered (CSS for `<style>`,
    * an HTML fragment to seed `document.body`). Missing entries
    * surface as no-ops.
@@ -241,8 +241,8 @@ export interface PreviewDocumentInput {
  *   1. `<meta charset>` + CSP — guards loaded before any script.
  *   2. Bridge IIFE — installs console + error forwarding before
  *      user code can throw.
- *   3. Optional `<style>` from a sibling CSS tab (fold A).
- *   4. `<body>` seed from sibling HTML tab (fold A) — falls back
+ *   3. Optional `<style>` from a sibling CSS tab (implementation note).
+ *   4. `<body>` seed from sibling HTML tab (implementation note) — falls back
  *      to an empty body so DOM-mutating user code has somewhere
  *      to write.
  *   5. User code as a separate `<script>` so a top-level

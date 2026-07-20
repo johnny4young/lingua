@@ -1,6 +1,6 @@
 /**
  * Minimal `{{var}}` substitution helper for the email HTML
- * templates in `src/emails/*.html` (RL-061 Slice 4).
+ * templates in `src/emails/*.html` .
  *
  * Why hand-rolled instead of a templating library:
  *   - Each template uses ~5-10 vars. The full feature set of a

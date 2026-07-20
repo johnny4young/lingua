@@ -1,4 +1,4 @@
-/** RL-039 Slice C — Recipe `ts-discriminated-union-area`. */
+/** implementation — Recipe `ts-discriminated-union-area`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

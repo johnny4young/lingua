@@ -19,7 +19,7 @@ const current = getLocaleMeta(locale);
 ---
 
 <label class:list={['language-select', compact && 'is-compact']}>
-  <span class="sr-only">{copy.common.languageSelect}</span>
+  <span class="internal">{copy.common.languageSelect}</span>
   <select data-language-select aria-label={copy.common.languageSelect}>
     {
       LOCALES.map((item) => (

@@ -1,7 +1,7 @@
 /**
- * RL-024 Slice 1 — keyboard contract for project search.
+ * implementation — keyboard contract for project search.
  *
- * Slice 1 acceptance: Cmd+Shift+F searches across all open-folder
+ * implementation acceptance: Cmd+Shift+F searches across all open-folder
  * files. We don't actually pick a folder here (the web build's
  * `showDirectoryPicker` is a user-gesture-only API and can't be
  * scripted in Playwright without a Chrome flag dance); instead we

@@ -1,5 +1,5 @@
 /**
- * RL-061 Slice 4 — Recovery endpoints (magic-link two-step).
+ * implementation — Recovery endpoints (magic-link two-step).
  *
  * Pin the no-info-leak design (Decision 7): /start ALWAYS returns
  * 200 + neutral copy regardless of whether the email matches a

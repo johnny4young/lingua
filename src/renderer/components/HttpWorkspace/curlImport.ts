@@ -1,9 +1,9 @@
 /**
- * RL-100 Slice 1 — re-export shim.
+ * implementation — re-export shim.
  *
- * The cURL parser used to live here under RL-097 Slice 1 fold B
+ * The cURL parser used to live here under implementation note
  * (HTTP workspace inline "paste cURL into URL field" auto-detect).
- * RL-100 Slice 1 moved the parser to `src/shared/importers/curlImporter.ts`
+ * implementation moved the parser to `src/shared/importers/curlImporter.ts`
  * so the new global Import overlay (`Mod+Alt+I`) can reuse it.
  *
  * This file re-exports `tryParseCurl` + `ParsedCurl` from the shared

@@ -14,7 +14,7 @@ const ALL_TYPES: ConsoleEntryType[] = ['log', 'info', 'warn', 'error', 'result']
 /**
  * Non-cryptographic equality hash for adjacent console rows. Keeping this tiny
  * hash inline avoids a static `spark-md5` import in the initial renderer bundle,
- * preserving the Dev Utilities MD5 lazy chunk from RL-125.
+ * preserving the Dev Utilities MD5 lazy chunk from internal
  */
 function stableEqualityHash(value: string): string {
   let h1 = 0xdeadbeef ^ value.length;
@@ -34,7 +34,7 @@ function stableEqualityHash(value: string): string {
 }
 
 /**
- * RL-123 / AUDIT-03 — content-equality hash computed once per entry at push
+ * implementation detail — content-equality hash computed once per entry at push
  * time. Two entries collapse into one ×N row when their hashes match. We hash
  * the same fields the old render-time `entriesAreEqual` compared (type + line +
  * content + payload shape), but pay the `JSON.stringify` cost once on push
@@ -55,7 +55,7 @@ function consoleEntryHash(
 }
 
 /**
- * Fold a flat entry list into the collapsed view, merging runs of
+ * implementation note flat entry list into the collapsed view, merging runs of
  * consecutive entries that share an `equalityHash` into one row with a
  * `repeatCount`. This is the authoritative derivation; `addEntry` keeps an
  * incremental fast-path for the hot push, but `restore` recomputes from the
@@ -84,7 +84,7 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   entries: [],
   collapsedEntries: [],
   activeFilters: new Set<ConsoleEntryType>(ALL_TYPES),
-  // RL-044 Slice 1B fold A — payload-kind chip filter. Empty by
+  // implementation note — payload-kind chip filter. Empty by
   // default so users never lose visibility on payload kinds they
   // haven't explicitly chosen to hide.
   hiddenPayloadKinds: new Set<ConsolePayloadKindFilter>(),
@@ -102,7 +102,7 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
       equalityHash,
     };
     set((state) => {
-      // RL-123 — collapse consecutive identical entries here (once per
+      // internal — collapse consecutive identical entries here (once per
       // push) instead of in the ConsolePanel render. Collapsed groups are
       // homogeneous, so the panel can filter these rows by type / payload
       // kind and still match a filter-then-collapse result.
@@ -123,14 +123,14 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   },
 
   clear: () =>
-    // RL-044 Slice 1B fold A — clearing the console also resets any
+    // implementation note — clearing the console also resets any
     // payload-kind filter chips the user had toggled off, so a fresh
     // run never displays "No entries match the active filters" against
     // stale filter state from a previous session.
     set({ entries: [], collapsedEntries: [], hiddenPayloadKinds: new Set() }),
 
   restore: (snapshot) =>
-    // UX Sweep T2 fold B — Undo for a console clear. Copy the arrays /
+    // accessibility pass — Undo for a console clear. Copy the arrays /
     // set so the caller's stashed snapshot stays immutable if the store
     // mutates later. Preserve entries that arrived after the clear; a
     // running program can keep logging while the Undo toast is visible.

@@ -1,10 +1,10 @@
 /**
- * Env-var scope store (RL-011 Slice B).
+ * Env-var scope store .
  *
  * Holds the three user-owned tiers (`global`, `project`, `tab`) behind a
  * `persist`-backed Zustand store and exposes a pure
  * `resolveEffectiveEnv()` helper that composes them with a caller-supplied
- * `processEnv` tier via the Slice A merger.
+ * `processEnv` tier via the implementation merger.
  *
  * Wiring contract (per `docs/ENV_VARS_ADR.md`):
  *   processEnv  (lowest — supplied by the eventual main-side runner path)
@@ -12,9 +12,9 @@
  *   < project   (renderer-owned, keyed by projectId)
  *   < tab       (renderer-owned, keyed by tabId — highest)
  *
- * This slice intentionally stops at the plumbing. A follow-up slice threads
+ * this change intentionally stops at the plumbing. A follow-up work threads
  * the resolved record into `RunnerManager.execute` so Go / Rust / Python
- * subprocesses see the merged env. No UI is introduced here — Slice C owns
+ * subprocesses see the merged env. No UI is introduced here — implementation owns
  * the Settings panel.
  *
  * Sanitization on rehydrate: every tier runs through `sanitizeScope` so a
@@ -88,7 +88,7 @@ export interface EnvVarsStoreState {
 
   /**
    * Resolve the merged env for a given runtime context. The caller supplies
-   * the `processEnv` tier; Slice B intentionally keeps host env out of the
+   * the `processEnv` tier; implementation intentionally keeps host env out of the
    * renderer, so current desktop + web callers pass `{}`.
    */
   resolveEffectiveEnv: (

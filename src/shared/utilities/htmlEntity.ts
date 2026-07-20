@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 4 fold E — `html-entity-encode` + `html-entity-decode`
+ * implementation note — `html-entity-encode` + `html-entity-decode`
  * adapters.
  *
  * Encode escapes the five HTML/XML special characters to named

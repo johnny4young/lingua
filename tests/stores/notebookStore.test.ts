@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A — `useNotebookStore` CRUD + rehydrate coverage.
+ * implementation — `useNotebookStore` CRUD + rehydrate coverage.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,7 +53,7 @@ describe('useNotebookStore CRUD', () => {
     );
   });
 
-  it('installImportedNotebook overwrites a tab with a parsed notebook, lossless (RL-043 Slice E)', () => {
+  it('installImportedNotebook overwrites a tab with a parsed notebook, lossless ', () => {
     const store = useNotebookStore.getState();
     // Seed a blank notebook then install an imported one over it.
     store.createNotebookForTab('tab-imp', 'Blank');
@@ -206,7 +206,7 @@ describe('useNotebookStore CRUD', () => {
       useNotebookStore.getState().getCellRunStatus('tab-lang', codeCell.id)
     ).toBe('idle');
 
-    // RL-043 Slice F — Python is runnable now, so switching to it is
+    // implementation — Python is runnable now, so switching to it is
     // accepted (and clears outputs + run state like any language change).
     store.setCellOutputs('tab-lang', codeCell.id, [
       { kind: 'text', stream: 'stdout', text: 'stale-again' },

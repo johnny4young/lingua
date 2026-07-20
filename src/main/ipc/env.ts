@@ -1,5 +1,5 @@
 /**
- * Process-env snapshot IPC handler (RL-011 Slice B).
+ * Process-env snapshot IPC handler .
  *
  * Important boundary: the renderer must NOT receive the host `process.env`
  * wholesale. It may contain credentials, tokens, and machine-specific

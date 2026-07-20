@@ -1,5 +1,5 @@
 /**
- * RL-068 — Backslash Escape / Unescape helper.
+ * internal — Backslash Escape / Unescape helper.
  *
  * Pure, offline, renderer-side. Handles four language presets:
  * `javascript`, `json`, `python`, `sql-mysql`. Each preset ships its own

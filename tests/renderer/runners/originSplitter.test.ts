@@ -1,5 +1,5 @@
 /**
- * RL-044 Sub-slice G — coverage for the Go / Rust stdout splitter
+ * implementation — coverage for the Go / Rust stdout splitter
  * that enriches `ConsoleOutput.line` with `file.ext:N` references.
  */
 

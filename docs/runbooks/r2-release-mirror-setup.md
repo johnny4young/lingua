@@ -12,7 +12,7 @@
 `.deb`, `.rpm`), the checksum manifest (`SHA256SUMS.txt`), the SBOM
 (`lingua-sbom.cyclonedx.json`), and the third-party license report
 (`THIRD_PARTY_LICENSE_REPORT.md`). The web bundle stays on Cloudflare
-Pages at `app.linguacode.dev` (RL-061 Slice 5) — it does not need R2.
+Pages at `app.linguacode.dev`  — it does not need R2.
 
 **Out of scope.** The update-server keeps serving `/update/...` and
 `/web/version` from authenticated GitHub Releases metadata
@@ -20,7 +20,7 @@ Pages at `app.linguacode.dev` (RL-061 Slice 5) — it does not need R2.
 **download surface for marketing-site CTAs and direct human
 downloads**, not the auto-update channel — that stays end-to-end
 authenticated against the private repo. Cleaning up the two surfaces
-to share R2 is a future enhancement, not a Slice 1 requirement.
+to share R2 is a future enhancement, not a implementation requirement.
 
 ---
 
@@ -381,7 +381,7 @@ Annual ceiling for a small-scale release cadence: <$5.
 - Migrate the `/update/...` endpoint to optionally return R2 URLs
   instead of GH browser_download_url, so the auto-update channel
   ALSO benefits from R2's $0 egress. Requires update-server changes
-  + Sparkle/Squirrel re-test. Tracked as a future slice; not blocking
+  + Sparkle/Squirrel re-test. Tracked as a future work; not blocking
   the marketing-site download path.
 - Add `tests/build/r2MirrorParity.test.ts` (gated on
   `LINGUA_CHECK_R2=1`) to assert at PR time that the release

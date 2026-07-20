@@ -1,5 +1,5 @@
 /**
- * Roadmap T4 — per-tab render isolation.
+ * implementation — per-tab render isolation.
  *
  * `updateContent` mints a new `tabs` array on every keystroke. The strip now
  * subscribes to a value-comparable projection, so once the first edit flips
@@ -66,7 +66,7 @@ const TAB_C = {
   filePath: '/repo/c.ts',
 };
 
-describe('EditorTabs — per-tab render isolation (roadmap T4)', () => {
+describe('EditorTabs — per-tab render isolation ', () => {
   beforeEach(() => {
     for (const key of Object.keys(pillRenders)) delete pillRenders[key];
     useEditorStore.setState(

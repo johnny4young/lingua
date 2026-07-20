@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice C — language-aware Run + Test orchestration.
+ * implementation — language-aware Run + Test orchestration.
  *
  * The worker implementations have their own suites and real web E2E. These
  * cases pin the renderer seam: recipe language selects the runner/composer,

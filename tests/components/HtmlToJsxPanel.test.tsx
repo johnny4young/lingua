@@ -1,5 +1,5 @@
 /**
- * RL-070 — HtmlToJsxPanel tests. Helper coverage lives in
+ * internal — HtmlToJsxPanel tests. Helper coverage lives in
  * tests/utils/htmlToJsx.test.ts; this suite focuses on wiring:
  * default output render, fragment-wrap toggle, error banner, ES
  * locale.

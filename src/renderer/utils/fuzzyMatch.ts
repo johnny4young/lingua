@@ -1,10 +1,10 @@
 /**
  * Lightweight fuzzy matcher for catalog-style filtering surfaces.
  *
- * RL-069 Slice 1 — replaces the substring-only filter at
+ * implementation — replaces the substring-only filter at
  * `DeveloperUtilitiesModal.tsx` so users can type `b64` and find Base64,
  * `ts` and find Timestamp, `md` and find Markdown Preview. Generic enough
- * to be reused by the command palette / quick open in future slices.
+ * to be reused by the command palette / quick open in future work.
  *
  * Scoring is intentionally simple and stable:
  *

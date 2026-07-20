@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 3 — end-to-end smoke for the Browser preview
+ * implementation — end-to-end smoke for the Browser preview
  * runtime.
  *
  * Locks the user-visible contract:
@@ -26,7 +26,7 @@ import {
   test,
 } from './licenseWeb.helpers';
 
-test.describe('Browser preview runtime (RL-019 Slice 3)', () => {
+test.describe('Browser preview runtime ', () => {
   test('Browser preview option is enabled in the runtime dropdown', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);

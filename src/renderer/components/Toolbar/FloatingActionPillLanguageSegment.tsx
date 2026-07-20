@@ -1,5 +1,5 @@
 /**
- * RL-093 / T8 — Language chip + language picker dropdown for the
+ * internal / implementation — Language chip + language picker dropdown for the
  * floating action pill. Extracted verbatim from FloatingActionPill so
  * the pill body stays readable; behaviour is unchanged.
  */

@@ -14,7 +14,6 @@ const block = copy.home.whatsNew;
 // into the history timeline below. Data comes from the preprocessed
 // changelog.json (synced at build time — zero network dependency).
 const entries = await loadChangelog();
-const current = entries[0];
 const previous = entries.slice(1);
 
 const LEAD_RE = /<strong>(.+?)<\/strong>\s*[:—-]?\s*([\s\S]*)/;

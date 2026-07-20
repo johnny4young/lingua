@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 4 fold B — module-level popover-opener handle.
+ * implementation note — module-level popover-opener handle.
  *
  * Locks:
  *   - `toggleRecentRunsPopover` returns `false` when no opener is

@@ -7,7 +7,7 @@ import {
 } from '@/lint/customLintRules';
 
 /**
- * RL-108 — locks the pure custom lint rules. The strict-equality scanner must
+ * internal — locks the pure custom lint rules. The strict-equality scanner must
  * fire on real loose operators and NEVER on `===`/`!==`, or on `==`/`!=` inside
  * strings or comments (false-positive guards are the whole point of a custom
  * rule shipping squiggles).

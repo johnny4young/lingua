@@ -107,14 +107,14 @@ describe('ProjectSearch', () => {
     });
     expect(screen.getByText('7:3')).toBeTruthy();
     expect(screen.getByText('needle')).toBeTruthy();
-    // UX Sweep T1 — the bespoke match-row button carries the focus ring.
+    // accessibility pass — the bespoke match-row button carries the focus ring.
     // (The file-group header also has data-row-key, so target the button.)
     const matchRow = document.querySelector('button[data-row-key]');
     expect(matchRow).not.toBeNull();
     expect(matchRow!.className).toContain('focus-ring');
   });
 
-  it('announces the settled result count to screen readers (UX Sweep T13)', async () => {
+  it('announces the settled result count to screen readers (accessibility pass)', async () => {
     mockSearchInFiles.mockResolvedValue([
       {
         relativePath: 'src/main.ts',
@@ -178,7 +178,7 @@ describe('ProjectSearch', () => {
     expect(useAnnouncerStore.getState().nonce).toBe(settledNonce);
   });
 
-  it('announces the no-match state to screen readers (UX Sweep T13)', async () => {
+  it('announces the no-match state to screen readers (accessibility pass)', async () => {
     mockSearchInFiles.mockResolvedValue([]);
     useAnnouncerStore.setState({ message: '', nonce: 0 });
 

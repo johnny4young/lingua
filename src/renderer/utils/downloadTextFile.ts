@@ -1,11 +1,11 @@
 /**
- * RL-043 Slice E — shared text-file download helper.
+ * implementation — shared text-file download helper.
  *
  * Extracted from `NotebookView` so the notebook toolbar AND the
- * command-palette "Export notebook as .linguanb" action (fold E) share
+ * command-palette "Export notebook as .linguanb" action (implementation note) share
  * one Blob → object-URL → anchor-click download path instead of
  * duplicating it. Web-only (no IPC); the desktop capability-IPC save
- * (fold A) uses a separate native dialog path.
+ * (implementation note) uses a separate native dialog path.
  */
 export function downloadTextFile(
   content: string,

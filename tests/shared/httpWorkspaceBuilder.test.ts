@@ -47,7 +47,7 @@ function env(
     version: 1,
     id: 'e1',
     name: 'Dev',
-    // RL-097 Slice 3b added the opaque `id`; stamp a synthetic one per row.
+    // implementation added the opaque `id`; stamp a synthetic one per row.
     variables: variables.map((row, i) => ({ id: `v${i}`, ...row })),
     createdAt: '2026-06-16T00:00:00.000Z',
     updatedAt: '2026-06-16T00:00:00.000Z',
@@ -287,10 +287,10 @@ describe('buildCurlCommand — copy as cURL', () => {
     );
   });
 
-  // RL-097 Slice 3a fold B — secret-safe cURL. When an environment is
+  // implementation note — secret-safe cURL. When an environment is
   // active, callers pre-mask via `maskSecretsForCapsule` so non-secret
   // vars resolve (runnable) and secret vars stay `{{key}}` (no leak).
-  it('with a masked request, non-secret vars resolve and secret vars stay {{key}} (fold B)', () => {
+  it('with a masked request, non-secret vars resolve and secret vars stay {{key}} (implementation note)', () => {
     const request = makeRequest({
       method: 'POST',
       url: 'https://{{host}}/users',

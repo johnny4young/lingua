@@ -2,7 +2,7 @@ import type { FileTreeNode as ProjectFileTreeNode } from '../../stores/projectSt
 import type { CreationTarget } from './fileTreeTypes';
 
 /**
- * IT2-B2 — flat row model for the virtualized explorer. The tree renders
+ * internal — flat row model for the virtualized explorer. The tree renders
  * as ONE windowed list (via the shared `useListWindow`), so everything
  * that used to render inside a directory's recursive `role="group"` block
  * must exist as a row with a stable key and a known display position:
@@ -33,7 +33,7 @@ export type FlatTreeRow =
 /**
  * Flatten the tree into the rows that are CURRENTLY visible (respecting
  * each directory's expanded state), in display order. Successor of the
- * UX Sweep T7 `flattenVisibleTree` — same walk, now emitting `depth` and
+ * accessibility pass `flattenVisibleTree` — same walk, now emitting `depth` and
  * the synthetic `create` / `empty-dir` rows so the windowed list is the
  * single source of display order.
  *

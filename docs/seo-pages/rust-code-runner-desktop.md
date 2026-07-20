@@ -33,7 +33,7 @@ your full crate ecosystem works because the compiler is yours.
 - Rust language intelligence needs `rust-analyzer` on PATH. If it is
   missing or crashes, Lingua shows an install hint or restart action in
   Settings.
-- No debugger yet — RL-027.
+- No debugger yet — internal
 - No cargo project mode: this is a scratchpad for single-file
   snippets, not a substitute for `cargo run` inside your workspace.
 

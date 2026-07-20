@@ -1,100 +1,69 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, dirname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = resolve(__dirname, '../..');
 
-// Internal-only planning/research/ADR docs that are intentionally kept
-// out of the public repo. They may still be present on a maintainer's
-// local disk, so disk-walk guards must exclude them — otherwise a guard
-// that passes locally would fail in the public checkout (or vice versa).
-// Base names are listed without extensions on purpose so this file
-// carries no internal-doc filename token.
-const INTERNAL_ONLY_DOCS = new Set(
-  [
-    'ROADMAP',
-    'PLAN',
-    'BACKLOG',
-    'SPRINT-PLAN',
-    'ARCHIVED',
-    'ANTI_FEATURES',
-    'WORK_PROPOSAL',
-    'WORLD_CLASS_PLAN',
-    'WORLD_CLASS_TICKETS',
-    'WORLD_CLASS_TO_RL_PROPOSAL',
-    'PROJECT_AUDIT_2026_05_24',
-    'LICENSING_ADR',
-    'MARKETING_SITE_ADR',
-    'AI_BRIDGE_ADR',
-    'DEPENDENCY_MANAGER_ADR',
-    'VITE_UPGRADE_ADR',
-    // Internal, gitignored strategy notes (never shipped with the
-    // source-available repo) — the same category as ROADMAP/PLAN/BACKLOG.
-    'STRATEGIC_REVIEW_2026-07',
-  ].map((base) => `${base}.md`)
-);
+function collectPublishedMarkdownFiles(): string[] {
+  const output = execFileSync(
+    'git',
+    ['ls-files', '--cached', '--others', '--exclude-standard', '*.md'],
+    { cwd: ROOT, encoding: 'utf8' }
+  );
 
-const SKIP_DIRS = new Set([
-  '.git',
-  'node_modules',
-  'dist',
-  'out',
-  'output',
-  '.vite',
-  '.playwright-cli',
-  '.playwright-mcp',
-]);
+  return output
+    .split('\n')
+    .filter(Boolean)
+    .map(file => resolve(ROOT, file));
+}
 
-function collectMarkdownFiles(dir: string, files: string[] = []): string[] {
-  if (!existsSync(dir)) {
-    return files;
-  }
+function collectPublishedTextFiles(): string[] {
+  const output = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' });
 
-  for (const entry of readdirSync(dir)) {
-    if (SKIP_DIRS.has(entry)) {
-      continue;
-    }
-    // Skip per-test scratch dirs (e.g. `.tmp-lingua-fs-*`,
-    // `.tmp-lingua-watch-alt-*`). They are gitignored, never hold
-    // committed docs, and — created/removed by other suites running in
-    // parallel — would otherwise race this walk: an entry returned by
-    // `readdirSync` can vanish before `statSync`, throwing ENOENT and
-    // flaking the whole suite.
-    if (entry.startsWith('.tmp-')) {
-      continue;
-    }
-
-    const fullPath = join(dir, entry);
-    let stat;
-    try {
-      stat = statSync(fullPath);
-    } catch {
-      // The entry disappeared between readdir and stat (a parallel
-      // suite's transient tmpdir). Nothing committed vanishes mid-run,
-      // so skipping it is safe.
-      continue;
-    }
-    if (stat.isDirectory()) {
-      collectMarkdownFiles(fullPath, files);
-      continue;
-    }
-
-    if (entry.endsWith('.md')) {
-      files.push(fullPath);
-    }
-  }
-
-  return files;
+  return output
+    .split('\n')
+    .filter(Boolean)
+    .filter(file => file !== '.gitignore')
+    .map(file => resolve(ROOT, file))
+    .filter(file => {
+      const content = readFileSync(file);
+      return !content.includes(0);
+    });
 }
 
 describe('public documentation hygiene', () => {
-  const markdownFiles = collectMarkdownFiles(ROOT);
+  const markdownFiles = collectPublishedMarkdownFiles();
+
+  it('keeps private planning identifiers out of published text', () => {
+    const privateReferencePattern = new RegExp(
+      [
+        `R${'L'}-\\d+`,
+        `S${'R'}-\\d+`,
+        `I${'T'}\\d+-[A-Za-z0-9]`,
+        `A${'UDIT'}-\\d`,
+        `M${'OV'}-\\d`,
+        `W${'C'}-\\d`,
+        `S${'EC'}-\\d`,
+        `P${'ERF'}-\\d`,
+        `internal ${'plan'}`,
+        `internal ${'backlog'}`,
+        `UX ${'Sweep'}`,
+      ].join('|'),
+      'i'
+    );
+    const offenders = collectPublishedTextFiles().filter(file =>
+      privateReferencePattern.test(readFileSync(file, 'utf8'))
+    );
+
+    expect(offenders.map(file => file.replace(`${ROOT}/`, ''))).toEqual([]);
+  });
 
   it('does not contain machine-local absolute links', () => {
     // Forbidden machine-local absolute prefixes:
-    //   - macOS: /Users/<name>, file:///Users/<name>, /private/var/<...>
-    //   - Linux: /home/<name>/<...>, /root/<...>, /opt/<name>/<...>
-    //   - Windows: C:\<name>\<...> (drive-letter + backslash form).
+    // - macOS: /Users/<name>, file:///Users/<name>, /private/var/<...>
+    // - Linux: /home/<name>/<...>, /root/<...>, /opt/<name>/<...>
+    // - Windows: C:\<name>\<...> (drive-letter + backslash form).
     //
     // The character class `[^)\\s]+` lets the match consume the rest
     // of the absolute path so a hit names the actual offending segment.
@@ -107,12 +76,12 @@ describe('public documentation hygiene', () => {
     const machineLocalPattern =
       /\/Users\/[^)\s]+|file:\/\/\/Users\/[^)\s]+|\/home\/[A-Za-z0-9_.-]+\/[^)\s]*|\/root\/[^)\s]+|\/private\/var\/[^)\s]+|\/opt\/[A-Za-z0-9_.-]+\/[^)\s]*|(?<![:/\w])[A-Z]:\\[A-Za-z0-9_.\\-]+/u;
 
-    const offenders = markdownFiles.filter((file) => {
+    const offenders = markdownFiles.filter(file => {
       const text = readFileSync(file, 'utf-8');
       return machineLocalPattern.test(text);
     });
 
-    expect(offenders.map((file) => file.replace(`${ROOT}/`, ''))).toEqual([]);
+    expect(offenders.map(file => file.replace(`${ROOT}/`, ''))).toEqual([]);
   });
 
   it('keeps public release docs discoverable', () => {
@@ -122,7 +91,6 @@ describe('public documentation hygiene', () => {
       'CONTRIBUTING.md',
       'THIRD_PARTY_NOTICES.md',
       'docs/PUBLIC_RELEASE_CHECKLIST.md',
-      'docs/PUBLIC_READINESS_AUDIT.md',
       'docs/RELEASE_SECURITY.md',
       'docs/MACOS_SIGNING.md',
       'docs/WINDOWS_SIGNING.md',
@@ -133,7 +101,7 @@ describe('public documentation hygiene', () => {
 
   it('keeps public docs on the current web deploy and release-note paths', () => {
     const publicDocs = ['README.md', 'RELEASE.md', 'docs/README.md']
-      .map((file) => readFileSync(resolve(ROOT, file), 'utf-8'))
+      .map(file => readFileSync(resolve(ROOT, file), 'utf-8'))
       .join('\n');
 
     expect(publicDocs).not.toContain('docs/CHANGELOG.md');
@@ -188,11 +156,10 @@ describe('public documentation hygiene', () => {
 
   it('keeps the docs index linked to every top-level docs markdown file', () => {
     const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
-    const topLevelDocs = readdirSync(resolve(ROOT, 'docs'))
-      .filter(
-        (name) =>
-          name.endsWith('.md') && name !== 'README.md' && !INTERNAL_ONLY_DOCS.has(name)
-      )
+    const topLevelDocs = markdownFiles
+      .filter(file => dirname(file) === resolve(ROOT, 'docs'))
+      .map(file => basename(file))
+      .filter(name => name !== 'README.md')
       .sort();
 
     for (const doc of topLevelDocs) {
@@ -203,15 +170,13 @@ describe('public documentation hygiene', () => {
   it('keeps singleton docs subdirectories discoverable from the docs index', () => {
     const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
     const singletonSubdirDocs = readdirSync(resolve(ROOT, 'docs'), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .flatMap((entry) => {
+      .filter(entry => entry.isDirectory())
+      .flatMap(entry => {
         const dir = resolve(ROOT, 'docs', entry.name);
         const markdownFiles = readdirSync(dir)
-          .filter((name) => name.endsWith('.md'))
+          .filter(name => name.endsWith('.md'))
           .sort();
-        return markdownFiles.length === 1
-          ? [`${entry.name}/${markdownFiles[0]}`]
-          : [];
+        return markdownFiles.length === 1 ? [`${entry.name}/${markdownFiles[0]}`] : [];
       })
       .sort();
 
@@ -223,10 +188,10 @@ describe('public documentation hygiene', () => {
   it('keeps the docs index linked to every ADR and operator runbook', () => {
     const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
     const adrFiles = readdirSync(resolve(ROOT, 'docs'))
-      .filter((name) => name.endsWith('_ADR.md') && !INTERNAL_ONLY_DOCS.has(name))
+      .filter(name => name.endsWith('_ADR.md'))
       .sort();
     const runbookFiles = readdirSync(resolve(ROOT, 'docs/runbooks'))
-      .filter((name) => name.endsWith('.md'))
+      .filter(name => name.endsWith('.md'))
       .sort();
 
     for (const adr of adrFiles) {
@@ -234,47 +199,8 @@ describe('public documentation hygiene', () => {
     }
 
     for (const runbook of runbookFiles) {
-      expect(docsReadme, `docs/README.md must reference runbook ${runbook}`).toContain(
-        runbook
-      );
+      expect(docsReadme, `docs/README.md must reference runbook ${runbook}`).toContain(runbook);
     }
-  });
-
-  it('marks dated security command logs as historical evidence', () => {
-    const packetReadme = readFileSync(
-      resolve(ROOT, 'docs/security/2026-05-09/README.md'),
-      'utf-8'
-    );
-    const validationRecord = readFileSync(
-      resolve(ROOT, 'docs/security/2026-05-09/remediation-validation.md'),
-      'utf-8'
-    );
-    const findings = readFileSync(
-      resolve(ROOT, 'docs/security/2026-05-09/findings.md'),
-      'utf-8'
-    );
-
-    for (const text of [packetReadme, validationRecord, findings]) {
-      expect(text).toContain('Historical note');
-      expect(text).toContain('Current repo commands use `pnpm`');
-    }
-    expect(packetReadme).toContain(
-      'remediation-validation.md#current-equivalent-commands'
-    );
-    for (const command of [
-      'pnpm test -- --run',
-      'pnpm run lint',
-      'pnpm exec tsc --noEmit',
-      'pnpm run check:i18n',
-      'pnpm run check:i18n:copy',
-      '(cd license-server && pnpm test)',
-      '(cd update-server && pnpm test)',
-      'pnpm run build:web',
-      'pnpm run preview:web -- --host 127.0.0.1',
-    ]) {
-      expect(validationRecord).toContain(command);
-    }
-    expect(findings).toContain('web-runtime/');
   });
 
   it('keeps the renderer reference aligned with current major folders and stores', () => {
@@ -283,8 +209,8 @@ describe('public documentation hygiene', () => {
     const rendererFolders = readdirSync(resolve(ROOT, 'src/renderer'), {
       withFileTypes: true,
     })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => `${entry.name}/`)
+      .filter(entry => entry.isDirectory())
+      .map(entry => `${entry.name}/`)
       .sort();
 
     for (const folder of rendererFolders) {
@@ -294,8 +220,8 @@ describe('public documentation hygiene', () => {
     const componentFolders = readdirSync(resolve(ROOT, 'src/renderer/components'), {
       withFileTypes: true,
     })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => `components/${entry.name}/`)
+      .filter(entry => entry.isDirectory())
+      .map(entry => `components/${entry.name}/`)
       .sort();
 
     for (const componentFolder of componentFolders) {
@@ -307,8 +233,8 @@ describe('public documentation hygiene', () => {
     const storeFiles = readdirSync(resolve(ROOT, 'src/renderer/stores'), {
       withFileTypes: true,
     })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .map((entry) => entry.name)
+      .filter(entry => entry.isFile() && entry.name.endsWith('.ts'))
+      .map(entry => entry.name)
       .sort();
 
     for (const store of storeFiles) {
@@ -316,10 +242,10 @@ describe('public documentation hygiene', () => {
     }
   });
 
-  it('README preserves the strings other doc guards depend on (RL-082 spotter)', () => {
+  it('README preserves the strings other documentation guards depend on', () => {
     // README ownership is split across `scriptCommands.test.ts` and
     // the `keeps public docs on the current web deploy` assertion
-    // above. After the RL-082 slim-down
+    // above. After the README slim-down
     // the README dropped from 537 to ~130 lines; this spotter pins the
     // union of required strings in one place so a future README rewrite
     // owner doesn't need to grep three test files to find them.
@@ -351,9 +277,7 @@ describe('public documentation hygiene', () => {
   });
 
   it('keeps the guided tour free of external AGPL/commercial tour dependencies', () => {
-    const packageJson = JSON.parse(
-      readFileSync(resolve(ROOT, 'package.json'), 'utf-8')
-    ) as {
+    const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf-8')) as {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };

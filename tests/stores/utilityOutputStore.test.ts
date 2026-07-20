@@ -61,7 +61,7 @@ describe('useRegisterUtilityOutput', () => {
 
     // Unmount the second one — the first should not auto-restore (the
     // store doesn't keep a stack), so getProvider becomes null. This
-    // is intentional for Slice 1: only one panel is mounted at a time
+    // is intentional for implementation: only one panel is mounted at a time
     // inside the modal, so a second concurrent registration is a test
     // edge case rather than a real production scenario.
     b.unmount();
@@ -104,7 +104,7 @@ describe('useRegisterUtilityOutput', () => {
   });
 });
 
-describe('useRegisterUtilityApply (RL-069 Slice 2)', () => {
+describe('useRegisterUtilityApply ', () => {
   it('starts with no registered apply handler', () => {
     expect(useUtilityOutputStore.getState().getApplyHandler()).toBeNull();
   });

@@ -1,5 +1,5 @@
 /**
- * RL-089 — versioned user-profile backup format.
+ * internal — versioned user-profile backup format.
  *
  * Pure module. No Node, no React, no Electron — so the renderer
  * imports it without dragging unwanted globals into its bundle and
@@ -44,7 +44,7 @@ export interface PortableSettings {
   maxLoopIterations?: number;
   hideUndefined?: boolean;
   /**
-   * RL-111 — session-restore policy. Replaced the legacy
+   * internal — session-restore policy. Replaced the legacy
    * `restoreSession?: boolean`. A profile exported by an older build
    * carries `restoreSession` instead; {@link pickPortableSettings}
    * maps it on import (`true -> 'always'`, `false -> 'ask'`).
@@ -164,7 +164,7 @@ function pickPortableSettings(raw: unknown): PortableSettings {
   if (isBoundedString(raw.language) && APP_LANGUAGES.has(raw.language)) {
     out.language = raw.language;
   }
-  // RL-111 — accept the new enum field; fall back to mapping the legacy
+  // internal — accept the new enum field; fall back to mapping the legacy
   // `restoreSession` boolean so a profile exported by an older build still
   // round-trips (true -> always, false -> ask, matching the v1->v2 store
   // migration). A present-but-invalid value is simply dropped (the store's

@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — `LessonPackV1` schema + parser tests.
+ * implementation — `LessonPackV1` schema + parser tests.
  *
  * Pins:
  *   - The closed-enum surfaces (`LESSON_REJECT_REASONS`,

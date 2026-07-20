@@ -1,5 +1,5 @@
 /**
- * Unit tests for the RL-061 Slice 3.5 main-side license-server fetch
+ * Unit tests for the implementation main-side license-server fetch
  * wrappers (`src/main/licenseServer.ts`).
  *
  * Mirror of the renderer wrapper suite (`tests/services/licenseServer.test.ts`)

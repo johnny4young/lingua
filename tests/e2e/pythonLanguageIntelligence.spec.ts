@@ -1,5 +1,5 @@
 /**
- * RL-026 Slice 1 — browser smoke for Python language intelligence.
+ * implementation — browser smoke for Python language intelligence.
  *
  * The unit tests own parser precision. This spec verifies the Monaco surface
  * mounts the adapter, renders a marker in the real editor, exposes local
@@ -29,7 +29,7 @@ async function replaceEditorContent(
   await page.keyboard.insertText(content);
 }
 
-test.describe('Python language intelligence (RL-026)', () => {
+test.describe('Python language intelligence', () => {
   test('renders diagnostics and symbol-aware completions in English', async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);

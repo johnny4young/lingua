@@ -1,5 +1,5 @@
 /**
- * RL-088 — Playwright/axe-core helper for accessibility scans.
+ * internal — Playwright/axe-core helper for accessibility scans.
  *
  * Wraps `@axe-core/playwright`'s `AxeBuilder` with project defaults
  * so individual specs stay short and consistent. WCAG 2.1 AA tags

@@ -1,5 +1,5 @@
 /**
- * RL-071 — RegexUtilityPanel tests. The pure helpers (analyzeRegex +
+ * internal — RegexUtilityPanel tests. The pure helpers (analyzeRegex +
  * applyRegexReplace) are covered in tests/utils/developerUtilities.test.ts,
  * so this suite focuses on wiring: mode toggle, replacement field
  * visibility, live replace output + count summary, CopyButton, error

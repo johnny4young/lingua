@@ -1,5 +1,5 @@
 /**
- * RL-093 Slice 2 — Floating, draggable action pill.
+ * implementation — Floating, draggable action pill.
  *
  * Replaces the centre cluster of the chrome toolbar (Run+Debug split,
  * Workflow segment, Runtime selector, New-file menu) with a single
@@ -29,7 +29,7 @@
  * `showFloatingPill`). No store logic is duplicated; everything reads
  * from the same Zustand stores the Toolbar uses.
  *
- * RL-093 / T8 — the pill's segments live in sibling files
+ * internal / implementation — the pill's segments live in sibling files
  * (`FloatingActionPill<Part>.tsx`) and its logic in
  * `useFloatingActionPill`; this file wires them together.
  */
@@ -52,7 +52,7 @@ interface FloatingActionPillProps {
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
   /**
-   * RL-039 Slice B fold G — Opens the Recipes overlay (`Mod+Alt+L`).
+   * implementation Slice B implementation note — Opens the Recipes overlay (`Mod+Alt+L`).
    * When provided, the pill mounts a graduation-cap icon button +
    * progress badge between Utilities and Settings.
    */
@@ -125,7 +125,7 @@ export function FloatingActionPill({
   if (!container) return null;
 
   return createPortal(
-    // RL-093 review — only the drag handle gets the grab cursor.
+    // internal review — only the drag handle gets the grab cursor.
     // The previous version applied `cursor-grab`/`cursor-grabbing` to
     // the whole pill div, which made every chip (Lang, Workflow, Run,
     // …) look draggable when only the leading handle is.
@@ -174,7 +174,7 @@ export function FloatingActionPill({
 
         <span className="action-pill-divider" />
 
-        {/* RL-093 Slice 3 — runtime chip stays separate (orthogonal to
+        {/* implementation — runtime chip stays separate (orthogonal to
             workflow). The old "Workflow" chip + separate "Run" split
             button were merged into a single mode-aware action button at
             the end of the pill (see "Mode-aware action button" below). */}
@@ -194,7 +194,7 @@ export function FloatingActionPill({
           />
         ) : null}
 
-        {/* 3. Mode-aware action button (RL-093 Slice 3).
+        {/* 3. Mode-aware action button .
                 Replaces the previous "Workflow chip + separate Run
                 split-button" pair. The main button:
                   · Colours itself by the active workflow (green for run,
@@ -275,7 +275,7 @@ export function FloatingActionPill({
         />
       ) : null}
 
-      {/* RL-039 Slice B fold G — Recipes badge button. Rendered as a
+      {/* implementation Slice B implementation note — Recipes badge button. Rendered as a
               sibling component so the lessonProgressStore subscription
               stays scoped (no parent re-render storms). */}
       {/* 6. Settings cog — opens the Settings modal. Only mounted when

@@ -1,5 +1,5 @@
 /**
- * License IPC handlers (RL-059 Slice 0).
+ * License IPC handlers .
  *
  * Bridges `window.lingua.license.*` calls in the renderer to the main-side
  * runtime created in `src/main/license.ts`. The renderer never imports
@@ -11,7 +11,7 @@ import type { LicenseRuntime } from '../license';
 import type { RemoveDeviceResult } from '../licenseServer';
 import { typedHandle } from './typedHandle';
 
-// RL-059 / typed IPC contract: the `license:*` handlers bind to
+// internal / typed IPC contract: the `license:*` handlers bind to
 // `typedHandle`, so `tsc` checks each handler's return type against the
 // contract result. This became possible once the ambient
 // `LicensePayloadShape.tier` in `src/types.d.ts` was widened to the full
@@ -20,7 +20,7 @@ import { typedHandle } from './typedHandle';
 export function registerLicenseHandlers(
   runtimeSource: LicenseRuntime | PromiseLike<LicenseRuntime>
 ): void {
-  // IT2-G2 — register the channels before the window loads, while allowing
+  // internal — register the channels before the window loads, while allowing
   // main to construct the runtime in parallel with the renderer's first
   // paint. Every channel shares the same promise, so concurrent bootstrap
   // calls wait for one runtime instead of starting duplicate verification.
@@ -85,7 +85,7 @@ export function registerLicenseHandlers(
     }
   });
 
-  // Slice 3.5 — desktop's parallel of `/licenses/devices/remove`.
+  // implementation — desktop's parallel of `/licenses/devices/remove`.
   // Renderer's `licenseStore` desktop branch delegates here through
   // `window.lingua.license.removeDevice(deviceIdToRemove)`. The
   // wrapper-side tagged union (`RemoveDeviceResult`) is normalized to

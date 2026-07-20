@@ -1,13 +1,13 @@
 /**
- * RL-097 Slice 1 — HTTP workspace persisted store.
+ * implementation — HTTP workspace persisted store.
  *
  * Owns the list of user-created HTTP requests + their response
  * history. Isolated on its own localStorage key (`lingua-workspace-tool-state`)
- * per the RL-069 convention so a Settings reset doesn't wipe the
+ * per the internal convention so a Settings reset doesn't wipe the
  * user's saved requests, and a workspace reset doesn't touch
  * `lingua-settings`.
  *
- * Slice 2 (DuckDB-WASM SQL scratchpad) will extend this store with a
+ * implementation (DuckDB-WASM SQL scratchpad) will extend this store with a
  * parallel `queries` collection that shares the same shape — hence
  * the name `workspaceToolStore`, not `httpStore`.
  *
@@ -73,7 +73,7 @@ interface WorkspaceToolState {
   readonly executingRequestId: string | null;
 
   /**
-   * RL-097 Slice 3a — persisted HTTP environments. Each is a named bag
+   * implementation — persisted HTTP environments. Each is a named bag
    * of `{{key}}` → value bindings (some flagged secret) the user can
    * swap before sending. Persisted alongside requests; secret VALUES
    * are stored in plain the same way an explicit `Authorization`
@@ -83,7 +83,7 @@ interface WorkspaceToolState {
    */
   readonly environments: ReadonlyArray<HttpEnvironmentV1>;
   /**
-   * RL-097 Slice 3a — the active environment's id, or null for "No
+   * implementation — the active environment's id, or null for "No
    * environment". Validated against the surviving environment list on
    * rehydrate (a stale id repoints to null).
    */
@@ -96,7 +96,7 @@ interface WorkspaceToolState {
   /**
    * Bulk-append requests to the top of the list, preserving their
    * order (first element ends up topmost) and selecting the first.
-   * Used by the RL-100 Slice 3 collection importer so a Postman /
+   * Used by the implementation collection importer so a Postman /
    * Bruno import lands every request in one state write. A no-op for
    * an empty array. There is no request-count cap (the LRU is
    * per-request RESPONSE history only).
@@ -122,7 +122,7 @@ interface WorkspaceToolState {
   /** Returns the most-recent response for a request, or undefined. */
   getLatestResponse: (id: string) => HttpResponseV1 | undefined;
 
-  // -------- RL-097 Slice 3a — environment CRUD ----------------------------
+  // -------- implementation — environment CRUD ----------------------------
 
   /** Append a new environment to the list. Does not auto-activate it. */
   createEnvironment: (env: HttpEnvironmentV1) => void;
@@ -132,7 +132,7 @@ interface WorkspaceToolState {
    */
   updateEnvironment: (id: string, patch: Partial<HttpEnvironmentV1>) => void;
   /**
-   * RL-097 Slice 3b — functional variable update. Apply `updater` to the
+   * implementation — functional variable update. Apply `updater` to the
    * environment's CURRENT variable list (read inside the `set`) and store
    * the result. This is the collapse-safe path for the manager: two adds
    * dispatched in one tick each see the prior add's result, so neither is
@@ -145,7 +145,7 @@ interface WorkspaceToolState {
     updater: (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]
   ) => void;
   /**
-   * RL-097 Slice 3b — clone an environment. Deep-clones the variable rows
+   * implementation — clone an environment. Deep-clones the variable rows
    * with FRESH opaque ids (preserving key/value/secret), mints a new env
    * id, names it `<original> <copySuffix>`, stamps fresh timestamps, and
    * appends WITHOUT auto-activating (mirrors `duplicatePipeline`). No-op on
@@ -157,14 +157,14 @@ interface WorkspaceToolState {
     copySuffix: string
   ) => void;
   /**
-   * RL-097 Slice 3b — serialise an environment to pretty JSON for sharing.
+   * implementation — serialise an environment to pretty JSON for sharing.
    * PRIVACY: secret values are blanked and all instance-local ids stripped
    * (see `toExportableEnvironment`). Returns null on an unknown id or a
    * (practically impossible) serialise failure.
    */
   exportEnvironmentJson: (id: string) => string | null;
   /**
-   * RL-097 Slice 3b — parse an exported environment JSON, mint a FRESH env
+   * implementation — parse an exported environment JSON, mint a FRESH env
    * id, append it WITHOUT auto-activating. Tolerates malformed JSON +
    * invalid shapes (returns `{ ok: false }`). On success returns the new
    * env id so the caller can select it if it wants.
@@ -312,7 +312,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
       getRequest: (id) => get().requests.find((r) => r.id === id),
       getLatestResponse: (id) => get().responsesByRequestId[id]?.[0],
 
-      // -------- RL-097 Slice 3a — environment CRUD ------------------------
+      // -------- implementation — environment CRUD ------------------------
 
       createEnvironment: (env) =>
         set((state) => ({ environments: [...state.environments, env] })),
@@ -478,7 +478,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           requests: state.requests,
           responsesByRequestId: persistedResponses,
           activeRequestId: state.activeRequestId,
-          // RL-097 Slice 3a — additive fields. No persist `version` bump:
+          // implementation — additive fields. No persist `version` bump:
           // a v1 blob predating this field has no `environments` key, and
           // `merge` below defaults it to `[]` (and `activeEnvironmentId`
           // to a validated id or null), so old blobs rehydrate cleanly
@@ -536,7 +536,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           } else {
             merged.activeRequestId = null;
           }
-          // RL-097 Slice 3a — additive fields. No persist version bump is
+          // implementation — additive fields. No persist version bump is
           // needed: a v1 blob with NO `environments` key falls through to
           // the `[]` default here, and `activeEnvironmentId` is re-validated
           // against the surviving environments (stale id → null). Invalid

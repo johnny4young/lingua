@@ -8,7 +8,7 @@ import { usePluginStore } from '../../../src/renderer/stores/pluginStore';
 import { pluginRegistry } from '../../../src/renderer/plugins';
 
 /**
- * RL-084 — capa 3 cobertura UI.
+ * internal — capa 3 cobertura UI.
  *
  * Cada caso fija el estado de `usePluginStore` con un fixture y
  * verifica que el badge + diagnóstico se rendericen correctamente.
@@ -52,7 +52,7 @@ function setStore(plugins: PluginFixture[], installDirectory = '/tmp/lingua/plug
   });
 }
 
-describe('PluginsSection (RL-084)', () => {
+describe('PluginsSection', () => {
   beforeEach(async () => {
     initI18n('en');
     await i18next.changeLanguage('en');
@@ -160,7 +160,7 @@ describe('PluginsSection (RL-084)', () => {
       expect(screen.getByText('Plugin requires app version >= 99.0.0.')).toBeTruthy();
     });
 
-    it('renders an unknown plugin with the new Unknown badge and the unknown diagnostic (RL-084 NEW)', () => {
+    it('renders an unknown plugin with the new Unknown badge and the unknown diagnostic (internal NEW)', () => {
       setStore([
         fixture({
           status: 'unknown',

@@ -1,5 +1,5 @@
 /**
- * RL-025 Slice B — IPC handler registration + log streaming.
+ * implementation — IPC handler registration + log streaming.
  *
  * Pins:
  *   - `dependencies:js:install` and `dependencies:js:install:cancel`

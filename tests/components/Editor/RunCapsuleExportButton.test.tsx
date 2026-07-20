@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 1.5 — Result-panel header Export button.
+ * implementation — Result-panel header Export button.
  *
  * Covers the load-bearing surfaces:
  *
@@ -9,14 +9,14 @@
  *   2. Renders + clicks happy path → clipboard.writeText fires +
  *      `capsule.exported.trigger = 'result-panel-export'` telemetry
  *      fires + status notice pushed.
- *   3. Fold E — exact `sizeBucket` assertion for `FIXTURE_MINIMAL_JS`
+ *   3. implementation note — exact `sizeBucket` assertion for `FIXTURE_MINIMAL_JS`
  *      so the boundary conditions of the closed enum are pinned.
- *   4. Fold C — Pro badge surfaces ONLY when `richOutputs` is non-
+ *   4. implementation note — Pro badge surfaces ONLY when `richOutputs` is non-
  *      empty (informational nudge, not a gate).
- *   5. Fold D — `data-just-copied="true"` flips on click and resets
+ *   5. implementation note — `data-just-copied="true"` flips on click and resets
  *      after the feedback window so the visual click-confirmation
  *      isn't sticky.
- *   6. Fold F — clipboard-rejected path pushes the
+ *   6. implementation note — clipboard-rejected path pushes the
  *      `clipboardUnavailable` notice (points the user to Settings),
  *      NOT the Settings-specific fallback notice.
  */
@@ -110,7 +110,7 @@ describe('RunCapsuleExportButton', () => {
     ).toContain('salidas multimedia enriquecidas');
   });
 
-  it('exports via clipboard happy path and fires telemetry with the exact sizeBucket (fold E)', async () => {
+  it('exports via clipboard happy path and fires telemetry with the exact sizeBucket (implementation note)', async () => {
     latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -143,7 +143,7 @@ describe('RunCapsuleExportButton', () => {
     );
   });
 
-  it('flips data-just-copied for the feedback window and resets after (fold D)', async () => {
+  it('flips data-just-copied for the feedback window and resets after (implementation note)', async () => {
     latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -167,7 +167,7 @@ describe('RunCapsuleExportButton', () => {
     expect(button.getAttribute('data-just-copied')).toBe('false');
   });
 
-  it('resets the feedback timer on a second click within the window (fold D)', async () => {
+  it('resets the feedback timer on a second click within the window (implementation note)', async () => {
     latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -214,7 +214,7 @@ describe('RunCapsuleExportButton', () => {
     expect(button.getAttribute('data-just-copied')).toBe('false');
   });
 
-  it('surfaces the Pro badge for capsules with richOutputs (fold C)', () => {
+  it('surfaces the Pro badge for capsules with richOutputs (implementation note)', () => {
     latestCapsuleRef.current = FIXTURE_PYTHON_CHART;
     render(<RunCapsuleExportButton />);
     expect(
@@ -224,7 +224,7 @@ describe('RunCapsuleExportButton', () => {
     expect(button.getAttribute('data-has-rich-outputs')).toBe('true');
   });
 
-  it('hides the Pro badge for capsules without richOutputs (fold C)', () => {
+  it('hides the Pro badge for capsules without richOutputs (implementation note)', () => {
     latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     render(<RunCapsuleExportButton />);
     expect(screen.queryByTestId('result-panel-export-pro-badge')).toBeNull();
@@ -232,7 +232,7 @@ describe('RunCapsuleExportButton', () => {
     expect(button.getAttribute('data-has-rich-outputs')).toBe('false');
   });
 
-  it('pushes the clipboardUnavailable notice on rejection (fold F)', async () => {
+  it('pushes the clipboardUnavailable notice on rejection (implementation note)', async () => {
     latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockRejectedValue(new Error('blocked'));
     Object.defineProperty(navigator, 'clipboard', {

@@ -1,12 +1,12 @@
 /**
- * RL-099 Slice 6 — `line-sort` adapter.
+ * implementation — `line-sort` adapter.
  *
  * Sort the input's lines. Pure shared implementation. CRLF and legacy
  * CR line endings are normalized to LF; a single trailing newline is
  * preserved so a sorted file keeps its shape. Options: `direction`
- * (asc / desc), `caseInsensitive` (fold the comparison key to lower
+ * (asc / desc), `caseInsensitive` (implementation note comparison key to lower
  * case), `unique` (drop later duplicates by the comparison key), and
- * `numeric` (fold D — natural order so `item2` precedes `item10`).
+ * `numeric` (implementation note — natural order so `item2` precedes `item10`).
  *
  * Always settles `ok` — sorting text cannot fail. Plain comparison is
  * codepoint order (deterministic across environments); `numeric` mode
@@ -26,7 +26,7 @@ export interface LineSortOptions {
   readonly caseInsensitive: boolean;
   /** Drop duplicate lines (by the comparison key), keeping the first. */
   readonly unique: boolean;
-  /** Fold D — natural/numeric ordering (`item2` before `item10`). */
+  /** implementation note — natural/numeric ordering (`item2` before `item10`). */
   readonly numeric: boolean;
 }
 

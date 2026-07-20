@@ -2,7 +2,7 @@ import type * as monacoTypes from 'monaco-editor';
 import { create } from 'zustand';
 
 /**
- * SR-20a (Wave 4) — a single open-request slot for the "Explain this code"
+ * internal  — a single open-request slot for the "Explain this code"
  * dialog, so the same dialog can be opened from BOTH the editor
  * context-menu action AND the command palette without threading state
  * through the component tree. Not persisted; cleared on close.

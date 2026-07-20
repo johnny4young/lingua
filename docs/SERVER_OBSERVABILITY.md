@@ -1,6 +1,6 @@
 # Server observability — license-server + update-server
 
-> RL-091. Operational-readiness spec for the two Cloudflare Workers
+> internal Operational-readiness spec for the two Cloudflare Workers
 > backing licensing (`license-server/`) and update feeds (`update-server/`).
 > Pin dashboards, alerts, and runbooks against the contract here. When
 > the wire format or event taxonomy changes, update this document in
@@ -67,10 +67,10 @@ These labels appear in `request.received.route` and `request.completed.route`.
 | `update.feed` | `GET /update/:platform/:version` | Returned 502 responses are classified as `upstream`. |
 | `update.asset_proxy` | `GET /download/:assetId` | Returned 502 responses are classified as `upstream`. |
 | `update.web_version` | `GET /web/version` | Returned 502 responses are classified as `upstream`. |
-| `telemetry.ingest` | `POST /telemetry` and `OPTIONS /telemetry` | RL-065 Slice 5. 400 means malformed payload; 405 means non-POST; 413 means oversize; 429 means per-IP rate-limited. 204 on success. |
+| `telemetry.ingest` | `POST /telemetry` and `OPTIONS /telemetry` | implementation 400 means malformed payload; 405 means non-POST; 413 means oversize; 429 means per-IP rate-limited. 204 on success. |
 | `unknown` | any unmatched path | Includes 404s for non-existent routes. |
 
-### update-server telemetry-ingest events (RL-065 Slice 5)
+### update-server telemetry-ingest events
 
 In addition to the common `request.*` envelope, the `/telemetry`
 route emits two extra structured log lines:

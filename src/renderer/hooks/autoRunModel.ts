@@ -17,7 +17,7 @@ export interface AutoRunInput {
   autoLogEnabled: boolean;
   /** Effective per-tab Browser preview refresh interval; null elsewhere. */
   browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval | null;
-  /** RL-020 Slice 6 — stdin is part of the effective run input. */
+  /** implementation — stdin is part of the effective run input. */
   stdinBuffer: string | undefined;
 }
 

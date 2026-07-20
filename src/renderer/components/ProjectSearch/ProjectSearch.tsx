@@ -213,7 +213,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   const showEmptyState =
     status === 'ready' && resultsSettledForQuery && results.length === 0 && hasQuery;
 
-  // UX Sweep T13 — the match count is shown only visually. Announce the settled
+  // accessibility pass — the match count is shown only visually. Announce the settled
   // result count / empty / error to screen readers so a non-sighted user knows
   // the search resolved. Loading is intentionally silent to avoid per-keystroke
   // spam during the debounced search.

@@ -20,7 +20,7 @@ import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 import { notifyBlockedFamily } from '../utils/blockedPath';
 
 /**
- * RL-128 fold A/B — file-open + save action factory for the editor store.
+ * implementation — file-open + save action factory for the editor store.
  *
  * Bundles `openFile` / `openFileFromDisk` (capability-backed disk opens with
  * the Free tab-budget gate) and the Save family (`saveActiveTab`,
@@ -53,7 +53,7 @@ export function createSaveActions(
           messageKey: 'upsell.freeCeilingReached',
           featureLabel: i18next.t('upsell.feature.extraTabs'),
         });
-        // RL-065 — same emit on the openFile gate so both rejection
+        // internal — same emit on the openFile gate so both rejection
         // paths surface a feature.blocked event.
         void trackEvent('feature.blocked', {
           entitlement: 'tabs',
@@ -90,10 +90,10 @@ export function createSaveActions(
         rootId,
         relativePath,
         filePath,
-        // RL-019 Slice 1 — disk-backed JS/TS opens adopt the per-app
+        // implementation — disk-backed JS/TS opens adopt the per-app
         // default runtime mode; non-JS/TS files leave the field unset.
         runtimeMode: runtimeModeForNewTab(language),
-        // RL-020 Slice 2 — disk-backed opens also adopt the per-app
+        // implementation — disk-backed opens also adopt the per-app
         // default workflow mode so the toolbar segment has a value to
         // reflect on first render.
         workflowMode: workflowModeForNewTab(language),
@@ -150,9 +150,9 @@ export function createSaveActions(
         rootId: result.rootId,
         relativePath: result.fileRelativePath,
         filePath,
-        // RL-019 Slice 1 — same JS/TS default mode as openFile().
+        // implementation — same JS/TS default mode as openFile().
         runtimeMode: runtimeModeForNewTab(language),
-        // RL-020 Slice 2 — same per-language workflow-mode default.
+        // implementation — same per-language workflow-mode default.
         workflowMode: workflowModeForNewTab(language),
       };
 
@@ -219,7 +219,7 @@ export function createSaveActions(
         }),
       }));
 
-      // RL-020 Slice 8 — Save-As that changed the language invalidates
+      // implementation — Save-As that changed the language invalidates
       // the result-store snapshot ring for the saved tab. Re-read
       // `activeTabId` at this point (not the value captured before the
       // async `persistTab` hop) so that if the user switched tabs

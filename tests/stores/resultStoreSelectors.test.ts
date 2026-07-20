@@ -13,8 +13,8 @@ import type { ResultSnapshot } from '../../src/renderer/stores/resultStore';
 import type { ScopeSnapshot } from '../../src/shared/scopeSnapshot';
 
 /**
- * RL-122 — selector unit tests (fold C) + a render-count regression
- * (fold A) that locks the core acceptance criterion: a component that
+ * implementation — selector unit tests (implementation note) + a render-count regression
+ * (implementation note) that locks the core acceptance criterion: a component that
  * subscribes through the new primitive selectors re-renders only when
  * the derived value actually changes, NOT on every snapshotRing /
  * scopeSnapshot reference replacement.
@@ -42,7 +42,7 @@ function makeScope(language: string, variableCount: number): ScopeSnapshot {
   };
 }
 
-describe('resultStore active-snapshot selectors (RL-122)', () => {
+describe('resultStore active-snapshot selectors', () => {
   describe('hasComparableSnapshotFor', () => {
     it('is true only when a snapshot matches the language', () => {
       const state = { snapshotRing: [makeSnapshot('javascript'), makeSnapshot('python')] };
@@ -119,7 +119,7 @@ describe('resultStore active-snapshot selectors (RL-122)', () => {
     });
   });
 
-  describe('render-count regression (fold A)', () => {
+  describe('render-count regression (implementation note)', () => {
     const initialState = useResultStore.getState();
 
     beforeEach(() => {

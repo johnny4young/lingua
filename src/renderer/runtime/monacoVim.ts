@@ -1,6 +1,6 @@
 /**
- * RL-037 — lazy `monaco-vim` loader, shared by the main code editor and
- * (RL-043 Slice Monaco-cells fold D) the notebook cell editor.
+ * internal — lazy `monaco-vim` loader, shared by the main code editor and
+ * (implementation Slice Monaco-cells implementation note) the notebook cell editor.
  *
  * The chunk is fetched at most once per session — even rapid toggle on /
  * off cycles, and concurrent callers across surfaces, share the same

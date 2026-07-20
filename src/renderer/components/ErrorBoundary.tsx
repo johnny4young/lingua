@@ -1,5 +1,5 @@
 /**
- * RL-090 — top-level React error boundary for major shell regions.
+ * internal — top-level React error boundary for major shell regions.
  *
  * React error boundaries must be class components — hooks cannot
  * implement `componentDidCatch`. The boundary captures render-time

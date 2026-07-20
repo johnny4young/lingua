@@ -1,6 +1,6 @@
 /**
  * Renderer-side wrapper for `GET /web/version` on the
- * `updates.linguacode.dev` worker. RL-061 Slice 5.
+ * `updates.linguacode.dev` worker. implementation
  *
  * The endpoint returns either:
  *   - 200 `{ version: "0.2.1" }` when a release exists.

@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — Utility adapter contract.
+ * implementation — Utility adapter contract.
  *
  * Five pure-function utility adapters get extracted from
  * `src/renderer/utils/developerUtilities.ts` into `src/shared/utilities/`
@@ -11,9 +11,9 @@
  *
  * Design decisions worth surfacing inline:
  *
- *   1. **All Slice 1 adapters are `text → text`.** Compatibility
+ *   1. **All implementation adapters are `text → text`.** Compatibility
  *      checks between `inputKind` / `outputKind` are wired up in the
- *      engine for forward-compat (Slice 2+ will add binary + json
+ *      engine for forward-compat (implementation will add binary + json
  *      adapters like `hash-bytes`, `parse-json` that produce
  *      structured outputs). The closed `PIPELINE_STEP_STATUSES` enum
  *      keeps `'incompatible'` reserved for that future use.
@@ -30,7 +30,7 @@
  *      pipelines. Returns `null` on any mismatch so the engine drops
  *      orphaned step options gracefully.
  *
- *   5. **`optionsSchema`** (fold C — schema-driven options form)
+ *   5. **`optionsSchema`** (implementation note — schema-driven options form)
  *      declares the UI inputs the panel renders. Closed enum of
  *      field types (`text` / `textarea` / `select` / `boolean`)
  *      keeps the form renderer simple + lets adapters declare their
@@ -40,7 +40,7 @@
 /**
  * Closed enum of utility adapter ids. Add a new adapter here AND in
  * `registry.ts`. Telemetry deliberately does not surface adapter ids
- * today; if a future slice does, mirror this enum on the update-server
+ * today; if a future work does, mirror this enum on the update-server
  * allowlist in the same change.
  */
 export const UTILITY_ADAPTER_IDS = [
@@ -50,7 +50,7 @@ export const UTILITY_ADAPTER_IDS = [
   'url-parse',
   'regex-replace',
   'diff-text',
-  // RL-099 Slice 4 — adapter-vocabulary expansion. Core 4 transforms
+  // implementation — adapter-vocabulary expansion. Core 4 transforms
   // plus the folded-in timestamp / color / string-case / html-entity
   // adapters. Each is a pure shared reimplementation (the shared layer
   // cannot import the renderer helpers; mirrors the base64 precedent).
@@ -63,7 +63,7 @@ export const UTILITY_ADAPTER_IDS = [
   'string-case',
   'html-entity-encode',
   'html-entity-decode',
-  // RL-099 Slice 6 — vocabulary expansion round 2. Pure text→text
+  // implementation — vocabulary expansion round 2. Pure text→text
   // transforms (number radix, line sort, slugify, JSON minify, text
   // stats). Each is a self-contained shared reimplementation.
   'number-base',
@@ -71,11 +71,11 @@ export const UTILITY_ADAPTER_IDS = [
   'slugify',
   'json-minify',
   'text-stats',
-  // RL-099 Slice 7 — generator-style holdouts. `uuid` + `lorem-ipsum`
+  // implementation — generator-style holdouts. `uuid` + `lorem-ipsum`
   // are generators (they ignore the chained input and emit fresh data);
   // `string-inspect` is a transform. Their pure logic is shared with the
   // renderer panels via `src/shared/utilities/{uuid,loremIpsum,stringInspect}.ts`
-  // (the renderer utils now re-export — fold A, no drift).
+  // (the renderer utils now re-export — implementation note, no drift).
   'uuid',
   'lorem-ipsum',
   'string-inspect',
@@ -83,8 +83,8 @@ export const UTILITY_ADAPTER_IDS = [
 export type UtilityAdapterId = (typeof UTILITY_ADAPTER_IDS)[number];
 
 /**
- * Kind of value an adapter consumes or produces. Slice 1 is all
- * `'text'`; the enum stays open for Slice 2+ binary / structured
+ * Kind of value an adapter consumes or produces. implementation is all
+ * `'text'`; the enum stays open for implementation binary / structured
  * adapters.
  */
 export type UtilityValueKind = 'text' | 'json' | 'binary';
@@ -156,7 +156,7 @@ export type UtilityOptionField =
  * Implementations live one-per-file alongside this contract.
  *
  * `TOptions` is the structured options shape (typed per adapter).
- * `run()` takes the chained `input` (always a string in Slice 1) +
+ * `run()` takes the chained `input` (always a string in implementation) +
  * the parsed `options` (already through `parseOptions`).
  */
 export interface UtilityAdapter<TOptions = Record<string, unknown>> {
@@ -172,7 +172,7 @@ export interface UtilityAdapter<TOptions = Record<string, unknown>> {
    * Strict shape guard at the persisted-pipeline boundary. Returns
    * `null` on any mismatch; the engine drops the orphaned options
    * and uses `defaultOptions()` instead, marking the step with a
-   * non-blocking `removed-options` note (Slice 2 surfacing).
+   * non-blocking `removed-options` note (implementation surfacing).
    */
   readonly parseOptions: (raw: unknown) => TOptions | null;
   /**

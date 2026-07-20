@@ -7,7 +7,7 @@ import { isLikelyEmail } from '../../utils/email';
 import { SpecRow } from '../ui/SpecRow';
 
 /**
- * RL-061 Slice 4 — Education magic-link start CTA.
+ * implementation — Education magic-link start CTA.
  *
  * Two visual states:
  *
@@ -34,8 +34,8 @@ export function EducationCta({
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmationSentTo, setConfirmationSentTo] = useState<string | null>(null);
-  // UX-audit tail (SR-39) — inline aria-invalid + error on a rejected
-  // email, mirroring the T14 license-paste pattern (see TrialCta).
+  // UX-audit tail — inline aria-invalid + error on a rejected
+  // email, mirroring the implementation license-paste pattern (see TrialCta).
   const [emailError, setEmailError] = useState(false);
   const emailErrorId = useId();
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);

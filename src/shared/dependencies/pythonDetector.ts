@@ -1,5 +1,5 @@
 /**
- * RL-025 Slice A - Python dependency detector.
+ * implementation - Python dependency detector.
  *
  * Pure string scanner - does NOT depend on Pyodide booting. Strips
  * line comments and string / triple-quoted-string literals before

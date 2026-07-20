@@ -1,5 +1,5 @@
 /**
- * Pure helpers for the Number Base Converter utility (RL-068). All conversion
+ * Pure helpers for the Number Base Converter utility. All conversion
  * goes through `bigint` so arbitrarily large inputs round-trip losslessly —
  * `Number` would silently cap at 2^53-1 which is the exact failure mode that
  * makes converters like this untrustworthy. Everything here is pure; the

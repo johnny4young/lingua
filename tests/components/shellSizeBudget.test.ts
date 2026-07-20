@@ -1,12 +1,12 @@
 /**
- * RL-131 (AUDIT-11) size-budget guard. The audit's original targets (App.tsx
+ * internal size-budget guard. The audit's original targets (App.tsx
  * < 500, AppLayout.tsx < 800) were set against the 2026-05-24 sizes; both files
  * had since grown ~2x, so extracting the two named hooks + BottomPanel +
  * AppOverlays brought them to ~535 / ~892, not under the literal thresholds.
  * These re-based budgets ratchet the achieved sizes so the shell components
  * cannot regrow toward a monolith; the residual reduction to the original
  * targets (a useAppBootstrap hook + EditorArea extraction) is tracked in
- * the internal backlog.
+ * the maintenance notes.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -18,7 +18,7 @@ function lineCount(rel: string): number {
   return readFileSync(resolve(ROOT, rel), 'utf8').split('\n').length;
 }
 
-// RL-147 tightened App.tsx from the re-based 560 to the audit's original
+// internal tightened App.tsx from the re-based 560 to the audit's original
 // <500 target. PR #77 extracted the version-notice lifecycle at 441 lines,
 // so keep 40 lines of headroom without allowing the root shell to regrow.
 const APP_MAX_LINES = 460;
@@ -33,7 +33,7 @@ const EXTRACTED_MODULES = [
   'src/renderer/components/Layout/BottomPanel.tsx',
 ];
 
-describe('RL-131 shell size budget', () => {
+describe('internal shell size budget', () => {
   it('App.tsx stays under the re-based budget', () => {
     expect(lineCount('src/renderer/App.tsx')).toBeLessThanOrEqual(APP_MAX_LINES);
   });

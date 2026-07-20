@@ -1,12 +1,12 @@
 /**
- * RL-102 Slice 1 — visibility selector for the Git diff bottom-panel
+ * implementation — visibility selector for the Git diff bottom-panel
  * sibling tab. Returns `true` when the boot detect resolved to a
  * usable git repo, the active tab has a `filePath` (the diff has
  * nothing to show for an unsaved Scratchpad), and the tab has not
  * opted out via `// @git-ignore-status`.
  *
- * Mirrors the shape of `useDependenciesPanelAvailable` from RL-025
- * Slice A — same `useXxxAvailable` naming so AppLayout can swap in
+ * Mirrors the shape of `useDependenciesPanelAvailable` from internal
+ * implementation — same `useXxxAvailable` naming so AppLayout can swap in
  * the toggle without learning a new pattern.
  */
 

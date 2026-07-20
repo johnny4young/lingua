@@ -3,7 +3,7 @@ import type { NotebookState } from './notebookStore';
 import type { NotebookSet } from './notebookStoreContext';
 
 /**
- * T9 — notebook lifecycle action factory.
+ * implementation — notebook lifecycle action factory.
  *
  * Owns creating / installing / disposing / renaming a tab's notebook entry.
  * Every action is a pure `set` update, so the factory only needs zustand `set`.
@@ -88,7 +88,7 @@ export function createLifecycleActions(
         const { [tabId]: _drop, ...rest } = state.notebooks;
         void _drop;
         // Drop the tab's remembered scroll offset in lockstep so it can't
-        // outlive the notebook (RL-043 Slice H fold B).
+        // outlive the notebook (implementation Slice H implementation note).
         const { [tabId]: _dropScroll, ...restScroll } =
           state.notebookScrollTop;
         void _dropScroll;

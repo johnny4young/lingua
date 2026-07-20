@@ -5,7 +5,7 @@ import {
 } from './developerUtilities';
 
 /**
- * SR-38/SR-36 — utility categorisation for the launcher sidebar.
+ * implementation detail — utility categorisation for the launcher sidebar.
  *
  * The 31 developer utilities render as one flat list, which reads as a
  * wall of options for someone opening the launcher for the first time.

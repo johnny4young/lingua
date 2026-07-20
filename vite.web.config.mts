@@ -21,7 +21,7 @@ import { copyRuntimeAssetsPlugin } from './build/copyRuntimeAssetsPlugin.mts';
 // Vite reads `process.env` for env-substitution. Lets the telemetry
 // consumer (`src/renderer/utils/telemetry.ts`) and the web update
 // banner pick up the real app version without requiring an external
-// `.env.production` to set it. RL-061 Slice 5.
+// `.env.production` to set it. implementation
 applySharedEnvDefaults();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -131,7 +131,7 @@ export default defineConfig(({ command }) => {
     // VITE_* values across all build configs (renderer, web, main). With
     // `root` set to `src/web/`, Vite's default `envDir` would point there
     // and miss the repo-root files entirely — silently leaving every
-    // `import.meta.env.VITE_*` substitution as `undefined`. RL-061 Slice
+    // `import.meta.env.VITE_*` substitution as `undefined`. implementation
     // 2.5 noticed this when VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK and
     // VITE_LINGUA_LICENSE_SERVER_URL did not land in `dist/web/assets/*`.
     envDir: __dirname,
@@ -192,7 +192,7 @@ export default defineConfig(({ command }) => {
             if (id.includes('lucide-react')) {
               return 'lucide';
             }
-            // RL-044 Slice 2b-β-α — vega-embed chart renderer ships in its
+            // implementation — vega-embed chart renderer ships in its
             // own chunk so the charting bundle stays out of the
             // main entry. The chunk only loads when <RichValueChart>
             // mounts (first chart payload), mirroring the Pyodide
@@ -204,7 +204,7 @@ export default defineConfig(({ command }) => {
             ) {
               return 'vega-embed';
             }
-            // RL-097 Slice 2 — DuckDB-WASM SQL engine ships in its own
+            // implementation — DuckDB-WASM SQL engine ships in its own
             // chunk so the ~7 MiB WASM bundle never touches the main
             // entry. The chunk loads only when the SQL workspace tab is
             // opened for the first time, mirroring the vega-embed +

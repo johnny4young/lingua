@@ -1,5 +1,5 @@
 /**
- * F-1 — Go / Rust / Ruby dependency detection + install-command planning.
+ * implementation — Go / Rust / Ruby dependency detection + install-command planning.
  *
  * The existing `DependencyAdapter` registry (`registry.ts`) is a closed
  * enum scoped to JS/TS/Python and coupled to telemetry parity. Go, Rust,
@@ -13,7 +13,7 @@
  *     standard library and language built-ins.
  *   - `buildInstallCommand` turns detected specifiers into the exact
  *     `{ binary, args }` a desktop runner would spawn (no shell, argv only)
- *     — the shape the RL-025 install lane consumes.
+ *     — the shape the internal install lane consumes.
  *
  * Running the install (spawning `go get` / `cargo add` / `bundle add`)
  * needs the host toolchain and network, so it belongs to a desktop slice;

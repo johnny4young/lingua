@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 — workspaceSqlStore tests.
+ * implementation — workspaceSqlStore tests.
  *
  * Mirror coverage of `tests/stores/workspaceToolStore.test.ts` for
  * the SQL workspace persisted store. CRUD + LRU + active-id reset

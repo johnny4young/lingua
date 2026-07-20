@@ -26,7 +26,7 @@ import { trackEvent } from '../utils/telemetry';
 import type { AppOverlay } from '../hooks/useGlobalShortcuts';
 
 /**
- * RL-039 Slice B — Recipes overlay mount. Visibility flag lives on
+ * implementation — Recipes overlay mount. Visibility flag lives on
  * `useRecipeStore.overlayOpen` instead of the single-slot `AppOverlay`
  * union so the overlay can co-exist with a recipe-bound tab being
  * active (the user opens a second recipe while the first tab keeps
@@ -40,7 +40,7 @@ function RecipesOverlayMount() {
 }
 
 /**
- * RL-131 (AUDIT-11) — the single-slot overlay layer, extracted verbatim from
+ * internal — the single-slot overlay layer, extracted verbatim from
  * `AppChrome` in `App.tsx`. Renders whichever overlay the `AppOverlay` union
  * selects (plus the recipe overlay, which has its own `useRecipeStore` flag).
  * `AppChrome` keeps ownership of the overlay STATE + the open/close/toggle
@@ -77,7 +77,7 @@ export function AppOverlays({
       {(overlay === 'palette' || overlay === 'recent-commands') && (
         <CommandPalette
           key={overlay}
-          // RL-113 — Cmd+; renders the same palette pre-scoped to the
+          // internal — Cmd+; renders the same palette pre-scoped to the
           // per-session recent-commands stack (numbered 1-8, no search).
           variant={overlay === 'recent-commands' ? 'recent' : 'all'}
           onClose={closeOverlay}
@@ -88,13 +88,13 @@ export function AppOverlays({
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenProjectReplace={() => openOverlay('replace')}
           onOpenHttpWorkspace={() => {
-            // RL-097 Slice 1 → MOV.02 (FASE 3) — palette opens or
+            // implementation → MOV.02 (FASE 3) — palette opens or
             // focuses the full-screen HTTP workspace tab (no dock
             // panel). Same create-or-focus path as Mod+Shift+K.
             openHttpWorkspaceTab();
           }}
           onOpenSqlWorkspace={() => {
-            // RL-097 Slice 2 → MOV.02 (FASE 3) — palette opens or
+            // implementation → MOV.02 (FASE 3) — palette opens or
             // focuses the full-screen SQL workspace tab. Mirror of
             // `onOpenHttpWorkspace`.
             openSqlWorkspaceTab();
@@ -138,7 +138,7 @@ export function AppOverlays({
       {overlay === 'capsule-list' && <CapsuleListOverlay onClose={closeOverlay} />}
       {overlay === 'import-preview' && <ImportPreviewOverlay onClose={closeOverlay} />}
       {overlay === 'project-bundle-import' && <ProjectBundleImportOverlay onClose={closeOverlay} />}
-      {/* RL-039 Slice B — Recipes overlay. Visibility flag lives on
+      {/* implementation — Recipes overlay. Visibility flag lives on
           `useRecipeStore` (not the AppOverlay union) so the overlay
           can co-exist with a recipe-bound tab being active. */}
       <RecipesOverlayMount />

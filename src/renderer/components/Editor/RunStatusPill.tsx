@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 7 — ambient pill that surfaces the termination kind
+ * implementation — ambient pill that surfaces the termination kind
  * of the most recent run (timeout / stopped / error). Hidden on
  * success, on the first paint, and while a run is in flight. Reads
  * `useResultStore.runTermination` set by `executeTabManually` and
@@ -11,13 +11,13 @@
  * button-styled. The icon swaps per kind so the row is scannable
  * without reading the label.
  *
- * Fold E — when the Settings toggle `showTimeoutCountdown` is on
+ * implementation note — when the Settings toggle `showTimeoutCountdown` is on
  * AND a run is in flight (`runDeadlineAt` set), the pill renders a
  * `mm:ss` countdown variant instead of the post-termination one.
  * Default OFF so the panel stays quiet by default for users who
  * never asked for a live counter.
  *
- * RL-112 fold F — when rendered inside the 24px persistent status bar
+ * implementation — when rendered inside the 24px persistent status bar
  * (`compact`), the post-termination badges drop their trailing text label so
  * the icon-only badge fits the bar height. The countdown keeps its `mm:ss`
  * label (it carries no icon-only equivalent). All gates (hidden on
@@ -55,7 +55,7 @@ export function RunStatusPill({ compact = false }: { compact?: boolean } = {}) {
     return () => clearInterval(handle);
   }, [showCountdown, runDeadlineAt]);
 
-  // In-flight countdown (fold E). Wins over the post-termination
+  // In-flight countdown (implementation note). Wins over the post-termination
   // variant so the user sees the live counter, not a stale "Error"
   // pill from a previous run. The countdown is informational (not an
   // alarm yet), so it adopts the quiet `neutral` StatusBadge tone.

@@ -1,5 +1,5 @@
 /**
- * UX Sweep T4 — shared live announcer.
+ * accessibility pass — shared live announcer.
  */
 import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';

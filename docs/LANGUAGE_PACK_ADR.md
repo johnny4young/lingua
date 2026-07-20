@@ -1,10 +1,10 @@
-# ADR — Language-pack architecture (RL-038)
+# ADR — Language-pack architecture
 
 | Status | Accepted — current migration complete for built-in surfaces |
 | ------ | ------------------------------------------------ |
 | Decision | Introduce a declarative `LanguagePack` descriptor and migrate built-ins + Lua to consume it, without promoting plugin loading into a marketplace. |
 | Date | 2026-04-19 |
-| Next revisit | When a third non-JS language needs real LSP/debugger hooks (RL-026, RL-027) or when the built-in set grows past 8 and the switch statements bite. |
+| Next revisit | When a third non-JS language needs real LSP/debugger hooks or when the built-in set grows past 8 and the switch statements bite. |
 
 ## Context
 
@@ -26,7 +26,7 @@ Lingua currently spreads language metadata across ~8 files:
 
 Adding a new language today requires touching 5–6 of these files in
 parallel, and the Lua plugin cannot express capabilities (formatter,
-LSP support flags, docs link) through a shared descriptor. RL-038 asks
+LSP support flags, docs link) through a shared descriptor. internal asks
 us to consolidate the metadata into one descriptor so the app can
 render capability-aware UI without scattered `switch(language)`
 statements, while keeping third-party arbitrary-code loading out of
@@ -97,14 +97,13 @@ formatterStrategyFor(lang: Language): LanguagePack['formatter']
 These live in `src/renderer/utils/languagePacks.ts` and re-export the
 existing helper names so callers don't have to migrate all at once.
 
-## Migration plan (three slices)
+## Migration history
 
-This section is historical implementation context. All three slices are
-now shipped for the built-in surfaces Lingua has today; revisit the
+This section is historical implementation context. The migration is
+shipped for the built-in surfaces Lingua has today; revisit the
 descriptor only when one of the triggers below is hit.
 
-### Slice A — Land the descriptor + migrate built-ins that already have
-all fields computed today. Shipped 2026-04-20.
+### Descriptor and built-in metadata. Shipped 2026-04-20.
 
 - Create `src/shared/languagePacks.ts` with the `LanguagePack` type
   and an initial `LANGUAGE_PACKS` array populated from today's
@@ -115,7 +114,7 @@ all fields computed today. Shipped 2026-04-20.
 - Target: zero behavior change. All existing tests stay green.
 - Files touched: ~6. Scope: one session.
 
-### Slice B — Migrate the runners dispatch. Shipped 2026-04-20.
+### Runner dispatch. Shipped 2026-04-20.
 
 - Replace the `switch` in `runners/manager.ts` with a lookup:
   `LANGUAGE_PACKS.find(p => p.id === lang)?.runnerId` then instantiate
@@ -127,7 +126,7 @@ all fields computed today. Shipped 2026-04-20.
   arbitrary-code loading is introduced.
 - Files touched: ~4. Scope: one session.
 
-### Slice C — Migrate capability-aware UI. Shipped 2026-05-01.
+### Capability-aware UI. Shipped 2026-05-01.
 
 - Toolbar New File, FileTree rows, the Run-button desktop-only tooltip,
   `SnippetsModal`, and `EditorEmptyState` now read the shared pack array
@@ -175,15 +174,15 @@ all fields computed today. Shipped 2026-04-20.
   records *which* class a language uses via `pack.capabilities` —
   `CAPABILITY_MATRIX.md` says *whether* the class is recommended.
 
-## Acceptance criteria (from RL-038 scope)
+## Acceptance criteria
 
 - **"Adding a new bundled language no longer requires scattered edits
-  across the app"** — satisfied after slices A + B + C. A new pack still
+  across the app"** — satisfied. A new pack still
   needs the pack entry plus its i18n key, and optional templates /
   runner wiring depending on execution mode.
 - **"The app can render capability-aware UI per language without
-  hardcoded switch statements everywhere"** — satisfied after slice
-  C.
+  hardcoded switch statements everywhere"** — satisfied by the shared
+  language-pack registry.
 - **Constraint: "Do not market this as a finished extension
   marketplace"** — honored. This ADR and every downstream diff will
   call the mechanism a "language pack descriptor", not "plugin
@@ -193,10 +192,10 @@ all fields computed today. Shipped 2026-04-20.
 
 Open a successor ADR when:
 
-1. A third non-JS language needs real LSP support (RL-026 gains
+1. A third non-JS language needs real LSP support (internal gains
    serious traction). The `lsp` capability field will need a richer
    shape than the enum.
-2. The debugger MVP (RL-027) lands and `debuggerSupport` needs
+2. The debugger MVP lands and `debuggerSupport` needs
    protocol details, not just a flag.
 3. Language-pack count passes 12 and the bundled array becomes too
    heavy to ship in the main chunk. Lazy-load per-pack becomes
@@ -206,16 +205,15 @@ Open a successor ADR when:
 
 ## Impact on adjacent items
 
-- `CAPABILITY_MATRIX.md` (RL-030) — unchanged. The language pack does
+- `CAPABILITY_MATRIX.md` — unchanged. The language pack does
   not move any capability between execution classes.
-- `BUILD_SYSTEM_ADR.md` (RL-034) — unchanged.
-- `TAURI_SPIKE_ADR.md` (RL-035) — unchanged.
-- RL-042 ("Expand language support toward 15+ languages") can now
+- `BUILD_SYSTEM_ADR.md` — unchanged.
+- `TAURI_SPIKE_ADR.md` — unchanged.
+- Expanding language support can now
   proceed on the pack-based path: each new language is an entry, an
   i18n key, and a runner factory registration.
-- RL-058 ("view/lint mode for common dev files") already lists its
-  covered file types in `languageCapabilities.ts`; slice A folds them
-  into the pack array.
+- View/lint support for common development files uses the covered file types
+  in `languageCapabilities.ts` and the shared pack array.
 
 ## Reviewers
 

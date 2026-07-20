@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * Catalog of curated multi-file project templates (RL-103 Slice 1).
+ * Catalog of curated multi-file project templates .
  *
  * The exported tuple is ordered: the renderer renders cards in this
  * exact order so dashboards stay readable and screenshots are

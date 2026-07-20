@@ -1,5 +1,5 @@
 /**
- * RL-116 Slice 1 — presenter / focus mode.
+ * implementation — presenter / focus mode.
  *
  * One session-only boolean that the chrome reads at RENDER time:
  * sidebar, toolbar, and status bar gate themselves on it, the editor

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * RL-103 Slice 1 fold C — Project templates overlay.
+ * implementation note — Project templates overlay.
  *
  * Modal wrapper around `ProjectTemplatesPanel` so the command palette
  * entry `action-new-project-from-template` can surface the cards even

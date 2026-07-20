@@ -1,5 +1,5 @@
 /**
- * RL-044 next slice fold B — vega bundle bench guard.
+ * implementation next slice implementation note — vega bundle bench guard.
  *
  * `<RichValueChart>` lazy-imports `vega-embed` into a dedicated Vite
  * `vega-embed` manualChunk so charting never weighs on the initial
@@ -34,7 +34,7 @@ function findVegaChunk(): string | null {
   return match ? path.join(ASSETS_DIR, match) : null;
 }
 
-describe('vega-embed lazy chunk size guard (RL-044 fold B)', () => {
+describe('vega-embed lazy chunk size guard ', () => {
   const chunkPath = findVegaChunk();
 
   it.skipIf(chunkPath === null)(

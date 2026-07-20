@@ -7,7 +7,7 @@ import type { LayoutPreset } from '../types';
  * "look" so a pack-applied state never reads as half-themed.
  *
  * Packs are intentionally curated and bundled; user-imported presets
- * follow a separate flow (`utils/themePreset.ts`). Slice 2 trimmed
+ * follow a separate flow (`utils/themePreset.ts`). implementation trimmed
  * `fontLigatures` + `syncShellWithEditorTheme` from the pack schema —
  * ligatures auto-detect from the font stack, and shell polarity
  * always follows the editor theme.

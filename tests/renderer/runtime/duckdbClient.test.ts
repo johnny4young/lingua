@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 — duckdbClient tests with an injected mock engine.
+ * implementation — duckdbClient tests with an injected mock engine.
  *
  * Exercises: happy path, sql-error classification, soft timeout via
  * Promise.race, too-large flag, engine-load-failed, multi-statement
@@ -310,7 +310,7 @@ describe('executeQuery', () => {
   });
 });
 
-describe('OPFS persistence (RL-097 Slice 3)', () => {
+describe('OPFS persistence ', () => {
   it('stays in-memory when persistence is off (no open call)', async () => {
     const open = vi.fn(async () => undefined);
     const mode = await applyDuckDbPersistence({ open }, false, true);
@@ -375,7 +375,7 @@ describe('OPFS persistence (RL-097 Slice 3)', () => {
     expect(getResolvedSqlStorageRequestMode()).toBe('opfs');
   });
 
-  it('issues CHECKPOINT after a successful query when persistent (fold A)', async () => {
+  it('issues CHECKPOINT after a successful query when persistent (implementation note)', async () => {
     const queries: string[] = [];
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve({
@@ -420,7 +420,7 @@ describe('OPFS persistence (RL-097 Slice 3)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RL-097 (SQL import) — previewImportFile + importFileAsTable.
+// internal (SQL import) — previewImportFile + importFileAsTable.
 // ---------------------------------------------------------------------------
 
 interface ImportEngineLog {
@@ -617,7 +617,7 @@ describe('importFileAsTable', () => {
     expect(log.dropped).toEqual([log.registered[0]!.name]);
   });
 
-  it('issues a CHECKPOINT after a persistent import (fold A durability)', async () => {
+  it('issues a CHECKPOINT after a persistent import (implementation note durability)', async () => {
     const log = emptyLog();
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve(

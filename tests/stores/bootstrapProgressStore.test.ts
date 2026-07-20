@@ -1,5 +1,5 @@
 /**
- * IT2-D3 — bootstrap progress store + the loading-line composer.
+ * internal — bootstrap progress store + the loading-line composer.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';

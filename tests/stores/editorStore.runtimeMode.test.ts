@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 1 — `runtimeMode` extension to FileTab + editorStore.
+ * implementation — `runtimeMode` extension to FileTab + editorStore.
  *
  * Covers:
  *   - `createDefaultTab` defaults to `worker` for JS/TS, undefined
@@ -8,7 +8,7 @@
  *     unimplemented modes with a status notice, fires telemetry on
  *     a successful change, no-op on same-mode write.
  *   - `restoreTabs` backfills missing `runtimeMode` for JS/TS tabs
- *     (so a pre-Slice-1 session restores cleanly).
+ *     (so a legacy session restores cleanly).
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -48,7 +48,7 @@ function setActiveProLicense(): void {
   });
 }
 
-describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
+describe('editorStore — runtimeMode ', () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     useEditorStore.setState({ tabs: [], activeTabId: null });
@@ -91,7 +91,7 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
     expect(tab?.runtimeMode).toBe('worker');
   });
 
-  it('addTab preserves the runtimeMode value when the mode is implemented (Slice 2 — node now shipping)', () => {
+  it('addTab preserves the runtimeMode value when the mode is implemented (implementation — node now shipping)', () => {
     const { addTab } = useEditorStore.getState();
     addTab({
       id: 'manual-node',
@@ -101,7 +101,7 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
       runtimeMode: 'node',
     });
     const tab = useEditorStore.getState().tabs[0];
-    // After RL-019 Slice 2 (2026-05-14), `node` is implemented and
+    // After implementation (2026-05-14), `node` is implemented and
     // survives the addTab path instead of being coerced to worker.
     expect(tab?.runtimeMode).toBe('node');
   });
@@ -130,13 +130,13 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
-  it('setTabRuntimeMode accepts node after Slice 2 and fires telemetry', () => {
+  it('setTabRuntimeMode accepts node after implementation and fires telemetry', () => {
     const { addTab, setTabRuntimeMode } = useEditorStore.getState();
     const js = createDefaultTab('javascript');
     addTab(js);
     setTabRuntimeMode(js.id, 'node');
     const tab = useEditorStore.getState().tabs.find((t) => t.id === js.id);
-    // RL-019 Slice 2 (2026-05-14) — `node` is now implemented and
+    // implementation (2026-05-14) — `node` is now implemented and
     // the setter accepts it instead of rejecting with a notice.
     expect(tab?.runtimeMode).toBe('node');
     expect(mockTrackEvent).toHaveBeenCalledWith('runtime.mode_changed', {
@@ -159,9 +159,9 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
     expect(tab?.variableInspectorEnabled).toBeUndefined();
   });
 
-  it('setTabRuntimeMode accepts browser-preview after Slice 3 and fires telemetry', () => {
-    // RL-019 Slice 3 — browser-preview is implemented now. The
-    // reject branch + notice only applies to `node` until Slice 2.
+  it('setTabRuntimeMode accepts browser-preview after implementation and fires telemetry', () => {
+    // implementation — browser-preview is implemented now. The
+    // reject branch + notice only applies to `node` until implementation.
     const { addTab, setTabRuntimeMode } = useEditorStore.getState();
     const ts = createDefaultTab('typescript');
     addTab(ts);
@@ -206,7 +206,7 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
         name: 'old.js',
         language: 'javascript',
         content: '',
-        // No runtimeMode field — simulating a pre-Slice-1 session.
+        // No runtimeMode field — simulating a legacy session.
       },
       {
         id: 'restored-2',

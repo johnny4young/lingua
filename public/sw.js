@@ -18,11 +18,11 @@
 // part of the runtime trust boundary.
 //
 // History:
-// - v4 (RL-083 Slice 2): web Pyodide CDN moved to cache-first.
-// - v3 (RL-061 Slice 5): web moved from GitHub Pages (`/lingua/`) to
+// - v4 : web Pyodide CDN moved to cache-first.
+// - v3 : web moved from GitHub Pages (`/lingua/`) to
 //   Cloudflare Pages (`app.linguacode.dev/`). Prior `v2` had paths
 //   under `/lingua/` that no longer match the subdomain-rooted hashes.
-// - v2 (RL-061 Slice 2.5): cache scope changed.
+// - v2 : cache scope changed.
 const CACHE_VERSION = 'v5';
 const CACHE_NAME = `lingua-${CACHE_VERSION}`;
 const BASE_PATH = new URL(self.registration.scope).pathname;
@@ -125,7 +125,7 @@ self.addEventListener('fetch', event => {
   // cache even in the brief window before this SW deregisters.
   if (IS_DEV_SERVER) return;
 
-  // RL-061 — API requests bypass the cache entirely. Returning early
+  // internal — API requests bypass the cache entirely. Returning early
   // without `respondWith` lets the browser run its default fetch path,
   // so the response never enters our cache regardless of the strategy
   // that would otherwise apply.

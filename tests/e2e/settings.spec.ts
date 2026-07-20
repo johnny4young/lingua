@@ -47,7 +47,7 @@ test.describe('Settings — structural tour', () => {
     await openSettingsTab(page, 'plugins');
     await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
 
-    // RL-095 Slice 1 (post-review refactor) — Languages tab hosts the
+    // implementation (post-review refactor) — Languages tab hosts the
     // capability scorecard + per-language LSP rows.
     await openSettingsTab(page, 'languages');
     await expect(
@@ -234,7 +234,7 @@ test.describe('Settings — License flows', () => {
     await expectTier(page, 'PRO');
   });
 
-  test('shows the embedded signing-key fingerprint as a 43-char thumbprint (RL-143)', async ({ page }) => {
+  test('shows the embedded signing-key fingerprint as a 43-char thumbprint', async ({ page }) => {
     // The e2e web build embeds a freshly minted dev key
     // (run-playwright-web-validation.mjs), so the row must render with the
     // RFC 7638 thumbprint of THAT key — locking the row against
@@ -361,7 +361,7 @@ test.describe('Settings persistence', () => {
     await expect(page.getByTestId('env-vars-global-region')).toContainText('PERSIST');
   });
 
-  // RL-126 / AUDIT-06 fold E — a returning user whose `lingua-settings` was
+  // implementation note — a returning user whose `lingua-settings` was
   // written before schema versioning (an unversioned v0 payload) must still
   // load cleanly through the new migrate path, and the store must re-stamp the
   // envelope to the current version on the next write.
@@ -370,7 +370,7 @@ test.describe('Settings persistence', () => {
   }) => {
     await seedSession(page, { language: 'en' });
     // Seed a v0 envelope (no `version` field) BEFORE the app boots, mimicking
-    // localStorage written by a build that predated RL-126.
+    // localStorage written by a build that predated internal
     await page.addInitScript(() => {
       window.localStorage.setItem(
         'lingua-settings',
@@ -389,7 +389,7 @@ test.describe('Settings persistence', () => {
     expect(loaded?.state?.fontSize).toBe(18);
 
     // Toggle a setting so the store persists, then assert the envelope now
-    // carries the current schema version (bumped to 2 by RL-111's
+    // carries the current schema version (bumped to 2 by internal's
     // restoreSession -> restoreSessionMode 1->2 migration).
     await openSettings(page);
     await openSettingsTab(page, 'editor');

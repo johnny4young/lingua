@@ -27,7 +27,7 @@ import {
 import '../renderer/index.css';
 import { markBootPhase } from '../renderer/utils/bootTimings';
 
-// RL-090 — mirror the boot recovery state on `<html data-recovery-state>`
+// internal — mirror the boot recovery state on `<html data-recovery-state>`
 // and install global error listeners so async + event-handler errors
 // (which React boundaries do not catch) feed the same crash counter
 // + safe-mode mark. Runs synchronously before createRoot.
@@ -93,7 +93,7 @@ async function bootstrapWeb(): Promise<void> {
   const isRichConsoleE2eFixture =
     __LINGUA_E2E_HOOKS__ &&
     new URLSearchParams(window.location.search).get('e2e') ===
-      'rich-console-slice2a';
+      'rich-console-gallery';
 
 // FASE 0 dev-only acceptance artifact. `?lingua-showcase` mounts the
 // recipe gallery instead of the app. The dynamic import code-splits the

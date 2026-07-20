@@ -1,5 +1,5 @@
 /**
- * Tests for web/fs-adapter.ts under the RL-077 capability contract.
+ * Tests for web/fs-adapter.ts under the internal capability contract.
  *
  * The File System Access API is not available in jsdom, so we either
  * mock the relevant globals (showDirectoryPicker / showOpenFilePicker)
@@ -126,7 +126,7 @@ describe('webFsAdapter — selectDirectory cancellation', async () => {
   });
 });
 
-describe('webFsAdapter — selectDirectory unsupported branch (RL-024 Slice 1)', async () => {
+describe('webFsAdapter — selectDirectory unsupported branch ', async () => {
   const fsAdapterModule = await import('../../src/web/fs-adapter');
   const uiStoreModule = await import('../../src/renderer/stores/uiStore');
 

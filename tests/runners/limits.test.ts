@@ -1,5 +1,5 @@
 /**
- * RL-078 — limits.ts unit tests.
+ * internal — limits.ts unit tests.
  *
  * Pin the truncation contract for the runner output caps so the
  * renderer's console / result panels never ingest unbounded
@@ -101,7 +101,7 @@ describe('runnerTimeoutResult', () => {
   it('builds a deterministic timeout-shaped ExecutionResult with translated copy', () => {
     const stdout: ConsoleOutput[] = [{ type: 'log', args: ['before stall'] }];
     const stderr: ConsoleOutput[] = [];
-    // RL-020 Slice 7 fold F — the timeout result appends the
+    // implementation note — the timeout result appends the
     // "open Settings" hint when the run used a Settings-driven
     // preset (not an explicit caller override). The 4th arg is
     // omitted here, which is treated like the preset path.
@@ -113,7 +113,7 @@ describe('runnerTimeoutResult', () => {
     expect(result.stdout).toBe(stdout);
     expect(result.stderr).toBe(stderr);
     expect(result.result).toBeUndefined();
-    // RL-020 Slice 7 — explicit kind + duration carried on the
+    // implementation — explicit kind + duration carried on the
     // result so the renderer pill self-gates without regex.
     expect(result.kind).toBe('timeout');
     expect(result.timeoutMs).toBe(3_000);

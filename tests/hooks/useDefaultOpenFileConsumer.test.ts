@@ -10,7 +10,7 @@ import {
   type OpenFileCommand,
 } from '../../src/renderer/stores/commandBus';
 
-describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
+describe('useDefaultOpenFileConsumer — implementation-β-α implementation note', () => {
   let pushSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -26,7 +26,7 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
     emitCommand('file.open', detail as OpenFileCommand);
   }
 
-  it('pushes a fallback status notice when no RL-024 consumer is registered', () => {
+  it('pushes a fallback status notice when no internal consumer is registered', () => {
     const { unmount } = renderHook(() => useDefaultOpenFileConsumer());
     dispatch({ file: 'src/example.ts', line: 12, column: 5 });
     expect(pushSpy).toHaveBeenCalledWith(
@@ -44,7 +44,7 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
     dispatch({ file: '', line: 0 });
     dispatch({ file: 'src/x.ts' });
     dispatch({ line: 5 });
-    // RL-044 Sub-slice G — empty `file` + `line > 0` is the
+    // implementation — empty `file` + `line > 0` is the
     // within-tab path; here it should be a no-op because no tab is
     // active in the editor store fixture by default. The push spy
     // stays at zero AND the editor reveal request stays null.
@@ -55,7 +55,7 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
     unmount();
   });
 
-  it('routes within-tab clicks (empty file + line > 0) through requestReveal — RL-044 Sub-slice G', () => {
+  it('routes within-tab clicks (empty file + line > 0) through requestReveal — implementation', () => {
     const requestRevealSpy = vi.spyOn(useEditorStore.getState(), 'requestReveal');
     // Seed the active tab so the consumer can move the cursor.
     useEditorStore.setState({
@@ -169,7 +169,7 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
     unmount();
   });
 
-  it('skips when a higher-priority consumer claims the command (RL-024 path)', () => {
+  it('skips when a higher-priority consumer claims the command (internal path)', () => {
     const unsubscribeClaimer = subscribeCommand(
       'file.open',
       (_payload, context) => context.markHandled(),

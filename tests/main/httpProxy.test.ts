@@ -1,5 +1,5 @@
 /**
- * RL-097 T7 — main-process HTTP proxy engine.
+ * internal implementation — main-process HTTP proxy engine.
  *
  * Covers the SSRF guard (literal private ranges, DNS-resolved private
  * targets, localhost, scheme allowlist, opt-in bypass), the shared

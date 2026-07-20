@@ -27,7 +27,7 @@ describe('JavaScriptRunner', () => {
     expect(() => runner.stop()).not.toThrow();
   });
 
-  it('forwards rich payload + console.table flag from worker to ConsoleOutput (RL-044 Slice 1B)', async () => {
+  it('forwards rich payload + console.table flag from worker to ConsoleOutput ', async () => {
     const originalWorker = globalThis.Worker;
 
     class MockWorker {
@@ -149,7 +149,7 @@ describe('JavaScriptRunner', () => {
     }
   });
 
-  // Slice 2 — `outputSourceMappingEnabled` was removed from
+  // implementation — `outputSourceMappingEnabled` was removed from
   // `ExecutionContext`; the worker always receives
   // `sourceMappingEnabled: true`. The "OFF state forwards false" case
   // no longer applies.
@@ -354,7 +354,7 @@ describe('JavaScriptRunner', () => {
     }
   });
 
-  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (RL-044 Slice 2b-β-β-α fold A telemetry fires fire-and-forget)', async () => {
+  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (implementation-β-β-α implementation note telemetry fires fire-and-forget)', async () => {
     const originalWorker = globalThis.Worker;
 
     class MockWorker {
@@ -406,7 +406,7 @@ describe('JavaScriptRunner', () => {
   });
 });
 
-describe('RL-115 — per-line timing integration', () => {
+describe('internal — per-line timing integration', () => {
   function installTimingWorkerMock() {
     const originalWorker = globalThis.Worker;
     const seen: { code?: string } = {};

@@ -59,8 +59,7 @@ export const es = {
       headline: ['Ejecuta JS, TS,', 'Python, Go y Rust', 'en'],
       headlineSuffix: 'una sola',
       headlineEnd: 'ventana Monaco.',
-      lede:
-        'Lingua es el playground que usan developers senior cuando quieren probar un script de 10 líneas en cinco lenguajes sin crear un proyecto. Desktop-first, source-available y claro sobre qué corre en cada entorno.',
+      lede: 'Lingua es el playground que usan developers senior cuando quieren probar un script de 10 líneas en cinco lenguajes sin crear un proyecto. Desktop-first, source-available y claro sobre qué corre en cada entorno.',
       proofLabel: 'Datos del producto Lingua',
       proof: [
         { value: '5', label: 'lenguajes ejecutables' },
@@ -123,7 +122,8 @@ export const es = {
       ctaNote: 'Sin instalar, sin cuenta.',
       backToAll: 'Todas las comparaciones',
       indexTitle: 'Cómo se compara Lingua',
-      indexLede: 'Comparativos honestos y verificables con las herramientas contra las que los developers realmente sopesan Lingua. Cada uno dice con claridad cuándo la otra herramienta es la mejor opción.',
+      indexLede:
+        'Comparativos honestos y verificables con las herramientas contra las que los developers realmente sopesan Lingua. Cada uno dice con claridad cuándo la otra herramienta es la mejor opción.',
       indexCardCta: 'Leer la comparación',
       vsLabel: 'Lingua vs',
     },
@@ -136,93 +136,90 @@ export const es = {
       velocity: '{count} releases desde {since}',
     },
     whatsNew: {
-      eyebrow: "Nuevo en 0.12",
-      title: "Lo último del release, en cuatro capturas.",
-      lede:
-        "Todo lo de abajo llegó en v0.12 y funciona en el tier gratuito. El detalle completo vive en el changelog.",
-      cta: "Lee el changelog completo",
+      eyebrow: 'Nuevo en 0.12',
+      title: 'Lo último del release, en cuatro capturas.',
+      lede: 'Todo lo de abajo llegó en v0.12 y funciona en el tier gratuito. El detalle completo vive en el changelog.',
+      cta: 'Lee el changelog completo',
       history: {
-        title: "Cada release antes de este",
-        lede: "Catorce releases de progreso constante y local-first. Expande cualquier versión para ver sus destacados.",
-        featuresLabel: "features",
-        featureLabel: "feature",
+        title: 'Cada release antes de este',
+        lede: 'Catorce releases de progreso constante y local-first. Expande cualquier versión para ver sus destacados.',
+        featuresLabel: 'features',
+        featureLabel: 'feature',
       },
       items: [
         {
-          image: "/screenshots/v0.12/inline-timing.png",
-          alt: "Editor de Lingua mostrando tiempos por línea al borde derecho de cada statement, con la línea más lenta resaltada en rojo",
-          title: "Tiempos por línea con // @time",
-          body: "Agrega un comentario y cada statement de nivel superior muestra su duración inline — la línea más lenta del run se pinta de rojo. Cacería de performance sin salir del editor, y los tiempos sobreviven errores.",
+          image: '/screenshots/v0.12/inline-timing.png',
+          alt: 'Editor de Lingua mostrando tiempos por línea al borde derecho de cada statement, con la línea más lenta resaltada en rojo',
+          title: 'Tiempos por línea con // @time',
+          body: 'Agrega un comentario y cada statement de nivel superior muestra su duración inline — la línea más lenta del run se pinta de rojo. Cacería de performance sin salir del editor, y los tiempos sobreviven errores.',
         },
         {
-          image: "/screenshots/v0.12/smart-paste-jwt.png",
-          alt: "Toast de smart paste ofreciendo abrir un JWT pegado en el depurador JWT",
-          title: "Pega un valor, abre la herramienta correcta",
-          body: "Pega un JWT, UUID, color, timestamp Unix, expresión cron o Base64 en el editor y Lingua ofrece abrirlo precargado en la utilidad correspondiente. Conservador por diseño: lo que parece código queda en silencio.",
+          image: '/screenshots/v0.12/smart-paste-jwt.png',
+          alt: 'Toast de smart paste ofreciendo abrir un JWT pegado en el depurador JWT',
+          title: 'Pega un valor, abre la herramienta correcta',
+          body: 'Pega un JWT, UUID, color, timestamp Unix, expresión cron o Base64 en el editor y Lingua ofrece abrirlo precargado en la utilidad correspondiente. Conservador por diseño: lo que parece código queda en silencio.',
         },
         {
-          image: "/screenshots/v0.12/presenter-mode.png",
-          alt: "Lingua en modo presentación: sin barra lateral, toolbar ni barra de estado, con fuente agrandada",
-          title: "Modo presentación",
-          body: "Un atajo (Cmd+Alt+P) oculta el chrome y agranda las fuentes para demos, pairing y grabaciones. Alterna de nuevo y tu layout exacto regresa — nunca toca tus preferencias guardadas.",
+          image: '/screenshots/v0.12/presenter-mode.png',
+          alt: 'Lingua en modo presentación: sin barra lateral, toolbar ni barra de estado, con fuente agrandada',
+          title: 'Modo presentación',
+          body: 'Un atajo (Cmd+Alt+P) oculta el chrome y agranda las fuentes para demos, pairing y grabaciones. Alterna de nuevo y tu layout exacto regresa — nunca toca tus preferencias guardadas.',
         },
         {
-          image: "/screenshots/v0.12/bootstrap-progress.png",
-          alt: "Botón de ejecución mostrando un contador de megabytes en vivo mientras descarga el runtime de Python",
-          title: "Mira llegar tu runtime",
-          body: "El primer run de Python o Ruby ya no se queda en una línea estática: el botón de ejecución muestra un contador de MB en vivo mientras baja el runtime WASM, en cualquier red.",
+          image: '/screenshots/v0.12/bootstrap-progress.png',
+          alt: 'Botón de ejecución mostrando un contador de megabytes en vivo mientras descarga el runtime de Python',
+          title: 'Mira llegar tu runtime',
+          body: 'El primer run de Python o Ruby ya no se queda en una línea estática: el botón de ejecución muestra un contador de MB en vivo mientras baja el runtime WASM, en cualquier red.',
         },
       ],
     },
     tour: {
-      eyebrow: "Dentro de la app",
-      title: "El producto real, haciendo trabajo real.",
-      lede:
-        "Abajo no hay mockups — cada cuadro es la app tal como se distribuye, capturada a mitad de tarea sobre el build web de producción.",
+      eyebrow: 'Dentro de la app',
+      title: 'El producto real, haciendo trabajo real.',
+      lede: 'Abajo no hay mockups — cada cuadro es la app tal como se distribuye, capturada a mitad de tarea sobre el build web de producción.',
       items: [
         {
-          image: "/screenshots/tour/workspace-python.png",
-          alt: "Workspace de Lingua corriendo un script Python: valores inline junto a cada statement y stdout real en el panel de consola",
-          title: "Corre Python y mira los valores caer en cada línea",
-          body: "Pyodide arranca en un worker, el stdout fluye a la consola y cada statement de nivel superior muestra su valor inline junto al código. El tiempo de pared de cada run también cae en la consola — el timing es output, no una promesa.",
+          image: '/screenshots/tour/workspace-python.png',
+          alt: 'Workspace de Lingua corriendo un script Python: valores inline junto a cada statement y stdout real en el panel de consola',
+          title: 'Corre Python y mira los valores caer en cada línea',
+          body: 'Pyodide arranca en un worker, el stdout fluye a la consola y cada statement de nivel superior muestra su valor inline junto al código. El tiempo de pared de cada run también cae en la consola — el timing es output, no una promesa.',
         },
         {
-          image: "/screenshots/tour/command-palette.png",
-          alt: "Paleta de comandos filtrada con la consulta sql, mostrando el workspace SQL, la herramienta de escape y el formateador SQL",
-          title: "Una paleta para comandos, plantillas y utilidades",
-          body: "Cmd+K busca todo a la vez — comandos, snippets, plantillas y cada utilidad developer. Escribe tres letras, presiona Enter y sigue codeando.",
+          image: '/screenshots/tour/command-palette.png',
+          alt: 'Paleta de comandos filtrada con la consulta sql, mostrando el workspace SQL, la herramienta de escape y el formateador SQL',
+          title: 'Una paleta para comandos, plantillas y utilidades',
+          body: 'Cmd+K busca todo a la vez — comandos, snippets, plantillas y cada utilidad developer. Escribe tres letras, presiona Enter y sigue codeando.',
         },
         {
-          image: "/screenshots/tour/utilities.png",
-          alt: "Workspace de utilidades developer con el formateador JSON activo: panel de entrada, controles de formato y vista de árbol",
-          title: "Las 31 utilidades viven junto a tu código",
-          body: "Formateador JSON con vista de árbol, depurador JWT, datos de prueba, generadores de hash y UUID — más los Pipelines de utilidades que las encadenan en workflows de un click. Cada una corre local en la misma ventana, así las tareas rápidas dejan de costarte una pestaña del navegador.",
+          image: '/screenshots/tour/utilities.png',
+          alt: 'Workspace de utilidades developer con el formateador JSON activo: panel de entrada, controles de formato y vista de árbol',
+          title: 'Las 31 utilidades viven junto a tu código',
+          body: 'Formateador JSON con vista de árbol, depurador JWT, datos de prueba, generadores de hash y UUID — más los Pipelines de utilidades que las encadenan en workflows de un click. Cada una corre local en la misma ventana, así las tareas rápidas dejan de costarte una pestaña del navegador.',
         },
         {
-          image: "/screenshots/tour/sql-workspace.png",
-          alt: "Workspace SQL con una tabla releases importada, una query de agregación formateada, grid de resultados y el panel de perfil de columnas",
-          title: "Un workspace SQL completo sobre DuckDB",
-          body: "Suelta un CSV, JSON o Parquet y se convierte en una tabla consultable sobre el motor DuckDB incluido — con grid de resultados, formateo de queries con una tecla y perfil por columna. Tu Run Ledger local también se consulta desde aquí.",
+          image: '/screenshots/tour/sql-workspace.png',
+          alt: 'Workspace SQL con una tabla releases importada, una query de agregación formateada, grid de resultados y el panel de perfil de columnas',
+          title: 'Un workspace SQL completo sobre DuckDB',
+          body: 'Suelta un CSV, JSON o Parquet y se convierte en una tabla consultable sobre el motor DuckDB incluido — con grid de resultados, formateo de queries con una tecla y perfil por columna. Tu Run Ledger local también se consulta desde aquí.',
         },
         {
-          image: "/screenshots/tour/http-workspace.png",
-          alt: "Workspace HTTP mostrando una request GET con query params y una respuesta JSON 200 OK formateada",
-          title: "Un cliente HTTP sin el impuesto de la pestaña del navegador",
-          body: "Requests, query params, auth, environments y captura de respuestas viven en un solo tab de workspace. Envía y lee el body formateado con status, timing y tamaño ahí donde codeas.",
+          image: '/screenshots/tour/http-workspace.png',
+          alt: 'Workspace HTTP mostrando una request GET con query params y una respuesta JSON 200 OK formateada',
+          title: 'Un cliente HTTP sin el impuesto de la pestaña del navegador',
+          body: 'Requests, query params, auth, environments y captura de respuestas viven en un solo tab de workspace. Envía y lee el body formateado con status, timing y tamaño ahí donde codeas.',
         },
         {
-          image: "/screenshots/tour/settings-privacy.png",
-          alt: "Página de privacidad en Settings: analítica anónima apagada, Run Ledger apagado, lista de headers HTTP sensibles y vista previa de redacción",
-          title: "La privacidad es una página de Settings, no una promesa",
-          body: "La telemetría viene apagada y se queda así hasta que tú la actives. El Run Ledger guarda solo local, los headers sensibles se redactan por nombre y la vista previa de redacción muestra exactamente qué saldría de tu máquina — nada.",
+          image: '/screenshots/tour/settings-privacy.png',
+          alt: 'Página de privacidad en Settings: analítica anónima apagada, Run Ledger apagado, lista de headers HTTP sensibles y vista previa de redacción',
+          title: 'La privacidad es una página de Settings, no una promesa',
+          body: 'La telemetría viene apagada y se queda así hasta que tú la actives. El Run Ledger guarda solo local, los headers sensibles se redactan por nombre y la vista previa de redacción muestra exactamente qué saldría de tu máquina — nada.',
         },
       ],
     },
     ai: {
       eyebrow: 'Asistencia con IA · Pro',
       title: 'IA que nunca envía tu código sin permiso.',
-      lede:
-        'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
+      lede: 'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
       shot: {
         image: '/screenshots/tour/ai-explain.png',
         alt: 'Diálogo de explicar este error sobre un run de JavaScript fallido: el modelo explica la propiedad undefined, propone un fix con guard en un bloque de código y ofrece las acciones Preguntar y Aplicar y re-ejecutar',
@@ -255,8 +252,7 @@ export const es = {
     languageMatrix: {
       eyebrow: 'Matriz de lenguajes',
       title: 'Soporte honesto para 12 lenguajes.',
-      lede:
-        'Cinco lenguajes se ejecutan hoy. Siete más sirven para abrir, leer y flujos cercanos al lint, pero todavía no son ejecutables.',
+      lede: 'Cinco lenguajes se ejecutan hoy. Siete más sirven para abrir, leer y flujos cercanos al lint, pero todavía no son ejecutables.',
       columns: {
         language: 'Lenguaje',
         status: 'Estado',
@@ -287,20 +283,38 @@ export const es = {
     utilities: {
       eyebrow: 'Utilidades developer',
       title: '31 paneles integrados.',
-      lede:
-        'Las pestañas del navegador que suelen rodear a un runner — formateador JSON, regex, JWT, diff, hash, cron, color y más — ya viven dentro de Lingua.',
+      lede: 'Las pestañas del navegador que suelen rodear a un runner — formateador JSON, regex, JWT, diff, hash, cron, color y más — ya viven dentro de Lingua.',
       aria: 'Utilidades developer integradas',
     },
     pricingTeaser: {
       eyebrow: 'Precios',
       title: 'Cuatro tiers, sin el protocolo de una página de precios.',
-      lede:
-        'En el home solo importa la forma: Free es útil, Mensual desbloquea runners pesados, Pro es el tier de pago único y Team funciona por asientos.',
+      lede: 'En el home solo importa la forma: Free es útil, Mensual desbloquea runners pesados, Pro es el tier de pago único y Team funciona por asientos.',
       tiers: [
-        { name: 'Free', price: '$0', tag: 'Por defecto', desc: 'Una pestaña, cinco snippets, JS / TS / Python / Ruby, utilidades de una sola acción. Sin licencia.' },
-        { name: 'Mensual', price: '$5 / mes', tag: 'Suscripción', desc: 'Pestañas y snippets ilimitados, Go y Rust, más workflows de utilidades.' },
-        { name: 'Pro', price: '$59 una vez', tag: 'Pago único', desc: 'Desbloqueo de pago perpetuo, sin factura recurrente y con 12 meses de actualizaciones incluidos.' },
-        { name: 'Team', price: '$3 / asiento / mes', tag: 'Por asiento', desc: 'Asientos de equipo, facturación y manejo de licencias para organizaciones.' },
+        {
+          name: 'Free',
+          price: '$0',
+          tag: 'Por defecto',
+          desc: 'Una pestaña, cinco snippets, JS / TS / Python / Ruby, utilidades de una sola acción. Sin licencia.',
+        },
+        {
+          name: 'Mensual',
+          price: '$5 / mes',
+          tag: 'Suscripción',
+          desc: 'Pestañas y snippets ilimitados, Go y Rust, más workflows de utilidades.',
+        },
+        {
+          name: 'Pro',
+          price: '$59 una vez',
+          tag: 'Pago único',
+          desc: 'Desbloqueo de pago perpetuo, sin factura recurrente y con 12 meses de actualizaciones incluidos.',
+        },
+        {
+          name: 'Team',
+          price: '$3 / asiento / mes',
+          tag: 'Por asiento',
+          desc: 'Asientos de equipo, facturación y manejo de licencias para organizaciones.',
+        },
       ],
     },
     privacyCallout: {
@@ -321,8 +335,7 @@ export const es = {
       'Free, Mensual a $5/mes, Pro a $59 una vez y Team a $3/asiento/mes. Licencias verificadas offline. Acceso de pago gratis para estudiantes y docentes verificados.',
     eyebrow: 'Precios',
     heading: 'Cuatro tiers. Paga solo por lo que necesitas.',
-    lede:
-      'Mensual es una suscripción de $5/mes. Pro cuesta $59 una vez por un desbloqueo de pago perpetuo y 12 meses de actualizaciones; renueva solo si quieres releases posteriores. Team cuesta $3/asiento/mes con facturación. Free cubre scratchpads de hasta tres pestañas para siempre. Las licencias se verifican offline.',
+    lede: 'Mensual es una suscripción de $5/mes. Pro cuesta $59 una vez por un desbloqueo de pago perpetuo y 12 meses de actualizaciones; renueva solo si quieres releases posteriores. Team cuesta $3/asiento/mes con facturación. Free cubre scratchpads de hasta tres pestañas para siempre. Las licencias se verifican offline.',
     trialCallout: {
       text: '¿Primera vez? Prueba Pro gratis 14 días — sin tarjeta de crédito.',
       linkText: 'Cómo empezar →',
@@ -334,7 +347,8 @@ export const es = {
     table: {
       mostPopular: 'Más popular',
       disabled: 'Checkout próximamente',
-      disabledTitle: 'La URL de checkout de Polar no está configurada — define PUBLIC_POLAR_CHECKOUT_* en Cloudflare Pages',
+      disabledTitle:
+        'La URL de checkout de Polar no está configurada — define PUBLIC_POLAR_CHECKOUT_* en Cloudflare Pages',
       educationTitle: 'Educación',
       education:
         'Pro gratis durante un año, renovable. Abre Lingua → Settings → License → Licencia educativa, ingresa tu email académico (cualquier dominio .edu más .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br y .ac.in) y confirma con el magic link que te enviamos. El token llega por email y se pega solo en la app.',
@@ -458,7 +472,8 @@ export const es = {
     fullChangelog: 'Changelog completo →',
     older: (count: number) => `Releases anteriores (${count})`,
     viewInChangelog: (version: string) => `Ver notas de v${version} →`,
-    zeroReleasesError: 'El manifest de releases vino vacío — no se publica una página de descargas vacía.',
+    zeroReleasesError:
+      'El manifest de releases vino vacío — no se publica una página de descargas vacía.',
     dates: {
       locale: 'es-CO',
       long: { year: 'numeric', month: 'long', day: 'numeric' } as Intl.DateTimeFormatOptions,
@@ -482,12 +497,11 @@ export const es = {
   changelog: {
     title: 'Roadmap y changelog — Lingua',
     description:
-      'Qué está planeado, qué está en progreso y qué ya se publicó. Cada línea apunta a un ticket público o a una release estable.',
+      'Dirección de producto, inversiones activas e historial de releases estables de Lingua.',
     eyebrow: 'Roadmap y changelog',
     heading: 'Planeado. En progreso. Publicado.',
-    ledeBefore: 'Tres fases de trabajo, en ese orden. Las primeras dos vienen del',
-    ledeAfter:
-      'público del repo principal: cambian cuando los tickets avanzan. La tercera es el historial real de releases leído desde CHANGELOG.md en cada build.',
+    ledeBefore: 'Una vista curada de hacia dónde va Lingua y qué está mejorando ahora.',
+    ledeAfter: 'El historial publicado se genera desde CHANGELOG.md en cada build.',
     planned: 'Planeado',
     inProgress: 'En progreso',
     brewing: 'En preparación',
@@ -499,29 +513,29 @@ export const es = {
     },
     aria: {
       roadmapTotals: 'Totales del roadmap',
-      jumpToPhase: 'Saltar a fase',
+      jumpToSection: 'Saltar a sección',
       breakingChange: 'Cambio incompatible',
     },
     phase1: {
-      eyebrow: 'Fase 1',
+      eyebrow: 'Dirección',
       title: 'Planeado',
-      lede: 'Especificado, acotado y esperando turno. Cada ticket tiene criterios de aceptación escritos contra el codebase antes de empezar.',
+      lede: 'Áreas de producto que queremos explorar cuando las bases actuales estén listas.',
     },
     phase2: {
-      eyebrow: 'Fase 2',
+      eyebrow: 'En construcción',
       title: 'En progreso',
-      lede: 'Slices ya publicados, con más por venir. Lo listado aquí tiene código funcionando en el binario actual; todavía no es una historia cerrada.',
+      lede: 'Capacidades útiles hoy, con un siguiente nivel de completitud claramente definido.',
     },
     phaseBrewing: {
       eyebrow: 'En preparación',
       titlePrefix: 'Desde',
-      lede:
-        'Commits visibles para usuarios que están en main pero aún no se empaquetan en una release estable. Leído directamente desde git log, sin edición de marketing.',
-      hidden: (count: number) => `Además hay ${count} commits de infraestructura / docs / tests ocultos en esta vista. Revisa el log completo en`,
+      lede: 'Commits visibles para usuarios que están en main pero aún no se empaquetan en una release estable. Leído directamente desde git log, sin edición de marketing.',
+      hidden: (count: number) =>
+        `Además hay ${count} commits de infraestructura / docs / tests ocultos en esta vista. Revisa el log completo en`,
       github: 'GitHub',
     },
     phase3: {
-      eyebrow: 'Fase 3',
+      eyebrow: 'Historial',
       title: 'Publicado',
       lede: 'Releases estables en el canal público. Leído desde CHANGELOG.md en cada build; nunca escrito a mano.',
     },
@@ -547,12 +561,12 @@ export const es = {
       'Descripciones, bio del fundador, resumen de precios y ZIP del press kit. Para periodistas y partners que escriben sobre Lingua.',
     eyebrow: 'Prensa',
     heading: 'Kit de prensa',
-    lede:
-      'Todo lo necesario para escribir sobre Lingua con precisión. Copy listo en tres extensiones, bio del fundador y contacto. Los assets de marca llegan con v0.3; hasta entonces esta página y el ZIP contienen el mismo texto.',
+    lede: 'Todo lo necesario para escribir sobre Lingua con precisión. Copy listo en tres extensiones, bio del fundador y contacto. Los assets de marca llegan con v0.3; hasta entonces esta página y el ZIP contienen el mismo texto.',
     downloadZip: 'Descargar press kit (ZIP)',
     contact: 'Contacto de prensa',
     contactMetaStart: 'Contacto de prensa —',
-    contactMetaEnd: 'Para acceso embargado antes de una release, por favor avisa con al menos 72 horas.',
+    contactMetaEnd:
+      'Para acceso embargado antes de una release, por favor avisa con al menos 72 horas.',
     sections: [
       {
         title: 'Sobre Lingua — 25 palabras',
@@ -577,7 +591,8 @@ export const es = {
     ],
     pricing: {
       title: 'Precios',
-      bodyStart: 'Cuatro tiers: Free, Mensual a $5/mes, Pro a $59 una vez y Team a $3/asiento/mes. Education es gratis para estudiantes y docentes verificados. Consulta la',
+      bodyStart:
+        'Cuatro tiers: Free, Mensual a $5/mes, Pro a $59 una vez y Team a $3/asiento/mes. Education es gratis para estudiantes y docentes verificados. Consulta la',
       link: 'página completa de precios',
       bodyEnd: 'para ver qué desbloquea cada tier.',
     },

@@ -20,7 +20,7 @@ function watcherFailureMessageKey(diagnostic: unknown): string {
 }
 
 /**
- * RL-087 — surface watcher reliability problems to the user.
+ * internal — surface watcher reliability problems to the user.
  *
  * Subscribes to two main-process IPC channels:
  *

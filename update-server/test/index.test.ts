@@ -1,5 +1,5 @@
 /**
- * RL-061 Slice 5 — `/web/version` endpoint tests.
+ * implementation — `/web/version` endpoint tests.
  *
  * Covers the four cases the renderer's `useWebVersionPolling` hook
  * relies on:
@@ -70,7 +70,7 @@ function createGitHubReleaseResponse(tag: string | null): Response {
 }
 
 // ---------------------------------------------------------------------------
-// RL-080 Slice 1 — `/update/:platform/:version` test fixtures
+// implementation — `/update/:platform/:version` test fixtures
 // ---------------------------------------------------------------------------
 
 interface FixtureAsset {
@@ -308,7 +308,7 @@ describe('GET /web/version', () => {
   });
 });
 
-describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
+describe('GET /update/:platform/:version ', () => {
   function callUpdate(platform: 'darwin' | 'win32', version: string, env: Env = createEnv()) {
     return worker.fetch(
       new Request(`https://updates.linguacode.dev/update/${platform}/${version}`),

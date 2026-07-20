@@ -3,7 +3,7 @@
  * Express API hello — 4 files. Spins up a minimal HTTP server with a
  * single GET `/hello` route, a `package.json` declaring the express
  * dependency, a `.gitignore` that pre-empts the `node_modules/` /
- * `.env` first-commit footgun (fold E), and a README the user can
+ * `.env` first-commit footgun (implementation note), and a README the user can
  * read inline. The entry file is `src/index.js` so the new tab opens
  * on the meaningful code rather than the manifest.
  */

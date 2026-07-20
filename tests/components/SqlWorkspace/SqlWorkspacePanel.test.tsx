@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 2 — SqlWorkspacePanel tests.
+ * implementation — SqlWorkspacePanel tests.
  *
  * Mirror of `tests/components/HttpWorkspace/HttpWorkspacePanel.test.tsx`.
  * The DuckDB engine is injected via the `__setDuckDbEngineFactoryForTests`
@@ -78,7 +78,7 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
-// RL-097 Slice 3 — the SQL editor renders Monaco, which cannot mount in jsdom
+// implementation — the SQL editor renders Monaco, which cannot mount in jsdom
 // (it touches `CSS.escape` + a real theme service). Stand in a controlled
 // `<textarea>` that keeps the `sql-query-editor-textarea` testid the panel
 // tests query, and routes a real Cmd/Ctrl+Enter keypress to the run command
@@ -221,7 +221,7 @@ describe('SqlWorkspacePanel', () => {
       expect(latestCapsule?.tab.language).toBe('sql');
       expect(latestCapsule?.environment.runner).toBe('duckdb-wasm');
     });
-    // UX Sweep T4 — a successful run is announced to screen readers.
+    // accessibility pass — a successful run is announced to screen readers.
     expect(useAnnouncerStore.getState().message).toMatch(/returned/i);
   });
 
@@ -262,7 +262,7 @@ describe('SqlWorkspacePanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sql-result-preview-error-sql-error')).toBeTruthy();
     });
-    // UX Sweep T4 — a failed run announces the failure, not a row count.
+    // accessibility pass — a failed run announces the failure, not a row count.
     expect(useAnnouncerStore.getState().message).toMatch(/failed/i);
   });
 
@@ -555,7 +555,7 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RL-097 (SQL import) — keyboard-only import flow + preview modal a11y.
+// internal (SQL import) — keyboard-only import flow + preview modal a11y.
 // ---------------------------------------------------------------------------
 
 /**
@@ -584,7 +584,7 @@ function importEngine(
             arrowTable([{ name: 'n', type: 'BIGINT' }], [{ n: 3n }])
           );
         }
-        // IT2-C2 — the browser now lists schema-qualified tables from
+        // internal — the browser now lists schema-qualified tables from
         // information_schema.tables (SHOW TABLES only saw `main`).
         if (/FROM information_schema\.tables/i.test(sql)) {
           return mapArrowTable(
@@ -626,7 +626,7 @@ function csvFile(name = 'Sales Data.csv'): File {
   return new File(['id,label\n1,one\n2,two\n'], name, { type: 'text/csv' });
 }
 
-describe('SqlWorkspacePanel — file import (RL-097)', () => {
+describe('SqlWorkspacePanel — file import', () => {
   it('keyboard path: Import button is a real focusable button with an aria-label', () => {
     render(<SqlWorkspacePanel />);
     const button = screen.getByTestId('sql-workspace-import');

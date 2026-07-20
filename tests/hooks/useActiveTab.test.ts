@@ -1,12 +1,12 @@
 /**
- * RL-121 — coverage for the centralized active-tab access seam:
+ * internal — coverage for the centralized active-tab access seam:
  * `getActiveTab` / `getActiveTabIndex` selectors on `editorStore` and
  * the `useActiveTab` / `useActiveTabId` React hooks.
  *
  * The load-bearing guarantee is REFERENTIAL STABILITY: a subscriber
  * reading the active tab through `useActiveTab()` must NOT re-render
  * when an unrelated tab mutates. That invariant is what removes the
- * O(N·M) re-render fan-out the audit (AUDIT-01 / §3.1) flagged, where
+ * O(N·M) re-render fan-out the audit (internal / §3.1) flagged, where
  * ~15 components each re-derived the active tab inline and re-rendered
  * on every `tabs` array change.
  */
@@ -109,7 +109,7 @@ describe('useActiveTab hook', () => {
     expect(result.current).toBeNull();
   });
 
-  it('does NOT re-render when an UNRELATED tab mutates (fold C)', () => {
+  it('does NOT re-render when an UNRELATED tab mutates (implementation note)', () => {
     const active = makeTab('active');
     seed([active, makeTab('other')], 'active');
 
@@ -154,7 +154,7 @@ describe('useActiveTab hook', () => {
   });
 });
 
-describe('useActiveTabId hook (fold A)', () => {
+describe('useActiveTabId hook (implementation note)', () => {
   it('tracks the active tab id without subscribing to tab content', () => {
     seed([makeTab('a'), makeTab('b')], 'a');
     let renders = 0;

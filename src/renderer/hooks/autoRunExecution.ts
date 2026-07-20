@@ -187,7 +187,7 @@ export async function executeAutoRun({
       language,
       ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),
       autoLog: autoLogEnabled,
-      // RL-115 — Settings-level per-line timing; the runner also honors
+      // internal — Settings-level per-line timing; the runner also honors
       // an in-buffer // @time directive on its own.
       ...(useSettingsStore.getState().showLineTiming ? { lineTiming: true } : {}),
       ...(stdinBuffer !== undefined ? { stdin: stdinBuffer } : {}),

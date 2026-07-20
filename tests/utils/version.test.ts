@@ -1,5 +1,5 @@
 /**
- * RL-061 Slice 5 — pin the renderer-side semver helper.
+ * implementation — pin the renderer-side semver helper.
  *
  * Mirrors `update-server/src/version.ts`. Both helpers share their
  * shape on purpose — the worker emits the latest tag and the

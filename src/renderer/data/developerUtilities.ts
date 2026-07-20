@@ -61,7 +61,7 @@ export type DeveloperUtilityId =
   | 'utility-pipelines';
 
 /**
- * RL-069 Slice 2 — input shape passed to a utility's `detect` predicate.
+ * implementation — input shape passed to a utility's `detect` predicate.
  *
  * Most panels only consume `primary` (the single textarea / input).
  * Diff and Regex consume both `primary` and `secondary` because they
@@ -81,7 +81,7 @@ export interface DeveloperUtilityDefinition {
   descriptionKey: string;
   keywords: string[];
   /**
-   * RL-069 Slice 1 — short-form lookup tokens for the fuzzy search.
+   * implementation — short-form lookup tokens for the fuzzy search.
    *
    * Keywords stay focused on synonyms a user might type when describing
    * the tool ("validate", "encode"). Aliases are abbreviations and
@@ -99,7 +99,7 @@ export interface DeveloperUtilityDefinition {
    */
   requiresEntitlement?: Entitlement;
   /**
-   * RL-069 Slice 2 — input-shape predicate used by the ⚡ Apply
+   * implementation — input-shape predicate used by the ⚡ Apply
    * button and the Mod+Shift+A shortcut. When omitted, the panel
    * is treated as a pure generator (random-string, lorem-ipsum)
    * and the Apply button is hidden.
@@ -292,7 +292,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'charset',
       'secure',
     ],
-    // RL-069 Slice 2 — pure generator. No `detect`; the toolbar hides
+    // implementation — pure generator. No `detect`; the toolbar hides
     // the ⚡ Apply button so the existing "Generate" control stays
     // the single canonical action.
   },
@@ -333,7 +333,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.loremIpsum.description',
     keywords: ['lorem', 'ipsum', 'placeholder', 'dummy', 'mock', 'copy', 'text', 'latin'],
     aliases: ['lipsum'],
-    // RL-069 Slice 2 — pure generator. No `detect`; the toolbar hides
+    // implementation — pure generator. No `detect`; the toolbar hides
     // the ⚡ Apply button so the existing "Generate" control stays
     // the single canonical action.
   },
@@ -428,7 +428,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     titleKey: 'utilities.tool.markdownPreview.titleLabel',
     actionLabelKey: 'utilities.tool.markdownPreview.label',
     descriptionKey: 'utilities.tool.markdownPreview.description',
-    // RL-069 Slice 1 — `md` moved from keywords to aliases so it
+    // implementation — `md` moved from keywords to aliases so it
     // serves as a fuzzy-search shorthand without duplicating the
     // descriptive-keyword vocabulary.
     keywords: ['markdown', 'preview', 'gfm', 'render', 'docs', 'readme'],
@@ -445,7 +445,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     detect: ({ primary }) => detectsAsSql(primary),
   },
   {
-    // RL-099 Slice 1 — Utility Pipelines. Composes existing
+    // implementation — Utility Pipelines. Composes existing
     // utility adapters into a one-click chained workflow. No
     // `detect` predicate: the panel takes a free-form text input
     // and pipes it through user-defined steps.

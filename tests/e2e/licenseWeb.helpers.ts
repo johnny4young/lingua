@@ -119,7 +119,7 @@ async function fulfillCorsPreflight(route: Route): Promise<boolean> {
 }
 
 async function installLicenseServerMock(page: Page): Promise<void> {
-  // RL-065 Slice 5 — every e2e build now has `VITE_LINGUA_TELEMETRY_URL`
+  // implementation — every e2e build now has `VITE_LINGUA_TELEMETRY_URL`
   // baked in (see playwright.license-web.config.mts). Tests that
   // grant consent (telemetry.spec.ts) install their own /telemetry
   // route to capture events; every other test seeds consent as
@@ -484,7 +484,7 @@ export async function clearLicense(page: Page): Promise<void> {
     await openSettingsTab(page, 'account');
   }
   await page.getByTestId('license-clear').click();
-  // UX Sweep T2 fold C — Remove license now routes through a confirm
+  // accessibility pass — Remove license now routes through a confirm
   // dialog before dropping Pro -> Free.
   await page.getByTestId('license-clear-confirm-confirm').click();
   await expect(page.getByTestId('license-status-pill')).toContainText(/Free|Gratis/i);

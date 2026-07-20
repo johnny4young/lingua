@@ -7,7 +7,7 @@ vi.mock('../../../src/renderer/services/educationServer', () => ({
   startEducation: vi.fn(),
 }));
 
-describe('EducationCta email validation (SR-39)', () => {
+describe('EducationCta email validation', () => {
   it('flags a malformed email with aria-invalid and an inline error', async () => {
     const user = userEvent.setup();
     render(<EducationCta />);

@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 1 — Git diff bottom-panel sibling tab.
+ * implementation — Git diff bottom-panel sibling tab.
  *
  * Renders the Monaco diff editor with the HEAD version vs. the
  * working-tree version of the active tab's file. Auto-fetches on
@@ -13,7 +13,7 @@
  *   - `error`       → Soft "Couldn't load diff" — same shape as
  *                     console-side fallback for diff-fetch IPC error.
  *
- * Telemetry: `git.diff_panel_opened` (fold D) fires once per panel
+ * Telemetry: `git.diff_panel_opened` (implementation note) fires once per panel
  * mount, gated by `panelIsActive` so a hidden mount (the panel exists
  * in the AppLayout sibling list but the user is on Console) does
  * not emit.
@@ -54,7 +54,7 @@ export function GitDiffPanel() {
   const fileEntry = useGitStore((state) =>
     activeTab?.filePath ? state.byFile.get(activeTab.filePath) : undefined
   );
-  // RL-102 Slice 2 fold B — auto-refresh on HEAD change. Subscribing
+  // implementation note — auto-refresh on HEAD change. Subscribing
   // to `posture.commit` separately (instead of relying on the broader
   // posture object identity) means a HEAD change resolves to the
   // new commit hash via `applyHeadChange`, which flips this primitive,
@@ -71,7 +71,7 @@ export function GitDiffPanel() {
 
   // Fire the panel-opened telemetry once per mount lifecycle when the
   // panel is actually visible. Using `panelIsActive` as the gate
-  // prevents a hidden mount (RL-093 keeps siblings in the DOM for
+  // prevents a hidden mount (internal keeps siblings in the DOM for
   // animation purposes) from inflating the metric.
   const telemetryFiredRef = useRef(false);
   useEffect(() => {
@@ -125,7 +125,7 @@ export function GitDiffPanel() {
     return () => {
       cancelled = true;
     };
-    // RL-102 Slice 2 fold B — `postureCommit` invalidates the
+    // implementation note — `postureCommit` invalidates the
     // memo on HEAD-change so the diff re-fetches against the new
     // HEAD revision. Including it as a dep avoids the cost of a
     // tree-wide subscription on the whole posture object.
@@ -237,7 +237,7 @@ export function GitDiffPanel() {
           options={{
             readOnly: true,
             renderSideBySide: true,
-            // Slice 1 is read-only; future Slice 2+ might enable
+            // implementation is read-only; future implementation might enable
             // inline edits with stage/unstage actions.
             originalEditable: false,
             scrollBeyondLastLine: false,

@@ -1,12 +1,12 @@
 /**
- * RL-020 Slice 6 — line-by-line stdin reader for the Pyodide worker,
+ * implementation — line-by-line stdin reader for the Pyodide worker,
  * extracted (python-worker-env.ts precedent) so the EOF semantics are
  * unit-testable without a Pyodide harness.
  *
  * Contract:
  *  - The staged panel buffer is split up front so per-`input()`
  *    consumption is O(1) and the consumed count stays observable for
- *    the fold-G summary reply.
+ *    the implementation note summary reply.
  *  - `read()` returns the next line INCLUDING its terminating `\n`
  *    (Pyodide expects the chunk with the line terminator), or `null`
  *    at EOF. With an EMPTY buffer the first read is already EOF, so a

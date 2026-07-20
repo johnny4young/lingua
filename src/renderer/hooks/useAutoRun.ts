@@ -86,7 +86,7 @@ export function useAutoRun() {
       return;
     }
 
-    // RL-119 — Off is a real scheduling mode, not a large timeout. Cancel a
+    // internal — Off is a real scheduling mode, not a large timeout. Cancel a
     // pending/in-flight silent preview without touching the last visible DOM
     // or result so manual Run remains the only refresh path.
     if (autoRunSchedule.debounceMs === null) {

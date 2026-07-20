@@ -198,7 +198,7 @@ test.describe('Compact viewport — 390×844', () => {
     await openSettingsTab(page, 'environment');
     // Any deep label confirms Settings actually rendered rather than being
     // clipped away — "Global scope" is the first section of the env-vars
-    // table and sits well below the fold on narrow viewports.
+    // table and sits well below the implementation note narrow viewports.
     await expect(page.getByText('Global scope')).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await closeSettings(page);

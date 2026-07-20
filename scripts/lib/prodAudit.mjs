@@ -1,8 +1,8 @@
 /**
- * RL-145 — production-dependency audit gate, pure logic.
+ * internal — production-dependency audit gate, pure logic.
  *
- * Before RL-145, `pnpm audit --prod --audit-level high` blocked RELEASES (the
- * `release.yml` security-audit job, from RL-080), but PR CI only ran the full
+ * Before internal, `pnpm audit --prod --internal high` blocked RELEASES (the
+ * `release.yml` security-audit job, from internal), but PR CI only ran the full
  * audit as advisory (`continue-on-error`). A prod high-severity dep could land
  * on a PR with nothing but a warning. This module is the testable core of the
  * shared PR + release gate: it takes the parsed `pnpm audit --json` payload and
@@ -31,7 +31,7 @@ export const SEVERITY_RANK = Object.freeze({
   critical: 4,
 });
 
-/** Default threshold: block on `high` and `critical` (AUDIT-25 baseline). */
+/** Default threshold: block on `high` and `critical` (internal baseline). */
 export const DEFAULT_AUDIT_LEVEL = 'high';
 const AUDIT_SEVERITIES = Object.freeze(Object.keys(SEVERITY_RANK));
 
@@ -176,7 +176,7 @@ export function evaluateProdAudit(audit, { level = DEFAULT_AUDIT_LEVEL } = {}) {
 }
 
 /**
- * Build the human-facing failure report for the CLI (fold C — remediation
+ * Build the human-facing failure report for the CLI (implementation note — remediation
  * hint). One block per offending advisory: id, module, severity, title, the
  * advisory URL, the shortest dependency path, and the exact `pnpm why`
  * command to trace it. Returns an empty string when nothing offends.

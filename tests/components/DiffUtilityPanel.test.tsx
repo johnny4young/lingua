@@ -1,5 +1,5 @@
 /**
- * RL-071 — Diff Viewer panel tests for the granularity selector. The
+ * internal — Diff Viewer panel tests for the granularity selector. The
  * Myers helper itself is covered in tests/utils/diff.test.ts; this suite
  * just checks wiring: default granularity, switching between modes
  * re-renders the output (line rows vs inline segments), and the summary

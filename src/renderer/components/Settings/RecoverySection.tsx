@@ -1,10 +1,10 @@
 /**
- * RL-090 — Recovery section under Settings → Account.
+ * internal — Recovery section under Settings → Account.
  *
  * Five scoped reset actions plus an "Open recovery folder" affordance
  * for desktop. Every reset gates behind a native confirm modal via
  * `recovery:confirm-reset` (web stub: cancel → inline notice). The
- * destructive surface is intentionally separate from RL-089's profile
+ * destructive surface is intentionally separate from internal's profile
  * import so the copy reads correctly per scope.
  *
  * Per-scope preservation rules:
@@ -144,7 +144,7 @@ export function RecoverySection() {
   const [revealSupported, setRevealSupported] = useState<boolean>(false);
   const [busyScope, setBusyScope] = useState<ResetScope | null>(null);
 
-  // RL-090 — hide the "Open recovery folder" button on web. The web
+  // implementation — hide the "Open recovery folder" button on web. The web
   // stub returns { ok: false, reason: 'unsupported' } from the very
   // first call so we use a quick capability probe to gate the row.
   useEffect(() => {

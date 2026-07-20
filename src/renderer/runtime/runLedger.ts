@@ -6,7 +6,7 @@ import { currentEffectiveTier } from '../stores/licenseSelectors';
 import { useSettingsStore } from '../stores/settingsStore';
 
 /**
- * IT2-C1 — the Run Ledger: a local, opt-in, queryable history of the
+ * internal — the Run Ledger: a local, opt-in, queryable history of the
  * user's MANUAL runs, stored in the SAME DuckDB database the SQL
  * workspace uses (schema `lingua_ledger`), so it inherits the existing
  * OPFS persistence opt-in (`sqlWorkspacePersistTables` →
@@ -132,7 +132,7 @@ function sqlTimestamp(epochMs: number): string {
 
 /** Epoch ms → the user's LOCAL calendar day as YYYY-MM-DD (streaks are a
  * human-local concept). Built by hand from the local date parts —
- * `toLocaleDateString` output is implementation-defined and the DATE
+ * `toLocaleDateString` output is implementation and the DATE
  * primary key must never depend on a locale table. */
 function localDay(epochMs: number): string {
   const date = new Date(epochMs);

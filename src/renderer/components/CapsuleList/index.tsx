@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 3 — Capsule browse barrel.
+ * implementation — Capsule browse barrel.
  * Component-only exports so React Fast Refresh stays happy. The
  * surface-claim telemetry helpers live in `./capsuleListSurface`;
  * import them directly from there (App.tsx, useGlobalShortcuts).

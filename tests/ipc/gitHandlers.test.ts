@@ -1,5 +1,5 @@
 /**
- * RL-102 hardening — approved-scope gate on the git IPC handlers.
+ * internal hardening — approved-scope gate on the git IPC handlers.
  *
  * The git layer is the one IPC surface that receives raw absolute paths
  * (the repo toplevel can sit above any rootId capability). These tests pin

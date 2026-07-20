@@ -12,7 +12,7 @@ import { isEntitled } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 
 /**
- * RL-069 Slice 3 — Per-tool history + favorites store.
+ * implementation — Per-tool history + favorites store.
  *
  * Lives in a dedicated localStorage namespace (`lingua-utility-state`)
  * separated from `lingua-settings`. Reasoning:
@@ -68,7 +68,7 @@ export interface UtilityHistoryEntry {
   truncated: boolean;
 }
 
-/** IT2-F4 — a one-shot input seed for a utility panel. */
+/** internal — a one-shot input seed for a utility panel. */
 export interface PendingUtilityInput {
   utilityId: DeveloperUtilityId;
   input: string;
@@ -84,7 +84,7 @@ export interface UtilityHistoryState {
   /** Currently selected tool in the full-screen Utilities workspace. */
   activeUtilityId: DeveloperUtilityId;
   /**
-   * IT2-F4 — one-shot input handed from the smart-paste router to the
+   * internal — one-shot input handed from the smart-paste router to the
    * target panel (`usePendingUtilityInput` consumes and clears it).
    * Session-only by design: it is NOT in `partialize`, so a pending
    * paste never survives a reload.
@@ -267,7 +267,7 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
       version: 1,
       migrate: createMigrate(UTILITY_HISTORY_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
-      // Slice 3 — only persist the bits the user explicitly opted into.
+      // implementation — only persist the bits the user explicitly opted into.
       // History is filtered per-tool by `persistEnabled[id]`. Favorites
       // always persist; workflow persistence toggles/history are paid
       // and are stripped while the effective tier is Free.

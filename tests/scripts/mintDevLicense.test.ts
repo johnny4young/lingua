@@ -34,7 +34,7 @@ describe('scripts/mint-dev-license.mjs', () => {
       expect(result.state).toBe('active');
     }
 
-    // RL-143 — the emitted thumbprint must be the RFC 7638 value of the
+    // internal — the emitted thumbprint must be the RFC 7638 value of the
     // emitted key, i.e. exactly what Settings → License renders for a
     // session built with it (the stale-5174 eyeball check).
     expect(parsed.publicKeyJwkThumbprint).toMatch(/^[A-Za-z0-9_-]{43}$/u);

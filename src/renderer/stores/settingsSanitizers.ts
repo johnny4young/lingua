@@ -29,7 +29,7 @@ import {
 } from './settingsDefaults';
 
 /**
- * RL-129 — settings rehydrate/runtime sanitizers, extracted verbatim from
+ * internal — settings rehydrate/runtime sanitizers, extracted verbatim from
  * `settingsStore.ts`. The long-lived `lingua-settings` localStorage boundary
  * treats every persisted value as untrusted: each function narrows a
  * tamper/forward-version-drift value to a safe shape before it can reach the
@@ -42,9 +42,9 @@ import {
  */
 
 /**
- * RL-020 Slice 7 — sanitize a persisted
+ * implementation — sanitize a persisted
  * `runtimeTimeoutPresetByLanguage` map: drop languages outside the
- * Slice-7 supported set; drop non-enum preset tokens. Returns a
+ * implementation supported set; drop non-enum preset tokens. Returns a
  * fresh object so callers can hand it to the store without
  * aliasing.
  */
@@ -80,7 +80,7 @@ export function sanitizeScratchpadAutoLog(value: unknown): Record<string, boolea
 }
 
 /**
- * RL-108 — resolve a persisted `inlineLintEnabledByLanguage` map on rehydrate:
+ * internal — resolve a persisted `inlineLintEnabledByLanguage` map on rehydrate:
  * drop languages outside the supported set, drop non-boolean values, then
  * re-seed missing keys (default ON for JS/TS) so a returning user keeps live
  * lint while a persisted `false` still wins. Returns a fresh object.
@@ -186,7 +186,7 @@ export function shortcutOverridesEqual(
 }
 
 /**
- * RL-089 — exported so the profile-import path can sanitize a
+ * internal — exported so the profile-import path can sanitize a
  * crafted profile's `shortcutOverrides` map before writing it to the
  * live store. The persist-middleware merge already runs this on
  * rehydrate; the import path goes around persist and would otherwise
@@ -244,7 +244,7 @@ export function themePackAppearanceMatchesSettings(
 }
 
 /**
- * RL-097 Slice 1 — sanitize the user's sensitive header allowlist on rehydrate:
+ * implementation — sanitize the user's sensitive header allowlist on rehydrate:
  * drop non-string entries, empty strings, names longer than 100 chars, baseline
  * names (never persisted), and case-insensitive duplicates. (Extracted from the
  * inline `merge` IIFE.)
@@ -266,7 +266,7 @@ export function sanitizeSensitiveHttpHeaders(value: unknown): string[] {
 }
 
 /**
- * RL-097 Slice 2 — closed-enum row-display cap; drift falls back to 1000.
+ * implementation — closed-enum row-display cap; drift falls back to 1000.
  * (Extracted from the inline `merge` IIFE.)
  */
 export function sanitizeSqlRowDisplayLimit(value: unknown): 100 | 500 | 1000 | 5000 {
@@ -277,7 +277,7 @@ export function sanitizeSqlRowDisplayLimit(value: unknown): 100 | 500 | 1000 | 5
 }
 
 /**
- * RL-097 Slice 2 — SQL query timeout clamp (1 s .. 5 min); non-finite falls
+ * implementation — SQL query timeout clamp (1 s .. 5 min); non-finite falls
  * back to 30 s. (Extracted from the inline `merge` IIFE.)
  */
 export function sanitizeSqlQueryTimeoutMs(value: unknown): number {
@@ -286,7 +286,7 @@ export function sanitizeSqlQueryTimeoutMs(value: unknown): number {
 }
 
 /**
- * RL-095 Slice 2 — narrow the persisted scorecard platform filter to the
+ * implementation — narrow the persisted scorecard platform filter to the
  * closed `ScorecardPlatform` enum; unknown / hand-edited values fall back to
  * the cross-platform `'all'` view.
  */

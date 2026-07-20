@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice E — `.linguanb` → `NotebookV1` importer adapter.
+ * implementation — `.linguanb` → `NotebookV1` importer adapter.
  *
  * The lossless counterpart to the `.ipynb` importer (`ipynbImporter.ts`).
  * A `.linguanb` document is Lingua's own native notebook format
@@ -37,14 +37,14 @@ import type {
  * Preview shape returned by `adapter.preview(source)`. Carries the same
  * fields `<NotebookPreviewBand>` reads from the `.ipynb` preview so the
  * UI reuses one renderer; `kind: 'linguanb-notebook'` flips the band's
- * badge to "native / lossless" (fold C). `executionOrder` (fold B) is
+ * badge to "native / lossless" (implementation note). `executionOrder` (implementation note) is
  * restored into the store on confirm.
  */
 export interface LinguanbImporterPreview {
   readonly kind: 'linguanb-notebook';
   /** The lossless `NotebookV1` ready for `installImportedNotebook`. */
   readonly notebook: NotebookV1;
-  /** Per-cell `[N]` execution stamps to restore on confirm (fold B). */
+  /** Per-cell `[N]` execution stamps to restore on confirm (implementation note). */
   readonly executionOrder?: Readonly<Record<string, number>>;
   /** Snippets of the first up-to-3 cells for the preview band. */
   readonly cellSnippets: ReadonlyArray<IpynbCellSnippet>;

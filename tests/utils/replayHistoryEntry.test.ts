@@ -1,8 +1,8 @@
 /**
- * RL-028 Slice 6 trailer — replayHistoryEntry helper.
+ * implementation trailer — replayHistoryEntry helper.
  *
- * The helper backs both the console-popover Replay button (Slice 6) and
- * the command-palette per-entry Replay action (this slice). Tests pin
+ * The helper backs both the console-popover Replay button  and
+ * the command-palette per-entry Replay action (this change). Tests pin
  * the four exit conditions: run-in-progress short circuit,
  * no-snapshot short circuit, addTab tier-ceiling rejection, and the
  * happy path where a fresh tab opens and the runner fires with

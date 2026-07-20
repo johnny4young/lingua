@@ -1,9 +1,9 @@
 /**
- * RL-068 — YAML ↔ JSON converter helper.
+ * internal — YAML ↔ JSON converter helper.
  *
  * Pure, offline, renderer-side. `js-yaml@^4` is already a prod dep
  * (used by `src/renderer/validation/index.ts`); no bundle delta from
- * this slice.
+ * this change.
  *
  * Both directions return a tagged-union so the panel can surface
  * translated errors without try/catch at the call site. The forward

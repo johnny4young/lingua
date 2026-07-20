@@ -20,7 +20,7 @@ describe('license-server protocol envelope', () => {
   );
 
   it.each(['/health', '/education/start', '/webhooks/polar'])(
-    'does not extend the RL-141 contract to %s',
+    'does not extend the internal contract to %s',
     path => {
       const body = { ok: true };
       expect(stampLicenseServerProtocol(path, body)).toBe(body);

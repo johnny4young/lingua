@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 fold B — cURL paste parser.
+ * implementation note — cURL paste parser.
  *
  * Pinned coverage: the 80% case (browser + Postman copy-as-curl
  * shapes). Failure modes are documented in `curlImport.ts`.
@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { tryParseCurl } from '../../../src/renderer/components/HttpWorkspace/curlImport';
 
-describe('tryParseCurl (RL-097 Slice 1 fold B)', () => {
+describe('tryParseCurl (implementation note)', () => {
   it('returns null on non-curl input', () => {
     expect(tryParseCurl('not a curl command')).toBeNull();
     expect(tryParseCurl('')).toBeNull();

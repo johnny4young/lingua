@@ -276,7 +276,7 @@ describe('buildCommandPaletteModel', () => {
     expect(onOpenGoToSymbol).toHaveBeenCalledOnce();
   });
 
-  it('exposes the project bundle export + import actions only when wired (RL-024 Slice 3)', () => {
+  it('exposes the project bundle export + import actions only when wired ', () => {
     const onExportProjectBundle = vi.fn();
     const onImportProjectBundle = vi.fn();
     const baseArgs = {
@@ -329,7 +329,7 @@ describe('buildCommandPaletteModel', () => {
     expect(onImportProjectBundle).toHaveBeenCalledOnce();
   });
 
-  it('exposes Restore last session only when wired AND a snapshot tab exists (RL-111 fold D)', () => {
+  it('exposes Restore last session only when wired AND a snapshot tab exists ', () => {
     const onRestoreSession = vi.fn();
     const baseArgs = {
       templates: [],
@@ -382,7 +382,7 @@ describe('buildCommandPaletteModel', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('exposes Toggle inline lint only when wired (RL-108 fold B)', () => {
+  it('exposes Toggle inline lint only when wired ', () => {
     const onToggleInlineLint = vi.fn();
     const onClose = vi.fn();
     const baseArgs = {
@@ -420,7 +420,7 @@ describe('buildCommandPaletteModel', () => {
     expect(onToggleInlineLint).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
 
-    // RL-108 fold D — when the active buffer has custom-lint issues, the
+    // implementation — when the active buffer has custom-lint issues, the
     // description previews the count; with zero it stays the plain copy.
     const plain = buildCommandPaletteModel({ ...baseArgs, onToggleInlineLint }).find(
       (c) => c.id === 'action-toggle-inline-lint'
@@ -434,7 +434,7 @@ describe('buildCommandPaletteModel', () => {
     expect(withCount?.description).not.toBe(plain?.description);
   });
 
-  it('exposes Paste as plain text only when wired (RL-110 fold D)', () => {
+  it('exposes Paste as plain text only when wired ', () => {
     const onPastePlainText = vi.fn();
     const onClose = vi.fn();
     const baseArgs = {
@@ -554,9 +554,9 @@ describe('buildCommandPaletteModel', () => {
     // beautify-minify, url-parser, string-case, html-entity,
     // string-inspector, qr-code, backslash-escape, random-string,
     // base64-image, lorem-ipsum, svg-to-css, cron-parser, html-to-jsx,
-    // curl-to-code, plus the RL-068 closeout bundle (yaml-json,
-    // json-csv, markdown-preview, sql-formatter) — was 29. RL-099
-    // Slice 1 bumps to 30 with `utility-pipelines`; the mock-data
+    // curl-to-code, plus the internal closeout bundle (yaml-json,
+    // json-csv, markdown-preview, sql-formatter) — was 29. internal
+    // implementation bumps to 30 with `utility-pipelines`; the mock-data
     // generator bumps to 31 with `mock-data`.
     expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(31);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
@@ -667,7 +667,7 @@ describe('buildCommandPaletteModel', () => {
     expect(onOpenKeyboardShortcuts).toHaveBeenCalledOnce();
   });
 
-  // Slice 2 — `action-toggle-console-rich-rendering` was removed
+  // implementation — `action-toggle-console-rich-rendering` was removed
   // from the palette catalog; rich rendering is baseline and the
   // model no longer exposes the toggle.
 
@@ -820,7 +820,7 @@ describe('buildCommandPaletteModel', () => {
     expect(calls).toEqual(['close', 'privacy']);
   });
 
-  it('exposes the New project from template action only when the opener is wired in (RL-103 Slice 1 fold C)', () => {
+  it('exposes the New project from template action only when the opener is wired in (implementation note)', () => {
     const calls: string[] = [];
     const onClose = vi.fn(() => calls.push('close'));
     const onNewProjectFromTemplate = vi.fn(() => calls.push('template'));
@@ -872,7 +872,7 @@ describe('buildCommandPaletteModel', () => {
     expect(calls).toEqual(['template', 'close']);
   });
 
-  it('exposes the Browse run capsules action only when the opener is wired in (RL-094 Slice 3)', () => {
+  it('exposes the Browse run capsules action only when the opener is wired in ', () => {
     const calls: string[] = [];
     const onClose = vi.fn(() => calls.push('close'));
     const onBrowseCapsules = vi.fn(() => calls.push('browse'));
@@ -919,7 +919,7 @@ describe('buildCommandPaletteModel', () => {
     expect(calls).toEqual(['close', 'browse']);
   });
 
-  it('exposes the Compare two capsules action only when the opener is wired in (RL-094 Slice 4 fold C)', () => {
+  it('exposes the Compare two capsules action only when the opener is wired in (implementation note)', () => {
     const calls: string[] = [];
     const onClose = vi.fn(() => calls.push('close'));
     const onBrowseCapsules = vi.fn(() => calls.push('browse'));
@@ -996,7 +996,7 @@ describe('buildCommandPaletteModel', () => {
   });
 });
 
-describe('buildCommandPaletteModel — recent runs (RL-028 third slice)', () => {
+describe('buildCommandPaletteModel — recent runs (implementation)', () => {
   function buildWithHistory(
     history: Array<{
       id: string;
@@ -1122,7 +1122,7 @@ describe('buildCommandPaletteModel — recent runs (RL-028 third slice)', () => 
   });
 });
 
-describe('buildCommandPaletteModel — timeout actions (RL-020 Slice 7)', () => {
+describe('buildCommandPaletteModel — timeout actions ', () => {
   function buildTimeoutCommands(args: {
     onSetActiveLanguageTimeoutPreset?: Parameters<
       typeof buildCommandPaletteModel
@@ -1226,7 +1226,7 @@ describe('buildCommandPaletteModel — timeout actions (RL-020 Slice 7)', () => 
   });
 });
 
-describe('buildCommandPaletteModel — compare actions (RL-020 Slice 8)', () => {
+describe('buildCommandPaletteModel — compare actions ', () => {
   function buildCompareCommands(args: {
     onToggleCompareWithSnapshot?: () => void;
     activeCompareEnabled?: boolean;
@@ -1309,7 +1309,7 @@ describe('buildCommandPaletteModel — compare actions (RL-020 Slice 8)', () => 
   });
 });
 
-describe('buildCommandPaletteModel — fold G: per-tab recent runs (RL-020 Slice 4)', () => {
+describe('buildCommandPaletteModel — implementation note: per-tab recent runs (implementation)', () => {
   function build(args: {
     history: Array<{
       id: string;
@@ -1395,7 +1395,7 @@ describe('buildCommandPaletteModel — fold G: per-tab recent runs (RL-020 Slice
   });
 });
 
-describe('buildCommandPaletteModel — re-run last action (RL-028 fourth slice)', () => {
+describe('buildCommandPaletteModel — re-run last action (implementation)', () => {
   function buildWith(onRerunLast?: () => void) {
     return buildCommandPaletteModel({
       templates: [],
@@ -1452,7 +1452,7 @@ describe('buildCommandPaletteModel — re-run last action (RL-028 fourth slice)'
   });
 });
 
-describe('buildCommandPaletteModel — per-entry replay (RL-028 sixth slice trailer)', () => {
+describe('buildCommandPaletteModel — per-entry replay (implementation detail)', () => {
   type HistoryEntry = {
     id: string;
     language: string;
@@ -1718,7 +1718,7 @@ describe('buildCommandPaletteModel — per-entry replay (RL-028 sixth slice trai
   });
 });
 
-describe('buildCommandPaletteModel — Toggle Vim mode (RL-037)', () => {
+describe('buildCommandPaletteModel — Toggle Vim mode', () => {
   function buildWithVimToggle(args: {
     onToggleVimMode?: () => void;
     vimModeEnabled?: boolean;
@@ -1804,7 +1804,7 @@ describe('buildCommandPaletteModel — Toggle Vim mode (RL-037)', () => {
   });
 });
 
-describe('buildCommandPaletteModel — onShowDependencies (RL-025 Slice A fold C)', () => {
+describe('buildCommandPaletteModel — onShowDependencies (implementation Slice A implementation note)', () => {
   function buildMinimalArgs(overrides: Partial<Parameters<typeof buildCommandPaletteModel>[0]> = {}) {
     return {
       templates: BUILT_IN_TEMPLATES.slice(0, 1),
@@ -1880,6 +1880,6 @@ describe('buildCommandPaletteModel — onShowDependencies (RL-025 Slice A fold C
   });
 });
 
-// Slice 2 — `action-toggle-output-source-mapping` was removed from
+// implementation — `action-toggle-output-source-mapping` was removed from
 // the palette catalog (output→source linking is baseline; per-file
 // `// @origin off` directive remains the user-controlled escape).

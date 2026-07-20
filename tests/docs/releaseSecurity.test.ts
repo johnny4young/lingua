@@ -1,5 +1,5 @@
 /**
- * RL-092 release security checklist guard — keeps the public-release
+ * internal release security checklist guard — keeps the public-release
  * security sign-off tied to Lingua's highest-risk surfaces.
  */
 
@@ -11,7 +11,7 @@ const ROOT = resolve(__dirname, '../..');
 const CHECKLIST_PATH = resolve(ROOT, 'docs/RELEASE_SECURITY.md');
 const RELEASE_PATH = resolve(ROOT, 'RELEASE.md');
 
-describe('docs/RELEASE_SECURITY.md release security checklist (RL-092)', () => {
+describe('docs/RELEASE_SECURITY.md release security checklist', () => {
   it('exists and is linked from the release checklist', () => {
     expect(existsSync(CHECKLIST_PATH)).toBe(true);
     expect(readFileSync(RELEASE_PATH, 'utf-8')).toContain('docs/RELEASE_SECURITY.md');

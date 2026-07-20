@@ -12,7 +12,7 @@ interface AppChromeProps {
 }
 
 /**
- * RL-093 Slice 3 — Signal-Slate v2 chrome row above the main toolbar.
+ * implementation — Signal-Slate v2 chrome row above the main toolbar.
  * Three-column grid: traffic-light spacer + sidebar handle (left, ~120px
  * on macOS for the native window controls), app mark + active filename
  * + unsaved dot + LicenseBadge (centre). The command icons live in the
@@ -27,7 +27,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
   const filename = activeTab?.name ?? t('chrome.filename.untitled');
   const isDirty = activeTab?.isDirty === true;
 
-  // UX Sweep T5 — the license badge opens Settings AND lands on the
+  // accessibility pass — the license badge opens Settings AND lands on the
   // Account/License tab (it used to dump the user on General). Two rAFs let
   // SettingsModal mount, paint, and run the effect that registers its
   // command listener before the request fires; emitting earlier can

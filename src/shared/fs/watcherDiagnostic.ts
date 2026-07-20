@@ -1,5 +1,5 @@
 /**
- * RL-087 — typed contract for filesystem-watcher failures.
+ * internal — typed contract for filesystem-watcher failures.
  *
  * Pure module — no Electron, no React, no Node-only APIs — so it
  * imports cleanly from `src/main/ipc/fileSystem.ts`, the renderer's

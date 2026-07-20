@@ -2,7 +2,7 @@
  * Deep-review A2 — mechanical gate for the "audit ALL THREE configs" env
  * landmine documented in AGENTS.md.
  *
- * History: RL-061 shipped a production .app where every license paste
+ * History: internal shipped a production .app where every license paste
  * failed with `no-public-key`, because a new env consumer was wired into
  * one Vite config but not the others — and the dev launchers masked the
  * gap by injecting `process.env` before spawning, so only a packaged
@@ -152,7 +152,7 @@ describe('env/define wiring across build configs (AGENTS.md landmine gate)', () 
     // `envDir` must be the repo root, where .env / .env.production live.
     // Without the pin, Forge (renderer) or `root: src/web` (web) shift
     // Vite's default env resolution and every VITE_* substitution
-    // silently becomes `undefined` — the exact RL-061 Slice 2.5/3 bug.
+    // silently becomes `undefined` — the exact implementation bug.
     expect(renderer.envDir, 'vite.renderer.config.mts must pin envDir to the repo root').toBe(ROOT);
     expect(web.envDir, 'vite.web.config.mts must pin envDir to the repo root').toBe(ROOT);
   });

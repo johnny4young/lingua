@@ -1,7 +1,7 @@
 /**
- * RL-011 ADR guard — pins the three scoping decisions (which runtimes
+ * ADR guard — pins the three scoping decisions (which runtimes
  * accept env vars, web mode answer, scope precedence) so the
- * implementation slices can't ship against the wrong policy.
+ * implementation steps can't ship against the wrong policy.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -22,7 +22,7 @@ describe('ENV_VARS_ADR.md', () => {
     expect(adr).toMatch(/Date\s*\|\s*2026-04-20/u);
   });
 
-  it('answers the three RL-011 scoping questions', () => {
+  it('answers the three internal scoping questions', () => {
     expect(adr).toMatch(/## Decisions/u);
     // Q1: runtimes
     expect(adr).toMatch(/### 1\. Runtimes that receive env vars/iu);
@@ -42,9 +42,9 @@ describe('ENV_VARS_ADR.md', () => {
     expect(adr).toMatch(/Lingua is a scratchpad, not a vault/u);
   });
 
-  it('lists the four implementation slices A through D with current status', () => {
-    for (const slice of ['Slice A', 'Slice B', 'Slice C', 'Slice D']) {
-      expect(adr).toContain(slice);
+  it('lists the implemented runtime and settings surfaces', () => {
+    for (const heading of ['Pure scope merger', 'Settings, project, and tab plumbing', 'Settings UI', 'Honest web-mode limit']) {
+      expect(adr).toContain(heading);
     }
   });
 
@@ -53,8 +53,8 @@ describe('ENV_VARS_ADR.md', () => {
       'BUILD_SYSTEM_ADR.md',
       'CAPABILITY_MATRIX.md',
       'LANGUAGE_PACK_ADR.md',
-      'RL-029',
-      'RL-058',
+      'internal',
+      'internal',
     ]) {
       expect(adr).toContain(pointer);
     }

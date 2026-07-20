@@ -1,12 +1,12 @@
 /**
- * RL-043 Slice A — `useNotebookRun` hook.
+ * implementation — `useNotebookRun` hook.
  *
  * Per-tab orchestration for Run cell / Run all / Run above / Stop.
  * Bypasses `useRunner` so notebook execution does NOT pollute the
  * user's regular execution history or capsule snapshots (mirror of
- * the RL-039 Slice B `useRecipeRun` pattern).
+ * the implementation `useRecipeRun` pattern).
  *
- * Concurrency: Slice A blocks `'concurrent-run'` per tab. The
+ * Concurrency: implementation blocks `'concurrent-run'` per tab. The
  * `runAll` / `runAbove` loops invoke `runNotebookCell` sequentially
  * with an early-stop when a cell errors (mirrors Jupyter's default
  * "stop on first failure" behavior).
@@ -50,7 +50,7 @@ import { trackNotebookCellExecuted } from './notebookTelemetry';
  * token match, not static analysis: it over-reports an identifier
  * that only appears inside a string/comment, and under-reports
  * member access like `obj.foo` (we match `obj`, not `foo`). That is
- * an acceptable Slice-level approximation for a header hint — the
+ * an acceptable implementation approximation for a header hint — the
  * authoritative cross-cell wiring still lives in the kernel's
  * pull-in step. Bounded to the first matches to keep the chip short.
  */
@@ -114,7 +114,7 @@ export function useNotebookRun(): UseNotebookRunResult {
       store.setCellRunStatus(tabId, cellId, 'running');
       setIsAnyCellRunning(true);
 
-      // RL-043 Slice F (fold B) — the first Python cell run boots Pyodide
+      // implementation Slice F (implementation note) — the first Python cell run boots Pyodide
       // (web) / the native runtime, which can take a few seconds. Surface
       // a one-shot info notice so a freshly-clicked Python cell doesn't
       // read as hung. `needsInitialization` is false on every subsequent
@@ -239,7 +239,7 @@ export function useNotebookRun(): UseNotebookRunResult {
     async (tabId: string, cellId: string): Promise<void> => {
       stopRequestedRef.current = false;
       const outcome = await runCellInternal(tabId, cellId);
-      // UX Sweep T4 — announce the cell-run result to screen readers; the
+      // accessibility pass — announce the cell-run result to screen readers; the
       // `[N]` stamp + output region only convey it visually. Resolve the
       // copy off the global i18next instance so the hook stays render-light.
       if (outcome) {
@@ -347,7 +347,7 @@ export function useNotebookRun(): UseNotebookRunResult {
     // Best-effort: tell the in-flight runner to abort. We stop both
     // notebook-runnable runners because the hook does not track which
     // language is currently executing — JS / TS share the `'javascript'`
-    // worker (TS type-strips to JS), Python (RL-043 Slice F) runs on the
+    // worker (TS type-strips to JS), Python  runs on the
     // `'python'` runner. `stop()` is idempotent on an idle runner, so
     // stopping both is safe. The worker / native runtime treats this as a
     // hard abort; `notebookSession.runNotebookCell` catches the

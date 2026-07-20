@@ -1,5 +1,5 @@
 /**
- * RL-077 — file system IPC handlers under the capability contract.
+ * internal — file system IPC handlers under the capability contract.
  *
  * Every handler is exercised through a freshly minted capability for a
  * real tmpdir. We don't mock node:fs/promises because the registry's
@@ -55,7 +55,7 @@ vi.mock('electron', () => ({
     showItemInFolder,
   },
   BrowserWindow: { fromWebContents: vi.fn() },
-  // RL-087 — fileSystem.ts now installs a `before-quit` listener via
+  // internal — fileSystem.ts now installs a `before-quit` listener via
   // `app.on(...)` for watcher cleanup. The handler is idempotent, so
   // a noop spy here is sufficient for this suite.
   app: { on: vi.fn() },
@@ -107,7 +107,7 @@ async function invoke(
         isDestroyed: () => false,
         send: vi.fn(),
         // watch-start ties watcher lifecycle to the sender via a one-time
-        // 'destroyed' listener (B14); this suite never fires it, so a
+        // 'destroyed' listener ; this suite never fires it, so a
         // no-op capture is enough.
         once: vi.fn(),
       },
@@ -733,7 +733,7 @@ describe('fs:searchInFiles', () => {
   });
 });
 
-// ----------------------------------------------- RL-024 Slice 2: replace
+// ----------------------------------------------- implementation: replace
 //
 // `fs:replaceInFiles` (preview) and `fs:applyReplaceInFile` (atomic
 // write). Same capability contract as `fs:searchInFiles`; the apply
@@ -1185,14 +1185,14 @@ describe('fs:delete confirmation dialog', () => {
   });
 });
 
-// ----------------------------------------------- RL-024 Slice 3 bundles
+// ----------------------------------------------- implementation bundles
 
 describe('fs:exportBundle', () => {
   it('packs visible files (excluding node_modules / dist) into a saved zip', async () => {
     await writeFile(path.join(tmpRoot, 'index.js'), 'console.log(1)');
     await mkdir(path.join(tmpRoot, 'src'));
     await writeFile(path.join(tmpRoot, 'src', 'lib.ts'), 'export const x = 1;');
-    // Excluded dir — must NOT appear in the bundle (fold G via shouldHide).
+    // Excluded dir — must NOT appear in the bundle (implementation note via shouldHide).
     await mkdir(path.join(tmpRoot, 'node_modules', 'dep'), { recursive: true });
     await writeFile(
       path.join(tmpRoot, 'node_modules', 'dep', 'index.js'),
@@ -1333,7 +1333,7 @@ describe('fs:importBundle', () => {
   });
 });
 
-// RL-102 hardening — the approved-scope intersection that gates the git
+// internal hardening — the approved-scope intersection that gates the git
 // read-only IPC layer (src/main/ipc/git.ts). Exercised against the REAL
 // approvals registry via the same picker flow production uses.
 describe('pathIntersectsApprovedScope', () => {

@@ -17,7 +17,7 @@ function file(path: string, content = `// ${path}`): ProjectBundleFile {
   return { path, bytes: strToU8(content) };
 }
 
-describe('RL-024 — validateBundleEntryPath', () => {
+describe('internal — validateBundleEntryPath', () => {
   it('accepts and normalizes plain + nested relative paths', () => {
     expect(validateBundleEntryPath('index.js')).toBe('index.js');
     expect(validateBundleEntryPath('src/utils/math.ts')).toBe('src/utils/math.ts');
@@ -41,7 +41,7 @@ describe('RL-024 — validateBundleEntryPath', () => {
   });
 });
 
-describe('RL-024 — packBundle', () => {
+describe('internal — packBundle', () => {
   it('round-trips through unpackBundle with a manifest', () => {
     const zip = packBundle([file('index.js'), file('src/lib.ts')], {
       createdAt: CREATED_AT,
@@ -105,7 +105,7 @@ describe('RL-024 — packBundle', () => {
   });
 });
 
-describe('RL-024 — unpackBundle guards', () => {
+describe('internal — unpackBundle guards', () => {
   it('rejects empty input', () => {
     expect(unpackBundle(new Uint8Array(0))).toEqual({
       ok: false,
@@ -140,7 +140,7 @@ describe('RL-024 — unpackBundle guards', () => {
     });
   });
 
-  it('rejects an oversize entry while keeping the rest (fold-aware caps)', () => {
+  it('rejects an oversize entry while keeping the rest (implementation note caps)', () => {
     const zip = zipSync({
       'big.txt': strToU8('x'.repeat(64)),
       'small.txt': strToU8('ok'),
@@ -155,7 +155,7 @@ describe('RL-024 — unpackBundle guards', () => {
     });
   });
 
-  it('trips the zip-bomb guard when total uncompressed size crosses the cap (fold A)', () => {
+  it('trips the zip-bomb guard when total uncompressed size crosses the cap (implementation note)', () => {
     const zip = zipSync({
       'a.txt': strToU8('x'.repeat(40)),
       'b.txt': strToU8('y'.repeat(40)),
@@ -206,7 +206,7 @@ describe('RL-024 — unpackBundle guards', () => {
   });
 });
 
-describe('RL-024 — BUNDLE_REJECT_REASONS', () => {
+describe('internal — BUNDLE_REJECT_REASONS', () => {
   it('is sorted and free of duplicates (parity-test anchor)', () => {
     const arr = [...BUNDLE_REJECT_REASONS];
     expect(arr).toEqual([...arr].sort());

@@ -48,11 +48,11 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     expect(fallback.id).toBe(DEVELOPER_UTILITIES[0]!.id);
   });
 
-  describe('aliases (RL-069 Slice 1)', () => {
+  describe('aliases ', () => {
     const withAliases = DEVELOPER_UTILITIES.filter(utility => utility.aliases !== undefined);
 
     it('seeds aliases on a meaningful subset of the catalog', () => {
-      // Slice 1 deliberately scopes aliases to ~15 panels with obvious
+      // implementation deliberately scopes aliases to ~15 panels with obvious
       // shorthand. Asserting >= 10 so future maintenance can prune
       // a duplicate or two without breaking the test, while still
       // catching a regression that drops them altogether.
@@ -95,14 +95,14 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     });
   });
 
-  describe('detect (RL-069 Slice 2)', () => {
+  describe('detect ', () => {
     // Pure generators that intentionally have no `detect` predicate.
     // The toolbar hides the ⚡ Apply button for these panels.
     const GENERATOR_IDS: ReadonlySet<DeveloperUtilityDefinition['id']> = new Set([
       'random-string',
       'mock-data',
       'lorem-ipsum',
-      // RL-099 Slice 1 — Utility Pipelines panel takes its input
+      // implementation — Utility Pipelines panel takes its input
       // from the user-defined first step + the pipeline editor; the
       // overlay's ⚡ Apply button doesn't apply. Treated as a
       // generator from the catalog's POV.
@@ -120,7 +120,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     });
 
     it('detect predicates accept the generalised inputs shape', () => {
-      // The signature was widened in Slice 2 to support diff and regex,
+      // The signature was widened in implementation to support diff and regex,
       // which need both a primary and a secondary value. Every other
       // panel ignores `secondary` — passing it must still be safe.
       for (const utility of DEVELOPER_UTILITIES) {

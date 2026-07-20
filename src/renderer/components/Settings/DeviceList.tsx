@@ -178,7 +178,7 @@ function DeviceRow({
         {isPending ? t('license.devices.removing') : t('license.devices.remove')}
       </button>
       {/* Surface tag preserved for screen readers + e2e selectors. */}
-      <span className="sr-only" data-testid={`license-device-surface-${device.id}`}>
+      <span className="internal" data-testid={`license-device-surface-${device.id}`}>
         {surface}
       </span>
     </li>

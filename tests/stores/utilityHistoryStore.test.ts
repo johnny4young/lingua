@@ -239,7 +239,7 @@ describe('utilityHistoryStore — persistence partialize', () => {
   });
 });
 
-describe('utilityHistoryStore — IT2-F4 pending utility input', () => {
+describe('utilityHistoryStore — internal pending utility input', () => {
   it('sets and clears the one-shot seed', () => {
     useUtilityHistoryStore
       .getState()

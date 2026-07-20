@@ -6,7 +6,7 @@ import {
 import { GoplsLauncher, type GoplsStatus } from '../lsp/goplsLauncher';
 
 /**
- * RL-026 Slice 3 + Slice 4 — main-process IPC bridge for desktop
+ * implementation — main-process IPC bridge for desktop
  * LSP servers (rust-analyzer, gopls).
  *
  * The renderer never talks to either server directly; instead it
@@ -154,7 +154,7 @@ export function disposeLspBridge(): void {
 }
 
 /**
- * @deprecated Slice 3 export. Slice 4 widens the bridge to multiple
+ * @deprecated implementation export. implementation widens the bridge to multiple
  * languages — prefer `disposeLspBridge`. Retained as a thin alias so
  * the lifecycle wiring in `main/index.ts` keeps working through any
  * mid-rollout state.

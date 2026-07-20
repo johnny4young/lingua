@@ -1,5 +1,5 @@
 /**
- * RL-094 Slice 1 — Run Capsule test matrix.
+ * implementation — Run Capsule test matrix.
  *
  * Covers eight dimensions per `docs/CAPSULE_TEST_MATRIX.md`:
  *   1. Schema round-trip (every fixture).
@@ -13,8 +13,7 @@
  *
  * Per-fixture assertions iterate `ALL_FIXTURES` so adding a new
  * fixture in `runCapsule.fixtures.ts` automatically widens coverage
- * — drop-in for downstream tickets (RL-036, RL-097, RL-098, RL-099,
- * RL-100, RL-039 Slice B).
+ * — drop-in for future integrations.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -50,7 +49,7 @@ describe('parseRunCapsule + JSON round-trip (per fixture)', () => {
       if (parsed.ok) {
         // Re-stringify both sides to compare structurally (avoids
         // map-ordering false positives — JSON object key order is
-        // implementation-defined per spec).
+        // implementation per spec).
         expect(JSON.stringify(parsed.value)).toEqual(JSON.stringify(sanitised));
       }
     });
@@ -171,7 +170,7 @@ describe('sanitizeRunCapsule — redaction proof', () => {
       FIXTURE_LICENSE_LEAK_PROBE.source.content
     );
     // The capsule design accepts source content verbatim (per
-    // Privacy + Trust Dashboard / RL-096 contract). The honest
+    // Privacy + Trust Dashboard / internal contract). The honest
     // user-facing flow is: surface the source through the export
     // preview UI before publishing. The redactor's job is to keep
     // *out-of-band* metadata (tokens in env, paths in errorMessages)

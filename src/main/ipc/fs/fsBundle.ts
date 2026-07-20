@@ -22,7 +22,7 @@ import {
 } from './fsShared';
 
 /**
- * IT2-A1 — project bundle export/import handlers, extracted VERBATIM
+ * internal — project bundle export/import handlers, extracted VERBATIM
  * from `fileSystem.ts`. The import handler adopts the target directory
  * into the approval list, so `rememberApprovedRoot` is injected by the
  * assembly (the approval state stays owned by `fileSystem.ts`).
@@ -133,14 +133,14 @@ export function registerBundleHandlers(
   // ----------------------------------------------- import project bundle
 
   /**
-   * RL-024 Slice 3 — extract a `.zip` bundle into a user-chosen folder.
+   * implementation — extract a `.zip` bundle into a user-chosen folder.
    * The renderer supplies the raw bytes (read from a dropped / picked
    * file); main is the AUTHORITATIVE security boundary: it re-runs
    * `unpackBundle` (zip-slip + zip-bomb + caps), re-validates every entry
    * path, and re-checks the resolved absolute path stays under the chosen
    * dir before writing — never trusting a renderer-side preview. Files
    * are written as REGULAR files only (never symlinks), so a symlink
-   * entry decodes to an inert regular file that cannot escape (fold D).
+   * entry decodes to an inert regular file that cannot escape (implementation note).
    * On success it `rememberApprovedRoot`s the target so the renderer's
    * existing `openProject(rootPath)` → `fs:reopen-root` path adopts it.
    */

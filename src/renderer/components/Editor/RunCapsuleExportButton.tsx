@@ -6,7 +6,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 
 /**
- * RL-094 Slice 1.5 — primary surface for "Export latest run as
+ * implementation — primary surface for "Export latest run as
  * capsule". Icon-only button mounted in the result-panel header
  * next to `RecentRunsPill` + the `hideUndefined` toggle so the
  * action lives ONE click from the result the user is looking at,
@@ -18,25 +18,25 @@ import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
  *
  * Design choices:
  *
- *   - **Lazy render to `null` when no capsule exists.** Slice 1
+ *   - **Lazy render to `null` when no capsule exists.** implementation
  *     stash on `executionHistoryStore.lastCapsule?` is `undefined`
  *     for fresh sessions; surfacing a disabled button would
  *     advertise an action that doesn't exist. Hiding it keeps the
  *     header honest about what's possible right now.
- *   - **Fold C — Pro badge for rich-media capsules.** When the
+ *   - **implementation note — Pro badge for rich-media capsules.** When the
  *     capsule carries `richOutputs` (chart / image / html / table),
  *     a small badge dot signals that the exported JSON contains
- *     payloads that downstream consumers (RL-036 share-link
- *     preview, RL-098 CLI render) treat as Pro-gated for full
+ *     payloads that downstream consumers (internal share-link
+ *     preview, internal CLI render) treat as Pro-gated for full
  *     reproducibility. Free tier can still export — the badge is
  *     informational, not a gate.
- *   - **Fold D — 1-second visual feedback on click.** Clipboard
+ *   - **implementation note — 1-second visual feedback on click.** Clipboard
  *     write is fire-and-forget; without an immediate visual cue
  *     the user double-clicks. Swap the `Package` icon for a
  *     `Check` for 1s then revert. Same pattern as the existing
  *     `<CopyButton>`.
- *   - **Fold F — clipboard-rejected fallback points to Settings.**
- *     The Settings surface has the inline textarea fallback (Slice
+ *   - **implementation note — clipboard-rejected fallback points to Settings.**
+ *     The Settings surface has the inline textarea fallback (implementation
  *     1); here we push a status notice with `clipboardUnavailable`
  *     copy that points the user to Settings so the dead-end is
  *     closed.

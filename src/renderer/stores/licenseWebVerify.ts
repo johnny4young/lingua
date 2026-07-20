@@ -6,7 +6,7 @@ import { bundledBuildDate } from '../../shared/appInfo';
 import type { LicenseStatus } from './licenseTypes';
 
 /**
- * RL-130 — web-flow token-verification primitives, extracted verbatim from
+ * internal — web-flow token-verification primitives, extracted verbatim from
  * `licenseStore.ts`. Owns the embedded Ed25519 public key + the local verify
  * that the web store (and `attemptStaleTokenRefresh`) run before trusting any
  * token. Leaf: depends only on the shared verifier + the license types, never

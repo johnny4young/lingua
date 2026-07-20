@@ -9,7 +9,7 @@ import { createSaveActions } from './editorSaveActions';
 import { createCloseActions } from './editorCloseActions';
 
 /**
- * RL-128 (AUDIT-08) — editor store assembly point.
+ * internal — editor store assembly point.
  *
  * The 1600-line monolith was carved into focused modules with ZERO public API
  * change; this file is the thin assembly that wires them together:
@@ -19,7 +19,7 @@ import { createCloseActions } from './editorCloseActions';
  *                              constants, `createDefaultTab`
  *   - `editorPersistence`    — format-on-save + `persistTab` (Save/Save-As)
  *   - `editorSelectors`      — `getActiveTab` / `getActiveTabIndex`
- *   - `editorStoreContext`   — shared `EditorSet` / `EditorGet` types (fold A)
+ *   - `editorStoreContext`   — shared `EditorSet` / `EditorGet` types (implementation note)
  *   - `editorTabActions`     — create / restore / remove / focus / duplicate
  *   - `editorWorkspaceActions`— notebook + SQL / HTTP / Utilities workspace openers
  *   - `editorContentActions` — buffer / execution-state / timeout / recipe-clear

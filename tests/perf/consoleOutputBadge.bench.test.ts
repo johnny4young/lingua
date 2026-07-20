@@ -1,10 +1,10 @@
 /**
- * RL-044 Sub-slice G — `<OutputLineBadge>` render defense.
+ * implementation — `<OutputLineBadge>` render defense.
  *
  * Acceptance criteria locked here:
  *   1. 1 000 console rows with chips render under 200 ms (AC budget).
  *   2. 10 000 console rows with chips render under 1500 ms
- *      (Fold A — RL-020 auto-log workloads exercise the 10k bound).
+ *      (implementation note — implementation auto-log workloads exercise the 10k bound).
  *
  * The benchmark exercises the renderer-side payload pipeline that
  * `<ConsoleEntryRenderer>` consumes: build N typed `RichOutputPayload`
@@ -60,7 +60,7 @@ describe('OutputLineBadge payload shape — 1k rows', () => {
   });
 });
 
-describe('OutputLineBadge payload shape — 10k rows (Fold A)', () => {
+describe('OutputLineBadge payload shape — 10k rows (implementation note)', () => {
   it('builds and validates 10000 payloads within 1500ms', () => {
     const start = performance.now();
     const payloads = buildPayloads(10_000);

@@ -1,8 +1,8 @@
 /**
- * RL-028 Slice 6 trailer — shared replay helper.
+ * implementation trailer — shared replay helper.
  *
- * Both the console-popover Replay button (Slice 6) and the command-palette
- * per-entry Replay action (this slice) dispatch the same effect: open a new
+ * Both the console-popover Replay button  and the command-palette
+ * per-entry Replay action (this change) dispatch the same effect: open a new
  * tab seeded with the captured snapshot's code/language, then run it without
  * appending another entry to the execution-history timeline.
  *
@@ -49,7 +49,7 @@ function replayTabName(entry: ExecutionHistoryEntry, language: Language): string
  *
  * Surfaces all feedback through `useUIStore` notices. Returns `true`
  * when the replay run was dispatched, `false` when one of the
- * refusal branches fired. RL-020 Slice 4 callers gate the
+ * refusal branches fired. implementation callers gate the
  * `runtime.history_replay` telemetry on this return value so adoption
  * metrics never count replays that didn't actually happen.
  */

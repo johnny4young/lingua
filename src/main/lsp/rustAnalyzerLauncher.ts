@@ -12,7 +12,7 @@ import { LspProcess } from './lspProcess';
 import type { JsonRpcNotification } from './lspProcess';
 
 /**
- * RL-026 Slice 3 — rust-analyzer launcher.
+ * implementation — rust-analyzer launcher.
  *
  * Wraps `LspProcess` with rust-analyzer-specific concerns:
  *   - Detection: PATH lookup first (most common path on macOS/Linux
@@ -118,7 +118,7 @@ export async function detectRustAnalyzerVersion(
 }
 
 function buildLauncherEnv(): NodeJS.ProcessEnv {
-  // RL-079 / fold G — host secrets stay out of the subprocess. user env
+  // implementation note — host secrets stay out of the subprocess. user env
   // is intentionally NOT layered here: LSP servers should not inherit
   // arbitrary user vars (no eval, no compile, just analysis).
   return buildNativeRunnerEnv(combinedAllowlist(RUST_TOOLCHAIN_KEYS), undefined);

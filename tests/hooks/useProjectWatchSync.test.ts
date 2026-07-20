@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 2 — `useProjectWatchSync` reload-from-disk notice.
+ * implementation — `useProjectWatchSync` reload-from-disk notice.
  *
  * Pinned coverage:
  *   - A `change` event whose `relativePath` matches an open clean
@@ -9,7 +9,7 @@
  *   - Self-induced echo (disk content === in-memory content) is
  *     suppressed silently.
  *   - 3+ tabs accumulating in the debounce window collapse into
- *     ONE batched notice (fold D).
+ *     ONE batched notice (implementation note).
  *   - `rename` events do not trigger the reload notice (deletes
  *     route through the existing stale-tab notice path).
  *   - The hook unsubscribes its watcher on unmount.
@@ -102,7 +102,7 @@ function primeProjectAndTab(opts: {
   return tabId;
 }
 
-describe('useProjectWatchSync — reload-from-disk notice (RL-102 Slice 2)', () => {
+describe('useProjectWatchSync — reload-from-disk notice ', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     useEditorStore.setState({ tabs: [], activeTabId: null });
@@ -234,7 +234,7 @@ describe('useProjectWatchSync — reload-from-disk notice (RL-102 Slice 2)', () 
     expect(useUIStore.getState().statusNotice).toBeNull();
   });
 
-  it('collapses ≥3 modified tabs in the debounce window into ONE batched notice (fold D)', async () => {
+  it('collapses ≥3 modified tabs in the debounce window into ONE batched notice (implementation note)', async () => {
     const bridge = installMockBridge('// new content');
     primeProjectAndTab({
       relativePath: 'src/a.js',

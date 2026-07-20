@@ -1,14 +1,14 @@
 /**
- * RL-043 Slice A — Runner-owned notebook session manager.
+ * implementation — Runner-owned notebook session manager.
  *
  * Per-tab session that keeps a long-lived sandbox object so cell N
  * can read variables declared in cells 1..N-1 WITHOUT polluting
  * the worker's `globalThis`. The 2026-05-20 research triage for
- * RL-043 explicitly rejected raw `globalThis.eval()`
+ * internal explicitly rejected raw `globalThis.eval()`
  * because it would bypass the runner instrumentation, timeout,
  * debugger, console, and stop contracts that already exist.
  *
- * Slice A architecture (JSON-serializable sandbox delta):
+ * implementation architecture (JSON-serializable sandbox delta):
  *
  *   1. The session manager allocates one `NotebookSessionState` per
  *      `tabId`. The state holds a JSON-serializable sandbox object
@@ -21,7 +21,7 @@
  *        reads of cell 1's declarations resolve naturally.
  *      - After the user's source, captures top-level
  *        `const`/`let`/`function` declarations into a
- *        `_sessionDelta` object (fold C regex rewriter).
+ *        `_sessionDelta` object (implementation note regex rewriter).
  *      - Captures `console.log` / `.error` into stdout / stderr
  *        buffers.
  *      - Resolves to `{ stdout, stderr, sessionDelta }`.
@@ -31,10 +31,10 @@
  *      `{ stdout, stderr, sessionDelta }` object via the postMessage
  *      structured clone — NOT `result.result`, which is a display string
  *      the worker truncates at MAX_RESULT_BYTES (that truncation silently
- *      dropped the cross-cell delta before RL-043 Slice B). JSON-only
+ *      dropped the cross-cell delta before implementation). JSON-only
  *      round-trip is still the sandbox contract: primitives + plain
  *      objects + arrays survive; functions / class instances / Promises /
- *      Maps / Sets do NOT. A later slice promotes to a per-tab worker
+ *      Maps / Sets do NOT. A later work promotes to a per-tab worker
  *      instance with a real shared `globalThis` so non-serializable
  *      values persist.
  *   4. Tab close + language change call `dispose(tabId)` which
@@ -42,15 +42,15 @@
  *      tab id starts clean.
  *
  * The composed source runs through `runnerManager.execute` with the
- * existing JS / TS worker pipeline — so all RL-020 Slice 7 timeout
- * presets + RL-077 / RL-078 hardening apply unchanged.
+ * existing JS / TS worker pipeline — so all implementation timeout
+ * presets + implementation detail hardening apply unchanged.
  */
 
 // Type-only import is fully erased at build, so it adds ZERO bundle
 // weight. The TypeScript COMPILER (~2.5 MB) is loaded lazily via the
 // dynamic `import('typescript')` in `loadTypescript()` below — a
 // separate async chunk fetched only when a cell first runs, NOT inlined
-// into the notebook chunk (RL-043 Slice B bundle guard).
+// into the notebook chunk (implementation bundle guard).
 import type * as TsTypes from 'typescript';
 import { runnerManager } from '../runners';
 import { executeQuery } from './duckdbClient';
@@ -85,17 +85,17 @@ export type NotebookSessionRejectReason =
   (typeof NOTEBOOK_SESSION_REJECT_REASONS)[number];
 
 /**
- * Code-cell run gate. JavaScript runs directly; TypeScript (RL-043
- * Slice C) is type-stripped to JavaScript via `ts.transpileModule`
+ * Code-cell run gate. JavaScript runs directly; TypeScript (internal
+ * implementation) is type-stripped to JavaScript via `ts.transpileModule`
  * (the same lazily-loaded compiler the cross-cell rewriter uses) and
  * then runs through the identical `'javascript'` worker pipeline, so
  * cross-cell sharing, timeouts, and the structured-result channel all
- * apply unchanged. Python (RL-043 Slice F) runs through the existing
+ * apply unchanged. Python  runs through the existing
  * Python runner (web Pyodide / desktop native) but INDEPENDENTLY per
  * cell — it does NOT join the JS composed-source + serialized-sandbox
  * cross-cell channel (that channel only round-trips JS values). True
  * cross-cell Python state needs a persistent interpreter and stays a
- * separate future slice. SQL (T16) runs through the shared DuckDB-WASM
+ * separate future work. SQL  runs through the shared DuckDB-WASM
  * engine (`executeQuery`); its result set is emitted as a JSON-array
  * stdout entry that the rich-output layer renders as a table. It also
  * sits outside the JS sandbox channel, but — because the DuckDB engine is
@@ -198,9 +198,9 @@ function loadTypescript(): Promise<typeof TsTypes> {
 }
 
 /**
- * RL-043 Slice C — outcome of type-stripping a TypeScript cell. `js` is
+ * implementation — outcome of type-stripping a TypeScript cell. `js` is
  * the emitted JavaScript on success; `message` carries a human-readable
- * compiler diagnostic (with a `line:col` suffix — fold B) when the cell
+ * compiler diagnostic (with a `line:col` suffix — implementation note) when the cell
  * has a syntax error, so the cell surfaces a precise message instead of
  * a generic failure.
  */
@@ -209,7 +209,7 @@ export type NotebookTranspileResult =
   | { readonly ok: false; readonly message: string };
 
 /**
- * RL-043 Slice C — type-strip a TypeScript cell to JavaScript so it runs
+ * implementation — type-strip a TypeScript cell to JavaScript so it runs
  * through the JS worker pipeline. Uses `ts.transpileModule` on the
  * already-lazily-loaded compiler (no extra dependency, no esbuild-wasm
  * fetch on the notebook path). `module: Preserve` + `target: ES2022`
@@ -220,7 +220,7 @@ export type NotebookTranspileResult =
  * rewriter then captures.
  *
  * `transpileModule` does NOT type-check; the reported diagnostics are
- * parser-level syntax errors only. We surface the first one (fold B) and
+ * parser-level syntax errors only. We surface the first one (implementation note) and
  * leave a clean cell unchanged. The emitted JS then flows through the
  * existing rewriter + `composeNotebookCellSource` untouched, so a TS
  * cell shares declarations cross-cell exactly like a JS cell.
@@ -281,13 +281,13 @@ function collectBindingNames(
 }
 
 /**
- * RL-043 Slice B — rewrite top-level declarations to ALSO assign their
+ * implementation — rewrite top-level declarations to ALSO assign their
  * bindings onto the local `_sessionDelta` object so the post-run capture
  * step shares them with later cells. ONLY top-level statements are
  * rewritten — declarations nested inside `if` / `for` / functions stay
  * local + invisible to subsequent cells, exactly as before.
  *
- * This replaces the Slice A column-zero regex with a TypeScript-AST walk
+ * This replaces the implementation column-zero regex with a TypeScript-AST walk
  * (`ts.createSourceFile`), which robustly handles the cases the regex
  * could not: object/array destructuring (incl. rest, renamed, defaults,
  * holes), multi-line declarations, `var`, and `class Name {}` — all now
@@ -532,7 +532,7 @@ interface NotebookSessionState {
   /** JSON-serializable sandbox object. Keys are top-level declaration
    * names captured by the rewriter; values are JSON-round-trippable. */
   sandbox: Record<string, unknown>;
-  /** Per-cell in-flight flag — Slice A blocks `'concurrent-run'`. */
+  /** Per-cell in-flight flag — implementation blocks `'concurrent-run'`. */
   isRunning: boolean;
 }
 
@@ -589,7 +589,7 @@ export interface NotebookCellRunRequest {
  * Execute one cell against the session sandbox. Always settles to a
  * discriminated outcome — never throws.
  *
- * Concurrency: Slice A blocks `'concurrent-run'` for the SAME tab.
+ * Concurrency: implementation blocks `'concurrent-run'` for the SAME tab.
  * The renderer can still run cells in different notebook tabs in
  * parallel (each tab has its own session + sandbox).
  */
@@ -605,11 +605,11 @@ export async function runNotebookCell(
   }
   session.isRunning = true;
   try {
-    // T16 — SQL cells run through the shared DuckDB-WASM engine
+    // implementation — SQL cells run through the shared DuckDB-WASM engine
     // (`executeQuery`), INDEPENDENTLY of the JS composed-source + sandbox
     // channel (that channel round-trips JS values only). A successful
     // result set is emitted as a single stdout entry containing the rows
-    // as a JSON array, so the notebook's rich-output layer (RL-044 / T3)
+    // as a JSON array, so the notebook's rich-output layer (internal / implementation)
     // renders it as a table exactly like a homogeneous array output. DDL /
     // DML statements with no result set emit a short status line instead.
     // The DuckDB engine is a renderer-wide singleton, so tables created in
@@ -673,7 +673,7 @@ export async function runNotebookCell(
         },
       };
     }
-    // RL-043 Slice F / T17 — Python cells run through the existing Python
+    // implementation — Python cells run through the existing Python
     // runner (Pyodide on web + desktop) with a per-notebook kernel scope
     // (`scopeId: tabId`): cells in this notebook share Python state
     // (imports, DataFrames, functions), isolated from the editor scratchpad
@@ -684,7 +684,7 @@ export async function runNotebookCell(
     if (request.language === 'python') {
       const result = await runnerManager.execute('python', request.source, {
         language: 'python',
-        // T17 — run this cell against the notebook's persistent Python
+        // implementation — run this cell against the notebook's persistent Python
         // kernel scope (keyed by tabId) so cells in this notebook share
         // state, isolated from the editor scratchpad + other notebooks.
         scopeId: request.tabId,
@@ -730,10 +730,10 @@ export async function runNotebookCell(
         },
       };
     }
-    // RL-043 Slice C — TypeScript cells are type-stripped to JavaScript
+    // implementation — TypeScript cells are type-stripped to JavaScript
     // BEFORE the rewriter + compose, then run through the identical JS
     // pipeline. A transpile (syntax) error short-circuits to an `error`
-    // outcome carrying the precise compiler message (fold B); JS cells
+    // outcome carrying the precise compiler message (implementation note); JS cells
     // skip this hop entirely.
     let runnableSource = request.source;
     if (request.language === 'typescript') {
@@ -759,7 +759,7 @@ export async function runNotebookCell(
     );
     const result = await runnerManager.execute('javascript', composed, {
       language: 'javascript',
-      // RL-043 Slice B — ask the worker to forward the cell's structured
+      // implementation — ask the worker to forward the cell's structured
       // return value losslessly on `result.structuredResult`. The default
       // `result.result` is a display string the worker truncates at
       // MAX_RESULT_BYTES, which silently dropped the cross-cell delta.
@@ -886,7 +886,7 @@ function enforceSandboxCap(
  * change.
  */
 export function disposeNotebookSession(tabId: string): void {
-  // T17 — also drop this notebook's Python kernel scope in the worker so a
+  // implementation — also drop this notebook's Python kernel scope in the worker so a
   // closed notebook's namespace does not linger (memory + a reopened
   // same-id tab starting dirty). Safe when no Python cell ever ran — the
   // runner no-ops when its worker was never created. Optional-chained on
@@ -910,7 +910,7 @@ export function resetNotebookSessionsForTests(): void {
 }
 
 /**
- * Read the sandbox keys for a given session. Used by tests + Slice
+ * Read the sandbox keys for a given session. Used by tests + implementation
  * B+ "Session inspector" affordance.
  */
 export function getNotebookSessionKeys(tabId: string): string[] {

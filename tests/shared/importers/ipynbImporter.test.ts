@@ -1,5 +1,5 @@
 /**
- * RL-100 Slice 2 — `.ipynb` importer adapter coverage.
+ * implementation — `.ipynb` importer adapter coverage.
  *
  * Pins the closed-enum outcomes, the cell-mapping table, language
  * inference, the lossy-warning surface, and the rejection paths.
@@ -158,7 +158,7 @@ describe('ipynbImporterAdapter.preview — happy paths', () => {
     expect(code.language).toBe('python');
   });
 
-  it('RL-043 Slice D fold B — a per-cell metadata.lingua.language wins over the kernelspec', () => {
+  it('implementation Slice D implementation note — a per-cell metadata.lingua.language wins over the kernelspec', () => {
     const outcome = ipynbImporterAdapter.preview(
       JSON.stringify({
         nbformat: 4,
@@ -194,7 +194,7 @@ describe('ipynbImporterAdapter.preview — happy paths', () => {
     if (code[2]?.kind === 'code') expect(code[2].language).toBe('javascript');
   });
 
-  it('RL-043 Slice D preserves reusable Lingua cell ids and regenerates unsafe ones', () => {
+  it('implementation preserves reusable Lingua cell ids and regenerates unsafe ones', () => {
     const outcome = ipynbImporterAdapter.preview(
       JSON.stringify({
         nbformat: 4,

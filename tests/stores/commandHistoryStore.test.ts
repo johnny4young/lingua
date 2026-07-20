@@ -1,5 +1,5 @@
 /**
- * RL-113 Slice 1 — the per-session recent-commands ring buffer.
+ * implementation — the per-session recent-commands ring buffer.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';

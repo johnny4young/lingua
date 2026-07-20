@@ -1,5 +1,5 @@
 /**
- * F-3 — client-side cloud sync engine for user artifacts (snippets,
+ * implementation — client-side cloud sync engine for user artifacts (snippets,
  * settings, themes, keymaps).
  *
  * This is the transport-independent core: a pure last-write-wins merge
@@ -11,7 +11,7 @@
  * an in-memory fake and so the real backend (a Cloudflare Worker keyed by
  * license, mirroring `license-server`) can drop in without touching this
  * logic. Wiring a concrete HTTPS transport and the Settings → Sync surface
- * is a follow-up slice; per the audit rules the server side is a proposal,
+ * is a follow-up work; per the audit rules the server side is a proposal,
  * not an applied change.
  *
  * Scope note: only the user's OWN artifacts sync, to the user's OWN

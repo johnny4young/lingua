@@ -2,13 +2,13 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 
 /**
- * RL-125 / AUDIT-05 — per-tool lazy panel registry. Each panel is a named
+ * implementation detail — per-tool lazy panel registry. Each panel is a named
  * export, so the loader resolves through a `.then` that re-exposes it as the
  * `default` Vite/Rollup needs for code-splitting. The result: opening the
  * Developer Utilities workspace no longer loads all 30 panels (and their single-use
  * deps like `qrcode` / `sql-formatter`) at once — each tool's chunk loads the
  * first time it is selected. `UtilityPanels.tsx` provides the `<Suspense>`
- * boundary; `prefetchUtilityPanel` (fold F) warms a chunk on sidebar hover.
+ * boundary; `prefetchUtilityPanel` (implementation note) warms a chunk on sidebar hover.
  */
 type PanelLoader = () => Promise<{ default: ComponentType }>;
 
@@ -68,7 +68,7 @@ export const DEVELOPER_UTILITY_PANEL_COMPONENTS = Object.fromEntries(
 ) as Record<DeveloperUtilityId, LazyExoticComponent<ComponentType>>;
 
 /**
- * RL-125 fold F — warm a tool's chunk ahead of selection (e.g. on sidebar
+ * implementation — warm a tool's chunk ahead of selection (e.g. on sidebar
  * hover/focus) so its `<Suspense>` fallback rarely shows. Idempotent: the
  * dynamic import is cached by the bundler after the first call.
  */

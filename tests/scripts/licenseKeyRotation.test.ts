@@ -17,13 +17,13 @@ import {
 import { computeLicenseJwkThumbprint } from '../../src/shared/license';
 
 /**
- * RL-143 — locks the rotation guard. The thumbprint twins (scripts lib ↔
+ * internal — locks the rotation guard. The thumbprint twins (scripts lib ↔
  * src/shared) must stay byte-equal, mirroring the darwinAsset.mjs ↔
  * update-server twin pin: if they drift, the fingerprint the operator reads
  * in Settings stops matching the registry the release gate enforces.
  */
 
-/** Production key committed in .env / .env.production since RL-061 Slice 2.5. */
+/** Production key committed in .env / .env.production since implementation */
 const PROD_JWK = {
   kty: 'OKP',
   crv: 'Ed25519',

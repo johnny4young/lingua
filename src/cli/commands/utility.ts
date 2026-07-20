@@ -1,11 +1,11 @@
 /**
- * RL-098 Slice 1 — `lingua utility <utility-id>` subcommand.
+ * implementation — `lingua utility <utility-id>` subcommand.
  *
  * Runs a single utility adapter from the shared registry against an
  * input (stdin or `--input <file>`). The adapter shape comes from
  * `src/shared/utilities/types.ts` and the registry from
- * `src/shared/utilities/registry.ts` — both extracted by RL-099
- * Slice 1 specifically so the CLI can consume them without React.
+ * `src/shared/utilities/registry.ts` — both extracted by internal
+ * implementation specifically so the CLI can consume them without React.
  *
  * Exit contract:
  *
@@ -14,10 +14,10 @@
  *     `--option key=value`, options shape rejected by `parseOptions`.
  *   - `2` runtime error — adapter returned `{ ok: false, reason }`.
  *   - `3` unsupported capability — adapter `outputKind === 'binary'`
- *     (Slice 1 ships only text adapters; this branch is reserved for
- *     when RL-099 Slice 2+ adds binary ones).
+ *     (implementation ships only text adapters; this branch is reserved for
+ *     when future work adds binary ones).
  *
- * `--json` output shape (snapshot-stable per fold F):
+ * `--json` output shape (snapshot-stable per implementation note):
  *
  *   { ok: true, value: string }
  *   { ok: false, reason: string, detail?: string }
@@ -59,15 +59,15 @@ export async function runUtilityCommand(
     return CLI_EXIT_CODES.userInputError;
   }
 
-  // 2. Slice 1 declines binary outputs cleanly; the engine has a
-  // `binary` enum branch reserved for Slice 2+ adapters that don't
+  // 2. implementation declines binary outputs cleanly; the engine has a
+  // `binary` enum branch reserved for implementation adapters that don't
   // exist yet.
   if (adapter.outputKind === 'binary') {
     emitError(
       io,
       args,
       'unsupported-output-kind',
-      `Adapter "${args.utilityId}" produces a binary output, which the Slice 1 CLI cannot stream safely.`
+      `Adapter "${args.utilityId}" produces a binary output, which the CLI cannot stream safely.`
     );
     return CLI_EXIT_CODES.unsupportedCapability;
   }
@@ -223,7 +223,7 @@ function emitError(
 }
 
 /**
- * Fold B — `lingua list utilities` prints the registry. Pure
+ * implementation note — `lingua list utilities` prints the registry. Pure
  * presentation: id, kinds, title (English fallback when an i18n
  * `titleKey` is declared but not resolvable in CLI land).
  */

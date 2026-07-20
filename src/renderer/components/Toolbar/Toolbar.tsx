@@ -41,7 +41,7 @@ const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = LANGUAGE_PACKS.fil
 
 interface ToolbarProps {
   /**
-   * RL-093 — when the floating action pill is mounted alongside the
+   * internal — when the floating action pill is mounted alongside the
    * toolbar, the toolbar becomes a compact drag spacer. Primary
    * controls, including the sidebar toggle, live in the pill.
    */
@@ -53,7 +53,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const addTab = useEditorStore((state) => state.addTab);
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
   const { sidebarVisible, toggleSidebar } = useUIStore();
-  // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+  // implementation — debugger is baseline; the Settings master toggle is gone.
   const debuggerEnabled = true;
   const plugins = usePluginStore((state) => state.plugins);
   const enabledBreakpointCount = useDebuggerStore((state) => {
@@ -91,7 +91,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const activeLanguage = activeTab?.language ?? 'javascript';
   const executionMode = executionModeForLanguage(activeLanguage);
   const showDebugAction = activeTabSupportsDebugger && executionMode === 'run';
-  // RL-038 Slice C — when the active language needs a host toolchain
+  // implementation — when the active language needs a host toolchain
   // (Go, Rust) AND this is the web build, the Run button is honest about
   // the gap: disabled + a localized tooltip pointing at the desktop
   // build. Desktop users still see the normal Run affordance.
@@ -140,7 +140,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
     primaryActionIsDebug
       ? 'button-danger inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none'
       : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none bg-success-fg text-fg-on-accent hover:opacity-90',
-    // RL-071 v2 — visible pulse around the run button while a task is
+    // internal v2 — visible pulse around the run button while a task is
     // executing. The animation is declared in index.css under
     // @keyframes run-pulse and only applies when data-running="true".
     'data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]'
@@ -387,7 +387,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
         {/* UI refinement — workflow + runtime selectors live with the
             Run button. They configure HOW + WHERE the run executes,
             so the whole execution cluster reads as one group.
-            RL-093 — hidden when the floating action pill is mounted;
+            internal — hidden when the floating action pill is mounted;
             those controls move into the pill. */}
         {!showFloatingPill && activeTab ? <WorkflowModeSegment /> : null}
         {!showFloatingPill && languageHasRuntimeModes(activeTab?.language) ? (
@@ -476,7 +476,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
         </div>
       </div>
 
-      {/* RL-093 Slice 3 — the right-side icon cluster (license badge,
+      {/* implementation — the right-side icon cluster (license badge,
           search, palette, snippets, utilities, console toggle, settings)
           moved into <AppChrome>. The relocated actions remain reachable
           via the command palette + keyboard shortcuts; the chrome

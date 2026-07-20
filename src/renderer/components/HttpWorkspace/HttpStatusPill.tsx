@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 fold C — Color-coded HTTP status pill.
+ * implementation note — Color-coded HTTP status pill.
  *
  * FASE 2b (MOV.05) — converged onto the shared `<StatusBadge>`
  * primitive. The HTTP-range classifier is the specialized logic that

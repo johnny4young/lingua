@@ -1,5 +1,5 @@
 /**
- * RL-079 — Trust-boundary acknowledgement modal.
+ * internal — Trust-boundary acknowledgement modal.
  *
  * Mounted once at App level. The modal subscribes to
  * `useNativeExecutionGateStore` — when a Run dispatch on Go or Rust

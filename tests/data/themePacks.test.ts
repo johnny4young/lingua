@@ -18,7 +18,7 @@ describe('themePacks catalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('ships at least one alternate pack (RL-037 acceptance criterion)', () => {
+  it('ships at least one alternate pack (internal acceptance criterion)', () => {
     const alternates = THEME_PACKS.filter((pack) => pack.id !== DEFAULT_THEME_PACK_ID);
     expect(alternates.length).toBeGreaterThanOrEqual(1);
   });

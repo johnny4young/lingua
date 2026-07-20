@@ -126,7 +126,7 @@ describe('parseAndValidateProfile', () => {
     expect(result.profile.data.settings).toEqual({ theme: 'dark' });
   });
 
-  it('round-trips the RL-111 restoreSessionMode enum and validates it', () => {
+  it('round-trips the internal restoreSessionMode enum and validates it', () => {
     const withMode = (mode: unknown) =>
       JSON.stringify({
         schemaVersion: 1,
@@ -149,7 +149,7 @@ describe('parseAndValidateProfile', () => {
     expect(bad.profile.data.settings).not.toHaveProperty('restoreSessionMode');
   });
 
-  it('maps a legacy restoreSession boolean to restoreSessionMode on import (RL-111 back-compat)', () => {
+  it('maps a legacy restoreSession boolean to restoreSessionMode on import (internal back-compat)', () => {
     const withLegacy = (restoreSession: boolean) =>
       JSON.stringify({
         schemaVersion: 1,

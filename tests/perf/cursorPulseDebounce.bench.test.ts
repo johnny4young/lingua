@@ -1,5 +1,5 @@
 /**
- * RL-044 Sub-slice G.1 Fold E — cursor pulse debounce regression
+ * implementation Sub-slice G.1 implementation note — cursor pulse debounce regression
  * guard.
  *
  * Acceptance criteria locked here:

@@ -20,14 +20,14 @@ export const APPROVED_LICENSE_EXPRESSIONS = [
   'ISC',
   'MIT',
   // Permissive dual-license; both halves are already individually
-  // approved. Surfaced by @bjorn3/browser_wasi_shim (RL-042 Ruby WASI)
+  // approved. Surfaced by @bjorn3/browser_wasi_shim (internal Ruby WASI)
   // once pnpm's license resolver reported the SPDX expression verbatim.
   'MIT OR Apache-2.0',
   'MPL-2.0',
   'Python-2.0',
   // Public-domain-equivalent permissive license (same posture as the
   // already-approved CC0-1.0 / 0BSD). Surfaced by robust-predicates,
-  // a transitive d3/vega dependency (RL-044 charts).
+  // a transitive d3/vega dependency (internal charts).
   'Unlicense',
 ];
 

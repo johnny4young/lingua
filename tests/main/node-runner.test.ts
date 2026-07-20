@@ -187,7 +187,7 @@ describe('main node runner', () => {
     expect(child.stdin.end).toHaveBeenCalled();
   });
 
-  it('F-7: keeps stdin open in interactive mode and streams writes by runId', async () => {
+  it('implementation: keeps stdin open in interactive mode and streams writes by runId', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
 
@@ -222,7 +222,7 @@ describe('main node runner', () => {
     await expect(promise).resolves.toMatchObject({ kind: 'success' });
   });
 
-  it('F-7: streams live stdout/stderr chunks to the sender during interactive runs', async () => {
+  it('implementation: streams live stdout/stderr chunks to the sender during interactive runs', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
     const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
@@ -255,7 +255,7 @@ describe('main node runner', () => {
     await expect(promise).resolves.toMatchObject({ kind: 'success' });
   });
 
-  it('F-7: does not stream chunks for non-interactive runs', async () => {
+  it('implementation: does not stream chunks for non-interactive runs', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
     const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
@@ -276,7 +276,7 @@ describe('main node runner', () => {
     expect(sender.send).not.toHaveBeenCalled();
   });
 
-  it('F-7: non-interactive runs close stdin immediately and reject stream writes', async () => {
+  it('implementation: non-interactive runs close stdin immediately and reject stream writes', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
 

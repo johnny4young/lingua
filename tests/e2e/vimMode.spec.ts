@@ -1,5 +1,5 @@
 /**
- * RL-037 Vim mode integration — Playwright E2E.
+ * internal Vim mode integration — Playwright E2E.
  *
  * Verifies the lazy-loaded `monaco-vim` chunk wires the Vim layer into
  * the active Monaco editor end-to-end:
@@ -32,7 +32,7 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('Vim mode (RL-037)', () => {
+test.describe('Vim mode', () => {
   test.beforeEach(async ({ page }) => {
     // Free tier — Vim mode is not a Pro feature.
     await seedSession(page, { language: 'en' });

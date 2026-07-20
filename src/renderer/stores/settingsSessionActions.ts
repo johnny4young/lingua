@@ -2,7 +2,7 @@ import type { SettingsState } from '../types';
 import type { SettingsSet } from './settingsStoreContext';
 
 /**
- * RL-129 fold B — session/onboarding setter factory for the settings store.
+ * implementation — session/onboarding setter factory for the settings store.
  * Bundles restore-session, the onboarding reset + completion-mark setters,
  * app language, last-seen-version, tour flags, and the SQL-workspace
  * row-display-limit + query-timeout setters. Extracted verbatim from
@@ -32,11 +32,11 @@ export function createSessionActions(
 > {
   return {
     setRestoreSessionMode: (mode) => set({ restoreSessionMode: mode }),
-    // RL-101 Slice 1 — three reset setters. Flip the corresponding
+    // implementation — three reset setters. Flip the corresponding
     // flag back to `false` so the next welcome-seed, first-run, or
     // first-snippet event re-arms the toast. Settings → General
     // wires these to the reset toggles; the palette commands
-    // (fold G) and the Mod+Shift+W shortcut (fold D) reuse them.
+    // (implementation note) and the Mod+Shift+W shortcut (implementation note) reuse them.
     resetOnboardingWelcome: () =>
       set({
         hasCompletedOnboardingWelcome: false,
@@ -88,7 +88,7 @@ export function createSessionActions(
         if (state.sqlWorkspaceQueryTimeoutMs === next) return state;
         return { sqlWorkspaceQueryTimeoutMs: next };
       }),
-    // RL-097 Slice 3 (SQL OPFS) — coerce to boolean so a stray
+    // implementation (SQL OPFS) — coerce to boolean so a stray
     // localStorage value can't smuggle a non-boolean into the setting.
     setSqlWorkspacePersistTables: (value) =>
       set((state) => {
@@ -96,7 +96,7 @@ export function createSessionActions(
         if (state.sqlWorkspacePersistTables === next) return state;
         return { sqlWorkspacePersistTables: next };
       }),
-    // IT2-C1 — same boolean coercion for the Run Ledger opt-in.
+    // internal — same boolean coercion for the Run Ledger opt-in.
     setRunLedgerEnabled: (value) =>
       set((state) => {
         const next = value === true;

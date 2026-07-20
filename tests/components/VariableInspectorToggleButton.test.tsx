@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 9 — VariableInspectorToggleButton render contract.
+ * implementation — VariableInspectorToggleButton render contract.
  *
  * Covers:
  *   - Disabled when no scope snapshot for the active language.
@@ -82,7 +82,7 @@ function setScopeSnapshot(language: string, variableCount = 1): void {
   });
 }
 
-describe('RL-020 Slice 9 — <VariableInspectorToggleButton>', () => {
+describe('implementation — <VariableInspectorToggleButton>', () => {
   beforeEach(() => {
     trackEventMock.mockReset();
     setTabVariableInspectorEnabledMock.mockReset();

@@ -12,7 +12,7 @@ const LINGUA_EXECUTION_MARKER_OWNER = 'lingua-execution';
 const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';
 
 /**
- * RL-093 chrome v2 left an overflow bug behind: when the stringified
+ * internal chrome v2 left an overflow bug behind: when the stringified
  * `LineResult.value` exceeds the editor viewport width the overlay
  * widget paints past the right edge, wraps onto a second line, and
  * pictorially monts over the gutter on the left. Truncating the
@@ -30,8 +30,8 @@ const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';
  * px which corresponds to ~85 monospace chars at 13 px / 1.5 line
  * height.
  *
- * Folded into the RL-044 Slice 1A commit as a Prerequisite fix
- * because Slice 1A's `Table(N×M) — cols` summary side-steps the
+ * Folded into the implementation commit as a Prerequisite fix
+ * because implementation's `Table(N×M) — cols` summary side-steps the
  * overflow for arrays of objects, making the overflow on the legacy
  * `//=>` path the only remaining offender for the same input.
  */
@@ -184,7 +184,7 @@ export function useInlineResults() {
 }
 
 /* ============================================================ */
-/* RL-093 Slice 3 — inline results as Monaco overlay widgets    */
+/* implementation — inline results as Monaco overlay widgets    */
 /* ============================================================ */
 
 /**
@@ -224,7 +224,7 @@ export function isHiddenUndefinedLineResult(result: LineResult): boolean {
 
 /**
  * Hook variant that renders inline results as **Monaco overlay
- * widgets** (RL-093 polish #1). Each line with a result gets a
+ * widgets** (internal polish #1). Each line with a result gets a
  * widget that floats at the editor's right edge — independent of the
  * code's actual end-of-line column — so values line up vertically
  * the way Quokka / RunJS do. The DOM carries the design's chrome:
@@ -247,7 +247,7 @@ export function useInlineResultWidgets(
   monaco: typeof monacoTypes | null,
   lineResults: readonly LineResult[],
   tabId: string | null,
-  // RL-115 — per-statement timings from the last instrumented run.
+  // internal — per-statement timings from the last instrumented run.
   // Rendered as a trailing chip on the line's widget (or a standalone
   // widget for lines with no value result). Empty = feature inactive.
   lineTimings: readonly LineTimingEntry[] = [],
@@ -314,7 +314,7 @@ export function useInlineResultWidgets(
       list.push(result);
       grouped.set(result.line, list);
     }
-    // RL-115 — index the timings and find the run's hot spot. Lines
+    // internal — index the timings and find the run's hot spot. Lines
     // that only have a timing still get a widget (empty items array).
     const timingByLine = new Map<number, number>();
     let slowestLine = 0;
@@ -373,7 +373,7 @@ export function renderInlineResultNode(
   root.className = 'lingua-inline-result';
   root.setAttribute('data-testid', 'lingua-inline-result');
 
-  // RL-044 Slice 1C follow-up — cap rendered items per line so a
+  // implementation follow-up — cap rendered items per line so a
   // Python SyntaxError that ships 4+ console messages tagged to the
   // same line (or a hot loop with multiple prints) doesn't pile up
   // horizontally and visually overrun the editor. The dropped count
@@ -386,11 +386,11 @@ export function renderInlineResultNode(
     const result = visibleItems[i];
     if (!result) continue;
     const isWatch = result.type === 'watch';
-    // RL-044 Slice 1A — when the runner attached a typed payload,
+    // implementation — when the runner attached a typed payload,
     // upgrade the pill via the shared formatter so the editor-
     // decoration path and this overlay-widget path stay byte-for-
     // byte identical. Falls back to the legacy stringified value +
-    // inferred kind when there's no payload (every pre-Slice-1A
+    // inferred kind when there's no payload (every legacy
     // code path keeps its rendering).
     const richPreview = result.payload ? formatPayloadInlineSummary(result.payload) : null;
     const valueStr = richPreview ? richPreview.display : String(result.value ?? '');
@@ -413,7 +413,7 @@ export function renderInlineResultNode(
 
     const value = document.createElement('span');
     value.className = 'lingua-inline-result-value';
-    // Prerequisite fix (RL-093 overflow): cap the rendered string so
+    // Prerequisite fix (internal overflow): cap the rendered string so
     // the overlay widget never overruns the editor viewport. The
     // legacy `//=>` arrow on a large array used to paint past the
     // gutter; this keeps the pill inside the editor padding. Rich
@@ -450,7 +450,7 @@ export function renderInlineResultNode(
     root.appendChild(overflow);
   }
 
-  // RL-115 — trailing per-statement timing chip. The slowest line of
+  // internal — trailing per-statement timing chip. The slowest line of
   // the run carries `data-slowest` so the stylesheet can paint the hot
   // spot red while every other measurement stays a quiet italic gray.
   if (timing) {
@@ -466,7 +466,7 @@ export function renderInlineResultNode(
 }
 
 /**
- * RL-115 — compact duration label. Mirrors the notebook's
+ * internal — compact duration label. Mirrors the notebook's
  * `formatLatencyMs`: sub-100ms keeps one decimal so quick statements
  * do not all read as `0 ms`; everything else rounds to whole ms.
  */

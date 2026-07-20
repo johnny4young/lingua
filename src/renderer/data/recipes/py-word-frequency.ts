@@ -1,4 +1,4 @@
-/** RL-039 Slice C — Recipe `py-word-frequency`. */
+/** implementation — Recipe `py-word-frequency`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

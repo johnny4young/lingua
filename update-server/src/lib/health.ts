@@ -1,5 +1,5 @@
 /**
- * RL-091 — update-server readiness probe.
+ * internal — update-server readiness probe.
  *
  * Mirrors `license-server/src/handlers/health.ts` but only probes
  * GitHub (the sole upstream dependency this worker has). Probe results

@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — Utility pipeline schema + execution engine.
+ * implementation — Utility pipeline schema + execution engine.
  *
  * A pipeline is a versioned, named, ordered list of utility steps.
  * Each step references an adapter from `src/shared/utilities/registry.ts`
@@ -15,7 +15,7 @@
  *     `lingua-utility-pipeline-state`). The step contents + inputs
  *     never leave the device unless the user explicitly exports the
  *     pipeline JSON (which redacts NOTHING — the pipeline shape is
- *     the recipe, not the data) or shares a capsule (Slice 3+).
+ *     the recipe, not the data) or shares a capsule .
  *   - Telemetry (`utility.pipeline_executed`) carries only the
  *     bucketed step count + a closed-enum run status. NO utility
  *     ids, NO step options, NO input/output values on the wire.
@@ -25,7 +25,7 @@
  * Design landmines documented inline:
  *
  *   1. `PIPELINE_STEP_STATUSES` keeps `'incompatible'` reserved for
- *      Slice 2+ binary/structured adapters. All Slice 1 adapters are
+ *      implementation binary/structured adapters. All implementation adapters are
  *      `text → text`; the engine code path is wired but never fires
  *      with the current registry.
  *
@@ -38,7 +38,7 @@
  *   3. `runPipeline()` uses `Promise.race` for the per-step timeout
  *      (no native abort for adapter promises). Adapters that take
  *      >`STEP_TIMEOUT_MS` ms return `'timeout'`. The pending adapter
- *      promise is left with an attached no-op catch (RL-097 Slice 2
+ *      promise is left with an attached no-op catch (implementation
  *      precedent) so a late rejection cannot bubble.
  */
 
@@ -69,10 +69,10 @@ export const STEP_VALUE_BYTE_CAP = 256 * 1024;
  *   - `'skipped'`   — an upstream step failed; this step never ran.
  *   - `'timeout'`   — adapter exceeded `STEP_TIMEOUT_MS`.
  *   - `'incompatible'` — adapter's `inputKind` doesn't match the
- *                       upstream's `outputKind`. Reserved for Slice 2+.
+ *                       upstream's `outputKind`. Reserved for implementation.
  *
  * Mirrored on `update-server/src/telemetry.ts` if telemetry later
- * surfaces this enum directly (Slice 1 uses an aggregate
+ * surfaces this enum directly (implementation uses an aggregate
  * `PIPELINE_RUN_STATUSES` instead).
  */
 export const PIPELINE_STEP_STATUSES = [
@@ -234,7 +234,7 @@ export type PipelineImportOutcome =
 
 /**
  * Decode a pasted/dropped pipeline JSON. Strict at the top level
- * (wrong-version is rejected outright). Slice 1 also hard-rejects
+ * (wrong-version is rejected outright). implementation also hard-rejects
  * unknown utility ids so the imported recipe never looks runnable
  * while silently missing a step.
  *
@@ -284,8 +284,8 @@ export function tryImportPipelineJson(
       }
     }
     if (unknown.size > 0) {
-      // Slice 1 treats unknown utility ids as a hard reject (the
-      // pipeline as designed can't run). A future slice may downgrade
+      // implementation treats unknown utility ids as a hard reject (the
+      // pipeline as designed can't run). A future work may downgrade
       // this to a warning + drop-the-step.
       return {
         ok: false,
@@ -406,8 +406,8 @@ export async function runPipeline(
     const adapter = getAdapter(step.utilityId);
     if (adapter === undefined) {
       // The adapter is gone (forward-version drift). Mark as error +
-      // cascade skips. Slice 2+ can surface this as a structural
-      // `'removed'` status; Slice 1 uses `'error'` for simplicity.
+      // cascade skips. implementation can surface this as a structural
+      // `'removed'` status; implementation uses `'error'` for simplicity.
       const errored: PipelineStepResult = {
         stepId: step.id,
         utilityId: step.utilityId,
@@ -421,8 +421,8 @@ export async function runPipeline(
       continue;
     }
 
-    // Kind compatibility check — reserved for Slice 2+ but the engine
-    // wiring is in place. With all Slice 1 adapters at `text → text`
+    // Kind compatibility check — reserved for implementation but the engine
+    // wiring is in place. With all implementation adapters at `text → text`
     // this branch never fires; tests cover it via a synthetic adapter.
     if (i > 0 && adapter.inputKind !== lastOutputKind) {
       const incompat: PipelineStepResult = {
@@ -467,7 +467,7 @@ export async function runPipeline(
     let outcome: PipelineStepResult;
     try {
       const adapterPromise = adapter.run(chainedInput, parsedOptions);
-      // RL-097 Slice 2 HIGH-2 precedent — defensive no-op catch on
+      // implementation HIGH-2 precedent — defensive no-op catch on
       // the pending adapter promise. If timeout wins the race, the
       // adapter may still reject later; we don't want that to bubble
       // as an unhandledRejection.

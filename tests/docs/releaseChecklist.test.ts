@@ -1,5 +1,5 @@
 /**
- * RL-016 release checklist guard — fails CI if anyone strips the release
+ * internal release checklist guard — fails CI if anyone strips the release
  * steps, the validation gates, or the rollback plan. Keeps the human
  * procedure in sync with the automation.
  */
@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 const CHECKLIST_PATH = resolve(__dirname, '../../RELEASE.md');
 
-describe('RELEASE.md release checklist (RL-016)', () => {
+describe('RELEASE.md release checklist', () => {
   it('exists at the repo root', () => {
     expect(existsSync(CHECKLIST_PATH)).toBe(true);
   });
@@ -41,7 +41,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
       '13.',
       '14.',
       '15.',
-      // RL-016 follow-up — R2 release mirror sync added the 16th step
+      // internal follow-up — R2 release mirror sync added the 16th step
       // (private repo means GitHub Releases assets cannot be public-
       // downloaded; mirror-r2 keeps `downloads.linguacode.dev` in sync
       // for marketing-site CTAs). See `docs/runbooks/r2-release-mirror-setup.md`.
@@ -52,8 +52,8 @@ describe('RELEASE.md release checklist (RL-016)', () => {
   });
 
   it('requires the packaged desktop smoke before promotion', () => {
-    // Pre-RL-080-Slice-3 the gate was "the human runs pnpm run
-    // smoke:desktop against the downloaded .app". Slice 3 promoted
+    // Pre-internal the gate was "the human runs pnpm run
+    // smoke:desktop against the downloaded .app". implementation promoted
     // that into the `Packaged desktop smoke` CI step (release-blocking
     // offline, 2-runtime-case subset plus no-CDN assertion). The
     // checklist still names the local smoke as a sanity option and
@@ -99,8 +99,8 @@ describe('RELEASE.md release checklist (RL-016)', () => {
   });
 
   it('requires the release-blocking audit + checksum re-verify gates', () => {
-    // RL-080 Slice 2 introduced the release-blocking production dependency
-    // audit. RL-145 moved that gate behind the fixture-tested
+    // implementation introduced the release-blocking production dependency
+    // audit. internal moved that gate behind the fixture-tested
     // check:prod-audit wrapper, and this checklist must name the same command
     // the workflow summary now shows. The release pipeline also re-runs the
     // shared release payload helper against the downloaded payload after the
@@ -116,7 +116,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toContain('--verify-checksums');
   });
 
-  it('requires the RL-085 release compliance artifacts', () => {
+  it('requires the internal release compliance artifacts', () => {
     expect(checklist).toContain('pnpm run check:licenses');
     expect(checklist).toContain('pnpm run compliance:release');
     expect(checklist).toContain('lingua-sbom.cyclonedx.json');
@@ -171,7 +171,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toMatch(/hotfix/i);
   });
 
-  it('names RL-016 as the owning plan item so the acceptance gate is traceable', () => {
-    expect(checklist).toContain('RL-016');
+  it('keeps the release checklist as the named acceptance gate', () => {
+    expect(checklist).toContain('acceptance gate for the release process');
   });
 });

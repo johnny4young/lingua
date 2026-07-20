@@ -24,12 +24,12 @@ const debuggerDangerButton =
   `${debuggerButtonBase} text-muted hover:border-danger/50 hover:bg-danger/5 hover:text-danger`;
 
 /**
- * RL-027 Slice 1 — single drawer combining the four ADR §3 panels
+ * implementation — single drawer combining the four ADR §3 panels
  * (variables, watches, call stack, toolbar) into one collapsible
  * surface. Splitting into four sub-files was originally planned but
  * folded into one to keep the renderer footprint small and the visual
  * diff smaller for review. The internal sections are clearly demarcated
- * so a Slice 1.5 split is mechanical.
+ * so a implementation split is mechanical.
  *
  * Mounts whenever:
  *   1. `debuggerEnabled` setting is true (Settings → Editor).
@@ -38,7 +38,7 @@ const debuggerDangerButton =
  *
  * Hides itself otherwise so the existing layout is undisturbed.
  *
- * Reference: RL-027 Slice 1 and docs/DEBUGGER_ADR.md.
+ * Reference: implementation and docs/DEBUGGER_ADR.md.
  */
 export function DebuggerDrawer({
   activeTabId,
@@ -48,7 +48,7 @@ export function DebuggerDrawer({
   activeLanguage: Language | null | undefined;
 }) {
   const { t } = useTranslation();
-  // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+  // implementation — debugger is baseline; the Settings master toggle is gone.
   const debuggerEnabled = true;
   const supportsDebugger = languageSupportsDebugger(activeLanguage);
   const session = useDebuggerStore((state) => state.session);
@@ -142,7 +142,7 @@ export function DebuggerDrawer({
     useDebuggerStore.getState().setPausedFrame(null);
   };
   const detach = () => {
-    // RL-027 Slice 1.5 fold E — emit a `debugger.detached` event with
+    // implementation note — emit a `debugger.detached` event with
     // `reasonBucket='user-detach'`. The runners emit their own
     // `run-complete` / `crash` / `stop` reasons; this branch covers the
     // explicit user-initiated detach via the drawer button.

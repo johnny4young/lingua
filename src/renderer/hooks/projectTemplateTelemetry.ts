@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * RL-103 Slice 1 fold B — Project template telemetry helper.
+ * implementation note — Project template telemetry helper.
  *
  * Fires `template_project_applied` once per successful multi-file
  * scaffold. Closed-enum payload `{ templateId, language }` validated

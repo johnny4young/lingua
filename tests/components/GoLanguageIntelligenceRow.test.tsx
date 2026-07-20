@@ -1,5 +1,5 @@
 /**
- * RL-026 Slice 4 — `GoLanguageIntelligenceRow` mount conditions.
+ * implementation — `GoLanguageIntelligenceRow` mount conditions.
  *
  * Mirrors the rust counterpart. The row mounts only when the gopls
  * status is `'unavailable'` or `'degraded'`; happy / unknown paths

@@ -16,13 +16,13 @@
  *      replay attacks (Polar's window matches the spec).
  *   3. We have not seen this `webhook-id` before — handler-side
  *      idempotency via the `polar_order_id` / `polar_subscription_id`
- *      UNIQUE indexes; Slice 2 chooses the simpler "don't dedupe at
+ *      UNIQUE indexes; implementation chooses the simpler "don't dedupe at
  *      the signature layer, dedupe at the application layer" approach
  *      because Polar already retries with the same id and we want
  *      the application to be idempotent regardless.
  *
- * Slice 2 only handles the event types the LICENSING_ADR Decision 2
- * Slice sequencing committed to:
+ * implementation only handles the event types the LICENSING_ADR Decision 2
+ * implementation sequencing committed to:
  *   - `order.paid`           → mint license (lifetime / team)
  *   - `order.refunded`       → revoke license
  *   - `subscription.created` → mint license (monthly initial)

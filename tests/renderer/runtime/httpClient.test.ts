@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 1 — `httpClient.ts` end-to-end behaviour with a mock
+ * implementation — `httpClient.ts` end-to-end behaviour with a mock
  * `fetch`. Covers the typed failure classification, the body cap,
  * header redaction (baseline + user allowlist), and the URL
  * validation.
@@ -40,7 +40,7 @@ function mockFetch(response: Partial<Response> & { _body?: string }) {
   };
 }
 
-describe('executeHttpRequest (RL-097 Slice 1)', () => {
+describe('executeHttpRequest ', () => {
   it('returns a 2xx success response with parsed headers + body', async () => {
     const fetchImpl = mockFetch({
       status: 200,

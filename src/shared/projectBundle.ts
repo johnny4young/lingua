@@ -1,5 +1,5 @@
 /**
- * RL-024 Slice 3 — runnable project zip bundles.
+ * implementation — runnable project zip bundles.
  *
  * Pure, isomorphic core for export/import of a multi-file project as a
  * single `.zip`. Runs in BOTH the renderer (web export + import preview)
@@ -19,10 +19,10 @@
  *     so a symlink entry decodes to an inert regular file that cannot
  *     escape the root (the high-level zip API does not surface unix mode
  *     bits, so this write-strategy neutralization is the symlink
- *     defense rather than mode-bit sniffing — fold D).
+ *     defense rather than mode-bit sniffing — implementation note).
  *   - Caps bound memory + disk: the `unpackBundle` preflight rejects
  *     entries by their DECLARED `originalSize` BEFORE fflate decompresses
- *     them (`MAX_UNCOMPRESSED_BYTES` running total — fold A zip-bomb
+ *     them (`MAX_UNCOMPRESSED_BYTES` running total — implementation note zip-bomb
  *     guard; `MAX_BUNDLE_FILES` count). That preflight trusts the zip
  *     header's size; a header that lies about `originalSize` is bounded
  *     by the `MAX_BUNDLE_BYTES` compressed-input cap (the hard memory
@@ -41,7 +41,7 @@ import { strToU8, unzipSync, zipSync, type UnzipFileInfo } from 'fflate';
 export const PROJECT_BUNDLE_VERSION = 1 as const;
 
 /**
- * Reserved manifest filename written at the bundle root (fold B). On
+ * Reserved manifest filename written at the bundle root (implementation note). On
  * import it is parsed for `entryFile` / `languageHint` and then excluded
  * from the extracted file set so it never lands on disk as project copy.
  */
@@ -54,7 +54,7 @@ export const MAX_BUNDLE_FILES = 5_000;
 export const MAX_BUNDLE_BYTES = 50 * 1024 * 1024; // 50 MiB
 
 /**
- * Max TOTAL uncompressed size summed across every entry (fold A — the
+ * Max TOTAL uncompressed size summed across every entry (implementation note — the
  * zip-bomb guard). Tripped during `unpackBundle` BEFORE anything is
  * handed to a writer, so a tiny highly-compressed archive can never
  * exhaust memory or disk.
@@ -84,7 +84,7 @@ export const BUNDLE_REJECT_REASONS = [
 export type BundleRejectReason = (typeof BUNDLE_REJECT_REASONS)[number];
 
 /**
- * The `lingua-bundle.json` manifest (fold B). `createdAt` is supplied by
+ * The `lingua-bundle.json` manifest (implementation note). `createdAt` is supplied by
  * the caller (the IPC handler stamps `new Date().toISOString()`) so this
  * module stays deterministic + pure for unit tests. `entryFile` +
  * `languageHint` let a re-import restore the active tab + language
@@ -315,7 +315,7 @@ export function unpackBundle(
       continue;
     }
     totalBytes += bytes.byteLength;
-    // Fold A — zip-bomb guard. Trip the moment the running total crosses
+    // implementation note — zip-bomb guard. Trip the moment the running total crosses
     // the cap so a malicious archive can't be fully buffered first.
     if (totalBytes > maxUncompressedBytes) {
       return { ok: false, reason: 'zip-bomb' };

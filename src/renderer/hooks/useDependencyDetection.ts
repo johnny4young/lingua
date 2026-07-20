@@ -1,5 +1,5 @@
 /**
- * RL-025 Slice A - per-tab dependency detection runner.
+ * implementation - per-tab dependency detection runner.
  *
  * One hook subscribes to the active tab's content + language +
  * filePath, debounces edits (300ms keystroke / 60ms paste), runs the
@@ -13,7 +13,7 @@
  *   per (tabId, language) when the panel first surfaces a row.
  * - `dependency.classifications_summary { language, ... }` fires
  *   once per session per (tabId, language) - bucketed counts per
- *   status (fold F).
+ *   status (implementation note).
  */
 
 import { useEffect, useMemo } from 'react';
@@ -46,7 +46,7 @@ let lastPasteAt = 0;
 
 /**
  * Editor surfaces (CodeEditor's `onDidPaste`) call this so the next
- * detection cycle picks the short debounce. Fold D - paste UX feels
+ * detection cycle picks the short debounce. implementation note - paste UX feels
  * instant; keystroke UX stays calm.
  */
 export function notifyDependencyDetectionPaste(): void {
@@ -65,7 +65,7 @@ function classifyOnWeb(
   deps: readonly DetectedDependency[],
   language: DependencyAdapterLanguage
 ): ClassifiedDependency[] {
-  // RL-025 Slice C — JS/TS web still cannot install (no node_modules
+  // implementation — JS/TS web still cannot install (no node_modules
   // to walk). Python web rows synchronously start as `'detected'`;
   // the async post-pass via `classifyPythonOnWeb` below upgrades the
   // already-loaded names to `'installed'` once Pyodide can answer.
@@ -75,7 +75,7 @@ function classifyOnWeb(
 }
 
 /**
- * RL-025 Slice C — async post-pass for Python on web. Asks the
+ * implementation — async post-pass for Python on web. Asks the
  * shared Pyodide worker which packages are currently loaded
  * (`pyodide.loadedPackages`) and upgrades matching rows to
  * `'installed'`. Names not in the loaded set stay `'detected'` so
@@ -302,7 +302,7 @@ export function useDependencyDetection(): void {
       if (isWeb) {
         classified = classifyOnWeb(detected, adapterLanguage);
         cwdHasPackageJson = null;
-        // RL-025 Slice C — upgrade already-loaded Pyodide packages
+        // implementation — upgrade already-loaded Pyodide packages
         // from `'detected'` to `'installed'`. The query is async +
         // bounded by a 5 s soft timeout inside the service; on
         // failure / timeout we keep the synchronous classification.

@@ -26,7 +26,7 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       // ESLint 10's two new recommended rules were demoted to warn by the
-      // dep-sweep so the bumps could land; the 2026-05-18 cleanup slice
+      // dep-sweep so the bumps could land; the 2026-05-18 cleanup change
       // fixed every call site so both are re-promoted to error.
       'no-useless-assignment': 'error',
       'preserve-caught-error': 'error',
@@ -57,7 +57,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
       // react-hooks 7 added four new recommended rules. The 2026-05-18
-      // cleanup slice cleared `purity` (CompareResultsPanel anchored its
+      // cleanup change cleared `purity` (CompareResultsPanel anchored its
       // relative-time strings to capturedAt instead of Date.now() so the
       // render stays pure) and bumped that rule to error. The other three
       // (`set-state-in-effect` x24, `immutability` x2, `refs` x1) stay
@@ -72,10 +72,10 @@ export default tseslint.config(
     },
   },
   {
-    // RL-121 / AUDIT-01 — ban inline active-tab derivation in the
+    // implementation detail — ban inline active-tab derivation in the
     // renderer. The one canonical tabs.find(... === activeTabId)
     // lives in editorSelectors.ts (getActiveTab / getActiveTabIndex —
-    // extracted from editorStore.ts by the RL-128 split); every other
+    // extracted from editorStore.ts by the internal split); every other
     // site must go through getActiveTab(state) or the useActiveTab() /
     // useActiveTabId() hooks so the selector stays referentially
     // stable and re-render fan-out stays bounded.
@@ -88,13 +88,13 @@ export default tseslint.config(
           selector:
             'CallExpression[callee.property.name="find"][callee.object.name="tabs"]:has(Identifier[name="activeTabId"])',
           message:
-            'Use useActiveTab() / getActiveTab(state) instead of an inline tabs.find(... === activeTabId). See RL-121.',
+            'Use useActiveTab() / getActiveTab(state) instead of an inline tabs.find(... === activeTabId). See internal',
         },
         {
           selector:
             'CallExpression[callee.property.name="find"][callee.object.property.name="tabs"]:has(Identifier[name="activeTabId"])',
           message:
-            'Use useActiveTab() / getActiveTab(state) instead of an inline state.tabs.find(... === activeTabId). See RL-121.',
+            'Use useActiveTab() / getActiveTab(state) instead of an inline state.tabs.find(... === activeTabId). See internal',
         },
       ],
     },
@@ -163,7 +163,7 @@ export default tseslint.config(
       ],
     },
   },
-  // RL-098 Slice 1 — the CLI must stay React-free + Electron-free
+  // implementation — the CLI must stay React-free + Electron-free
   // so the bundled CJS at `dist/cli/lingua.cjs` stays small instead
   // of pulling in multi-megabyte app surfaces. Forbid imports from
   // forbidden trees at lint time; esbuild would still bundle them
@@ -196,7 +196,7 @@ export default tseslint.config(
           paths: [
             { name: 'react', message: 'React must not reach the CLI bundle.' },
             { name: 'react-dom', message: 'React DOM must not reach the CLI bundle.' },
-            { name: 'react-i18next', message: 'i18n is renderer-only; the CLI is English Slice 1.' },
+            { name: 'react-i18next', message: 'i18n is renderer-only; the CLI is English implementation.' },
             { name: 'electron', message: 'Electron must not reach the CLI bundle.' },
             { name: 'zustand', message: 'Zustand stores are renderer-only; the CLI is stateless.' },
           ],

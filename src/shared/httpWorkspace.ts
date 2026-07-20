@@ -1,11 +1,11 @@
 /**
- * RL-097 Slice 1 — HTTP request workspace schema.
+ * implementation — HTTP request workspace schema.
  *
  * Two versioned shapes:
  *
  *   - `HttpRequestV1` — user-editable request: method, URL, headers,
  *     body. Persisted in `workspaceToolStore` and serialised into the
- *     URL fragment of share-links (RL-036) when the user shares an
+ *     URL fragment of share-links when the user shares an
  *     HTTP response capsule.
  *   - `HttpResponseV1` — the response payload after a request runs.
  *     Wrapped into a `RunCapsuleV1` via `httpResponseCapsule.ts` so
@@ -32,7 +32,7 @@
  */
 
 /**
- * Closed enum of HTTP methods Slice 1 supports. CONNECT and TRACE
+ * Closed enum of HTTP methods implementation supports. CONNECT and TRACE
  * are deliberately excluded — CONNECT is a proxy primitive (browser
  * fetch rejects it anyway) and TRACE is rarely used in modern APIs.
  *
@@ -190,7 +190,7 @@ export interface HttpCaptureRule {
 }
 
 /**
- * SR-27 — where a response assertion reads its actual value from. The
+ * internal — where a response assertion reads its actual value from. The
  * first three mirror `HttpCaptureSource` (and reuse the same extractor);
  * `response-time` checks the round-trip duration in milliseconds.
  */
@@ -318,7 +318,7 @@ export interface HttpRequestV1 {
    */
   captures?: HttpCaptureRule[];
   /**
-   * SR-27 — optional post-response assertions (Postman-style tests).
+   * internal — optional post-response assertions (Postman-style tests).
    * Absent / empty means no assertions. Back-compat: requests persisted
    * before this field existed load with no assertions.
    */
@@ -951,7 +951,7 @@ export function createBlankCaptureRule(): HttpCaptureRule {
   };
 }
 
-/** SR-27 — a fresh assertion row: status equals (empty expected). */
+/** internal — a fresh assertion row: status equals (empty expected). */
 export function createBlankAssertion(): HttpAssertion {
   return {
     id: crypto.randomUUID(),
@@ -1046,7 +1046,7 @@ export function applyCaptureRules(
 }
 
 // ---------------------------------------------------------------------------
-// SR-27 — response assertions (Postman-style tests, evaluated locally).
+// internal — response assertions (Postman-style tests, evaluated locally).
 // ---------------------------------------------------------------------------
 
 /**
@@ -1170,7 +1170,7 @@ function shellQuote(value: string): string {
  * not the redacted shape. Redaction is a telemetry / share guarantee;
  * the clipboard is the user's own surface.
  *
- * RL-097 Slice 3a fold B — ENVIRONMENT SECRET EXCEPTION. The
+ * implementation note — ENVIRONMENT SECRET EXCEPTION. The
  * "clipboard is the user's own surface" philosophy holds for values the
  * user TYPED. It does NOT hold for environment secrets: a `{{key}}`
  * bound to a `secret: true` env var would otherwise be resolved into

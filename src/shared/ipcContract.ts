@@ -84,7 +84,7 @@ export interface IpcInvokeContract {
     result: RubyRunResult;
   };
   'ruby:stop': { args: [runId: string]; result: { stopped: boolean } };
-  // F-7 — interactive stdin for a live Ruby run.
+  // implementation — interactive stdin for a live Ruby run.
   'ruby:stdin-write': { args: [runId: string, data: string]; result: { written: boolean } };
   'ruby:stdin-close': { args: [runId: string]; result: { closed: boolean } };
 
@@ -98,11 +98,11 @@ export interface IpcInvokeContract {
     result: NodeRunResult;
   };
   'node:stop': { args: [runId: string]; result: { stopped: boolean } };
-  // F-7 — interactive stdin for a live Node run.
+  // implementation — interactive stdin for a live Node run.
   'node:stdin-write': { args: [runId: string, data: string]; result: { written: boolean } };
   'node:stdin-close': { args: [runId: string]; result: { closed: boolean } };
 
-  // ------------------------------------------------- Deno / Bun runners (F-4)
+  // ------------------------------------------------- Deno / Bun runners
   'deno:detect': {
     args: [userEnv?: Record<string, string>, force?: boolean];
     result: AltJsDetectResult;
@@ -377,7 +377,7 @@ export interface IpcInvokeContract {
     args: [runId: string];
     result: { cancelled: boolean };
   };
-  // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+  // implementation — Go / Rust / Ruby install (go get / cargo add / bundle add).
   'dependencies:native:install': {
     args: [language: NativePackageLanguage, specifiers: readonly string[], filePath: string];
     result: NativeInstallResult;
@@ -415,7 +415,7 @@ export interface IpcPushContract {
   'fs:watcher-degraded': WatcherDiagnostic;
   'updates:state-changed': UpdateState;
   'dependencies:js:install:log': DependencyInstallLogEvent;
-  // F-7 — live stdout/stderr chunks from an interactive Node/Ruby run,
+  // implementation — live stdout/stderr chunks from an interactive Node/Ruby run,
   // streamed as they arrive (keyed by runId) so the console REPL can echo
   // output before the process exits.
   'runtime:output-chunk': RuntimeOutputChunk;

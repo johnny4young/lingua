@@ -1,14 +1,14 @@
 /**
- * RL-099 Slice 1 — Utility pipeline persisted store.
+ * implementation — Utility pipeline persisted store.
  *
  * Owns the user's pipeline library + per-pipeline last-run input.
  * Isolated on its own localStorage key (`lingua-utility-pipeline-state`)
- * per the RL-069 convention — a Settings reset doesn't wipe saved
+ * per the internal convention — a Settings reset doesn't wipe saved
  * pipelines, and a pipeline reset doesn't touch `lingua-settings`.
  *
  * Shape parity with `workspaceToolStore` + `workspaceSqlStore`: same
  * CRUD names + LRU + active id + isExecuting flag + sanitize-on-
- * rehydrate. RL-099 Slice 2+ (AI-generated pipelines, network steps)
+ * rehydrate. future work (AI-generated pipelines, network steps)
  * can extend this store without diverging from the workspace family.
  *
  * Privacy posture:

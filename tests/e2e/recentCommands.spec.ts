@@ -1,5 +1,5 @@
 /**
- * RL-113 Slice 1 — Cmd+; recent commands stack, end-to-end.
+ * implementation — Cmd+; recent commands stack, end-to-end.
  *
  * Locks the acceptance criteria on the production web build:
  *   - executing palette commands surfaces them in the Cmd+; stack in
@@ -21,7 +21,7 @@ async function runPaletteCommand(page: Page, query: string, optionName: RegExp):
   await page.getByRole('option', { name: optionName }).first().click();
 }
 
-test.describe('recent commands stack (RL-113)', () => {
+test.describe('recent commands stack', () => {
   test('executed commands stack most-recent-first and 1 re-runs + closes', async ({ page }) => {
     await seedSession(page);
     await gotoApp(page);

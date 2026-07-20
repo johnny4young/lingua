@@ -4,8 +4,8 @@ import { sessionSnapshotEqual, useSessionStore } from '../stores/sessionStore';
 import { useSettingsStore } from '../stores/settingsStore';
 
 /**
- * RL-147 (AUDIT-27) — debounced session auto-save, extracted from
- * App.tsx (RL-131 hook-extraction pattern).
+ * internal — debounced session auto-save, extracted from
+ * App.tsx (internal hook-extraction pattern).
  *
  * Subscribes to the editor store and schedules `saveSession()` 1 s
  * after the last SAVE-RELEVANT change. The `sessionSnapshotEqual`
@@ -50,7 +50,7 @@ export function useSessionAutoSave(smokeEnabled: boolean): void {
     };
 
     const unsubscribe = useEditorStore.subscribe((state, prevState) => {
-      // RL-111 — persist the snapshot for both `ask` (so the boot prompt
+      // internal — persist the snapshot for both `ask` (so the boot prompt
       // has something to offer) and `always`. `never` writes nothing,
       // which also respects the privacy intent: opting out means no
       // session blob is ever written.

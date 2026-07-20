@@ -8,14 +8,14 @@
  *     replaced with a `__mc(line, value)` call.
  *
  *   - **`// @watch <expr>` (JS / TS) and `# @watch <expr>` (Python)** —
- *     RL-020 Slice 3. A *pinned* watch on an explicit expression. The
+ *     implementation A *pinned* watch on an explicit expression. The
  *     line's prefix code is PRESERVED so the original statement still
  *     runs; the transform appends a `__mc(line, value)` call on the
  *     watched expression. Renderer tags the resulting `LineResult`
  *     with `type: 'watch'` (vs `'magic'` for arrows) so the panel can
  *     render a pin icon + sticky semantics.
  *
- *   - **Auto-log (RL-020 Slice 5, JS / TS only)** — opt-in
+ *   - **Auto-log (implementation, JS / TS only)** — opt-in
  *     whole-buffer pass. Every TOP-LEVEL bare expression statement
  *     is replaced with a `__mc(line, value)` capture so the expression
  *     executes once and its value surfaces inline without the user
@@ -35,7 +35,7 @@ import { isJavaScriptFamily, isWorkerRunnerLanguage } from '../../shared/languag
 export type MagicCommentKind = 'arrow' | 'watch' | 'autoLog';
 
 /**
- * RL-044 Slice 1A / 2b — rich-output directives surfaced on an arrow
+ * implementation / 2b — rich-output directives surfaced on an arrow
  * magic comment. `table`, `chart`, `image`, and `html` are all live
  * across JS / TS / Python; runner-side payload conversion consumes the
  * canonical directive name.
@@ -55,7 +55,7 @@ export interface MagicCommentLine {
   /** The expression text the runner should evaluate */
   expression: string;
   /**
-   * RL-020 Slice 3 — which magic-comment syntactic variant produced
+   * implementation — which magic-comment syntactic variant produced
    * this entry. Arrow is the legacy `//=>` shape; watch is the new
    * `// @watch <expr>` pin.
    */
@@ -68,7 +68,7 @@ export interface MagicCommentLine {
    */
   preserve: string;
   /**
-   * RL-044 Slice 1A — optional rich-output directive parsed from
+   * implementation — optional rich-output directive parsed from
    * the comment tail (`//=> table`). The runner consumes this to
    * decide whether to upgrade the captured value to a typed
    * `RichOutputPayload`. Only set when `kind === 'arrow'` AND the
@@ -84,7 +84,7 @@ export interface MagicCommentLine {
 // ---------------------------------------------------------------------------
 
 const JS_WATCH_RE = /^(.*?)\/\/\s*@watch\s+(.+?)\s*$/;
-// RL-044 Slice 1A — capture EVERYTHING after `=>` as the tail so we
+// implementation — capture EVERYTHING after `=>` as the tail so we
 // preserve the legacy `//=> free-form annotation` shape (the tail
 // becomes a description, not a directive). The tail is then parsed
 // by `parseDirective` which only returns a directive when the
@@ -94,8 +94,8 @@ const JS_ARROW_RE = /^(.+?)\/\/\s*=>(.*)$/;
 
 const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set([
   'table',
-  // RL-044 Slice 2b-α — chart / image / html become recognised
-  // directive words. Slice 2b-β-α (JS / TS) + 2b-β-β-α (Python) wire
+  // implementation — chart / image / html become recognised
+  // directive words. implementation (JS / TS) + implementation (Python) wire
   // the runner-side payload upgrade so the directive contract is now
   // fully live cross-language.
   'chart',
@@ -103,7 +103,7 @@ const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set([
   'html',
 ]);
 
-// RL-044 Slice 2b-β-β-α fold G — directive aliases. Maps user-facing
+// implementation-β-β-α implementation note — directive aliases. Maps user-facing
 // shorthand to the canonical `MagicCommentDirective`. `figure` matches
 // the matplotlib convention (`plt.show()` → "figure"); the runner
 // receives the canonical name so the payload conversion stays single-
@@ -124,7 +124,7 @@ function parseDirective(raw: string | undefined): MagicCommentDirective | undefi
 }
 
 function detectJSLine(line: string): MagicCommentLine | null {
-  // RL-020 Slice 3 — watch wins over arrow when both shapes match.
+  // implementation — watch wins over arrow when both shapes match.
   // The arrow regex is non-greedy and would otherwise consume a
   // pathological `// @watch x //=> y` line as an arrow result.
   const watchMatch = line.match(JS_WATCH_RE);
@@ -157,7 +157,7 @@ function detectJSLine(line: string): MagicCommentLine | null {
 }
 
 /**
- * RL-020 Slice 7 fold B — `// @timeout 60s` (JS / TS) and `# @timeout
+ * implementation note — `// @timeout 60s` (JS / TS) and `# @timeout
  * 60s` (Python). The first matching directive wins; later directives
  * are ignored so a forgotten copy-paste doesn't keep extending the
  * deadline silently.
@@ -209,7 +209,7 @@ export function extractTimeoutMagicComment(
 }
 
 /**
- * RL-044 Sub-slice G Fold F — `// @origin off` (JS / TS) and
+ * implementation Sub-slice G implementation note — `// @origin off` (JS / TS) and
  * `# @origin off` (Python) per-tab directive that suppresses the
  * `<OutputLineBadge>` chip for sensitive logs. Users pasting tokens
  * or stack traces they don't want leaked through capsule export
@@ -224,14 +224,14 @@ export function extractTimeoutMagicComment(
  * `@origin on` (re-enable mid-buffer) would require its own scope
  * and conflicts with the per-tab persistence model.
  */
-// WARNING — RL-044 Sub-slice G.1 Fold G: this regex matches anywhere
+// WARNING — implementation Sub-slice G.1 implementation note: this regex matches anywhere
 // in the buffer, including INSIDE string literals. A line like
 // `console.log("// @origin off")` will trip the directive and silently
 // suppress the chip even though the user only wanted to log the
 // directive text. We accept this false-positive because the privacy
 // posture (over-suppress) is the safer side of the tradeoff. If a
-// future slice needs string-literal-aware detection, swap this for a
-// tokenised scan (acorn / Babel AST) — the internal backlog
+// future work needs string-literal-aware detection, swap this for a
+// tokenised scan (acorn / Babel AST) — the maintenance notes
 // `[security] [ux] 2026-05-22` tracks the open question.
 const ORIGIN_OFF_DIRECTIVE_RE =
   /(?:\/\/|#)\s*@origin\s*:?\s*off\b/i;
@@ -246,9 +246,9 @@ export function originSuppressedByMagicComment(
 }
 
 /**
- * RL-102 Slice 1 Fold F — per-file opt-out of the Git status pill
- * and diff panel. Mirror of `originSuppressedByMagicComment` (RL-044
- * Sub-slice G Fold F) but with an independent regex — the two
+ * implementation note — per-file opt-out of the Git status pill
+ * and diff panel. Mirror of `originSuppressedByMagicComment` (internal
+ * Sub-slice G implementation note) but with an independent regex — the two
  * pragmas are semantically distinct (privacy vs. workflow noise) and
  * a single shared regex would couple their evolution.
  *
@@ -283,7 +283,7 @@ export function gitStatusSuppressedByMagicComment(
 }
 
 /**
- * RL-102 Slice 2 Fold F — per-file opt-out of the HEAD-watcher
+ * implementation note — per-file opt-out of the HEAD-watcher
  * branch refresh.
  *
  * Edge use case: a user comparing two long-lived branches via two
@@ -339,7 +339,7 @@ export function detectJSMagicComments(code: string): MagicCommentLine[] {
  * For each line matched by `detectJSLine`:
  *
  *   - **Arrow** — replace the line with a `__mc(line, value)` call
- *     wrapping the prefix expression (same as before Slice 3).
+ *     wrapping the prefix expression (same as before implementation).
  *   - **Watch** — KEEP the prefix as-is and append `; __mc(line,
  *     value)` so the original statement still runs alongside the
  *     watch capture.
@@ -377,7 +377,7 @@ export function transformJSMagicComments(code: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// RL-020 Slice 5 — JS / TS auto-log expression detector + transform
+// implementation — JS / TS auto-log expression detector + transform
 // ---------------------------------------------------------------------------
 
 /**
@@ -575,7 +575,7 @@ interface TopLevelLineInfo {
  * Shared JS/TS line walker: one pass over the buffer tracking bracket
  * depth, strings, templates (with `${}` nesting), and comments, calling
  * `onLine` with the structural facts for every physical line. Both the
- * auto-log detector (RL-020 Slice 5) and the RL-115 statement-start
+ * auto-log detector  and the internal statement-start
  * detector consume it, so the tokenizer quirks live in exactly one
  * place.
  */
@@ -1130,7 +1130,7 @@ export function transformJSAutoLog(
 }
 
 const PY_WATCH_RE = /^(.*?)#\s*@watch\s+(.+?)\s*$/;
-// RL-044 Slice 1A — same shape as the JS arrow regex: capture the
+// implementation — same shape as the JS arrow regex: capture the
 // full tail and let `parseDirective` decide whether it's a known
 // directive or a legacy free-form comment.
 const PY_ARROW_RE = /^(.+?)#\s*=>(.*)$/;
@@ -1190,7 +1190,7 @@ export function detectPythonMagicComments(code: string): MagicCommentLine[] {
  * Transform Python code so that magic-comment expressions are captured.
  *
  * For arrow lines the line is replaced wholesale (same as before
- * Slice 3). For watch lines, the prefix statement is kept and the
+ * implementation). For watch lines, the prefix statement is kept and the
  * watch `__mc` call is appended after a `;` separator — Python allows
  * `a = 5; expr` on a single logical line so the declaration still
  * runs.
@@ -1209,7 +1209,7 @@ export function transformPythonMagicComments(code: string): string {
     const lineNumber = i + 1;
     const indentMatch = line.match(/^(\s*)/);
     const indent = indentMatch?.[1] ?? '';
-    // RL-044 Slice 1C / 2b — forward the parsed directive into the
+    // implementation / 2b — forward the parsed directive into the
     // `__mc` runner. `table` lets the Python worker attach a forced-table
     // payload; rich-media directives use JSON text so the runner can
     // recover chart / image / html payloads client-side.
@@ -1238,7 +1238,7 @@ export function transformPythonMagicComments(code: string): string {
 }
 
 /**
- * RL-020 Slice 5 — runner-side option bag. Auto-log is opt-in and
+ * implementation — runner-side option bag. Auto-log is opt-in and
  * JS / TS only. Python is excluded by construction (the option is
  * silently ignored for Python).
  */
@@ -1252,7 +1252,7 @@ export interface MagicCommentTransformOptions {
 }
 
 /**
- * RL-020 Slice 3 — derive the per-line `kind` map for a given source.
+ * implementation — derive the per-line `kind` map for a given source.
  * Runners use this side-table at result-stitching time to tag each
  * incoming `magic-comment` worker message with `'arrow'` /
  * `'watch'` / `'autoLog'` (the worker postMessage protocol is
@@ -1263,7 +1263,7 @@ export interface MagicCommentTransformOptions {
  * not have emitted a message for that line in the first place, so
  * the fallback is purely defensive.
  *
- * RL-020 Slice 5 — when `options.autoLog` is true and the language
+ * implementation — when `options.autoLog` is true and the language
  * is JS / TS, any line that the auto-log detector flags AND that is
  * not already claimed by an arrow / watch gets `kind: 'autoLog'` in
  * the returned map. Arrow + watch win over auto-log on the same
@@ -1298,13 +1298,13 @@ export function magicCommentKindsByLine(
 }
 
 // ---------------------------------------------------------------------------
-// RL-115 Slice 1 — per-line timing (`// @time`)
+// implementation — per-line timing (`// @time`)
 // ---------------------------------------------------------------------------
 
 /**
  * Whole-buffer pragma enabling per-statement timing for this run.
  * `\b` keeps `@timeout` (whose next char is a word char) from matching.
- * JS/TS only in Slice 1, hence the `//`-only comment opener.
+ * JS/TS only in implementation, hence the `//`-only comment opener.
  */
 const TIME_DIRECTIVE_COMMENT_RE = /^\s*@time\b/iu;
 
@@ -1340,7 +1340,7 @@ const STATEMENT_START_BLOCKED_CHARS = '.?:)]},=+-*/%&|^<>!~`([@';
 /**
  * Leading keywords that continue a compound statement. `while` is here
  * for the rare split `do {…}\n while (…)` tail — excluding it costs a
- * standalone while-loop its own marker (its time folds into the
+ * standalone while-loop its own marker (its time implementation note the
  * previous statement) but can never produce invalid code, which is the
  * bias this detector wants.
  */
@@ -1370,7 +1370,7 @@ function startsNewTopLevelStatement(trimmed: string): boolean {
 }
 
 /**
- * RL-115 — 1-based line numbers where a NEW top-level statement begins.
+ * internal — 1-based line numbers where a NEW top-level statement begins.
  *
  * Deliberately conservative: a missed line only merges its duration
  * into the previous statement's measurement, while a false positive
@@ -1418,7 +1418,7 @@ export function detectJSStatementStartLines(code: string): number[] {
 }
 
 /**
- * RL-115 — prefix each detected statement-start line with a
+ * internal — prefix each detected statement-start line with a
  * `__mc_tick(<line>);` marker. Same-line prefixing keeps the buffer's
  * line count intact, so every later mapping (error stacks, other
  * transforms) stays valid. There is NO closing marker in the source:

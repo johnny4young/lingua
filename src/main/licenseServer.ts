@@ -1,6 +1,6 @@
 /**
- * Main-side fetch wrappers for the RL-061 license-server endpoints
- * (Slice 3.5).
+ * Main-side fetch wrappers for the internal license-server endpoints
+ * .
  *
  * Mirror of `src/renderer/services/licenseServer.ts` for the desktop
  * build: same canonical request / response types (imported from
@@ -22,7 +22,7 @@
  *   browser tab-close edge case the renderer worries about cannot
  *   happen here.
  *
- * Slice 3.5 callers (`src/main/license.ts`):
+ * implementation callers (`src/main/license.ts`):
  *   - `applyToken` runs `serverActivate` after a successful local
  *     verify so the desktop bucket in D1 stays accurate.
  *   - `revalidate` runs `serverStatus` and re-issues `serverActivate`

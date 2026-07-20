@@ -55,7 +55,7 @@ describe('WhatsNewSection', () => {
   it('lists all versions in the sidebar timeline and shows the selected version detail', async () => {
     render(<WhatsNewSection entries={entries} onClose={() => {}} />);
 
-    // RL-070 — the changelog overlay was rebuilt as a sidebar timeline
+    // internal — the changelog overlay was rebuilt as a sidebar timeline
     // + detail pane. Both versions appear in the list, the current
     // version (0.1.0) is the default selection, and rich-text
     // formatting (`<strong>`, `<code>`) keeps working.
@@ -72,7 +72,7 @@ describe('WhatsNewSection', () => {
     expect(screen.getByText('stable', { selector: 'strong' })).toBeTruthy();
   });
 
-  it('announces the search result count via a polite live region (UX Sweep T4)', async () => {
+  it('announces the search result count via a polite live region (accessibility pass)', async () => {
     render(<WhatsNewSection entries={entries} onClose={() => {}} />);
     const region = screen.getByTestId('changelog-search-result-count');
     expect(region.getAttribute('role')).toBe('status');

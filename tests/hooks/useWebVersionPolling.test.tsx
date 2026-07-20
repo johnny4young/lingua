@@ -1,5 +1,5 @@
 /**
- * RL-061 Slice 5 — pin the web-update polling hook contract.
+ * implementation — pin the web-update polling hook contract.
  *
  * Covers the two interlocking behaviours that drive the banner:
  *   1. Periodic poll on the 12-hour interval, plus an immediate

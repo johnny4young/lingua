@@ -13,7 +13,7 @@ import type { CommandPaletteProps } from './commandPaletteTypes';
 
 export type { CommandPaletteProps } from './commandPaletteTypes';
 
-/** RL-113 — the Cmd+; popover shows at most this many recent commands. */
+/** internal — the Cmd+; popover shows at most this many recent commands. */
 const RECENT_COMMAND_SLOTS = 8;
 
 export function CommandPalette(props: CommandPaletteProps) {
@@ -23,7 +23,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  // UX Sweep T6 — combobox/listbox semantics; aria-activedescendant points
+  // accessibility pass — combobox/listbox semantics; aria-activedescendant points
   // at the active option so the highlighted command is announced while focus
   // stays in the search input.
   const listboxId = useId();
@@ -32,7 +32,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   const recentEntries = useCommandHistoryStore(state => state.entries);
   const { t } = useTranslation();
 
-  // RL-113 — every executed ACTION lands in the per-session recent stack.
+  // internal — every executed ACTION lands in the per-session recent stack.
   // Wrapping here (the single place both Enter and row clicks call
   // `action()`) keeps the recording invisible to the model builders.
   const allCommands = useMemo(
@@ -83,7 +83,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   }, [visibleSelectedIndex]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    // RL-113 — in the recent stack, 1-8 executes that slot directly.
+    // internal — in the recent stack, 1-8 executes that slot directly.
     if (isRecentVariant && /^[1-8]$/u.test(event.key)) {
       event.preventDefault();
       filtered[Number(event.key) - 1]?.action();
@@ -121,7 +121,7 @@ export function CommandPalette(props: CommandPaletteProps) {
       icon={<Search size={16} aria-hidden="true" />}
       header={
         <div className="flex items-center gap-3">
-          <h2 id="command-palette-title" className="sr-only">
+          <h2 id="command-palette-title" className="internal">
             {t('shortcuts.item.commandPalette.label')}
           </h2>
           <input
@@ -172,7 +172,7 @@ export function CommandPalette(props: CommandPaletteProps) {
       }
       footerLegend={<ModalFooterLegend navigate select close={false} />}
       trailing={
-        // UX Sweep T4 — polite live region announcing the result count as
+        // accessibility pass — polite live region announcing the result count as
         // the query narrows, so screen-reader users hear matches/empty.
         <span
           role="status"

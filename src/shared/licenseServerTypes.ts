@@ -1,5 +1,5 @@
 /**
- * Shared type definitions for the RL-061 license-server contract
+ * Shared type definitions for the internal license-server contract
  * (`licenses.linguacode.dev`). Both `src/renderer/services/licenseServer.ts`
  * (web build) and `src/main/licenseServer.ts` (desktop main process)
  * import from here so the request / response shapes can never drift
@@ -157,7 +157,7 @@ export type RemoveDeviceResult =
 
 /**
  * Compact serialised state the desktop main bridge ships to the
- * renderer alongside the existing `LicenseSnapshot`. Slice 3.5 makes
+ * renderer alongside the existing `LicenseSnapshot`. implementation makes
  * desktop's licenseStore branch read this so its Devices section can
  * render under the same gate the web build already passes
  * (`serverSync === 'synced'` + non-null `devices` + `deviceLimit`).
@@ -169,7 +169,7 @@ export type RemoveDeviceResult =
 export type LicenseServerSyncState = 'synced' | 'unreachable' | 'disabled';
 
 // ====================================================================
-// RL-061 Slice 4 — Trial / Education / Recovery contracts
+// implementation — Trial / Education / Recovery contracts
 // ====================================================================
 //
 // All three flows share a similar shape: a POST /start that registers

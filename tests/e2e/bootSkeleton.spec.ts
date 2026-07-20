@@ -82,7 +82,7 @@ async function captureSkeleton(
     .toBeGreaterThanOrEqual(ENTRY_HOLD_MS);
 }
 
-test.describe('perceived startup — IT2-G2', () => {
+test.describe('perceived startup — internal', () => {
   test('paints the dark shell before React and removes it after mount', async ({ page }) => {
     await captureSkeleton(page, 'dark');
   });

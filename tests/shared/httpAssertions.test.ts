@@ -1,5 +1,5 @@
 /**
- * SR-27 — HTTP response assertions. Pure tests for the assertion model:
+ * internal — HTTP response assertions. Pure tests for the assertion model:
  * per-source extraction, every comparator, the runAssertions reducer,
  * and persistence round-tripping through parseHttpRequest.
  */
@@ -42,7 +42,7 @@ function assertion(overrides: Partial<HttpAssertion> = {}): HttpAssertion {
   return { ...createBlankAssertion(), id: 'a1', ...overrides };
 }
 
-describe('evaluateAssertion (SR-27)', () => {
+describe('evaluateAssertion', () => {
   it('status equals', () => {
     expect(
       evaluateAssertion(response(), assertion({ source: 'status', comparator: 'equals', expected: '201' })).pass
@@ -98,7 +98,7 @@ describe('evaluateAssertion (SR-27)', () => {
   });
 });
 
-describe('runAssertions (SR-27)', () => {
+describe('runAssertions', () => {
   it('skips disabled rows and preserves order', () => {
     const results = runAssertions(response(), [
       assertion({ id: 'a', source: 'status', comparator: 'equals', expected: '201' }),
@@ -110,7 +110,7 @@ describe('runAssertions (SR-27)', () => {
   });
 });
 
-describe('assertions persistence (SR-27)', () => {
+describe('assertions persistence', () => {
   it('round-trips through parseHttpRequest', () => {
     const req = {
       ...createBlankHttpRequest({ id: crypto.randomUUID(), name: 'r' }),

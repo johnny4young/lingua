@@ -12,7 +12,7 @@ type SigModel = Parameters<ProvideSignatureHelp>[0];
 type SigPosition = Parameters<ProvideSignatureHelp>[1];
 
 /**
- * RL-026 Slice 4 — Monaco signature-help provider for Go.
+ * implementation — Monaco signature-help provider for Go.
  * Mirrors the Rust counterpart; gopls answers
  * `textDocument/signatureHelp` with the same shape rust-analyzer
  * uses, so the parsing in `go.ts` is shared.

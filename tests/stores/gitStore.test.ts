@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 2 — gitStore.applyHeadChange contract.
+ * implementation — gitStore.applyHeadChange contract.
  *
  * Pinned coverage:
  *   - Returns `true` and updates posture when the new branch differs.
@@ -16,7 +16,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useGitStore } from '../../src/renderer/stores/gitStore';
 
-describe('useGitStore.applyHeadChange (RL-102 Slice 2)', () => {
+describe('useGitStore.applyHeadChange ', () => {
   beforeEach(() => {
     useGitStore.getState().clear();
   });

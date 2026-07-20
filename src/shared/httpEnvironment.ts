@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 3a — HTTP environments + `{{variable}}` interpolation
+ * implementation — HTTP environments + `{{variable}}` interpolation
  * with secret-aware redaction.
  *
  * An HTTP environment is a named bag of `{{key}}` → value bindings the
@@ -20,14 +20,14 @@
  *     `maskSecretsForCapsule` keeps secret tokens as their literal
  *     `{{key}}` placeholder; `maskSecretValuesInResponse` scrubs any
  *     secret value a server happened to echo back into the response.
- *   - A leaked secret is the worst failure mode for this slice. When in
+ *   - A leaked secret is the worst failure mode for this change. When in
  *     doubt, mask. The resolved secret lives only inside the single
  *     `fetch` call and nowhere else.
  *
  * All functions in this module are pure data transforms — no IPC, no
  * side effects, no stateful module-level regex — with ONE documented
  * exception: `parseEnvVariable` backfills a missing opaque row `id` via
- * `crypto.randomUUID()` (RL-097 Slice 3b), so the parser is non-pure for
+ * `crypto.randomUUID()` , so the parser is non-pure for
  * that single non-semantic field only. `parseHttpEnvironment` is the
  * defense-in-depth boundary at the localStorage rehydrate edge, mirroring
  * `parseHttpRequest` in `httpWorkspace.ts`.
@@ -39,7 +39,7 @@ import type { HttpResponseV1 } from './httpWorkspace';
 /**
  * One variable binding in an environment.
  *
- *   - `id`     — RL-097 Slice 3b. An opaque client-side row id used ONLY
+ *   - `id`     — implementation An opaque client-side row id used ONLY
  *     as the React list key + the @dnd-kit drag-reorder handle. It is NOT
  *     user-visible, NOT part of the value identity (two rows with the same
  *     key/value/secret but different ids are equivalent bindings), and is
@@ -67,7 +67,7 @@ export interface HttpEnvVariableV1 {
 }
 
 /**
- * RL-097 Slice 3b — case-insensitive heuristic for "this key looks like a
+ * implementation — case-insensitive heuristic for "this key looks like a
  * secret". Matches a `_TOKEN` / `_KEY` / `_SECRET` suffix, the whole-word
  * `PASSWORD` / `TOKEN` / `KEY` / `SECRET`, or a `PASSWORD` substring (so
  * `DB_PASSWORD`, `apiPassword`, `MY_API_TOKEN`, `STRIPE_SECRET_KEY`, a bare
@@ -156,9 +156,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * (forward-compat: an environment persisted before the secret flag
  * existed loads as all-non-secret).
  *
- * RL-097 Slice 3b — `id` is kept when it is a non-empty string, otherwise
+ * implementation — `id` is kept when it is a non-empty string, otherwise
  * BACKFILLED with a fresh `crypto.randomUUID()`. This is the ONE place the
- * parser is intentionally non-pure: rows persisted before Slice 3b (and
+ * parser is intentionally non-pure: rows persisted before implementation (and
  * rows from an imported / hand-written JSON, whose ids are deliberately
  * stripped on export) have no id, and the React list + drag reorder need a
  * stable one. The backfill touches only this opaque id — it never
@@ -229,7 +229,7 @@ export function createBlankHttpEnvironment(options: {
 }
 
 /**
- * RL-097 Slice 3b — build a fresh variable row with a minted opaque id.
+ * implementation — build a fresh variable row with a minted opaque id.
  * Centralises the `crypto.randomUUID()` mint so the manager's add, the
  * duplicate-env clone, and the import path all stamp a unique row id
  * without each re-stating the `id` field.
@@ -241,7 +241,7 @@ export function createEnvVariable(
 }
 
 /**
- * RL-097 Slice 3b — the shape `exportEnvironmentJson` serialises. It is a
+ * implementation — the shape `exportEnvironmentJson` serialises. It is a
  * SHARE-time projection of an environment, deliberately divergent from the
  * persisted `HttpEnvironmentV1`:
  *
@@ -363,7 +363,7 @@ function buildNonSecretLookup(
 }
 
 /**
- * RL-097 Slice 3b — interpolate every value-bearing field of an auth block
+ * implementation — interpolate every value-bearing field of an auth block
  * (`token` / `username` / `password` / `apiKeyHeader` / `apiKeyValue`)
  * through `lookup`, preserving `kind` and any other fields. Returns the
  * SAME reference for absent / `kind: 'none'` auth (nothing to resolve), so
@@ -406,7 +406,7 @@ function interpolateAuth(
 
 /**
  * Apply a lookup across the interpolatable surfaces of a request (url,
- * every header value, body.content, AND the auth block — RL-097 Slice 3b)
+ * every header value, body.content, AND the auth block — implementation)
  * and return a NEW request. The `version`/`id` pins are preserved. Shared
  * by the outbound + masked paths — the only difference between them is
  * which lookup they pass.
@@ -472,7 +472,7 @@ export function maskSecretsForCapsule(
 }
 
 /**
- * RL-097 Slice 3b — the value-bearing strings of an auth block that may
+ * implementation — the value-bearing strings of an auth block that may
  * carry `{{tokens}}`, in field order. Empty for absent / `kind: 'none'`
  * auth. Used by BOTH variable scanners so the Auth sub-tab participates in
  * the resolved / unresolved bucketing exactly like url / headers / body.
@@ -490,7 +490,7 @@ function authScanFields(auth: HttpRequestAuth | undefined): string[] {
 
 /**
  * Collect every distinct `{{token}}` key that appears in the request's
- * url, ENABLED header values, body.content, or auth fields (RL-097 Slice
+ * url, ENABLED header values, body.content, or auth fields (implementation
  * 3b) but is NOT defined in the environment (when `env` is null, ALL
  * referenced tokens count as unresolved). First-seen order, deduped.
  * Drives the pre-send block + the "unresolved" chips in the editor
@@ -534,9 +534,9 @@ export function findUnresolvedVariables(
 
 /**
  * Collect every distinct `{{token}}` key referenced in the request's
- * url, ENABLED header values, body.content, or auth fields (RL-097 Slice
+ * url, ENABLED header values, body.content, or auth fields (implementation
  * 3b) that IS defined in the environment. First-seen order, deduped. Used
- * to bucket the resolved-variable count for telemetry (fold D) and to
+ * to bucket the resolved-variable count for telemetry (implementation note) and to
  * drive the resolution-preview chips.
  */
 export function findResolvedVariables(

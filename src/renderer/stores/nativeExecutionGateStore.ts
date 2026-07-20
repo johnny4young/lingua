@@ -1,5 +1,5 @@
 /**
- * RL-079 — Cross-component gate state for the native-execution
+ * internal — Cross-component gate state for the native-execution
  * trust-boundary modal.
  *
  * Multiple surfaces invoke `useRunner()` independently (Toolbar,

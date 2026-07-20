@@ -38,7 +38,7 @@ import {
   type TranslateFn,
 } from './limits';
 
-// RL-020 Slice 7 — the literal run-time DEFAULT_TIMEOUT is gone;
+// implementation — the literal run-time DEFAULT_TIMEOUT is gone;
 // the runner resolves the deadline from the per-language Settings
 // preset (`long` by default for Python = 120 s) on every call. The
 // PYODIDE_LOAD_TIMEOUT below is independent — it bounds the
@@ -69,14 +69,14 @@ export class PythonRunner implements LanguageRunner {
   private loadingPromise: Promise<void> | null = null;
   private loadingCancel: (() => void) | null = null;
   /**
-   * RL-078 — opaque token of the currently-running execute() call.
+   * internal — opaque token of the currently-running execute() call.
    * Parent message handler drops worker replies whose `runId` does
    * not match. The Pyodide worker is persistent across runs, so the
    * runId guard is the only way to disambiguate buffered output
    * from a previous run that was killed by the parent timer.
    */
   private currentRunId: string | null = null;
-  /** RL-078 — see JavaScriptRunner.cancelInFlight. */
+  /** internal — see JavaScriptRunner.cancelInFlight. */
   private cancelInFlight: (() => void) | null = null;
 
   async init(): Promise<void> {
@@ -89,7 +89,7 @@ export class PythonRunner implements LanguageRunner {
   }
 
   /**
-   * RL-025 Slice C — public accessor over the private `ensurePyodide`
+   * implementation — public accessor over the private `ensurePyodide`
    * boot ceremony. `pythonWebInstaller` calls into this so the
    * installer and the runner share the same Pyodide worker (one
    * runtime → one set of loaded packages → user code sees what they
@@ -158,7 +158,7 @@ export class PythonRunner implements LanguageRunner {
         const handler = (event: MessageEvent) => {
           const msg = event.data;
           if (msg.type === 'bootstrap-progress') {
-            // IT2-D3 — the Pyodide download streams progress DURING the
+            // internal — the Pyodide download streams progress DURING the
             // init handshake (no run in flight yet, so no runId guard
             // here); the action pill reads this store live.
             useBootstrapProgressStore.getState().report({
@@ -212,7 +212,7 @@ export class PythonRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // RL-020 Slice 7 — resolve the per-run deadline from the
+    // implementation — resolve the per-run deadline from the
     // language preset unless the caller passed an explicit override.
     // The Pyodide bootstrap deadline is independent (see
     // PYODIDE_LOAD_TIMEOUT above) — only the post-bootstrap run is
@@ -232,10 +232,10 @@ export class PythonRunner implements LanguageRunner {
     const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
-    // RL-020 Slice 6 fold G — Pyodide worker's stdin consumption
+    // implementation note — Pyodide worker's stdin consumption
     // summary; mirror of the JS runner shape.
     let stdinConsumed: { count: number; total: number } | undefined;
-    // RL-020 Slice 9 — scope snapshot relay (same shape as JS/TS).
+    // implementation — scope snapshot relay (same shape as JS/TS).
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — see JavaScriptRunner.
     let droppedStdout = 0;
@@ -261,12 +261,12 @@ export class PythonRunner implements LanguageRunner {
         error: {
           message: `Failed to load Python runtime: ${err instanceof Error ? err.message : String(err)}`,
         },
-        // RL-020 Slice 7 — bootstrap failures count as `'error'`.
+        // implementation — bootstrap failures count as `'error'`.
         kind: 'error',
       };
     }
 
-    // Slice 2 — loop protection is baseline.
+    // implementation — loop protection is baseline.
     const { maxLoopIterations } = useSettingsStore.getState();
     const loopProtected = injectPythonLoopProtectionWithLineMap(
       code,
@@ -282,15 +282,15 @@ export class PythonRunner implements LanguageRunner {
     const magicEntries = detectPythonMagicComments(processedCode);
     const hasMagic = magicEntries.length > 0;
     const transformedCode = hasMagic ? transformPythonMagicComments(processedCode) : processedCode;
-    // RL-020 Slice 3 — per-line side-table for the watch / arrow
-    // distinction; consulted at result-stitching time below. Slice 5
+    // implementation — per-line side-table for the watch / arrow
+    // distinction; consulted at result-stitching time below. implementation
     // widened `MagicCommentKind` to include `'autoLog'`, but the
     // Python detector never emits that kind (auto-log is JS / TS
-    // only this slice). The wider type stays in the field so the
+    // only this change). The wider type stays in the field so the
     // shared `MagicCommentResult.kind` annotation does not need a
     // per-language narrowing fork.
     const magicKindByLine: Record<number, MagicCommentKind> = {};
-    // RL-044 Slice 1C fold D — parallel side-table for the `#=> table`
+    // implementation note — parallel side-table for the `#=> table`
     // directive so the runner knows when to upgrade the worker's
     // `value` text into a typed `RichOutputTable` payload. JS / TS use
     // a sibling pattern in their respective runners.
@@ -333,7 +333,7 @@ export class PythonRunner implements LanguageRunner {
 
       const handler = (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
-        // RL-078 runId guard. Drop buffered output from a previous,
+        // internal runId guard. Drop buffered output from a previous,
         // killed run; the persistent Pyodide worker can otherwise
         // leak stale stdout / stderr into the next call.
         if (!('runId' in msg) || msg.runId !== runId) return;
@@ -341,7 +341,7 @@ export class PythonRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'bootstrap-progress':
-            // IT2-D3 — live runtime download progress; the
+            // internal — live runtime download progress; the
             // initialization window in executeTabManually composes it
             // into the loading message.
             useBootstrapProgressStore.getState().report({
@@ -351,19 +351,19 @@ export class PythonRunner implements LanguageRunner {
             });
             break;
           case 'console': {
-            // RL-044 Slice 1C — forward the additive payload from the
+            // implementation — forward the additive payload from the
             // Pyodide worker. Absent on text-only fallback paths
-            // (sys.stdout.write bypasses the print override, fold E
+            // (sys.stdout.write bypasses the print override, implementation note
             // disabled mode), so the renderer's text path stays the
             // canonical fallback.
             const originalLine = sourceLineFor(msg.line);
             const output: ConsoleOutput = msg.payload
               ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
               : { type: msg.method, args: msg.args, line: originalLine };
-            // RL-044 Slice 1C fold B — adoption signal per produced
+            // implementation note — adoption signal per produced
             // payload kind. Intentionally fires once per payload
             // ELEMENT, not once per console entry: a multi-arg
-            // `print(a, b, c)` ships three aligned payloads (fold C)
+            // `print(a, b, c)` ships three aligned payloads (implementation note)
             // and emits three events. This gives the dashboard the
             // per-kind distribution directly without needing a JOIN
             // against the renderer-side `runtime.console_rich_rendered`
@@ -375,7 +375,7 @@ export class PythonRunner implements LanguageRunner {
                 void trackEvent('runtime.python_console_payload_emitted', {
                   kind: richKindBucket(payload),
                 });
-                // RL-044 Slice 2b-β-β-α fold E — security-relevant
+                // implementation-β-β-α implementation note — security-relevant
                 // adoption signal: count `__lingua.chart/image/html`
                 // acceptances separately from the generic Python
                 // payload stream so the security dashboard can split
@@ -392,10 +392,10 @@ export class PythonRunner implements LanguageRunner {
                 }
               }
             }
-            // RL-044 Slice 2b-β-β-α fold A — runner-side forwarding of
+            // implementation-β-β-α implementation note — runner-side forwarding of
             // the Python worker's rich-media rejection flag. Closes
             // the runner-side telemetry hook that was deferred since
-            // Slice 2a (see `buildLinguaWorkerBridge` in js-worker.ts
+            // implementation (see `buildLinguaWorkerBridge` in js-worker.ts
             // and `buildPythonRichMediaBridge` in python-worker.ts).
             if (msg.richMediaRejected) {
               const { kind, reason } = msg.richMediaRejected;
@@ -425,14 +425,14 @@ export class PythonRunner implements LanguageRunner {
             break;
           }
           case 'magic-comment': {
-            // RL-044 Slice 1C fold D — `#=> table` directive: the
+            // implementation note — `#=> table` directive: the
             // worker either ships a forced-table payload alongside the
             // text value (preferred), or we recover one client-side by
             // round-tripping the `value` string through
             // `tryParseJsonForPayload` + `forceTablePayload`. Mirrors
-            // the JS / TS runner pattern from Slice 1A.
+            // the JS / TS runner pattern from implementation.
             //
-            // RL-044 Slice 2b-β-β-α — widened to `chart` / `image` /
+            // implementation — widened to `chart` / `image` /
             // `html` via the shared `payloadForRichMediaMagicDirective`
             // helper. JS / TS / Python now share the same client-side
             // recovery path so cross-language rich-media payloads
@@ -474,7 +474,7 @@ export class PythonRunner implements LanguageRunner {
             break;
           }
           case 'scope-snapshot': {
-            // RL-020 Slice 9 — relay scope capture; same defensive
+            // implementation — relay scope capture; same defensive
             // coercion as the JS/TS runners.
             const incoming = msg as unknown as {
               snapshot?: { language?: unknown; variables?: unknown };
@@ -495,7 +495,7 @@ export class PythonRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
-            // IT2-D3 — boot finished (or was already warm); drop the
+            // internal — boot finished (or was already warm); drop the
             // progress line so the pill returns to its normal label.
             useBootstrapProgressStore.getState().clear('python');
             finish({
@@ -517,7 +517,7 @@ export class PythonRunner implements LanguageRunner {
 
       worker.addEventListener('message', handler);
 
-      // RL-078 — parent-owned kill timer. Pyodide can't yield a
+      // internal — parent-owned kill timer. Pyodide can't yield a
       // CPU-bound `while True: pass` from inside the worker, so the
       // only deterministic recovery is to terminate the worker and
       // recreate it on the next execute(). We clear `pyodideLoaded`
@@ -533,7 +533,7 @@ export class PythonRunner implements LanguageRunner {
         finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
       }, timeout);
 
-      // RL-011 Slice D third increment — pipe the resolved user env
+      // implementation third increment — pipe the resolved user env
       // into the Pyodide worker so user code's `os.environ` reflects
       // the global / project / tab tiers. Empty record keeps the
       // worker's fast path untouched.
@@ -545,23 +545,23 @@ export class PythonRunner implements LanguageRunner {
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
         userEnv,
-        // RL-020 Slice 6 — pre-set stdin buffer forwarded into Pyodide
+        // implementation — pre-set stdin buffer forwarded into Pyodide
         // via `pyodide.setStdin`. Empty / undefined installs the same
         // line reader with zero lines so bare `input()` raises a clean
         // EOFError (the worker never falls back to Pyodide's stock
         // `prompt()` handler, which is unavailable in a Worker and
         // leaks ReferenceError noise to the renderer console).
         stdin: context?.stdin,
-        // RL-020 Slice 9 — variable inspector capture. The Python
+        // implementation — variable inspector capture. The Python
         // worker handles capture/error gracefully; passing `false`
         // keeps the hot path identical to pre-slice behavior.
         captureScope: context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
-        // T17 — per-notebook kernel scope. When set, the worker runs the
+        // implementation — per-notebook kernel scope. When set, the worker runs the
         // cell against a persistent namespace dedicated to this scope
         // (cross-cell state), isolated from the editor scratchpad's globals.
         scopeId: context?.scopeId,
-        // Slice 2 — rich console + source mapping are baseline. The
+        // implementation — rich console + source mapping are baseline. The
         // worker preamble unconditionally serializes payloads and
         // walks frames for origin.
         richConsoleEnabled: true,
@@ -592,7 +592,7 @@ export class PythonRunner implements LanguageRunner {
   }
 
   /**
-   * T17 — Restart kernel / notebook-close. Drops a notebook's persistent
+   * implementation — Restart kernel / notebook-close. Drops a notebook's persistent
    * Python namespace in the worker so the next run in that scope starts
    * clean. No-op when the worker has not been created yet (nothing to
    * reset) — Pyodide is never booted just to clear an empty scope.

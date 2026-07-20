@@ -1,5 +1,5 @@
 /**
- * RL-079 — shared helpers for the trust-boundary gate.
+ * internal — shared helpers for the trust-boundary gate.
  *
  * Imported by both `useRunner` (manual Run) and `useAutoRun` (debounced
  * auto-run on edit) so the acknowledgement requirement applies

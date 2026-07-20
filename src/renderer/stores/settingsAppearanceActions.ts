@@ -8,7 +8,7 @@ import { DEFAULT_EDITOR_FONT_FAMILY } from './settingsDefaults';
 import type { SettingsSet } from './settingsStoreContext';
 
 /**
- * RL-129 fold B — appearance setter factory for the settings store. Bundles the
+ * implementation — appearance setter factory for the settings store. Bundles the
  * theme / editor-theme / font / layout / vim / word-wrap / minimap setters plus
  * the theme-pack, theme-preset, and keymap-preset/shortcut-override appliers.
  * Extracted verbatim from `settingsStore.ts`. Each appearance write that the
@@ -106,7 +106,7 @@ export function createAppearanceActions(
       }),
     resetShortcutOverrides: () =>
       set({ shortcutOverrides: {}, keymapPreset: DEFAULT_KEYMAP_PRESET_ID }),
-    // RL-095 Slice 2 — sticky Web/Desktop filter on the Language Support
+    // implementation — sticky Web/Desktop filter on the Language Support
     // Scorecard. A pure display preference (no theme-pack coupling).
     setLanguageScorecardPlatform: (languageScorecardPlatform) =>
       set({ languageScorecardPlatform }),

@@ -1,5 +1,5 @@
 /**
- * RL-026 Slice 3 — `LspProcess` framing + lifecycle contract.
+ * implementation — `LspProcess` framing + lifecycle contract.
  *
  * The wrapper is the foundation for the Rust LSP integration. These
  * tests pin:

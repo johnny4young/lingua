@@ -23,8 +23,8 @@ contextBridge.exposeInMainWorld('lingua', {
   go: {
     detect: (userEnv?: Record<string, string>) =>
       typedInvoke('go:detect', userEnv),
-    // RL-011 Slice D: userEnv flows through to the Go subprocess and is
-    // merged over the minimal RL-079 host allowlist in main. The
+    // implementation: userEnv flows through to the Go subprocess and is
+    // merged over the minimal internal host allowlist in main. The
     // renderer-side env-vars store already validated + sanitized the
     // record before handing it off.
     compile: (
@@ -38,9 +38,9 @@ contextBridge.exposeInMainWorld('lingua', {
   rust: {
     detect: (userEnv?: Record<string, string>) =>
       typedInvoke('rust:detect', userEnv),
-    // RL-011 Slice D — userEnv flows through to rustc + spawn. The
+    // implementation — userEnv flows through to rustc + spawn. The
     // renderer-side envVarsStore already sanitized the record; main
-    // only adds the RL-079 host allowlist under it.
+    // only adds the internal host allowlist under it.
     run: (
       sourceCode: string,
       userEnv?: Record<string, string>,
@@ -48,7 +48,7 @@ contextBridge.exposeInMainWorld('lingua', {
     ) => typedInvoke('rust:run', sourceCode, userEnv, messages),
   },
 
-  // RL-042 Slice 6 — desktop Ruby child-spawn IPC. Distinct from the
+  // implementation — desktop Ruby child-spawn IPC. Distinct from the
   // worker-mode WASM runner (@ruby/wasm-wasi); the desktop subprocess
   // path lets the user code see system gems + native performance.
   // Web build's adapter (src/web/adapter.ts) deliberately omits this
@@ -59,16 +59,16 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (source: string, options?: RubyRunInvokeOptions) =>
       typedInvoke('ruby:run', source, options),
     stop: (runId: string) => typedInvoke('ruby:stop', runId),
-    // F-7 — interactive stdin: stream input to a live run + close it.
+    // implementation — interactive stdin: stream input to a live run + close it.
     writeStdin: (runId: string, data: string) =>
       typedInvoke('ruby:stdin-write', runId, data),
     closeStdin: (runId: string) => typedInvoke('ruby:stdin-close', runId),
-    // F-7 — live output stream (consumers filter by runId).
+    // implementation — live output stream (consumers filter by runId).
     onOutput: (handler: (event: RuntimeOutputChunk) => void) =>
       typedOn('runtime:output-chunk', handler),
   },
 
-  // RL-019 Slice 2 — desktop Node child-spawn IPC. Distinct from the
+  // implementation — desktop Node child-spawn IPC. Distinct from the
   // worker-mode JS runner (which executes inside a sandboxed
   // WebWorker on the renderer side). The Node mode runs the user's
   // code in a real `node` subprocess on the desktop host so full
@@ -79,16 +79,16 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (source: string, options?: NodeRunInvokeOptions) =>
       typedInvoke('node:run', source, options),
     stop: (runId: string) => typedInvoke('node:stop', runId),
-    // F-7 — interactive stdin: stream input to a live run + close it.
+    // implementation — interactive stdin: stream input to a live run + close it.
     writeStdin: (runId: string, data: string) =>
       typedInvoke('node:stdin-write', runId, data),
     closeStdin: (runId: string) => typedInvoke('node:stdin-close', runId),
-    // F-7 — live output stream (consumers filter by runId).
+    // implementation — live output stream (consumers filter by runId).
     onOutput: (handler: (event: RuntimeOutputChunk) => void) =>
       typedOn('runtime:output-chunk', handler),
   },
 
-  // F-4 — desktop Deno child-spawn IPC. Runs TS/JS directly; sandboxed
+  // implementation — desktop Deno child-spawn IPC. Runs TS/JS directly; sandboxed
   // to the temp dir via --allow-read. Web adapter omits this surface.
   deno: {
     detect: (userEnv?: Record<string, string>, force?: boolean) =>
@@ -98,7 +98,7 @@ contextBridge.exposeInMainWorld('lingua', {
     stop: (runId: string) => typedInvoke('deno:stop', runId),
   },
 
-  // F-4 — desktop Bun child-spawn IPC. Same shape as deno.
+  // implementation — desktop Bun child-spawn IPC. Same shape as deno.
   bun: {
     detect: (userEnv?: Record<string, string>, force?: boolean) =>
       typedInvoke('bun:detect', userEnv, force),
@@ -115,21 +115,21 @@ contextBridge.exposeInMainWorld('lingua', {
   },
 
   // Consent mirror — renderer pushes the telemetry/crash opt-in value so
-  // main can read it before creating the window. RL-067 early-crash slice.
+  // main can read it before creating the window. implementation.
   consent: {
     set: (value: 'granted' | 'declined' | 'unset') =>
       typedInvoke('consent:set', value),
   },
 
-  // Env-snapshot bridge (RL-011 Slice B). Intentionally returns an empty
+  // Env-snapshot bridge . Intentionally returns an empty
   // record today: host `process.env` stays in main until runner integration
   // lands so secrets never cross into the renderer. The API shape still
-  // exists now so Slice C/D can wire against a stable contract later.
+  // exists now so implementation can wire against a stable contract later.
   env: {
     snapshot: () => typedInvoke('env:snapshot'),
   },
 
-  // RL-026 Slice 3 + Slice 4 — desktop LSP bridges. The renderer
+  // implementation — desktop LSP bridges. The renderer
   // never talks to rust-analyzer or gopls directly; high-level
   // commands go through these handles and notifications stream back
   // via `onNotification` / `onStatusChanged`. Both launchers are
@@ -176,7 +176,7 @@ contextBridge.exposeInMainWorld('lingua', {
     typedOn('app:before-close', () => callback()),
   forceClose: () => typedSend('app:force-close'),
 
-  // File system IPC — RL-077 capability sandbox. Preload is a narrow typed
+  // File system IPC — internal capability sandbox. Preload is a narrow typed
   // pass-through; main owns approval checks, capability resolution, and
   // containment validation for every rootId + relativePath pair.
   fs: {
@@ -201,7 +201,7 @@ contextBridge.exposeInMainWorld('lingua', {
       query: string,
       options?: FsSearchOptions
     ) => typedInvoke('fs:searchInFiles', rootId, relativePath, query, options),
-    // RL-024 Slice 2 — preview + apply replace-in-files.
+    // implementation — preview + apply replace-in-files.
     replaceInFiles: (
       rootId: string,
       relativePath: string,
@@ -250,12 +250,12 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('fs:mkdir', rootId, relativePath),
     touch: (rootId: string, relativePath: string) =>
       typedInvoke('fs:touch', rootId, relativePath),
-    // RL-024 Slice 1 fold A — surface the entry in the OS file
+    // implementation note — surface the entry in the OS file
     // manager (Finder / Explorer / Nautilus). Web build no-ops via
     // the FSA adapter (no underlying absolute path).
     revealInFinder: (rootId: string, relativePath: string) =>
       typedInvoke('fs:reveal-in-finder', rootId, relativePath),
-    // RL-024 Slice 3 — project zip bundles. Export packs the root into
+    // implementation — project zip bundles. Export packs the root into
     // a `.zip` via a save dialog; import extracts renderer-supplied
     // bytes into a chosen folder after authoritative re-validation.
     exportBundle: (
@@ -275,11 +275,11 @@ contextBridge.exposeInMainWorld('lingua', {
         filename: string | null;
       }) => void
     ) => typedOn('fs:changed', callback),
-    // RL-087 — typed watcher-failure subscription. Main emits this
+    // internal — typed watcher-failure subscription. Main emits this
     // when fs.watch() throws on registration (EACCES, EMFILE, etc.).
     onWatcherFailed: (callback: (diagnostic: WatcherDiagnostic) => void) =>
       typedOn('fs:watcher-failed', callback),
-    // RL-087 — informational degraded signal when the watcher reports
+    // internal — informational degraded signal when the watcher reports
     // a sustained burst of null-filename events (Linux inotify
     // overflow). Renderer surfaces a warning-tone notice.
     onWatcherDegraded: (callback: (diagnostic: WatcherDiagnostic) => void) =>
@@ -299,7 +299,7 @@ contextBridge.exposeInMainWorld('lingua', {
     list: () => typedInvoke('plugins:list'),
   },
 
-  // License bridge (RL-059 Slice 0). Main owns persistence + verification;
+  // License bridge . Main owns persistence + verification;
   // the renderer mirrors the snapshot into its zustand store and forwards
   // every mutation through here so localStorage stays out of the desktop
   // licensing path.
@@ -308,7 +308,7 @@ contextBridge.exposeInMainWorld('lingua', {
     applyToken: (token: string) => typedInvoke('license:apply-token', token),
     clear: () => typedInvoke('license:clear'),
     revalidate: () => typedInvoke('license:revalidate'),
-    // RL-061 Slice 3.5 — desktop-side parallel of the web wrapper's
+    // implementation — desktop-side parallel of the web wrapper's
     // `removeDevice`. Renderer's licenseStore desktop branch
     // delegates here when the user clicks Remove on a non-current
     // row in Settings → License or inside the exhausted-devices
@@ -329,7 +329,7 @@ contextBridge.exposeInMainWorld('lingua', {
     getMemorySnapshot: () => typedInvoke('desktop-smoke:get-memory-snapshot'),
   },
 
-  // RL-089 — destructive `replace` policy of the profile-restore
+  // internal — destructive `replace` policy of the profile-restore
   // flow gates behind a native confirm modal. `merge` and `preserve`
   // skip this round-trip and apply directly.
   profile: {
@@ -337,15 +337,15 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('profile:confirm-replace', counts, language),
   },
 
-  // RL-090 — recovery surface in Settings → Account.
+  // internal — recovery surface in Settings → Account.
   recovery: {
     confirmReset: (scope: RecoveryResetScope, language?: string) =>
       typedInvoke('recovery:confirm-reset', scope, language),
     revealFolder: () => typedInvoke('recovery:reveal-folder'),
   },
 
-  // RL-025 Slice A + Slice B — JS / TS dependency resolution and
-  // installation. Slice A's `resolveJs` is read-only; Slice B adds
+  // implementation — JS / TS dependency resolution and
+  // installation. implementation's `resolveJs` is read-only; implementation adds
   // `installJs` (spawn via main with `shell: false`),
   // `cancelInstallJs` (SIGTERM → SIGKILL keyed by runId), and
   // `onInstallLogJs` (streams subprocess stdout / stderr lines back
@@ -362,7 +362,7 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('dependencies:js:install:cancel', runId),
     onInstallLogJs: (handler: (event: DependencyInstallLogEvent) => void) =>
       typedOn('dependencies:js:install:log', handler),
-    // F-1 — Go / Rust / Ruby install (go get / cargo add / bundle add).
+    // implementation — Go / Rust / Ruby install (go get / cargo add / bundle add).
     installNative: (
       language: NativePackageLanguage,
       specifiers: readonly string[],
@@ -370,7 +370,7 @@ contextBridge.exposeInMainWorld('lingua', {
     ) => typedInvoke('dependencies:native:install', language, specifiers, filePath),
   },
 
-  // RL-102 Slice 1 — Git read-only layer. Three channels:
+  // implementation — Git read-only layer. Three channels:
   //   - detect: probe binary + repo root + branch for a folder
   //   - status: per-file porcelain status bucket
   //   - diff: paired strings for Monaco's diff editor
@@ -382,12 +382,12 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('git:status', repoRoot, filePath),
     diff: (repoRoot: string, filePath: string) =>
       typedInvoke('git:diff', repoRoot, filePath),
-    // RL-102 Slice 2 — Reveal repo working tree in the OS file
+    // implementation — Reveal repo working tree in the OS file
     // manager. Returns false when the path disappeared between the
     // context-menu open and the click, or when the OS rejected the
     // open. Renderer surfaces a localized notice on false.
     reveal: (repoRoot: string) => typedInvoke('git:reveal', repoRoot),
-    // RL-102 Slice 2 — start a `.git/HEAD` watcher for `repoRoot`.
+    // implementation — start a `.git/HEAD` watcher for `repoRoot`.
     // Main streams `git:on-head-changed` events to the renderer; the
     // renderer subscribes via `onHeadChanged`. Calling twice for the
     // same repoRoot is a no-op.

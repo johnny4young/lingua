@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 
 /**
- * RL-037 Vim mode integration — host element for the `monaco-vim`
+ * internal Vim mode integration — host element for the `monaco-vim`
  * status bar. The Vim layer writes mode + key-buffer + ex-command
  * input nodes into this element via `initVimMode(editor, node, …)`.
  *

@@ -1,5 +1,5 @@
 /**
- * Benchmark runtime (F-5) — micro-profiling for a single tab's code.
+ * Benchmark runtime  — micro-profiling for a single tab's code.
  *
  * Runs the active tab's source through the normal runner N times and
  * summarizes the per-run `executionTime` the runner already reports. A

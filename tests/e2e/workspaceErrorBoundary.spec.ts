@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
 
-const evidenceDir = 'output/review/it2-g6-g7-product-hardening';
+const evidenceDir = 'output/review/internal';
 
 declare global {
   interface Window {
@@ -20,7 +20,7 @@ async function armNotebookCrash(page: import('@playwright/test').Page): Promise<
   await page.evaluate(() => window.__linguaE2e?.armWorkspaceCrash('notebook'));
 }
 
-test.describe('IT2-G6 regional workspace error boundary', () => {
+test.describe('internal regional workspace error boundary', () => {
   test('contains a notebook render crash, copies its region, and retries locally in English', async ({
     context,
     page,

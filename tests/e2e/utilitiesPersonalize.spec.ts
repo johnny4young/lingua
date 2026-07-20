@@ -1,5 +1,5 @@
 /**
- * RL-069 Slice 3 — Functional smoke for the Developer Utilities
+ * implementation — Functional smoke for the Developer Utilities
  * personalization layer: pin/unpin favorites, drag-reorder via
  * @dnd-kit (mouse + keyboard), per-tool history accumulation across
  * Apply gestures, persist toggle survives reload, clipboard-on-focus
@@ -12,7 +12,7 @@
  * Single-shot Developer Utilities are Free; this personalize suite
  * seeds Pro because it exercises the paid productivity layer
  * (persistent history + clipboard automation). The blocking smoke
- * gate the user elevated for Slice 2 carries over — the slice does
+ * gate the user elevated for implementation carries over — the slice does
  * not close until every assertion stays green.
  */
 
@@ -31,7 +31,7 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('RL-069 Slice 3 — personalize gesture smoke', () => {
+test.describe('implementation — personalize gesture smoke', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);

@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — Recipe `js-string-anagram`.
+ * implementation — Recipe `js-string-anagram`.
  *
  * Detect anagrams of two strings. Exercises char-frequency hashing
  * or sort-and-compare. Tests check casing + spaces.

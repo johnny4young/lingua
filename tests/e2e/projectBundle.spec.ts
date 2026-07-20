@@ -1,5 +1,5 @@
 /**
- * RL-024 Slice 3 — e2e for the project bundle import overlay.
+ * implementation — e2e for the project bundle import overlay.
  *
  * Acceptance: the "Import project from zip" command-palette action
  * opens the bundle import overlay, in EN + ES (tuteo) locales. The
@@ -12,7 +12,7 @@ import { expect, gotoApp, paletteInput, seedSession, test } from './licenseWeb.h
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('Project bundle import overlay (RL-024 Slice 3)', () => {
+test.describe('Project bundle import overlay ', () => {
   test('opens from the command palette (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);

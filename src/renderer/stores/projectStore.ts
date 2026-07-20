@@ -8,7 +8,7 @@
  * - Recent projects list (persisted)
  * - Watch mode to detect external file changes
  *
- * RL-077 — every filesystem operation goes through the active project's
+ * internal — every filesystem operation goes through the active project's
  * `rootId` (capability token minted by main on `selectDirectory()` or
  * re-minted on `reopenRoot(absolutePath)` for a recent project). The
  * persisted RecentProject row stores `rootPath` only; `rootId` is
@@ -51,7 +51,7 @@ import { useUIStore } from './uiStore';
 import { notifyBlockedFamily, notifyBlockedPath } from '../utils/blockedPath';
 
 /**
- * RL-087 — narrow the new tagged-union return shape from watchStart.
+ * internal — narrow the new tagged-union return shape from watchStart.
  * Returns the watchId on success, or null when registration failed
  * (and the typed diagnostic was already pushed via `onWatcherFailed`,
  * so callers do not need to push it again).
@@ -85,7 +85,7 @@ export interface ActiveProject extends RecentProject {
 }
 
 /**
- * RL-146 / AUDIT-26 — a single coalesced filesystem-watch event handed
+ * implementation detail — a single coalesced filesystem-watch event handed
  * to `applyWatchChanges`. Shaped as a subset of the ambient
  * `FsChangedEvent` so the watcher hook can forward events directly.
  *
@@ -109,7 +109,7 @@ interface ProjectState {
   recentProjects: RecentProject[];
   nodes: FileTreeNode[];
   /**
-   * RL-146 / AUDIT-26 — flat `path -> node` index over `nodes`, rebuilt
+   * implementation detail — flat `path -> node` index over `nodes`, rebuilt
    * on every node commit (a pure derivation, so it never drifts). Gives
    * the watcher delta refresh O(1) loaded-directory lookups instead of
    * walking the whole tree per event. Never persisted (see `partialize`)
@@ -125,7 +125,7 @@ interface ProjectState {
   closeProject: () => void;
   refreshTree: () => Promise<void>;
   /**
-   * RL-146 / AUDIT-26 — delta refresh for a coalesced burst of watch
+   * implementation detail — delta refresh for a coalesced burst of watch
    * events. Re-reads from disk ONLY the loaded directories that actually
    * changed (skipping pure file-content `'change'` events, whose content
    * is handled by the reload-from-disk notice), preserving each branch's
@@ -138,7 +138,7 @@ interface ProjectState {
   // Tree navigation
   expandDirectory: (relativePath: string) => Promise<void>;
   collapseDirectory: (relativePath: string) => void;
-  /** RL-024 Slice 1 fold F — collapse every expanded directory at once. */
+  /** implementation note — collapse every expanded directory at once. */
   collapseAllDirectories: () => void;
 
   // File operations
@@ -153,10 +153,10 @@ function basenameOf(absolutePath: string): string {
 }
 
 /**
- * RL-024 Slice 1 — debounce the `Folder nested too deep` notice so a
+ * implementation — debounce the `Folder nested too deep` notice so a
  * user who repeat-clicks a deep chevron only sees one toast per ~1.5s
  * burst. Mirrors `useDefaultOpenFileConsumer`'s timestamp-debounce
- * pattern from RL-044 Slice 2b-β-α so cross-feature behavior feels
+ * pattern from implementation so cross-feature behavior feels
  * consistent.
  */
 const DEPTH_LIMIT_NOTICE_DEBOUNCE_MS = 1500;
@@ -176,7 +176,7 @@ function pushDepthLimitNoticeOnce(): void {
 }
 
 /**
- * RL-146 / AUDIT-26 — commit a new node tree together with its
+ * implementation detail — commit a new node tree together with its
  * freshly-derived path index. The index is a pure derivation of `nodes`
  * (rebuilt on every commit, so it can never drift) that gives the
  * watcher delta refresh O(1) loaded-directory lookups. Spread the result
@@ -282,7 +282,7 @@ export const useProjectStore = create<ProjectState>()(
           // a fresh root capability before the renderer can read that tree.
           const reopen = await window.lingua.fs.reopenRoot(rootPath);
           if (!reopen.ok) {
-            // RL-137 — a previously-approved root that now falls inside the
+            // internal — a previously-approved root that now falls inside the
             // denylist (e.g. under a newly-blocked app-data root) surfaces an
             // actionable notice instead of silently failing to restore.
             if (reopen.error === 'blocked') void notifyBlockedPath(rootPath);
@@ -377,7 +377,7 @@ export const useProjectStore = create<ProjectState>()(
         // Preserve expansion by relative path, then rebuild those subtrees from
         // disk. The store deliberately reuses rootId, never absolute paths.
         // This is the full-walk path kept for boot / manual refresh / restart;
-        // the watcher hot path uses applyWatchChanges (RL-146 / AUDIT-26).
+        // the watcher hot path uses applyWatchChanges.
         const expandedPaths = new Set(collectExpandedPaths(nodes));
         const nextNodes = await loadNodesForDirectory(
           currentProject.rootId,
@@ -452,7 +452,7 @@ export const useProjectStore = create<ProjectState>()(
       expandDirectory: async (relativePath: string) => {
         const { currentProject } = get();
         if (!currentProject) return;
-        // RL-024 Slice 1 — depth cap. Refusing the expand here (rather
+        // implementation — depth cap. Refusing the expand here (rather
         // than letting `readdir` recurse) keeps a pathological tree
         // (symlink loop, vendored deps) from freezing the renderer.
         // The child we're about to render would sit at depth+1, so the

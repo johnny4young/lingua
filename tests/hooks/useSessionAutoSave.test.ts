@@ -1,9 +1,9 @@
 /**
- * RL-147 (AUDIT-27) — behavioral contract of the debounced session
+ * internal — behavioral contract of the debounced session
  * auto-save. The §3.10 regression this locks: transient editor-store
  * mutations (pendingReveal, isDirty churn, per-run execution-state
  * flips) must neither schedule a save nor POSTPONE one already
- * pending; only save-relevant changes re-arm the 1 s window. Fold C
+ * pending; only save-relevant changes re-arm the 1 s window. implementation note
  * adds the flush-on-exit contract (pagehide / visibilitychange).
  */
 
@@ -26,7 +26,7 @@ const UNTITLED_TAB = {
   isDirty: false,
 };
 
-describe('useSessionAutoSave (RL-147)', () => {
+describe('useSessionAutoSave', () => {
   let saveSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -81,7 +81,7 @@ describe('useSessionAutoSave (RL-147)', () => {
     changeUntitledContent('const x = 2;');
     vi.advanceTimersByTime(500);
     transientMutationBurst();
-    // Before RL-147 the burst re-armed the timer, so 500 ms later the
+    // Before internal the burst re-armed the timer, so 500 ms later the
     // save had still not fired. Now it fires exactly at the original
     // 1 s mark.
     vi.advanceTimersByTime(500);
@@ -101,7 +101,7 @@ describe('useSessionAutoSave (RL-147)', () => {
     expect(saveSpy).not.toHaveBeenCalled();
   });
 
-  it('stays inert when restoreSessionMode is never (RL-111)', () => {
+  it('stays inert when restoreSessionMode is never', () => {
     useSettingsStore.setState({ restoreSessionMode: 'never' });
     renderHook(() => useSessionAutoSave(false));
 
@@ -110,7 +110,7 @@ describe('useSessionAutoSave (RL-147)', () => {
     expect(saveSpy).not.toHaveBeenCalled();
   });
 
-  it('still auto-saves under restoreSessionMode ask so the prompt has a snapshot (RL-111)', () => {
+  it('still auto-saves under restoreSessionMode ask so the prompt has a snapshot', () => {
     useSettingsStore.setState({ restoreSessionMode: 'ask' });
     renderHook(() => useSessionAutoSave(false));
 
@@ -136,7 +136,7 @@ describe('useSessionAutoSave (RL-147)', () => {
     expect(saveSpy).not.toHaveBeenCalled();
   });
 
-  describe('flush-on-exit (fold C)', () => {
+  describe('flush-on-exit (implementation note)', () => {
     function setVisibilityState(value: 'hidden' | 'visible'): void {
       Object.defineProperty(document, 'visibilityState', {
         configurable: true,

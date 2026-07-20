@@ -1,9 +1,9 @@
 /**
- * RL-044 Slice 2a visual smoke matrix.
+ * implementation visual smoke matrix.
  *
  * These tests use the test-only console seeding hook to validate the
- * renderer surface that workers do not emit until Slice 2b. Each case
- * captures a named screenshot under output/playwright/rich-console-slice2a.
+ * renderer surface that workers do not emit until implementation. Each case
+ * captures a named screenshot under output/playwright/rich-console-gallery.
  */
 
 import fs from 'node:fs';
@@ -14,7 +14,7 @@ import { expect, seedSession, test } from './licenseWeb.helpers';
 import {
   RICH_CONSOLE_SCREENSHOT_CASES,
   writeRichConsoleScreenshotGallery,
-} from './richConsoleSlice2aGallery';
+} from './richConsoleimplementation';
 
 type ConsoleEntrySeed = Omit<ConsoleEntry, 'id' | 'timestamp'>;
 
@@ -27,7 +27,7 @@ declare global {
   }
 }
 
-const screenshotDir = path.resolve(process.cwd(), 'output/playwright/rich-console-slice2a');
+const screenshotDir = path.resolve(process.cwd(), 'output/playwright/rich-console-gallery');
 const screenshotFileName = (title: string) => {
   const match = RICH_CONSOLE_SCREENSHOT_CASES.find(item => item.title === title);
   if (!match) throw new Error(`Missing screenshot matrix case: ${title}`);
@@ -64,7 +64,7 @@ const sampleChartSpec = {
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('rich console Slice 2a visual matrix', () => {
+test.describe('rich console implementation visual matrix', () => {
   test.beforeAll(() => {
     fs.rmSync(screenshotDir, { recursive: true, force: true });
     fs.mkdirSync(screenshotDir, { recursive: true });
@@ -76,7 +76,7 @@ test.describe('rich console Slice 2a visual matrix', () => {
 
   async function prepareRichConsole(page: Page, entries: ConsoleEntrySeed[]) {
     await seedSession(page, { language: 'en' });
-    await page.goto('/?e2e=rich-console-slice2a');
+    await page.goto('/?e2e=rich-console-gallery');
     await expect(page.getByTestId('rich-console-e2e-fixture')).toBeVisible();
 
     await expect.poll(() => page.evaluate(() => Boolean(window.__linguaE2e))).toBe(true);

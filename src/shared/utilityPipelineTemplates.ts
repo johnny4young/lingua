@@ -1,11 +1,11 @@
 /**
- * RL-099 Slice 5 — pipeline template gallery catalog.
+ * implementation — pipeline template gallery catalog.
  *
  * A curated, static set of starter pipelines so the (otherwise blank)
  * pipeline panel is discoverable now that the engine ships 15 adapters.
  * Templates are RECIPE-ONLY — steps + options, never input data — except
  * for an optional `sampleInput` the gallery drops into the input box so a
- * freshly-instantiated template is immediately runnable (fold F).
+ * freshly-instantiated template is immediately runnable (implementation note).
  *
  * Pure shared data: the renderer reads this, supplies fresh ids, and
  * instantiates via {@link instantiatePipelineTemplate}. The catalog
@@ -24,7 +24,7 @@ import {
 
 /**
  * Closed enum of template ids. Curated catalog — safe to surface on
- * telemetry (fold A) because the value space is a fixed, content-free
+ * telemetry (implementation note) because the value space is a fixed, content-free
  * list. Add a template here AND in {@link PIPELINE_TEMPLATES} AND with
  * `utilityPipeline.template.<camelId>.{name,description}` in both
  * locales.
@@ -38,7 +38,7 @@ export const PIPELINE_TEMPLATE_IDS = [
   'base64-decode-json',
   'humanize-timestamp',
   'convert-color',
-  // RL-099 Slice 7 (fold D) — surface the new `string-inspect` adapter
+  // implementation (implementation note) — surface the new `string-inspect` adapter
   // from the empty-state gallery.
   'inspect-hidden-chars',
 ] as const;
@@ -48,7 +48,7 @@ export type PipelineTemplateId = (typeof PIPELINE_TEMPLATE_IDS)[number];
  * One curated starter pipeline. `steps` reference adapter ids from the
  * registry; per-step `options` (when present) are validated through the
  * adapter's `parseOptions` at instantiate time and dropped to defaults
- * on mismatch. `sampleInput` seeds the input box (fold F) — never auto-
+ * on mismatch. `sampleInput` seeds the input box (implementation note) — never auto-
  * run.
  */
 export interface PipelineTemplate {
@@ -105,9 +105,9 @@ export const PIPELINE_TEMPLATES: readonly PipelineTemplate[] = [
     id: 'slugify',
     nameKey: 'utilityPipeline.template.slugify.name',
     descriptionKey: 'utilityPipeline.template.slugify.description',
-    // RL-099 Slice 6 — use the dedicated slugify adapter now that it
+    // implementation — use the dedicated slugify adapter now that it
     // exists; the previous string-case/kebab stand-in did not strip
-    // punctuation or fold diacritics, so it was not URL-slug safe.
+    // punctuation or implementation note, so it was not URL-slug safe.
     steps: [
       {
         utilityId: 'slugify',

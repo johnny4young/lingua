@@ -3,7 +3,7 @@
 > Living reference for the renderer-facing filesystem path denylist. Unlike the
 > dated packets in this folder, this file tracks the current policy and is
 > updated whenever the denylist changes. Source of truth:
-> `src/main/ipc/permissions.ts`. Ticket: RL-137 / AUDIT-17.
+> `src/main/ipc/permissions.ts`.
 
 ## Why
 

@@ -73,7 +73,7 @@ export function BeautifyMinifyUtilityPanel() {
     setErrorKey(null);
   };
 
-  // RL-069 Slice 2 — output null while errored so the shortcut surfaces
+  // implementation — output null while errored so the shortcut surfaces
   // the empty-output toast instead of stale content.
   const registerOutput = useCallback(() => (errorKey ? null : output || null), [errorKey, output]);
   useRegisterUtilityOutput(registerOutput);

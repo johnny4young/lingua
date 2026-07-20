@@ -49,7 +49,7 @@ describe('POST /licenses/activate', () => {
   });
 
   it('rejects a malformed OS string', async () => {
-    // Slice 3 follow-up: the os field is informational (display in the
+    // implementation follow-up: the os field is informational (display in the
     // device list) so we no longer enforce a fixed enum at the server.
     // The validator still bounces shape violations — uppercase, spaces,
     // HTML-bait — so a compromised client cannot poison a peer's
@@ -66,11 +66,11 @@ describe('POST /licenses/activate', () => {
   });
 
   it('accepts the web build OS string family (web-chrome, web-firefox, web-unknown)', async () => {
-    // Regression guard for the Slice 2.5 + Slice 3 wiring. Before the
+    // Regression guard for the implementation wiring. Before the
     // validator + D1 CHECK relaxation, every web activate against prod
     // bounced with `invalid-input` because the renderer's `getOs()`
     // emits `web-${browserFamily}` which the desktop-only enum
-    // rejected. The endpoint stays a 501 stub here (Slice 1
+    // rejected. The endpoint stays a 501 stub here (implementation
     // scaffolding hasn't wired D1 to this test fixture), but the
     // request reaches the handler — that's enough to prove the
     // request body passed validation.
@@ -118,7 +118,7 @@ describe('POST /licenses/activate', () => {
     expect(response.status).toBe(400);
   });
 
-  it('rejects an oversized token so an attacker cannot force the verifier to allocate megabytes before rejecting in Slice 2', async () => {
+  it('rejects an oversized token so an attacker cannot force the verifier to allocate megabytes before rejecting in implementation', async () => {
     const oversized = 'a'.repeat(5_000);
     const response = await postJson('/licenses/activate', { ...ACTIVATE_BODY, token: oversized });
     expect(response.status).toBe(400);
@@ -559,7 +559,7 @@ describe('0001_initial migration', () => {
   });
 
   it('originally constrained device OS to the desktop triple (relaxed in 0003)', () => {
-    // 0001 shipped with a desktop-only enum that Slice 2.5's web
+    // 0001 shipped with a desktop-only enum that implementation's web
     // activate path could not satisfy. 0003 rebuilds the table
     // without the CHECK so the request-side validator
     // (validation.ts:validateOsField) becomes the single bound. This

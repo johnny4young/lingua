@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * RL-143 release-time guard: assert the embedded license-signing public key
+ * internal release-time guard: assert the embedded license-signing public key
  * satisfies the rotation policy BEFORE anything user-facing is built.
  *
  * What this closes: the Ed25519 public key committed in `.env.production`

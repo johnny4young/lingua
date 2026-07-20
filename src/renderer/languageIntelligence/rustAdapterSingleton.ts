@@ -1,7 +1,7 @@
 import { RustLanguageIntelligenceAdapter, type RustAdapterTransport } from './rust';
 
 /**
- * RL-026 Slice 3 — process-wide singleton for the Rust LSP adapter.
+ * implementation — process-wide singleton for the Rust LSP adapter.
  *
  * The adapter is lazily created so the web build never instantiates it
  * (the bridge is desktop-only). Callers must check `isRustLspAvailable`

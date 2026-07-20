@@ -80,7 +80,7 @@ describe('main plugin discovery', () => {
   });
 
   it('discovers valid, disabled, incompatible, unknown, and broken manifests', async () => {
-    // RL-084 — fixtures cover every distinct status the validator can
+    // internal — fixtures cover every distinct status the validator can
     // emit. Two `lua` directories share the same pluginId by design;
     // discovery returns one record per directory, sorted by pluginId,
     // with the second one's directory name disambiguating in
@@ -136,7 +136,7 @@ describe('main plugin discovery', () => {
   });
 
   it('rejects manifests with path-traversal pluginIds as invalid', async () => {
-    // RL-084 — even if someone drops a manifest with `pluginId: '..'`
+    // internal — even if someone drops a manifest with `pluginId: '..'`
     // into the plugins directory, the validator must catch it before
     // any downstream consumer sees it.
     await writeManifest(tempRoot, 'malicious', {
@@ -152,7 +152,7 @@ describe('main plugin discovery', () => {
   });
 
   it('rejects manifests with unknown extra fields as invalid', async () => {
-    // RL-084 — defense in depth: a manifest that tries to smuggle
+    // internal — defense in depth: a manifest that tries to smuggle
     // an `executable` or `command` key gets rejected even if every
     // documented field is well-formed.
     await writeManifest(tempRoot, 'lua-with-extras', {

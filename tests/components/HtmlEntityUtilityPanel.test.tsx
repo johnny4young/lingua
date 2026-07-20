@@ -1,5 +1,5 @@
 /**
- * RL-068 — HTML Entity Encode/Decode panel tests. The pure helper is
+ * internal — HTML Entity Encode/Decode panel tests. The pure helper is
  * covered in tests/utils/htmlEntity.test.ts, so this suite only verifies
  * wiring: mode changes, live output updates, the unresolved-count hint,
  * and Spanish locale parity.

@@ -17,7 +17,7 @@ import {
 } from './editorTabUtils';
 
 /**
- * RL-128 fold A/B — runtime/workflow mode + capability-toggle setter factory
+ * implementation — runtime/workflow mode + capability-toggle setter factory
  * for the editor store. Bundles `setTabRuntimeMode`, `setTabWorkflowMode`,
  * `setTabAutoLogEnabled`, `setTabStdinBuffer`, and the mutually-exclusive
  * `setTabCompareEnabled` / `setTabVariableInspectorEnabled`. Extracted verbatim
@@ -49,7 +49,7 @@ export function createModeActions(
         return;
       }
       if (!isRuntimeModeImplemented(mode)) {
-        // RL-019 Slice 1 fold G — surface a status notice when the
+        // implementation note — surface a status notice when the
         // user (via shortcut, palette, or programmatic call) tries to
         // switch into a mode that has not landed yet. Kept defensive
         // for future RuntimeMode enum additions.
@@ -79,7 +79,7 @@ export function createModeActions(
       useUIStore.getState().openBottomPanel(
         mode === 'browser-preview' ? 'browser-preview' : 'console'
       );
-      // RL-019 Slice 1 fold G — confirm the change with a soft
+      // implementation note — confirm the change with a soft
       // status-notice toast. The selector itself flips immediately;
       // this is the audit trail for users who change modes via the
       // keyboard cycle or the command palette.
@@ -88,7 +88,7 @@ export function createModeActions(
         messageKey: 'runtimeMode.changedNotice',
         values: { mode: i18next.t(`runtimeMode.mode.${mode === 'browser-preview' ? 'browserPreview' : mode}`) },
       });
-      // RL-019 Slice 1 fold A — funnel telemetry for runtime-mode
+      // implementation note — funnel telemetry for runtime-mode
       // adoption. Both `mode` and `language` are closed enums; the
       // shared allowlist + worker mirror enforce the contract.
       void trackEvent('runtime.mode_changed', {
@@ -101,7 +101,7 @@ export function createModeActions(
       const { tabs } = get();
       const target = tabs.find((t) => t.id === id);
       if (!target) return;
-      // RL-020 Slice 2 — refuse modes the language does not support.
+      // implementation — refuse modes the language does not support.
       // The toolbar UI greys out unsupported segments so this branch
       // is only reachable via a programmatic / palette / shortcut
       // call. No status notice — the toolbar's tooltip already
@@ -140,7 +140,7 @@ export function createModeActions(
     setTabAutoLogEnabled: (id, enabled) => {
       const target = get().tabs.find((t) => t.id === id);
       if (!target) return;
-      // RL-020 Slice 5 fold C — auto-log is JS/TS-only this slice; the
+      // implementation note — auto-log is JS/TS-only this slice; the
       // setter refuses any other language so a programmatic palette /
       // shortcut entry point cannot leave a misleading flag on a Rust
       // or Python tab.
@@ -159,7 +159,7 @@ export function createModeActions(
           return { ...t, autoLogEnabled: enabled };
         }),
       }));
-      // RL-020 Slice 5 — the per-tab override path is the OTHER way to
+      // implementation — the per-tab override path is the OTHER way to
       // flip the auto-log gate (besides Settings → Editor). Emit the
       // adoption signal here too so the closed-enum metric in
       // `src/shared/telemetry.ts` counts BOTH surfaces consistently
@@ -177,7 +177,7 @@ export function createModeActions(
     },
 
     /**
-     * RL-020 Slice 8/9 — write the per-tab Compare toggle. `null`
+     * implementation — write the per-tab Compare toggle. `null`
      * clears the field (the toggle returns to disabled). Compare and
      * Variables are mutually exclusive because both consume the result
      * panel's focused inspection surface; enforce that invariant here
@@ -194,7 +194,7 @@ export function createModeActions(
             void _drop;
             return rest;
           }
-          // RL-020 Slice 9 — mutual exclusion with Variables.
+          // implementation — mutual exclusion with Variables.
           const { variableInspectorEnabled: _dropInspector, ...rest } = t;
           void _dropInspector;
           return { ...rest, compareWithSnapshotEnabled: true };
@@ -203,7 +203,7 @@ export function createModeActions(
     },
 
     /**
-     * RL-020 Slice 9 — write the per-tab Variables toggle. `null`
+     * implementation — write the per-tab Variables toggle. `null`
      * clears the field. Mutually exclusive with `setTabCompareEnabled`:
      * enabling Variables forces Compare off. Unsupported runtimes no-op
      * before clearing Compare so the user cannot lose a valid Compare

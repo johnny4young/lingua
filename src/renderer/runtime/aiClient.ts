@@ -1,11 +1,11 @@
 /**
- * T19 / RL-031 Slice 2 — AI provider client (OpenAI-compatible chat).
+ * implementation — AI provider client (OpenAI-compatible chat).
  *
  * Sends a chat request (built by `shared/ai/explainError.ts`) to the user's
  * BYO endpoint and returns a typed result. Per `docs/LOCAL_AI_ADR.md`:
  *   - BYO-API-key, provider-agnostic OpenAI-compatible `/chat/completions`.
  *   - Ships on web + desktop via `fetch`; on web it is CORS-bound (documented).
- *     Desktop can later route through the T7 SSRF-guarded main proxy.
+ *     Desktop can later route through the implementation SSRF-guarded main proxy.
  *   - Only ever called from an explicit user action (the caller enforces the
  *     consent-preview gate); this module performs the transport only.
  *

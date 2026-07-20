@@ -26,7 +26,7 @@ function isDesktopSmokeEnabled(): boolean {
 }
 
 /**
- * RL-080 Slice 3 — packaged-subset gate. When the smoke harness is
+ * implementation — packaged-subset gate. When the smoke harness is
  * launched against a release artifact (the `.app` bundle on macOS),
  * we run a reduced 2-case subset (javascript + python) instead of the
  * full 9-case matrix. The full matrix already runs against the dev

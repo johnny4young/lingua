@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 6 — `setTabStdinBuffer` + language-change cleanup.
+ * implementation — `setTabStdinBuffer` + language-change cleanup.
  *
  * Covers:
  *   - Setter writes the buffer for supported languages.
@@ -47,7 +47,7 @@ function setActiveProLicense(): void {
   });
 }
 
-describe('editorStore — stdinBuffer per-tab (RL-020 Slice 6)', () => {
+describe('editorStore — stdinBuffer per-tab ', () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     useEditorStore.setState({ tabs: [], activeTabId: null });

@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 2 — workflow-mode pure module.
+ * implementation — workflow-mode pure module.
  *
  * Coverage:
  *
@@ -51,7 +51,7 @@ describe('defaultWorkflowMode', () => {
     expect(defaultWorkflowMode('typescript')).toBe('scratchpad');
     expect(defaultWorkflowMode('python')).toBe('scratchpad');
     // Go + Rust auto-run on desktop today; preserve that default
-    // intent so Slice 2 doesn't silently regress existing users.
+    // intent so implementation doesn't silently regress existing users.
     expect(defaultWorkflowMode('go')).toBe('scratchpad');
     expect(defaultWorkflowMode('rust')).toBe('scratchpad');
   });
@@ -141,7 +141,7 @@ describe('cycleWorkflowMode', () => {
     expect(cycleWorkflowMode('run', 'json')).toBe('run');
   });
   it('snaps an unsupported current to the first supported mode', () => {
-    // Edge: a stale `debug` mode on a Rust tab (pre-Slice-2
+    // Edge: a stale `debug` mode on a Rust tab (legacy
     // regression) should snap back to a supported segment.
     expect(cycleWorkflowMode('debug', 'rust')).toBe('run');
     // Same on a Python tab — debug isn't supported, so the cycle

@@ -1,5 +1,5 @@
 /**
- * PERF-003 — debounce window for the notebook code-cell source
+ * internal — debounce window for the notebook code-cell source
  * auto-save. Mirrors the SQL workspace
  * (`sqlQueryEditorTiming.getSqlQueryAutoSaveDebounceMs`) and the HTTP
  * request editor (`AUTO_SAVE_DEBOUNCE_MS`): the cell keeps its source in

@@ -46,7 +46,7 @@ export type BuiltInLanguage =
 export type Language = BuiltInLanguage | (string & {});
 
 /**
- * RL-070 Sub-slice 6 follow-up — per-tab execution lifecycle.
+ * internal implementation follow-up — per-tab execution lifecycle.
  *
  * The tab bar surfaces these as a small status dot to the left of
  * the close button so the user can scan multiple tabs and tell
@@ -63,7 +63,7 @@ export type Language = BuiltInLanguage | (string & {});
  */
 export type TabExecutionState = 'idle' | 'running' | 'success' | 'error';
 
-/** IT2-F5 — a named, per-tab replayable stdin + argv snapshot. */
+/** internal — a named, per-tab replayable stdin + argv snapshot. */
 export interface InputSet {
   id: string;
   name: string;
@@ -86,7 +86,7 @@ export interface FileTab {
    */
   filePath?: string;
   /**
-   * RL-077 capability binding. The `rootId` is a process-lifetime token
+   * internal capability binding. The `rootId` is a process-lifetime token
    * minted when the picker resolved this file (single-file open or
    * save-as) or when the file was opened from inside the active
    * project tree. `relativePath` is the file path inside that root.
@@ -105,19 +105,19 @@ export interface FileTab {
    */
   parseError?: string | null;
   /**
-   * RL-019 Slice 1 — explicit per-tab runtime mode for JS/TS tabs.
+   * implementation — explicit per-tab runtime mode for JS/TS tabs.
    * `'worker'` for all freshly created JS/TS tabs; `undefined` for
-   * every other language. Slice 3 surfaced `'browser-preview'` for
-   * the iframe-isolated preview pane; Slice 2 will surface `'node'`
+   * every other language. implementation surfaced `'browser-preview'` for
+   * the iframe-isolated preview pane; implementation will surface `'node'`
    * once the desktop child-process backend lands.
    * See [`docs/RUNTIME_MODES_ADR.md`](../../docs/RUNTIME_MODES_ADR.md).
    */
   runtimeMode?: RuntimeMode;
   /**
-   * RL-020 Slice 2 — explicit per-tab workflow mode. Three values:
+   * implementation — explicit per-tab workflow mode. Three values:
    *
    *   - `scratchpad` — auto-run fires on debounced keystrokes
-   *     (gated by the Slice 1 completion heuristic). Default for
+   *     (gated by the implementation completion heuristic). Default for
    *     Scratchpad-capable languages (JS / TS / Python today).
    *   - `run` — auto-run is OFF. Manual Cmd+R still works. Default
    *     for compiled / validate / view-only tabs and the fall-back
@@ -127,13 +127,13 @@ export interface FileTab {
    *     through breakpoints. Only valid for languages with a
    *     debugger adapter (JS / TS today).
    *
-   * Optional so pre-Slice-2 persisted tabs load cleanly — the
+   * Optional so legacy persisted tabs load cleanly — the
    * resolved selector falls through to
    * `defaultWorkflowMode(language)` when the field is absent.
    */
   workflowMode?: WorkflowMode;
   /**
-   * RL-020 Slice 5 fold C — explicit per-tab auto-log override on
+   * implementation note — explicit per-tab auto-log override on
    * top of the per-language Settings default. Three resolved
    * states:
    *
@@ -149,7 +149,7 @@ export interface FileTab {
    */
   autoLogEnabled?: boolean;
   /**
-   * RL-020 Slice 6 — per-tab pre-set stdin buffer consumed by JS / TS
+   * implementation — per-tab pre-set stdin buffer consumed by JS / TS
    * `prompt()` / `readline()` and Python `input()` during the next
    * run. Newline-delimited; each call to `prompt()` / `input()`
    * consumes one line. Empty / undefined ⇒ no patching, native worker
@@ -160,14 +160,14 @@ export interface FileTab {
    * stdin support (anything outside JS / TS / Python).
    */
   stdinBuffer?: string;
-  /** IT2-F5 — named input snapshots saved with the editor session. */
+  /** internal — named input snapshots saved with the editor session. */
   inputSets?: InputSet[];
-  /** IT2-F5 — the set currently loaded into `stdinBuffer` / `inputArgs`. */
+  /** internal — the set currently loaded into `stdinBuffer` / `inputArgs`. */
   activeInputSetId?: string;
-  /** IT2-F5 — current argv draft; runners may consume it when supported. */
+  /** internal — current argv draft; runners may consume it when supported. */
   inputArgs?: string[];
   /**
-   * RL-020 Slice 7 fold D — one-shot extended-timeout override for
+   * implementation note — one-shot extended-timeout override for
    * the NEXT run on this tab. Set by the command palette
    * "Run with extended timeout" entry. `executeTabManually` reads
    * the value, threads it onto `ExecutionContext.timeout`, and
@@ -177,7 +177,7 @@ export interface FileTab {
    */
   nextRunTimeoutOverrideMs?: number;
   /**
-   * RL-020 Slice 8 — per-tab flag for the "Compare with last
+   * implementation — per-tab flag for the "Compare with last
    * stable run" toggle in the result-panel header. `true` swaps
    * the inline-results region for `<CompareResultsPanel>` when a
    * comparator snapshot is available; otherwise the toggle stays
@@ -187,7 +187,7 @@ export interface FileTab {
    */
   compareWithSnapshotEnabled?: boolean;
   /**
-   * RL-020 Slice 9 — per-tab flag for the "Variables" toggle in
+   * implementation — per-tab flag for the "Variables" toggle in
    * the result-panel header. `true` swaps the inline-results
    * region for `<VariableInspectorPanel>` when a language-matching
    * `ScopeSnapshot` is available. Mutually exclusive with the
@@ -198,7 +198,7 @@ export interface FileTab {
    */
   variableInspectorEnabled?: boolean;
   /**
-   * RL-039 Slice B — when set, this tab was opened from the Recipes
+   * implementation — when set, this tab was opened from the Recipes
    * overlay and the bottom-panel `'recipe'` sibling tab is gated on
    * this binding. The string is the `LessonPackV1.id` of the bundled
    * recipe. Cleared on language change to a non-recipe-runnable
@@ -209,7 +209,7 @@ export interface FileTab {
    */
   recipeBindingId?: string;
   /**
-   * RL-043 Slice A — when `'notebook'`, this tab renders
+   * implementation — when `'notebook'`, this tab renders
    * `<NotebookView>` instead of Monaco. The companion document
    * (cells + outputs + run status) lives in `useNotebookStore` keyed
    * by `tab.id`. The `content` field is unused for notebook tabs (the
@@ -258,14 +258,14 @@ export interface EditorState {
   addTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   /**
    * Grandfather an array of tabs into the store without consulting the
-   * RL-060 tier ceiling. Only the session-restore path should use this
+   * internal tier ceiling. Only the session-restore path should use this
    * so users' prior workspaces are never truncated by a Free downgrade.
    */
   restoreTabs: (tabs: Array<Omit<FileTab, 'isDirty'>>, activeTabId?: string | null) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   /**
-   * RL-100 Slice 2 fold F — switch a tab's language without
+   * implementation note — switch a tab's language without
    * re-creating it. Used by the `.ipynb` import flow to flip a
    * freshly-imported notebook tab's language chip to the dominant
    * cell language. No-op on unknown tab, matching language, or
@@ -274,7 +274,7 @@ export interface EditorState {
   setTabLanguage: (id: string, language: Language) => void;
   updateContent: (id: string, content: string) => void;
   /**
-   * RL-024 Slice 2 — refresh a tab's buffer from disk content without
+   * implementation — refresh a tab's buffer from disk content without
    * marking it dirty. Used by the Replace in files overlay so the
    * on-screen tab reflects the post-replace disk content. Cmd+Z does
    * not restore the previous content; replace-in-files is a
@@ -283,7 +283,7 @@ export interface EditorState {
   setTabContentFromDisk: (id: string, content: string) => void;
   markSaved: (id: string) => void;
   /**
-   * RL-070 — flip the per-tab lifecycle marker. Called by the runner
+   * internal — flip the per-tab lifecycle marker. Called by the runner
    * when execution starts (`running`), resolves cleanly (`success`),
    * or fails (`error`). `parseError` accepts an optional one-line
    * explanation that the tab bar surfaces via title tooltip on
@@ -291,17 +291,17 @@ export interface EditorState {
    */
   setTabExecutionState: (id: string, state: TabExecutionState, parseError?: string | null) => void;
   /**
-   * RL-019 Slice 1 — set the runtime mode for a JS/TS tab. No-op
+   * implementation — set the runtime mode for a JS/TS tab. No-op
    * (and a status-notice toast) when:
    *   - the tab does not own a runtime-mode surface (non-JS/TS), or
    *   - the requested mode is not yet implemented (`'node'` until
-   *     Slice 2 lands).
+   *     implementation lands).
    * Telemetry (`runtime.mode_changed`) fires on every successful
    * change.
    */
   setTabRuntimeMode: (id: string, mode: RuntimeMode) => void;
   /**
-   * RL-020 Slice 2 — set the workflow mode for a tab. No-op when:
+   * implementation — set the workflow mode for a tab. No-op when:
    *   - the tab does not exist;
    *   - the language does not support the requested mode (e.g.
    *     `debug` on a Rust tab).
@@ -310,47 +310,47 @@ export interface EditorState {
    */
   setTabWorkflowMode: (id: string, mode: WorkflowMode) => void;
   /**
-   * RL-020 Slice 5 fold C — set the per-tab auto-log override.
+   * implementation note — set the per-tab auto-log override.
    * `null` clears the override so the tab falls back to the
    * per-language Settings default. The mutation is a no-op if:
    *   - the tab does not exist;
    *   - the tab's language is not JS / TS (auto-log is JS/TS-only
-   *     this slice; setting the flag elsewhere would be misleading).
+   *     this change; setting the flag elsewhere would be misleading).
    */
   setTabAutoLogEnabled: (id: string, enabled: boolean | null) => void;
   /**
-   * RL-020 Slice 6 — write the per-tab stdin buffer. `null` clears
+   * implementation — write the per-tab stdin buffer. `null` clears
    * the field. No-op when:
    *   - the tab does not exist;
    *   - the tab's language is not JS / TS / Python (stdin is
-   *     worker-only this slice; the desktop runners stay TODO).
+   *     worker-only this change; the desktop runners stay TODO).
    */
   setTabStdinBuffer: (id: string, text: string | null) => void;
-  /** IT2-F5 — replace the active tab's argv draft (one array item per argument). */
+  /** internal — replace the active tab's argv draft (one array item per argument). */
   setTabInputArgs: (id: string, args: string[] | null) => void;
-  /** IT2-F5 — create/update a named snapshot from the tab's current input. */
+  /** internal — create/update a named snapshot from the tab's current input. */
   saveTabInputSet: (id: string, name: string) => string | null;
-  /** IT2-F5 — load a named snapshot, or detach into an unsaved draft with null. */
+  /** internal — load a named snapshot, or detach into an unsaved draft with null. */
   selectTabInputSet: (id: string, inputSetId: string | null) => void;
-  /** IT2-F5 — rename an existing input snapshot. */
+  /** internal — rename an existing input snapshot. */
   renameTabInputSet: (id: string, inputSetId: string, name: string) => boolean;
-  /** IT2-F5 — remove a snapshot without clearing the currently loaded values. */
+  /** internal — remove a snapshot without clearing the currently loaded values. */
   deleteTabInputSet: (id: string, inputSetId: string) => void;
   /**
-   * RL-020 Slice 7 fold D — set / clear the one-shot extended-timeout
+   * implementation note — set / clear the one-shot extended-timeout
    * override for the next run on the given tab. `executeTabManually`
    * consumes the value once and clears it. `null` clears the field
    * without consuming.
    */
   setTabNextRunTimeoutOverride: (id: string, timeoutMs: number | null) => void;
   /**
-   * RL-020 Slice 8 — write the per-tab `compareWithSnapshotEnabled`
+   * implementation — write the per-tab `compareWithSnapshotEnabled`
    * flag. `null` clears the field (toggle returns to disabled).
    * No-op when the tab does not exist.
    */
   setTabCompareEnabled: (id: string, enabled: boolean | null) => void;
   /**
-   * RL-020 Slice 9 — write the per-tab `variableInspectorEnabled`
+   * implementation — write the per-tab `variableInspectorEnabled`
    * flag. `null` clears the field (toggle returns to disabled).
    * Mutual exclusion with `setTabCompareEnabled` is enforced at the
    * caller level — toggling Variables on flips Compare off, and
@@ -358,13 +358,13 @@ export interface EditorState {
    */
   setTabVariableInspectorEnabled: (id: string, enabled: boolean | null) => void;
   /**
-   * RL-039 Slice B — clear the per-tab recipe binding. Used by the
+   * implementation — clear the per-tab recipe binding. Used by the
    * Recipe panel's explicit unbind action so the persisted
    * session-store copy cannot resurrect the panel after reload.
    */
   clearRecipeBinding: (id: string) => void;
   /**
-   * RL-043 Slice A — create a fresh notebook tab. Wraps `addTab` with
+   * implementation — create a fresh notebook tab. Wraps `addTab` with
    * `kind: 'notebook'` + seeds the companion `useNotebookStore`
    * entry. `language` is the notebook-level display/default cell
    * language used when an importer knows the dominant code-cell
@@ -461,13 +461,13 @@ export interface ConsoleEntry {
   /** Execution time in ms — shown as a badge when set (only on the last entry) */
   executionTime?: number;
   /**
-   * RL-044 Slice 1B — rich payload aligned with the legacy `content` string.
+   * implementation — rich payload aligned with the legacy `content` string.
    * One entry per console-arg; absent on non-JS runners and on the text
    * fallback path. The renderer must always tolerate missing payload.
    */
   payload?: RichOutputPayload[];
   /**
-   * RL-123 / AUDIT-03 — content-equality hash of type + line + content +
+   * implementation detail — content-equality hash of type + line + content +
    * payload shape, computed once at push time.
    * The store uses it to collapse consecutive identical entries without
    * re-running `JSON.stringify` on every render. Optional because callers
@@ -478,7 +478,7 @@ export interface ConsoleEntry {
 }
 
 /**
- * RL-123 / AUDIT-03 — one visible console row after consecutive identical
+ * implementation detail — one visible console row after consecutive identical
  * entries are collapsed. Derived store-side at push time (not on render);
  * `repeatCount >= 2` surfaces the ×N badge. `entry` is the first member of
  * the run and carries its `equalityHash` for the next push's comparison.
@@ -499,18 +499,18 @@ export type ConsolePayloadKindBucket =
   | 'rawText'
   | 'image'
   | 'chart'
-  // RL-044 Slice 1C fold F — Python `BaseException` payloads ship
+  // implementation note — Python `BaseException` payloads ship
   // `kind: 'error'`. The renderer chip family already had an
   // `'errorish'` filter for warn/error entry types; this is the
   // distinct payload-level bucket.
   | 'error'
-  // RL-044 Slice 2a — sandboxed HTML payloads.
+  // implementation — sandboxed HTML payloads.
   | 'html';
 
 export type ConsolePayloadKindFilter = ConsolePayloadKindBucket | 'errorish';
 
 /**
- * UX Sweep T2 fold B — the slice of console state that `clear()` wipes,
+ * accessibility pass — the slice of console state that `clear()` wipes,
  * captured so the Undo toast can put it back without losing rows that
  * arrived after the clear. Holds the three fields `clear()` resets
  * (`entries`, `collapsedEntries`, `hiddenPayloadKinds`); the filter set
@@ -526,7 +526,7 @@ export interface ConsoleClearSnapshot {
 export interface ConsoleState {
   entries: ConsoleEntry[];
   /**
-   * RL-123 / AUDIT-03 — consecutive identical entries collapsed once at
+   * implementation detail — consecutive identical entries collapsed once at
    * push time. The console renders (and then filters) these rows instead
    * of recomputing the collapse + `JSON.stringify` equality on every
    * render. Collapsed groups are homogeneous (same type + content +
@@ -537,7 +537,7 @@ export interface ConsoleState {
   /** Which entry types are currently visible */
   activeFilters: Set<ConsoleEntryType>;
   /**
-   * RL-044 Slice 1B fold A — which payload-kind chips are dimmed-out.
+   * implementation note — which payload-kind chips are dimmed-out.
    * Empty set = all visible. We track *hidden* kinds so the default
    * (no filter applied) does not require pre-populating every kind.
    */
@@ -546,7 +546,7 @@ export interface ConsoleState {
   addEntry: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => void;
   clear: () => void;
   /**
-   * UX Sweep T2 fold B — re-instate a {@link ConsoleClearSnapshot} that
+   * accessibility pass — re-instate a {@link ConsoleClearSnapshot} that
    * `clear()` previously wiped, for the Undo toast. Rows emitted after the
    * clear are appended after the restored snapshot instead of being
    * dropped, so Undo cannot erase new runtime output. No-op-safe:
@@ -562,7 +562,7 @@ export interface ConsoleState {
 export type LayoutPreset = 'horizontal' | 'vertical' | 'editor-only';
 
 /**
- * RL-111 — boot-time session-restore policy. Replaces the legacy
+ * internal — boot-time session-restore policy. Replaces the legacy
  * `restoreSession: boolean`. Three closed states:
  *
  *   - `never`   — ignore the persisted session snapshot; always boot fresh.
@@ -574,7 +574,7 @@ export type LayoutPreset = 'horizontal' | 'vertical' | 'editor-only';
  *   - `always`  — restore the snapshot silently on boot (the legacy
  *                 `restoreSession: true` behavior).
  *
- * The v1→v2 settings migration maps legacy `false → 'ask'` (fold B —
+ * The v1→v2 settings migration maps legacy `false → 'ask'` (implementation note —
  * everyone gets the better default) and `true → 'always'`.
  */
 export type RestoreSessionMode = 'never' | 'ask' | 'always';
@@ -589,11 +589,11 @@ export interface SettingsState {
   layoutPreset: LayoutPreset;
   maxLoopIterations: number;
   restoreSessionMode: RestoreSessionMode;
-  /** RL-095 Slice 2 — sticky Web/Desktop filter on the Language Support Scorecard. */
+  /** implementation — sticky Web/Desktop filter on the Language Support Scorecard. */
   languageScorecardPlatform: ScorecardPlatform;
   formatOnSave: boolean;
   /**
-   * RL-110 — master toggle for smart paste detection. When `true` (default),
+   * internal — master toggle for smart paste detection. When `true` (default),
    * pasting a recognized artifact (share-link, capsule, cURL, stack frame,
    * large JSON) into the editor surfaces a non-blocking import toast. When
    * `false`, every paste is literal. Cmd+Shift+V bypasses detection for a
@@ -601,23 +601,23 @@ export interface SettingsState {
    */
   smartPasteDetectionEnabled: boolean;
   /**
-   * RL-037 Vim mode flag. When `true`, the editor lazy-loads
+   * internal Vim mode flag. When `true`, the editor lazy-loads
    * `monaco-vim` and attaches Vim keybindings to the active Monaco
    * editor.
    */
   vimMode: boolean;
   /**
-   * RL-079 — once-per-install acknowledgement for the trust-boundary
+   * internal — once-per-install acknowledgement for the trust-boundary
    * modal that appears before the first Go/Rust native execution.
    * Persisted so the user only sees the warning until they accept;
    * resettable from Settings → Account → Privacy.
    */
   nativeExecutionAcknowledged: boolean;
   /**
-   * RL-028 sixth slice — opt-in code snapshot for the execution-history
+   * implementation — opt-in code snapshot for the execution-history
    * ring buffer. When true (and the active tier covers
    * `EXECUTION_HISTORY`), each successful or failed run records the
-   * source code at execution time so a follow-up slice can offer
+   * source code at execution time so a follow-up work can offer
    * Replay / Comparison. Snapshots stay in memory only — never
    * persisted, never sent over the network. Defaults to `true` for
    * Pro users; the runtime gate in `executeTabManually` enforces the
@@ -632,14 +632,14 @@ export interface SettingsState {
    */
   telemetryConsent: 'unset' | 'granted' | 'declined';
   /**
-   * RL-069 Slice 3 — clipboard-on-focus apply consent. Default `unset`,
+   * implementation — clipboard-on-focus apply consent. Default `unset`,
    * promoted to `granted` or `declined` by the explicit Settings toggle.
    * The same three-state pattern as `telemetryConsent` so a decline
    * sticks across reloads and the feature never reads without opt-in.
    */
   utilitiesClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
-   * RL-094 Slice 2 fold C — capsule-import clipboard auto-detect
+   * implementation note — capsule-import clipboard auto-detect
    * consent. When the user opens the Capsule Import overlay (e.g.
    * Mod+Shift+Y), if this consent is `granted` and the system
    * clipboard contains a valid capsule JSON, the overlay pre-fills
@@ -650,17 +650,17 @@ export interface SettingsState {
    */
   capsuleImportClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
-   * RL-100 Slice 1 fold F — import-preview clipboard auto-detect
-   * consent. Slice 1 lands the field on the store + sanitized
-   * rehydrate (no Settings UI surface yet); Slice 2 wires the
+   * implementation note — import-preview clipboard auto-detect
+   * consent. implementation lands the field on the store + sanitized
+   * rehydrate (no Settings UI surface yet); implementation wires the
    * actual auto-detect on overlay focus, mirroring the capsule
    * import flow.
    */
   importPreviewClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
-   * RL-025 Slice A — master toggle for the dependency detection
+   * implementation — master toggle for the dependency detection
    * pipeline + bottom-panel Dependencies tab. Default depends on
-   * tier at first rehydrate (fold G): Free → `false` so the
+   * tier at first rehydrate (implementation note): Free → `false` so the
    * disabled Install button never reads as upsell pressure; Pro /
    * Team / Education / Trial → `true` so the panel discovers
    * itself on the next paste. Persisted, so once the user flips it
@@ -669,42 +669,42 @@ export interface SettingsState {
    */
   dependencyDetectionEnabled: boolean;
   /**
-   * RL-019 Slice 1 fold B — default JS/TS runtime mode for newly
+   * implementation note — default JS/TS runtime mode for newly
    * created tabs. `'worker'` mirrors `defaultRuntimeModeFor()` and
-   * stays the only implemented option until Slice 2 lands. Settings
+   * stays the only implemented option until implementation lands. Settings
    * → Editor exposes the selector; the value is per-app, not
    * per-tab (each tab keeps its own choice).
    */
   defaultRuntimeMode: RuntimeMode;
   /**
-   * RL-020 Slice 2 — per-language workflow-mode defaults applied to
+   * implementation — per-language workflow-mode defaults applied to
    * NEWLY CREATED tabs. Existing tabs keep their explicit choice;
    * this map only governs new-tab seeding via `createDefaultTab`.
    * Missing keys fall through to the shared
    * `defaultWorkflowMode(language)` helper, so a sparse map is
-   * sufficient — fold C migration seeds the three Scratchpad
+   * sufficient — implementation note migration seeds the three Scratchpad
    * languages on upgrade so the Settings UI surfaces them visibly.
    */
   workflowModeDefaultsByLanguage: Record<string, WorkflowMode>;
   /**
-   * RL-020 Slice 5 — per-language opt-in for the bare-expression
+   * implementation — per-language opt-in for the bare-expression
    * auto-log mode. Keys are `'javascript'` and `'typescript'` (the
    * two languages whose worker runner threads the auto-log
    * transform). Other keys are stripped on rehydrate; non-boolean
    * values are coerced to `false`. Per-tab overrides via
-   * `FileTab.autoLogEnabled` (fold C) win over this default.
+   * `FileTab.autoLogEnabled` (implementation note) win over this default.
    */
   scratchpadAutoLogByLanguage: Record<string, boolean>;
   /**
-   * RL-119 Slice 1 — default debounce for Browser preview live refresh.
+   * implementation — default debounce for Browser preview live refresh.
    * `0` disables automatic refresh; the two live values are 300 ms and
    * 1,000 ms. A first-line `// @preview-refresh ...` directive can override
    * this preference for one tab without mutating the persisted setting.
    */
   browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval;
   /**
-   * RL-108 — per-language inline-lint enablement. Keyed by language id;
-   * Slice 1 ships `javascript`/`typescript` ON. When `false` for a language,
+   * internal — per-language inline-lint enablement. Keyed by language id;
+   * implementation ships `javascript`/`typescript` ON. When `false` for a language,
    * Monaco's built-in TS/JS squiggles are silenced (via
    * `setMonacoInlineLintEnabled`) and the custom `'lingua-lint'` markers are
    * cleared for that language. Unknown keys are stripped on rehydrate;
@@ -712,7 +712,7 @@ export interface SettingsState {
    */
   inlineLintEnabledByLanguage: Record<string, boolean>;
   /**
-   * RL-020 Slice 6 fold D — master visibility toggle for the
+   * implementation note — master visibility toggle for the
    * bottom-panel `stdin` tab. Default `true` (the tab is offered
    * for JS / TS / Python tabs). When `false`, the BottomPanel
    * strip skips the entry entirely, so users who never use stdin
@@ -720,7 +720,7 @@ export interface SettingsState {
    */
   showStdinPanel: boolean;
   /**
-   * RL-112 — master visibility toggle for the persistent bottom status
+   * internal — master visibility toggle for the persistent bottom status
    * bar (language, problems, cursor position, encoding, indent, Git
    * branch, run status). Default ON desktop / OFF web. When `false` the
    * bar is fully unmounted (not just hidden), so it costs nothing for
@@ -728,7 +728,7 @@ export interface SettingsState {
    */
   showStatusBar: boolean;
   /**
-   * RL-093 Slice 3 — controls whether the variable inspector renders as
+   * implementation — controls whether the variable inspector renders as
    * a draggable `<FloatingVariablesCard>` (default) or as a Variables
    * tab inside the bottom panel. Per-tab `variableInspectorEnabled`
    * still gates visibility on both surfaces; this picks where it
@@ -736,7 +736,7 @@ export interface SettingsState {
    */
   variableInspectorSurface: 'floating' | 'bottom';
   /**
-   * RL-020 Slice 7 — per-language execution timeout preset. Keys are
+   * implementation — per-language execution timeout preset. Keys are
    * the four languages whose runners read the preset
    * (`javascript`, `typescript`, `python`, `go`). Values are the
    * closed-enum `RuntimeTimeoutPreset` tokens. Unknown keys / values
@@ -745,14 +745,14 @@ export interface SettingsState {
    */
   runtimeTimeoutPresetByLanguage: Record<string, RuntimeTimeoutPreset>;
   /**
-   * RL-020 Slice 7 fold E — show a live `mm:ss` countdown in the
+   * implementation note — show a live `mm:ss` countdown in the
    * result-panel pill while a run is in flight. Default `false` so
    * the panel stays quiet by default; users who want the visual cue
    * during long runs opt in via Settings → Editor.
    */
   showTimeoutCountdown: boolean;
   /**
-   * RL-115 Slice 1 — per-line timing master toggle. When on, JS / TS
+   * implementation — per-line timing master toggle. When on, JS / TS
    * runs are instrumented with `__mc_tick` markers and every top-level
    * statement's wall-clock duration renders inline next to its line.
    * Default `false` (the instrumentation adds overhead); an in-buffer
@@ -761,7 +761,7 @@ export interface SettingsState {
    */
   showLineTiming: boolean;
   /**
-   * RL-020 Slice 9 fold G — Settings → Editor master toggle that
+   * implementation note — Settings → Editor master toggle that
    * decides whether new tabs default to having the Variables panel
    * armed. Per-tab `variableInspectorEnabled` always wins when set;
    * this is just the seed for tabs that have not been touched.
@@ -769,7 +769,7 @@ export interface SettingsState {
    */
   showVariableInspectorByDefault: boolean;
   /**
-   * RL-020 Slice 9 fold E — recursion depth the workers walk when
+   * implementation note — recursion depth the workers walk when
    * serializing the scope. `1` is the base scope; `4` is the
    * shared module's cap. Default `1`. Bumping this trades worker
    * time for richer panel data — the user can change it from
@@ -777,7 +777,7 @@ export interface SettingsState {
    */
   variableInspectorScopeDepth: number;
   /**
-   * RL-042 Slice 6 — Ruby runtime dispatcher preference. `auto` (the
+   * implementation — Ruby runtime dispatcher preference. `auto` (the
    * default) prefers the system `ruby` binary when detected and falls
    * back to the bundled `@ruby/wasm-wasi` worker otherwise. `system`
    * forces the desktop subprocess (still falls back to WASM with a
@@ -787,16 +787,16 @@ export interface SettingsState {
    */
   rubyRuntimePreference: 'auto' | 'system' | 'wasm';
   /**
-   * RL-019 Slice 2 fold E — one-shot dismissal flag for the
+   * implementation note — one-shot dismissal flag for the
    * "Node mode runs your code with full filesystem and network
    * access" trust notice. Set the first time the user successfully
    * runs a Node-mode tab; the notice does not re-surface on
-   * subsequent runs. Resettable from Settings if a future slice
+   * subsequent runs. Resettable from Settings if a future work
    * surfaces the toggle.
    */
   nodeRunnerFirstRunNoticeShown: boolean;
   /**
-   * RL-020 Slice 2 fold F — one-shot acknowledgement flag for the
+   * implementation note — one-shot acknowledgement flag for the
    * "Scratchpad auto-runs as you type; Run waits for Cmd+R"
    * onboarding toast. Set to `true` the first time the user switches
    * a tab away from Scratchpad; the toast never re-fires after that.
@@ -805,7 +805,7 @@ export interface SettingsState {
    */
   firstWorkflowModeSwitchAcknowledged: boolean;
   /**
-   * RL-101 Slice 1 — onboarding choreography one-shot flags. Each
+   * implementation — onboarding choreography one-shot flags. Each
    * flag flips to `true` the first time its stage fires; resettable
    * from Settings → General → Onboarding so users can replay any
    * stage. Default `false` so a fresh install sees the full
@@ -815,7 +815,7 @@ export interface SettingsState {
   hasCompletedOnboardingFirstRun: boolean;
   hasCompletedOnboardingFirstSnippet: boolean;
   /**
-   * RL-101 fold E — seed-version tracker for the welcome scratchpad.
+   * implementation — seed-version tracker for the welcome scratchpad.
    * Bumping `SEEDED_SCRATCHPAD_VERSION` on a future demo improvement
    * re-arms the seed for users whose persisted value is older,
    * regardless of `hasCompletedOnboardingWelcome`.
@@ -873,7 +873,7 @@ export interface SettingsState {
    */
   themePack: string;
   /**
-   * RL-097 Slice 1 — Sensitive HTTP header allowlist. Names listed
+   * implementation — Sensitive HTTP header allowlist. Names listed
    * here are redacted in the HTTP workspace response history + on
    * exported capsules. The baseline list
    * (`BASELINE_SENSITIVE_HEADERS` in `src/shared/httpWorkspace.ts`)
@@ -884,7 +884,7 @@ export interface SettingsState {
    */
   sensitiveHttpHeaders: string[];
   /**
-   * RL-097 Slice 2 — SQL workspace row preview cap. Sets the upper
+   * implementation — SQL workspace row preview cap. Sets the upper
    * bound on rows rendered in `<SqlResultPreview>`. The runtime
    * also caps at `MAX_RESULT_ROWS` (10 000) regardless; this knob
    * lets users dial the panel further down (100 / 500 / 1000 /
@@ -892,14 +892,14 @@ export interface SettingsState {
    */
   sqlWorkspaceRowDisplayLimit: 100 | 500 | 1000 | 5000;
   /**
-   * RL-097 Slice 2 — SQL query default timeout. DuckDB-WASM has no
+   * implementation — SQL query default timeout. DuckDB-WASM has no
    * native abort, so the runtime layer races a Promise against this
    * timeout. Default 30 s, capped at `MAX_QUERY_TIMEOUT_MS` (5 min)
    * by the runtime regardless of this value.
    */
   sqlWorkspaceQueryTimeoutMs: number;
   /**
-   * RL-097 Slice 3 (SQL OPFS) — opt into persisting the SQL workspace
+   * implementation (SQL OPFS) — opt into persisting the SQL workspace
    * DuckDB database to this browser's OPFS so tables + rows survive a
    * reload. Default `false` (the workspace is an in-memory scratchpad).
    * The runtime falls back to in-memory whenever OPFS is unavailable,
@@ -908,7 +908,7 @@ export interface SettingsState {
    */
   sqlWorkspacePersistTables: boolean;
   /**
-   * IT2-C1 — opt into the local Run Ledger: manual runs recorded into
+   * internal — opt into the local Run Ledger: manual runs recorded into
    * the `lingua_ledger` schema of the SQL workspace's DuckDB database.
    * It stores source hashes plus metadata-only capsule summaries; source,
    * input, output, and diagnostics never persist. Default `false`;
@@ -917,7 +917,7 @@ export interface SettingsState {
    */
   runLedgerEnabled: boolean;
   /**
-   * RL-043 Slice C fold D — language seeded into a new notebook code
+   * implementation Slice C implementation note — language seeded into a new notebook code
    * cell by the "Add code" toolbar button. Only the two runnable cell
    * languages are offered; defaults to `'javascript'`.
    */
@@ -931,35 +931,35 @@ export interface SettingsState {
   setLayoutPreset: (preset: LayoutPreset) => void;
   setMaxLoopIterations: (max: number) => void;
   setRestoreSessionMode: (mode: RestoreSessionMode) => void;
-  /** RL-095 Slice 2 — set the scorecard's Web/Desktop platform filter. */
+  /** implementation — set the scorecard's Web/Desktop platform filter. */
   setLanguageScorecardPlatform: (platform: ScorecardPlatform) => void;
   toggleFormatOnSave: () => void;
-  /** RL-110 — flip the smart-paste detection master toggle. */
+  /** internal — flip the smart-paste detection master toggle. */
   toggleSmartPasteDetection: () => void;
   toggleVimMode: () => void;
-  /** RL-079 — flip the native-execution acknowledgement flag. */
+  /** internal — flip the native-execution acknowledgement flag. */
   setNativeExecutionAcknowledged: (value: boolean) => void;
   toggleExecutionHistorySnapshot: () => void;
   setTelemetryConsent: (next: 'granted' | 'declined') => void;
-  /** RL-069 Slice 3 — flip clipboard-on-focus consent (granted/declined). */
+  /** implementation — flip clipboard-on-focus consent (granted/declined). */
   setUtilitiesClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /**
-   * RL-094 Slice 2 fold C — flip capsule-import clipboard consent.
+   * implementation note — flip capsule-import clipboard consent.
    * Same `'granted' | 'declined'` discipline as the utilities consent
    * so a single Settings setter never widens the closed enum.
    */
   setCapsuleImportClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /**
-   * RL-100 Slice 1 fold F — set the import-preview clipboard consent.
+   * implementation note — set the import-preview clipboard consent.
    * Closed enum mirrors the capsule-import + utilities setters.
    */
   setImportPreviewClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
-  /** RL-025 Slice A — flip the dependency detection master switch. */
+  /** implementation — flip the dependency detection master switch. */
   toggleDependencyDetectionEnabled: () => void;
   /**
-   * RL-101 Slice 1 — three reset setters wired to the Settings →
+   * implementation — three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut
-   * (fold D), and the palette commands (fold G). Each flips the
+   * (implementation note), and the palette commands (implementation note). Each flips the
    * corresponding `hasCompletedOnboarding*` flag back to `false`.
    * `resetOnboardingWelcome` additionally resets
    * `onboardingWelcomeSeedVersion` so the latest seed is re-applied.
@@ -968,7 +968,7 @@ export interface SettingsState {
   resetOnboardingFirstRun: () => void;
   resetOnboardingFirstSnippet: () => void;
   /**
-   * RL-101 Slice 1 — stage-completion setters. Called by
+   * implementation — stage-completion setters. Called by
    * `useOnboardingChoreography` after each toast fires so the
    * stage never repeats. `markOnboardingWelcomeCompleted` also
    * stamps the seed-version tracker.
@@ -991,75 +991,75 @@ export interface SettingsState {
   }) => void;
   setLanguage: (language: AppLanguage) => void;
   /**
-   * RL-019 Slice 1 fold B — set the per-app default JS/TS runtime
+   * implementation note — set the per-app default JS/TS runtime
    * mode for newly created tabs. Existing tabs keep their own
    * runtime mode; only `createDefaultTab` reads this preference.
    * Rejects (no-op) for modes that are not yet implemented.
    */
   setDefaultRuntimeMode: (mode: RuntimeMode) => void;
   /**
-   * RL-043 Slice C fold D — set the default language for new notebook
+   * implementation Slice C implementation note — set the default language for new notebook
    * code cells. Rejects (no-op) anything outside the runnable pair.
    */
   setNotebookDefaultCellLanguage: (
     language: 'javascript' | 'typescript'
   ) => void;
   /**
-   * RL-020 Slice 2 — set the default workflow mode for a language.
+   * implementation — set the default workflow mode for a language.
    * No-op when the language does not support the requested mode.
    * `null` clears the user override and falls back to the shared
    * `defaultWorkflowMode(language)` helper.
    */
   setWorkflowModeDefault: (language: string, mode: WorkflowMode | null) => void;
   /**
-   * RL-020 Slice 5 — set the per-language default for bare-expression
+   * implementation — set the per-language default for bare-expression
    * auto-log mode. No-op for any language outside the JS / TS pair.
    * Emits `runtime.auto_log_enabled` telemetry with closed-enum
    * payload `{ language, enabled }`.
    */
   setScratchpadAutoLogDefault: (language: string, enabled: boolean) => void;
-  /** RL-119 Slice 1 — set the closed Browser preview refresh interval. */
+  /** implementation — set the closed Browser preview refresh interval. */
   setBrowserPreviewRefreshInterval: (
     intervalMs: BrowserPreviewRefreshInterval
   ) => void;
   /**
-   * RL-108 — flip inline lint for one language. No-op for languages outside
+   * internal — flip inline lint for one language. No-op for languages outside
    * the supported set ({@link SETTINGS_INLINE_LINT_LANGUAGE_SET}). Pure state
    * write; the diagnostic-adoption signal rides
    * `editor.lint_diagnostic_emitted`, not the toggle.
    */
   setInlineLintEnabled: (language: string, enabled: boolean) => void;
   /**
-   * RL-020 Slice 6 fold D — flip the master visibility toggle for
+   * implementation note — flip the master visibility toggle for
    * the bottom-panel `stdin` tab.
    */
   toggleShowStdinPanel: () => void;
   /**
-   * RL-112 — set the master visibility toggle for the persistent bottom
+   * internal — set the master visibility toggle for the persistent bottom
    * status bar. Emits `editor.status_bar_toggled` ({ enabled }) telemetry
    * on real change only.
    */
   setShowStatusBar: (enabled: boolean) => void;
-  /** RL-093 Slice 3 — switch the variable inspector surface. */
+  /** implementation — switch the variable inspector surface. */
   setVariableInspectorSurface: (surface: 'floating' | 'bottom') => void;
   /**
-   * RL-020 Slice 7 — set the per-language timeout preset. Rejects
+   * implementation — set the per-language timeout preset. Rejects
    * (no-op) for languages outside the supported set
    * (`javascript`, `typescript`, `python`, `go`) and for unknown
    * preset tokens. Fires `runtime.timeout_preset_changed` telemetry
-   * (fold A) with closed-enum `{ language, preset }` payload.
+   * (implementation note) with closed-enum `{ language, preset }` payload.
    */
   setRuntimeTimeoutPreset: (language: string, preset: RuntimeTimeoutPreset) => void;
   /**
-   * RL-020 Slice 7 fold E — flip the countdown-in-pill toggle.
+   * implementation note — flip the countdown-in-pill toggle.
    */
   toggleShowTimeoutCountdown: () => void;
-  /** RL-115 Slice 1 — flip the per-line timing toggle. */
+  /** implementation — flip the per-line timing toggle. */
   toggleShowLineTiming: () => void;
-  /** RL-042 Slice 6 — set the Ruby runtime dispatcher preference. */
+  /** implementation — set the Ruby runtime dispatcher preference. */
   setRubyRuntimePreference: (preference: 'auto' | 'system' | 'wasm') => void;
   /**
-   * RL-020 Slice 2 fold F — mark the workflow-mode onboarding toast
+   * implementation note — mark the workflow-mode onboarding toast
    * acknowledged. Idempotent. Called when the user explicitly
    * dismisses or just sees the toast.
    */
@@ -1073,38 +1073,38 @@ export interface SettingsState {
   clearShortcutOverride: (id: string) => void;
   resetShortcutOverrides: () => void;
   /**
-   * RL-097 Slice 1 — Add a header name to the sensitive-headers
+   * implementation — Add a header name to the sensitive-headers
    * allowlist. Lowercases + trims before insert; dedupes against
    * the BASELINE list and the existing user list (no-op when
    * already present).
    */
   addSensitiveHttpHeader: (name: string) => void;
   /**
-   * RL-097 Slice 1 — Remove a USER-added header name from the
+   * implementation — Remove a USER-added header name from the
    * allowlist. The baseline list is immutable from this seam;
    * attempts to remove a baseline name no-op silently.
    */
   removeSensitiveHttpHeader: (name: string) => void;
   /**
-   * RL-097 Slice 2 — Update the SQL row display cap. Setter accepts
+   * implementation — Update the SQL row display cap. Setter accepts
    * any of the four canonical values; unknown values clamp to the
    * default 1000.
    */
   setSqlWorkspaceRowDisplayLimit: (value: 100 | 500 | 1000 | 5000) => void;
   /**
-   * RL-097 Slice 2 — Update the SQL query default timeout in
+   * implementation — Update the SQL query default timeout in
    * milliseconds. Setter clamps to `MAX_QUERY_TIMEOUT_MS` (5 min)
    * and floors at 1 s; non-finite values reset to the 30 s default.
    */
   setSqlWorkspaceQueryTimeoutMs: (value: number) => void;
   /**
-   * RL-097 Slice 3 (SQL OPFS) — toggle SQL workspace table persistence.
+   * implementation (SQL OPFS) — toggle SQL workspace table persistence.
    * Coerces non-boolean inputs to `false`. The change applies to the
    * next DuckDB instantiate (reload or "Reconnect now"); the live engine
    * is not migrated mid-session.
    */
   setSqlWorkspacePersistTables: (value: boolean) => void;
-  /** IT2-C1 — toggle the local Run Ledger (see `runLedgerEnabled`). */
+  /** internal — toggle the local Run Ledger (see `runLedgerEnabled`). */
   setRunLedgerEnabled: (value: boolean) => void;
   /**
    * Apply a named keymap preset. Replaces `shortcutOverrides` with the
@@ -1149,14 +1149,14 @@ export interface ExecutionContext {
    */
   debug?: boolean;
   /**
-   * RL-027 Slice 1 — tab id of the source being executed. The
+   * implementation — tab id of the source being executed. The
    * debugger runner reads breakpoints + watches from the debugger
    * store keyed by this id, so a run on a different tab does not
    * trigger pauses set on another tab.
    */
   tabId?: string;
   /**
-   * RL-020 Slice 5 — JS / TS auto-log mode. When `true` the JS / TS
+   * implementation — JS / TS auto-log mode. When `true` the JS / TS
    * runner runs a second source transform that replaces every
    * top-level bare expression statement with an `__mc(line, value)`
    * capture (after the magic-comment transform) so values surface
@@ -1167,7 +1167,7 @@ export interface ExecutionContext {
    */
   autoLog?: boolean;
   /**
-   * RL-115 Slice 1 — per-line timing via the Settings toggle. When
+   * implementation — per-line timing via the Settings toggle. When
    * `true` the JS / TS runner prefixes every top-level statement with
    * a `__mc_tick(line)` marker so the worker can attribute wall-clock
    * time per statement. A `// @time` magic comment in the buffer
@@ -1176,7 +1176,7 @@ export interface ExecutionContext {
    */
   lineTiming?: boolean;
   /**
-   * RL-020 Slice 6 — pre-set stdin buffer the worker consumes for
+   * implementation — pre-set stdin buffer the worker consumes for
    * `prompt()` / `readline()` (JS / TS) or `input()` (Python).
    * Newline-delimited; each call consumes one line. Empty /
    * undefined ⇒ native worker behavior. Layered onto the existing
@@ -1184,10 +1184,10 @@ export interface ExecutionContext {
    * ignore the field harmlessly.
    */
   stdin?: string;
-  /** IT2-F5 — argv from the active input set; unsupported runners ignore it. */
+  /** internal — argv from the active input set; unsupported runners ignore it. */
   args?: string[];
   /**
-   * RL-020 Slice 7 — the resolved preset that produced the active
+   * implementation — the resolved preset that produced the active
    * `timeout`. Used by `runnerTimeoutResult` to populate the
    * `RunStatusPill` tooltip with the human-readable preset name
    * ("Run hit the quick limit (5s)"). When `'override'` the run is
@@ -1198,13 +1198,13 @@ export interface ExecutionContext {
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
   /**
-   * RL-119 Slice 1 — BrowserPreviewRunner keeps the last successful srcdoc
+   * implementation — BrowserPreviewRunner keeps the last successful srcdoc
    * visible when a silent live refresh errors, times out, or is superseded.
    * Manual runs omit this flag and keep their explicit stop semantics.
    */
   preserveBrowserPreviewOnFailure?: boolean;
   /**
-   * RL-020 Slice 9 — when `true`, the runner asks its worker to
+   * implementation — when `true`, the runner asks its worker to
    * capture the post-execute scope and emit a `ScopeSnapshot` on
    * the resulting `ExecutionResult`. Runners that do not implement
    * scope capture ignore the field harmlessly. The runtime layers
@@ -1216,14 +1216,14 @@ export interface ExecutionContext {
    */
   captureScope?: boolean;
   /**
-   * RL-020 Slice 9 fold E — recursion depth for the scope walker
+   * implementation note — recursion depth for the scope walker
    * (1–4). `1` is the base scope and matches the renderer's
    * "1-level expand" UX. The runtime threads the user's Settings
    * preference here; runners clamp to the shared `MAX_SCOPE_DEPTH`.
    */
   scopeDepth?: number;
   /**
-   * RL-043 Slice B — when `true`, the runner asks its worker to ALSO
+   * implementation — when `true`, the runner asks its worker to ALSO
    * post the run's structured return value (e.g. the notebook's
    * `{ stdout, stderr, sessionDelta }` object) as live data on
    * `ExecutionResult.structuredResult`, bypassing the display-only
@@ -1235,7 +1235,7 @@ export interface ExecutionContext {
    */
   captureStructuredResult?: boolean;
   /**
-   * T17 — per-notebook Python kernel scope. When set (the notebook session
+   * implementation — per-notebook Python kernel scope. When set (the notebook session
    * passes the notebook's tabId), the Python worker runs the cell against a
    * persistent namespace dedicated to that scope, so cells in one notebook
    * share state while staying isolated from the editor scratchpad and other
@@ -1253,10 +1253,10 @@ export interface ExecutionError {
   endColumn?: number;
   stack?: string;
   /**
-   * RL-044 Slice 2b-α — structured stack frames parsed by the worker
+   * implementation — structured stack frames parsed by the worker
    * (`parseJsErrorStack` / `parsePythonTraceback`). The renderer reads
    * these to build a `kind: 'error'` payload with clickable frames
-   * (Sub-slice F). Absent when the worker can't parse a stack — the
+   * . Absent when the worker can't parse a stack — the
    * legacy text path still renders the message + location.
    */
   frames?: import('../../shared/errorStack').ClickableStackFrame[];
@@ -1276,11 +1276,11 @@ export interface MagicCommentResult {
   line: number;
   value: string;
   /**
-   * RL-020 Slice 3 / Slice 5 — which magic-comment shape produced
+   * implementation — which magic-comment shape produced
    * this entry. `'arrow'` for the original `//=>` / `#=>` ad-hoc
    * peek; `'watch'` for the `// @watch <expr>` / `# @watch <expr>`
    * pinned watch; `'autoLog'` for the JS / TS bare-expression
-   * auto-log surface added in Slice 5. Runners populate this from
+   * auto-log surface added in implementation. Runners populate this from
    * `magicCommentKindsByLine(language, source, options)` before
    * dispatch. Optional so a future runner that emits magic results
    * without a transform pass (e.g. a future REPL adapter) doesn't
@@ -1288,19 +1288,19 @@ export interface MagicCommentResult {
    */
   kind?: 'arrow' | 'watch' | 'autoLog';
   /**
-   * RL-044 Slice 1A — optional structured payload the runner
+   * implementation — optional structured payload the runner
    * attached after detecting a rich-output directive (`//=> table`)
    * or auto-detecting an array of plain objects. `value` stays the
    * canonical string fallback every renderer surface already reads;
    * `payload` adds the typed companion that the inline pill upgrades
-   * to a `Table(N×M)` summary (Slice 1A) and the console panel will
-   * render as an interactive widget (Slice 1B).
+   * to a `Table(N×M)` summary  and the console panel will
+   * render as an interactive widget .
    */
   payload?: RichOutputPayload;
 }
 
 /**
- * RL-115 Slice 1 — wall-clock duration of one top-level statement,
+ * implementation — wall-clock duration of one top-level statement,
  * attributed to the statement's first line. Produced by the worker's
  * `__mc_tick` delta accumulator, batched on a single `line-timing`
  * message right before `done`.
@@ -1316,7 +1316,7 @@ export interface ExecutionResult {
   stderr: ConsoleOutput[];
   result?: unknown;
   executionTime: number;
-  /** RL-115 — per-statement timings; present only when instrumented. */
+  /** internal — per-statement timings; present only when instrumented. */
   lineTimings?: LineTimingEntry[];
   /**
    * True when the user explicitly stopped execution. Cancelled runs
@@ -1327,7 +1327,7 @@ export interface ExecutionResult {
   error?: ExecutionError;
   magicResults?: MagicCommentResult[];
   /**
-   * RL-020 Slice 6 fold G — stdin consumption summary. Populated by
+   * implementation note — stdin consumption summary. Populated by
    * runners whose worker pulled at least one line out of the pre-set
    * buffer; the StdinInputPanel reads this to render
    * "Used N of M line(s)". `total` is the number of lines in the
@@ -1337,7 +1337,7 @@ export interface ExecutionResult {
    */
   stdinConsumed?: { count: number; total: number };
   /**
-   * RL-020 Slice 7 — explicit termination kind. The renderer's
+   * implementation — explicit termination kind. The renderer's
    * `<RunStatusPill>` self-gates on this field rather than
    * reverse-engineering the kind from `error.message`. `'success'`
    * is the default when no `error` and no `cancelled` flag fires;
@@ -1347,19 +1347,19 @@ export interface ExecutionResult {
    */
   kind?: 'success' | 'error' | 'timeout' | 'stopped';
   /**
-   * RL-020 Slice 7 — when `kind === 'timeout'`, names the preset
+   * implementation — when `kind === 'timeout'`, names the preset
    * that fired the limit. `'override'` when the run was driven by
    * an explicit caller timeout (one-shot extended / magic-comment).
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
   /**
-   * RL-020 Slice 7 — the actual timeout in ms that armed the run.
+   * implementation — the actual timeout in ms that armed the run.
    * Surfaces in the `RunStatusPill` tooltip + the timed-out result
    * message.
    */
   timeoutMs?: number;
   /**
-   * RL-020 Slice 9 — post-execute variable scope captured by the
+   * implementation — post-execute variable scope captured by the
    * worker. `null` when the runner does not implement capture OR
    * the run errored / timed out / was cancelled. The result store
    * stores the most recent non-null snapshot so the inspector
@@ -1367,7 +1367,7 @@ export interface ExecutionResult {
    */
   scopeSnapshot?: ScopeSnapshot | null;
   /**
-   * RL-043 Slice B — the run's structured return value, posted by the
+   * implementation — the run's structured return value, posted by the
    * worker when the caller set `ExecutionContext.captureStructuredResult`.
    * Unlike `result` (a display string the worker serializes + truncates
    * at `MAX_RESULT_BYTES`), this carries the live value through the
@@ -1384,7 +1384,7 @@ export interface ConsoleOutput {
   args: string[];
   line?: number;
   /**
-   * RL-044 Slice 1B — rich payload aligned by index with `args`. The legacy
+   * implementation — rich payload aligned by index with `args`. The legacy
    * `args` string array still ships as the text fallback for non-JS runners
    * + Settings opt-out + payload-missing edge cases. Renderers must treat
    * this as additive: when absent, fall back to `args`.
@@ -1431,7 +1431,7 @@ export interface LanguageRunner {
   isReady(): boolean;
 }
 
-// IT2-A4 — the stale `WorkerRequest` union that used to live here is
+// internal — the stale `WorkerRequest` union that used to live here is
 // gone: nothing imported it, its shape had drifted from what the runner
 // actually posts (no `stop` message exists — runners `terminate()`), and
 // it silently omitted the debugger-control variants. The REAL inbound
@@ -1443,7 +1443,7 @@ export interface LanguageRunner {
 /**
  * Messages sent from the worker to the main thread.
  *
- * RL-078 — every `execute` request carries an opaque `runId` minted
+ * internal — every `execute` request carries an opaque `runId` minted
  * by the parent. The worker echoes it on every reply so the parent
  * can drop messages from a previous (terminated-by-timeout) run.
  *
@@ -1459,23 +1459,23 @@ export type WorkerResponse =
       args: string[];
       line?: number;
       /**
-       * RL-044 Slice 1B — additive typed payload aligned by index
+       * implementation — additive typed payload aligned by index
        * with `args`. Absent from runners that don't emit rich
        * payloads (Python / Go / Rust today); the renderer text path
        * stays the canonical fallback.
        */
       payload?: RichOutputPayload[];
       /**
-       * RL-044 Slice 1B fold F — adoption signal for `console.table()`.
+       * implementation note — adoption signal for `console.table()`.
        * The runner promotes this into a `runtime.console_table_called`
        * telemetry event; never read by the panel.
        */
       consoleTableInvoked?: boolean;
       /**
-       * RL-044 Slice 2b-α — rich-media helper rejection marker emitted
+       * implementation — rich-media helper rejection marker emitted
        * by the JS / Python worker bridges. Runner-side telemetry
        * forwarding (`runtime.rich_media_payload_rejected`) landed in
-       * Slice 2b-β-β-α fold A; all three runners (JS / TS / Python)
+       * implementation-β-β-α implementation note; all three runners (JS / TS / Python)
        * read this field and fire-and-forget the event.
        */
       richMediaRejected?: {
@@ -1488,7 +1488,7 @@ export type WorkerResponse =
       runId: string;
       value?: unknown;
       /**
-       * RL-043 Slice B — structured return value forwarded losslessly
+       * implementation — structured return value forwarded losslessly
        * via the postMessage structured clone when the execute request
        * set `captureStructuredResult`. The runner threads this onto
        * `ExecutionResult.structuredResult`; absent for normal runs.
@@ -1514,7 +1514,7 @@ export type WorkerResponse =
       line: number;
       value: string;
       /**
-       * RL-044 Slice 1C fold D — when the source carried a `#=> table`
+       * implementation note — when the source carried a `#=> table`
        * directive, the Python worker computes a forced-table payload
        * alongside the legacy stringified `value`. JS / TS workers
        * currently leave this absent and the renderer recovers a
@@ -1525,7 +1525,7 @@ export type WorkerResponse =
     }
   | {
       /**
-       * IT2-D3 — live download progress while a WASM runtime
+       * internal — live download progress while a WASM runtime
        * bootstraps (Pyodide / Ruby). `totalBytes` is null when the
        * server sent no Content-Length (progress is indeterminate).
        * Best-effort: absence of these messages never blocks a boot.
@@ -1537,7 +1537,7 @@ export type WorkerResponse =
     }
   | {
       /**
-       * RL-115 Slice 1 — batched per-statement timings the worker
+       * implementation — batched per-statement timings the worker
        * posts once, right before `done` (and on the error path, for
        * the statements that DID complete). Only present when the
        * runner instrumented the source with `__mc_tick` markers.
@@ -1547,7 +1547,7 @@ export type WorkerResponse =
       entries: LineTimingEntry[];
     }
   | {
-      // RL-027 Slice 1 — debugger pause from the JS worker. Carries
+      // implementation — debugger pause from the JS worker. Carries
       // the source line, the locals snapshot, the call stack, and any
       // watch-result placeholders for the UI drawer.
       type: 'paused';
@@ -1562,7 +1562,7 @@ export type WorkerResponse =
   | { type: 'resumed'; runId: string }
   | {
       /**
-       * RL-020 Slice 6 fold G — stdin consumption summary the worker
+       * implementation note — stdin consumption summary the worker
        * posts right before `done`. `count` is the number of lines the
        * program actually consumed; `total` is the size of the
        * pre-set buffer the worker received. Omitted entirely when
@@ -1575,7 +1575,7 @@ export type WorkerResponse =
     }
   | {
       /**
-       * RL-020 Slice 9 — post-execute scope snapshot. The worker
+       * implementation — post-execute scope snapshot. The worker
        * captures `globalThis` (JS) or `globals()` (Python) after the
        * user code resolves, filters internal helpers + boot-time
        * names, and walks each remaining binding via the shared

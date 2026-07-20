@@ -1,5 +1,5 @@
 /**
- * RL-093 / T8 — logic hook backing {@link FloatingActionPill}.
+ * internal / implementation — logic hook backing {@link FloatingActionPill}.
  *
  * Holds every store subscription, derived value, and handler the
  * floating pill needs so the component file stays a thin presentational
@@ -46,7 +46,7 @@ const FULL_PILL_WIDTH = 820;
 const COMPACT_PILL_WIDTH = 560;
 const RIGHT_EDITOR_HEADER_RESERVE = 420;
 
-// RL-093 — workflow and runtime are TWO orthogonal axes:
+// internal — workflow and runtime are TWO orthogonal axes:
 //   workflowMode: scratchpad | run | debug   — what kind of execution
 //   runtimeMode : worker | node | browser-preview — what engine
 //
@@ -82,11 +82,11 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const setTabRuntimeMode = useEditorStore((s) => s.setTabRuntimeMode);
   const setTabWorkflowMode = useEditorStore((s) => s.setTabWorkflowMode);
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
-  // RL-093 — Lingua doesn't currently surface an "autosave" setting; the
+  // internal — Lingua doesn't currently surface an "autosave" setting; the
   // pill shows a static green status dot per the design intent (the
   // editor saves locally on every keystroke today).
   const autoSaveEnabled = true;
-  // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+  // implementation — debugger is baseline; the Settings master toggle is gone.
   const debuggerEnabled = true;
   const historyEntries = useExecutionHistoryStore((s) => s.entries);
   const effectiveTier = useEffectiveTier();
@@ -212,7 +212,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     addTab(tab);
   };
 
-  // RL-093 Slice 3 — the unified mode-aware action button fires the
+  // implementation — the unified mode-aware action button fires the
   // current workflow's primary action. `run` and `debug` mode both
   // call the runner (with the debug flag for the latter). In
   // `scratchpad` mode the runner is normally driven by edit-time
@@ -233,7 +233,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     void run();
   };
 
-  // RL-093 follow-up — Run stays clickable even with no tab so the
+  // internal follow-up — Run stays clickable even with no tab so the
   // primary surface keeps the workflow-menu reachable (the chevron
   // next to Run is how the user picks scratchpad / run / debug
   // upfront). The Lang / Runtime / Workflow chip handlers below

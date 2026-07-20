@@ -136,7 +136,7 @@ export function registerFileOperationHandlers(): void {
     }
   );
 
-  // RL-137 / AUDIT-17 — read-only classification so the renderer can show an
+  // implementation detail — read-only classification so the renderer can show an
   // actionable, localized denial (and a privacy-safe `fs.blocked` telemetry
   // signal that names only the family, never the path) when a reopen or pick is
   // refused by the denylist. Mints no capability; performs no disk write.
@@ -508,7 +508,7 @@ export function registerFileOperationHandlers(): void {
 
   // ---------------------------------------------------------- reveal in OS finder
 
-  // RL-024 Slice 1 fold A — open the OS file manager (Finder /
+  // implementation note — open the OS file manager (Finder /
   // Explorer / Nautilus) with the entry selected. Resolves the
   // capability so an attacker-controlled `relativePath` can never
   // escape the project root. `shell.showItemInFolder` is a synchronous
@@ -521,7 +521,7 @@ export function registerFileOperationHandlers(): void {
     'fs:reveal-in-finder',
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
-      // RL-024 Slice 1 fold A — `shell.showItemInFolder` is a void
+      // implementation note — `shell.showItemInFolder` is a void
       // best-effort call that silently no-ops when the entry no
       // longer exists. A small TOCTOU window remains (`stat` →
       // `showItemInFolder`), but probing here lets the renderer

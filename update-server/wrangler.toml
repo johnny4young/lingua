@@ -5,7 +5,7 @@ compatibility_date = "2025-04-01"
 # GITHUB_TOKEN is set via `pnpm exec wrangler secret put GITHUB_TOKEN`
 # GITHUB_OWNER and GITHUB_REPO can be overridden as secrets or left as defaults in code
 
-# Custom domain for production. Slice 5 of RL-061 surfaces this
+# Custom domain for production. implementation of internal surfaces this
 # subdomain via the renderer's update banner (GET /web/version).
 # The desktop autoupdater (src/main/updater.ts) ALSO hits this
 # subdomain for /update/:platform/:version, so once the route is

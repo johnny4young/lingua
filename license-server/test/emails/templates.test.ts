@@ -1,5 +1,5 @@
 /**
- * Snapshot tests for the 6 email HTML templates (RL-061 Slice 4).
+ * Snapshot tests for the 6 email HTML templates .
  *
  * Each template gets rendered against a fixture set of variables,
  * and the output is snapshotted to `__snapshots__/`. A copy or

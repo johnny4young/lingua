@@ -11,7 +11,7 @@ export function StringInspectorPanel() {
   const [input, setInput] = useState('hello\u200Bworld');
   const report = useMemo(() => inspectString(input), [input]);
 
-  // RL-069 Slice 2 \u2014 the panel's value is its analysis; the canonical
+  // implementation \u2014 the panel's value is its analysis; the canonical
   // copyable output is a one-line summary "Nx graphemes \u00B7 Mx UTF-16 \u00B7
   // Bx bytes" so a quick Cmd+Shift+C lands the headline numbers in
   // the clipboard.

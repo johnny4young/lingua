@@ -178,7 +178,7 @@ describe('SqlSchemaBrowser', () => {
     expect(screen.queryByTestId('sql-schema-browser-columns')).toBeNull();
   });
 
-  it('renders the storage chip per mode (RL-097 Slice 3 OPFS)', () => {
+  it('renders the storage chip per mode (implementation OPFS)', () => {
     // Persistent: opfs mode + a usage label.
     const { rerender } = render(
       <SqlSchemaBrowser

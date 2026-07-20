@@ -1,9 +1,9 @@
 /**
- * RL-100 Slice 1 — Importer registry.
+ * implementation — Importer registry.
  *
  * Single source of truth for `id → adapter` lookup. Mirrors
- * `src/shared/utilities/registry.ts` (set as precedent by RL-099
- * Slice 1) so a future fourth registry doesn't have to invent its
+ * `src/shared/utilities/registry.ts` (set as precedent by internal
+ * implementation) so a future fourth registry doesn't have to invent its
  * own shape.
  *
  * Adding an importer means:
@@ -63,9 +63,9 @@ export function listImporters(): ReadonlyArray<ImporterAdapter<unknown, unknown>
 /**
  * Best-effort auto-detection — runs `detect(source)` on every
  * registered importer and returns the first match's id, or `null`
- * if nothing claims the input. Slice 1 only has one importer so
+ * if nothing claims the input. implementation only has one importer so
  * this is trivially `'curl-http'` for inputs starting with `curl `;
- * the shape stays useful for Slice 2+ when multiple importers
+ * the shape stays useful for implementation when multiple importers
  * could compete.
  */
 export function detectImporter(source: string): ImporterId | null {

@@ -20,11 +20,11 @@ depends on plugin discovery before you can execute a `.lua` file.
   behind Lingua's Lua plugin. No `lua` / `luajit` binary is required
   on the host once that plugin path is active.
 - Monaco ships Lua syntax highlighting out of the box — `.lua`
-  files open with the correct language id automatically (RL-055).
-- Keyword completions for the standard Lua vocabulary (RL-056).
+  files open with the correct language id automatically.
+- Keyword completions for the standard Lua vocabulary.
 - `print(...)` is captured and surfaced through the inline result
   panel so the output shows next to the line that produced it.
-- The Lua pack is first-class inside the RL-038 LanguagePack
+- The Lua pack is first-class inside the internal LanguagePack
   descriptor, which means file-extension detection, language badge,
   and runner dispatch now flow through the same single source of
   truth as JavaScript and TypeScript once the plugin is registered.
@@ -40,12 +40,12 @@ depends on plugin discovery before you can execute a `.lua` file.
   browser-capable runtime in theory.
 - No Lua format-on-save. Lingua's formatter IPC ships gofmt,
   rustfmt, ruff, and Prettier — no Lua formatter yet. This is a
-  future RL-010 extension, not something the current build claims.
-- No Lua debugger. Debugger work is tracked as RL-027 and targets
+  future internal extension, not something the current build claims.
+- No Lua debugger. Debugger work is tracked as internal and targets
   JavaScript first.
 - No LSP-grade intelligence. Completions today are the keyword
-  vocabulary (RL-056); richer IntelliSense is tied to the generic
-  LSP work in RL-026.
+  vocabulary; richer IntelliSense is tied to the generic
+  LSP work in internal
 - No `luarocks` / native-dependency flow. Fengari is the runtime —
   modules that need compiled C cannot load here.
 

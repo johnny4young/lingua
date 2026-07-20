@@ -31,8 +31,8 @@ toolchain, inside a Monaco editor.
 - You need a local Go toolchain installed. Web builds honestly
   surface this as "desktop only" rather than silently failing.
 - No Go LSP integration yet — only Monaco's keyword completion. A
-  real LSP path is tracked as RL-026.
-- No debugger integration — RL-027 is the design record.
+  real LSP path is tracked as internal
+- No debugger integration — internal is the design record.
 - Module caching is yours: Lingua does not manage your `GOPATH` or
   module proxy.
 

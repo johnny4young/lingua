@@ -1,9 +1,9 @@
 /**
- * RL-095 Slice 1 — Language Support Scorecard typed matrix.
+ * implementation — Language Support Scorecard typed matrix.
  *
- * "Language support" in Lingua is not a single bit. RL-042 surfaced
+ * "Language support" in Lingua is not a single bit. internal surfaced
  * nine distinct axes that vary per language across platforms (web vs
- * desktop). Without a typed matrix, each new language slice invented
+ * desktop). Without a typed matrix, each new language implementation invented
  * its own status field and `docs/CAPABILITY_MATRIX.md` drifted with
  * every commit.
  *
@@ -19,7 +19,7 @@
  *     worst, and the render layer maps each state to a fixed color
  *     token so dashboards and users read the same signal.
  *   - `LanguageSupportProfile` — one row per language. `capabilities`
- *     is the default per-axis status; `perPlatform` (fold C) records
+ *     is the default per-axis status; `perPlatform` (implementation note) records
  *     web/desktop overrides only for axes that differ.
  *   - `LANGUAGE_SUPPORT_PROFILES` — seven entries (JS, TS, Python,
  *     Go, Rust, Ruby, Lua) covering every supported language in
@@ -70,7 +70,7 @@ export type LanguageCapabilityStatus =
  *   - `stdin` — runtime supports pre-set stdin buffer.
  *   - `richOutput` — chart / image / html / table payloads via the
  *     `lingua.*` bridge.
- *   - `debugger` — breakpoints + step + watch via the RL-027 surface.
+ *   - `debugger` — breakpoints + step + watch via the internal surface.
  */
 export type LanguageCapability =
   | 'syntax'
@@ -107,7 +107,7 @@ export const LANGUAGE_CAPABILITY_STATUSES: readonly LanguageCapabilityStatus[] =
 ] as const;
 
 /**
- * Per-platform override. RL-095 Slice 1 fold C — for axes whose
+ * Per-platform override. implementation note — for axes whose
  * status differs between web and desktop (e.g. Ruby's `webRuntime`
  * is `partial` via wasm-wasi while `desktopRuntime` is `available`
  * via system gem). When `perPlatform[capability]` is absent, the
@@ -127,7 +127,7 @@ export interface LanguageSupportProfile {
   capabilities: Record<LanguageCapability, LanguageCapabilityStatus>;
   /** Optional per-axis tooltip explaining a `partial` or caveat. */
   notes?: Partial<Record<LanguageCapability, string>>;
-  /** Optional per-axis platform overrides (fold C). */
+  /** Optional per-axis platform overrides (implementation note). */
   perPlatform?: Partial<Record<LanguageCapability, LanguagePlatformStatus>>;
 }
 
@@ -160,7 +160,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages:
         'Desktop Node runner resolves node_modules on the host. Web build runs in a sealed worker with no package install.',
       debugger:
-        'RL-027 Slice 1.5 shipped breakpoints + step. Conditional breakpoints + watch expressions gated under Slice 1.5b security review.',
+        'Breakpoints and stepping ship. Conditional breakpoints and watch expressions await security review.',
     },
   },
   {
@@ -182,7 +182,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages:
         'Desktop Node runner pre-transpiles via esbuild-wasm and resolves node_modules on the host.',
       debugger:
-        'Source-map composition via @jridgewell/trace-mapping pauses at user line. Conditional breakpoints + watch expressions gated under RL-027 Slice 1.5b.',
+        'Source-map composition pauses at the user line. Conditional breakpoints and watch expressions await security review.',
     },
   },
   {
@@ -206,9 +206,9 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages:
         'micropip works for pure-Python wheels at runtime. No persistent venv yet.',
       richOutput:
-        'RL-044 Slice 2b-beta-beta-alpha shipped chart / image / html via __lingua.* bridge.',
+        'Chart, image, and HTML helpers ship via __lingua.*.',
       debugger:
-        'No Pyodide debugger integration yet. Tracked under RL-027 follow-ups.',
+        'No Pyodide debugger integration yet. Tracked under internal follow-ups.',
     },
   },
   {
@@ -301,7 +301,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// RL-095 Slice 2 — per-platform resolution (Web | Desktop toggle)
+// implementation — per-platform resolution (Web | Desktop toggle)
 // ---------------------------------------------------------------------------
 
 /**
@@ -330,7 +330,7 @@ export const RUNTIME_CAPABILITIES: ReadonlySet<LanguageCapability> = new Set<Lan
 );
 
 /**
- * RL-095 Slice 2 — resolve a capability's effective status for ONE
+ * implementation — resolve a capability's effective status for ONE
  * platform. Precedence:
  *
  *   1. An explicit `perPlatform[capability][platform]` override wins
@@ -364,15 +364,15 @@ export function resolveCapabilityStatus(
 }
 
 // ---------------------------------------------------------------------------
-// Markdown renderer (used by docs guard test + Fold F palette command)
+// Markdown renderer (used by docs guard test + implementation note palette command)
 // ---------------------------------------------------------------------------
 
 /**
- * RL-095 Slice 1 — single source of truth for the scorecard
+ * implementation — single source of truth for the scorecard
  * markdown representation. `tests/docs/capabilityMatrixDrift.test.ts`
  * regenerates the fenced section of `docs/CAPABILITY_MATRIX.md` from
  * this function and asserts byte equality; the palette command "Copy
- * language scorecard as Markdown" (fold F) consumes the same output
+ * language scorecard as Markdown" (implementation note) consumes the same output
  * so the clipboard payload matches the doc verbatim.
  *
  * Output uses GitHub-flavored markdown tables with one column per
@@ -390,7 +390,7 @@ export function renderLanguageScorecardMarkdown(
   const rows = profiles.map((profile) => [
     profile.displayName,
     ...LANGUAGE_CAPABILITIES.map((cap) => {
-      // RL-095 Slice 2 — `all` keeps the declared cross-platform status;
+      // implementation — `all` keeps the declared cross-platform status;
       // `web` / `desktop` collapse to the resolved per-platform status.
       const status =
         platform === 'all'

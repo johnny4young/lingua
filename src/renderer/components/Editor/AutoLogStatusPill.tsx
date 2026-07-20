@@ -1,5 +1,5 @@
 /**
- * RL-020 Slice 5 fold E — ambient pill that surfaces in the result-
+ * implementation note — ambient pill that surfaces in the result-
  * panel header when the active tab is in JS / TS Scratchpad mode AND
  * the bare-expression auto-log feature is active for that tab. Tells
  * the user "this is why your buffer suddenly has inline values
@@ -7,7 +7,7 @@
  *
  * Mirrors the visual language of `<StdinStatusPill>` and
  * `<AutoRunGateNotice>` so the row stays scannable. Reads the per-tab
- * override (fold C) layered on top of the per-language Settings
+ * override (implementation note) layered on top of the per-language Settings
  * default — the same resolution `useAutoRun.ts` uses.
  */
 

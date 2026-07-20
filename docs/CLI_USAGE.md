@@ -1,6 +1,6 @@
 # Lingua CLI Usage
 
-Slice 1 (RL-098). The CLI is a thin, headless surface over the same
+implementation. The CLI is a thin, headless surface over the same
 shared utility adapters and capsule schema the desktop app uses. It
 runs offline. It does not load Electron, React, or any renderer-only
 code.
@@ -39,7 +39,7 @@ pnpm uninstall --global lingua
 ### `lingua utility <utility-id>`
 
 Runs a single utility adapter against an input. Adapters are pure
-functions extracted from the renderer in RL-099 Slice 1.
+functions extracted from the renderer in implementation
 
 ```bash
 echo '{"a":1}' | lingua utility json-format
@@ -58,8 +58,7 @@ Flags:
 - `--option key=value` — pass adapter options. Repeated. The available
   keys for each adapter are listed by `lingua list utilities --json`.
 - `--json` — emit `{ ok, value?, reason?, detail? }` on stdout
-  instead of plain text. Stable across releases (RL-098 Slice 1
-  fold F snapshot tests pin the shape).
+  instead of plain text. Stable across releases (implementation detail snapshot tests pin the shape).
 - `--quiet` — suppress error stderr. Success stdout is preserved so
   pipelines stay byte-stable.
 
@@ -111,22 +110,22 @@ Adding new codes is allowed; renumbering existing ones is forbidden
 | 0 | `ok` | Success. |
 | 1 | `userInputError` | Bad CLI args, unknown utility id, missing file, malformed `--option`, schema-rejected input. |
 | 2 | `runtimeError` | Adapter returned `{ ok: false, reason }`. |
-| 3 | `unsupportedCapability` | Adapter declared a `binary` output kind (reserved for Slice 2+ adapters). |
+| 3 | `unsupportedCapability` | Adapter declared a `binary` output kind (reserved for implementation adapters). |
 | 4 | `internal` | Caught exception we did not classify. |
 
-## Out of scope (Slice 2+)
+## Out of scope
 
 - `lingua capsule replay` — depends on extracting the runner
   adapters out of the renderer.
 - `lingua run <file>` — same dependency.
-- `lingua lesson validate` — depends on RL-039 Slice B shipping.
+- `lingua lesson validate` — depends on implementation shipping.
 - Standalone binaries (`pkg`, `nexe`) and Windows code-signing —
-  Slice 3+.
-- Shell completions (`lingua completion bash|zsh|fish`) — Slice 2
+  implementation.
+- Shell completions (`lingua completion bash|zsh|fish`) — implementation
   follow-up.
-- Localized CLI copy — Slice 2+ (English-only Slice 1, consistent
+- Localized CLI copy — implementation (English-only implementation, consistent
   with `electron-forge` / `electron-builder` precedent).
-- TTY color codes / `--color=auto` — Slice 2+.
+- TTY color codes / `--color=auto` — implementation.
 
 ## CI integration tips
 

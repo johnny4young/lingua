@@ -1,5 +1,5 @@
 /**
- * RL-044 Slice 1B fold G — rich console output performance defense.
+ * implementation note — rich console output performance defense.
  *
  * Sizing rationale: a flooded scratchpad emits up to ~1 k console
  * entries before the user reads them. We bench `serializeRichValue`
@@ -10,7 +10,7 @@
  * Settings → Editor's user-driven typing on hot loops.
  *
  * Budget: 750 ms wall clock for 1 000 iterations (~750 µs / entry).
- * Mirrors RL-020 Slice 5 fold F's auto-log detector lock (5 000
+ * Mirrors implementation note's auto-log detector lock (5 000
  * iter / 750 ms) — same wall-clock budget, fewer iterations because
  * the per-entry work is heavier (a real Map / nested object walk).
  */

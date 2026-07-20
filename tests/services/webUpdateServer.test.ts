@@ -1,5 +1,5 @@
 /**
- * RL-061 Slice 5 — pin the `/web/version` fetch wrapper contract.
+ * implementation — pin the `/web/version` fetch wrapper contract.
  *
  * Renderer never sees a real worker in tests. We mock `fetch` at the
  * global level and pin (a) the request URL, (b) the happy path

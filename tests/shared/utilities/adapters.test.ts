@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — utility adapter unit tests.
+ * implementation — utility adapter unit tests.
  *
  * Covers the shared utility adapter registry — happy path + reject path
  * + parseOptions shape guard. Keeps the test surface single-file since
@@ -229,7 +229,7 @@ describe('diffTextAdapter', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RL-099 Slice 4 — vocabulary expansion adapters.
+// implementation — vocabulary expansion adapters.
 // ---------------------------------------------------------------------------
 
 describe('hashAdapter', () => {
@@ -464,8 +464,8 @@ describe('html entity adapters', () => {
   });
 });
 
-// RL-099 Slice 6 — vocabulary expansion round 2.
-describe('numberBaseAdapter (RL-099 Slice 6)', () => {
+// implementation — vocabulary expansion round 2.
+describe('numberBaseAdapter ', () => {
   it('auto-detects a hex literal and converts to decimal', async () => {
     const r = await numberBaseAdapter.run('0xFF', {
       from: 'auto',
@@ -475,7 +475,7 @@ describe('numberBaseAdapter (RL-099 Slice 6)', () => {
     expect(r.ok && r.value).toBe('255');
   });
 
-  it('converts decimal to binary with the 0b prefix (fold G)', async () => {
+  it('converts decimal to binary with the 0b prefix (implementation note)', async () => {
     const r = await numberBaseAdapter.run('10', {
       from: '10',
       to: '2',
@@ -526,7 +526,7 @@ describe('numberBaseAdapter (RL-099 Slice 6)', () => {
   });
 });
 
-describe('lineSortAdapter (RL-099 Slice 6)', () => {
+describe('lineSortAdapter ', () => {
   it('sorts ascending by codepoint and preserves a trailing newline', async () => {
     const r = await lineSortAdapter.run('banana\napple\ncherry\n', {
       direction: 'asc',
@@ -547,7 +547,7 @@ describe('lineSortAdapter (RL-099 Slice 6)', () => {
     expect(r.ok && r.value).toBe('a\nb');
   });
 
-  it('sorts numerically (natural order) when enabled (fold D)', async () => {
+  it('sorts numerically (natural order) when enabled (implementation note)', async () => {
     const r = await lineSortAdapter.run('item10\nitem2\nitem1', {
       direction: 'asc',
       caseInsensitive: false,
@@ -589,7 +589,7 @@ describe('lineSortAdapter (RL-099 Slice 6)', () => {
   });
 });
 
-describe('slugifyAdapter (RL-099 Slice 6)', () => {
+describe('slugifyAdapter ', () => {
   it('slugifies with accent folding and lowercasing', async () => {
     const r = await slugifyAdapter.run('  Crème Brûlée! ', {
       separator: 'hyphen',
@@ -624,7 +624,7 @@ describe('slugifyAdapter (RL-099 Slice 6)', () => {
   });
 });
 
-describe('jsonMinifyAdapter (RL-099 Slice 6 fold B)', () => {
+describe('jsonMinifyAdapter (implementation note)', () => {
   it('minifies valid JSON', async () => {
     const r = await jsonMinifyAdapter.run('{\n  "a": 1,\n  "b": [2, 3]\n}', {});
     expect(r.ok && r.value).toBe('{"a":1,"b":[2,3]}');
@@ -644,7 +644,7 @@ describe('jsonMinifyAdapter (RL-099 Slice 6 fold B)', () => {
   });
 });
 
-describe('textStatsAdapter (RL-099 Slice 6 fold C)', () => {
+describe('textStatsAdapter (implementation note)', () => {
   it('counts lines, words, characters, and bytes', async () => {
     const r = await textStatsAdapter.run('hello world\nsecond line', {});
     expect(r.ok).toBe(true);
@@ -676,7 +676,7 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/u;
 
-describe('uuidAdapter (RL-099 Slice 7)', () => {
+describe('uuidAdapter ', () => {
   it('emits the default count of v4 ids, one per line', async () => {
     const result = await uuidAdapter.run('', uuidAdapter.defaultOptions());
     expect(result.ok).toBe(true);
@@ -693,7 +693,7 @@ describe('uuidAdapter (RL-099 Slice 7)', () => {
     expect(ulid.ok && ulid.value).toMatch(ULID);
   });
 
-  it('strips hyphens when hyphens is false (fold B)', async () => {
+  it('strips hyphens when hyphens is false (implementation note)', async () => {
     const result = await uuidAdapter.run('', { format: 'v4', count: '1', hyphens: false });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -729,7 +729,7 @@ describe('uuidAdapter (RL-099 Slice 7)', () => {
   });
 });
 
-describe('loremIpsumAdapter (RL-099 Slice 7)', () => {
+describe('loremIpsumAdapter ', () => {
   it('opens with the classic phrase by default', async () => {
     const result = await loremIpsumAdapter.run('', loremIpsumAdapter.defaultOptions());
     expect(result.ok).toBe(true);
@@ -778,7 +778,7 @@ describe('loremIpsumAdapter (RL-099 Slice 7)', () => {
   });
 });
 
-describe('stringInspectAdapter (RL-099 Slice 7)', () => {
+describe('stringInspectAdapter ', () => {
   async function run(input: string): Promise<string> {
     const result = await stringInspectAdapter.run(input, {});
     expect(result.ok).toBe(true);
@@ -809,7 +809,7 @@ describe('stringInspectAdapter (RL-099 Slice 7)', () => {
     expect(value).not.toContain('Code points: 1');
   });
 
-  it('flags zero-width and bidi-control code points (fold E)', async () => {
+  it('flags zero-width and bidi-control code points (implementation note)', async () => {
     expect(await run('a\u200Bb')).toContain('Warnings: zero-width 1, bidi-control 0');
     // BiDi range nests inside zero-width — precedence counts it as bidi.
     expect(await run('\u202E')).toContain('Warnings: zero-width 0, bidi-control 1');
@@ -822,9 +822,9 @@ describe('stringInspectAdapter (RL-099 Slice 7)', () => {
   });
 });
 
-// Fold D — registry + i18n completeness guard. Every closed-enum id must
+// implementation note — registry + i18n completeness guard. Every closed-enum id must
 // have a registry adapter AND title/description keys in BOTH locales.
-describe('adapter registry completeness (RL-099 Slice 4 fold D)', () => {
+describe('adapter registry completeness (implementation note)', () => {
   const en = enCommon as Record<string, string>;
   const es = esCommon as Record<string, string>;
 

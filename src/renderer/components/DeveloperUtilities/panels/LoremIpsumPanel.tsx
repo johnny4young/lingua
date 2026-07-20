@@ -55,7 +55,7 @@ export function LoremIpsumPanel() {
     setOutput(generateLorem({ unit, count, startWithClassic }));
   };
 
-  // RL-069 Slice 2 — pure generator: no detect, no Apply button.
+  // implementation — pure generator: no detect, no Apply button.
   const registerOutput = useCallback(() => output || null, [output]);
   useRegisterUtilityOutput(registerOutput);
 

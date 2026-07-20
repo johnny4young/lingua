@@ -1,17 +1,17 @@
 /**
- * RL-025 Slice A + Slice B — bottom-panel "Dependencies" tab body.
+ * implementation — bottom-panel "Dependencies" tab body.
  *
- * Slice A shipped read-only detection with a disabled Install button.
- * Slice B wires the Install path: a click on a `'detected'` row (or
- * the "Install all" header button — fold F) calls into main via
+ * implementation shipped read-only detection with a disabled Install button.
+ * implementation wires the Install path: a click on a `'detected'` row (or
+ * the "Install all" header button — implementation note) calls into main via
  * `window.lingua.dependencies.installJs`, transitions the row(s) to
  * `'installing'`, streams subprocess output into an inline log
  * surface, and updates the row(s) to `'installed'` / `'failed'` /
  * `'detected'` (on cancel) when the batch finishes.
  *
- * Folds active in this surface:
+ * implementation note in this surface:
  *   - A — refuses click when the resolved cwd has no `package.json`
- *     (the renderer learns the flag from the Slice A resolver).
+ *     (the renderer learns the flag from the implementation resolver).
  *   - B — single-spawn batched install. Multiple clicks within
  *     `BATCH_WINDOW_MS` coalesce into one npm invocation.
  *   - C — pre-flight integrity check happens in main; the panel
@@ -77,7 +77,7 @@ const STATUS_I18N_KEY: Record<DependencyStatus, string> = {
 };
 
 /**
- * Fold B — coalescing window. A user clicking through several rows
+ * implementation note — coalescing window. A user clicking through several rows
  * in quick succession after a paste collapses into a single `npm
  * install pkg1 pkg2 pkg3` invocation rather than N sequential
  * spawns. The window is small enough that single deliberate clicks
@@ -90,14 +90,14 @@ interface PanelContext {
   /** Tooltip key when the row's Install button is disabled. */
   readonly disabledReasonKey: string | null;
   /**
-   * RL-025 Slice C — tooltip key when the Install button is
+   * implementation — tooltip key when the Install button is
    * ENABLED. Used to surface backend-specific hints (e.g. "Install
    * via Pyodide micropip" on the Python web path). `null` falls
    * back to the generic Install button label.
    */
   readonly enabledHintKey: string | null;
   /**
-   * RL-025 Slice C reviewer fix — tooltip key for rows whose
+   * implementation reviewer fix — tooltip key for rows whose
    * status is `'unsupported'`. Python web tabs surface a more
    * informative "Pyodide has no compatible wheel for this package"
    * instead of the generic `disabledTooltip`. `null` falls back to
@@ -105,7 +105,7 @@ interface PanelContext {
    */
   readonly unsupportedTooltipKey: string | null;
   /**
-   * RL-025 Slice C — when the panel is rendering a Python tab on
+   * implementation — when the panel is rendering a Python tab on
    * web, the install path is Pyodide micropip (not npm). Drives a
    * different click handler in `performInstall` so we don't try to
    * call `bridge.installJs` for Python rows.
@@ -119,7 +119,7 @@ function buildPanelContext(args: {
   readonly cwdHasPackageJson: boolean | null;
   readonly language: DependencyAdapterLanguage | null;
 }): PanelContext {
-  // RL-025 Slice C — Python web has its own install path via Pyodide
+  // implementation — Python web has its own install path via Pyodide
   // micropip. No filesystem involved → skip the unsaved-tab and
   // missing-package.json gates. `enabledHintKey` surfaces the
   // Pyodide nature in the tooltip so the user knows the install
@@ -129,7 +129,7 @@ function buildPanelContext(args: {
       canInstall: true,
       disabledReasonKey: null,
       enabledHintKey: 'dependencies.install.pythonWebReadyTooltip',
-      // RL-025 Slice C — a Python web row that ends up
+      // implementation — a Python web row that ends up
       // `'unsupported'` was rejected by Pyodide micropip for a
       // native wheel; the tooltip surfaces that root cause.
       unsupportedTooltipKey: 'dependencies.install.pythonUnsupportedTooltip',
@@ -249,7 +249,7 @@ export function DependenciesPanel() {
   const filePath = activeTab?.filePath ?? null;
   const tabId = activeTab?.id ?? null;
 
-  // Fold B — coalescing buffer for rapid clicks. We accumulate
+  // implementation note — coalescing buffer for rapid clicks. We accumulate
   // names in a ref and flush after `BATCH_WINDOW_MS` of inactivity.
   const pendingBatchRef = useRef<{ readonly names: Set<string> } | null>(null);
   const flushTimerRef = useRef<number | null>(null);
@@ -258,7 +258,7 @@ export function DependenciesPanel() {
   const performInstall = useCallback(
     async (names: readonly string[]) => {
       if (!tabId || !language || names.length === 0) return;
-      // Desktop JS/TS keeps the Slice B contract: needs a filePath
+      // Desktop JS/TS keeps the implementation contract: needs a filePath
       // because main resolves cwd from it. Python web bypasses
       // filesystem entirely — `filePath` is permitted to be null.
       if (!isPythonWeb && !filePath) return;
@@ -270,7 +270,7 @@ export function DependenciesPanel() {
         let failureReason: DependencyInstallFailureReason | null;
         const perNameStatus: Record<string, DependencyStatus> = {};
         if (isPythonWeb) {
-          // RL-025 Slice C — Pyodide micropip path. Service module
+          // implementation — Pyodide micropip path. Service module
           // shares the worker with PythonRunner so the install is
           // visible to the next Run.
           const { installPython } = await import(
@@ -284,7 +284,7 @@ export function DependenciesPanel() {
           });
           outcome = result.outcome;
           failureReason = result.failureReason;
-          // RL-025 Slice C reviewer fix — `micropip.install` accepts
+          // implementation reviewer fix — `micropip.install` accepts
           // a batch but reports one batch-level error. When the user
           // installs a single Python package and it comes back as
           // `'unsupported-wheel'`, we know that wheel is the
@@ -526,8 +526,8 @@ export function DependenciesPanel() {
       {logVisible ? (
         <InstallLogSurface
           isRunning={isInstalling}
-          // RL-025 Slice C — Pyodide doesn't expose mid-microtask
-          // cancel semantics + fold D was rejected, so Python web
+          // implementation — Pyodide doesn't expose mid-microtask
+          // cancel semantics + implementation note was rejected, so Python web
           // installs hide the Cancel button. The log still streams
           // and the install runs to completion (or 90 s soft
           // timeout via `pythonWebInstaller`).
@@ -560,7 +560,7 @@ function DependencyRow({
   readonly disabledReasonKey: string | null;
   readonly enabledHintKey: string | null;
   /**
-   * RL-025 Slice C reviewer fix — tooltip key for `'unsupported'`
+   * implementation reviewer fix — tooltip key for `'unsupported'`
    * rows. Python web tabs surface a more informative
    * "Pyodide has no compatible wheel for this package" instead of
    * the generic `disabledTooltip`. `null` falls back to the
@@ -571,7 +571,7 @@ function DependencyRow({
 }) {
   const { t } = useTranslation();
   const status = dep.status;
-  // RL-025 Slice C — `canInstall` is the panel-context's verdict
+  // implementation — `canInstall` is the panel-context's verdict
   // (Python web is installable even though `isWeb === true`). Drop
   // the blanket `isWeb` check from disabled-state and trust
   // `canInstall` so the Python web path can enable the button.
@@ -653,7 +653,7 @@ function InstallLogSurface({
 }: {
   readonly isRunning: boolean;
   /**
-   * RL-025 Slice C — when false, suppress the Cancel button even
+   * implementation — when false, suppress the Cancel button even
    * while the install is in flight. Python web installs are
    * uninterruptible; showing a Cancel that does nothing is
    * misleading UX.

@@ -140,7 +140,7 @@ jobs:
       - name: Run blocking production audit
         run: pnpm run check:prod-audit
       - name: Run advisory full audit
-        run: pnpm audit --audit-level high
+        run: pnpm audit --internal high
         continue-on-error: true
 
   build-macos:
@@ -197,7 +197,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # SR-52 — both arches must land. Until 0.12.0 the release shipped
+          # internal — both arches must land. Until 0.12.0 the release shipped
           # arm64 only, so an Intel Mac had nothing to download; a silent x64
           # packaging failure must fail the job rather than ship half a release.
           for arch in arm64 x64; do

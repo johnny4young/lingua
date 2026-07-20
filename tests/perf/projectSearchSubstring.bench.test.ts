@@ -1,10 +1,10 @@
 /**
- * RL-024 Slice 1 fold G — `fs:searchInFiles` substring latency
+ * implementation note — `fs:searchInFiles` substring latency
  * defense.
  *
  * The main-process handler in `src/main/ipc/fileSystem.ts:670` reads
  * each file, splits on newlines, and runs `indexOf` per line — pure
- * substring, no regex. A future slice that promotes the handler to
+ * substring, no regex. A future work that promotes the handler to
  * regex / glob support would change the algorithmic complexity; this
  * bench locks the substring path so we notice. Mirrors the
  * `consoleRich.bench.test.ts` pattern (single-iteration ceiling).

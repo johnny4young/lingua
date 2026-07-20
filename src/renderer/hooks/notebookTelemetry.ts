@@ -1,8 +1,8 @@
 /**
- * RL-043 Slice B fold B — Notebook cell-run telemetry.
+ * implementation Slice B implementation note — Notebook cell-run telemetry.
  *
  * Single closed-enum event `notebook.cell_executed { language, status }`.
- *   - `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET (Slice A: `'javascript'`).
+ *   - `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET (implementation: `'javascript'`).
  *   - `status` ∈ NOTEBOOK_CELL_STATUSES_SET (`'ok' | 'error' | 'stopped'`).
  *
  * NO cell source, NO output bytes reach the wire. Mirrored on
@@ -30,7 +30,7 @@ export function trackNotebookCellExecuted(
 }
 
 /**
- * RL-043 Slice (Monaco cells) fold E — fire when a cell's Monaco editor
+ * implementation Slice (Monaco cells) implementation note — fire when a cell's Monaco editor
  * mounts (the user entered edit mode). `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET;
  * an adoption + perf signal (do Monaco-backed cells slow large notebooks?).
  * NO cell source on the wire.
@@ -42,7 +42,7 @@ export function trackNotebookCellEditorMounted(
 }
 
 /**
- * RL-043 Slice C fold E — fire when the user switches a cell's language
+ * implementation Slice C implementation note — fire when the user switches a cell's language
  * via the per-cell selector. `to` ∈ NOTEBOOK_CELL_LANGUAGES_SET; an
  * adoption signal for TypeScript cells. NO cell source on the wire.
  */
@@ -53,15 +53,15 @@ export function trackNotebookCellLanguageChanged(
 }
 
 /**
- * RL-043 Slice D fold D — closed enum of notebook export formats. `script`
+ * implementation Slice D implementation note — closed enum of notebook export formats. `script`
  * is the language-aware `.js`/`.ts`/`.py`/`.txt` export; `ipynb` is the
- * Jupyter nbformat v4 export; `linguanb` (RL-043 Slice E) is the native
+ * Jupyter nbformat v4 export; `linguanb`  is the native
  * lossless `.linguanb` document export.
  */
 export type NotebookExportFormat = 'script' | 'ipynb' | 'linguanb';
 
 /**
- * RL-043 Slice D fold D — fire when the user exports a notebook. `format`
+ * implementation Slice D implementation note — fire when the user exports a notebook. `format`
  * ∈ NOTEBOOK_EXPORT_FORMATS_SET; an adoption signal for the Jupyter export.
  * NO cell source / title on the wire.
  */

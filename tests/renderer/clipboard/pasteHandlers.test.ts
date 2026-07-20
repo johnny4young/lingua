@@ -4,7 +4,7 @@ import { NON_SECRET_TEST_JWT } from '../../__fixtures__/jwt';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
 
 /**
- * RL-110 — locks the pure paste-intent detectors. Each must fire on the real
+ * internal — locks the pure paste-intent detectors. Each must fire on the real
  * artifact (reusing the shipped parsers) and, critically, NEVER fire on the
  * look-alikes that show up in normal code (the conservative "must NOT fire"
  * suite is the whole point of shipping detection that mutates the buffer).
@@ -57,7 +57,7 @@ describe('detectPasteIntent — positive detection', () => {
   });
 });
 
-describe('detectPasteIntent — IT2-F4 utility suggestions', () => {
+describe('detectPasteIntent — internal utility suggestions', () => {
   function expectUtility(text: string, utilityId: string) {
     const intent = detectPasteIntent(text);
     expect(intent?.kind).toBe('utility');
@@ -119,7 +119,7 @@ describe('detectPasteIntent — IT2-F4 utility suggestions', () => {
   });
 });
 
-describe('detectPasteIntent — IT2-F4 must NOT fire on code look-alikes', () => {
+describe('detectPasteIntent — internal must NOT fire on code look-alikes', () => {
   it('ignores JS duration arithmetic that matches the cron shape', () => {
     expect(detectPasteIntent('5 * 60 * 1000')).toBeNull();
     expect(detectPasteIntent('24 * 60 * 60 * 1000')).toBeNull();

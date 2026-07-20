@@ -26,7 +26,7 @@ const metadata = packageJson as PackageJsonMetadata;
 /**
  * Turn the raw package.json `license` value into something suitable for the
  * About surface. SPDX expressions like `SEE LICENSE IN LICENSE` (the shape
- * npm recommends for non-OSS commercial licenses — see RL-062) read as
+ * npm recommends for non-OSS commercial licenses — see internal) read as
  * noise to an end user, so we map them to a friendly `Commercial` label.
  * Real SPDX ids pass through unchanged.
  */

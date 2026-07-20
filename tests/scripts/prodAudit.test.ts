@@ -12,7 +12,7 @@ import {
 } from '../../scripts/lib/prodAudit.mjs';
 
 /**
- * RL-145 — locks the production-dependency audit gate. The "synthetic high
+ * locks the production-dependency audit gate. The "synthetic high
  * advisory fails CI" acceptance criterion is proven here with fixture audit
  * JSON (a live registry advisory cannot be injected), exercising both the
  * pure evaluator and the real CLI through `--fixture`.
@@ -144,7 +144,7 @@ describe('evaluateProdAudit', () => {
 });
 
 describe('formatProdAuditFailure', () => {
-  it('renders a remediation hint with url, path, and pnpm why (fold C)', () => {
+  it('renders a remediation hint with url, path, and pnpm why ()', () => {
     const result = evaluateProdAudit(auditFixture([{ id: '110', severity: 'high', module: 'evil-dep' }]));
     const report = formatProdAuditFailure(result);
     expect(report).toContain('[high] evil-dep');
@@ -177,9 +177,13 @@ describe('scripts/assert-prod-audit.mjs (CLI)', () => {
     return fixturePath;
   }
 
-  function runCli(args: string[]): { status: number; stdout: string; stderr: string } {
+  function runCli(
+    args: string[],
+    env: NodeJS.ProcessEnv = process.env
+  ): { status: number; stdout: string; stderr: string } {
     const result = spawnSync(process.execPath, ['scripts/assert-prod-audit.mjs', ...args], {
       encoding: 'utf8',
+      env,
     });
     return { status: result.status ?? 1, stdout: result.stdout, stderr: result.stderr };
   }
@@ -204,7 +208,7 @@ describe('scripts/assert-prod-audit.mjs (CLI)', () => {
   });
 
   it('fails closed on a malformed fixture (exit 1)', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'lingua-prod-audit-bad-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'lingua-prod-internal'));
     tempDirs.push(root);
     const fixturePath = path.join(root, 'bad.json');
     await writeFile(fixturePath, 'not-json{');
@@ -221,13 +225,14 @@ describe('scripts/assert-prod-audit.mjs (CLI)', () => {
     // that legitimately goes red when a real prod advisory lands). So we
     // accept either the clean pass or any of our named fail-closed messages,
     // but never a crash, hang, or spawn-not-found.
-    const result = runCli([]);
+    const result = runCli([], { ...process.env, LINGUA_PROD_AUDIT_TIMEOUT_MS: '3000' });
     const output = result.stdout + result.stderr;
     const ranThroughOurCode =
       output.includes('prod-audit: ok') || // clean prod graph
       output.includes('Production dependency audit found') || // a real advisory
       output.includes('could not parse audit JSON') || // unparseable payload
       output.includes('pnpm audit produced no JSON') || // registry/network failure
+      output.includes('Could not run pnpm audit') || // bounded network timeout
       output.includes('cannot verify the production graph'); // malformed payload
     expect(ranThroughOurCode, `unexpected CLI output: ${output}`).toBe(true);
     // Exit is binary and deterministic: 0 (clean) or 1 (fail-closed). Never a

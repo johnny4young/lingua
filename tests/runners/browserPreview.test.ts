@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 3 — BrowserPreviewRunner + iframe bridge tests.
+ * implementation — BrowserPreviewRunner + iframe bridge tests.
  *
  * Coverage:
  *
@@ -10,7 +10,7 @@
  *     discriminator + the serializer + console / error /
  *     unhandledrejection / done forwarders).
  *   - `buildPreviewDocument` injects user code verbatim (with
- *     literal close-script-tag sequences escaped), splices fold-A
+ *     literal close-script-tag sequences escaped), splices implementation note
  *     sibling sources, and carries the strict CSP meta tag.
  *   - `isBridgeMessage` accepts well-formed payloads and rejects
  *     spoofed shapes.
@@ -136,7 +136,7 @@ describe('iframe bridge — buildPreviewDocument', () => {
     expect(openTagCount).toBe(closeTagCount);
   });
 
-  it('Fold A — splices sibling CSS into <style> and sibling HTML into <body>', () => {
+  it('implementation note — splices sibling CSS into <style> and sibling HTML into <body>', () => {
     const doc = buildPreviewDocument({
       runId: 'run-1',
       userCode: 'console.log(1);',
@@ -608,7 +608,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     expect(remountedIframe.srcdoc).toBe(stableDocument);
   });
 
-  it('honors fold-A sibling sources via setSiblingSources', async () => {
+  it('honors implementation note sibling sources via setSiblingSources', async () => {
     const runner = new BrowserPreviewRunner();
     await runner.init();
     const iframe = createFakeIframe();

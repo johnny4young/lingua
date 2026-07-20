@@ -1,6 +1,6 @@
 /**
  * GET /health — liveness check.
- * GET /health/ready — readiness check (RL-091).
+ * GET /health/ready — readiness check.
  *
  * Liveness ("am I up?") MUST succeed even if D1 / Polar / Resend are
  * down so the maintainer can distinguish "worker is up but D1 is

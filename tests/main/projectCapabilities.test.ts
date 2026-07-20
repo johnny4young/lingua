@@ -1,8 +1,8 @@
 /**
- * RL-077 Slice 1 — capability registry unit tests.
+ * implementation — capability registry unit tests.
  *
  * Pins the contract `resolveCapabilityPath` enforces before every
- * filesystem IPC handler is migrated onto it (Slice 2):
+ * filesystem IPC handler is migrated onto it :
  *
  *   - Mint produces a token tied to a canonical absolute path.
  *   - Lookup / revoke round-trip cleanly and are idempotent.

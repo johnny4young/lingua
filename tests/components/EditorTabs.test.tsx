@@ -150,7 +150,7 @@ describe('EditorTabs', () => {
     expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
   });
 
-  it('moves between tabs with the arrow keys (roving tabindex) (UX Sweep T6)', async () => {
+  it('moves between tabs with the arrow keys (roving tabindex) (accessibility pass)', async () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
@@ -222,7 +222,7 @@ describe('EditorTabs', () => {
     );
   });
 
-  it('returns focus to the triggering tab when the context menu closes (UX Sweep T3)', async () => {
+  it('returns focus to the triggering tab when the context menu closes (accessibility pass)', async () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
@@ -312,7 +312,7 @@ describe('EditorTabs', () => {
     expect(screen.queryAllByText('untitled.js').length).toBeGreaterThan(0);
   });
 
-  describe('overflow popover keyboard + focus (UX Sweep T3)', () => {
+  describe('overflow popover keyboard + focus (accessibility pass)', () => {
     const manyTabs = Array.from({ length: 7 }, (_, index) => ({
       id: `ov-${index}`,
       name: `file-${index}.js`,

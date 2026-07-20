@@ -64,7 +64,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     activeTabId: editorStoreState.activeTabId,
     addTab: mockAddTab,
     openFileFromDisk: mockOpenFileFromDisk,
-    // RL-019 Slice 1 — RuntimeModeSelector consumes this action via
+    // implementation — RuntimeModeSelector consumes this action via
     // `useEditorStore((s) => s.setTabRuntimeMode)`. Mock as a no-op
     // so the selector renders without throwing; tests that exercise
     // mode changes go through the editor-store unit suite.
@@ -138,14 +138,14 @@ vi.mock('lucide-react', () => ({
   FolderOpen: () => <span data-testid="icon-folder-open">📂</span>,
   Wrench: () => null,
   Bug: () => null,
-  // RL-019 Slice 1 — RuntimeModeSelector consumes Cpu/Layers/Globe.
+  // implementation — RuntimeModeSelector consumes Cpu/Layers/Globe.
   Cpu: () => null,
   Layers: () => null,
   Globe: () => null,
-  // F-4 — RuntimeModeSelector consumes Zap/Rabbit for deno/bun.
+  // implementation — RuntimeModeSelector consumes Zap/Rabbit for deno/bun.
   Zap: () => null,
   Rabbit: () => null,
-  // RL-020 Slice 2 — WorkflowModeSegment consumes Sparkles for the
+  // implementation — WorkflowModeSegment consumes Sparkles for the
   // Scratchpad icon (Play + Bug are already declared above).
   Sparkles: () => null,
 }));
@@ -237,7 +237,7 @@ describe('Toolbar', () => {
   });
 
   it('shows the Run button with "Run" accessible label when not running', () => {
-    // RL-020 UI refinement — the Run button is icon-only; the label
+    // internal UI refinement — the Run button is icon-only; the label
     // moves to `aria-label` so screen readers still announce it.
     render(<Toolbar />);
     const runBtn = screen.getByTestId('toolbar-run-button');
@@ -418,7 +418,7 @@ describe('Toolbar', () => {
     );
   });
 
-  it('shows a capability badge on host-toolchain languages and omits it on bundled ones (RL-038 Slice C)', async () => {
+  it('shows a capability badge on host-toolchain languages and omits it on bundled ones ', async () => {
     const user = userEvent.setup();
     render(<Toolbar />);
     await user.click(screen.getByRole('button', { name: 'New file language menu' }));
@@ -439,7 +439,7 @@ describe('Toolbar', () => {
     expect(screen.queryByTestId('toolbar-new-file-capability-ruby')).toBeNull();
   });
 
-  it('disables the Run button and shows the desktop-only tooltip when Go is active on the web build (RL-038 Slice C)', async () => {
+  it('disables the Run button and shows the desktop-only tooltip when Go is active on the web build ', async () => {
     editorStoreState.tabs = [
       {
         id: 'tab-go',
@@ -478,7 +478,7 @@ describe('Toolbar', () => {
     }
   });
 
-  it('keeps Run enabled when Go is active on the desktop build (RL-038 Slice C)', () => {
+  it('keeps Run enabled when Go is active on the desktop build ', () => {
     editorStoreState.tabs = [
       {
         id: 'tab-go',
@@ -510,7 +510,7 @@ describe('Toolbar', () => {
     }
   });
 
-  it('localizes the desktop-only tooltip when i18next is Spanish (RL-038 Slice C)', async () => {
+  it('localizes the desktop-only tooltip when i18next is Spanish ', async () => {
     await i18next.changeLanguage('es');
     editorStoreState.tabs = [
       {
@@ -625,7 +625,7 @@ describe('Toolbar', () => {
 
     render(<Toolbar />);
 
-    // RL-093 Slice 3 — the right-side icon cluster moved to AppChrome;
+    // implementation — the right-side icon cluster moved to AppChrome;
     // the toolbar now carries the run / new-file / workflow cluster
     // only. Spanish copy check is now scoped to what the toolbar
     // actually renders.
@@ -642,7 +642,7 @@ describe('Toolbar', () => {
     expect(mockToggleSidebar).not.toHaveBeenCalled();
   });
 
-  // RL-093 Slice 3 — developer-utilities + console-toggle + open-file
+  // implementation — developer-utilities + console-toggle + open-file
   // toolbar buttons removed (relocated to chrome / command palette).
   // Their tests moved to AppChrome.test.tsx / palette suites.
 

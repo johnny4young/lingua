@@ -97,7 +97,7 @@ function useCompactShellLayout() {
 
 function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const isVertical = orientation === 'vertical';
-  // RL-093 — keep the inner divider transparent so the editor +
+  // internal — keep the inner divider transparent so the editor +
   // result panel read as ONE canvas. The hit zone stays 3px wide
   // so power users can still resize, and the bar fades in on hover.
   return (
@@ -127,7 +127,7 @@ function EditorArea() {
     panelIds: ['editor-panel', 'results-panel'],
     storage: localStorage,
   });
-  // RL-043 Slice A — when the active tab carries `kind: 'notebook'`,
+  // implementation — when the active tab carries `kind: 'notebook'`,
   // mount `<NotebookView>` instead of Monaco. The selector returns a
   // primitive string-or-null so Zustand's default `===` check skips
   // re-renders when the active tab's kind hasn't changed.
@@ -159,7 +159,7 @@ function EditorArea() {
   const utilitiesTabOpen = useEditorStore(s => s.tabs.some(tab => tab.kind === 'utilities'));
 
   // Utilities is a full-screen workspace with no runtime output, so
-  // activating it folds the console away and leaving restores the user's
+  // activating it implementation note console away and leaving restores the user's
   // previous choice. Mutating the store (instead of gating the render)
   // keeps the restore strip honest: explicitly reopening the console
   // while on Utilities works, and that explicit choice is respected.
@@ -219,7 +219,7 @@ function EditorArea() {
           </div>
         ) : null}
         {activeUtilitiesTabId !== null ? null : activeNotebookTabId !== null ? (
-          /* RL-043 Slice A — notebook tabs mount `<NotebookView>` in
+          /* implementation — notebook tabs mount `<NotebookView>` in
              place of the Monaco + ResultPanel split. The Monaco editor
              would otherwise try to render the (empty) notebook tab
              `content` and the result panel would surface stale state. */
@@ -308,7 +308,7 @@ interface MainContentProps {
   showDebuggerPanel: boolean;
   showBrowserPreviewPanel: boolean;
   /**
-   * RL-020 Slice 6 — true when the active tab + Settings combination
+   * implementation — true when the active tab + Settings combination
    * permits the stdin panel AND the user has actively focused it via
    * the command palette / palette focus action. Without this term in
    * the `showBottomPanel` gate, `openBottomPanel('stdin')` from a
@@ -317,14 +317,14 @@ interface MainContentProps {
    */
   showStdinTabBody: boolean;
   /**
-   * RL-093 Slice 3 — true when surface=bottom + variables capture
+   * implementation — true when surface=bottom + variables capture
    * available + active panel is 'variables'. Same shape as
    * `showStdinTabBody`: keeps the drawer mounted when Variables is
    * the only thing the user wants visible.
    */
   showVariablesTabBody: boolean;
   /**
-   * RL-039 Slice B — true when a recipe-bound active tab owns the
+   * implementation — true when a recipe-bound active tab owns the
    * selected bottom panel. Mirrors the stdin / variables gates so a
    * restored or programmatically-selected Recipe panel can mount
    * even when the console drawer was previously collapsed.
@@ -402,7 +402,7 @@ function MainContent({
 }
 
 /**
- * RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
+ * implementation — Prerequisite fix surfaced during validation.
  *
  * Wraps `<EditorArea>` with a thin restore strip pinned to the bottom
  * when the console / bottom panel is hidden. Without it, hiding the
@@ -439,14 +439,14 @@ interface AppLayoutProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
   /**
-   * RL-093 follow-up — toolbar action icons live in FloatingActionPill,
+   * internal follow-up — toolbar action icons live in FloatingActionPill,
    * so keep the overlay callbacks flowing through this layout boundary.
    */
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
   /**
-   * RL-039 Slice B fold G — Recipes overlay opener (Mod+Alt+L).
+   * implementation Slice B implementation note — Recipes overlay opener (Mod+Alt+L).
    * Threaded through to `<FloatingActionPill>` so the badge + button
    * surface next to Utilities + Settings.
    */
@@ -504,7 +504,7 @@ export function AppLayout({
     showVariablesTabBody,
     showRecipeTabBody,
   } = useLayoutAvailability();
-  // RL-116 — presenter mode hides the persistent chrome at render
+  // internal — presenter mode hides the persistent chrome at render
   // time; the underlying sidebar preference is untouched, so leaving
   // the mode restores the exact previous layout.
   const presenterActive = usePresenterModeStore(s => s.active);
@@ -643,7 +643,7 @@ export function AppLayout({
       >
         <AppChrome onOpenSettings={onOpenSettings} />
         {!presenterActive && <Toolbar showFloatingPill />}
-        {/* RL-116 — the floating action pill IS the dominant chrome; a
+        {/* internal — the floating action pill IS the dominant chrome; a
             presenter hides it too (Cmd+Enter still runs, the shortcut
             or palette toggles the mode back). */}
         {!presenterActive && (
@@ -706,7 +706,7 @@ export function AppLayout({
             </div>
           </div>
         )}
-        {/* RL-112 — persistent bottom status bar. Last child of the
+        {/* internal — persistent bottom status bar. Last child of the
             shell-underlay flex-col so it pins to the bottom of the flow AND
             inherits the inert + aria-hidden the underlay receives while the
             compact drawer is open. Self-renders null when showStatusBar is

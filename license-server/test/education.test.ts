@@ -1,5 +1,5 @@
 /**
- * Tests for the Education endpoints (RL-061 Slice 4).
+ * Tests for the Education endpoints .
  *
  *   POST /education/start             validate + persist pending + email
  *   GET  /education/confirm?confirm=  mint + persist + send token email

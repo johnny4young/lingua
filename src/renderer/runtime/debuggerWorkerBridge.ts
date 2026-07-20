@@ -1,5 +1,5 @@
 /**
- * RL-027 Slice 1 — runtime-agnostic bridge between the UI and the
+ * implementation — runtime-agnostic bridge between the UI and the
  * worker that owns the paused execution. The JS / TS runners register
  * the active Worker via `setActiveDebugWorker(worker)` when a debug
  * run starts and clear it on `done`. The DebuggerDrawer's continue /
@@ -8,14 +8,14 @@
  *
  * This indirection keeps the runner classes from leaking out of the
  * runtime/ folder into UI code, and keeps the door open for the
- * Slice 2+ Python / Go / Rust adapters to plug in (each language's
+ * implementation Python / Go / Rust adapters to plug in (each language's
  * adapter implements this same `(type, payload) => void` shape).
  *
- * Reference: RL-027 Slice 1 and docs/DEBUGGER_ADR.md.
+ * Reference: implementation and docs/DEBUGGER_ADR.md.
  */
 
 /**
- * IT2-A4 — the single source of truth for debugger-control messages.
+ * internal — the single source of truth for debugger-control messages.
  * Exported so the worker's inbound message handler (`js-worker.ts`) can
  * consume the SAME union the sender posts, closing the send/receive drift
  * (the worker previously read `event.data` as `any` and cast per branch).

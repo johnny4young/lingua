@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — Utility Pipelines panel.
+ * implementation — Utility Pipelines panel.
  *
  * 3-section layout inside the Developer Utilities workspace. It started
  * life inside the utilities overlay, but the workspace shell now gives
@@ -8,12 +8,12 @@
  *   - LEFT  : pipeline list (create / select / rename / duplicate /
  *             delete / import / export).
  *   - CENTER: step editor (sortable via @dnd-kit drag handles —
- *             fold B), Add step button, Run button, input textarea.
+ *             implementation note), Add step button, Run button, input textarea.
  *   - RIGHT : streaming result table with per-step status + output.
  *
  * Wires the persisted store (`useUtilityPipelineStore`), the run
  * hook (`useUtilityPipelineRun`), and the closed-enum telemetry
- * emit (`utility.pipeline_executed` — fold F).
+ * emit (`utility.pipeline_executed` — implementation note).
  */
 
 import { PlayCircle, Plus } from 'lucide-react';
@@ -139,7 +139,7 @@ function UtilityPipelinePanelUnlocked() {
   const { t } = useTranslation();
   const announce = useAnnounce();
   const { track } = useTelemetry();
-  // UX Sweep T10 — register a keyboard sensor so steps can be reordered with
+  // accessibility pass — register a keyboard sensor so steps can be reordered with
   // the keyboard (focus the grip, Space to lift, Arrow Up/Down to move, Space
   // to drop, Esc to cancel), not just with a pointer drag.
   const sensors = useSensors(
@@ -175,9 +175,9 @@ function UtilityPipelinePanelUnlocked() {
     resetRun();
   }, [activePipelineId, resetRun]);
 
-  // RL-099 Slice 5 — instantiate a gallery template into a fresh
-  // pipeline, select it, seed the sample input (fold F), and record the
-  // adoption event (fold A). Ids are minted here (the shared catalog
+  // implementation — instantiate a gallery template into a fresh
+  // pipeline, select it, seed the sample input (implementation note), and record the
+  // adoption event (implementation note). Ids are minted here (the shared catalog
   // stays free of crypto), one per step.
   const handleUseTemplate = useCallback(
     (template: PipelineTemplate) => {
@@ -295,7 +295,7 @@ function UtilityPipelinePanelUnlocked() {
       const outcome = await run(activePipeline, runInput);
       if (outcome) {
         trackUtilityPipelineExecuted(outcome);
-        // UX Sweep T4 — announce the run result to screen readers; the
+        // accessibility pass — announce the run result to screen readers; the
         // streaming result table conveys it to sighted users only.
         const okCount = outcome.results.filter((result) => result.status === 'ok').length;
         announce(
@@ -317,9 +317,9 @@ function UtilityPipelinePanelUnlocked() {
     }
   }, [activePipeline, activeInput, run, t, announce]);
 
-  // Fold A — EXPLICIT "Save run as capsule". This is deliberately NOT
+  // implementation note — EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory
-  // execution-history ring (and thus the Pro browse overlay + RL-094
+  // execution-history ring (and thus the Pro browse overlay + internal
   // comparator) when the user asks for it. Keep a snapshot of the exact
   // run inputs so edits made after settle cannot pair a stale outcome with
   // the current recipe/input.
@@ -404,7 +404,7 @@ function UtilityPipelinePanelUnlocked() {
               <div className="text-body font-medium">{t('utilityPipeline.empty.title')}</div>
               <div className="text-body-sm text-muted">{t('utilityPipeline.empty.body')}</div>
             </div>
-            {/* RL-099 Slice 5 — starter gallery so a blank pipeline panel
+            {/* implementation — starter gallery so a blank pipeline panel
                 is discoverable now the engine ships 15 adapters. */}
             <PipelineTemplateGallery onUseTemplate={handleUseTemplate} />
           </div>

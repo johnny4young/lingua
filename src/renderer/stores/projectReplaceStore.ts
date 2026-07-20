@@ -1,5 +1,5 @@
 /**
- * RL-024 Slice 2 — project replace store.
+ * implementation — project replace store.
  *
  * Mirrors the shape of `useProjectSearchStore` but adds:
  *
@@ -8,9 +8,9 @@
  *     render a before/after diff inline (no client-side regex
  *     substitution; main provides both).
  *   - `applyToFile(relativePath)` + `applyToAll()` actions that
- *     dispatch through the IPC bridge. Apply queue progress (fold A)
+ *     dispatch through the IPC bridge. Apply queue progress (implementation note)
  *     surfaces via `applyProgress: { done, total } | null`.
- *   - Regex + case-sensitive toggles. Fold C — cooperative cancel
+ *   - Regex + case-sensitive toggles. implementation note — cooperative cancel
  *     is enforced main-side via `perLineTimeoutMs`.
  *
  * Store actions are isolated so the overlay can subscribe to the
@@ -40,7 +40,7 @@ export interface ProjectReplaceResult {
   readonly relativePath: string;
   readonly matches: readonly ProjectReplaceMatch[];
   /**
-   * RL-024 Slice 2 fold C — file was skipped during preview because
+   * implementation note — file was skipped during preview because
    * the regex deadline fired. The overlay marks the row with a
    * "regex took too long" notice and excludes it from apply-to-all.
    */
@@ -48,7 +48,7 @@ export interface ProjectReplaceResult {
 }
 
 /**
- * RL-024 Slice 2 fold A — apply-to-all progress strip. `null` when
+ * implementation note — apply-to-all progress strip. `null` when
  * idle; otherwise the overlay renders a thin progress bar with
  * `done / total files`. The strip persists for a brief moment after
  * completion so the user sees the final count.
@@ -144,7 +144,7 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
     preview: async (rootId) => {
       const { query, replacement, regex, caseSensitive } = get();
       const searchText = query;
-      // RL-024 Slice 2 reviewer pass — every fast-path return must
+      // implementation reviewer pass — every fast-path return must
       // bump `requestId` too. Otherwise, an in-flight non-empty
       // query's late response would still match the current
       // `requestId` and overwrite this freshly-cleared idle state
@@ -289,7 +289,7 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
       if (eligible.length === 0) {
         return { ok: 0, failed: 0, replaced: 0 };
       }
-      // RL-024 Slice 2 fold A — apply queue progress.
+      // implementation note — apply queue progress.
       set({ applyProgress: { done: 0, total: eligible.length } });
 
       let okCount = 0;

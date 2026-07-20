@@ -1,5 +1,5 @@
 /**
- * T19 follow-on — "Ask AI" trigger for the SQL editor header. Invisible
+ * implementation follow-on — "Ask AI" trigger for the SQL editor header. Invisible
  * without the `LOCAL_AI` entitlement (same null-gate as ExplainErrorButton);
  * owns the open state and mounts `AskSqlDialog`.
  */

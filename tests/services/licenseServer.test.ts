@@ -1,5 +1,5 @@
 /**
- * Unit tests for the RL-061 Slice 2.5 license-server fetch wrappers.
+ * Unit tests for the implementation license-server fetch wrappers.
  *
  * The renderer never sees a real worker in tests — we mock `fetch` at
  * the global level and pin the request shape (URL, method, headers,

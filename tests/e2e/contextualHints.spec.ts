@@ -17,7 +17,7 @@ function captureEnabled(): boolean {
   return process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1';
 }
 
-test.describe('IT2-D7 contextual empty-state hints', () => {
+test.describe('internal contextual empty-state hints', () => {
   test('shows English web-safe hints and disables both surfaces from either one', async ({
     page,
   }) => {

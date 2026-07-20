@@ -157,7 +157,7 @@ describe('js-worker module', () => {
     `);
 
     const consoleMessage = messages.find((message) => message.type === 'console');
-    // RL-044 Slice 2b-β-α prerequisite fix — the rejection text now
+    // implementation prerequisite fix — the rejection text now
     // explains the cause (anti-feature §A-008: no silent network).
     // Match a substring so future copy refinements don't break this
     // contract test while the diagnostic clause stays meaningful.
@@ -249,7 +249,7 @@ describe('js-worker module', () => {
     expect(messages.some((message) => message.type === 'error')).toBe(false);
   });
 
-  // RL-144 (AUDIT-24) — lock the AsyncFunction trust boundary. The
+  // internal — lock the AsyncFunction trust boundary. The
   // worker is NOT a sandbox for hostile input, but the Web Worker
   // global contract still guarantees the Node-only `process` /
   // `require` symbols are absent from the worker global scope, so

@@ -1,7 +1,7 @@
 import { emitCommand } from '../stores/commandBus';
 import { useCommandListener } from './useCommandListener';
 
-/** IT2-D1 — route shared upsell CTAs to Settings → Account/License. */
+/** internal — route shared upsell CTAs to Settings → Account/License. */
 export function useLicenseSettingsNavigation(openSettings: () => void): void {
   useCommandListener('settings.openLicense', () => {
     openSettings();

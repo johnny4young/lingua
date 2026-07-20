@@ -1,7 +1,7 @@
 import type { Session } from 'electron';
 
 /**
- * RL-127 / AUDIT-07 — deny-by-default permission posture for the Electron shell.
+ * implementation detail — deny-by-default permission posture for the Electron shell.
  *
  * The renderer runs untrusted-ish code (user scripts, third-party deps), so the
  * browser permission surface (camera/mic, geolocation, notifications, device
@@ -54,7 +54,7 @@ export function isPermissionAllowed(
 }
 
 /**
- * RL-127 fold C — surface a denied permission so an unexpected denial (a future
+ * implementation — surface a denied permission so an unexpected denial (a future
  * feature silently hitting the deny-by-default wall) is diagnosable. Logs the
  * permission name + phase only: no origin, no URL, no payload, no PII.
  */

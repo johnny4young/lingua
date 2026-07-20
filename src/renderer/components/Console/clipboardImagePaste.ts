@@ -1,8 +1,8 @@
 /**
- * RL-044 next slice — pure clipboard-image extraction for the
+ * implementation detail — pure clipboard-image extraction for the
  * ConsolePanel paste path.
  *
- * The rich-media OUTPUT renderer (`<RichValueImage>`) shipped in Slice
+ * The rich-media OUTPUT renderer (`<RichValueImage>`) shipped in implementation
  * 2a; this is the INPUT counterpart. The logic lives here (not inline
  * in the component) so the size cap + type checks + the discriminated
  * result are unit-testable without a real clipboard or a mounted
@@ -31,7 +31,7 @@ export const MAX_PASTED_IMAGE_BYTES = 2 * 1024 * 1024;
  *   into a `RichOutputImage` payload, its MIME, and the decoded byte
  *   length (used for the telemetry size bucket). `resized: true` means
  *   the source exceeded `MAX_PASTED_IMAGE_BYTES` and was downscaled to
- *   fit (RL-044) — `byteLength` is then the POST-resize size, so the
+ *   fit — `byteLength` is then the POST-resize size, so the
  *   telemetry bucket reflects what actually landed in the console.
  * - `ok: false` carries a closed reason:
  *   - `no-image` — the clipboard had no image item; the caller should
@@ -100,9 +100,9 @@ const MAX_RESIZE_DIMENSION = 1600;
 const MIN_RESIZE_DIMENSION = 320;
 /** Bounded retry count so a pathological image can never loop forever. */
 const MAX_RESIZE_ATTEMPTS = 6;
-/** JPEG quality for the opaque re-encode path (fold C). */
+/** JPEG quality for the opaque re-encode path (implementation note). */
 const RESIZE_JPEG_QUALITY = 0.82;
-/** Edge (px) of the cheap opacity probe (fold C). */
+/** Edge (px) of the cheap opacity probe (implementation note). */
 const ALPHA_PROBE_SIZE = 256;
 
 /** Source MIME types that might carry transparency. JPEG / BMP cannot. */
@@ -119,7 +119,7 @@ function sourceMightHaveAlpha(mime: string): boolean {
 }
 
 /**
- * Cheap opacity probe (fold C): draw the bitmap into a small
+ * Cheap opacity probe (implementation note): draw the bitmap into a small
  * `ALPHA_PROBE_SIZE`² canvas and scan its alpha channel. Any pixel < 255
  * means the image carries transparency, so it must stay PNG (JPEG would
  * flatten alpha to black).
@@ -190,9 +190,9 @@ function dataUriByteLength(dataUri: string): number {
 }
 
 /**
- * Downscale an over-cap image until it fits under `maxBytes` (RL-044).
+ * Downscale an over-cap image until it fits under `maxBytes`.
  * Opaque images re-encode to JPEG (much smaller); images with alpha stay
- * PNG (fold C). DOM-dependent (`createImageBitmap` + `<canvas>`), so it is
+ * PNG (implementation note). DOM-dependent (`createImageBitmap` + `<canvas>`), so it is
  * exercised in the Chromium e2e, not jsdom — `readPastedImageFile` takes
  * it as an injectable param so the orchestration stays unit-testable.
  * Never throws; returns `null` when it cannot fit the cap or decode fails.

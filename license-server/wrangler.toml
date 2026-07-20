@@ -6,17 +6,17 @@ compatibility_flags = ["nodejs_compat"]
 # Maintainer-side prereqs (see README.md):
 #   1. wrangler d1 create lingua-licenses → fill in `database_id` below.
 #   2. wrangler kv namespace create lingua-licenses-rl → fill in `id` below
-#      (rate-limit bucket; consumed by /trials/start in Slice 4 and
-#      /licenses/recover in Slice 4).
-#   3. wrangler secret put POLAR_WEBHOOK_SECRET (Slice 2)
-#   4. wrangler secret put POLAR_API_KEY (Slice 2)
-#   5. wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK (Slice 2)
-#   6. wrangler secret put LINGUA_LICENSE_PUBLIC_KEY_JWK (Slice 2)
-#   7. wrangler secret put RESEND_API_KEY (Slice 2)
+#      (rate-limit bucket; consumed by /trials/start in implementation and
+#      /licenses/recover in implementation).
+#   3. wrangler secret put POLAR_WEBHOOK_SECRET
+#   4. wrangler secret put POLAR_API_KEY
+#   5. wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK
+#   6. wrangler secret put LINGUA_LICENSE_PUBLIC_KEY_JWK
+#   7. wrangler secret put RESEND_API_KEY
 #   8. Add `licenses.linguacode.dev` as a Workers > Routes custom domain.
 #
 # Until step 1 is done, `wrangler deploy` will fail with a missing-binding
-# error — that is intentional. Slice 1 only ships the worker code; the
+# error — that is intentional. implementation only ships the worker code; the
 # maintainer is responsible for provisioning the D1 instance once before
 # the first deploy.
 
@@ -30,7 +30,7 @@ migrations_dir = "migrations"
 binding = "RATE_LIMIT"
 id = "3698a3e2f089439d97babd4b10e4d1e1"
 
-# Slice 4 — load the email HTML + CSS templates as plain text so
+# implementation — load the email HTML + CSS templates as plain text so
 # `import trialTemplate from '../emails/trial.html'` (etc.) returns
 # the file contents as a string at deploy time. Esbuild's Text loader
 # handles this; the matching vitest config has a small Vite plugin

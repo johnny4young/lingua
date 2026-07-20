@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 2 — renderer-side `LanguageRunner` for the Node
+ * implementation — renderer-side `LanguageRunner` for the Node
  * runtime mode.
  *
  * Mounted as the runtime-mode override for `'node'` in
@@ -12,7 +12,7 @@
  *   1. Transpile TS through esbuild-wasm (same path the TS worker
  *      runner uses) so the desktop Node subprocess receives pure JS.
  *      JS tabs skip this step.
- *   2. Resolve the per-call timeout from the Slice 7 settings store
+ *   2. Resolve the per-call timeout from the implementation settings store
  *      (`runtimeTimeoutPresetByLanguage`) unless the caller passed
  *      an explicit override (one-shot extended, magic-comment, etc.).
  *   3. Fire the IPC handle (`window.lingua.node.run`) with the
@@ -24,7 +24,7 @@
  *      timeoutPreset / timeoutMs). Renderer adoption telemetry
  *      (`runtime.node_runner_used`) fires per-run with the closed-
  *      enum status bucket.
- *   5. Surface the first-run trust notice (fold E) once per session,
+ *   5. Surface the first-run trust notice (implementation note) once per session,
  *      gated on `useUIStore` and the
  *      `nodeRunnerFirstRunNoticeShown` settings flag.
  *
@@ -33,10 +33,10 @@
  *   - Magic comments (`//=>`, `// @watch`) and auto-log are INERT
  *     in Node mode — the worker's `__mc(...)` bridge doesn't exist
  *     in a fresh `node` subprocess.
- *   - Variable inspector (Slice 9) is hidden for `runtimeMode === 'node'`
+ *   - Variable inspector  is hidden for `runtimeMode === 'node'`
  *     tabs — no worker-side capture hook.
- *   - Debug breakpoints are not honored. A future slice could wire
- *     `node --inspect`, but Slice 2 does not.
+ *   - Debug breakpoints are not honored. A future work could wire
+ *     `node --inspect`, but implementation does not.
  */
 
 import i18next from 'i18next';
@@ -135,7 +135,7 @@ export class NodeRunner implements LanguageRunner {
     context?: ExecutionContext
   ): Promise<ExecutionResult> {
     if (typeof window === 'undefined' || !window.lingua || !window.lingua.node) {
-      // Web build OR a desktop preload that never landed Slice 2.
+      // Web build OR a desktop preload that never landed implementation.
       // Surface a clear renderer-side error rather than a TypeError.
       return {
         stdout: [],
@@ -153,7 +153,7 @@ export class NodeRunner implements LanguageRunner {
     this.stop();
 
     // Resolve the per-run deadline from the per-language preset
-    // (Slice 7). Caller override (one-shot extended timeout,
+    // . Caller override (one-shot extended timeout,
     // `// @timeout` magic-comment) wins when present.
     const settings = useSettingsStore.getState();
     const language = executionLanguage(context);
@@ -191,7 +191,7 @@ export class NodeRunner implements LanguageRunner {
       transpiled = transpileResult.js;
     }
 
-    // RL-020 Slice 9 fold E mirror — node mode does not capture
+    // implementation note mirror — node mode does not capture
     // variable inspector data (no `globalThis` hook in a fresh
     // subprocess). The toggle hides on the renderer side.
 
@@ -241,14 +241,14 @@ export class NodeRunner implements LanguageRunner {
         })
         .then((reply) => {
           if (resolved) return;
-          // Fold A — adoption telemetry. `status` mirrors the
+          // implementation note — adoption telemetry. `status` mirrors the
           // closed enum on the IPC reply.
           void trackEvent('runtime.node_runner_used', {
             language,
             status: reply.kind,
           });
 
-          // Fold E — first-run trust notice. Surfaces on the first
+          // implementation note — first-run trust notice. Surfaces on the first
           // successful run per session; the settings flag persists
           // the dismissal across sessions when the user toggles it
           // off via Settings (deferred follow-up).

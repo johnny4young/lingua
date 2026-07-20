@@ -1,11 +1,11 @@
 /**
- * RL-028 first slice — ring-buffer store invariants.
+ * implementation — ring-buffer store invariants.
  *
  * Pins the metadata-only contract (no stdout / stderr / source / path is
  * accepted or surfaced), the FIFO drop at `MAX_HISTORY_ENTRIES`, the
  * timestamp rounding to whole seconds, and the derived helpers.
  *
- * RL-028 sixth slice — opt-in code snapshot. The store stays
+ * implementation — opt-in code snapshot. The store stays
  * caller-driven: when `record()` is called without a snapshot the
  * entry's `snapshot` field is `null` (preserving the metadata-only
  * default). When the caller passes `{ code, language }`, the store
@@ -255,7 +255,7 @@ describe('executionHistoryStore', () => {
     expect(entry.snapshot?.language).toBe('javascript');
   });
 
-  describe('RL-020 Slice 4 — tabId + byTabId selector', () => {
+  describe('implementation — tabId + byTabId selector', () => {
     it('records tabId when the caller passes one and omits the field otherwise', () => {
       const withTab = useExecutionHistoryStore.getState().record({
         language: 'javascript',
@@ -299,7 +299,7 @@ describe('executionHistoryStore', () => {
     });
   });
 
-  describe('RL-020 Slice 4 fold D — togglePin + pin-aware eviction', () => {
+  describe('implementation note — togglePin + pin-aware eviction', () => {
     it('togglePin flips the pinned flag for an existing entry and no-ops on unknown ids', () => {
       const { record, togglePin } = useExecutionHistoryStore.getState();
       const entry = record({ language: 'javascript', status: 'ok', durationMs: 1 });

@@ -116,7 +116,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().minimap).toBe(true);
   });
 
-  it('seeds the Ruby runtime preference to auto + accepts the closed enum (RL-042 Slice 6)', () => {
+  it('seeds the Ruby runtime preference to auto + accepts the closed enum ', () => {
     expect(useSettingsStore.getState().rubyRuntimePreference).toBe('auto');
     useSettingsStore.getState().setRubyRuntimePreference('system');
     expect(useSettingsStore.getState().rubyRuntimePreference).toBe('system');
@@ -141,11 +141,11 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().layoutPreset).toBe('horizontal');
   });
 
-  it('should default restoreSessionMode to ask (RL-111)', () => {
+  it('should default restoreSessionMode to ask', () => {
     expect(useSettingsStore.getState().restoreSessionMode).toBe('ask');
   });
 
-  it('should set restoreSessionMode across the closed enum (RL-111)', () => {
+  it('should set restoreSessionMode across the closed enum', () => {
     useSettingsStore.getState().setRestoreSessionMode('always');
     expect(useSettingsStore.getState().restoreSessionMode).toBe('always');
     useSettingsStore.getState().setRestoreSessionMode('never');
@@ -154,7 +154,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().restoreSessionMode).toBe('ask');
   });
 
-  it('defaults notebookDefaultCellLanguage to javascript + sets the runnable pair, rejecting others (RL-043 Slice C)', () => {
+  it('defaults notebookDefaultCellLanguage to javascript + sets the runnable pair, rejecting others ', () => {
     expect(useSettingsStore.getState().notebookDefaultCellLanguage).toBe(
       'javascript'
     );
@@ -175,13 +175,13 @@ describe('settingsStore', () => {
     );
   });
 
-  it('should default inlineLintEnabledByLanguage ON for JS/TS (RL-108)', () => {
+  it('should default inlineLintEnabledByLanguage ON for JS/TS', () => {
     const map = useSettingsStore.getState().inlineLintEnabledByLanguage;
     expect(map.javascript).toBe(true);
     expect(map.typescript).toBe(true);
   });
 
-  it('should set inline lint per language and ignore unsupported ones (RL-108)', () => {
+  it('should set inline lint per language and ignore unsupported ones', () => {
     useSettingsStore.getState().setInlineLintEnabled('typescript', false);
     expect(useSettingsStore.getState().inlineLintEnabledByLanguage.typescript).toBe(false);
     expect(useSettingsStore.getState().inlineLintEnabledByLanguage.javascript).toBe(true);
@@ -192,7 +192,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().inlineLintEnabledByLanguage.typescript).toBe(true);
   });
 
-  it('drops malformed persisted inline-lint values back to the ON seed (RL-108)', async () => {
+  it('drops malformed persisted inline-lint values back to the ON seed', async () => {
     localStorage.setItem(
       'lingua-settings',
       JSON.stringify({
@@ -230,7 +230,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().formatOnSave).toBe(false);
   });
 
-  it('should default smartPasteDetectionEnabled ON and toggle it (RL-110)', () => {
+  it('should default smartPasteDetectionEnabled ON and toggle it', () => {
     expect(useSettingsStore.getState().smartPasteDetectionEnabled).toBe(true);
     useSettingsStore.getState().toggleSmartPasteDetection();
     expect(useSettingsStore.getState().smartPasteDetectionEnabled).toBe(false);
@@ -238,7 +238,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().smartPasteDetectionEnabled).toBe(true);
   });
 
-  it('drops malformed persisted smart paste values back to the ON seed (RL-110)', async () => {
+  it('drops malformed persisted smart paste values back to the ON seed', async () => {
     localStorage.setItem(
       'lingua-settings',
       JSON.stringify({
@@ -278,7 +278,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().executionHistorySnapshotEnabled).toBe(false);
   });
 
-  it('should default vimMode to false and toggle cleanly (RL-037)', () => {
+  it('should default vimMode to false and toggle cleanly', () => {
     expect(useSettingsStore.getState().vimMode).toBe(false);
     useSettingsStore.getState().toggleVimMode();
     expect(useSettingsStore.getState().vimMode).toBe(true);
@@ -433,7 +433,7 @@ describe('settingsStore', () => {
     );
   });
 
-  it('coerces a tampered sqlWorkspacePersistTables to a strict boolean on rehydrate (RL-097 Slice 3 OPFS)', async () => {
+  it('coerces a tampered sqlWorkspacePersistTables to a strict boolean on rehydrate (implementation OPFS)', async () => {
     localStorage.setItem(
       'lingua-settings',
       JSON.stringify({
@@ -451,7 +451,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(false);
   });
 
-  it('setSqlWorkspacePersistTables coerces non-boolean input to false (RL-097 Slice 3 OPFS)', () => {
+  it('setSqlWorkspacePersistTables coerces non-boolean input to false (implementation OPFS)', () => {
     useSettingsStore.getState().setSqlWorkspacePersistTables(true);
     expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(true);
     // @ts-expect-error — exercising the runtime guard with a bad value.
@@ -766,7 +766,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().language).toBe('system');
   });
 
-  describe('RL-079 — nativeExecutionAcknowledged', () => {
+  describe('internal — nativeExecutionAcknowledged', () => {
     it('defaults to false on a fresh store', () => {
       expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(false);
     });
@@ -819,8 +819,8 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('RL-020 Slice 2 — workflow mode defaults', () => {
-    it('seeds the three Scratchpad languages on a fresh store (fold C)', () => {
+  describe('implementation — workflow mode defaults', () => {
+    it('seeds the three Scratchpad languages on a fresh store (implementation note)', () => {
       const defaults = useSettingsStore.getState().workflowModeDefaultsByLanguage;
       expect(defaults).toEqual({
         javascript: 'scratchpad',
@@ -863,7 +863,7 @@ describe('settingsStore', () => {
       ).toBeUndefined();
     });
 
-    it('rehydrates persisted overrides + reseeds blank slots (fold C)', async () => {
+    it('rehydrates persisted overrides + reseeds blank slots (implementation note)', async () => {
       // Persist a single explicit override (Python → Run) and assert
       // that the seed fills the remaining JS / TS slots without
       // overwriting the user choice.
@@ -928,7 +928,7 @@ describe('settingsStore', () => {
       });
     });
 
-    it('firstWorkflowModeSwitchAcknowledged defaults to false and flips via the setter (fold F)', () => {
+    it('firstWorkflowModeSwitchAcknowledged defaults to false and flips via the setter (implementation note)', () => {
       expect(
         useSettingsStore.getState().firstWorkflowModeSwitchAcknowledged
       ).toBe(false);
@@ -939,7 +939,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('RL-020 Slice 5 — scratchpad auto-log defaults', () => {
+  describe('implementation — scratchpad auto-log defaults', () => {
     it('seeds JS + TS to OFF on a fresh store', () => {
       expect(
         useSettingsStore.getState().scratchpadAutoLogByLanguage
@@ -1008,7 +1008,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('RL-020 Slice 6 — showStdinPanel master toggle (fold D)', () => {
+  describe('implementation — showStdinPanel master toggle (implementation note)', () => {
     it('defaults to true on a fresh store', () => {
       expect(useSettingsStore.getState().showStdinPanel).toBe(true);
     });
@@ -1035,7 +1035,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('RL-119 Slice 1 — Browser preview auto-refresh preference', () => {
+  describe('implementation — Browser preview auto-refresh preference', () => {
     it('defaults to the fast 300 ms interval and accepts every closed value', () => {
       expect(
         useSettingsStore.getState().browserPreviewRefreshIntervalMs
@@ -1088,7 +1088,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('RL-020 Slice 7 — runtimeTimeoutPresetByLanguage', () => {
+  describe('implementation — runtimeTimeoutPresetByLanguage', () => {
     it('seeds defaults (Python=long, others=normal)', () => {
       expect(
         useSettingsStore.getState().runtimeTimeoutPresetByLanguage
@@ -1155,7 +1155,7 @@ describe('settingsStore', () => {
       expect(stored.go).toBe('normal');
     });
 
-    it('toggleShowTimeoutCountdown flips the fold-E flag', () => {
+    it('toggleShowTimeoutCountdown flips the implementation note flag', () => {
       expect(useSettingsStore.getState().showTimeoutCountdown).toBe(false);
       useSettingsStore.getState().toggleShowTimeoutCountdown();
       expect(useSettingsStore.getState().showTimeoutCountdown).toBe(true);

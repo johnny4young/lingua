@@ -1,8 +1,8 @@
--- RL-061 Slice 4 — educations + magic-link pending-confirmation tables.
+-- implementation — educations + magic-link pending-confirmation tables.
 --
 -- Three new tables:
 --
---   1. `educations` — mirror of `trials` (Slice 1) with the same
+--   1. `educations` — mirror of `trials`  with the same
 --      anti-abuse UNIQUE shape: one active education plan per email
 --      AND per device. Insertion happens at the END of the
 --      magic-link flow (`GET /education/confirm` after the user
@@ -33,7 +33,7 @@
 --   pnpm run migrations:apply:remote
 --
 -- Apply order matters: this migration MUST land in prod D1 BEFORE
--- the worker is redeployed with the Slice 4 handlers, otherwise
+-- the worker is redeployed with the implementation handlers, otherwise
 -- in-flight `/education/start` and `/licenses/recover/start`
 -- requests would pass validation but fail the INSERT.
 

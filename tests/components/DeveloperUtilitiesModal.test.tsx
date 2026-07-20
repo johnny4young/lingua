@@ -64,11 +64,11 @@ describe('DeveloperUtilitiesModal', () => {
     // Space audit: the workspace view carries NO local header — neither
     // the old title box nor the status pills, which now render in the
     // shell's shared editor chips row (asserted in AppLayout.test).
-    // The workspace keeps an sr-only landmark heading for assistive tech,
+    // The workspace keeps an internal landmark heading for assistive tech,
     // but does not restore the removed visible title box.
     expect(
       screen.getByRole('heading', { name: 'Built-in utilities' }).className
-    ).toContain('sr-only');
+    ).toContain('internal');
     expect(screen.queryByText('Copy output')).toBeNull();
     expect(screen.queryByText(/\d+ tools/u)).toBeNull();
 
@@ -166,7 +166,7 @@ describe('DeveloperUtilitiesModal', () => {
     expect(screen.getByRole('button', { name: 'Use current time' })).toBeTruthy();
   });
 
-  it('groups the browse view by category and drops the headings while searching (SR-36)', async () => {
+  it('groups the browse view by category and drops the headings while searching', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
@@ -194,7 +194,7 @@ describe('DeveloperUtilitiesModal', () => {
       expect(document.activeElement).toBe(search);
     });
 
-    // SR-36 — the no-query browse view is grouped by category, so the
+    // internal — the no-query browse view is grouped by category, so the
     // second item is the next tool in the "Data" section (json →
     // number-base → yaml-json), not the old flat-catalog neighbour.
     await user.keyboard('{ArrowDown}');
@@ -243,7 +243,7 @@ describe('DeveloperUtilitiesModal', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    // Use the testid because RL-069 Slice 3 adds a sibling
+    // Use the testid because implementation adds a sibling
     // FavoriteToggleButton whose aria-label also contains "Base64
     // Encoder" (e.g. "Pin Base64 Encoder to favorites").
     await user.click(screen.getByTestId('utility-item-base64'));

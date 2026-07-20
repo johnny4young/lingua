@@ -1,5 +1,5 @@
 /**
- * RL-042 Slice 6 — desktop Ruby child-spawn backend.
+ * implementation — desktop Ruby child-spawn backend.
  *
  * The renderer-side `DesktopRubySubprocessRunner` (folded into
  * `src/renderer/runners/ruby.ts`) calls
@@ -14,31 +14,31 @@
  *     passed by path. We never interpolate user input into a shell
  *     command line, so command injection is impossible at this layer.
  *   - Env: `buildNativeRunnerEnv(combinedAllowlist(RUBY_TOOLCHAIN_KEYS),
- *     userEnv)`. RL-079 allowlist + RL-011 user-tier env.
+ *     userEnv)`. internal allowlist + internal user-tier env.
  *     Lingua's full host env is NOT forwarded.
  *   - Cwd: `path.dirname(filePath)` for saved tabs, `app.getPath('temp')`
- *     for Scratchpad. Fold D walks up looking for a `.ruby-version` file
+ *     for Scratchpad. implementation note walks up looking for a `.ruby-version` file
  *     and threads the discovered version through `RBENV_VERSION` /
  *     PATH so per-project pins are honored on the desktop without
  *     needing rbenv shell-init.
  *   - Timeout: parent-owned. The renderer sets a per-call timeout; we
  *     send SIGTERM and escalate to SIGKILL after `KILL_ESCALATION_DELAY_MS`
- *     if the child has not exited (fold E).
+ *     if the child has not exited (implementation note).
  *   - Output caps: stdout / stderr each capped at
  *     `MAX_NATIVE_STDERR_BYTES` (1 MiB) with the existing
  *     `truncateBytes` helper.
  *
- * Folds shipped here:
+ * implementation note here:
  *
- *   - Fold A — `parseRubyVersion()` shape parser returned alongside
+ *   - implementation note — `parseRubyVersion()` shape parser returned alongside
  *     `RubyDetectResult` so the Settings row can display "Ruby 3.3.6"
  *     instead of the full `ruby --version` line.
- *   - Fold D — per-project `.ruby-version` discovery. Walks up to 8
+ *   - implementation note — per-project `.ruby-version` discovery. Walks up to 8
  *     directories from the tab's `filePath`, reads the version pin,
  *     and threads it as `RBENV_VERSION` on the spawned process. If
  *     rbenv isn't installed, the version still influences the version
  *     the user sees in the status notice.
- *   - Fold E — SIGTERM → SIGKILL escalation with a 1.5 s grace
+ *   - implementation note — SIGTERM → SIGKILL escalation with a 1.5 s grace
  *     window (longer than node-runner's 200 ms because Ruby's
  *     `at_exit` hooks tend to run a beat slower).
  */
@@ -67,7 +67,7 @@ import {
 const execFileAsync = promisify(childProc.execFile);
 
 /**
- * Fold E — SIGTERM → SIGKILL escalation window. Ruby's `at_exit` and
+ * implementation note — SIGTERM → SIGKILL escalation window. Ruby's `at_exit` and
  * `ensure` blocks often need more than node-runner's 200 ms to drain
  * (especially when the user's code holds open file handles), so we
  * give 1500 ms before pulling the rug. The window is still short
@@ -103,9 +103,9 @@ export interface RubyDetectResult {
   installed: boolean;
   /** Full `ruby --version` line, e.g. `ruby 3.3.6 (...) [arm64-darwin23]`. */
   version?: string;
-  /** Fold A — parsed semver, e.g. `3.3.6`. Absent when parsing fails. */
+  /** implementation note — parsed semver, e.g. `3.3.6`. Absent when parsing fails. */
   semver?: string;
-  /** Fold A — parsed platform, e.g. `arm64-darwin23`. */
+  /** implementation note — parsed platform, e.g. `arm64-darwin23`. */
   platform?: string;
   error?: string;
 }
@@ -117,19 +117,19 @@ export interface RubyRunOptions {
   timeoutMs?: number;
   /** Source-file path of the active tab. `undefined` for Scratchpad. */
   filePath?: string;
-  /** Per-run user-env tier from RL-011. */
+  /** Per-run user-env tier from internal */
   userEnv?: Record<string, string>;
   /** Stdin buffer. Empty / undefined closes stdin immediately. */
   stdin?: string;
   /**
-   * F-7 — interactive stdin. When `true` (and a `runId` is present) the
+   * implementation — interactive stdin. When `true` (and a `runId` is present) the
    * child's stdin stays open after the initial buffer so the renderer can
    * stream input via `ruby:stdin-write` and close it with
    * `ruby:stdin-close`. Default closes stdin immediately.
    */
   interactive?: boolean;
   /**
-   * F-7 — main-internal live-output sink. Set by the IPC handler (never
+   * implementation — main-internal live-output sink. Set by the IPC handler (never
    * from the serialized IPC payload) to stream stdout/stderr chunks to the
    * renderer as they arrive during an interactive run. Only invoked when
    * `interactive` is true.
@@ -152,11 +152,11 @@ export interface RubyRunResult {
 
 let cachedDetect: RubyDetectResult | null = null;
 const activeRubyRuns = new Map<string, () => void>();
-/** F-7 — open stdin streams for in-flight interactive Ruby runs. */
+/** implementation — open stdin streams for in-flight interactive Ruby runs. */
 const activeRubyStdins = new Map<string, NodeJS.WritableStream>();
 
 /**
- * Fold A — parse a `ruby --version` line into structured fields.
+ * implementation note — parse a `ruby --version` line into structured fields.
  *
  * Examples we accept:
  *   - `ruby 3.3.6 (2024-11-05 revision 75015a4f5e) [arm64-darwin23]`
@@ -284,7 +284,7 @@ function invalidRubyRunResult(message: string): RubyRunResult {
 }
 
 /**
- * Fold D — discover a per-project `.ruby-version` pin. Walks up to 8
+ * implementation note — discover a per-project `.ruby-version` pin. Walks up to 8
  * directories from `startDir` looking for the dotfile. Returns the
  * trimmed first line when found (rbenv / asdf both write the version
  * on the first line). Returns `null` for Scratchpad tabs (no
@@ -331,7 +331,7 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
   const timeoutMs = clampTimeout(options.timeoutMs);
   const cwd = resolveRubyCwd(options.filePath);
 
-  // Fold D — thread the discovered .ruby-version through RBENV_VERSION
+  // implementation note — thread the discovered .ruby-version through RBENV_VERSION
   // so rbenv shims pick the right interpreter. Without rbenv installed,
   // RBENV_VERSION is silently ignored by the spawned `ruby` and we just
   // fall back to whichever binary `PATH` resolved.
@@ -373,7 +373,7 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
     activeRubyRuns.set(options.runId, () => controller.abort());
   }
 
-  // F-7 — interactive mode keeps stdin open so the renderer can stream further
+  // implementation — interactive mode keeps stdin open so the renderer can stream further
   // input via `ruby:stdin-write`. Requires a runId to key the stream registry;
   // without one there is no way to route later writes, so it falls back to the
   // request/response close-immediately posture.
@@ -390,8 +390,8 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
       maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
       stdoutTruncationMarker: markers.stdout,
       stderrTruncationMarker: markers.stderr,
-      // Forward the pre-set stdin buffer (Slice 6). Empty / undefined closes
-      // immediately so `gets` hits EOF on first read. F-7 interactive runs keep
+      // Forward the pre-set stdin buffer . Empty / undefined closes
+      // immediately so `gets` hits EOF on first read. implementation interactive runs keep
       // stdin open and register the stream for a later `ruby:stdin-write`.
       stdin: {
         data: options.stdin,
@@ -401,7 +401,7 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
             ? (stdin) => activeRubyStdins.set(options.runId!, stdin)
             : undefined,
       },
-      // F-7 — stream live output to the renderer before buffering/truncation.
+      // implementation — stream live output to the renderer before buffering/truncation.
       onStdout:
         interactive && options.onOutput
           ? (chunk) => options.onOutput?.('stdout', chunk)
@@ -422,7 +422,7 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
   } finally {
     if (options.runId) {
       activeRubyRuns.delete(options.runId);
-      // F-7 — drop the interactive stdin registration once the run ends.
+      // implementation — drop the interactive stdin registration once the run ends.
       activeRubyStdins.delete(options.runId);
     }
   }
@@ -517,7 +517,7 @@ export function stopRubyRun(runId: unknown): { stopped: boolean } {
   return { stopped: true };
 }
 
-/** F-7 — write a chunk to an interactive Ruby run's stdin. */
+/** implementation — write a chunk to an interactive Ruby run's stdin. */
 export function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId || typeof data !== 'string') return { written: false };
@@ -534,7 +534,7 @@ export function writeRubyStdin(runId: unknown, data: unknown): { written: boolea
   }
 }
 
-/** F-7 — close an interactive Ruby run's stdin (EOF). */
+/** implementation — close an interactive Ruby run's stdin (EOF). */
 export function closeRubyStdin(runId: unknown): { closed: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { closed: false };
@@ -568,7 +568,7 @@ export function registerRubyHandlers(): void {
         return invalidRubyRunResult('Ruby runner received invalid source.');
       }
       const normalized = normalizeRubyRunOptions(options);
-      // F-7 — stream live output to the renderer for interactive runs.
+      // implementation — stream live output to the renderer for interactive runs.
       if (normalized.interactive && normalized.runId) {
         const runId = normalized.runId;
         const sender = event.sender;
@@ -587,7 +587,7 @@ export function registerRubyHandlers(): void {
   typedHandle('ruby:stop', async (_event, runId?: unknown) =>
     stopRubyRun(runId)
   );
-  // F-7 — interactive stdin channels.
+  // implementation — interactive stdin channels.
   typedHandle('ruby:stdin-write', async (_event, runId: string, data: string) =>
     writeRubyStdin(runId, data)
   );

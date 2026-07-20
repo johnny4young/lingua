@@ -1,9 +1,9 @@
 /**
- * RL-093 polish #7 — smoke tests for FloatingVariablesCard.
+ * internal polish #7 — smoke tests for FloatingVariablesCard.
  *
  * The card is gated by FOUR conditions in series:
  *   - active tab has `variableInspectorEnabled === true`
- *   - active tab is NOT in Node runtime (RL-019 exclusion)
+ *   - active tab is NOT in Node runtime (internal exclusion)
  *   - active tab's language is JS / TS / Python
  *   - the result store carries a snapshot whose `language` matches
  *

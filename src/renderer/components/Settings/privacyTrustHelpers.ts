@@ -1,5 +1,5 @@
 /**
- * RL-096 Slice 1 — pure helpers for the Privacy + Trust dashboard.
+ * implementation — pure helpers for the Privacy + Trust dashboard.
  *
  * Pulled out of `<PrivacyTrustSection>` so the size estimator, the
  * byte formatter, and the localStorage row builder are independently
@@ -84,35 +84,35 @@ export const NETWORK_ACTIVITY_FEATURES = [
   'license',
   'capsule-export',
   'ai',
-  // RL-025 Slice A fold B — dependency detection lives entirely
+  // implementation Slice A implementation note — dependency detection lives entirely
   // local for now (the panel reads imports from the active buffer
   // and asks main whether `node_modules/<name>` exists). Future
-  // slices B + C add `npm install` / `micropip` install paths that
+  // implementation add `npm install` / `micropip` install paths that
   // DO hit a registry; when they ship the row flips its `status`
   // from `'enabled'` (local-only, always on) to a closed enum that
   // tracks the install network call separately.
   'dependencies',
-  // RL-044 Sub-slice G Fold E — output→source line origin tracking.
+  // implementation Sub-slice G implementation note — output→source line origin tracking.
   // Captures the source line of each console output row to drive
   // the `<OutputLineBadge>` click + hover affordances. Local-only;
   // never sent to the network. Status reflects the
   // `outputSourceMappingEnabled` Settings flag so a user can audit
   // the feature at a glance.
   'outputOriginTracking',
-  // RL-102 Slice 1 Fold H — Git read-only layer (status pill + diff
+  // implementation note — Git read-only layer (status pill + diff
   // panel). Local-only: `execFile('git', ['status', '--porcelain'])`
   // + `git show HEAD:<file>` against the resolved repo root. NO
-  // remote refs, NO `git fetch`, NO network. Slice 1.1 removed the
+  // remote refs, NO `git fetch`, NO network. implementation removed the
   // Settings master toggle; the dashboard row is transparency for
   // the baseline local-only surface.
   'gitReadOnlyLayer',
-  // RL-044 next slice fold E — console image clipboard paste. A pasted
+  // implementation next slice implementation note — console image clipboard paste. A pasted
   // image becomes an in-memory `image` rich console entry; it is NEVER
   // persisted to localStorage and NEVER sent over the network (only a
   // closed-enum telemetry status + size bucket is emitted, no bytes).
   // The row exists purely for transparency on the new input surface.
   'consoleImagePaste',
-  // RL-024 Slice 3 fold F — project zip bundle export / import. Reads
+  // implementation note — project zip bundle export / import. Reads
   // and writes whole project trees on disk via the capability-sandboxed
   // `fs:exportBundle` / `fs:importBundle` IPCs. Pure local: a `.zip` is
   // written to / read from a user-chosen path; nothing is sent over the
@@ -144,12 +144,12 @@ export function buildNetworkActivityRows(args: {
   readonly telemetryLastAt: number | null;
   readonly updateCheckLastAt: number | null;
   /**
-   * RL-096 Slice 2 fold C — most recent successful license verify
+   * implementation note — most recent successful license verify
    * (active / grace). Surfaced as the `license` row's `lastCallAt`.
    */
   readonly licenseVerifyLastAt?: number | null;
   /**
-   * RL-025 Slice B — most recent dependency install start. The
+   * implementation — most recent dependency install start. The
    * dashboard surfaces this as the `dependencies` row's
    * `lastCallAt` so the audit table honestly reports the most
    * recent network call.
@@ -188,31 +188,31 @@ export function buildNetworkActivityRows(args: {
     },
     {
       feature: 'ai',
-      // AI surfaces ship in a later slice; mark unavailable until
-      // RL-031 lands so the row honestly reads "nothing here yet".
+      // AI surfaces ship in a later work; mark unavailable until
+      // internal lands so the row honestly reads "nothing here yet".
       status: 'unavailable',
       lastCallAt: null,
     },
     {
       feature: 'dependencies',
-      // RL-025 Slice A — detection + classification are fully local
+      // implementation — detection + classification are fully local
       // (renderer scans the buffer; main does an `existsSync` on
-      // `node_modules`). Slice B lights up the JS/TS desktop install
+      // `node_modules`). implementation lights up the JS/TS desktop install
       // path; `lastCallAt` now reflects the most recent `npm install`
       // start so the audit table honestly reports the most recent
-      // network call. Slice A stays local-only; the install path
+      // network call. implementation stays local-only; the install path
       // only fires when the user clicks Install explicitly.
       status: 'enabled',
       lastCallAt: args.dependencyInstallLastAt ?? null,
     },
     {
       feature: 'outputOriginTracking',
-      // RL-044 Sub-slice G — captures the source line of each console
+      // implementation — captures the source line of each console
       // output row to drive click + hover affordances. Pure local: the
       // worker reads its own `new Error().stack`, attaches a line
       // integer to each payload, and the renderer paints a chip. NO
       // file paths, NO content, NO network calls — the row appears in
-      // the audit table for transparency. Slice 2 removed the master
+      // the audit table for transparency. implementation removed the master
       // toggle, so this row is unconditionally 'enabled'; the per-tab
       // `// @origin off` directive remains as the user-controlled
       // opt-out.
@@ -221,10 +221,10 @@ export function buildNetworkActivityRows(args: {
     },
     {
       feature: 'gitReadOnlyLayer',
-      // RL-102 Slice 1 Fold H — pure local invocation of `git
+      // implementation note — pure local invocation of `git
       // status --porcelain` / `git diff HEAD` / `git show HEAD:<f>`
       // against the resolved repo root. NO remote refs, NO fetch,
-      // NO push, NO writes of any kind in Slice 1. Slice 1.1
+      // NO push, NO writes of any kind in implementation. implementation
       // removed the Settings master toggle (git awareness is now
       // baseline); the per-file `// @git-ignore-status` directive
       // remains as the user-controlled opt-out. Row is `'enabled'`
@@ -234,7 +234,7 @@ export function buildNetworkActivityRows(args: {
     },
     {
       feature: 'consoleImagePaste',
-      // RL-044 next slice — pasting an image into the console renders
+      // implementation detail — pasting an image into the console renders
       // it as an in-memory `image` rich entry. Pure local: the bytes
       // never touch localStorage and never leave the renderer (only a
       // closed-enum status + size bucket is emitted as telemetry). Row
@@ -244,7 +244,7 @@ export function buildNetworkActivityRows(args: {
     },
     {
       feature: 'projectBundle',
-      // RL-024 Slice 3 fold F — export/import a project as a `.zip`.
+      // implementation note — export/import a project as a `.zip`.
       // Pure local disk I/O through the capability sandbox; nothing
       // leaves the machine. Always `'enabled'` (the feature is always
       // available); the closed-enum telemetry carries only status +
@@ -256,7 +256,7 @@ export function buildNetworkActivityRows(args: {
 }
 
 /**
- * RL-096 Slice 2 — reduce the trust-event log to the most recent `at`
+ * implementation — reduce the trust-event log to the most recent `at`
  * per feature. Pure; the dashboard feeds the result into
  * {@link buildNetworkActivityRows} so each Network row shows a real
  * "last call" derived from the captured events instead of a hardcoded

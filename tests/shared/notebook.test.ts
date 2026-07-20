@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A — schema + parser + serializer coverage.
+ * implementation — schema + parser + serializer coverage.
  *
  * Validates every closed-enum reject reason and the happy-path
  * round-trip so `.linguanb` documents that pass the parser today can
@@ -43,7 +43,7 @@ function validNotebook(): NotebookV1 {
 }
 
 describe('shared/notebook closed enums', () => {
-  it('NOTEBOOK_REJECT_REASONS stays the closed set Slice A ships', () => {
+  it('NOTEBOOK_REJECT_REASONS stays the closed set implementation ships', () => {
     expect([...NOTEBOOK_REJECT_REASONS].sort()).toEqual(
       [
         'malformed-json',

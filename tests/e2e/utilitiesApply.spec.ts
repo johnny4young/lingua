@@ -1,5 +1,5 @@
 /**
- * RL-069 Slice 2 — Functional smoke for the ⚡ Apply-from-input
+ * implementation — Functional smoke for the ⚡ Apply-from-input
  * gesture and the Mod+Shift+A shortcut. Drives the real preview build
  * (`pnpm run preview:web`) through the full Developer Utilities flow
  * across multiple panel shapes and asserts both visual state and
@@ -25,7 +25,7 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('RL-069 Slice 2 — Apply gesture smoke', () => {
+test.describe('implementation — Apply gesture smoke', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);

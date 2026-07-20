@@ -1,5 +1,5 @@
 /**
- * Polar webhook handler — RL-061 Slice 2.
+ * Polar webhook handler — implementation
  *
  * Verifies the Polar Standard Webhooks signature, dispatches the event
  * to a D1-backed handler, mints a fresh license token where applicable,

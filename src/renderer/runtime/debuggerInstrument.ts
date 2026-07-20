@@ -14,7 +14,7 @@ interface AwaitableDebugTargets {
 }
 
 /**
- * RL-027 Slice 1 — Source instrumentation for the JS/TS debugger.
+ * implementation — Source instrumentation for the JS/TS debugger.
  *
  * # What this does
  *
@@ -34,13 +34,13 @@ interface AwaitableDebugTargets {
  *   that contain newlines, and any line that spans multiple
  *   statements (`a = 1; b = 2`).
  * - **magic-string** mutates the source by character index and
- *   produces a JS→JS source map automatically. Slice 1 returns that
- *   map as-is; Slice 1.5 composes it with esbuild's TS→JS map so a
+ *   produces a JS→JS source map automatically. implementation returns that
+ *   map as-is; implementation composes it with esbuild's TS→JS map so a
  *   breakpoint set in `.ts` line N maps back to TS line N at pause
  *   time.
  * - esbuild's `transform` API does NOT expose AST — only string-level
  *   loaders and parser modes. Not a fit.
- * - Both libs are already transitive via Vite/Rollup; this slice
+ * - Both libs are already transitive via Vite/Rollup; this change
  *   promotes them to direct `dependencies` for clarity.
  *
  * # What gets a yield
@@ -57,7 +57,7 @@ interface AwaitableDebugTargets {
  *   that breaks `await` — must stay synchronous).
  * - Synchronous function bodies. Injecting `await` into them would
  *   turn valid code into a SyntaxError unless the whole call graph is
- *   rewritten to async, which is outside Slice 1.
+ *   rewritten to async, which is outside implementation.
  * - Generator function bodies (yield-await mismatch is hairy; the
  *   user-facing impact is "set the breakpoint on the line that
  *   *calls* the generator instead").
@@ -66,7 +66,7 @@ interface AwaitableDebugTargets {
  *
  * # Source map merge
  *
- * Slice 1.5 fold G — when the caller passes `inputMap` (esbuild's
+ * implementation note — when the caller passes `inputMap` (esbuild's
  * TS→JS map from the TypeScript runner), we wrap it in a
  * `@jridgewell/trace-mapping` `TraceMap` and translate every line we
  * see in the AST from the post-transpile JS coordinate space back to
@@ -89,16 +89,16 @@ interface AwaitableDebugTargets {
  *
  * # Reference
  *
- * RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
+ * implementation and `docs/DEBUGGER_ADR.md`.
  */
 
 export interface InstrumentResult {
   /** Instrumented JS code, ready to send to the worker. */
   code: string;
   /**
-   * JSON-encoded source map for magic-string's JS→JS diff. Slice 1
+   * JSON-encoded source map for magic-string's JS→JS diff. implementation
    * intentionally does not compose the caller-provided `inputMap`;
-   * TypeScript line round-trip lands in Slice 1.5.
+   * TypeScript line round-trip lands in implementation.
    */
   map: string;
   /**
@@ -128,7 +128,7 @@ export interface InstrumentOptions {
    */
   yieldHelperName?: string;
   /**
-   * Slice 1.5 fold G — when supplied, this is the upstream esbuild
+   * implementation note — when supplied, this is the upstream esbuild
    * TS→JS source map. We wrap it in `@jridgewell/trace-mapping` and
    * translate every JS line the AST yields to the original TS line
    * before injecting the yield call. The yield helper therefore fires
@@ -146,7 +146,7 @@ export interface InstrumentOptions {
 const DEFAULT_HELPER_NAME = '__lingua_dbg_yield';
 
 /**
- * Slice 1.5 fold G — line translator. JS line in, user-source line
+ * implementation note — line translator. JS line in, user-source line
  * out. Passes through when no input map was provided (pure-JS path).
  * A failed lookup (e.g. line outside any segment in the map) falls
  * back to returning the JS line, which is strictly less surprising
@@ -582,7 +582,7 @@ function injectYieldBefore(
   const jsLine = stmt.loc?.start.line ?? 0;
   if (jsLine === 0) return;
 
-  // Slice 1.5 fold G — translate JS line back to user source line so
+  // implementation note — translate JS line back to user source line so
   // the yield helper fires with the breakpoint-matching coordinate.
   const userLine = translateLine(jsLine);
   if (!Number.isInteger(userLine) || userLine <= 0) return;
@@ -641,7 +641,7 @@ function wrapAsyncFunctionBody(
 
   const functionName = functionDisplayName(node);
   const jsLine = node.loc?.start.line ?? 0;
-  // Slice 1.5 fold G — frame headers also report user source lines so
+  // implementation note — frame headers also report user source lines so
   // the call-stack panel matches the TS line the user sees in Monaco.
   const userLine = translateLine(jsLine);
   ms.appendLeft(

@@ -25,10 +25,10 @@ import {
 import { cn } from '../../utils/cn';
 
 /**
- * RL-069 Slice 3 — pinned favorites row, rendered above the full
+ * implementation — pinned favorites row, rendered above the full
  * sidebar list. Hidden when the user has no favorites; otherwise the
  * row is sortable via @dnd-kit (mouse + keyboard accessible per
- * RL-088's a11y gate).
+ * internal's a11y gate).
  *
  * Drag with the grip icon, release to drop. Keyboard users can focus
  * the grip and press ArrowLeft / ArrowRight to reorder; @dnd-kit still

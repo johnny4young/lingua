@@ -1,5 +1,5 @@
 /**
- * Unit tests for the {{var}} substitution helper (RL-061 Slice 4).
+ * Unit tests for the {{var}} substitution helper .
  *
  * Pin: substitution semantics, missing-var error, type-safety on
  * non-string values, whitespace tolerance inside braces, and the

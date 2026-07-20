@@ -302,12 +302,12 @@ describe('useProjectWatchSync', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RL-146 / AUDIT-26 fold E — end-to-end delta readdir wiring. Uses the REAL
+// implementation note — end-to-end delta readdir wiring. Uses the REAL
 // applyWatchChanges so a watch event drives a scoped readdir of only the
 // affected directory's branch (not a full tree walk).
 // ---------------------------------------------------------------------------
 
-describe('useProjectWatchSync — delta readdir wiring (RL-146)', () => {
+describe('useProjectWatchSync — delta readdir wiring', () => {
   let emitChange: ((event: FsChangedEvent) => void) | null = null;
   const mockReaddir = vi.fn();
 
@@ -403,7 +403,7 @@ describe('useProjectWatchSync — delta readdir wiring (RL-146)', () => {
     expect(srcNode?.children?.map((c) => c.path)).toContain('src/new.ts');
   });
 
-  it('does not re-read anything for a pure file change event (fold B)', async () => {
+  it('does not re-read anything for a pure file change event (implementation note)', async () => {
     render(<WatchSyncHarness />);
     emitChange?.({
       rootId: 'root-proj',

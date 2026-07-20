@@ -1,12 +1,12 @@
 /**
- * RL-043 Slice A fold F — Minimal language-aware script export helper.
+ * implementation Slice A implementation note — Minimal language-aware script export helper.
  *
  * Joins code cells with comment separators and markdown cells as line
  * comments. The file extension follows the single code-cell language
  * (JS / TS / Python) and falls back to `.txt` for mixed-language
  * notebooks, which are not executable as a single script.
  *
- * Slice A scope: pure helper. The component layer wraps the result
+ * implementation scope: pure helper. The component layer wraps the result
  * in a `Blob` + uses `URL.createObjectURL` to surface a download
  * link. No clipboard / no IPC / no rich-format conversion.
  */

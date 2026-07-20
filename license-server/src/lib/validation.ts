@@ -1,12 +1,12 @@
 /**
- * Hand-rolled body validators for the Slice 1 endpoints.
+ * Hand-rolled body validators for the implementation endpoints.
  *
- * Why hand-rolled (no zod / valibot): Slice 1 has four request shapes
+ * Why hand-rolled (no zod / valibot): implementation has four request shapes
  * with shallow fields. Adding a schema library to a Cloudflare Worker
  * adds bundle weight (zod ships ~10KB minified, even tree-shaken) and
  * one more dependency to keep version-locked. The validators here are
  * each ~20 LOC and produce the same `issues: string[]` array shape that
- * Slice 2's webhook payload validator can extend without rewriting the
+ * implementation's webhook payload validator can extend without rewriting the
  * caller surface.
  */
 
@@ -261,7 +261,7 @@ export function validateDeviceRemoveBody(input: unknown): ValidationResult<Devic
   return { ok: true, value: { token, deviceIdToRemove } };
 }
 
-// ----------------------------------------------- RL-061 Slice 4 — Education
+// ----------------------------------------------- implementation — Education
 
 export interface EducationStartBody {
   email: string;
@@ -368,7 +368,7 @@ export function validateConfirmQuery(params: URLSearchParams): ValidationResult<
   return { ok: true, value: { confirm } };
 }
 
-// ------------------------------------------------ RL-061 Slice 4 — Recovery
+// ------------------------------------------------ implementation — Recovery
 
 export interface LicenseRecoverStartBody {
   email: string;

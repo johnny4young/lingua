@@ -5,7 +5,7 @@ import type { Language } from '../types';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 
 /**
- * RL-027 Slice 1.5 — Monaco glyph-margin integration for breakpoints.
+ * implementation — Monaco glyph-margin integration for breakpoints.
  *
  * Renders one dot per breakpoint in the active tab and turns clicks on
  * the gutter into `toggleBreakpoint(tabId, line)` calls. Disabled
@@ -16,7 +16,7 @@ import { languageSupportsDebugger } from '../utils/languageMeta';
  * Per the Debugger ADR (`docs/DEBUGGER_ADR.md` §1) the JS/TS adapter is
  * the first runtime to ship; this gutter only mounts dots for those
  * languages. Other tabs see no gutter affordance — the ADR's per-runtime
- * capability gate keeps the surface honest until later slices land.
+ * capability gate keeps the surface honest until later work land.
  *
  * Two callsites would otherwise hammer Monaco unnecessarily:
  *   - tab switches change `activeTabId` mid-flight.
@@ -39,7 +39,7 @@ export function useBreakpointGutter(
   monaco: typeof monacoTypes | null,
   options: BreakpointGutterOptions
 ): void {
-  // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+  // implementation — debugger is baseline; the Settings master toggle is gone.
   const debuggerEnabled = true;
   const breakpoints = useDebuggerStore((state) => state.breakpoints);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);

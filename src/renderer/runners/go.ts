@@ -26,7 +26,7 @@ import {
 } from './env';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
-// RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the runner
+// implementation — the literal DEFAULT_TIMEOUT is gone; the runner
 // resolves the deadline from the per-language Settings preset on
 // every call to `execute()`.
 const t: TranslateFn = (key, options) =>
@@ -80,7 +80,7 @@ export class GoRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // RL-020 Slice 7 — resolve deadline from the per-language preset.
+    // implementation — resolve deadline from the per-language preset.
     const settingsSnapshot = useSettingsStore.getState();
     const callerOverrode = typeof context?.timeout === 'number';
     const presetForLanguage: RuntimeTimeoutPreset | undefined =
@@ -102,15 +102,15 @@ export class GoRunner implements LanguageRunner {
         error: {
           message: 'Go is not installed on this system.',
         },
-        // RL-020 Slice 7 — host-not-installed counts as `'error'`.
+        // implementation — host-not-installed counts as `'error'`.
         kind: 'error',
       };
     }
 
     // Step 1: Compile Go to WASM via IPC (main process).
-    // RL-011 Slice D — resolve the user-space env (global + project +
+    // implementation — resolve the user-space env (global + project +
     // tab) and hand it to main so `go build` sees it. processEnv stays
-    // `{}` on the renderer side: the RL-079 host allowlist merge happens
+    // `{}` on the renderer side: the internal host allowlist merge happens
     // in main so host secrets never cross the preload boundary.
     const userEnv = resolveUserEnvForRunner();
     const compileResult = await window.lingua.go.compile(
@@ -129,7 +129,7 @@ export class GoRunner implements LanguageRunner {
           parseGoExecutionError(compileResult.error) ?? {
             message: 'Go compilation failed.',
           },
-        // RL-020 Slice 7 — compile failures count as `'error'`.
+        // implementation — compile failures count as `'error'`.
         kind: 'error',
       };
     }
@@ -187,7 +187,7 @@ export class GoRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'console': {
-            // RL-044 Sub-slice G — enrich the line field from a Go
+            // implementation — enrich the line field from a Go
             // panic-style `file.go:N` reference in the args text when
             // the worker didn't already provide a line.
             const enrichedLine = enrichConsoleOutputLine('go', msg.line, msg.args);

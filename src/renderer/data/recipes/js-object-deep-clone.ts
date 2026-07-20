@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — Recipe `js-object-deep-clone`.
+ * implementation — Recipe `js-object-deep-clone`.
  *
  * Deep-clone a nested object. Exercises structuredClone vs hand-
  * rolled recursion; tests prove independence of the clone.

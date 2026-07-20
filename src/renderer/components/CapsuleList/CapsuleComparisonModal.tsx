@@ -18,15 +18,15 @@ import {
 } from './capsuleComparison';
 
 /**
- * RL-094 Slice 4 — read-only side-by-side comparator for two run
- * capsules. Mirrors `ExecutionComparisonModal` (RL-028 Slice 7): an
+ * implementation — read-only side-by-side comparator for two run
+ * capsules. Mirrors `ExecutionComparisonModal` : an
  * `OverlayBackdrop`/`OverlayCard` dialog with an Escape-closes effect, a
  * summary strip, and the older-on-the-left / newer-on-the-right pane
  * grid. It extends that precedent with:
  *
- *   - fold A — a Code | Input | Output tab bar; the active section
+ *   - implementation note — a Code | Input | Output tab bar; the active section
  *     renders the two `<pre>` panes plus the line-by-line diff below.
- *   - fold E — environment chips (platform / runner / git branch /
+ *   - implementation note — environment chips (platform / runner / git branch /
  *     commit) shown as `older → newer` only when they differ.
  *
  * `capsules` is `[older, newer]` sorted oldest → newest by the caller.
@@ -115,7 +115,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
     capsules: [RunCapsuleV1, RunCapsuleV1];
     section: SectionKey;
   } | null>(null);
-  // UX Sweep T11 — ids + ref for the section tablist so it implements the ARIA
+  // accessibility pass — ids + ref for the section tablist so it implements the ARIA
   // tab keyboard pattern (roving tabindex + arrow keys + tab/panel wiring).
   const tablistBaseId = useId();
   const tablistRef = useRef<HTMLDivElement>(null);
@@ -270,7 +270,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
               delta: formatDelta(model.older.durationMs, model.newer.durationMs),
             })}
           </div>
-          {/* fold E — environment deltas. Each chip self-hides when the
+          {/* implementation note — environment deltas. Each chip self-hides when the
               two sides match, so this row is empty when the run
               environment was identical. */}
           <div
@@ -313,7 +313,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
           </p>
         ) : (
           <>
-            {/* fold A — section tab bar. */}
+            {/* implementation note — section tab bar. */}
             <div
               ref={tablistRef}
               role="tablist"
@@ -348,7 +348,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
               })}
             </div>
 
-            {/* UX Sweep T11 — the active section content is this tab's panel. */}
+            {/* accessibility pass — the active section content is this tab's panel. */}
             <div
               role="tabpanel"
               id={panelId}
@@ -370,7 +370,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
                     </div>
                     <pre
                       data-testid="capsule-compare-pane-older"
-                      // UX Sweep T3 — focusable scroll region so a keyboard
+                      // accessibility pass — focusable scroll region so a keyboard
                       // user can Tab in and scroll long code with the arrows.
                       tabIndex={0}
                       role="region"

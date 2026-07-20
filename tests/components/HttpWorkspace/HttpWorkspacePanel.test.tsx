@@ -178,11 +178,11 @@ describe('HttpWorkspacePanel', () => {
       expect(latestCapsule?.tab.language).toBe('http');
       expect(latestCapsule?.environment.runner).toBe('http-client');
     });
-    // UX Sweep T4 — the response is announced to screen readers.
+    // accessibility pass — the response is announced to screen readers.
     expect(useAnnouncerStore.getState().message).toMatch(/Response 200/i);
   });
 
-  it('announces non-2xx HTTP responses with their status code (UX Sweep T4)', async () => {
+  it('announces non-2xx HTTP responses with their status code (accessibility pass)', async () => {
     const user = userEvent.setup();
     executeHttpRequestMock.mockResolvedValue(
       makeResponse({
@@ -207,7 +207,7 @@ describe('HttpWorkspacePanel', () => {
     });
   });
 
-  it('announces a transport failure (status 0) as a generic failure, not a 0 status (UX Sweep T4)', async () => {
+  it('announces a transport failure (status 0) as a generic failure, not a 0 status (accessibility pass)', async () => {
     const user = userEvent.setup();
     // A network/timeout/cors error has no HTTP status — the runtime sets
     // status 0. The announcer must NOT read out "Response 0"; it falls back
@@ -230,7 +230,7 @@ describe('HttpWorkspacePanel', () => {
     expect(useAnnouncerStore.getState().message).not.toMatch(/Response 0/i);
   });
 
-  // ---- RL-097 Slice 3a — environment interpolation + secret redaction ----
+  // ---- implementation — environment interpolation + secret redaction ----
 
   it('interpolates the active environment into the OUTBOUND request', async () => {
     const user = userEvent.setup();
@@ -415,7 +415,7 @@ describe('HttpWorkspacePanel', () => {
     expect(capsule.result.stdout ?? '').not.toContain(SECRET);
   });
 
-  // ---- RL-097 Slice 3b — Auth-tab interpolation is privacy-critical ----
+  // ---- implementation — Auth-tab interpolation is privacy-critical ----
 
   it('PRIVACY: a secret in the AUTH Bearer field resolves OUTBOUND but never reaches the response/capsule', async () => {
     const user = userEvent.setup();
@@ -751,7 +751,7 @@ describe('HttpWorkspacePanel — collection workspace (rail-driven)', () => {
     expect(useWorkspaceToolStore.getState().getRequest(reqB.id)).toBeDefined();
   });
 
-  // ---- T2 — request chaining (capture response variables) ----
+  // ---- implementation — request chaining (capture response variables) ----
 
   function seedCaptureRequest() {
     const req = {

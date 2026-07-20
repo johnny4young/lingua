@@ -39,7 +39,7 @@ import {
 } from './settingsSanitizers';
 
 /**
- * RL-129 — `lingua-settings` rehydrate sanitizer, extracted from
+ * internal — `lingua-settings` rehydrate sanitizer, extracted from
  * `settingsStore.ts`. Treats localStorage as tamper-controlled input and
  * narrows every persisted value before it reaches UI, runtime, or telemetry.
  * Pure except for the tier read that selects the dependency-detection default.
@@ -64,7 +64,7 @@ export function settingsMerge(
       : hasSnapshotPreference
         ? false
         : currentState.executionHistorySnapshotEnabled;
-  // RL-025 Slice A fold G — corrupted or missing dependency-detection values
+  // implementation Slice A implementation note — corrupted or missing dependency-detection values
   // fall back to the tier-aware default instead of silently disabling Pro UI.
   const dependencyDetectionEnabled =
     typeof persisted?.dependencyDetectionEnabled === 'boolean'
@@ -96,13 +96,13 @@ export function settingsMerge(
   const requestedThemePack = isKnownThemePackId(merged.themePack)
     ? merged.themePack
     : DEFAULT_THEME_PACK_ID;
-  // RL-097 Slice 1 — sanitize the user's sensitive header allowlist on
+  // implementation — sanitize the user's sensitive header allowlist on
   // rehydrate (drop non-strings, empties, >100 chars, baseline names,
   // case-insensitive dupes).
   const sanitizedSensitiveHttpHeaders = sanitizeSensitiveHttpHeaders(
     merged.sensitiveHttpHeaders
   );
-  // RL-097 Slice 2 — sanitize SQL workspace prefs on rehydrate.
+  // implementation — sanitize SQL workspace prefs on rehydrate.
   // Closed-enum values fall back to defaults on drift.
   const sanitizedSqlRowDisplayLimit = sanitizeSqlRowDisplayLimit(
     merged.sqlWorkspaceRowDisplayLimit
@@ -132,7 +132,7 @@ export function settingsMerge(
         ? requestedThemePack
         : DEFAULT_THEME_PACK_ID;
 
-  // RL-019 Slice 1 — guard `defaultRuntimeMode` on rehydrate the same
+  // implementation — guard `defaultRuntimeMode` on rehydrate the same
   // way `setDefaultRuntimeMode` does at runtime. A tampered localStorage
   // entry with an unimplemented or unknown string would otherwise
   // survive into the live store and surface a broken Select in Settings.
@@ -141,7 +141,7 @@ export function settingsMerge(
     isRuntimeModeImplemented(merged.defaultRuntimeMode as never)
       ? merged.defaultRuntimeMode
       : currentState.defaultRuntimeMode;
-  // RL-020 Slice 2 fold C — sanitize the persisted defaults
+  // implementation note — sanitize the persisted defaults
   // map and seed any missing Scratchpad-language keys so the
   // Settings UI surfaces a populated row on upgrade. The
   // user's prior overrides win over the seed; the seed only
@@ -153,7 +153,7 @@ export function settingsMerge(
     ...WORKFLOW_MODE_DEFAULT_SEED,
     ...sanitizedWorkflowDefaults,
   };
-  // RL-020 Slice 5 — sanitize the auto-log map the same way the
+  // implementation — sanitize the auto-log map the same way the
   // workflow defaults are sanitized + seeded on rehydrate. A
   // tampered persisted entry never survives into the live store
   // and missing keys default to `false`.
@@ -169,7 +169,7 @@ export function settingsMerge(
       ? merged.firstWorkflowModeSwitchAcknowledged
       : currentState.firstWorkflowModeSwitchAcknowledged;
   const showStdinPanel = typeof merged.showStdinPanel === 'boolean' ? merged.showStdinPanel : currentState.showStdinPanel;
-  // RL-093 Slice 3 — guard the closed enum on rehydrate so a
+  // implementation — guard the closed enum on rehydrate so a
   // tampered localStorage entry can't surface a broken
   // dropdown / route to a non-existent panel.
   const variableInspectorSurface: 'floating' | 'bottom' =
@@ -177,7 +177,7 @@ export function settingsMerge(
     merged.variableInspectorSurface === 'bottom'
       ? merged.variableInspectorSurface
       : currentState.variableInspectorSurface;
-  // RL-020 Slice 7 — sanitize + seed the per-language preset
+  // implementation — sanitize + seed the per-language preset
   // map. Tampered tokens never survive; missing language keys
   // fall back to the language default seed so the Settings UI
   // always shows a row for every supported language.
@@ -192,7 +192,7 @@ export function settingsMerge(
     typeof merged.showTimeoutCountdown === 'boolean'
       ? merged.showTimeoutCountdown
       : currentState.showTimeoutCountdown;
-  // RL-042 Slice 6 — same guard as the boolean above. Anything
+  // implementation — same guard as the boolean above. Anything
   // outside the closed enum (`auto` / `system` / `wasm`) gets
   // mapped back to the seed.
   const rubyRuntimePreference: 'auto' | 'system' | 'wasm' =
@@ -201,7 +201,7 @@ export function settingsMerge(
     merged.rubyRuntimePreference === 'wasm'
       ? merged.rubyRuntimePreference
       : currentState.rubyRuntimePreference;
-  // RL-101 Slice 1 — sanitize the onboarding choreography flags.
+  // implementation — sanitize the onboarding choreography flags.
   // Tampered entries (null, string, undefined) fall back to the
   // initial `false` so the user always sees the welcome flow
   // exactly once. The seed-version tracker also defaults to 0
@@ -224,7 +224,7 @@ export function settingsMerge(
     merged.onboardingWelcomeSeedVersion >= 0
       ? Math.floor(merged.onboardingWelcomeSeedVersion)
       : currentState.onboardingWelcomeSeedVersion;
-  // RL-094 Slice 2 fold C — guard the capsule-import clipboard
+  // implementation note — guard the capsule-import clipboard
   // consent on rehydrate so a tampered localStorage value can
   // never silently bypass the opt-in. Closed enum:
   // 'unset' | 'granted' | 'declined'. Anything else falls back
@@ -235,16 +235,16 @@ export function settingsMerge(
     merged.capsuleImportClipboardOnFocusConsent === 'unset'
       ? merged.capsuleImportClipboardOnFocusConsent
       : 'unset';
-  // RL-100 Slice 1 fold F — same three-state sanitize as the
+  // implementation note — same three-state sanitize as the
   // capsule-import + utilities consents. Anything else falls
-  // back to `'unset'` so the user is prompted again in Slice 2.
+  // back to `'unset'` so the user is prompted again in implementation.
   const importPreviewClipboardOnFocusConsent: 'unset' | 'granted' | 'declined' =
     merged.importPreviewClipboardOnFocusConsent === 'granted' ||
     merged.importPreviewClipboardOnFocusConsent === 'declined' ||
     merged.importPreviewClipboardOnFocusConsent === 'unset'
       ? merged.importPreviewClipboardOnFocusConsent
       : 'unset';
-  // RL-111 — guard the session-restore mode after migration or tampering.
+  // internal — guard the session-restore mode after migration or tampering.
   // Unknown values use the privacy-conscious `ask` default.
   const restoreSessionMode: SettingsState['restoreSessionMode'] =
     merged.restoreSessionMode === 'never' ||
@@ -255,7 +255,7 @@ export function settingsMerge(
   return {
     ...merged,
     restoreSessionMode,
-    languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform), // RL-095 S2
+    languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform), // internal S2
     hasCompletedOnboardingWelcome,
     hasCompletedOnboardingFirstRun,
     hasCompletedOnboardingFirstSnippet,
@@ -276,20 +276,20 @@ export function settingsMerge(
     ),
     inlineLintEnabledByLanguage: resolveInlineLintByLanguage(merged.inlineLintEnabledByLanguage),
     showStdinPanel,
-    showStatusBar: typeof merged.showStatusBar === 'boolean' ? merged.showStatusBar : currentState.showStatusBar, // RL-112
+    showStatusBar: typeof merged.showStatusBar === 'boolean' ? merged.showStatusBar : currentState.showStatusBar, // internal
     smartPasteDetectionEnabled: typeof merged.smartPasteDetectionEnabled === 'boolean' ? merged.smartPasteDetectionEnabled : currentState.smartPasteDetectionEnabled,
     variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
     showTimeoutCountdown,
-    showLineTiming: typeof merged.showLineTiming === 'boolean' ? merged.showLineTiming : currentState.showLineTiming, // RL-115
+    showLineTiming: typeof merged.showLineTiming === 'boolean' ? merged.showLineTiming : currentState.showLineTiming, // internal
     rubyRuntimePreference,
     firstWorkflowModeSwitchAcknowledged,
     sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
-    sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // RL-097 S3 OPFS: coerce to boolean on rehydrate
-    runLedgerEnabled: merged.runLedgerEnabled === true, // IT2-C1: coerce to boolean on rehydrate
-    notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // RL-043 SC: only the runnable pair; anything else falls back to JS
+    sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // internal S3 OPFS: coerce to boolean on rehydrate
+    runLedgerEnabled: merged.runLedgerEnabled === true, // internal: coerce to boolean on rehydrate
+    notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // internal SC: only the runnable pair; anything else falls back to JS
     capsuleImportClipboardOnFocusConsent,
     importPreviewClipboardOnFocusConsent,
   };

@@ -31,7 +31,7 @@ export function useRunner() {
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [runMode, setRunMode] = useState<'run' | 'debug' | null>(null);
   const currentLanguageRef = useRef<Language | null>(null);
-  // RL-019 Slice 3 — track the runtime mode that started the run so
+  // implementation — track the runtime mode that started the run so
   // `stop()` can route to the right runner (browser-preview runs
   // through BrowserPreviewRunner, not the language Worker).
   const currentRuntimeModeRef = useRef<RuntimeMode | undefined>(undefined);
@@ -65,7 +65,7 @@ export function useRunner() {
       return;
     }
 
-    // RL-070 — flip the per-tab status to running so the EditorTabs
+    // internal — flip the per-tab status to running so the EditorTabs
     // dot becomes a spinner. Reset back to success / error / idle in
     // the lifecycle wrapper below.
     const editor = useEditorStore.getState();
@@ -82,7 +82,7 @@ export function useRunner() {
         setLoadingMessage,
         setCurrentLanguage: (language) => {
           currentLanguageRef.current = language;
-          // RL-019 Slice 3 — capture the runtime mode at the start
+          // implementation — capture the runtime mode at the start
           // of the run so `stop()` can route to the right runner.
           // Reset alongside language on lifecycle teardown.
           currentRuntimeModeRef.current = language ? activeTab.runtimeMode : undefined;
@@ -101,7 +101,7 @@ export function useRunner() {
       } else {
         editor.setTabExecutionState(activeTab.id, 'success');
       }
-      // UX Sweep T9 — console output is silent to screen readers. Announce a
+      // accessibility pass — console output is silent to screen readers. Announce a
       // single coalesced run summary (not one message per line) via the shared
       // live region, mirroring the notebook / HTTP / SQL run announcements.
       announceRunSummary(summary);
@@ -143,7 +143,7 @@ export function useRunner() {
       return;
     }
 
-    // RL-079 — gate the first Go/Rust/system-Ruby run behind the
+    // internal — gate the first Go/Rust/system-Ruby run behind the
     // trust-boundary modal. The gate store opens the modal mounted at
     // App level; the modal flips the persisted flag, then invokes the
     // resume callback registered here for the same tab.
@@ -184,7 +184,7 @@ function oneLineTooltip(message: string): string | null {
 }
 
 /**
- * UX Sweep T9 — coalesced screen-reader summary for a finished run. Only
+ * accessibility pass — coalesced screen-reader summary for a finished run. Only
  * explicit `run`-mode executions announce, so scratchpad live-eval (`view`)
  * cannot spam the live region. Resolved off the global i18next instance so
  * this stays callable from the non-render run path.

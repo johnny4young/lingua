@@ -1,5 +1,5 @@
 /**
- * RL-112 — `<StatusBar>` render + interaction contract.
+ * internal — `<StatusBar>` render + interaction contract.
  *
  * Covers:
  *   - Unmounts entirely when `showStatusBar` is false; mounts when true.
@@ -160,13 +160,13 @@ describe('StatusBar', () => {
     expect(screen.getByTestId('status-bar-indent').textContent).toContain('Spaces: 2');
   });
 
-  it('keeps every visible segment keyboard-focusable per the RL-112 acceptance criteria', () => {
+  it('keeps every visible segment keyboard-focusable per the internal acceptance criteria', () => {
     editorAccessState.editor = makeEditorStub();
     act(() => {
       useGitStore.getState().setPosture({
         available: true,
         repoRoot: '/tmp/repo',
-        branch: 'feature/rl-112',
+        branch: 'feature/internal',
         commit: 'abcdef1234567890',
       });
     });
@@ -184,7 +184,7 @@ describe('StatusBar', () => {
       const segment = screen.getByTestId(id);
       expect(segment.tagName).toBe('BUTTON');
       expect(segment.hasAttribute('disabled')).toBe(false);
-      // UX Sweep T1 — every segment carries the shared visible focus ring.
+      // accessibility pass — every segment carries the shared visible focus ring.
       expect(segment.className).toContain('focus-ring');
     }
   });
@@ -198,7 +198,7 @@ describe('StatusBar', () => {
       useGitStore.getState().setPosture({
         available: true,
         repoRoot: '/tmp/repo',
-        branch: 'feature/rl-112',
+        branch: 'feature/internal',
         commit: 'abcdef1234567890',
       });
     });
@@ -290,14 +290,14 @@ describe('StatusBar', () => {
       useGitStore.getState().setPosture({
         available: true,
         repoRoot: '/tmp/repo',
-        branch: 'feature/rl-112',
+        branch: 'feature/internal',
         commit: 'abcdef1234567890',
       });
     });
     render(<StatusBar />);
     const git = screen.getByTestId('status-bar-git');
-    expect(git.textContent).toContain('feature/rl-112');
-    expect(git.getAttribute('title')).toBe('feature/rl-112 · abcdef1');
+    expect(git.textContent).toContain('feature/internal');
+    expect(git.getAttribute('title')).toBe('feature/internal · abcdef1');
   });
 
   it('cycles the active tab language when the language segment is clicked', () => {

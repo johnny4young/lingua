@@ -1,5 +1,5 @@
 /**
- * RL-097 Slice 3 — Monaco-backed SQL query editor host.
+ * implementation — Monaco-backed SQL query editor host.
  *
  * Replaces the SQL workspace's plain `<textarea>` with a controlled
  * `@monaco-editor/react` editor on the built-in `sql` language. This is
@@ -21,12 +21,12 @@
  *     library-driven update, so there is no echo loop. We never call
  *     `editor.setValue` on every render — the library owns model sync.
  *
- *   - **Provider disposal.** The `sql` completion provider (fold A) and
- *     the two keybinding commands (folds C + E) are registered in
+ *   - **Provider disposal.** The `sql` completion provider (implementation note) and
+ *     the two keybinding commands (implementation note) are registered in
  *     `onMount` and disposed on unmount via the editor's
  *     `onDidDispose` hook — no leak across SQL-workspace mounts.
  *
- * Folds wired here:
+ * implementation note here:
  *   - **A**: `sql` completion provider over the live table names, their
  *     column names (with the SQL type shown as the completion detail),
  *     and a small common-keyword set. The columns arrive from the panel's
@@ -120,15 +120,15 @@ export interface SqlMonacoEditorProps {
   /** Fired on every user edit with the full buffer text. */
   onChange: (value: string) => void;
   /**
-   * Cmd/Ctrl+Enter (fold E). `selectedText` is the current non-empty
+   * Cmd/Ctrl+Enter (implementation note). `selectedText` is the current non-empty
    * selection text, or `null` when there is no selection — the parent
    * decides whether to run the selection or the full buffer.
    */
   onRunShortcut: (opts: { selectedText: string | null }) => void;
-  /** Shift+Alt+F (fold C) — pretty-print the SQL. */
+  /** Shift+Alt+F (implementation note) — pretty-print the SQL. */
   onFormatShortcut: () => void;
   /**
-   * Live session tables (fold A). Read through a ref inside the
+   * Live session tables (implementation note). Read through a ref inside the
    * completion provider so newly-introspected tables appear without
    * re-registering the provider. Each table's optional `columns` (name +
    * SQL type) feed column-name completion items alongside the table names.
@@ -193,7 +193,7 @@ export function SqlMonacoEditor({
 
     const disposables: { dispose: () => void }[] = [];
 
-    // Fold E — Cmd/Ctrl+Enter runs the selection (when non-empty) or the
+    // implementation note — Cmd/Ctrl+Enter runs the selection (when non-empty) or the
     // full buffer. addCommand returns a binding id string, not a
     // disposable, so the command is torn down with the editor itself.
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
@@ -205,7 +205,7 @@ export function SqlMonacoEditor({
       onRunShortcutRef.current({ selectedText });
     });
 
-    // Fold C — Shift+Alt+F formats.
+    // implementation note — Shift+Alt+F formats.
     editor.addCommand(
       monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
       () => {
@@ -213,7 +213,7 @@ export function SqlMonacoEditor({
       }
     );
 
-    // Fold A — `sql` completion provider: live table names + common
+    // implementation note — `sql` completion provider: live table names + common
     // keywords. Disposed on unmount via onDidDispose below. (Column-name
     // completion is out of scope — see file header.)
     const completionProvider: SqlCompletionProvider = {

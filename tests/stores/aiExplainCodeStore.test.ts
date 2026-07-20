@@ -22,7 +22,7 @@ function makeEditor(opts: {
   } as unknown as Editor;
 }
 
-describe('aiExplainCodeStore (SR-20a Wave 4)', () => {
+describe('aiExplainCodeStore (internal implementation)', () => {
   beforeEach(() => {
     useAiExplainCodeStore.setState({ request: null });
   });

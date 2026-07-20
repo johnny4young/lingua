@@ -7,7 +7,7 @@ import {
 } from '../../shared/redaction';
 
 /**
- * RL-096 Slice 1 — adaptor that lets the Privacy + Trust dashboard
+ * implementation — adaptor that lets the Privacy + Trust dashboard
  * surface preview run the SAME redactor logic as the rest of the
  * codebase against an arbitrary user-pasted string. Pure: no
  * network, no IO, no telemetry side effects.

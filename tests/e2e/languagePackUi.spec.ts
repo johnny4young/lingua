@@ -1,5 +1,5 @@
 /**
- * RL-038 Slice C closeout — real-browser coverage for the language-pack
+ * implementation closeout — real-browser coverage for the language-pack
  * UI consumers added after Toolbar / FileTree.
  */
 

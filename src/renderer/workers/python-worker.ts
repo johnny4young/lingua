@@ -4,15 +4,15 @@
  * Loads Pyodide on first use, caches in memory for subsequent runs,
  * captures stdout/stderr, and sends results to the main thread.
  *
- * RL-083 Slice 1 — desktop/dev resolve `pyodide.mjs` against the
+ * implementation — desktop/dev resolve `pyodide.mjs` against the
  * renderer build output (file:// in packaged Electron, the dev server
  * origin in `pnpm run dev:desktop`). The build pipeline copies
  * `node_modules/pyodide/*` to `<outDir>/pyodide/` via
  * `build/copyRuntimeAssetsPlugin.mts`. The web build explicitly
- * overrides the index URL to the CDN until Slice 2 picks the
+ * overrides the index URL to the CDN until implementation picks the
  * first-party hosting path.
  *
- * RL-078: this worker no longer schedules its own deadline. The
+ * internal: this worker no longer schedules its own deadline. The
  * parent renderer thread owns a kill timer and calls
  * `worker.terminate()` if user code does not yield in time. Each
  * `execute` request carries a `runId` that the worker echoes on
@@ -91,7 +91,7 @@ let pyodide: unknown = null;
 let appliedUserEnvKeys: string[] = [];
 let activeRunId: string | null = null;
 /**
- * T17 — per-notebook Python namespace dicts. Keyed by `scopeId` (a notebook
+ * implementation — per-notebook Python namespace dicts. Keyed by `scopeId` (a notebook
  * tabId). Each value is a PyProxy to a Python `dict` that user code runs
  * against, so cells in one notebook share state while notebook A, notebook B,
  * and the editor scratchpad (which uses the legacy module-`globals()` path,
@@ -100,7 +100,7 @@ let activeRunId: string | null = null;
  */
 const scopeNamespaces = new Map<string, { destroy?: () => void }>();
 /**
- * RL-020 Slice 9 — Pyodide globals captured before the first user
+ * implementation — Pyodide globals captured before the first user
  * run executes. The variable inspector subtracts this set from
  * `globals().keys()` so only user-declared bindings (and post-boot
  * imports the user pulled in) survive the filter.
@@ -118,7 +118,7 @@ function truncate(value: string, marker: string): string {
 }
 
 /**
- * RL-025 Slice C — minimal shape of a Python module proxied through
+ * implementation — minimal shape of a Python module proxied through
  * `pyodide.pyimport`. The install handler reaches for `micropip` this
  * way so the worker never builds Python source strings around
  * user-supplied package names (string interpolation into runPython is
@@ -126,7 +126,7 @@ function truncate(value: string, marker: string): string {
  */
 type PyodidePyModule = {
   /**
-   * RL-025 Slice C — the `install` function on the `micropip`
+   * implementation — the `install` function on the `micropip`
    * PyProxy accepts either a JS string[] (auto-converted) or a
    * Pyodide-managed Python list (`pyodide.toPy(array)`). Typed
    * loosely as `unknown` so the worker can pass the PyProxy
@@ -138,24 +138,24 @@ type PyodidePyModule = {
 
 type PyodideRuntime = {
   /**
-   * T17 — the optional `globals` runs user code against a caller-supplied
+   * implementation — the optional `globals` runs user code against a caller-supplied
    * namespace dict (a PyProxy) instead of the worker module `globals()`.
    * Notebook cells pass their per-notebook scope dict so cross-cell Python
    * state persists while staying isolated from the editor scratchpad and
    * other notebooks. Absent `globals`, behavior is unchanged.
    */
   runPythonAsync(code: string, options?: { globals?: unknown }): Promise<unknown>;
-  /** T17 — synchronous eval, used to mint a fresh Python `dict()` scope proxy. */
+  /** implementation — synchronous eval, used to mint a fresh Python `dict()` scope proxy. */
   runPython?(code: string): unknown;
   /**
-   * RL-025 Slice C — load a Pyodide-shipped package into the
+   * implementation — load a Pyodide-shipped package into the
    * runtime. Used to bootstrap `micropip` before the first install.
    */
   loadPackage?: (
     names: string | readonly string[]
   ) => Promise<unknown>;
   /**
-   * RL-025 Slice C — set of packages currently installed in the
+   * implementation — set of packages currently installed in the
    * runtime. Keys include both `loadPackage`-installed Pyodide
    * builtins (numpy, pandas, etc. when pre-loaded) and
    * `micropip.install`-installed wheels (which delegate to
@@ -165,13 +165,13 @@ type PyodideRuntime = {
    */
   loadedPackages?: Record<string, unknown>;
   /**
-   * RL-025 Slice C — import a Python module (e.g. `micropip`). Lets
+   * implementation — import a Python module (e.g. `micropip`). Lets
    * us call into the install path without ever building a runPython
    * source string from user-supplied package names.
    */
   pyimport?: (name: string) => PyodidePyModule;
   /**
-   * RL-025 Slice C — convert a JS value to its Python equivalent
+   * implementation — convert a JS value to its Python equivalent
    * (Array → list, plain object → dict, etc.). `micropip.install`
    * accepts a Python list; passing a JS array directly relies on
    * Pyodide's PyProxy auto-conversion which has had version-to-
@@ -181,7 +181,7 @@ type PyodideRuntime = {
   setStdout?: (options: { batched: (text: string) => void }) => void;
   setStderr?: (options: { batched: (text: string) => void }) => void;
   /**
-   * RL-020 Slice 6 — Pyodide ≥ 0.24 stdin redirect API. The callback
+   * implementation — Pyodide ≥ 0.24 stdin redirect API. The callback
    * returns one chunk at a time (string per `input()` line in
    * practice); returning `null` / `undefined` signals EOF and
    * Pyodide raises `EOFError` in the user's code (stock Python
@@ -205,7 +205,7 @@ type PyodideLoaderModule = {
 };
 
 /**
- * IT2-D3 — pre-warm the big Pyodide WASM into the HTTP cache while
+ * internal — pre-warm the big Pyodide WASM into the HTTP cache while
  * streaming progress to the renderer. Best-effort by design: any
  * failure falls through silently and `loadPyodide` performs its own
  * fetch (served from the cache when the pre-warm succeeded) with its
@@ -300,7 +300,7 @@ function parsePythonError(errorText: string): { line?: number; message: string }
 }
 
 /**
- * RL-044 Slice 2b-β-β-α — bridge `__lingua.{chart,image,html}` callbacks
+ * implementation — bridge `__lingua.{chart,image,html}` callbacks
  * registered on Pyodide globals. Each helper unwraps the PyProxy passed
  * from Python (dict → JS via `dict_converter: Object.fromEntries`),
  * runs the same `validate*` whitelist the JS worker uses, and posts the
@@ -427,7 +427,7 @@ function buildPythonRichMediaBridge(
 }
 
 /**
- * RL-020 Slice 9 — Python-side scope capture.
+ * implementation — Python-side scope capture.
  *
  * Two helpers below:
  *
@@ -676,7 +676,7 @@ interface PythonPrintEntry {
 }
 
 /**
- * RL-044 Slice 1C — post the typed per-print payloads from the Python
+ * implementation — post the typed per-print payloads from the Python
  * worker preamble. Each entry's joined text is split by newline so the
  * console panel keeps its "one entry per line" cadence; the rich
  * `payloads` array is attached to the FIRST line only (subsequent
@@ -736,7 +736,7 @@ function postPythonPrintEntries(
   }
 }
 
-// RL-025 Slice C — defensive PyPI-name regex. PyPI's accepted form is
+// implementation — defensive PyPI-name regex. PyPI's accepted form is
 // case-insensitive: starts with a letter or digit, allows interior
 // `[A-Za-z0-9._-]`, and ends in a letter or digit. Trailing `.` or
 // `-` would resolve to surprising packages once PyPI's normaliser
@@ -745,7 +745,7 @@ function postPythonPrintEntries(
 const PYTHON_PACKAGE_NAME_RE =
   /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,212}[a-zA-Z0-9])?$/u;
 
-// RL-025 Slice C — micropip module cache. The PyProxy is intentionally
+// implementation — micropip module cache. The PyProxy is intentionally
 // kept alive for the worker's lifetime: this is a single Pyodide
 // runtime per session, so re-importing on every install would only
 // add latency without freeing meaningful memory. The leak is bounded
@@ -783,7 +783,7 @@ async function ensureMicropip(): Promise<PyodidePyModule> {
   return micropipLoadPromise;
 }
 
-// RL-025 Slice C — classify the error surface micropip throws when an
+// implementation — classify the error surface micropip throws when an
 // install fails. Native wheels (numpy-fork, psycopg2, packages with C
 // extensions Pyodide does not ship) raise a distinctive message that
 // we map to the closed-enum `'unsupported-wheel'` so dashboards can
@@ -812,7 +812,7 @@ ctx.addEventListener('message', async (event) => {
   const msg = event.data;
 
   if (msg.type === 'reset-scope') {
-    // T17 — Restart kernel / tab close: drop a notebook's persistent scope
+    // implementation — Restart kernel / tab close: drop a notebook's persistent scope
     // dict so the next run starts clean. Idempotent for an unknown scopeId.
     const { scopeId } = msg as { scopeId?: string };
     if (typeof scopeId === 'string' && scopeId.length > 0) {
@@ -860,10 +860,10 @@ ctx.addEventListener('message', async (event) => {
       code: string;
       userEnv?: Record<string, string>;
       resultTruncationMarker?: string;
-      /** T17 — per-notebook kernel scope id (notebook tabId). */
+      /** implementation — per-notebook kernel scope id (notebook tabId). */
       scopeId?: string;
       /**
-       * RL-020 Slice 6 — pre-set stdin buffer. Newline-delimited;
+       * implementation — pre-set stdin buffer. Newline-delimited;
        * `input()` consumes one line per call. Empty / undefined
        * installs the same line reader with zero lines, so a bare
        * `input()` hits EOF immediately and raises `EOFError` —
@@ -873,17 +873,17 @@ ctx.addEventListener('message', async (event) => {
        */
       stdin?: string;
       /**
-       * RL-020 Slice 9 — when `true`, capture the post-execute
+       * implementation — when `true`, capture the post-execute
        * globals and emit a `'scope-snapshot'` reply before `done`.
        */
       captureScope?: boolean;
       /**
-       * RL-020 Slice 9 fold E — recursion depth for the scope
+       * implementation note — recursion depth for the scope
        * walker (1–4). Defaults to 1 in `serializeScopeValueFromPyObject`.
        */
       scopeDepth?: number;
       /**
-       * RL-044 Slice 1C fold E — when `false`, the worker preamble
+       * implementation note — when `false`, the worker preamble
        * skips all Python-side payload serialization. The renderer's
        * `Settings.consoleRichRenderingEnabled` toggle flows through
        * here so the runtime cost of `__lingua_console_serialize`
@@ -892,7 +892,7 @@ ctx.addEventListener('message', async (event) => {
        */
       richConsoleEnabled?: boolean;
       /**
-       * RL-044 Sub-slice G.1 — gate the per-call
+       * implementation — gate the per-call
        * `__lingua_caller_line()` frame walk inside `__lingua_print`
        * and `__lingua_displayhook` so tight Python loops do not pay
        * the inspect-frame cost when the user has disabled the
@@ -910,7 +910,7 @@ ctx.addEventListener('message', async (event) => {
     const startTime = performance.now();
     activeRunId = runId;
 
-    // RL-020 Slice 6 — line-by-line stdin reader (see
+    // implementation — line-by-line stdin reader (see
     // python-worker-stdin.ts for the EOF / empty-buffer contract).
     const stdinReader = createStdinLineReader(stdin);
     const stdinTotal = stdinReader.total;
@@ -918,7 +918,7 @@ ctx.addEventListener('message', async (event) => {
     try {
       const py = (await loadPyodide()) as PyodideRuntime;
 
-      // RL-020 Slice 6 — install the stdin handler for EVERY run, not
+      // implementation — install the stdin handler for EVERY run, not
       // only when the panel has lines. With an empty buffer the reader
       // returns `null` on the first read, so a bare `input()` raises a
       // clean `EOFError` — the documented panel behavior. Falling back
@@ -934,7 +934,7 @@ ctx.addEventListener('message', async (event) => {
         });
       }
 
-      // RL-011 Slice D third increment — bridge user-space env into
+      // implementation third increment — bridge user-space env into
       // Pyodide's os.environ so user code can call os.getenv(...) just
       // like the Go and Rust subprocess paths. Because this worker is
       // persistent, we must also remove keys that disappeared between
@@ -946,7 +946,7 @@ ctx.addEventListener('message', async (event) => {
         appliedUserEnvKeys
       );
 
-      // RL-044 Slice 2b-β-β-α — install the JS-backed rich-media
+      // implementation — install the JS-backed rich-media
       // callbacks BEFORE the Python preamble runs so the `__lingua`
       // namespace can reference them. The bridge is captured per-run
       // (`runId`-bound) so a stale reply from a killed run cannot
@@ -972,7 +972,7 @@ __lingua_prev_stderr = sys.stderr
 sys.stdout = __lingua_stdout
 sys.stderr = __lingua_stderr
 
-# RL-044 Slice 1C — rich console payload pipeline.
+# implementation — rich console payload pipeline.
 # The user's namespace gets a wrapped 'print' that captures (text, [payload_per_arg])
 # into __lingua_print_entries. Libraries that reach for the bare builtin via
 # __lingua_builtins.print still get the unpatched function — only the user-code
@@ -980,7 +980,7 @@ sys.stderr = __lingua_stderr
 # math) so no extra Pyodide packages are loaded.
 
 __lingua_rich_console_enabled = ${msg.richConsoleEnabled === false ? 'False' : 'True'}
-# RL-044 Sub-slice G.1 baked flag mirroring the __lingua_print_entries_cap pattern.
+# implementation baked flag mirroring the __lingua_print_entries_cap pattern.
 # When False, __lingua_print and __lingua_displayhook skip the per-call
 # __lingua_caller_line frame walk so a tight Python loop pays no
 # inspect-frame CPU when the user has disabled the master toggle.
@@ -1175,13 +1175,13 @@ def __lingua_force_table(value):
 
 
 def __lingua_console_serialize(value, force_table=False):
-    # Fold E — bypass entirely when rich rendering is off; saves cycles
+    # implementation note — bypass entirely when rich rendering is off; saves cycles
     # on hot Python loops by short-circuiting before the type walk.
     if not __lingua_rich_console_enabled:
         return None
     if force_table:
         return __lingua_force_table(value)
-    # Fold F — Python exception → error payload.
+    # implementation note — Python exception → error payload.
     if isinstance(value, BaseException):
         return {"kind": "error", "message": __lingua_repr_safe(value)}
     auto_table = __lingua_detect_auto_table(value)
@@ -1200,7 +1200,7 @@ __lingua_builtins_print = __lingua_builtins.print
 
 
 def __lingua_caller_line():
-    # RL-044 Slice 1C follow-up — surface the user-source line number
+    # implementation follow-up — surface the user-source line number
     # so each print() entry threads through ConsoleOutput.line and
     # paints an inline pill via useInlineResults (same JS behavior as
     # console.log). Walk frames upward until we exit the lingua-owned
@@ -1236,7 +1236,7 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
     if len(__lingua_print_entries) >= __lingua_print_entries_cap:
         return
     method = "error" if file is sys.stderr else "log"
-    # Fold C — per-arg payload capture: each positional arg becomes its
+    # implementation note — per-arg payload capture: each positional arg becomes its
     # own payload entry aligned with the joined text.
     payloads = []
     for arg in args:
@@ -1245,7 +1245,7 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
             payload = {"kind": "rawText", "text": __lingua_repr_safe(arg)}
         payloads.append(payload)
     entry = {"text": text, "method": method, "payloads": payloads}
-    # RL-044 Sub-slice G.1 — skip the inspect-frame walk when the
+    # implementation — skip the inspect-frame walk when the
     # master toggle is OFF. Privacy-side, the renderer strips origin
     # at executeTabManually as defense in depth; this gate is the
     # actual CPU short-circuit for tight print loops.
@@ -1263,7 +1263,7 @@ globals()["print"] = __lingua_print
 
 
 def __lingua_displayhook(value):
-    # Fold A — REPL-style top-level expression capture. Pyodide's
+    # implementation note — REPL-style top-level expression capture. Pyodide's
     # default displayhook prints repr() for non-None expression
     # results. We mirror that text output AND capture the value as a
     # rich payload, so a scratchpad cell ending in 'users' (no print
@@ -1281,7 +1281,7 @@ def __lingua_displayhook(value):
     if payload is None:
         payload = {"kind": "rawText", "text": __lingua_repr_safe(value)}
     entry = {"text": text, "method": "log", "payloads": [payload]}
-    # RL-044 Sub-slice G.1 — same gate as __lingua_print. The
+    # implementation — same gate as __lingua_print. The
     # displayhook fires once per top-level expression so the CPU win
     # is smaller than in tight print loops, but the consistency
     # matters: both surfaces have to honor the master toggle so the
@@ -1301,7 +1301,7 @@ __lingua_rich_media_directives = ("chart", "image", "html")
 def __mc(line, expr_fn, directive=None):
     try:
         val = expr_fn()
-        # RL-044 Slice 2b-β-β-α — rich-media directives need JSON-encoded
+        # implementation — rich-media directives need JSON-encoded
         # values because the runner side calls
         # \`payloadForRichMediaMagicDirective\` which delegates to
         # \`tryParseJsonForPayload\`. Python's \`repr(dict)\` produces
@@ -1318,7 +1318,7 @@ def __mc(line, expr_fn, directive=None):
         else:
             value_text = repr(val)
         record = {"line": line, "value": value_text}
-        # Fold D — magic-comment '#=> table' upgrade. When the
+        # implementation note — magic-comment '#=> table' upgrade. When the
         # directive tags 'table', also include a forced-table payload
         # so the renderer can dispatch to the rich table widget.
         if directive == "table" and __lingua_rich_console_enabled:
@@ -1332,7 +1332,7 @@ def __mc(line, expr_fn, directive=None):
         __lingua_magic_results.append({"line": line, "value": str(e)})
         return None
 
-# RL-044 Slice 2b-β-β-α — \`__lingua\` namespace mirror of the JS
+# implementation — \`__lingua\` namespace mirror of the JS
 # \`lingua.{chart,image,html}\` bridge. Wrapping the three helpers in a
 # types.SimpleNamespace keeps the user API ergonomic across languages:
 #     // JS:       lingua.chart({ ... })
@@ -1367,7 +1367,7 @@ __lingua = __lingua_types.SimpleNamespace(
 
 
 def __lingua_seed_scope(ns):
-    # T17 — copy ONLY the framework helpers user code resolves by bare
+    # implementation — copy ONLY the framework helpers user code resolves by bare
     # name (the 'print' override, the '__mc' magic runner, the '__lingua'
     # namespace + its '__lingua_*' shims, and '__builtins__') into a
     # per-notebook scope dict. User variables are NEVER copied, so a
@@ -1388,13 +1388,13 @@ def __lingua_seed_scope(ns):
         await primePythonBootGlobalsIfNeeded(py);
       }
 
-      // RL-078: deadline enforcement is parent-owned. We just run.
+      // internal: deadline enforcement is parent-owned. We just run.
       let result: unknown;
       let errorText: string | null = null;
 
       try {
         if (typeof scopeId === 'string' && scopeId.length > 0) {
-          // T17 — run user code against the notebook's persistent scope
+          // implementation — run user code against the notebook's persistent scope
           // dict. Seed it with the framework helpers (refreshed each run),
           // then execute with `globals: ns` so assignments land in — and
           // reads resolve from — the per-notebook namespace.
@@ -1431,7 +1431,7 @@ def __lingua_seed_scope(ns):
 
       const streamState = await py.runPythonAsync(`
 import sys
-# RL-044 Slice 1C — guarantee sys.stdout / sys.stderr / sys.displayhook
+# implementation — guarantee sys.stdout / sys.stderr / sys.displayhook
 # get restored even if the JSON dump itself raises. The Pyodide worker
 # is persistent, so a stranded __lingua_displayhook reference from a
 # previous run would re-fire against a stale __lingua_print_entries
@@ -1470,7 +1470,7 @@ _lingua_state
             })
           : { stdout: '', stderr: '' };
 
-      // RL-044 Slice 1C — when the Python preamble produced typed
+      // implementation — when the Python preamble produced typed
       // print entries (the common case once the override is in place),
       // post those instead of splitting the buffered stdout. The
       // buffered text path remains the fallback when print_entries is
@@ -1489,7 +1489,7 @@ _lingua_state
       // Send magic comment results
       if (streams.magic) {
         for (const entry of streams.magic) {
-          // RL-044 Slice 1C fold D — `#=> table` directive surfaces a
+          // implementation note — `#=> table` directive surfaces a
           // forced-table payload alongside the legacy `value` text.
           // Renderers that don't consume the payload still see the
           // text fallback unchanged.
@@ -1527,7 +1527,7 @@ _lingua_state
       if (errorText) {
         const parsed = parsePythonError(streams.stderr || errorText);
         const tracebackText = streams.stderr || errorText;
-        // RL-044 Slice 2b-α — structured stack frames for the
+        // implementation — structured stack frames for the
         // renderer's clickable-stack surface. Best-effort parse;
         // unparseable lines stay as text-only frames so they render
         // as non-clickable spans.
@@ -1544,7 +1544,7 @@ _lingua_state
         });
       }
 
-      // RL-020 Slice 9 — capture the post-execute globals BEFORE
+      // implementation — capture the post-execute globals BEFORE
       // the stdin-consumed / done replies. Runs only when the runner
       // asked (`captureScope === true`); the runner asks when the
       // inspector toggle is on for the active tab OR when the user
@@ -1568,7 +1568,7 @@ _lingua_state
         }
       }
 
-      // RL-020 Slice 6 fold G — emit consumption summary BEFORE
+      // implementation note — emit consumption summary BEFORE
       // `done` so the runner can stitch it onto `ExecutionResult`.
       if (stdinTotal > 0) {
         ctx.postMessage({
@@ -1587,7 +1587,7 @@ _lingua_state
     } catch (err) {
       const errorText = err instanceof Error ? err.message : String(err);
       const parsed = parsePythonError(errorText);
-      // RL-044 Slice 2b-α — Sub-slice F parity. The inner-streams
+      // implementation — implementation parity. The inner-streams
       // error path (above) already parses Pyodide's stderr traceback;
       // this outer-catch fires when Pyodide itself throws BEFORE the
       // user code's traceback reaches stderr (SyntaxError on compile,
@@ -1624,7 +1624,7 @@ _lingua_state
       });
     } finally {
       activeRunId = null;
-      // RL-020 Slice 6 — restore Pyodide's stock stdin handler so
+      // implementation — restore Pyodide's stock stdin handler so
       // the next run starts on a clean baseline (the worker is
       // persistent unlike js-worker.ts). Reset unconditionally: the
       // line reader above is now installed on every run.
@@ -1636,7 +1636,7 @@ _lingua_state
   }
 
   // ─────────────────────────────────────────────────────────────
-  // RL-025 Slice C — Pyodide dependency-management bridge.
+  // implementation — Pyodide dependency-management bridge.
   // ─────────────────────────────────────────────────────────────
 
   if (msg.type === 'dependencies:list-loaded') {
@@ -1653,7 +1653,7 @@ _lingua_state
       });
     } catch {
       // Pyodide boot failed — caller falls back to `'detected'` for
-      // every name, preserving Slice A's honest signal.
+      // every name, preserving implementation's honest signal.
       ctx.postMessage({
         type: 'dependencies:list-loaded:reply',
         requestId,
@@ -1668,7 +1668,7 @@ _lingua_state
       runId: string;
       specifiers: readonly string[];
     };
-    // Defensive validation: even though the renderer-side Slice A
+    // Defensive validation: even though the renderer-side implementation
     // detector returns clean PyPI names, the worker re-validates so
     // a compromised renderer cannot smuggle injection text into
     // `micropip.install`. Reviewer fix — track REJECTED names too so
@@ -1753,7 +1753,7 @@ _lingua_state
       > = {};
       for (const name of safeNames) statuses[name] = 'installed';
       for (const name of rejectedNames) statuses[name] = 'failed';
-      // RL-025 Slice C reviewer fix — when SOME names were rejected
+      // implementation reviewer fix — when SOME names were rejected
       // (regex-invalid) but the rest installed cleanly, surface a
       // `partial` outcome so the renderer can see "some succeeded,
       // some failed". The dominant failure reason is the regex

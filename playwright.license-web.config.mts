@@ -69,7 +69,7 @@ export default defineConfig({
     env: {
       ...process.env,
       VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK: publicKeyJwk,
-      // RL-065 Slice 5 fold G — the telemetry endpoint must be set
+      // implementation note — the telemetry endpoint must be set
       // at build time so the bundle has a non-null endpoint. We use
       // the real production URL because the renderer CSP only
       // allow-lists `updates.linguacode.dev` for `connect-src`, and a

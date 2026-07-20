@@ -145,7 +145,7 @@ export function classifyInfraProbe({ url, kind, status, acao, cfMitigated }) {
 }
 
 /**
- * Fold classified probes into a pass/fail verdict. A missing `R2_PUBLIC_BASE`
+ * implementation note probes into a pass/fail verdict. A missing `R2_PUBLIC_BASE`
  * is itself a hard failure (the release cannot validate the surface the web
  * build depends on).
  *

@@ -1,5 +1,5 @@
 /**
- * RL-099 Slice 1 — `base64-encode` + `base64-decode` adapters.
+ * implementation — `base64-encode` + `base64-decode` adapters.
  *
  * Pure UTF-8 encoder/decoder mirroring the renderer's
  * `developerUtilities.ts` implementations so the panel and the

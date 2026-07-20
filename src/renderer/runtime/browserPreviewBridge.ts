@@ -1,5 +1,5 @@
 /**
- * RL-019 Slice 3 — runtime-agnostic bridge between the
+ * implementation — runtime-agnostic bridge between the
  * BrowserPreviewPanel UI and the BrowserPreviewRunner.
  *
  * The panel owns the iframe element (it lives in the React tree).
@@ -10,10 +10,10 @@
  * runner consumes the registered ref via
  * `getActiveBrowserPreviewIframe()`.
  *
- * Mirrors the pattern in `debuggerWorkerBridge.ts` (RL-027 Slice 1)
+ * Mirrors the pattern in `debuggerWorkerBridge.ts`
  * so a follow-up reviewer recognises the shape.
  *
- * Reference: RL-019 Slice 3 and
+ * Reference: implementation and
  * docs/RUNTIME_MODES_ADR.md § Decision 6.
  */
 

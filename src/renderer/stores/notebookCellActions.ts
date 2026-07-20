@@ -8,7 +8,7 @@ import { createCellId, type NotebookState } from './notebookStore';
 import type { NotebookGet, NotebookSet } from './notebookStoreContext';
 
 /**
- * T9 — notebook cell-editing action factory.
+ * implementation — notebook cell-editing action factory.
  *
  * Owns add / remove / undo-delete / update-source / transform / set-language /
  * move for a tab's cells. `addCell` reads the current store via `get()` before
@@ -250,7 +250,7 @@ export function createCellActions(
 
     setCellLanguage: (tabId, cellId, language) =>
       set((state) => {
-        // RL-043 Slice F — JS / TS / Python are all valid code-cell
+        // implementation — JS / TS / Python are all valid code-cell
         // languages now. Defensively reject a runtime value outside the
         // schema enum (e.g. a cast from a programmatic caller).
         if (!NOTEBOOK_CELL_LANGUAGES.includes(language)) {

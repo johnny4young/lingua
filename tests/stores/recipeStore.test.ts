@@ -1,5 +1,5 @@
 /**
- * RL-039 Slice B — `useRecipeStore` tests.
+ * implementation — `useRecipeStore` tests.
  *
  * Transient state: overlay open / close, per-tab binding,
  * last-run results, in-flight flag.

@@ -5,7 +5,7 @@ import type { Language } from '../types';
  * Built-in templates keep their UI-facing copy in translation catalogs so
  * labels and descriptions stay aligned with the active locale. Template
  * code bodies remain source-language content and are intentionally not
- * localized for the MVP (see RL-018 Phase 3).
+ * localized for the MVP (see implementation).
  */
 export interface Template {
   id: string;
@@ -402,7 +402,7 @@ fn main() {
   },
 
   // ── Ruby ─────────────────────────────────────────────────────────────────
-  // RL-042 Slice 5 — starter set matching the JS/TS/Python pattern so the
+  // implementation — starter set matching the JS/TS/Python pattern so the
   // language pack's `templateIds` contract has something to resolve once
   // Ruby flipped from validate-only to runnable.
   {

@@ -1,5 +1,5 @@
 /**
- * RL-102 Slice 1 Fold I — Git status parse regression guard.
+ * implementation note — Git status parse regression guard.
  *
  * The main-side `getFileStatus` does an `execFileAsync('git', ...)`
  * + numstat parse + truncation guard for every per-file query. The

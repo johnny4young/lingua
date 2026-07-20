@@ -210,7 +210,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
             <Eraser size={11} aria-hidden="true" />
             {t('notebook.toolbar.clearOutputs')}
           </button>
-          {/* RL-043 Slice D — export-format menu (Script | Jupyter .ipynb),
+          {/* implementation — export-format menu (Script | Jupyter .ipynb),
               same popover mechanics as the shortcuts legend. */}
           <div className="relative" ref={exportMenuAnchorRef}>
             <button

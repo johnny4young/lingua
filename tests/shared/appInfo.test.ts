@@ -12,7 +12,7 @@ describe('appInfo helpers', () => {
 
     expect(info.productName).toBe('Lingua');
     expect(info.version).toBe(pkg.version);
-    // RL-062 flipped package.json to `SEE LICENSE IN LICENSE` so the About
+    // internal flipped package.json to `SEE LICENSE IN LICENSE` so the About
     // panel shows a human-readable label instead of the raw SPDX expression.
     expect(info.licenseType).toBe('Commercial');
     expect(info.repositoryUrl).toBe('https://github.com/johnny4young/lingua');

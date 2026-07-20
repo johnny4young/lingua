@@ -1,5 +1,5 @@
 /**
- * RL-043 Slice A — Single markdown-cell row.
+ * implementation — Single markdown-cell row.
  *
  * Two-mode UX:
  *   - Edit mode: `<textarea>` with the raw source.
@@ -314,7 +314,7 @@ function NotebookMarkdownCellRowImpl({
 }
 
 /**
- * RL-043 Slice H fold C — memoized so the windowed cell list skips
+ * implementation Slice H implementation note — memoized so the windowed cell list skips
  * re-rendering markdown rows whose props are unchanged when a sibling cell
  * edits. All handler props are stable `useCallback`s in the view, so the
  * default shallow comparison is enough.

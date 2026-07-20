@@ -1,5 +1,5 @@
 /**
- * RL-011 Slice A — pure env-var scope merger.
+ * implementation — pure env-var scope merger.
  *
  * Tab > project > global > process precedence, with empty-string
  * values preserved (POSIX-like "unset the inherited variable" shape).

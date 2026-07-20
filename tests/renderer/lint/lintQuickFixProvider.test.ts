@@ -6,7 +6,7 @@ import {
 } from '@/lint/lintQuickFixProvider';
 
 /**
- * RL-108 — locks the CodeActionProvider's action assembly: which fixes it
+ * internal — locks the CodeActionProvider's action assembly: which fixes it
  * offers for a given range, and that each carries a valid Monaco workspace
  * edit. Uses a minimal fake model so the provider is tested without a real
  * Monaco instance (it re-derives fixes from the already-tested pure rules).
@@ -93,7 +93,7 @@ describe('createLintQuickFixProvider', () => {
     expect(disabledActionsFor(model, cursor(1, 7))).toEqual([]);
   });
 
-  it('skips the scan when the request is scoped to a non-quickfix kind (RL-108 reviewer)', () => {
+  it('skips the scan when the request is scoped to a non-quickfix kind (internal reviewer)', () => {
     const model = fakeModel(['if (a == b) {}']);
     // A `source.fixAll` pass (e.g. format-on-save) must not surface our
     // quickfix actions — Monaco filters by kind anyway, so short-circuit.

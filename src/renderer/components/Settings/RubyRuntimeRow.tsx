@@ -6,7 +6,7 @@ import { SpecRow } from '../ui/SpecRow';
 import { Select } from './shared';
 
 /**
- * RL-042 Slice 6 — Settings → Languages row that lets the user pick
+ * implementation — Settings → Languages row that lets the user pick
  * between the bundled `@ruby/wasm-wasi` worker and the host `ruby`
  * binary. Defaults to `auto`; web builds hide the `system` choice
  * because the desktop bridge is missing.
@@ -137,7 +137,7 @@ export function RubyRuntimeRow({ last = false }: RubyRuntimeRowProps = {}) {
               {status}
             </p>
           ) : null}
-          {/* RL-042 Slice 6 fold G — quick affordance to the upstream
+          {/* implementation note — quick affordance to the upstream
               Ruby docs. Uses `window.lingua.openExternal` on desktop so
               the link opens in the user's browser instead of inside the
               Electron window. */}

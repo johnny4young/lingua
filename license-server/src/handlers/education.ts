@@ -1,5 +1,5 @@
 /**
- * RL-061 Slice 4 — Education endpoints (magic-link two-step + renew).
+ * implementation — Education endpoints (magic-link two-step + renew).
  *
  *   POST /education/start                  validates .edu, persists
  *                                          pending row, sends confirm email.
@@ -19,7 +19,7 @@
  *   UNIQUE(device_id) on the `educations` table.
  *
  * Renew re-mints (Decision 5 + new "Token re-mint on renewal is
- * transparent" decision in this slice's docs sync). The renderer
+ * transparent" decision in this change's docs sync). The renderer
  * picks up `refreshedToken` via /licenses/status auto-refresh, so
  * the user never re-pastes.
  */
