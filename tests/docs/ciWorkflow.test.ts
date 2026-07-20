@@ -17,9 +17,7 @@ describe('CI workflow', () => {
     expect(existsSync(CI_WORKFLOW_PATH)).toBe(true);
   });
 
-  const workflow = existsSync(CI_WORKFLOW_PATH)
-    ? readFileSync(CI_WORKFLOW_PATH, 'utf-8')
-    : '';
+  const workflow = existsSync(CI_WORKFLOW_PATH) ? readFileSync(CI_WORKFLOW_PATH, 'utf-8') : '';
 
   it('runs Windows platform-boundary coverage on a Windows runner', () => {
     expect(workflow).toContain('windows-path-hardening:');
@@ -50,5 +48,10 @@ describe('CI workflow', () => {
     expect(i18nCopyIndex).toBeGreaterThan(-1);
     expect(changelogIndex).toBeGreaterThan(i18nCopyIndex);
     expect(testsIndex).toBeGreaterThan(changelogIndex);
+  });
+
+  it("uses pnpm audit's supported advisory threshold option", () => {
+    expect(workflow).toContain('pnpm audit --audit-level high');
+    expect(workflow).not.toContain('pnpm audit --internal');
   });
 });

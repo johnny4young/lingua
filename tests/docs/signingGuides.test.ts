@@ -19,7 +19,6 @@ describe('desktop signing guides', () => {
       'APPLE_ID',
       'APPLE_ID_PASSWORD',
       'APPLE_TEAM_ID',
-      'APPLE_SIGNING_IDENTITY',
       'APPLE_CERT_P12_BASE64',
       'APPLE_CERT_PASSWORD',
     ]) {
@@ -29,11 +28,12 @@ describe('desktop signing guides', () => {
     expect(macosGuide).toContain('notarization');
   });
 
-  it('documents the active Windows PFX signing path and the HSM escape hatch', () => {
+  it('documents the active Windows PFX path, validation, and HSM escape hatch', () => {
     for (const secret of ['WIN_CERT_FILE', 'WIN_CERT_PASSWORD']) {
       expect(windowsGuide).toContain(secret);
     }
-    expect(windowsGuide).toContain('windowsSign');
+    expect(windowsGuide).toContain('scripts/validate-windows-package.mjs');
+    expect(windowsGuide).toContain('unsigned preview build');
     expect(windowsGuide).toContain('Get-AuthenticodeSignature');
     expect(windowsGuide).toMatch(/HSM|cloud-managed signing|Artifact Signing/u);
   });

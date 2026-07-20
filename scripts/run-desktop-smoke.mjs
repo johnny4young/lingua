@@ -7,6 +7,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import {
+  assertMacBinarySupportsArch,
+  selectPackagedMacArtifact,
+} from './lib/packagedMacArtifact.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
@@ -54,7 +59,9 @@ async function readJsonIfPresent(filePath) {
 }
 
 function parseAgainstPackaged(argv) {
-  const idx = argv.findIndex((arg) => arg === AGAINST_PACKAGED_FLAG || arg.startsWith(`${AGAINST_PACKAGED_FLAG}=`));
+  const idx = argv.findIndex(
+    arg => arg === AGAINST_PACKAGED_FLAG || arg.startsWith(`${AGAINST_PACKAGED_FLAG}=`)
+  );
   if (idx === -1) return null;
   const arg = argv[idx];
   if (arg.includes('=')) {
@@ -87,7 +94,8 @@ async function exists(p) {
 const BFS_MAX_DEPTH = 8;
 const BFS_SKIP_DIRS = new Set(['node_modules', '.git', '.vite', 'output']);
 
-async function bfsFor(dir, predicate) {
+async function bfsCollect(dir, predicate) {
+  const matches = [];
   const queue = [{ path: dir, depth: 0 }];
   while (queue.length > 0) {
     const { path: current, depth } = queue.shift();
@@ -101,38 +109,36 @@ async function bfsFor(dir, predicate) {
     for (const entry of entries) {
       if (BFS_SKIP_DIRS.has(entry.name)) continue;
       const full = path.join(current, entry.name);
-      const match = predicate(entry, full);
-      if (match) return full;
-      if (entry.isDirectory() && !entry.name.endsWith('.app')) {
+      if (predicate(entry, full)) matches.push(full);
+      if (entry.isDirectory() && !entry.name.toLowerCase().endsWith('.app')) {
         queue.push({ path: full, depth: depth + 1 });
       }
     }
   }
-  return null;
+  return matches;
 }
 
 async function findFirstDarwinZip(dir) {
-  return bfsFor(
+  const candidates = await bfsCollect(
     dir,
-    (entry) => entry.isFile() && /^lingua-darwin-.*\.zip$/iu.test(entry.name),
+    entry =>
+      entry.isFile() &&
+      /^lingua-(?:darwin-(?:arm64|x64)-.*|.*-mac-(?:arm64|x64))\.zip$/iu.test(entry.name)
   );
+  return selectPackagedMacArtifact(candidates, process.arch);
 }
 
 async function findFirstApp(dir) {
-  // Prefer the top-level `Lingua.app` over any sibling helper bundle
-  // (e.g. `ShipIt.app`, `Electron Helper.app`). BFS already avoids
-  // descending into a `.app` directory, so this only matters when
-  // multiple `.app` bundles sit at the same depth — which can happen
-  // depending on how Forge lays out `out/make` between versions.
-  const preferred = await bfsFor(
+  // Collect only the product bundle, excluding helper apps nested under it.
+  // electron-builder emits both `mac/lingua.app` (x64) and
+  // `mac-arm64/lingua.app`; selecting the first directory silently launches
+  // the Intel build under Rosetta on Apple Silicon and makes the packaged smoke
+  // validate the wrong artifact.
+  const candidates = await bfsCollect(
     dir,
-    (entry) => entry.isDirectory() && entry.name === 'Lingua.app',
+    entry => entry.isDirectory() && entry.name.toLowerCase() === 'lingua.app'
   );
-  if (preferred) return preferred;
-  return bfsFor(
-    dir,
-    (entry) => entry.isDirectory() && entry.name.endsWith('.app'),
-  );
+  return selectPackagedMacArtifact(candidates, process.arch);
 }
 
 async function resolvePackagedApp(input) {
@@ -194,11 +200,11 @@ function clearQuarantine(appPath) {
   const result = spawnSync(
     'bash',
     ['-c', `xattr -dr com.apple.quarantine "$1" 2>/dev/null || true`, '--', appPath],
-    { stdio: 'inherit' },
+    { stdio: 'inherit' }
   );
   if (result.status !== 0) {
     console.warn(
-      `[desktop-smoke] xattr -dr com.apple.quarantine exited ${result.status} on ${appPath} — continuing`,
+      `[desktop-smoke] xattr -dr com.apple.quarantine exited ${result.status} on ${appPath} — continuing`
     );
   }
 }
@@ -210,8 +216,7 @@ async function main() {
   // offline gate silently no-op'd. Read either the flag or the env
   // var so existing CI invocations keep working.
   const offlineMode =
-    process.argv.includes('--offline') ||
-    process.env.LINGUA_DESKTOP_SMOKE_OFFLINE === '1';
+    process.argv.includes('--offline') || process.env.LINGUA_DESKTOP_SMOKE_OFFLINE === '1';
   if (offlineMode) {
     console.log('[desktop-smoke] offline mode: blocking non-loopback HTTP/HTTPS requests');
   }
@@ -244,20 +249,37 @@ async function main() {
       process.exit(1);
     }
     const resolvedAppPath = await resolvePackagedApp(packagedInput);
-    clearQuarantine(resolvedAppPath);
     const binary = path.join(resolvedAppPath, 'Contents', 'MacOS', 'Lingua');
     if (!(await exists(binary))) {
       console.error(`[desktop-smoke] expected packaged binary missing: ${binary}`);
       process.exit(1);
     }
+    const inspection = spawnSync('file', [binary], { encoding: 'utf8' });
+    if (inspection.status !== 0) {
+      // When `file` cannot be spawned at all (missing from PATH) spawnSync
+      // leaves status null and stderr empty but sets `error`; surface it so
+      // the failure is actionable instead of a bare "file exit null".
+      const detail =
+        inspection.stderr ||
+        inspection.error?.message ||
+        `file exit ${inspection.status}`;
+      console.error(
+        `[desktop-smoke] failed to inspect packaged binary architecture: ${detail}`
+      );
+      process.exit(1);
+    }
+    try {
+      assertMacBinarySupportsArch(inspection.stdout, process.arch, binary);
+    } catch (error) {
+      console.error(`[desktop-smoke] ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+    clearQuarantine(resolvedAppPath);
     console.log(`[desktop-smoke] packaged mode: launching ${binary}`);
     const launchedAtMs = Date.now();
     child = spawn(
       binary,
-      [
-        '--lingua-desktop-smoke',
-        `--lingua-smoke-artifact-dir=${artifactDir}`,
-      ],
+      ['--lingua-desktop-smoke', `--lingua-smoke-artifact-dir=${artifactDir}`],
       {
         cwd: repoRoot,
         stdio: 'inherit',
@@ -271,7 +293,7 @@ async function main() {
           LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET: '1',
           ...(offlineMode ? { LINGUA_DESKTOP_SMOKE_OFFLINE: '1' } : {}),
         },
-      },
+      }
     );
   } else {
     const launchedAtMs = Date.now();
@@ -291,13 +313,13 @@ async function main() {
           ...process.env,
           LINGUA_ELECTRON_LAUNCHER:
             process.platform === 'darwin'
-              ? process.env.LINGUA_ELECTRON_LAUNCHER ?? 'open'
+              ? (process.env.LINGUA_ELECTRON_LAUNCHER ?? 'open')
               : process.env.LINGUA_ELECTRON_LAUNCHER,
           LINGUA_DESKTOP_SMOKE: '1',
           LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
           LINGUA_SMOKE_USER_DATA_DIR: smokeUserDataDir,
           LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
-          // internal — sentinel secret seeded into Electron's process.env.
+          // Sentinel secret seeded into Electron's process.env.
           // The go-env-isolation / rust-env-isolation smoke cases run a
           // user-toolchain subprocess that prints the value of this
           // variable; the smoke harness fails if the captured stdout
@@ -309,7 +331,7 @@ async function main() {
           // filter before any window loads.
           ...(offlineMode ? { LINGUA_DESKTOP_SMOKE_OFFLINE: '1' } : {}),
         },
-      },
+      }
     );
   }
 
@@ -322,22 +344,20 @@ async function main() {
 
   const exitCode = await new Promise((resolve, reject) => {
     child.once('error', reject);
-    child.once('exit', (code) => resolve(code ?? 1));
+    child.once('exit', code => resolve(code ?? 1));
   });
   clearTimeout(timeoutId);
 
   try {
     const summary = JSON.parse(await readFile(summaryPath, 'utf8'));
-    const failedCases = summary.cases.filter((item) => !item.ok);
+    const failedCases = summary.cases.filter(item => !item.ok);
 
     console.log(`[desktop-smoke] Artifacts: ${artifactDir}`);
     console.log(`[desktop-smoke] Cases: ${summary.cases.length}, failures: ${failedCases.length}`);
 
     if (failedCases.length > 0) {
       for (const failedCase of failedCases) {
-        console.error(
-          `[desktop-smoke] ${failedCase.language} failed: ${failedCase.message}`
-        );
+        console.error(`[desktop-smoke] ${failedCase.language} failed: ${failedCase.message}`);
       }
     }
   } catch (error) {

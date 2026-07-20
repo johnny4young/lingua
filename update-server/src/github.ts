@@ -45,7 +45,7 @@ export function pickLatestRelease(
  * the conservative ceiling: aligned with GitHub's typical
  * `Cache-Control: private, max-age=60` on the listing endpoint and
  * fast enough that a new release surfaces within the next post-
- * promote `check:update-feed` poll. The shorter cap also reduces
+ * promote validation poll. The shorter cap also reduces
  * the chance of post-publish smoke seeing the stale snapshot.
  */
 export async function getLatestRelease(

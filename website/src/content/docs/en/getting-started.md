@@ -11,9 +11,9 @@ Lingua is a desktop-first multi-language code runner. Install it once and you ha
 
 Head to [linguacode.dev/releases](/releases) and grab the build for your platform. Every release ships:
 
-- macOS — Apple-signed and notarized `.zip` for arm64 and x64.
-- Windows — Authenticode-signed `.exe` installer.
-- Linux — `.deb` and `.rpm` packages for x86_64 and aarch64.
+- macOS — Apple Silicon and Intel dmg installers; updater zips stay attached as metadata.
+- Windows — an x64 NSIS `.exe`. Preview builds may be unsigned and show SmartScreen.
+- Linux — an x86_64 AppImage.
 
 Verify the download against `SHA256SUMS.txt` if you want a paranoid double-check:
 
@@ -27,8 +27,8 @@ Open Lingua. The editor opens on a fresh JavaScript tab. Try this:
 
 ```js
 const stars = await fetch('https://api.github.com/repos/johnny4young/lingua')
-  .then((r) => r.json())
-  .then((j) => j.stargazers_count);
+  .then(r => r.json())
+  .then(j => j.stargazers_count);
 console.log(`stars: ${stars}`);
 ```
 

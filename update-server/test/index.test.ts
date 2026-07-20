@@ -419,10 +419,9 @@ describe('GET /update/:platform/:version ', () => {
     expect(assetCall![1]).toMatchObject({ redirect: 'manual' });
   });
 
-  it('resolves the electron-forge darwin asset name (Lingua-darwin-<arch>-<version>.zip)', async () => {
-    // Regression lock for the macOS auto-update break: electron-forge
-    // MakerZIP publishes `Lingua-darwin-<arch>-<version>.zip` (verified
-    // against the published v0.5.0 release), NOT the legacy
+  it('resolves the historical electron-forge darwin asset name (Lingua-darwin-<arch>-<version>.zip)', async () => {
+    // Regression lock for older clients: historical Forge releases used
+    // `Lingua-darwin-<arch>-<version>.zip`, NOT the alternative
     // `lingua-<version>-darwin-<arch>.zip` ordering. A version-first-only
     // matcher returned 204 for every real release, silently stranding
     // packaged macOS builds on the old version.
@@ -626,7 +625,7 @@ describe('GET /update/:platform/:version ', () => {
     // returned without a cache.put. Combined with the no-store 204
     // from the stable call above, the edge cache stays empty for the
     // whole flow — which is what makes promoting a draft visible
-    // immediately to operators running `check:update-feed`.
+    // immediately to operators running post-publish probes.
     expect(store.size).toBe(0);
   });
 

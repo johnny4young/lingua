@@ -2,8 +2,8 @@
  * Release infra-readiness — pure logic.
  *
  * The web build fetches the Ruby + DuckDB WebAssembly runtimes from the R2
- * mirror at `R2_PUBLIC_BASE/web-runtime/<lib>/<version>/<file>`, and the
- * deploy-web + mirror-r2 jobs fail closed at the END of a release if those
+ * store at `R2_PUBLIC_BASE/web-runtime/<lib>/<version>/<file>`, and the
+ * deploy-web job fails closed at the END of a release if those
  * objects are not publicly readable with a CORS header for the web app origin.
  * That is exactly how the v0.7.0 release broke (HTTP 403, "missing
  * Access-Control-Allow-Origin"): the bucket public-access / CORS policy was
@@ -20,8 +20,8 @@
 export const APP_ORIGIN = 'https://app.linguacode.dev';
 
 /**
- * Web-runtime WASM assets the standalone web build pulls from the R2 mirror.
- * `pkg` is the installed package whose `version` pins the mirror path, mirroring
+ * Web-runtime WASM assets the standalone web build pulls from R2.
+ * `pkg` is the installed package whose `version` pins the runtime path, matching
  * the `Upload oversized web runtime assets to R2` step in `deploy-web.yml`.
  *
  * @type {ReadonlyArray<{ lib: string, pkg: string, file: string }>}
@@ -71,7 +71,7 @@ export function isCloudflareChallenge(cfMitigated) {
 /**
  * @typedef {object} InfraProbeInput
  * @property {string} url            The probed public URL.
- * @property {'runtime-asset' | 'sentinel'} kind
+ * @property {'runtime-asset'} kind
  * @property {number | null} status  HTTP status, or null for a network error.
  * @property {string | null} acao    The `access-control-allow-origin` header.
  * @property {string | null} [cfMitigated]  The `cf-mitigated` header, set when
@@ -92,9 +92,8 @@ export function isCloudflareChallenge(cfMitigated) {
  *   "bot mitigation, not CORS" cause + fix (the second v0.7.0 break).
  * - 403 → fail (bucket public access / CORS not configured — the actual break).
  * - 200 but no app-origin CORS → fail (reachable but the browser would block it).
- * - 404 on a versioned runtime asset → warn (a version bump not yet mirrored;
+ * - 404 on a versioned runtime asset → warn (a version bump not yet uploaded;
  *   the deploy job uploads it — but it cannot prove CORS until then).
- * - 404 on the sentinel → fail (the mirror was never initialized).
  * - network error / other status → fail.
  *
  * @param {InfraProbeInput} input
@@ -108,7 +107,7 @@ export function classifyInfraProbe({ url, kind, status, acao, cfMitigated }) {
     return {
       url,
       level: 'fail',
-      detail: `blocked by Cloudflare bot mitigation (cf-mitigated: ${String(cfMitigated).trim()}), not a CORS problem — disable Bot Fight Mode for this host (Cloudflare → Security → Bots) or exclude it; see docs/runbooks/r2-release-mirror-setup.md`,
+      detail: `blocked by Cloudflare bot mitigation (cf-mitigated: ${String(cfMitigated).trim()}), not a CORS problem — disable Bot Fight Mode for this host (Cloudflare → Security → Bots) or exclude it; see docs/runbooks/r2-web-runtime-setup.md`,
     };
   }
   if (status === 200) {
@@ -125,18 +124,17 @@ export function classifyInfraProbe({ url, kind, status, acao, cfMitigated }) {
     return {
       url,
       level: 'fail',
-      detail: 'HTTP 403 — bucket public access / CORS not configured (see docs/runbooks/r2-release-mirror-setup.md)',
+      detail:
+        'HTTP 403 — bucket public access / CORS not configured (see docs/runbooks/r2-web-runtime-setup.md)',
     };
   }
-  if (status === 404) {
-    if (kind === 'runtime-asset') {
-      return {
-        url,
-        level: 'warn',
-        detail: 'HTTP 404 — not yet mirrored for this version; the deploy job will upload it (CORS unverified until then)',
-      };
-    }
-    return { url, level: 'fail', detail: 'HTTP 404 — sentinel missing; the R2 mirror was never initialized' };
+  if (status === 404 && kind === 'runtime-asset') {
+    return {
+      url,
+      level: 'warn',
+      detail:
+        'HTTP 404 — not yet uploaded for this version; the deploy job will upload it (CORS unverified until then)',
+    };
   }
   if (status === null) {
     return { url, level: 'fail', detail: 'unreachable (network error / DNS / TLS)' };
@@ -158,10 +156,10 @@ export function summarizeInfraReadiness({ publicBaseConfigured, probes }) {
       ok: false,
       failures: [],
       warnings: [],
-      configError: 'R2_PUBLIC_BASE is not set; cannot probe the public web-runtime mirror.',
+      configError: 'R2_PUBLIC_BASE is not set; cannot probe the public web-runtime store.',
     };
   }
-  const failures = probes.filter((probe) => probe.level === 'fail');
-  const warnings = probes.filter((probe) => probe.level === 'warn');
+  const failures = probes.filter(probe => probe.level === 'fail');
+  const warnings = probes.filter(probe => probe.level === 'warn');
   return { ok: failures.length === 0, failures, warnings, configError: null };
 }

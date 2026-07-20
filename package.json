@@ -29,8 +29,6 @@
     "check:licenses": "node ./scripts/check-third-party-licenses.mjs --check",
     "license:report": "node ./scripts/check-third-party-licenses.mjs --format markdown --write docs/THIRD_PARTY_LICENSE_REPORT.md",
     "compliance:release": "node ./scripts/write-release-compliance-artifacts.mjs",
-    "check:update-feed": "node ./scripts/validate-update-feed.mjs",
-    "check:r2-mirror": "node ./scripts/check-r2-mirror.mjs",
     "check:release-infra": "node ./scripts/check-release-infra.mjs",
     "release:preflight": "node ./scripts/release-preflight.mjs",
     "check:license-rotation": "node ./scripts/assert-license-key-rotation.mjs",

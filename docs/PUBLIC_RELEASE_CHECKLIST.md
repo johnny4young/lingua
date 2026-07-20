@@ -1,16 +1,15 @@
 # Public Repository Release Checklist
 
-Use this checklist before changing the GitHub repository visibility to public.
-It is intentionally separate from `RELEASE.md`: this file gates publication of
-the source repository, while `RELEASE.md` gates product binaries.
+Use this checklist to keep the public repository free of secrets and private
+planning metadata. It is separate from `RELEASE.md`, which gates binaries.
 
 > Release-binary signing is gated separately: see
 > [`RELEASE_SECURITY.md` § Signature chain](./RELEASE_SECURITY.md#signature-chain)
-> for the macOS/Windows signature chain and the fail-closed release gates.
+> for the macOS/Windows signature chain and release validation gates.
 
 ## Current Repository State
 
-- GitHub repository visibility: private.
+- GitHub repository visibility: public.
 - License posture: source-available commercial; keep `LICENSE` as the source of
   truth.
 - Production private keys, API tokens, webhook secrets, and signing material
@@ -52,8 +51,7 @@ change commit ids and require force-pushing private branches/tags.
 
 - Run Gitleaks over the full git history:
   `go run github.com/zricethezav/gitleaks/v8@latest git --no-banner --redact .`.
-- Last local audit run: 2026-05-07, 213 commits scanned, no leaks found. Re-run
-  immediately before changing repository visibility.
+- Re-run the full-history scan before each public release or history migration.
 - Keep `.gitleaks.toml` scoped to deterministic fixtures only. Dummy test
   secrets and public keys are acceptable; production private material is not.
 - Review any new match manually before expanding the allowlist.
@@ -89,12 +87,9 @@ change commit ids and require force-pushing private branches/tags.
   `app.linguacode.dev` app-shell check, service-worker
   update-endpoint bypass check, and `updates.linguacode.dev/web/version`
   response.
-- For Linux releases, confirm the GitHub Actions run uploaded
-  `linux-package-validation` with Debian metadata, RPM metadata, Debian
-  install, packaged launch smoke, and uninstall verification.
+- For Linux releases, confirm the AppImage and `latest-linux.yml` are attached.
 - For macOS/Windows releases, complete
-  `docs/runbooks/desktop-update-draft-validation.md` and archive
-  `output/update-feed-validation/update-feed-validation.json` from the
-  staging draft-channel feed check.
+  `docs/runbooks/desktop-update-draft-validation.md` and preserve the workflow
+  structure/signing evidence.
 - Public docs and release-security checklist reviewed.
-- Repository visibility change approved by the maintainer.
+- Repository publication posture reviewed by the maintainer.

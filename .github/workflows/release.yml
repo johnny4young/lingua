@@ -140,7 +140,7 @@ jobs:
       - name: Run blocking production audit
         run: pnpm run check:prod-audit
       - name: Run advisory full audit
-        run: pnpm audit --internal high
+        run: pnpm audit --audit-level high
         continue-on-error: true
 
   build-macos:
@@ -197,7 +197,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # internal — both arches must land. Until 0.12.0 the release shipped
+          # Both arches must land. Until 0.12.0 the release shipped
           # arm64 only, so an Intel Mac had nothing to download; a silent x64
           # packaging failure must fail the job rather than ship half a release.
           for arch in arm64 x64; do
@@ -299,6 +299,10 @@ jobs:
           WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
         run: |
           set -euo pipefail
+          if [[ -n "${WIN_CERT_FILE:-}" && -z "${WIN_CERT_PASSWORD:-}" ]] || [[ -z "${WIN_CERT_FILE:-}" && -n "${WIN_CERT_PASSWORD:-}" ]]; then
+            echo "::error::Configure both WIN_CERT_FILE and WIN_CERT_PASSWORD, or neither."
+            exit 1
+          fi
           if [[ -n "${WIN_CERT_FILE:-}" && -n "${WIN_CERT_PASSWORD:-}" ]]; then
             echo "Windows signing: enabled"
             echo "$WIN_CERT_FILE" | base64 --decode > "$RUNNER_TEMP/lingua-cert.pfx"
@@ -312,14 +316,39 @@ jobs:
 
       - name: Verify Windows artifacts
         shell: bash
+        run: node ./scripts/validate-windows-package.mjs --root out-builder
+
+      # Start Windows distribution at the same practical level as the existing
+      # macOS fallback: a missing certificate does not suppress the installer,
+      # but a configured certificate MUST produce a valid Authenticode signature.
+      # The unsigned state stays explicit in the workflow summary so it cannot
+      # be mistaken for a fully trusted public build.
+      - name: Verify Windows Authenticode state
+        shell: pwsh
+        env:
+          WIN_CERT_FILE: ${{ secrets.WIN_CERT_FILE }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
         run: |
-          set -euo pipefail
-          if ! find out-builder -maxdepth 1 -type f -name '*.exe' -print -quit | grep -q .; then
-            echo "::error::Expected a Windows .exe installer in out-builder"
-            exit 1
-          fi
-          test -f out-builder/latest.yml || { echo "::error::Missing out-builder/latest.yml update manifest"; exit 1; }
-          echo "Verified Windows installer + latest.yml"
+          $installer = Get-ChildItem out-builder -File -Filter *.exe
+          if ($installer.Count -ne 1) {
+            throw "Expected exactly one top-level Windows installer, found $($installer.Count)."
+          }
+          $signature = Get-AuthenticodeSignature $installer[0].FullName
+          $hasCertificate = -not [string]::IsNullOrWhiteSpace($env:WIN_CERT_FILE)
+          $hasPassword = -not [string]::IsNullOrWhiteSpace($env:WIN_CERT_PASSWORD)
+          if ($hasCertificate -ne $hasPassword) {
+            throw "Configure both WIN_CERT_FILE and WIN_CERT_PASSWORD, or neither."
+          }
+          $signingConfigured = $hasCertificate -and $hasPassword
+          if ($signingConfigured -and $signature.Status -ne 'Valid') {
+            throw "Windows signing was configured but Authenticode status is $($signature.Status)."
+          }
+          if ($signingConfigured) {
+            "Windows installer: Authenticode signature valid" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          } else {
+            Write-Warning "Windows signing secrets are absent; publishing an unsigned NSIS installer. SmartScreen may warn users."
+            "Windows installer: unsigned preview build (SmartScreen warning expected)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

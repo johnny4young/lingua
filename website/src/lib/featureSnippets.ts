@@ -6,7 +6,10 @@
 
 import type { HeroLang } from './shiki';
 
-export const FEATURE_SNIPPETS: Record<HeroLang, { label: string; tier: 'Free' | 'Pro'; runtime: string; code: string }> = {
+export const FEATURE_SNIPPETS: Record<
+  HeroLang,
+  { label: string; tier: 'Free' | 'Pro'; runtime: string; code: string }
+> = {
   javascript: {
     label: 'JavaScript',
     tier: 'Free',
@@ -32,7 +35,7 @@ console.log(limits.free); //=> 5`,
   python: {
     label: 'Python',
     tier: 'Free',
-    runtime: 'Pyodide v0.26.4 · vendored offline on desktop',
+    runtime: 'Pyodide v0.29.4 · vendored offline on desktop',
     code: `# zero install — Pyodide ships inside the binary
 import statistics
 samples = [42, 51, 39, 47, 55, 38, 49, 44, 52, 46]

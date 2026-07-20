@@ -3,24 +3,22 @@ import type { Release, ReleaseAsset } from './github';
 /**
  * Canonical filename contract for the macOS auto-update ZIP asset.
  *
- * This module is the SINGLE SOURCE OF TRUTH for the contract on the worker
- * side. The release-tooling mirror lives at `scripts/lib/darwinAsset.mjs`, and
- * `tests/scripts/darwinAsset.test.ts` asserts the two stay byte-equivalent
- * (same regex source + flags) so the silent-no-update regression — broken
- * across v0.4.0/v0.5.0, where the feed could not match the published asset and
- * returned 204, which Squirrel.Mac reads as "up to date" — cannot recur.
+ * This is retained only for compatibility with older clients that still call
+ * the Worker platform feed. Current electron-builder packages read GitHub
+ * Releases directly through `electron-updater`; release validation must not
+ * depend on this legacy filename contract.
  *
- * `electron-forge` `MakerZIP` emits `Lingua-darwin-<arch>-<version>.zip` (the
- * actual name on the GitHub release, verified against published tags). The
+ * Historical `electron-forge` releases emitted
+ * `Lingua-darwin-<arch>-<version>.zip`. The
  * legacy `lingua-<version>-darwin-<arch>.zip` ordering is also accepted so a
  * maker/name change cannot silently strand macOS auto-update. Matching is
  * case-insensitive because the product name is `Lingua`.
  */
 
 /**
- * Closed set of architecture tokens the macOS ZIP asset may carry. `x64` and
- * `arm64` are the two per-arch builds Forge emits today; `universal` is
- * reserved for a future lipo-merged single artifact.
+ * Closed set of architecture tokens the legacy macOS ZIP asset may carry.
+ * `universal` remains accepted for compatibility with a possible lipo-merged
+ * historical artifact.
  */
 export const DARWIN_ZIP_ARCH_PATTERN = '(?:x64|arm64|universal)';
 

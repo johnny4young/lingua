@@ -59,7 +59,7 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
   }
 
   // Readiness check — probes upstream GitHub reachability with a 30s
-  // cache. internal contract: always 200, the snapshot itself is the
+  // cache. The health contract always returns 200; the snapshot itself is the
   // signal so dashboards can read the dependencies map regardless.
   if (path === '/health/ready') {
     if (request.method !== 'GET') {
@@ -160,7 +160,7 @@ async function handleUpdate(
     // Intentionally do NOT cache 204 responses. Observed during the
     // v0.4.0 release: a 204 cached while the release was still in
     // draft kept being served from the edge for 5+ minutes after the
-    // release was promoted, blocking `check:update-feed` even though
+    // release was promoted, blocking post-publish probes even though
     // the underlying GitHub state had updated. The `getLatestRelease`
     // fetch already has a 60s cf.cacheTtl ceiling, so the cost of
     // not caching the 204 here is at most one GitHub API call per
@@ -220,7 +220,7 @@ async function buildDarwinResponse(
     return new Response(null, { status: 204 });
   }
 
-  // Resolve to a signed download URL (private repo)
+  // Legacy clients receive the GitHub asset redirect resolved by the Worker.
   const downloadURL = await getAssetDownloadURL(env.GITHUB_TOKEN, zipAsset.id);
   if (!downloadURL) {
     return new Response('Failed to resolve asset URL', { status: 502 });

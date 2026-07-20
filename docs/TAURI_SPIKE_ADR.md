@@ -1,14 +1,14 @@
 # ADR — Tauri 2 feasibility spike
 
-| Status | Accepted — no-go for now |
-| ------ | ------------------------ |
-| Decision | Do not migrate to Tauri 2. Keep the Electron Forge + Vite stack (see `BUILD_SYSTEM_ADR.md`). |
-| Date | 2026-04-19 |
+| Status       | Accepted — no-go for now                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Decision     | Do not migrate to Tauri 2. Keep the Electron + Vite + electron-builder stack (see `BUILD_SYSTEM_ADR.md`).                                 |
+| Date         | 2026-04-19                                                                                                                                |
 | Next revisit | When any of the triggers in "When to revisit" fires — or when Tauri 2 plugins cover the gaps enumerated below without a home-rolled shim. |
 
 ## Context
 
-internal asks the team to run a bounded Tauri 2 spike — port one thin slice
+A prior architecture review proposed a bounded Tauri 2 spike: port one thin slice
 (editor shell, JS runner, filesystem open/save) and measure cold start,
 bundle size, update/signing path, permission model, maintenance cost of
 the Rust shell, and impact on current Go/Rust runner architecture. The
@@ -37,7 +37,8 @@ right move once the revisit triggers fire, not before.
   and capability-scoped; Electron's `webPreferences` + IPC + preload
   contract is more implicit.
 - **Rust-native code signing story** via `tauri-cli`, comparable to
-  `electron-builder` on maturity but not Forge-style integrated.
+  `electron-builder` in maturity, but it would still replace the current release
+  toolchain.
 
 ### What Tauri 2 would cost Lingua specifically
 
@@ -50,8 +51,8 @@ right move once the revisit triggers fire, not before.
 2. **Python via Pyodide** — WASM in a worker. Platform-independent.
    **Net zero**.
 
-3. **Go runtime** — Today `src/main/go-compiler.ts` shells out to `go
-   build` via Node `child_process`. Tauri 2's Rust shell spawns child
+3. **Go runtime** — Today `src/main/go-compiler.ts` shells out to `go build`
+   via Node `child_process`. Tauri 2's Rust shell spawns child
    processes through `tauri-plugin-shell`. Porting means rewriting the
    IPC handler in Rust, including the `wasm_exec.js` resolution path
    (`getWasmExecCandidatePaths` in Go compiler). Estimated cost:
@@ -98,24 +99,26 @@ right move once the revisit triggers fire, not before.
 
 ### Measured vs inherited work
 
-| Measurement line from internal scope | Why we're not measuring yet |
-|------------------------------------|-----------------------------|
-| Cold start | Would improve, but a POC does not answer whether Electron's cold start is a user-visible problem today. No customer feedback yet claims it is. |
-| Bundle size | Would improve by ~50–100 MB per platform. Compelling but not acceptance-gating without download-conversion data. |
-| Update/signing path | Tauri's updater is workable but less mature than `electron-updater`. Switching also means rebuilding the feed format and re-notarizing — not free. |
-| Permission model | Tauri's capability allowlist is strictly better. This is the one axis where Tauri genuinely wins on security posture. |
-| Maintenance cost of the Rust shell | Net **negative** today — no Rust dialects in use elsewhere on the team. |
-| Impact on Go/Rust runner architecture | Port cost for Go + Rust + formatters + fs bridge + crash reporter is 6–8 weeks of focused Rust work. |
+| Proposed measurement                  | Why we're not measuring yet                                                                                                                        |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cold start                            | Would improve, but a POC does not answer whether Electron's cold start is a user-visible problem today. No customer feedback yet claims it is.     |
+| Bundle size                           | Would improve by ~50–100 MB per platform. Compelling but not acceptance-gating without download-conversion data.                                   |
+| Update/signing path                   | Tauri's updater is workable but less mature than `electron-updater`. Switching also means rebuilding the feed format and re-notarizing — not free. |
+| Permission model                      | Tauri's capability allowlist is strictly better. This is the one axis where Tauri genuinely wins on security posture.                              |
+| Maintenance cost of the Rust shell    | Net **negative** today — no Rust dialects in use elsewhere on the team.                                                                            |
+| Impact on Go/Rust runner architecture | Port cost for Go + Rust + formatters + fs bridge + crash reporter is 6–8 weeks of focused Rust work.                                               |
 
 ## Decision
 
 **No-go on a Tauri 2 migration for the foreseeable future.** The only
 axis where Tauri 2 is genuinely compelling (the permission model) does
 not outweigh the 6–8-week Rust-shell rebuild we would take on without
-the skill or signal to justify it. Lingua stays on Electron Forge per
+the skill or signal to justify it. Lingua stays on Electron with the current
+electron-builder release pipeline per
 `BUILD_SYSTEM_ADR.md`.
 
 A POC is **intentionally not shipped** with this ADR because:
+
 - Running the experiment before the architectural review would measure
   cold-start deltas that we already know exist, while ignoring the
   port cost that actually drives the decision.
@@ -130,15 +133,15 @@ Open a dated successor ADR and re-score when **any** of these becomes
 true:
 
 1. Tauri 2 ships (or a community plugin reaches stable) a
-   `crashReporter`-equivalent that matches our internal minidump +
+   `crashReporter`-equivalent that matches our minidump +
    unified-consent contract.
 2. A customer-signal review shows Electron's cold start, bundle size,
    or memory footprint is a conversion-blocking objection — not a
    hypothetical concern.
 3. The team grows a primary Rust maintainer so the Tauri shell is not
    a foreign language from day one.
-4. Electron deprecates a capability Lingua depends on (the Forge
-   makers, `electron-updater`, the `crashReporter` API) with no
+4. Electron deprecates a capability Lingua depends on (`electron-builder`,
+   `electron-updater`, or the `crashReporter` API) with no
    drop-in replacement in the Electron ecosystem.
 5. A security review turns up an Electron-specific CVE pattern that
    Tauri's capability model would genuinely prevent, and mitigating
@@ -149,11 +152,11 @@ work starts.
 
 ## Impact on adjacent items
 
-- `BUILD_SYSTEM_ADR.md` — unchanged. Stay on Forge.
+- `BUILD_SYSTEM_ADR.md` — historical context for the later electron-builder
+  migration. Stay on Electron.
 - `CAPABILITY_MATRIX.md` — unchanged. Tauri would not move
   any capability into a different execution class; it would only swap
   the shell.
-- the implementation notes — internal flips to Done with this ADR as the artifact.
 
 ## Reviewers
 

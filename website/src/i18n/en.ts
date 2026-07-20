@@ -94,7 +94,7 @@ export const en = {
         {
           icon: 'wifi-off',
           title: 'Python that runs without the internet',
-          body: 'Pyodide v0.26.4 ships inside the desktop binary. Open Lingua on a plane, write Python, hit run. The web build does the same after the first load.',
+          body: 'Pyodide v0.29.4 ships inside the desktop binary. Open Lingua on a plane, write Python, hit run. The web build does the same after the first load.',
         },
         {
           icon: 'terminal',
@@ -273,7 +273,7 @@ export const en = {
       notes: {
         js: 'Worker runtime',
         ts: 'esbuild-wasm → Worker',
-        py: 'Pyodide v0.26.4 vendored',
+        py: 'Pyodide v0.29.4 vendored',
         go: 'Local Go toolchain',
         rust: 'Local Rust toolchain',
         monaco: 'Monaco syntax view',
@@ -559,7 +559,7 @@ export const en = {
       'Boilerplate descriptions, founder bio, pricing summary, and the press kit ZIP download. For journalists and partners writing about Lingua.',
     eyebrow: 'Press',
     heading: 'Press kit',
-    lede: 'Everything you need to write about Lingua honestly. Drop-in copy at three lengths, founder bio, and a contact address. Brand assets land with v0.3 — until then this page is copy and the ZIP carries the same.',
+    lede: 'Everything you need to write about Lingua honestly: drop-in copy at three lengths, founder bio, pricing context, and a contact address. The current ZIP is an editorial kit; a dedicated brand-asset pack is not published yet.',
     downloadZip: 'Download press kit (ZIP)',
     contact: 'Press contact',
     contactMetaStart: 'Press contact —',
@@ -606,7 +606,7 @@ export const en = {
     },
     brand: {
       title: 'Brand assets',
-      body: 'Logo, monochrome icon, color tokens, and typography spec ship with Lingua v0.3. We will update this page and the ZIP the day they land.',
+      body: 'A dedicated logo, monochrome icon, color-token, and typography asset pack is not published yet. Contact us if you need approved visual assets for coverage.',
     },
   },
 } as const;

@@ -1,11 +1,11 @@
 /**
- * internal — production-dependency audit gate, pure logic.
+ * Production-dependency audit gate, pure logic.
  *
- * Before internal, `pnpm audit --prod --internal high` blocked RELEASES (the
- * `release.yml` security-audit job, from internal), but PR CI only ran the full
- * audit as advisory (`continue-on-error`). A prod high-severity dep could land
- * on a PR with nothing but a warning. This module is the testable core of the
- * shared PR + release gate: it takes the parsed `pnpm audit --json` payload and
+ * The release workflow originally blocked production advisories while PR CI
+ * ran the full dependency audit as advisory. A production high-severity
+ * dependency could therefore land with only a warning. This module is the
+ * testable core of the shared PR + release gate: it takes the parsed
+ * `pnpm audit --json` payload and
  * decides pass/fail against a severity threshold, with no I/O so the "synthetic
  * high advisory fails CI" acceptance criterion can be proven with a fixture
  * instead of a live registry advisory (which cannot be injected).
@@ -16,7 +16,7 @@
  * judges the PRODUCTION graph — callers feed it `pnpm audit --prod --json`.
  *
  * Mirrors the pure-lib + CLI + fixture-test shape of
- * `scripts/lib/licenseKeyRotation.mjs` and `scripts/lib/darwinAsset.mjs`.
+ * `scripts/lib/licenseKeyRotation.mjs`.
  */
 
 /**
@@ -31,7 +31,7 @@ export const SEVERITY_RANK = Object.freeze({
   critical: 4,
 });
 
-/** Default threshold: block on `high` and `critical` (internal baseline). */
+/** Default threshold: block on `high` and `critical`. */
 export const DEFAULT_AUDIT_LEVEL = 'high';
 const AUDIT_SEVERITIES = Object.freeze(Object.keys(SEVERITY_RANK));
 

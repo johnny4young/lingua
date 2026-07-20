@@ -1,7 +1,7 @@
 # Security Policy
 
-This repository is the static marketing site for Lingua. The desktop/web app is
-maintained separately.
+Lingua's desktop app, web app, marketing site, update service, and supporting
+release automation live together in this repository.
 
 ## Supported Versions
 
@@ -35,7 +35,7 @@ Review these areas carefully:
 - Release/download links and SHA256SUMS references.
 - Polar checkout URL handling.
 - Cloudflare Web Analytics configuration.
-- Content synchronized from the private `lingua` repository.
+- Content synchronized from the repository root into the static website.
 - Build scripts that generate public artifacts such as the press kit ZIP.
 - Dependency updates that affect Astro, Vite, Tailwind, Markdown rendering, or
   static HTML output.
@@ -45,7 +45,7 @@ Review these areas carefully:
 Never commit:
 
 - GitHub, Cloudflare, Polar, Resend, or analytics tokens.
-- Private access tokens for the source `lingua` repository.
+- Personal access tokens or deployment credentials.
 - Webhook secrets.
 - Real customer license tokens.
 - Code-signing certificates, notarization credentials, or private keys.
