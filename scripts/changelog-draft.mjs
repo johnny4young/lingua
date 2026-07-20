@@ -93,6 +93,7 @@ function cleanDescription(description) {
   return description
     .replace(/\bRL-\d+\b\s*/gu, '')
     .replace(/\bSlice\s+\d+(?:\.\d+)?\b\s*[-:—]?\s*/giu, '')
+    .replace(/^(?:strategic\s+review\s+)?wave\s+\d+\s*[-:—]?\s*/iu, '')
     .replace(/\s{2,}/gu, ' ')
     .trim()
     .replace(/^[-:—]\s*/u, '');
@@ -103,8 +104,8 @@ function cleanDescription(description) {
  *
  * Commit bodies can opt out with `Changelog: none` / `skip`, or override both
  * section and public copy with `Changelog: Added - ...`. Without a trailer, the
- * classifier includes only user-facing conventional types and strips internal
- * RL/slice prefixes from the subject.
+ * classifier includes only user-facing conventional types and strips private
+ * planning labels from the subject.
  */
 export function classifyCommit(commit) {
   const parsed = parseConventionalSubject(commit.subject);

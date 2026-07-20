@@ -3,9 +3,11 @@
  * Sync content + preprocessed data from the lingua repo root into website/.
  *
  *   1. Vendor markdown files (press-kit, SEO scaffolds) into src/content/
- *   2. Preprocess ROADMAP.md → src/data/roadmap.json
- *   3. Preprocess CHANGELOG.md → src/data/changelog.json
- *   4. Read git log since the last documented release → src/data/unreleased.json
+ *   2. Preprocess CHANGELOG.md → src/data/changelog.json
+ *   3. Read git log since the last documented release → src/data/unreleased.json
+ *
+ * The public roadmap is curated directly in src/data/roadmap.json. It is not
+ * generated from private planning documents.
  *
  * All outputs are committed. The Astro build never reads from GitHub — it just
  * imports the JSON. CF Pages and CI work without any env vars or auth tokens.
@@ -37,8 +39,8 @@ const MANIFEST = [
   { from: 'docs/press-kit/boilerplate.md',       to: 'press-kit/boilerplate.md' },
   { from: 'docs/press-kit/founder-bio.md',       to: 'press-kit/founder-bio.md' },
   { from: 'docs/press-kit/README.md',            to: 'press-kit/README.md' },
-  // SEO landing scaffolds. The main repo is the English source; localized
-  // translations live under sibling locale folders in this repo.
+  // SEO landing scaffold. The main repo is the English source; localized
+  // translations live under sibling locale implementation detail in this repo.
   { from: 'docs/seo-pages/go-playground-desktop.md',      to: 'seo/en/go-playground-desktop.md' },
   { from: 'docs/seo-pages/rust-code-runner-desktop.md',   to: 'seo/en/rust-code-runner-desktop.md' },
   { from: 'docs/seo-pages/python-repl-desktop.md',        to: 'seo/en/python-repl-desktop.md' },
@@ -63,18 +65,6 @@ async function readSource(relPath) {
   }
 }
 
-// Like readSource, but returns null when the file is absent — for sources that
-// are intentionally local-only in the (now public) lingua repo (its .gitignore
-// keeps docs/ROADMAP.md, docs/PLAN.md, etc. out of the public tree).
-async function readSourceOptional(relPath) {
-  try {
-    return await readFile(join(LOCAL_BASE, relPath), 'utf8');
-  } catch (err) {
-    if (err.code === 'ENOENT') return null;
-    throw err;
-  }
-}
-
 async function readExisting(absPath) {
   try {
     return await readFile(absPath, 'utf8');
@@ -93,8 +83,24 @@ async function writeIfChanged(absPath, content, { check }) {
   return existing == null ? 'created' : 'updated';
 }
 
+async function withStableGeneratedAt(absPath, payload) {
+  const existing = await readExisting(absPath);
+  if (existing != null) {
+    try {
+      const parsed = JSON.parse(existing);
+      const { generatedAt, ...previousPayload } = parsed;
+      if (generatedAt && JSON.stringify(previousPayload) === JSON.stringify(payload)) {
+        return { generatedAt, ...payload };
+      }
+    } catch {
+      // A malformed generated file should be replaced with a fresh valid payload.
+    }
+  }
+  return { generatedAt: new Date().toISOString(), ...payload };
+}
+
 // ────────────────────────────────────────────────────────────────────────────
-// Phase 1 — vendor markdown
+// Vendor markdown
 // ────────────────────────────────────────────────────────────────────────────
 
 async function syncManifest({ check }) {
@@ -109,104 +115,7 @@ async function syncManifest({ check }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Phase 2 — preprocess ROADMAP.md → roadmap.json
-// ────────────────────────────────────────────────────────────────────────────
-
-const SUBSECTION_RE = /^###\s+4([a-j])\.\s+(.+?)\s*(?:\((.+?)\))?\s*$/;
-const TABLE_ROW_RE = /^\|\s*\[`(RL-\d+)`\]\([^)]+\)\s*\|\s*(.+?)\s*\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*$/;
-const SECTION_4_RE = /^##\s+4\.\s+/;
-const SECTION_NEXT_RE = /^##\s+\d+\.\s+/;
-
-const THEME_LABELS = {
-  a: 'Launch',
-  b: 'Editor & runtime',
-  c: 'Languages',
-  d: 'Execution & tooling',
-  e: 'Developer utilities',
-  f: 'Launch operations',
-  g: 'Personalization & polish',
-  h: 'Documentation',
-  i: 'Security & quality',
-  j: 'Research', // skipped from output
-};
-
-function trimScopeForUsers(scope) {
-  let out = scope.replace(/\((?:Slice|Phase|Stage)[^)]*shipped[^)]*\)\.?/gi, '');
-  out = out.replace(/Shipped\s*[—:-]\s*[^.]+\.?/gi, '');
-  return out.replace(/\s{2,}/g, ' ').trim();
-}
-
-function parseRoadmap(text) {
-  const lines = text.split('\n');
-  const groups = [];
-  let inSection4 = false;
-  let currentGroup = null;
-
-  for (const line of lines) {
-    if (SECTION_4_RE.test(line)) { inSection4 = true; continue; }
-    if (inSection4 && SECTION_NEXT_RE.test(line) && !SECTION_4_RE.test(line)) break;
-    if (!inSection4) continue;
-
-    const subMatch = line.match(SUBSECTION_RE);
-    if (subMatch) {
-      const themeKey = subMatch[1];
-      const friendly = THEME_LABELS[themeKey] ?? subMatch[2];
-      if (friendly === 'Research') { currentGroup = null; continue; }
-      currentGroup = { theme: friendly, items: [] };
-      groups.push(currentGroup);
-      continue;
-    }
-
-    const rowMatch = line.match(TABLE_ROW_RE);
-    if (rowMatch && currentGroup) {
-      const [, id, title, statusRaw, scopeRaw] = rowMatch;
-      currentGroup.items.push({
-        id,
-        title: title.trim(),
-        scope: trimScopeForUsers(scopeRaw),
-        status: statusRaw.trim(),
-        theme: currentGroup.theme,
-      });
-    }
-  }
-  return groups.filter((g) => g.items.length > 0);
-}
-
-function bucketByStatus(groups, status) {
-  return groups
-    .map((g) => ({ theme: g.theme, items: g.items.filter((i) => i.status === status) }))
-    .filter((g) => g.items.length > 0);
-}
-
-async function preprocessRoadmap({ check }) {
-  const text = await readSourceOptional('docs/ROADMAP.md');
-  if (text === null) {
-    // docs/ROADMAP.md is intentionally local-only in the (now public) lingua
-    // repo (see its .gitignore). Keep the existing roadmap.json and let the
-    // rest of the sync (changelog, press-kit, SEO) proceed, instead of failing
-    // the whole run. A future slice can parse the public ROADMAP_2026_H2.md.
-    console.log('[sync] docs/ROADMAP.md not present (local-only) — keeping existing roadmap.json');
-    return [];
-  }
-  const all = parseRoadmap(text);
-  if (all.length === 0) throw new Error('ROADMAP.md parsed to zero groups — check format');
-  const planned = bucketByStatus(all, 'Planned');
-  const inProgress = bucketByStatus(all, 'Partial');
-  const data = {
-    generatedAt: new Date().toISOString(),
-    totals: {
-      planned: planned.reduce((acc, g) => acc + g.items.length, 0),
-      inProgress: inProgress.reduce((acc, g) => acc + g.items.length, 0),
-    },
-    planned,
-    inProgress,
-  };
-  const action = await writeIfChanged(join(DATA_DIR, 'roadmap.json'), JSON.stringify(data, null, 2) + '\n', { check });
-  return [{ kind: 'data', name: 'roadmap.json', action }];
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Phase 3 — preprocess CHANGELOG.md → changelog.json
+// Preprocess CHANGELOG.md → changelog.json
 // ────────────────────────────────────────────────────────────────────────────
 
 const CL_HEADING_RE = /^##\s+\[v?(\d+\.\d+\.\d+)\]\s+[—-]\s+(\d{4}-\d{2}-\d{2})\s*$/;
@@ -271,13 +180,14 @@ async function preprocessChangelog({ check }) {
   const text = await readSource('CHANGELOG.md');
   const entries = parseChangelog(text);
   if (entries.length === 0) throw new Error('CHANGELOG.md parsed to zero entries — check format');
-  const data = { generatedAt: new Date().toISOString(), entries };
-  const action = await writeIfChanged(join(DATA_DIR, 'changelog.json'), JSON.stringify(data, null, 2) + '\n', { check });
+  const outputPath = join(DATA_DIR, 'changelog.json');
+  const data = await withStableGeneratedAt(outputPath, { entries });
+  const action = await writeIfChanged(outputPath, JSON.stringify(data, null, 2) + '\n', { check });
   return [{ kind: 'data', name: 'changelog.json', action }];
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Phase 4 — git log → unreleased.json
+// Git log → unreleased.json
 // ────────────────────────────────────────────────────────────────────────────
 
 const VISIBLE_TYPES = new Set(['feat', 'fix', 'perf']);
@@ -302,6 +212,13 @@ function parseCommitSubject(subject) {
   if (!m) return null;
   const [, type, scope, , msg] = m;
   return { type, scope: scope ?? null, breaking: subject.includes('!:'), message: msg };
+}
+
+function sanitizePublicCommitMessage(message) {
+  return message
+    .replace(/^(?:strategic\s+review\s+)?wave\s+\d+\s*[-:—]?\s*/iu, '')
+    .replace(/^[-:—]\s*/u, '')
+    .trim();
 }
 
 function chooseBaseRef() {
@@ -355,18 +272,18 @@ async function preprocessUnreleased({ check }) {
       type: c.parsed.type,
       typeLabel: TYPE_LABELS[c.parsed.type] ?? c.parsed.type,
       scope: c.parsed.scope,
-      message: c.parsed.message,
+      message: sanitizePublicCommitMessage(c.parsed.message),
       breaking: c.parsed.breaking,
     }));
 
-  const data = {
-    generatedAt: new Date().toISOString(),
+  const outputPath = join(DATA_DIR, 'unreleased.json');
+  const data = await withStableGeneratedAt(outputPath, {
     baseRef,
     commitCount: visible.length,
     totalSinceBase: allCommits.length,
     commits: visible,
-  };
-  const action = await writeIfChanged(join(DATA_DIR, 'unreleased.json'), JSON.stringify(data, null, 2) + '\n', { check });
+  });
+  const action = await writeIfChanged(outputPath, JSON.stringify(data, null, 2) + '\n', { check });
   return [{ kind: 'data', name: 'unreleased.json', action }];
 }
 
@@ -381,7 +298,6 @@ async function main() {
   const results = [];
   try {
     results.push(...(await syncManifest({ check })));
-    results.push(...(await preprocessRoadmap({ check })));
     results.push(...(await preprocessChangelog({ check })));
     results.push(...(await preprocessUnreleased({ check })));
   } catch (err) {
