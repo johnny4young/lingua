@@ -14,7 +14,7 @@
     "migrations:apply:remote": "wrangler d1 migrations apply lingua-licenses --remote"
   },
   "dependencies": {
-    "hono": "^4.12.25"
+    "hono": "^4.12.27"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260609.1",

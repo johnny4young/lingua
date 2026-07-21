@@ -189,14 +189,19 @@ severity threshold (default `high`), and **fails closed** — a `high` or
 `critical` advisory in the production dependency graph, an unparseable audit
 payload, or a `pnpm audit` that could not run all exit non-zero. It is wired
 into `ci.yml` (PR gate) and `release.yml` (security-audit job), so a prod
-advisory is caught before merge, not only at release time.
+advisory is caught before merge, not only at release time. Both workflows also
+run blocking production audits against the independent
+`license-server/pnpm-lock.yaml`, `update-server/pnpm-lock.yaml`, and
+`website/package-lock.json` graphs; a clean root lockfile cannot mask a Worker
+or website advisory.
 
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 is blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
-stays advisory (`continue-on-error: true`): its `high` findings (e.g. the
-`esbuild` GHSA reached through `vite` / `@electron-forge/*`, and the dev-only
-`tar` advisory) are unfixable without upstream electron-forge / vite upgrades
-and never ship in a packaged artifact. Making the full audit blocking would
+stays advisory (`continue-on-error: true`): its remaining `high`/`critical`
+findings are the dev-only `tar@6` paths held by Electron Forge tooling. The
+patched line is a new major and must not be forced across the packaging stack
+without cross-platform validation; these paths do not ship in the packaged
+artifact. Making the full audit blocking would
 red-CI the repo on dev-tooling advisories that pose no user risk. Keep the
 split.
 

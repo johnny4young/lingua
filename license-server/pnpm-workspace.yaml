@@ -7,3 +7,11 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
+
+# Keep the independent Worker toolchain on advisory-fixed transitive releases.
+# These stay local to the license server because it owns a separate lockfile.
+overrides:
+  'esbuild': '0.28.1'
+  'undici': '7.28.0'
+  'vite@7.3.3': '7.3.5'
+  'ws': '8.21.0'
