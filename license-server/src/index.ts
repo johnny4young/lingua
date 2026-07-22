@@ -63,8 +63,15 @@ export interface Env {
    */
   LINGUA_LICENSE_PRIVATE_KEY_JWK: string;
   /**
-   * Ed25519 public key (JWK string). Pair of the private key. Used
-   * by /licenses/* endpoints to verify the token clients submit.
+   * Prepared private-key slot for overlap rotations. It is ignored while
+   * LINGUA_LICENSE_SIGNING_KEY_SLOT remains `current`.
+   */
+  LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK?: string;
+  /** Non-secret selector: `current` (default) or `next`. */
+  LINGUA_LICENSE_SIGNING_KEY_SLOT?: string;
+  /**
+   * Ordered Ed25519 verification keyring: one JWK string normally, or a
+   * JSON array during overlap. Used by /licenses/* endpoints.
    */
   LINGUA_LICENSE_PUBLIC_KEY_JWK: string;
   /**

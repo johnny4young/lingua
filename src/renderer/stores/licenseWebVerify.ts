@@ -1,5 +1,6 @@
 import {
   type LicenseVerificationResult,
+  parseLicensePublicKeyring,
   verifyLicenseToken,
 } from '../../shared/license';
 import { bundledBuildDate } from '../../shared/appInfo';
@@ -12,8 +13,8 @@ import type { LicenseStatus } from './licenseTypes';
  * token. Leaf: depends only on the shared verifier + the license types, never
  * on the store or action factories.
  *
- * SECURITY: this is the renderer's only local trust anchor. `PUBLIC_KEY_JWK`
- * is `null` until the issuer key is embedded at build time, so `runVerifyWeb`
+ * SECURITY: this is the renderer's only local trust anchor. `PUBLIC_KEYRING`
+ * is empty until issuer keys are embedded at build time, so `runVerifyWeb`
  * rejects with `no-public-key` rather than silently "verifying" against nothing.
  */
 
@@ -25,18 +26,12 @@ import type { LicenseStatus } from './licenseTypes';
  * means the renderer bundle embeds the key once instead of re-reading it on
  * every verification.
  */
-export const PUBLIC_KEY_JWK: JsonWebKey | null = readEmbeddedPublicKey();
+export const PUBLIC_KEYRING = readEmbeddedPublicKeyring();
+/** Primary key shown in Settings; overlap keys remain verification-only. */
+export const PUBLIC_KEY_JWK: JsonWebKey | null = PUBLIC_KEYRING[0] ?? null;
 
-export function readEmbeddedPublicKey(): JsonWebKey | null {
-  const raw = import.meta.env?.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK;
-  if (typeof raw !== 'string' || raw.length === 0) return null;
-  try {
-    return JSON.parse(raw) as JsonWebKey;
-  } catch {
-    // Explicitly swallow and return null so a misconfigured build env fails
-    // loud at set-license time instead of at module import.
-    return null;
-  }
+export function readEmbeddedPublicKeyring() {
+  return parseLicensePublicKeyring(import.meta.env?.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK);
 }
 
 export function resultToStatus(result: LicenseVerificationResult): LicenseStatus {
@@ -47,7 +42,7 @@ export function resultToStatus(result: LicenseVerificationResult): LicenseStatus
 }
 
 export async function runVerifyWeb(token: string): Promise<LicenseStatus> {
-  if (!PUBLIC_KEY_JWK) {
+  if (PUBLIC_KEYRING.length === 0) {
     return {
       kind: 'invalid',
       reason: 'no-public-key',
@@ -55,6 +50,6 @@ export async function runVerifyWeb(token: string): Promise<LicenseStatus> {
         'Build does not embed a license public key. Set VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK at build time.',
     };
   }
-  const result = await verifyLicenseToken(token, PUBLIC_KEY_JWK, { buildDate: bundledBuildDate() });
+  const result = await verifyLicenseToken(token, PUBLIC_KEYRING, { buildDate: bundledBuildDate() });
   return resultToStatus(result);
 }

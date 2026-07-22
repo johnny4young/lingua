@@ -44,7 +44,7 @@ export type TokenVerifyFailure =
   | { ok: false; reason: 'subtle-unavailable'; message?: string };
 
 export type TokenVerifyResult =
-  | { ok: true; payload: LicensePayload }
+  | { ok: true; payload: LicensePayload; keyIndex: number }
   | TokenVerifyFailure;
 
 const SUPPORTED_TIERS: ReadonlySet<LicensePayload['tier']> = new Set([
@@ -54,6 +54,39 @@ const SUPPORTED_TIERS: ReadonlySet<LicensePayload['tier']> = new Set([
   'trial',
   'education',
 ]);
+const MAX_LICENSE_PUBLIC_KEYS = 3;
+
+function isEd25519PublicJwk(value: unknown): value is JsonWebKey {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const candidate = value as JsonWebKey;
+  return (
+    candidate.kty === 'OKP' &&
+    candidate.crv === 'Ed25519' &&
+    typeof candidate.x === 'string' &&
+    candidate.x.length > 0 &&
+    candidate.d === undefined
+  );
+}
+
+/** Parse a backward-compatible single JWK or an ordered rotation keyring. */
+export function parseLicensePublicKeyring(raw: string | undefined): readonly JsonWebKey[] {
+  if (typeof raw !== 'string' || raw.length === 0) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  const candidates = Array.isArray(parsed) ? parsed : [parsed];
+  if (candidates.length === 0 || candidates.length > MAX_LICENSE_PUBLIC_KEYS) return [];
+  if (!candidates.every(isEd25519PublicJwk)) return [];
+  const identities = candidates.map(
+    (candidate) => `${candidate.kty}:${candidate.crv}:${candidate.x}`
+  );
+  if (new Set(identities).size !== identities.length) return [];
+  return candidates;
+}
 
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = '';
@@ -174,7 +207,7 @@ export async function signLicenseToken(
  */
 export async function verifyLicenseToken(
   token: string,
-  publicKeyJwk: JsonWebKey
+  publicKeyJwk: JsonWebKey | readonly JsonWebKey[]
 ): Promise<TokenVerifyResult> {
   if (typeof token !== 'string' || token.length === 0) {
     return { ok: false, reason: 'malformed', message: 'Token is empty.' };
@@ -210,39 +243,53 @@ export async function verifyLicenseToken(
     return { ok: false, reason: 'subtle-unavailable' };
   }
 
-  let key: CryptoKey;
-  try {
-    key = await subtle.importKey('jwk', publicKeyJwk, { name: 'Ed25519' }, false, ['verify']);
-  } catch (error) {
-    return {
-      ok: false,
-      reason: 'invalid-public-key',
-      message: error instanceof Error ? error.message : 'Failed to import public key.',
-    };
+  const signingInput = new TextEncoder().encode(payloadPart);
+  const keyring = Array.isArray(publicKeyJwk) ? publicKeyJwk : [publicKeyJwk];
+  if (keyring.length === 0) {
+    return { ok: false, reason: 'invalid-public-key', message: 'Public keyring is empty.' };
   }
 
-  const signingInput = new TextEncoder().encode(payloadPart);
-  let verified: boolean;
-  try {
-    verified = await subtle.verify(
-      { name: 'Ed25519' },
-      key,
-      signatureBytes as BufferSource,
-      signingInput as BufferSource
-    );
-  } catch (error) {
-    return {
-      ok: false,
-      reason: 'invalid-signature',
-      message: error instanceof Error ? error.message : 'Verify threw.',
-    };
+  let verified = false;
+  let verifiedKeyIndex = -1;
+  let importError: string | undefined;
+  let verifyError: string | undefined;
+  for (const [keyIndex, candidate] of keyring.entries()) {
+    let key: CryptoKey;
+    try {
+      key = await subtle.importKey('jwk', candidate, { name: 'Ed25519' }, false, ['verify']);
+    } catch (error) {
+      importError ??= error instanceof Error ? error.message : 'Failed to import public key.';
+      continue;
+    }
+
+    try {
+      verified = await subtle.verify(
+        { name: 'Ed25519' },
+        key,
+        signatureBytes as BufferSource,
+        signingInput as BufferSource
+      );
+    } catch (error) {
+      verifyError ??= error instanceof Error ? error.message : 'Verify threw.';
+      continue;
+    }
+    if (verified) {
+      verifiedKeyIndex = keyIndex;
+      break;
+    }
   }
 
   if (!verified) {
+    if (keyring.length === 1 && importError) {
+      return { ok: false, reason: 'invalid-public-key', message: importError };
+    }
+    if (keyring.length === 1 && verifyError) {
+      return { ok: false, reason: 'invalid-signature', message: verifyError };
+    }
     return { ok: false, reason: 'invalid-signature' };
   }
 
-  return { ok: true, payload: parsed };
+  return { ok: true, payload: parsed, keyIndex: verifiedKeyIndex };
 }
 
 /** Exposed only for tests that decode payloads without a public key. */

@@ -1,11 +1,11 @@
 /**
  * License-signing-key rotation policy, pure logic.
  *
- * The app embeds exactly one Ed25519 public key — committed in `.env.production`
- * as `LINGUA_LICENSE_PUBLIC_KEY_JWK` (the dev `.env` is gitignored, so it is the
- * authoritative committed copy; when a dev `.env` is present it must match it);
- * the private half
- * lives only as a Cloudflare Workers secret. Because the JWK is stripped to
+ * The app embeds an ordered Ed25519 verification keyring — committed in
+ * `.env.production` as `LINGUA_LICENSE_PUBLIC_KEY_JWK`. A historical single
+ * JWK remains valid; during rotation the value is an array whose first entry is
+ * active and whose remaining entries are overlap-only keys. The private half
+ * lives only as a Cloudflare Workers secret. Because every JWK is stripped to
  * RFC 8037 §2 fields (`kty`/`crv`/`x` — CF Workers rejects anything extra,
  * see `scripts/dev-license-shared.mjs`), the key itself carries no `kid` or
  * issuance timestamp. Rotation metadata therefore lives OUTSIDE the key, in
@@ -26,6 +26,7 @@ export const DEFAULT_ROTATION_SLA_DAYS = 90;
 export const DEFAULT_WARN_WINDOW_DAYS = 14;
 
 export const LICENSE_KEY_ENV_NAME = 'LINGUA_LICENSE_PUBLIC_KEY_JWK';
+const MAX_LICENSE_PUBLIC_KEYS = 3;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -46,6 +47,31 @@ export function computeJwkThumbprint(jwk) {
   }
   const canonical = `{"crv":${JSON.stringify(jwk.crv)},"kty":${JSON.stringify(jwk.kty)},"x":${JSON.stringify(jwk.x)}}`;
   return createHash('sha256').update(canonical, 'utf8').digest('base64url');
+}
+
+/**
+ * Parse the historical single-JWK value or the ordered rotation-keyring value.
+ * Returns null on malformed, empty, oversized, duplicate, or private material.
+ *
+ * @param {string | null | undefined} raw
+ * @returns {{ keys: object[], thumbprints: string[] } | null}
+ */
+export function parseLicensePublicKeyringValue(raw) {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  const keys = Array.isArray(parsed) ? parsed : [parsed];
+  if (keys.length === 0 || keys.length > MAX_LICENSE_PUBLIC_KEYS) return null;
+  if (keys.some((key) => key && typeof key === 'object' && 'd' in key)) return null;
+  const thumbprints = keys.map(computeJwkThumbprint);
+  if (thumbprints.some((thumbprint) => thumbprint === null)) return null;
+  if (new Set(thumbprints).size !== thumbprints.length) return null;
+  return { keys, thumbprints };
 }
 
 /**
@@ -80,7 +106,7 @@ export function extractEnvValue(envText, name) {
  * @typedef {Object} LicenseKeyRegistryEntry
  * @property {string} thumbprint RFC 7638 thumbprint of the public JWK (43-char base64url).
  * @property {string} issuedAt ISO date the keypair was minted and embedded.
- * @property {'active'|'retired'} status Exactly one entry may be `active` at a time.
+ * @property {'active'|'pending'|'retiring'|'retired'} status Exactly one entry may be `active` at a time.
  * @property {string} [retiredAt] ISO date the key was rotated out.
  * @property {string} [note] Operator-facing provenance for the key material.
  */
@@ -97,7 +123,8 @@ export function extractEnvValue(envText, name) {
  * @property {boolean} ok True when there are no failures (warnings allowed).
  * @property {string[]} failures Release-blocking findings; each is self-explanatory prose.
  * @property {string[]} warnings Non-blocking findings (approaching-SLA window).
- * @property {string | null} thumbprint Thumbprint of the embedded production key when computable.
+ * @property {string | null} thumbprint Thumbprint of the primary embedded production key when computable.
+ * @property {string[]} thumbprints Ordered embedded verification-key thumbprints.
  * @property {number | null} ageDays Whole days since the registry `issuedAt` when resolvable.
  * @property {number} slaDays Effective rotation SLA applied.
  */
@@ -107,12 +134,12 @@ export function extractEnvValue(envText, name) {
  * key registry. Pure — callers supply file contents and `nowMs` so tests
  * are deterministic. Failure modes (each release-blocking):
  *
- * - `.env.production` missing/unparseable JWK (a build embedding nothing
+ * - `.env.production` missing/unparseable keyring (a build embedding nothing
  *   or garbage would reject every token with `no-public-key`).
  * - `.env` ↔ `.env.production` thumbprint drift (dev builds verifying
  *   against a different key than packaged builds).
  * - Embedded key not in the registry (undocumented key id — AC #3).
- * - Registry entry not `active` (a retired key still shipping).
+ * - Primary key not `active`, or overlap key not `pending`/`retiring`.
  * - Registry `issuedAt` unparseable or in the future (malformed registry).
  * - Key age past `rotationSlaDays` (AC #1).
  * - Zero or multiple `active` registry entries (ambiguous registry).
@@ -134,49 +161,39 @@ export function evaluateLicenseKeyRotation({ productionEnvText, devEnvText, regi
       : DEFAULT_WARN_WINDOW_DAYS;
 
   const prodRaw = extractEnvValue(productionEnvText, LICENSE_KEY_ENV_NAME);
+  let thumbprints = [];
   let thumbprint = null;
   if (prodRaw === null) {
     failures.push(
       `.env.production does not define ${LICENSE_KEY_ENV_NAME}; packaged builds would embed no key and reject every license with no-public-key.`
     );
   } else {
-    let prodJwk = null;
-    try {
-      prodJwk = JSON.parse(prodRaw);
-    } catch {
-      failures.push(`.env.production ${LICENSE_KEY_ENV_NAME} is not parseable JSON.`);
-    }
-    if (prodJwk !== null) {
-      thumbprint = computeJwkThumbprint(prodJwk);
-      if (thumbprint === null) {
-        failures.push(
-          `.env.production ${LICENSE_KEY_ENV_NAME} is not an Ed25519 OKP public JWK (expected kty/crv/x).`
-        );
-      }
+    const parsed = parseLicensePublicKeyringValue(prodRaw);
+    if (parsed === null) {
+      failures.push(
+        `.env.production ${LICENSE_KEY_ENV_NAME} is not a valid Ed25519 public keyring (expected one JWK or an ordered array of 1-${MAX_LICENSE_PUBLIC_KEYS} unique public JWKs).`
+      );
+    } else {
+      thumbprints = parsed.thumbprints;
+      thumbprint = thumbprints[0] ?? null;
     }
   }
 
-  // Drift guard: when a dev `.env` is present it must embed the SAME key as
+  // Drift guard: when a dev `.env` is present it must embed the SAME keyring as
   // the committed `.env.production`. `.env` is gitignored (dev-local), so it is
   // legitimately absent in CI and on fresh clones — the shipped key lives only
   // in the committed `.env.production`, which the registry/SLA checks above
   // already cover. An absent `.env` is therefore NOT a release blocker; we only
-  // fail on a present-but-drifted dev key (or a malformed dev JWK).
+  // fail on a present-but-drifted dev keyring.
   const devRaw = extractEnvValue(devEnvText, LICENSE_KEY_ENV_NAME);
   if (devRaw !== null && thumbprint !== null) {
-    let devJwk = null;
-    try {
-      devJwk = JSON.parse(devRaw);
-    } catch {
-      failures.push(`.env ${LICENSE_KEY_ENV_NAME} is not parseable JSON.`);
-    }
-    if (devJwk !== null) {
-      const devThumbprint = computeJwkThumbprint(devJwk);
-      if (devThumbprint !== thumbprint) {
-        failures.push(
-          `.env and .env.production embed different license public keys (thumbprints ${devThumbprint ?? 'unparseable'} vs ${thumbprint}). Update both in the same commit.`
-        );
-      }
+    const parsedDev = parseLicensePublicKeyringValue(devRaw);
+    if (parsedDev === null) {
+      failures.push(`.env ${LICENSE_KEY_ENV_NAME} is not a valid Ed25519 public keyring.`);
+    } else if (JSON.stringify(parsedDev.thumbprints) !== JSON.stringify(thumbprints)) {
+      failures.push(
+        `.env and .env.production embed different license public keyrings (thumbprints ${parsedDev.thumbprints.join(',')} vs ${thumbprints.join(',')}). Update both in the same commit.`
+      );
     }
   }
 
@@ -185,50 +202,74 @@ export function evaluateLicenseKeyRotation({ productionEnvText, devEnvText, regi
     failures.push(
       'docs/security/license-key-registry.json is missing, malformed, or has an empty keys array.'
     );
-    return { ok: failures.length === 0, failures, warnings, thumbprint, ageDays: null, slaDays };
+    return {
+      ok: failures.length === 0,
+      failures,
+      warnings,
+      thumbprint,
+      thumbprints,
+      ageDays: null,
+      slaDays,
+    };
   }
 
-  const activeCount = keys.filter(entry => entry?.status === 'active').length;
+  const activeCount = keys.filter((entry) => entry?.status === 'active').length;
   if (activeCount !== 1) {
     failures.push(`The key registry must have exactly one active entry; found ${activeCount}.`);
   }
 
   let ageDays = null;
-  if (thumbprint !== null) {
-    const entry = keys.find(candidate => candidate?.thumbprint === thumbprint);
+  for (const [index, embeddedThumbprint] of thumbprints.entries()) {
+    const entry = keys.find((candidate) => candidate?.thumbprint === embeddedThumbprint);
     if (!entry) {
       failures.push(
-        `Embedded license public key (thumbprint ${thumbprint}) is not documented in docs/security/license-key-registry.json. Add a registry entry before shipping it.`
+        `Embedded license public key (thumbprint ${embeddedThumbprint}) is not documented in docs/security/license-key-registry.json. Add a registry entry before shipping it.`
       );
-    } else {
+      continue;
+    }
+
+    if (index === 0) {
       if (entry.status !== 'active') {
         failures.push(
-          `Embedded license public key (thumbprint ${thumbprint}) is marked '${entry.status}' in the registry; a non-active key must not ship.`
+          `Primary embedded license public key (thumbprint ${embeddedThumbprint}) is marked '${entry.status}' in the registry; the first key must be active.`
         );
       }
-      const issuedAtMs = Date.parse(entry.issuedAt ?? '');
-      if (!Number.isFinite(issuedAtMs)) {
+    } else if (entry.status !== 'pending' && entry.status !== 'retiring') {
+      failures.push(
+        `Overlap license public key (thumbprint ${embeddedThumbprint}) is marked '${entry.status}' in the registry; overlap keys must be pending or retiring.`
+      );
+    }
+
+    const issuedAtMs = Date.parse(entry.issuedAt ?? '');
+    if (!Number.isFinite(issuedAtMs)) {
+      failures.push(
+        `Registry entry for ${embeddedThumbprint} has an unparseable issuedAt (${String(entry.issuedAt)}).`
+      );
+    } else if (issuedAtMs > nowMs) {
+      failures.push(
+        `Registry entry for ${embeddedThumbprint} has issuedAt in the future (${entry.issuedAt}); fix the registry.`
+      );
+    } else if (index === 0) {
+      ageDays = Math.floor((nowMs - issuedAtMs) / DAY_MS);
+      if (ageDays > slaDays) {
         failures.push(
-          `Registry entry for ${thumbprint} has an unparseable issuedAt (${String(entry.issuedAt)}).`
+          `Embedded license public key is ${ageDays} days old, past the ${slaDays}-day rotation SLA. Rotate it per docs/RELEASE_SECURITY.md before releasing.`
         );
-      } else if (issuedAtMs > nowMs) {
-        failures.push(
-          `Registry entry for ${thumbprint} has issuedAt in the future (${entry.issuedAt}); fix the registry.`
+      } else if (ageDays > slaDays - warnWindowDays) {
+        warnings.push(
+          `Embedded license public key is ${ageDays} days old and breaches the ${slaDays}-day rotation SLA in ${slaDays - ageDays} day(s). Schedule a rotation per docs/RELEASE_SECURITY.md.`
         );
-      } else {
-        ageDays = Math.floor((nowMs - issuedAtMs) / DAY_MS);
-        if (ageDays > slaDays) {
-          failures.push(
-            `Embedded license public key is ${ageDays} days old, past the ${slaDays}-day rotation SLA. Rotate it per docs/RELEASE_SECURITY.md before releasing.`
-          );
-        } else if (ageDays > slaDays - warnWindowDays) {
-          warnings.push(
-            `Embedded license public key is ${ageDays} days old and breaches the ${slaDays}-day rotation SLA in ${slaDays - ageDays} day(s). Schedule a rotation per docs/RELEASE_SECURITY.md.`
-          );
-        }
       }
     }
   }
 
-  return { ok: failures.length === 0, failures, warnings, thumbprint, ageDays, slaDays };
+  return {
+    ok: failures.length === 0,
+    failures,
+    warnings,
+    thumbprint,
+    thumbprints,
+    ageDays,
+    slaDays,
+  };
 }

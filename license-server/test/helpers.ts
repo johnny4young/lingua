@@ -561,7 +561,10 @@ export function createMockKV(): KVNamespace {
 export interface MockEnvOptions {
   polarWebhookSecret?: string;
   privateKeyJwk?: JsonWebKey;
+  nextPrivateKeyJwk?: JsonWebKey;
+  signingKeySlot?: 'current' | 'next';
   publicKeyJwk?: JsonWebKey;
+  publicKeyring?: readonly JsonWebKey[];
   resendApiKey?: string;
   corsAllowedOrigins?: string;
 }
@@ -574,7 +577,13 @@ export function createMockEnv(options: MockEnvOptions = {}): Env & { __db: MockD
     POLAR_WEBHOOK_SECRET: options.polarWebhookSecret ?? '',
     POLAR_API_KEY: 'pk_mock',
     LINGUA_LICENSE_PRIVATE_KEY_JWK: options.privateKeyJwk ? JSON.stringify(options.privateKeyJwk) : '',
-    LINGUA_LICENSE_PUBLIC_KEY_JWK: options.publicKeyJwk ? JSON.stringify(options.publicKeyJwk) : '',
+    LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK: options.nextPrivateKeyJwk
+      ? JSON.stringify(options.nextPrivateKeyJwk)
+      : '',
+    LINGUA_LICENSE_SIGNING_KEY_SLOT: options.signingKeySlot ?? 'current',
+    LINGUA_LICENSE_PUBLIC_KEY_JWK: options.publicKeyring
+      ? JSON.stringify(options.publicKeyring)
+      : options.publicKeyJwk ? JSON.stringify(options.publicKeyJwk) : '',
     RESEND_API_KEY: options.resendApiKey ?? '',
     RESEND_FROM_EMAIL: 'noreply@linguacode.dev',
     RESEND_FROM_NAME: 'Lingua',

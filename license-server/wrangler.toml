@@ -12,6 +12,7 @@ compatibility_flags = ["nodejs_compat"]
 #   4. wrangler secret put POLAR_API_KEY
 #   5. wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK
 #   6. wrangler secret put LINGUA_LICENSE_PUBLIC_KEY_JWK
+#   Rotation overlap only: wrangler secret put LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK
 #   7. wrangler secret put RESEND_API_KEY
 #   8. Add `licenses.linguacode.dev` as a Workers > Routes custom domain.
 #
@@ -42,13 +43,16 @@ globs = ["**/*.html", "**/*.css"]
 fallthrough = true
 
 [vars]
-# Public key embedded at deploy time. Sibling to the build-time public
-# key in the Electron renderer + main bundles so /licenses/activate
-# verifies tokens with the same key the issuer signed with. Set via
+# Public verification keyring embedded at deploy time. Sibling to the
+# build-time keyring in renderer + main so /licenses/* accepts the same
+# active and overlap signatures. Set via
 # `wrangler secret put LINGUA_LICENSE_PUBLIC_KEY_JWK` (or in
 # wrangler.jsonc per-environment if you ever split sandbox vs prod).
 RESEND_FROM_EMAIL = "noreply@linguacode.dev"
 RESEND_FROM_NAME = "Lingua"
+# Non-secret two-slot selector. Keep `current` while the next verification key
+# is only pending; switch to `next` after compatible web + desktop builds ship.
+LINGUA_LICENSE_SIGNING_KEY_SLOT = "current"
 # CORS allowed origins for browser-side activation calls from the web
 # build. Add additional origins (e.g. preview deploys) here.
 CORS_ALLOWED_ORIGINS = "https://linguacode.dev,http://localhost:5174,http://localhost:4173"

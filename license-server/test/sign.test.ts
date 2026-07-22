@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
+  parseLicensePublicKeyring,
   signLicenseToken,
   verifyLicenseToken,
   type LicensePayload,
@@ -50,13 +51,26 @@ describe('signLicenseToken + verifyLicenseToken', () => {
     expect(verified.reason).toBe('invalid-signature');
   });
 
+  it('accepts current and retiring signatures through an ordered keyring', async () => {
+    const current = await signLicenseToken(freshPayload(), keys.privateKeyJwk);
+    const retiring = await signLicenseToken(freshPayload(), otherKeys.privateKeyJwk);
+    if (!current.ok || !retiring.ok) throw new Error('unreachable');
+
+    const keyring = [keys.publicKeyJwk, otherKeys.publicKeyJwk];
+    const currentResult = await verifyLicenseToken(current.token, keyring);
+    const retiringResult = await verifyLicenseToken(retiring.token, keyring);
+    expect(currentResult.ok).toBe(true);
+    expect(retiringResult.ok).toBe(true);
+    if (!currentResult.ok || !retiringResult.ok) throw new Error('unreachable');
+    expect(currentResult.keyIndex).toBe(0);
+    expect(retiringResult.keyIndex).toBe(1);
+  });
+
   it('rejects a tampered payload portion as invalid-signature (signature stays bound to original payload)', async () => {
     const signed = await signLicenseToken(freshPayload(), keys.privateKeyJwk);
     if (!signed.ok) throw new Error('unreachable');
     const [, signaturePart] = signed.token.split('.');
-    const tamperedPayload = btoa(
-      JSON.stringify(freshPayload({ tier: 'team' }))
-    )
+    const tamperedPayload = btoa(JSON.stringify(freshPayload({ tier: 'team' })))
       .replace(/=+$/u, '')
       .replace(/\+/g, '-')
       .replace(/\//g, '_');
@@ -108,5 +122,32 @@ describe('signLicenseToken + verifyLicenseToken', () => {
       if (!verified.ok) throw new Error('unreachable');
       expect(verified.payload.tier).toBe(tier);
     }
+  });
+});
+
+describe('parseLicensePublicKeyring', () => {
+  it('accepts the legacy single-key secret and the overlap array shape', () => {
+    expect(parseLicensePublicKeyring(JSON.stringify(keys.publicKeyJwk))).toHaveLength(1);
+    expect(
+      parseLicensePublicKeyring(JSON.stringify([keys.publicKeyJwk, otherKeys.publicKeyJwk]))
+    ).toHaveLength(2);
+  });
+
+  it('fails closed on duplicate, malformed, private, or oversized keyrings', () => {
+    expect(parseLicensePublicKeyring('{')).toEqual([]);
+    expect(
+      parseLicensePublicKeyring(JSON.stringify([keys.publicKeyJwk, keys.publicKeyJwk]))
+    ).toEqual([]);
+    expect(parseLicensePublicKeyring(JSON.stringify(keys.privateKeyJwk))).toEqual([]);
+    expect(
+      parseLicensePublicKeyring(
+        JSON.stringify([
+          keys.publicKeyJwk,
+          otherKeys.publicKeyJwk,
+          keys.publicKeyJwk,
+          otherKeys.publicKeyJwk,
+        ])
+      )
+    ).toEqual([]);
   });
 });

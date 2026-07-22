@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   LICENSE_TIERS,
   decodeLicenseToken,
+  parseLicensePublicKeyring,
   verifyLicenseToken,
   type LicensePayload,
 } from '../../src/shared/license';
@@ -33,6 +34,7 @@ async function generateEd25519KeyPair(): Promise<KeyPair> {
 }
 
 let keys: KeyPair;
+let previousKeys: KeyPair;
 
 function buildPayload(overrides: Partial<LicensePayload> = {}): LicensePayload {
   return {
@@ -48,6 +50,7 @@ function buildPayload(overrides: Partial<LicensePayload> = {}): LicensePayload {
 
 beforeAll(async () => {
   keys = await generateEd25519KeyPair();
+  previousKeys = await generateEd25519KeyPair();
 });
 
 afterAll(() => {
@@ -134,6 +137,22 @@ describe('verifyLicenseToken', () => {
       expect(result.payload.licenseId).toBe('lic_shared_contract');
       expect(result.payload.tier).toBe('pro');
     }
+  });
+
+  it('accepts tokens signed by either key during a rotation overlap', async () => {
+    const currentToken = await signLicenseTokenForTest(buildPayload(), keys.privateKey);
+    const previousToken = await signLicenseTokenForTest(buildPayload(), previousKeys.privateKey);
+    const keyring = [keys.publicKey, previousKeys.publicKey];
+
+    expect((await verifyLicenseToken(currentToken, keyring, { now })).ok).toBe(true);
+    expect((await verifyLicenseToken(previousToken, keyring, { now })).ok).toBe(true);
+  });
+
+  it('rejects a token when no key in the rotation keyring signed it', async () => {
+    const token = await signLicenseTokenForTest(buildPayload(), previousKeys.privateKey);
+    const result = await verifyLicenseToken(token, [keys.publicKey], { now });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('invalid-signature');
   });
 
   it.each(['trial', 'education'] as const)('accepts server-minted %s tokens as paid tiers', async (tier) => {
@@ -377,5 +396,37 @@ describe('verifyLicenseToken', () => {
     const result = await verifyLicenseToken(token, stripped, { now });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.state).toBe('active');
+  });
+});
+
+describe('parseLicensePublicKeyring', () => {
+  it('keeps the historical single-key env shape backward-compatible', () => {
+    expect(parseLicensePublicKeyring(JSON.stringify(keys.publicKey))).toHaveLength(1);
+  });
+
+  it('accepts an ordered current + overlap keyring', () => {
+    const parsed = parseLicensePublicKeyring(
+      JSON.stringify([keys.publicKey, previousKeys.publicKey])
+    );
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]?.x).toBe(keys.publicKey.x);
+    expect(parsed[1]?.x).toBe(previousKeys.publicKey.x);
+  });
+
+  it('fails closed on malformed, duplicate, empty, oversized, or private-key values', () => {
+    expect(parseLicensePublicKeyring('{')).toEqual([]);
+    expect(parseLicensePublicKeyring('[]')).toEqual([]);
+    expect(parseLicensePublicKeyring(JSON.stringify([keys.publicKey, keys.publicKey]))).toEqual([]);
+    expect(
+      parseLicensePublicKeyring(
+        JSON.stringify([
+          keys.publicKey,
+          previousKeys.publicKey,
+          keys.publicKey,
+          previousKeys.publicKey,
+        ])
+      )
+    ).toEqual([]);
+    expect(parseLicensePublicKeyring(JSON.stringify(keys.privateKey))).toEqual([]);
   });
 });

@@ -45,19 +45,12 @@ import {
 } from '../lib/db';
 import { sendTrialEmail } from '../lib/resend';
 import { consumeRateLimit } from '../lib/rateLimit';
+import { resolveLicenseSigningKey } from '../lib/licenseKeys';
 import type { Env } from '../index';
 
 const TRIAL_PRODUCT_ID = 'lingua_trial' as const;
 const TRIAL_DURATION_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const TRIAL_RATE_LIMIT_PER_DAY = 3;
-
-function parseJwk(raw: string): JsonWebKey | null {
-  try {
-    return JSON.parse(raw) as JsonWebKey;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Read the client IP for rate-limiting. CF puts the real IP in
@@ -89,8 +82,8 @@ trialsRouter.post('/start', async (c) => {
   void deviceName;
   void os;
 
-  const privateKeyJwk = parseJwk(c.env.LINGUA_LICENSE_PRIVATE_KEY_JWK);
-  if (!privateKeyJwk) {
+  const signingKey = resolveLicenseSigningKey(c.env);
+  if (!signingKey) {
     return notImplementedResponse(
       c,
       'LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured. Trial endpoint is in dev-disabled mode.'
@@ -147,7 +140,7 @@ trialsRouter.post('/start', async (c) => {
       expiresAt,
       supportWindowEndsAt: expiresAt,
     },
-    privateKeyJwk
+    signingKey.privateKeyJwk
   );
   if (!minted.ok) {
     return errorResponse(c, 'not-implemented', {

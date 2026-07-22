@@ -118,6 +118,52 @@ export type DecodedLicense =
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_GRACE_PERIOD_MS = 14 * DAY_MS;
 const DEFAULT_CLOCK_SKEW_MS = DAY_MS;
+const MAX_LICENSE_PUBLIC_KEYS = 3;
+
+export type LicensePublicKeyring = readonly JsonWebKey[];
+
+function isEd25519PublicJwk(value: unknown): value is JsonWebKey {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const candidate = value as JsonWebKey;
+  return (
+    candidate.kty === 'OKP' &&
+    candidate.crv === 'Ed25519' &&
+    typeof candidate.x === 'string' &&
+    candidate.x.length > 0 &&
+    candidate.d === undefined
+  );
+}
+
+/**
+ * Parse the build-time trust anchor as either the historical single public
+ * JWK or an ordered rotation keyring. The first key is the primary key shown
+ * in Settings; remaining keys are verification-only overlap keys.
+ *
+ * Fail closed on empty, oversized, malformed, duplicate, or private-key
+ * material. A committed env value controls the trust boundary, so silently
+ * dropping one bad entry would make the shipped keyring differ from the
+ * operator's rotation evidence.
+ */
+export function parseLicensePublicKeyring(raw: string | undefined | null): LicensePublicKeyring {
+  if (typeof raw !== 'string' || raw.length === 0) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  const candidates = Array.isArray(parsed) ? parsed : [parsed];
+  if (candidates.length === 0 || candidates.length > MAX_LICENSE_PUBLIC_KEYS) return [];
+  if (!candidates.every(isEd25519PublicJwk)) return [];
+
+  const identities = candidates.map(
+    (candidate) => `${candidate.kty}:${candidate.crv}:${candidate.x}`
+  );
+  if (new Set(identities).size !== identities.length) return [];
+  return candidates;
+}
 
 /**
  * Decode unpadded RFC 4648 section 5 base64url. Returns null instead of
@@ -304,7 +350,7 @@ function normalizeEd25519PublicJwk(jwk: JsonWebKey): JsonWebKey {
  */
 export async function verifyLicenseToken(
   token: string,
-  publicKeyJwk: JsonWebKey,
+  publicKeyJwk: JsonWebKey | LicensePublicKeyring,
   options: LicenseVerificationOptions = {}
 ): Promise<LicenseVerificationResult> {
   const decoded = decodeLicenseToken(token);
@@ -321,39 +367,47 @@ export async function verifyLicenseToken(
     };
   }
 
-  let key: CryptoKey;
-  try {
-    // Defensive normalize before importKey — see
-    // `normalizeEd25519PublicJwk` doc-comment for the Node 22+ /
-    // Cloudflare Workers JWK divergence this protects against.
-    const normalized = normalizeEd25519PublicJwk(publicKeyJwk);
-    key = await subtle.importKey('jwk', normalized, { name: 'Ed25519' }, false, ['verify']);
-  } catch (error) {
-    return {
-      ok: false,
-      reason: 'invalid-signature',
-      message: error instanceof Error ? error.message : 'Failed to import Ed25519 public key.',
-    };
+  const keyring = Array.isArray(publicKeyJwk) ? publicKeyJwk : [publicKeyJwk];
+  if (keyring.length === 0) {
+    return { ok: false, reason: 'no-public-key' };
   }
 
-  let verified: boolean;
-  try {
-    // `as BufferSource` keeps Node 20's SubtleCrypto typing quiet about Uint8Array<ArrayBufferLike>.
-    verified = await subtle.verify(
-      { name: 'Ed25519' },
-      key,
-      decoded.signature as BufferSource,
-      decoded.signingInput as BufferSource
-    );
-  } catch (error) {
-    return {
-      ok: false,
-      reason: 'invalid-signature',
-      message: error instanceof Error ? error.message : 'Signature verification threw.',
-    };
+  let verified = false;
+  let verificationError: string | undefined;
+  for (const candidate of keyring) {
+    let key: CryptoKey;
+    try {
+      // Defensive normalize before importKey — see
+      // `normalizeEd25519PublicJwk` doc-comment for the Node 22+ /
+      // Cloudflare Workers JWK divergence this protects against.
+      const normalized = normalizeEd25519PublicJwk(candidate);
+      key = await subtle.importKey('jwk', normalized, { name: 'Ed25519' }, false, ['verify']);
+    } catch (error) {
+      verificationError ??=
+        error instanceof Error ? error.message : 'Failed to import Ed25519 public key.';
+      continue;
+    }
+
+    try {
+      // `as BufferSource` keeps Node 20's SubtleCrypto typing quiet about Uint8Array<ArrayBufferLike>.
+      verified = await subtle.verify(
+        { name: 'Ed25519' },
+        key,
+        decoded.signature as BufferSource,
+        decoded.signingInput as BufferSource
+      );
+    } catch (error) {
+      verificationError ??=
+        error instanceof Error ? error.message : 'Signature verification threw.';
+      continue;
+    }
+    if (verified) break;
   }
 
   if (!verified) {
+    if (keyring.length === 1 && verificationError) {
+      return { ok: false, reason: 'invalid-signature', message: verificationError };
+    }
     return { ok: false, reason: 'invalid-signature' };
   }
 

@@ -164,14 +164,17 @@ describe('main-side license persistence', () => {
     expect(id).toMatch(/^[0-9a-f-]{36}$/u);
   });
 
-  it('parseEmbeddedPublicKey returns null for empty or malformed input so a misconfigured build fails closed', async () => {
+  it('parseEmbeddedPublicKey accepts one key or a rotation keyring and otherwise fails closed', async () => {
     const { parseEmbeddedPublicKey } = await import('../../src/main/license');
     expect(parseEmbeddedPublicKey(undefined)).toBeNull();
     expect(parseEmbeddedPublicKey('')).toBeNull();
     expect(parseEmbeddedPublicKey('{')).toBeNull();
-    expect(parseEmbeddedPublicKey(JSON.stringify(publicKeyJwk))).toMatchObject({
+    expect(parseEmbeddedPublicKey(JSON.stringify(publicKeyJwk))?.[0]).toMatchObject({
       kty: publicKeyJwk.kty,
     });
+    expect(parseEmbeddedPublicKey(JSON.stringify([publicKeyJwk, otherPublicKeyJwk]))).toHaveLength(
+      2
+    );
   });
 });
 
@@ -226,6 +229,18 @@ describe('createLicenseRuntime', () => {
 
     const persisted = await readPersistedLicense(resolveLicensePath(tempDir));
     expect(persisted?.token).toBe(token);
+  });
+
+  it('keeps a token active when it matches a verification-only overlap key', async () => {
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk: [otherPublicKeyJwk, publicKeyJwk],
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+
+    expect((await runtime.applyToken(token)).kind).toBe('active');
+    expect(runtime.getSnapshot().token).toBe(token);
   });
 
   it('applyToken with empty input drops to invalid + free without persisting anything', async () => {
