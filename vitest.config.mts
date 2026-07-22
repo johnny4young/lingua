@@ -16,6 +16,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    // The suite mixes jsdom module transforms with CPU microbenchmarks.
+    // Letting Vitest mirror a high host core count creates enough contention
+    // to delay lazy imports and distort full-suite performance guards; four
+    // workers is faster and deterministic across local and hosted runners.
+    maxWorkers: 4,
     // The website is a deliberately isolated (--ignore-workspace) npm
     // package; this root job installs only the app's pnpm deps. A test
     // that imports website/src/*.ts forces esbuild to load

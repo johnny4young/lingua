@@ -198,10 +198,13 @@ or website advisory.
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 is blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
 stays advisory (`continue-on-error: true`): its remaining `high`/`critical`
-findings are the dev-only `tar@6` paths held by Electron Forge tooling. The
-patched line is a new major and must not be forced across the packaging stack
-without cross-platform validation; these paths do not ship in the packaged
-artifact. Making the full audit blocking would
+findings are dev-only tooling paths: `tar@6` is held by Electron Forge's
+rebuild stack, while `sharp@0.34` is held by Wrangler/Miniflare. The patched
+`tar` line is a new major, and Miniflare currently pins `sharp` below its
+patched line exactly; neither should be forced across its parent toolchain
+without cross-platform validation. These paths do not ship in the packaged
+artifact. Re-check them on Electron Forge and Wrangler upgrades. Making the
+full audit blocking would
 red-CI the repo on dev-tooling advisories that pose no user risk. Keep the
 split.
 

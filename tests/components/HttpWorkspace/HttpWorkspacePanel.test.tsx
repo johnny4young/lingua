@@ -44,20 +44,6 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
-// SQL/HTTP MODEL rework — the workspace-tab-close tests drive the real
-// `editorStore.closeTab`, whose `removeTab` fires a fire-and-forget
-// `import('../runtime/notebookSession')` (lazy by design). That module
-// statically pulls `runnerManager` → `esbuild-wasm`, which jsdom rejects
-// with the `TextEncoder().encode("") instanceof Uint8Array` invariant.
-// Because the import is unawaited, the rejection floats out as an
-// unhandled error attributed to whichever workspace-panel test happens
-// to be running. Stub the module so the dispose call resolves without
-// loading the runner. (`disposeNotebookSession` is the only symbol the
-// `removeTab` path touches.)
-vi.mock('../../../src/renderer/runtime/notebookSession', () => ({
-  disposeNotebookSession: vi.fn(),
-}));
-
 vi.mock('../../../src/renderer/runtime/httpClient', async (importOriginal) => {
   const actual =
     await importOriginal<typeof import('../../../src/renderer/runtime/httpClient')>();

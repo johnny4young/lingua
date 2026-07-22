@@ -16,7 +16,7 @@
  *
  * Acceptance:
  *   - 1000 synthetic porcelain prefix parses + path validations
- *     complete under 500 ms wall-time.
+ *     complete under 500 ms CPU time.
  *   - The implementation must not throw on malformed prefixes.
  *
  * CI ×1.5 multiplier matches the existing perf benches.
@@ -29,6 +29,14 @@ const IS_CI = process.env.CI === 'true';
 const CI_MULTIPLIER = 1.5;
 function budget(ms: number): number {
   return IS_CI ? Math.round(ms * CI_MULTIPLIER) : ms;
+}
+
+function createElapsedTimer(): () => number {
+  const start = process.cpuUsage();
+  return () => {
+    const elapsed = process.cpuUsage(start);
+    return (elapsed.user + elapsed.system) / 1_000;
+  };
 }
 
 const PORCELAIN_PREFIXES = [
@@ -70,18 +78,24 @@ function validateRepoRelativePath(
 describe('git status parse — bench', () => {
   it('parses 1000 porcelain prefixes + validates 1000 paths under 500 ms', () => {
     const repoRoot = '/tmp/lingua-bench-repo';
-    const start = performance.now();
+    let validBuckets = 0;
+    let validPaths = 0;
+    const elapsed = createElapsedTimer();
     for (let i = 0; i < 1000; i += 1) {
       const prefix =
         PORCELAIN_PREFIXES[i % PORCELAIN_PREFIXES.length] ?? '';
       const bucket = parsePorcelainBucket(prefix);
-      expect(bucket === 'clean' || bucket === 'modified' || bucket === 'untracked').toBe(true);
+      if (bucket === 'clean' || bucket === 'modified' || bucket === 'untracked') {
+        validBuckets += 1;
+      }
       const filePath = `${repoRoot}/src/file-${i}.js`;
       const rel = validateRepoRelativePath(repoRoot, filePath);
-      expect(rel).toBeTruthy();
+      if (rel) validPaths += 1;
     }
-    const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(budget(500));
+    const elapsedMs = elapsed();
+    expect(validBuckets).toBe(1000);
+    expect(validPaths).toBe(1000);
+    expect(elapsedMs).toBeLessThan(budget(500));
   });
 
   it('rejects 1000 path-traversal attempts in under 200 ms', () => {
@@ -92,13 +106,15 @@ describe('git status parse — bench', () => {
       '/tmp/lingua-bench-repo/../escape',
       '',
     ];
-    const start = performance.now();
+    let rejectedPaths = 0;
+    const elapsed = createElapsedTimer();
     for (let i = 0; i < 1000; i += 1) {
       const target = escapes[i % escapes.length] ?? '';
       const rel = validateRepoRelativePath(repoRoot, target);
-      expect(rel).toBeNull();
+      if (rel === null) rejectedPaths += 1;
     }
-    const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(budget(200));
+    const elapsedMs = elapsed();
+    expect(rejectedPaths).toBe(1000);
+    expect(elapsedMs).toBeLessThan(budget(200));
   });
 });

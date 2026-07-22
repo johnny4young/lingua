@@ -139,21 +139,6 @@ vi.mock('@monaco-editor/react', () => {
   return { default: MonacoEditor, loader: { config: () => {} } };
 });
 
-// SQL/HTTP MODEL rework — the workspace-tab-close test drives the real
-// `editorStore.closeTab`, whose `removeTab` fires a fire-and-forget
-// `import('../runtime/notebookSession')` (lazy by design). That module
-// statically pulls `runnerManager` → `esbuild-wasm`, which jsdom rejects
-// with the `TextEncoder().encode("") instanceof Uint8Array` invariant.
-// Because the import is unawaited, the rejection floats out as an
-// unhandled error attributed to whichever workspace-panel test happens
-// to be running. The DuckDB engine seam below only guards the SQL engine
-// load, not this notebook path — so stub it explicitly here too.
-// (`disposeNotebookSession` is the only symbol the `removeTab` path uses.)
-vi.mock('../../../src/renderer/runtime/notebookSession', () => ({
-  disposeNotebookSession: vi.fn(),
-}));
-
-
 beforeEach(() => {
   localStorage.clear();
   resetWorkspaceSqlStoreForTests();
