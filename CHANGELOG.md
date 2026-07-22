@@ -6,6 +6,11 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-07-21
+
+### Security
+- **Production dependency advisories are cleared for 0.14.0**: the desktop updater now resolves the patched `js-yaml` line, legacy Electron tooling stays within advisory-fixed `brace-expansion` majors, the license Worker and marketing website use patched production dependencies, and CI/release audit every independently locked production graph instead of checking only the app root.
+
 ## [0.13.0] — 2026-07-19
 
 ### Added

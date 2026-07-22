@@ -54,4 +54,12 @@ describe('CI workflow', () => {
     expect(workflow).toContain('pnpm audit --audit-level high');
     expect(workflow).not.toContain('pnpm audit --internal');
   });
+
+  it('blocks production advisories in every independently locked package', () => {
+    expect(workflow).toContain('pnpm --dir license-server audit --prod --audit-level high');
+    expect(workflow).toContain('pnpm --dir update-server audit --prod --audit-level high');
+    expect(workflow).toContain(
+      'npm --prefix website audit --package-lock-only --omit=dev --audit-level=high'
+    );
+  });
 });

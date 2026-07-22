@@ -76,7 +76,7 @@ pnpm run smoke:desktop:stagewright
 pnpm run smoke:desktop
 ```
 
-These are the main local verification commands. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. CI also runs the changelog/version guard, the third-party license policy gate, and a high-severity advisory `pnpm audit` over the full graph; release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
+These are the main local verification commands. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
 
 ## Package script reference
 

@@ -43,6 +43,7 @@ jobs:
           # on every CI run.
           cache-dependency-path: |
             pnpm-lock.yaml
+            license-server/pnpm-lock.yaml
             update-server/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - name: Type check
@@ -100,6 +101,11 @@ jobs:
       # audit below stays advisory by design (see docs/RELEASE_SECURITY.md).
       - name: Production dependency audit (blocking)
         run: pnpm run check:prod-audit
+      - name: Independent production dependency audits (blocking)
+        run: |
+          pnpm --dir license-server audit --prod --audit-level high
+          pnpm --dir update-server audit --prod --audit-level high
+          npm --prefix website audit --package-lock-only --omit=dev --audit-level=high
       - name: Security audit (advisory, full graph)
         run: pnpm audit --audit-level high
         continue-on-error: true

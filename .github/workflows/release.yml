@@ -119,6 +119,10 @@ jobs:
         with:
           node-version: '24.x'
           cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            license-server/pnpm-lock.yaml
+            update-server/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - name: Check changelog and release version
         run: pnpm run changelog:check -- --release-tag "${RELEASE_TAG}" --from "${RELEASE_TAG}"
@@ -139,6 +143,11 @@ jobs:
         run: pnpm run check:license-rotation
       - name: Run blocking production audit
         run: pnpm run check:prod-audit
+      - name: Audit independent production graphs
+        run: |
+          pnpm --dir license-server audit --prod --audit-level high
+          pnpm --dir update-server audit --prod --audit-level high
+          npm --prefix website audit --package-lock-only --omit=dev --audit-level=high
       - name: Run advisory full audit
         run: pnpm audit --audit-level high
         continue-on-error: true
