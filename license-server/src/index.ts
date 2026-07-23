@@ -100,7 +100,7 @@ app.use('*', requestObservabilityMiddleware());
 /**
  * CORS for browser-side activation calls from the web build. The
  * desktop main process bypasses CORS entirely (Node fetch ignores it),
- * but the web build runs in a real browser at `linguacode.dev` and
+ * but the web build runs in a real browser at `app.linguacode.dev` and
  * needs the server to acknowledge its origin. The allowed origins are
  * read at request time from the `CORS_ALLOWED_ORIGINS` env var so a
  * preview deploy can extend the list without a code change.

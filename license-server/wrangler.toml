@@ -55,7 +55,7 @@ RESEND_FROM_NAME = "Lingua"
 LINGUA_LICENSE_SIGNING_KEY_SLOT = "current"
 # CORS allowed origins for browser-side activation calls from the web
 # build. Add additional origins (e.g. preview deploys) here.
-CORS_ALLOWED_ORIGINS = "https://linguacode.dev,http://localhost:5174,http://localhost:4173"
+CORS_ALLOWED_ORIGINS = "https://linguacode.dev,https://app.linguacode.dev,http://localhost:5174,http://localhost:4173"
 
 [observability]
 enabled = true
