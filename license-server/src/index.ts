@@ -98,12 +98,13 @@ export const app = new Hono<{ Bindings: Env }>();
 app.use('*', requestObservabilityMiddleware());
 
 /**
- * CORS for browser-side activation calls from the web build. The
+ * CORS for trusted browser-side licensing calls. The
  * desktop main process bypasses CORS entirely (Node fetch ignores it),
- * but the web build runs in a real browser at `app.linguacode.dev` and
- * needs the server to acknowledge its origin. The allowed origins are
- * read at request time from the `CORS_ALLOWED_ORIGINS` env var so a
- * preview deploy can extend the list without a code change.
+ * while production browser calls originate from the marketing site at
+ * `linguacode.dev` and the web app at `app.linguacode.dev`. Both need
+ * the server to acknowledge their origin. The allowed origins are read
+ * at request time from the `CORS_ALLOWED_ORIGINS` env var so a preview
+ * deploy can extend the list without a code change.
  *
  * The `/webhooks/polar` route deliberately bypasses CORS — webhooks
  * come from Polar's IP range with no Origin header, and applying CORS
