@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import migrationSql from '../migrations/0001_initial.sql?raw';
 import migrationSqlSurface from '../migrations/0002_add_surface_column.sql?raw';
 import app from '../src/index';
+import { rotateLicenseTokenIfCurrent } from '../src/lib/db';
 import { signLicenseToken, verifyLicenseToken, type LicensePayload } from '../src/lib/sign';
 import { createMockEnv, generateEd25519Keypair } from './helpers';
 
@@ -553,6 +554,45 @@ describe('GET /licenses/status', () => {
     const verified = await verifyLicenseToken(body.refreshedToken ?? '', currentKeys.publicKeyJwk);
     expect(verified.ok).toBe(true);
     expect(env.__db.licenses.get(licenseId)?.token).toBe(body.refreshedToken);
+  });
+
+  it('keeps the first canonical token when concurrent rotations race', async () => {
+    const env = createMockEnv();
+    const licenseId = 'lic_key_rotation_cas';
+    const issuedAt = Math.floor(Date.now() / 1000) - 60;
+    env.__db.licenses.set(licenseId, {
+      id: licenseId,
+      token: 'retiring-token',
+      product_id: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      device_limit: 3,
+      issued_to: 'buyer@example.com',
+      issued_at: issuedAt,
+      expires_at: null,
+      support_window_ends_at: issuedAt + 365 * 24 * 60 * 60,
+      status: 'active',
+      polar_order_id: 'order_key_rotation_cas',
+      polar_subscription_id: null,
+      created_at: issuedAt,
+      updated_at: issuedAt,
+    });
+
+    const first = await rotateLicenseTokenIfCurrent(
+      env.DB,
+      licenseId,
+      'retiring-token',
+      'current-token-a'
+    );
+    const second = await rotateLicenseTokenIfCurrent(
+      env.DB,
+      licenseId,
+      'retiring-token',
+      'current-token-b'
+    );
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+    expect(env.__db.licenses.get(licenseId)?.token).toBe('current-token-a');
   });
 
   it('withholds refreshedToken from a refunded license even when the row rotated (lifetime revocation lever)', async () => {

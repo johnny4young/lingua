@@ -280,6 +280,30 @@ class MockStatement {
       });
       return 1;
     }
+    if (
+      q.startsWith(
+        "UPDATE licenses SET token = ?, updated_at = ? WHERE id = ? AND token = ? AND status NOT IN"
+      )
+    ) {
+      const [token, updatedAt, id, expectedToken] = this.boundParams as [
+        string,
+        number,
+        string,
+        string,
+      ];
+      const row = this.db.licenses.get(id);
+      if (
+        !row ||
+        row.token !== expectedToken ||
+        row.status === 'refunded' ||
+        row.status === 'expired'
+      ) {
+        return 0;
+      }
+      row.token = token;
+      row.updated_at = updatedAt;
+      return 1;
+    }
     if (q.startsWith('UPDATE licenses SET token =')) {
       const [token, expiresAt, supportWindowEndsAt, updatedAt, id] = this.boundParams as [
         string,

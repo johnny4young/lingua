@@ -29,8 +29,8 @@ import {
   insertDeviceIfSlotAvailable,
   listAllActiveDevices,
   markDeviceRemoved,
-  refreshLicenseToken,
   reactivateDeviceIfSlotAvailable,
+  rotateLicenseTokenIfCurrent,
   touchDeviceLastSeen,
   type DeviceRow,
   type LicenseRow,
@@ -337,14 +337,24 @@ async function rotateCanonicalTokenIfNeeded(
   );
   if (!signed.ok) return undefined;
 
-  await refreshLicenseToken(
+  const rotated = await rotateLicenseTokenIfCurrent(
     env.DB,
     license.id,
-    signed.token,
-    license.expires_at,
-    license.support_window_ends_at
+    submittedToken,
+    signed.token
   );
-  return signed.token;
+  if (rotated) return signed.token;
+
+  // Another status request or webhook won the write. Return its canonical
+  // token rather than a losing candidate that D1 never persisted.
+  const currentLicense = await findLicenseById(env.DB, license.id);
+  if (!currentLicense) return undefined;
+  const currentStatus = computeStatus(currentLicense);
+  return currentLicense.token !== submittedToken &&
+    currentStatus !== 'refunded' &&
+    currentStatus !== 'expired'
+    ? currentLicense.token
+    : undefined;
 }
 
 async function findCurrentLicenseForToken(

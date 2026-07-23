@@ -154,6 +154,30 @@ export async function refreshLicenseToken(
     .run();
 }
 
+/**
+ * Replace a retiring-key token only while it is still canonical.
+ *
+ * Concurrent status checks may each mint a candidate token. The compare-and-swap
+ * ensures only the first writer wins, and the status predicate prevents a
+ * simultaneous refund or hard-expiry update from being reactivated.
+ */
+export async function rotateLicenseTokenIfCurrent(
+  db: D1Database,
+  licenseId: string,
+  expectedToken: string,
+  newToken: string
+): Promise<boolean> {
+  const now = Math.floor(Date.now() / 1000);
+  const result = await db
+    .prepare(
+      `UPDATE licenses SET token = ?, updated_at = ?
+       WHERE id = ? AND token = ? AND status NOT IN ('refunded', 'expired')`
+    )
+    .bind(newToken, now, licenseId, expectedToken)
+    .run();
+  return result.meta.changes > 0;
+}
+
 export async function setLicenseStatus(
   db: D1Database,
   licenseId: string,

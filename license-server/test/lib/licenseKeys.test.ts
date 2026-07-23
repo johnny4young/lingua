@@ -54,4 +54,22 @@ describe('resolveLicenseSigningKey', () => {
       )
     ).toBeNull();
   });
+
+  it.each([
+    { field: 'x', value: '' },
+    { field: 'x', value: '   ' },
+    { field: 'd', value: '' },
+    { field: 'd', value: '   ' },
+  ])('fails closed when private JWK $field key material is empty', ({ field, value }) => {
+    expect(
+      resolveLicenseSigningKey(
+        env({
+          LINGUA_LICENSE_PRIVATE_KEY_JWK: JSON.stringify({
+            ...currentPrivateKey,
+            [field]: value,
+          }),
+        })
+      )
+    ).toBeNull();
+  });
 });

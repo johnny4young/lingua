@@ -29,7 +29,9 @@ function parsePrivateJwk(raw: string | undefined): JsonWebKey | null {
     return parsed.kty === 'OKP' &&
       parsed.crv === 'Ed25519' &&
       typeof parsed.x === 'string' &&
-      typeof parsed.d === 'string'
+      parsed.x.trim().length > 0 &&
+      typeof parsed.d === 'string' &&
+      parsed.d.trim().length > 0
       ? parsed
       : null;
   } catch {
