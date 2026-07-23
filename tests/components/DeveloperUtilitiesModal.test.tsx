@@ -154,7 +154,11 @@ describe('DeveloperUtilitiesModal', () => {
     await user.type(screen.getByTestId('utilities-search-input'), 'pipeline');
     await waitFor(() => expect(screen.getByTestId('utility-lock-utility-pipelines')).toBeTruthy());
     await user.click(screen.getByTestId('utility-item-utility-pipelines'));
-    await waitFor(() => expect(screen.getByTestId('utility-pipeline-locked')).toBeTruthy());
+    // This panel is lazy-loaded. Full-suite transform contention can make the
+    // import exceed Testing Library's 1 s default without changing behavior.
+    expect(
+      await screen.findByTestId('utility-pipeline-locked', undefined, { timeout: 5000 })
+    ).toBeTruthy();
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });
 

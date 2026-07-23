@@ -110,57 +110,79 @@ Revisit this decision when **any** of the following becomes true:
 
 ### License-signing key rotation
 
-The app embeds exactly one Ed25519 public key
-(`LINGUA_LICENSE_PUBLIC_KEY_JWK` in `.env` + `.env.production`); the private
-half exists only as the Cloudflare Workers secret
-`LINGUA_LICENSE_PRIVATE_KEY_JWK` in `license-server`. The key is stripped to
-RFC 8037 §2 fields, so it carries no `kid` or issue date — rotation metadata
-lives in [`security/license-key-registry.json`](./security/license-key-registry.json),
-keyed by the RFC 7638 JWK thumbprint.
+The app and `license-server` read `LINGUA_LICENSE_PUBLIC_KEY_JWK` as an ordered
+Ed25519 verification keyring. A single JWK remains backward-compatible; during
+rotation the value is an array whose first entry is `active` and whose remaining
+entries are verification-only `pending` or `retiring` keys. `.env` and
+`.env.production` must resolve to the same ordered thumbprints. The Settings
+fingerprint shows the first/primary key.
 
-**Policy.** Keys rotate at most every `rotationSlaDays` (90). The guard
-(`scripts/assert-license-key-rotation.mjs`, alias
-`pnpm run check:license-rotation`) fails the release, web deploy, and CI when
-the embedded key is past the SLA, not documented in the registry, not
-`active`, or drifted between the two env files. It emits a non-blocking
-warning during the last `warnWindowDays` (14) before the breach — rotate when
-the warning appears, not when the gate goes red.
+The Worker keeps two private-key slots. `LINGUA_LICENSE_PRIVATE_KEY_JWK` is the
+existing `current` slot; `LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK` is prepared before
+rollout. The non-secret `LINGUA_LICENSE_SIGNING_KEY_SLOT` Wrangler var selects
+which slot signs new tokens. Never switch the selector until compatible web and
+desktop builds accept both public keys.
 
-**Where to read the fingerprint.** The guard prints the thumbprint on every
-run; the running app shows the same value in **Settings → License → Signing
-key fingerprint** (with a Copy button); `pnpm run dev:web:pro` /
-`dev:desktop:pro` print the session key's fingerprint in the launch banner.
-All three must agree with the registry's `active` entry.
+Public JWKs are stripped to RFC 8037 §2 fields, so they carry no `kid` or issue
+date. Rotation metadata lives in
+[`security/license-key-registry.json`](./security/license-key-registry.json),
+keyed by RFC 7638 thumbprint. Entry states are:
 
-**Rotation procedure (mint → embed → ship → retire).** Rotating invalidates
-the signature on every outstanding token minted with the old key. Server-
-verified tiers recover automatically: clients receive a `refreshedToken` on
-their next `/licenses/status` call (or ride the documented 24-hour offline
-grace window). Tokens that never re-sync (offline/lifetime
-issuance) must be re-issued to the customer — plan support comms before
-rotating.
+- `active` — first key in the embedded keyring; exactly one.
+- `pending` — prepared verification key; its private slot must not sign yet.
+- `retiring` — previous signer accepted only during the migration window.
+- `retired` — audit trail only; must not remain in a shipped keyring.
 
-1. Mint a fresh production keypair with
-   `node scripts/mint-dev-license.mjs` (see its doc-comment for the
-   prod-keypair extraction pattern; `jq -r`, never `-c`). Note the
-   fingerprint printed as `publicKeyJwkThumbprint`.
-2. Update the Cloudflare Workers secrets in `license-server`:
-   `wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK` and
-   `LINGUA_LICENSE_PUBLIC_KEY_JWK`.
-3. In the SAME commit: replace `LINGUA_LICENSE_PUBLIC_KEY_JWK` in **both**
-   `.env` and `.env.production`, append the new key to
-   `security/license-key-registry.json` (`status: "active"`, `issuedAt` =
-   today), and flip the previous entry to `status: "retired"` with a
-   `retiredAt`. The guard enforces exactly one `active` entry.
-4. Run `pnpm run check:license-rotation` locally — it must print `ok` with
-   the new thumbprint.
-5. Rebuild and redeploy desktop + web immediately (a stale deployed bundle
-   still verifies against the retired key and rejects newly minted tokens).
-6. Verify in the shipped build: Settings → License fingerprint matches the
-   new registry entry.
+**Policy.** The active key rotates at most every `rotationSlaDays` (90). The
+guard (`scripts/assert-license-key-rotation.mjs`, alias
+`pnpm run check:license-rotation`) fails release, web deploy, and CI on stale,
+undocumented, drifted, duplicate, private, oversized, or invalid-status
+keyrings. It warns during the final `warnWindowDays` (14).
 
-Never delete registry entries — retired rows are the audit trail of every
-key that ever shipped.
+**Where to read the fingerprint.** The guard prints the active thumbprint; the
+running app shows it under **Settings → License → Signing key fingerprint**.
+`pnpm run dev:web:pro` / `dev:desktop:pro` print the session key fingerprint in
+their launch banner. The production app and guard must match the registry's
+`active` entry.
+
+**Rotation procedure (prepare → overlap → promote → retire).** Never overwrite
+the active Worker private secret before the overlap release. A direct swap
+strands outstanding licenses because old clients and old tokens trust only the
+previous key.
+
+1. Inventory production with aggregate-only D1 queries. If any usable licenses
+   exist, use every overlap phase below; never assume tokens can be re-issued
+   silently.
+2. Mint a fresh production keypair with `node scripts/mint-dev-license.mjs`
+   (see its doc-comment; use `jq -r`, never `-c`). Upload only the private JWK
+   to `LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK`, then delete the local private file.
+3. Append the new public JWK after the active JWK in both `.env` and
+   `.env.production`; add its registry row as `pending`. Keep
+   `LINGUA_LICENSE_SIGNING_KEY_SLOT = "current"`.
+4. Merge and deploy the keyring-aware Worker. Update its
+   `LINGUA_LICENSE_PUBLIC_KEY_JWK` secret to the same ordered array. Confirm old
+   tokens still pass `/licenses/status`; the Worker must still sign with
+   `current`.
+5. Deploy web and publish desktop builds containing both verification keys.
+   Exercise an old production token on both surfaces. Prove both keyring
+   positions with throwaway keys in staging/CI; do not expose or download the
+   prepared production private key merely to create a smoke token.
+6. Promote in one controlled window:
+   - reorder the committed/public-secret keyring to `[new, old]`;
+   - mark the new registry entry `active` and the old one `retiring`;
+   - change `LINGUA_LICENSE_SIGNING_KEY_SLOT` to `next` and deploy the Worker;
+   - run `pnpm run check:license-rotation` and rebuild web/desktop so Settings
+     exposes the new active fingerprint.
+7. On `/licenses/status`, the Worker detects a token verified by a non-primary
+   key, re-signs its canonical D1 row with the selected active private key, and
+   returns `refreshedToken`. Compatible clients adopt it; older clients keep
+   their still-valid old token until they update.
+8. Keep the old public key `retiring` for the announced compatibility window.
+   Confirm active-device migration and contact offline/lifetime customers before
+   removing it. Old builds can keep using existing old-key tokens during this
+   window, but cannot accept newly issued new-key tokens, so publish a minimum
+   compatible version before promotion. Then mark the old key `retired` with
+   `retiredAt`; never delete registry rows.
 
 ## Telemetry And Crash Reporting
 
@@ -198,10 +220,13 @@ or website advisory.
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 is blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
 stays advisory (`continue-on-error: true`): its remaining `high`/`critical`
-findings are the dev-only `tar@6` paths held by Electron Forge tooling. The
-patched line is a new major and must not be forced across the packaging stack
-without cross-platform validation; these paths do not ship in the packaged
-artifact. Making the full audit blocking would
+findings are dev-only tooling paths: `tar@6` is held by Electron Forge's
+rebuild stack, while `sharp@0.34` is held by Wrangler/Miniflare. The patched
+`tar` line is a new major, and Miniflare currently pins `sharp` below its
+patched line exactly; neither should be forced across its parent toolchain
+without cross-platform validation. These paths do not ship in the packaged
+artifact. Re-check them on Electron Forge and Wrangler upgrades. Making the
+full audit blocking would
 red-CI the repo on dev-tooling advisories that pose no user risk. Keep the
 split.
 

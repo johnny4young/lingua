@@ -37,6 +37,7 @@ const OTHER_JWK = {
   crv: 'Ed25519',
   x: 'AAAAC3NzaC1lZDI1NTE5AAAAIBase64UrlOnlyFixture00',
 };
+const OTHER_THUMBPRINT = computeJwkThumbprint(OTHER_JWK) as string;
 
 const WRONG_CURVE_JWK = {
   kty: 'OKP',
@@ -118,6 +119,64 @@ describe('evaluateLicenseKeyRotation', () => {
     expect(result.ageDays).toBe(31);
   });
 
+  it('accepts a documented pending key during pre-deploy overlap', () => {
+    const result = evaluateLicenseKeyRotation({
+      productionEnvText: envText([PROD_JWK, OTHER_JWK]),
+      devEnvText: envText([PROD_JWK, OTHER_JWK]),
+      registry: registryWith({
+        keys: [
+          { thumbprint: PROD_THUMBPRINT, issuedAt: '2026-01-01', status: 'active' },
+          { thumbprint: OTHER_THUMBPRINT, issuedAt: '2026-01-31', status: 'pending' },
+        ],
+      }),
+      nowMs: FRESH_NOW,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.thumbprints).toEqual([PROD_THUMBPRINT, OTHER_THUMBPRINT]);
+  });
+
+  it('accepts a retiring key after the new primary has been promoted', () => {
+    const result = evaluateLicenseKeyRotation({
+      productionEnvText: envText([OTHER_JWK, PROD_JWK]),
+      devEnvText: envText([OTHER_JWK, PROD_JWK]),
+      registry: registryWith({
+        keys: [
+          { thumbprint: OTHER_THUMBPRINT, issuedAt: '2026-01-31', status: 'active' },
+          { thumbprint: PROD_THUMBPRINT, issuedAt: '2026-01-01', status: 'retiring' },
+        ],
+      }),
+      nowMs: FRESH_NOW,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.thumbprint).toBe(OTHER_THUMBPRINT);
+    expect(result.ageDays).toBe(1);
+  });
+
+  it('fails closed when an overlap key is retired or duplicated', () => {
+    const retired = evaluateLicenseKeyRotation({
+      productionEnvText: envText([PROD_JWK, OTHER_JWK]),
+      devEnvText: envText([PROD_JWK, OTHER_JWK]),
+      registry: registryWith({
+        keys: [
+          { thumbprint: PROD_THUMBPRINT, issuedAt: '2026-01-01', status: 'active' },
+          { thumbprint: OTHER_THUMBPRINT, issuedAt: '2026-01-31', status: 'retired' },
+        ],
+      }),
+      nowMs: FRESH_NOW,
+    });
+    expect(retired.ok).toBe(false);
+    expect(retired.failures.join('\n')).toMatch(/overlap keys must be pending or retiring/u);
+
+    const duplicate = evaluateLicenseKeyRotation({
+      productionEnvText: envText([PROD_JWK, PROD_JWK]),
+      devEnvText: null,
+      registry: registryWith(),
+      nowMs: FRESH_NOW,
+    });
+    expect(duplicate.ok).toBe(false);
+    expect(duplicate.failures.join('\n')).toMatch(/not a valid Ed25519 public keyring/u);
+  });
+
   it('fails a synthetic stale key past the rotation SLA', () => {
     const result = evaluateLicenseKeyRotation({
       productionEnvText: envText(PROD_JWK),
@@ -127,6 +186,26 @@ describe('evaluateLicenseKeyRotation', () => {
     });
     expect(result.ok).toBe(false);
     expect(result.failures.join('\n')).toMatch(/past the 90-day rotation SLA/u);
+  });
+
+  it('passes at exactly 90 days and fails on day 91', () => {
+    const atBoundary = evaluateLicenseKeyRotation({
+      productionEnvText: envText(PROD_JWK),
+      devEnvText: envText(PROD_JWK),
+      registry: registryWith(),
+      nowMs: Date.parse('2026-04-01'),
+    });
+    const afterBoundary = evaluateLicenseKeyRotation({
+      productionEnvText: envText(PROD_JWK),
+      devEnvText: envText(PROD_JWK),
+      registry: registryWith(),
+      nowMs: Date.parse('2026-04-02'),
+    });
+
+    expect(atBoundary.ok).toBe(true);
+    expect(atBoundary.ageDays).toBe(90);
+    expect(afterBoundary.ok).toBe(false);
+    expect(afterBoundary.ageDays).toBe(91);
   });
 
   it('warns (but passes) inside the pre-breach warning window', () => {
@@ -192,7 +271,7 @@ describe('evaluateLicenseKeyRotation', () => {
       nowMs: FRESH_NOW,
     });
     expect(result.ok).toBe(false);
-    expect(result.failures.join('\n')).toMatch(/different license public keys/u);
+    expect(result.failures.join('\n')).toMatch(/different license public keyrings/u);
   });
 
   it('passes when .env is absent — it is gitignored, so absent in CI and fresh clones', () => {
@@ -226,7 +305,7 @@ describe('evaluateLicenseKeyRotation', () => {
       nowMs: FRESH_NOW,
     });
     expect(malformed.ok).toBe(false);
-    expect(malformed.failures.join('\n')).toMatch(/not parseable JSON/u);
+    expect(malformed.failures.join('\n')).toMatch(/not a valid Ed25519 public keyring/u);
   });
 
   it('fails on an OKP key from the wrong curve', () => {
@@ -237,7 +316,7 @@ describe('evaluateLicenseKeyRotation', () => {
       nowMs: FRESH_NOW,
     });
     expect(result.ok).toBe(false);
-    expect(result.failures.join('\n')).toMatch(/not an Ed25519 OKP public JWK/u);
+    expect(result.failures.join('\n')).toMatch(/not a valid Ed25519 public keyring/u);
   });
 
   it('fails on a missing/empty registry and on multiple active entries', () => {

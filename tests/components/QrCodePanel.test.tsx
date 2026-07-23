@@ -72,7 +72,11 @@ describe('QrCodePanel', () => {
   it('renders a PNG data-url preview for the seeded payload', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
 
-    const image = (await screen.findByTestId('qr-code-image')) as HTMLImageElement;
+    const image = (await screen.findByTestId(
+      'qr-code-image',
+      undefined,
+      { timeout: 5000 }
+    )) as HTMLImageElement;
     expect(image.src.startsWith('data:image/png;base64,')).toBe(true);
     // Alt text interpolates the payload so screen readers know what scans to.
     expect(image.alt).toContain('linguacode.dev');

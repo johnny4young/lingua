@@ -40,6 +40,7 @@ import {
   setLicenseStatus,
 } from '../lib/db';
 import { sendLicenseEmail } from '../lib/resend';
+import { resolveLicenseSigningKey } from '../lib/licenseKeys';
 import type { Env } from '../index';
 
 export const webhooksRouter = new Hono<{ Bindings: Env }>();
@@ -135,8 +136,8 @@ interface EmitArgs {
 }
 
 async function emitLicenseAndEmail(c: WebhookContext, args: EmitArgs): Promise<Response> {
-  const privateKeyJwk = parseJwk(c.env.LINGUA_LICENSE_PRIVATE_KEY_JWK);
-  if (!privateKeyJwk) {
+  const signingKey = resolveLicenseSigningKey(c.env);
+  if (!signingKey) {
     return errorResponse(c, 'not-implemented', {
       message: 'LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured.',
     });
@@ -151,7 +152,7 @@ async function emitLicenseAndEmail(c: WebhookContext, args: EmitArgs): Promise<R
       expiresAt: args.expiresAt,
       supportWindowEndsAt: args.supportWindowEndsAt,
     },
-    privateKeyJwk
+    signingKey.privateKeyJwk
   );
   if (!minted.ok) {
     return errorResponse(c, 'not-implemented', {
@@ -268,8 +269,8 @@ async function handleSubscriptionOrderPaid(
   const existing = await findLicenseByPolarSubscription(c.env.DB, subscriptionId);
 
   if (existing) {
-    const privateKeyJwk = parseJwk(c.env.LINGUA_LICENSE_PRIVATE_KEY_JWK);
-    if (!privateKeyJwk) {
+    const signingKey = resolveLicenseSigningKey(c.env);
+    if (!signingKey) {
       return errorResponse(c, 'not-implemented', {
         message: 'LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured.',
       });
@@ -283,7 +284,7 @@ async function handleSubscriptionOrderPaid(
         expiresAt,
         supportWindowEndsAt,
       },
-      privateKeyJwk
+      signingKey.privateKeyJwk
     );
     if (!minted.ok) {
       return errorResponse(c, 'not-implemented', {
@@ -418,13 +419,4 @@ function tierForProduct(productId: PolarProductId): 'pro' | 'pro_lifetime' | 'te
   if (productId === 'lingua_lifetime') return 'pro_lifetime';
   if (productId === 'lingua_team') return 'team';
   return 'pro';
-}
-
-function parseJwk(raw: string | undefined): JsonWebKey | null {
-  if (!raw || raw.length === 0) return null;
-  try {
-    return JSON.parse(raw) as JsonWebKey;
-  } catch {
-    return null;
-  }
 }

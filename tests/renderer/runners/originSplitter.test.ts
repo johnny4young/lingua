@@ -10,12 +10,19 @@ import {
   extractOriginFromRustStdout,
 } from '../../../src/renderer/runners/originSplitter';
 
-// Backtracking risk = wall-clock seconds. A healthy linear regex
-// finishes well under the budget even when the dev machine is
-// loaded (post-e2e, full test suite still warm). Tightening below
-// 250 ms makes the bench flaky without catching anything the 250 ms
-// bound misses — multi-second backtracking is the real signal.
+// Backtracking risk = CPU seconds. Measure process CPU rather than wall
+// time so host scheduling pressure cannot impersonate regex work.
+// Tightening below 250 ms misses no meaningful signal: multi-second CPU
+// backtracking is the regression this guard is designed to catch.
 const REDOS_BUDGET_MS = 250;
+
+function createElapsedTimer(): () => number {
+  const start = process.cpuUsage();
+  return () => {
+    const elapsed = process.cpuUsage(start);
+    return (elapsed.user + elapsed.system) / 1_000;
+  };
+}
 
 describe('extractOriginFromGoStdout', () => {
   it('captures the first `file.go:N` reference', () => {
@@ -85,18 +92,16 @@ describe('enrichConsoleOutputLine', () => {
 describe('originSplitter — ReDoS resistance', () => {
   it('returns quickly for a long no-match string of dots (Go)', () => {
     const hostile = '.'.repeat(50_000);
-    const start = performance.now();
+    const elapsed = createElapsedTimer();
     expect(extractOriginFromGoStdout(hostile)).toBeUndefined();
-    const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(REDOS_BUDGET_MS);
+    expect(elapsed()).toBeLessThan(REDOS_BUDGET_MS);
   });
 
   it('returns quickly for a long no-match string of slashes (Rust)', () => {
     const hostile = '/'.repeat(50_000);
-    const start = performance.now();
+    const elapsed = createElapsedTimer();
     expect(extractOriginFromRustStdout(hostile)).toBeUndefined();
-    const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(REDOS_BUDGET_MS);
+    expect(elapsed()).toBeLessThan(REDOS_BUDGET_MS);
   });
 
   it('truncates scan input to MAX_SCAN_BYTES = 4096 chars', () => {

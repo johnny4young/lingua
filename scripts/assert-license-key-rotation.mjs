@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * internal release-time guard: assert the embedded license-signing public key
- * satisfies the rotation policy BEFORE anything user-facing is built.
+ * internal release-time guard: assert the embedded license verification
+ * keyring satisfies the rotation policy BEFORE anything user-facing is built.
  *
  * What this closes: the Ed25519 public key committed in `.env.production`
  * carries no `kid` or issuance date (CF Workers rejects JWK fields beyond
  * RFC 8037 §2), so nothing would otherwise stop a stale or undocumented key
  * from shipping for another year. This guard reads the committed
- * `.env.production`, computes the RFC 7638 thumbprint, and checks it against
- * `docs/security/license-key-registry.json`: the key must be documented,
- * `active`, and younger than the rotation SLA. The dev `.env` is gitignored
- * (absent in CI / fresh clones, which is fine); when it IS present its key
- * must match `.env.production`. The rotation runbook lives in
+ * `.env.production`, computes the ordered RFC 7638 thumbprints, and checks them
+ * against `docs/security/license-key-registry.json`: the primary key must be
+ * active and younger than the rotation SLA; overlap keys must be pending or
+ * retiring. The dev `.env` is gitignored (absent in CI / fresh clones, which
+ * is fine); when it IS present its keyring must match `.env.production`. The
+ * rotation runbook lives in
  * `docs/RELEASE_SECURITY.md` § Licensing.
  *
  * Wired into: `.github/workflows/release.yml` (security-audit job),
@@ -65,9 +66,10 @@ async function readOptionalFile(filePath) {
 function printHelp() {
   console.log(`Usage: node scripts/assert-license-key-rotation.mjs [options]
 
-Asserts the embedded license public key (LINGUA_LICENSE_PUBLIC_KEY_JWK) is
-documented in the key registry, active, identical in .env/.env.production,
-and younger than the rotation SLA. Fails closed before any release build.
+Asserts the ordered license verification keyring
+(LINGUA_LICENSE_PUBLIC_KEY_JWK) is documented in the registry, valid for its
+active/overlap positions, identical in .env/.env.production, and that the
+primary key is younger than the rotation SLA. Fails closed before release.
 
 Options:
   --env-production <path>  Production env file. Default: .env.production

@@ -37,7 +37,7 @@ import {
   validateEducationStartBody,
 } from '../lib/validation';
 import { mintAndSignToken } from '../lib/tokens';
-import { verifyLicenseToken } from '../lib/sign';
+import { parseLicensePublicKeyring, verifyLicenseToken } from '../lib/sign';
 import { isEducationalEmail } from '../lib/educationEmail';
 import {
   findEducationByDeviceId,
@@ -56,20 +56,13 @@ import {
   sendEducationTokenEmail,
 } from '../lib/resend';
 import { consumeRateLimit } from '../lib/rateLimit';
+import { resolveLicenseSigningKey } from '../lib/licenseKeys';
 import type { Env } from '../index';
 
 const EDUCATION_PRODUCT_ID = 'lingua_education' as const;
 const EDUCATION_DURATION_SECONDS = 365 * 24 * 60 * 60; // 1 year
 const EDUCATION_PENDING_TTL_SECONDS = 24 * 60 * 60; // 24h
 const EDUCATION_RATE_LIMIT_PER_DAY = 3;
-
-function parseJwk(raw: string): JsonWebKey | null {
-  try {
-    return JSON.parse(raw) as JsonWebKey;
-  } catch {
-    return null;
-  }
-}
 
 function clientIp(headers: { header: (name: string) => string | undefined }): string {
   return (
@@ -271,8 +264,8 @@ educationRouter.get('/confirm', async (c) => {
   // Mint + persist + send token email. Claim the pending row before
   // inserting so duplicate clicks or multiple pending links cannot mint
   // more than one education license.
-  const privateKeyJwk = parseJwk(c.env.LINGUA_LICENSE_PRIVATE_KEY_JWK);
-  if (!privateKeyJwk) {
+  const signingKey = resolveLicenseSigningKey(c.env);
+  if (!signingKey) {
     return htmlErrorPage(
       'Server is not configured',
       'The license server is not configured to mint education tokens. Contact support.',
@@ -294,7 +287,7 @@ educationRouter.get('/confirm', async (c) => {
       expiresAt,
       supportWindowEndsAt: expiresAt,
     },
-    privateKeyJwk
+    signingKey.privateKeyJwk
   );
   if (!minted.ok) {
     return htmlErrorPage(
@@ -374,14 +367,16 @@ educationRouter.post('/renew', async (c) => {
   }
   const { token, email } = validation.value;
 
-  const publicKeyJwk = parseJwk(c.env.LINGUA_LICENSE_PUBLIC_KEY_JWK);
-  if (!publicKeyJwk) {
+  const publicKeyring = parseLicensePublicKeyring(
+    c.env.LINGUA_LICENSE_PUBLIC_KEY_JWK
+  );
+  if (publicKeyring.length === 0) {
     return notImplementedResponse(
       c,
       'LINGUA_LICENSE_PUBLIC_KEY_JWK is not configured.'
     );
   }
-  const verified = await verifyLicenseToken(token, publicKeyJwk);
+  const verified = await verifyLicenseToken(token, publicKeyring);
   if (!verified.ok) {
     return jsonNoStore(c, { ok: false, reason: verified.reason }, 401);
   }
@@ -410,8 +405,8 @@ educationRouter.post('/renew', async (c) => {
     return jsonNoStore(c, { ok: false, reason: 'unknown-license' }, 404);
   }
 
-  const privateKeyJwk = parseJwk(c.env.LINGUA_LICENSE_PRIVATE_KEY_JWK);
-  if (!privateKeyJwk) {
+  const signingKey = resolveLicenseSigningKey(c.env);
+  if (!signingKey) {
     return notImplementedResponse(
       c,
       'LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured.'
@@ -429,7 +424,7 @@ educationRouter.post('/renew', async (c) => {
       expiresAt: newExpiresAt,
       supportWindowEndsAt: newExpiresAt,
     },
-    privateKeyJwk
+    signingKey.privateKeyJwk
   );
   if (!minted.ok) {
     return errorResponse(c, 'not-implemented', {

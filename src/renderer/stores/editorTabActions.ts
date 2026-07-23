@@ -192,8 +192,14 @@ export function createTabActions(
         // sandbox state held in memory; the notebookStore is persisted
         // but keyed by tabId, so an orphan entry would survive across
         // reloads without this hook.
-        // Lazy import — see header comment.
-        void import('../runtime/notebookSession').then(mod => mod.disposeNotebookSession(id));
+        // Lazy import — see header comment. Scratchpad/workspace tabs never
+        // own notebook runner state, so do not load the full runner graph just
+        // to close them. Keep import failures contained during app shutdown.
+        if (target?.kind === 'notebook') {
+          void import('../runtime/notebookSession')
+            .then(mod => mod.disposeNotebookSession(id))
+            .catch(() => {});
+        }
         useNotebookStore.getState().disposeNotebookForTab(id);
         // SQL/HTTP MODEL rework — closing a SQL / HTTP / Utilities workspace tab does
         // NOT delete the collection. The queries/requests live in

@@ -21,7 +21,7 @@ import {
   validateLicenseStatusRequest,
   type Surface,
 } from '../lib/validation';
-import { verifyLicenseToken, type LicensePayload } from '../lib/sign';
+import { parseLicensePublicKeyring, verifyLicenseToken, type LicensePayload } from '../lib/sign';
 import {
   findDeviceByLicenseAndId,
   findLicenseById,
@@ -30,10 +30,13 @@ import {
   listAllActiveDevices,
   markDeviceRemoved,
   reactivateDeviceIfSlotAvailable,
+  rotateLicenseTokenIfCurrent,
   touchDeviceLastSeen,
   type DeviceRow,
   type LicenseRow,
 } from '../lib/db';
+import { mintAndSignToken, type LicenseProductId } from '../lib/tokens';
+import { resolveLicenseSigningKey } from '../lib/licenseKeys';
 import type { Env } from '../index';
 
 export const licensesRouter = new Hono<{ Bindings: Env }>();
@@ -169,9 +172,17 @@ licensesRouter.get('/status', async (c) => {
   // pro_lifetime tokens whose historical payloads stay refreshable
   // forever.
   const status = computeStatus(license);
+  const rotatedToken = await rotateCanonicalTokenIfNeeded(
+    c.env,
+    license,
+    token,
+    verifyOutcome.keyIndex,
+    status
+  );
+  const canonicalToken = rotatedToken ?? license.token;
   const refreshedToken =
-    license.token !== token && status !== 'refunded' && status !== 'expired'
-      ? license.token
+    canonicalToken !== token && status !== 'refunded' && status !== 'expired'
+      ? canonicalToken
       : undefined;
 
   return jsonNoStore(c, {
@@ -229,6 +240,7 @@ interface VerifyOutcomeOk {
   ok: true;
   license: LicenseRow;
   payload: LicensePayload;
+  keyIndex: number;
 }
 interface VerifyOutcomeErr {
   ok: false;
@@ -240,8 +252,8 @@ async function verifyTokenAgainstEnv(
   token: string
 ): Promise<VerifyOutcomeOk | VerifyOutcomeErr> {
   const env = c.env;
-  const publicKeyJwk = parseJwk(env.LINGUA_LICENSE_PUBLIC_KEY_JWK);
-  if (!publicKeyJwk) {
+  const publicKeyring = parseLicensePublicKeyring(env.LINGUA_LICENSE_PUBLIC_KEY_JWK);
+  if (publicKeyring.length === 0) {
     return {
       ok: false,
       response: jsonNoStore(
@@ -255,7 +267,7 @@ async function verifyTokenAgainstEnv(
       ),
     };
   }
-  const verified = await verifyLicenseToken(token, publicKeyJwk);
+  const verified = await verifyLicenseToken(token, publicKeyring);
   if (!verified.ok) {
     return {
       ok: false,
@@ -282,7 +294,67 @@ async function verifyTokenAgainstEnv(
       ),
     };
   }
-  return { ok: true, license, payload: verified.payload };
+  return {
+    ok: true,
+    license,
+    payload: verified.payload,
+    keyIndex: verified.keyIndex,
+  };
+}
+
+async function rotateCanonicalTokenIfNeeded(
+  env: Env,
+  license: LicenseRow,
+  submittedToken: string,
+  keyIndex: number,
+  status: ReturnType<typeof computeStatus>
+): Promise<string | undefined> {
+  if (
+    keyIndex === 0 ||
+    license.token !== submittedToken ||
+    status === 'refunded' ||
+    status === 'expired' ||
+    license.support_window_ends_at === null
+  ) {
+    return undefined;
+  }
+
+  const signingKey = resolveLicenseSigningKey(env);
+  if (!signingKey) return undefined;
+
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const signed = await mintAndSignToken(
+    {
+      licenseId: license.id,
+      // D1 constrains this column to LicenseProductId values.
+      productId: license.product_id as LicenseProductId,
+      issuedTo: license.issued_to,
+      issuedAt,
+      expiresAt: license.expires_at,
+      supportWindowEndsAt: license.support_window_ends_at,
+    },
+    signingKey.privateKeyJwk
+  );
+  if (!signed.ok) return undefined;
+
+  const rotated = await rotateLicenseTokenIfCurrent(
+    env.DB,
+    license.id,
+    submittedToken,
+    signed.token
+  );
+  if (rotated) return signed.token;
+
+  // Another status request or webhook won the write. Return its canonical
+  // token rather than a losing candidate that D1 never persisted.
+  const currentLicense = await findLicenseById(env.DB, license.id);
+  if (!currentLicense) return undefined;
+  const currentStatus = computeStatus(currentLicense);
+  return currentLicense.token !== submittedToken &&
+    currentStatus !== 'refunded' &&
+    currentStatus !== 'expired'
+    ? currentLicense.token
+    : undefined;
 }
 
 async function findCurrentLicenseForToken(
@@ -299,9 +371,16 @@ async function findCurrentLicenseForToken(
 
   // A refreshed token replaces `licenses.token`. The older signed token
   // is still trustworthy if it names the same row and stable buyer/SKU.
+  const payloadSupportWindowEndsAt = Math.floor(
+    Date.parse(payload.supportWindowEndsAt) / 1000
+  );
   if (
     row.product_id !== payload.productId ||
-    row.issued_to !== payload.issuedTo.toLowerCase().trim()
+    row.tier !== payload.tier ||
+    row.issued_to !== payload.issuedTo.toLowerCase().trim() ||
+    row.support_window_ends_at === null ||
+    !Number.isFinite(payloadSupportWindowEndsAt) ||
+    payloadSupportWindowEndsAt > row.support_window_ends_at
   ) {
     return null;
   }
@@ -320,15 +399,6 @@ function isRefreshableHistoricalPayload(payload: LicensePayload): boolean {
   if (!Number.isFinite(supportWindowEndsAt)) return false;
   const now = Math.floor(Date.now() / 1000);
   return now <= supportWindowEndsAt + STALE_TOKEN_REFRESH_GRACE_SECONDS;
-}
-
-function parseJwk(raw: string | undefined): JsonWebKey | null {
-  if (!raw || raw.length === 0) return null;
-  try {
-    return JSON.parse(raw) as JsonWebKey;
-  } catch {
-    return null;
-  }
 }
 
 function computeStatus(

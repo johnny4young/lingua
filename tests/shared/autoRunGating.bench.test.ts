@@ -103,5 +103,5 @@ describe('autoRunGating bench — 5 KB / 5 000 iterations', () => {
     // matrix runs these CPU micro-benches under noisy shared-runner
     // contention.
     expect(bestElapsedMs).toBeLessThan(BUDGET_MS);
-  });
+  }, 15_000);
 });

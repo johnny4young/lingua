@@ -22,7 +22,9 @@ import path from 'node:path';
 import { hostname, platform as osPlatform } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import {
+  type LicensePublicKeyring,
   type LicenseVerificationResult,
+  parseLicensePublicKeyring,
   verifyLicenseToken,
 } from '../shared/license';
 import { bundledBuildDate } from '../shared/appInfo';
@@ -188,13 +190,9 @@ export async function loadOrCreateDeviceId(filePath: string): Promise<string> {
   return fresh.deviceId;
 }
 
-export function parseEmbeddedPublicKey(raw: string | undefined | null): JsonWebKey | null {
-  if (typeof raw !== 'string' || raw.length === 0) return null;
-  try {
-    return JSON.parse(raw) as JsonWebKey;
-  } catch {
-    return null;
-  }
+export function parseEmbeddedPublicKey(raw: string | undefined | null): LicensePublicKeyring | null {
+  const keyring = parseLicensePublicKeyring(raw);
+  return keyring.length > 0 ? keyring : null;
 }
 
 function resultToStatus(result: LicenseVerificationResult): LicenseStatus {
@@ -206,7 +204,7 @@ function resultToStatus(result: LicenseVerificationResult): LicenseStatus {
 
 async function runVerify(
   token: string,
-  publicKeyJwk: JsonWebKey | null,
+  publicKeyJwk: JsonWebKey | LicensePublicKeyring | null,
   now: number
 ): Promise<LicenseStatus> {
   if (!publicKeyJwk) {
@@ -243,7 +241,7 @@ export interface LicenseRuntime {
 
 export interface CreateLicenseRuntimeOptions {
   userDataDir: string;
-  publicKeyJwk: JsonWebKey | null;
+  publicKeyJwk: JsonWebKey | LicensePublicKeyring | null;
   /** Defaults to `Date.now`. Tests inject a deterministic clock. */
   now?: () => number;
   /**

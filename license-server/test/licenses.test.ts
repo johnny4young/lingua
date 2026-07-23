@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import migrationSql from '../migrations/0001_initial.sql?raw';
 import migrationSqlSurface from '../migrations/0002_add_surface_column.sql?raw';
 import app from '../src/index';
-import { signLicenseToken, type LicensePayload } from '../src/lib/sign';
+import { rotateLicenseTokenIfCurrent } from '../src/lib/db';
+import { signLicenseToken, verifyLicenseToken, type LicensePayload } from '../src/lib/sign';
 import { createMockEnv, generateEd25519Keypair } from './helpers';
 
 const ACTIVATE_BODY = {
@@ -212,6 +213,57 @@ describe('POST /licenses/activate', () => {
     expect(body).toMatchObject({ ok: false, reason: 'exhausted' });
     expect(env.__db.devices.size).toBe(1);
   });
+
+  it('accepts an outstanding token through a verification-only overlap key', async () => {
+    const currentKeys = await generateEd25519Keypair();
+    const retiringKeys = await generateEd25519Keypair();
+    const licenseId = 'lic_rotation_overlap';
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const token = await signPayload(
+      {
+        licenseId,
+        productId: 'lingua_lifetime',
+        tier: 'pro_lifetime',
+        issuedTo: 'buyer@example.com',
+        issuedAt: new Date(issuedAt * 1000).toISOString(),
+        supportWindowEndsAt: new Date((issuedAt + 365 * 24 * 60 * 60) * 1000).toISOString(),
+        entitlements: ['tabs'],
+      },
+      retiringKeys.privateKeyJwk
+    );
+    const env = createMockEnv({
+      publicKeyring: [currentKeys.publicKeyJwk, retiringKeys.publicKeyJwk],
+    });
+    env.__db.licenses.set(licenseId, {
+      id: licenseId,
+      token,
+      product_id: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      device_limit: 3,
+      issued_to: 'buyer@example.com',
+      issued_at: issuedAt,
+      expires_at: null,
+      support_window_ends_at: issuedAt + 365 * 24 * 60 * 60,
+      status: 'active',
+      polar_order_id: 'order_rotation_overlap',
+      polar_subscription_id: null,
+      created_at: issuedAt,
+      updated_at: issuedAt,
+    });
+
+    const response = await app.request(
+      'http://localhost/licenses/activate',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...ACTIVATE_BODY, token }),
+      },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, activated: true });
+  });
 });
 
 describe('GET /licenses/status', () => {
@@ -339,6 +391,208 @@ describe('GET /licenses/status', () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { ok: boolean; refreshedToken?: string };
     expect(body).toMatchObject({ ok: true, refreshedToken: newToken });
+  });
+
+  it.each([
+    {
+      name: 'tier disagrees with the canonical row',
+      mutate: (payload: LicensePayload): LicensePayload => ({
+        ...payload,
+        tier: 'pro_lifetime',
+      }),
+    },
+    {
+      name: 'support window exceeds the canonical row',
+      mutate: (payload: LicensePayload): LicensePayload => ({
+        ...payload,
+        supportWindowEndsAt: new Date(
+          Date.parse(payload.supportWindowEndsAt) + 30 * 24 * 60 * 60 * 1000
+        ).toISOString(),
+      }),
+    },
+  ])('rejects a historical signed token when its $name', async ({ mutate }) => {
+    const keys = await generateEd25519Keypair();
+    const licenseId = 'lic_historical_claim_mismatch';
+    const issuedAt = Math.floor(Date.now() / 1000) - 60;
+    const supportWindowEndsAt = issuedAt + 30 * 24 * 60 * 60;
+    const canonicalPayload: LicensePayload = {
+      licenseId,
+      productId: 'lingua_monthly',
+      tier: 'pro',
+      issuedTo: 'buyer@example.com',
+      issuedAt: new Date(issuedAt * 1000).toISOString(),
+      supportWindowEndsAt: new Date(supportWindowEndsAt * 1000).toISOString(),
+      entitlements: ['tabs'],
+    };
+    const historicalToken = await signPayload(mutate(canonicalPayload), keys.privateKeyJwk);
+    const canonicalToken = await signPayload(canonicalPayload, keys.privateKeyJwk);
+    const env = createMockEnv({ publicKeyJwk: keys.publicKeyJwk });
+    env.__db.licenses.set(licenseId, {
+      id: licenseId,
+      token: canonicalToken,
+      product_id: 'lingua_monthly',
+      tier: 'pro',
+      device_limit: 3,
+      issued_to: 'buyer@example.com',
+      issued_at: issuedAt,
+      expires_at: supportWindowEndsAt,
+      support_window_ends_at: supportWindowEndsAt,
+      status: 'active',
+      polar_order_id: null,
+      polar_subscription_id: 'sub_claim_mismatch',
+      created_at: issuedAt,
+      updated_at: issuedAt,
+    });
+
+    const response = await app.request(
+      'http://localhost/licenses/status?deviceId=device-uuid&surface=desktop',
+      { headers: { authorization: `Bearer ${historicalToken}` } },
+      env
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ ok: false, reason: 'unknown-license' });
+  });
+
+  it('refreshes a retiring-key lifetime token to the current signing key', async () => {
+    const currentKeys = await generateEd25519Keypair();
+    const retiringKeys = await generateEd25519Keypair();
+    const licenseId = 'lic_key_rotation_refresh';
+    const issuedAt = Math.floor(Date.now() / 1000) - 60;
+    const payload: LicensePayload = {
+      licenseId,
+      productId: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      issuedTo: 'buyer@example.com',
+      issuedAt: new Date(issuedAt * 1000).toISOString(),
+      supportWindowEndsAt: new Date((issuedAt + 365 * 24 * 60 * 60) * 1000).toISOString(),
+      entitlements: ['tabs'],
+    };
+    const oldToken = await signPayload(payload, retiringKeys.privateKeyJwk);
+    const refreshedToken = await signPayload(
+      { ...payload, issuedAt: new Date((issuedAt + 30) * 1000).toISOString() },
+      currentKeys.privateKeyJwk
+    );
+    const env = createMockEnv({
+      publicKeyring: [currentKeys.publicKeyJwk, retiringKeys.publicKeyJwk],
+    });
+    env.__db.licenses.set(licenseId, {
+      id: licenseId,
+      token: refreshedToken,
+      product_id: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      device_limit: 3,
+      issued_to: 'buyer@example.com',
+      issued_at: issuedAt,
+      expires_at: null,
+      support_window_ends_at: issuedAt + 365 * 24 * 60 * 60,
+      status: 'active',
+      polar_order_id: 'order_key_rotation_refresh',
+      polar_subscription_id: null,
+      created_at: issuedAt,
+      updated_at: issuedAt + 30,
+    });
+
+    const response = await app.request(
+      'http://localhost/licenses/status?deviceId=device-uuid&surface=desktop',
+      { headers: { authorization: `Bearer ${oldToken}` } },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, refreshedToken });
+  });
+
+  it('lazily re-signs the canonical row when a retiring-key token first checks status', async () => {
+    const currentKeys = await generateEd25519Keypair();
+    const retiringKeys = await generateEd25519Keypair();
+    const licenseId = 'lic_key_rotation_lazy_refresh';
+    const issuedAt = Math.floor(Date.now() / 1000) - 60;
+    const payload: LicensePayload = {
+      licenseId,
+      productId: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      issuedTo: 'buyer@example.com',
+      issuedAt: new Date(issuedAt * 1000).toISOString(),
+      supportWindowEndsAt: new Date((issuedAt + 365 * 24 * 60 * 60) * 1000).toISOString(),
+      entitlements: ['tabs'],
+    };
+    const oldToken = await signPayload(payload, retiringKeys.privateKeyJwk);
+    const env = createMockEnv({
+      privateKeyJwk: retiringKeys.privateKeyJwk,
+      nextPrivateKeyJwk: currentKeys.privateKeyJwk,
+      signingKeySlot: 'next',
+      publicKeyring: [currentKeys.publicKeyJwk, retiringKeys.publicKeyJwk],
+    });
+    env.__db.licenses.set(licenseId, {
+      id: licenseId,
+      token: oldToken,
+      product_id: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      device_limit: 3,
+      issued_to: 'buyer@example.com',
+      issued_at: issuedAt,
+      expires_at: null,
+      support_window_ends_at: issuedAt + 365 * 24 * 60 * 60,
+      status: 'active',
+      polar_order_id: 'order_key_rotation_lazy_refresh',
+      polar_subscription_id: null,
+      created_at: issuedAt,
+      updated_at: issuedAt,
+    });
+
+    const response = await app.request(
+      'http://localhost/licenses/status?deviceId=device-uuid&surface=desktop',
+      { headers: { authorization: `Bearer ${oldToken}` } },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { ok: boolean; refreshedToken?: string };
+    expect(body.refreshedToken).toBeTypeOf('string');
+    expect(body.refreshedToken).not.toBe(oldToken);
+    const verified = await verifyLicenseToken(body.refreshedToken ?? '', currentKeys.publicKeyJwk);
+    expect(verified.ok).toBe(true);
+    expect(env.__db.licenses.get(licenseId)?.token).toBe(body.refreshedToken);
+  });
+
+  it('keeps the first canonical token when concurrent rotations race', async () => {
+    const env = createMockEnv();
+    const licenseId = 'lic_key_rotation_cas';
+    const issuedAt = Math.floor(Date.now() / 1000) - 60;
+    env.__db.licenses.set(licenseId, {
+      id: licenseId,
+      token: 'retiring-token',
+      product_id: 'lingua_lifetime',
+      tier: 'pro_lifetime',
+      device_limit: 3,
+      issued_to: 'buyer@example.com',
+      issued_at: issuedAt,
+      expires_at: null,
+      support_window_ends_at: issuedAt + 365 * 24 * 60 * 60,
+      status: 'active',
+      polar_order_id: 'order_key_rotation_cas',
+      polar_subscription_id: null,
+      created_at: issuedAt,
+      updated_at: issuedAt,
+    });
+
+    const first = await rotateLicenseTokenIfCurrent(
+      env.DB,
+      licenseId,
+      'retiring-token',
+      'current-token-a'
+    );
+    const second = await rotateLicenseTokenIfCurrent(
+      env.DB,
+      licenseId,
+      'retiring-token',
+      'current-token-b'
+    );
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+    expect(env.__db.licenses.get(licenseId)?.token).toBe('current-token-a');
   });
 
   it('withholds refreshedToken from a refunded license even when the row rotated (lifetime revocation lever)', async () => {
