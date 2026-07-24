@@ -53,6 +53,9 @@ describe('SettingsModal', () => {
     expect(screen.getByText('Actualizaciones')).toBeTruthy();
     expect(screen.getByText('No disponible')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cerrar configuración' })).toBeTruthy();
+    expect(document.getElementById('settings-modal-title')?.className).toContain(
+      'sr-only'
+    );
 
     // accessibility pass — rail tabs carry the .settings-rail-row class, which now
     // bakes in the shared .focus-ring (the ring itself is verified live).

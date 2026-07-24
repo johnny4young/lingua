@@ -542,7 +542,7 @@ export function SettingsModal({
         className="relative grid w-[min(96vw,1240px)] max-w-none grid-cols-[220px_1fr] grid-rows-[auto_1fr_auto] overflow-hidden"
         style={{ height: 'min(86vh, 820px)' }}
       >
-        <h2 id="settings-modal-title" className="internal">
+        <h2 id="settings-modal-title" className="sr-only">
           {t('settings.subtitle')}
         </h2>
 
