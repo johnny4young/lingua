@@ -15,6 +15,7 @@ export const RELEASE_CHECKSUMS_FILENAME = 'SHA256SUMS.txt';
 
 const RELEASE_ASSET_EXTENSIONS = new Set([
   '.AppImage',
+  '.blockmap',
   '.deb',
   '.dmg',
   '.exe',
@@ -27,6 +28,20 @@ const RELEASE_ASSET_NAMES = new Set([
   'RELEASES',
   'THIRD_PARTY_LICENSE_REPORT.md',
   'lingua-sbom.cyclonedx.json',
+]);
+const REQUIRED_COMPLIANCE_ASSET_NAMES = [
+  'THIRD_PARTY_LICENSE_REPORT.md',
+  'lingua-sbom.cyclonedx.json',
+];
+const UPDATE_MANIFEST_NAMES = new Set(['latest.yml', 'latest-mac.yml', 'latest-linux.yml']);
+const INSTALLER_EXTENSIONS = new Set([
+  '.AppImage',
+  '.deb',
+  '.dmg',
+  '.exe',
+  '.nupkg',
+  '.rpm',
+  '.zip',
 ]);
 
 /**
@@ -76,7 +91,28 @@ async function listFiles(root) {
 
 function isReleaseAssetName(name, { includeChecksums = false } = {}) {
   if (name === RELEASE_CHECKSUMS_FILENAME) return includeChecksums;
-  return RELEASE_ASSET_NAMES.has(name) || RELEASE_ASSET_EXTENSIONS.has(path.extname(name));
+  return (
+    RELEASE_ASSET_NAMES.has(name) ||
+    UPDATE_MANIFEST_NAMES.has(name) ||
+    RELEASE_ASSET_EXTENSIONS.has(path.extname(name))
+  );
+}
+
+function assertRequiredReleaseAssets(assets) {
+  const names = new Set(assets.map((asset) => asset.name));
+  for (const requiredName of REQUIRED_COMPLIANCE_ASSET_NAMES) {
+    if (!names.has(requiredName)) {
+      throw new Error(`Release payload is missing required compliance asset: ${requiredName}`);
+    }
+  }
+
+  if (!assets.some((asset) => UPDATE_MANIFEST_NAMES.has(asset.name))) {
+    throw new Error('Release payload is missing an electron-updater latest*.yml manifest');
+  }
+
+  if (!assets.some((asset) => INSTALLER_EXTENSIONS.has(path.extname(asset.name)))) {
+    throw new Error('Release payload is missing a desktop installer or update archive');
+  }
 }
 
 /**
@@ -146,6 +182,7 @@ export async function writeReleaseChecksums(root = DEFAULT_RELEASE_ROOT) {
   if (assets.length === 0) {
     throw new Error(`No release assets found under ${resolvedRoot}`);
   }
+  assertRequiredReleaseAssets(assets);
 
   const lines = [];
   for (const asset of assets) {
@@ -169,6 +206,7 @@ export async function verifyReleaseChecksums(root = DEFAULT_RELEASE_ROOT) {
   const checksumPath = path.join(resolvedRoot, RELEASE_CHECKSUMS_FILENAME);
   const checksumText = await readFile(checksumPath, 'utf8');
   const assets = await collectReleaseAssets(resolvedRoot, { includeChecksums: false });
+  assertRequiredReleaseAssets(assets);
   const assetByName = new Map(assets.map((asset) => [asset.name, asset]));
   const manifestNames = new Set();
 
@@ -209,6 +247,7 @@ export async function collectReleasePayload(root = DEFAULT_RELEASE_ROOT) {
   if (assets.length === 0) {
     throw new Error(`No release assets found under ${path.resolve(root)}`);
   }
+  assertRequiredReleaseAssets(assets);
   return assets;
 }
 

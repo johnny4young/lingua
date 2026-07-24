@@ -442,53 +442,31 @@ jobs:
           path: out-builder
           merge-multiple: true
 
-      - name: Verify downloaded release payload
+      - name: Prepare and verify release payload
+        id: release-payload
         shell: bash
         run: |
           set -euo pipefail
-          if ! find out-builder -type f -print -quit | grep -q .; then
-            echo "::error::No release artifacts were downloaded into out-builder"
-            exit 1
-          fi
-          # electron-updater needs at least one latest*.yml feed manifest on the
-          # release; without it the published build cannot auto-update.
-          if ! find out-builder -maxdepth 1 -type f -name 'latest*.yml' -print -quit | grep -q .; then
-            echo "::error::No electron-updater latest*.yml feed manifest found in the payload"
-            exit 1
-          fi
-          echo "Verified downloaded release payload"
-
-      - name: Generate release checksums
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd out-builder
-          : > SHA256SUMS.txt
-          shopt -s nullglob
-          for f in *.dmg *.zip *.exe *.AppImage; do
-            shasum -a 256 "$f" >> SHA256SUMS.txt
-          done
-          {
-            echo "### Release checksums"
-            echo '```'
-            cat SHA256SUMS.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          node scripts/prepare-release-payload.mjs \
+            --root out-builder \
+            --write-checksums \
+            --verify-checksums \
+            --github-output "$GITHUB_OUTPUT" \
+            --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Publish draft GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          RELEASE_ASSETS: ${{ steps.release-payload.outputs.assets }}
         run: |
           set -euo pipefail
-          # Installers + blockmaps + the electron-updater feed manifests + the
-          # checksum file. The latest*.yml files are what the packaged app reads
-          # from this Release to auto-update.
-          shopt -s nullglob
-          mapfile -t assets < <(printf '%s\n' \
-            out-builder/*.dmg out-builder/*.zip out-builder/*.exe out-builder/*.AppImage \
-            out-builder/*.blockmap out-builder/latest*.yml out-builder/SHA256SUMS.txt)
+          mapfile -t assets <<< "${RELEASE_ASSETS}"
+          if (( ${#assets[@]} == 0 )); then
+            echo "::error::The validated release payload is empty."
+            exit 1
+          fi
 
           if release_is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq .isDraft 2>/dev/null)"; then
             if [[ "${release_is_draft}" != "true" ]]; then
