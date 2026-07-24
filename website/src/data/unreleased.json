@@ -1,16 +1,43 @@
 {
-  "generatedAt": "2026-07-20T05:01:58.237Z",
-  "baseRef": "v0.12.0",
-  "commitCount": 1,
-  "totalSinceBase": 2,
+  "generatedAt": "2026-07-24T03:45:57.454Z",
+  "baseRef": "v0.13.0",
+  "commitCount": 4,
+  "totalSinceBase": 5,
   "commits": [
     {
-      "hash": "47c1139",
-      "date": "2026-07-19",
+      "hash": "70fda05",
+      "date": "2026-07-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "settings",
+      "message": "restore visually hidden controls (#89)",
+      "breaking": false
+    },
+    {
+      "hash": "6c5134b",
+      "date": "2026-07-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "licensing",
+      "message": "allow production web license requests (#88)",
+      "breaking": false
+    },
+    {
+      "hash": "5bd4a03",
+      "date": "2026-07-22",
       "type": "feat",
       "typeLabel": "New",
-      "scope": null,
-      "message": "positioning, comparison pages, mac universal, Monaco lazy loaders (#81)",
+      "scope": "licensing",
+      "message": "add overlap-safe key rotation (#87)",
+      "breaking": false
+    },
+    {
+      "hash": "71cee86",
+      "date": "2026-07-21",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "deps",
+      "message": "harden production dependency audits (#86)",
       "breaking": false
     }
   ]

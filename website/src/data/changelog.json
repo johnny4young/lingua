@@ -1,6 +1,38 @@
 {
-  "generatedAt": "2026-07-20T05:09:09.084Z",
+  "generatedAt": "2026-07-24T04:02:51.268Z",
   "entries": [
+    {
+      "version": "0.14.0",
+      "date": "2026-07-23",
+      "sections": [
+        {
+          "heading": "Added",
+          "items": [
+            "<strong>Windows joins the desktop release matrix:</strong> <code>v0.14.0</code> produces a validated x64 NSIS installer alongside macOS arm64/x64 and Linux AppImage artifacts, with GitHub Releases as the canonical download and auto-update source. Authenticode is verified when signing is configured; otherwise the release records Windows as unsigned preview quality."
+          ]
+        },
+        {
+          "heading": "Changed",
+          "items": [
+            "<strong>License verification now supports overlap-safe Ed25519 key rotation:</strong> web, desktop, and the license service accept an ordered public-key ring while the service keeps explicit current/next signing slots, so keys can rotate without invalidating existing offline licenses."
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            "<strong>Production browser licensing works from <code>app.linguacode.dev</code>:</strong> activation, trials, education, recovery, and device management now pass the Worker's closed CORS allowlist without allowing arbitrary origins.",
+            "<strong>Settings and SQL import controls keep their intended layout:</strong> the Settings dialog heading and native SQL file input are visually hidden again instead of consuming visible layout space."
+          ]
+        },
+        {
+          "heading": "Security",
+          "items": [
+            "<strong>Production dependency advisories are cleared for 0.14.0</strong>: the desktop updater now resolves the patched <code>js-yaml</code> line, legacy Electron tooling stays within advisory-fixed <code>brace-expansion</code> majors, the license Worker and marketing website use patched production dependencies, and CI/release audit every independently locked production graph instead of checking only the app root."
+          ]
+        }
+      ],
+      "raw": "### Added\n- **Windows joins the desktop release matrix:** `v0.14.0` produces a validated x64 NSIS installer alongside macOS arm64/x64 and Linux AppImage artifacts, with GitHub Releases as the canonical download and auto-update source. Authenticode is verified when signing is configured; otherwise the release records Windows as unsigned preview quality.\n\n### Changed\n- **License verification now supports overlap-safe Ed25519 key rotation:** web, desktop, and the license service accept an ordered public-key ring while the service keeps explicit current/next signing slots, so keys can rotate without invalidating existing offline licenses.\n\n### Fixed\n- **Production browser licensing works from `app.linguacode.dev`:** activation, trials, education, recovery, and device management now pass the Worker's closed CORS allowlist without allowing arbitrary origins.\n- **Settings and SQL import controls keep their intended layout:** the Settings dialog heading and native SQL file input are visually hidden again instead of consuming visible layout space.\n\n### Security\n- **Production dependency advisories are cleared for 0.14.0**: the desktop updater now resolves the patched `js-yaml` line, legacy Electron tooling stays within advisory-fixed `brace-expansion` majors, the license Worker and marketing website use patched production dependencies, and CI/release audit every independently locked production graph instead of checking only the app root."
+    },
     {
       "version": "0.13.0",
       "date": "2026-07-19",
