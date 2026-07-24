@@ -41,8 +41,10 @@ return the JSON `not-found` shape rather than Hono's text fallback.
 - Polar webhooks require HMAC verification and D1-backed idempotency.
 - Trial, education, and recovery starts use KV rate limits. Email proof remains
   authoritative because KV is eventually consistent across PoPs.
-- Browser CORS is an explicit comma-separated allowlist. Polar webhooks do not
-  use browser CORS.
+- Browser CORS is an explicit comma-separated allowlist. Production permits the
+  marketing site at `https://linguacode.dev` and the web app at
+  `https://app.linguacode.dev`; preview origins must be added deliberately.
+  Polar webhooks do not use browser CORS.
 - Request logs are structured and redacted; unhandled errors return a generic
   `internal-error` without stack traces.
 
@@ -91,3 +93,16 @@ pnpm run deploy
 Apply remote migrations before deploying handlers that depend on them. After
 deploy, verify `/health/ready`, exercise a non-production entitlement flow, and
 confirm structured logs contain no token, email, device identifier, or secret.
+
+Verify the production web-app CORS contract without sending a license token:
+
+```bash
+curl -i -X OPTIONS https://licenses.linguacode.dev/licenses/status \
+  -H 'Origin: https://app.linguacode.dev' \
+  -H 'Access-Control-Request-Method: GET' \
+  -H 'Access-Control-Request-Headers: Authorization'
+```
+
+Expect `204` and `Access-Control-Allow-Origin:
+https://app.linguacode.dev`. Repeat with an untrusted origin and confirm the
+response omits `Access-Control-Allow-Origin`.
