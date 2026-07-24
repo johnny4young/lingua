@@ -26,6 +26,7 @@ describe('release workflow', () => {
   const deployWebWorkflow = existsSync(DEPLOY_WEB_WORKFLOW_PATH)
     ? readFileSync(DEPLOY_WEB_WORKFLOW_PATH, 'utf-8')
     : '';
+  const publishJob = workflow.match(/\n {2}publish:[\s\S]*?(?=\n {2}deploy-web:)/u)?.[0] ?? '';
   const packageJson = existsSync(PACKAGE_JSON_PATH)
     ? (JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as {
         scripts: Record<string, string>;
@@ -45,25 +46,38 @@ describe('release workflow', () => {
 
   it('downloads pre-built artifacts before publishing', () => {
     expect(workflow).toMatch(/uses:\s*actions\/download-artifact@[0-9a-f]{40}/u);
+    expect(publishJob).toContain("pattern: '*-artifacts'");
     expect(workflow).toContain('merge-multiple: true');
   });
 
   it('publishes the electron-updater feed manifests to the release', () => {
     // electron-updater reads latest*.yml from the GitHub Release to auto-update.
-    // The publish job must verify one is present and upload it.
-    expect(workflow).toContain('latest*.yml');
-    expect(workflow).toContain(
-      'No electron-updater latest*.yml feed manifest found in the payload'
-    );
+    // The validated helper output is the only upload source.
+    expect(publishJob).toContain('scripts/prepare-release-payload.mjs');
+    expect(workflow).toContain('--github-output "$GITHUB_OUTPUT"');
+    expect(workflow).toContain('RELEASE_ASSETS: ${{ steps.release-payload.outputs.assets }}');
+    expect(publishJob).toContain('payload_args+=(--require-manifest latest-mac.yml)');
+    expect(publishJob).toContain('payload_args+=(--require-manifest latest.yml)');
+    expect(publishJob).toContain('payload_args+=(--require-manifest latest-linux.yml)');
   });
 
   it('generates SHA256SUMS.txt before the draft release is created', () => {
-    expect(workflow).toContain('SHA256SUMS.txt');
-    expect(workflow).toContain('shasum -a 256');
-    const checksumIndex = workflow.indexOf('Generate release checksums');
+    expect(workflow).toContain('scripts/prepare-release-payload.mjs');
+    expect(workflow).toContain('--write-checksums');
+    expect(workflow).toContain('--verify-checksums');
+    const checksumIndex = workflow.indexOf('Prepare and verify release payload');
     const publishIndex = workflow.indexOf('Publish draft GitHub Release');
     expect(checksumIndex).toBeGreaterThan(0);
     expect(publishIndex).toBeGreaterThan(checksumIndex);
+  });
+
+  it('publishes the required compliance artifacts through the validated payload', () => {
+    expect(workflow).toContain('name: compliance-artifacts');
+    expect(workflow).toContain('output/release-compliance/*');
+    expect(workflow).toContain('scripts/prepare-release-payload.mjs');
+    expect(workflow).toContain('mapfile -t assets <<< "${RELEASE_ASSETS}"');
+    expect(workflow).toContain('if [[ -z "${RELEASE_ASSETS}" ]]; then');
+    expect(publishJob).not.toMatch(/out-builder\/\*\.(?:dmg|zip|exe|AppImage)/u);
   });
 
   it('uses the GitHub CLI to upload the downloaded assets as a draft release', () => {
