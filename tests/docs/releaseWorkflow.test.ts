@@ -46,6 +46,7 @@ describe('release workflow', () => {
 
   it('downloads pre-built artifacts before publishing', () => {
     expect(workflow).toMatch(/uses:\s*actions\/download-artifact@[0-9a-f]{40}/u);
+    expect(publishJob).toContain("pattern: '*-artifacts'");
     expect(workflow).toContain('merge-multiple: true');
   });
 
@@ -55,6 +56,9 @@ describe('release workflow', () => {
     expect(publishJob).toContain('scripts/prepare-release-payload.mjs');
     expect(workflow).toContain('--github-output "$GITHUB_OUTPUT"');
     expect(workflow).toContain('RELEASE_ASSETS: ${{ steps.release-payload.outputs.assets }}');
+    expect(publishJob).toContain('payload_args+=(--require-manifest latest-mac.yml)');
+    expect(publishJob).toContain('payload_args+=(--require-manifest latest.yml)');
+    expect(publishJob).toContain('payload_args+=(--require-manifest latest-linux.yml)');
   });
 
   it('generates SHA256SUMS.txt before the draft release is created', () => {
@@ -72,6 +76,7 @@ describe('release workflow', () => {
     expect(workflow).toContain('output/release-compliance/*');
     expect(workflow).toContain('scripts/prepare-release-payload.mjs');
     expect(workflow).toContain('mapfile -t assets <<< "${RELEASE_ASSETS}"');
+    expect(workflow).toContain('if [[ -z "${RELEASE_ASSETS}" ]]; then');
     expect(publishJob).not.toMatch(/out-builder\/\*\.(?:dmg|zip|exe|AppImage)/u);
   });
 
