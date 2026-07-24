@@ -6,7 +6,17 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
-## [0.14.0] — 2026-07-21
+## [0.14.0] — 2026-07-23
+
+### Added
+- **Windows joins the desktop release matrix:** `v0.14.0` produces a validated x64 NSIS installer alongside macOS arm64/x64 and Linux AppImage artifacts, with GitHub Releases as the canonical download and auto-update source. Authenticode is verified when signing is configured; otherwise the release records Windows as unsigned preview quality.
+
+### Changed
+- **License verification now supports overlap-safe Ed25519 key rotation:** web, desktop, and the license service accept an ordered public-key ring while the service keeps explicit current/next signing slots, so keys can rotate without invalidating existing offline licenses.
+
+### Fixed
+- **Production browser licensing works from `app.linguacode.dev`:** activation, trials, education, recovery, and device management now pass the Worker's closed CORS allowlist without allowing arbitrary origins.
+- **Settings and SQL import controls keep their intended layout:** the Settings dialog heading and native SQL file input are visually hidden again instead of consuming visible layout space.
 
 ### Security
 - **Production dependency advisories are cleared for 0.14.0**: the desktop updater now resolves the patched `js-yaml` line, legacy Electron tooling stays within advisory-fixed `brace-expansion` majors, the license Worker and marketing website use patched production dependencies, and CI/release audit every independently locked production graph instead of checking only the app root.

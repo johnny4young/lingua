@@ -136,13 +136,13 @@ export const es = {
       velocity: '{count} releases desde {since}',
     },
     whatsNew: {
-      eyebrow: 'Nuevo en 0.12',
-      title: 'Lo último del release, en cuatro capturas.',
-      lede: 'Todo lo de abajo llegó en v0.12 y funciona en el tier gratuito. El detalle completo vive en el changelog.',
+      eyebrow: 'Ya disponible en Lingua',
+      title: 'Cuatro flujos del producto, dentro de la app.',
+      lede: 'Cada función de abajo ya está disponible y funciona en el tier gratuito. El historial completo vive en el changelog.',
       cta: 'Lee el changelog completo',
       history: {
         title: 'Cada release antes de este',
-        lede: 'Catorce releases de progreso constante y local-first. Expande cualquier versión para ver sus destacados.',
+        lede: 'Un historial constante de progreso local-first. Expande cualquier versión para ver sus destacados.',
         featuresLabel: 'features',
         featureLabel: 'feature',
       },
