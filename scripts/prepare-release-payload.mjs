@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,7 +15,7 @@ const repoRoot = path.resolve(__dirname, '..');
 export const DEFAULT_RELEASE_ROOT = path.join(repoRoot, 'out', 'make');
 export const RELEASE_CHECKSUMS_FILENAME = 'SHA256SUMS.txt';
 
-const RELEASE_ASSET_EXTENSIONS = new Set([
+const INSTALLER_OR_UPDATE_ARCHIVE_EXTENSIONS = new Set([
   '.AppImage',
   '.deb',
   '.dmg',
@@ -23,17 +25,20 @@ const RELEASE_ASSET_EXTENSIONS = new Set([
   '.zip',
 ]);
 
-const RELEASE_ASSET_NAMES = new Set([
-  'RELEASES',
+const RELEASE_ASSET_EXTENSIONS = new Set([...INSTALLER_OR_UPDATE_ARCHIVE_EXTENSIONS, '.blockmap']);
+const REQUIRED_COMPLIANCE_ASSET_NAMES = new Set([
   'THIRD_PARTY_LICENSE_REPORT.md',
   'lingua-sbom.cyclonedx.json',
 ]);
+const RELEASE_ASSET_NAMES = new Set(['RELEASES', ...REQUIRED_COMPLIANCE_ASSET_NAMES]);
+const UPDATE_MANIFEST_NAMES = new Set(['latest.yml', 'latest-mac.yml', 'latest-linux.yml']);
+const UPDATE_MANIFEST_NAMES_TEXT = [...UPDATE_MANIFEST_NAMES].join(', ');
 
 /**
  * Keep human-facing release artifacts grouped predictably in workflow
  * summaries: platform installers first, then checksums, then compliance
- * reports. GitHub Releases and R2 both flatten upload paths, so all ordering
- * decisions must use the public basename instead of the nested artifact path.
+ * reports. GitHub Release uploads are flat, so all ordering decisions must use
+ * the public basename instead of the nested artifact path.
  */
 function releaseAssetSortRank(name) {
   if (name === RELEASE_CHECKSUMS_FILENAME) return 1;
@@ -76,13 +81,53 @@ async function listFiles(root) {
 
 function isReleaseAssetName(name, { includeChecksums = false } = {}) {
   if (name === RELEASE_CHECKSUMS_FILENAME) return includeChecksums;
-  return RELEASE_ASSET_NAMES.has(name) || RELEASE_ASSET_EXTENSIONS.has(path.extname(name));
+  return (
+    RELEASE_ASSET_NAMES.has(name) ||
+    UPDATE_MANIFEST_NAMES.has(name) ||
+    RELEASE_ASSET_EXTENSIONS.has(path.extname(name))
+  );
+}
+
+function assertRequiredReleaseAssets(assets, { requiredManifestNames = [] } = {}) {
+  const names = new Set(assets.map(asset => asset.name));
+  for (const requiredName of REQUIRED_COMPLIANCE_ASSET_NAMES) {
+    if (!names.has(requiredName)) {
+      throw new Error(`Release payload is missing required compliance asset: ${requiredName}`);
+    }
+  }
+
+  const uniqueRequiredManifestNames = [...new Set(requiredManifestNames)];
+  for (const manifestName of uniqueRequiredManifestNames) {
+    if (!UPDATE_MANIFEST_NAMES.has(manifestName)) {
+      throw new Error(
+        `Unknown required electron-updater manifest: ${manifestName}. Accepted public manifests: ${UPDATE_MANIFEST_NAMES_TEXT}`
+      );
+    }
+    if (!names.has(manifestName)) {
+      throw new Error(
+        `Release payload is missing required electron-updater manifest: ${manifestName}`
+      );
+    }
+  }
+
+  if (
+    uniqueRequiredManifestNames.length === 0 &&
+    !assets.some(asset => UPDATE_MANIFEST_NAMES.has(asset.name))
+  ) {
+    throw new Error(
+      `Release payload is missing an electron-updater latest*.yml manifest. Accepted public manifests: ${UPDATE_MANIFEST_NAMES_TEXT}`
+    );
+  }
+
+  if (!assets.some(asset => INSTALLER_OR_UPDATE_ARCHIVE_EXTENSIONS.has(path.extname(asset.name)))) {
+    throw new Error('Release payload is missing a desktop installer or update archive');
+  }
 }
 
 /**
  * Release upload targets use basenames only. A nested path collision would
- * overwrite one asset in GitHub Release uploads or in the R2 mirror, so fail
- * before writing the checksum manifest.
+ * overwrite one asset in the GitHub Release, so fail before writing the
+ * checksum manifest.
  */
 function assertUniqueAssetNames(assets) {
   const seen = new Map();
@@ -90,7 +135,7 @@ function assertUniqueAssetNames(assets) {
     const previous = seen.get(asset.name);
     if (previous) {
       throw new Error(
-        `Release asset basename collision: ${asset.name} appears at ${previous.relativePath} and ${asset.relativePath}. GitHub Release and R2 uploads flatten paths, so basenames must be unique.`
+        `Release asset basename collision: ${asset.name} appears at ${previous.relativePath} and ${asset.relativePath}. GitHub Release uploads flatten paths, so basenames must be unique.`
       );
     }
     seen.set(asset.name, asset);
@@ -111,7 +156,7 @@ export async function collectReleaseAssets(root = DEFAULT_RELEASE_ROOT, options 
 
   const files = await listFiles(resolvedRoot);
   const assets = files
-    .map((filePath) => {
+    .map(filePath => {
       const name = path.basename(filePath);
       return {
         path: filePath,
@@ -119,7 +164,7 @@ export async function collectReleaseAssets(root = DEFAULT_RELEASE_ROOT, options 
         relativePath: normalizePathForOutput(path.relative(resolvedRoot, filePath)),
       };
     })
-    .filter((asset) => isReleaseAssetName(asset.name, options))
+    .filter(asset => isReleaseAssetName(asset.name, options))
     .sort(
       (left, right) =>
         releaseAssetSortRank(left.name) - releaseAssetSortRank(right.name) ||
@@ -132,20 +177,27 @@ export async function collectReleaseAssets(root = DEFAULT_RELEASE_ROOT, options 
 }
 
 async function hashFile(filePath) {
-  return createHash('sha256').update(await readFile(filePath)).digest('hex');
+  const hash = createHash('sha256');
+  await pipeline(createReadStream(filePath), async source => {
+    for await (const chunk of source) {
+      hash.update(chunk);
+    }
+  });
+  return hash.digest('hex');
 }
 
 /**
  * Write checksums against public asset names, not nested artifact paths. The
- * same manifest is consumed by GitHub Release verification and by the R2 mirror
- * parity check, both of which expose assets by basename.
+ * same manifest is verified before publication and attached to the flat GitHub
+ * Release payload.
  */
-export async function writeReleaseChecksums(root = DEFAULT_RELEASE_ROOT) {
+export async function writeReleaseChecksums(root = DEFAULT_RELEASE_ROOT, requirements = {}) {
   const resolvedRoot = path.resolve(root);
   const assets = await collectReleaseAssets(resolvedRoot, { includeChecksums: false });
   if (assets.length === 0) {
     throw new Error(`No release assets found under ${resolvedRoot}`);
   }
+  assertRequiredReleaseAssets(assets, requirements);
 
   const lines = [];
   for (const asset of assets) {
@@ -162,14 +214,15 @@ export async function writeReleaseChecksums(root = DEFAULT_RELEASE_ROOT) {
  * Verify that the checksum manifest describes exactly the current release
  * assets and that every manifest entry uses the flattened public name. This
  * catches stale manifests, nested-path manifests, and payload tampering before
- * the draft release or R2 mirror is published.
+ * the draft release is published.
  */
-export async function verifyReleaseChecksums(root = DEFAULT_RELEASE_ROOT) {
+export async function verifyReleaseChecksums(root = DEFAULT_RELEASE_ROOT, requirements = {}) {
   const resolvedRoot = path.resolve(root);
   const checksumPath = path.join(resolvedRoot, RELEASE_CHECKSUMS_FILENAME);
   const checksumText = await readFile(checksumPath, 'utf8');
   const assets = await collectReleaseAssets(resolvedRoot, { includeChecksums: false });
-  const assetByName = new Map(assets.map((asset) => [asset.name, asset]));
+  assertRequiredReleaseAssets(assets, requirements);
+  const assetByName = new Map(assets.map(asset => [asset.name, asset]));
   const manifestNames = new Set();
 
   for (const line of checksumText.split('\n')) {
@@ -186,6 +239,9 @@ export async function verifyReleaseChecksums(root = DEFAULT_RELEASE_ROOT) {
       throw new Error(
         `Checksum manifest references ${name}, but release uploads flatten assets by basename. Regenerate ${RELEASE_CHECKSUMS_FILENAME} from the collected release assets.`
       );
+    }
+    if (manifestNames.has(name)) {
+      throw new Error(`Checksum manifest contains duplicate entry: ${name}`);
     }
     manifestNames.add(name);
 
@@ -204,11 +260,12 @@ export async function verifyReleaseChecksums(root = DEFAULT_RELEASE_ROOT) {
   return { checksumPath, assets };
 }
 
-export async function collectReleasePayload(root = DEFAULT_RELEASE_ROOT) {
+export async function collectReleasePayload(root = DEFAULT_RELEASE_ROOT, requirements = {}) {
   const assets = await collectReleaseAssets(root, { includeChecksums: true });
   if (assets.length === 0) {
     throw new Error(`No release assets found under ${path.resolve(root)}`);
   }
+  assertRequiredReleaseAssets(assets, requirements);
   return assets;
 }
 
@@ -216,7 +273,7 @@ export function renderReleaseAssetSummary(assets) {
   return [
     '### Release assets',
     '',
-    ...assets.map((asset) => `- \`${asset.relativePath}\` -> \`${asset.name}\``),
+    ...assets.map(asset => `- \`${asset.relativePath}\` -> \`${asset.name}\``),
     '',
   ].join('\n');
 }
@@ -230,6 +287,7 @@ function parseArgs(argv) {
     json: false,
     githubOutput: null,
     summary: null,
+    requiredManifestNames: [],
     help: false,
   };
 
@@ -253,6 +311,9 @@ function parseArgs(argv) {
     } else if (flag === '--summary' && next) {
       args.summary = next;
       index += 1;
+    } else if (flag === '--require-manifest' && next) {
+      args.requiredManifestNames.push(next);
+      index += 1;
     } else if (flag === '--help' || flag === '-h') {
       args.help = true;
     } else {
@@ -273,6 +334,7 @@ Options:
   --print-assets        Print release asset paths, one per line
   --github-output <p>   Write a multiline "assets" output for GitHub Actions
   --summary <p>         Append a release asset summary to a markdown file
+  --require-manifest <n>  Require an enabled platform's public updater manifest
   --json                Print release payload metadata as JSON
 `);
 }
@@ -280,7 +342,7 @@ Options:
 async function writeGithubOutput(outputPath, assets) {
   const lines = [
     'assets<<__LINGUA_RELEASE_ASSETS__',
-    ...assets.map((asset) => asset.path),
+    ...assets.map(asset => asset.path),
     '__LINGUA_RELEASE_ASSETS__',
   ];
   await writeFile(outputPath, `${lines.join('\n')}\n`, { flag: 'a' });
@@ -294,8 +356,9 @@ async function main() {
   }
 
   const quiet = args.printAssets || args.json;
+  const requirements = { requiredManifestNames: args.requiredManifestNames };
   if (args.writeChecksums) {
-    const result = await writeReleaseChecksums(args.root);
+    const result = await writeReleaseChecksums(args.root, requirements);
     if (!quiet) {
       console.log(
         `Wrote ${path.relative(process.cwd(), result.checksumPath)} for ${result.assets.length} release asset(s).`
@@ -304,7 +367,7 @@ async function main() {
   }
 
   if (args.verifyChecksums) {
-    const result = await verifyReleaseChecksums(args.root);
+    const result = await verifyReleaseChecksums(args.root, requirements);
     if (!quiet) {
       console.log(
         `Verified ${path.relative(process.cwd(), result.checksumPath)} against ${result.assets.length} release asset(s).`
@@ -312,7 +375,7 @@ async function main() {
     }
   }
 
-  const assets = await collectReleasePayload(args.root);
+  const assets = await collectReleasePayload(args.root, requirements);
 
   if (args.githubOutput) {
     await writeGithubOutput(args.githubOutput, assets);
@@ -321,7 +384,7 @@ async function main() {
     await writeFile(args.summary, renderReleaseAssetSummary(assets), { flag: 'a' });
   }
   if (args.printAssets) {
-    console.log(assets.map((asset) => asset.path).join('\n'));
+    console.log(assets.map(asset => asset.path).join('\n'));
   }
   if (args.json) {
     console.log(JSON.stringify({ assets }, null, 2));
@@ -329,7 +392,7 @@ async function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
-  main().catch((error) => {
+  main().catch(error => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   });
