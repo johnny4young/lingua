@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+
+PackageIdentifier: Johnny4young.Lingua
+PackageVersion: 0.14.0
+PackageLocale: en-US
+Publisher: johnny4young
+PublisherUrl: https://linguacode.dev/
+PublisherSupportUrl: https://github.com/johnny4young/lingua/issues
+PackageName: Lingua
+PackageUrl: https://linguacode.dev/
+License: Proprietary
+LicenseUrl: https://github.com/johnny4young/lingua/blob/main/LICENSE
+Copyright: Copyright (c) Lingua contributors
+ShortDescription: Multi-language code runner for your desktop
+Description: |-
+  Lingua runs JavaScript, TypeScript, Python, Go, and Rust in one Monaco
+  window. It is desktop-first and local-first: Python ships offline via
+  Pyodide, telemetry is off by default, and the optional AI assistance uses
+  your own endpoint and shows the exact payload before sending anything.
+  Also includes SQL and HTTP workspaces plus 31 developer utilities.
+Moniker: lingua
+Tags:
+  - code-runner
+  - developer-tools
+  - javascript
+  - playground
+  - python
+  - scratchpad
+  - typescript
+ReleaseNotesUrl: https://github.com/johnny4young/lingua/releases/tag/v0.14.0
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0
