@@ -17,6 +17,8 @@ if (!publicKeyJwk || !token) {
   );
 }
 
+const isCi = process.env.CI === 'true' || process.env.CI === '1';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -26,9 +28,16 @@ export default defineConfig({
   // global cap that compounded with worker contention — every hung
   // test pinned a worker for 90s. 60s halves that compounding cost
   // without false-positive timeouts on healthy tests.
-  timeout: 60_000,
+  // These are tuned on a 14-core dev host. A GitHub runner has 2-4, and the
+  // suite measurably runs ~8x slower there (1.6 min locally vs 12.6 min on
+  // CI), so the same numbers are proportionally far tighter — tight enough
+  // that a different timing-sensitive test failed on each of the first two CI
+  // runs while all 299 passed locally. Neither assertion measures latency, so
+  // scaling the ceilings on CI keeps what they check and drops the coin flip.
+  // A hung test still surfaces; it just takes longer to say so.
+  timeout: isCi ? 120_000 : 60_000,
   expect: {
-    timeout: 10_000,
+    timeout: isCi ? 30_000 : 10_000,
   },
   // 50% of host CPUs (= 7 workers on a 14-core host) matches the
   // previous Playwright default. Raising this past 50% caused CPU
