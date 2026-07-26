@@ -54,6 +54,7 @@ supersedes the old one instead of rewriting historical rationale.
 ## Operator runbooks
 
 - [`runbooks/desktop-update-draft-validation.md`](./runbooks/desktop-update-draft-validation.md)
+- [`runbooks/distribution-channels.md`](./runbooks/distribution-channels.md) — Homebrew tap and winget manifests, and the gates blocking each central registry.
 - [`runbooks/electron-stagewright-desktop-validation.md`](./runbooks/electron-stagewright-desktop-validation.md)
 - [`runbooks/github-degraded.md`](./runbooks/github-degraded.md)
 - [`runbooks/license-recovery.md`](./runbooks/license-recovery.md)
