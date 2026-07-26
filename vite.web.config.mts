@@ -176,6 +176,21 @@ export default defineConfig(({ command }) => {
       chunkSizeWarningLimit: 8000,
       rollupOptions: {
         output: {
+          // Vite's dynamic-import preload helper is a ~1 KB shared module that
+          // every chunk performing a dynamic import needs, the entry included.
+          // Left to automatic placement rolldown parks it inside whichever
+          // chunk is convenient — in practice the 3.7 MB monaco chunk — which
+          // turns the entry's need for a one-kilobyte helper into a static
+          // edge onto the whole editor, dragging Monaco into the initial
+          // graph for visitors who never open one. Pinning it to its own
+          // chunk is what keeps Monaco lazy.
+          //
+          // This has to be `advancedChunks` rather than a `manualChunks`
+          // branch: the helper's module id is the virtual `\0vite/preload-helper.js`,
+          // which Vite's rollup-compat `manualChunks` layer never consults.
+          advancedChunks: {
+            groups: [{ name: 'vite-preload', test: /preload-helper/, priority: 100 }],
+          },
           manualChunks: id => {
             if (id.includes('monaco-editor') || id.includes('@monaco-editor')) {
               return 'monaco';

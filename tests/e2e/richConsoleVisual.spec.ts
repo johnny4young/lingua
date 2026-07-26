@@ -14,7 +14,7 @@ import { expect, seedSession, test } from './licenseWeb.helpers';
 import {
   RICH_CONSOLE_SCREENSHOT_CASES,
   writeRichConsoleScreenshotGallery,
-} from './richConsoleimplementation';
+} from './richConsoleGallery';
 
 type ConsoleEntrySeed = Omit<ConsoleEntry, 'id' | 'timestamp'>;
 
