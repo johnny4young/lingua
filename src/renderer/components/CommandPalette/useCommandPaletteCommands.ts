@@ -37,6 +37,7 @@ import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { renderLanguageScorecardMarkdown } from '../../../shared/languageSupport';
 import { markLanguageScorecardSurfaceForNextMount } from '../Settings/languageSupportScorecardTelemetry';
 import { markPrivacyDashboardSurfaceForNextMount } from '../Settings/privacyTrustTelemetry';
+import { requestSettingsTab } from '../Settings/pendingSettingsTab';
 import { emitCommand } from '../../stores/commandBus';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
@@ -555,31 +556,12 @@ export function useCommandPaletteCommands({
       //   1. Claim the next scorecard mount as `surface: 'palette'`
       //      via the module-level helper so the IntersectionObserver
       //      fires exactly one telemetry event with the right tag.
-      //   2. Open the Settings overlay (the model wrapper has already
-      //      called `onClose()` first, so this overlay state wins).
-      //   3. Emit settings.navigate so SettingsModal
-      //      jumps to the Languages tab before the scroll target is
-      //      queried. The command listener lives in SettingsModal so
-      //      we never grow a global "active settings tab" store.
+      //   2. Seed the lazy Settings mount with the Languages tab (the
+      //      model wrapper has already called `onClose()` first).
+      //   3. Let LanguageSupportScorecard own its post-mount scroll.
       onShowLanguageSupport: () => {
         markLanguageScorecardSurfaceForNextMount('palette');
-        onOpenSettings();
-        // Two `requestAnimationFrame` ticks: the first lets
-        // SettingsModal mount and register its
-        // settings.navigate listener; the second lets
-        // `LanguagesSection` mount the scorecard after the tab
-        // change before we try to scroll it into view. A synchronous
-        // dispatch right after `onOpenSettings()` would race the
-        // mount and be lost.
-        window.requestAnimationFrame(() => {
-          emitCommand('settings.navigate', { tab: 'languages' });
-          window.requestAnimationFrame(() => {
-            const node = document.querySelector('[data-testid="language-support-scorecard"]');
-            if (node) {
-              node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          });
-        });
+        requestSettingsTab('languages', onOpenSettings);
       },
       // implementation Phase A1 implementation note — emit the share trigger command;
       // the always-mounted `<ShareLinkController>` picks it up and
@@ -607,17 +589,11 @@ export function useCommandPaletteCommands({
         useSettingsStore.getState().resetOnboardingFirstSnippet();
       },
       // implementation note — open Settings on the Privacy tab.
-      // Mirrors the `onShowLanguageSupport` choreography from internal:
-      // claim the next PrivacyTrustSection mount as `surface:
-      // 'palette'`, open Settings overlay, then emit the navigate
-      // command on the next animation frame so SettingsModal's listener
-      // has mounted before we fire.
+      // Mirrors `onShowLanguageSupport`: claim the next telemetry surface,
+      // then seed the lazy Settings mount without racing a frame timer.
       onShowPrivacyDashboard: () => {
         markPrivacyDashboardSurfaceForNextMount('palette');
-        onOpenSettings();
-        window.requestAnimationFrame(() => {
-          emitCommand('settings.navigate', { tab: 'privacy' });
-        });
+        requestSettingsTab('privacy', onOpenSettings);
       },
       // implementation Slice A implementation note — open the bottom-panel Dependencies
       // tab. Same overlay-survival pattern as the language /

@@ -17,6 +17,7 @@ import {
   expectTier,
   expectNoticeContains,
   gotoApp,
+  openCommandPalette,
   openSettings,
   openSettingsTab,
   seedSession,
@@ -72,6 +73,30 @@ test.describe('Settings — structural tour', () => {
     await expect(
       page.getByRole('heading', { name: 'Privacy + Trust', exact: true })
     ).toBeVisible();
+  });
+
+  test('command-palette deep links survive the lazy Settings boundary', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+
+    await openCommandPalette(page);
+    const palette = page.getByRole('combobox', { name: 'Command Palette' });
+    await palette.fill('Show language support');
+    await page.getByRole('option', { name: /Show language support/i }).click();
+    await expect(page.getByTestId('settings-tab-languages')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    await expect(page.getByTestId('language-support-scorecard')).toBeVisible();
+
+    await closeSettings(page);
+    await openCommandPalette(page);
+    await page
+      .getByRole('combobox', { name: 'Command Palette' })
+      .fill('Show Privacy + Trust dashboard');
+    await page.getByRole('option', { name: /Show Privacy \+ Trust dashboard/i }).click();
+    await expect(page.getByTestId('settings-tab-privacy')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('heading', { name: 'Privacy + Trust', exact: true })).toBeVisible();
   });
 });
 

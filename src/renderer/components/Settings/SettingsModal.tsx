@@ -395,9 +395,10 @@ export function SettingsModal({
 
   // implementation detail — siblings request a typed tab jump after opening
   // Settings, while SettingsModal remains the sole owner of activeTab.
-  useCommandListener('settings.navigate', ({ tab }) => {
+  useCommandListener('settings.navigate', ({ tab }, context) => {
     if (RAIL_ITEMS.some(it => it.id === tab)) {
       setActiveTab(tab);
+      context.markHandled();
     }
   });
 

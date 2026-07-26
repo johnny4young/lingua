@@ -1,8 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { SettingsModal } from '../../src/renderer/components/Settings/SettingsModal';
+import { clearPendingSettingsTab } from '../../src/renderer/components/Settings/pendingSettingsTab';
 import { initI18n } from '../../src/renderer/i18n';
+import { _resetCommandBusForTesting, emitCommand } from '../../src/renderer/stores/commandBus';
 import { usePluginStore } from '../../src/renderer/stores/pluginStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUpdateStore } from '../../src/renderer/stores/updateStore';
@@ -16,6 +18,8 @@ describe('SettingsModal', () => {
     usePluginStore.setState(initialPluginState, true);
     useUpdateStore.setState(initialUpdateState, true);
     useSettingsStore.setState(initialSettingsState, true);
+    clearPendingSettingsTab();
+    _resetCommandBusForTesting();
     initI18n('en');
     await i18next.changeLanguage('es');
     window.lingua = {
@@ -153,6 +157,25 @@ describe('SettingsModal', () => {
     expect(screen.getByText('Vista previa de redacción')).toBeTruthy();
     expect(screen.getByText('Run Ledger (historial local de ejecuciones)')).toBeTruthy();
   }, 10000);
+
+  it('acknowledges live tab navigation so callers do not seed the next open', async () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+    await screen.findByText('MIT');
+
+    let result: ReturnType<typeof emitCommand> | undefined;
+    act(() => {
+      result = emitCommand('settings.navigate', { tab: 'account' });
+    });
+
+    expect(result?.handled).toBe(true);
+    expect(screen.getByTestId('settings-tab-account').getAttribute('aria-selected')).toBe('true');
+  });
 
   it('preserves rail filter dimming and keyboard focus navigation', () => {
     render(

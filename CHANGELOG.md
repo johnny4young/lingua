@@ -13,7 +13,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **The browser build no longer downloads the code editor, the overlays, or the changelog before they are needed:** the initial payload drops from 1.72 MB to 0.48 MB gzipped (1.77 MB raw, down from 6.76 MB). Monaco is fetched when an editor actually mounts, and Settings, the command palette, capsule browsing, the importers and the release notes each load the first time you open them. A visitor who lands on the start screen and never opens a file pays for none of it.
 
 ### Fixed
-- **"See what Pro includes" opens the licence section again:** the upsell CTA opened Settings and then asked for the Account tab two animation frames later, which stopped working when Settings moved behind a lazy boundary — the request arrived before the panel existed and users landed on General instead. The tab is now handed over before the panel opens, so there is nothing to race.
+- **Settings deep links open the section they promise again:** the Pro upsell, license badge, and command-palette links used frame delays to navigate after opening Settings, which stopped being reliable when the modal moved behind a lazy boundary. They now hand the target tab to the next mount or navigate an already-open modal synchronously, without leaving a stale tab for the following open.
 
 ## [0.14.0] — 2026-07-23
 

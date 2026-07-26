@@ -119,6 +119,14 @@ export function LanguageSupportScorecard({
     clearLanguageScorecardSurfaceClaim();
   }, []);
 
+  // The palette deep link promises the scorecard itself, not just its tab.
+  // Scroll only after this owner has committed; a timer in the palette races
+  // both the lazy Settings chunk and this tab's mount.
+  useEffect(() => {
+    if (surface !== 'palette') return;
+    containerRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [surface]);
+
   // implementation note — fire `language_scorecard_viewed` once per session per
   // surface when the scorecard enters the viewport. Falls back to
   // an immediate fire when IntersectionObserver is unavailable

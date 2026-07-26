@@ -139,9 +139,8 @@ describe('AppChrome', () => {
     await user.click(screen.getByTestId('license-badge'));
 
     expect(onOpenSettings).toHaveBeenCalledOnce();
-    // This mounts the real SettingsModal after the badge click. The deferred
-    // navigate command must wait long enough for SettingsModal to register its
-    // listener; otherwise the click opens Settings but leaves users on General.
+    // This mounts the real SettingsModal after the badge click. The pending
+    // handoff must seed Account before the lazy modal registers its listener.
     await waitFor(() => {
       expect(screen.getByTestId('settings-tab-account').getAttribute('aria-selected')).toBe('true');
     });

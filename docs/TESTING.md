@@ -85,6 +85,11 @@ pnpm run build:web
 pnpm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4173
 ```
 
+Pull requests run the full `pnpm run test:e2e:web` suite in a dedicated
+`web-e2e` job after the baseline Linux gates pass. The job restores the
+Playwright browser cache, uploads the HTML report and `test-results` on
+failure, and uses CI-only timeout scaling so local feedback stays fast.
+
 ### Electron Base
 
 For interactive desktop debugging, use the managed desktop launcher:
@@ -119,11 +124,12 @@ Desktop baseline must guarantee:
 
 Windows PRs also run the narrow `windows-path-hardening` CI job. Besides the
 filesystem permission regression, it executes the real
-`cmd.exe /d /c npm.cmd` dependency-install boundary against a closed local
-registry. The expected result is npm's normal non-zero exit; `ENOENT`, `EINVAL`,
-`binary-missing`, or a command-not-recognized diagnostic means the platform
-launcher regressed before npm started. The guard also requires npm's own error
-signature so a successful `cmd.exe` process cannot hide a missing `npm.cmd`.
+`cmd.exe /d /c npm.cmd` dependency-install boundary against a deterministic
+loopback registry that returns registry-shaped JSON 404 responses. The expected
+result is npm's normal non-zero exit; `ENOENT`, `EINVAL`, `binary-missing`, or a
+command-not-recognized diagnostic means the platform launcher regressed before
+npm started. The guard also requires npm's own error signature so a successful
+`cmd.exe` process cannot hide a missing `npm.cmd`.
 
 ## Fixtures
 

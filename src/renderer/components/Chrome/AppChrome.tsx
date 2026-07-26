@@ -5,7 +5,7 @@ import { useActiveTab } from '../../hooks/useActiveTab';
 import { useUpdateStore } from '../../stores/updateStore';
 import { LicenseBadge } from '../Toolbar/LicenseBadge';
 import { cn } from '../../utils/cn';
-import { emitCommand } from '../../stores/commandBus';
+import { requestSettingsTab } from '../Settings/pendingSettingsTab';
 
 interface AppChromeProps {
   onOpenSettings?: () => void;
@@ -27,18 +27,11 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
   const filename = activeTab?.name ?? t('chrome.filename.untitled');
   const isDirty = activeTab?.isDirty === true;
 
-  // accessibility pass — the license badge opens Settings AND lands on the
-  // Account/License tab (it used to dump the user on General). Two rAFs let
-  // SettingsModal mount, paint, and run the effect that registers its
-  // command listener before the request fires; emitting earlier can
-  // race the mount and be lost.
+  // accessibility pass — route through the same lazy-safe handoff as upsell
+  // CTAs. A live Settings modal handles the command synchronously; a closed
+  // one receives the Account tab as initial state after its chunk loads.
   const handleOpenLicenseSettings = useCallback(() => {
-    onOpenSettings?.();
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        emitCommand('settings.navigate', { tab: 'account' });
-      });
-    });
+    requestSettingsTab('account', onOpenSettings);
   }, [onOpenSettings]);
 
   return (
