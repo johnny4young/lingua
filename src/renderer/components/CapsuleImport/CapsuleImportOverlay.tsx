@@ -40,6 +40,7 @@ import {
   createBlankHttpRequest,
   parseHttpRequest,
 } from '../../../shared/httpWorkspace';
+import type { CapsuleImportRejectReason } from '../../utils/importCapsule';
 import { cn } from '../../utils/cn';
 import { formatNumber } from '../../i18n/formatNumber';
 import { ModalShell } from '../ui/ModalShell';
@@ -468,7 +469,7 @@ function RejectBanner({
   detail,
   byteLength,
 }: {
-  reason: 'empty' | 'malformed-json' | 'wrong-version' | 'oversized' | 'invalid-shape';
+  reason: CapsuleImportRejectReason;
   detail?: string;
   byteLength: number;
 }) {
@@ -496,13 +497,13 @@ function RejectBanner({
   );
 }
 
-const REJECT_MESSAGE_KEYS: Record<
-  'empty' | 'malformed-json' | 'wrong-version' | 'oversized' | 'invalid-shape',
-  string
-> = {
+// Keyed by the exported union so a new reject reason is a compile error
+// here instead of a silently missing message at runtime.
+const REJECT_MESSAGE_KEYS: Record<CapsuleImportRejectReason, string> = {
   empty: 'capsuleImport.reject.empty',
   'malformed-json': 'capsuleImport.reject.malformedJson',
   'wrong-version': 'capsuleImport.reject.wrongVersion',
+  'app-too-old': 'capsuleImport.reject.appTooOld',
   oversized: 'capsuleImport.reject.oversized',
   'invalid-shape': 'capsuleImport.reject.invalidShape',
 };

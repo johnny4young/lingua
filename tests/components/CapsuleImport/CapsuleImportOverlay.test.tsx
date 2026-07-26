@@ -120,6 +120,20 @@ describe('CapsuleImportOverlay', () => {
     expect(reject.getAttribute('data-reason')).toBe('malformed-json');
   });
 
+  it('tells the user to update the app when the capsule is from a newer Lingua', () => {
+    render(<CapsuleImportOverlay onClose={() => undefined} />);
+    const textarea = screen.getByTestId(
+      'capsule-import-paste-textarea'
+    ) as HTMLTextAreaElement;
+    fireEvent.change(textarea, {
+      target: { value: JSON.stringify({ ...FIXTURE_MINIMAL_JS, version: 2 }) },
+    });
+    const reject = screen.getByTestId('capsule-import-reject');
+    expect(reject.getAttribute('data-reason')).toBe('app-too-old');
+    // The banner must point at the app, not accuse the file of being broken.
+    expect(reject.textContent).toContain('newer version of Lingua');
+  });
+
   it('opens the source as a new tab on confirm + fires onClose', () => {
     const onClose = vi.fn();
     render(<CapsuleImportOverlay onClose={onClose} />);

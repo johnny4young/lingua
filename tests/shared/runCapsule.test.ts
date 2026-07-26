@@ -6,7 +6,7 @@
  *   2. Builder shape (defaults, overrides, hash determinism).
  *   3. Sanitiser redaction proof + omittedFields honesty.
  *   4. Sanitiser size cap (MAX_STREAM_BYTES truncation).
- *   5. Parser version gating (rejects version: 2).
+ *   5. Parser version gating (migration replay, newer-app rejection).
  *   6. Parser shape validation (each load-bearing field).
  *   7. Summary helper format stability.
  *   8. contentHash collision-resistance smoke (10k unique inputs).
@@ -18,8 +18,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  applyCapsuleMigrations,
   buildRunCapsule,
+  CAPSULE_MIGRATIONS,
   computeContentHash,
+  CURRENT_RUN_CAPSULE_VERSION,
   MAX_CAPSULE_BYTES,
   MAX_STREAM_BYTES,
   parseRunCapsule,
@@ -253,12 +256,147 @@ describe('sanitizeRunCapsule — stream truncation', () => {
 // ---------------------------------------------------------------------------
 
 describe('parseRunCapsule — version gating', () => {
-  it('rejects version: 2 with unsupported-version', () => {
-    const forged = JSON.stringify({ ...FIXTURE_MINIMAL_JS, version: 2 });
-    const parsed = parseRunCapsule(forged);
+  it('accepts the version this build writes', () => {
+    expect(CURRENT_RUN_CAPSULE_VERSION).toBe(1);
+    const parsed = parseRunCapsule(
+      JSON.stringify({ ...FIXTURE_MINIMAL_JS, version: CURRENT_RUN_CAPSULE_VERSION })
+    );
+    expect(parsed.ok).toBe(true);
+  });
+
+  it('tells a future capsule apart from a broken one', () => {
+    // Same rejection before this split, but the user-facing instruction
+    // differs: a v2 capsule means THIS app is behind, not that the file
+    // is corrupt. Released builds cannot be taught that later, which is
+    // why the taxonomy ships before a v2 exists.
+    const fromFuture = JSON.stringify({
+      ...FIXTURE_MINIMAL_JS,
+      version: CURRENT_RUN_CAPSULE_VERSION + 1,
+    });
+    const parsed = parseRunCapsule(fromFuture);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.reason).toBe('capsule-from-newer-app');
+      expect(parsed.detail).toBe(`version=${CURRENT_RUN_CAPSULE_VERSION + 1}`);
+    }
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['a string', '1'],
+    ['zero', 0],
+    ['fractional', 1.5],
+    ['negative', -1],
+  ])('rejects a %s version as unsupported, never as from-the-future', (_label, version) => {
+    const parsed = parseRunCapsule(JSON.stringify({ ...FIXTURE_MINIMAL_JS, version }));
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) {
       expect(parsed.reason).toBe('unsupported-version');
+    }
+  });
+
+  it('rejects an older capsule when no migration is registered for it', () => {
+    // Nothing registered today, so a hypothetical v0 has no path forward.
+    const parsed = parseRunCapsule(JSON.stringify({ ...FIXTURE_MINIMAL_JS, version: 0 }));
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.reason).toBe('unsupported-version');
+    }
+  });
+
+  // The parser's own loop is unreachable while CURRENT_RUN_CAPSULE_VERSION is
+  // 1 (a lower version is rejected by the integer guard first), so the chain
+  // is exercised through the function the parser delegates to. That is the
+  // real code path, with a synthetic target version standing in for the v2
+  // that does not exist yet.
+  describe('applyCapsuleMigrations', () => {
+    const base = { ...FIXTURE_MINIMAL_JS, version: 1 } as unknown as Record<string, unknown>;
+
+    it('replays every step in ascending order', () => {
+      const steps: number[] = [];
+      const result = applyCapsuleMigrations(base, 1, 3, {
+        1: raw => {
+          steps.push(1);
+          return { ...raw, version: 2, addedByV2: true };
+        },
+        2: raw => {
+          steps.push(2);
+          return { ...raw, version: 3 };
+        },
+      });
+      expect(steps).toEqual([1, 2]);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.version).toBe(3);
+        expect(result.value.addedByV2).toBe(true);
+        // The capsule's own fields survive the walk.
+        expect(result.value.capsuleId).toBe(FIXTURE_MINIMAL_JS.capsuleId);
+      }
+    });
+
+    it('is a no-op when the capsule is already current', () => {
+      const result = applyCapsuleMigrations(base, 1, 1, {});
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value).toBe(base);
+    });
+
+    it('reports a gap in the chain instead of skipping it', () => {
+      const result = applyCapsuleMigrations(base, 1, 3, {
+        1: raw => ({ ...raw, version: 2 }),
+        // no 2 -> 3
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.detail).toMatch(/no migration registered for version 2/);
+    });
+
+    it('rejects a step that returns something that is not an object', () => {
+      // Without this the downstream `key in candidate` checks throw a
+      // TypeError instead of producing a parse rejection.
+      for (const bad of [null, undefined, 'v2', 42, [1, 2]]) {
+        const result = applyCapsuleMigrations(base, 1, 2, {
+          1: () => bad as unknown as Record<string, unknown>,
+        });
+        expect(result.ok, `returning ${JSON.stringify(bad) ?? 'undefined'} must fail`).toBe(false);
+        if (!result.ok) expect(result.detail).toMatch(/did not return an object/);
+      }
+    });
+
+    it('rejects a step that forgets to bump the version', () => {
+      // The silent failure: the capsule validates and gets cast to
+      // RunCapsuleV1 while still carrying the old schema version.
+      const result = applyCapsuleMigrations(base, 1, 2, {
+        1: raw => ({ ...raw, addedByV2: true }),
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.detail).toMatch(/left version=1/);
+    });
+
+    it('rejects a step that skips ahead past its target version', () => {
+      const result = applyCapsuleMigrations(base, 1, 3, {
+        1: raw => ({ ...raw, version: 3 }),
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.detail).toMatch(/left version=3/);
+    });
+
+    it('turns a throwing step into a rejection, not a crash', () => {
+      const result = applyCapsuleMigrations(base, 1, 2, {
+        1: () => {
+          throw new Error('boom');
+        },
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.detail).toMatch(/threw: boom/);
+    });
+  });
+
+  it('keeps the migration registry consistent with the current version', () => {
+    // A v2 cut that forgets to register the v1 -> v2 step would silently
+    // orphan every capsule already in the wild. This is that alarm.
+    for (let from = 1; from < CURRENT_RUN_CAPSULE_VERSION; from += 1) {
+      expect(CAPSULE_MIGRATIONS[from], `missing migration for capsule version ${from}`).toBeTypeOf(
+        'function'
+      );
     }
   });
 
