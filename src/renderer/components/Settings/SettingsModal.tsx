@@ -42,6 +42,7 @@ import { cn } from '../../utils/cn';
 import { useCommandListener } from '../../hooks/useCommandListener';
 import { SettingsRail } from './SettingsRail';
 import { RAIL_ITEMS, matchesFilter, type TabId } from './settingsRailModel';
+import { takePendingSettingsTab } from './pendingSettingsTab';
 
 /**
  * internal Signal-Slate v2 — Settings modal with a left rail.
@@ -377,7 +378,12 @@ export function SettingsModal({
   onOpenKeyboardShortcuts,
 }: SettingsModalProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<TabId>('general');
+  // Seeded from the one-shot handoff, not from a command issued after open:
+  // this modal is lazy, so a caller that opens Settings and immediately emits
+  // `settings.navigate` is racing the chunk fetch and loses.
+  const [activeTab, setActiveTab] = useState<TabId>(
+    () => takePendingSettingsTab() ?? 'general'
+  );
   const [filter, setFilter] = useState('');
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
