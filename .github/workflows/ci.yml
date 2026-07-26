@@ -110,6 +110,61 @@ jobs:
         run: pnpm audit --audit-level high
         continue-on-error: true
 
+  web-e2e:
+    name: Web end-to-end (Playwright)
+    runs-on: ubuntu-latest
+    # The suite is ~300 tests. It finishes in ~1.5 min locally on 7 workers;
+    # a hosted runner has fewer, so the ceiling is generous rather than tuned.
+    timeout-minutes: 30
+    # PRs only, matching windows-path-hardening: this catches regressions at
+    # review time, and a direct push to main has already been through it.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # Pinned to the browser build the installed Playwright expects, and
+      # cached on that exact version — a stale cache would silently run the
+      # wrong Chromium. PLAYWRIGHT_BROWSERS_PATH=0 keeps the download inside
+      # node_modules, which is where the e2e runner looks for it.
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        id: playwright-cache
+        with:
+          path: node_modules/playwright-core/.local-browsers
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: '0'
+      # A cache hit restores the binaries but not the OS packages Chromium
+      # links against, so the deps step still has to run.
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      # The web build OOMs on the default heap; see docs/DEVELOPMENT.md.
+      - name: Web end-to-end suite
+        run: pnpm run test:e2e:web
+        env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
+          PLAYWRIGHT_BROWSERS_PATH: '0'
+      # Traces and screenshots are what make a red run diagnosable; without
+      # them a failure here is just a name and a line number.
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-web-e2e
+          path: output/playwright/
+          retention-days: 7
+
   windows-path-hardening:
     name: Windows platform hardening
     runs-on: windows-latest

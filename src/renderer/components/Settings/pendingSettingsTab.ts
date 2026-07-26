@@ -1,0 +1,47 @@
+/**
+ * One-shot handoff for the Settings tab a caller wants opened.
+ *
+ * Emitting `settings.navigate` right after opening Settings only works when
+ * `SettingsModal` is already mounted and listening. It is not: the modal sits
+ * behind a lazy boundary, so opening it schedules a chunk fetch and the
+ * listener registers whenever that resolves. A caller that opens Settings and
+ * immediately asks for a tab is racing the network, and the command lands
+ * before anything is subscribed — the modal then opens on its default tab and
+ * the CTA silently fails to keep its promise.
+ *
+ * This removes the race instead of widening it: the caller stashes the tab,
+ * the modal reads it as its initial state on mount, whenever that happens.
+ * One-shot (take clears it) so a tab requested once never re-selects itself
+ * the next time the user opens Settings from somewhere else.
+ *
+ * Mirrors `pendingCapsuleImport`, which solves the same handoff for the
+ * capsule-import overlay.
+ */
+
+import type { TabId } from './settingsRailModel';
+
+let pendingTab: TabId | null = null;
+
+/** Stash the tab the next Settings open should land on. */
+export function setPendingSettingsTab(tab: TabId): void {
+  pendingTab = tab;
+}
+
+/**
+ * Read the stashed tab WITHOUT consuming it.
+ *
+ * Deliberately split from clearing. The reader is a `useState` initializer,
+ * which runs during render — and a render can be thrown away, which is not
+ * hypothetical here: the modal is lazy, so its first render suspends on the
+ * chunk fetch and React discards it. A consuming read would hand the tab to
+ * that discarded attempt and leave the real mount with nothing, which is
+ * exactly the bug this module was written to fix, one layer down.
+ */
+export function peekPendingSettingsTab(): TabId | null {
+  return pendingTab;
+}
+
+/** Drop the stash. Call from an effect, once the read has actually stuck. */
+export function clearPendingSettingsTab(): void {
+  pendingTab = null;
+}

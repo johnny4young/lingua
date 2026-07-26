@@ -17,6 +17,11 @@ test.describe('internal offline status bar', () => {
     await expect(page.locator('.monaco-editor').first()).toBeVisible();
     await expect(page.getByTestId('status-bar-offline')).toHaveCount(0);
 
+    // Let the app finish fetching before pulling the plug. Anything still in
+    // flight when the network drops fails with ERR_INTERNET_DISCONNECTED and
+    // trips the zero-console-error fixture — a failure about test timing, not
+    // about the offline contract this test exists to check.
+    await page.waitForLoadState('networkidle');
     await context.setOffline(true);
     const offline = page.getByTestId('status-bar-offline');
     await expect(offline).toBeVisible();
@@ -42,6 +47,11 @@ test.describe('internal offline status bar', () => {
     await gotoApp(page);
     await expect(page.locator('.monaco-editor').first()).toBeVisible();
 
+    // Same as the English case, and this locale is why it matters: the
+    // Spanish catalog is a runtime `import()` (English ships in the initial
+    // bundle), so this test has one more request that has to land before the
+    // network can go away. It is the only one of the pair that failed on CI.
+    await page.waitForLoadState('networkidle');
     await context.setOffline(true);
     const offline = page.getByTestId('status-bar-offline');
     await expect(offline).toBeVisible();
