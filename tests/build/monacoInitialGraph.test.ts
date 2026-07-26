@@ -21,6 +21,10 @@
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+  createRendererViteAliases,
+  createWebViteAliases,
+} from '../../build/viteAliases.mts';
 
 const repoRoot = path.resolve(__dirname, '../..');
 
@@ -58,33 +62,27 @@ const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
 
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 
-/** Vite config that owns each surface's `resolve.alias` table. */
-const SURFACE_CONFIGS: Record<keyof typeof ENTRIES, string> = {
-  web: 'vite.web.config.mts',
-  renderer: 'vite.renderer.config.mts',
-};
-
 /**
- * Read a surface's aliases out of its Vite config rather than restating them
- * here. A hardcoded copy is the same defect this file exists to catch: it
- * drifts silently, and a walker that cannot follow an alias under-reports the
- * graph — which for a guard means passing when it should fail.
+ * Convert the canonical absolute Vite replacements into the repo-relative
+ * paths used by this graph walker.
  *
  * Order is preserved because Vite matches in declaration order, and the two
  * surfaces genuinely differ: web redirects `@/plugins/catalog` at
  * `src/web/plugin-catalog.ts` before the generic `@` -> `src/renderer`.
  */
-function readAliases(configFile: string): Array<[string, string]> {
-  const source = stripComments(readFileSync(path.join(repoRoot, configFile), 'utf8'));
-  const block = /alias:\s*\{([\s\S]*?)\}/.exec(source);
-  if (!block) return [];
-  const entries: Array<[string, string]> = [];
-  const entryRe = /['"]([^'"]+)['"]\s*:\s*path\.resolve\(\s*__dirname\s*,\s*['"]([^'"]+)['"]\s*\)/g;
-  for (const match of block[1]!.matchAll(entryRe)) {
-    entries.push([match[1]!, match[2]!.replace(/^\.\//, '')]);
-  }
-  return entries;
+function normalizeAliases(
+  aliases: Readonly<Record<string, string>>
+): Array<[string, string]> {
+  return Object.entries(aliases).map(([find, replacement]) => [
+    find,
+    path.relative(repoRoot, replacement).split(path.sep).join('/'),
+  ]);
 }
+
+const SURFACE_ALIASES: Record<keyof typeof ENTRIES, Array<[string, string]>> = {
+  web: normalizeAliases(createWebViteAliases(repoRoot)),
+  renderer: normalizeAliases(createRendererViteAliases(repoRoot)),
+};
 
 /** Rewrite an aliased specifier into a repo-relative path, or return null. */
 function applyAlias(specifier: string, aliases: Array<[string, string]>): string | null {
@@ -119,7 +117,7 @@ function resolveImport(
     if (existsSync(candidate) && !candidate.endsWith(path.sep)) {
       try {
         if (readFileSync(candidate).length >= 0) {
-          const rel = path.relative(repoRoot, candidate);
+          const rel = path.relative(repoRoot, candidate).split(path.sep).join('/');
           if (EXTENSIONS.some(ext => rel.endsWith(ext))) return rel;
         }
       } catch {
@@ -210,17 +208,32 @@ export function staticSpecifiers(source: string): string[] {
   const reExportRe = /^\s*export\s+(?!type\s)([^;]*?)from\s*['"]([^'"]+)['"]/gm;
 
   for (const match of withoutBlockComments.matchAll(importRe)) {
-    // `import { type A, b }` still imports a value; `import { type A }` does
-    // not, but treating it as one only ever makes this test stricter.
-    specifiers.push(match[2]!);
+    if (!namedBindingsAreTypeOnly(match[1]!)) specifiers.push(match[2]!);
   }
   for (const match of withoutBlockComments.matchAll(bareImportRe)) {
     specifiers.push(match[1]!);
   }
   for (const match of withoutBlockComments.matchAll(reExportRe)) {
-    specifiers.push(match[2]!);
+    if (!namedBindingsAreTypeOnly(match[1]!)) specifiers.push(match[2]!);
   }
   return specifiers;
+}
+
+/**
+ * `import { type A }` and `export { type A }` disappear from the runtime graph
+ * just like the clause-level `import type` / `export type` forms. Matching
+ * them as value edges makes the guard stricter only superficially: it can
+ * reject a bundle-safe type dependency that Vite never emits.
+ */
+function namedBindingsAreTypeOnly(clause: string): boolean {
+  const trimmed = clause.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
+  const bindings = trimmed
+    .slice(1, -1)
+    .split(',')
+    .map(binding => binding.trim())
+    .filter(Boolean);
+  return bindings.length > 0 && bindings.every(binding => /^type\b/.test(binding));
 }
 
 /**
@@ -285,10 +298,7 @@ function importChain(reachable: Map<string, string | null>, target: string): str
 describe('Monaco stays out of the initial graph', () => {
   for (const [surface, entry] of Object.entries(ENTRIES)) {
     it(`${surface}: no statically-reachable module imports the monaco barrel`, () => {
-      const aliases = readAliases(SURFACE_CONFIGS[surface as keyof typeof ENTRIES]);
-      // The alias table has to be non-empty, otherwise a config rewrite
-      // would silently shrink the graph this guard can see.
-      expect(aliases.length, `${surface}: no aliases parsed`).toBeGreaterThan(0);
+      const aliases = SURFACE_ALIASES[surface as keyof typeof ENTRIES];
       const reachable = staticallyReachable(entry, undefined, aliases);
       // Sanity: the walker actually walked. Without this a resolution bug
       // would make the real assertion below pass on an empty graph.
@@ -312,7 +322,7 @@ describe('Monaco stays out of the initial graph', () => {
       const reachable = staticallyReachable(
         entry,
         undefined,
-        readAliases(SURFACE_CONFIGS[surface as keyof typeof ENTRIES])
+        SURFACE_ALIASES[surface as keyof typeof ENTRIES]
       );
       const leaked = MUST_STAY_LAZY.filter(target => reachable.has(target.module));
       if (leaked.length > 0) {
@@ -344,7 +354,7 @@ describe('Monaco stays out of the initial graph', () => {
       staticallyReachable(
         entry,
         bareHits,
-        readAliases(SURFACE_CONFIGS[surface as keyof typeof ENTRIES])
+        SURFACE_ALIASES[surface as keyof typeof ENTRIES]
       );
       if (bareHits.size > 0) {
         throw new Error(
@@ -397,13 +407,31 @@ describe('Monaco stays out of the initial graph', () => {
       expect(staticSpecifiers("const m = await import('../monaco');\n")).toEqual([]);
     });
 
+    it('does not count named type-only imports or re-exports as runtime edges', () => {
+      expect(
+        staticSpecifiers(
+          "import { type A, type B as C } from './types';\n" +
+            "export { type D } from './other-types';\n"
+        )
+      ).toEqual([]);
+    });
+
+    it('keeps mixed named imports and re-exports in the runtime graph', () => {
+      expect(
+        staticSpecifiers(
+          "import { type A, value } from './mixed';\n" +
+            "export { type B, runtimeValue } from './other-mixed';\n"
+        )
+      ).toEqual(['./mixed', './other-mixed']);
+    });
+
     it('follows Vite aliases, per surface', () => {
       // The two surfaces resolve `@/plugins/catalog` differently: web
       // redirects it into src/web, renderer falls through to src/renderer.
       // A walker that ignored aliases stopped at the import and never saw
       // what lies beyond it.
-      const web = readAliases(SURFACE_CONFIGS.web);
-      const renderer = readAliases(SURFACE_CONFIGS.renderer);
+      const web = SURFACE_ALIASES.web;
+      const renderer = SURFACE_ALIASES.renderer;
       expect(resolveImport('src/renderer/stores/pluginStore.ts', '@/plugins/catalog', web)).toBe(
         'src/web/plugin-catalog.ts'
       );
@@ -435,4 +463,3 @@ describe('Monaco stays out of the initial graph', () => {
     }
   });
 });
-

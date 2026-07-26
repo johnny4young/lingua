@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
 import { copyRuntimeAssetsPlugin } from './build/copyRuntimeAssetsPlugin.mts';
+import { createRendererViteAliases } from './build/viteAliases.mts';
 
 // Seed VITE_LINGUA_APP_VERSION from package.json before Vite reads
 // process.env so the telemetry consumer and web update banner pick
@@ -55,9 +56,7 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src/renderer'),
-    },
+    alias: createRendererViteAliases(__dirname),
     // Keep a single React/i18n instance in the Electron renderer dev
     // server. Mirrors vite.web.config.mts — see the optimizeDeps note
     // below for why the include list matters.

@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
 import { copyRuntimeAssetsPlugin } from './build/copyRuntimeAssetsPlugin.mts';
+import { createWebViteAliases } from './build/viteAliases.mts';
 
 // Seed `VITE_LINGUA_APP_VERSION` from `package.json#version` BEFORE
 // Vite reads `process.env` for env-substitution. Lets the telemetry
@@ -137,10 +138,7 @@ export default defineConfig(({ command }) => {
     envDir: __dirname,
     publicDir: path.resolve(__dirname, 'public'),
     resolve: {
-      alias: {
-        '@/plugins/catalog': path.resolve(__dirname, './src/web/plugin-catalog.ts'),
-        '@': path.resolve(__dirname, './src/renderer'),
-      },
+      alias: createWebViteAliases(__dirname),
       dedupe: ['react', 'react-dom', 'i18next', 'react-i18next'],
     },
     optimizeDeps: {
