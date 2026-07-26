@@ -27,9 +27,21 @@ export function setPendingSettingsTab(tab: TabId): void {
   pendingTab = tab;
 }
 
-/** Return and clear the stashed tab, or null when none is pending. */
-export function takePendingSettingsTab(): TabId | null {
-  const tab = pendingTab;
+/**
+ * Read the stashed tab WITHOUT consuming it.
+ *
+ * Deliberately split from clearing. The reader is a `useState` initializer,
+ * which runs during render — and a render can be thrown away, which is not
+ * hypothetical here: the modal is lazy, so its first render suspends on the
+ * chunk fetch and React discards it. A consuming read would hand the tab to
+ * that discarded attempt and leave the real mount with nothing, which is
+ * exactly the bug this module was written to fix, one layer down.
+ */
+export function peekPendingSettingsTab(): TabId | null {
+  return pendingTab;
+}
+
+/** Drop the stash. Call from an effect, once the read has actually stuck. */
+export function clearPendingSettingsTab(): void {
   pendingTab = null;
-  return tab;
 }

@@ -11,36 +11,46 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  clearPendingSettingsTab,
+  peekPendingSettingsTab,
   setPendingSettingsTab,
-  takePendingSettingsTab,
 } from '../../../src/renderer/components/Settings/pendingSettingsTab';
 
 describe('pendingSettingsTab', () => {
   beforeEach(() => {
-    takePendingSettingsTab();
+    clearPendingSettingsTab();
   });
 
   it('returns null when nothing is pending', () => {
-    expect(takePendingSettingsTab()).toBeNull();
+    expect(peekPendingSettingsTab()).toBeNull();
   });
 
-  it('hands the stashed tab to the next reader', () => {
+  it('hands the stashed tab to the reader', () => {
     setPendingSettingsTab('account');
-    expect(takePendingSettingsTab()).toBe('account');
+    expect(peekPendingSettingsTab()).toBe('account');
   });
 
-  it('is one-shot, so a tab never re-selects itself on a later open', () => {
-    // The failure this prevents: the user opens Settings from the upsell,
-    // closes it, opens it again from the toolbar, and lands on Account again
-    // for no reason they can see.
+  it('does not consume on read', () => {
+    // The invariant that broke. The reader is a `useState` initializer, so it
+    // runs during render — and SettingsModal is lazy, so its first render
+    // suspends and is discarded. A consuming read spent the tab on that dead
+    // render and the real mount got nothing: Settings opened on General and
+    // the upsell CTA silently failed, on CI only, where the chunk fetch is
+    // slow enough to actually suspend.
     setPendingSettingsTab('account');
-    expect(takePendingSettingsTab()).toBe('account');
-    expect(takePendingSettingsTab()).toBeNull();
+    expect(peekPendingSettingsTab()).toBe('account');
+    expect(peekPendingSettingsTab()).toBe('account');
+  });
+
+  it('is one-shot once cleared, so a tab never re-selects itself later', () => {
+    setPendingSettingsTab('account');
+    clearPendingSettingsTab();
+    expect(peekPendingSettingsTab()).toBeNull();
   });
 
   it('keeps only the most recent request', () => {
     setPendingSettingsTab('account');
     setPendingSettingsTab('privacy');
-    expect(takePendingSettingsTab()).toBe('privacy');
+    expect(peekPendingSettingsTab()).toBe('privacy');
   });
 });
