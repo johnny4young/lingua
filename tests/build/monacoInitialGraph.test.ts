@@ -64,17 +64,83 @@ function resolveImport(fromFile: string, specifier: string): string | null {
 }
 
 /**
+ * Strip comments the way the parser would, tracking string literals so a `//`
+ * inside a quoted URL is not mistaken for one.
+ *
+ * A regex-only strip is not enough. The specifier patterns below are anchored
+ * at a line-start `import`, which correctly ignores a whole line that starts
+ * with `//` — but the lazy `[\s\S]*?` still scans forward for the first
+ * `from '...'`, so a comment *inside* a multi-line import statement leaks its
+ * text as if it were the real specifier:
+ *
+ *     import {
+ *       a,
+ *       // b from '../monaco'
+ *     } from './real';
+ *
+ * That capture is `../monaco`, and the guard would fail on a module nobody
+ * imports.
+ */
+export function stripComments(source: string): string {
+  let out = '';
+  let index = 0;
+  let quote: string | null = null;
+  while (index < source.length) {
+    const char = source[index]!;
+    const next = source[index + 1];
+    if (quote) {
+      if (char === '\\') {
+        out += char + (next ?? '');
+        index += 2;
+        continue;
+      }
+      if (char === quote) quote = null;
+      out += char;
+      index += 1;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === '`') {
+      quote = char;
+      out += char;
+      index += 1;
+      continue;
+    }
+    if (char === '/' && next === '/') {
+      while (index < source.length && source[index] !== '\n') index += 1;
+      continue; // the newline itself is copied by the next iteration
+    }
+    if (char === '/' && next === '*') {
+      index += 2;
+      while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
+        index += 1;
+      }
+      index += 2;
+      continue;
+    }
+    out += char;
+    index += 1;
+  }
+  return out;
+}
+
+/**
  * Static specifiers only. `import type` / `export type` are erased before the
  * bundler sees them, and `import(...)` is the lazy boundary we are trying to
  * preserve — counting either would make this test assert the opposite of what
  * it means to.
  */
-function staticSpecifiers(source: string): string[] {
-  const withoutBlockComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
+export function staticSpecifiers(source: string): string[] {
+  const withoutBlockComments = stripComments(source);
   const specifiers: string[] = [];
-  const importRe = /^\s*import\s+(?!type\s)([\s\S]*?)from\s*['"]([^'"]+)['"]/gm;
+  // `[^;]` rather than `[\s\S]`: the lazy scan must not cross a statement
+  // boundary. With `[\s\S]*?`, a side-effect import reaches past its own
+  // semicolon and captures the NEXT statement's specifier —
+  // `import './a';` followed by `import type { T } from './b';` yielded
+  // `./b`, an edge that does not exist. An import clause never contains a
+  // semicolon, so nothing legitimate is lost.
+  const importRe = /^\s*import\s+(?!type\s)([^;]*?)from\s*['"]([^'"]+)['"]/gm;
   const bareImportRe = /^\s*import\s*['"]([^'"]+)['"]/gm;
-  const reExportRe = /^\s*export\s+(?!type\s)([\s\S]*?)from\s*['"]([^'"]+)['"]/gm;
+  const reExportRe = /^\s*export\s+(?!type\s)([^;]*?)from\s*['"]([^'"]+)['"]/gm;
 
   for (const match of withoutBlockComments.matchAll(importRe)) {
     // `import { type A, b }` still imports a value; `import { type A }` does
@@ -148,16 +214,59 @@ describe('Monaco stays out of the initial graph', () => {
     });
   }
 
+  describe('the walker itself', () => {
+    it('ignores an import that is commented out on its own line', () => {
+      expect(
+        staticSpecifiers("// import { X } from '../monaco';\nimport { cn } from './cn';\n")
+      ).toEqual(['./cn']);
+    });
+
+    it('ignores a comment inside a multi-line import statement', () => {
+      // Regression: the lazy `[\s\S]*?` used to scan past this comment and
+      // capture `../monaco` as the specifier of the real import below it.
+      expect(
+        staticSpecifiers("import {\n  a,\n  // b from '../monaco'\n} from './real';\n")
+      ).toEqual(['./real']);
+    });
+
+    it('ignores a block comment wrapping an import', () => {
+      expect(
+        staticSpecifiers("/*\nimport { X } from '../monaco';\n*/\nimport { cn } from './cn';\n")
+      ).toEqual(['./cn']);
+    });
+
+    it('does not mistake a // inside a string for a comment', () => {
+      expect(staticSpecifiers("import { a } from 'https://example.com/x.js';\n")).toEqual([
+        'https://example.com/x.js',
+      ]);
+    });
+
+    it('still sees the imports it is supposed to see', () => {
+      expect(
+        staticSpecifiers(
+          "import './side-effect';\nimport type { T } from './types';\nexport { z } from './z';\n"
+        )
+      ).toEqual(['./side-effect', './z']);
+    });
+
+    it('does not count dynamic imports as static edges', () => {
+      expect(staticSpecifiers("const m = await import('../monaco');\n")).toEqual([]);
+    });
+  });
+
   it('both bundled configs pin the Vite preload helper to its own chunk', () => {
     // Without this group rolldown folds `\0vite/preload-helper.js` into the
     // monaco chunk, and the entry's need for a 1 KiB helper becomes a static
     // edge onto the whole editor. `manualChunks` cannot express it: the
     // rollup-compat layer never sees virtual module ids.
+    // Comments are stripped first, and the group has to match INSIDE the
+    // advancedChunks block in a single pattern. Two independent regexes would
+    // both pass on prose that merely mentions the two strings — which is the
+    // exact shape of the explanatory comment sitting above this config.
     for (const config of ['vite.web.config.mts', 'vite.renderer.config.mts']) {
-      const source = readFileSync(path.join(repoRoot, config), 'utf8');
-      expect(source, `${config} lost its advancedChunks block`).toMatch(/advancedChunks:\s*\{/);
-      expect(source, `${config} lost the preload-helper group`).toMatch(
-        /test:\s*\/preload-helper\//
+      const source = stripComments(readFileSync(path.join(repoRoot, config), 'utf8'));
+      expect(source, `${config} lost its advancedChunks preload-helper group`).toMatch(
+        /advancedChunks:\s*\{[^}]*groups:\s*\[[^\]]*test:\s*\/preload-helper\//
       );
     }
   });
