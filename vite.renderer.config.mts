@@ -87,6 +87,16 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
+        // Same defect, same fix as vite.web.config.mts: Vite's dynamic-import
+        // preload helper is a ~1 KB shared module every chunk with a dynamic
+        // import needs, the entry included. Rolldown otherwise parks it inside
+        // the monaco chunk, which turns that need into a static edge onto the
+        // whole editor and pins Monaco to the initial graph. The helper's id
+        // is the virtual `\0vite/preload-helper.js`, which the rollup-compat
+        // `manualChunks` layer below never sees, so it has to be a group here.
+        advancedChunks: {
+          groups: [{ name: 'vite-preload', test: /preload-helper/, priority: 100 }],
+        },
         manualChunks: (id) => {
           // Monaco editor and language workers — largest chunk, load separately
           if (id.includes('monaco-editor') || id.includes('@monaco-editor')) {

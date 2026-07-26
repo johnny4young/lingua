@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { loadNavigationBarItems } from '../monaco';
 import type { FileTab } from '../types';
 import {
   flattenNavigationItems,
@@ -22,6 +21,19 @@ export interface SymbolLoadResult {
  */
 async function resolveMonaco() {
   return import('monaco-editor/esm/vs/editor/editor.api.js');
+}
+
+/**
+ * Same reason, second module: `../monaco` pulls the editor API, the five
+ * `?worker` bundles and `@monaco-editor/react` with it. This hook is reached
+ * from `<AppOverlays>` — which App renders unconditionally — so a top-level
+ * import here parks the whole Monaco chunk in the initial graph even for a
+ * visitor who never opens Go to Symbol. Keeping it dynamic is what makes the
+ * comment above true rather than aspirational.
+ */
+async function resolveNavigationBarItems() {
+  const { loadNavigationBarItems } = await import('../monaco');
+  return loadNavigationBarItems;
 }
 
 /**
@@ -101,6 +113,7 @@ export function useDocumentSymbols(
           return;
         }
 
+        const loadNavigationBarItems = await resolveNavigationBarItems();
         const items = (await loadNavigationBarItems(model)) as
           | NavigationBarItem[]
           | null;
