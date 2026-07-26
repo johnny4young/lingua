@@ -1,21 +1,6 @@
-import { CommandPalette } from './CommandPalette/CommandPalette';
-import { GoToSymbol } from './GoToSymbol/GoToSymbol';
-import { ProjectSearch } from './ProjectSearch/ProjectSearch';
-import { ProjectReplace } from './ProjectReplace/ProjectReplace';
-import { QuickOpen } from './QuickOpen/QuickOpen';
-import { KeyboardShortcutsModal } from './KeyboardShortcuts/KeyboardShortcutsModal';
-import { SnippetsModal } from './Snippets';
-import { ProjectTemplatesOverlay } from './Welcome/ProjectTemplatesOverlay';
-import { CapsuleImportOverlay } from './CapsuleImport';
-import { ProjectBundleImportOverlay } from './ProjectBundle/ProjectBundleImportOverlay';
-import { CapsuleListOverlay } from './CapsuleList';
+import { lazy, Suspense } from 'react';
 import { claimCapsuleListSurface } from './CapsuleList/capsuleListSurface';
-import { ImportPreviewOverlay } from './ImportPreview/ImportPreviewOverlay';
-import { RecipesOverlay } from './Recipes/RecipesOverlay';
-import { SettingsModal } from './Settings/SettingsModal';
-import { WhatsNewSection } from './Settings/WhatsNewSection';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
-import { CHANGELOG_ENTRIES } from '../data/changelog';
 import { type DeveloperUtilityId } from '../data/developerUtilities';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { exportActiveNotebookAsLinguanb } from '../runtime/exportActiveNotebook';
@@ -24,6 +9,63 @@ import { useEditorStore } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
 import type { AppOverlay } from '../hooks/useGlobalShortcuts';
+
+/**
+ * Every overlay is conditionally rendered, so none of them is needed to paint
+ * the app — yet importing them here statically put all of them, plus what they
+ * drag along (Settings sections, the 77 KiB changelog, the Postman importer),
+ * into the boot payload. `<AppOverlays>` is mounted unconditionally by `App`,
+ * which is what makes a static import here so expensive.
+ *
+ * `fallback={null}` matches `AppLayout`: an overlay the user just asked for
+ * appears a frame or two later instead of flashing a spinner over the
+ * workspace.
+ */
+const CommandPalette = lazy(async () => ({
+  default: (await import('./CommandPalette/CommandPalette')).CommandPalette,
+}));
+const GoToSymbol = lazy(async () => ({
+  default: (await import('./GoToSymbol/GoToSymbol')).GoToSymbol,
+}));
+const ProjectSearch = lazy(async () => ({
+  default: (await import('./ProjectSearch/ProjectSearch')).ProjectSearch,
+}));
+const ProjectReplace = lazy(async () => ({
+  default: (await import('./ProjectReplace/ProjectReplace')).ProjectReplace,
+}));
+const QuickOpen = lazy(async () => ({
+  default: (await import('./QuickOpen/QuickOpen')).QuickOpen,
+}));
+const KeyboardShortcutsModal = lazy(async () => ({
+  default: (await import('./KeyboardShortcuts/KeyboardShortcutsModal')).KeyboardShortcutsModal,
+}));
+const SnippetsModal = lazy(async () => ({
+  default: (await import('./Snippets')).SnippetsModal,
+}));
+const ProjectTemplatesOverlay = lazy(async () => ({
+  default: (await import('./Welcome/ProjectTemplatesOverlay')).ProjectTemplatesOverlay,
+}));
+const CapsuleImportOverlay = lazy(async () => ({
+  default: (await import('./CapsuleImport')).CapsuleImportOverlay,
+}));
+const ProjectBundleImportOverlay = lazy(async () => ({
+  default: (await import('./ProjectBundle/ProjectBundleImportOverlay')).ProjectBundleImportOverlay,
+}));
+const CapsuleListOverlay = lazy(async () => ({
+  default: (await import('./CapsuleList')).CapsuleListOverlay,
+}));
+const ImportPreviewOverlay = lazy(async () => ({
+  default: (await import('./ImportPreview/ImportPreviewOverlay')).ImportPreviewOverlay,
+}));
+const RecipesOverlay = lazy(async () => ({
+  default: (await import('./Recipes/RecipesOverlay')).RecipesOverlay,
+}));
+const SettingsModal = lazy(async () => ({
+  default: (await import('./Settings/SettingsModal')).SettingsModal,
+}));
+const WhatsNewOverlay = lazy(async () => ({
+  default: (await import('./Settings/WhatsNewOverlay')).WhatsNewOverlay,
+}));
 
 /**
  * implementation — Recipes overlay mount. Visibility flag lives on
@@ -69,7 +111,7 @@ export function AppOverlays({
   exportProjectBundle,
 }: AppOverlaysProps) {
   return (
-    <>
+    <Suspense fallback={null}>
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
       {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
       {overlay === 'replace' && <ProjectReplace onClose={closeOverlay} />}
@@ -150,11 +192,9 @@ export function AppOverlays({
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
         />
       )}
-      {overlay === 'whats-new' && (
-        <WhatsNewSection entries={CHANGELOG_ENTRIES} onClose={closeOverlay} />
-      )}
+      {overlay === 'whats-new' && <WhatsNewOverlay onClose={closeOverlay} />}
       {overlay === 'snippets' && <SnippetsModal onClose={closeOverlay} />}
       {overlay === 'keyboard-shortcuts' && <KeyboardShortcutsModal onClose={closeOverlay} />}
-    </>
+    </Suspense>
   );
 }

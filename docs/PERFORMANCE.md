@@ -48,6 +48,26 @@ the report marks runtime observability as unavailable instead of
 failing; this keeps CI web builds readable while still surfacing the
 startup/runtime follow-up work in local release validation.
 
+## Initial graph and lazy overlay boundaries
+
+`App` mounts `AppOverlays` on every boot. A conditional render inside that
+component is therefore not a bundle boundary: any static import in
+`src/renderer/components/AppOverlays.tsx` belongs to the initial graph even
+when the matching overlay is never opened.
+
+Keep user-triggered overlays behind `React.lazy`. Data imported only by one
+overlay must cross the same boundary; for example, `WhatsNewOverlay` owns the
+release-copy import so `src/renderer/data/changelog.ts` is not downloaded until
+What's New opens. Do not move that import back into `AppOverlays`.
+
+`tests/build/monacoInitialGraph.test.ts` walks static imports from both shipped
+entries and fails with the import chain when Monaco, selected overlay-only
+modules, tokenizers, or language workers become boot-reachable. The walker and
+Vite consume the same ordered alias maps from `build/viteAliases.mts`; add or
+change renderer-facing aliases there rather than duplicating them per config.
+The bundle budget remains the second line of defense because it catches costs
+that a source-graph allowlist cannot predict.
+
 ## Lazy Monaco language registration
 
 Monaco language contributions register per active language through

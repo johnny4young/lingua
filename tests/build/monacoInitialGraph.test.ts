@@ -21,6 +21,10 @@
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+  createRendererViteAliases,
+  createWebViteAliases,
+} from '../../build/viteAliases.mts';
 
 const repoRoot = path.resolve(__dirname, '../..');
 
@@ -33,16 +37,77 @@ const ENTRIES = {
 /** The barrel that pulls monaco core, the five ?worker bundles and the React wrapper. */
 const MONACO_BARREL = 'src/renderer/monaco.ts';
 
+/**
+ * Modules that must stay on the far side of a lazy boundary, with the reason
+ * each one costs real bytes at boot. All of them are reached only through
+ * `<AppOverlays>`, which `App` mounts unconditionally — so a plain `import`
+ * there silently puts them in every visitor's first download.
+ */
+const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
+  { module: 'src/renderer/data/changelog.ts', why: '77 KiB of release copy' },
+  { module: 'src/renderer/components/Settings/SettingsModal.tsx', why: 'the whole Settings tree' },
+  {
+    module: 'src/renderer/components/CommandPalette/CommandPalette.tsx',
+    why: 'the 30 KiB palette model',
+  },
+  {
+    module: 'src/renderer/components/CapsuleList/CapsuleListOverlay.tsx',
+    why: 'capsule browsing + comparison',
+  },
+  {
+    module: 'src/renderer/components/ImportPreview/ImportPreviewOverlay.tsx',
+    why: 'the Postman/Bruno importers',
+  },
+];
+
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
+
+/**
+ * Convert the canonical absolute Vite replacements into the repo-relative
+ * paths used by this graph walker.
+ *
+ * Order is preserved because Vite matches in declaration order, and the two
+ * surfaces genuinely differ: web redirects `@/plugins/catalog` at
+ * `src/web/plugin-catalog.ts` before the generic `@` -> `src/renderer`.
+ */
+function normalizeAliases(
+  aliases: Readonly<Record<string, string>>
+): Array<[string, string]> {
+  return Object.entries(aliases).map(([find, replacement]) => [
+    find,
+    path.relative(repoRoot, replacement).split(path.sep).join('/'),
+  ]);
+}
+
+const SURFACE_ALIASES: Record<keyof typeof ENTRIES, Array<[string, string]>> = {
+  web: normalizeAliases(createWebViteAliases(repoRoot)),
+  renderer: normalizeAliases(createRendererViteAliases(repoRoot)),
+};
+
+/** Rewrite an aliased specifier into a repo-relative path, or return null. */
+function applyAlias(specifier: string, aliases: Array<[string, string]>): string | null {
+  for (const [from, to] of aliases) {
+    if (specifier === from) return to;
+    if (specifier.startsWith(`${from}/`)) return `${to}/${specifier.slice(from.length + 1)}`;
+  }
+  return null;
+}
 
 /**
  * Resolve a relative specifier the way the bundler does: exact file, then
  * extension probing, then `index.*`. Returns null for anything that is not a
  * repo-relative source file (bare package specifiers, css, assets).
  */
-function resolveImport(fromFile: string, specifier: string): string | null {
-  if (!specifier.startsWith('.')) return null;
-  const base = path.resolve(path.dirname(path.join(repoRoot, fromFile)), specifier);
+function resolveImport(
+  fromFile: string,
+  specifier: string,
+  aliases: Array<[string, string]> = []
+): string | null {
+  const aliased = specifier.startsWith('.') ? null : applyAlias(specifier, aliases);
+  if (!specifier.startsWith('.') && !aliased) return null;
+  const base = aliased
+    ? path.join(repoRoot, aliased)
+    : path.resolve(path.dirname(path.join(repoRoot, fromFile)), specifier);
   const candidates = [
     base,
     ...EXTENSIONS.map(ext => base + ext),
@@ -52,7 +117,7 @@ function resolveImport(fromFile: string, specifier: string): string | null {
     if (existsSync(candidate) && !candidate.endsWith(path.sep)) {
       try {
         if (readFileSync(candidate).length >= 0) {
-          const rel = path.relative(repoRoot, candidate);
+          const rel = path.relative(repoRoot, candidate).split(path.sep).join('/');
           if (EXTENSIONS.some(ext => rel.endsWith(ext))) return rel;
         }
       } catch {
@@ -143,25 +208,55 @@ export function staticSpecifiers(source: string): string[] {
   const reExportRe = /^\s*export\s+(?!type\s)([^;]*?)from\s*['"]([^'"]+)['"]/gm;
 
   for (const match of withoutBlockComments.matchAll(importRe)) {
-    // `import { type A, b }` still imports a value; `import { type A }` does
-    // not, but treating it as one only ever makes this test stricter.
-    specifiers.push(match[2]!);
+    if (!namedBindingsAreTypeOnly(match[1]!)) specifiers.push(match[2]!);
   }
   for (const match of withoutBlockComments.matchAll(bareImportRe)) {
     specifiers.push(match[1]!);
   }
   for (const match of withoutBlockComments.matchAll(reExportRe)) {
-    specifiers.push(match[2]!);
+    if (!namedBindingsAreTypeOnly(match[1]!)) specifiers.push(match[2]!);
   }
   return specifiers;
 }
+
+/**
+ * `import { type A }` and `export { type A }` disappear from the runtime graph
+ * just like the clause-level `import type` / `export type` forms. Matching
+ * them as value edges makes the guard stricter only superficially: it can
+ * reject a bundle-safe type dependency that Vite never emits.
+ */
+function namedBindingsAreTypeOnly(clause: string): boolean {
+  const trimmed = clause.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
+  const bindings = trimmed
+    .slice(1, -1)
+    .split(',')
+    .map(binding => binding.trim())
+    .filter(Boolean);
+  return bindings.length > 0 && bindings.every(binding => /^type\b/.test(binding));
+}
+
+/**
+ * Bare (package) specifiers that must never appear on a statically-reachable
+ * path. These are the on-demand halves of the editor: a syntax tokenizer or a
+ * language worker belongs to the language the user actually selected, not to
+ * everyone's first download.
+ */
+const FORBIDDEN_BARE_PREFIXES = [
+  'monaco-editor/esm/vs/basic-languages/',
+  'monaco-editor/esm/vs/language/',
+];
 
 /**
  * Every source file reachable from `entry` following static imports only.
  * Dynamic `import()` calls terminate a branch, which is exactly the lazy
  * boundary the bundler honours.
  */
-function staticallyReachable(entry: string): Map<string, string | null> {
+function staticallyReachable(
+  entry: string,
+  bareHits?: Map<string, string>,
+  aliases: Array<[string, string]> = []
+): Map<string, string | null> {
   const seen = new Map<string, string | null>(); // file -> importer
   const queue: Array<[string, string | null]> = [[entry, null]];
   while (queue.length > 0) {
@@ -175,7 +270,14 @@ function staticallyReachable(entry: string): Map<string, string | null> {
       continue;
     }
     for (const specifier of staticSpecifiers(source)) {
-      const resolved = resolveImport(file, specifier);
+      if (bareHits && !specifier.startsWith('.')) {
+        for (const prefix of FORBIDDEN_BARE_PREFIXES) {
+          if (specifier.startsWith(prefix) && !bareHits.has(specifier)) {
+            bareHits.set(specifier, file);
+          }
+        }
+      }
+      const resolved = resolveImport(file, specifier, aliases);
       if (resolved && !seen.has(resolved)) queue.push([resolved, file]);
     }
   }
@@ -196,7 +298,8 @@ function importChain(reachable: Map<string, string | null>, target: string): str
 describe('Monaco stays out of the initial graph', () => {
   for (const [surface, entry] of Object.entries(ENTRIES)) {
     it(`${surface}: no statically-reachable module imports the monaco barrel`, () => {
-      const reachable = staticallyReachable(entry);
+      const aliases = SURFACE_ALIASES[surface as keyof typeof ENTRIES];
+      const reachable = staticallyReachable(entry, undefined, aliases);
       // Sanity: the walker actually walked. Without this a resolution bug
       // would make the real assertion below pass on an empty graph.
       expect(reachable.size).toBeGreaterThan(50);
@@ -209,6 +312,57 @@ describe('Monaco stays out of the initial graph', () => {
             `dependency dynamic (await import('../monaco')) or move the ` +
             `consumer behind a lazy boundary.\n\nChain:\n  ` +
             importChain(reachable, MONACO_BARREL)
+        );
+      }
+    });
+  }
+
+  for (const [surface, entry] of Object.entries(ENTRIES)) {
+    it(`${surface}: overlay-only modules stay behind a lazy boundary`, () => {
+      const reachable = staticallyReachable(
+        entry,
+        undefined,
+        SURFACE_ALIASES[surface as keyof typeof ENTRIES]
+      );
+      const leaked = MUST_STAY_LAZY.filter(target => reachable.has(target.module));
+      if (leaked.length > 0) {
+        throw new Error(
+          leaked
+            .map(
+              target =>
+                `${target.module} (${target.why}) is statically reachable from ${entry}.\n` +
+                `Chain:\n  ${importChain(reachable, target.module)}`
+            )
+            .join('\n\n')
+        );
+      }
+    });
+  }
+
+  for (const [surface, entry] of Object.entries(ENTRIES)) {
+    it(`${surface}: syntax tokenizers and language workers load on demand`, () => {
+      // Verified in a production build: switching a tab to Python fetches the
+      // tokenizer, its three providers and the worker at that moment, and
+      // none of them ships at boot.
+      //
+      // Scope: this polices the BOOT path. `basicLanguageLoaders` itself sits
+      // behind the Monaco boundary and is not statically reachable, so a
+      // static import there costs nothing and is not what this catches. What
+      // it catches is a boot-path module — App, a store, a always-mounted
+      // component — reaching for a tokenizer or worker directly.
+      const bareHits = new Map<string, string>();
+      staticallyReachable(
+        entry,
+        bareHits,
+        SURFACE_ALIASES[surface as keyof typeof ENTRIES]
+      );
+      if (bareHits.size > 0) {
+        throw new Error(
+          [...bareHits]
+            .map(([specifier, importer]) => `${specifier}\n    imported by ${importer}`)
+            .join('\n') +
+            `\n\nThese must stay behind import() so a visitor only downloads the ` +
+            `syntax they selected.`
         );
       }
     });
@@ -251,6 +405,44 @@ describe('Monaco stays out of the initial graph', () => {
 
     it('does not count dynamic imports as static edges', () => {
       expect(staticSpecifiers("const m = await import('../monaco');\n")).toEqual([]);
+    });
+
+    it('does not count named type-only imports or re-exports as runtime edges', () => {
+      expect(
+        staticSpecifiers(
+          "import { type A, type B as C } from './types';\n" +
+            "export { type D } from './other-types';\n"
+        )
+      ).toEqual([]);
+    });
+
+    it('keeps mixed named imports and re-exports in the runtime graph', () => {
+      expect(
+        staticSpecifiers(
+          "import { type A, value } from './mixed';\n" +
+            "export { type B, runtimeValue } from './other-mixed';\n"
+        )
+      ).toEqual(['./mixed', './other-mixed']);
+    });
+
+    it('follows Vite aliases, per surface', () => {
+      // The two surfaces resolve `@/plugins/catalog` differently: web
+      // redirects it into src/web, renderer falls through to src/renderer.
+      // A walker that ignored aliases stopped at the import and never saw
+      // what lies beyond it.
+      const web = SURFACE_ALIASES.web;
+      const renderer = SURFACE_ALIASES.renderer;
+      expect(resolveImport('src/renderer/stores/pluginStore.ts', '@/plugins/catalog', web)).toBe(
+        'src/web/plugin-catalog.ts'
+      );
+      expect(
+        resolveImport('src/renderer/stores/pluginStore.ts', '@/plugins/catalog', renderer)
+      ).toBe('src/renderer/plugins/catalog.ts');
+      // A more specific alias must win over the generic prefix, which is the
+      // order Vite itself matches in.
+      expect(web[0]![0]).toBe('@/plugins/catalog');
+      // Bare package specifiers still resolve to nothing.
+      expect(resolveImport('src/renderer/App.tsx', 'react', web)).toBeNull();
     });
   });
 
