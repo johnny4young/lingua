@@ -58,14 +58,58 @@ const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
 
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 
+/** Vite config that owns each surface's `resolve.alias` table. */
+const SURFACE_CONFIGS: Record<keyof typeof ENTRIES, string> = {
+  web: 'vite.web.config.mts',
+  renderer: 'vite.renderer.config.mts',
+};
+
+/**
+ * Read a surface's aliases out of its Vite config rather than restating them
+ * here. A hardcoded copy is the same defect this file exists to catch: it
+ * drifts silently, and a walker that cannot follow an alias under-reports the
+ * graph — which for a guard means passing when it should fail.
+ *
+ * Order is preserved because Vite matches in declaration order, and the two
+ * surfaces genuinely differ: web redirects `@/plugins/catalog` at
+ * `src/web/plugin-catalog.ts` before the generic `@` -> `src/renderer`.
+ */
+function readAliases(configFile: string): Array<[string, string]> {
+  const source = stripComments(readFileSync(path.join(repoRoot, configFile), 'utf8'));
+  const block = /alias:\s*\{([\s\S]*?)\}/.exec(source);
+  if (!block) return [];
+  const entries: Array<[string, string]> = [];
+  const entryRe = /['"]([^'"]+)['"]\s*:\s*path\.resolve\(\s*__dirname\s*,\s*['"]([^'"]+)['"]\s*\)/g;
+  for (const match of block[1]!.matchAll(entryRe)) {
+    entries.push([match[1]!, match[2]!.replace(/^\.\//, '')]);
+  }
+  return entries;
+}
+
+/** Rewrite an aliased specifier into a repo-relative path, or return null. */
+function applyAlias(specifier: string, aliases: Array<[string, string]>): string | null {
+  for (const [from, to] of aliases) {
+    if (specifier === from) return to;
+    if (specifier.startsWith(`${from}/`)) return `${to}/${specifier.slice(from.length + 1)}`;
+  }
+  return null;
+}
+
 /**
  * Resolve a relative specifier the way the bundler does: exact file, then
  * extension probing, then `index.*`. Returns null for anything that is not a
  * repo-relative source file (bare package specifiers, css, assets).
  */
-function resolveImport(fromFile: string, specifier: string): string | null {
-  if (!specifier.startsWith('.')) return null;
-  const base = path.resolve(path.dirname(path.join(repoRoot, fromFile)), specifier);
+function resolveImport(
+  fromFile: string,
+  specifier: string,
+  aliases: Array<[string, string]> = []
+): string | null {
+  const aliased = specifier.startsWith('.') ? null : applyAlias(specifier, aliases);
+  if (!specifier.startsWith('.') && !aliased) return null;
+  const base = aliased
+    ? path.join(repoRoot, aliased)
+    : path.resolve(path.dirname(path.join(repoRoot, fromFile)), specifier);
   const candidates = [
     base,
     ...EXTENSIONS.map(ext => base + ext),
@@ -197,7 +241,8 @@ const FORBIDDEN_BARE_PREFIXES = [
  */
 function staticallyReachable(
   entry: string,
-  bareHits?: Map<string, string>
+  bareHits?: Map<string, string>,
+  aliases: Array<[string, string]> = []
 ): Map<string, string | null> {
   const seen = new Map<string, string | null>(); // file -> importer
   const queue: Array<[string, string | null]> = [[entry, null]];
@@ -219,7 +264,7 @@ function staticallyReachable(
           }
         }
       }
-      const resolved = resolveImport(file, specifier);
+      const resolved = resolveImport(file, specifier, aliases);
       if (resolved && !seen.has(resolved)) queue.push([resolved, file]);
     }
   }
@@ -240,7 +285,11 @@ function importChain(reachable: Map<string, string | null>, target: string): str
 describe('Monaco stays out of the initial graph', () => {
   for (const [surface, entry] of Object.entries(ENTRIES)) {
     it(`${surface}: no statically-reachable module imports the monaco barrel`, () => {
-      const reachable = staticallyReachable(entry);
+      const aliases = readAliases(SURFACE_CONFIGS[surface as keyof typeof ENTRIES]);
+      // The alias table has to be non-empty, otherwise a config rewrite
+      // would silently shrink the graph this guard can see.
+      expect(aliases.length, `${surface}: no aliases parsed`).toBeGreaterThan(0);
+      const reachable = staticallyReachable(entry, undefined, aliases);
       // Sanity: the walker actually walked. Without this a resolution bug
       // would make the real assertion below pass on an empty graph.
       expect(reachable.size).toBeGreaterThan(50);
@@ -260,7 +309,11 @@ describe('Monaco stays out of the initial graph', () => {
 
   for (const [surface, entry] of Object.entries(ENTRIES)) {
     it(`${surface}: overlay-only modules stay behind a lazy boundary`, () => {
-      const reachable = staticallyReachable(entry);
+      const reachable = staticallyReachable(
+        entry,
+        undefined,
+        readAliases(SURFACE_CONFIGS[surface as keyof typeof ENTRIES])
+      );
       const leaked = MUST_STAY_LAZY.filter(target => reachable.has(target.module));
       if (leaked.length > 0) {
         throw new Error(
@@ -288,7 +341,11 @@ describe('Monaco stays out of the initial graph', () => {
       // it catches is a boot-path module — App, a store, a always-mounted
       // component — reaching for a tokenizer or worker directly.
       const bareHits = new Map<string, string>();
-      staticallyReachable(entry, bareHits);
+      staticallyReachable(
+        entry,
+        bareHits,
+        readAliases(SURFACE_CONFIGS[surface as keyof typeof ENTRIES])
+      );
       if (bareHits.size > 0) {
         throw new Error(
           [...bareHits]
@@ -339,6 +396,26 @@ describe('Monaco stays out of the initial graph', () => {
     it('does not count dynamic imports as static edges', () => {
       expect(staticSpecifiers("const m = await import('../monaco');\n")).toEqual([]);
     });
+
+    it('follows Vite aliases, per surface', () => {
+      // The two surfaces resolve `@/plugins/catalog` differently: web
+      // redirects it into src/web, renderer falls through to src/renderer.
+      // A walker that ignored aliases stopped at the import and never saw
+      // what lies beyond it.
+      const web = readAliases(SURFACE_CONFIGS.web);
+      const renderer = readAliases(SURFACE_CONFIGS.renderer);
+      expect(resolveImport('src/renderer/stores/pluginStore.ts', '@/plugins/catalog', web)).toBe(
+        'src/web/plugin-catalog.ts'
+      );
+      expect(
+        resolveImport('src/renderer/stores/pluginStore.ts', '@/plugins/catalog', renderer)
+      ).toBe('src/renderer/plugins/catalog.ts');
+      // A more specific alias must win over the generic prefix, which is the
+      // order Vite itself matches in.
+      expect(web[0]![0]).toBe('@/plugins/catalog');
+      // Bare package specifiers still resolve to nothing.
+      expect(resolveImport('src/renderer/App.tsx', 'react', web)).toBeNull();
+    });
   });
 
   it('both bundled configs pin the Vite preload helper to its own chunk', () => {
@@ -358,3 +435,4 @@ describe('Monaco stays out of the initial graph', () => {
     }
   });
 });
+

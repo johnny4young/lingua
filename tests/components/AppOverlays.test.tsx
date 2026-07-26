@@ -57,11 +57,18 @@ describe('AppOverlays', () => {
   // Suspense fallback and the queries have to be async. The behaviour under
   // test is unchanged: switching variant must REMOUNT (mount id 1 -> 2), not
   // reuse the palette with new props.
+  //
+  // The assertions wait on the TEXT, not on the element. `findByTestId` only
+  // waits for presence, and after the rerender the previous palette is still
+  // in the DOM — so it would resolve against the stale node and assert the
+  // old mount id.
   it('remounts the command palette when switching to recent commands', async () => {
     const { rerender } = render(<AppOverlays overlay="palette" {...callbacks} />);
-    expect((await screen.findByTestId('mock-command-palette')).textContent).toBe('1:all');
+    expect(await screen.findByText('1:all')).toBeTruthy();
 
     rerender(<AppOverlays overlay="recent-commands" {...callbacks} />);
-    expect((await screen.findByTestId('mock-command-palette')).textContent).toBe('2:recent');
+    expect(await screen.findByText('2:recent')).toBeTruthy();
+    // Exactly one palette is mounted; the old one is gone, not hidden.
+    expect(screen.getAllByTestId('mock-command-palette')).toHaveLength(1);
   });
 });
