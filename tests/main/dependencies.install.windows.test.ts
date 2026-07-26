@@ -67,6 +67,11 @@ describe.runIf(process.platform === 'win32')(
       );
     });
 
+    // Cleanup gets the same headroom, and for a sharper reason: the failure
+    // this suite already hit once was the npm process outliving the test and
+    // holding the temp directory open, so `rm` retried into an EBUSY. That
+    // path — cancel, await the exit, close the server, retry the delete —
+    // runs against vitest's 10s default hook timeout otherwise.
     afterAll(async () => {
       if (installPromise) {
         const { cancelJsDependencyInstall } = await import(
@@ -88,7 +93,7 @@ describe.runIf(process.platform === 'win32')(
           retryDelay: 100,
         });
       }
-    });
+    }, 60_000);
 
     it(
       'launches npm.cmd instead of failing at the process boundary',
@@ -113,7 +118,14 @@ describe.runIf(process.platform === 'win32')(
         expect(output).toMatch(/npm (?:error|ERR!)/iu);
         expect(output).not.toMatch(/not recognized|cannot find|could not find/iu);
       },
-      15_000
+      // Deliberately generous. This asserts a process-boundary behaviour —
+      // that cmd.exe hands off to npm.cmd at all — not how fast npm runs. A
+      // green run exits as soon as npm does, so the ceiling costs nothing;
+      // it only comes into play on a runner slow enough that a tight limit
+      // would report a launcher regression that did not happen. 15s was
+      // being exceeded on shared Windows runners and turned this guard into
+      // a coin flip, which trains people to re-run it without reading.
+      60_000
     );
   }
 );
