@@ -180,11 +180,25 @@ export function staticSpecifiers(source: string): string[] {
 }
 
 /**
+ * Bare (package) specifiers that must never appear on a statically-reachable
+ * path. These are the on-demand halves of the editor: a syntax tokenizer or a
+ * language worker belongs to the language the user actually selected, not to
+ * everyone's first download.
+ */
+const FORBIDDEN_BARE_PREFIXES = [
+  'monaco-editor/esm/vs/basic-languages/',
+  'monaco-editor/esm/vs/language/',
+];
+
+/**
  * Every source file reachable from `entry` following static imports only.
  * Dynamic `import()` calls terminate a branch, which is exactly the lazy
  * boundary the bundler honours.
  */
-function staticallyReachable(entry: string): Map<string, string | null> {
+function staticallyReachable(
+  entry: string,
+  bareHits?: Map<string, string>
+): Map<string, string | null> {
   const seen = new Map<string, string | null>(); // file -> importer
   const queue: Array<[string, string | null]> = [[entry, null]];
   while (queue.length > 0) {
@@ -198,6 +212,13 @@ function staticallyReachable(entry: string): Map<string, string | null> {
       continue;
     }
     for (const specifier of staticSpecifiers(source)) {
+      if (bareHits && !specifier.startsWith('.')) {
+        for (const prefix of FORBIDDEN_BARE_PREFIXES) {
+          if (specifier.startsWith(prefix) && !bareHits.has(specifier)) {
+            bareHits.set(specifier, file);
+          }
+        }
+      }
       const resolved = resolveImport(file, specifier);
       if (resolved && !seen.has(resolved)) queue.push([resolved, file]);
     }
@@ -250,6 +271,31 @@ describe('Monaco stays out of the initial graph', () => {
                 `Chain:\n  ${importChain(reachable, target.module)}`
             )
             .join('\n\n')
+        );
+      }
+    });
+  }
+
+  for (const [surface, entry] of Object.entries(ENTRIES)) {
+    it(`${surface}: syntax tokenizers and language workers load on demand`, () => {
+      // Verified in a production build: switching a tab to Python fetches the
+      // tokenizer, its three providers and the worker at that moment, and
+      // none of them ships at boot.
+      //
+      // Scope: this polices the BOOT path. `basicLanguageLoaders` itself sits
+      // behind the Monaco boundary and is not statically reachable, so a
+      // static import there costs nothing and is not what this catches. What
+      // it catches is a boot-path module — App, a store, a always-mounted
+      // component — reaching for a tokenizer or worker directly.
+      const bareHits = new Map<string, string>();
+      staticallyReachable(entry, bareHits);
+      if (bareHits.size > 0) {
+        throw new Error(
+          [...bareHits]
+            .map(([specifier, importer]) => `${specifier}\n    imported by ${importer}`)
+            .join('\n') +
+            `\n\nThese must stay behind import() so a visitor only downloads the ` +
+            `syntax they selected.`
         );
       }
     });
