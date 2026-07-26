@@ -10,7 +10,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - **Run capsules now carry a real forward-compatibility contract:** the parser distinguishes a capsule written by a newer Lingua (import tells you to update the app) from one whose format this build genuinely cannot read, and replays a registered migration chain for older capsules instead of rejecting them outright. The distinction has to ship before a second schema version exists, because an already-released build can never learn a new reject reason.
-- **The browser build no longer downloads the code editor before it is needed:** the initial payload drops from 1.72 MB to 0.57 MB gzipped (2.03 MB raw, down from 6.76 MB), because Monaco is now fetched when an editor actually mounts instead of during boot. A visitor who lands on the start screen and never opens a file never pays for it.
+- **The browser build no longer downloads the code editor, the overlays, or the changelog before they are needed:** the initial payload drops from 1.72 MB to 0.48 MB gzipped (1.77 MB raw, down from 6.76 MB). Monaco is fetched when an editor actually mounts, and Settings, the command palette, capsule browsing, the importers and the release notes each load the first time you open them. A visitor who lands on the start screen and never opens a file pays for none of it.
 
 ## [0.14.0] — 2026-07-23
 

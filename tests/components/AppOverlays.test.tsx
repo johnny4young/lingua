@@ -53,11 +53,15 @@ describe('AppOverlays', () => {
     vi.clearAllMocks();
   });
 
-  it('remounts the command palette when switching to recent commands', () => {
+  // Overlays load behind a lazy boundary, so the first paint of each is a
+  // Suspense fallback and the queries have to be async. The behaviour under
+  // test is unchanged: switching variant must REMOUNT (mount id 1 -> 2), not
+  // reuse the palette with new props.
+  it('remounts the command palette when switching to recent commands', async () => {
     const { rerender } = render(<AppOverlays overlay="palette" {...callbacks} />);
-    expect(screen.getByTestId('mock-command-palette').textContent).toBe('1:all');
+    expect((await screen.findByTestId('mock-command-palette')).textContent).toBe('1:all');
 
     rerender(<AppOverlays overlay="recent-commands" {...callbacks} />);
-    expect(screen.getByTestId('mock-command-palette').textContent).toBe('2:recent');
+    expect((await screen.findByTestId('mock-command-palette')).textContent).toBe('2:recent');
   });
 });

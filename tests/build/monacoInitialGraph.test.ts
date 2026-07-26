@@ -33,6 +33,29 @@ const ENTRIES = {
 /** The barrel that pulls monaco core, the five ?worker bundles and the React wrapper. */
 const MONACO_BARREL = 'src/renderer/monaco.ts';
 
+/**
+ * Modules that must stay on the far side of a lazy boundary, with the reason
+ * each one costs real bytes at boot. All of them are reached only through
+ * `<AppOverlays>`, which `App` mounts unconditionally — so a plain `import`
+ * there silently puts them in every visitor's first download.
+ */
+const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
+  { module: 'src/renderer/data/changelog.ts', why: '77 KiB of release copy' },
+  { module: 'src/renderer/components/Settings/SettingsModal.tsx', why: 'the whole Settings tree' },
+  {
+    module: 'src/renderer/components/CommandPalette/CommandPalette.tsx',
+    why: 'the 30 KiB palette model',
+  },
+  {
+    module: 'src/renderer/components/CapsuleList/CapsuleListOverlay.tsx',
+    why: 'capsule browsing + comparison',
+  },
+  {
+    module: 'src/renderer/components/ImportPreview/ImportPreviewOverlay.tsx',
+    why: 'the Postman/Bruno importers',
+  },
+];
+
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 
 /**
@@ -209,6 +232,24 @@ describe('Monaco stays out of the initial graph', () => {
             `dependency dynamic (await import('../monaco')) or move the ` +
             `consumer behind a lazy boundary.\n\nChain:\n  ` +
             importChain(reachable, MONACO_BARREL)
+        );
+      }
+    });
+  }
+
+  for (const [surface, entry] of Object.entries(ENTRIES)) {
+    it(`${surface}: overlay-only modules stay behind a lazy boundary`, () => {
+      const reachable = staticallyReachable(entry);
+      const leaked = MUST_STAY_LAZY.filter(target => reachable.has(target.module));
+      if (leaked.length > 0) {
+        throw new Error(
+          leaked
+            .map(
+              target =>
+                `${target.module} (${target.why}) is statically reachable from ${entry}.\n` +
+                `Chain:\n  ${importChain(reachable, target.module)}`
+            )
+            .join('\n\n')
         );
       }
     });
