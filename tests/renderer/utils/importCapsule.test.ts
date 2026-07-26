@@ -73,13 +73,23 @@ describe('tryDecodeCapsuleJson', () => {
     expect(result.reason).toBe('invalid-shape');
   });
 
-  it('rejects a non-1 version field', () => {
+  it('maps a capsule from a newer Lingua to app-too-old, not wrong-version', () => {
+    // The overlay shows a different instruction for each: app-too-old
+    // says update Lingua, wrong-version says the file cannot be read.
     const future = { ...FIXTURE_MINIMAL_JS, version: 2 as 1 };
     const result = tryDecodeCapsuleJson(JSON.stringify(future));
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toBe('wrong-version');
+    expect(result.reason).toBe('app-too-old');
     expect(result.detail).toMatch(/version=2/);
+  });
+
+  it('keeps a version field that is not a schema number on wrong-version', () => {
+    const bogus = { ...FIXTURE_MINIMAL_JS, version: 'v1' as unknown as 1 };
+    const result = tryDecodeCapsuleJson(JSON.stringify(bogus));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('wrong-version');
   });
 
   it('rejects oversized payload', () => {
@@ -122,6 +132,7 @@ describe('tryDecodeCapsuleJson', () => {
       { input: '{bad', reason: 'malformed-json' },
       { input: '[]', reason: 'invalid-shape' },
       { input: JSON.stringify({ version: 0 }), reason: 'wrong-version' },
+      { input: JSON.stringify({ ...FIXTURE_MINIMAL_JS, version: 2 }), reason: 'app-too-old' },
     ];
     for (const { input, reason } of cases) {
       const result: CapsuleImportDecodeResult = tryDecodeCapsuleJson(input);

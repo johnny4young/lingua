@@ -39,6 +39,8 @@ export type CapsuleImportRejectReason =
   | 'empty'
   | 'malformed-json'
   | 'wrong-version'
+  /** Capsule from a newer Lingua; the fix is updating the app, not the file. */
+  | 'app-too-old'
   | 'oversized'
   | 'invalid-shape';
 
@@ -89,6 +91,8 @@ function mapParseReason(
       return 'malformed-json';
     case 'unsupported-version':
       return 'wrong-version';
+    case 'capsule-from-newer-app':
+      return 'app-too-old';
     case 'oversized':
       return 'oversized';
     case 'missing-required-field':

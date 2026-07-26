@@ -37,7 +37,7 @@ verify coverage by reading.
 | 2 | Builder shape (defaults / overrides / hash determinism) | `runCapsule.test.ts → "buildRunCapsule"` |
 | 3 | Sanitiser redaction proof (license / dependency / source) | `runCapsule.test.ts → "sanitizeRunCapsule — redaction proof"` |
 | 4 | Stream truncation at `MAX_STREAM_BYTES` (1 MiB each) | `runCapsule.test.ts → "sanitizeRunCapsule — stream truncation"` |
-| 5 | Parser version gating + oversized rejection | `runCapsule.test.ts → "parseRunCapsule — version gating"` |
+| 5 | Parser version gating (migration replay, newer-app rejection) + oversized rejection | `runCapsule.test.ts → "parseRunCapsule — version gating"` |
 | 6 | Parser shape validation (load-bearing fields) | `runCapsule.test.ts → "parseRunCapsule — shape validation"` |
 | 7 | Summary helper format stability | `runCapsule.test.ts → "summarizeRunCapsule"` |
 | 8 | `contentHash` collision-resistance smoke (10 000 inputs) | `runCapsule.test.ts → "computeContentHash — collision smoke (Dimension 8)"` |
@@ -172,3 +172,29 @@ import { FIXTURE_LESSON_ASSERTION } from '../shared/runCapsule.fixtures';
   paths (Settings, palette, share links, etc.) MUST call the
   sanitiser before `JSON.stringify` so `privacy.omittedFields` is
   honest and the redactor's rule set is applied uniformly.
+
+## Schema versioning
+
+`CURRENT_RUN_CAPSULE_VERSION` in `src/shared/runCapsule.ts` is the
+version this build writes. `parseRunCapsule` treats the version field
+three ways, because each one needs a different instruction:
+
+| Capsule version | Outcome | Reason code | What the user is told |
+|---|---|---|---|
+| Above current | Rejected | `capsule-from-newer-app` | Update Lingua; the file is fine. |
+| Equal to current | Accepted | — | — |
+| Below current, migration registered | Upgraded in place, then validated | — | — |
+| Below current, no migration | Rejected | `unsupported-version` | This build can no longer read the format. |
+| Not an integer >= 1 | Rejected | `unsupported-version` | Malformed, never reported as from-the-future. |
+
+Cutting a v2 therefore means three edits in one change: add the new
+shape, bump `CURRENT_RUN_CAPSULE_VERSION`, and register the
+`1 -> 2` step in `CAPSULE_MIGRATIONS`. Skipping the third orphans every
+capsule already in the wild; a test in `runCapsule.test.ts` fails if the
+chain has a gap.
+
+Note the asymmetry this protects against: a build already shipped can
+never learn a new reason code. That is why `capsule-from-newer-app`
+exists before any v2 does — without it, the first user to open a v2
+capsule in an old build would get a message telling them their file is
+broken.

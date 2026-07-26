@@ -17,9 +17,9 @@
  *
  * Shipping the schema first means each downstream integration inherits the
  * same redaction registry (`src/shared/redaction.ts`), the same
- * version-migration discipline (`version: 1` literal, future
- * versions hard-rejected by `parseRunCapsule`), and the same
- * round-trip contract.
+ * version-migration discipline (`CURRENT_RUN_CAPSULE_VERSION` plus the
+ * `CAPSULE_MIGRATIONS` chain replayed by `parseRunCapsule`), and the
+ * same round-trip contract.
  *
  * implementation ships the schema + builder + sanitiser + parser + a single
  * consumer (Settings → Account "Export latest run"). Import preview,
@@ -115,7 +115,11 @@ export interface RunCapsuleInput {
 }
 
 export interface RunCapsuleV1 {
-  /** Hard-coded `1`. `parseRunCapsule` rejects any other value. */
+  /**
+   * Always `CURRENT_RUN_CAPSULE_VERSION`. Older capsules are migrated up
+   * to it by `parseRunCapsule`; newer ones are rejected with a reason
+   * that points at the app, not the file.
+   */
   version: 1;
   /** UUIDv4 from `crypto.randomUUID()`. */
   capsuleId: string;
@@ -220,7 +224,7 @@ export async function buildRunCapsule(
   const createdAt = new Date(inputArgs.createdAtMs ?? Date.now()).toISOString();
 
   return {
-    version: 1,
+    version: CURRENT_RUN_CAPSULE_VERSION,
     capsuleId,
     createdAt,
     appVersion: inputArgs.appVersion,
@@ -333,9 +337,40 @@ export function sanitizeRunCapsule(capsule: RunCapsuleV1): RunCapsuleV1 {
 // Parser
 // ---------------------------------------------------------------------------
 
+/**
+ * The capsule schema this build writes and understands.
+ *
+ * Bumping this is a two-part job: add the new shape AND register the
+ * upgrade step in `CAPSULE_MIGRATIONS` below, so a capsule written by an
+ * older build keeps opening.
+ */
+export const CURRENT_RUN_CAPSULE_VERSION = 1;
+
+/**
+ * Upgrade steps, keyed by the version they read. A step takes the raw
+ * parsed object at version N and returns it shaped for N+1; the parser
+ * replays them in ascending order, mirroring the store
+ * `migrationRegistry`.
+ *
+ * Empty today because v1 is the first (and only) schema. The seam exists
+ * so the v2 cut is an additive change instead of a format break.
+ */
+export const CAPSULE_MIGRATIONS: Record<
+  number,
+  (raw: Record<string, unknown>) => Record<string, unknown>
+> = {};
+
 export type ParseRunCapsuleReason =
   | 'invalid-json'
+  /** Older schema with no registered upgrade path to the current version. */
   | 'unsupported-version'
+  /**
+   * Written by a NEWER Lingua than this build. Distinct from
+   * `unsupported-version` on purpose: the capsule is fine, this app is
+   * behind, so the only honest instruction is "update Lingua" rather
+   * than "this file is broken".
+   */
+  | 'capsule-from-newer-app'
   | 'oversized'
   | 'missing-required-field'
   | 'invalid-field-type';
@@ -347,8 +382,13 @@ export type ParseRunCapsuleResult =
 /**
  * Parses + validates a capsule JSON string. Defence in depth: even
  * when the source is a Lingua-emitted capsule we re-validate so an
- * adversarial fragment (internal share-link) cannot ship a forged
- * version: 2 or a bag of unknown fields and reach the renderer.
+ * adversarial fragment (internal share-link) cannot ship a bag of
+ * unknown fields and reach the renderer.
+ *
+ * Version handling is three-way rather than an equality check, because
+ * the three cases need different user instructions: too new means
+ * "update Lingua", older-with-a-migration is upgraded in place, and
+ * older-without-one is a genuine dead end.
  */
 export function parseRunCapsule(json: string): ParseRunCapsuleResult {
   if (typeof json !== 'string' || json.length === 0) {
@@ -371,13 +411,50 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return { ok: false, reason: 'invalid-field-type', detail: 'root not object' };
   }
-  const candidate = raw as Record<string, unknown>;
-  if (candidate.version !== 1) {
+  let candidate = raw as Record<string, unknown>;
+  const rawVersion = candidate.version;
+  if (
+    typeof rawVersion !== 'number' ||
+    !Number.isInteger(rawVersion) ||
+    rawVersion < 1
+  ) {
+    // Not a schema version at all (missing, string, 0, fractional): this
+    // is a malformed capsule, not a version we could ever support.
     return {
       ok: false,
       reason: 'unsupported-version',
-      detail: `version=${String(candidate.version)}`,
+      detail: `version=${String(rawVersion)}`,
     };
+  }
+  if (rawVersion > CURRENT_RUN_CAPSULE_VERSION) {
+    return {
+      ok: false,
+      reason: 'capsule-from-newer-app',
+      detail: `version=${rawVersion}`,
+    };
+  }
+  // Older capsule: replay every registered upgrade step in order. A gap
+  // in the chain means this build genuinely cannot read it.
+  for (let from = rawVersion; from < CURRENT_RUN_CAPSULE_VERSION; from += 1) {
+    const migrate = CAPSULE_MIGRATIONS[from];
+    if (!migrate) {
+      return {
+        ok: false,
+        reason: 'unsupported-version',
+        detail: `version=${rawVersion}`,
+      };
+    }
+    try {
+      candidate = migrate(candidate);
+    } catch (err) {
+      return {
+        ok: false,
+        reason: 'unsupported-version',
+        detail: `migration ${from}->${from + 1} failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      };
+    }
   }
   // Shallow required-field check. Downstream integrations that need
   // tighter assertions wrap this with their own schema validator

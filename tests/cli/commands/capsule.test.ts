@@ -65,11 +65,24 @@ describe('runValidateCapsuleCommand', () => {
     expect(state.stderr).toContain('oversized');
   });
 
-  it('rejects a wrong-version capsule', async () => {
+  it('reports a capsule from a newer Lingua with its own reason', async () => {
     const bad = JSON.stringify({ ...FIXTURE_MINIMAL_JS, version: 2 });
     const { io, state } = createFakeIo({ files: { '/tmp/v2.json': bad } });
     const code = await runValidateCapsuleCommand(
       { filePath: '/tmp/v2.json', json: false, quiet: false },
+      io
+    );
+    expect(code).toBe(CLI_EXIT_CODES.userInputError);
+    // Scripts branch on this token, so it must distinguish a capsule this
+    // build is too old to read from one that is genuinely malformed.
+    expect(state.stderr).toContain('capsule-from-newer-app');
+  });
+
+  it('rejects a capsule with no usable version as unsupported-version', async () => {
+    const bad = JSON.stringify({ ...FIXTURE_MINIMAL_JS, version: 'one' });
+    const { io, state } = createFakeIo({ files: { '/tmp/vbad.json': bad } });
+    const code = await runValidateCapsuleCommand(
+      { filePath: '/tmp/vbad.json', json: false, quiet: false },
       io
     );
     expect(code).toBe(CLI_EXIT_CODES.userInputError);
