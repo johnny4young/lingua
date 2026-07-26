@@ -360,6 +360,62 @@ export const CAPSULE_MIGRATIONS: Record<
   (raw: Record<string, unknown>) => Record<string, unknown>
 > = {};
 
+/** Outcome of replaying the migration chain over a raw parsed capsule. */
+export type ApplyCapsuleMigrationsResult =
+  | { ok: true; value: Record<string, unknown> }
+  | { ok: false; detail: string };
+
+/**
+ * Replay every registered step from `fromVersion` up to `toVersion`.
+ *
+ * Each step is validated rather than trusted. A migration is ordinary code
+ * written months from now, by someone who no longer remembers this contract,
+ * and both ways it can go wrong are silent: returning a non-object makes the
+ * downstream `key in candidate` checks throw, and forgetting to bump
+ * `version` lets a half-upgraded capsule through the final cast. Failing
+ * loudly here turns both into a named parse rejection.
+ *
+ * Exported so the chain is covered by tests today, while the registry is
+ * still empty and the loop is otherwise unreachable.
+ */
+export function applyCapsuleMigrations(
+  candidate: Record<string, unknown>,
+  fromVersion: number,
+  toVersion: number,
+  migrations: Record<number, (raw: Record<string, unknown>) => Record<string, unknown>>
+): ApplyCapsuleMigrationsResult {
+  let current = candidate;
+  for (let from = fromVersion; from < toVersion; from += 1) {
+    const migrate = migrations[from];
+    if (!migrate) {
+      return { ok: false, detail: `no migration registered for version ${from}` };
+    }
+    let next: unknown;
+    try {
+      next = migrate(current);
+    } catch (err) {
+      return {
+        ok: false,
+        detail: `migration ${from}->${from + 1} threw: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      };
+    }
+    if (!next || typeof next !== 'object' || Array.isArray(next)) {
+      return { ok: false, detail: `migration ${from}->${from + 1} did not return an object` };
+    }
+    const upgraded = next as Record<string, unknown>;
+    if (upgraded.version !== from + 1) {
+      return {
+        ok: false,
+        detail: `migration ${from}->${from + 1} left version=${String(upgraded.version)}`,
+      };
+    }
+    current = upgraded;
+  }
+  return { ok: true, value: current };
+}
+
 export type ParseRunCapsuleReason =
   | 'invalid-json'
   /** Older schema with no registered upgrade path to the current version. */
@@ -433,28 +489,25 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
       detail: `version=${rawVersion}`,
     };
   }
-  // Older capsule: replay every registered upgrade step in order. A gap
-  // in the chain means this build genuinely cannot read it.
-  for (let from = rawVersion; from < CURRENT_RUN_CAPSULE_VERSION; from += 1) {
-    const migrate = CAPSULE_MIGRATIONS[from];
-    if (!migrate) {
+  // Older capsule: replay every registered upgrade step in order. A gap in
+  // the chain, a step that throws, and a step that returns something the
+  // rest of this function could not safely walk all land here as the same
+  // honest answer: this build cannot read it.
+  if (rawVersion < CURRENT_RUN_CAPSULE_VERSION) {
+    const migrated = applyCapsuleMigrations(
+      candidate,
+      rawVersion,
+      CURRENT_RUN_CAPSULE_VERSION,
+      CAPSULE_MIGRATIONS
+    );
+    if (!migrated.ok) {
       return {
         ok: false,
         reason: 'unsupported-version',
-        detail: `version=${rawVersion}`,
+        detail: `version=${rawVersion}: ${migrated.detail}`,
       };
     }
-    try {
-      candidate = migrate(candidate);
-    } catch (err) {
-      return {
-        ok: false,
-        reason: 'unsupported-version',
-        detail: `migration ${from}->${from + 1} failed: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      };
-    }
+    candidate = migrated.value;
   }
   // Shallow required-field check. Downstream integrations that need
   // tighter assertions wrap this with their own schema validator

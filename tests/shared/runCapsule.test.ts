@@ -18,6 +18,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  applyCapsuleMigrations,
   buildRunCapsule,
   CAPSULE_MIGRATIONS,
   computeContentHash,
@@ -303,37 +304,90 @@ describe('parseRunCapsule — version gating', () => {
     }
   });
 
-  it('replays registered migrations in order before validating', () => {
-    // Exercises the seam the way a real v1 -> v2 cut would use it, without
-    // waiting for that cut to exist: pretend the current version is 3 and
-    // walk a capsule up from 1.
-    const steps: number[] = [];
-    const spyMigrations: Record<number, (raw: Record<string, unknown>) => Record<string, unknown>> =
-      {
+  // The parser's own loop is unreachable while CURRENT_RUN_CAPSULE_VERSION is
+  // 1 (a lower version is rejected by the integer guard first), so the chain
+  // is exercised through the function the parser delegates to. That is the
+  // real code path, with a synthetic target version standing in for the v2
+  // that does not exist yet.
+  describe('applyCapsuleMigrations', () => {
+    const base = { ...FIXTURE_MINIMAL_JS, version: 1 } as unknown as Record<string, unknown>;
+
+    it('replays every step in ascending order', () => {
+      const steps: number[] = [];
+      const result = applyCapsuleMigrations(base, 1, 3, {
         1: raw => {
           steps.push(1);
-          return { ...raw, version: 2 };
+          return { ...raw, version: 2, addedByV2: true };
         },
         2: raw => {
           steps.push(2);
           return { ...raw, version: 3 };
         },
-      };
-    const upgraded = Object.keys(spyMigrations)
-      .map(Number)
-      .sort()
-      .reduce<Record<string, unknown>>((acc, from) => spyMigrations[from]!(acc), {
-        ...FIXTURE_MINIMAL_JS,
-        version: 1,
-      } as unknown as Record<string, unknown>);
-    expect(steps).toEqual([1, 2]);
-    expect(upgraded.version).toBe(3);
-    // The upgraded object still satisfies the shape validator, which is
-    // the contract every migration must preserve.
-    const parsed = parseRunCapsule(
-      JSON.stringify({ ...upgraded, version: CURRENT_RUN_CAPSULE_VERSION })
-    );
-    expect(parsed.ok).toBe(true);
+      });
+      expect(steps).toEqual([1, 2]);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.version).toBe(3);
+        expect(result.value.addedByV2).toBe(true);
+        // The capsule's own fields survive the walk.
+        expect(result.value.capsuleId).toBe(FIXTURE_MINIMAL_JS.capsuleId);
+      }
+    });
+
+    it('is a no-op when the capsule is already current', () => {
+      const result = applyCapsuleMigrations(base, 1, 1, {});
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value).toBe(base);
+    });
+
+    it('reports a gap in the chain instead of skipping it', () => {
+      const result = applyCapsuleMigrations(base, 1, 3, {
+        1: raw => ({ ...raw, version: 2 }),
+        // no 2 -> 3
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.detail).toMatch(/no migration registered for version 2/);
+    });
+
+    it('rejects a step that returns something that is not an object', () => {
+      // Without this the downstream `key in candidate` checks throw a
+      // TypeError instead of producing a parse rejection.
+      for (const bad of [null, undefined, 'v2', 42, [1, 2]]) {
+        const result = applyCapsuleMigrations(base, 1, 2, {
+          1: () => bad as unknown as Record<string, unknown>,
+        });
+        expect(result.ok, `returning ${JSON.stringify(bad) ?? 'undefined'} must fail`).toBe(false);
+        if (!result.ok) expect(result.detail).toMatch(/did not return an object/);
+      }
+    });
+
+    it('rejects a step that forgets to bump the version', () => {
+      // The silent failure: the capsule validates and gets cast to
+      // RunCapsuleV1 while still carrying the old schema version.
+      const result = applyCapsuleMigrations(base, 1, 2, {
+        1: raw => ({ ...raw, addedByV2: true }),
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.detail).toMatch(/left version=1/);
+    });
+
+    it('rejects a step that skips ahead past its target version', () => {
+      const result = applyCapsuleMigrations(base, 1, 3, {
+        1: raw => ({ ...raw, version: 3 }),
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.detail).toMatch(/left version=3/);
+    });
+
+    it('turns a throwing step into a rejection, not a crash', () => {
+      const result = applyCapsuleMigrations(base, 1, 2, {
+        1: () => {
+          throw new Error('boom');
+        },
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.detail).toMatch(/threw: boom/);
+    });
   });
 
   it('keeps the migration registry consistent with the current version', () => {

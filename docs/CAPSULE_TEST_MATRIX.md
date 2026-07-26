@@ -193,6 +193,13 @@ shape, bump `CURRENT_RUN_CAPSULE_VERSION`, and register the
 capsule already in the wild; a test in `runCapsule.test.ts` fails if the
 chain has a gap.
 
+A migration step must return a plain object whose `version` is exactly
+one higher than the version it read. `applyCapsuleMigrations` enforces
+both and turns a violation into a parse rejection: a step that returns a
+non-object would otherwise crash the field checks downstream, and one
+that forgets the bump would let a half-upgraded capsule through the
+final cast. Steps that throw are caught the same way.
+
 Note the asymmetry this protects against: a build already shipped can
 never learn a new reason code. That is why `capsule-from-newer-app`
 exists before any v2 does — without it, the first user to open a v2

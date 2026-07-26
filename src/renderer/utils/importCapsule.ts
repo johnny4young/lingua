@@ -7,7 +7,7 @@
  *
  * The validator is `parseRunCapsule` from `src/shared/runCapsule.ts` —
  * we never roll a second schema check in the renderer. That keeps the
- * "schema lives in shared, capsules embed by version 1 only"
+ * "schema lives in shared, version handling lives with the schema"
  * invariant honest. This module just maps `parseRunCapsule`'s closed
  * enum of reject reasons onto a smaller renderer-facing enum that the
  * overlay UI consumes directly for the rejection copy + telemetry
@@ -17,9 +17,18 @@
  *
  *   - `empty`            — input string was empty (trimmed).
  *   - `malformed-json`   — JSON.parse failed.
- *   - `wrong-version`    — top-level `version` !== 1.
+ *   - `app-too-old`      — capsule written by a NEWER Lingua. The file is
+ *                          fine; this build is behind, so the copy says to
+ *                          update the app.
+ *   - `wrong-version`    — no usable schema version: either older than
+ *                          anything this build can migrate up, or not an
+ *                          integer >= 1 at all.
  *   - `oversized`        — UTF-8 byte length > MAX_CAPSULE_BYTES (4 MiB).
  *   - `invalid-shape`    — load-bearing field missing or wrong type.
+ *
+ * The `app-too-old` / `wrong-version` split is the reason this enum grew:
+ * collapsing them tells a user with a perfectly good capsule that their
+ * file is broken.
  *
  * `tryDecodeCapsuleJson` returns the size bucket on both ok + rejected
  * paths so the caller can stamp telemetry without leaking content;
