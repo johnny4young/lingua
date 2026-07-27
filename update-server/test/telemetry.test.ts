@@ -422,8 +422,12 @@ describe('POST /telemetry — implementation note: per-IP rate limit', () => {
 
   it('returns 429 on the endpoint when the IP is over the ceiling', async () => {
     const ip = '198.51.100.3';
-    // Burn the budget with a small ceiling, then assert the 6th
-    // POST hits 429 instead of 204.
+    // Keep every request in the same rate-limit bucket. Using the
+    // wall clock here makes the assertion flaky when the loop crosses
+    // a one-second boundary, which legitimately resets the budget.
+    vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 0, 1));
+
+    // Burn the budget, then assert the 6th POST hits 429 instead of 204.
     for (let attempt = 0; attempt < 5; attempt += 1) {
       await postTelemetry({ event: 'app.launched' }, {}, ip);
     }
