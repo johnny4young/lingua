@@ -9,16 +9,22 @@
  * caught it; nothing at this tier did.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearPendingSettingsTab,
   peekPendingSettingsTab,
+  requestSettingsTab,
   setPendingSettingsTab,
 } from '../../../src/renderer/components/Settings/pendingSettingsTab';
+import {
+  _resetCommandBusForTesting,
+  subscribeCommand,
+} from '../../../src/renderer/stores/commandBus';
 
 describe('pendingSettingsTab', () => {
   beforeEach(() => {
     clearPendingSettingsTab();
+    _resetCommandBusForTesting();
   });
 
   it('returns null when nothing is pending', () => {
@@ -52,5 +58,30 @@ describe('pendingSettingsTab', () => {
     setPendingSettingsTab('account');
     setPendingSettingsTab('privacy');
     expect(peekPendingSettingsTab()).toBe('privacy');
+  });
+
+  it('stashes before opening when Settings has no live owner', () => {
+    const openSettings = vi.fn();
+
+    requestSettingsTab('privacy', openSettings);
+
+    expect(peekPendingSettingsTab()).toBe('privacy');
+    expect(openSettings).toHaveBeenCalledOnce();
+  });
+
+  it('navigates a live modal without leaving a stale tab for the next open', () => {
+    const openSettings = vi.fn();
+    const listener = vi.fn((_payload, context) => context.markHandled());
+    subscribeCommand('settings.navigate', listener);
+    setPendingSettingsTab('privacy');
+
+    requestSettingsTab('account', openSettings);
+
+    expect(listener).toHaveBeenCalledWith(
+      { tab: 'account' },
+      expect.objectContaining({ handled: true })
+    );
+    expect(openSettings).not.toHaveBeenCalled();
+    expect(peekPendingSettingsTab()).toBeNull();
   });
 });

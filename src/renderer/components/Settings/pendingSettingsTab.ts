@@ -9,18 +9,40 @@
  * before anything is subscribed — the modal then opens on its default tab and
  * the CTA silently fails to keep its promise.
  *
- * This removes the race instead of widening it: the caller stashes the tab,
- * the modal reads it as its initial state on mount, whenever that happens.
- * One-shot (take clears it) so a tab requested once never re-selects itself
- * the next time the user opens Settings from somewhere else.
+ * This removes the race instead of widening it: `requestSettingsTab` first
+ * offers the request to an already-mounted modal, then stashes it before
+ * opening Settings only when no live owner handled it. The modal reads that
+ * stash as its initial state and clears it after the mount commits.
  *
  * Mirrors `pendingCapsuleImport`, which solves the same handoff for the
  * capsule-import overlay.
  */
 
 import type { TabId } from './settingsRailModel';
+import { emitCommand } from '../../stores/commandBus';
 
 let pendingTab: TabId | null = null;
+
+/**
+ * Navigate an already-open Settings modal, or seed the next mount.
+ *
+ * `settings.navigate` is synchronous and SettingsModal marks a valid request
+ * handled. That acknowledgement is the source of truth for whether the modal
+ * is live; timers and animation frames cannot answer that question for a lazy
+ * component. Clearing on the live path also drops any abandoned handoff from
+ * an earlier open that was closed before the modal committed.
+ */
+export function requestSettingsTab(tab: TabId, openSettings?: () => void): void {
+  const liveNavigation = emitCommand('settings.navigate', { tab });
+  if (liveNavigation.handled) {
+    clearPendingSettingsTab();
+    return;
+  }
+  if (!openSettings) return;
+
+  setPendingSettingsTab(tab);
+  openSettings();
+}
 
 /** Stash the tab the next Settings open should land on. */
 export function setPendingSettingsTab(tab: TabId): void {

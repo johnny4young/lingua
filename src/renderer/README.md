@@ -282,6 +282,7 @@ Touch these areas together:
 
 - [`App.tsx`](App.tsx) for top-level overlay ownership
 - [`components/Layout/AppLayout.tsx`](components/Layout/AppLayout.tsx) for shell layout and panel structure
+- [`components/Settings/pendingSettingsTab.ts`](components/Settings/pendingSettingsTab.ts) for opening a specific Settings tab across the lazy overlay boundary; use `requestSettingsTab(...)` instead of delaying `settings.navigate` with timers or animation frames
 - [`stores/uiStore.ts`](stores/uiStore.ts) for transient shell state
 - [`index.css`](index.css) if the change introduces a shared shell primitive
 
