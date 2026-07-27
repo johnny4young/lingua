@@ -12,6 +12,8 @@ const tsSetCompilerOptions = vi.fn();
 const tsSetDiagnosticsOptions = vi.fn();
 const tsSetEagerModelSync = vi.fn();
 const tsAddExtraLib = vi.fn();
+const getJavaScriptWorker = vi.fn();
+const getTypeScriptWorker = vi.fn();
 
 class MockEditorWorker {}
 class MockJsonWorker {}
@@ -82,7 +84,10 @@ vi.mock('@monaco-editor/react', () => ({
 
 vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => monacoMock);
 vi.mock('monaco-editor/esm/vs/editor/editor.all.js', () => ({}));
-vi.mock('monaco-editor/esm/vs/language/typescript/monaco.contribution.js', () => ({}));
+vi.mock('monaco-editor/esm/vs/language/typescript/monaco.contribution.js', () => ({
+  getJavaScriptWorker,
+  getTypeScriptWorker,
+}));
 vi.mock('monaco-editor/esm/vs/language/json/monaco.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/basic-languages/sql/sql.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/basic-languages/javascript/javascript.js', () => basicLanguageModule);
@@ -351,5 +356,63 @@ describe('prefetchLanguage', () => {
     expect(
       registerHoverProvider.mock.calls.filter(([languageId]: [string]) => languageId === 'python')
     ).toHaveLength(2);
+  });
+});
+
+describe('loadNavigationTree', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  it.each([
+    ['javascript', getJavaScriptWorker],
+    ['typescript', getTypeScriptWorker],
+  ])('loads %s symbols through the contribution worker export', async (languageId, getWorker) => {
+    const uri = {
+      toString: () => `inmemory://model/${languageId}`,
+    };
+    const navigationTree = {
+      text: '<global>',
+      kind: 'script',
+      spans: [{ start: 0, length: 0 }],
+      childItems: [
+        {
+          text: 'quickSort',
+          kind: 'function',
+          spans: [{ start: 0, length: 9 }],
+          childItems: [],
+        },
+      ],
+    };
+    const getNavigationTree = vi.fn().mockResolvedValue(navigationTree);
+    const workerFactory = vi.fn().mockResolvedValue({ getNavigationTree });
+    getWorker.mockResolvedValue(workerFactory);
+    const { loadNavigationTree } = await import('@/monaco');
+
+    await expect(
+      loadNavigationTree({
+        uri: uri as never,
+        getLanguageId: () => languageId,
+      })
+    ).resolves.toEqual(navigationTree);
+
+    expect(getWorker).toHaveBeenCalledOnce();
+    expect(workerFactory).toHaveBeenCalledWith(uri);
+    expect(getNavigationTree).toHaveBeenCalledWith(uri.toString());
+  });
+
+  it('does not start a TypeScript worker for unsupported languages', async () => {
+    const { loadNavigationTree } = await import('@/monaco');
+
+    await expect(
+      loadNavigationTree({
+        uri: { toString: () => 'inmemory://model/python' } as never,
+        getLanguageId: () => 'python',
+      })
+    ).resolves.toBeNull();
+
+    expect(getJavaScriptWorker).not.toHaveBeenCalled();
+    expect(getTypeScriptWorker).not.toHaveBeenCalled();
   });
 });

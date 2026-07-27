@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FileTab } from '../types';
 import {
-  flattenNavigationItems,
+  flattenNavigationTree,
   supportsSymbolNavigation,
-  type NavigationBarItem,
   type SymbolEntry,
 } from '../utils/symbolNavigation';
 
@@ -31,9 +30,9 @@ async function resolveMonaco() {
  * visitor who never opens Go to Symbol. Keeping it dynamic is what makes the
  * comment above true rather than aspirational.
  */
-async function resolveNavigationBarItems() {
-  const { loadNavigationBarItems } = await import('../monaco');
-  return loadNavigationBarItems;
+async function resolveNavigationTree() {
+  const { loadNavigationTree } = await import('../monaco');
+  return loadNavigationTree;
 }
 
 /**
@@ -113,17 +112,15 @@ export function useDocumentSymbols(
           return;
         }
 
-        const loadNavigationBarItems = await resolveNavigationBarItems();
-        const items = (await loadNavigationBarItems(model)) as
-          | NavigationBarItem[]
-          | null;
+        const loadNavigationTree = await resolveNavigationTree();
+        const tree = await loadNavigationTree(model);
         if (cancelled) return;
-        if (!items) {
+        if (!tree) {
           setState({ status: 'empty', entries: [] });
           return;
         }
 
-        const entries = flattenNavigationItems(items, makePositionResolver(model));
+        const entries = flattenNavigationTree(tree, makePositionResolver(model));
         setState({
           status: entries.length === 0 ? 'empty' : 'ready',
           entries,

@@ -9,7 +9,7 @@ import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 import 'monaco-editor/esm/vs/editor/editor.all.js';
 // JS/TS syntax coloring and language services are registered by Monaco's
 // TypeScript contribution, not by the raw editor API surface.
-import 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
+import * as typeScriptContribution from 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
 import 'monaco-editor/esm/vs/language/json/monaco.contribution.js';
 // implementation — the SQL workspace editor renders Monaco on the `sql`
 // language. SQL is a basic-language (Monarch tokenizer + language config),
@@ -26,6 +26,7 @@ import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { getLanguageSupportDescriptor } from './languageSupport/registry';
+import type { NavigationTreeItem } from './utils/symbolNavigation';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -378,34 +379,42 @@ export function setMonacoInlineLintEnabled(
   });
 }
 
-// The TypeScript contribution augments the global `monaco.languages` object
-// with worker accessors at runtime, but `editor.api.d.ts` exports only a
-// deprecation stub (`{ deprecated: true }`) so the types don't reflect that
-// augmentation. This narrow shape is how we reach the real factories.
-interface MonacoTypeScriptRuntime {
-  getTypeScriptWorker?: () => Promise<(uri: monaco.Uri) => Promise<TypeScriptWorkerClient>>;
-  getJavaScriptWorker?: () => Promise<(uri: monaco.Uri) => Promise<TypeScriptWorkerClient>>;
+// Monaco's direct TypeScript contribution declaration is currently an empty
+// stub even though the ESM module exports the worker accessors at runtime.
+// Keep the bridge narrow so this implementation does not invent a broader
+// Monaco API surface.
+interface MonacoTypeScriptContributionRuntime {
+  getTypeScriptWorker?: () => Promise<
+    (...uris: monaco.Uri[]) => Promise<TypeScriptWorkerClient>
+  >;
+  getJavaScriptWorker?: () => Promise<
+    (...uris: monaco.Uri[]) => Promise<TypeScriptWorkerClient>
+  >;
 }
 
 interface TypeScriptWorkerClient {
-  getNavigationBarItems: (fileName: string) => Promise<unknown[]>;
+  getNavigationTree: (fileName: string) => Promise<NavigationTreeItem | undefined>;
 }
 
 /**
- * Load every navigation-bar entry for a Monaco model through the TypeScript
- * worker. Returns `null` when the model's language is not JS/TS (the caller
- * should render an empty state) or the worker has not been spun up yet.
+ * Load the declaration tree for a Monaco model through the TypeScript worker.
+ * Returns `null` when the model's language is not JS/TS (the caller should
+ * render an empty state) or the worker has not been spun up yet.
  *
  * We keep this in `monaco.ts` because it's the single file that already owns
  * the monaco singleton — downstream components would otherwise have to
  * re-import the heavy editor entry just to reach the worker factory.
  */
-export async function loadNavigationBarItems(model: {
+export async function loadNavigationTree(model: {
   uri: monaco.Uri;
   getLanguageId: () => string;
-}): Promise<unknown[] | null> {
+}): Promise<NavigationTreeItem | null> {
   const languageId = model.getLanguageId();
-  const runtime = monaco.languages.typescript as unknown as MonacoTypeScriptRuntime;
+  // Monaco 0.55 exports these factories from the contribution module; it does
+  // not attach them to `monaco.languages.typescript`. The direct ESM
+  // declaration is currently an empty stub, so keep this runtime bridge narrow
+  // and local until Monaco ships the matching per-module types.
+  const runtime = typeScriptContribution as unknown as MonacoTypeScriptContributionRuntime;
   const getWorker =
     languageId === 'typescript'
       ? runtime.getTypeScriptWorker
@@ -418,7 +427,7 @@ export async function loadNavigationBarItems(model: {
   try {
     const workerFactory = await getWorker();
     const client = await workerFactory(model.uri);
-    return await client.getNavigationBarItems(model.uri.toString());
+    return (await client.getNavigationTree(model.uri.toString())) ?? null;
   } catch {
     // The TS worker intermittently rejects while spinning up on fresh tabs —
     // surface a null so the overlay can degrade to an empty state instead of
