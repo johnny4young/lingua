@@ -181,6 +181,7 @@ test.describe('Pro tier unlocks — seeded Pro session', () => {
       .first()
       .click({ position: { x: 140, y: 42 } });
     await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.press('Backspace');
     await page.keyboard.insertText(
       [
         'function quickSort(values) {',
