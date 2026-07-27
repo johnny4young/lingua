@@ -20,6 +20,8 @@ The Keyboard Shortcuts overlay (Command Palette → `Open Keyboard Shortcuts`) s
 | Settings                | `Cmd+,`       | `Ctrl+,`        |
 | Close open overlay      | `Escape`      | `Escape`        |
 
+Go to Symbol reads the active JavaScript or TypeScript file's declaration tree and lists functions, classes, methods, and other named declarations in source order. Other languages currently show the unsupported state instead of a partial outline.
+
 ## Desktop deep links
 
 Packaged desktop builds register the `lingua://` protocol and handle these entry points:

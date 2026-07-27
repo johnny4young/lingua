@@ -1,20 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
   filterSymbols,
-  flattenNavigationItems,
+  flattenNavigationTree,
   supportsSymbolNavigation,
-  type NavigationBarItem,
+  type NavigationTreeItem,
   type SymbolEntry,
 } from '@/utils/symbolNavigation';
 
 function navItem(
-  partial: Partial<NavigationBarItem> & Pick<NavigationBarItem, 'text' | 'kind'>
-): NavigationBarItem {
+  partial: Partial<NavigationTreeItem> & Pick<NavigationTreeItem, 'text' | 'kind'>
+): NavigationTreeItem {
   return {
     spans: [{ start: 0, length: 0 }],
     childItems: [],
     ...partial,
   };
+}
+
+function navTree(childItems: NavigationTreeItem[]): NavigationTreeItem {
+  return navItem({ text: '<global>', kind: 'script', childItems });
 }
 
 // Position resolver that treats each item's `start` offset as a line number so
@@ -36,26 +40,28 @@ describe('symbolNavigation', () => {
     });
   });
 
-  describe('flattenNavigationItems', () => {
-    it('skips synthetic `<global>` wrappers and surfaces children at the top level', () => {
-      const items: NavigationBarItem[] = [
+  describe('flattenNavigationTree', () => {
+    it('skips the source-file root and surfaces children at the top level', () => {
+      const tree = navTree([
         navItem({
-          text: '<global>',
-          kind: 'script',
-          childItems: [
-            navItem({ text: 'greet', kind: 'function', spans: [{ start: 1, length: 10 }] }),
-            navItem({ text: 'GREETING', kind: 'const', spans: [{ start: 2, length: 10 }] }),
-          ],
+          text: 'greet',
+          kind: 'function',
+          spans: [{ start: 1, length: 10 }],
         }),
-      ];
+        navItem({
+          text: 'GREETING',
+          kind: 'const',
+          spans: [{ start: 2, length: 10 }],
+        }),
+      ]);
 
-      const entries = flattenNavigationItems(items, fakePositionResolver);
+      const entries = flattenNavigationTree(tree, fakePositionResolver);
       expect(entries.map((entry) => entry.name)).toEqual(['greet', 'GREETING']);
       expect(entries[0]!.qualifiedName).toBe('greet');
     });
 
     it('qualifies nested symbols with their parent path', () => {
-      const items: NavigationBarItem[] = [
+      const tree = navTree([
         navItem({
           text: 'FileTree',
           kind: 'class',
@@ -73,9 +79,9 @@ describe('symbolNavigation', () => {
             }),
           ],
         }),
-      ];
+      ]);
 
-      const entries = flattenNavigationItems(items, fakePositionResolver);
+      const entries = flattenNavigationTree(tree, fakePositionResolver);
       expect(entries).toEqual<SymbolEntry[]>([
         { name: 'FileTree', qualifiedName: 'FileTree', kind: 'class', line: 1, column: 1 },
         {
@@ -96,28 +102,32 @@ describe('symbolNavigation', () => {
     });
 
     it('preserves declaration order when emitting flat entries', () => {
-      const items: NavigationBarItem[] = [
+      const tree = navTree([
         navItem({ text: 'first', kind: 'var', spans: [{ start: 9, length: 1 }] }),
         navItem({ text: 'second', kind: 'var', spans: [{ start: 1, length: 1 }] }),
-      ];
+      ]);
 
-      const names = flattenNavigationItems(items, fakePositionResolver).map((entry) => entry.name);
+      const names = flattenNavigationTree(tree, fakePositionResolver).map(
+        (entry) => entry.name
+      );
       expect(names).toEqual(['first', 'second']);
     });
 
     it('ignores items without spans instead of crashing', () => {
-      const items: NavigationBarItem[] = [
+      const tree = navTree([
         navItem({ text: 'noSpan', kind: 'var', spans: [] }),
         navItem({ text: 'kept', kind: 'var', spans: [{ start: 3, length: 1 }] }),
-      ];
+      ]);
 
-      const names = flattenNavigationItems(items, fakePositionResolver).map((entry) => entry.name);
+      const names = flattenNavigationTree(tree, fakePositionResolver).map(
+        (entry) => entry.name
+      );
       expect(names).toEqual(['kept']);
     });
 
-    it('returns an empty list for missing or empty input', () => {
-      expect(flattenNavigationItems(undefined, fakePositionResolver)).toEqual([]);
-      expect(flattenNavigationItems([], fakePositionResolver)).toEqual([]);
+    it('returns an empty list for a missing tree or a root without declarations', () => {
+      expect(flattenNavigationTree(undefined, fakePositionResolver)).toEqual([]);
+      expect(flattenNavigationTree(navTree([]), fakePositionResolver)).toEqual([]);
     });
   });
 

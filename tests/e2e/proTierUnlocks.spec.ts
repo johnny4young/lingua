@@ -174,6 +174,33 @@ test.describe('Pro tier unlocks — seeded Pro session', () => {
     await expect(page.getByTestId('keyboard-shortcuts-modal')).toBeHidden();
   });
 
+  test('Go to Symbol resolves declarations in the active JavaScript tab', async ({ page }) => {
+    await createJavaScriptTab(page);
+    await page
+      .locator('.monaco-editor')
+      .first()
+      .click({ position: { x: 140, y: 42 } });
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.insertText(
+      [
+        'function quickSort(values) {',
+        '  return values;',
+        '}',
+        '',
+        'class Sorter {',
+        '  mergeSort(values) {',
+        '    return values;',
+        '  }',
+        '}',
+      ].join('\n')
+    );
+
+    await openPaletteAction(page, 'symbol', /Go to Symbol in File/i);
+
+    await expect(page.getByRole('button', { name: /quickSort/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /mergeSort/ })).toBeVisible();
+  });
+
   test('palette routes to overlays without breaking the stack', async ({ page }) => {
     // search-in-files → project search overlay
     await openPaletteAction(page, 'search in files', /Search in Files/i);

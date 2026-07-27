@@ -4,21 +4,20 @@
  * rules can be unit-tested without spinning up Monaco.
  */
 
-export interface NavigationBarSpan {
+export interface NavigationTreeSpan {
   start: number;
   length: number;
 }
 
-export interface NavigationBarItem {
+/**
+ * The worker includes additional metadata such as `kindModifiers` and
+ * `nameSpan`; Go to Symbol only needs this shared subset.
+ */
+export interface NavigationTreeItem {
   text: string;
   kind: string;
-  spans: NavigationBarSpan[];
-  childItems?: NavigationBarItem[];
-  /**
-   * TS sometimes emits a `bolded: true` flag on important children — we
-   * ignore it because the fuzzy filter handles ranking.
-   */
-  bolded?: boolean;
+  spans: NavigationTreeSpan[];
+  childItems?: NavigationTreeItem[];
 }
 
 export interface SymbolEntry {
@@ -35,14 +34,7 @@ export interface SymbolEntry {
 }
 
 /**
- * TS's navigation bar wraps every file in a synthetic `<global>` container
- * (or `"<function>"` for anonymous IIFEs). Those parents carry no useful
- * name so we skip them and flatten their children at the top level.
- */
-const SYNTHETIC_PARENT_LABELS = new Set(['<global>', '<function>', '']);
-
-/**
- * Monaco's language IDs that expose symbols through `getNavigationBarItems`.
+ * Monaco's language IDs that expose symbols through `getNavigationTree`.
  */
 export const SYMBOL_NAVIGATION_LANGUAGES = new Set(['javascript', 'typescript']);
 
@@ -56,12 +48,12 @@ interface PositionResolver {
 }
 
 /**
- * Walk TS's navigation bar tree, skipping synthetic roots and converting
- * character offsets to Monaco line/column pairs. Deterministic in the order
- * TS emits items so the overlay preserves source order.
+ * Walk the children of TS's declaration tree and convert character offsets to
+ * Monaco line/column pairs. Deterministic in the order TS emits items so the
+ * overlay preserves source order.
  */
-export function flattenNavigationItems(
-  items: readonly NavigationBarItem[] | undefined,
+function flattenNavigationItems(
+  items: readonly NavigationTreeItem[] | undefined,
   resolvePosition: PositionResolver,
   parentPath = ''
 ): SymbolEntry[] {
@@ -69,16 +61,6 @@ export function flattenNavigationItems(
   const results: SymbolEntry[] = [];
 
   for (const item of items) {
-    const isSynthetic = SYNTHETIC_PARENT_LABELS.has(item.text);
-    // Synthetic wrappers contribute no row of their own but we still recurse
-    // into their children so top-level declarations surface.
-    if (isSynthetic) {
-      results.push(
-        ...flattenNavigationItems(item.childItems, resolvePosition, parentPath)
-      );
-      continue;
-    }
-
     const qualifiedName = parentPath ? `${parentPath}.${item.text}` : item.text;
 
     const span = item.spans?.[0];
@@ -101,6 +83,18 @@ export function flattenNavigationItems(
   }
 
   return results;
+}
+
+/**
+ * Flatten Monaco's proper declaration tree into navigable rows. The worker's
+ * top node always represents the source file itself, so start at its children
+ * instead of leaking a synthetic `<global>` or quoted file name into results.
+ */
+export function flattenNavigationTree(
+  tree: NavigationTreeItem | undefined,
+  resolvePosition: PositionResolver
+): SymbolEntry[] {
+  return flattenNavigationItems(tree?.childItems, resolvePosition);
 }
 
 /**
