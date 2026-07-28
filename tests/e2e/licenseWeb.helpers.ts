@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test as base, type Locator, type Page, type Route } from '@playwright/test';
+import type { WorkflowMode } from '../../src/shared/workflowMode';
 import { isKnownBenignConsoleError } from './consoleErrorFilter';
 
 const repoRoot = process.cwd();
@@ -38,6 +39,7 @@ type SeedOptions = {
   /** Explicit release version to seed; overrides suppressWhatsNew when set. */
   lastSeenVersion?: string | null;
   showStatusBar?: boolean;
+  workflowModeDefaultsByLanguage?: Record<string, WorkflowMode>;
   /**
    * When true, the session is seeded with a Pro dev license already applied
    * at boot time. Use this for tests that only need Pro to exercise a
@@ -228,6 +230,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
     lastSeenVersion,
     primeProLicense = false,
     showStatusBar,
+    workflowModeDefaultsByLanguage,
   } = options;
 
   await page.addInitScript(
@@ -239,6 +242,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededLanguage,
       seededSnippets,
       seededShowStatusBar,
+      seededWorkflowModeDefaults,
       shouldSuppressWhatsNew,
       seededLastSeenVersion,
       seededLicenseToken,
@@ -268,6 +272,9 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
             hasCompletedOnboardingFirstSnippet: true,
             telemetryConsent: 'declined',
             ...(seededShowStatusBar === undefined ? {} : { showStatusBar: seededShowStatusBar }),
+            ...(seededWorkflowModeDefaults === undefined
+              ? {}
+              : { workflowModeDefaultsByLanguage: seededWorkflowModeDefaults }),
           },
           version: 0,
         })
@@ -301,6 +308,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededLanguage: language,
       seededSnippets: buildSeededSnippets(snippetCount),
       seededShowStatusBar: showStatusBar,
+      seededWorkflowModeDefaults: workflowModeDefaultsByLanguage,
       shouldSuppressWhatsNew: suppressWhatsNew,
       seededLastSeenVersion: lastSeenVersion,
       seededLicenseToken: primeProLicense ? (DEV_LICENSE_TOKEN ?? null) : null,
@@ -510,6 +518,23 @@ export async function waitForRunCompleted(page: Page): Promise<void> {
     name: /^running\.\.\.$|^ejecutando\.\.\.$/i,
   });
   await expect(runningButton).toHaveCount(0, { timeout: 30_000 });
+}
+
+/**
+ * Wait for the seeded welcome scratchpad to produce output and settle before
+ * a test clears the console. Checking only the idle Run label is insufficient:
+ * the auto-run debounce may not have started yet, so that assertion can pass
+ * immediately and let the pending run repopulate the supposedly-empty panel.
+ *
+ * Call after `openConsole` so the virtualized console rows are mounted.
+ */
+export async function waitForInitialAutoRunCompleted(page: Page): Promise<void> {
+  await expect(page.getByTestId('console-entry-row').first()).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId('action-pill-run')).toHaveAttribute('data-running', 'false', {
+    timeout: 30_000,
+  });
 }
 
 export async function clickRun(page: Page): Promise<void> {

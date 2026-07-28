@@ -50,9 +50,10 @@ fallthrough = true
 # wrangler.jsonc per-environment if you ever split sandbox vs prod).
 RESEND_FROM_EMAIL = "noreply@linguacode.dev"
 RESEND_FROM_NAME = "Lingua"
-# Non-secret two-slot selector. Keep `current` while the next verification key
-# is only pending; switch to `next` after compatible web + desktop builds ship.
-LINGUA_LICENSE_SIGNING_KEY_SLOT = "current"
+# Non-secret two-slot selector. During rotation, the public keyring verifies old
+# and new signatures; `next` selects the private key that signs newly
+# issued/refreshed tokens. Keep it paired with the primary public key.
+LINGUA_LICENSE_SIGNING_KEY_SLOT = "next"
 # CORS allowed origins for browser-side activation calls from the web
 # build. Add additional origins (e.g. preview deploys) here.
 CORS_ALLOWED_ORIGINS = "https://linguacode.dev,https://app.linguacode.dev,http://localhost:5174,http://localhost:4173"
