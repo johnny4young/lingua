@@ -6,7 +6,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
-## [0.15.0] — 2026-07-25
+## [0.15.0] — 2026-07-28
 
 ### Changed
 - **Run capsules now carry a real forward-compatibility contract:** the parser distinguishes a capsule written by a newer Lingua (import tells you to update the app) from one whose format this build genuinely cannot read, and replays a registered migration chain for older capsules instead of rejecting them outright. The distinction has to ship before a second schema version exists, because an already-released build can never learn a new reject reason.
