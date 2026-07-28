@@ -11,6 +11,7 @@
  */
 
 import {
+  clickRun,
   createLanguageTab,
   expect,
   gotoApp,
@@ -26,13 +27,21 @@ test.describe('runtime bootstrap progress', () => {
     // Simulate a slow network for the big Pyodide asset (the AC's
     // DevTools-throttling scenario): the initialization window stays
     // open long enough for the label samples to catch both the static
-    // message and the live MB counter, regardless of which run path
-    // (auto-run vs manual) wins the boot race.
+    // message and the live MB counter.
     await page.route('**/pyodide.asm.wasm', async route => {
       await new Promise(resolve => setTimeout(resolve, 2_500));
       await route.continue();
     });
-    await seedSession(page);
+    // Keep both startup tabs in explicit Run mode. Otherwise the seeded
+    // JavaScript scratchpad and the new Python scratchpad can auto-run while
+    // this test starts its manual run, leaving two workers racing to publish
+    // the result and bootstrap label.
+    await seedSession(page, {
+      workflowModeDefaultsByLanguage: {
+        javascript: 'run',
+        python: 'run',
+      },
+    });
     await gotoApp(page);
 
     // Open a Python tab via the action-pill language menu and replace
@@ -43,9 +52,7 @@ test.describe('runtime bootstrap progress', () => {
       .locator('.monaco-editor')
       .first()
       .click({ position: { x: 140, y: 42 } });
-    await page.keyboard.press(
-      process.platform === 'darwin' ? 'Meta+A' : 'Control+A'
-    );
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
     await page.keyboard.press('Backspace');
     await page.keyboard.insertText('print(21 * 2)');
 
@@ -60,11 +67,9 @@ test.describe('runtime bootstrap progress', () => {
       }, 50);
     });
 
-    // The scratchpad AUTO-run may already be booting Pyodide from the
-    // template; a manual Run from the workflow menu guarantees the
-    // initialization window (and its live loading label) is exercised.
-    await page.getByTestId('action-pill-run-menu').click();
-    await page.getByTestId('action-pill-workflow-option-run').click();
+    // The seeded workflow default prevents any competing auto-run, so this is
+    // the one and only Python bootstrap whose progress and result we observe.
+    await clickRun(page);
 
     // Pyodide boot + run: wait for the printed result in the console.
     await expect(page.getByText('42', { exact: true }).first()).toBeVisible({

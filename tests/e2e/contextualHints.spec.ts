@@ -9,6 +9,7 @@ import {
   paletteInput,
   seedSession,
   test,
+  waitForInitialAutoRunCompleted,
 } from './licenseWeb.helpers';
 
 const evidenceDir = 'output/review/d4-d5-d7-discoverability';
@@ -24,6 +25,7 @@ test.describe('internal contextual empty-state hints', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openConsole(page);
+    await waitForInitialAutoRunCompleted(page);
     await page.getByRole('button', { name: 'Clear console' }).click();
 
     const consoleHint = page.getByTestId('contextual-hint-console');
@@ -60,6 +62,7 @@ test.describe('internal contextual empty-state hints', () => {
     await seedSession(page, { language: 'es' });
     await gotoApp(page);
     await openConsole(page);
+    await waitForInitialAutoRunCompleted(page);
     await page.getByRole('button', { name: 'Limpiar consola' }).click();
 
     const consoleHint = page.getByTestId('contextual-hint-console');
