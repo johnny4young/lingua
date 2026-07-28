@@ -90,6 +90,20 @@ The renderer is intentionally split by feature instead of by component type.
 
 ## State ownership
 
+### User-invoked overlays
+
+`App.tsx` owns one `AppOverlay` value for Settings, palettes, search,
+Snippets, Recipes, importers, and every other user-invoked modal surface.
+Opening one replaces the previous value; feature stores must not add parallel
+`overlayOpen` flags. Domain state can outlive the overlay — for example, recipe
+bindings remain in `recipeStore` after the Recipes browser closes — but
+visibility stays in the single App slot.
+
+The guided tour is a separate, short-lived onboarding layer. It closes any
+existing App overlay before starting and yields when a shortcut opens one. Its
+task flow stays on the editor, Run action, and console; it must not open a
+second modal from inside a tour step.
+
 Use the closest store that already owns the product concept instead of adding cross-cutting state to `App.tsx`.
 
 | Store                                                                                               | Owns                                                              |

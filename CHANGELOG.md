@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- **The guided tour now teaches one complete feedback loop instead of opening a chain of tools:** it moves from the editor to a real Run and then to the console, waits until desktop consent is resolved before starting automatically, and yields whenever the user opens another surface. Settings, Recipes, Snippets, search, and the command palette now also share one coordinated overlay slot, so shortcuts replace the current dialog instead of stacking modals.
+
 ## [0.15.0] — 2026-07-28
 
 ### Changed

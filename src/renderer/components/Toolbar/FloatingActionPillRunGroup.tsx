@@ -92,6 +92,7 @@ export function FloatingActionPillRunGroup({
         disabled={runDisabled}
         data-running={isRunning ? 'true' : 'false'}
         data-workflow={currentWorkflow}
+        data-tour-id="run-button"
         data-testid="action-pill-run"
         aria-label={workflowChip.label}
         title={runDisabledTooltip}

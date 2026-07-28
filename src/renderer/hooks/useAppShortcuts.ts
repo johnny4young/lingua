@@ -1,6 +1,5 @@
 import type { DeveloperUtilityId } from '../data/developerUtilities';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
-import { useRecipeStore } from '../stores/recipeStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { cycleRuntimeMode, languageHasRuntimeModes } from '../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
@@ -120,14 +119,10 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     exportProjectBundle: () => {
       void exportProjectBundle();
     },
-    // implementation Slice B implementation note — Mod+Alt+L opens the global Recipes
-    // overlay. Overlay open state lives on `useRecipeStore`, not the
-    // single-slot `AppOverlay` union, because a bound recipe tab can
-    // co-exist with an open recipes overlay (e.g. the user wants to
-    // open a second recipe in another tab while the first is still
-    // active).
+    // Recipes is a user-invoked modal surface, so route it through the
+    // same single-slot coordinator as Settings, Snippets, and the palette.
     openRecipesOverlay: () => {
-      useRecipeStore.getState().openOverlay();
+      openOverlay('recipes');
     },
     // implementation Slice A implementation note — Mod+Alt+N creates a fresh notebook tab
     // via `useEditorStore.addNotebookTab` which also seeds the

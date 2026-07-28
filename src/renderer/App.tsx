@@ -7,7 +7,6 @@ import { GuidedTourProvider } from './components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
 import { useProjectBundle } from './hooks/useProjectBundle';
 import { claimCapsuleListSurface } from './components/CapsuleList/capsuleListSurface';
-import { useRecipeStore } from './stores/recipeStore';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
@@ -97,6 +96,7 @@ function AppChrome({
     return getActiveTab(s)?.kind === 'utilities';
   });
   const suppressTourAutoStart = useSettingsStore(s => s.suppressTourAutoStart);
+  const telemetryConsent = useSettingsStore(s => s.telemetryConsent);
   // Select the two stable actions individually — `useUIStore()` with no
   // selector re-renders AppChrome (the entire shell) on EVERY ui-store
   // write, including each of the ~134 statusNotice push/dismiss sites.
@@ -199,7 +199,15 @@ function AppChrome({
   }, [track]);
 
   useEffect(() => {
-    if (hasHandledAutoTourRef.current || smokeEnabled || hasHandledDeepLink) {
+    const firstRunConsentOpen =
+      window.lingua?.platform !== 'web' && telemetryConsent === 'unset';
+
+    if (
+      hasHandledAutoTourRef.current ||
+      smokeEnabled ||
+      hasHandledDeepLink ||
+      firstRunConsentOpen
+    ) {
       return;
     }
 
@@ -228,6 +236,7 @@ function AppChrome({
     appInfo?.version,
     hasCompletedTour,
     suppressTourAutoStart,
+    telemetryConsent,
     hasHandledDeepLink,
     overlay,
     startTour,
@@ -320,6 +329,7 @@ function AppChrome({
   // implementation detail — keep overlay ownership in App while shared
   // producers request the snippets surface through the typed bus.
   useCommandListener('overlay.openSnippets', () => openOverlay('snippets'));
+  useCommandListener('overlay.openRecipes', () => openOverlay('recipes'));
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));
 
@@ -355,7 +365,7 @@ function AppChrome({
         onOpenQuickOpen={() => openOverlay('quick-open')}
         onOpenSnippets={() => openOverlay('snippets')}
         onOpenUtilities={() => handleOpenDeveloperUtility()}
-        onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
+        onOpenRecipes={() => openOverlay('recipes')}
         utilitiesOpen={utilitiesWorkspaceActive}
       />
       <ShareLinkController />
@@ -425,10 +435,9 @@ export function App() {
   return (
     <ErrorBoundary region="shell">
       <GuidedTourProvider
+        hasActiveOverlay={overlay !== 'none'}
         controls={{
           closeOverlay,
-          openPalette: () => openOverlay('palette'),
-          openSnippets: () => openOverlay('snippets'),
         }}
       >
         <AppChrome

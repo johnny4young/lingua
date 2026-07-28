@@ -18,17 +18,10 @@ vi.mock('../../src/renderer/components/CommandPalette/CommandPalette', async () 
   };
 });
 
-vi.mock('../../src/renderer/stores/recipeStore', () => {
-  const state = {
-    overlayOpen: false,
-    closeOverlay: vi.fn(),
-    openOverlay: vi.fn(),
+vi.mock('../../src/renderer/components/Recipes/RecipesOverlay', () => {
+  return {
+    RecipesOverlay: () => <div data-testid="mock-recipes-overlay">recipes</div>,
   };
-  const useRecipeStore = Object.assign(
-    (selector: (value: typeof state) => unknown) => selector(state),
-    { getState: () => state }
-  );
-  return { useRecipeStore };
 });
 
 import { AppOverlays, type AppOverlaysProps } from '../../src/renderer/components/AppOverlays';
@@ -70,5 +63,14 @@ describe('AppOverlays', () => {
     expect(await screen.findByText('2:recent')).toBeTruthy();
     // Exactly one palette is mounted; the old one is gone, not hidden.
     expect(screen.getAllByTestId('mock-command-palette')).toHaveLength(1);
+  });
+
+  it('renders Recipes through the same single overlay slot', async () => {
+    const { rerender } = render(<AppOverlays overlay="recipes" {...callbacks} />);
+    expect(await screen.findByTestId('mock-recipes-overlay')).toBeTruthy();
+
+    rerender(<AppOverlays overlay="palette" {...callbacks} />);
+    expect(await screen.findByText('1:all')).toBeTruthy();
+    expect(screen.queryByTestId('mock-recipes-overlay')).toBeNull();
   });
 });

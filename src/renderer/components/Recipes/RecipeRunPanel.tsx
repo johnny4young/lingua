@@ -28,6 +28,7 @@ import { Check, Hammer, Loader2, Play, Sparkles, X } from 'lucide-react';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useRecipeStore } from '../../stores/recipeStore';
 import { useResultStore } from '../../stores/resultStore';
+import { emitCommand } from '../../stores/commandBus';
 import { useUIStore } from '../../stores/uiStore';
 import { getRecipeById } from '../../data/recipes';
 import {
@@ -82,7 +83,7 @@ export function RecipeRunPanel() {
     [activeTabId, lastResults]
   );
 
-  const openOverlay = useRecipeStore((s) => s.openOverlay);
+  const openOverlay = () => emitCommand('overlay.openRecipes');
   const { runActiveTab, unbindActiveTab } = useRecipeRun();
 
   if (!activeTab || !recipe) {

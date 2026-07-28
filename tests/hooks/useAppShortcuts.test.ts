@@ -37,4 +37,22 @@ describe('useAppShortcuts', () => {
     expect(true).toBe(true);
     expect(() => unmount()).not.toThrow();
   });
+
+  it('routes the Recipes shortcut through the single App overlay slot', () => {
+    const openOverlay = vi.fn();
+    const { unmount } = renderHook(() =>
+      useAppShortcuts(makeDeps({ openOverlay }))
+    );
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        altKey: true,
+        ctrlKey: true,
+        key: 'l',
+      })
+    );
+
+    expect(openOverlay).toHaveBeenCalledWith('recipes');
+    unmount();
+  });
 });

@@ -88,6 +88,7 @@ describe('FloatingActionPill', () => {
     // mode-aware button. The button must be present and not disabled.
     const run = screen.getByTestId('action-pill-run') as HTMLButtonElement;
     expect(run.disabled).toBe(false);
+    expect(run.getAttribute('data-tour-id')).toBe('run-button');
   });
 
   it('fires run() when the action button is clicked while idle', async () => {

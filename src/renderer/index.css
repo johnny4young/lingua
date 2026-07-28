@@ -928,7 +928,7 @@
   }
 
   .guided-tour-overlay {
-    @apply fixed inset-0;
+    @apply pointer-events-auto fixed inset-0;
     background: var(--tour-overlay);
   }
 

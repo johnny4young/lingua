@@ -4,7 +4,6 @@ import { replayHistoryEntry } from '../utils/replayHistoryEntry';
 import { type DeveloperUtilityId } from '../data/developerUtilities';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { exportActiveNotebookAsLinguanb } from '../runtime/exportActiveNotebook';
-import { useRecipeStore } from '../stores/recipeStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
@@ -68,23 +67,9 @@ const WhatsNewOverlay = lazy(async () => ({
 }));
 
 /**
- * implementation — Recipes overlay mount. Visibility flag lives on
- * `useRecipeStore.overlayOpen` instead of the single-slot `AppOverlay`
- * union so the overlay can co-exist with a recipe-bound tab being
- * active (the user opens a second recipe while the first tab keeps
- * its binding).
- */
-function RecipesOverlayMount() {
-  const overlayOpen = useRecipeStore(s => s.overlayOpen);
-  const closeOverlay = useRecipeStore(s => s.closeOverlay);
-  if (!overlayOpen) return null;
-  return <RecipesOverlay onClose={closeOverlay} />;
-}
-
-/**
  * internal — the single-slot overlay layer, extracted verbatim from
  * `AppChrome` in `App.tsx`. Renders whichever overlay the `AppOverlay` union
- * selects (plus the recipe overlay, which has its own `useRecipeStore` flag).
+ * selects.
  * `AppChrome` keeps ownership of the overlay STATE + the open/close/toggle
  * controls and the always-mounted chrome (status banner, consent modal, etc.);
  * this component is purely the conditional render fan-out, driven by props.
@@ -169,7 +154,7 @@ export function AppOverlays({
           onExportProjectBundle={() => void exportProjectBundle()}
           onImportProjectBundle={() => openOverlay('project-bundle-import')}
           onOpenImportOverlay={() => openOverlay('import-preview')}
-          onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
+          onOpenRecipes={() => openOverlay('recipes')}
           onNewNotebook={() => useEditorStore.getState().addNotebookTab()}
           onExportActiveNotebookLinguanb={() => exportActiveNotebookAsLinguanb()}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
@@ -180,10 +165,7 @@ export function AppOverlays({
       {overlay === 'capsule-list' && <CapsuleListOverlay onClose={closeOverlay} />}
       {overlay === 'import-preview' && <ImportPreviewOverlay onClose={closeOverlay} />}
       {overlay === 'project-bundle-import' && <ProjectBundleImportOverlay onClose={closeOverlay} />}
-      {/* implementation — Recipes overlay. Visibility flag lives on
-          `useRecipeStore` (not the AppOverlay union) so the overlay
-          can co-exist with a recipe-bound tab being active. */}
-      <RecipesOverlayMount />
+      {overlay === 'recipes' && <RecipesOverlay onClose={closeOverlay} />}
       {overlay === 'settings' && (
         <SettingsModal
           onClose={closeOverlay}

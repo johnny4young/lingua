@@ -25,13 +25,12 @@ import {
 
 interface GuidedTourControls {
   closeOverlay: () => void;
-  openPalette: () => void;
-  openSnippets: () => void;
 }
 
 interface GuidedTourProviderProps {
   children: ReactNode;
   controls: GuidedTourControls;
+  hasActiveOverlay: boolean;
 }
 
 interface GuidedTourTargetRect {
@@ -52,6 +51,7 @@ const BUTTON_LABEL_KEYS: Record<GuidedTourButtonKind, string> = {
   back: 'tour.buttons.back',
   finish: 'tour.buttons.finish',
   next: 'tour.buttons.next',
+  run: 'tour.buttons.run',
   skip: 'tour.buttons.skip',
 };
 
@@ -181,6 +181,7 @@ function getButtonClassName(kind: GuidedTourButtonKind) {
 function GuidedTourRuntime({
   children,
   controls,
+  hasActiveOverlay,
 }: GuidedTourProviderProps) {
   const { t } = useTranslation();
   const hasCompletedTour = useSettingsStore((state) => state.hasCompletedTour);
@@ -212,11 +213,7 @@ function GuidedTourRuntime({
     () =>
       buildGuidedTourSteps({
         t,
-        closeOverlay: () => controlsRef.current.closeOverlay(),
-        openPalette: () => controlsRef.current.openPalette(),
-        openSnippets: () => controlsRef.current.openSnippets(),
         ensureConsoleVisible: () => useUIStore.getState().openBottomPanel('console'),
-        ensureSidebarVisible: () => useUIStore.getState().setSidebarVisible(true),
         getSuppressTourAutoStart: () =>
           useSettingsStore.getState().suppressTourAutoStart,
         setSuppressTourAutoStart: (value) =>
@@ -235,8 +232,15 @@ function GuidedTourRuntime({
   const cancelTour = useCallback(() => {
     setActiveStepIndex(null);
     setTargetRect(null);
-    controlsRef.current.closeOverlay();
   }, []);
+
+  // A keyboard shortcut can open an App overlay while the tour owns focus.
+  // Yield immediately instead of leaving two dialogs mounted together.
+  useEffect(() => {
+    if (hasActiveOverlay && activeStepIndexRef.current !== null) {
+      cancelTour();
+    }
+  }, [cancelTour, hasActiveOverlay]);
 
   // accessibility pass — capture the trigger when the tour opens, move focus into
   // the dialog, and restore focus to the trigger when it closes.
@@ -318,7 +322,6 @@ function GuidedTourRuntime({
     setHasCompletedTour(true);
     setActiveStepIndex(null);
     setTargetRect(null);
-    controlsRef.current.closeOverlay();
   }, [setHasCompletedTour]);
 
   const goToNextStep = useCallback(() => {
@@ -337,7 +340,6 @@ function GuidedTourRuntime({
 
   useEffect(() => {
     if (!activeStep) {
-      setTargetRect(null);
       return;
     }
 
@@ -394,40 +396,6 @@ function GuidedTourRuntime({
     };
   }, [activeStep]);
 
-  useEffect(() => {
-    if (!activeStep?.advanceOn) {
-      return;
-    }
-
-    // Some steps advance after the user interacts with a target rendered by a
-    // different overlay. Capture the step index when the listener is installed
-    // so delayed events cannot advance a newer step accidentally.
-    let cancelled = false;
-    let element: HTMLElement | null = null;
-    const { event, selector } = activeStep.advanceOn;
-    const expectedStepIndex = activeStepIndex;
-    const handleAdvance = () => {
-      if (activeStepIndexRef.current === expectedStepIndex) {
-        goToNextStep();
-      }
-    };
-
-    const attachListener = async () => {
-      await waitForGuidedTourSelector(selector);
-      if (cancelled) return;
-
-      element = document.querySelector<HTMLElement>(selector);
-      element?.addEventListener(event, handleAdvance);
-    };
-
-    void attachListener();
-
-    return () => {
-      cancelled = true;
-      element?.removeEventListener(event, handleAdvance);
-    };
-  }, [activeStep, activeStepIndex, goToNextStep]);
-
   const startTour = useCallback(async () => {
     controlsRef.current.closeOverlay();
 
@@ -464,6 +432,19 @@ function GuidedTourRuntime({
     }
 
     if (button === 'next') {
+      goToNextStep();
+      return;
+    }
+
+    if (button === 'run') {
+      const selector = activeStep?.actionTarget;
+      const target = selector
+        ? document.querySelector<HTMLButtonElement>(selector)
+        : null;
+      if (!target || target.disabled) {
+        return;
+      }
+      target.click();
       goToNextStep();
       return;
     }
@@ -556,6 +537,14 @@ function GuidedTourRuntime({
   );
 }
 
-export function GuidedTourProvider({ children, controls }: GuidedTourProviderProps) {
-  return <GuidedTourRuntime controls={controls}>{children}</GuidedTourRuntime>;
+export function GuidedTourProvider({
+  children,
+  controls,
+  hasActiveOverlay,
+}: GuidedTourProviderProps) {
+  return (
+    <GuidedTourRuntime controls={controls} hasActiveOverlay={hasActiveOverlay}>
+      {children}
+    </GuidedTourRuntime>
+  );
 }

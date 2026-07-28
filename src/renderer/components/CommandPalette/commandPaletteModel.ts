@@ -391,10 +391,8 @@ interface BuildCommandPaletteModelArgs {
    */
   onOpenImportOverlay?: () => void;
   /**
-   * implementation Slice B implementation note — opens the Recipes overlay (`Mod+Alt+L`).
-   * Visibility lives on `useRecipeStore.overlayOpen`, not the
-   * single-slot AppOverlay union. Optional; when omitted the action
-   * hides.
+   * Opens the Recipes overlay (`Mod+Alt+L`) through App's single-slot
+   * overlay coordinator. Optional; when omitted the action hides.
    */
   onOpenRecipes?: () => void;
   /**

@@ -1,8 +1,7 @@
 /**
  * implementation — `useRecipeStore` tests.
  *
- * Transient state: overlay open / close, per-tab binding,
- * last-run results, in-flight flag.
+ * Transient state: per-tab binding, last-run results, in-flight flag.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -16,19 +15,11 @@ beforeEach(() => {
 });
 
 describe('useRecipeStore', () => {
-  it('starts closed with empty maps', () => {
+  it('starts with empty maps', () => {
     const state = useRecipeStore.getState();
-    expect(state.overlayOpen).toBe(false);
     expect(state.activeBindingForTab.size).toBe(0);
     expect(state.lastRunResults.size).toBe(0);
     expect(state.isRunning.size).toBe(0);
-  });
-
-  it('toggles overlay open / closed', () => {
-    useRecipeStore.getState().openOverlay();
-    expect(useRecipeStore.getState().overlayOpen).toBe(true);
-    useRecipeStore.getState().closeOverlay();
-    expect(useRecipeStore.getState().overlayOpen).toBe(false);
   });
 
   it('binds + unbinds recipes per tab id', () => {
