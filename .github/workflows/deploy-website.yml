@@ -62,6 +62,11 @@ jobs:
         run: npm run check
 
       - name: Build
+        env:
+          # Astro prerenders /releases from the GitHub Releases API. Authenticate
+          # that server-side build request so shared runner IPs do not consume
+          # the 60 requests/hour anonymous limit.
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
