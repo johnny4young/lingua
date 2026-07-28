@@ -6,14 +6,14 @@
     {
       "thumbprint": "U0WxZzfZ6Ql5ztLrXohowxMxnik8NMUOsaRixXYdfOs",
       "issuedAt": "2026-04-28",
-      "status": "active",
-      "note": "Initial production keypair, embedded by implementation (commit 8d2836b8). Private half lives only as the Cloudflare Workers secret LINGUA_LICENSE_PRIVATE_KEY_JWK in license-server."
+      "status": "retiring",
+      "note": "Initial production keypair, embedded by implementation (commit 8d2836b8). Retained in LINGUA_LICENSE_PRIVATE_KEY_JWK during the first production rotation compatibility window so existing offline tokens remain valid."
     },
     {
       "thumbprint": "5i_i0yv43on3C8Orm6Zvzmv8GwjB49cx0rhvdk29ePo",
       "issuedAt": "2026-07-21",
-      "status": "pending",
-      "note": "Prepared overlap key for the first production rotation. Private half is stored only as LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK; do not select it for signing until compatible keyring builds are deployed."
+      "status": "active",
+      "note": "Primary key for the first production rotation after compatible web and desktop builds shipped the overlap keyring. Private half is stored only as LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK."
     }
   ]
 }
