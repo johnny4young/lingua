@@ -56,7 +56,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabItems.tsx`, `ResultPanel.tsx` | Owns Monaco, tab orchestration/rows, inline result surface, completion providers |
 | [`components/ErrorBoundary/`](components/ErrorBoundary)   | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
-| [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | Owns primary shell actions and status affordances; shared pure policy keeps workflow eligibility consistent |
+| [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | AppLayout mounts the floating execution chrome only; the standalone Toolbar supports focused fallback/smoke coverage and shares the same pure eligibility policy |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
 | [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `useCommandPaletteCommands.ts`, `commandPaletteModel.ts` | Thin combobox UI plus store-backed catalog orchestration and pure model logic |
 | [`components/ContextualHints/`](components/ContextualHints) | `ContextualHint.tsx` | Platform-aware guidance and persisted opt-out for empty product surfaces |

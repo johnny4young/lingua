@@ -286,6 +286,8 @@ describe('AppLayout responsive shell', () => {
     expect(screen.queryByRole('dialog', { name: 'Project explorer' })).toBeNull();
     expect(document.querySelector('[data-panel="sidebar-panel"]')).toBeTruthy();
     expect(screen.getByTestId('file-tree')).toBeTruthy();
+    expect(screen.getByTestId('floating-action-pill')).toBeTruthy();
+    expect(screen.queryByTestId('toolbar-toggle')).toBeNull();
   });
 
   it('wires toolbar overlay action icons through the layout boundary', async () => {
@@ -494,9 +496,9 @@ describe('AppLayout responsive shell', () => {
 
     await renderLayout();
 
-    const toggleButton = screen.getByTestId('toolbar-toggle');
-    toggleButton.focus();
-    expect(document.activeElement).toBe(toggleButton);
+    const actionPillButton = screen.getByTestId('action-pill-search');
+    actionPillButton.focus();
+    expect(document.activeElement).toBe(actionPillButton);
 
     act(() => {
       useUIStore.setState({ sidebarVisible: true });
@@ -518,7 +520,7 @@ describe('AppLayout responsive shell', () => {
       expect(useUIStore.getState().sidebarVisible).toBe(false);
     });
     await waitFor(() => {
-      expect(document.activeElement).toBe(toggleButton);
+      expect(document.activeElement).toBe(actionPillButton);
     });
     expect(shellUnderlay.hasAttribute('inert')).toBe(false);
     expect(shellUnderlay.getAttribute('aria-hidden')).toBeNull();
@@ -653,7 +655,8 @@ describe('AppLayout responsive shell', () => {
 
         expect(fallback.getAttribute('data-region')).toBe(region);
         expect(screen.getByTestId('editor-tabs')).toBeTruthy();
-        expect(screen.getByTestId('toolbar-toggle')).toBeTruthy();
+        expect(screen.getByTestId('floating-action-pill')).toBeTruthy();
+        expect(screen.queryByTestId('toolbar-toggle')).toBeNull();
         const crashLog = JSON.parse(localStorage.getItem('lingua-crash-log') ?? '[]') as Array<{
           region?: string;
         }>;

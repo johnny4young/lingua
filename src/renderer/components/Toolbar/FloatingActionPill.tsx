@@ -24,10 +24,10 @@
  *                      keystroke; the segment exists for design
  *                      parity until a real "autosave" setting lands).
  *
- * The pill cohabits with the existing Toolbar.tsx — when this is
- * mounted the Toolbar trims its centre cluster (sees prop
- * `showFloatingPill`). Both surfaces read the same Zustand stores and
- * resolve product eligibility through one pure execution-control policy.
+ * AppLayout mounts the pill as its only execution chrome. Toolbar.tsx
+ * remains a standalone fallback for focused smoke coverage, but it is
+ * not mounted invisibly beside this surface. Both controls resolve
+ * product eligibility through one pure execution-control policy.
  *
  * internal / implementation — the pill's segments live in sibling files
  * (`FloatingActionPill<Part>.tsx`) and its logic in

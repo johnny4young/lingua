@@ -12,7 +12,6 @@ import { StatusBar } from '../StatusBar/StatusBar';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { BottomPanel } from './BottomPanel';
 import { PanelChipsRow } from './PanelChipsRow';
-import { Toolbar } from '../Toolbar';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -642,10 +641,10 @@ export function AppLayout({
         className="flex min-h-0 flex-1 flex-col"
       >
         <AppChrome onOpenSettings={onOpenSettings} />
-        {!presenterActive && <Toolbar showFloatingPill />}
-        {/* internal — the floating action pill IS the dominant chrome; a
-            presenter hides it too (Cmd+Enter still runs, the shortcut
-            or palette toggles the mode back). */}
+        {/* The floating action pill is the only mounted execution chrome.
+            AppChrome already owns the Electron drag region, so a zero-height
+            Toolbar spacer would add subscriptions and DOM without layout
+            value. Presenter mode hides the pill; Cmd+Enter still runs. */}
         {!presenterActive && (
           <FloatingActionPill
             onOpenSettings={onOpenSettings}

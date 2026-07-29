@@ -41,16 +41,7 @@ const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = LANGUAGE_PACKS.fil
     pack.templateIds.length > 0
 ).map((pack) => ({ id: pack.id as Language, label: languageLabel(pack.id) }));
 
-interface ToolbarProps {
-  /**
-   * internal — when the floating action pill is mounted alongside the
-   * toolbar, the toolbar becomes a compact drag spacer. Primary
-   * controls, including the sidebar toggle, live in the pill.
-   */
-  showFloatingPill?: boolean;
-}
-
-export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
+export function Toolbar() {
   const tabCount = useEditorStore((state) => state.tabs.length);
   const addTab = useEditorStore((state) => state.addTab);
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
@@ -224,31 +215,24 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
     <div
       data-testid="toolbar-shell"
       data-tour-id="toolbar-shell"
-      className={cn(
-        'toolbar-drag-region relative z-10 flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap',
-        showFloatingPill
-          ? 'h-0 shrink-0 overflow-hidden border-0 bg-transparent p-0'
-          : 'surface-header min-h-16 px-3 py-2 sm:min-h-14 sm:px-4',
-      )}
+      className="toolbar-drag-region surface-header relative z-10 flex min-h-16 flex-wrap items-center justify-between gap-3 px-3 py-2 sm:min-h-14 sm:flex-nowrap sm:px-4"
     >
       <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-32 bg-gradient-to-r from-primary-soft/55 via-transparent to-transparent sm:block" />
 
-      <div className={cn('flex min-w-0 items-center gap-2 pl-2 sm:pl-3', showFloatingPill && 'hidden')}>
-        {!showFloatingPill ? (
-          <IconButton
-            onClick={toggleSidebar}
-            active={sidebarVisible}
-            tooltip={t('toolbar.sidebar.toggle')}
-            aria-controls="project-explorer"
-            aria-expanded={sidebarVisible}
-          >
-            <PanelLeft size={15} />
-          </IconButton>
-        ) : null}
+      <div className="flex min-w-0 items-center gap-2 pl-2 sm:pl-3">
+        <IconButton
+          onClick={toggleSidebar}
+          active={sidebarVisible}
+          tooltip={t('toolbar.sidebar.toggle')}
+          aria-controls="project-explorer"
+          aria-expanded={sidebarVisible}
+        >
+          <PanelLeft size={15} />
+        </IconButton>
 
-        {!showFloatingPill ? <div className="toolbar-divider" /> : null}
+        <div className="toolbar-divider" />
 
-        {!showFloatingPill && (showDebugAction ? (
+        {showDebugAction ? (
           <div ref={runMenuRef} className="relative shrink-0">
             <div className="inline-flex overflow-hidden rounded-lg">
               <Tooltip
@@ -366,9 +350,9 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
               )}
             </button>
           </Tooltip>
-        ))}
+        )}
 
-        {!showFloatingPill && isRunning && (
+        {isRunning && (
           <IconButton
             onClick={stop}
             tone="danger"
@@ -379,22 +363,17 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
           </IconButton>
         )}
 
-        {/* UI refinement — workflow + runtime selectors live with the
-            Run button. They configure HOW + WHERE the run executes,
-            so the whole execution cluster reads as one group.
-            internal — hidden when the floating action pill is mounted;
-            those controls move into the pill. */}
-        {!showFloatingPill && activeTab ? <WorkflowModeSegment /> : null}
-        {!showFloatingPill && languageHasRuntimeModes(activeTab?.language) ? (
+        {/* Workflow + runtime selectors live with the Run button. They
+            configure HOW + WHERE the standalone fallback executes, so
+            the execution cluster reads as one group. */}
+        {activeTab ? <WorkflowModeSegment /> : null}
+        {languageHasRuntimeModes(activeTab?.language) ? (
           <RuntimeModeSelector />
         ) : null}
 
-        {!showFloatingPill ? <div className="toolbar-divider" /> : null}
+        <div className="toolbar-divider" />
 
-        <div
-          ref={newFileMenuRef}
-          className={cn('relative shrink-0', showFloatingPill && 'hidden')}
-        >
+        <div ref={newFileMenuRef} className="relative shrink-0">
           <div className="inline-flex h-10 overflow-hidden rounded-xl border border-border/70 bg-surface-strong/80 shadow-[var(--shadow-sm)]">
             <Tooltip content={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}>
               <button

@@ -647,13 +647,12 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Menú de lenguaje para nuevo archivo' })).toBeTruthy();
   });
 
-  it('leaves the floating-pill toolbar as a compact drag spacer', () => {
-    render(<Toolbar showFloatingPill />);
+  it('renders as a visible standalone fallback', () => {
+    render(<Toolbar />);
 
-    expect(screen.getByTestId('toolbar-shell').className).toContain('h-0');
-    expect(screen.queryByTestId('toolbar-run-button')).toBeNull();
-    expect(screen.queryByRole('button', { name: /Toggle sidebar/ })).toBeNull();
-    expect(mockToggleSidebar).not.toHaveBeenCalled();
+    expect(screen.getByTestId('toolbar-shell').className).not.toContain('h-0');
+    expect(screen.getByTestId('toolbar-run-button')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Toggle sidebar/ })).toBeTruthy();
   });
 
   // implementation — developer-utilities + console-toggle + open-file
