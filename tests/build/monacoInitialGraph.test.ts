@@ -96,6 +96,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/hooks/autoRunExecution.ts',
     why: 'runner orchestration used only after a Scratchpad debounce is accepted',
   },
+  {
+    module: 'src/shared/dependencies/javascriptDetector.ts',
+    why: 'the Acorn-backed dependency scanner used only when JS/TS source may reference a package',
+  },
+  {
+    module: 'src/shared/dependencies/pythonDetector.ts',
+    why: 'the Python dependency scanner used only when source may reference a package',
+  },
 ];
 
 /**

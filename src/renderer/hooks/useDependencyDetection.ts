@@ -16,7 +16,7 @@
  *   status (implementation note).
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
@@ -26,12 +26,14 @@ import {
   type TabDetectionState,
 } from '../stores/dependencyDetectionStore';
 import {
-  maybeGetDependencyAdapter,
-  type DependencyAdapterLanguage,
+  isDependencyAdapterLanguage,
+  loadDependencyAdapter,
+  sourceMayReferenceDependencies,
 } from '../../shared/dependencies/registry';
 import {
   bucketDependencyCount,
   DEPENDENCY_DETECTION_MAX_BUFFER_BYTES,
+  type DependencyAdapterLanguage,
   type DependencyCountBucket,
   type DependencyStatus,
   type DetectedDependency,
@@ -252,11 +254,8 @@ export function useDependencyDetection(): void {
   const language = activeTab?.language ?? null;
   const content = activeTab?.content ?? '';
   const filePath = activeTab?.filePath ?? undefined;
-
-  const adapter = useMemo(
-    () => maybeGetDependencyAdapter(language),
-    [language]
-  );
+  const adapterLanguage =
+    language && isDependencyAdapterLanguage(language) ? language : null;
 
   useEffect(() => {
     if (!enabled) {
@@ -266,11 +265,10 @@ export function useDependencyDetection(): void {
       return;
     }
     if (!tabId || !language) return;
-    if (!adapter) {
+    if (!adapterLanguage) {
       evictTab(tabId);
       return;
     }
-    const adapterLanguage = adapter.language;
     let cancelled = false;
 
     const runDetection = async () => {
@@ -295,6 +293,34 @@ export function useDependencyDetection(): void {
         if (!cancelled) setDetection(tabId, next);
         return;
       }
+
+      if (!sourceMayReferenceDependencies(adapterLanguage, content)) {
+        const next: TabDetectionState = {
+          tabId,
+          language: adapterLanguage,
+          detectionHash,
+          dependencies: [],
+          classifiedAt: Date.now(),
+          cwdHasPackageJson: null,
+        };
+        if (!cancelled) {
+          setDetection(tabId, next);
+          fireDetectedTelemetry(track, adapterLanguage, []);
+        }
+        return;
+      }
+
+      let adapter;
+      try {
+        adapter = await loadDependencyAdapter(adapterLanguage);
+      } catch {
+        // A stale deployment can make an on-demand chunk unavailable.
+        // Keep the previous cache intact and let the next edit retry instead
+        // of leaking an unhandled rejection into the app shell.
+        return;
+      }
+      if (cancelled) return;
+
       const detected = adapter.detect(content);
       const isWeb = window.lingua?.platform === 'web';
       let classified: ClassifiedDependency[];
@@ -351,9 +377,9 @@ export function useDependencyDetection(): void {
     enabled,
     tabId,
     language,
+    adapterLanguage,
     content,
     filePath,
-    adapter,
     setDetection,
     clearDetections,
     evictTab,

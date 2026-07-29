@@ -47,8 +47,7 @@ function matchesPackage(specifier, packageName) {
 /**
  * Explain every eager path from App to packages implicated in execution and
  * dependency detection. Empty importer arrays are meaningful evidence: the
- * manual/auto execution boundary should leave js-yaml and magic-string lazy,
- * while acorn remains eager until dependency detection gets its own boundary.
+ * execution and dependency-detection boundaries keep all three packages lazy.
  */
 export function collectRunnerImportEvidence({
   repoRoot,

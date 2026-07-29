@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- **Dependency scanning no longer joins workspace startup:** JS/TS and Python detectors load after the debounced active buffer may actually reference a package. The detection path no longer fetches Acorn just to confirm an empty dependency list, while the Dependencies panel and desktop/web classifications keep the same behavior once imports appear. Scratchpad execution may still load its shared parser independently.
 - **Execution code now loads when work actually starts:** manual Run and Debug, accepted Scratchpad auto-runs, and the desktop smoke harness keep runner orchestration outside the initial renderer graph. The lightweight controls remain available immediately, while validation, magic-comment instrumentation, and runtime adapters arrive with the first execution.
 - **Project archive code now waits for an archive action:** the web renderer no longer downloads the shared zip codec during normal workspace startup. It loads only when a user exports or imports a project bundle; desktop export remains owned by the trusted main process.
 - **The closed bottom panel no longer taxes workspace startup:** console, debugger, preview, stdin, variables, dependencies, Git diff, and recipe UI now load when the panel first opens instead of joining every initial web and desktop renderer bundle. A localized loading state keeps the transition explicit on slow devices.

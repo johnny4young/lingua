@@ -1,50 +1,77 @@
 /**
- * implementation - dependency adapter registry. Pure dispatcher so
- * the renderer's `useDependencyDetection` hook never reaches into a
- * language-specific module.
+ * Dependency adapter registry and lazy loader.
  *
- * implementation / C will extend the registered set with desktop-only JS/TS
- * + Python adapters that own the install path; implementation only ships
- * the detection halves.
+ * Language eligibility stays synchronous so callers can immediately evict
+ * unsupported tabs. Detector implementations stay behind dynamic imports:
+ * this registry only requests Acorn after a debounced JS/TS buffer may contain
+ * a package reference, and the Python scanner follows the same boundary.
  */
 
-import {
-  javascriptDependencyAdapter,
-  typescriptDependencyAdapter,
-} from './javascriptDetector';
-import { pythonDependencyAdapter } from './pythonDetector';
-import type {
-  DependencyAdapter,
-  DependencyAdapterLanguage,
-} from './types';
+import type { DependencyAdapter, DependencyAdapterLanguage } from './types';
 
-const ADAPTERS: Record<DependencyAdapterLanguage, DependencyAdapter> = {
-  javascript: javascriptDependencyAdapter,
-  typescript: typescriptDependencyAdapter,
-  python: pythonDependencyAdapter,
+const ADAPTER_LOADERS: Record<DependencyAdapterLanguage, () => Promise<DependencyAdapter>> = {
+  javascript: async () => (await import('./javascriptDetector')).javascriptDependencyAdapter,
+  typescript: async () => (await import('./javascriptDetector')).typescriptDependencyAdapter,
+  python: async () => (await import('./pythonDetector')).pythonDependencyAdapter,
 };
 
 export const DEPENDENCY_ADAPTER_LANGUAGES: readonly DependencyAdapterLanguage[] =
-  Object.keys(ADAPTERS) as DependencyAdapterLanguage[];
+  Object.freeze(Object.keys(ADAPTER_LOADERS) as DependencyAdapterLanguage[]);
+
+const ADAPTER_LANGUAGE_SET = new Set<string>(DEPENDENCY_ADAPTER_LANGUAGES);
+
+const adapterPromises = new Map<DependencyAdapterLanguage, Promise<DependencyAdapter>>();
 
 export function isDependencyAdapterLanguage(
   language: string
 ): language is DependencyAdapterLanguage {
-  return language in ADAPTERS;
+  return ADAPTER_LANGUAGE_SET.has(language);
 }
 
-export function getDependencyAdapter(
+/**
+ * Conservative synchronous preflight. False means the detector would return
+ * no package references, so normal scratchpads avoid fetching a parser solely
+ * to confirm an empty result. False positives only load the deferred chunk;
+ * the language detector remains authoritative.
+ */
+export function sourceMayReferenceDependencies(
+  language: DependencyAdapterLanguage,
+  source: string
+): boolean {
+  if (source.length === 0) return false;
+  if (language === 'python') {
+    return /^\s*(?:from|import)\b/mu.test(source);
+  }
+  return /\b(?:export|import|require)\b/u.test(source);
+}
+
+/**
+ * Return one shared in-flight/resolved adapter promise per language. A failed
+ * load is evicted so a later edit can retry instead of pinning a rejection for
+ * the rest of the session.
+ */
+export function loadDependencyAdapter(
   language: DependencyAdapterLanguage
-): DependencyAdapter {
-  return ADAPTERS[language];
+): Promise<DependencyAdapter> {
+  const existing = adapterPromises.get(language);
+  if (existing) return existing;
+
+  const pending = ADAPTER_LOADERS[language]();
+  adapterPromises.set(language, pending);
+  void pending.catch(() => {
+    if (adapterPromises.get(language) === pending) {
+      adapterPromises.delete(language);
+    }
+  });
+  return pending;
 }
 
-export function maybeGetDependencyAdapter(
+export async function maybeLoadDependencyAdapter(
   language: string | null | undefined
-): DependencyAdapter | null {
+): Promise<DependencyAdapter | null> {
   if (!language) return null;
   if (!isDependencyAdapterLanguage(language)) return null;
-  return ADAPTERS[language];
+  return loadDependencyAdapter(language);
 }
 
 export type { DependencyAdapter, DependencyAdapterLanguage };

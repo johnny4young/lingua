@@ -102,21 +102,11 @@ describe('activation performance metrics', () => {
     expect(summary.memory.heapUsedDeltaBytes.median).toBe(100);
   });
 
-  it('proves only dependency detection keeps acorn in the eager App graph', () => {
+  it('keeps execution and dependency parser packages out of the eager App graph', () => {
     const evidence = collectRunnerImportEvidence({ repoRoot });
 
     expect(evidence.reachableSourceModules).toBeGreaterThan(100);
-    expect(evidence.packages.acorn.length).toBeGreaterThan(0);
-    expect(evidence.packages.acorn[0].chain[0]).toBe('src/renderer/App.tsx');
-    expect(evidence.packages.acorn[0].chain.at(-1)).toBe('acorn');
-    expect(
-      evidence.packages.acorn.some(item =>
-        item.chain.includes('src/shared/dependencies/javascriptDetector.ts')
-      )
-    ).toBe(true);
-    expect(
-      evidence.packages.acorn.some(item => item.chain.includes('src/renderer/runners/index.ts'))
-    ).toBe(false);
+    expect(evidence.packages.acorn).toEqual([]);
     expect(evidence.packages['js-yaml']).toEqual([]);
     expect(evidence.packages['magic-string']).toEqual([]);
   });
