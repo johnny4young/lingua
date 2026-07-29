@@ -69,7 +69,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   const announce = useAnnounce();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const [selectedMatchKey, setSelectedMatchKey] = useState<string | null>(null);
+  const [preferredMatchKey, setPreferredMatchKey] = useState<string | null>(null);
 
   const openFile = useEditorStore((state) => state.openFile);
   const requestReveal = useEditorStore((state) => state.requestReveal);
@@ -111,20 +111,13 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   // Enter handling operate only on concrete match rows.
   const rows = useMemo(() => buildFlatRows(results), [results]);
   const matchRows = useMemo(() => rows.filter((row) => row.kind === 'match'), [rows]);
-
-  // Default selection: first match. Clear when results drop to zero.
-  useEffect(() => {
-    if (matchRows.length === 0) {
-      setSelectedMatchKey(null);
-      return;
-    }
-    setSelectedMatchKey((current) => {
-      if (current && matchRows.some((row) => row.key === current)) {
-        return current;
-      }
-      return matchRows[0]?.key ?? null;
-    });
-  }, [matchRows]);
+  // Keep user intent as the only state. The effective selection is derived so
+  // a changed result set immediately falls back to its first match without a
+  // second render or an effect-driven state repair.
+  const selectedMatchKey =
+    preferredMatchKey && matchRows.some((row) => row.key === preferredMatchKey)
+      ? preferredMatchKey
+      : matchRows[0]?.key ?? null;
 
   // Scroll the selected row into view so arrow navigation on long result lists
   // does not run off the visible area. We iterate children manually instead of
@@ -194,7 +187,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
         event.key === 'ArrowDown'
           ? Math.min(currentIndex + 1, matchRows.length - 1)
           : Math.max(currentIndex - 1, 0);
-      setSelectedMatchKey(matchRows[nextIndex]?.key ?? null);
+      setPreferredMatchKey(matchRows[nextIndex]?.key ?? null);
       return;
     }
 
@@ -314,7 +307,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
                   type="button"
                   data-row-key={row.key}
                   onClick={() => void openMatch(row)}
-                  onMouseEnter={() => setSelectedMatchKey(row.key)}
+                  onMouseEnter={() => setPreferredMatchKey(row.key)}
                   className={`focus-ring flex w-full items-start gap-3 rounded-4xl px-3 py-2 text-left transition-colors ${
                     isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/68'
                   }`}

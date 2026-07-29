@@ -308,6 +308,20 @@ describe('Toolbar', () => {
     await user.click(debugBtn);
 
     expect(mockRun).toHaveBeenCalledWith({ debug: true });
+    expect(screen.queryByRole('menu', { name: 'Execution options' })).toBeNull();
+  });
+
+  it('closes an open Run menu when the primary action starts', async () => {
+    const user = userEvent.setup();
+    render(<Toolbar />);
+
+    await user.click(screen.getByTestId('toolbar-run-menu-button'));
+    expect(screen.getByRole('menu', { name: 'Execution options' })).toBeTruthy();
+
+    await user.click(screen.getByTestId('toolbar-run-button'));
+
+    expect(mockRun).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('menu', { name: 'Execution options' })).toBeNull();
   });
 
   it('keeps Debug disabled when all breakpoints are disabled', async () => {

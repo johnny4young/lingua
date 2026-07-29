@@ -166,6 +166,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   };
 
   const runSelectedAction = () => {
+    setIsRunMenuOpen(false);
     if (primaryActionIsDebug) {
       void run({ debug: true });
       return;
@@ -182,12 +183,6 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
     }
     void run();
   };
-
-  useEffect(() => {
-    if (isRunning) {
-      setIsRunMenuOpen(false);
-    }
-  }, [isRunning]);
 
   useEffect(() => {
     if (!isNewFileMenuOpen && !isRunMenuOpen) {

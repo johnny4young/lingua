@@ -99,6 +99,19 @@ describe('FloatingActionPill', () => {
     expect(stopMock).not.toHaveBeenCalled();
   });
 
+  it('closes the workflow menu when the primary action is clicked', async () => {
+    const user = userEvent.setup();
+    renderPill();
+
+    await user.click(screen.getByTestId('action-pill-run-menu'));
+    expect(screen.getByRole('menu')).toBeTruthy();
+
+    await user.click(screen.getByTestId('action-pill-run'));
+
+    expect(runMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('shows the Settings cog only when onOpenSettings is provided', async () => {
     const user = userEvent.setup();
     const { unmount } = renderPill();

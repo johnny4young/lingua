@@ -88,7 +88,10 @@ export function FloatingActionPillRunGroup({
     >
       <button
         type="button"
-        onClick={handleRunClick}
+        onClick={() => {
+          setOpenMenu(null);
+          handleRunClick();
+        }}
         disabled={runDisabled}
         data-running={isRunning ? 'true' : 'false'}
         data-workflow={currentWorkflow}

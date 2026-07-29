@@ -1,5 +1,5 @@
 import { BookCopy, Plus, Save, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
@@ -69,6 +69,20 @@ function createDraftFromActiveTab(
   };
 }
 
+function createDraftFromSnippet(snippet: {
+  label: string;
+  description: string;
+  language: Language;
+  code: string;
+}): SnippetDraft {
+  return {
+    label: snippet.label,
+    description: snippet.description,
+    language: snippet.language,
+    code: snippet.code,
+  };
+}
+
 export function SnippetsModal({ onClose }: SnippetsModalProps) {
   const {
     snippets,
@@ -87,45 +101,36 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
   // language is genuinely runnable so the suffix would be misleading.
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
-  const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(
-    snippets[0]?.id ?? null
-  );
-  const [draft, setDraft] = useState<SnippetDraft>(EMPTY_SNIPPET_DRAFT);
-  const [isCreatingNew, setIsCreatingNew] = useState(snippets.length === 0);
-
   const sortedSnippets = useMemo(
     () => [...snippets].sort((left, right) => right.createdAt - left.createdAt),
     [snippets]
   );
+  const initialSnippet =
+    sortedSnippets.find((snippet) => snippet.id === pendingLinkedSnippetId) ??
+    sortedSnippets[0] ??
+    null;
+  const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(
+    initialSnippet?.id ?? null
+  );
+  const [draft, setDraft] = useState<SnippetDraft>(
+    initialSnippet ? createDraftFromSnippet(initialSnippet) : EMPTY_SNIPPET_DRAFT
+  );
+  const [isCreatingNew, setIsCreatingNew] = useState(initialSnippet === null);
+
   const selectedSnippet =
     sortedSnippets.find((snippet) => snippet.id === selectedSnippetId) ?? null;
   const activeTab = useActiveTab();
   const canSaveSnippet = draft.label.trim().length > 0 && draft.code.trim().length > 0;
 
-  useEffect(() => {
-    if (isCreatingNew) {
-      return;
-    }
-
-    if (selectedSnippet) {
-      setDraft({
-        label: selectedSnippet.label,
-        description: selectedSnippet.description,
-        language: selectedSnippet.language,
-        code: selectedSnippet.code,
-      });
-      return;
-    }
-
-    const [firstSnippet] = sortedSnippets;
-    if (firstSnippet) {
-      setSelectedSnippetId(firstSnippet.id);
-      return;
-    }
-
-    setIsCreatingNew(true);
-    setDraft(EMPTY_SNIPPET_DRAFT);
-  }, [isCreatingNew, selectedSnippet, sortedSnippets]);
+  const selectSnippet = (snippet: (typeof sortedSnippets)[number]) => {
+    setSelectedSnippetId(snippet.id);
+    setIsCreatingNew(false);
+    setDraft(createDraftFromSnippet(snippet));
+  };
+  const selectLinkedSnippet = useEffectEvent((snippet: (typeof sortedSnippets)[number]) => {
+    if (!isCreatingNew && selectedSnippetId === snippet.id) return;
+    selectSnippet(snippet);
+  });
 
   useEffect(() => {
     if (!pendingLinkedSnippetId) {
@@ -133,12 +138,21 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
     }
 
     const matchingSnippet = sortedSnippets.find((snippet) => snippet.id === pendingLinkedSnippetId);
-    if (matchingSnippet) {
-      setSelectedSnippetId(matchingSnippet.id);
-      setIsCreatingNew(false);
-    }
-
-    setPendingLinkedSnippetId(null);
+    let cancelled = false;
+    // The deep-link slot is an external one-shot notification. Deliver it in
+    // a microtask (the same shape as a subscription callback) so mounting the
+    // modal does not synchronously cascade into a second render from the
+    // effect body. StrictMode cleanup cancels the discarded first delivery.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (matchingSnippet) {
+        selectLinkedSnippet(matchingSnippet);
+      }
+      setPendingLinkedSnippetId(null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [pendingLinkedSnippetId, setPendingLinkedSnippetId, sortedSnippets]);
 
   const handleStartNewSnippet = () => {
@@ -205,9 +219,12 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
     const remainingSnippets = sortedSnippets.filter(
       (snippet) => snippet.id !== selectedSnippet.id
     );
-    setSelectedSnippetId(remainingSnippets[0]?.id ?? null);
-    setIsCreatingNew(remainingSnippets.length === 0);
-    if (remainingSnippets.length === 0) {
+    const nextSnippet = remainingSnippets[0];
+    if (nextSnippet) {
+      selectSnippet(nextSnippet);
+    } else {
+      setSelectedSnippetId(null);
+      setIsCreatingNew(true);
       setDraft(EMPTY_SNIPPET_DRAFT);
     }
 
@@ -231,8 +248,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                 .getState()
                 .snippets.some((snippet) => snippet.id === removed.id);
               if (restored) {
-                setSelectedSnippetId(removed.id);
-                setIsCreatingNew(false);
+                selectSnippet(removed);
               }
             },
           },
@@ -377,8 +393,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                     // slate, which was invisible in the dark theme.
                     aria-current={isActive ? 'true' : undefined}
                     onClick={() => {
-                      setSelectedSnippetId(snippet.id);
-                      setIsCreatingNew(false);
+                      if (!isActive) selectSnippet(snippet);
                     }}
                     className={
                       isActive

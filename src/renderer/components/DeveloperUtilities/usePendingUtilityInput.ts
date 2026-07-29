@@ -11,7 +11,7 @@
  * the same panel never replays a stale paste.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 
@@ -24,14 +24,14 @@ export function usePendingUtilityInput(
       ? state.pendingUtilityInput.input
       : null
   );
-  // The apply callback closes over panel setters; keep the latest without
-  // re-running the effect when the panel re-renders.
-  const applyRef = useRef(apply);
-  applyRef.current = apply;
+  // Smart-paste delivery is an external store event. Effect Events keep the
+  // latest panel callback without mutating refs during render or making an
+  // inline callback identity retrigger the one-shot subscription.
+  const applyPendingInput = useEffectEvent(apply);
 
   useEffect(() => {
     if (pending == null) return;
-    applyRef.current(pending);
+    applyPendingInput(pending);
     useUtilityHistoryStore.getState().setPendingUtilityInput(null);
   }, [pending]);
 }
