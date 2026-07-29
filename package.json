@@ -16,7 +16,7 @@
     "dev:desktop:sync": "node ./scripts/run-electron-desktop.mjs --sync-main",
     "dev:desktop:pro": "node ./scripts/dev-desktop-pro.mjs",
     "dev:desktop:prod": "node ./scripts/dev-desktop-prod.mjs",
-    "build:web": "vite build --config vite.web.config.mts",
+    "build:web": "node ./scripts/build-web.mjs",
     "build:cli": "node ./scripts/build-cli.mjs",
     "preview:web": "vite preview --config vite.web.config.mts",
     "smoke:desktop": "node ./scripts/run-desktop-smoke.mjs",

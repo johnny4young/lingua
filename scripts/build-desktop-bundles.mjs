@@ -29,12 +29,18 @@ import { rm } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copyRipgrepBinaries } from './copy-ripgrep-binaries.mjs';
+import {
+  assertProductionReactBundle,
+  forceProductionNodeEnv,
+} from './lib/productionBuild.mjs';
 
 const ViteConfigGenerator =
   ViteConfigGeneratorModule.default ?? ViteConfigGeneratorModule;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
+
+forceProductionNodeEnv();
 
 const RENDERER_NAME = 'main_window';
 
@@ -89,6 +95,9 @@ for (const config of rendererConfigs) {
   );
   await build({ configFile: false, logLevel: 'warn', ...config, clearScreen: false });
 }
+await assertProductionReactBundle(
+  resolve(repoRoot, '.vite', 'renderer', RENDERER_NAME, 'assets')
+);
 
 const ripgrepPaths = await copyRipgrepBinaries({ repoRoot });
 for (const ripgrepPath of ripgrepPaths) {

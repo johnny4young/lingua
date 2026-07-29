@@ -16,6 +16,20 @@
 > desktop path; licensing stays on Cloudflare. The original 2026-04-19 analysis
 > below is kept for the record.
 
+## Current production-build invariant
+
+The canonical `build:web` and `build:desktop-bundles` commands set
+`NODE_ENV=production` inside their cross-platform Node entry points before Vite
+transforms renderer dependencies. Vite's production mode does not override an
+ambient `NODE_ENV=development`; without this invariant React selects its
+development runtime even though the command is `vite build`.
+
+Both commands also inspect every generated renderer JavaScript asset and fail if
+React's development diagnostics remain. This makes release artifacts and
+performance measurements independent of the shell or CI process that invoked
+the build, even if future chunk naming moves React out of its current runtime
+chunk.
+
 ## Context
 
 Lingua builds desktop artifacts with Electron Forge + the Vite plugin, and

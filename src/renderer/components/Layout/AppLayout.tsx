@@ -10,7 +10,6 @@ import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
 import { AppChrome } from '../Chrome';
 import { StatusBar } from '../StatusBar/StatusBar';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
-import { BottomPanel } from './BottomPanel';
 import { PanelChipsRow } from './PanelChipsRow';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
@@ -41,6 +40,11 @@ function getFocusableElements(container: HTMLElement) {
 const CodeEditor = lazy(async () => {
   const module = await import('../Editor/CodeEditor');
   return { default: module.CodeEditor };
+});
+
+const LazyBottomPanel = lazy(async () => {
+  const module = await import('./BottomPanel');
+  return { default: module.BottomPanel };
 });
 
 const LazyNotebookView = lazy(async () => {
@@ -302,6 +306,27 @@ function EditorLoadingState() {
   );
 }
 
+function BottomPanelLoadingState() {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      role="status"
+      className="flex h-full items-center justify-center bg-background/65 text-body text-muted"
+    >
+      {t('layout.loadingPanel')}
+    </div>
+  );
+}
+
+function BottomPanelSurface({ debuggerAvailable }: { debuggerAvailable: boolean }) {
+  return (
+    <Suspense fallback={<BottomPanelLoadingState />}>
+      <LazyBottomPanel debuggerAvailable={debuggerAvailable} />
+    </Suspense>
+  );
+}
+
 interface MainContentProps {
   showConsole: boolean;
   showDebuggerPanel: boolean;
@@ -375,7 +400,7 @@ function MainContent({
         </Panel>
         <ResizeHandle orientation="vertical" />
         <Panel id="console-panel" defaultSize="40%" minSize={260}>
-          <BottomPanel debuggerAvailable={showDebuggerPanel} />
+          <BottomPanelSurface debuggerAvailable={showDebuggerPanel} />
         </Panel>
       </Group>
     );
@@ -394,7 +419,7 @@ function MainContent({
       </Panel>
       <ResizeHandle orientation="horizontal" />
       <Panel id="console-panel" defaultSize="30%" minSize={160}>
-        <BottomPanel debuggerAvailable={showDebuggerPanel} />
+        <BottomPanelSurface debuggerAvailable={showDebuggerPanel} />
       </Panel>
     </Group>
   );

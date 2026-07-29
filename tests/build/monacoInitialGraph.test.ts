@@ -65,6 +65,17 @@ const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
 ];
 
 /**
+ * Conditional shell regions that are absent from the default workspace. They
+ * must not make their complete feature trees part of the first download.
+ */
+const ON_DEMAND_SHELL_MODULES: Array<{ module: string; why: string }> = [
+  {
+    module: 'src/renderer/components/Layout/BottomPanel.tsx',
+    why: 'console, debugger, preview, stdin, variables, dependencies, git diff, and recipes',
+  },
+];
+
+/**
  * Convert the canonical absolute Vite replacements into the repo-relative
  * paths used by this graph walker.
  *
@@ -149,6 +160,28 @@ describe('Monaco stays out of the initial graph', () => {
         SURFACE_ALIASES[surface as keyof typeof ENTRIES]
       );
       const leaked = MUST_STAY_LAZY.filter(target => reachable.has(target.module));
+      if (leaked.length > 0) {
+        throw new Error(
+          leaked
+            .map(
+              target =>
+                `${target.module} (${target.why}) is statically reachable from ${entry}.\n` +
+                `Chain:\n  ${importChain(reachable, target.module).join('\n  -> ')}`
+            )
+            .join('\n\n')
+        );
+      }
+    });
+  }
+
+  for (const [surface, entry] of Object.entries(ENTRIES)) {
+    it(`${surface}: closed shell regions stay behind a lazy boundary`, () => {
+      const reachable = staticallyReachable(
+        entry,
+        undefined,
+        SURFACE_ALIASES[surface as keyof typeof ENTRIES]
+      );
+      const leaked = ON_DEMAND_SHELL_MODULES.filter(target => reachable.has(target.module));
       if (leaked.length > 0) {
         throw new Error(
           leaked

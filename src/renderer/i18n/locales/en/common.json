@@ -190,6 +190,7 @@
   "layout.preset.editorOnly.label": "Editor Only",
   "layout.preset.editorOnly.description": "Hide console panel",
   "layout.loadingEditor": "Loading editor...",
+  "layout.loadingPanel": "Loading panel...",
   "layout.projectExplorer": "Project explorer",
   "layout.closeSidebar": "Close sidebar",
   "editor.title": "Editor",

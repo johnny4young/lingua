@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- **The closed bottom panel no longer taxes workspace startup:** console, debugger, preview, stdin, variables, dependencies, Git diff, and recipe UI now load when the panel first opens instead of joining every initial web and desktop renderer bundle. A localized loading state keeps the transition explicit on slow devices.
 - **The app shell no longer runs an invisible second toolbar:** AppChrome already provides the desktop drag region, so AppLayout now mounts only the floating execution control instead of also rendering a zero-height Toolbar with duplicate store and runner subscriptions. The standalone Toolbar remains available for its focused fallback smoke contract.
 - **Run and workflow controls now agree about what can execute:** the floating action pill and standalone toolbar share one capability policy for language, license, platform, notebook, and breakpoint gates. Debug stays unavailable until the active tab has an enabled breakpoint, unsupported Scratchpad choices explain why they cannot run, and disabled menu items expose the same localized guidance as the primary action.
 - **Utilities, source navigation, and overlays now transition without effect-driven repair renders:** Cron and hash results, Git diffs, document symbols, Project Search, What's New, Snippets, the Run menu, and tooltips derive their current state from the active request or user action, preventing stale output flashes and making loading and selection changes immediate.
@@ -14,6 +15,9 @@ The format follows Keep a Changelog and groups changes by release.
 - **The guided tour now teaches one complete feedback loop instead of opening a chain of tools:** it moves from the editor to a real Run and then to the console, waits until desktop consent is resolved before starting automatically, and yields whenever the user opens another surface. Settings, Recipes, Snippets, search, and the command palette now also share one coordinated overlay slot, so shortcuts replace the current dialog instead of stacking modals.
 - **Settings search now opens the preference you searched for:** results include individual sections and high-value controls across every Settings tab, understand localized labels plus practical English and Spanish aliases, and move both the viewport and keyboard focus to the selected result instead of only dimming unrelated navigation rows.
 - **Primary tasks are now discoverable by name in the Command Palette:** Run active tab, Open project folder, and Apply license token join the existing runtime-switch and session-restore actions. Applying a license lands directly on the token field, while the floating runtime control now reports Browser preview, Deno, and Bun accurately instead of abbreviating or falling back to Worker.
+
+### Fixed
+- **Production builds no longer inherit React's development runtime from the invoking shell:** the canonical web and desktop bundle commands force their production environment before Vite transforms dependencies and reject generated renderer artifacts that still contain React development diagnostics.
 
 ## [0.15.0] — 2026-07-28
 

@@ -373,8 +373,8 @@ describe('AppLayout responsive shell', () => {
 
     await renderLayout();
 
-    expect(screen.getByTestId('bottom-panel-browser-preview-tab')).toBeTruthy();
-    expect(screen.getByTestId('browser-preview-panel')).toBeTruthy();
+    expect(await screen.findByTestId('bottom-panel-browser-preview-tab')).toBeTruthy();
+    expect(await screen.findByTestId('browser-preview-panel')).toBeTruthy();
     expect(screen.queryByTestId('console-panel')).toBeNull();
   });
 
@@ -395,8 +395,8 @@ describe('AppLayout responsive shell', () => {
 
     await renderLayout();
 
-    expect(screen.getByTestId('bottom-panel-recipe-tab')).toBeTruthy();
-    expect(screen.getByTestId('recipe-run-panel')).toBeTruthy();
+    expect(await screen.findByTestId('bottom-panel-recipe-tab')).toBeTruthy();
+    expect(await screen.findByTestId('recipe-run-panel')).toBeTruthy();
   });
 
   it('opens bottom Variables instead of disabling an already-enabled inspector chip', async () => {

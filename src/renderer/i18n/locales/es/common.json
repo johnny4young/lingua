@@ -190,6 +190,7 @@
   "layout.preset.editorOnly.label": "Solo editor",
   "layout.preset.editorOnly.description": "Oculta el panel de consola",
   "layout.loadingEditor": "Cargando editor...",
+  "layout.loadingPanel": "Cargando panel...",
   "layout.projectExplorer": "Explorador del proyecto",
   "layout.closeSidebar": "Cerrar barra lateral",
   "editor.title": "Editor",
