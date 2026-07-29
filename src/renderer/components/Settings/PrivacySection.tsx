@@ -49,6 +49,7 @@ export function PrivacySection() {
       {/* Affine privacy controls grouped into one inset card. */}
       <SpecCard>
         <SpecRow
+          searchTargetId="privacy-telemetry"
           label={t('privacy.telemetry.label')}
           description={t('privacy.telemetry.hint')}
           control={
@@ -198,6 +199,7 @@ function RunLedgerRows() {
   return (
     <>
       <SpecRow
+        searchTargetId="privacy-run-ledger"
         label={t('privacy.runLedger.label')}
         description={t('privacy.runLedger.hint')}
         control={

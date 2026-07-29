@@ -78,6 +78,7 @@ export function AppearanceSection() {
        */}
       <SpecCard>
         <SpecRow
+          searchTargetId="appearance-theme-pack"
           label={t('settings.themePack.label')}
           description={t(activePack.descriptionKey)}
           control={
@@ -97,6 +98,7 @@ export function AppearanceSection() {
           }
         />
         <SpecRow
+          searchTargetId="appearance-language"
           label={t('language.label')}
           description={t('language.hint')}
           last

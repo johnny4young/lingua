@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { SettingsModal } from '../../src/renderer/components/Settings/SettingsModal';
@@ -177,7 +177,7 @@ describe('SettingsModal', () => {
     expect(screen.getByTestId('settings-tab-account').getAttribute('aria-selected')).toBe('true');
   });
 
-  it('preserves rail filter dimming and keyboard focus navigation', () => {
+  it('shows actionable search results while preserving rail keyboard navigation', () => {
     render(
       <SettingsModal
         onClose={() => {}}
@@ -195,6 +195,15 @@ describe('SettingsModal', () => {
     expect(screen.getByTestId('settings-tab-appearance').getAttribute('data-dim')).toBe(
       'true'
     );
+    expect(screen.getByTestId('settings-search-result-plugins')).toBeTruthy();
+    expect(screen.getByTestId('settings-search-results').getAttribute('role')).toBe(
+      'listbox'
+    );
+
+    fireEvent.change(screen.getByTestId('settings-filter-input'), {
+      target: { value: 'a' },
+    });
+    expect(screen.getAllByRole('option').length).toBeGreaterThan(8);
 
     const general = screen.getByTestId('settings-tab-general');
     const appearance = screen.getByTestId('settings-tab-appearance');
@@ -204,6 +213,55 @@ describe('SettingsModal', () => {
 
     fireEvent.keyDown(appearance, { key: 'End' });
     expect(document.activeElement).toBe(screen.getByTestId('settings-tab-recovery'));
+  });
+
+  it('jumps across tabs and focuses a localized control result', async () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    const filter = screen.getByTestId('settings-filter-input');
+    fireEvent.change(filter, { target: { value: 'telemetria' } });
+    fireEvent.click(screen.getByTestId('settings-search-result-telemetry'));
+
+    expect(screen.getByTestId('settings-tab-privacy').getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    expect((filter as HTMLInputElement).value).toBe('');
+
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute('data-settings-search-target')).toBe(
+        'privacy-telemetry'
+      );
+    });
+  });
+
+  it('selects search results with arrow keys and Enter', async () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    const filter = screen.getByTestId('settings-filter-input');
+    fireEvent.change(filter, { target: { value: 'font' } });
+    fireEvent.keyDown(filter, { key: 'ArrowDown' });
+    fireEvent.keyDown(filter, { key: 'Enter' });
+
+    expect(screen.getByTestId('settings-tab-editor').getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute('data-settings-search-target')).toBe(
+        'editor-font-size'
+      );
+    });
   });
 
   it('sets aria-controls only on the active tab so inactive tabs never reference an unmounted panel', () => {

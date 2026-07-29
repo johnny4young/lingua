@@ -103,6 +103,7 @@
   "settings.filter.matches_one": "{{count}} match",
   "settings.filter.matches_other": "{{count}} matches",
   "settings.filter.noMatches": "No matches",
+  "settings.filter.resultsLabel": "Setting search results",
   "settings.effectiveConfig.label": "Effective config · JSON",
   "settings.effectiveConfig.hint": "Read-only view. The same one runtimes see at startup.",
   "settings.effectiveConfig.copy": "Copy JSON",

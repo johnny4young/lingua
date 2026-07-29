@@ -104,6 +104,15 @@ existing App overlay before starting and yields when a shortcut opens one. Its
 task flow stays on the editor, Run action, and console; it must not open a
 second modal from inside a tour step.
 
+### Settings discovery
+
+Settings search uses the curated catalog in
+`components/Settings/settingsSearchModel.ts`, not the mounted DOM. Only one
+Settings tab is mounted at a time, so DOM search would silently miss controls
+in every other tab. Catalog entries map localized labels, descriptions, and
+cross-language aliases to a tab plus a stable focus target. Selecting a result
+switches tabs, scrolls to the target, and moves keyboard focus there.
+
 Use the closest store that already owns the product concept instead of adding cross-cutting state to `App.tsx`.
 
 | Store                                                                                               | Owns                                                              |

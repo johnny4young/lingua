@@ -8,7 +8,7 @@ import {
   type RefObject,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Braces, Check, Copy, Keyboard, Search, Settings as SettingsIcon, X } from 'lucide-react';
+import { Braces, Check, Copy, Keyboard, Settings as SettingsIcon, X } from 'lucide-react';
 import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
@@ -38,21 +38,26 @@ import {
   resolveShortcutDisplayPlatform,
 } from '../../data/keyboardShortcuts';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { cn } from '../../utils/cn';
 import { useCommandListener } from '../../hooks/useCommandListener';
 import { SettingsRail } from './SettingsRail';
-import { RAIL_ITEMS, matchesFilter, type TabId } from './settingsRailModel';
+import { RAIL_ITEMS, type TabId } from './settingsRailModel';
 import { clearPendingSettingsTab, peekPendingSettingsTab } from './pendingSettingsTab';
+import { SettingsSearch } from './SettingsSearch';
+import {
+  searchSettings,
+  type SettingsSearchResult,
+} from './settingsSearchModel';
 
 /**
  * internal Signal-Slate v2 — Settings modal with a left rail.
  *
  * The v1 layout used top tabs. v2 moves navigation to a 220px rail
  * with two groups (Workspace + Advanced) so the modal feels closer to
- * a native preferences pane, and exposes a filter bar (`⌘,`) that
- * highlights matching rail rows so keyboard-first users can jump
- * directly to a setting. An "Effective config" JSON tile renders at
- * the bottom of each tab — the same view a runtime would see.
+ * a native preferences pane. Its searchable command bar (`⌘,`) indexes
+ * sections and high-value controls across every tab, then activates,
+ * scrolls to, and focuses the selected target. An "Effective config"
+ * JSON tile renders at the bottom of each tab — the same view a runtime
+ * would see.
  *
  * Tab inventory (10 rail items):
  *
@@ -85,8 +90,9 @@ interface SettingsModalProps {
 interface SettingsTopBarProps {
   active: TabId;
   filter: string;
-  matchCount: number;
+  searchResults: readonly SettingsSearchResult[];
   onFilterChange: (next: string) => void;
+  onSearchSelect: (result: SettingsSearchResult) => void;
   onClose: () => void;
   filterInputRef: RefObject<HTMLInputElement | null>;
 }
@@ -94,8 +100,9 @@ interface SettingsTopBarProps {
 function SettingsTopBar({
   active,
   filter,
-  matchCount,
+  searchResults,
   onFilterChange,
+  onSearchSelect,
   onClose,
   filterInputRef,
 }: SettingsTopBarProps) {
@@ -109,59 +116,37 @@ function SettingsTopBar({
         <span className="text-fg-subtle">›</span>
         <span className="font-medium text-fg-base">{activeLabel ? t(activeLabel) : ''}</span>
       </div>
-      <div
-        className={cn(
-          'mx-2 flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md border bg-bg-base px-2.5 transition-colors',
-          filter ? 'border-accent bg-primary-soft' : 'border-border/80'
-        )}
-      >
-        <Search
-          size={12}
-          className={cn(filter ? 'text-accent-fg' : 'text-fg-subtle')}
-          aria-hidden
-        />
-        <input
-          ref={filterInputRef}
-          type="text"
-          value={filter}
-          onChange={e => onFilterChange(e.target.value)}
-          placeholder={t('settings.filter.placeholder')}
-          className={cn(
-            'min-w-0 flex-1 bg-transparent font-mono text-body-sm outline-none placeholder:text-fg-subtle',
-            filter ? 'font-semibold text-accent-fg' : 'text-fg-muted'
-          )}
-          data-testid="settings-filter-input"
-          aria-label={t('settings.filter.placeholder')}
-        />
-        {filter ? (
-          <>
-            <span className="font-mono text-eyebrow text-accent-fg">
-              {matchCount === 0
-                ? t('settings.filter.noMatches')
-                : t('settings.filter.matches', { count: matchCount })}
-            </span>
-            <button
-              type="button"
-              onClick={() => onFilterChange('')}
-              className="text-accent-fg hover:opacity-70"
-              aria-label={t('settings.filter.clear')}
-            >
-              <X size={11} aria-hidden />
-            </button>
-          </>
-        ) : (
-          <span className="flex gap-1">
-            <Kbd>⌘</Kbd>
-            <Kbd>,</Kbd>
-          </span>
-        )}
-      </div>
+      <SettingsSearch
+        inputRef={filterInputRef}
+        query={filter}
+        results={searchResults}
+        onQueryChange={onFilterChange}
+        onSelect={onSearchSelect}
+      />
       <div className="flex items-center gap-2">
         <Kbd>Esc</Kbd>
         <IconButton onClick={onClose} tooltip={t('settings.close')}>
           <X size={14} />
         </IconButton>
       </div>
+    </div>
+  );
+}
+
+function SettingsSearchTarget({
+  id,
+  children,
+}: {
+  id: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      data-settings-search-target={id}
+      tabIndex={-1}
+      className="scroll-mt-5 rounded-lg outline-none focus:ring-2 focus:ring-accent/70 focus:ring-offset-4 focus:ring-offset-bg-base"
+    >
+      {children}
     </div>
   );
 }
@@ -391,6 +376,7 @@ export function SettingsModal({
     clearPendingSettingsTab();
   }, []);
   const [filter, setFilter] = useState('');
+  const [pendingSearchTarget, setPendingSearchTarget] = useState<string | null>(null);
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
   // implementation detail — siblings request a typed tab jump after opening
@@ -429,13 +415,37 @@ export function SettingsModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [filterInputRef]);
 
-  const matchCount = useMemo(
-    () => (filter ? RAIL_ITEMS.filter(it => matchesFilter(it, filter, t)).length : 0),
-    [filter, t]
+  const searchResults = useMemo(() => searchSettings(filter, t), [filter, t]);
+  const matchingTabs = useMemo(
+    () => [...new Set(searchResults.map(result => result.tab))],
+    [searchResults]
   );
+
+  useEffect(() => {
+    if (!pendingSearchTarget) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-settings-search-target="${pendingSearchTarget}"]`
+      );
+      target?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      target?.focus({ preventScroll: true });
+      setPendingSearchTarget(current =>
+        current === pendingSearchTarget ? null : current
+      );
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTab, pendingSearchTarget]);
 
   const handleSelect = useCallback((id: TabId) => {
     setActiveTab(id);
+  }, []);
+
+  const handleSearchSelect = useCallback((result: SettingsSearchResult) => {
+    setActiveTab(result.tab);
+    setFilter('');
+    setPendingSearchTarget(result.targetId);
   }, []);
 
   const renderTabContent = (): ReactNode => {
@@ -443,59 +453,90 @@ export function SettingsModal({
       case 'general':
         return (
           <div className="space-y-6">
-            <AboutSection onOpenWhatsNew={onOpenWhatsNew} onStartGuidedTour={onStartGuidedTour} />
-            <UpdatesSection />
+            <SettingsSearchTarget id="section-about">
+              <AboutSection
+                onOpenWhatsNew={onOpenWhatsNew}
+                onStartGuidedTour={onStartGuidedTour}
+              />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-updates">
+              <UpdatesSection />
+            </SettingsSearchTarget>
             {/* implementation — Onboarding choreography reset toggles */}
-            <OnboardingSection />
+            <SettingsSearchTarget id="section-onboarding">
+              <OnboardingSection />
+            </SettingsSearchTarget>
             {/* implementation Slice B implementation note — Reset recipe progress */}
-            <RecipesProgressResetSection />
+            <SettingsSearchTarget id="section-recipe-progress">
+              <RecipesProgressResetSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'appearance':
         return (
           <div className="space-y-6">
-            <AppearanceSection />
-            <LayoutSection />
+            <SettingsSearchTarget id="section-appearance">
+              <AppearanceSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-layout">
+              <LayoutSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'editor':
         return (
           <div className="space-y-6">
-            <EditorSection />
-            <ExecutionHistorySection />
-            <UtilitiesSection />
+            <SettingsSearchTarget id="section-editor">
+              <EditorSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-execution-history">
+              <ExecutionHistorySection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-utilities">
+              <UtilitiesSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'languages':
         return (
-          <div className="space-y-6">
+          <SettingsSearchTarget id="section-languages">
             <LanguagesSection />
-          </div>
+          </SettingsSearchTarget>
         );
       case 'environment':
         return (
-          <div className="space-y-6">
+          <SettingsSearchTarget id="section-environment">
             <EnvVarsSection />
-          </div>
+          </SettingsSearchTarget>
         );
       case 'privacy':
         return (
           <div className="space-y-6">
-            <PrivacySection />
-            <PrivacyTrustSection />
+            <SettingsSearchTarget id="section-privacy">
+              <PrivacySection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-privacy-trust">
+              <PrivacyTrustSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'account':
         return (
           <div className="space-y-6">
-            <LicenseSection />
-            <AiSection />
-            <RunCapsulesSection />
+            <SettingsSearchTarget id="section-license">
+              <LicenseSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-ai">
+              <AiSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-run-capsules">
+              <RunCapsulesSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'shortcuts':
         return (
-          <div className="space-y-7">
+          <SettingsSearchTarget id="section-shortcuts">
             <SettingsSection
               eyebrow={t('settings.shortcuts.eyebrow')}
               description={t('settings.shortcuts.description')}
@@ -529,19 +570,19 @@ export function SettingsModal({
                 </button>
               </div>
             </SettingsSection>
-          </div>
+          </SettingsSearchTarget>
         );
       case 'plugins':
         return (
-          <div className="space-y-6">
+          <SettingsSearchTarget id="section-plugins">
             <PluginsSection />
-          </div>
+          </SettingsSearchTarget>
         );
       case 'recovery':
         return (
-          <div className="space-y-6">
+          <SettingsSearchTarget id="section-recovery">
             <RecoverySection />
-          </div>
+          </SettingsSearchTarget>
         );
     }
   };
@@ -561,15 +602,21 @@ export function SettingsModal({
 
         {/* Rail spans all rows on the left */}
         <div className="row-span-3">
-          <SettingsRail active={activeTab} filter={filter} onSelect={handleSelect} />
+          <SettingsRail
+            active={activeTab}
+            filter={filter}
+            matchingTabs={matchingTabs}
+            onSelect={handleSelect}
+          />
         </div>
 
         {/* Top bar */}
         <SettingsTopBar
           active={activeTab}
           filter={filter}
-          matchCount={matchCount}
+          searchResults={searchResults}
           onFilterChange={setFilter}
+          onSearchSelect={handleSearchSelect}
           onClose={onClose}
           filterInputRef={filterInputRef}
         />

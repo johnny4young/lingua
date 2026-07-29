@@ -103,6 +103,7 @@
   "settings.filter.matches_one": "{{count}} coincidencia",
   "settings.filter.matches_other": "{{count}} coincidencias",
   "settings.filter.noMatches": "Sin coincidencias",
+  "settings.filter.resultsLabel": "Resultados de búsqueda de configuración",
   "settings.effectiveConfig.label": "Configuraci\u00f3n efectiva \u00b7 JSON",
   "settings.effectiveConfig.hint": "Vista de solo lectura. La misma que ven los runtimes al iniciar.",
   "settings.effectiveConfig.copy": "Copiar JSON",

@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - **The guided tour now teaches one complete feedback loop instead of opening a chain of tools:** it moves from the editor to a real Run and then to the console, waits until desktop consent is resolved before starting automatically, and yields whenever the user opens another surface. Settings, Recipes, Snippets, search, and the command palette now also share one coordinated overlay slot, so shortcuts replace the current dialog instead of stacking modals.
+- **Settings search now opens the preference you searched for:** results include individual sections and high-value controls across every Settings tab, understand localized labels plus practical English and Spanish aliases, and move both the viewport and keyboard focus to the selected result instead of only dimming unrelated navigation rows.
 
 ## [0.15.0] — 2026-07-28
 
