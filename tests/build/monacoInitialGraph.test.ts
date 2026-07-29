@@ -76,14 +76,25 @@ const ON_DEMAND_SHELL_MODULES: Array<{ module: string; why: string }> = [
 ];
 
 /**
- * Heavy implementation modules used only after an explicit user action. These
- * are not UI regions, but a static import would still charge every startup for
- * code that most sessions never invoke.
+ * Heavy implementation modules used only after an explicit action or an
+ * accepted delayed workflow. These are not UI regions, but a static import
+ * would still charge every startup before the work begins.
  */
-const EXPLICIT_ACTION_MODULES: Array<{ module: string; why: string }> = [
+const DEFERRED_IMPLEMENTATION_MODULES: Array<{
+  module: string;
+  why: string;
+}> = [
   {
     module: 'src/shared/projectBundle.ts',
     why: 'the fflate project archive codec used only by bundle export/import',
+  },
+  {
+    module: 'src/renderer/runtime/executeTabManually.ts',
+    why: 'manual runner orchestration used only after Run, Debug, replay, or smoke starts',
+  },
+  {
+    module: 'src/renderer/hooks/autoRunExecution.ts',
+    why: 'runner orchestration used only after a Scratchpad debounce is accepted',
   },
 ];
 
@@ -209,13 +220,15 @@ describe('Monaco stays out of the initial graph', () => {
   }
 
   for (const [surface, entry] of Object.entries(ENTRIES)) {
-    it(`${surface}: explicit-action implementation stays out of startup`, () => {
+    it(`${surface}: deferred implementation stays out of startup`, () => {
       const reachable = staticallyReachable(
         entry,
         undefined,
         SURFACE_ALIASES[surface as keyof typeof ENTRIES]
       );
-      const leaked = EXPLICIT_ACTION_MODULES.filter(target => reachable.has(target.module));
+      const leaked = DEFERRED_IMPLEMENTATION_MODULES.filter(target =>
+        reachable.has(target.module)
+      );
       if (leaked.length > 0) {
         throw new Error(
           leaked

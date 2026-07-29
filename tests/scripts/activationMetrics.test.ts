@@ -102,16 +102,13 @@ describe('activation performance metrics', () => {
     expect(summary.memory.heapUsedDeltaBytes.median).toBe(100);
   });
 
-  it('proves the current App graph reaches all runner decision packages', () => {
+  it('proves only dependency detection keeps acorn in the eager App graph', () => {
     const evidence = collectRunnerImportEvidence({ repoRoot });
 
     expect(evidence.reachableSourceModules).toBeGreaterThan(100);
-    for (const packageName of ['acorn', 'js-yaml', 'magic-string']) {
-      expect(evidence.packages[packageName].length).toBeGreaterThan(0);
-      expect(evidence.packages[packageName][0].chain[0]).toBe('src/renderer/App.tsx');
-      expect(evidence.packages[packageName][0].chain.at(-1)).toBe(packageName);
-    }
-
+    expect(evidence.packages.acorn.length).toBeGreaterThan(0);
+    expect(evidence.packages.acorn[0].chain[0]).toBe('src/renderer/App.tsx');
+    expect(evidence.packages.acorn[0].chain.at(-1)).toBe('acorn');
     expect(
       evidence.packages.acorn.some(item =>
         item.chain.includes('src/shared/dependencies/javascriptDetector.ts')
@@ -119,6 +116,8 @@ describe('activation performance metrics', () => {
     ).toBe(true);
     expect(
       evidence.packages.acorn.some(item => item.chain.includes('src/renderer/runners/index.ts'))
-    ).toBe(true);
+    ).toBe(false);
+    expect(evidence.packages['js-yaml']).toEqual([]);
+    expect(evidence.packages['magic-string']).toEqual([]);
   });
 });

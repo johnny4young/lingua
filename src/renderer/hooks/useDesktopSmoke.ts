@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { executeTabManually } from '../runtime/executeTabManually';
 import { useConsoleStore } from '../stores/consoleStore';
 import { createDefaultTab, useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
@@ -315,6 +314,7 @@ export function useDesktopSmoke(enabled: boolean) {
       let firstEditorInteractionWallTimeMs: number | null = null;
 
       try {
+        const { executeTabManually } = await import('../runtime/executeTabManually');
         await api.writeJsonArtifact('desktop-smoke-bootstrap.json', {
           generatedAt: new Date().toISOString(),
           status: 'started',

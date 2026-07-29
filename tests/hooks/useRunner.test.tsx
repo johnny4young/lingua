@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { useRunner } from '@/hooks/useRunner';
@@ -17,10 +17,12 @@ const {
   mockPrepareRunner,
   mockIsSupported,
   mockNeedsInitialization,
+  mockStop,
 } = vi.hoisted(() => ({
   mockPrepareRunner: vi.fn(),
   mockIsSupported: vi.fn(),
   mockNeedsInitialization: vi.fn(),
+  mockStop: vi.fn(),
 }));
 
 vi.mock('@/runners', () => ({
@@ -28,7 +30,7 @@ vi.mock('@/runners', () => ({
     prepareRunner: mockPrepareRunner,
     isSupported: mockIsSupported,
     needsInitialization: mockNeedsInitialization,
-    stop: vi.fn(),
+    stop: mockStop,
   },
 }));
 
@@ -254,6 +256,69 @@ describe('useRunner', () => {
     expect(useEditorStore.getState().tabs[0]).toMatchObject({
       executionState: 'success',
       parseError: null,
+    });
+  });
+
+  it('shares run state and stop ownership across independent controls', async () => {
+    let resolveExecution!: (result: ExecutionResult) => void;
+    const execute = vi.fn(
+      () =>
+        new Promise<ExecutionResult>((resolve) => {
+          resolveExecution = resolve;
+        })
+    );
+    mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'shared-run-tab',
+          name: 'shared.js',
+          language: 'javascript',
+          content: 'while (true) {}',
+          isDirty: false,
+          runtimeMode: 'worker',
+        },
+      ],
+      activeTabId: 'shared-run-tab',
+    });
+
+    const first = renderHook(() => useRunner());
+    const second = renderHook(() => useRunner());
+    let runPromise = Promise.resolve();
+
+    act(() => {
+      runPromise = first.result.current.run();
+    });
+
+    await waitFor(() => {
+      expect(first.result.current.isRunning).toBe(true);
+      expect(second.result.current.isRunning).toBe(true);
+    });
+
+    await act(async () => {
+      await second.result.current.run();
+    });
+    expect(mockPrepareRunner).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      second.result.current.stop();
+    });
+
+    await waitFor(() => {
+      expect(mockStop).toHaveBeenCalledWith('javascript', 'worker');
+      expect(first.result.current.isRunning).toBe(false);
+      expect(second.result.current.isRunning).toBe(false);
+    });
+
+    await act(async () => {
+      resolveExecution({
+        stdout: [],
+        stderr: [],
+        executionTime: 0,
+        cancelled: true,
+        error: { message: 'Execution stopped by user.' },
+      });
+      await runPromise;
     });
   });
 

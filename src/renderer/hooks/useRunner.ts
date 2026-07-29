@@ -1,18 +1,13 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import i18next from 'i18next';
-import {
-  executeTabManually,
-  type ManualExecutionSummary,
-} from '../runtime/executeTabManually';
-import { runnerManager } from '../runners';
+import type { ManualExecutionSummary } from '../runtime/executeTabManually';
 import { announce } from '../stores/announcerStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useNativeExecutionGateStore } from '../stores/nativeExecutionGateStore';
+import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
-import type { Language } from '../types';
-import type { RuntimeMode } from '../../shared/runtimeModes';
 import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
@@ -26,15 +21,14 @@ export interface RunOptions {
 
 export function useRunner() {
   const { track } = useTelemetry();
-  const [isRunning, setIsRunning] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
-  const [runMode, setRunMode] = useState<'run' | 'debug' | null>(null);
-  const currentLanguageRef = useRef<Language | null>(null);
-  // implementation — track the runtime mode that started the run so
-  // `stop()` can route to the right runner (browser-preview runs
-  // through BrowserPreviewRunner, not the language Worker).
-  const currentRuntimeModeRef = useRef<RuntimeMode | undefined>(undefined);
+  const isRunning = useResultStore((state) => state.isManualRunning);
+  const isInitializing = useResultStore(
+    (state) => state.isManualInitializing
+  );
+  const loadingMessage = useResultStore(
+    (state) => state.manualLoadingMessage
+  );
+  const runMode = useResultStore((state) => state.manualRunMode);
 
   const executeTabById = useCallback(async (tabId: string, options: RunOptions = {}) => {
     const { tabs } = useEditorStore.getState();
@@ -50,6 +44,12 @@ export function useRunner() {
 
     if (activeTab.kind === 'notebook') {
       pushNotebookRunNotice();
+      return;
+    }
+
+    // Every shell control shares this store. Refuse a second dispatch while
+    // another surface already owns the active manual execution.
+    if (useResultStore.getState().isManualRunning) {
       return;
     }
 
@@ -69,23 +69,45 @@ export function useRunner() {
     // dot becomes a spinner. Reset back to success / error / idle in
     // the lifecycle wrapper below.
     const editor = useEditorStore.getState();
+    const resultState = useResultStore.getState();
     editor.setTabExecutionState(activeTab.id, 'running');
-    setRunMode(options.debug ? 'debug' : 'run');
+    resultState.setIsManualRunning(true);
+    resultState.setManualRunMode(options.debug ? 'debug' : 'run');
+    resultState.setManualExecutionTarget({
+      language: activeTab.language,
+      ...(activeTab.runtimeMode
+        ? { runtimeMode: activeTab.runtimeMode }
+        : {}),
+    });
     if (options.debug) {
       useUIStore.getState().openBottomPanel('debugger');
     }
 
     try {
+      const { executeTabManually } = await import(
+        '../runtime/executeTabManually'
+      );
+      // Stop can be pressed while this on-demand chunk is still loading.
+      // Honor that intent before runner preparation starts.
+      if (!useResultStore.getState().isManualRunning) {
+        editor.setTabExecutionState(activeTab.id, 'idle');
+        return;
+      }
       const summary = await executeTabManually(activeTab, {
-        setIsRunning,
-        setIsInitializing,
-        setLoadingMessage,
+        setIsRunning: resultState.setIsManualRunning,
+        setIsInitializing: resultState.setIsManualInitializing,
+        setLoadingMessage: resultState.setManualLoadingMessage,
         setCurrentLanguage: (language) => {
-          currentLanguageRef.current = language;
-          // implementation — capture the runtime mode at the start
-          // of the run so `stop()` can route to the right runner.
-          // Reset alongside language on lifecycle teardown.
-          currentRuntimeModeRef.current = language ? activeTab.runtimeMode : undefined;
+          resultState.setManualExecutionTarget(
+            language
+              ? {
+                  language,
+                  ...(activeTab.runtimeMode
+                    ? { runtimeMode: activeTab.runtimeMode }
+                    : {}),
+                }
+              : null
+          );
         },
         recordHistory: options.recordHistory,
         debug: options.debug,
@@ -111,7 +133,12 @@ export function useRunner() {
       announce(i18next.t('console.run.announce.error'));
       throw err;
     } finally {
-      setRunMode(null);
+      const currentResultState = useResultStore.getState();
+      currentResultState.setIsManualRunning(false);
+      currentResultState.setManualRunMode(null);
+      currentResultState.setManualExecutionTarget(null);
+      currentResultState.setIsManualInitializing(false);
+      currentResultState.setManualLoadingMessage(null);
     }
   }, [track]);
 
@@ -168,11 +195,22 @@ export function useRunner() {
   }, [executeTabById, track]);
 
   const stop = useCallback(() => {
-    if (currentLanguageRef.current) {
-      runnerManager.stop(currentLanguageRef.current, currentRuntimeModeRef.current);
+    const resultState = useResultStore.getState();
+    const target = resultState.manualExecutionTarget;
+    if (target) {
+      void import('../runners')
+        .then(({ runnerManager }) => {
+          runnerManager.stop(target.language, target.runtimeMode);
+        })
+        .catch(() => {
+          // Best-effort while the execution chunk itself is still loading.
+          // The local lifecycle is cleared below even if loading failed.
+        });
     }
-    setIsRunning(false);
-    setLoadingMessage(null);
+    resultState.setIsManualRunning(false);
+    resultState.setIsManualInitializing(false);
+    resultState.setManualLoadingMessage(null);
+    resultState.setManualRunMode(null);
   }, []);
 
   return { run, stop, isRunning, isInitializing, loadingMessage, runMode };

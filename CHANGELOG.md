@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- **Execution code now loads when work actually starts:** manual Run and Debug, accepted Scratchpad auto-runs, and the desktop smoke harness keep runner orchestration outside the initial renderer graph. The lightweight controls remain available immediately, while validation, magic-comment instrumentation, and runtime adapters arrive with the first execution.
 - **Project archive code now waits for an archive action:** the web renderer no longer downloads the shared zip codec during normal workspace startup. It loads only when a user exports or imports a project bundle; desktop export remains owned by the trusted main process.
 - **The closed bottom panel no longer taxes workspace startup:** console, debugger, preview, stdin, variables, dependencies, Git diff, and recipe UI now load when the panel first opens instead of joining every initial web and desktop renderer bundle. A localized loading state keeps the transition explicit on slow devices.
 - **The app shell no longer runs an invisible second toolbar:** AppChrome already provides the desktop drag region, so AppLayout now mounts only the floating execution control instead of also rendering a zero-height Toolbar with duplicate store and runner subscriptions. The standalone Toolbar remains available for its focused fallback smoke contract.
@@ -18,6 +19,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **Primary tasks are now discoverable by name in the Command Palette:** Run active tab, Open project folder, and Apply license token join the existing runtime-switch and session-restore actions. Applying a license lands directly on the token field, while the floating runtime control now reports Browser preview, Deno, and Bun accurately instead of abbreviating or falling back to Worker.
 
 ### Fixed
+- **Every Run control now reflects and stops the same active execution:** the floating action, standalone toolbar, console replay, and keyboard shortcut share one manual-run lifecycle instead of each keeping disconnected local loading and stop state.
 - **Production builds no longer inherit React's development runtime from the invoking shell:** the canonical web and desktop bundle commands force their production environment before Vite transforms dependencies and reject generated renderer artifacts that still contain React development diagnostics.
 
 ## [0.15.0] — 2026-07-28
