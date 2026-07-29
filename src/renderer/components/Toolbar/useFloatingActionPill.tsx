@@ -19,7 +19,16 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react';
-import { Bug, Globe, Package, Play, Sparkles, Terminal } from 'lucide-react';
+import {
+  Bug,
+  Globe,
+  Package,
+  Play,
+  Rabbit,
+  Sparkles,
+  Terminal,
+  Zap,
+} from 'lucide-react';
 import { getActiveTab, useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useRunner } from '../../hooks/useRunner';
@@ -71,7 +80,9 @@ export function runtimeChipLabel(
 ): { icon: ReactNode; label: string } {
   if (runtimeMode === 'node') return { icon: <Terminal size={11} />, label: 'Node' };
   if (runtimeMode === 'browser-preview')
-    return { icon: <Globe size={11} />, label: 'Browser' };
+    return { icon: <Globe size={11} />, label: 'Browser preview' };
+  if (runtimeMode === 'deno') return { icon: <Zap size={11} />, label: 'Deno' };
+  if (runtimeMode === 'bun') return { icon: <Rabbit size={11} />, label: 'Bun' };
   return { icon: <Package size={11} />, label: 'Worker' };
 }
 

@@ -41,7 +41,11 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useCommandListener } from '../../hooks/useCommandListener';
 import { SettingsRail } from './SettingsRail';
 import { RAIL_ITEMS, type TabId } from './settingsRailModel';
-import { clearPendingSettingsTab, peekPendingSettingsTab } from './pendingSettingsTab';
+import {
+  clearPendingSettingsTab,
+  peekPendingSettingsTab,
+  peekPendingSettingsTarget,
+} from './pendingSettingsTab';
 import { SettingsSearch } from './SettingsSearch';
 import {
   searchSettings,
@@ -376,14 +380,17 @@ export function SettingsModal({
     clearPendingSettingsTab();
   }, []);
   const [filter, setFilter] = useState('');
-  const [pendingSearchTarget, setPendingSearchTarget] = useState<string | null>(null);
+  const [pendingSearchTarget, setPendingSearchTarget] = useState<string | null>(
+    () => peekPendingSettingsTarget()
+  );
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
   // implementation detail — siblings request a typed tab jump after opening
   // Settings, while SettingsModal remains the sole owner of activeTab.
-  useCommandListener('settings.navigate', ({ tab }, context) => {
+  useCommandListener('settings.navigate', ({ tab, targetId }, context) => {
     if (RAIL_ITEMS.some(it => it.id === tab)) {
       setActiveTab(tab);
+      setPendingSearchTarget(targetId ?? null);
       context.markHandled();
     }
   });

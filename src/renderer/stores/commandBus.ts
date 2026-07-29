@@ -31,7 +31,10 @@ export interface RendererCommandPayloadMap {
   'share.trigger': { readonly trigger: ShareCreateTrigger };
   'share.succeeded': undefined;
   'settings.openLicense': undefined;
-  'settings.navigate': { readonly tab: SettingsTabId };
+  'settings.navigate': {
+    readonly tab: SettingsTabId;
+    readonly targetId?: string;
+  };
   'editor.highlightLine': {
     readonly line: number;
     readonly column?: number;

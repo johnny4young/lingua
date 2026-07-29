@@ -13,7 +13,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearPendingSettingsTab,
   peekPendingSettingsTab,
+  peekPendingSettingsTarget,
   requestSettingsTab,
+  requestSettingsTarget,
   setPendingSettingsTab,
 } from '../../../src/renderer/components/Settings/pendingSettingsTab';
 import {
@@ -29,6 +31,7 @@ describe('pendingSettingsTab', () => {
 
   it('returns null when nothing is pending', () => {
     expect(peekPendingSettingsTab()).toBeNull();
+    expect(peekPendingSettingsTarget()).toBeNull();
   });
 
   it('hands the stashed tab to the reader', () => {
@@ -69,6 +72,16 @@ describe('pendingSettingsTab', () => {
     expect(openSettings).toHaveBeenCalledOnce();
   });
 
+  it('preserves a focus target across a lazy Settings mount', () => {
+    const openSettings = vi.fn();
+
+    requestSettingsTarget('account', 'license-token-input', openSettings);
+
+    expect(peekPendingSettingsTab()).toBe('account');
+    expect(peekPendingSettingsTarget()).toBe('license-token-input');
+    expect(openSettings).toHaveBeenCalledOnce();
+  });
+
   it('navigates a live modal without leaving a stale tab for the next open', () => {
     const openSettings = vi.fn();
     const listener = vi.fn((_payload, context) => context.markHandled());
@@ -83,5 +96,20 @@ describe('pendingSettingsTab', () => {
     );
     expect(openSettings).not.toHaveBeenCalled();
     expect(peekPendingSettingsTab()).toBeNull();
+    expect(peekPendingSettingsTarget()).toBeNull();
+  });
+
+  it('delivers a focus target to an already-open Settings owner', () => {
+    const openSettings = vi.fn();
+    const listener = vi.fn((_payload, context) => context.markHandled());
+    subscribeCommand('settings.navigate', listener);
+
+    requestSettingsTarget('account', 'license-token-input', openSettings);
+
+    expect(listener).toHaveBeenCalledWith(
+      { tab: 'account', targetId: 'license-token-input' },
+      expect.objectContaining({ handled: true })
+    );
+    expect(openSettings).not.toHaveBeenCalled();
   });
 });

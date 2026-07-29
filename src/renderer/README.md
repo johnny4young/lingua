@@ -161,6 +161,28 @@ Use the closest store that already owns the product concept instead of adding cr
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | implementation — BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | internal — single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
 
+## Global action entry points
+
+The Command Palette is the canonical text entry point for global actions. A
+toolbar button, shortcut, empty state, status notice, or Settings CTA may expose
+the same action contextually, but it must delegate to the same store/action
+owner rather than maintain parallel state.
+
+Primary task contracts:
+
+| Task | Canonical text entry | Contextual/direct entry | Keyboard entry | Interaction budget |
+| --- | --- | --- | --- | --- |
+| Run the active tab | `Run active tab` | floating Run action | `Mod+Enter` | 1 direct or 3 through the palette |
+| Change JS/TS runtime | `Switch runtime to …` | floating Runtime menu | `Mod+Alt+M` cycles modes | 2 direct or 3 through the palette |
+| Open a project | `Open project folder…` | Explorer empty state / footer | Command Palette | 1 direct or 3 to the folder picker |
+| Apply a license | `Apply license token` | license badge / Settings → Account | Command Palette | 5 through the palette, including paste + Apply |
+| Restore a session | `Restore last session` when a snapshot exists | boot recovery notice | Command Palette | 1 direct or 3 through the palette |
+
+`tests/components/CommandPalette.test.tsx` locks the palette budgets and action
+ownership. `tests/components/SettingsModal.test.tsx` locks the lazy Settings
+handoff and complete license-apply budget. Contextual controls have focused
+component coverage in their owning feature.
+
 ## Naming conventions
 
 Use the existing file names as the rule instead of introducing alternate patterns.

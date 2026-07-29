@@ -22,6 +22,7 @@ import type { TabId } from './settingsRailModel';
 import { emitCommand } from '../../stores/commandBus';
 
 let pendingTab: TabId | null = null;
+let pendingTargetId: string | null = null;
 
 /**
  * Navigate an already-open Settings modal, or seed the next mount.
@@ -33,7 +34,24 @@ let pendingTab: TabId | null = null;
  * an earlier open that was closed before the modal committed.
  */
 export function requestSettingsTab(tab: TabId, openSettings?: () => void): void {
-  const liveNavigation = emitCommand('settings.navigate', { tab });
+  requestSettingsTarget(tab, null, openSettings);
+}
+
+/**
+ * Navigate to a Settings tab and focus one stable target after it mounts.
+ *
+ * The target follows the same acknowledged live-owner handoff as the tab, so
+ * lazy loading cannot drop it between opening Settings and mounting the owner.
+ */
+export function requestSettingsTarget(
+  tab: TabId,
+  targetId: string | null,
+  openSettings?: () => void
+): void {
+  const liveNavigation = emitCommand('settings.navigate', {
+    tab,
+    ...(targetId ? { targetId } : {}),
+  });
   if (liveNavigation.handled) {
     clearPendingSettingsTab();
     return;
@@ -41,6 +59,7 @@ export function requestSettingsTab(tab: TabId, openSettings?: () => void): void 
   if (!openSettings) return;
 
   setPendingSettingsTab(tab);
+  pendingTargetId = targetId;
   openSettings();
 }
 
@@ -63,7 +82,13 @@ export function peekPendingSettingsTab(): TabId | null {
   return pendingTab;
 }
 
+/** Read the stable focus target requested for the next Settings mount. */
+export function peekPendingSettingsTarget(): string | null {
+  return pendingTargetId;
+}
+
 /** Drop the stash. Call from an effect, once the read has actually stuck. */
 export function clearPendingSettingsTab(): void {
   pendingTab = null;
+  pendingTargetId = null;
 }

@@ -41,6 +41,12 @@ interface BuildCommandPaletteModelArgs {
    * navigating the Settings panel. Optional for legacy callers.
    */
   executionHistory?: readonly ExecutionHistoryEntry[];
+  /** Canonical baseline Run entry, independent from paid replay/history. */
+  onRunActiveTab?: () => void;
+  /** Open a folder as the active project. */
+  onOpenProject?: () => void | Promise<void>;
+  /** Open Settings directly on the license-token input. */
+  onApplyLicense?: () => void;
   /**
    * Called when the user activates a Recent-runs entry. The caller
    * decides what focus means — today it's a no-op or a tab-focus;
@@ -721,6 +727,9 @@ export function buildCommandPaletteModel({
   templates,
   snippets,
   executionHistory,
+  onRunActiveTab,
+  onOpenProject,
+  onApplyLicense,
   onFocusLanguageTab,
   onRerunLast,
   onNewProjectFromTemplate,
@@ -861,6 +870,48 @@ export function buildCommandPaletteModel({
         onReplayEntry as (entry: ExecutionHistoryEntry) => void
       )
     ),
+    ...(onRunActiveTab
+      ? [
+          buildActionCommand(
+            'action-run-active-tab',
+            translate('commandPalette.action.runActiveTab.label'),
+            translate('commandPalette.action.runActiveTab.description'),
+            ['run', 'execute', 'code', 'active tab', 'ejecutar', 'codigo', 'pestana'],
+            () => {
+              onRunActiveTab();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    ...(onOpenProject
+      ? [
+          buildActionCommand(
+            'action-open-project',
+            translate('commandPalette.action.openProject.label'),
+            translate('commandPalette.action.openProject.description'),
+            ['open', 'project', 'folder', 'workspace', 'abrir', 'proyecto', 'carpeta'],
+            () => {
+              onClose();
+              void onOpenProject();
+            }
+          ),
+        ]
+      : []),
+    ...(onApplyLicense
+      ? [
+          buildActionCommand(
+            'action-apply-license',
+            translate('commandPalette.action.applyLicense.label'),
+            translate('commandPalette.action.applyLicense.description'),
+            ['apply', 'activate', 'license', 'token', 'pro', 'licencia', 'activar'],
+            () => {
+              onClose();
+              onApplyLicense();
+            }
+          ),
+        ]
+      : []),
     // implementation — Re-run last execution. Hidden when the
     // caller does not wire `onRerunLast` so legacy callers (or
     // surfaces with no execution context) keep working.

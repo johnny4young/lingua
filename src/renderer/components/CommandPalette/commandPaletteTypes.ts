@@ -21,6 +21,15 @@ export interface CommandPaletteProps {
   onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
   onOpenKeyboardShortcuts?: () => void;
   /**
+   * Runs the active runnable tab through the same coordinator as the primary
+   * toolbar action. This stays separate from replay/history availability.
+   */
+  onRunActiveTab?: () => void;
+  /** Opens a local folder as the active project. */
+  onOpenProject?: () => void | Promise<void>;
+  /** Opens Settings and focuses the license-token input. */
+  onApplyLicense?: () => void;
+  /**
    * implementation — fires the "Re-run last execution" palette
    * action. Owned by the AppChrome layer so the palette doesn't have
    * to know about runner internals.

@@ -6,7 +6,10 @@ import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
-import { isJavaScriptFamily, isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
+import {
+  isJavaScriptFamily,
+  isWorkerRunnerLanguage,
+} from '../../../shared/languageFamilies';
 import { isRuntimeTimeoutSupportedLanguage } from '../../../shared/runtimeTimeoutPresets';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
@@ -47,6 +50,7 @@ import { countCustomLintIssues } from '../../lint/customLintRules';
 import { requestPlainPaste } from '../../hooks/useSmartPaste';
 import { focusStatusBar } from '../StatusBar/statusBarAccess';
 import { copyBootTimingsToClipboard } from '../../utils/bootTimings';
+import { executionModeForLanguage } from '../../utils/languageMeta';
 import type { CommandPaletteProps } from './commandPaletteTypes';
 
 export function useCommandPaletteCommands({
@@ -62,6 +66,9 @@ export function useCommandPaletteCommands({
   onOpenGoToSymbol,
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
+  onRunActiveTab,
+  onOpenProject,
+  onApplyLicense,
   onRerunLast,
   onNewProjectFromTemplate,
   onReplayEntry,
@@ -164,6 +171,14 @@ export function useCommandPaletteCommands({
       templates: BUILT_IN_TEMPLATES,
       snippets,
       executionHistory: canUseExecutionHistory ? executionHistory : [],
+      onRunActiveTab:
+        activeTab &&
+        activeTab.kind !== 'notebook' &&
+        executionModeForLanguage(activeTab.language) === 'run'
+          ? onRunActiveTab
+          : undefined,
+      onOpenProject,
+      onApplyLicense,
       onFocusLanguageTab: focusLanguageTab,
       onRerunLast: canUseExecutionHistory ? onRerunLast : undefined,
       onNewProjectFromTemplate,
@@ -654,6 +669,9 @@ export function useCommandPaletteCommands({
     canUseExecutionHistory,
     executionHistory,
     snapshotRing,
+    onRunActiveTab,
+    onOpenProject,
+    onApplyLicense,
     onRerunLast,
     onNewProjectFromTemplate,
     onReplayEntry,

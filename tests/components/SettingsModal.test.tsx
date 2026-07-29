@@ -2,7 +2,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { SettingsModal } from '../../src/renderer/components/Settings/SettingsModal';
-import { clearPendingSettingsTab } from '../../src/renderer/components/Settings/pendingSettingsTab';
+import {
+  clearPendingSettingsTab,
+  requestSettingsTarget,
+} from '../../src/renderer/components/Settings/pendingSettingsTab';
 import { initI18n } from '../../src/renderer/i18n';
 import { _resetCommandBusForTesting, emitCommand } from '../../src/renderer/stores/commandBus';
 import { usePluginStore } from '../../src/renderer/stores/pluginStore';
@@ -175,6 +178,34 @@ describe('SettingsModal', () => {
 
     expect(result?.handled).toBe(true);
     expect(screen.getByTestId('settings-tab-account').getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('opens on Account, focuses the token, and keeps apply within five interactions', async () => {
+    requestSettingsTarget('account', 'license-token-input', vi.fn());
+    let steps = 3; // Open palette, search for Apply license, activate the result.
+
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    expect(screen.getByTestId('settings-tab-account').getAttribute('aria-selected')).toBe('true');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByTestId('license-input'));
+    });
+
+    fireEvent.change(screen.getByTestId('license-input'), {
+      target: { value: 'invalid.test.token' },
+    });
+    steps += 1;
+    fireEvent.click(screen.getByTestId('license-apply'));
+    steps += 1;
+
+    expect(steps).toBeLessThanOrEqual(5);
+    await screen.findByTestId('license-input-error');
   });
 
   it('shows actionable search results while preserving rail keyboard navigation', () => {

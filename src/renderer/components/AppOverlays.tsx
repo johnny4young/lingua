@@ -5,9 +5,11 @@ import { type DeveloperUtilityId } from '../data/developerUtilities';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { exportActiveNotebookAsLinguanb } from '../runtime/exportActiveNotebook';
 import { useEditorStore } from '../stores/editorStore';
+import { useProjectStore } from '../stores/projectStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
 import type { AppOverlay } from '../hooks/useGlobalShortcuts';
+import { requestSettingsTarget } from './Settings/pendingSettingsTab';
 
 /**
  * Every overlay is conditionally rendered, so none of them is needed to paint
@@ -129,6 +131,15 @@ export function AppOverlays({
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
           onOpenDeveloperUtility={utilityId => onOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
+          onRunActiveTab={() => void run()}
+          onOpenProject={() => useProjectStore.getState().openProject()}
+          onApplyLicense={() =>
+            requestSettingsTarget(
+              'account',
+              'license-token-input',
+              () => openOverlay('settings')
+            )
+          }
           onRerunLast={() => void run()}
           onReplayEntry={entry => {
             // Gate telemetry on the actual replay dispatch so a refused

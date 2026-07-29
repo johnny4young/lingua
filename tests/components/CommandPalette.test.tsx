@@ -350,6 +350,95 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Restore last session')).toBeTruthy();
   });
 
+  it('keeps the five primary tasks within a three-step palette interaction budget', () => {
+    editorState.tabs = [
+      {
+        id: 'tab-1',
+        language: 'javascript',
+        content: 'console.log("ready")',
+        runtimeMode: 'worker',
+      },
+    ];
+    editorState.activeTabId = 'tab-1';
+    const runActiveTab = vi.fn();
+    const openProject = vi.fn().mockResolvedValue(undefined);
+    const applyLicense = vi.fn();
+    const restoreSession = vi.fn().mockResolvedValue(undefined);
+    const originalRestoreSession = useSessionStore.getState().restoreSession;
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'previous.js',
+          language: 'javascript',
+          content: 'console.log("previous")',
+        },
+      ],
+      savedActiveIndex: 0,
+      restoreSession,
+    });
+
+    const cases = [
+      {
+        query: 'run active tab',
+        props: { onRunActiveTab: runActiveTab },
+        assertAction: () => expect(runActiveTab).toHaveBeenCalledOnce(),
+      },
+      {
+        query: 'switch runtime to node',
+        props: {},
+        assertAction: () =>
+          expect(editorState.setTabRuntimeMode).toHaveBeenCalledWith('tab-1', 'node'),
+      },
+      {
+        query: 'open project folder',
+        props: { onOpenProject: openProject },
+        assertAction: () => expect(openProject).toHaveBeenCalledOnce(),
+      },
+      {
+        query: 'apply license token',
+        props: { onApplyLicense: applyLicense },
+        assertAction: () => expect(applyLicense).toHaveBeenCalledOnce(),
+      },
+      {
+        query: 'restore last session',
+        props: {},
+        assertAction: () => expect(restoreSession).toHaveBeenCalledOnce(),
+      },
+    ] as const;
+
+    try {
+      for (const task of cases) {
+        const onClose = vi.fn();
+        let steps = 1; // Open the palette with its global shortcut.
+        const view = render(
+          <CommandPalette
+            onClose={onClose}
+            onOpenSettings={vi.fn()}
+            onOpenWhatsNew={vi.fn()}
+            onStartGuidedTour={vi.fn()}
+            onOpenSnippets={vi.fn()}
+            {...task.props}
+          />
+        );
+        const input = screen.getByPlaceholderText(
+          'Search templates, snippets, commands...'
+        );
+
+        fireEvent.change(input, { target: { value: task.query } });
+        steps += 1;
+        fireEvent.keyDown(input, { key: 'Enter' });
+        steps += 1;
+
+        expect(steps).toBeLessThanOrEqual(3);
+        expect(onClose).toHaveBeenCalledOnce();
+        task.assertAction();
+        view.unmount();
+      }
+    } finally {
+      useSessionStore.setState({ restoreSession: originalRestoreSession });
+    }
+  });
+
   it('flattens results without scope headers when the user types a query', () => {
     render(
       <CommandPalette

@@ -251,6 +251,35 @@ describe('FloatingActionPill', () => {
     expect(
       useEditorStore.getState().tabs.find((tab) => tab.id === 'tab-ts')?.runtimeMode
     ).toBe('deno');
+    await waitFor(() => {
+      expect(screen.getByTestId('action-pill-runtime').textContent).toContain('Deno');
+    });
+  });
+
+  it.each([
+    ['browser-preview', 'Browser preview'],
+    ['deno', 'Deno'],
+    ['bun', 'Bun'],
+  ] as const)('reports the active %s runtime without falling back to Worker', (runtimeMode, label) => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-ts',
+          name: 'main.ts',
+          language: 'typescript',
+          content: 'console.log(1)',
+          runtimeMode,
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-ts',
+      pendingReveal: null,
+    });
+
+    renderPill();
+
+    expect(screen.getByTestId('action-pill-runtime').textContent).toContain(label);
+    expect(screen.getByTestId('action-pill-runtime').textContent).not.toContain('Worker');
   });
 
   it('moves back to the handoff default when floating positions are reset', async () => {
