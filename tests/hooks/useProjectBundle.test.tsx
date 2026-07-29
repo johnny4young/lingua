@@ -40,6 +40,70 @@ describe('useProjectBundle', () => {
     } as typeof window.lingua;
   }
 
+  function installWebExport(
+    listAllFiles: ReturnType<typeof vi.fn>,
+    read: ReturnType<typeof vi.fn>
+  ): void {
+    window.lingua = {
+      ...(originalLingua ?? {}),
+      platform: 'web',
+      fs: {
+        ...(originalLingua?.fs ?? {}),
+        listAllFiles,
+        read,
+      } as typeof window.lingua.fs,
+    } as typeof window.lingua;
+  }
+
+  it('packs the loaded web project only after export is requested', async () => {
+    const listAllFiles = vi.fn().mockResolvedValue([
+      { relativePath: 'src/index.js' },
+      { relativePath: 'README.md' },
+    ]);
+    const read = vi.fn(async (_rootId: string, relativePath: string) =>
+      relativePath === 'src/index.js'
+        ? 'console.log("Lingua");'
+        : '# Demo'
+    );
+    installWebExport(listAllFiles, read);
+    useProjectStore.setState({
+      currentProject: {
+        id: 'web-demo',
+        name: 'demo',
+        rootId: 'web-root',
+        rootPath: '/demo',
+        openedAt: 1,
+      },
+    });
+
+    const createObjectUrl = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:lingua-project');
+    const revokeObjectUrl = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => undefined);
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useProjectBundle());
+    await act(async () => {
+      await result.current.exportProjectBundle();
+    });
+
+    expect(listAllFiles).toHaveBeenCalledWith('web-root');
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(createObjectUrl).toHaveBeenCalledTimes(1);
+    const archive = createObjectUrl.mock.calls[0]?.[0];
+    expect(archive).toBeInstanceOf(Blob);
+    expect((archive as Blob).size).toBeGreaterThan(0);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:lingua-project');
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+      'projectBundle.export.success'
+    );
+  });
+
   it('opens the manifest entry only after the imported root is adopted', async () => {
     installImportBundle(
       vi.fn().mockResolvedValue({

@@ -77,7 +77,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`                              | Capsule browsing, filters, and replay affordances              |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
-| [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX                                |
+| [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
 | [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
 | [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Open-tab, recent-file, and project-index file navigation       |
 | [`components/Share/`](components/Share)                   | `ShareLinkButton.tsx`, confirmation modal             | Share-link generation affordances and copied-link feedback      |

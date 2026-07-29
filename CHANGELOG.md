@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- **Project archive code now waits for an archive action:** the web renderer no longer downloads the shared zip codec during normal workspace startup. It loads only when a user exports or imports a project bundle; desktop export remains owned by the trusted main process.
 - **The closed bottom panel no longer taxes workspace startup:** console, debugger, preview, stdin, variables, dependencies, Git diff, and recipe UI now load when the panel first opens instead of joining every initial web and desktop renderer bundle. A localized loading state keeps the transition explicit on slow devices.
 - **The app shell no longer runs an invisible second toolbar:** AppChrome already provides the desktop drag region, so AppLayout now mounts only the floating execution control instead of also rendering a zero-height Toolbar with duplicate store and runner subscriptions. The standalone Toolbar remains available for its focused fallback smoke contract.
 - **Run and workflow controls now agree about what can execute:** the floating action pill and standalone toolbar share one capability policy for language, license, platform, notebook, and breakpoint gates. Debug stays unavailable until the active tab has an enabled breakpoint, unsupported Scratchpad choices explain why they cannot run, and disabled menu items expose the same localized guidance as the primary action.

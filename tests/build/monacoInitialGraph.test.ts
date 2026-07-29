@@ -76,6 +76,18 @@ const ON_DEMAND_SHELL_MODULES: Array<{ module: string; why: string }> = [
 ];
 
 /**
+ * Heavy implementation modules used only after an explicit user action. These
+ * are not UI regions, but a static import would still charge every startup for
+ * code that most sessions never invoke.
+ */
+const EXPLICIT_ACTION_MODULES: Array<{ module: string; why: string }> = [
+  {
+    module: 'src/shared/projectBundle.ts',
+    why: 'the fflate project archive codec used only by bundle export/import',
+  },
+];
+
+/**
  * Convert the canonical absolute Vite replacements into the repo-relative
  * paths used by this graph walker.
  *
@@ -182,6 +194,28 @@ describe('Monaco stays out of the initial graph', () => {
         SURFACE_ALIASES[surface as keyof typeof ENTRIES]
       );
       const leaked = ON_DEMAND_SHELL_MODULES.filter(target => reachable.has(target.module));
+      if (leaked.length > 0) {
+        throw new Error(
+          leaked
+            .map(
+              target =>
+                `${target.module} (${target.why}) is statically reachable from ${entry}.\n` +
+                `Chain:\n  ${importChain(reachable, target.module).join('\n  -> ')}`
+            )
+            .join('\n\n')
+        );
+      }
+    });
+  }
+
+  for (const [surface, entry] of Object.entries(ENTRIES)) {
+    it(`${surface}: explicit-action implementation stays out of startup`, () => {
+      const reachable = staticallyReachable(
+        entry,
+        undefined,
+        SURFACE_ALIASES[surface as keyof typeof ENTRIES]
+      );
+      const leaked = EXPLICIT_ACTION_MODULES.filter(target => reachable.has(target.module));
       if (leaked.length > 0) {
         throw new Error(
           leaked

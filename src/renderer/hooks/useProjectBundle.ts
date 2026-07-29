@@ -24,8 +24,7 @@
  */
 
 import { useCallback } from 'react';
-import { strToU8 } from 'fflate';
-import { packBundle, type ProjectBundleFile } from '../../shared/projectBundle';
+import type { ProjectBundleFile } from '../../shared/projectBundle';
 import { useProjectStore } from '../stores/projectStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { languageFromPath } from '../utils/language';
@@ -80,10 +79,12 @@ export function useProjectBundle(): UseProjectBundleApi {
           return;
         }
         const files: ProjectBundleFile[] = [];
+        const encoder = new TextEncoder();
         for (const entry of indexed) {
           const content = await window.lingua.fs.read(project.rootId, entry.relativePath);
-          files.push({ path: entry.relativePath, bytes: strToU8(content) });
+          files.push({ path: entry.relativePath, bytes: encoder.encode(content) });
         }
+        const { packBundle } = await import('../../shared/projectBundle');
         const zip = packBundle(files, {
           createdAt: new Date().toISOString(),
           entryFile,
