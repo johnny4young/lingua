@@ -18,13 +18,17 @@
  * performance budget in `docs/performance/baseline.json`.
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { createRendererViteAliases, createWebViteAliases } from '../../build/viteAliases.mts';
 import {
-  createRendererViteAliases,
-  createWebViteAliases,
-} from '../../build/viteAliases.mts';
+  importChain,
+  resolveSourceImport,
+  staticSpecifiers,
+  stripComments,
+  walkStaticImportGraph,
+} from '../../scripts/lib/staticImportGraph.mjs';
 
 const repoRoot = path.resolve(__dirname, '../..');
 
@@ -60,8 +64,6 @@ const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
   },
 ];
 
-const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
-
 /**
  * Convert the canonical absolute Vite replacements into the repo-relative
  * paths used by this graph walker.
@@ -70,9 +72,7 @@ const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
  * surfaces genuinely differ: web redirects `@/plugins/catalog` at
  * `src/web/plugin-catalog.ts` before the generic `@` -> `src/renderer`.
  */
-function normalizeAliases(
-  aliases: Readonly<Record<string, string>>
-): Array<[string, string]> {
+function normalizeAliases(aliases: Readonly<Record<string, string>>): Array<[string, string]> {
   return Object.entries(aliases).map(([find, replacement]) => [
     find,
     path.relative(repoRoot, replacement).split(path.sep).join('/'),
@@ -83,158 +83,6 @@ const SURFACE_ALIASES: Record<keyof typeof ENTRIES, Array<[string, string]>> = {
   web: normalizeAliases(createWebViteAliases(repoRoot)),
   renderer: normalizeAliases(createRendererViteAliases(repoRoot)),
 };
-
-/** Rewrite an aliased specifier into a repo-relative path, or return null. */
-function applyAlias(specifier: string, aliases: Array<[string, string]>): string | null {
-  for (const [from, to] of aliases) {
-    if (specifier === from) return to;
-    if (specifier.startsWith(`${from}/`)) return `${to}/${specifier.slice(from.length + 1)}`;
-  }
-  return null;
-}
-
-/**
- * Resolve a relative specifier the way the bundler does: exact file, then
- * extension probing, then `index.*`. Returns null for anything that is not a
- * repo-relative source file (bare package specifiers, css, assets).
- */
-function resolveImport(
-  fromFile: string,
-  specifier: string,
-  aliases: Array<[string, string]> = []
-): string | null {
-  const aliased = specifier.startsWith('.') ? null : applyAlias(specifier, aliases);
-  if (!specifier.startsWith('.') && !aliased) return null;
-  const base = aliased
-    ? path.join(repoRoot, aliased)
-    : path.resolve(path.dirname(path.join(repoRoot, fromFile)), specifier);
-  const candidates = [
-    base,
-    ...EXTENSIONS.map(ext => base + ext),
-    ...EXTENSIONS.map(ext => path.join(base, `index${ext}`)),
-  ];
-  for (const candidate of candidates) {
-    if (existsSync(candidate) && !candidate.endsWith(path.sep)) {
-      try {
-        if (readFileSync(candidate).length >= 0) {
-          const rel = path.relative(repoRoot, candidate).split(path.sep).join('/');
-          if (EXTENSIONS.some(ext => rel.endsWith(ext))) return rel;
-        }
-      } catch {
-        // Directory or unreadable — keep probing.
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Strip comments the way the parser would, tracking string literals so a `//`
- * inside a quoted URL is not mistaken for one.
- *
- * A regex-only strip is not enough. The specifier patterns below are anchored
- * at a line-start `import`, which correctly ignores a whole line that starts
- * with `//` — but the lazy `[\s\S]*?` still scans forward for the first
- * `from '...'`, so a comment *inside* a multi-line import statement leaks its
- * text as if it were the real specifier:
- *
- *     import {
- *       a,
- *       // b from '../monaco'
- *     } from './real';
- *
- * That capture is `../monaco`, and the guard would fail on a module nobody
- * imports.
- */
-export function stripComments(source: string): string {
-  let out = '';
-  let index = 0;
-  let quote: string | null = null;
-  while (index < source.length) {
-    const char = source[index]!;
-    const next = source[index + 1];
-    if (quote) {
-      if (char === '\\') {
-        out += char + (next ?? '');
-        index += 2;
-        continue;
-      }
-      if (char === quote) quote = null;
-      out += char;
-      index += 1;
-      continue;
-    }
-    if (char === '"' || char === "'" || char === '`') {
-      quote = char;
-      out += char;
-      index += 1;
-      continue;
-    }
-    if (char === '/' && next === '/') {
-      while (index < source.length && source[index] !== '\n') index += 1;
-      continue; // the newline itself is copied by the next iteration
-    }
-    if (char === '/' && next === '*') {
-      index += 2;
-      while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
-        index += 1;
-      }
-      index += 2;
-      continue;
-    }
-    out += char;
-    index += 1;
-  }
-  return out;
-}
-
-/**
- * Static specifiers only. `import type` / `export type` are erased before the
- * bundler sees them, and `import(...)` is the lazy boundary we are trying to
- * preserve — counting either would make this test assert the opposite of what
- * it means to.
- */
-export function staticSpecifiers(source: string): string[] {
-  const withoutBlockComments = stripComments(source);
-  const specifiers: string[] = [];
-  // `[^;]` rather than `[\s\S]`: the lazy scan must not cross a statement
-  // boundary. With `[\s\S]*?`, a side-effect import reaches past its own
-  // semicolon and captures the NEXT statement's specifier —
-  // `import './a';` followed by `import type { T } from './b';` yielded
-  // `./b`, an edge that does not exist. An import clause never contains a
-  // semicolon, so nothing legitimate is lost.
-  const importRe = /^\s*import\s+(?!type\s)([^;]*?)from\s*['"]([^'"]+)['"]/gm;
-  const bareImportRe = /^\s*import\s*['"]([^'"]+)['"]/gm;
-  const reExportRe = /^\s*export\s+(?!type\s)([^;]*?)from\s*['"]([^'"]+)['"]/gm;
-
-  for (const match of withoutBlockComments.matchAll(importRe)) {
-    if (!namedBindingsAreTypeOnly(match[1]!)) specifiers.push(match[2]!);
-  }
-  for (const match of withoutBlockComments.matchAll(bareImportRe)) {
-    specifiers.push(match[1]!);
-  }
-  for (const match of withoutBlockComments.matchAll(reExportRe)) {
-    if (!namedBindingsAreTypeOnly(match[1]!)) specifiers.push(match[2]!);
-  }
-  return specifiers;
-}
-
-/**
- * `import { type A }` and `export { type A }` disappear from the runtime graph
- * just like the clause-level `import type` / `export type` forms. Matching
- * them as value edges makes the guard stricter only superficially: it can
- * reject a bundle-safe type dependency that Vite never emits.
- */
-function namedBindingsAreTypeOnly(clause: string): boolean {
-  const trimmed = clause.trim();
-  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
-  const bindings = trimmed
-    .slice(1, -1)
-    .split(',')
-    .map(binding => binding.trim())
-    .filter(Boolean);
-  return bindings.length > 0 && bindings.every(binding => /^type\b/.test(binding));
-}
 
 /**
  * Bare (package) specifiers that must never appear on a statically-reachable
@@ -257,42 +105,18 @@ function staticallyReachable(
   bareHits?: Map<string, string>,
   aliases: Array<[string, string]> = []
 ): Map<string, string | null> {
-  const seen = new Map<string, string | null>(); // file -> importer
-  const queue: Array<[string, string | null]> = [[entry, null]];
-  while (queue.length > 0) {
-    const [file, importer] = queue.shift()!;
-    if (seen.has(file)) continue;
-    seen.set(file, importer);
-    let source: string;
-    try {
-      source = readFileSync(path.join(repoRoot, file), 'utf8');
-    } catch {
-      continue;
-    }
-    for (const specifier of staticSpecifiers(source)) {
-      if (bareHits && !specifier.startsWith('.')) {
-        for (const prefix of FORBIDDEN_BARE_PREFIXES) {
-          if (specifier.startsWith(prefix) && !bareHits.has(specifier)) {
-            bareHits.set(specifier, file);
-          }
-        }
+  const graph = walkStaticImportGraph({ repoRoot, entry, aliases });
+  if (bareHits) {
+    for (const [specifier, importers] of graph.bareImporters) {
+      if (!FORBIDDEN_BARE_PREFIXES.some(prefix => specifier.startsWith(prefix))) {
+        continue;
       }
-      const resolved = resolveImport(file, specifier, aliases);
-      if (resolved && !seen.has(resolved)) queue.push([resolved, file]);
+      if (!bareHits.has(specifier) && importers[0]) {
+        bareHits.set(specifier, importers[0]);
+      }
     }
   }
-  return seen;
-}
-
-/** Walk importer links back to the entry so a failure names the actual chain. */
-function importChain(reachable: Map<string, string | null>, target: string): string {
-  const chain: string[] = [];
-  let current: string | undefined | null = target;
-  while (current) {
-    chain.unshift(current);
-    current = reachable.get(current) ?? null;
-  }
-  return chain.join('\n  -> ');
+  return graph.parents;
 }
 
 describe('Monaco stays out of the initial graph', () => {
@@ -311,7 +135,7 @@ describe('Monaco stays out of the initial graph', () => {
             `~950 KiB gzip of editor in the initial download. Make the ` +
             `dependency dynamic (await import('../monaco')) or move the ` +
             `consumer behind a lazy boundary.\n\nChain:\n  ` +
-            importChain(reachable, MONACO_BARREL)
+            importChain(reachable, MONACO_BARREL).join('\n  -> ')
         );
       }
     });
@@ -331,7 +155,7 @@ describe('Monaco stays out of the initial graph', () => {
             .map(
               target =>
                 `${target.module} (${target.why}) is statically reachable from ${entry}.\n` +
-                `Chain:\n  ${importChain(reachable, target.module)}`
+                `Chain:\n  ${importChain(reachable, target.module).join('\n  -> ')}`
             )
             .join('\n\n')
         );
@@ -351,11 +175,7 @@ describe('Monaco stays out of the initial graph', () => {
       // it catches is a boot-path module — App, a store, a always-mounted
       // component — reaching for a tokenizer or worker directly.
       const bareHits = new Map<string, string>();
-      staticallyReachable(
-        entry,
-        bareHits,
-        SURFACE_ALIASES[surface as keyof typeof ENTRIES]
-      );
+      staticallyReachable(entry, bareHits, SURFACE_ALIASES[surface as keyof typeof ENTRIES]);
       if (bareHits.size > 0) {
         throw new Error(
           [...bareHits]
@@ -432,17 +252,27 @@ describe('Monaco stays out of the initial graph', () => {
       // what lies beyond it.
       const web = SURFACE_ALIASES.web;
       const renderer = SURFACE_ALIASES.renderer;
-      expect(resolveImport('src/renderer/stores/pluginStore.ts', '@/plugins/catalog', web)).toBe(
-        'src/web/plugin-catalog.ts'
-      );
       expect(
-        resolveImport('src/renderer/stores/pluginStore.ts', '@/plugins/catalog', renderer)
+        resolveSourceImport(
+          repoRoot,
+          'src/renderer/stores/pluginStore.ts',
+          '@/plugins/catalog',
+          web
+        )
+      ).toBe('src/web/plugin-catalog.ts');
+      expect(
+        resolveSourceImport(
+          repoRoot,
+          'src/renderer/stores/pluginStore.ts',
+          '@/plugins/catalog',
+          renderer
+        )
       ).toBe('src/renderer/plugins/catalog.ts');
       // A more specific alias must win over the generic prefix, which is the
       // order Vite itself matches in.
       expect(web[0]![0]).toBe('@/plugins/catalog');
       // Bare package specifiers still resolve to nothing.
-      expect(resolveImport('src/renderer/App.tsx', 'react', web)).toBeNull();
+      expect(resolveSourceImport(repoRoot, 'src/renderer/App.tsx', 'react', web)).toBeNull();
     });
   });
 

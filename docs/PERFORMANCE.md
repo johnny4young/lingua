@@ -5,6 +5,9 @@ user-facing app panel. The current gate is intentionally dev/CI only:
 
 - `pnpm run performance:report` prints a table and writes
   `output/performance/performance-report.{json,md}`.
+- `pnpm run performance:activation` runs repeated cold web and desktop
+  activation samples and writes
+  `output/performance/activation-performance.{json,md}`.
 - `pnpm run check:performance` compares the current build against
   `docs/performance/baseline.json` and exits non-zero on budget
   violations.
@@ -40,6 +43,32 @@ Desktop smoke also writes
 Memory data is diagnostic. Platforms that cannot expose the metric
 return `unsupported` instead of failing the smoke.
 
+`performance:activation` adds the missing repeated web measurement and
+aggregates repeated desktop smoke artifacts. The default is three samples
+per case; override it with `--samples=N` or narrow a local pass with
+`--surface=web` / `--surface=desktop`. Use `--skip-build` only when
+`dist/web` is already a production-shaped build.
+
+The activation definitions are deliberately observable:
+
+- **Web cold landing ready** — earliest `lingua:boot:start` mark to the
+  rendered license badge in a fresh Chromium process/context using the
+  first-install `welcome.js` scratchpad.
+- **Web first editor interactive** — the same boot mark to visible Monaco
+  view lines; the harness then edits the buffer before accepting the sample.
+- **Web first Run** — the exact Run-button click to the
+  `data-running=true -> false` lifecycle plus a successful active-tab state.
+- **Desktop first editor interactive** — adding the first smoke tab to a
+  mounted active Monaco instance with a model. This replaced the old fixed
+  220 ms sleep, which was not a real readiness measurement.
+- **Desktop first Run** — the existing JS, TS, and Python smoke executions,
+  preserving both wall time and runner-reported execution time.
+
+Every wall-clock metric reports median, p25, p75, IQR, min, max, and sample
+count. These values are diagnostic only: machine load and OS caches make them
+unsuitable as blocking CI thresholds. Bundle raw/gzip ceilings remain the
+blocking performance gate.
+
 When that desktop smoke artifact exists, `performance:report` includes a
 `runtimeObservability` section in both
 `output/performance/performance-report.json` and
@@ -67,6 +96,48 @@ Vite consume the same ordered alias maps from `build/viteAliases.mts`; add or
 change renderer-facing aliases there rather than duplicating them per config.
 The bundle budget remains the second line of defense because it catches costs
 that a source-graph allowlist cannot predict.
+
+`scripts/lib/staticImportGraph.mjs` is the shared implementation behind that
+guard and the activation report. The report records every eager App-to-package
+chain for `acorn`, `js-yaml`, and `magic-string`; this keeps performance
+decisions tied to the current source graph rather than a hand-maintained
+diagram.
+
+## Activation baseline and runner-loading decision
+
+Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,
+36 GiB RAM, Node 24.18.0; three samples per case):
+
+| Surface | Metric                   |   Median |   IQR |        Range |
+| ------- | ------------------------ | -------: | ----: | -----------: |
+| Web     | Cold landing ready       |    86 ms |  1 ms |     85-87 ms |
+| Web     | First editor interactive |   475 ms |  5 ms |   471-487 ms |
+| Web     | First JavaScript Run     |    39 ms |  2 ms |     36-40 ms |
+| Web     | First TypeScript Run     |   163 ms |  3 ms |   159-164 ms |
+| Desktop | Launcher to smoke ready  | 1,006 ms |  7 ms | 995-1,008 ms |
+| Desktop | First editor interactive |   359 ms |  4 ms |   357-365 ms |
+| Desktop | First JavaScript Run     |   640 ms | 26 ms |   602-654 ms |
+| Desktop | First TypeScript Run     |   159 ms |  7 ms |   157-170 ms |
+| Desktop | First Python Run         |   752 ms |  7 ms |   747-761 ms |
+
+Decision: **keep the runner manager eager for now**.
+
+- The measured editor and web first-Run path is already short; moving the
+  whole dispatcher behind `import()` would move parsing/loading cost onto the
+  primary Run interaction.
+- `acorn` has an independent eager owner through
+  `App -> useDependencyDetection -> javascriptDetector`. Lazy-loading only
+  `useRunner` therefore cannot remove it from the initial graph.
+- The narrower follow-ups are debugger instrumentation
+  (`acorn` + `magic-string`) and YAML validation (`js-yaml`). They should be
+  benchmarked as independent boundaries rather than hidden inside a broad
+  runner-manager rewrite.
+
+Desktop's larger runtime asset bucket is also intentional, not removable
+duplication. `CAPABILITY_MATRIX.md` and `RUNTIME_ASSETS_ADR.md` keep Pyodide as
+Python's primary runtime in both shells so packaged desktop remains offline and
+does not require system Python. A native CPython path remains a separate
+promotion/research decision driven by arbitrary `pip` demand.
 
 ## Lazy Monaco language registration
 
@@ -127,6 +198,13 @@ A strict release/local check can require every baseline target with:
 node ./scripts/performance-report.mjs --check --require-all-targets
 ```
 
+The baseline was re-synchronized after v0.15.0 because an exact
+`origin/main` build already exceeded the older pre-release initial ceiling;
+the current branch changed the initial bundle by less than 1 KiB relative to
+that release build. This refresh establishes the shipped release shape as the
+new baseline instead of masking future growth behind a permanently failing
+gate.
+
 ## Refreshing the baseline
 
 Refresh the baseline only when a reviewed feature intentionally changes
@@ -146,6 +224,11 @@ marks the desktop renderer as unavailable when that build output is not
 present. Run `pnpm run smoke:desktop` before `performance:report` when
 you want the runtime observability section populated from a fresh smoke
 artifact.
+
+Do not refresh the web baseline from a build created with
+`LINGUA_WEB_RUNTIME_SAME_ORIGIN=1`. That flag intentionally copies oversized
+Ruby and DuckDB assets for hermetic local e2e coverage; production builds use
+the owned R2 runtime URLs and are the only valid input for release budgets.
 
 ## Investigating regressions
 
@@ -183,3 +266,7 @@ artifact.
    `initial` in the performance report.
 10. Confirm the report is readable from terminal or CI logs without
     opening Lingua.
+11. Run `pnpm run performance:activation -- --samples=3` and confirm the
+    generated activation report contains web and desktop samples, median/IQR
+    summaries, memory availability, and eager runner dependency chains.
+12. Confirm every web sample records `consoleErrors: []`.

@@ -7,7 +7,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import type { BuiltInLanguage, FileTab } from '../types';
 import { extensionForLanguage } from '../utils/languageMeta';
-import { desktopSmokeApi } from '../utils/desktopSmoke';
+import { desktopSmokeApi, waitForDesktopSmokeEditorReady } from '../utils/desktopSmoke';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 
 /**
@@ -78,8 +78,7 @@ const SMOKE_CASES: SmokeCase[] = [
     caseId: 'go',
     language: 'go',
     fileName: 'smoke-go.go',
-    content:
-      'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("smoke-go")\n}\n',
+    content: 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("smoke-go")\n}\n',
     expectText: 'smoke-go',
   },
   {
@@ -181,7 +180,7 @@ interface SmokeProgressArtifact {
 const DEFAULT_CASE_TIMEOUT_MS = 35_000;
 
 function waitForUi(ms = 220): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     window.setTimeout(resolve, ms);
   });
 }
@@ -208,11 +207,11 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
     }, timeoutMs);
 
     promise.then(
-      (value) => {
+      value => {
         window.clearTimeout(timeoutId);
         resolve(value);
       },
-      (error) => {
+      error => {
         window.clearTimeout(timeoutId);
         reject(error);
       }
@@ -223,7 +222,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
 async function captureMemorySnapshot(label: string): Promise<SmokeMemoryArtifact> {
   const api = desktopSmokeApi();
   if (!api) {
-    return { label, snapshot: { ok: false, reason: 'capture-failed', message: 'Desktop smoke API unavailable' } };
+    return {
+      label,
+      snapshot: { ok: false, reason: 'capture-failed', message: 'Desktop smoke API unavailable' },
+    };
   }
 
   try {
@@ -250,7 +252,7 @@ function buildPerformanceArtifact(
 ): SmokePerformanceArtifact {
   const firstRunTimings: SmokePerformanceArtifact['firstRunTimings'] = {};
   for (const caseId of ['javascript', 'typescript', 'python']) {
-    const summary = summaries.find((entry) => entry.caseId === caseId);
+    const summary = summaries.find(entry => entry.caseId === caseId);
     if (!summary) continue;
     firstRunTimings[caseId] = {
       runnerExecutionTimeMs: summary.executionTime,
@@ -305,7 +307,7 @@ export function useDesktopSmoke(enabled: boolean) {
       // (~2 min instead of ~3-4) and still catches packaging bugs.
       const PACKAGED_SUBSET_IDS = new Set(['javascript', 'python']);
       const cases = config.packagedSubset
-        ? SMOKE_CASES.filter((entry) => PACKAGED_SUBSET_IDS.has(entry.caseId))
+        ? SMOKE_CASES.filter(entry => PACKAGED_SUBSET_IDS.has(entry.caseId))
         : SMOKE_CASES;
 
       const summaries: SmokeCaseSummary[] = [];
@@ -344,8 +346,8 @@ export function useDesktopSmoke(enabled: boolean) {
             status: 'running-case',
             currentLanguage: smokeCase.language,
             currentCaseId: smokeCase.caseId,
-            completedLanguages: summaries.map((summary) => summary.language),
-            completedCaseIds: summaries.map((summary) => summary.caseId),
+            completedLanguages: summaries.map(summary => summary.language),
+            completedCaseIds: summaries.map(summary => summary.caseId),
           } satisfies SmokeProgressArtifact);
 
           useConsoleStore.getState().clear();
@@ -367,7 +369,9 @@ export function useDesktopSmoke(enabled: boolean) {
             });
           }
 
-          await waitForUi();
+          await waitForDesktopSmokeEditorReady({
+            expectedContent: smokeCase.content,
+          });
           if (firstEditorInteractionWallTimeMs === null) {
             firstEditorInteractionWallTimeMs = Math.round(
               performance.now() - editorInteractionStartedAt
@@ -400,14 +404,10 @@ export function useDesktopSmoke(enabled: boolean) {
             // deadline. A real `done` reply would carry the actual
             // runtime instead, which is the negative signal we use
             // to detect that the parent kill timer never fired.
-            const matches =
-              !execution.ok &&
-              smokeCase.expectFailure.test(execution.message);
-            const expectedDeadline =
-              smokeCase.runnerTimeoutMs ?? DEFAULT_CASE_TIMEOUT_MS;
+            const matches = !execution.ok && smokeCase.expectFailure.test(execution.message);
+            const expectedDeadline = smokeCase.runnerTimeoutMs ?? DEFAULT_CASE_TIMEOUT_MS;
             const killedByParent =
-              execution.executionTime === null ||
-              execution.executionTime <= expectedDeadline;
+              execution.executionTime === null || execution.executionTime <= expectedDeadline;
             ok = matches && killedByParent;
             message = ok
               ? `Captured ${smokeCase.caseId} timeout error`
@@ -416,18 +416,14 @@ export function useDesktopSmoke(enabled: boolean) {
                 : `Timeout case did not match parent kill timer (executionTime=${execution.executionTime}ms vs expected ${expectedDeadline}ms)`;
           } else {
             const consoleEntries = useConsoleStore.getState().entries;
-            const sawExpectedOutput = consoleEntries.some((entry) =>
-              smokeCase.expectText
-                ? entry.content.includes(smokeCase.expectText)
-                : false
+            const sawExpectedOutput = consoleEntries.some(entry =>
+              smokeCase.expectText ? entry.content.includes(smokeCase.expectText) : false
             );
             // internal — env-isolation gate: a sentinel secret must NOT
             // appear anywhere in captured console output.
             const leakedForbidden =
               smokeCase.forbidText !== undefined &&
-              consoleEntries.some((entry) =>
-                entry.content.includes(smokeCase.forbidText!)
-              );
+              consoleEntries.some(entry => entry.content.includes(smokeCase.forbidText!));
             ok = execution.ok && sawExpectedOutput && !leakedForbidden;
             message = ok
               ? `Captured ${smokeCase.caseId} smoke output`
@@ -478,12 +474,12 @@ export function useDesktopSmoke(enabled: boolean) {
           });
         }
 
-        const success = summaries.every((summary) => summary.ok);
+        const success = summaries.every(summary => summary.ok);
         await api.writeJsonArtifact('desktop-smoke-progress.json', {
           generatedAt: new Date().toISOString(),
           status: 'completed',
-          completedLanguages: summaries.map((summary) => summary.language),
-          completedCaseIds: summaries.map((summary) => summary.caseId),
+          completedLanguages: summaries.map(summary => summary.language),
+          completedCaseIds: summaries.map(summary => summary.caseId),
         } satisfies SmokeProgressArtifact);
         await api.writeJsonArtifact('desktop-smoke-summary.json', {
           generatedAt: new Date().toISOString(),
@@ -506,8 +502,8 @@ export function useDesktopSmoke(enabled: boolean) {
         await api.writeJsonArtifact('desktop-smoke-progress.json', {
           generatedAt: new Date().toISOString(),
           status: 'failed',
-          completedLanguages: summaries.map((summary) => summary.language),
-          completedCaseIds: summaries.map((summary) => summary.caseId),
+          completedLanguages: summaries.map(summary => summary.language),
+          completedCaseIds: summaries.map(summary => summary.caseId),
           error: error instanceof Error ? error.message : String(error),
         } satisfies SmokeProgressArtifact);
         await api.writeJsonArtifact('desktop-smoke-summary.json', {

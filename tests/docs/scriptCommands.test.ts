@@ -126,6 +126,7 @@ describe('Script naming docs guard', () => {
       'check:prod-audit',
       // internal — bundle/runtime performance budgets and reports
       'performance:report',
+      'performance:activation',
       'performance:baseline',
       'check:performance',
       // Public-release changelog helpers — draft notes from
