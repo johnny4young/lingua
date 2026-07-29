@@ -449,6 +449,7 @@ Most file operations use `invoke/handle` because they are command-like and need 
 | `rename(rootId, oldRelativePath, newName)`  | `fs:rename`           | validated rename inside the same parent                                            |
 | `mkdir(rootId, relativePath)`               | `fs:mkdir`            | safe directory creation                                                            |
 | `touch(rootId, relativePath)`               | `fs:touch`            | create empty file                                                                  |
+| `searchInFiles(rootId, relativePath, query)` | `fs:searchInFiles`    | bounded literal project search with native acceleration and a safe fallback        |
 | `watchStart(rootId, relativePath)`          | `fs:watch-start`      | create native watcher with an opaque watchId, or return a typed watcher diagnostic |
 | `watchStop(watchId)`                        | `fs:watch-stop`       | close native watcher                                                               |
 
@@ -458,6 +459,24 @@ or from files under an approved project root, then mints a fresh process-local
 `rootId` for the reopened path. The approval list makes recent projects and
 saved tabs ergonomic; the rootId capability remains the authority for every
 later read, write, watcher, search, or bundle operation.
+
+#### Project text search
+
+Desktop Project Search keeps the capability boundary and path policy in main:
+it enumerates only visible files below the resolved `rootId`, applies the
+file-count and file-size caps, and probes for binary content before invoking
+the search engine. Eligible paths are sent to a bundled ripgrep executable in
+bounded argument chunks. The executable uses literal JSON output; main converts
+its UTF-8 byte offsets into the UTF-16 string offsets expected by the renderer.
+
+ripgrep is an optimization, not a second trust boundary or a required system
+dependency. Release builds copy the current platform binary from
+`@vscode/ripgrep` into Electron's `resources/ripgrep` directory outside
+`app.asar`. If that resource is absent, cannot start, times out, or emits
+malformed output, main repeats the search through the bounded JavaScript
+implementation. A newer search from the same renderer aborts the older native
+process. The web adapter keeps its File System Access API implementation behind
+the same `window.lingua.fs.searchInFiles(...)` contract.
 
 ### Event-style IPC
 

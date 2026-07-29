@@ -27,6 +27,14 @@ files:
   - .vite/build/**
   - .vite/renderer/**
   - package.json
+# ripgrep is an executable, so keep it outside app.asar. The build script copies
+# every release target into an architecture-specific source path; electron-
+# builder's macros select the matching executable for each packaged app.
+extraResources:
+  - from: .vite/native/ripgrep/${platform}-${arch}
+    to: ripgrep
+    filter:
+      - '**/*'
 # Flat, predictable artifact names on every platform (avoids scoped-name nesting
 # that slips past non-recursive upload globs in CI).
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}

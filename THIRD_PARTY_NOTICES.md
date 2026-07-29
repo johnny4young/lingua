@@ -7,9 +7,9 @@ The transitive package inventory lives in
 Regenerate and verify the release inventory with:
 
 ```bash
-npm run license:report
-npm run check:licenses
-npm run compliance:release
+pnpm run license:report
+pnpm run check:licenses
+pnpm run compliance:release
 ```
 
 ## Runtime Dependencies
@@ -18,6 +18,7 @@ npm run compliance:release
 | --- | --- |
 | `@monaco-editor/react` | MIT |
 | `@prettier/plugin-xml` | MIT |
+| `@vscode/ripgrep` | MIT |
 | `cron-parser` | MIT |
 | `cronstrue` | MIT |
 | `dompurify` | MPL-2.0 OR Apache-2.0 |
@@ -47,8 +48,9 @@ The guided tour is implemented in-repo and does not ship a separate AGPL or
 commercial-license tour dependency. Continue to audit runtime and packaged
 dependencies before every public release.
 
-The current transitive runtime license policy passes for 104 production
-`package-lock.json` entries. Approved expressions are limited to MIT, ISC,
+The current transitive runtime license policy covers the production dependency
+tree plus explicitly copied runtime components such as the packaged ripgrep
+executable. Approved expressions are limited to MIT, ISC,
 0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, CC0-1.0, Python-2.0,
 MPL-2.0, `MPL-2.0 OR Apache-2.0`, and `WTFPL OR MIT`. Missing, unreviewed,
 AGPL/GPL/LGPL/SSPL, commercial, or proprietary expressions fail the release

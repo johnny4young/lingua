@@ -196,6 +196,11 @@ auto-derived — do not edit by hand.
   web. Desktop applies the explicit blocked-path guard in
   `src/main/ipc/fileSystem.ts`, while web remains sandboxed to the handles
   the user granted through `src/web/fs-adapter.ts`.
+- Project text search follows that same hybrid boundary: desktop accelerates
+  the bounded IPC implementation with a packaged ripgrep binary and falls back
+  to JavaScript if it cannot run; web searches only the user-granted File
+  System Access handles. The native executable does not widen either backend's
+  visible-file or capability scope.
 - **Do not chase "WASM-first filesystem".** A WASM sandbox would force us
   to ship a virtual filesystem on desktop and give up ergonomic features.
 

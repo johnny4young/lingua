@@ -8,6 +8,18 @@
 # so the whole desktop build is pinned to a hoisted layout.
 nodeLinker: hoisted
 
+# macOS releases cross-package arm64 + x64 apps on one runner. Install both
+# architecture-specific optional binary packages so build resources never put
+# the runner's architecture into the other app. Other release platforms keep
+# their current CPU plus these common desktop targets.
+supportedArchitectures:
+  os:
+    - current
+  cpu:
+    - current
+    - arm64
+    - x64
+
 # pnpm 11 blocks dependency build scripts by default (supply-chain
 # hardening). allowBuilds re-enables only the ones Lingua needs:
 # electron's postinstall downloads the platform binary, and esbuild

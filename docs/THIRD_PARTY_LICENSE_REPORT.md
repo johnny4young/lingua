@@ -1,9 +1,9 @@
 # Third-Party License Report
 
-Generated from `pnpm licenses list` across the installed dependency tree.
+Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
-Scope: production dependencies only.
-Packages reviewed: 16.
+Scope: production dependencies plus explicitly packaged external runtime components.
+Packages reviewed: 17.
 Policy result: pass.
 
 ## License Summary
@@ -12,7 +12,7 @@ Policy result: pass.
 | --- | ---: |
 | `BlueOak-1.0.0` | 1 |
 | `ISC` | 2 |
-| `MIT` | 12 |
+| `MIT` | 13 |
 | `Python-2.0` | 1 |
 
 ## License Policy
@@ -40,13 +40,14 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 
 | Package | Version | License | Install path |
 | --- | --- | --- | --- |
+| `@vscode/ripgrep` | `1.18.0` | `MIT` | `extraResources/ripgrep` |
 | `argparse` | `2.0.1` | `Python-2.0` | `node_modules/argparse` |
 | `builder-util-runtime` | `9.7.0` | `MIT` | `node_modules/builder-util-runtime` |
 | `debug` | `4.4.3` | `MIT` | `node_modules/debug` |
 | `electron-updater` | `6.8.9` | `MIT` | `node_modules/electron-updater` |
 | `fs-extra` | `10.1.0` | `MIT` | `node_modules/fs-extra` |
 | `graceful-fs` | `4.2.11` | `ISC` | `node_modules/graceful-fs` |
-| `js-yaml` | `4.2.0` | `MIT` | `node_modules/js-yaml` |
+| `js-yaml` | `4.3.0` | `MIT` | `node_modules/js-yaml` |
 | `jsonfile` | `6.2.1` | `MIT` | `node_modules/jsonfile` |
 | `lazy-val` | `1.0.5` | `MIT` | `node_modules/lazy-val` |
 | `lodash.escaperegexp` | `4.1.2` | `MIT` | `node_modules/lodash.escaperegexp` |

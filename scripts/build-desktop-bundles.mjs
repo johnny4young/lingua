@@ -28,6 +28,7 @@ import { build } from 'vite';
 import { rm } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { copyRipgrepBinaries } from './copy-ripgrep-binaries.mjs';
 
 const ViteConfigGenerator =
   ViteConfigGeneratorModule.default ?? ViteConfigGeneratorModule;
@@ -87,6 +88,13 @@ for (const config of rendererConfigs) {
     `[build-desktop-bundles] renderer -> ${relative(repoRoot, config.build?.outDir ?? 'unknown')}\n`
   );
   await build({ configFile: false, logLevel: 'warn', ...config, clearScreen: false });
+}
+
+const ripgrepPaths = await copyRipgrepBinaries({ repoRoot });
+for (const ripgrepPath of ripgrepPaths) {
+  process.stdout.write(
+    `[build-desktop-bundles] native -> ${relative(repoRoot, ripgrepPath)}\n`
+  );
 }
 
 process.stdout.write('[build-desktop-bundles] done\n');
