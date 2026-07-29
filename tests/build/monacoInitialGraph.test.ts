@@ -104,6 +104,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/shared/dependencies/pythonDetector.ts',
     why: 'the Python dependency scanner used only when source may reference a package',
   },
+  {
+    module: 'src/renderer/utils/magicComments.ts',
+    why: 'magic-comment transforms used only by editor providers and execution',
+  },
+  {
+    module: 'src/renderer/testing/RichConsoleE2eFixture.tsx',
+    why: 'the Playwright-only rich console gallery and its complete Console panel tree',
+  },
 ];
 
 /**

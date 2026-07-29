@@ -15,7 +15,6 @@ import {
   shouldRegisterServiceWorkerForMode,
 } from './serviceWorker';
 import { installE2eHooks } from '../renderer/testing/e2eHooks';
-import { RichConsoleE2eFixture } from '../renderer/testing/RichConsoleE2eFixture';
 import {
   applyRecoveryStateAttr,
   buildCrashFingerprint,
@@ -90,10 +89,10 @@ async function bootstrapWeb(): Promise<void> {
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');
 
+  const searchParams = new URLSearchParams(window.location.search);
   const isRichConsoleE2eFixture =
     __LINGUA_E2E_HOOKS__ &&
-    new URLSearchParams(window.location.search).get('e2e') ===
-      'rich-console-gallery';
+    searchParams.get('e2e') === 'rich-console-gallery';
 
 // FASE 0 dev-only acceptance artifact. `?lingua-showcase` mounts the
 // recipe gallery instead of the app. The dynamic import code-splits the
@@ -105,7 +104,7 @@ async function bootstrapWeb(): Promise<void> {
 // `src/renderer/main.tsx`; the web entry needs its own copy because the
 // two entry points render independently. The showcase URL used for
 // validation is `http://localhost:4173/?lingua-showcase`.
-  if (new URLSearchParams(window.location.search).has('lingua-showcase')) {
+  if (searchParams.has('lingua-showcase')) {
     const { RecipeShowcase } = await import(
       '../renderer/devShowcase/RecipeShowcase'
     );
@@ -118,9 +117,23 @@ async function bootstrapWeb(): Promise<void> {
     return;
   }
 
+  if (isRichConsoleE2eFixture) {
+    const { RichConsoleE2eFixture } = await import(
+      '../renderer/testing/RichConsoleE2eFixture'
+    );
+    createRoot(root).render(
+      <StrictMode>
+        <RichConsoleE2eFixture />
+      </StrictMode>
+    );
+    markBootPhase('react-mount');
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
   createRoot(root).render(
     <StrictMode>
-      {isRichConsoleE2eFixture ? <RichConsoleE2eFixture /> : <App />}
+      <App />
     </StrictMode>
   );
   markBootPhase('react-mount');

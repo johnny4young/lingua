@@ -44,6 +44,20 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`types/`](types)           | Renderer-local type declarations that should not leak into shared code    |
 | [`devShowcase/`](devShowcase) | Local visual/system showcase utilities, not product runtime code        |
 
+### Magic-comment boundaries
+
+Keep the always-mounted Git surfaces separate from the transformation engine:
+
+- [`utils/gitMagicCommentPolicy.ts`](utils/gitMagicCommentPolicy.ts) owns the
+  lightweight `@git-status-off` and `@git-watch-head-off` buffer predicates
+  used by Git detection, status, and tab affordances.
+- [`utils/magicComments.ts`](utils/magicComments.ts) owns source
+  transformations and presentation directives. It stays behind editor-provider
+  and execution boundaries; Git consumers must not import it.
+- [`testing/RichConsoleE2eFixture.tsx`](testing/RichConsoleE2eFixture.tsx) is
+  reached from the web entry through a conditional `import()` only. A static
+  import would put the complete Console tree back into normal web startup.
+
 ## Component surfaces
 
 The renderer is intentionally split by feature instead of by component type.

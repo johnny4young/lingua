@@ -8,12 +8,14 @@ import {
   detectJSAutoLogLines,
   transformJSAutoLog,
   originSuppressedByMagicComment,
-  gitStatusSuppressedByMagicComment,
-  gitWatchHeadSuppressedByMagicComment,
   detectJSStatementStartLines,
   lineTimingRequestedByMagicComment,
   transformJSLineTiming,
 } from '@/utils/magicComments';
+import {
+  gitStatusSuppressedByMagicComment,
+  gitWatchHeadSuppressedByMagicComment,
+} from '@/utils/gitMagicCommentPolicy';
 
 describe('JS/TS magic comments', () => {
   describe('detectJSMagicComments', () => {

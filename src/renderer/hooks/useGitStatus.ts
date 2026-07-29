@@ -27,7 +27,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { gitStatusSuppressedByMagicComment } from '../utils/magicComments';
+import { gitStatusSuppressedByMagicComment } from '../utils/gitMagicCommentPolicy';
 import { useEditorStore } from '../stores/editorStore';
 import { useGitStore } from '../stores/gitStore';
 import { useProjectStore } from '../stores/projectStore';

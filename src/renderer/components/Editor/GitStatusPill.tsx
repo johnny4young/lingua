@@ -41,7 +41,7 @@ import { useTranslation } from 'react-i18next';
 import { trackGitRevealInSourceControlClicked } from '../../hooks/gitTelemetry';
 import { useGitStore } from '../../stores/gitStore';
 import { useUIStore } from '../../stores/uiStore';
-import { gitStatusSuppressedByMagicComment } from '../../utils/magicComments';
+import { gitStatusSuppressedByMagicComment } from '../../utils/gitMagicCommentPolicy';
 import type { GitFileStatusEntry } from '../../stores/gitStore';
 
 type GitFileStatusKind = 'clean' | 'modified' | 'untracked' | 'unknown';

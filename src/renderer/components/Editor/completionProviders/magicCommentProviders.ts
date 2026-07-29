@@ -4,11 +4,13 @@ import {
   detectJSMagicComments,
   detectPythonMagicComments,
   extractTimeoutMagicComment,
-  gitStatusSuppressedByMagicComment,
-  gitWatchHeadSuppressedByMagicComment,
   lineTimingRequestedByMagicComment,
   originSuppressedByMagicComment,
 } from '../../../utils/magicComments';
+import {
+  gitStatusSuppressedByMagicComment,
+  gitWatchHeadSuppressedByMagicComment,
+} from '../../../utils/gitMagicCommentPolicy';
 
 export type MagicCommentLanguage = 'javascript' | 'typescript' | 'python';
 
