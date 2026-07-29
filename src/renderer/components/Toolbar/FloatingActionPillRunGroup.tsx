@@ -19,6 +19,10 @@ import type { RunOptions } from '../../hooks/useRunner';
 import { Kbd } from '../ui/chrome';
 import { MonoBadge } from '../ui/primitives';
 import type { ActionPillMenu, ActionPillMenuSetter } from './useFloatingActionPill';
+import {
+  executionDisabledTooltipKey,
+  type ExecutionControlPolicy,
+} from './executionControlPolicy';
 
 interface RunGroupProps {
   openMenu: ActionPillMenu | null;
@@ -33,11 +37,7 @@ interface RunGroupProps {
   workflowChip: { icon: ReactNode; label: string };
   handleRunClick: () => void;
   run: (options?: RunOptions) => unknown;
-  supportsDebug: boolean;
-  debuggerEnabled: boolean;
-  isNotebookTab: boolean;
-  desktopOnlyGate: boolean;
-  proLanguageGate: boolean;
+  workflowAvailability: ExecutionControlPolicy['actions'];
   noActiveTab: boolean;
   language: Language;
   ensureTabForLanguage: (lang: Language) => FileTab;
@@ -56,11 +56,7 @@ export function FloatingActionPillRunGroup({
   workflowChip,
   handleRunClick,
   run,
-  supportsDebug,
-  debuggerEnabled,
-  isNotebookTab,
-  desktopOnlyGate,
-  proLanguageGate,
+  workflowAvailability,
   noActiveTab,
   language,
   ensureTabForLanguage,
@@ -124,6 +120,7 @@ export function FloatingActionPillRunGroup({
         data-workflow={currentWorkflow}
         data-testid="action-pill-run-menu"
         className="action-pill-run action-pill-run-menu rounded-r-lg"
+        disabled={isRunning}
         onClick={() => setOpenMenu(openMenu === 'run' ? null : 'run')}
       >
         <ChevronDown size={11} aria-hidden />
@@ -138,7 +135,7 @@ export function FloatingActionPillRunGroup({
                 label: t('actionPill.run'),
                 desc: t('actionPill.workflow.run'),
                 kbd: '⌘⏎',
-                disabled: runDisabled,
+                availability: workflowAvailability.run,
                 fire: () => void run(),
               },
               {
@@ -147,7 +144,7 @@ export function FloatingActionPillRunGroup({
                 label: t('toolbar.debug.label'),
                 desc: t('actionPill.workflow.debug'),
                 kbd: '⌥⏎',
-                disabled: runDisabled || !supportsDebug || !debuggerEnabled,
+                availability: workflowAvailability.debug,
                 fire: () => void run({ debug: true }),
               },
               {
@@ -156,25 +153,35 @@ export function FloatingActionPillRunGroup({
                 label: t('workflowMode.scratchpad.label'),
                 desc: t('actionPill.workflow.scratchpad'),
                 kbd: null as string | null,
-                disabled: isNotebookTab || desktopOnlyGate || proLanguageGate,
+                availability: workflowAvailability.scratchpad,
                 fire: () => undefined,
               },
             ] as const
           ).map((item) => {
             const isActive = currentWorkflow === item.k;
+            const itemDisabled = isRunning || item.availability.disabled;
+            const disabledTooltipKey = executionDisabledTooltipKey(
+              item.k,
+              item.availability.reason,
+            );
+            const description =
+              item.availability.disabled && disabledTooltipKey
+                ? t(disabledTooltipKey)
+                : item.desc;
             return (
               <button
                 key={item.k}
                 type="button"
                 role="menuitem"
-                className="dropdown-rich-row w-full disabled:opacity-45 disabled:cursor-not-allowed"
+                className="dropdown-rich-row w-full disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:[&_.row-icon]:opacity-45 disabled:[&_.row-label]:opacity-50"
                 data-active={isActive ? 'true' : 'false'}
                 data-workflow={item.k}
                 data-testid={`action-pill-workflow-option-${item.k}`}
-                disabled={item.disabled}
+                disabled={itemDisabled}
+                title={disabledTooltipKey ? t(disabledTooltipKey) : undefined}
                 onClick={() => {
                   setOpenMenu(null);
-                  if (item.disabled) return;
+                  if (itemDisabled) return;
                   // internal follow-up — same fallback as the
                   // Runtime chip: create a tab in the chip's
                   // current language if there's none so the
@@ -198,10 +205,12 @@ export function FloatingActionPillRunGroup({
                 <span className="row-icon self-start mt-0.5">{item.icon}</span>
                 <span>
                   <span className="row-label block">{item.label}</span>
-                  <span className="row-desc block">{item.desc}</span>
+                  <span className="row-desc block">{description}</span>
                 </span>
                 {item.kbd ? (
-                  <MonoBadge tone="accent">{item.kbd}</MonoBadge>
+                  <MonoBadge tone="accent" className={itemDisabled ? 'opacity-45' : undefined}>
+                    {item.kbd}
+                  </MonoBadge>
                 ) : isActive ? (
                   <MonoBadge tone="accent">{t('actionPill.badgeActive')}</MonoBadge>
                 ) : (

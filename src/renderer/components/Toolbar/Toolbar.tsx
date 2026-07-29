@@ -16,10 +16,8 @@ import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../types';
 import {
-  executionModeForLanguage,
   languageCapabilityBadgeKey,
   languageLabel,
-  languageSupportsDebugger,
 } from '../../utils/languageMeta';
 import { usePluginStore } from '../../stores/pluginStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
@@ -32,6 +30,10 @@ import { RuntimeModeSelector } from './RuntimeModeSelector';
 import { WorkflowModeSegment } from './WorkflowModeSegment';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
+import {
+  executionDisabledTooltipKey,
+  resolveExecutionControlPolicy,
+} from './executionControlPolicy';
 
 const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = LANGUAGE_PACKS.filter(
   (pack) =>
@@ -52,18 +54,14 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const tabCount = useEditorStore((state) => state.tabs.length);
   const addTab = useEditorStore((state) => state.addTab);
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
+  const activeTab = useActiveTab();
   const { sidebarVisible, toggleSidebar } = useUIStore();
-  // implementation — debugger is baseline; the Settings master toggle is gone.
-  const debuggerEnabled = true;
   const plugins = usePluginStore((state) => state.plugins);
   const enabledBreakpointCount = useDebuggerStore((state) => {
-    const tabId = useEditorStore.getState().activeTabId;
-    if (!tabId) return 0;
-    let count = 0;
-    for (const bp of Object.values(state.breakpoints)) {
-      if (bp.tabId === tabId && bp.enabled !== false) count += 1;
-    }
-    return count;
+    if (!activeTab) return 0;
+    return state
+      .breakpointsForTab(activeTab.id)
+      .filter((breakpoint) => breakpoint.enabled !== false).length;
   });
   const effectiveTier = useEffectiveTier();
   const [isNewFileMenuOpen, setIsNewFileMenuOpen] = useState(false);
@@ -74,8 +72,6 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const runMenuRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
 
-  const activeTab = useActiveTab();
-  const activeTabSupportsDebugger = languageSupportsDebugger(activeTab?.language);
   const hasTabs = tabCount > 0;
   const languages = [
     ...BUILT_IN_LANGUAGES,
@@ -89,22 +85,24 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const defaultNewFileLanguage = activeTab?.language ?? 'javascript';
   const defaultNewFileLabel = languageLabel(defaultNewFileLanguage);
   const activeLanguage = activeTab?.language ?? 'javascript';
-  const executionMode = executionModeForLanguage(activeLanguage);
-  const showDebugAction = activeTabSupportsDebugger && executionMode === 'run';
-  // implementation — when the active language needs a host toolchain
-  // (Go, Rust) AND this is the web build, the Run button is honest about
-  // the gap: disabled + a localized tooltip pointing at the desktop
-  // build. Desktop users still see the normal Run affordance.
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
-  const languageIsDesktopOnly =
-    languageCapabilityBadgeKey(activeLanguage) === 'language.capability.desktopOnly';
-  const proLanguageGate =
-    executionMode === 'run' && !isLanguageAllowed(effectiveTier, activeLanguage);
-  const desktopOnlyGate =
-    !proLanguageGate && isWebBuild && languageIsDesktopOnly && executionMode === 'run';
+  const executionPolicy = resolveExecutionControlPolicy({
+    language: activeLanguage,
+    effectiveTier,
+    isWebBuild,
+    isNotebookTab: activeTab?.kind === 'notebook',
+    enabledBreakpointCount,
+  });
+  const {
+    executionMode,
+    desktopOnlyGate,
+    proLanguageGate,
+    supportsDebug,
+  } = executionPolicy;
+  const showDebugAction = supportsDebug && executionMode === 'run';
   const actionDisabled =
-    !hasTabs || isRunning || executionMode === 'view' || desktopOnlyGate || proLanguageGate;
+    !hasTabs || isRunning || executionPolicy.actions.run.disabled;
   const actionLabel =
     executionMode === 'validate'
       ? loadingMessage ?? (isRunning ? t('toolbar.validate.running') : t('toolbar.validate.label'))
@@ -121,16 +119,18 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
           ? t('toolbar.viewOnly.title')
           : t('toolbar.run.title');
   const debugActionDisabled =
-    actionDisabled || !debuggerEnabled || enabledBreakpointCount === 0;
+    !hasTabs || isRunning || executionPolicy.actions.debug.disabled;
   const debugLabel =
     runMode === 'debug' && isRunning
       ? loadingMessage ?? t('toolbar.debug.running')
       : t('toolbar.debug.label');
-  const debugTooltip = !debuggerEnabled
-    ? t('toolbar.debug.disabledSettings')
-    : enabledBreakpointCount === 0
-      ? t('toolbar.debug.noBreakpoint')
-      : t('toolbar.debug.title');
+  const debugDisabledTooltipKey = executionDisabledTooltipKey(
+    'debug',
+    executionPolicy.actions.debug.reason,
+  );
+  const debugTooltip = debugDisabledTooltipKey
+    ? t(debugDisabledTooltipKey)
+    : t('toolbar.debug.title');
   const effectiveExecutionAction = showDebugAction ? selectedExecutionAction : 'run';
   const primaryActionIsDebug = effectiveExecutionAction === 'debug';
   const primaryActionDisabled = primaryActionIsDebug ? debugActionDisabled : actionDisabled;
