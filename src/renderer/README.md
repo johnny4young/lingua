@@ -143,6 +143,17 @@ The opt-in Run Ledger has a similar persistence boundary:
   recorded retroactively. Chunk-load failures remain best-effort and retry on
   the next enabled run.
 
+The guided tour keeps its startup contract separate from its visual engine:
+
+- [`components/GuidedTour/GuidedTourProvider.tsx`](components/GuidedTour/GuidedTourProvider.tsx)
+  keeps the stable context, completion flag, and activation request in the
+  workspace graph.
+- [`components/GuidedTour/GuidedTourRuntime.tsx`](components/GuidedTour/GuidedTourRuntime.tsx)
+  owns step positioning, focus management, selector polling, and tour UI. It
+  loads only when first-run auto-start or an explicit launcher requests a tour.
+- Runtime load failures clear the loader cache for retry and push a localized
+  status notice instead of leaving the request without feedback.
+
 The Electron-only desktop smoke harness is activation-scoped as well:
 
 - [`hooks/useDesktopSmoke.ts`](hooks/useDesktopSmoke.ts) keeps only the

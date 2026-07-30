@@ -156,6 +156,18 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/hooks/desktopSmokeRunner.ts',
     why: 'the Electron-only release and runtime smoke harness',
   },
+  {
+    module: 'src/renderer/components/GuidedTour/GuidedTourRuntime.tsx',
+    why: 'the guided tour engine used only after auto-start or an explicit user request',
+  },
+  {
+    module: 'src/renderer/components/GuidedTour/guidedTourSteps.ts',
+    why: 'the translated guided-tour steps used only by the on-demand tour engine',
+  },
+  {
+    module: 'src/renderer/components/GuidedTour/guidedTourSelectors.ts',
+    why: 'the guided-tour target polling used only by the on-demand tour engine',
+  },
 ];
 
 /**
