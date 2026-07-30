@@ -36,7 +36,7 @@ import type { CreationTarget } from './fileTreeTypes';
  */
 const TREE_ROW_ESTIMATE_PX = 26;
 
-interface FileTreeProps {
+export interface FileTreeProps {
   onNavigate?: () => void;
 }
 

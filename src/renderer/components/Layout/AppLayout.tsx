@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 import { ChevronUp, PanelLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
-import { FileTree } from '../FileTree';
+import { FileTreeHost } from '../FileTree/FileTreeHost';
 import { EditorTabs } from '../Editor/EditorTabs';
 import { ResultPanel } from '../Editor/ResultPanel';
 import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
@@ -491,7 +491,7 @@ function SidebarPanel({ panelRef, onNavigate }: SidebarPanelProps) {
       tabIndex={-1}
       className="surface-panel h-full min-w-0 overflow-hidden"
     >
-      <FileTree onNavigate={onNavigate} />
+      <FileTreeHost onNavigate={onNavigate} />
     </div>
   );
 }

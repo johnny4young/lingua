@@ -212,6 +212,26 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/runtime/utilityComputeClient.ts',
     why: 'the heavy-diff worker client used only after a comparison surface opens',
   },
+  {
+    module: 'src/renderer/components/FileTree/FileTree.tsx',
+    why: 'the project explorer used only after the sidebar or compact drawer opens',
+  },
+  {
+    module: 'src/renderer/components/FileTree/FileTreeNode.tsx',
+    why: 'recursive project rows used only by the on-demand project explorer',
+  },
+  {
+    module: 'src/renderer/components/FileTree/FileTreeContextMenu.tsx',
+    why: 'project-row actions used only inside the on-demand project explorer',
+  },
+  {
+    module: 'src/renderer/components/FileTree/FileTreeOpenTabs.tsx',
+    why: 'the explorer open-tabs footer used only while the sidebar is visible',
+  },
+  {
+    module: 'src/renderer/hooks/useListWindow.ts',
+    why: 'the project-tree windower used only after the explorer opens',
+  },
 ];
 
 /**

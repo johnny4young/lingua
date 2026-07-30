@@ -69,7 +69,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabItems.tsx`, `ResultPanel.tsx` | Owns Monaco, tab orchestration/rows, inline result surface, completion providers |
 | [`components/ErrorBoundary/`](components/ErrorBoundary)   | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
-| [`components/FileTree/`](components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
+| [`components/FileTree/`](components/FileTree)             | `FileTreeHost.tsx`, `FileTree.tsx`, `FileTreeNode.tsx` | Owns the activation boundary, project explorer rendering, and inline tree interactions |
 | [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | AppLayout mounts the floating execution chrome only; the standalone Toolbar supports focused fallback/smoke coverage and shares the same pure eligibility policy |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
 | [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `useCommandPaletteCommands.ts`, `commandPaletteModel.ts` | Thin combobox UI plus store-backed catalog orchestration and pure model logic |
@@ -214,6 +214,19 @@ Result comparison has its own activation boundary:
 - A successful chunk is reused for later comparisons. A rejected module load
   offers an explicit page reload because browsers retain failed module URLs in
   the current document's module map.
+
+The project explorer follows the same document-safe boundary:
+
+- [`components/Layout/AppLayout.tsx`](components/Layout/AppLayout.tsx) keeps
+  sidebar and compact-drawer layout, focus, and dismissal behavior eager.
+- [`components/FileTree/FileTreeHost.tsx`](components/FileTree/FileTreeHost.tsx)
+  mounts only while either sidebar is visible and owns localized loading and
+  reload states.
+- [`components/FileTree/FileTree.tsx`](components/FileTree/FileTree.tsx), its
+  recursive rows, context actions, open-tabs footer, and list windower load
+  together on the first sidebar activation and are reused for later opens.
+- A rejected module load remains cached for the current document and offers an
+  explicit page reload rather than a retry that browsers cannot honor reliably.
 
 The main-editor AI explanation flow keeps its request slot separate from its
 paid implementation:

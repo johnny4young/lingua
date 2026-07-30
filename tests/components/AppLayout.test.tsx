@@ -122,8 +122,8 @@ vi.mock('../../src/renderer/components/Toolbar/FloatingActionPill', () => ({
   ),
 }));
 
-vi.mock('../../src/renderer/components/FileTree', () => ({
-  FileTree: ({ onNavigate }: { onNavigate?: () => void }) => (
+vi.mock('../../src/renderer/components/FileTree/FileTreeHost', () => ({
+  FileTreeHost: ({ onNavigate }: { onNavigate?: () => void }) => (
     <div data-testid="file-tree">
       File tree
       <button type="button" data-testid="file-tree-action">
