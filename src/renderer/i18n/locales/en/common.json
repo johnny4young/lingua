@@ -4,6 +4,8 @@
   "ai.explainCode.action": "Explain with AI",
   "ai.explainCode.upsell": "AI assistance is a paid feature. Upgrade to explain code with your own AI endpoint.",
   "ai.explainCode.unconfigured": "Add your AI endpoint, API key, and model in Settings → AI to explain code.",
+  "ai.explainCode.loadingDialog": "Loading the consent preview…",
+  "ai.explainCode.loadFailed": "The AI explanation dialog could not load. Try again.",
   "ai.explain.close": "Close",
   "ai.explain.cancel": "Cancel",
   "ai.explain.send": "Send to AI",

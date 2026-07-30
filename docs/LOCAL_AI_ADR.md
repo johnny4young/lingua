@@ -74,6 +74,11 @@ action and a preview of exactly what is sent.
 - `src/renderer/runtime/aiClient.ts`: POST to the configured OpenAI-compatible
   endpoint, parse JSON or streaming SSE responses, enforce a timeout, and
   return typed failure envelopes without ever echoing the API key.
+- The always-mounted `AiExplainCodeHost` keeps only the shared request
+  subscription and a localized loading/error shell at startup. The complete
+  consent dialog, request builder, answer renderer, and provider client load
+  after an explicit explain-code request; a failed chunk can retry on the next
+  action.
 - Settings → AI: endpoint + key + model entry in an isolated `lingua-ai`
   persist boundary, plus "Detect local AI (Ollama)" for loopback servers.
 - Error surfaces: notebook cells, the editor console, SQL results, and HTTP

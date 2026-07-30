@@ -4,6 +4,8 @@
   "ai.explainCode.action": "Explicar con IA",
   "ai.explainCode.upsell": "La asistencia con IA es una función de pago. Pásate a Pro para explicar código con tu propio endpoint de IA.",
   "ai.explainCode.unconfigured": "Agrega tu endpoint de IA, API key y modelo en Ajustes → IA para explicar código.",
+  "ai.explainCode.loadingDialog": "Cargando la vista previa de consentimiento\u2026",
+  "ai.explainCode.loadFailed": "No se pudo cargar el diálogo de explicación con IA. Inténtalo de nuevo.",
   "ai.explain.close": "Cerrar",
   "ai.explain.cancel": "Cancelar",
   "ai.explain.send": "Enviar a la IA",

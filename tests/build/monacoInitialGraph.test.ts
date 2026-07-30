@@ -168,6 +168,18 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/components/GuidedTour/guidedTourSelectors.ts',
     why: 'the guided-tour target polling used only by the on-demand tour engine',
   },
+  {
+    module: 'src/renderer/components/AI/ExplainCodeDialog.tsx',
+    why: 'the paid explain-code consent and result UI used only after an explicit request',
+  },
+  {
+    module: 'src/renderer/runtime/aiClient.ts',
+    why: 'the user-configured AI transport used only after consent and Send',
+  },
+  {
+    module: 'src/shared/ai/explainCode.ts',
+    why: 'the explain-code payload builder used only by the on-demand consent dialog',
+  },
 ];
 
 /**

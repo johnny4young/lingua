@@ -180,6 +180,18 @@ Telemetry also has an explicit loading boundary:
   complete event catalog and redactor remain in
   [`../shared/telemetry.ts`](../shared/telemetry.ts) behind the emitter boundary.
 
+The main-editor AI explanation flow keeps its request slot separate from its
+paid implementation:
+
+- [`components/AI/AiExplainCodeHost.tsx`](components/AI/AiExplainCodeHost.tsx)
+  stays mounted as the single subscriber shared by the editor and Command
+  Palette, but contains only the activation and localized loading/error shell.
+- [`components/AI/ExplainCodeDialog.tsx`](components/AI/ExplainCodeDialog.tsx),
+  its consent payload builder, answer renderer, and `runtime/aiClient.ts`
+  transport load only after an explicit explain-code request.
+- A failed dialog chunk closes the failed request, clears the loader cache, and
+  lets the next explicit action retry without replacing the app shell.
+
 ## State ownership
 
 ### User-invoked overlays
