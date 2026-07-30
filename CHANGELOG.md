@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- **The floating Variables card now loads only when it can appear:** normal workspace startup keeps the eligibility gate, while the draggable portal, value renderer, collapse behavior, and close action arrive after Variables is enabled with a matching scope snapshot. Localized loading and reload states keep slow or failed chunk delivery explicit. This removes about 0.5 KiB gzip from the initial web graph.
 - **Recipe assertions no longer load with every workspace:** Save-As keeps a small synchronous language-policy check, while assertion source composition and result parsing stay with the Recipes surfaces that use them. This removes about 1.9 KiB gzip from the initial web graph.
 - **The project explorer now loads when its sidebar first opens:** the app keeps drawer layout, focus management, and dismissal behavior ready at startup while recursive rows, context actions, open tabs, and list windowing arrive on demand. Localized loading and reload states make slow or failed chunk delivery explicit. This removes about 5.1 KiB gzip from the initial web graph.
 - **The comparison renderer now loads only after Compare is enabled:** normal editor startup keeps the snapshot gate and panel chip, while the diff UI, computed-diff hook, and worker client arrive with the first comparison. The panel shows localized loading feedback and a reload action if its chunk cannot load. This removes about 1.8 KiB gzip from the initial web graph.

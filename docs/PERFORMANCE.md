@@ -110,6 +110,15 @@ composition and result parsing behind the lazy Recipes overlay and run panel.
 The initial-graph guard names the full runner explicitly so persistence cannot
 pull it back into every workspace through a convenience import.
 
+The floating Variables inspector is activation-scoped as well.
+`FloatingVariablesCardHost.tsx` keeps only primitive tab eligibility, the
+surface, and the matching-scope gate in the workspace graph, so editor
+keystrokes do not re-render the dormant boundary. Its loader requests the
+draggable portal and value renderer only after Variables is enabled for a
+supported non-Node tab. Loading and failed-chunk states remain visible and
+localized; a failed module URL offers a page reload because retrying it in the
+same document is not reliable.
+
 ## Activation baseline and runner-loading decision
 
 Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,

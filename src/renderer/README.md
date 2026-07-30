@@ -228,6 +228,18 @@ The project explorer follows the same document-safe boundary:
 - A rejected module load remains cached for the current document and offers an
   explicit page reload rather than a retry that browsers cannot honor reliably.
 
+The floating Variables inspector also stays behind its actual visibility gate:
+
+- [`components/Editor/FloatingVariablesCardHost.tsx`](components/Editor/FloatingVariablesCardHost.tsx)
+  watches primitive active-tab eligibility, the selected surface, and matching
+  scope snapshot without re-rendering on editor keystrokes.
+- [`components/Editor/FloatingVariablesCard.tsx`](components/Editor/FloatingVariablesCard.tsx)
+  owns the portal, drag lifecycle, value rows, collapse state, and close action.
+  It loads only after Variables is enabled on a supported non-Node tab.
+- The loader retains a failed module request for the document and the host
+  offers localized loading and reload states instead of an unreliable inline
+  retry.
+
 The main-editor AI explanation flow keeps its request slot separate from its
 paid implementation:
 

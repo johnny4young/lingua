@@ -1,15 +1,9 @@
 /**
  * internal polish #7 — smoke tests for FloatingVariablesCard.
  *
- * The card is gated by FOUR conditions in series:
- *   - active tab has `variableInspectorEnabled === true`
- *   - active tab is NOT in Node runtime (internal exclusion)
- *   - active tab's language is JS / TS / Python
- *   - the result store carries a snapshot whose `language` matches
- *
- * These tests verify (1) all four gates → renders, (2) flipping the
- * runtime to `node` hides it, and (3) the close button calls back into
- * the editor store to flip `variableInspectorEnabled` off.
+ * Eligibility and lazy loading belong to FloatingVariablesCardHost. These
+ * tests exercise the loaded implementation: value rendering, scroll reach,
+ * and the close action that clears the per-tab inspector flag.
  */
 
 import { render, screen } from '@testing-library/react';
@@ -62,10 +56,15 @@ beforeEach(async () => {
 });
 
 function renderCard() {
+  const activeTab = useEditorStore.getState().tabs[0];
+  const scopeSnapshot = useResultStore.getState().scopeSnapshot;
+  if (!activeTab || !scopeSnapshot) {
+    throw new Error('missing floating Variables fixture');
+  }
   return render(
     <I18nextProvider i18n={i18next}>
-      <FloatingVariablesCard />
-    </I18nextProvider>,
+      <FloatingVariablesCard activeTabId={activeTab.id} scopeSnapshot={scopeSnapshot} />
+    </I18nextProvider>
   );
 }
 
@@ -101,32 +100,10 @@ describe('FloatingVariablesCard', () => {
     expect(screen.queryByText(/more hidden|más ocultas/i)).toBeNull();
   });
 
-  it('does not render when the active tab uses the Node runtime', () => {
-    useEditorStore.setState({
-      tabs: [
-        {
-          id: 'tab-ts',
-          name: 'main.ts',
-          language: 'typescript',
-          content: 'const x = 1',
-          isDirty: false,
-          variableInspectorEnabled: true,
-          runtimeMode: 'node',
-        },
-      ],
-      activeTabId: 'tab-ts',
-    });
-    renderCard();
-    expect(screen.queryByTestId('floating-variables-card')).toBeNull();
-  });
-
   it('flips variableInspectorEnabled off when the close button fires', async () => {
     const user = userEvent.setup();
     renderCard();
     await user.click(screen.getByLabelText(/close|cerrar/i));
-    expect(setTabVariableInspectorEnabledMock).toHaveBeenCalledWith(
-      'tab-ts',
-      false,
-    );
+    expect(setTabVariableInspectorEnabledMock).toHaveBeenCalledWith('tab-ts', false);
   });
 });

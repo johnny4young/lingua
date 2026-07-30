@@ -217,6 +217,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the recipe assertion composer and parser used only by lazy Recipes surfaces',
   },
   {
+    module: 'src/renderer/components/Editor/FloatingVariablesCard.tsx',
+    why: 'the draggable Variables portal used only after the inspector is enabled with a matching scope',
+  },
+  {
     module: 'src/renderer/components/FileTree/FileTree.tsx',
     why: 'the project explorer used only after the sidebar or compact drawer opens',
   },

@@ -6,7 +6,7 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import { FileTreeHost } from '../FileTree/FileTreeHost';
 import { EditorTabs } from '../Editor/EditorTabs';
 import { ResultPanel } from '../Editor/ResultPanel';
-import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
+import { FloatingVariablesCardHost } from '../Editor/FloatingVariablesCardHost';
 import { AppChrome } from '../Chrome';
 import { StatusBar } from '../StatusBar/StatusBar';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
@@ -284,7 +284,7 @@ function EditorArea() {
                 <ResultPanel />
               </Panel>
             </Group>
-            <FloatingVariablesCard />
+            <FloatingVariablesCardHost />
           </>
         ) : (
           <Suspense fallback={<EditorLoadingState />}>
