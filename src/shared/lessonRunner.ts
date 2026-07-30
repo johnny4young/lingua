@@ -42,7 +42,7 @@ import {
   type AssertionExitKind,
   type AssertionV1,
 } from './lessonPack';
-import type { LanguagePackId } from './languagePacks';
+import type { RecipeRunnableLanguage } from './recipeLanguages';
 
 // ---------------------------------------------------------------------------
 // Sentinel — SINGLE source of truth. Renderer + parser BOTH import.
@@ -467,30 +467,6 @@ export function rollupRunStatus(
 /** Convenience — true when every assertion in the result list passed. */
 export function isAllPassed(results: ReadonlyArray<AssertionRunResult>): boolean {
   return results.length > 0 && results.every((r) => r.status === 'pass');
-}
-
-/**
- * Closed-enum bucket of supported recipe languages. Keep the tuple as
- * the iterable catalog source and the Set as the hot-path membership
- * guard used by the run panel.
- */
-export const RECIPE_RUNNABLE_LANGUAGE_IDS = [
-  'javascript',
-  'typescript',
-  'python',
-] as const satisfies ReadonlyArray<LanguagePackId>;
-
-export type RecipeRunnableLanguage =
-  (typeof RECIPE_RUNNABLE_LANGUAGE_IDS)[number];
-
-export const RECIPE_RUNNABLE_LANGUAGES: ReadonlySet<string> = new Set(
-  RECIPE_RUNNABLE_LANGUAGE_IDS
-);
-
-export function isRecipeRunnableLanguage(
-  language: string
-): language is RecipeRunnableLanguage {
-  return RECIPE_RUNNABLE_LANGUAGES.has(language);
 }
 
 /**

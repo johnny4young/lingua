@@ -103,6 +103,13 @@ chain for `acorn`, `js-yaml`, and `magic-string`; this keeps performance
 decisions tied to the current source graph rather than a hand-maintained
 diagram.
 
+Recipe language capability checks follow the same narrow-boundary rule.
+`src/shared/recipeLanguages.ts` owns the tiny synchronous tuple and predicate
+needed by Save-As, while `src/shared/lessonRunner.ts` keeps assertion source
+composition and result parsing behind the lazy Recipes overlay and run panel.
+The initial-graph guard names the full runner explicitly so persistence cannot
+pull it back into every workspace through a convenience import.
+
 ## Activation baseline and runner-loading decision
 
 Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,

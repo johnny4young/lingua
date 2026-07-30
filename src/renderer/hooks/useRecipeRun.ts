@@ -36,12 +36,12 @@ import { runnerManager } from '../runners';
 import {
   ASSERTION_RESULT_SENTINEL,
   buildLessonRunSource,
-  isRecipeRunnableLanguage,
   parseAssertionResults,
   rollupRunStatus,
   type AssertionRunResult,
   type RecipeRunStatus,
 } from '../../shared/lessonRunner';
+import { isRecipeRunnableLanguage } from '../../shared/recipeLanguages';
 import { getRecipeById } from '../data/recipes';
 import { useEditorStore } from '../stores/editorStore';
 import { useLessonProgressStore } from '../stores/lessonProgressStore';

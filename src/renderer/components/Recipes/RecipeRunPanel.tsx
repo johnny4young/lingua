@@ -37,10 +37,10 @@ import {
 } from '../../../shared/lessonPack';
 import {
   isAllPassed,
-  isRecipeRunnableLanguage,
   type AssertionResultStatus,
   type AssertionRunResult,
 } from '../../../shared/lessonRunner';
+import { isRecipeRunnableLanguage } from '../../../shared/recipeLanguages';
 import { useRecipeRun } from '../../hooks/useRecipeRun';
 import { cn } from '../../utils/cn';
 import { RecipeMarkdown } from './recipeMarkdown';

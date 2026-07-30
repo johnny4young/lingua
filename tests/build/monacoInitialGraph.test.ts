@@ -213,6 +213,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the heavy-diff worker client used only after a comparison surface opens',
   },
   {
+    module: 'src/shared/lessonRunner.ts',
+    why: 'the recipe assertion composer and parser used only by lazy Recipes surfaces',
+  },
+  {
     module: 'src/renderer/components/FileTree/FileTree.tsx',
     why: 'the project explorer used only after the sidebar or compact drawer opens',
   },
