@@ -200,6 +200,18 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/components/Share/ShareConfirmationModal.tsx',
     why: 'the source and stdin preview shown only after an outgoing share is prepared',
   },
+  {
+    module: 'src/renderer/components/Editor/CompareResultsPanel.tsx',
+    why: 'the opt-in comparison renderer used only after Compare is enabled',
+  },
+  {
+    module: 'src/renderer/hooks/useComputedDiff.ts',
+    why: 'the comparison diff hook used only by on-demand comparison surfaces',
+  },
+  {
+    module: 'src/renderer/runtime/utilityComputeClient.ts',
+    why: 'the heavy-diff worker client used only after a comparison surface opens',
+  },
 ];
 
 /**

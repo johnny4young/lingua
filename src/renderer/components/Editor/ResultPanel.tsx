@@ -15,7 +15,7 @@ import { RecentRunsPill } from './RecentRunsPill';
 import { RunCapsuleExportButton } from './RunCapsuleExportButton';
 import { ShareLinkButton } from '../Share/ShareLinkButton';
 import { RunStatusPill } from './RunStatusPill';
-import { CompareResultsPanel } from './CompareResultsPanel';
+import { CompareResultsPanelHost } from './CompareResultsPanelHost';
 import { resolveCompareTargetSnapshot } from '../../utils/snapshotDiff';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import { useCommandListener } from '../../hooks/useCommandListener';
@@ -200,7 +200,7 @@ export function ResultPanel() {
           // critical because the leak surfaces invisibly (dynamic
           // mode hides the selector) until the user reaches another
           // compiled tab.
-          <CompareResultsPanel key={activeTab?.id ?? 'none'} language={language} />
+          <CompareResultsPanelHost key={activeTab?.id ?? 'none'} language={language} />
         ) : !hasContent && !isAutoRunning ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <span className="text-body-sm italic text-muted">{t(emptyKey)}</span>

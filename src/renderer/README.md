@@ -201,6 +201,20 @@ Sharing separates its always-available triggers from both implementations:
   transient failure closes with localized feedback and the next explicit
   action or reload can retry.
 
+Result comparison has its own activation boundary:
+
+- [`components/Editor/ResultPanel.tsx`](components/Editor/ResultPanel.tsx)
+  keeps the stable-snapshot gate and decides when Compare owns the result body.
+- [`components/Editor/CompareResultsPanelHost.tsx`](components/Editor/CompareResultsPanelHost.tsx)
+  provides localized loading and reload states without importing the diff
+  implementation.
+- [`components/Editor/CompareResultsPanel.tsx`](components/Editor/CompareResultsPanel.tsx),
+  [`hooks/useComputedDiff.ts`](hooks/useComputedDiff.ts), and the worker client
+  load together only after the user enables Compare.
+- A successful chunk is reused for later comparisons. A rejected module load
+  offers an explicit page reload because browsers retain failed module URLs in
+  the current document's module map.
+
 The main-editor AI explanation flow keeps its request slot separate from its
 paid implementation:
 
