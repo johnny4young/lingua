@@ -11,6 +11,21 @@
  * CI payload grep live on the same single redaction pass.
  */
 
+import {
+  BOOT_DURATION_BUCKETS,
+  BOOT_PHASES,
+} from './bootTelemetry';
+
+export {
+  BOOT_DURATION_BUCKETS,
+  BOOT_PHASES,
+  bucketBootDuration,
+} from './bootTelemetry';
+export type {
+  BootDurationBucket,
+  BootPhase,
+} from './bootTelemetry';
+
 export const TELEMETRY_EVENTS = [
   'app.launched',
   // internal — one event per renderer boot phase. Payload is closed to
@@ -588,25 +603,8 @@ export const TELEMETRY_EVENTS = [
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
-export const BOOT_PHASES = [
-  'system-language',
-  'i18n',
-  'react-mount',
-  'first-paint',
-  'rehydration',
-] as const;
-export type BootPhase = (typeof BOOT_PHASES)[number];
 const BOOT_PHASES_SET: ReadonlySet<string> = new Set(BOOT_PHASES);
 
-export const BOOT_DURATION_BUCKETS = [
-  '<50ms',
-  '50-249ms',
-  '250-999ms',
-  '1-4.9s',
-  '5-29.9s',
-  '>=30s',
-] as const;
-export type BootDurationBucket = (typeof BOOT_DURATION_BUCKETS)[number];
 const BOOT_DURATION_BUCKETS_SET: ReadonlySet<string> = new Set(BOOT_DURATION_BUCKETS);
 
 // internal — closed enum of bootstrap failure kinds. Free-form error
@@ -615,15 +613,6 @@ const BOOT_DURATION_BUCKETS_SET: ReadonlySet<string> = new Set(BOOT_DURATION_BUC
 export const BOOTSTRAP_FAILURE_REASONS: ReadonlySet<string> = new Set([
   'prepare-error',
 ]);
-
-export function bucketBootDuration(ms: number): BootDurationBucket {
-  if (ms < 50) return '<50ms';
-  if (ms < 250) return '50-249ms';
-  if (ms < 1_000) return '250-999ms';
-  if (ms < 5_000) return '1-4.9s';
-  if (ms < 30_000) return '5-29.9s';
-  return '>=30s';
-}
 
 export interface TelemetryBaseFields {
   appVersion: string;

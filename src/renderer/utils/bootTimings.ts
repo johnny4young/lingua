@@ -2,7 +2,7 @@ import {
   BOOT_PHASES,
   bucketBootDuration,
   type BootPhase,
-} from '../../shared/telemetry';
+} from '../../shared/bootTelemetry';
 
 const BOOT_MARK_PREFIX = 'lingua:boot';
 type BootMark = 'start' | BootPhase;

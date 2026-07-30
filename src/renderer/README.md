@@ -117,6 +117,22 @@ Developer Utilities use separate startup and implementation layers:
   analyzers and transformations. It loads with utility panels that use those
   implementations rather than with the workspace shell.
 
+Telemetry also has an explicit loading boundary:
+
+- [`utils/telemetry.ts`](utils/telemetry.ts) is the stable call-site facade.
+  Keep direct `trackEvent` consumers on this path so configured consent is
+  checked before any delivery implementation loads.
+- [`utils/telemetryPolicy.ts`](utils/telemetryPolicy.ts) owns the lightweight
+  endpoint, kill-switch, and persisted-consent preflight. Invalid endpoints
+  still warn once without loading the emitter.
+- [`utils/telemetryEmitter.ts`](utils/telemetryEmitter.ts) owns base fields,
+  redaction, trust-ledger capture, and best-effort network delivery. It must
+  remain dynamically reachable only after the policy allows an event.
+- [`../shared/bootTelemetry.ts`](../shared/bootTelemetry.ts) contains the small
+  boot phase and duration-bucket vocabulary needed before first paint. The
+  complete event catalog and redactor remain in
+  [`../shared/telemetry.ts`](../shared/telemetry.ts) behind the emitter boundary.
+
 ## State ownership
 
 ### User-invoked overlays
@@ -180,7 +196,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [uiStore.ts](stores/uiStore.ts)             | transient shell visibility, status notices, bottom panel, floating positions |
 | status notice API — [useStatusNotice.ts](hooks/useStatusNotice.ts) for React consumers and [statusNotice.ts](utils/statusNotice.ts) for imperative paths | tone-safe `info`/`success`/`warning`/`error` actions that preserve notice options while keeping direct store access out of producers |
 | [commandBus.ts](stores/commandBus.ts) + [useCommandListener.ts](hooks/useCommandListener.ts) | closed-map, synchronous renderer commands with no replay/state updates; priority + handled fallback semantics keep app coordination off the global DOM event target |
-| telemetry API — [useTelemetry.ts](hooks/useTelemetry.ts) for React consumers and [telemetry.ts](utils/telemetry.ts) for non-React layers | closed event names at React call sites; consent, endpoint resolution, base fields, redaction, and best-effort delivery remain centralized in the lower-level emitter |
+| telemetry API — [useTelemetry.ts](hooks/useTelemetry.ts) for React consumers and [telemetry.ts](utils/telemetry.ts) for non-React layers | closed event names at call sites; a startup-safe facade checks consent and configuration before loading the full emitter |
 | [updateStore.ts](stores/updateStore.ts)     | updater status, messages, last-check timing                       |
 | [pluginStore.ts](stores/pluginStore.ts)     | local plugin discovery and diagnostics surface                    |
 | [projectSearchStore.ts](stores/projectSearchStore.ts) / [projectReplaceStore.ts](stores/projectReplaceStore.ts) | project-wide search and replacement sessions |

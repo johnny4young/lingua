@@ -128,6 +128,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/utils/jwt.ts',
     why: 'JWT decoding and verification used only by the JWT utility panel',
   },
+  {
+    module: 'src/renderer/utils/telemetryEmitter.ts',
+    why: 'consent-gated telemetry delivery, trust capture, and base-field resolution',
+  },
+  {
+    module: 'src/shared/telemetry.ts',
+    why: 'the complete telemetry event catalog, property allowlist, and redactor',
+  },
 ];
 
 /**
