@@ -136,6 +136,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/shared/telemetry.ts',
     why: 'the complete telemetry event catalog, property allowlist, and redactor',
   },
+  {
+    module: 'src/renderer/languageIntelligence/python.ts',
+    why: 'the Python local analyzer used only after a Python tab activates diagnostics',
+  },
+  {
+    module: 'src/renderer/languageIntelligence/ruby.ts',
+    why: 'the Ruby local analyzer used only after a Ruby tab activates diagnostics',
+  },
 ];
 
 /**

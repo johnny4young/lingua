@@ -117,6 +117,20 @@ Developer Utilities use separate startup and implementation layers:
   analyzers and transformations. It loads with utility panels that use those
   implementations rather than with the workspace shell.
 
+Renderer-local language intelligence also stays activation-scoped:
+
+- [`languageSupport/registry.ts`](languageSupport/registry.ts) contains
+  startup-safe descriptors for every language. Descriptors may advertise a
+  `loadLanguageIntelligenceAdapter` function, but must not import an analyzer
+  implementation at module scope.
+- [`languageIntelligence/index.ts`](languageIntelligence/index.ts) caches one
+  asynchronous adapter load per language and drops failed loads so a later
+  activation can retry.
+- [`hooks/useLanguageIntelligenceDiagnostics.ts`](hooks/useLanguageIntelligenceDiagnostics.ts)
+  waits for the active-language debounce before requesting an adapter. Python
+  and Ruby analysis therefore arrives with a matching editor tab instead of
+  with the JavaScript-first workspace shell.
+
 Telemetry also has an explicit loading boundary:
 
 - [`utils/telemetry.ts`](utils/telemetry.ts) is the stable call-site facade.

@@ -1,4 +1,3 @@
-import { createPythonLanguageIntelligenceAdapter } from '../languageIntelligence/python';
 import type { LanguageSupportDescriptor } from './types';
 
 export const pythonLanguageSupport = {
@@ -29,5 +28,10 @@ export const pythonLanguageSupport = {
       createSignatureHelpProvider: createPythonSignatureProvider,
     };
   },
-  createLanguageIntelligenceAdapter: createPythonLanguageIntelligenceAdapter,
+  loadLanguageIntelligenceAdapter: async () => {
+    const { createPythonLanguageIntelligenceAdapter } = await import(
+      '../languageIntelligence/python'
+    );
+    return createPythonLanguageIntelligenceAdapter();
+  },
 } satisfies LanguageSupportDescriptor;

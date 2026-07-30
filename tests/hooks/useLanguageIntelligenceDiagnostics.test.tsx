@@ -5,6 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import en from '../../src/renderer/i18n/locales/en/common.json';
 import es from '../../src/renderer/i18n/locales/es/common.json';
 import { useLanguageIntelligenceDiagnostics } from '../../src/renderer/hooks/useLanguageIntelligenceDiagnostics';
+import { loadLanguageIntelligenceAdapter } from '../../src/renderer/languageIntelligence';
+
+async function runDeferredDiagnostics(language: string): Promise<void> {
+  await vi.advanceTimersByTimeAsync(150);
+  await loadLanguageIntelligenceAdapter(language);
+}
 
 describe('useLanguageIntelligenceDiagnostics', () => {
   beforeEach(async () => {
@@ -19,7 +25,7 @@ describe('useLanguageIntelligenceDiagnostics', () => {
     });
   });
 
-  it('writes Python diagnostics to a dedicated Monaco marker owner', () => {
+  it('writes Python diagnostics to a dedicated Monaco marker owner', async () => {
     const model = { id: 'model-1' };
     const setModelMarkers = vi.fn();
     const editor = {
@@ -44,8 +50,8 @@ describe('useLanguageIntelligenceDiagnostics', () => {
       })
     );
 
-    act(() => {
-      vi.advanceTimersByTime(150);
+    await act(async () => {
+      await runDeferredDiagnostics('python');
     });
 
     expect(setModelMarkers).toHaveBeenCalledWith(model, 'lingua-language-intelligence', [
@@ -75,8 +81,8 @@ describe('useLanguageIntelligenceDiagnostics', () => {
       })
     );
 
-    act(() => {
-      vi.advanceTimersByTime(150);
+    await act(async () => {
+      await runDeferredDiagnostics('python');
     });
 
     expect(setModelMarkers).toHaveBeenLastCalledWith(model, 'lingua-language-intelligence', [
@@ -88,8 +94,8 @@ describe('useLanguageIntelligenceDiagnostics', () => {
     await act(async () => {
       await i18next.changeLanguage('es');
     });
-    act(() => {
-      vi.advanceTimersByTime(150);
+    await act(async () => {
+      await runDeferredDiagnostics('python');
     });
 
     expect(setModelMarkers).toHaveBeenLastCalledWith(model, 'lingua-language-intelligence', [
@@ -125,5 +131,38 @@ describe('useLanguageIntelligenceDiagnostics', () => {
     );
 
     expect(setModelMarkers).toHaveBeenCalledWith(model, 'lingua-language-intelligence', []);
+  });
+
+  it('does not run a deferred analyzer after the active language changes', async () => {
+    const model = { id: 'model-1' };
+    const setModelMarkers = vi.fn();
+    const editor = { getModel: () => model };
+    const monaco = {
+      MarkerSeverity: { Error: 8, Warning: 4, Info: 2 },
+      editor: { setModelMarkers },
+    };
+    const { rerender } = renderHook(
+      ({ language }) =>
+        useLanguageIntelligenceDiagnostics(editor as never, monaco as never, {
+          id: 'tab-1',
+          language,
+          content: 'def broken()\n    pass',
+        }),
+      { initialProps: { language: 'python' } }
+    );
+
+    rerender({ language: 'javascript' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150);
+    });
+
+    expect(setModelMarkers).toHaveBeenCalledWith(
+      model,
+      'lingua-language-intelligence',
+      []
+    );
+    expect(
+      setModelMarkers.mock.calls.some((call) => Array.isArray(call[2]) && call[2].length > 0)
+    ).toBe(false);
   });
 });

@@ -92,5 +92,10 @@ export interface LanguageSupportDescriptor {
    * as plain file-type tokenizers.
    */
   loadEditorProviders?: () => Promise<MonacoEditorProviders>;
-  createLanguageIntelligenceAdapter?: () => LanguageIntelligenceAdapter;
+  /**
+   * Lazily construct the renderer-local diagnostic/completion model for this
+   * language. Keep analyzer imports inside the loader so a normal JavaScript
+   * workspace does not download Python or Ruby parsing code at startup.
+   */
+  loadLanguageIntelligenceAdapter?: () => Promise<LanguageIntelligenceAdapter>;
 }

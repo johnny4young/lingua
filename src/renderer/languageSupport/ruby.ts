@@ -1,4 +1,3 @@
-import { createRubyLanguageIntelligenceAdapter } from '../languageIntelligence/ruby';
 import type { LanguageSupportDescriptor } from './types';
 
 export const rubyLanguageSupport = {
@@ -25,5 +24,10 @@ export const rubyLanguageSupport = {
       createSignatureHelpProvider: createRubySignatureProvider,
     };
   },
-  createLanguageIntelligenceAdapter: createRubyLanguageIntelligenceAdapter,
+  loadLanguageIntelligenceAdapter: async () => {
+    const { createRubyLanguageIntelligenceAdapter } = await import(
+      '../languageIntelligence/ruby'
+    );
+    return createRubyLanguageIntelligenceAdapter();
+  },
 } satisfies LanguageSupportDescriptor;

@@ -1,7 +1,10 @@
 import type { Monaco, OnMount } from '@monaco-editor/react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getLanguageIntelligenceAdapter } from '../languageIntelligence';
+import {
+  hasLanguageIntelligenceAdapter,
+  loadLanguageIntelligenceAdapter,
+} from '../languageIntelligence';
 
 export const LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER = 'lingua-language-intelligence';
 
@@ -40,30 +43,42 @@ export function useLanguageIntelligenceDiagnostics(
     const model = editor?.getModel();
     if (!model || !monaco) return;
 
-    const adapter = getLanguageIntelligenceAdapter(activeTab?.language);
-    if (!adapter || !activeTab) {
+    if (!activeTab || !hasLanguageIntelligenceAdapter(activeTab.language)) {
       monaco.editor.setModelMarkers(model, LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER, []);
       return;
     }
 
+    let cancelled = false;
     const timeout = window.setTimeout(() => {
-      const result = adapter.analyze(activeTab.content);
-      monaco.editor.setModelMarkers(
-        model,
-        LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
-        result.diagnostics.map(diagnostic => ({
-          startLineNumber: diagnostic.line,
-          startColumn: diagnostic.column,
-          endLineNumber: diagnostic.endLine ?? diagnostic.line,
-          endColumn: diagnostic.endColumn ?? diagnostic.column + 1,
-          message: diagnostic.message,
-          severity: markerSeverityFor(monaco, diagnostic.severity),
-          source: diagnostic.source,
-        }))
-      );
+      void loadLanguageIntelligenceAdapter(activeTab.language).then((adapter) => {
+        if (cancelled) return;
+        if (!adapter) {
+          monaco.editor.setModelMarkers(
+            model,
+            LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
+            []
+          );
+          return;
+        }
+        const result = adapter.analyze(activeTab.content);
+        monaco.editor.setModelMarkers(
+          model,
+          LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
+          result.diagnostics.map(diagnostic => ({
+            startLineNumber: diagnostic.line,
+            startColumn: diagnostic.column,
+            endLineNumber: diagnostic.endLine ?? diagnostic.line,
+            endColumn: diagnostic.endColumn ?? diagnostic.column + 1,
+            message: diagnostic.message,
+            severity: markerSeverityFor(monaco, diagnostic.severity),
+            source: diagnostic.source,
+          }))
+        );
+      });
     }, 150);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timeout);
     };
   }, [activeTab, editor, monaco, locale]);

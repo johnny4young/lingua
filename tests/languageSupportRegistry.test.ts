@@ -3,7 +3,10 @@ import {
   getLanguageSupportDescriptor,
   getLanguageSupportDescriptors,
 } from '@/languageSupport/registry';
-import { getLanguageIntelligenceAdapter } from '@/languageIntelligence';
+import {
+  hasLanguageIntelligenceAdapter,
+  loadLanguageIntelligenceAdapter,
+} from '@/languageIntelligence';
 
 describe('language support registry', () => {
   it('keeps Monaco registration ids unique', () => {
@@ -32,7 +35,7 @@ describe('language support registry', () => {
     expect(providers?.createCompletionProvider).toEqual(expect.any(Function));
     expect(providers?.createHoverProvider).toEqual(expect.any(Function));
     expect(providers?.createSignatureHelpProvider).toEqual(expect.any(Function));
-    expect(ruby?.createLanguageIntelligenceAdapter?.().language).toBe('ruby');
+    expect((await ruby?.loadLanguageIntelligenceAdapter?.())?.language).toBe('ruby');
   });
 
   it('loads magic-comment providers for JavaScript, TypeScript, and Python', async () => {
@@ -48,9 +51,15 @@ describe('language support registry', () => {
     expect(python?.createHoverProviders).toHaveLength(1);
   });
 
-  it('builds local language-intelligence adapters from descriptors', () => {
-    expect(getLanguageIntelligenceAdapter('python')?.language).toBe('python');
-    expect(getLanguageIntelligenceAdapter('ruby')?.language).toBe('ruby');
-    expect(getLanguageIntelligenceAdapter('go')).toBeNull();
+  it('loads local language-intelligence adapters from descriptors', async () => {
+    expect(hasLanguageIntelligenceAdapter('python')).toBe(true);
+    expect(hasLanguageIntelligenceAdapter('ruby')).toBe(true);
+    expect(hasLanguageIntelligenceAdapter('go')).toBe(false);
+    const firstPythonLoad = loadLanguageIntelligenceAdapter('python');
+    const secondPythonLoad = loadLanguageIntelligenceAdapter('python');
+    expect(firstPythonLoad).toBe(secondPythonLoad);
+    expect((await firstPythonLoad)?.language).toBe('python');
+    expect((await loadLanguageIntelligenceAdapter('ruby'))?.language).toBe('ruby');
+    expect(await loadLanguageIntelligenceAdapter('go')).toBeNull();
   });
 });
