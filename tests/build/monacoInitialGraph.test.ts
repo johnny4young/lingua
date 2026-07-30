@@ -144,6 +144,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/languageIntelligence/ruby.ts',
     why: 'the Ruby local analyzer used only after a Ruby tab activates diagnostics',
   },
+  {
+    module: 'src/renderer/runtime/runLedger.ts',
+    why: 'the opt-in local run ledger used only after an enabled manual run or explicit Settings action',
+  },
+  {
+    module: 'src/renderer/runtime/duckdbClient.ts',
+    why: 'the DuckDB wrapper used only by SQL surfaces and the opt-in run ledger',
+  },
 ];
 
 /**

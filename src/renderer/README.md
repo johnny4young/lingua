@@ -131,6 +131,18 @@ Renderer-local language intelligence also stays activation-scoped:
   and Ruby analysis therefore arrives with a matching editor tab instead of
   with the JavaScript-first workspace shell.
 
+The opt-in Run Ledger has a similar persistence boundary:
+
+- [`hooks/useRunLedgerTap.ts`](hooks/useRunLedgerTap.ts) keeps only the
+  execution-history subscription and the persisted opt-in check at startup.
+- [`runtime/runLedger.ts`](runtime/runLedger.ts) and
+  [`runtime/duckdbClient.ts`](runtime/duckdbClient.ts) load on the first new
+  manual run after the user enables the ledger. Opening their explicit
+  Settings or SQL surfaces may also load them.
+- Runs observed while the setting is off are marked seen but never imported or
+  recorded retroactively. Chunk-load failures remain best-effort and retry on
+  the next enabled run.
+
 Telemetry also has an explicit loading boundary:
 
 - [`utils/telemetry.ts`](utils/telemetry.ts) is the stable call-site facade.

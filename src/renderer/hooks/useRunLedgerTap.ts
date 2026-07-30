@@ -1,6 +1,25 @@
 import { useEffect, useRef } from 'react';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
-import { recordRun } from '../runtime/runLedger';
+import { useSettingsStore } from '../stores/settingsStore';
+
+type RunLedgerModule = typeof import('../runtime/runLedger');
+
+let runLedgerModuleLoad: Promise<RunLedgerModule> | null = null;
+
+/**
+ * The ledger and DuckDB wrapper stay outside normal workspace startup. Cache
+ * successful loads for later runs, but let a transient chunk failure retry on
+ * the next enabled run.
+ */
+function loadRunLedger(): Promise<RunLedgerModule> {
+  if (runLedgerModuleLoad) return runLedgerModuleLoad;
+  const load = import('../runtime/runLedger').catch((error: unknown) => {
+    runLedgerModuleLoad = null;
+    throw error;
+  });
+  runLedgerModuleLoad = load;
+  return load;
+}
 
 /**
  * internal — the Run Ledger tap. Subscribes ONCE (app-level, mounted from
@@ -27,7 +46,9 @@ export function useRunLedgerTap(): void {
       const latest = entries[entries.length - 1];
       if (!latest || latest.id === lastSeenIdRef.current) return;
       lastSeenIdRef.current = latest.id;
-      recordRun({
+      if (!useSettingsStore.getState().runLedgerEnabled) return;
+
+      const input = {
         language: latest.language,
         status: latest.status,
         durationMs: latest.durationMs,
@@ -36,7 +57,14 @@ export function useRunLedgerTap(): void {
         code: latest.snapshot?.code ?? null,
         contentHash: latest.lastCapsule?.source.contentHash ?? null,
         capsule: latest.lastCapsule ?? null,
-      });
+      } satisfies Parameters<RunLedgerModule['recordRun']>[0];
+
+      void loadRunLedger()
+        .then(({ recordRun }) => recordRun(input))
+        .catch(() => {
+          // Best-effort by contract — execution history remains independent
+          // from both chunk delivery and DuckDB availability.
+        });
     };
 
     // Seed the guard with the current newest entry WITHOUT forwarding it:
