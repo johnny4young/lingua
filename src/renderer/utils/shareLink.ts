@@ -1,8 +1,8 @@
 /**
  * implementation — Renderer-side share-link helper.
  *
- * Three call sites need the same FileTab → SharePayloadV1 → encoded
- * fragment → clipboard + telemetry pipeline:
+ * Three trigger surfaces share the same FileTab → SharePayloadV1 → encoded
+ * fragment → clipboard + telemetry pipeline through the on-demand share flow:
  *
  *   - Result-panel header icon button (`<ShareLinkButton>`, implementation note)
  *   - Command palette `Copy share link` action (implementation note)

@@ -23,7 +23,6 @@
  * (`tests/renderer/clipboard/applyPasteIntent.test.ts`).
  */
 import type { editor as MonacoEditor, IRange } from 'monaco-editor';
-import { decodeShareFragment } from '../../shared/sharePayload';
 import { parseRunCapsule } from '../../shared/runCapsule';
 import {
   createBlankHttpRequest,
@@ -104,6 +103,7 @@ function deriveCurlName(command: CurlCommand): string {
 }
 
 async function applyShareLink(fragment: string, ctx: ApplyPasteContext): Promise<boolean> {
+  const { decodeShareFragment } = await import('../../shared/sharePayload');
   const result = await decodeShareFragment(fragment);
   if (!result.ok) return false;
   const { payload } = result;

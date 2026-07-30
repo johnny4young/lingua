@@ -94,7 +94,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
 | [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
 | [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Open-tab, recent-file, and project-index file navigation       |
-| [`components/Share/`](components/Share)                   | `ShareLinkButton.tsx`, confirmation modal             | Share-link generation affordances and copied-link feedback      |
+| [`components/Share/`](components/Share)                   | `ShareLinkButton.tsx`, `ShareLinkController.tsx`, lazy flow + confirmation modal | Startup-safe share affordance, activation, generation, and copied-link feedback |
 | [`components/Snippets/`](components/Snippets)             | `SnippetsModal.tsx`                                   | Snippet browser and insert flow                                |
 | [`components/StatusBar/`](components/StatusBar)           | `StatusBar.tsx`, `useStatusBarModel.ts`              | Persistent 24px bottom bar: language, lint, cursor, indent, Git |
 | [`components/StatusNotice/`](components/StatusNotice)     | `StatusNoticeBanner.tsx`                              | Global status-notice banner rendering                          |
@@ -179,6 +179,27 @@ Telemetry also has an explicit loading boundary:
   boot phase and duration-bucket vocabulary needed before first paint. The
   complete event catalog and redactor remain in
   [`../shared/telemetry.ts`](../shared/telemetry.ts) behind the emitter boundary.
+
+Sharing separates its always-available triggers from both implementations:
+
+- [`components/Share/ShareLinkButton.tsx`](components/Share/ShareLinkButton.tsx)
+  and
+  [`components/Share/ShareLinkController.tsx`](components/Share/ShareLinkController.tsx)
+  keep the visible affordance, command listener, and localized loading/error
+  shell in the startup graph.
+- [`components/Share/ShareLinkFlow.tsx`](components/Share/ShareLinkFlow.tsx)
+  owns outgoing encoding, confirmation, clipboard writes, and terminal
+  telemetry. It loads only after a button, palette, or shortcut request.
+- [`hooks/useShareLinkBoot.ts`](hooks/useShareLinkBoot.ts) inspects only the
+  small protocol prefix. A matching URL fragment loads
+  [`hooks/shareLinkImport.ts`](hooks/shareLinkImport.ts), while ordinary and
+  foreign hashes never download the codec or tab importer.
+- Smart Paste recognizes the small protocol prefix with the editor, but
+  [`clipboard/applyPasteIntent.ts`](clipboard/applyPasteIntent.ts) loads the
+  codec only after the user accepts an actual share-link import.
+- Both loaders cache successful chunks and evict rejected loads, so a
+  transient failure closes with localized feedback and the next explicit
+  action or reload can retry.
 
 The main-editor AI explanation flow keeps its request slot separate from its
 paid implementation:

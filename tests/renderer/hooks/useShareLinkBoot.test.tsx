@@ -19,7 +19,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import {
   buildSharePayload,
   encodeShareFragment,
@@ -97,17 +97,8 @@ describe('useShareLinkBoot', () => {
     setHash(`#${encoded.fragment}`);
 
     renderHook(() => useShareLinkBoot());
-    // Hook runs an async import; wait microtask + a tick for
-    // CompressionStream to flush.
-    await act(async () => {
-      // Several await ticks: the import path is gzip CompressionStream
-      // (one tick) → microtask chain (one tick) → addTab (one tick).
-      // A single zero-delay await isn't always enough when the test
-      // worker is contended by neighbours in the full suite, so we
-      // poll a few times before asserting.
-      for (let i = 0; i < 10; i += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs).toHaveLength(1);
     });
 
     const tabs = useEditorStore.getState().tabs;
@@ -146,10 +137,10 @@ describe('useShareLinkBoot', () => {
     setHash(`#${encoded.fragment}`);
 
     renderHook(() => useShareLinkBoot());
-    await act(async () => {
-      for (let i = 0; i < 10; i += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+    await waitFor(() => {
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'upsell.freeCeilingReached'
+      );
     });
 
     const state = useEditorStore.getState();
@@ -188,10 +179,8 @@ describe('useShareLinkBoot', () => {
     expect(window.location.hash).toBe(`#${encoded.fragment}`);
 
     rerender({ enabled: true });
-    await act(async () => {
-      for (let i = 0; i < 10; i += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs).toHaveLength(1);
     });
 
     expect(useEditorStore.getState().tabs.length).toBe(1);
@@ -222,15 +211,8 @@ describe('useShareLinkBoot', () => {
   it('surfaces a localized notice + decode-fail telemetry on invalid base64', async () => {
     setHash(`#${SHARE_FRAGMENT_PREFIX}!@#$%^&*()`);
     renderHook(() => useShareLinkBoot());
-    await act(async () => {
-      // Several await ticks: the import path is gzip CompressionStream
-      // (one tick) → microtask chain (one tick) → addTab (one tick).
-      // A single zero-delay await isn't always enough when the test
-      // worker is contended by neighbours in the full suite, so we
-      // poll a few times before asserting.
-      for (let i = 0; i < 10; i += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+    await waitFor(() => {
+      expect(window.location.hash).toBe('');
     });
     expect(useEditorStore.getState().tabs.length).toBe(0);
     const notice = useUIStore.getState().statusNotice;
@@ -255,14 +237,11 @@ describe('useShareLinkBoot', () => {
     const encoded = await encodeShareFragment(payload);
     if (!encoded.ok) throw new Error('encode failed in setup');
 
-    await act(async () => {
+    act(() => {
       fireHashChange(`#${encoded.fragment}`);
-      // Hashchange imports traverse the same async gunzip pipeline as
-      // boot imports, so wait for the stream + store microtasks to
-      // settle before the next test mutates safe-mode state.
-      for (let i = 0; i < 10; i += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+    });
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs).toHaveLength(1);
     });
 
     expect(useEditorStore.getState().tabs.length).toBe(1);

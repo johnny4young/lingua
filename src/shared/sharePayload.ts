@@ -30,6 +30,7 @@
  * deliberately-constructed malicious fixture.
  */
 
+import { SHARE_FRAGMENT_PREFIX } from './shareProtocol';
 import { getLanguagePackById } from './languagePacks';
 import { RUNTIME_MODES, type RuntimeMode } from './runtimeModes';
 import { WORKFLOW_MODES, type WorkflowMode } from './workflowMode';
@@ -42,7 +43,7 @@ export const SHARE_PAYLOAD_VERSION = 1 as const;
  * here lets a future Phase A2 negotiate a different shape under a
  * different prefix without breaking Phase A1 readers.
  */
-export const SHARE_FRAGMENT_PREFIX = 'share=v1.';
+export { SHARE_FRAGMENT_PREFIX } from './shareProtocol';
 
 /**
  * Hard cap on the post-encode URL fragment length (in characters).

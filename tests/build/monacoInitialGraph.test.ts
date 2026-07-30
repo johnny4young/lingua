@@ -180,6 +180,26 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/shared/ai/explainCode.ts',
     why: 'the explain-code payload builder used only by the on-demand consent dialog',
   },
+  {
+    module: 'src/shared/sharePayload.ts',
+    why: 'the gzip/JSON share codec used only after a share command or matching URL fragment',
+  },
+  {
+    module: 'src/renderer/utils/shareLink.ts',
+    why: 'share encoding, clipboard, telemetry, and trust capture used only by active sharing',
+  },
+  {
+    module: 'src/renderer/hooks/shareLinkImport.ts',
+    why: 'the incoming share decoder and tab importer used only by a matching URL fragment',
+  },
+  {
+    module: 'src/renderer/components/Share/ShareLinkFlow.tsx',
+    why: 'the outgoing share preparation and clipboard flow used only after an explicit request',
+  },
+  {
+    module: 'src/renderer/components/Share/ShareConfirmationModal.tsx',
+    why: 'the source and stdin preview shown only after an outgoing share is prepared',
+  },
 ];
 
 /**
@@ -326,6 +346,19 @@ describe('Monaco stays out of the initial graph', () => {
       }
     });
   }
+
+  it('Smart Paste loads the share codec only after an accepted share-link intent', () => {
+    const entry = 'src/renderer/clipboard/applyPasteIntent.ts';
+    const target = 'src/shared/sharePayload.ts';
+    const reachable = staticallyReachable(entry);
+    if (reachable.has(target)) {
+      throw new Error(
+        `${target} is statically reachable from ${entry}, so opening the editor ` +
+          `downloads the share codec before a share-link paste is accepted.\n\nChain:\n  ` +
+          importChain(reachable, target).join('\n  -> ')
+      );
+    }
+  });
 
   for (const [surface, entry] of Object.entries(ENTRIES)) {
     it(`${surface}: syntax tokenizers and language workers load on demand`, () => {

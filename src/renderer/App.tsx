@@ -30,7 +30,7 @@ import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
 import { useWhatsNewNotice } from './hooks/useWhatsNewNotice';
 import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useShareLinkBoot } from './hooks/useShareLinkBoot';
-import { ShareLinkController } from './components/Share/ShareLinkButton';
+import { ShareLinkController } from './components/Share/ShareLinkController';
 import { useOnboardingChoreography } from './hooks/useOnboardingChoreography';
 import { useRunLedgerTap } from './hooks/useRunLedgerTap';
 import { useDependencyDetection } from './hooks/useDependencyDetection';

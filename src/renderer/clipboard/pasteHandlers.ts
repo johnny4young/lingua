@@ -17,7 +17,7 @@
  * (`tests/renderer/clipboard/pasteHandlers.test.ts`).
  */
 import { parseRunCapsule } from '../../shared/runCapsule';
-import { SHARE_FRAGMENT_PREFIX } from '../../shared/sharePayload';
+import { SHARE_FRAGMENT_PREFIX } from '../../shared/shareProtocol';
 import { parseCurlCommand } from '../utils/curlToCode';
 import {
   decodeBase64ForDetection,
