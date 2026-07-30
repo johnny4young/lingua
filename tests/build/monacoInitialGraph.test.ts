@@ -152,6 +152,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/runtime/duckdbClient.ts',
     why: 'the DuckDB wrapper used only by SQL surfaces and the opt-in run ledger',
   },
+  {
+    module: 'src/renderer/hooks/desktopSmokeRunner.ts',
+    why: 'the Electron-only release and runtime smoke harness',
+  },
 ];
 
 /**

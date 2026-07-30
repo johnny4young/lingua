@@ -276,6 +276,12 @@ What it does:
 - runs a built-in smoke flow across JavaScript, TypeScript, Python, Go, and Rust
 - captures per-language screenshots and a JSON summary under `output/playwright/desktop-smoke`
 
+The production renderer keeps only a lightweight bridge check for this flow.
+The smoke cases and artifact orchestration load after Electron injects the
+desktop-smoke bridge. If that runner chunk cannot load or start, the renderer
+reports `finish(false)` immediately so CI fails without waiting for the outer
+watchdog.
+
 Failure artifacts:
 
 - `output/playwright/desktop-smoke/desktop-smoke-summary.json`

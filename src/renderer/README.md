@@ -143,6 +143,16 @@ The opt-in Run Ledger has a similar persistence boundary:
   recorded retroactively. Chunk-load failures remain best-effort and retry on
   the next enabled run.
 
+The Electron-only desktop smoke harness is activation-scoped as well:
+
+- [`hooks/useDesktopSmoke.ts`](hooks/useDesktopSmoke.ts) keeps only the
+  bridge-enabled effect in the workspace startup graph.
+- [`hooks/desktopSmokeRunner.ts`](hooks/desktopSmokeRunner.ts) owns the smoke
+  cases, artifact generation, memory snapshots, and execution loop. It loads
+  only after Electron injects the desktop-smoke bridge.
+- A runner chunk or startup failure reports `finish(false)` to the smoke
+  controller instead of leaving CI waiting for its outer timeout.
+
 Telemetry also has an explicit loading boundary:
 
 - [`utils/telemetry.ts`](utils/telemetry.ts) is the stable call-site facade.

@@ -1,0 +1,521 @@
+import { useConsoleStore } from '../stores/consoleStore';
+import { createDefaultTab, useEditorStore } from '../stores/editorStore';
+import { useResultStore } from '../stores/resultStore';
+import { useSettingsStore } from '../stores/settingsStore';
+import { useUIStore } from '../stores/uiStore';
+import type { BuiltInLanguage, FileTab } from '../types';
+import { extensionForLanguage } from '../utils/languageMeta';
+import { desktopSmokeApi, waitForDesktopSmokeEditorReady } from '../utils/desktopSmoke';
+import type { RuntimeMode } from '../../shared/runtimeModes';
+
+/**
+ * internal timeout-shaped smoke cases set `expectFailure` so the
+ * harness inverts the verification logic: success == the runner
+ * surfaced an error whose message matches `expectFailure` (the
+ * localized timeout string in either EN or ES). `runnerTimeoutMs`
+ * threads through `executeTabManually` to the runner's parent kill
+ * timer so the test runs in seconds instead of the language default.
+ */
+type SmokeCase = {
+  caseId: string;
+  language: BuiltInLanguage;
+  fileName: string;
+  content: string;
+  runtimeMode?: RuntimeMode;
+  expectText?: string;
+  expectFailure?: RegExp;
+  /**
+   * internal — substring whose presence in any captured console entry
+   * fails the case. Used by the env-isolation smokes to assert that
+   * a sentinel secret seeded into `process.env` did NOT leak through
+   * the env builder into the spawned subprocess.
+   */
+  forbidText?: string;
+  /** Wall-clock budget on the entire `executeTabManually` round trip. */
+  timeoutMs?: number;
+  /** Override the runner's parent-side deadline. */
+  runnerTimeoutMs?: number;
+  /** Optional per-case loop guard ceiling for parent-timeout smokes. */
+  maxLoopIterations?: number;
+};
+
+const SMOKE_CASES: SmokeCase[] = [
+  {
+    caseId: 'javascript',
+    language: 'javascript',
+    fileName: 'smoke-javascript.js',
+    content: 'console.log("smoke-javascript");\n',
+    expectText: 'smoke-javascript',
+  },
+  {
+    caseId: 'typescript',
+    language: 'typescript',
+    fileName: 'smoke-typescript.ts',
+    content: 'const label: string = "smoke-typescript";\nconsole.log(label);\n',
+    expectText: 'smoke-typescript',
+  },
+  {
+    caseId: 'node-esm-import',
+    language: 'javascript',
+    runtimeMode: 'node',
+    fileName: 'smoke-node-esm-import.js',
+    content:
+      "import { randomInt } from 'crypto';\nconst value = randomInt(36 ** 6).toString(36).padStart(6, '0');\nconsole.log(`node-esm-import:${value.length}`);\n",
+    expectText: 'node-esm-import:6',
+    timeoutMs: 20_000,
+  },
+  {
+    caseId: 'python',
+    language: 'python',
+    fileName: 'smoke-python.py',
+    content: 'print("smoke-python")\n',
+    expectText: 'smoke-python',
+    timeoutMs: 120_000,
+  },
+  {
+    caseId: 'go',
+    language: 'go',
+    fileName: 'smoke-go.go',
+    content: 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("smoke-go")\n}\n',
+    expectText: 'smoke-go',
+  },
+  {
+    caseId: 'rust',
+    language: 'rust',
+    fileName: 'smoke-rust.rs',
+    content: 'fn main() {\n    println!("smoke-rust");\n}\n',
+    expectText: 'smoke-rust',
+  },
+  // internal — verify the parent kill timer terminates a CPU-bound
+  // worker in JS and Python. Keep budgets tight so the smoke runner
+  // does not balloon by 90 s.
+  {
+    caseId: 'javascript-timeout',
+    language: 'javascript',
+    fileName: 'smoke-javascript-timeout.js',
+    content: 'while (true) {}\n',
+    expectFailure: /timed out|excedi[oó]/i,
+    runnerTimeoutMs: 3_000,
+    timeoutMs: 12_000,
+  },
+  {
+    caseId: 'python-timeout',
+    language: 'python',
+    fileName: 'smoke-python-timeout.py',
+    content: 'while True:\n    pass\n',
+    expectFailure: /timed out|excedi[oó]/i,
+    runnerTimeoutMs: 3_000,
+    timeoutMs: 20_000,
+    maxLoopIterations: 1_000_000_000,
+  },
+  // internal — verify the env-leak gate end-to-end with a real
+  // subprocess. `scripts/run-desktop-smoke.mjs` seeds
+  // `LINGUA_SMOKE_SECRET=__lingua_smoke_secret__` into the spawned
+  // Electron's env. The smoke case prints `LINGUA_SMOKE_SECRET`; the
+  // assertion below requires the captured stdout to NOT contain the
+  // secret (i.e. `buildNativeRunnerEnv` filtered it out).
+  {
+    caseId: 'go-env-isolation',
+    language: 'go',
+    fileName: 'smoke-go-env-isolation.go',
+    content:
+      'package main\n\nimport (\n\t"fmt"\n\t"os"\n)\n\nfunc main() {\n\tfmt.Println("ENV:", os.Getenv("LINGUA_SMOKE_SECRET"))\n}\n',
+    forbidText: '__lingua_smoke_secret__',
+    expectText: 'ENV:',
+  },
+  {
+    caseId: 'rust-env-isolation',
+    language: 'rust',
+    fileName: 'smoke-rust-env-isolation.rs',
+    content:
+      'fn main() {\n    println!("ENV: {}", std::env::var("LINGUA_SMOKE_SECRET").unwrap_or_default());\n}\n',
+    forbidText: '__lingua_smoke_secret__',
+    expectText: 'ENV:',
+  },
+];
+
+interface SmokeCaseSummary {
+  caseId: string;
+  language: BuiltInLanguage;
+  ok: boolean;
+  message: string;
+  executionTime: number | null;
+  executionWallTimeMs: number;
+  screenshotPath: string | null;
+}
+
+interface SmokeMemoryArtifact {
+  label: string;
+  snapshot: DesktopSmokeMemorySnapshot | { ok: false; reason: 'capture-failed'; message: string };
+}
+
+interface SmokePerformanceArtifact {
+  generatedAt: string;
+  artifactDir: string | null;
+  launcherToSmokeReadyMs: number | null;
+  firstEditorInteractionWallTimeMs: number | null;
+  totalSmokeWallTimeMs: number;
+  firstRunTimings: Record<
+    string,
+    {
+      runnerExecutionTimeMs: number | null;
+      executionWallTimeMs: number;
+    }
+  >;
+  memorySnapshots: SmokeMemoryArtifact[];
+}
+
+interface SmokeProgressArtifact {
+  generatedAt: string;
+  status: 'started' | 'running-case' | 'completed' | 'failed';
+  currentLanguage?: BuiltInLanguage;
+  currentCaseId?: string;
+  completedLanguages?: BuiltInLanguage[];
+  completedCaseIds?: string[];
+  error?: string;
+}
+
+const DEFAULT_CASE_TIMEOUT_MS = 35_000;
+
+function waitForUi(ms = 220): Promise<void> {
+  return new Promise(resolve => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function createSmokeTab(
+  language: BuiltInLanguage,
+  fileName: string,
+  content: string,
+  runtimeMode?: RuntimeMode
+): FileTab {
+  const tab = createDefaultTab(language);
+  return {
+    ...tab,
+    name: fileName || `smoke.${extensionForLanguage(language)}`,
+    content,
+    runtimeMode: runtimeMode ?? tab.runtimeMode,
+  };
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise.then(
+      value => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      error => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      }
+    );
+  });
+}
+
+async function captureMemorySnapshot(label: string): Promise<SmokeMemoryArtifact> {
+  const api = desktopSmokeApi();
+  if (!api) {
+    return {
+      label,
+      snapshot: { ok: false, reason: 'capture-failed', message: 'Desktop smoke API unavailable' },
+    };
+  }
+
+  try {
+    return { label, snapshot: await api.getMemorySnapshot() };
+  } catch (error) {
+    return {
+      label,
+      snapshot: {
+        ok: false,
+        reason: 'capture-failed',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+}
+
+function buildPerformanceArtifact(
+  artifactDir: string | null,
+  startedAt: number,
+  launcherToSmokeReadyMs: number | null,
+  firstEditorInteractionWallTimeMs: number | null,
+  summaries: SmokeCaseSummary[],
+  memorySnapshots: SmokeMemoryArtifact[]
+): SmokePerformanceArtifact {
+  const firstRunTimings: SmokePerformanceArtifact['firstRunTimings'] = {};
+  for (const caseId of ['javascript', 'typescript', 'python']) {
+    const summary = summaries.find(entry => entry.caseId === caseId);
+    if (!summary) continue;
+    firstRunTimings[caseId] = {
+      runnerExecutionTimeMs: summary.executionTime,
+      executionWallTimeMs: summary.executionWallTimeMs,
+    };
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    artifactDir,
+    launcherToSmokeReadyMs,
+    firstEditorInteractionWallTimeMs,
+    totalSmokeWallTimeMs: Math.round(performance.now() - startedAt),
+    firstRunTimings,
+    memorySnapshots,
+  };
+}
+
+/**
+ * Run the Electron-only desktop smoke matrix after the lightweight hook has
+ * confirmed that the injected smoke bridge exists.
+ */
+export async function runDesktopSmoke(): Promise<void> {
+  const api = desktopSmokeApi();
+  if (!api) {
+    return;
+  }
+
+  const config = await api.getConfig();
+  if (!config?.enabled) {
+    return;
+  }
+  const smokeStartedAt = performance.now();
+  const launcherToSmokeReadyMs =
+    typeof config.launchedAtMs === 'number' && Number.isFinite(config.launchedAtMs)
+      ? Math.max(0, Math.round(Date.now() - config.launchedAtMs))
+      : null;
+
+  // implementation — packaged-subset gate: when the smoke runs
+  // against a release `.app` (CI release pipeline), we narrow
+  // SMOKE_CASES to javascript + python — the runtime-critical
+  // pair that proves the binary boots, the renderer chunks load,
+  // and the vendored Pyodide runs offline. The full 9-case matrix
+  // already runs against the dev server in `pnpm run smoke:desktop`,
+  // so the release gate trades coverage for runtime budget
+  // (~2 min instead of ~3-4) and still catches packaging bugs.
+  const PACKAGED_SUBSET_IDS = new Set(['javascript', 'python']);
+  const cases = config.packagedSubset
+    ? SMOKE_CASES.filter(entry => PACKAGED_SUBSET_IDS.has(entry.caseId))
+    : SMOKE_CASES;
+
+  const summaries: SmokeCaseSummary[] = [];
+  const memorySnapshots: SmokeMemoryArtifact[] = [];
+  let firstEditorInteractionWallTimeMs: number | null = null;
+
+  try {
+    const { executeTabManually } = await import('../runtime/executeTabManually');
+    await api.writeJsonArtifact('desktop-smoke-bootstrap.json', {
+      generatedAt: new Date().toISOString(),
+      status: 'started',
+    });
+    await api.writeJsonArtifact('desktop-smoke-progress.json', {
+      generatedAt: new Date().toISOString(),
+      status: 'started',
+      completedLanguages: [],
+    } satisfies SmokeProgressArtifact);
+
+    useSettingsStore.setState({
+      layoutPreset: 'horizontal',
+      // implementation — `loopProtection` was removed; the runtime always
+      // applies the guard. Parent-timeout smoke cases can override
+      // `maxLoopIterations` per case so they still exercise the
+      // runner deadline instead of the loop guard.
+      nativeExecutionAcknowledged: true,
+    });
+    useUIStore.setState({
+      sidebarVisible: false,
+      consoleVisible: true,
+    });
+
+    memorySnapshots.push(await captureMemorySnapshot('before-cases'));
+
+    for (const smokeCase of cases) {
+      await api.writeJsonArtifact('desktop-smoke-progress.json', {
+        generatedAt: new Date().toISOString(),
+        status: 'running-case',
+        currentLanguage: smokeCase.language,
+        currentCaseId: smokeCase.caseId,
+        completedLanguages: summaries.map(summary => summary.language),
+        completedCaseIds: summaries.map(summary => summary.caseId),
+      } satisfies SmokeProgressArtifact);
+
+      useConsoleStore.getState().clear();
+      useResultStore.getState().clear();
+      useEditorStore.setState({ tabs: [], activeTabId: null });
+
+      const editorInteractionStartedAt = performance.now();
+      const tab = createSmokeTab(
+        smokeCase.language,
+        smokeCase.fileName,
+        smokeCase.content,
+        smokeCase.runtimeMode
+      );
+      const { addTab } = useEditorStore.getState();
+      addTab(tab);
+      if (typeof smokeCase.maxLoopIterations === 'number') {
+        useSettingsStore.setState({
+          maxLoopIterations: smokeCase.maxLoopIterations,
+        });
+      }
+
+      await waitForDesktopSmokeEditorReady({
+        expectedContent: smokeCase.content,
+      });
+      if (firstEditorInteractionWallTimeMs === null) {
+        firstEditorInteractionWallTimeMs = Math.round(
+          performance.now() - editorInteractionStartedAt
+        );
+      }
+      const executionStartedAt = performance.now();
+      const execution = await withTimeout(
+        executeTabManually(tab, {
+          executionTimeoutMs: smokeCase.runnerTimeoutMs,
+        }),
+        smokeCase.timeoutMs ?? DEFAULT_CASE_TIMEOUT_MS,
+        `${smokeCase.caseId} smoke execution`
+      );
+      const executionWallTimeMs = Math.round(performance.now() - executionStartedAt);
+      await waitForUi();
+
+      const screenshotPath = await withTimeout(
+        api.capture(`desktop-smoke-${smokeCase.caseId}`),
+        10_000,
+        `${smokeCase.caseId} smoke screenshot capture`
+      );
+
+      let ok: boolean;
+      let message: string;
+      if (smokeCase.expectFailure) {
+        // Timeout-shaped case: the runner must report an error
+        // whose message matches the regex (covers both EN and
+        // ES copies) and the synthetic `executionTime` set by
+        // `runnerTimeoutResult` must equal the configured
+        // deadline. A real `done` reply would carry the actual
+        // runtime instead, which is the negative signal we use
+        // to detect that the parent kill timer never fired.
+        const matches = !execution.ok && smokeCase.expectFailure.test(execution.message);
+        const expectedDeadline = smokeCase.runnerTimeoutMs ?? DEFAULT_CASE_TIMEOUT_MS;
+        const killedByParent =
+          execution.executionTime === null || execution.executionTime <= expectedDeadline;
+        ok = matches && killedByParent;
+        message = ok
+          ? `Captured ${smokeCase.caseId} timeout error`
+          : !matches
+            ? `Expected timeout-shaped error, got: ${execution.message}`
+            : `Timeout case did not match parent kill timer (executionTime=${execution.executionTime}ms vs expected ${expectedDeadline}ms)`;
+      } else {
+        const consoleEntries = useConsoleStore.getState().entries;
+        const sawExpectedOutput = consoleEntries.some(entry =>
+          smokeCase.expectText ? entry.content.includes(smokeCase.expectText) : false
+        );
+        // internal — env-isolation gate: a sentinel secret must NOT
+        // appear anywhere in captured console output.
+        const leakedForbidden =
+          smokeCase.forbidText !== undefined &&
+          consoleEntries.some(entry => entry.content.includes(smokeCase.forbidText!));
+        ok = execution.ok && sawExpectedOutput && !leakedForbidden;
+        message = ok
+          ? `Captured ${smokeCase.caseId} smoke output`
+          : leakedForbidden
+            ? `${smokeCase.caseId} leaked sentinel secret into stdout`
+            : execution.ok
+              ? `Expected output "${smokeCase.expectText ?? ''}" was missing from the console`
+              : execution.message;
+      }
+
+      summaries.push({
+        caseId: smokeCase.caseId,
+        language: smokeCase.language,
+        ok,
+        message,
+        executionTime: execution.executionTime,
+        executionWallTimeMs,
+        screenshotPath,
+      });
+
+      memorySnapshots.push(await captureMemorySnapshot(`after-${smokeCase.caseId}`));
+    }
+
+    // implementation — offline-mode synthetic case. When the
+    // smoke is launched with --offline, the main-process
+    // webRequest filter cancels any non-loopback HTTP/HTTPS
+    // request and records the URL. The Python case already had
+    // to boot Pyodide off-disk to pass; this case makes the
+    // assertion explicit so an unrelated regression (e.g. a
+    // future analytics ping) does not slip past. Drop the
+    // optional-chain on `getOfflineBlocks` so a missing handler
+    // throws into the outer catch and fails the smoke loudly,
+    // rather than letting the offline gate silently report
+    // success.
+    if (config.offline) {
+      const blocked = await api.getOfflineBlocks();
+      const ok = blocked.length === 0;
+      summaries.push({
+        caseId: 'offline-no-cdn',
+        language: 'python',
+        ok,
+        message: ok
+          ? 'No remote URL was attempted during the offline smoke run'
+          : `Offline smoke blocked ${blocked.length} request(s): ${blocked.slice(0, 5).join(', ')}`,
+        executionTime: null,
+        executionWallTimeMs: 0,
+        screenshotPath: null,
+      });
+    }
+
+    const success = summaries.every(summary => summary.ok);
+    await api.writeJsonArtifact('desktop-smoke-progress.json', {
+      generatedAt: new Date().toISOString(),
+      status: 'completed',
+      completedLanguages: summaries.map(summary => summary.language),
+      completedCaseIds: summaries.map(summary => summary.caseId),
+    } satisfies SmokeProgressArtifact);
+    await api.writeJsonArtifact('desktop-smoke-summary.json', {
+      generatedAt: new Date().toISOString(),
+      artifactDir: config.artifactDir,
+      cases: summaries,
+    });
+    await api.writeJsonArtifact(
+      'desktop-smoke-performance.json',
+      buildPerformanceArtifact(
+        config.artifactDir,
+        smokeStartedAt,
+        launcherToSmokeReadyMs,
+        firstEditorInteractionWallTimeMs,
+        summaries,
+        memorySnapshots
+      )
+    );
+    api.finish(success);
+  } catch (error) {
+    await api.writeJsonArtifact('desktop-smoke-progress.json', {
+      generatedAt: new Date().toISOString(),
+      status: 'failed',
+      completedLanguages: summaries.map(summary => summary.language),
+      completedCaseIds: summaries.map(summary => summary.caseId),
+      error: error instanceof Error ? error.message : String(error),
+    } satisfies SmokeProgressArtifact);
+    await api.writeJsonArtifact('desktop-smoke-summary.json', {
+      generatedAt: new Date().toISOString(),
+      artifactDir: config.artifactDir,
+      cases: summaries,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await api.writeJsonArtifact(
+      'desktop-smoke-performance.json',
+      buildPerformanceArtifact(
+        config.artifactDir,
+        smokeStartedAt,
+        launcherToSmokeReadyMs,
+        firstEditorInteractionWallTimeMs,
+        summaries,
+        memorySnapshots
+      )
+    );
+    api.finish(false);
+  }
+}
