@@ -20,14 +20,14 @@ import { parseRunCapsule } from '../../shared/runCapsule';
 import { SHARE_FRAGMENT_PREFIX } from '../../shared/sharePayload';
 import { parseCurlCommand } from '../utils/curlToCode';
 import {
-  decodeBase64,
+  decodeBase64ForDetection,
   detectsAsBase64,
   detectsAsColor,
   detectsAsCron,
   detectsAsJson,
   detectsAsJwt,
   detectsAsUuid,
-} from '../utils/developerUtilities';
+} from '../utils/developerUtilityDetection';
 
 /**
  * Closed set of paste-intent kinds. Telemetry `handler` mirrors these,
@@ -312,10 +312,9 @@ function isHumanEpoch(digits: string): boolean {
  * control char means "leave it alone".
  */
 function decodesToReadableText(value: string): boolean {
-  const decoded = decodeBase64(value);
-  if (decoded.errorKey !== null || !decoded.value) return false;
-  if (decoded.value.includes('�')) return false;
-  for (const char of decoded.value) {
+  const decoded = decodeBase64ForDetection(value);
+  if (!decoded || decoded.includes('�')) return false;
+  for (const char of decoded) {
     const code = char.codePointAt(0) ?? 0;
     if (code < 0x20 && char !== '\n' && char !== '\r' && char !== '\t') return false;
   }

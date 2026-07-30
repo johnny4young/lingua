@@ -453,6 +453,7 @@ describe('detectsAs* predicates ', () => {
     expect(detectsAsColor('#4f46e5')).toBe(true);
     expect(detectsAsColor('rgb(79, 70, 229)')).toBe(true);
     expect(detectsAsColor('hsl(245, 75%, 58%)')).toBe(true);
+    expect(detectsAsColor('4f46e5')).toBe(false);
     expect(detectsAsColor('not a color')).toBe(false);
   });
 

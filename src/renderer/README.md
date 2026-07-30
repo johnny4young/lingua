@@ -77,7 +77,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
 | [`components/GuidedTour/`](components/GuidedTour)         | `GuidedTourProvider.tsx`, step helpers                | First-run tour orchestration and target selectors              |
 | [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, `NotebookToolbar.tsx`, `NotebookCellList.tsx`, cell rows | Notebook orchestration, toolbar/export lifecycle, virtualized cells, keyboard command mode |
-| [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 29 utility panels plus panel-specific validation/output UX      |
+| [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 31 utility panels plus panel-specific validation/output UX      |
 | [`components/Dependencies/`](components/Dependencies)     | `DependenciesPanel.tsx`                               | JS/TS and Python dependency detection/install surfaces          |
 | [`components/BrowserPreview/`](components/BrowserPreview) | `BrowserPreviewPanel.tsx`                             | Iframe preview panel and active iframe bridge integration       |
 | [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`                                  | JS/TS debugger drawer controls and paused-frame display         |
@@ -101,6 +101,21 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Welcome/`](components/Welcome)               | welcome/project template overlays                     | Empty-state entry points and project template launcher          |
 | [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |
 | [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
+
+Developer Utilities use separate startup and implementation layers:
+
+- [`data/developerUtilities.ts`](data/developerUtilities.ts) is the
+  always-reachable catalog. Keep it limited to identifiers, search copy,
+  aliases, and entitlement metadata.
+- [`utils/developerUtilityDetection.ts`](utils/developerUtilityDetection.ts)
+  owns cheap synchronous predicates shared by Smart Paste and panel Apply
+  eligibility.
+- [`data/developerUtilityDetectors.ts`](data/developerUtilityDetectors.ts)
+  exhaustively maps every utility id to a predicate or an explicit `null`.
+  It is imported from the lazy panel primitives, not from the catalog.
+- [`utils/developerUtilities.ts`](utils/developerUtilities.ts) owns the full
+  analyzers and transformations. It loads with utility panels that use those
+  implementations rather than with the workspace shell.
 
 ## State ownership
 

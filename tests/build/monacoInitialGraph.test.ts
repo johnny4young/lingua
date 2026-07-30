@@ -112,6 +112,22 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     module: 'src/renderer/testing/RichConsoleE2eFixture.tsx',
     why: 'the Playwright-only rich console gallery and its complete Console panel tree',
   },
+  {
+    module: 'src/renderer/data/developerUtilityDetectors.ts',
+    why: 'utility input detectors used only after a Developer Utilities panel opens',
+  },
+  {
+    module: 'src/renderer/utils/developerUtilityDetection.ts',
+    why: 'synchronous utility predicates used only by Smart Paste or an open utility panel',
+  },
+  {
+    module: 'src/renderer/utils/developerUtilities.ts',
+    why: 'JSON, URL, JWT, color, cron, and text analyzers used by utility panels',
+  },
+  {
+    module: 'src/renderer/utils/jwt.ts',
+    why: 'JWT decoding and verification used only by the JWT utility panel',
+  },
 ];
 
 /**

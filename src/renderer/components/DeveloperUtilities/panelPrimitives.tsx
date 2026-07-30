@@ -4,6 +4,7 @@ import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from './CopyButton';
 import { findDeveloperUtility, type DeveloperUtilityId } from '../../data/developerUtilities';
+import { findDeveloperUtilityDetector } from '../../data/developerUtilityDetectors';
 import { useRegisterUtilityApply } from '../../hooks/useRegisterUtilityOutput';
 import { useClipboardOnFocus } from '../../hooks/useClipboardOnFocus';
 import { useUtilityPanelActive } from '../../hooks/utilityPanelActive';
@@ -160,12 +161,12 @@ export function TimestampHoverValue({
  * registration keeps panel boilerplate to a single JSX line and stops
  * Tailwind drift across 27 panels.
  *
- * The toolbar reads `detect` from the catalog by id, evaluates it
- * against `primary` / `secondary`, and exposes `enabled` to both the
- * button and the global shortcut. The hook is always called (React's
- * rules-of-hooks forbids conditional invocation), but when `detect`
- * is absent the registered descriptor returns `enabled: false`, the
- * Apply button is hidden, and Mod+Shift+A surfaces the
+ * The toolbar reads its detector from the implementation registry by id,
+ * evaluates it against `primary` / `secondary`, and exposes `enabled` to
+ * both the button and the global shortcut. The hook is always called
+ * (React's rules-of-hooks forbids conditional invocation), but when a
+ * detector is absent the registered descriptor returns `enabled: false`,
+ * the Apply button is hidden, and Mod+Shift+A surfaces the
  * `applyUnavailable` toast. The pure-generator panels (random-string,
  * lorem-ipsum) skip the toolbar entirely — they keep their existing
  * Generate buttons as the canonical action.
@@ -207,7 +208,7 @@ export function UtilityToolbar({
   const { t } = useTranslation();
   const panelActive = useUtilityPanelActive();
   const definition = useMemo(() => findDeveloperUtility(utilityId), [utilityId]);
-  const detect = definition.detect;
+  const detect = useMemo(() => findDeveloperUtilityDetector(utilityId), [utilityId]);
   const enabled = useMemo(() => {
     if (!detect) return false;
     try {
