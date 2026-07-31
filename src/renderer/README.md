@@ -398,16 +398,23 @@ collection state:
 
 - [`../shared/httpSensitiveHeaders.ts`](../shared/httpSensitiveHeaders.ts) is
   the startup-safe privacy-policy leaf used by Settings and import previews.
-  Keep the full schema, parsers, auth composition, captures, assertions, and
-  serializers in [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) on
-  the activation side of the workspace boundary.
+- [`../shared/httpWorkspaceSchema.ts`](../shared/httpWorkspaceSchema.ts) is the
+  dependency-safe request/response contract used by import detection and
+  preview. Keep only closed enums, limits, data shapes, UTF-8 sizing, and the
+  blank-request factory there.
+- [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) preserves the
+  historical facade and owns validation plus behavior: parsers, auth
+  composition, query synchronization, captures, assertions, and serializers.
+  Import Preview loads its store-writing confirmation module only after the
+  user accepts a valid preview, so merely inspecting input does not hydrate the
+  HTTP collection or fetch the implementation chunk.
 - [`runtime/openWorkspaceTab.ts`](runtime/openWorkspaceTab.ts) only opens or
   focuses the stable editor tab, so keyboard shortcuts and Command Palette
   discovery do not hydrate either workspace collection during startup.
-- Import surfaces create requests through
-  [`stores/workspaceToolStore.ts`](stores/workspaceToolStore.ts) first. Its
-  create mutations select the new request atomically before the lightweight
-  bridge reveals the HTTP tab.
+- Confirmed import surfaces create requests through
+  [`stores/workspaceToolStore.ts`](stores/workspaceToolStore.ts). Its create
+  mutations select the new request atomically before the lightweight bridge
+  reveals the HTTP tab.
 - Smart Paste keeps cURL detection with Monaco but loads the HTTP collection
   store only after the user accepts the import action. A deferred-load failure
   keeps the pasted text and surfaces localized retry guidance.

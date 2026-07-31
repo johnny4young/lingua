@@ -15,8 +15,8 @@ import type {
   ImporterLossyWarning,
   ImporterRejectReason,
 } from '../../shared/importers/types';
-import type { HttpRequestV1 } from '../../shared/httpWorkspace';
-import { utf8ByteLength } from '../../shared/httpWorkspace';
+import type { HttpRequestV1 } from '../../shared/httpWorkspaceSchema';
+import { utf8ByteLength } from '../../shared/httpWorkspaceSchema';
 import {
   isNotebookCodeCell,
   type NotebookCellLanguage,
@@ -60,7 +60,7 @@ export interface UseImportPreviewResult {
   state: ImportPreviewState;
   previewSource: (source: string) => void;
   setVariableSource: (slot: VariableSourceSlot, raw: string) => void;
-  confirm: () => ConfirmResult | null;
+  confirm: () => Promise<ConfirmResult | null>;
   reset: () => void;
   trackCancelled: () => void;
   warnings: ReadonlyArray<ImporterLossyWarning>;

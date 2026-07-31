@@ -185,6 +185,24 @@ from 1,158,360 to 1,148,888 raw bytes and from 303,387 to 300,712 gzip-9 bytes.
 The desktop renderer retained 16 initial files while falling from 1,147,860 to
 1,138,391 raw bytes and from 300,339 to 297,688 gzip-9 bytes.
 
+Import Preview has a second HTTP boundary inside its already-lazy surface.
+`shared/httpWorkspaceSchema.ts` contains the dependency-free request/response
+contract and blank factory needed to parse and display cURL, Postman, and Bruno
+input. The store-writing `hooks/importPreviewConfirm.ts` is requested only
+after the user confirms a valid preview; that module activates the HTTP
+collection, parser/behavior facade, editor stores, and workspace-tab bridge.
+Failed confirmation loads are evicted for retry, while the button exposes its
+busy state and localized recovery guidance prevents silent failure. A focused
+source-graph guard keeps both the confirmation module and
+`shared/httpWorkspace.ts` out of the preview graph. The graph fell from 105 to
+65 modules and from 870,059 to 538,545 reachable source bytes (40 modules and
+331,514 bytes deferred). Production startup stayed effectively flat: web kept
+14 initial files at +206 raw / +91 gzip-9 bytes, while the desktop renderer
+added one 483-byte shared-schema chunk and changed by +538 raw / +528 gzip-9
+bytes. The activated build now exposes the deferred confirmation and workspace
+implementation as independent lazy chunks (2,884 and 9,146 raw bytes in the
+web build), so opening the preview no longer implies loading them.
+
 Keyboard shortcuts separate startup behavior from reference presentation.
 `data/keyboardShortcuts.ts` keeps ids, groups, default combos, matching,
 override resolution, and platform-aware formatting in the initial graph so

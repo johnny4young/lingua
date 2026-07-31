@@ -26,7 +26,7 @@ import {
   type HttpRequestBody,
   type HttpRequestBodyKind,
   type HttpRequestHeader,
-} from '../httpWorkspace';
+} from '../httpWorkspaceSchema';
 import type {
   BrunoRejectReason,
   ImporterAdapter,

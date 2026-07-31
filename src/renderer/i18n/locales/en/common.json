@@ -510,6 +510,7 @@
   "importPreview.action.cancel": "Cancel",
   "importPreview.success.toast": "Imported as a new HTTP request.",
   "importPreview.notice.fileReadFailed": "Failed to read {{filename}}: {{detail}}",
+  "importPreview.notice.activationFailed": "Couldn’t load the importer. Check your connection and try again.",
   "importPreview.notice.multipleFilesIgnored": "Only the first file was processed ({{filename}}). Repeat the import for the rest.",
   "importPreview.notice.variablesFromDrop_one": "Collection loaded with {{count}} variable source from the drop.",
   "importPreview.notice.variablesFromDrop_other": "Collection loaded with {{count}} variable sources from the drop.",

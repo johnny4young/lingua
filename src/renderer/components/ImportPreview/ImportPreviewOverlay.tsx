@@ -99,6 +99,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
 
   const [pasteValue, setPasteValue] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Reset hook state on unmount so a re-open starts clean.
   useEffect(() => {
@@ -295,41 +296,52 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     [previewSource, setVariableSource, pushStatusNotice]
   );
 
-  const handleConfirm = useCallback(() => {
-    const created = confirm();
-    if (!created) {
-      // Confirm failed (tier ceiling etc.) — the hook already
-      // surfaced the upsell notice. Just close the overlay.
+  const handleConfirm = useCallback(async () => {
+    if (isConfirming) return;
+    setIsConfirming(true);
+    try {
+      const created = await confirm();
+      if (!created) {
+        // Confirm failed (tier ceiling etc.) — the hook already
+        // surfaced the upsell notice. Just close the overlay.
+        closeRef.current();
+        return;
+      }
+      // `confirm()` owns the state mutation; the overlay only translates the
+      // returned adapter kind into the most specific success copy.
+      if (created.kind === 'curl-http') {
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'importPreview.success.toast',
+        });
+      } else if (
+        created.kind === 'ipynb-notebook' ||
+        created.kind === 'linguanb-notebook'
+      ) {
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'importPreview.success.notebookOpened',
+        });
+      } else if (
+        created.kind === 'postman-collection' ||
+        created.kind === 'bruno-collection'
+      ) {
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'importPreview.success.collectionImported',
+          values: { count: created.requestCount ?? 0 },
+        });
+      }
       closeRef.current();
-      return;
+    } catch {
+      pushStatusNotice({
+        tone: 'warning',
+        messageKey: 'importPreview.notice.activationFailed',
+      });
+    } finally {
+      setIsConfirming(false);
     }
-    // `confirm()` owns the state mutation; the overlay only translates the
-    // returned adapter kind into the most specific success copy.
-    if (created.kind === 'curl-http') {
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'importPreview.success.toast',
-      });
-    } else if (
-      created.kind === 'ipynb-notebook' ||
-      created.kind === 'linguanb-notebook'
-    ) {
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'importPreview.success.notebookOpened',
-      });
-    } else if (
-      created.kind === 'postman-collection' ||
-      created.kind === 'bruno-collection'
-    ) {
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'importPreview.success.collectionImported',
-        values: { count: created.requestCount ?? 0 },
-      });
-    }
-    closeRef.current();
-  }, [confirm, pushStatusNotice]);
+  }, [confirm, isConfirming, pushStatusNotice]);
 
   const previewed = state.phase === 'previewed' ? state.preview : undefined;
   const rejected = state.phase === 'rejected' ? state.reason : null;
@@ -418,7 +430,8 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={!canConfirm}
+            disabled={!canConfirm || isConfirming}
+            aria-busy={isConfirming}
             data-testid="import-preview-confirm"
             className="button-primary"
           >

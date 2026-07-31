@@ -158,7 +158,9 @@ describe('ImportPreviewOverlay', () => {
       expect(btn.disabled).toBe(false);
     });
     await user.click(screen.getByTestId('import-preview-confirm'));
-    expect(closed).toBe(true);
+    await waitFor(() => {
+      expect(closed).toBe(true);
+    });
     const requests = useWorkspaceToolStore.getState().requests;
     expect(requests).toHaveLength(1);
     expect(requests[0]?.method).toBe('POST');

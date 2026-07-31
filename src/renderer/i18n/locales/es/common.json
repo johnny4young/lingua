@@ -510,6 +510,7 @@
   "importPreview.action.cancel": "Cancelar",
   "importPreview.success.toast": "Importado como un nuevo HTTP request.",
   "importPreview.notice.fileReadFailed": "No pude leer {{filename}}: {{detail}}",
+  "importPreview.notice.activationFailed": "No pudimos cargar el importador. Revisa tu conexión e inténtalo de nuevo.",
   "importPreview.notice.multipleFilesIgnored": "Solo se procesó el primer archivo ({{filename}}). Repite la importación para los demás.",
   "importPreview.notice.variablesFromDrop_one": "Colección cargada con {{count}} fuente de variables del archivo soltado.",
   "importPreview.notice.variablesFromDrop_other": "Colección cargada con {{count}} fuentes de variables de los archivos soltados.",

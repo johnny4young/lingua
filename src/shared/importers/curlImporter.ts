@@ -40,7 +40,7 @@ import {
   type HttpMethod,
   type HttpRequestBody,
   type HttpRequestHeader,
-} from '../httpWorkspace';
+} from '../httpWorkspaceSchema';
 import type {
   ImporterAdapter,
   ImporterLossyWarning,

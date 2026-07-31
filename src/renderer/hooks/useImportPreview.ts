@@ -6,7 +6,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { bucketCapsuleSize } from '../../shared/runCapsule';
 import { trackImportApplied } from './importTelemetry';
-import { confirmImportPreview } from './importPreviewConfirm';
 import {
   collectImportWarnings,
   INITIAL_IMPORT_PREVIEW_STATE,
@@ -16,6 +15,19 @@ import {
   type UseImportPreviewResult,
   type VariableSourceSlot,
 } from './importPreviewModel';
+
+type ImportPreviewConfirmModule = typeof import('./importPreviewConfirm');
+
+let confirmModulePromise: Promise<ImportPreviewConfirmModule> | null = null;
+
+/** Load store-writing import behavior only after the user confirms a preview. */
+function loadImportPreviewConfirm(): Promise<ImportPreviewConfirmModule> {
+  confirmModulePromise ??= import('./importPreviewConfirm').catch((error) => {
+    confirmModulePromise = null;
+    throw error;
+  });
+  return confirmModulePromise;
+}
 
 export type {
   AnyImporterPreview,
@@ -41,7 +53,8 @@ export function useImportPreview(): UseImportPreviewResult {
     []
   );
 
-  const confirm = useCallback(() => {
+  const confirm = useCallback(async () => {
+    const { confirmImportPreview } = await loadImportPreviewConfirm();
     const outcome = confirmImportPreview(state);
     if (outcome.completed) setState(INITIAL_IMPORT_PREVIEW_STATE);
     return outcome.result;

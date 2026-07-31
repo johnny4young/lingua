@@ -1,7 +1,7 @@
 import {
   createBlankHttpRequest,
   type HttpRequestV1,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspaceSchema';
 import type { CurlImporterResult } from '../../shared/importers/curlImporter';
 import type { IpynbImporterResult } from '../../shared/importers/ipynbImporter';
 import type { LinguanbImporterResult } from '../../shared/importers/linguanbImporter';
