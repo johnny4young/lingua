@@ -406,6 +406,9 @@ collection state:
   owns strict request/response parsing at localStorage and IPC trust
   boundaries. Persistence consumers import this leaf directly so rehydration
   does not activate workspace behavior.
+- [`../shared/httpWorkspaceQuery.ts`](../shared/httpWorkspaceQuery.ts) owns
+  tolerant URL parsing and two-way synchronization with the Params editor.
+  Keep it schema-only because it runs on every URL and parameter edit.
 - [`../shared/httpWorkspaceCaptures.ts`](../shared/httpWorkspaceCaptures.ts)
   owns response selectors and environment-write candidates for request
   chaining.
@@ -414,10 +417,9 @@ collection state:
   import these modules directly so neither domain depends on the complete
   behavioral facade.
 - [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) preserves the
-  historical facade and owns behavior: auth composition, query
-  synchronization, and serializers. It re-exports schema, persistence,
-  capture, and assertion APIs for compatibility, but lightweight consumers
-  must use the dedicated leaves.
+  historical facade and owns auth composition plus cURL serialization. It
+  re-exports schema, persistence, query, capture, and assertion APIs for
+  compatibility, but lightweight consumers must use the dedicated leaves.
   Import Preview loads its store-writing confirmation module only after the
   user accepts a valid preview, so merely inspecting input does not hydrate the
   HTTP collection or fetch the implementation chunk.

@@ -19,12 +19,14 @@ import {
   composeRequestHeaders,
   createBlankHttpRequest,
   DEFAULT_API_KEY_HEADER,
-  paramsToUrl,
   parseHttpRequest,
-  reconcileParamsWithUrl,
-  urlToParams,
   type HttpRequestV1,
 } from '../../src/shared/httpWorkspace';
+import {
+  paramsToUrl,
+  reconcileParamsWithUrl,
+  urlToParams,
+} from '../../src/shared/httpWorkspaceQuery';
 import {
   maskSecretsForCapsule,
   type HttpEnvironmentV1,

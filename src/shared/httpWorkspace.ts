@@ -4,8 +4,8 @@
  * The dependency-safe request/response shapes, limits, enums, and blank
  * request factory live in `httpWorkspaceSchema.ts`. Strict persistence
  * validation lives in `httpWorkspacePersistence.ts`. This module preserves
- * the historical public facade while owning auth composition, query
- * synchronization, and cURL serialization. Response captures and assertions
+ * the historical public facade while owning auth composition and cURL
+ * serialization. Query synchronization, response captures, and assertions
  * live in dedicated dependency-light modules.
  *
  * Privacy posture:
@@ -20,7 +20,6 @@
 
 import { isBaselineSensitiveHttpHeader } from './httpSensitiveHeaders';
 import type {
-  HttpQueryParam,
   HttpRequestAuth,
   HttpRequestV1,
 } from './httpWorkspaceSchema';
@@ -30,6 +29,7 @@ export { BASELINE_SENSITIVE_HEADERS } from './httpSensitiveHeaders';
 export { parseHttpRequest, parseHttpResponse } from './httpWorkspacePersistence';
 export * from './httpWorkspaceAssertions';
 export * from './httpWorkspaceCaptures';
+export * from './httpWorkspaceQuery';
 export * from './httpWorkspaceSchema';
 
 /**
@@ -53,90 +53,6 @@ export function isHeaderSensitive(
     if (allow.toLowerCase().trim() === lc) return true;
   }
   return false;
-}
-
-// ---------------------------------------------------------------------------
-// Params <-> URL sync. The Params sub-tab and the URL bar are two views
-// of the same query string; these helpers keep them coherent.
-// ---------------------------------------------------------------------------
-
-/**
- * Split a URL string into its base (everything before `?`) and its
- * raw query string (everything after the first `?`, sans the `?`
- * itself, and dropping any `#fragment`). Works on partial / invalid
- * URLs too — the editor lets the user type `api.exa` before it parses
- * — so we operate on the raw string, never `new URL()`.
- */
-function splitUrlQuery(url: string): { base: string; query: string } {
-  const hashIdx = url.indexOf('#');
-  const withoutHash = hashIdx === -1 ? url : url.slice(0, hashIdx);
-  const qIdx = withoutHash.indexOf('?');
-  if (qIdx === -1) return { base: withoutHash, query: '' };
-  return {
-    base: withoutHash.slice(0, qIdx),
-    query: withoutHash.slice(qIdx + 1),
-  };
-}
-
-/**
- * Derive query-param rows from a URL string. Used to seed the Params
- * table from a URL the user typed / pasted (or a back-compat request
- * with no `queryParams`). Decodes `+` and percent-escapes per
- * `URLSearchParams`. Every derived row is `enabled: true`.
- */
-export function urlToParams(url: string): HttpQueryParam[] {
-  const { query } = splitUrlQuery(url);
-  if (query.length === 0) return [];
-  const params: HttpQueryParam[] = [];
-  // `URLSearchParams` handles `+` → space, percent-decoding, and
-  // repeated keys (each becomes its own row, preserving order).
-  for (const [key, value] of new URLSearchParams(query)) {
-    params.push({ key, value, enabled: true });
-  }
-  return params;
-}
-
-/**
- * Reconcile the Params table when the URL bar is edited directly.
- *
- * `urlToParams` alone only recovers the `enabled` rows encoded in the
- * query string — a disabled ("commented out") row is intentionally NOT
- * in the URL (`paramsToUrl` drops it), so re-seeding purely from the URL
- * silently DELETES every disabled row on the first keystroke. This
- * merges the freshly-parsed enabled rows with the disabled rows carried
- * over from `prevParams`, so toggling a row off and then editing the URL
- * no longer loses it. Disabled rows keep their relative order and are
- * appended after the URL-derived rows.
- */
-export function reconcileParamsWithUrl(
-  nextUrl: string,
-  prevParams: ReadonlyArray<HttpQueryParam>
-): HttpQueryParam[] {
-  const fromUrl = urlToParams(nextUrl);
-  const disabled = prevParams.filter((param) => !param.enabled);
-  return [...fromUrl, ...disabled];
-}
-
-/**
- * Rebuild a URL string from a base URL + query-param rows. The base is
- * taken from `url` (everything before `?`); enabled rows with a
- * non-empty key are appended as a fresh query string. Disabled rows
- * and empty-key rows are dropped. A trailing `#fragment` on the input
- * is preserved. Encoding matches `URLSearchParams` (so it round-trips
- * with `urlToParams`).
- */
-export function paramsToUrl(url: string, params: ReadonlyArray<HttpQueryParam>): string {
-  const hashIdx = url.indexOf('#');
-  const fragment = hashIdx === -1 ? '' : url.slice(hashIdx);
-  const { base } = splitUrlQuery(url);
-  const search = new URLSearchParams();
-  for (const param of params) {
-    if (!param.enabled) continue;
-    if (param.key.length === 0) continue;
-    search.append(param.key, param.value);
-  }
-  const query = search.toString();
-  return query.length > 0 ? `${base}?${query}${fragment}` : `${base}${fragment}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -14,10 +14,13 @@ const schemaModule = 'src/shared/httpWorkspaceSchema.ts';
 const persistenceModule = 'src/shared/httpWorkspacePersistence.ts';
 const capturesModule = 'src/shared/httpWorkspaceCaptures.ts';
 const assertionsModule = 'src/shared/httpWorkspaceAssertions.ts';
+const queryModule = 'src/shared/httpWorkspaceQuery.ts';
 const implementationModule = 'src/shared/httpWorkspace.ts';
 const confirmationModule = 'src/renderer/hooks/importPreviewConfirm.ts';
 const responsePreviewModule =
   'src/renderer/components/HttpWorkspace/HttpResponsePreview.tsx';
+const requestEditorModule =
+  'src/renderer/components/HttpWorkspace/HttpRequestEditor.tsx';
 
 describe('HTTP workspace activation boundary', () => {
   it('keeps full HTTP behavior behind Import Preview confirmation', () => {
@@ -106,5 +109,18 @@ describe('HTTP workspace activation boundary', () => {
         implementationModule
       ).join(' -> ')}`
     ).toBe(false);
+  });
+
+  it('keeps query synchronization schema-only and directly owned by the editor', () => {
+    const querySource = readFileSync(path.join(repoRoot, queryModule), 'utf8');
+    expect(staticSpecifiers(querySource)).toEqual([]);
+    expect(querySource).toContain("from './httpWorkspaceSchema'");
+    expect(querySource).not.toContain("from './httpWorkspace'");
+
+    const editorSource = readFileSync(
+      path.join(repoRoot, requestEditorModule),
+      'utf8'
+    );
+    expect(editorSource).toContain("from '../../../shared/httpWorkspaceQuery'");
   });
 });

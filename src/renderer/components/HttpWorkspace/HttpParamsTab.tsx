@@ -10,7 +10,7 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { HttpQueryParam } from '../../../shared/httpWorkspace';
+import type { HttpQueryParam } from '../../../shared/httpWorkspaceSchema';
 
 export interface HttpParamsTabProps {
   params: ReadonlyArray<HttpQueryParam>;

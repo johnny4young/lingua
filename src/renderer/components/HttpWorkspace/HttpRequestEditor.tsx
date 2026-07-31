@@ -24,12 +24,12 @@
 import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { buildCurlCommand } from '../../../shared/httpWorkspace';
 import {
-  buildCurlCommand,
   paramsToUrl,
   reconcileParamsWithUrl,
   urlToParams,
-} from '../../../shared/httpWorkspace';
+} from '../../../shared/httpWorkspaceQuery';
 import { createBlankAssertion } from '../../../shared/httpWorkspaceAssertions';
 import { createBlankCaptureRule } from '../../../shared/httpWorkspaceCaptures';
 import {
