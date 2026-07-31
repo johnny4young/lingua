@@ -150,7 +150,7 @@ export function ResultPanel() {
         : 'results.empty.manual';
 
   return (
-    <div className="flex h-full flex-col bg-[var(--color-editor-bg)]">
+    <div data-testid="result-panel" className="flex h-full flex-col bg-[var(--color-editor-bg)]">
       {/* implementation — header layout differs by execution mode.
           For scratchpad / run / debug we drop the redundant "Resultado
           en línea" copy (workflow mode is on the pill; inline values
@@ -159,7 +159,7 @@ export function ResultPanel() {
           validate / view modes the header keeps the title +
           description because those tabs don't have inline results to
           consult. */}
-      <div className="flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border-subtle/60 px-4 py-2">
+      <div className="relative flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border-subtle/60 px-4 py-2">
         {dynamic ? (
           <span aria-hidden />
         ) : (

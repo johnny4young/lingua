@@ -221,6 +221,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the draggable Variables portal used only after the inspector is enabled with a matching scope',
   },
   {
+    module: 'src/renderer/components/Editor/RecentRunsPopover.tsx',
+    why: 'the per-tab history rows and replay controls used only after Recent Runs opens',
+  },
+  {
     module: 'src/renderer/components/FileTree/FileTree.tsx',
     why: 'the project explorer used only after the sidebar or compact drawer opens',
   },

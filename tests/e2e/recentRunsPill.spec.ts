@@ -1,5 +1,5 @@
 /**
- * implementation — per-tab Recent Runs pill end-to-end smoke.
+ * Per-tab Recent Runs pill end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -9,7 +9,8 @@
  *     working Replay action.
  *   - Per-tab isolation: a second tab does not see the first tab's
  *     history.
- *   - Mod+Shift+H (implementation note) toggles the popover from the keyboard.
+ *   - Mod+Alt+H toggles the popover from the keyboard.
+ *   - Popover code stays outside the initial graph and is reused after loading.
  *
  * Pre-seeded Pro license required (the pill gates on the
  * `EXECUTION_HISTORY` entitlement).
@@ -34,10 +35,28 @@ async function pressRun(page: Page): Promise<void> {
   await clickRun(page);
 }
 
+async function countRecentRunsPopoverResources(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      performance
+        .getEntriesByType('resource')
+        .filter(entry => /\/assets\/RecentRunsPopover-[^/]+\.js$/.test(entry.name)).length
+  );
+}
+
+async function expectPopoverInsideResultPanel(page: Page): Promise<void> {
+  const resultPanelBounds = await page.getByTestId('result-panel').boundingBox();
+  const popoverBounds = await page.getByTestId('recent-runs-popover').boundingBox();
+  expect(resultPanelBounds).not.toBeNull();
+  expect(popoverBounds).not.toBeNull();
+  expect(popoverBounds!.x).toBeGreaterThanOrEqual(resultPanelBounds!.x - 1);
+  expect(popoverBounds!.x + popoverBounds!.width).toBeLessThanOrEqual(
+    resultPanelBounds!.x + resultPanelBounds!.width + 1
+  );
+}
+
 test.describe('Recent Runs pill ', () => {
-  test('auto-run alone does not surface the pill — manual Cmd+R does', async ({
-    page,
-  }) => {
+  test('auto-run alone does not surface the pill — manual Cmd+R does', async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -57,9 +76,7 @@ test.describe('Recent Runs pill ', () => {
     );
   });
 
-  test('clicking the pill opens the popover; per-tab isolation works', async ({
-    page,
-  }) => {
+  test('clicking the pill opens the popover; per-tab isolation works', async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -68,13 +85,23 @@ test.describe('Recent Runs pill ', () => {
     await pressRun(page);
     await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
 
+    expect(await countRecentRunsPopoverResources(page)).toBe(0);
     await page.getByTestId('recent-runs-pill').click();
     await expect(page.getByTestId('recent-runs-popover')).toBeVisible();
     await expect(page.getByTestId('recent-runs-popover-list').locator('li')).toHaveCount(1);
+    await expectPopoverInsideResultPanel(page);
+    expect(await countRecentRunsPopoverResources(page)).toBe(1);
 
-    // Close popover.
+    // The same document reuses the loaded module on later activations and the
+    // popover remains usable when the layout approaches its minimum width.
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('recent-runs-popover')).toHaveCount(0);
+    await page.setViewportSize({ width: 900, height: 960 });
+    await page.getByTestId('recent-runs-pill').click();
+    await expect(page.getByTestId('recent-runs-popover')).toBeVisible();
+    await expectPopoverInsideResultPanel(page);
+    expect(await countRecentRunsPopoverResources(page)).toBe(1);
+    await page.keyboard.press('Escape');
 
     // Open a second tab — its pill should be hidden (different tab id,
     // zero entries).
@@ -83,10 +110,8 @@ test.describe('Recent Runs pill ', () => {
     await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
   });
 
-  test('Mod+Alt+H toggles the popover from the keyboard (implementation note)', async ({
-    page,
-  }) => {
-    // implementation — moved from Mod+Shift+H to Mod+Alt+H so the
+  test('Mod+Alt+H toggles the popover from the keyboard', async ({ page }) => {
+    // Moved from Mod+Shift+H so the
     // VSCode-parity Mod+Shift+H binding can map to project-replace.
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);

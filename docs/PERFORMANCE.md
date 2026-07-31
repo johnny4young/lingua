@@ -119,6 +119,18 @@ supported non-Node tab. Loading and failed-chunk states remain visible and
 localized; a failed module URL offers a page reload because retrying it in the
 same document is not reliable.
 
+Recent Runs uses a narrower activation boundary because its trigger must remain
+discoverable. `RecentRunsPill.tsx` keeps the per-tab count, Free upsell, and
+global keyboard opener in the initial graph, selecting only primitive active-tab
+fields so buffer edits do not re-render the trigger. Opening an eligible Pro
+history mounts `RecentRunsPopoverHost.tsx`, whose cached loader requests the row
+renderer, relative-time interval, pin/replay controls, runner integration, and
+icons. A successful chunk is reused for later opens; a failed module URL stays
+cached for the document and surfaces a localized reload action. The build graph
+guard keeps `RecentRunsPopover.tsx` deferred, while the E2E contract verifies
+that no matching resource is present before activation and only one is fetched
+across repeated opens.
+
 ## Activation baseline and runner-loading decision
 
 Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,
