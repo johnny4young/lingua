@@ -15,11 +15,11 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getBundledAppInfo } from '../../../shared/appInfo';
+import { applyCaptureRules } from '../../../shared/httpWorkspaceCaptures';
 import {
-  applyCaptureRules,
   createBlankHttpRequest,
   type HttpRequestV1,
-} from '../../../shared/httpWorkspace';
+} from '../../../shared/httpWorkspaceSchema';
 import {
   collectSecretResolvedValues,
   findResolvedVariables,

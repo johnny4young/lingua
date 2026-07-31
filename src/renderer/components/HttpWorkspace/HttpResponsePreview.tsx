@@ -30,11 +30,11 @@
 import { Loader2, SendHorizontal, X } from 'lucide-react';
 import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  runAssertions,
-  type HttpAssertion,
-  type HttpResponseV1,
-} from '../../../shared/httpWorkspace';
+import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
+import type {
+  HttpAssertion,
+  HttpResponseV1,
+} from '../../../shared/httpWorkspaceSchema';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';

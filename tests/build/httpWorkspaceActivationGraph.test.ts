@@ -12,8 +12,12 @@ const importPreviewEntry =
   'src/renderer/components/ImportPreview/ImportPreviewOverlay.tsx';
 const schemaModule = 'src/shared/httpWorkspaceSchema.ts';
 const persistenceModule = 'src/shared/httpWorkspacePersistence.ts';
+const capturesModule = 'src/shared/httpWorkspaceCaptures.ts';
+const assertionsModule = 'src/shared/httpWorkspaceAssertions.ts';
 const implementationModule = 'src/shared/httpWorkspace.ts';
 const confirmationModule = 'src/renderer/hooks/importPreviewConfirm.ts';
+const responsePreviewModule =
+  'src/renderer/components/HttpWorkspace/HttpResponsePreview.tsx';
 
 describe('HTTP workspace activation boundary', () => {
   it('keeps full HTTP behavior behind Import Preview confirmation', () => {
@@ -68,5 +72,39 @@ describe('HTTP workspace activation boundary', () => {
     expect(staticSpecifiers(source)).toEqual(['./httpWorkspaceSchema']);
     expect(source).not.toMatch(/\bimport\s*\(/u);
     expect(source).not.toContain("from './httpWorkspace'");
+  });
+
+  it('keeps captures and assertions independent from the implementation facade', () => {
+    const capturesSource = readFileSync(path.join(repoRoot, capturesModule), 'utf8');
+    expect(staticSpecifiers(capturesSource)).toEqual([]);
+    expect(capturesSource).toContain("from './httpWorkspaceSchema'");
+    expect(capturesSource).not.toContain("from './httpWorkspace'");
+
+    const assertionsSource = readFileSync(
+      path.join(repoRoot, assertionsModule),
+      'utf8'
+    );
+    expect(staticSpecifiers(assertionsSource)).toEqual([
+      './httpWorkspaceCaptures',
+    ]);
+    expect(assertionsSource).toContain("from './httpWorkspaceSchema'");
+    expect(assertionsSource).not.toContain("from './httpWorkspace'");
+  });
+
+  it('lets response previews evaluate assertions without the full implementation', () => {
+    const { parents } = walkStaticImportGraph({
+      repoRoot,
+      entry: responsePreviewModule,
+    });
+
+    expect(parents.has(assertionsModule)).toBe(true);
+    expect(parents.has(capturesModule)).toBe(true);
+    expect(
+      parents.has(implementationModule),
+      `${implementationModule} joined response preview via ${importChain(
+        parents,
+        implementationModule
+      ).join(' -> ')}`
+    ).toBe(false);
   });
 });

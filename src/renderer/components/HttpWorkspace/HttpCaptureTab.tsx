@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import type {
   HttpCaptureRule,
   HttpCaptureSource,
-} from '../../../shared/httpWorkspace';
+} from '../../../shared/httpWorkspaceSchema';
 
 export interface HttpCaptureTabProps {
   captures: ReadonlyArray<HttpCaptureRule>;

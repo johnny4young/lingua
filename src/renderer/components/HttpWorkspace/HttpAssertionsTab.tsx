@@ -14,7 +14,7 @@ import type {
   HttpAssertion,
   HttpAssertionComparator,
   HttpAssertionSource,
-} from '../../../shared/httpWorkspace';
+} from '../../../shared/httpWorkspaceSchema';
 
 export interface HttpAssertionsTabProps {
   assertions: ReadonlyArray<HttpAssertion>;

@@ -406,11 +406,18 @@ collection state:
   owns strict request/response parsing at localStorage and IPC trust
   boundaries. Persistence consumers import this leaf directly so rehydration
   does not activate workspace behavior.
+- [`../shared/httpWorkspaceCaptures.ts`](../shared/httpWorkspaceCaptures.ts)
+  owns response selectors and environment-write candidates for request
+  chaining.
+  [`../shared/httpWorkspaceAssertions.ts`](../shared/httpWorkspaceAssertions.ts)
+  builds assertion evaluation on that selector leaf. Response and editor surfaces
+  import these modules directly so neither domain depends on the complete
+  behavioral facade.
 - [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) preserves the
   historical facade and owns behavior: auth composition, query
-  synchronization, captures, assertions, and serializers. It re-exports the
-  persistence parsers for compatibility, but lightweight consumers must use
-  the dedicated leaf.
+  synchronization, and serializers. It re-exports schema, persistence,
+  capture, and assertion APIs for compatibility, but lightweight consumers
+  must use the dedicated leaves.
   Import Preview loads its store-writing confirmation module only after the
   user accepts a valid preview, so merely inspecting input does not hydrate the
   HTTP collection or fetch the implementation chunk.

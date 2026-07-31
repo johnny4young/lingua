@@ -25,14 +25,16 @@ import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  HTTP_METHODS,
-  MAX_REQUEST_BODY_BYTES,
   buildCurlCommand,
-  createBlankAssertion,
-  createBlankCaptureRule,
   paramsToUrl,
   reconcileParamsWithUrl,
   urlToParams,
+} from '../../../shared/httpWorkspace';
+import { createBlankAssertion } from '../../../shared/httpWorkspaceAssertions';
+import { createBlankCaptureRule } from '../../../shared/httpWorkspaceCaptures';
+import {
+  HTTP_METHODS,
+  MAX_REQUEST_BODY_BYTES,
   utf8ByteLength,
   type HttpAssertion,
   type HttpCaptureRule,
@@ -43,7 +45,7 @@ import {
   type HttpRequestBodyKind,
   type HttpRequestHeader,
   type HttpRequestV1,
-} from '../../../shared/httpWorkspace';
+} from '../../../shared/httpWorkspaceSchema';
 import {
   HTTP_CODEGEN_TARGETS,
   HTTP_CODEGEN_LABELS,

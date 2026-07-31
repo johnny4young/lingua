@@ -5,7 +5,8 @@
  * request factory live in `httpWorkspaceSchema.ts`. Strict persistence
  * validation lives in `httpWorkspacePersistence.ts`. This module preserves
  * the historical public facade while owning auth composition, query
- * synchronization, captures, assertions, and cURL serialization.
+ * synchronization, and cURL serialization. Response captures and assertions
+ * live in dedicated dependency-light modules.
  *
  * Privacy posture:
  *
@@ -19,18 +20,16 @@
 
 import { isBaselineSensitiveHttpHeader } from './httpSensitiveHeaders';
 import type {
-  HttpAssertion,
-  HttpAssertionResult,
-  HttpCaptureRule,
   HttpQueryParam,
   HttpRequestAuth,
   HttpRequestV1,
-  HttpResponseV1,
 } from './httpWorkspaceSchema';
 
 // Historical facade: existing activated callers may keep this import path.
 export { BASELINE_SENSITIVE_HEADERS } from './httpSensitiveHeaders';
 export { parseHttpRequest, parseHttpResponse } from './httpWorkspacePersistence';
+export * from './httpWorkspaceAssertions';
+export * from './httpWorkspaceCaptures';
 export * from './httpWorkspaceSchema';
 
 /**
@@ -243,207 +242,6 @@ export function composeRequestHeaders(
   }
   if (injected) out.push(injected);
   return out;
-}
-
-// ---------------------------------------------------------------------------
-// Post-response capture (request chaining). Pure extraction of a value
-// from a response per a capture rule, plus a blank-rule factory.
-// ---------------------------------------------------------------------------
-
-/** A fresh, disabled-by-nothing capture rule for the Capture tab. */
-export function createBlankCaptureRule(): HttpCaptureRule {
-  return {
-    id: crypto.randomUUID(),
-    source: 'body-json',
-    path: '',
-    targetVariable: '',
-    enabled: true,
-  };
-}
-
-/** internal — a fresh assertion row: status equals (empty expected). */
-export function createBlankAssertion(): HttpAssertion {
-  return {
-    id: crypto.randomUUID(),
-    source: 'status',
-    path: '',
-    comparator: 'equals',
-    expected: '',
-    enabled: true,
-  };
-}
-
-/**
- * Walk a JSON body by a dot/bracket path (`data.token`, `items[0].id`,
- * `items.0.id` — both index forms accepted). Returns the value as a
- * string when it resolves to a JSON primitive; `null` when the body is
- * not JSON, the path misses, or the value is an object/array (a variable
- * can only hold a string).
- */
-function extractJsonPath(body: string, rawPath: string): string | null {
-  let current: unknown;
-  try {
-    current = JSON.parse(body);
-  } catch {
-    return null;
-  }
-  const keys = rawPath
-    .replace(/\[(\d+)\]/g, '.$1')
-    .split('.')
-    .map((key) => key.trim())
-    .filter((key) => key.length > 0);
-  if (keys.length === 0) return null;
-  for (const key of keys) {
-    if (current === null || typeof current !== 'object') return null;
-    current = (current as Record<string, unknown>)[key];
-  }
-  if (current === null || current === undefined) return null;
-  if (typeof current === 'object') return null;
-  if (typeof current === 'string') return current;
-  if (typeof current === 'number' || typeof current === 'boolean') {
-    return String(current);
-  }
-  return null;
-}
-
-/**
- * Resolve a single capture rule against a response. `null` when the
- * rule can't produce a value (miss, non-JSON body, no such header).
- * Pure — the caller decides whether/where to write the value.
- */
-export function extractCaptureValue(
-  response: HttpResponseV1,
-  rule: HttpCaptureRule
-): string | null {
-  switch (rule.source) {
-    case 'status':
-      return String(response.status);
-    case 'header': {
-      const target = rule.path.trim().toLowerCase();
-      if (target.length === 0) return null;
-      const match = response.headers.find(
-        (header) => header.name.toLowerCase() === target
-      );
-      return match ? match.value : null;
-    }
-    case 'body-json':
-      return extractJsonPath(response.body, rule.path);
-    default:
-      return null;
-  }
-}
-
-/**
- * Resolve every enabled rule with a non-empty target that produced a
- * value. The result is the list of `{ targetVariable, value }` writes
- * the panel applies to the active environment. Rules that miss or that
- * lack a target are silently skipped (the panel surfaces a summary).
- */
-export function applyCaptureRules(
-  response: HttpResponseV1,
-  rules: ReadonlyArray<HttpCaptureRule>
-): Array<{ targetVariable: string; value: string }> {
-  const writes: Array<{ targetVariable: string; value: string }> = [];
-  for (const rule of rules) {
-    if (!rule.enabled) continue;
-    const target = rule.targetVariable.trim();
-    if (target.length === 0) continue;
-    const value = extractCaptureValue(response, rule);
-    if (value === null) continue;
-    writes.push({ targetVariable: target, value });
-  }
-  return writes;
-}
-
-// ---------------------------------------------------------------------------
-// internal — response assertions (Postman-style tests, evaluated locally).
-// ---------------------------------------------------------------------------
-
-/**
- * Read the value an assertion checks. Reuses the capture extractor for
- * status / header / body-json; `response-time` reads the response's own
- * measured round-trip duration (ms). `null` on a miss.
- */
-export function extractAssertionValue(
-  response: HttpResponseV1,
-  assertion: HttpAssertion
-): string | null {
-  if (assertion.source === 'response-time') {
-    return String(Math.round(response.durationMs));
-  }
-  // The remaining sources match HttpCaptureSource one-to-one.
-  return extractCaptureValue(response, {
-    id: assertion.id,
-    source: assertion.source,
-    path: assertion.path,
-    targetVariable: '',
-    enabled: true,
-  });
-}
-
-/**
- * Evaluate one assertion against a response. Pure; never throws. Returns
- * the pass/fail verdict plus the actual value (for the results UI).
- */
-export function evaluateAssertion(
-  response: HttpResponseV1,
-  assertion: HttpAssertion
-): HttpAssertionResult {
-  const actual = extractAssertionValue(response, assertion);
-  const expected = assertion.expected.trim();
-
-  let pass: boolean;
-  switch (assertion.comparator) {
-    case 'exists':
-      pass = actual !== null;
-      break;
-    case 'not-exists':
-      pass = actual === null;
-      break;
-    case 'equals':
-      pass = actual !== null && actual === expected;
-      break;
-    case 'not-equals':
-      pass = actual === null || actual !== expected;
-      break;
-    case 'contains':
-      pass = actual !== null && actual.includes(expected);
-      break;
-    case 'less-than':
-    case 'greater-than': {
-      const actualNum = actual === null ? Number.NaN : Number(actual);
-      const expectedNum = Number(expected);
-      if (Number.isNaN(actualNum) || Number.isNaN(expectedNum)) {
-        pass = false;
-      } else {
-        pass =
-          assertion.comparator === 'less-than'
-            ? actualNum < expectedNum
-            : actualNum > expectedNum;
-      }
-      break;
-    }
-    default:
-      pass = false;
-  }
-
-  return { id: assertion.id, pass, actual };
-}
-
-/**
- * Evaluate every enabled assertion against a response. Disabled rows are
- * skipped entirely (not reported). Order is preserved.
- */
-export function runAssertions(
-  response: HttpResponseV1,
-  assertions: ReadonlyArray<HttpAssertion>
-): HttpAssertionResult[] {
-  const results: HttpAssertionResult[] = [];
-  for (const assertion of assertions) {
-    if (!assertion.enabled) continue;
-    results.push(evaluateAssertion(response, assertion));
-  }
-  return results;
 }
 
 // ---------------------------------------------------------------------------
