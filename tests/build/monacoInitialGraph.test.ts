@@ -93,6 +93,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'developer utility action labels, descriptions, aliases, and search keywords used only by lazy reference surfaces',
   },
   {
+    module: 'src/renderer/stores/utilityHistoryStore.ts',
+    why: 'utility history limits, favorites, entitlement persistence, and upsell behavior used only by lazy Utilities surfaces',
+  },
+  {
     module: 'src/shared/projectBundle.ts',
     why: 'the fflate project archive codec used only by bundle export/import',
   },

@@ -139,6 +139,7 @@ describe('migrationRegistry coverage', () => {
         'lingua-trust-events',
         'lingua-utility-pipeline-state',
         'lingua-utility-state',
+        'lingua-utility-workspace',
         'lingua-workspace-sql-state',
         'lingua-workspace-tool-state',
       ].sort()

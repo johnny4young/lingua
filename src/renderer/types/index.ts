@@ -221,7 +221,8 @@ export interface FileTab {
    * slots to full-screen workspace tabs that sit alongside Notebook.
    * As with `'notebook'`, the `content` field is unused: SQL/HTTP own
    * their collections in dedicated workspace stores, and Utilities
-   * keeps its active tool/favorites/history in `utilityHistoryStore`.
+   * keeps active tool selection in `utilityWorkspaceStore` and
+   * favorites/history in activation-scoped `utilityHistoryStore`.
    * `language` is a neutral marker (`'sql'` / `'http'` /
    * `'utilities'`) rather than a Monaco-runnable language so every
    * language-gated code path stays dormant.
@@ -393,7 +394,8 @@ export interface EditorState {
   /**
    * MOV.03 — focus (or create) the single Developer Utilities
    * workspace tab. The selected utility id is owned by
-   * `utilityHistoryStore`, so this tab is only the full-screen shell.
+   * `utilityWorkspaceStore` / `utilityHistoryStore`, so this tab is only the
+   * full-screen shell.
    */
   addUtilitiesTab: (utilityId?: DeveloperUtilityId) => string | null;
   /**

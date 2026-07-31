@@ -49,8 +49,6 @@ beforeEach(() => {
       history: {},
       persistEnabled: {},
       favorites: [],
-      activeUtilityId: 'json',
-      pendingUtilityInput: null,
     },
     false
   );
@@ -69,7 +67,6 @@ describe('utilityHistoryStore — history', () => {
     expect(state.history).toEqual({});
     expect(state.favorites).toEqual([]);
     expect(state.persistEnabled).toEqual({});
-    expect(state.activeUtilityId).toBe('json');
   });
 
   it('pushes an entry to the front of the per-tool ring', () => {
@@ -185,13 +182,6 @@ describe('utilityHistoryStore — favorites', () => {
   });
 });
 
-describe('utilityHistoryStore — workspace selection', () => {
-  it('tracks the active utility workspace tool', () => {
-    useUtilityHistoryStore.getState().setActiveUtilityId('jwt');
-    expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('jwt');
-  });
-});
-
 describe('utilityHistoryStore — persistence partialize', () => {
   it('only persists history for tools where persistEnabled[id] is true', async () => {
     setProTier();
@@ -208,16 +198,14 @@ describe('utilityHistoryStore — persistence partialize', () => {
       state: {
         history: Record<string, unknown>;
         favorites: string[];
-        activeUtilityId: string;
       };
     };
     expect(parsed.state.history.json).toBeDefined();
     expect(parsed.state.history.base64).toBeUndefined();
     expect(parsed.state.favorites).toEqual(['jwt']);
-    expect(parsed.state.activeUtilityId).toBe('json');
   });
 
-  it('persists Free favorites and active utility without saved history', async () => {
+  it('persists Free favorites without saved history', async () => {
     useUtilityHistoryStore.getState().pushEntry('json', '{"a":1}', '');
     useUtilityHistoryStore.getState().pinFavorite('jwt');
 
@@ -229,47 +217,10 @@ describe('utilityHistoryStore — persistence partialize', () => {
         history: Record<string, unknown>;
         persistEnabled: Record<string, unknown>;
         favorites: string[];
-        activeUtilityId: string;
       };
     };
     expect(parsed.state.history).toEqual({});
     expect(parsed.state.persistEnabled).toEqual({});
     expect(parsed.state.favorites).toEqual(['jwt']);
-    expect(parsed.state.activeUtilityId).toBe('json');
-  });
-});
-
-describe('utilityHistoryStore — internal pending utility input', () => {
-  it('sets and clears the one-shot seed', () => {
-    useUtilityHistoryStore
-      .getState()
-      .setPendingUtilityInput({ utilityId: 'jwt', input: 'aaa.bbb.ccc' });
-    expect(useUtilityHistoryStore.getState().pendingUtilityInput).toEqual({
-      utilityId: 'jwt',
-      input: 'aaa.bbb.ccc',
-    });
-    useUtilityHistoryStore.getState().setPendingUtilityInput(null);
-    expect(useUtilityHistoryStore.getState().pendingUtilityInput).toBeNull();
-  });
-
-  it('rejects unknown utility ids', () => {
-    useUtilityHistoryStore
-      .getState()
-      .setPendingUtilityInput({ utilityId: 'nope' as never, input: 'x' });
-    expect(useUtilityHistoryStore.getState().pendingUtilityInput).toBeNull();
-  });
-
-  it('never persists the pending seed (session-only by design)', async () => {
-    useUtilityHistoryStore
-      .getState()
-      .setPendingUtilityInput({ utilityId: 'jwt', input: 'secret-token' });
-    // Trigger a persisted write so partialize runs after the seed landed.
-    useUtilityHistoryStore.getState().pinFavorite('jwt');
-
-    await Promise.resolve();
-    const raw = localStorage.getItem(UTILITY_HISTORY_STORAGE_KEY);
-    expect(raw).not.toBeNull();
-    expect(raw).not.toContain('pendingUtilityInput');
-    expect(raw).not.toContain('secret-token');
   });
 });

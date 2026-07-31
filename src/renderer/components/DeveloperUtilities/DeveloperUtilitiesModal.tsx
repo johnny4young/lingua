@@ -17,6 +17,7 @@ import { ModalShell } from '../ui/ModalShell';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
+import { useUtilityWorkspaceStore } from '../../stores/utilityWorkspaceStore';
 import { DeveloperUtilityPanel } from './UtilityPanels';
 import { prefetchUtilityPanel } from './UtilityPanelRegistry';
 import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
@@ -531,8 +532,8 @@ export function DeveloperUtilitiesModal({
 
 export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: boolean }) {
   const { t } = useTranslation();
-  const activeUtilityId = useUtilityHistoryStore(state => state.activeUtilityId);
-  const setActiveUtilityId = useUtilityHistoryStore(state => state.setActiveUtilityId);
+  const activeUtilityId = useUtilityWorkspaceStore(state => state.activeUtilityId);
+  const setActiveUtilityId = useUtilityWorkspaceStore(state => state.setActiveUtilityId);
 
   return (
     <div

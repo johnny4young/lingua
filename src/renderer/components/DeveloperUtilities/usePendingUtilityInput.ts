@@ -1,6 +1,6 @@
 /**
  * internal — consume the one-shot input seed the smart-paste router leaves
- * in the utility-history store.
+ * in the utility-workspace store.
  *
  * Each target panel calls this with its id and an `apply` callback that
  * writes the seed into the panel's own input state. The hook works for
@@ -13,13 +13,13 @@
 
 import { useEffect, useEffectEvent } from 'react';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
-import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
+import { useUtilityWorkspaceStore } from '../../stores/utilityWorkspaceStore';
 
 export function usePendingUtilityInput(
   utilityId: DeveloperUtilityId,
   apply: (input: string) => void
 ): void {
-  const pending = useUtilityHistoryStore(state =>
+  const pending = useUtilityWorkspaceStore(state =>
     state.pendingUtilityInput?.utilityId === utilityId
       ? state.pendingUtilityInput.input
       : null
@@ -32,6 +32,6 @@ export function usePendingUtilityInput(
   useEffect(() => {
     if (pending == null) return;
     applyPendingInput(pending);
-    useUtilityHistoryStore.getState().setPendingUtilityInput(null);
+    useUtilityWorkspaceStore.getState().setPendingUtilityInput(null);
   }, [pending]);
 }

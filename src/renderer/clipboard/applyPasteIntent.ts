@@ -35,7 +35,7 @@ import { openHttpWorkspaceTab, openUtilitiesWorkspaceTab } from '../runtime/open
 import { setPendingCapsuleImportSource } from './pendingCapsuleImport';
 import { createDefaultTab } from '../stores/editorTabUtils';
 import { useEditorStore } from '../stores/editorStore';
-import { useUtilityHistoryStore } from '../stores/utilityHistoryStore';
+import { useUtilityWorkspaceStore } from '../stores/utilityWorkspaceStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
 import type { Language } from '../types';
 import type { PasteIntent } from './pasteHandlers';
@@ -190,7 +190,7 @@ function applyUtility(
   // already mounted) finds it when the workspace tab activates, then open
   // the Utilities workspace on the matching panel. The value moved into
   // the utility, so the literal paste is stripped like the other imports.
-  useUtilityHistoryStore.getState().setPendingUtilityInput({
+  useUtilityWorkspaceStore.getState().setPendingUtilityInput({
     utilityId: intent.utilityId,
     input: intent.source,
   });

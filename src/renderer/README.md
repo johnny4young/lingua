@@ -121,6 +121,14 @@ Developer Utilities use separate startup and implementation layers:
 - [`data/developerUtilityCatalog.ts`](data/developerUtilityCatalog.ts) is the
   always-reachable identity and authorization catalog. Keep it limited to ids,
   title keys, and entitlement metadata.
+- [`stores/utilityWorkspaceStore.ts`](stores/utilityWorkspaceStore.ts) keeps
+  synchronous workspace selection and the session-only Smart Paste hand-off in
+  the startup graph. It migrates the last selected tool from the legacy history
+  envelope into its own versioned key, but never persists pasted input.
+- [`stores/utilityHistoryStore.ts`](stores/utilityHistoryStore.ts) owns
+  history limits, favorites, entitlement-gated persistence, and quota trimming.
+  It loads with the Utilities or Settings surface rather than with the editor
+  store; do not import it from global workspace actions.
 - [`data/developerUtilities.ts`](data/developerUtilities.ts) adds action labels,
   descriptions, keywords, and aliases for the lazy Command Palette and
   Utilities workspace. It must stay out of the initial static graph.
@@ -438,7 +446,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [projectSearchStore.ts](stores/projectSearchStore.ts) / [projectReplaceStore.ts](stores/projectReplaceStore.ts) | project-wide search and replacement sessions |
 | [snippetsStore.ts](stores/snippetsStore.ts), [recipeStore.ts](stores/recipeStore.ts), [lessonProgressStore.ts](stores/lessonProgressStore.ts) | user-created snippets, built-in recipe state, guided lesson progress |
 | [trustEventStore.ts](stores/trustEventStore.ts) | Privacy + Trust event ledger surfaced in Settings                  |
-| [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities history, output, and pipeline state |
+| [utilityWorkspaceStore.ts](stores/utilityWorkspaceStore.ts), [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities activation, history, output, and pipeline state |
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | implementation — BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | internal — single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
 

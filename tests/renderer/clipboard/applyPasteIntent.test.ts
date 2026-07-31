@@ -33,8 +33,8 @@ vi.mock('@/runtime/openWorkspaceTab', () => ({
   openHttpWorkspaceTab: spies.openHttp,
   openUtilitiesWorkspaceTab: spies.openUtilities,
 }));
-vi.mock('@/stores/utilityHistoryStore', () => ({
-  useUtilityHistoryStore: {
+vi.mock('@/stores/utilityWorkspaceStore', () => ({
+  useUtilityWorkspaceStore: {
     getState: () => ({ setPendingUtilityInput: spies.setPendingUtilityInput }),
   },
 }));

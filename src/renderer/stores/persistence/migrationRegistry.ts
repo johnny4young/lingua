@@ -58,6 +58,7 @@ export type PersistedStoreName =
   | 'lingua-license'
   | 'lingua-debugger-state'
   | 'lingua-utility-state'
+  | 'lingua-utility-workspace'
   | 'lingua-env-vars'
   | 'lingua-trust-events'
   | 'lingua-notebook-state'
@@ -107,7 +108,18 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
   'lingua-recent-files': {},
   'lingua-license': {},
   'lingua-debugger-state': {},
-  'lingua-utility-state': {},
+  // v1->v2 — selection and Smart Paste hand-off moved to the lightweight
+  // utility workspace store. Drop those fields from the history payload after
+  // utilityWorkspaceStore has copied the legacy active selection on startup.
+  'lingua-utility-state': {
+    2: (state) => {
+      const historyState = { ...state };
+      delete historyState.activeUtilityId;
+      delete historyState.pendingUtilityInput;
+      return historyState;
+    },
+  },
+  'lingua-utility-workspace': {},
   'lingua-env-vars': {},
   'lingua-trust-events': {},
   'lingua-notebook-state': {},

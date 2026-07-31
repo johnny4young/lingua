@@ -19,6 +19,7 @@ import { useDependencyDetectionStore } from '@/stores/dependencyDetectionStore';
 import { resetRecipeStoreForTests, useRecipeStore } from '@/stores/recipeStore';
 import { resetNotebookStoreForTests, useNotebookStore } from '@/stores/notebookStore';
 import { useUtilityHistoryStore } from '@/stores/utilityHistoryStore';
+import { useUtilityWorkspaceStore } from '@/stores/utilityWorkspaceStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -68,8 +69,8 @@ describe('editorStore', () => {
       history: {},
       persistEnabled: {},
       favorites: [],
-      activeUtilityId: 'json',
     });
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'json', pendingUtilityInput: null });
     useUIStore.setState({ statusNotice: null });
     useSettingsStore.setState({ notebookDefaultCellLanguage: 'javascript' });
     setActiveProLicense();
@@ -104,8 +105,8 @@ describe('editorStore', () => {
       history: {},
       persistEnabled: {},
       favorites: [],
-      activeUtilityId: 'json',
     });
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'json', pendingUtilityInput: null });
     useEditorStore.setState(initialState, true);
     useUIStore.setState(initialUIState, true);
     localStorage.clear();
@@ -1244,7 +1245,7 @@ describe('editorStore', () => {
       expect(second).toBe(first);
       expect(useEditorStore.getState().tabs.filter(t => t.kind === 'utilities')).toHaveLength(1);
       expect(useEditorStore.getState().activeTabId).toBe(UTILITIES_WORKSPACE_TAB_ID);
-      expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('utility-pipelines');
+      expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('utility-pipelines');
     });
 
     it('addUtilitiesTab refuses the Pro-only Pipelines utility on Free', async () => {
@@ -1257,7 +1258,7 @@ describe('editorStore', () => {
 
       expect(result).toBeNull();
       expect(useEditorStore.getState().tabs.filter(t => t.kind === 'utilities')).toHaveLength(0);
-      expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('json');
+      expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('json');
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     });
 
