@@ -170,6 +170,19 @@ presentation:
   Failed chunk delivery reports localized reload guidance instead of silently
   dropping execution output.
 
+Project bundle commands keep their always-available entry points separate from
+their filesystem/archive choreography:
+
+- [`hooks/useProjectBundle.ts`](hooks/useProjectBundle.ts) exposes stable
+  startup-safe callbacks to App, shortcuts, the File Tree, and lazy overlays.
+- [`hooks/projectBundleRuntimeLoader.ts`](hooks/projectBundleRuntimeLoader.ts)
+  caches the activation load and evicts rejected chunk requests so a later
+  explicit action can retry.
+- [`hooks/projectBundleRuntime.ts`](hooks/projectBundleRuntime.ts) owns project
+  traversal, archive export/import, tab restoration, status feedback, and
+  telemetry. It loads only after the user requests an export or confirms an
+  import.
+
 The opt-in Run Ledger has a similar persistence boundary:
 
 - [`hooks/useRunLedgerTap.ts`](hooks/useRunLedgerTap.ts) keeps only the

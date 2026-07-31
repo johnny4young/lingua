@@ -3300,6 +3300,7 @@
   "projectBundle.export.success_other": "Exported {{count}} files to the bundle",
   "projectBundle.export.empty": "This project has no files to export yet",
   "projectBundle.export.failed": "Could not write the bundle",
+  "projectBundle.load.failed": "Project bundle tools could not load. Reload Lingua and try again.",
   "projectBundle.import.title": "Import project bundle",
   "projectBundle.import.subtitle": "Preview a .zip project, then extract it into a new folder",
   "projectBundle.import.loadLabel": "Load a .zip bundle",

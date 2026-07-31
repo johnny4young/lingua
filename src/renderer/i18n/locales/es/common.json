@@ -3300,6 +3300,7 @@
   "projectBundle.export.success_other": "Se exportaron {{count}} archivos al bundle",
   "projectBundle.export.empty": "Este proyecto aún no tiene archivos para exportar",
   "projectBundle.export.failed": "No se pudo escribir el bundle",
+  "projectBundle.load.failed": "No se pudieron cargar las herramientas de bundles de proyecto. Recarga Lingua e inténtalo de nuevo.",
   "projectBundle.import.title": "Importa un bundle de proyecto",
   "projectBundle.import.subtitle": "Previsualiza un proyecto .zip y luego extráelo en una carpeta nueva",
   "projectBundle.import.loadLabel": "Carga un bundle .zip",

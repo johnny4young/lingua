@@ -97,6 +97,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the fflate project archive codec used only by bundle export/import',
   },
   {
+    module: 'src/renderer/hooks/projectBundleRuntime.ts',
+    why: 'project traversal, archive choreography, and bundle telemetry used only after explicit export/import',
+  },
+  {
     module: 'src/renderer/runtime/executeTabManually.ts',
     why: 'manual runner orchestration used only after Run, Debug, replay, or smoke starts',
   },

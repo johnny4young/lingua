@@ -13,6 +13,36 @@ import { expect, gotoApp, paletteInput, seedSession, test } from './licenseWeb.h
 test.describe.configure({ mode: 'parallel' });
 
 test.describe('Project bundle import overlay ', () => {
+  test('loads export choreography only after an explicit command', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+
+    const runtimeRequests = () =>
+      page.evaluate(
+        () =>
+          performance
+            .getEntriesByType('resource')
+            .filter(entry => /projectBundleRuntime-[^/]+\.js$/u.test(entry.name)).length
+      );
+
+    await expect.poll(runtimeRequests).toBe(0);
+
+    await page.keyboard.press('ControlOrMeta+Shift+KeyP');
+    await expect(paletteInput(page)).toBeVisible();
+    await paletteInput(page).fill('Export project as zip');
+    await expect.poll(runtimeRequests).toBe(0);
+    await page
+      .locator('[data-result-index]')
+      .filter({ hasText: /Export project as zip/i })
+      .first()
+      .click();
+
+    await expect(page.getByTestId('status-notice-banner')).toContainText(
+      'This project has no files to export yet'
+    );
+    await expect.poll(runtimeRequests).toBe(1);
+  });
+
   test('opens from the command palette (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
