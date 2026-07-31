@@ -109,6 +109,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'persisted SQL collection state used only by SQL workspace surfaces',
   },
   {
+    module: 'src/shared/httpWorkspace.ts',
+    why: 'HTTP schemas, parsers, auth composition, captures, assertions, and serialization used only after HTTP or import activation',
+  },
+  {
     module: 'src/renderer/runtime/exportActiveNotebook.ts',
     why: 'active notebook export orchestration used only after an eligible Command Palette action',
   },

@@ -1,6 +1,6 @@
 import type { SettingsState } from '../types';
 import type { WorkflowMode } from '../../shared/workflowMode';
-import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpWorkspace';
+import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpSensitiveHeaders';
 import { DEFAULT_KEYMAP_PRESET_ID } from '../data/keymapPresets';
 import { DEFAULT_THEME_PACK_ID } from '../data/themePacks';
 import { defaultRuntimeTimeoutPresetSeed } from '../../shared/runtimeTimeoutPresets';

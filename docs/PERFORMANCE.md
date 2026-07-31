@@ -170,6 +170,21 @@ this boundary reduced the statically reachable source graph from 288 to 281
 modules and the initial payload from 1,161,021 to 1,158,360 raw bytes and from
 304,226 to 303,387 gzip-9 bytes, while retaining 14 initial files.
 
+The HTTP privacy policy is a separate startup-safe leaf. Settings needs the
+immutable sensitive-header baseline during hydration, but it does not need the
+complete HTTP request schema, parsers, auth composition, capture/assertion
+rules, or serializers. `shared/httpSensitiveHeaders.ts` owns the canonical
+baseline and exact-match predicate; `shared/httpWorkspace.ts` preserves its
+historical re-export for activated callers. The source-graph guard prevents the
+full workspace module from returning to either startup graph. The alias-aware
+source graphs retained 282 web modules and 279 renderer modules because the
+leaf replaces the monolith, but removed 44,234 bytes of reachable source and
+lowered the largest eager source file from 45,307 to 27,688 bytes. In the
+production web profile, the initial payload retained 14 files while falling
+from 1,158,360 to 1,148,888 raw bytes and from 303,387 to 300,712 gzip-9 bytes.
+The desktop renderer retained 16 initial files while falling from 1,147,860 to
+1,138,391 raw bytes and from 300,339 to 297,688 gzip-9 bytes.
+
 Keyboard shortcuts separate startup behavior from reference presentation.
 `data/keyboardShortcuts.ts` keeps ids, groups, default combos, matching,
 override resolution, and platform-aware formatting in the initial graph so

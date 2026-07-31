@@ -31,6 +31,12 @@
  *     request body, 4 MiB on response body.
  */
 
+import { isBaselineSensitiveHttpHeader } from './httpSensitiveHeaders';
+
+// Historical facade: callers that need the full HTTP workspace may continue
+// importing the baseline from here. Startup consumers should use the leaf.
+export { BASELINE_SENSITIVE_HEADERS } from './httpSensitiveHeaders';
+
 /**
  * Closed enum of HTTP methods implementation supports. CONNECT and TRACE
  * are deliberately excluded — CONNECT is a proxy primitive (browser
@@ -83,24 +89,6 @@ export function bucketHttpStatus(status: number): HttpStatusBucket {
   if (status >= 400 && status < 500) return '4xx';
   return '5xx';
 }
-
-/**
- * Baseline sensitive header names that are ALWAYS redacted regardless
- * of the user's Settings allowlist. The list is short by design —
- * the Settings → Privacy → "Sensitive HTTP headers" editor lets
- * users ADD names, but cannot REMOVE these baselines.
- *
- * Comparison is case-insensitive per RFC 7230 § 3.2 ("Each header
- * field consists of a case-insensitive field name…").
- */
-export const BASELINE_SENSITIVE_HEADERS: readonly string[] = [
-  'authorization',
-  'cookie',
-  'set-cookie',
-  'x-api-key',
-  'x-auth-token',
-  'proxy-authorization',
-];
 
 /** Hard cap on the request body size. 1 MiB. */
 export const MAX_REQUEST_BODY_BYTES = 1_048_576;
@@ -736,7 +724,7 @@ export function isHeaderSensitive(
   if (typeof headerName !== 'string' || headerName.length === 0) return false;
   const lc = headerName.toLowerCase().trim();
   if (lc.length === 0) return false;
-  if ((BASELINE_SENSITIVE_HEADERS as readonly string[]).includes(lc)) {
+  if (isBaselineSensitiveHttpHeader(lc)) {
     return true;
   }
   for (const allow of userAllowlist) {

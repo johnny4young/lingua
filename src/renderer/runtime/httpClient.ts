@@ -22,7 +22,6 @@
  */
 
 import {
-  BASELINE_SENSITIVE_HEADERS,
   DEFAULT_REQUEST_TIMEOUT_MS,
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
@@ -37,6 +36,7 @@ import {
   type HttpResponseV1,
   type HttpStatusBucket,
 } from '../../shared/httpWorkspace';
+import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpSensitiveHeaders';
 
 /**
  * Caller-provided options. `userSensitiveHeaders` is the additive

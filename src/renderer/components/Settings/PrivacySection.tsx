@@ -6,7 +6,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { recordTrustEventBestEffort } from '../../stores/trustEventStore';
 import { clearLedger, exportLedgerJson } from '../../runtime/runLedger';
 import { trackEvent } from '../../utils/telemetry';
-import { BASELINE_SENSITIVE_HEADERS } from '../../../shared/httpWorkspace';
+import { BASELINE_SENSITIVE_HEADERS } from '../../../shared/httpSensitiveHeaders';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { Toggle } from './shared';
 

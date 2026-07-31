@@ -19,7 +19,7 @@
 import { useTranslation } from 'react-i18next';
 import { Lock } from 'lucide-react';
 import { StatusBadge } from '../ui/StatusBadge';
-import { BASELINE_SENSITIVE_HEADERS } from '../../../shared/httpWorkspace';
+import { isBaselineSensitiveHttpHeader } from '../../../shared/httpSensitiveHeaders';
 import type { CurlImporterPreview } from '../../../shared/importers/curlImporter';
 import type {
   IpynbCellSnippet,
@@ -81,11 +81,8 @@ export function ImportPreviewBody({ preview }: ImportPreviewBodyProps) {
 /** Count of headers whose name is a baseline-sensitive header (their
  * values are redacted on display; originals round-trip on confirm). */
 function countSensitiveHeaders(request: ParsedCollectionRequest): number {
-  return request.headers.filter((h) =>
-    (BASELINE_SENSITIVE_HEADERS as readonly string[]).includes(
-      h.name.toLowerCase()
-    )
-  ).length;
+  return request.headers.filter((h) => isBaselineSensitiveHttpHeader(h.name))
+    .length;
 }
 
 // ---------------------------------------------------------------------------

@@ -396,6 +396,11 @@ platform work:
 HTTP and SQL workspace entry points keep tab navigation separate from persisted
 collection state:
 
+- [`../shared/httpSensitiveHeaders.ts`](../shared/httpSensitiveHeaders.ts) is
+  the startup-safe privacy-policy leaf used by Settings and import previews.
+  Keep the full schema, parsers, auth composition, captures, assertions, and
+  serializers in [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) on
+  the activation side of the workspace boundary.
 - [`runtime/openWorkspaceTab.ts`](runtime/openWorkspaceTab.ts) only opens or
   focuses the stable editor tab, so keyboard shortcuts and Command Palette
   discovery do not hydrate either workspace collection during startup.

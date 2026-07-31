@@ -878,7 +878,7 @@ export interface SettingsState {
    * implementation — Sensitive HTTP header allowlist. Names listed
    * here are redacted in the HTTP workspace response history + on
    * exported capsules. The baseline list
-   * (`BASELINE_SENSITIVE_HEADERS` in `src/shared/httpWorkspace.ts`)
+   * (`BASELINE_SENSITIVE_HEADERS` in `src/shared/httpSensitiveHeaders.ts`)
    * always applies regardless of this allowlist — users can ADD
    * names, not REMOVE the baselines. Lowercased + trimmed on
    * sanitize-on-rehydrate; non-string entries and empty strings are

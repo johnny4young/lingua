@@ -34,8 +34,8 @@
  * internal inline editor surface keeps working byte-identically.
  */
 
+import { isBaselineSensitiveHttpHeader } from '../httpSensitiveHeaders';
 import {
-  BASELINE_SENSITIVE_HEADERS,
   HTTP_METHODS,
   type HttpMethod,
   type HttpRequestBody,
@@ -382,9 +382,7 @@ function splitFlagToken(token: string): {
 // ---------------------------------------------------------------------------
 
 function isSensitiveHeader(name: string): boolean {
-  return (BASELINE_SENSITIVE_HEADERS as readonly string[]).includes(
-    name.toLowerCase()
-  );
+  return isBaselineSensitiveHttpHeader(name);
 }
 
 function redactHeaders(
