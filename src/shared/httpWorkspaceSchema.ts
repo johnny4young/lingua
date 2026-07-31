@@ -5,8 +5,9 @@
  * module without loading the full parser, auth, capture, assertion, and cURL
  * serialization implementation in `httpWorkspace.ts`.
  *
- * Keep this file pure and dependency-free. Runtime validation and behavioral
- * helpers belong in `httpWorkspace.ts` on the activated workspace side.
+ * Keep this file pure and dependency-free. Runtime validation belongs in
+ * `httpWorkspacePersistence.ts`; behavioral helpers belong in
+ * `httpWorkspace.ts` on the activated workspace side.
  */
 
 /**

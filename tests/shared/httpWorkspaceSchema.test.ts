@@ -3,8 +3,13 @@ import {
   createBlankHttpRequest as createBlankFromFacade,
   HTTP_METHODS as METHODS_FROM_FACADE,
   utf8ByteLength as byteLengthFromFacade,
-  parseHttpRequest,
+  parseHttpRequest as parseRequestFromFacade,
+  parseHttpResponse as parseResponseFromFacade,
 } from '../../src/shared/httpWorkspace';
+import {
+  parseHttpRequest,
+  parseHttpResponse,
+} from '../../src/shared/httpWorkspacePersistence';
 import {
   createBlankHttpRequest,
   HTTP_METHODS,
@@ -16,6 +21,8 @@ describe('HTTP workspace schema boundary', () => {
     expect(METHODS_FROM_FACADE).toBe(HTTP_METHODS);
     expect(createBlankFromFacade).toBe(createBlankHttpRequest);
     expect(byteLengthFromFacade).toBe(utf8ByteLength);
+    expect(parseRequestFromFacade).toBe(parseHttpRequest);
+    expect(parseResponseFromFacade).toBe(parseHttpResponse);
   });
 
   it('creates a request accepted by the implementation parser', () => {

@@ -402,9 +402,15 @@ collection state:
   dependency-safe request/response contract used by import detection and
   preview. Keep only closed enums, limits, data shapes, UTF-8 sizing, and the
   blank-request factory there.
+- [`../shared/httpWorkspacePersistence.ts`](../shared/httpWorkspacePersistence.ts)
+  owns strict request/response parsing at localStorage and IPC trust
+  boundaries. Persistence consumers import this leaf directly so rehydration
+  does not activate workspace behavior.
 - [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) preserves the
-  historical facade and owns validation plus behavior: parsers, auth
-  composition, query synchronization, captures, assertions, and serializers.
+  historical facade and owns behavior: auth composition, query
+  synchronization, captures, assertions, and serializers. It re-exports the
+  persistence parsers for compatibility, but lightweight consumers must use
+  the dedicated leaf.
   Import Preview loads its store-writing confirmation module only after the
   user accepts a valid preview, so merely inspecting input does not hydrate the
   HTTP collection or fetch the implementation chunk.

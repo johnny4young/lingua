@@ -203,6 +203,22 @@ bytes. The activated build now exposes the deferred confirmation and workspace
 implementation as independent lazy chunks (2,884 and 9,146 raw bytes in the
 web build), so opening the preview no longer implies loading them.
 
+The confirmation path also keeps persistence validation separate from active
+HTTP behavior. `shared/httpWorkspacePersistence.ts` owns the strict request and
+response parsers, while `shared/httpWorkspace.ts` re-exports them only for
+compatibility. The store imports the persistence leaf directly, and a focused
+graph guard prevents the behavior facade from returning through rehydration.
+The confirmation source graph retained 100 modules while falling from 809,541
+to 790,179 reachable bytes (19,362 bytes deferred). Production startup stayed
+flat: web retained 14 initial files at +58 raw / +1 gzip-9 byte, and the
+desktop renderer retained 17 initial files at +53 raw / +1 gzip-9 byte. The
+former 9,146-byte web behavior chunk is now a 4,271-byte behavior chunk plus a
+4,878-byte persistence chunk; persistence-only activation therefore avoids
+4,268 raw / 1,473 gzip-9 bytes of behavior. The extra split costs 83 raw / 220
+gzip-9 bytes in the complete web lazy corpus and 83 raw / 280 gzip-9 bytes in
+the desktop renderer, an explicit tradeoff for a smaller trust-boundary
+dependency and independently loadable behavior.
+
 Keyboard shortcuts separate startup behavior from reference presentation.
 `data/keyboardShortcuts.ts` keeps ids, groups, default combos, matching,
 override resolution, and platform-aware formatting in the initial graph so

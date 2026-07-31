@@ -29,9 +29,11 @@ import { createMigrate } from './persistence/migrationRegistry';
 import {
   parseHttpRequest,
   parseHttpResponse,
-  type HttpRequestV1,
-  type HttpResponseV1,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspacePersistence';
+import type {
+  HttpRequestV1,
+  HttpResponseV1,
+} from '../../shared/httpWorkspaceSchema';
 import {
   parseHttpEnvironment,
   toExportableEnvironment,
