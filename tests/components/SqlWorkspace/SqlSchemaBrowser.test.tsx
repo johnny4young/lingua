@@ -41,7 +41,7 @@ describe('SqlSchemaBrowser', () => {
     await user.click(screen.getByTestId('sql-schema-browser-import'));
 
     expect(inputClick).toHaveBeenCalledOnce();
-    expect(input.className).toContain('sr-only');
+    expect(input.className).toContain('hidden');
   });
 
   it('lists the session tables with an optional column-count chip', () => {

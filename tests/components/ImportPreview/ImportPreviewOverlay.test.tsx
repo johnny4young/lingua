@@ -88,7 +88,7 @@ describe('ImportPreviewOverlay', () => {
     );
     expect(
       screen.getByTestId('import-preview-file-input').className
-    ).toContain('sr-only');
+    ).toContain('hidden');
     // Confirm starts disabled when nothing is parsed yet.
     const confirm = screen.getByTestId('import-preview-confirm') as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
@@ -462,6 +462,13 @@ describe('ImportPreviewOverlay — Postman variables ', () => {
     expect(screen.getByTestId('import-preview-variables-globals')).toBeTruthy();
     expect(screen.getByLabelText('Environment')).toBeTruthy();
     expect(screen.getByLabelText('Globals')).toBeTruthy();
+    expect(
+      screen.getByTestId('import-preview-variables-environment-file-input')
+        .className
+    ).toContain('hidden');
+    expect(
+      screen.getByTestId('import-preview-variables-globals-file-input').className
+    ).toContain('hidden');
   });
 
   it('does not render the variables section for a cURL import', async () => {

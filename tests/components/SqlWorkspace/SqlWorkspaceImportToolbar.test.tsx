@@ -24,7 +24,7 @@ describe('SqlWorkspaceImportToolbar', () => {
 
     expect(inputClick).toHaveBeenCalledOnce();
     expect(input.accept).toBe(SQL_IMPORT_FILE_ACCEPT);
-    expect(input.className).toContain('sr-only');
+    expect(input.className).toContain('hidden');
   });
 
   it('forwards the selected file and resets the native input', async () => {

@@ -610,9 +610,15 @@ If you add a new global class, place it in the closest subsection instead of app
 - Keep one-off spacing, layout, and visibility decisions inline with the owning component.
 - Promote a pattern to `index.css` only when it is reused across surfaces and has stable semantics.
 - Prefer semantic class names such as `surface-panel`, `status-pill`, or `field-shell` over screen-specific names.
-- Use Tailwind's `sr-only` utility for screen-reader-only labels, headings,
-  live regions, errors, and native file inputs. Do not invent an unbacked
-  hiding class: it leaves internal copy and browser-native controls visible.
+- Use Tailwind's `sr-only` utility for content that remains an accessibility
+  target: labels, headings, live regions, errors, and native file inputs that
+  are the only keyboard-operable control inside a wrapping drop-zone label.
+- When a visible button opens a native file input through `inputRef.click()`,
+  the button is the single accessible target and the redundant input uses
+  Tailwind's `hidden` utility. Do not leave both controls in the focus order or
+  expose browser-owned `Choose File` copy beside the localized button.
+- Do not invent an unbacked hiding class: it leaves internal copy and
+  browser-native controls visible.
 - Keep shared presentational components in `components/ui` dumb; product logic stays in feature folders.
 - Every bespoke interactive control (chips, tree rows, status-bar segments, cell-row icon buttons, drop-zones, anything not built from the `.button-*` design-system classes) MUST carry a visible keyboard focus indicator. Reuse the shared `.focus-ring` class (defined in [index.css](index.css) beside the `.button-*` family) — or one of the `.button-*` / `.field-shell` primitives, which already include the ring — instead of hand-rolling a focus style. This keeps keyboard focus visible and consistent everywhere; do not invent a second ring recipe.
 

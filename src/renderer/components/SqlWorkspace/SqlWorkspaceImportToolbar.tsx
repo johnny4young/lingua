@@ -42,9 +42,8 @@ export function SqlWorkspaceImportToolbar({
         type="file"
         accept={SQL_IMPORT_FILE_ACCEPT}
         disabled={isBusy}
-        aria-label={t('sqlWorkspace.import.buttonAria')}
         data-testid="sql-workspace-import-input"
-        className="sr-only"
+        className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) onImportFile(file);

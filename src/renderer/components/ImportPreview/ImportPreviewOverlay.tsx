@@ -497,7 +497,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
             type="file"
             accept=".curl,.txt,.ipynb,.linguanb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json,application/x-linguanb+json"
             onChange={handleFileChange}
-            className="sr-only"
+            className="hidden"
             data-testid="import-preview-file-input"
           />
         </div>
@@ -668,7 +668,8 @@ function VariableSlot({
           ref={fileRef}
           type="file"
           accept=".json,.postman_environment.json,.postman_globals.json,application/json"
-          className="sr-only"
+          className="hidden"
+          data-testid={`import-preview-variables-${slot}-file-input`}
           onChange={async (event) => {
             const file = event.target.files?.[0];
             if (file) {
