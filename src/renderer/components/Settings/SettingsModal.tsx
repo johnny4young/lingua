@@ -32,11 +32,11 @@ import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { EyebrowMono } from '../ui/primitives';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import {
-  KEYBOARD_SHORTCUTS,
   formatShortcutCombo,
   resolveCombos,
   resolveShortcutDisplayPlatform,
 } from '../../data/keyboardShortcuts';
+import { KEYBOARD_SHORTCUT_REFERENCE } from '../../data/keyboardShortcutReference';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useCommandListener } from '../../hooks/useCommandListener';
 import { SettingsRail } from './SettingsRail';
@@ -306,7 +306,7 @@ function SettingsStatusBar({ active }: SettingsStatusBarProps) {
  * the surface reads as a preview, not a bare CTA (proto
  * `settings-proto.jsx` shortcuts section). Each row reuses the canonical
  * `shortcuts.item.*.label` key and resolves its keystroke from the same
- * `KEYBOARD_SHORTCUTS` catalog the full list + command palette read —
+ * lazy shortcut reference catalog that the full shortcut editor reads —
  * so user overrides and the platform-aware glyphs (⌘ / Ctrl) match
  * what the KeyboardShortcuts modal renders. We keep the keystroke as a
  * `<Kbd>` chip (chrome primitive), not a StatusBadge: it's an input
@@ -332,7 +332,7 @@ function ShortcutsPreviewCard() {
   const rows = useMemo(
     () =>
       SHORTCUTS_PREVIEW_IDS.flatMap(id => {
-        const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === id);
+        const definition = KEYBOARD_SHORTCUT_REFERENCE.find(entry => entry.id === id);
         if (!definition) return [];
         const [primaryCombo] = resolveCombos(definition, overrides);
         return [

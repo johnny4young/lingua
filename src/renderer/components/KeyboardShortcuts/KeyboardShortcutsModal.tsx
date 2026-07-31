@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   KEYBOARD_SHORTCUTS,
-  SHORTCUT_GROUPS,
-  filterShortcuts,
   findComboConflict,
   formatShortcutCombo,
   formatShortcutToken,
@@ -14,9 +12,14 @@ import {
   resolveCombos,
   resolveShortcutDisplayPlatform,
   type ShortcutCombo,
-  type ShortcutDefinition,
   type ShortcutGroupId,
 } from '../../data/keyboardShortcuts';
+import {
+  KEYBOARD_SHORTCUT_REFERENCE,
+  SHORTCUT_GROUPS,
+  filterShortcuts,
+  type ShortcutReferenceDefinition,
+} from '../../data/keyboardShortcutReference';
 import { KEYMAP_PRESETS } from '../../data/keymapPresets';
 import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -49,10 +52,10 @@ function importFailureKey(result: Extract<ParseShortcutPresetResult, { ok: false
   }
 }
 
-function groupShortcuts(shortcuts: readonly ShortcutDefinition[]) {
+function groupShortcuts(shortcuts: readonly ShortcutReferenceDefinition[]) {
   // Preserve catalog order inside each group. The renderer iterates
   // SHORTCUT_GROUPS later, so this map only buckets filtered rows.
-  const byGroup = new Map<ShortcutGroupId, ShortcutDefinition[]>();
+  const byGroup = new Map<ShortcutGroupId, ShortcutReferenceDefinition[]>();
   for (const shortcut of shortcuts) {
     const bucket = byGroup.get(shortcut.group) ?? [];
     bucket.push(shortcut);
@@ -66,7 +69,7 @@ interface KeyboardShortcutsModalProps {
 }
 
 interface ShortcutRowProps {
-  shortcut: ShortcutDefinition;
+  shortcut: ShortcutReferenceDefinition;
   combos: readonly ShortcutCombo[];
   isOverridden: boolean;
   isRecording: boolean;
@@ -228,7 +231,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
   const { error: pushError, success: pushSuccess } = useStatusNotice();
 
   const matching = useMemo(
-    () => filterShortcuts(KEYBOARD_SHORTCUTS, query, platform, t),
+    () => filterShortcuts(KEYBOARD_SHORTCUT_REFERENCE, query, platform, t),
     [query, platform, t]
   );
 
@@ -269,7 +272,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       // the row being edited so re-recording the same combo is a no-op success.
       const conflictId = findComboConflict(KEYBOARD_SHORTCUTS, overrides, combo, recordingId);
       if (conflictId) {
-        const other = KEYBOARD_SHORTCUTS.find(entry => entry.id === conflictId);
+        const other = KEYBOARD_SHORTCUT_REFERENCE.find(entry => entry.id === conflictId);
         pushError('shortcuts.editor.conflict', {
           values: {
             combo: formatShortcutCombo(combo, platform),

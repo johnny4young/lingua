@@ -194,7 +194,7 @@ export function shortcutOverridesEqual(
  */
 export function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const knownIds = new Set(KEYBOARD_SHORTCUTS.map((entry) => entry.id));
+  const knownIds = new Set<string>(KEYBOARD_SHORTCUTS.map(entry => entry.id));
   const out: Record<string, readonly ShortcutCombo[]> = {};
   for (const [key, rawCombos] of Object.entries(value as Record<string, unknown>)) {
     if (!knownIds.has(key)) continue;

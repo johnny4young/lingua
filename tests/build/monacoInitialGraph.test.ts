@@ -85,6 +85,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
   why: string;
 }> = [
   {
+    module: 'src/renderer/data/keyboardShortcutReference.ts',
+    why: 'localized shortcut labels, descriptions, and search keywords used only by lazy Settings surfaces',
+  },
+  {
     module: 'src/shared/projectBundle.ts',
     why: 'the fflate project archive codec used only by bundle export/import',
   },

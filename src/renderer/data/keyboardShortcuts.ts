@@ -1,10 +1,9 @@
 /**
- * Declarative catalog of the keyboard shortcuts that useGlobalShortcuts
- * dispatches. This file is the canonical list — the read-only reference
- * viewer, the command palette, and any future shortcut editor
- * should all read from here rather than re-deriving the set from the
- * handler. Keeping it pure (no React) means the catalog can be unit-tested
- * and validated against `useGlobalShortcuts` in isolation.
+ * Startup-safe structural catalog for the shortcuts that
+ * useGlobalShortcuts dispatches. Keep only ids, groups, and default combos
+ * here because matching, override sanitization, and inline shortcut hints run
+ * in the workspace graph. Localized reference copy and search keywords live
+ * in keyboardShortcutReference.ts behind user-invoked Settings surfaces.
  */
 
 export type ShortcutKeyToken =
@@ -34,40 +33,16 @@ export type ShortcutGroupId =
 export interface ShortcutDefinition {
   id: string;
   group: ShortcutGroupId;
-  labelKey: string;
-  descriptionKey?: string;
   combos: readonly ShortcutCombo[];
-  keywords: readonly string[];
-}
-
-export interface ShortcutGroupDefinition {
-  id: ShortcutGroupId;
-  labelKey: string;
 }
 
 export type ShortcutDisplayPlatform = 'darwin' | 'other';
 
-export const SHORTCUT_GROUPS: readonly ShortcutGroupDefinition[] = [
-  { id: 'run', labelKey: 'shortcuts.group.run' },
-  { id: 'file', labelKey: 'shortcuts.group.file' },
-  { id: 'navigation', labelKey: 'shortcuts.group.navigation' },
-  { id: 'overlays', labelKey: 'shortcuts.group.overlays' },
-  { id: 'view', labelKey: 'shortcuts.group.view' },
-  // implementation — copy / replace clipboard from the focused
-  // Developer Utilities panel without leaving the keyboard.
-  { id: 'utilities', labelKey: 'shortcuts.group.utilities' },
-  // implementation — debugger continue / step shortcuts.
-  { id: 'debugger', labelKey: 'shortcuts.group.debugger' },
-];
-
-export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
+export const KEYBOARD_SHORTCUTS = [
   {
     id: 'run-toggle',
     group: 'run',
-    labelKey: 'shortcuts.item.runToggle.label',
-    descriptionKey: 'shortcuts.item.runToggle.description',
     combos: [{ tokens: ['Mod', 'Enter'] }],
-    keywords: ['run', 'stop', 'execute'],
   },
   {
     // implementation note — cycle through the implemented JS/TS
@@ -76,10 +51,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // shortcut as `node` and `browser-preview` come online.
     id: 'run-cycle-runtime-mode',
     group: 'run',
-    labelKey: 'shortcuts.item.cycleRuntimeMode.label',
-    descriptionKey: 'shortcuts.item.cycleRuntimeMode.description',
     combos: [{ tokens: ['Mod', 'Alt', 'M'] }],
-    keywords: ['runtime', 'mode', 'worker', 'node', 'browser', 'cycle'],
   },
   {
     // implementation note — cycle the active tab's workflow mode
@@ -88,10 +60,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // breakpoint-toggle pattern from implementation
     id: 'run-cycle-workflow-mode',
     group: 'run',
-    labelKey: 'shortcuts.item.cycleWorkflowMode.label',
-    descriptionKey: 'shortcuts.item.cycleWorkflowMode.description',
     combos: [{ tokens: ['Mod', 'Shift', 'M'] }],
-    keywords: ['workflow', 'mode', 'run', 'debug', 'scratchpad', 'cycle'],
   },
   {
     // implementation note — toggle the per-tab Recent Runs popover.
@@ -100,14 +69,11 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // `recentRunsPopoverBridge` module.
     id: 'run-toggle-recent-runs',
     group: 'run',
-    labelKey: 'shortcuts.item.toggleRecentRuns.label',
-    descriptionKey: 'shortcuts.item.toggleRecentRuns.description',
     // implementation — moved from Mod+Shift+H to Mod+Alt+H so the
     // VSCode-parity `Mod+Shift+H` binding can map to project-replace
     // (`nav-project-replace`). Alt+H still reads as "History" mnemonic
     // for power users.
     combos: [{ tokens: ['Mod', 'Alt', 'H'] }],
-    keywords: ['history', 'recent', 'runs', 'replay', 'popover'],
   },
   {
     // implementation note — toggle the Compare panel on the active
@@ -116,20 +82,14 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // `compareWithSnapshotEnabled` via the editor store.
     id: 'run-toggle-compare-snapshot',
     group: 'run',
-    labelKey: 'shortcuts.item.toggleCompareSnapshot.label',
-    descriptionKey: 'shortcuts.item.toggleCompareSnapshot.description',
     combos: [{ tokens: ['Mod', 'Shift', 'D'] }],
-    keywords: ['compare', 'diff', 'snapshot', 'stable', 'previous'],
   },
   {
     // implementation note — toggle the Variables panel on the
     // active tab. No-op + notice when there's no scope snapshot.
     id: 'run-toggle-variable-inspector',
     group: 'run',
-    labelKey: 'shortcuts.item.toggleVariableInspector.label',
-    descriptionKey: 'shortcuts.item.toggleVariableInspector.description',
     combos: [{ tokens: ['Mod', 'Shift', 'I'] }],
-    keywords: ['variables', 'inspector', 'scope', 'tree'],
   },
   // implementation — panel-chip shortcuts. Stdin chip mirrors the
   // Variables / Compare / History pattern with a single key combo
@@ -137,10 +97,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'editor-toggle-stdin-panel',
     group: 'run',
-    labelKey: 'shortcuts.item.toggleStdin.label',
-    descriptionKey: 'shortcuts.item.toggleStdin.description',
     combos: [{ tokens: ['Mod', 'Shift', 'E'] }],
-    keywords: ['stdin', 'input', 'entrada', 'prompt'],
   },
   // implementation note — keyboard shortcut for the primary
   // result-panel export surface. `Mod+Shift+X` (eXport mnemonic).
@@ -149,10 +106,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'run-export-capsule',
     group: 'run',
-    labelKey: 'shortcuts.item.exportCapsule.label',
-    descriptionKey: 'shortcuts.item.exportCapsule.description',
     combos: [{ tokens: ['Mod', 'Shift', 'X'] }],
-    keywords: ['capsule', 'export', 'share', 'json', 'replay'],
   },
   // implementation Phase A1 implementation note — keyboard shortcut for the share-link
   // copy flow. `Mod+Shift+L` (L for Link). Reviewer rebound from the
@@ -165,10 +119,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'run-copy-share-link',
     group: 'run',
-    labelKey: 'shortcuts.item.copyShareLink.label',
-    descriptionKey: 'shortcuts.item.copyShareLink.description',
     combos: [{ tokens: ['Mod', 'Shift', 'L'] }],
-    keywords: ['share', 'link', 'url', 'compartir', 'enlace', 'copy', 'copia'],
   },
   // implementation note — replay-onboarding shortcut. `Mod+Shift+W`
   // (W for Welcome). Verified free against the catalog by the
@@ -178,10 +129,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'onboarding-replay',
     group: 'view',
-    labelKey: 'shortcuts.item.replayOnboarding.label',
-    descriptionKey: 'shortcuts.item.replayOnboarding.description',
     combos: [{ tokens: ['Mod', 'Shift', 'W'] }],
-    keywords: ['onboarding', 'welcome', 'inicio', 'guiado', 'replay', 'reset', 'rearm'],
   },
   // implementation — recover from a floating-pill/variables-card that
   // ended up in an unreachable position (off-screen monitor change,
@@ -190,10 +138,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'ui-reset-floating-positions',
     group: 'view',
-    labelKey: 'shortcuts.item.resetFloating.label',
-    descriptionKey: 'shortcuts.item.resetFloating.description',
     combos: [{ tokens: ['Mod', 'Shift', '0'] }],
-    keywords: ['reset', 'floating', 'pill', 'variables', 'reposition'],
   },
   // implementation Slice A implementation note — open the bottom-panel Dependencies tab
   // for the active file. `Mod+Shift+J` (J for JavaScript / packaJes
@@ -205,10 +150,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'view-show-dependencies',
     group: 'view',
-    labelKey: 'shortcuts.item.showDependencies.label',
-    descriptionKey: 'shortcuts.item.showDependencies.description',
     combos: [{ tokens: ['Mod', 'Shift', 'J'] }],
-    keywords: ['dependencies', 'imports', 'requires', 'modules', 'paquetes', 'dependencias'],
   },
   {
     // implementation note — flip the variable inspector surface
@@ -217,59 +159,42 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // for moving Variables between surfaces without opening Settings.
     id: 'view-toggle-variable-inspector-surface',
     group: 'view',
-    labelKey: 'shortcuts.item.toggleVariableInspectorSurface.label',
-    descriptionKey: 'shortcuts.item.toggleVariableInspectorSurface.description',
     combos: [{ tokens: ['Mod', 'Shift', 'V'] }],
-    keywords: ['variables', 'inspector', 'surface', 'dock', 'floating', 'bottom'],
   },
   {
     id: 'file-save',
     group: 'file',
-    labelKey: 'shortcuts.item.save.label',
     combos: [{ tokens: ['Mod', 'S'] }],
-    keywords: ['save'],
   },
   {
     id: 'file-save-as',
     group: 'file',
-    labelKey: 'shortcuts.item.saveAs.label',
     combos: [{ tokens: ['Mod', 'Shift', 'S'] }],
-    keywords: ['save', 'as', 'saveas'],
   },
   {
     id: 'file-open',
     group: 'file',
-    labelKey: 'shortcuts.item.openFile.label',
     combos: [{ tokens: ['Mod', 'O'] }],
-    keywords: ['open', 'file'],
   },
   {
     id: 'file-close-tab',
     group: 'file',
-    labelKey: 'shortcuts.item.closeTab.label',
     combos: [{ tokens: ['Mod', 'W'] }],
-    keywords: ['close', 'tab'],
   },
   {
     id: 'nav-quick-open',
     group: 'navigation',
-    labelKey: 'shortcuts.item.quickOpen.label',
     combos: [{ tokens: ['Mod', 'P'] }],
-    keywords: ['quick', 'open', 'fuzzy'],
   },
   {
     id: 'nav-go-to-symbol',
     group: 'navigation',
-    labelKey: 'shortcuts.item.goToSymbol.label',
     combos: [{ tokens: ['Mod', 'Shift', 'O'] }],
-    keywords: ['symbol', 'outline'],
   },
   {
     id: 'nav-project-search',
     group: 'navigation',
-    labelKey: 'shortcuts.item.projectSearch.label',
     combos: [{ tokens: ['Mod', 'Shift', 'F'] }],
-    keywords: ['search', 'find', 'project'],
   },
   {
     // implementation — Replace in files. Cmd+Shift+H mirrors the
@@ -277,9 +202,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // immediately.
     id: 'nav-project-replace',
     group: 'navigation',
-    labelKey: 'shortcuts.item.projectReplace.label',
     combos: [{ tokens: ['Mod', 'Shift', 'H'] }],
-    keywords: ['replace', 'substitute', 'find', 'project', 'rename'],
   },
   {
     // implementation → MOV.02 — open or focus the full-screen HTTP
@@ -289,9 +212,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // through the editor tab strip.
     id: 'workspace-toggle-http',
     group: 'navigation',
-    labelKey: 'shortcuts.item.httpWorkspace.label',
     combos: [{ tokens: ['Mod', 'Shift', 'K'] }],
-    keywords: ['http', 'request', 'fetch', 'api', 'rest', 'workspace'],
   },
   {
     // implementation → MOV.02 — open or focus the full-screen SQL
@@ -303,9 +224,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // the editor tab strip.
     id: 'workspace-toggle-sql',
     group: 'navigation',
-    labelKey: 'shortcuts.item.sqlWorkspace.label',
     combos: [{ tokens: ['Mod', 'Alt', 'S'] }],
-    keywords: ['sql', 'query', 'duckdb', 'database', 'workspace'],
   },
   {
     // implementation note — Open the Developer Utilities workspace
@@ -314,9 +233,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // browser-reserved, +T/N browser-reserved, +Q macOS log-out).
     id: 'action-open-utility-pipelines',
     group: 'navigation',
-    labelKey: 'shortcuts.item.utilityPipelines.label',
     combos: [{ tokens: ['Mod', 'Shift', 'G'] }],
-    keywords: ['pipeline', 'chain', 'compose', 'recipe', 'utility', 'workflow'],
   },
   {
     // implementation note — Open the global Import overlay so the
@@ -329,10 +246,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // Electron honors the app binding when the renderer has focus.
     id: 'action-open-import-overlay',
     group: 'overlays',
-    labelKey: 'shortcuts.item.openImport.label',
-    descriptionKey: 'shortcuts.item.openImport.description',
     combos: [{ tokens: ['Mod', 'Alt', 'I'] }],
-    keywords: ['import', 'curl', 'paste', 'drop', 'bring in'],
   },
   {
     // implementation — export the open project as a `.zip` bundle.
@@ -340,10 +254,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // free vs the catalog (the conflict-free regression test guards it).
     id: 'action-export-project-bundle',
     group: 'overlays',
-    labelKey: 'shortcuts.item.exportProjectBundle.label',
-    descriptionKey: 'shortcuts.item.exportProjectBundle.description',
     combos: [{ tokens: ['Mod', 'Alt', 'E'] }],
-    keywords: ['export', 'zip', 'bundle', 'project', 'download', 'archive'],
   },
   {
     // implementation Slice B implementation note — Open the global Recipes overlay so the
@@ -356,10 +267,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // macOS lockscreen combo (Ctrl+Cmd+Q owns lock).
     id: 'action-open-recipes',
     group: 'overlays',
-    labelKey: 'shortcuts.item.openRecipes.label',
-    descriptionKey: 'shortcuts.item.openRecipes.description',
     combos: [{ tokens: ['Mod', 'Alt', 'L'] }],
-    keywords: ['recipe', 'lesson', 'practice', 'tutorial', 'library'],
   },
   {
     // implementation Slice A implementation note — Create a fresh notebook tab from
@@ -370,10 +278,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // in Chrome; macOS lockscreen lives on Ctrl+Cmd+Q.
     id: 'action-new-notebook',
     group: 'navigation',
-    labelKey: 'shortcuts.item.newNotebook.label',
-    descriptionKey: 'shortcuts.item.newNotebook.description',
     combos: [{ tokens: ['Mod', 'Alt', 'N'] }],
-    keywords: ['notebook', 'cell', 'jupyter', 'new', 'cuaderno'],
   },
   {
     // implementation note — Open the Capsule Import overlay so the
@@ -384,20 +289,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // in `tests/data/keyboardShortcuts.test.ts`.
     id: 'overlay-capsule-import',
     group: 'navigation',
-    labelKey: 'shortcuts.item.importCapsule.label',
-    descriptionKey: 'shortcuts.item.importCapsule.description',
     combos: [{ tokens: ['Mod', 'Shift', 'Y'] }],
-    keywords: [
-      'capsule',
-      'import',
-      'open',
-      'json',
-      'paste',
-      'replay',
-      'cargar',
-      'capsula',
-      'cápsula',
-    ],
   },
   {
     // implementation — open the Pro-gated capsule browse overlay.
@@ -406,43 +298,23 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // (Mod+Shift+C is an OS/browser binding; Mod+Alt+C is free).
     id: 'overlay-capsule-list',
     group: 'navigation',
-    labelKey: 'shortcuts.item.browseCapsules.label',
-    descriptionKey: 'shortcuts.item.browseCapsules.description',
     combos: [{ tokens: ['Mod', 'Alt', 'C'] }],
-    keywords: [
-      'capsule',
-      'browse',
-      'list',
-      'history',
-      'export',
-      'preview',
-      'explorar',
-      'capsula',
-      'cápsula',
-    ],
   },
   {
     id: 'overlay-command-palette',
     group: 'overlays',
-    labelKey: 'shortcuts.item.commandPalette.label',
     combos: [{ tokens: ['Mod', 'Shift', 'P'] }],
-    keywords: ['command', 'palette'],
   },
   {
     // internal — per-session stack of the last executed palette actions.
     id: 'overlay-recent-commands',
     group: 'overlays',
-    labelKey: 'shortcuts.item.recentCommands.label',
-    descriptionKey: 'shortcuts.item.recentCommands.description',
     combos: [{ tokens: ['Mod', 'Semicolon'] }],
-    keywords: ['recent', 'commands', 'history', 'repeat', 'again'],
   },
   {
     id: 'overlay-settings',
     group: 'overlays',
-    labelKey: 'shortcuts.item.settings.label',
     combos: [{ tokens: ['Mod', 'Comma'] }],
-    keywords: ['settings', 'preferences'],
   },
   {
     // MOV.03 — id kept stable for shortcut-overrides compatibility;
@@ -450,40 +322,28 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     // tab instead of mounting a modal overlay.
     id: 'overlay-developer-utilities',
     group: 'utilities',
-    labelKey: 'shortcuts.item.developerUtilities.label',
-    descriptionKey: 'shortcuts.item.developerUtilities.description',
     combos: [{ tokens: ['Mod', 'K'] }],
-    keywords: ['developer', 'utilities', 'tools', 'devtools'],
   },
   {
     id: 'overlay-close',
     group: 'overlays',
-    labelKey: 'shortcuts.item.closeOverlay.label',
     combos: [{ tokens: ['Escape'] }],
-    keywords: ['escape', 'close', 'dismiss'],
   },
   {
     id: 'view-toggle-sidebar',
     group: 'view',
-    labelKey: 'shortcuts.item.toggleSidebar.label',
     combos: [{ tokens: ['Mod', 'B'] }],
-    keywords: ['sidebar', 'explorer', 'toggle'],
   },
   {
     // internal — presenter / focus mode: hide the chrome, lift the fonts.
     id: 'view-toggle-presenter',
     group: 'view',
-    labelKey: 'shortcuts.item.presenterMode.label',
-    descriptionKey: 'shortcuts.item.presenterMode.description',
     combos: [{ tokens: ['Mod', 'Alt', 'P'] }],
-    keywords: ['presenter', 'focus', 'zen', 'demo', 'present'],
   },
   {
     id: 'view-toggle-console',
     group: 'view',
-    labelKey: 'shortcuts.item.toggleConsole.label',
     combos: [{ tokens: ['Mod', 'Backslash'] }],
-    keywords: ['console', 'output', 'toggle'],
   },
   // implementation — Developer Utilities productivity layer.
   // Both shortcuts no-op silently (toast `copyOutputEmpty`) when the
@@ -491,18 +351,12 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'utility-copy-output',
     group: 'utilities',
-    labelKey: 'shortcuts.item.utilityCopyOutput.label',
-    descriptionKey: 'shortcuts.item.utilityCopyOutput.description',
     combos: [{ tokens: ['Mod', 'Shift', 'C'] }],
-    keywords: ['copy', 'output', 'clipboard', 'utility', 'utilities'],
   },
   {
     id: 'utility-replace-clipboard',
     group: 'utilities',
-    labelKey: 'shortcuts.item.utilityReplaceClipboard.label',
-    descriptionKey: 'shortcuts.item.utilityReplaceClipboard.description',
     combos: [{ tokens: ['Mod', 'Alt', 'R'] }],
-    keywords: ['replace', 'clipboard', 'output', 'utility', 'utilities'],
   },
   // implementation — fires the ⚡ Apply-from-input button on the
   // focused utility panel. Default Mod+Shift+A keeps Mod+Enter free
@@ -510,10 +364,7 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'utility-apply-from-input',
     group: 'utilities',
-    labelKey: 'shortcuts.item.utilityApplyFromInput.label',
-    descriptionKey: 'shortcuts.item.utilityApplyFromInput.description',
     combos: [{ tokens: ['Mod', 'Shift', 'A'] }],
-    keywords: ['apply', 'detect', 'smart', 'paste', 'utility', 'utilities'],
   },
   // implementation note — keyboard-accessible breakpoint toggle.
   // Mod+B is already taken by `view-toggle-sidebar`; Mod+Shift+B is
@@ -524,45 +375,32 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'debugger-toggle-breakpoint',
     group: 'debugger',
-    labelKey: 'shortcuts.item.debuggerToggleBreakpoint.label',
-    descriptionKey: 'shortcuts.item.debuggerToggleBreakpoint.description',
     combos: [{ tokens: ['Mod', 'Shift', 'B'] }],
-    keywords: ['debugger', 'breakpoint', 'toggle'],
   },
   // implementation — debugger continue / step shortcuts.
   {
     id: 'debugger-continue',
     group: 'debugger',
-    labelKey: 'shortcuts.item.debuggerContinue.label',
-    descriptionKey: 'shortcuts.item.debuggerContinue.description',
     combos: [{ tokens: ['F5'] }],
-    keywords: ['debugger', 'continue', 'resume'],
   },
   {
     id: 'debugger-step-over',
     group: 'debugger',
-    labelKey: 'shortcuts.item.debuggerStepOver.label',
-    descriptionKey: 'shortcuts.item.debuggerStepOver.description',
     combos: [{ tokens: ['F10'] }],
-    keywords: ['debugger', 'step', 'over'],
   },
   {
     id: 'debugger-step-into',
     group: 'debugger',
-    labelKey: 'shortcuts.item.debuggerStepInto.label',
-    descriptionKey: 'shortcuts.item.debuggerStepInto.description',
     combos: [{ tokens: ['F11'] }],
-    keywords: ['debugger', 'step', 'into'],
   },
   {
     id: 'debugger-step-out',
     group: 'debugger',
-    labelKey: 'shortcuts.item.debuggerStepOut.label',
-    descriptionKey: 'shortcuts.item.debuggerStepOut.description',
     combos: [{ tokens: ['Shift', 'F11'] }],
-    keywords: ['debugger', 'step', 'out'],
   },
-];
+] as const satisfies readonly ShortcutDefinition[];
+
+export type ShortcutId = (typeof KEYBOARD_SHORTCUTS)[number]['id'];
 
 /** Platform-aware label for the `Mod` token. Defaults to Ctrl on unknown shells. */
 export function resolveShortcutDisplayPlatform(
@@ -763,26 +601,4 @@ export function findComboConflict(
     }
   }
   return null;
-}
-
-/** Case-insensitive match against label keywords and token labels. */
-export function filterShortcuts(
-  shortcuts: readonly ShortcutDefinition[],
-  query: string,
-  platform: string,
-  translate: (key: string) => string
-): ShortcutDefinition[] {
-  const trimmed = query.trim().toLowerCase();
-  if (!trimmed) return [...shortcuts];
-
-  return shortcuts.filter(shortcut => {
-    const label = translate(shortcut.labelKey).toLowerCase();
-    if (label.includes(trimmed)) return true;
-    if (shortcut.keywords.some(keyword => keyword.includes(trimmed))) return true;
-    const combos = shortcut.combos
-      .map(combo => formatShortcutCombo(combo, platform))
-      .join(' ')
-      .toLowerCase();
-    return combos.includes(trimmed);
-  });
 }

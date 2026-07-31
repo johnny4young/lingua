@@ -155,6 +155,20 @@ production web profile this boundary reduced the initial graph from 18 to 17
 chunks, from 1,010,078 to 1,002,999 raw profile bytes, and from 291,407 to
 289,169 gzip-9 bytes.
 
+Keyboard shortcuts separate startup behavior from reference presentation.
+`data/keyboardShortcuts.ts` keeps ids, groups, default combos, matching,
+override resolution, and platform-aware formatting in the initial graph so
+dispatch and compact hints remain immediate. Localized labels, descriptions,
+group copy, and search keywords live in
+`data/keyboardShortcutReference.ts`, which is shared by the already-lazy
+Settings and shortcut-editor chunks. The source-graph guard prevents this
+reference metadata from becoming statically reachable from either entry, while
+the E2E contract verifies that the shared chunk is absent before Settings,
+fetched once, and reused by the full editor. In the production web profile this
+reduced the initial catalog's rendered contribution from 17,632 to 8,906 bytes
+and the complete initial graph from 1,002,999 to 996,059 raw profile bytes and
+from 289,184 to 287,609 gzip-9 bytes, while retaining 17 initial chunks.
+
 ## Activation baseline and runner-loading decision
 
 Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,

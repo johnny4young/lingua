@@ -102,6 +102,20 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |
 | [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
 
+Keyboard shortcuts use two data layers with different activation costs:
+
+- [`data/keyboardShortcuts.ts`](data/keyboardShortcuts.ts) is the
+  startup-safe structural catalog. Keep ids, groups, default combos, matching,
+  overrides, and display formatting here because global dispatch and compact
+  key hints need them before any overlay opens.
+- [`data/keyboardShortcutReference.ts`](data/keyboardShortcutReference.ts)
+  owns localized label/description keys, group labels, and search keywords.
+  Import it only from the lazy Settings and Keyboard Shortcuts surfaces so
+  reference presentation does not join every workspace startup.
+- `ShortcutId` is derived from the structural catalog and the metadata record
+  must satisfy that union, making missing or stale reference rows a compile
+  error.
+
 Developer Utilities use separate startup and implementation layers:
 
 - [`data/developerUtilities.ts`](data/developerUtilities.ts) is the
