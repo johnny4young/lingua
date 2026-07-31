@@ -1,6 +1,7 @@
 import {
   getGoLspAdapter,
   isGoLspAvailable,
+  loadGoLspAdapter,
 } from '../languageIntelligence/goAdapterSingleton';
 import { useGoLanguageStore } from '../stores/goLanguageStore';
 import { useLspDocumentSync, useLspLifecycle } from './useLspLifecycle';
@@ -32,7 +33,8 @@ export function useGoLspLifecycle(): void {
     toastMessageKey: 'languageIntelligence.go.toast.ready',
     store: useGoLanguageStore,
     isAvailable: isGoLspAvailable,
-    getAdapter: getGoLspAdapter,
+    loadAdapter: loadGoLspAdapter,
+    adapterLoadFailedMessageKey: 'languageIntelligence.go.toast.adapterLoadFailed',
     getBridge: getGoBridge,
   });
 }
@@ -45,5 +47,6 @@ export function useGoLspDocumentSync(
     language: 'go',
     store: useGoLanguageStore,
     getAdapter: getGoLspAdapter,
+    loadAdapter: loadGoLspAdapter,
   });
 }

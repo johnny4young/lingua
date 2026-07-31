@@ -1,9 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../stores/editorStore';
-import type {
-  LspLanguageStatus,
-  LspLanguageStore,
-} from '../stores/lspLanguageStoreFactory';
+import type { LspLanguageStatus, LspLanguageStore } from '../stores/lspLanguageStoreFactory';
 import { useUIStore } from '../stores/uiStore';
 import type { LspLanguageIntelligenceAdapter } from '../languageIntelligence/types';
 import { LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER } from './useLanguageIntelligenceDiagnostics';
@@ -50,10 +47,7 @@ async function resolveMonaco(): Promise<MonacoApi> {
   return import('monaco-editor/esm/vs/editor/editor.api.js');
 }
 
-function severityFor(
-  monacoNs: MonacoApi,
-  severity: 'error' | 'warning' | 'info'
-): number {
+function severityFor(monacoNs: MonacoApi, severity: 'error' | 'warning' | 'info'): number {
   switch (severity) {
     case 'error':
       return monacoNs.MarkerSeverity.Error;
@@ -91,28 +85,36 @@ export interface LspLifecycleConfig {
   store: LspLanguageStore;
   /** True when the desktop bridge for this language exists. */
   isAvailable: () => boolean;
-  /** Adapter accessor (used by the diagnostics-wire effect). */
-  getAdapter: () => LspLanguageIntelligenceAdapter | null;
+  /** Activation-scoped loader. Successful loads populate the language's synchronous getter. */
+  loadAdapter: () => Promise<LspLanguageIntelligenceAdapter | null>;
+  /** i18n key surfaced when the adapter implementation cannot load. */
+  adapterLoadFailedMessageKey: string;
   /** Bridge accessor (used by boot trigger + status sync). */
   getBridge: () => LspBridge;
 }
 
 export function useLspLifecycle(config: LspLifecycleConfig): void {
-  const { language, diagnosticSource, toastMessageKey, store, isAvailable, getAdapter, getBridge } =
-    config;
-  const setStatus = store((state) => state.setStatus);
-  const markBootRequested = store((state) => state.markBootRequested);
-  const markReadyToastShown = store((state) => state.markReadyToastShown);
-  const readyToastShown = store((state) => state.readyToastShown);
-  const bootRequested = store((state) => state.bootRequested);
-  const status = store((state) => state.status);
-  const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
+  const {
+    language,
+    diagnosticSource,
+    toastMessageKey,
+    store,
+    isAvailable,
+    loadAdapter,
+    adapterLoadFailedMessageKey,
+    getBridge,
+  } = config;
+  const setStatus = store(state => state.setStatus);
+  const markBootRequested = store(state => state.markBootRequested);
+  const markReadyToastShown = store(state => state.markReadyToastShown);
+  const readyToastShown = store(state => state.readyToastShown);
+  const bootRequested = store(state => state.bootRequested);
+  const status = store(state => state.status);
+  const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   // implementation note a primitive INSIDE the selector: subscribing to `state.tabs`
   // would re-render this hook's host (AppChrome — the whole shell) on
   // every keystroke, because updateContent rebuilds the tabs array.
-  const hasMatchingTab = useEditorStore((state) =>
-    state.tabs.some((tab) => tab.language === language)
-  );
+  const hasMatchingTab = useEditorStore(state => state.tabs.some(tab => tab.language === language));
 
   // Effect 1 — boot trigger
   useEffect(() => {
@@ -130,12 +132,12 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
   useEffect(() => {
     if (!isAvailable()) return;
     const bridge = getBridge();
-    const unsubscribe = bridge.onStatusChanged((next) => {
+    const unsubscribe = bridge.onStatusChanged(next => {
       setStatus(mapBridgeStatus(next));
     });
     void bridge
       .status()
-      .then((current) => setStatus(mapBridgeStatus(current)))
+      .then(current => setStatus(mapBridgeStatus(current)))
       .catch(() => {
         // Ignore — `unknown` is a valid initial state.
       });
@@ -157,47 +159,61 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
   // Effect 4 — diagnostics wire
   useEffect(() => {
     if (status.kind !== 'available') return;
-    const adapter = getAdapter();
-    if (!adapter) return;
     let disposed = false;
     let unsubscribe: (() => void) | null = null;
     let monacoApi: MonacoApi | null = null;
-    void resolveMonaco().then((monacoNs) => {
-      if (disposed) return;
-      monacoApi = monacoNs;
-      unsubscribe = adapter.subscribeDiagnostics((uri, diagnostics) => {
-        const model = monacoNs.editor.getModels().find((m) => m.uri.toString() === uri);
-        if (!model) return;
-        monacoNs.editor.setModelMarkers(
-          model,
-          LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
-          diagnostics.map((diagnostic) => ({
-            startLineNumber: diagnostic.line,
-            startColumn: diagnostic.column,
-            endLineNumber: diagnostic.endLine ?? diagnostic.line,
-            endColumn: diagnostic.endColumn ?? diagnostic.column + 1,
-            message: diagnostic.message,
-            severity: severityFor(monacoNs, diagnostic.severity),
-            source: diagnosticSource,
-          }))
-        );
+    void Promise.all([loadAdapter(), resolveMonaco()])
+      .then(([adapter, monacoNs]) => {
+        if (disposed) return;
+        if (!adapter) {
+          throw new Error('LSP adapter transport is unavailable');
+        }
+        monacoApi = monacoNs;
+        unsubscribe = adapter.subscribeDiagnostics((uri, diagnostics) => {
+          const model = monacoNs.editor.getModels().find(m => m.uri.toString() === uri);
+          if (!model) return;
+          monacoNs.editor.setModelMarkers(
+            model,
+            LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
+            diagnostics.map(diagnostic => ({
+              startLineNumber: diagnostic.line,
+              startColumn: diagnostic.column,
+              endLineNumber: diagnostic.endLine ?? diagnostic.line,
+              endColumn: diagnostic.endColumn ?? diagnostic.column + 1,
+              message: diagnostic.message,
+              severity: severityFor(monacoNs, diagnostic.severity),
+              source: diagnosticSource,
+            }))
+          );
+        });
+      })
+      .catch(() => {
+        if (disposed) return;
+        setStatus({ kind: 'degraded', reason: 'adapter-load-failed' });
+        pushStatusNotice({
+          tone: 'error',
+          messageKey: adapterLoadFailedMessageKey,
+        });
       });
-    });
     return () => {
       disposed = true;
       unsubscribe?.();
       if (!monacoApi) return;
       for (const model of monacoApi.editor.getModels()) {
         if (model.getLanguageId() === language) {
-          monacoApi.editor.setModelMarkers(
-            model,
-            LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER,
-            []
-          );
+          monacoApi.editor.setModelMarkers(model, LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER, []);
         }
       }
     };
-  }, [status, getAdapter, language, diagnosticSource]);
+  }, [
+    status,
+    loadAdapter,
+    language,
+    diagnosticSource,
+    setStatus,
+    pushStatusNotice,
+    adapterLoadFailedMessageKey,
+  ]);
 }
 
 interface LspDocumentSyncAdapter {
@@ -209,6 +225,7 @@ export interface LspDocumentSyncConfig {
   language: string;
   store: LspLanguageStore;
   getAdapter: () => LspDocumentSyncAdapter | null;
+  loadAdapter: () => Promise<LspDocumentSyncAdapter | null>;
 }
 
 interface EditorWithModel {
@@ -228,22 +245,19 @@ export function useLspDocumentSync(
   activeTab: ActiveLspTab | null | undefined,
   config: LspDocumentSyncConfig
 ): void {
-  const { language, store, getAdapter } = config;
-  const status = store((state) => state.status);
+  const { language, store, getAdapter, loadAdapter } = config;
+  const status = store(state => state.status);
   const openUriRef = useRef<string | null>(null);
 
   // Effect 1: track which uri is currently open and close it on tab change.
   useEffect(() => {
-    const adapter = getAdapter();
     const model =
-      status.kind === 'available' && activeTab?.language === language
-        ? editor?.getModel()
-        : null;
+      status.kind === 'available' && activeTab?.language === language ? editor?.getModel() : null;
     const nextUri = model?.uri.toString() ?? null;
     const previousUri = openUriRef.current;
 
     if (previousUri && previousUri !== nextUri) {
-      adapter?.closeDocument(previousUri);
+      getAdapter()?.closeDocument(previousUri);
       openUriRef.current = null;
     }
 
@@ -253,7 +267,7 @@ export function useLspDocumentSync(
 
     return () => {
       if (nextUri && openUriRef.current === nextUri) {
-        adapter?.closeDocument(nextUri);
+        getAdapter()?.closeDocument(nextUri);
         openUriRef.current = null;
       }
     };
@@ -266,18 +280,33 @@ export function useLspDocumentSync(
     if (activeTab?.language !== language) return;
     const model = editor?.getModel();
     if (!model) return;
-    const adapter = getAdapter();
-    if (!adapter) return;
 
     const uri = model.uri.toString();
+    let disposed = false;
     const timeout = window.setTimeout(() => {
-      adapter.openDocument(uri, activeTab.content);
+      void loadAdapter()
+        .then(adapter => {
+          if (disposed || !adapter) return;
+          adapter.openDocument(uri, activeTab.content);
+        })
+        .catch(() => {
+          // The lifecycle effect owns the user-visible failure state.
+        });
     }, LSP_DOCUMENT_SYNC_DEBOUNCE_MS);
 
     return () => {
+      disposed = true;
       window.clearTimeout(timeout);
     };
-  }, [editor, activeTab?.id, activeTab?.language, activeTab?.content, status, language, getAdapter]);
+  }, [
+    editor,
+    activeTab?.id,
+    activeTab?.language,
+    activeTab?.content,
+    status,
+    language,
+    loadAdapter,
+  ]);
 }
 
 function mapBridgeStatus(bridge: BridgeStatus): LspLanguageStatus {
@@ -291,7 +320,7 @@ function mapBridgeStatus(bridge: BridgeStatus): LspLanguageStatus {
     case 'startup-failed':
       return { kind: 'unavailable', reason: 'startup-failed', detail: bridge.error };
     case 'degraded':
-      return { kind: 'degraded', detail: bridge.error };
+      return { kind: 'degraded', reason: 'server-crash', detail: bridge.error };
     case 'stopped':
     case 'unknown':
     case 'starting':

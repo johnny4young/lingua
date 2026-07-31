@@ -144,6 +144,14 @@ Renderer-local language intelligence also stays activation-scoped:
   waits for the active-language debounce before requesting an adapter. Python
   and Ruby analysis therefore arrives with a matching editor tab instead of
   with the JavaScript-first workspace shell.
+- [`languageIntelligence/goAdapterSingleton.ts`](languageIntelligence/goAdapterSingleton.ts)
+  and
+  [`languageIntelligence/rustAdapterSingleton.ts`](languageIntelligence/rustAdapterSingleton.ts)
+  keep desktop bridge detection synchronous but import their JSON-RPC adapter
+  implementations only after gopls or rust-analyzer reports ready. Concurrent
+  diagnostics and document-sync requests share one load, failed loads remain
+  retryable, and the synchronous getter is populated for Monaco provider hot
+  paths after activation.
 
 The opt-in Run Ledger has a similar persistence boundary:
 

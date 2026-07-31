@@ -1,6 +1,7 @@
 import {
   getRustLspAdapter,
   isRustLspAvailable,
+  loadRustLspAdapter,
 } from '../languageIntelligence/rustAdapterSingleton';
 import { useRustLanguageStore } from '../stores/rustLanguageStore';
 import {
@@ -41,7 +42,8 @@ export function useRustLspLifecycle(): void {
     toastMessageKey: 'languageIntelligence.rust.toast.ready',
     store: useRustLanguageStore,
     isAvailable: isRustLspAvailable,
-    getAdapter: getRustLspAdapter,
+    loadAdapter: loadRustLspAdapter,
+    adapterLoadFailedMessageKey: 'languageIntelligence.rust.toast.adapterLoadFailed',
     getBridge: getRustBridge,
   });
 }
@@ -54,5 +56,6 @@ export function useRustLspDocumentSync(
     language: 'rust',
     store: useRustLanguageStore,
     getAdapter: getRustLspAdapter,
+    loadAdapter: loadRustLspAdapter,
   });
 }

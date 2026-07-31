@@ -43,19 +43,17 @@ describe('RustLanguageIntelligenceRow', () => {
   });
 
   it('surfaces the install hint with the rustup command when missing', () => {
-    useRustLanguageStore
-      .getState()
-      .setStatus({ kind: 'unavailable', reason: 'missing' });
+    useRustLanguageStore.getState().setStatus({ kind: 'unavailable', reason: 'missing' });
     render(<RustLanguageIntelligenceRow />);
     expect(
-      screen.getByText(/rust-analyzer is not on PATH\. Install with: rustup component add rust-analyzer/)
+      screen.getByText(
+        /rust-analyzer is not on PATH\. Install with: rustup component add rust-analyzer/
+      )
     ).toBeTruthy();
   });
 
   it('surfaces the desktop-only copy on the web build', () => {
-    useRustLanguageStore
-      .getState()
-      .setStatus({ kind: 'unavailable', reason: 'web-build' });
+    useRustLanguageStore.getState().setStatus({ kind: 'unavailable', reason: 'web-build' });
     render(<RustLanguageIntelligenceRow />);
     expect(screen.getByText(/desktop only/i)).toBeTruthy();
     expect(screen.getByText(/local subprocess/i)).toBeTruthy();
@@ -63,13 +61,13 @@ describe('RustLanguageIntelligenceRow', () => {
 
   it('renders the restart button when degraded and calls the IPC on click', async () => {
     const restart = vi.fn().mockResolvedValue({ kind: 'starting' });
-    (window as unknown as { lingua: { lsp: { rust: { restart: () => Promise<unknown> } } } }).lingua = {
+    (
+      window as unknown as { lingua: { lsp: { rust: { restart: () => Promise<unknown> } } } }
+    ).lingua = {
       lsp: { rust: { restart } },
     } as never;
 
-    useRustLanguageStore
-      .getState()
-      .setStatus({ kind: 'degraded', detail: 'code=137 signal=null' });
+    useRustLanguageStore.getState().setStatus({ kind: 'degraded', detail: 'code=137 signal=null' });
 
     render(<RustLanguageIntelligenceRow />);
     const button = screen.getByTestId('settings-rust-lsp-restart');
@@ -77,11 +75,18 @@ describe('RustLanguageIntelligenceRow', () => {
     expect(restart).toHaveBeenCalledTimes(1);
   });
 
+  it('distinguishes an adapter chunk failure from a rust-analyzer process crash', () => {
+    useRustLanguageStore.getState().setStatus({ kind: 'degraded', reason: 'adapter-load-failed' });
+
+    render(<RustLanguageIntelligenceRow />);
+    expect(screen.getByText('Rust language intelligence could not load')).toBeTruthy();
+    expect(screen.getByText(/desktop integration did not load/i)).toBeTruthy();
+    expect(screen.getByTestId('settings-rust-lsp-restart')).toBeTruthy();
+  });
+
   it('renders Spanish copy in neutral LatAm tuteo when locale is es', async () => {
     await i18next.changeLanguage('es');
-    useRustLanguageStore
-      .getState()
-      .setStatus({ kind: 'unavailable', reason: 'missing' });
+    useRustLanguageStore.getState().setStatus({ kind: 'unavailable', reason: 'missing' });
 
     render(<RustLanguageIntelligenceRow />);
     expect(screen.getByText(/Instálalo con: rustup component add rust-analyzer/)).toBeTruthy();

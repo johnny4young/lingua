@@ -149,6 +149,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the Ruby local analyzer used only after a Ruby tab activates diagnostics',
   },
   {
+    module: 'src/renderer/languageIntelligence/go.ts',
+    why: 'the desktop-only gopls adapter used only after gopls reports ready',
+  },
+  {
+    module: 'src/renderer/languageIntelligence/rust.ts',
+    why: 'the desktop-only rust-analyzer adapter used only after rust-analyzer reports ready',
+  },
+  {
     module: 'src/renderer/runtime/runLedger.ts',
     why: 'the opt-in local run ledger used only after an enabled manual run or explicit Settings action',
   },
