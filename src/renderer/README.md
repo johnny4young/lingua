@@ -183,6 +183,20 @@ their filesystem/archive choreography:
   telemetry. It loads only after the user requests an export or confirms an
   import.
 
+Manual execution keeps persistent run controls separate from activation-only
+orchestration:
+
+- [`hooks/useRunner.ts`](hooks/useRunner.ts) subscribes to shared run status,
+  exposes stable Run/Stop callbacks, and keeps Stop available while execution
+  implementation chunks are preparing.
+- [`hooks/manualRunControllerLoader.ts`](hooks/manualRunControllerLoader.ts)
+  owns the retryable activation load. A rejected request is evicted so the next
+  explicit Run action can recover.
+- [`runtime/manualRunController.ts`](runtime/manualRunController.ts) owns
+  entitlement checks, native trust gating, runner lifecycle, tab status,
+  accessibility announcements, and telemetry. It loads only after a user asks
+  Lingua to run or debug a tab.
+
 The opt-in Run Ledger has a similar persistence boundary:
 
 - [`hooks/useRunLedgerTap.ts`](hooks/useRunLedgerTap.ts) keeps only the

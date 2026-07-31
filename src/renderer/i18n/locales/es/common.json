@@ -1604,6 +1604,7 @@
   "runtime.timeout.preset.extended.label": "Extendida (5min)",
   "runtime.timeout.section.title": "Tiempo de ejecución",
   "runtime.timeout.section.description": "Cuánto tiempo puede correr un programa antes de interrumpirse. Por lenguaje. Aplica a JavaScript, TypeScript, Python y Go. La carga inicial de Pyodide usa un presupuesto aparte.",
+  "runtime.manualRun.loadFailed": "No se pudieron cargar los controles de ejecución. Inténtalo de nuevo.",
   "runtime.timeout.row.label": "{{language}}",
   "runtime.timeout.countdown.label": "Mostrar cuenta regresiva durante la ejecución",
   "runtime.timeout.countdown.hint": "Muestra mm:ss en el encabezado del panel de resultados mientras una ejecución está en curso. Apagado por defecto.",

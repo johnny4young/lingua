@@ -1604,6 +1604,7 @@
   "runtime.timeout.preset.extended.label": "Extended (5min)",
   "runtime.timeout.section.title": "Execution timeout",
   "runtime.timeout.section.description": "How long a run is allowed to take before it's interrupted. Per language. Applies to JavaScript, TypeScript, Python, and Go. Pyodide's initial load uses a separate budget.",
+  "runtime.manualRun.loadFailed": "The run controls could not load. Try again.",
   "runtime.timeout.row.label": "{{language}}",
   "runtime.timeout.countdown.label": "Show countdown while running",
   "runtime.timeout.countdown.hint": "Renders mm:ss in the result panel header while a run is in flight. Default off.",

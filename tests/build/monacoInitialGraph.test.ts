@@ -105,6 +105,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'manual runner orchestration used only after Run, Debug, replay, or smoke starts',
   },
   {
+    module: 'src/renderer/runtime/manualRunController.ts',
+    why: 'manual-run entitlement checks, native trust gating, lifecycle, announcements, and telemetry used only after Run or Debug starts',
+  },
+  {
     module: 'src/renderer/hooks/autoRunExecution.ts',
     why: 'runner orchestration used only after a Scratchpad debounce is accepted',
   },
