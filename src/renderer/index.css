@@ -1060,7 +1060,7 @@
      placed in the editor's overlay layer (sibling to the lines, not
      a child), so we can pin it to the editor's right edge with
      `position: absolute; top: <pixel>; right: <gutter offset>`. The
-     hook (`useInlineResultWidgets`) writes those style values from
+     runtime (`InlineResultWidgets`) writes those style values from
      `editor.getTopForLineNumber(line) - scrollTop`. Visually this
      matches Quokka and the v2 design's right-edge alignment, while
      keeping per-line vertical sync as the editor scrolls. */

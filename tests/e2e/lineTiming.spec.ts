@@ -43,12 +43,22 @@ const TIMED_SOURCE = [
   'console.log(total);',
 ].join('\n');
 
+async function inlineWidgetChunkRequests(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .map(entry => entry.name)
+      .filter(name => /\/InlineResultWidgets-[^/]+\.js$/.test(name))
+  );
+}
+
 test.describe('inline per-line timing', () => {
   test('a // @time buffer renders per-statement chips with one hot spot', async ({
     page,
   }) => {
     await seedSession(page);
     await gotoApp(page);
+    expect(await inlineWidgetChunkRequests(page)).toEqual([]);
     await createJavaScriptTab(page);
 
     await replaceEditorText(page, TIMED_SOURCE);
@@ -59,6 +69,7 @@ test.describe('inline per-line timing', () => {
     // lines 2, 3, 4, the for-loop, and the console.log).
     await expect(chips).toHaveCount(5);
     await expect(chips.first()).toContainText('ms');
+    expect(await inlineWidgetChunkRequests(page)).toHaveLength(1);
     // Exactly one hot-spot marker.
     await expect(page.locator('[data-testid="lingua-inline-timing"][data-slowest="true"]')).toHaveCount(1);
   });

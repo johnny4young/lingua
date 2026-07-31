@@ -295,6 +295,7 @@
   "editor.executionHistorySnapshot.hint": "Activado en Pro. El código guardado vive solo en memoria — no sobrevive a un reinicio. Apágalo si prefieres no capturar.",
   "editor.executionHistorySnapshot.lockedHint": "Disponible en Lingua Pro. Las capturas viven solo en memoria y no sobreviven a un reinicio.",
   "toolbar.run.proOnlyTooltip": "Este runtime está disponible en Lingua Pro.",
+  "results.inline.loadFailed": "No se pudieron cargar los resultados en línea. Recarga Lingua y ejecuta de nuevo.",
   "statusNotice.dismiss": "Descartar aviso",
   "update.banner.title": "Hay una nueva versión de Lingua disponible",
   "update.banner.body": "Recarga para obtener la versión {{version}}.",

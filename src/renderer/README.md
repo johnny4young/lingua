@@ -153,6 +153,20 @@ Renderer-local language intelligence also stays activation-scoped:
   retryable, and the synchronous getter is populated for Monaco provider hot
   paths after activation.
 
+Inline execution feedback separates diagnostic correctness from result
+presentation:
+
+- [`hooks/useExecutionMarkers.ts`](hooks/useExecutionMarkers.ts) keeps Monaco
+  error and warning markers eager because a compile failure can arrive without
+  a displayable line result.
+- [`components/Editor/InlineResultWidgetsHost.tsx`](components/Editor/InlineResultWidgetsHost.tsx)
+  is the startup-safe boundary. It loads the overlay runtime only after a run
+  produces a visible value or statement timing.
+- [`components/Editor/InlineResultWidgets.tsx`](components/Editor/InlineResultWidgets.tsx)
+  owns overlay DOM, positioning, timing chips, and rich-output summaries.
+  Failed chunk delivery reports localized reload guidance instead of silently
+  dropping execution output.
+
 The opt-in Run Ledger has a similar persistence boundary:
 
 - [`hooks/useRunLedgerTap.ts`](hooks/useRunLedgerTap.ts) keeps only the

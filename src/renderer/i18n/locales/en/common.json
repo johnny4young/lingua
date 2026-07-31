@@ -295,6 +295,7 @@
   "editor.executionHistorySnapshot.hint": "On for Pro. The captured code stays in memory only — it never persists across reloads. Turn off to skip capture.",
   "editor.executionHistorySnapshot.lockedHint": "Available in Lingua Pro. Captures stay in memory only and never persist across reloads.",
   "toolbar.run.proOnlyTooltip": "This runtime is available in Lingua Pro.",
+  "results.inline.loadFailed": "Inline results could not load. Reload Lingua and run again.",
   "statusNotice.dismiss": "Dismiss notice",
   "update.banner.title": "A new version of Lingua is available",
   "update.banner.body": "Reload to pick up version {{version}}.",

@@ -5,7 +5,7 @@ import { formatExecTime } from '../../hooks/runnerOutput';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { isHiddenUndefinedLineResult } from '../../hooks/useInlineResults';
+import { isHiddenUndefinedLineResult } from '../../hooks/inlineResultVisibility';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { isInlineResultLanguage } from '../../utils/languageCapabilities';
 import { AutoRunGateNotice } from './AutoRunGateNotice';
@@ -207,7 +207,7 @@ export function ResultPanel() {
         ) : dynamic ? (
           // implementation — in scratchpad mode the per-line values
           // render inside the editor via Monaco overlay widgets
-          // (`useInlineResultWidgets`), so the result panel body no
+          // (`<InlineResultWidgets>`), so the result panel body no
           // longer mirrors them. The body keeps the error pane (when
           // the runner failed) and otherwise stays empty — Compare
           // and Variables still claim the area when active. The diff

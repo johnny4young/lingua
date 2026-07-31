@@ -165,7 +165,7 @@ describe('ResultPanel', () => {
    * implementation — the inline result body that mirrored
    * @watch / autoLog / undefined entries was removed from the
    * result panel; those values now render inside the editor via
-   * Monaco overlay widgets driven by `useInlineResultWidgets`.
+   * Monaco overlay widgets driven by `<InlineResultWidgets>`.
    * The tests that asserted on `data-result-kind` markers in the
    * result panel DOM were deleted alongside the rendering path. The
    * underlying behaviour (line results making it from the runner

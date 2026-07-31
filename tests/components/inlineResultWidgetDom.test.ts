@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isHiddenUndefinedLineResult,
-  renderInlineResultNode,
-} from '@/hooks/useInlineResults';
+import { renderInlineResultNode } from '@/components/Editor/inlineResultWidgetDom';
+import { isHiddenUndefinedLineResult } from '@/hooks/inlineResultVisibility';
 
-describe('useInlineResults inline widget DOM', () => {
+describe('inline result widget DOM', () => {
   it('badges only watch results, not arrow magic results', () => {
     const node = renderInlineResultNode([
       { line: 1, value: 'arrow value', type: 'magic' },
@@ -17,7 +15,7 @@ describe('useInlineResults inline widget DOM', () => {
     expect(watchBadges[0]?.textContent).toBe('@WATCH');
 
     const parts = Array.from(node.querySelectorAll('.lingua-inline-result-part'));
-    expect(parts.map((part) => part.textContent)).toEqual([
+    expect(parts.map(part => part.textContent)).toEqual([
       '⟸arrow valuestring',
       '@WATCH⟸pinned valuestring',
       '⟸auto valuestring',
@@ -25,14 +23,12 @@ describe('useInlineResults inline widget DOM', () => {
   });
 
   it('keeps the hideUndefined filter aligned with inline widget semantics', () => {
-    expect(isHiddenUndefinedLineResult({ line: 1, value: 'undefined', type: 'result' }))
-      .toBe(true);
-    expect(isHiddenUndefinedLineResult({ line: 2, value: 'undefined', type: 'autoLog' }))
-      .toBe(true);
-    expect(isHiddenUndefinedLineResult({ line: 3, value: 'undefined', type: 'watch' }))
-      .toBe(false);
-    expect(isHiddenUndefinedLineResult({ line: 4, value: 'undefined', type: 'magic' }))
-      .toBe(false);
+    expect(isHiddenUndefinedLineResult({ line: 1, value: 'undefined', type: 'result' })).toBe(true);
+    expect(isHiddenUndefinedLineResult({ line: 2, value: 'undefined', type: 'autoLog' })).toBe(
+      true
+    );
+    expect(isHiddenUndefinedLineResult({ line: 3, value: 'undefined', type: 'watch' })).toBe(false);
+    expect(isHiddenUndefinedLineResult({ line: 4, value: 'undefined', type: 'magic' })).toBe(false);
   });
 
   // internal overflow Prerequisite fix (landed in the implementation
@@ -83,10 +79,10 @@ describe('useInlineResults inline widget DOM', () => {
 
 describe('internal — inline timing chip', () => {
   it('renders the timing chip after the value parts', () => {
-    const node = renderInlineResultNode(
-      [{ line: 1, value: '42', type: 'autoLog' }],
-      { durationMs: 320.4, slowest: false }
-    );
+    const node = renderInlineResultNode([{ line: 1, value: '42', type: 'autoLog' }], {
+      durationMs: 320.4,
+      slowest: false,
+    });
     const chip = node.querySelector('[data-testid="lingua-inline-timing"]');
     expect(chip?.textContent).toBe('▸ 320 ms');
     expect(chip?.getAttribute('data-slowest')).toBeNull();

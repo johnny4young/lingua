@@ -668,7 +668,7 @@ interface PythonPrintEntry {
   /**
    * Source line number captured at print()-call time via
    * `sys._getframe`. Threads through to `ConsoleOutput.line` so the
-   * renderer's inline-result pipeline (`useInlineResults`) paints
+   * renderer's inline-result pipeline (`<InlineResultWidgets>`) paints
    * the arrow + payload pill next to the user's source line — the
    * same UX JS scratchpads get for `console.log`.
    */
@@ -1202,7 +1202,7 @@ __lingua_builtins_print = __lingua_builtins.print
 def __lingua_caller_line():
     # implementation follow-up — surface the user-source line number
     # so each print() entry threads through ConsoleOutput.line and
-    # paints an inline pill via useInlineResults (same JS behavior as
+    # paints an inline pill via InlineResultWidgets (same JS behavior as
     # console.log). Walk frames upward until we exit the lingua-owned
     # helpers; user code runs in a Pyodide module compiled from a
     # string so f_lineno maps directly to the source line.

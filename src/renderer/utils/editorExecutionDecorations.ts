@@ -1,11 +1,4 @@
-import type { LineResult } from '../stores/resultStore';
 import type { EditorDiagnostic, ExecutionError } from '../types';
-import { formatPayloadInlineSummary } from '../../shared/richOutput';
-
-export interface InlineDecorationEntry {
-  line: number;
-  content: string;
-}
 
 export interface ExecutionMarkerEntry {
   startLineNumber: number;
@@ -14,42 +7,6 @@ export interface ExecutionMarkerEntry {
   endColumn: number;
   message: string;
   severity?: 'error' | 'warning' | 'info';
-}
-
-function toInlineContent(result: LineResult): string {
-  if (result.payload) {
-    // implementation — reuse the shared formatter so the editor-
-    // decoration path and the overlay-widget path can never diverge.
-    const summary = formatPayloadInlineSummary(result.payload);
-    if (summary !== null) {
-      const prefix = result.type === 'magic' || result.type === 'result' ? '// => ' : '// ';
-      return `${prefix}${summary.display}`;
-    }
-  }
-  switch (result.type) {
-    case 'magic':
-    case 'result':
-      return `// => ${result.value}`;
-    default:
-      return `// ${result.value}`;
-  }
-}
-
-export function buildInlineDecorationEntries(
-  lineResults: LineResult[]
-): InlineDecorationEntry[] {
-  const groupedLineResults = new Map<number, string[]>();
-
-  for (const lineResult of lineResults) {
-    const existing = groupedLineResults.get(lineResult.line) ?? [];
-    existing.push(toInlineContent(lineResult));
-    groupedLineResults.set(lineResult.line, existing);
-  }
-
-  return Array.from(groupedLineResults.entries()).map(([line, contents]) => ({
-    line,
-    content: `  ${contents.join('  ')}`,
-  }));
 }
 
 export function buildExecutionMarkerEntry(
