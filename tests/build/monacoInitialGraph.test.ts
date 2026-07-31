@@ -97,6 +97,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'utility history limits, favorites, entitlement persistence, and upsell behavior used only by lazy Utilities surfaces',
   },
   {
+    module: 'src/renderer/hooks/dependencyDetectionRuntime.ts',
+    why: 'dependency parser loading and platform classification used only after source may reference a package',
+  },
+  {
     module: 'src/shared/projectBundle.ts',
     why: 'the fflate project archive codec used only by bundle export/import',
   },

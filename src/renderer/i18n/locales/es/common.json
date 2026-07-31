@@ -3001,6 +3001,7 @@
   "dependencies.empty.noTab": "Abre un archivo para ver sus dependencias.",
   "dependencies.disabled": "La detección de dependencias está apagada. Actívala en Ajustes → Editor → Auto-detecta dependencias.",
   "dependencies.bufferTooLarge": "Este archivo es demasiado grande para escanear dependencias. Divídelo o abre una porción más chica.",
+  "dependencies.detectionLoadFailed": "No se pudo cargar la detección de dependencias. Edita el archivo para reintentar.",
   "dependencies.privacyNote": "La detección es local. Las instalaciones contactan npm solo cuando tocas Instala.",
   "dependencies.status.detected": "No instalada",
   "dependencies.status.installed": "Instalada",

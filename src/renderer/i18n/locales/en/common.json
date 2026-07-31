@@ -3001,6 +3001,7 @@
   "dependencies.empty.noTab": "Open a file to see its dependencies.",
   "dependencies.disabled": "Dependency detection is off. Enable it in Settings → Editor → Auto-detect dependencies.",
   "dependencies.bufferTooLarge": "This file is too large to scan for dependencies. Try splitting it or open a smaller subset.",
+  "dependencies.detectionLoadFailed": "Dependency detection could not load. Edit the file to retry.",
   "dependencies.privacyNote": "Detection is local. Installs contact npm only when you click Install.",
   "dependencies.status.detected": "Not installed",
   "dependencies.status.installed": "Installed",

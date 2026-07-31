@@ -377,6 +377,22 @@ paid implementation:
 - A failed dialog chunk closes the failed request, clears the loader cache, and
   lets the next explicit action retry without replacing the app shell.
 
+Dependency detection keeps its always-mounted observer separate from parser and
+platform work:
+
+- [`hooks/useDependencyDetection.ts`](hooks/useDependencyDetection.ts) owns the
+  active-tab subscription, debounce, detection hash, cache updates, telemetry,
+  cancellation, and cheap no-import / oversized-buffer paths.
+- [`hooks/dependencyDetectionRuntimeLoader.ts`](hooks/dependencyDetectionRuntimeLoader.ts)
+  requests one shared runtime only after the source preflight finds a package
+  candidate. Rejected chunk requests are evicted so the next edit can retry.
+- [`hooks/dependencyDetectionRuntime.ts`](hooks/dependencyDetectionRuntime.ts)
+  owns adapter loading and web/desktop classification. Cancellation crosses the
+  lazy boundary so a disabled or replaced tab cannot run a parser that finishes
+  loading late.
+- A runtime or adapter load failure leaves the prior cache untouched and uses
+  the global status notice for localized edit-to-retry guidance.
+
 ## State ownership
 
 ### User-invoked overlays
@@ -415,7 +431,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
 | [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, transient run state, active cell — thin assembly point (internal pattern) that composes the focused notebook\* modules below |
 | notebook split — [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore` |
-| [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) + [useDependencyDetection.ts](hooks/useDependencyDetection.ts) | per-tab dependency cache/install state plus debounced, cancellable adapter loading; the detection path requests Acorn or the Python scanner only when active source may reference a package (Scratchpad execution can load its shared Acorn chunk independently) |
+| [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) + [useDependencyDetection.ts](hooks/useDependencyDetection.ts) + [dependencyDetectionRuntime.ts](hooks/dependencyDetectionRuntime.ts) | per-tab dependency cache/install state plus a startup-safe eligibility/debounce hook; parser loading and platform classification activate only when source may reference a package (Scratchpad execution can load its shared Acorn chunk independently) |
 | [gitStore.ts](stores/gitStore.ts)           | git posture, per-file status cache, HEAD-change updates           |
 | [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
