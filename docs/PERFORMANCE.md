@@ -155,6 +155,21 @@ production web profile this boundary reduced the initial graph from 18 to 17
 chunks, from 1,010,078 to 1,002,999 raw profile bytes, and from 291,407 to
 289,169 gzip-9 bytes.
 
+Active notebook export follows the same eligibility-first rule. The Command
+Palette keeps its always-available action and checks the already-eager active
+tab synchronously: a non-notebook receives immediate localized guidance
+without downloading the export implementation. Only an eligible notebook
+requests the cached exporter, which reads notebook state and owns `.linguanb`
+serialization, disk/download choreography, and telemetry. A rejected chunk is
+evicted so a later explicit action can retry, while the current action reports
+localized failure guidance. The source-graph guard keeps the export
+orchestrator, serializer, and disk helper out of both shipped startup graphs.
+The notebook store itself remains eager because editor tab lifecycle actions
+also own its cleanup independently of export. In the production web profile,
+this boundary reduced the statically reachable source graph from 288 to 281
+modules and the initial payload from 1,161,021 to 1,158,360 raw bytes and from
+304,226 to 303,387 gzip-9 bytes, while retaining 14 initial files.
+
 Keyboard shortcuts separate startup behavior from reference presentation.
 `data/keyboardShortcuts.ts` keeps ids, groups, default combos, matching,
 override resolution, and platform-aware formatting in the initial graph so

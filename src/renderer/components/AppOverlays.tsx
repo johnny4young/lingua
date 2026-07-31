@@ -3,10 +3,11 @@ import { claimCapsuleListSurface } from './CapsuleList/capsuleListSurface';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
 import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
-import { exportActiveNotebookAsLinguanb } from '../runtime/exportActiveNotebook';
-import { useEditorStore } from '../stores/editorStore';
+import { loadActiveNotebookExporter } from '../runtime/exportActiveNotebookLoader';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useUIStore } from '../stores/uiStore';
 import { trackEvent } from '../utils/telemetry';
 import type { AppOverlay } from '../hooks/useGlobalShortcuts';
 import { requestSettingsTarget } from './Settings/pendingSettingsTab';
@@ -67,6 +68,34 @@ const SettingsModal = lazy(async () => ({
 const WhatsNewOverlay = lazy(async () => ({
   default: (await import('./Settings/WhatsNewOverlay')).WhatsNewOverlay,
 }));
+
+/**
+ * Keep the common no-notebook path synchronous and cheap. The exporter reads
+ * notebook state and owns serialization, disk/download handling, and
+ * telemetry, so it is requested only when the active tab can use it.
+ */
+export async function exportActiveNotebookFromPalette(): Promise<void> {
+  const tab = getActiveTab(useEditorStore.getState());
+  if (!tab || tab.kind !== 'notebook') {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: 'notebook.notice.exportNoActiveNotebook',
+      priority: 'high',
+    });
+    return;
+  }
+
+  try {
+    const { exportActiveNotebookAsLinguanb } = await loadActiveNotebookExporter();
+    exportActiveNotebookAsLinguanb();
+  } catch (error) {
+    console.error('[notebook-export] Failed to load exporter', error);
+    useUIStore.getState().pushStatusNotice({
+      tone: 'error',
+      messageKey: 'notebook.notice.exportFailed',
+    });
+  }
+}
 
 /**
  * internal — the single-slot overlay layer, extracted verbatim from
@@ -134,11 +163,7 @@ export function AppOverlays({
           onRunActiveTab={() => void run()}
           onOpenProject={() => useProjectStore.getState().openProject()}
           onApplyLicense={() =>
-            requestSettingsTarget(
-              'account',
-              'license-token-input',
-              () => openOverlay('settings')
-            )
+            requestSettingsTarget('account', 'license-token-input', () => openOverlay('settings'))
           }
           onRerunLast={() => void run()}
           onReplayEntry={entry => {
@@ -167,7 +192,7 @@ export function AppOverlays({
           onOpenImportOverlay={() => openOverlay('import-preview')}
           onOpenRecipes={() => openOverlay('recipes')}
           onNewNotebook={() => useEditorStore.getState().addNotebookTab()}
-          onExportActiveNotebookLinguanb={() => exportActiveNotebookAsLinguanb()}
+          onExportActiveNotebookLinguanb={() => void exportActiveNotebookFromPalette()}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}

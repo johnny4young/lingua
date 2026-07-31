@@ -109,6 +109,18 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'persisted SQL collection state used only by SQL workspace surfaces',
   },
   {
+    module: 'src/renderer/runtime/exportActiveNotebook.ts',
+    why: 'active notebook export orchestration used only after an eligible Command Palette action',
+  },
+  {
+    module: 'src/renderer/components/Notebook/notebookExportToLinguanb.ts',
+    why: 'Lingua notebook serialization used only after an explicit notebook export action',
+  },
+  {
+    module: 'src/renderer/runtime/notebookLinguanbDisk.ts',
+    why: 'native-save and browser-download choreography used only after notebook export',
+  },
+  {
     module: 'src/shared/projectBundle.ts',
     why: 'the fflate project archive codec used only by bundle export/import',
   },
