@@ -3,6 +3,8 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Kbd } from '../ui/chrome';
+import type { EditorTabContextMenuProps } from './editorTabContextMenuLoader';
+import { resolveEditorTabContextMenuAnchor } from './editorTabContextMenuPosition';
 
 /**
  * Anchored context menu for editor tabs. Renders through a portal so
@@ -17,20 +19,6 @@ import { Kbd } from '../ui/chrome';
  * (pin, reveal in Finder, copy path) are tracked in BACKLOG and
  * intentionally absent here.
  */
-export interface EditorTabContextMenuProps {
-  anchor: { top: number; left: number };
-  tabName: string;
-  isLastTab: boolean;
-  isRightmost: boolean;
-  onClose: () => void;
-  onCloseTab: () => void;
-  onCloseOthers: () => void;
-  onCloseToRight: () => void;
-  onCloseAll: () => void;
-  onRename: () => void;
-  onDuplicate: () => void;
-}
-
 export function EditorTabContextMenu({
   anchor,
   tabName,
@@ -46,6 +34,7 @@ export function EditorTabContextMenu({
 }: EditorTabContextMenuProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  const resolvedAnchor = resolveEditorTabContextMenuAnchor(anchor);
   // accessibility pass — remember what was focused before the menu opened
   // (the triggering tab, for Shift+F10 / ContextMenu key) so focus can
   // return there on close instead of falling to the document body.
@@ -182,8 +171,8 @@ export function EditorTabContextMenu({
       tabIndex={-1}
       data-testid="editor-tab-context-menu"
       onKeyDown={handleMenuKeyDown}
-      className="surface-panel-strong fixed z-[12000] min-w-[14rem] p-1 outline-none"
-      style={{ top: anchor.top, left: anchor.left }}
+      className="surface-panel-strong fixed z-[12000] w-[min(14rem,calc(100vw-1.5rem))] p-1 outline-none"
+      style={{ top: resolvedAnchor.top, left: resolvedAnchor.left }}
     >
       {items.map((item, index) => {
         if (item === 'divider') {

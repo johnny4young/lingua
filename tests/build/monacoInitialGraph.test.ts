@@ -225,6 +225,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the per-tab history rows and replay controls used only after Recent Runs opens',
   },
   {
+    module: 'src/renderer/components/Editor/EditorTabContextMenu.tsx',
+    why: 'the tab action portal used only after right-click or a keyboard context-menu request',
+  },
+  {
     module: 'src/renderer/components/FileTree/FileTree.tsx',
     why: 'the project explorer used only after the sidebar or compact drawer opens',
   },

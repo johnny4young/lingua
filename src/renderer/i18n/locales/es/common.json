@@ -1384,6 +1384,7 @@
   "ui.fileDropZone.rejected": "Ese archivo fue rechazado",
   "editorTabs.close": "Cerrar {{name}}",
   "editorTabs.menu.ariaLabel": "Acciones de pestaña para {{name}}",
+  "editorTabs.menu.loadFailed": "No se pudieron cargar las acciones de pestaña. Recarga Lingua para intentarlo de nuevo.",
   "editorTabs.menu.close": "Cerrar",
   "editorTabs.menu.closeOthers": "Cerrar otras",
   "editorTabs.menu.closeRight": "Cerrar a la derecha",

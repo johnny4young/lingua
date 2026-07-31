@@ -1384,6 +1384,7 @@
   "ui.fileDropZone.rejected": "That file was rejected",
   "editorTabs.close": "Close {{name}}",
   "editorTabs.menu.ariaLabel": "Tab actions for {{name}}",
+  "editorTabs.menu.loadFailed": "Tab actions could not load. Reload Lingua to try again.",
   "editorTabs.menu.close": "Close",
   "editorTabs.menu.closeOthers": "Close others",
   "editorTabs.menu.closeRight": "Close to the right",

@@ -67,7 +67,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`, `BottomPanel.tsx`                    | Owns shell composition, panel layout, sidebar/drawer behavior; the closed bottom panel stays behind a lazy boundary so its feature tree loads only when opened |
 | [`components/Chrome/`](components/Chrome)                 | `AppChrome.tsx`                                       | App-level chrome frame and shell wrapper primitives            |
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
-| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabItems.tsx`, `ResultPanel.tsx` | Owns Monaco, tab orchestration/rows, inline result surface, completion providers |
+| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabContextMenuHost.tsx`, `ResultPanel.tsx` | Owns Monaco, eager tab orchestration/rows, activation-scoped tab actions, inline result surface, completion providers |
 | [`components/ErrorBoundary/`](components/ErrorBoundary)   | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTreeHost.tsx`, `FileTree.tsx`, `FileTreeNode.tsx` | Owns the activation boundary, project explorer rendering, and inline tree interactions |
 | [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | AppLayout mounts the floating execution chrome only; the standalone Toolbar supports focused fallback/smoke coverage and shares the same pure eligibility policy |
@@ -258,6 +258,23 @@ Recent Runs keeps its discoverable shell separate from its paid implementation:
 - A failed module URL remains cached for the current document because browsers
   do not reliably recover it through an inline retry; the host offers an
   explicit Lingua reload instead.
+
+Editor tabs keep their primary interaction path separate from contextual
+actions:
+
+- [`components/Editor/EditorTabs.tsx`](components/Editor/EditorTabs.tsx) and
+  [`components/Editor/EditorTabItems.tsx`](components/Editor/EditorTabItems.tsx)
+  keep tab rendering, activation, close, rename, overflow, and the
+  right-click/Shift+F10 detector eager.
+- [`components/Editor/EditorTabContextMenuHost.tsx`](components/Editor/EditorTabContextMenuHost.tsx)
+  loads the implementation after activation; a failed request closes and uses
+  the shared status-notice surface for localized reload guidance.
+- [`components/Editor/EditorTabContextMenu.tsx`](components/Editor/EditorTabContextMenu.tsx)
+  owns the portal actions, action keyboard navigation, and focus restoration.
+  Its document-cached loader fetches it only after an actual context-menu
+  request.
+- The implementation bounds its fixed portal anchor to the viewport so edge
+  activations do not clip contextual actions.
 
 The main-editor AI explanation flow keeps its request slot separate from its
 paid implementation:

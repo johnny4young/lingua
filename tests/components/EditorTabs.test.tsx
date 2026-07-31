@@ -67,6 +67,15 @@ vi.mock('lucide-react', () => {
   };
 });
 
+// EditorTabs owns activation; the host's async lifecycle has a dedicated suite.
+// Render the real menu synchronously here so all existing action, focus, and
+// keyboard-navigation contracts remain deterministic.
+vi.mock('../../src/renderer/components/Editor/EditorTabContextMenuHost', async () => {
+  const { EditorTabContextMenu } =
+    await import('../../src/renderer/components/Editor/EditorTabContextMenu');
+  return { EditorTabContextMenuHost: EditorTabContextMenu };
+});
+
 import { EditorTabs } from '../../src/renderer/components/Editor/EditorTabs';
 
 describe('EditorTabs', () => {

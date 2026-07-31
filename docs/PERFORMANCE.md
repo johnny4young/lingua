@@ -131,6 +131,17 @@ guard keeps `RecentRunsPopover.tsx` deferred, while the E2E contract verifies
 that no matching resource is present before activation and only one is fetched
 across repeated opens.
 
+Editor-tab actions follow the same trigger-first rule.
+`EditorTabs.tsx` keeps tab rendering, activation, close, rename, overflow, and
+right-click/Shift+F10 detection in the initial graph.
+`EditorTabContextMenuHost.tsx` then requests the cached portal implementation
+only after an actual context-menu activation. A failed request closes safely
+and reports localized reload guidance through the shared status-notice surface;
+the loaded menu owns focus management, dismissal, and keyboard navigation. Its
+anchor is clamped to the viewport so an edge activation cannot clip the menu.
+The source-graph and E2E guards keep the implementation absent before
+activation and reused after its first successful load.
+
 ## Activation baseline and runner-loading decision
 
 Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,
