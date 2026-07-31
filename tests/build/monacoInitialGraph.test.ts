@@ -101,6 +101,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'dependency parser loading and platform classification used only after source may reference a package',
   },
   {
+    module: 'src/renderer/stores/workspaceToolStore.ts',
+    why: 'persisted HTTP collection state used only by HTTP workspace and importer surfaces',
+  },
+  {
+    module: 'src/renderer/stores/workspaceSqlStore.ts',
+    why: 'persisted SQL collection state used only by SQL workspace surfaces',
+  },
+  {
     module: 'src/shared/projectBundle.ts',
     why: 'the fflate project archive codec used only by bundle export/import',
   },
@@ -441,6 +449,19 @@ describe('Monaco stays out of the initial graph', () => {
       throw new Error(
         `${target} is statically reachable from ${entry}, so opening the editor ` +
           `downloads the share codec before a share-link paste is accepted.\n\nChain:\n  ` +
+          importChain(reachable, target).join('\n  -> ')
+      );
+    }
+  });
+
+  it('Smart Paste loads HTTP collection state only after an accepted cURL intent', () => {
+    const entry = 'src/renderer/hooks/useSmartPaste.ts';
+    const target = 'src/renderer/stores/workspaceToolStore.ts';
+    const reachable = staticallyReachable(entry);
+    if (reachable.has(target)) {
+      throw new Error(
+        `${target} is statically reachable from ${entry}, so mounting Monaco ` +
+          `downloads persisted HTTP collection state before a cURL import is accepted.\n\nChain:\n  ` +
           importChain(reachable, target).join('\n  -> ')
       );
     }

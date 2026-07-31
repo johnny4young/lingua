@@ -136,7 +136,10 @@ describe('applyPasteIntent', () => {
     expect(spies.createRequest).toHaveBeenCalledWith(
       expect.objectContaining({ method: 'POST', url: 'https://api.example.com/v1/users' })
     );
-    expect(spies.openHttp).toHaveBeenCalledTimes(1);
+    expect(spies.openHttp).toHaveBeenCalledWith();
+    expect(spies.createRequest.mock.invocationCallOrder[0]!).toBeLessThan(
+      spies.openHttp.mock.invocationCallOrder[0]!
+    );
     expect(pushEditOperations).toHaveBeenCalledTimes(1);
   });
 

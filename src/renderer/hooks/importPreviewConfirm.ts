@@ -52,7 +52,7 @@ export function confirmImportPreview(
     const result = adapter.import(state.preview) as CurlImporterResult;
     const request = toHttpRequest(result, deriveRequestName(result));
     useWorkspaceToolStore.getState().createRequest(request);
-    openHttpWorkspaceTab({ adoptEntryId: request.id });
+    openHttpWorkspaceTab();
     trackApplied(state, 'curl-http', 'ok');
     return completed({ kind: 'curl-http', request });
   }
@@ -110,7 +110,7 @@ export function confirmImportPreview(
     if (requests.length === 0) return completed(null);
 
     useWorkspaceToolStore.getState().createRequests(requests);
-    openHttpWorkspaceTab({ adoptEntryId: requests[0]?.id });
+    openHttpWorkspaceTab();
     trackApplied(state, state.importerId, 'ok');
     trackPostmanResolution(state);
     return completed({

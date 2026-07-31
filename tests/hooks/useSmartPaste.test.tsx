@@ -32,7 +32,8 @@ vi.mock('@/stores/uiStore', () => ({
 vi.mock('@/utils/telemetry', () => ({ trackEvent: mocks.trackEvent }));
 vi.mock('@/clipboard/applyPasteIntent', () => ({ applyPasteIntent: mocks.applyPasteIntent }));
 
-const CURL = "curl -X POST https://api.example.com -H 'Content-Type: application/json' -d '{\"a\":1}'";
+const CURL =
+  "curl -X POST https://api.example.com -H 'Content-Type: application/json' -d '{\"a\":1}'";
 
 function createHarness(pastedText: string) {
   let pasteCb: ((event: { range: unknown }) => void) | undefined;
@@ -58,13 +59,15 @@ function createHarness(pastedText: string) {
     editor,
     monaco,
     trigger,
-    firePaste: () => pasteCb?.({ range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 5 } }),
+    firePaste: () =>
+      pasteCb?.({ range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 5 } }),
     fireCmdShiftV: () => commandCb?.(),
   };
 }
 
 beforeEach(() => {
   mocks.enabled = true;
+  mocks.applyPasteIntent.mockResolvedValue(true);
 });
 afterEach(() => {
   vi.clearAllMocks();
@@ -113,6 +116,36 @@ describe('useSmartPaste', () => {
     });
     expect(mocks.applyPasteIntent).not.toHaveBeenCalled();
   });
+
+  it.each(['not-applied', 'rejected'] as const)(
+    'keeps the paste and surfaces retry guidance when an accepted import is %s',
+    async outcome => {
+      if (outcome === 'rejected') {
+        mocks.applyPasteIntent.mockRejectedValueOnce(new Error('chunk unavailable'));
+      } else {
+        mocks.applyPasteIntent.mockResolvedValueOnce(false);
+      }
+      const h = createHarness(CURL);
+      renderHook(() => useSmartPaste(h.editor, h.monaco));
+      act(() => {
+        h.firePaste();
+      });
+      const notice = mocks.pushStatusNotice.mock.calls[0]![0] as {
+        actions: { onClick: () => void }[];
+      };
+
+      act(() => {
+        notice.actions[0]!.onClick();
+      });
+
+      await vi.waitFor(() => {
+        expect(mocks.pushStatusNotice).toHaveBeenLastCalledWith({
+          tone: 'warning',
+          messageKey: 'paste.intent.applyFailed',
+        });
+      });
+    }
+  );
 
   it('internal — suggests the matching utility with per-format telemetry + catalog label', () => {
     const h = createHarness(NON_SECRET_TEST_JWT);

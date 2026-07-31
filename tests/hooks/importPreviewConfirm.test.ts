@@ -46,6 +46,9 @@ describe('importPreviewConfirm', () => {
       },
     });
     expect(useWorkspaceToolStore.getState().requests).toHaveLength(1);
+    expect(useWorkspaceToolStore.getState().activeRequestId).toBe(
+      outcome.result?.kind === 'curl-http' ? outcome.result.request.id : null
+    );
     expect(useEditorStore.getState().activeTabId).toBe(HTTP_WORKSPACE_TAB_ID);
   });
 

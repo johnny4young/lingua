@@ -258,6 +258,7 @@
   "paste.intent.action.openStackFrame": "Open in editor",
   "paste.intent.action.importLargeJson": "Open as JSON tab",
   "paste.intent.action.pasteAsText": "Keep as text",
+  "paste.intent.applyFailed": "The import could not be applied. Your pasted text is still in the editor; try again.",
   "editor.inlineLint.hint": "Underline problems and offer quick-fixes as you type. Toggle per language.",
   "editor.inlineLint.languageLabel": "Inline lint · {{language}}",
   "editor.inlineLint.language.javascript": "JavaScript",

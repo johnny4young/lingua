@@ -258,10 +258,9 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
       body: parsed.body,
       timeoutMs: parsed.timeoutMs,
     });
-    // MOV.02 (FASE 3) — surface the imported request as a full-screen
-    // HTTP workspace tab (the dock panel is gone). Adopt the just-
-    // created request id so tab.id === request.id.
-    openHttpWorkspaceTab({ adoptEntryId: blank.id });
+    // Surface the imported request as a full-screen HTTP workspace tab. The
+    // create mutation above already selected the fresh request atomically.
+    openHttpWorkspaceTab();
     pushStatusNotice({
       tone: 'success',
       messageKey: 'capsuleImport.notice.openedInHttp',

@@ -36,7 +36,6 @@ import { setPendingCapsuleImportSource } from './pendingCapsuleImport';
 import { createDefaultTab } from '../stores/editorTabUtils';
 import { useEditorStore } from '../stores/editorStore';
 import { useUtilityWorkspaceStore } from '../stores/utilityWorkspaceStore';
-import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
 import type { Language } from '../types';
 import type { PasteIntent } from './pasteHandlers';
 import { emitCommand } from '../stores/commandBus';
@@ -136,7 +135,7 @@ function applyCapsule(source: string, ctx: ApplyPasteContext): boolean {
   return true;
 }
 
-function applyCurl(source: string, ctx: ApplyPasteContext): boolean {
+async function applyCurl(source: string, ctx: ApplyPasteContext): Promise<boolean> {
   const result = parseCurlCommand(source);
   if (!result.ok) return false;
   const command = result.command;
@@ -157,8 +156,12 @@ function applyCurl(source: string, ctx: ApplyPasteContext): boolean {
     headers,
     ...(body ? { body } : {}),
   };
+  // Monaco loads Smart Paste detection as soon as the editor mounts. Keep the
+  // persisted HTTP collection behind the accepted cURL action rather than
+  // downloading it with the detector for every editor session.
+  const { useWorkspaceToolStore } = await import('../stores/workspaceToolStore');
   useWorkspaceToolStore.getState().createRequest(request);
-  openHttpWorkspaceTab({ adoptEntryId: id });
+  openHttpWorkspaceTab();
   removePastedText(ctx);
   return true;
 }

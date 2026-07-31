@@ -393,6 +393,22 @@ platform work:
 - A runtime or adapter load failure leaves the prior cache untouched and uses
   the global status notice for localized edit-to-retry guidance.
 
+HTTP and SQL workspace entry points keep tab navigation separate from persisted
+collection state:
+
+- [`runtime/openWorkspaceTab.ts`](runtime/openWorkspaceTab.ts) only opens or
+  focuses the stable editor tab, so keyboard shortcuts and Command Palette
+  discovery do not hydrate either workspace collection during startup.
+- Import surfaces create requests through
+  [`stores/workspaceToolStore.ts`](stores/workspaceToolStore.ts) first. Its
+  create mutations select the new request atomically before the lightweight
+  bridge reveals the HTTP tab.
+- Smart Paste keeps cURL detection with Monaco but loads the HTTP collection
+  store only after the user accepts the import action. A deferred-load failure
+  keeps the pasted text and surfaces localized retry guidance.
+- The HTTP and SQL stores hydrate when their lazy workspace/import surface
+  activates; neither store belongs in the initial renderer graph.
+
 ## State ownership
 
 ### User-invoked overlays
@@ -444,8 +460,8 @@ Use the closest store that already owns the product concept instead of adding cr
 | [licenseSelectors.ts](stores/licenseSelectors.ts) | non-React tier selectors (`currentEffectiveTier`/`tierFromStatus`); lives with the stores so store modules never import from the hooks layer (re-exported by `hooks/useEntitlement`) |
 | [licenseTrustCapture.ts](stores/licenseTrustCapture.ts) | implementation note — records a `license` trust event on each verify (active/grace); wired by the facade so the seam stays thin |
 | [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
-| [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | SQL workspace drafts, schema/result state                         |
-| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | HTTP/tool workspace drafts and active workspace metadata          |
+| [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace drafts, schema/result state       |
+| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
 | [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |

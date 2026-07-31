@@ -258,6 +258,7 @@
   "paste.intent.action.openStackFrame": "Abrir en el editor",
   "paste.intent.action.importLargeJson": "Abrir como pesta\u00f1a JSON",
   "paste.intent.action.pasteAsText": "Dejar como texto",
+  "paste.intent.applyFailed": "No se pudo aplicar la importaci\u00f3n. El texto pegado sigue en el editor; int\u00e9ntalo de nuevo.",
   "editor.inlineLint.hint": "Subraya problemas y ofrece arreglos r\u00e1pidos mientras escribes. Act\u00edvalo por lenguaje.",
   "editor.inlineLint.languageLabel": "Lint en l\u00ednea \u00b7 {{language}}",
   "editor.inlineLint.language.javascript": "JavaScript",
