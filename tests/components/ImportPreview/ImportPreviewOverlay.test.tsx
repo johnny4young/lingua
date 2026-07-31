@@ -86,6 +86,9 @@ describe('ImportPreviewOverlay', () => {
     expect(screen.getByTestId('import-preview-pick-file').textContent).toMatch(
       /\.linguanb/i
     );
+    expect(
+      screen.getByTestId('import-preview-file-input').className
+    ).toContain('sr-only');
     // Confirm starts disabled when nothing is parsed yet.
     const confirm = screen.getByTestId('import-preview-confirm') as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);

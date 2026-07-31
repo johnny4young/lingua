@@ -89,7 +89,7 @@ function InformativeStatus({
       aria-live={live}
       aria-atomic="true"
       data-testid={id}
-      className="internal"
+      className="sr-only"
     >
       {children}
     </span>

@@ -631,7 +631,7 @@ export function HttpRequestEditor({
 
       {/* Method + URL row */}
       <div className="flex shrink-0 items-center gap-2">
-        <label className="internal" htmlFor="http-request-method">
+        <label className="sr-only" htmlFor="http-request-method">
           {t('httpWorkspace.editor.method.label')}
         </label>
         <select

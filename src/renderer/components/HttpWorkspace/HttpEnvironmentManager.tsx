@@ -354,7 +354,7 @@ export function HttpEnvironmentManager({
             <section className="flex flex-col gap-2">
               {/* Name + duplicate + delete environment */}
               <div className="flex items-center gap-2">
-                <label className="internal" htmlFor="http-environment-name">
+                <label className="sr-only" htmlFor="http-environment-name">
                   {t('httpWorkspace.environment.manager.nameLabel')}
                 </label>
                 <input

@@ -222,7 +222,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
       headerClose="esc"
       header={
         <>
-          <span id={labelId} className="internal">
+          <span id={labelId} className="sr-only">
             {t('shortcuts.item.quickOpen.label')}
           </span>
           <input

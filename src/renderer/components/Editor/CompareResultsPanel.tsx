@@ -148,7 +148,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
           </MonoBadge>
           {ringOptions.length > 1 && (
             <label className="flex items-center gap-1.5 text-caption text-fg-muted">
-              <span className="internal">{t('compare.target.selectLabel')}</span>
+              <span className="sr-only">{t('compare.target.selectLabel')}</span>
               <select
                 aria-label={t('compare.target.selectLabel')}
                 data-testid="compare-target-select"

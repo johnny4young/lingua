@@ -99,7 +99,7 @@ export function FileDropZone({
         accept={acceptAttr}
         aria-label={typeof hint === 'string' ? hint : undefined}
         data-testid={inputTestId}
-        className="internal"
+        className="sr-only"
         onChange={(event) => {
           processFile(event.target.files?.[0]);
           event.target.value = '';

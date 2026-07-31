@@ -172,7 +172,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
               aria-live="polite"
               aria-atomic="true"
               data-testid="changelog-search-result-count"
-              className="internal"
+              className="sr-only"
             >
               {query.trim().length > 0
                 ? t('whatsNew.search.resultCount', { count: filteredEntries.length })

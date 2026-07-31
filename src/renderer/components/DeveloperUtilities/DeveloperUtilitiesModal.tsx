@@ -462,10 +462,10 @@ export function DeveloperUtilitiesWorkspaceBody({
       <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
         {/* Space-saving header: the utility is already identified by the
             selected sidebar item, so the big title collapses to an
-            internal heading (screen readers and heading-based tests keep
+            visually hidden heading (screen readers and heading-based tests keep
             their landmark) and only the one-line description renders. */}
         <div className="border-b border-border-subtle px-7 py-3">
-          <h2 className="internal">{t(selectedUtility.titleKey)}</h2>
+          <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
           <p className="max-w-3xl text-body-sm leading-[1.5] text-fg-muted">
             {t(selectedUtility.descriptionKey)}
           </p>
@@ -544,8 +544,8 @@ export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: bo
           tool counter render in the shell's editor chips row (one shared
           row) via UtilityHeaderPills — see AppLayout's PanelChipsRow
           trailing. Screen readers still need a landmark heading for the
-          surface, hence the internal h2. */}
-      <h2 className="internal">{t('utilities.title')}</h2>
+          surface, hence the visually hidden h2. */}
+      <h2 className="sr-only">{t('utilities.title')}</h2>
       <DeveloperUtilitiesWorkspaceBody
         selectedUtilityId={activeUtilityId}
         onSelectUtility={setActiveUtilityId}

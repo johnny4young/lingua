@@ -21,6 +21,29 @@ const TABLES: SqlSchemaTable[] = [
 ];
 
 describe('SqlSchemaBrowser', () => {
+  it('keeps the native import picker visually hidden behind its button', async () => {
+    const user = userEvent.setup();
+    render(
+      <SqlSchemaBrowser
+        tables={[]}
+        isLoading={false}
+        onRefresh={vi.fn()}
+        onInsertTable={vi.fn()}
+        canInsert
+        onImportFile={vi.fn()}
+      />
+    );
+    const input = screen.getByTestId(
+      'sql-schema-browser-import-input'
+    ) as HTMLInputElement;
+    const inputClick = vi.spyOn(input, 'click');
+
+    await user.click(screen.getByTestId('sql-schema-browser-import'));
+
+    expect(inputClick).toHaveBeenCalledOnce();
+    expect(input.className).toContain('sr-only');
+  });
+
   it('lists the session tables with an optional column-count chip', () => {
     render(
       <SqlSchemaBrowser

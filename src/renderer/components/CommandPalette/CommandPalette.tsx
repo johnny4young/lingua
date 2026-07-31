@@ -121,7 +121,7 @@ export function CommandPalette(props: CommandPaletteProps) {
       icon={<Search size={16} aria-hidden="true" />}
       header={
         <div className="flex items-center gap-3">
-          <h2 id="command-palette-title" className="internal">
+          <h2 id="command-palette-title" className="sr-only">
             {t('shortcuts.item.commandPalette.label')}
           </h2>
           <input

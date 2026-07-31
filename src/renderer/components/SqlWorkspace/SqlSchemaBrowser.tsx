@@ -235,7 +235,7 @@ export function SqlSchemaBrowser({
             disabled={isImportBusy}
             aria-label={t('sqlWorkspace.schema.import')}
             data-testid="sql-schema-browser-import-input"
-            className="internal"
+            className="sr-only"
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) onImportFile(file, 'picker');

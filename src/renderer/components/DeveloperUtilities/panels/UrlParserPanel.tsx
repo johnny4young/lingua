@@ -177,7 +177,7 @@ export function UrlParserPanel() {
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-center gap-2 pb-1 text-caption uppercase tracking-[0.16em] text-muted">
                   <span>{t('utilities.tool.urlParser.query.header.key')}</span>
                   <span>{t('utilities.tool.urlParser.query.header.value')}</span>
-                  <span className="internal">
+                  <span className="sr-only">
                     {t('utilities.tool.urlParser.query.header.copy')}
                   </span>
                 </div>

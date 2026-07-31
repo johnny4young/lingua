@@ -27,6 +27,8 @@ describe('FileDropZone', () => {
       />
     );
 
+    expect(screen.getByTestId('dropzone-input').className).toContain('sr-only');
+
     const file = new File(['ok'], 'ok.txt', { type: 'text/plain' });
     fireEvent.change(screen.getByTestId('dropzone-input'), {
       target: { files: [file] },

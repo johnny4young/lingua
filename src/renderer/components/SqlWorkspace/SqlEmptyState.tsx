@@ -59,7 +59,7 @@ export function SqlEmptyState({
               accept={SQL_IMPORT_FILE_ACCEPT}
               aria-label={t('sqlWorkspace.import.buttonAria')}
               data-testid="sql-workspace-empty-import-input"
-              className="internal"
+              className="sr-only"
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) onImportFile(file);
