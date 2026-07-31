@@ -1408,6 +1408,7 @@
   "results.actions.exportCapsule.aria": "Export run as capsule",
   "results.actions.exportCapsule.proBadge": "This run carries rich-media payloads (chart / image / html). Pro is required for full replay reproducibility.",
   "results.actions.exportCapsule.clipboardUnavailable": "Clipboard unavailable — open Settings → Account → Run capsules to copy the JSON manually.",
+  "results.actions.exportCapsule.loadFailed": "Run Capsule export could not load. Reload Lingua to try again.",
   "results.actions.exportCapsule.noCapsule": "Run any code first; the latest result becomes exportable here.",
   "results.empty.inline": "Results appear here as you type.",
   "results.empty.output": "Output appears after the current program finishes.",

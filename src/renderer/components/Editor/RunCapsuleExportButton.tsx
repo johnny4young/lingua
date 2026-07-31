@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
+import type { RunCapsuleExportButtonProps } from './runCapsuleExportLoader';
 
 /**
  * implementation — primary surface for "Export latest run as
@@ -18,11 +18,10 @@ import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
  *
  * Design choices:
  *
- *   - **Lazy render to `null` when no capsule exists.** implementation
- *     stash on `executionHistoryStore.lastCapsule?` is `undefined`
- *     for fresh sessions; surfacing a disabled button would
- *     advertise an action that doesn't exist. Hiding it keeps the
- *     header honest about what's possible right now.
+ *   - **Receives the selected capsule from the activation host.** The host
+ *     hides the unavailable action and keeps this complete control outside
+ *     fresh-workspace startup. The button therefore owns presentation and
+ *     export feedback without a duplicate history-store subscription.
  *   - **implementation note — Pro badge for rich-media capsules.** When the
  *     capsule carries `richOutputs` (chart / image / html / table),
  *     a small badge dot signals that the exported JSON contains
@@ -44,10 +43,9 @@ import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 
 const FEEDBACK_RESET_MS = 1000;
 
-export function RunCapsuleExportButton() {
+export function RunCapsuleExportButton({ capsule }: RunCapsuleExportButtonProps) {
   const { t } = useTranslation();
-  const capsule = useExecutionHistoryStore((state) => state.latestCapsule());
-  const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
+  const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const [justCopied, setJustCopied] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -62,16 +60,7 @@ export function RunCapsuleExportButton() {
   }, []);
 
   const handleClick = useCallback(async () => {
-    // Defensive guard: the component returns `null` below when `capsule`
-    // is missing, so the button cannot be clicked in that state — but
-    // keeping this branch makes the helper contract self-evident for
-    // future refactors (e.g. surfacing the button in disabled form
-    // instead of unmounting).
-    if (!capsule) return;
-    const result = await exportCapsuleToClipboard(
-      capsule,
-      'result-panel-export'
-    );
+    const result = await exportCapsuleToClipboard(capsule, 'result-panel-export');
     if (result.ok) {
       pushStatusNotice({
         tone: 'success',
@@ -93,11 +82,8 @@ export function RunCapsuleExportButton() {
     });
   }, [capsule, pushStatusNotice]);
 
-  if (!capsule) return null;
-
   const hasRichOutputs =
-    Array.isArray(capsule.result.richOutputs) &&
-    capsule.result.richOutputs.length > 0;
+    Array.isArray(capsule.result.richOutputs) && capsule.result.richOutputs.length > 0;
 
   return (
     <button
@@ -109,9 +95,7 @@ export function RunCapsuleExportButton() {
       data-just-copied={justCopied ? 'true' : 'false'}
       data-has-rich-outputs={hasRichOutputs ? 'true' : 'false'}
       className={`relative button-secondary inline-flex items-center justify-center px-2 py-1 ${
-        justCopied
-          ? 'ring-2 ring-primary/60 ring-offset-1 ring-offset-bg-panel-alt'
-          : ''
+        justCopied ? 'ring-2 ring-primary/60 ring-offset-1 ring-offset-bg-panel-alt' : ''
       }`}
     >
       {justCopied ? (

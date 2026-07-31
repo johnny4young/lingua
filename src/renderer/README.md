@@ -276,6 +276,21 @@ actions:
 - The implementation bounds its fixed portal anchor to the viewport so edge
   activations do not clip contextual actions.
 
+Run Capsule export keeps capture and discoverability separate from delivery:
+
+- [`components/Editor/RunCapsuleExportButtonHost.tsx`](components/Editor/RunCapsuleExportButtonHost.tsx)
+  observes only whether the in-memory execution history has a capsule; a fresh
+  workspace renders no unavailable control and requests no export code.
+- [`components/Editor/runCapsuleExportLoader.ts`](components/Editor/runCapsuleExportLoader.ts)
+  owns document-cached module requests for the result-header control and the
+  shared clipboard pipeline.
+- [`components/Editor/RunCapsuleExportButton.tsx`](components/Editor/RunCapsuleExportButton.tsx)
+  receives the already-selected capsule and owns copied feedback plus the
+  rich-output marker. The Mod+Shift+X shortcut loads the same export pipeline
+  only after confirming a capsule exists.
+- Failed control or pipeline chunks log diagnostic context and surface
+  localized reload guidance through the global status-notice surface.
+
 The main-editor AI explanation flow keeps its request slot separate from its
 paid implementation:
 

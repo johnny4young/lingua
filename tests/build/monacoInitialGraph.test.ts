@@ -229,6 +229,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the tab action portal used only after right-click or a keyboard context-menu request',
   },
   {
+    module: 'src/renderer/components/Editor/RunCapsuleExportButton.tsx',
+    why: 'the result-header export control used only after a Run Capsule exists',
+  },
+  {
+    module: 'src/renderer/utils/exportCapsule.ts',
+    why: 'capsule sanitizing, clipboard export, telemetry, and trust capture used only by an export action',
+  },
+  {
     module: 'src/renderer/components/FileTree/FileTree.tsx',
     why: 'the project explorer used only after the sidebar or compact drawer opens',
   },
@@ -378,9 +386,7 @@ describe('Monaco stays out of the initial graph', () => {
         undefined,
         SURFACE_ALIASES[surface as keyof typeof ENTRIES]
       );
-      const leaked = DEFERRED_IMPLEMENTATION_MODULES.filter(target =>
-        reachable.has(target.module)
-      );
+      const leaked = DEFERRED_IMPLEMENTATION_MODULES.filter(target => reachable.has(target.module));
       if (leaked.length > 0) {
         throw new Error(
           leaked

@@ -142,6 +142,19 @@ anchor is clamped to the viewport so an edge activation cannot clip the menu.
 The source-graph and E2E guards keep the implementation absent before
 activation and reused after its first successful load.
 
+Run Capsule export follows an availability-first boundary.
+`RunCapsuleExportButtonHost.tsx` keeps only the execution-history eligibility
+check in the initial graph and requests the icon control after the first
+capsule exists. `useAppShortcuts.ts` keeps Mod+Shift+X registered and its
+no-capsule guidance immediate, but loads the shared sanitizer, serializer,
+clipboard writer, telemetry, and trust capture only after a usable capsule is
+confirmed. Both paths share document-cached loaders and localized recovery
+copy for failed chunks. The source-graph guard keeps both
+`RunCapsuleExportButton.tsx` and `utils/exportCapsule.ts` deferred. In the
+production web profile this boundary reduced the initial graph from 18 to 17
+chunks, from 1,010,078 to 1,002,999 raw profile bytes, and from 291,407 to
+289,169 gzip-9 bytes.
+
 ## Activation baseline and runner-loading decision
 
 Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,

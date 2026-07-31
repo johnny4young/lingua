@@ -10,13 +10,13 @@ import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDependencyDetectionStore } from '../stores/dependencyDetectionStore';
-import { exportCapsuleToClipboard } from '../utils/exportCapsule';
 import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
 import { trackEvent } from '../utils/telemetry';
 import { syncVariableInspectorSurfaceAfterToggle } from '../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../shared/scopeSnapshot';
 import { emitCommand } from '../stores/commandBus';
 import { type AppOverlay, useGlobalShortcuts } from './useGlobalShortcuts';
+import { loadCapsuleExporter } from '../components/Editor/runCapsuleExportLoader';
 
 /**
  * internal — the closure-bound dependencies `AppChrome` must hand to
@@ -275,23 +275,31 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       );
     },
     // implementation note — keyboard shortcut for the primary
-    // result-panel export surface. Reads the latest capsule, calls
-    // the shared helper (`exportCapsuleToClipboard`), pushes the
-    // matching status notice. Surfaces a `noCapsule` notice when
-    // there's no run to export rather than silently dropping.
+    // result-panel export surface. Reads the latest capsule before
+    // loading the sanitizer/clipboard pipeline, so the no-capsule
+    // guidance stays instant without charging fresh workspaces for
+    // an implementation they cannot use.
     exportLatestCapsule: () => {
       const capsule = useExecutionHistoryStore.getState().latestCapsule();
       if (!capsule) {
         pushInfoNotice('results.actions.exportCapsule.noCapsule');
         return;
       }
-      void exportCapsuleToClipboard(capsule, 'result-panel-export').then(result => {
-        if (result.ok) {
-          pushSuccessNotice('settings.account.runCapsules.copiedNotice');
-        } else {
-          pushWarningNotice('results.actions.exportCapsule.clipboardUnavailable');
-        }
-      });
+      void loadCapsuleExporter()
+        .then(({ exportCapsuleToClipboard }) =>
+          exportCapsuleToClipboard(capsule, 'result-panel-export')
+        )
+        .then(result => {
+          if (result.ok) {
+            pushSuccessNotice('settings.account.runCapsules.copiedNotice');
+          } else {
+            pushWarningNotice('results.actions.exportCapsule.clipboardUnavailable');
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('[run-capsule] failed to load the export pipeline', error);
+          pushWarningNotice('results.actions.exportCapsule.loadFailed');
+        });
     },
     // implementation Phase A1 implementation note — keyboard shortcut for the share-link
     // copy. Emits the same `share.trigger` command the command palette

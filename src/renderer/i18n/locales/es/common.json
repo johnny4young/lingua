@@ -1408,6 +1408,7 @@
   "results.actions.exportCapsule.aria": "Exporta la ejecución como cápsula",
   "results.actions.exportCapsule.proBadge": "Esta ejecución incluye salidas multimedia enriquecidas (gráfico / imagen / HTML). Pro es necesario para reproducirla por completo.",
   "results.actions.exportCapsule.clipboardUnavailable": "Portapapeles no disponible — abre Ajustes → Cuenta → Cápsulas de ejecución para copiar el JSON a mano.",
+  "results.actions.exportCapsule.loadFailed": "No se pudo cargar la exportación de cápsulas de ejecución. Recarga Lingua para intentarlo de nuevo.",
   "results.actions.exportCapsule.noCapsule": "Ejecuta cualquier código primero; el último resultado quedará disponible para exportar aquí.",
   "results.empty.inline": "Los resultados aparecen aqu\u00ed mientras escribes.",
   "results.empty.output": "La salida aparece cuando termina el programa actual.",
