@@ -4,9 +4,9 @@ import i18next from 'i18next';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   DEFAULT_DEVELOPER_UTILITY_ID,
-  DEVELOPER_UTILITIES,
+  DEVELOPER_UTILITY_CATALOG,
   type DeveloperUtilityId,
-} from '../data/developerUtilities';
+} from '../data/developerUtilityCatalog';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
@@ -132,7 +132,7 @@ function nextEntryId(): string {
 }
 
 const KNOWN_UTILITY_IDS = new Set<DeveloperUtilityId>(
-  DEVELOPER_UTILITIES.map(utility => utility.id)
+  DEVELOPER_UTILITY_CATALOG.map(utility => utility.id)
 );
 
 function isKnownUtilityId(value: unknown): value is DeveloperUtilityId {

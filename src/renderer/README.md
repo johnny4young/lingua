@@ -118,9 +118,12 @@ Keyboard shortcuts use two data layers with different activation costs:
 
 Developer Utilities use separate startup and implementation layers:
 
-- [`data/developerUtilities.ts`](data/developerUtilities.ts) is the
-  always-reachable catalog. Keep it limited to identifiers, search copy,
-  aliases, and entitlement metadata.
+- [`data/developerUtilityCatalog.ts`](data/developerUtilityCatalog.ts) is the
+  always-reachable identity and authorization catalog. Keep it limited to ids,
+  title keys, and entitlement metadata.
+- [`data/developerUtilities.ts`](data/developerUtilities.ts) adds action labels,
+  descriptions, keywords, and aliases for the lazy Command Palette and
+  Utilities workspace. It must stay out of the initial static graph.
 - [`utils/developerUtilityDetection.ts`](utils/developerUtilityDetection.ts)
   owns cheap synchronous predicates shared by Smart Paste and panel Apply
   eligibility.

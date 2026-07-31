@@ -14,7 +14,10 @@ import { LiveAnnouncer } from './components/a11y/LiveAnnouncer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
-import { findDeveloperUtility, type DeveloperUtilityId } from './data/developerUtilities';
+import {
+  findDeveloperUtilityCatalogEntry,
+  type DeveloperUtilityId,
+} from './data/developerUtilityCatalog';
 import { getActiveAppLanguage } from './i18n';
 import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
@@ -287,7 +290,7 @@ function AppChrome({
   }, []);
 
   const handleOpenDeveloperUtility = (utilityId?: DeveloperUtilityId) => {
-    const requestedUtility = utilityId ? findDeveloperUtility(utilityId) : null;
+    const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
     if (requestedUtility?.requiresEntitlement && !canUseUtilityWorkflows) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',

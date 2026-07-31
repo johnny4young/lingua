@@ -1,5 +1,5 @@
 import type { ShortcutCombo, ShortcutOverrideMap } from '../data/keyboardShortcuts';
-import type { DeveloperUtilityId } from '../data/developerUtilities';
+import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { WorkflowMode } from '../../shared/workflowMode';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';

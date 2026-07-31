@@ -3,7 +3,10 @@ import i18next from 'i18next';
 import { useNotebookStore } from './notebookStore';
 import { useSettingsStore } from './settingsStore';
 import { useUtilityHistoryStore } from './utilityHistoryStore';
-import { findDeveloperUtility, type DeveloperUtilityId } from '../data/developerUtilities';
+import {
+  findDeveloperUtilityCatalogEntry,
+  type DeveloperUtilityId,
+} from '../data/developerUtilityCatalog';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled, isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
@@ -176,7 +179,7 @@ export function createWorkspaceActions(
      * different tab.
      */
     addUtilitiesTab: (utilityId?: DeveloperUtilityId) => {
-      const requestedUtility = utilityId ? findDeveloperUtility(utilityId) : null;
+      const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
       const tier = currentEffectiveTier();
       if (
         requestedUtility?.requiresEntitlement &&

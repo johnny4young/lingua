@@ -5,9 +5,28 @@ import {
   findDeveloperUtility,
   type DeveloperUtilityDefinition,
 } from '@/data/developerUtilities';
+import {
+  DEVELOPER_UTILITY_CATALOG,
+  findDeveloperUtilityCatalogEntry,
+} from '@/data/developerUtilityCatalog';
 import { findDeveloperUtilityDetector } from '@/data/developerUtilityDetectors';
 
 describe('DEVELOPER_UTILITIES catalog', () => {
+  it('keeps startup-safe identity separate from complete reference metadata', () => {
+    expect(DEVELOPER_UTILITIES).toHaveLength(DEVELOPER_UTILITY_CATALOG.length);
+    expect(DEVELOPER_UTILITIES.map(entry => entry.id)).toEqual(
+      DEVELOPER_UTILITY_CATALOG.map(entry => entry.id)
+    );
+
+    for (const utility of DEVELOPER_UTILITY_CATALOG) {
+      expect(utility.titleKey).toMatch(/^utilities\.tool\./u);
+      expect(utility).not.toHaveProperty('actionLabelKey');
+      expect(utility).not.toHaveProperty('descriptionKey');
+      expect(utility).not.toHaveProperty('keywords');
+      expect(utility).not.toHaveProperty('aliases');
+    }
+  });
+
   it('keeps utility ids unique', () => {
     const ids = DEVELOPER_UTILITIES.map(entry => entry.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -47,6 +66,11 @@ describe('DEVELOPER_UTILITIES catalog', () => {
       'this-is-not-a-real-id' as unknown as DeveloperUtilityDefinition['id']
     );
     expect(fallback.id).toBe(DEVELOPER_UTILITIES[0]!.id);
+    expect(
+      findDeveloperUtilityCatalogEntry(
+        'this-is-not-a-real-id' as unknown as DeveloperUtilityDefinition['id']
+      ).id
+    ).toBe(DEVELOPER_UTILITY_CATALOG[0]!.id);
   });
 
   describe('aliases ', () => {

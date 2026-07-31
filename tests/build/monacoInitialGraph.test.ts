@@ -89,6 +89,10 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'localized shortcut labels, descriptions, and search keywords used only by lazy Settings surfaces',
   },
   {
+    module: 'src/renderer/data/developerUtilities.ts',
+    why: 'developer utility action labels, descriptions, aliases, and search keywords used only by lazy reference surfaces',
+  },
+  {
     module: 'src/shared/projectBundle.ts',
     why: 'the fflate project archive codec used only by bundle export/import',
   },

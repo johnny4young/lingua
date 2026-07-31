@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { claimCapsuleListSurface } from './CapsuleList/capsuleListSurface';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
-import { type DeveloperUtilityId } from '../data/developerUtilities';
+import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { exportActiveNotebookAsLinguanb } from '../runtime/exportActiveNotebook';
 import { useEditorStore } from '../stores/editorStore';

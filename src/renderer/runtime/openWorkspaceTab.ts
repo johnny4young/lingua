@@ -33,7 +33,7 @@
 import { useEditorStore } from '../stores/editorStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
-import type { DeveloperUtilityId } from '../data/developerUtilities';
+import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 
 interface OpenWorkspaceTabOptions {
   /**

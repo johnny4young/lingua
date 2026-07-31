@@ -1,4 +1,4 @@
-import type { DeveloperUtilityId } from '../data/developerUtilities';
+import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { cycleRuntimeMode, languageHasRuntimeModes } from '../../shared/runtimeModes';
