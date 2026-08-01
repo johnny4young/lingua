@@ -122,6 +122,7 @@ const STATUS_BADGE_TONE: Record<NotebookCellRunStatus, StatusBadgeTone> = {
   ok: 'success',
   error: 'error',
   stopped: 'warning',
+  stale: 'warning',
 };
 
 /**
@@ -146,6 +147,8 @@ function statusKey(status: NotebookCellRunStatus): string {
       return 'error';
     case 'stopped':
       return 'stopped';
+    case 'stale':
+      return 'stale';
   }
 }
 
@@ -553,7 +556,11 @@ function NotebookCodeCellRowImpl({
             className="focus-ring inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-eyebrow font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Play size={9} aria-hidden="true" />
-            {t('notebook.cell.runCell')}
+            {t(
+              status === 'stale'
+                ? 'notebook.reactivity.refreshCell'
+                : 'notebook.cell.runCell'
+            )}
           </button>
           <button
             type="button"
@@ -630,6 +637,14 @@ function NotebookCodeCellRowImpl({
           shellRef.current?.focus();
         }}
       />
+      {status === 'stale' ? (
+        <p
+          data-testid="notebook-code-cell-stale-hint"
+          className="rounded border border-warning-border/60 bg-warning-bg px-2.5 py-2 text-caption text-warning-fg"
+        >
+          {t('notebook.reactivity.cellStaleHint')}
+        </p>
+      ) : null}
       {hasOutputs ? (
         <div className="overflow-hidden rounded border border-border/40 bg-background-elevated/50">
           {showOutputHeader ? (

@@ -87,6 +87,35 @@ asynchronous syntax fail closed. This separation is intentional even though
 the containing worker already executes user code: debugger input must not gain
 ambient authority or side effects merely because it arrives during a pause.
 
+## Notebook lazy-reactivity boundary
+
+Notebook languages do not share one typed value graph. JavaScript and
+TypeScript use a per-tab serialized sandbox, Python uses a per-notebook scope,
+and SQL uses the renderer-wide DuckDB connection. Lingua therefore does not
+claim syntax-level dependency inference across languages. It uses conservative
+document order instead:
+
+1. When an executed code cell changes, changes language, moves across another
+   code cell, is deleted, or runs again, that cell and previously executed code
+   cells below it become `stale`.
+2. Existing output stays visible with a warning. Never-executed cells remain
+   idle, and Lingua never runs code automatically.
+3. **Refresh stale** disposes the notebook-owned JavaScript/TypeScript sandbox
+   and Python scope, then replays the executed prefix in document order through
+   the requested stale cell. Replay stops on the first error or interruption.
+
+The persisted notebook state includes the document plus a validated map of
+cell IDs to execution stamps. This small ledger is necessary because a setup
+cell can mutate a kernel without producing visible output; inferring execution
+only from output would skip it after reload. Status details, latency, variable
+flow, and undo state remain transient. Rehydration treats every ledger entry or
+persisted output as stale because no runtime kernel survives the process.
+
+SQL is the explicit boundary: DuckDB is shared with the SQL workspace, so a
+refresh replays SQL statements in order but cannot roll back tables or other
+side effects that already reached that shared connection. The UI and capability
+matrix describe this rather than promising notebook-isolated SQL snapshots.
+
 ## Renderer type boundaries
 
 `src/renderer/types/index.ts` is a compatibility-only facade. Production

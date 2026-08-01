@@ -31,6 +31,7 @@ import {
   type NotebookV1,
 } from '../../shared/notebook';
 import {
+  disposeNotebookSession,
   getNotebookSessionKeys,
   isNotebookRunnableLanguage,
   runNotebookCell,
@@ -39,6 +40,7 @@ import {
 import i18next from 'i18next';
 import { runnerManager } from '../runners';
 import { useNotebookStore } from '../stores/notebookStore';
+import { hasNotebookExecutionEvidence } from '../stores/notebookReactivity';
 import { useUIStore } from '../stores/uiStore';
 import { useAnnounce } from './useAnnounce';
 import { trackNotebookCellExecuted } from './notebookTelemetry';
@@ -84,6 +86,8 @@ export interface UseNotebookRunResult {
   /** Run the given cell + every code cell BELOW it (inclusive). Stops
    * at the first error, mirroring `runAll` / `runAbove`. */
   runFromHere: (tabId: string, cellId: string) => Promise<void>;
+  /** Rebuild persistent notebook kernels and replay stale executed cells. */
+  refreshStale: (tabId: string, throughCellId?: string) => Promise<void>;
   /** Signal the in-flight cell + the loop to abort. */
   stop: () => void;
 }
@@ -96,7 +100,8 @@ export function useNotebookRun(): UseNotebookRunResult {
   const runCellInternal = useCallback(
     async (
       tabId: string,
-      cellId: string
+      cellId: string,
+      manageBusyState = true
     ): Promise<NotebookCellRunOutcome | null> => {
       const notebook = useNotebookStore.getState().getNotebookForTab(tabId);
       if (!notebook) return null;
@@ -112,7 +117,7 @@ export function useNotebookRun(): UseNotebookRunResult {
 
       const store = useNotebookStore.getState();
       store.setCellRunStatus(tabId, cellId, 'running');
-      setIsAnyCellRunning(true);
+      if (manageBusyState) setIsAnyCellRunning(true);
 
       // implementation Slice F (implementation note) — the first Python cell run boots Pyodide
       // (web) / the native runtime, which can take a few seconds. Surface
@@ -197,6 +202,10 @@ export function useNotebookRun(): UseNotebookRunResult {
           uses: deriveUsesKeys(cell.source, priorSandboxKeys),
           produces: outcome.producedKeys,
         });
+        // Lazy reactivity: a settled cell may have changed persistent
+        // runtime state. Preserve downstream outputs, but mark every
+        // previously-executed cell below it stale across languages.
+        store.markCellsStaleAfter(tabId, cellId);
         trackNotebookCellExecuted({
           language: cell.language,
           status: outcome.status,
@@ -217,6 +226,7 @@ export function useNotebookRun(): UseNotebookRunResult {
           uses: deriveUsesKeys(cell.source, priorSandboxKeys),
           produces: [],
         });
+        store.markCellsStaleAfter(tabId, cellId);
         trackNotebookCellExecuted({
           language: cell.language,
           status: 'error',
@@ -229,7 +239,7 @@ export function useNotebookRun(): UseNotebookRunResult {
           producedKeys: [],
         };
       } finally {
-        setIsAnyCellRunning(false);
+        if (manageBusyState) setIsAnyCellRunning(false);
       }
     },
     []
@@ -301,7 +311,7 @@ export function useNotebookRun(): UseNotebookRunResult {
             continue;
           }
           ranRunnableCell = true;
-          const outcome = await runCellInternal(tabId, cell.id);
+          const outcome = await runCellInternal(tabId, cell.id, false);
           if (outcome === null) break;
           runCount += 1;
           terminalStatus = outcome.status;
@@ -342,6 +352,88 @@ export function useNotebookRun(): UseNotebookRunResult {
     [runRange]
   );
 
+  const refreshStale = useCallback(
+    async (tabId: string, throughCellId?: string): Promise<void> => {
+      stopRequestedRef.current = false;
+      const slice = useNotebookStore.getState().notebooks[tabId];
+      if (!slice) return;
+      const staleIndexes = slice.notebook.cells
+        .map((cell, index) =>
+          cell.kind === 'code' && slice.cellRunStatus[cell.id] === 'stale'
+            ? index
+            : -1
+        )
+        .filter((index) => index >= 0);
+      if (staleIndexes.length === 0) return;
+      const requestedIndex =
+        throughCellId === undefined
+          ? -1
+          : slice.notebook.cells.findIndex(
+              (cell) => cell.id === throughCellId
+            );
+      const lastStaleIndex =
+        requestedIndex >= 0
+          ? requestedIndex
+          : Math.max(...staleIndexes);
+      if (
+        !staleIndexes.some((index) => index <= lastStaleIndex)
+      ) {
+        return;
+      }
+      const replay = slice.notebook.cells
+        .slice(0, lastStaleIndex + 1)
+        .filter(
+          (cell) =>
+            cell.kind === 'code' &&
+            hasNotebookExecutionEvidence(
+              cell,
+              slice.cellRunStatus[cell.id],
+              slice.cellExecutionOrder?.[cell.id]
+            )
+        );
+      if (replay.length === 0) return;
+
+      // Rebuild the notebook-owned JS/TS sandbox and Python scope before
+      // replaying the executed prefix. SQL uses Lingua's shared DuckDB
+      // connection, so its statements are replayed in order without claiming
+      // per-notebook rollback of external/shared database side effects.
+      disposeNotebookSession(tabId);
+      let runCount = 0;
+      let terminalStatus: NotebookCellRunOutcome['status'] | null = null;
+      setIsAnyCellRunning(true);
+      try {
+        for (const cell of replay) {
+          if (stopRequestedRef.current) break;
+          const outcome = await runCellInternal(tabId, cell.id, false);
+          if (!outcome) break;
+          runCount += 1;
+          terminalStatus = outcome.status;
+          if (outcome.status === 'error' || outcome.status === 'stopped') {
+            break;
+          }
+        }
+        if (runCount > 0 && terminalStatus) {
+          announce(
+            terminalStatus === 'ok'
+              ? i18next.t('notebook.reactivity.announce.ok', {
+                  count: runCount,
+                })
+              : terminalStatus === 'stopped'
+                ? i18next.t('notebook.reactivity.announce.stopped', {
+                    count: runCount,
+                  })
+                : i18next.t('notebook.reactivity.announce.error', {
+                    count: runCount,
+                  })
+          );
+        }
+      } finally {
+        setIsAnyCellRunning(false);
+      }
+    },
+    [announce, runCellInternal]
+  );
+
   const stop = useCallback(() => {
     stopRequestedRef.current = true;
     // Best-effort: tell the in-flight runner to abort. We stop both
@@ -356,5 +448,13 @@ export function useNotebookRun(): UseNotebookRunResult {
     runnerManager.stop('python');
   }, []);
 
-  return { isAnyCellRunning, runCell, runAll, runAbove, runFromHere, stop };
+  return {
+    isAnyCellRunning,
+    runCell,
+    runAll,
+    runAbove,
+    runFromHere,
+    refreshStale,
+    stop,
+  };
 }

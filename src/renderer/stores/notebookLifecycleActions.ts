@@ -1,6 +1,10 @@
 import { createBlankNotebook } from '../../shared/notebook';
 import type { NotebookState } from './notebookStore';
 import type { NotebookSet } from './notebookStoreContext';
+import {
+  restoreNotebookExecutionOrder,
+  staleNotebookStatusesFromPersistedState,
+} from './notebookReactivity';
 
 /**
  * implementation — notebook lifecycle action factory.
@@ -53,21 +57,23 @@ export function createLifecycleActions(
     installImportedNotebook: (tabId, notebook, executionOrder) => {
       if (typeof tabId !== 'string' || tabId.length === 0) return;
       set((state) => {
-        const cellIds = new Set(notebook.cells.map((cell) => cell.id));
-        const order: Record<string, number> = {};
-        let maxStamp = 0;
-        for (const [cellId, value] of Object.entries(executionOrder ?? {})) {
-          if (cellIds.has(cellId) && Number.isInteger(value) && value > 0) {
-            order[cellId] = value;
-            if (value > maxStamp) maxStamp = value;
-          }
-        }
+        const { order, maxStamp } = restoreNotebookExecutionOrder(
+          notebook.cells,
+          executionOrder
+        );
         return {
           notebooks: {
             ...state.notebooks,
             [tabId]: {
               notebook,
-              cellRunStatus: {},
+              // Imported outputs and execution stamps describe a kernel that
+              // is not present in this process. Keep the evidence visible,
+              // but require an explicit lazy refresh before treating it as
+              // current.
+              cellRunStatus: staleNotebookStatusesFromPersistedState(
+                notebook.cells,
+                order
+              ),
               cellDurationMs: {},
               cellVarFlow: {},
               // Resume the counter past the highest restored stamp so a

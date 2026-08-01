@@ -510,8 +510,8 @@ Use the closest store that already owns the product concept instead of adding cr
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
 | [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, and active project-test run lifecycle |
-| [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, transient run state, active cell — thin assembly point (internal pattern) that composes the focused notebook\* modules below |
-| notebook split — [notebookStorePrimitives.ts](stores/notebookStorePrimitives.ts) (runtime-safe status/id leaf), [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore`; factories import runtime values from the leaf, never back from the assembled store |
+| [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, lazy stale state, persisted replay evidence, and active cell — thin assembly point that composes the focused notebook\* modules below |
+| notebook split — [notebookStorePrimitives.ts](stores/notebookStorePrimitives.ts) (runtime-safe status/id leaf), [notebookReactivity.ts](stores/notebookReactivity.ts) (execution evidence, conservative invalidation, and persisted-ledger validation), [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/invalidation/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore`; factories import runtime values from leaves, never back from the assembled store |
 | [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) + [useDependencyDetection.ts](hooks/useDependencyDetection.ts) + [dependencyDetectionRuntime.ts](hooks/dependencyDetectionRuntime.ts) | per-tab dependency cache/install state plus a startup-safe eligibility/debounce hook; parser loading and platform classification activate only when source may reference a package (Scratchpad execution can load its shared Acorn chunk independently) |
 | [gitStore.ts](stores/gitStore.ts)           | git posture, per-file status cache, HEAD-change updates           |
 | [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
@@ -713,9 +713,10 @@ Touch these areas together:
 Touch these areas together:
 
 - [`components/Notebook/`](components/Notebook) for visible cell, toolbar, command-mode, and export UX
-- [`stores/notebookStore.ts`](stores/notebookStore.ts) for cells, outputs, transient run state, active cell, and persistence
+- [`stores/notebookStore.ts`](stores/notebookStore.ts) for cells, outputs, stale state, execution-ledger persistence, and active cell
+- [`stores/notebookReactivity.ts`](stores/notebookReactivity.ts) for conservative document-order invalidation and validated replay evidence
 - [`runtime/notebookSession.ts`](runtime/notebookSession.ts) for shared sandbox and per-cell execution semantics
-- [`hooks/useNotebookRun.ts`](hooks/useNotebookRun.ts) for run-all/run-above orchestration, timing, telemetry, and variable-flow chips
+- [`hooks/useNotebookRun.ts`](hooks/useNotebookRun.ts) for run ranges, explicit stale-prefix replay, timing, telemetry, and variable-flow chips
 
 ### Change editor behavior
 

@@ -5,7 +5,14 @@
  * a factory would create a module-initialization cycle.
  */
 
-const NOTEBOOK_CELL_RUN_STATUSES = ['idle', 'running', 'ok', 'error', 'stopped'] as const;
+const NOTEBOOK_CELL_RUN_STATUSES = [
+  'idle',
+  'running',
+  'ok',
+  'error',
+  'stopped',
+  'stale',
+] as const;
 
 export type NotebookCellRunStatus = (typeof NOTEBOOK_CELL_RUN_STATUSES)[number];
 

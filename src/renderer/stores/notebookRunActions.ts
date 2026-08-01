@@ -2,6 +2,7 @@ import { MAX_OUTPUTS_PER_CELL } from '../../shared/notebook';
 import type { NotebookState } from './notebookStore';
 import type { NotebookSet } from './notebookStoreContext';
 import { isNotebookCellRunStatus } from './notebookStorePrimitives';
+import { markExecutedNotebookCellsStale } from './notebookReactivity';
 
 /**
  * implementation — notebook run-state action factory.
@@ -20,6 +21,7 @@ export function createRunActions(
   | 'setCellDurationMs'
   | 'setCellVarFlow'
   | 'setCellExecutionOrder'
+  | 'markCellsStaleAfter'
   | 'clearAllOutputs'
   | 'clearCellOutput'
   | 'restartNotebookSession'
@@ -130,6 +132,29 @@ export function createRunActions(
                 [cellId]: nextCounter,
               },
             },
+          },
+        };
+      }),
+
+    markCellsStaleAfter: (tabId, cellId) =>
+      set((state) => {
+        const slice = state.notebooks[tabId];
+        if (!slice) return state;
+        const index = slice.notebook.cells.findIndex(
+          (cell) => cell.id === cellId
+        );
+        if (index === -1) return state;
+        const cellRunStatus = markExecutedNotebookCellsStale(
+          slice.notebook.cells,
+          slice.cellRunStatus,
+          slice.cellExecutionOrder,
+          index + 1
+        );
+        if (cellRunStatus === slice.cellRunStatus) return state;
+        return {
+          notebooks: {
+            ...state.notebooks,
+            [tabId]: { ...slice, cellRunStatus },
           },
         };
       }),

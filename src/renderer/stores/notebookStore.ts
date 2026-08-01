@@ -21,11 +21,10 @@
  *     call `notebookStore.disposeNotebookForTab(tabId)` (mirror of
  *     the implementation recipeStore unbind pattern).
  *
- * Per-cell run outputs persist alongside the cells so a reload
- * surfaces the last-known output state. Cell run status (`idle` /
- * `running` / `ok` / `error` / `stopped`) is TRANSIENT — reload
- * resets every cell to `idle` so the user knows the session was
- * cleared.
+ * Per-cell outputs and the small execution-order ledger persist alongside
+ * the cells. A reload keeps the last-known output visible, marks previously
+ * executed cells stale, and can explicitly replay silent setup cells without
+ * guessing. Status details, duration, and variable-flow remain transient.
  */
 
 import { create } from 'zustand';
@@ -45,6 +44,10 @@ import { createRunActions } from './notebookRunActions';
 import { createUiActions } from './notebookUiActions';
 import { createNotebookSelectors } from './notebookSelectors';
 import type { NotebookCellRunStatus } from './notebookStorePrimitives';
+import {
+  restoreNotebookExecutionOrder,
+  staleNotebookStatusesFromPersistedState,
+} from './notebookReactivity';
 export type { NotebookCellRunStatus } from './notebookStorePrimitives';
 // NOTE: `notebookSession` is lazy-loaded inside `restartNotebookSession`
 // (see the run-action factory), NOT imported statically here. The module
@@ -55,10 +58,9 @@ export type { NotebookCellRunStatus } from './notebookStorePrimitives';
 // already avoids with the same lazy-import trick.
 
 /**
- * Closed-enum cell run status. `idle` is the default + the rehydrate
- * value (transient state never persists). `running` flips while a
- * `runNotebookCell` call is in flight; `ok` / `error` / `stopped`
- * are terminal.
+ * Closed-enum cell run status. `idle` is the default, `running` flips while a
+ * call is in flight, `ok` / `error` / `stopped` are terminal, and `stale`
+ * preserves old output while an explicit replay is required.
  */
 /**
  * FASE 4 — per-cell inter-cell variable flow surfaced in the cell
@@ -86,7 +88,7 @@ interface NotebookLastDeletedCell {
 
 interface NotebookTabState {
   readonly notebook: NotebookV1;
-  /** Per-cell run status. Reload resets to `idle`. */
+  /** Per-cell run status. Reload derives `stale` from execution evidence. */
   readonly cellRunStatus: Readonly<Record<string, NotebookCellRunStatus>>;
   /**
    * FASE 4 — per-cell last-run latency in ms (fractional). TRANSIENT:
@@ -101,8 +103,9 @@ interface NotebookTabState {
   /**
    * Signal-Slate — Jupyter `[N]` execution counter. `executionCounter`
    * is the per-tab monotonic seed; `cellExecutionOrder` records the
-   * value stamped onto each cell the last time it ran. TRANSIENT:
-   * mirrors `cellRunStatus`, so reload restarts numbering at 1.
+   * value stamped onto each cell the last time it ran. The order map is
+   * persisted as the minimal replay ledger; reload resumes numbering after
+   * its highest validated stamp.
    */
   readonly executionCounter: number;
   readonly cellExecutionOrder: Readonly<Record<string, number>>;
@@ -211,8 +214,10 @@ export interface NotebookState {
   ) => void;
   /** Signal-Slate — stamp the next Jupyter `[N]` execution number onto
    * a cell and bump the per-tab counter. Called from the run path
-   * after every settled run (ok / error). Transient. */
+   * after every settled run (ok / error). Persisted as replay evidence. */
   setCellExecutionOrder: (tabId: string, cellId: string) => void;
+  /** Mark previously-executed code cells below a settled cell as stale. */
+  markCellsStaleAfter: (tabId: string, cellId: string) => void;
   /** Signal-Slate — empty every code cell's outputs but keep the cells.
    * Leaves run status untouched (the kernel sandbox is unchanged). */
   clearAllOutputs: (tabId: string) => void;
@@ -261,7 +266,18 @@ export const useNotebookStore = create<NotebookState>()(
       version: 1,
       migrate: createMigrate('lingua-notebook-state'),
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ notebooks: state.notebooks }),
+      partialize: (state) => ({
+        notebooks: Object.fromEntries(
+          Object.entries(state.notebooks).map(([tabId, slice]) => [
+            tabId,
+            {
+              notebook: slice.notebook,
+              cellExecutionOrder: slice.cellExecutionOrder,
+              activeCellId: slice.activeCellId,
+            },
+          ])
+        ),
+      }),
       merge: (persisted, current) => {
         const merged = { ...current };
         if (
@@ -284,18 +300,24 @@ export const useNotebookStore = create<NotebookState>()(
               const entry = value as Record<string, unknown>;
               const parsed = parseNotebook(entry.notebook);
               if (!parsed.ok) continue;
+              const { order, maxStamp } = restoreNotebookExecutionOrder(
+                parsed.notebook.cells,
+                entry.cellExecutionOrder
+              );
               safe[tabId] = {
                 notebook: parsed.notebook,
-                // Reload always resets transient run status + the FASE 4
-                // latency / variable-flow maps + the Signal-Slate
-                // execution counter / soft-delete buffer that ride
-                // alongside it. A reloaded notebook starts numbering at 1
-                // with a fresh kernel and nothing to undo.
-                cellRunStatus: {},
+                // Kernels never survive reload. Keep validated execution
+                // evidence so explicit refresh can replay silent setup cells;
+                // derive stale status instead of presenting old output as
+                // current in the new process.
+                cellRunStatus: staleNotebookStatusesFromPersistedState(
+                  parsed.notebook.cells,
+                  order
+                ),
                 cellDurationMs: {},
                 cellVarFlow: {},
-                executionCounter: 0,
-                cellExecutionOrder: {},
+                executionCounter: maxStamp,
+                cellExecutionOrder: order,
                 lastDeleted: null,
                 activeCellId:
                   typeof entry.activeCellId === 'string' &&

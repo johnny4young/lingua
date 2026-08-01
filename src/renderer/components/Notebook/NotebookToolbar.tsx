@@ -8,6 +8,7 @@ import {
   RotateCcw,
   Eraser,
   PlayCircle,
+  RefreshCw,
   Square,
   Sparkles,
 } from 'lucide-react';
@@ -51,6 +52,8 @@ interface NotebookToolbarProps {
   readonly handleRunFromHere: () => void;
   readonly canRunFromActiveCell: boolean;
   readonly handleRunAll: () => void;
+  readonly staleCount: number;
+  readonly handleRefreshStale: () => void;
   readonly lastCodeCellId: string | null;
   readonly isAnyCellRunning: boolean;
   readonly stop: () => void;
@@ -75,7 +78,8 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
     notebook, titleDraft, setTitleDraft, handleTitleCommit, codeCellsCount,
     handleAddMarkdown, disabled, handleAddCode, preferredCodeLanguage,
     activeCellId, runAbove, tabId, canRunThroughActiveCell, handleRunFromHere,
-    canRunFromActiveCell, handleRunAll, lastCodeCellId, isAnyCellRunning,
+    canRunFromActiveCell, handleRunAll, staleCount, handleRefreshStale,
+    lastCodeCellId, isAnyCellRunning,
     stop, handleRestart, handleClearOutputs, hasOutputsToClear,
     exportMenuAnchorRef, setExportMenuOpen, exportMenuOpen, handleExport,
     handleExportIpynb, handleExportLinguanb, exportLanguageLabel,
@@ -102,7 +106,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
             aria-label={t('notebook.titleLabel')}
             className="min-w-0 flex-1 truncate rounded border border-transparent bg-transparent px-2 py-1 font-display text-body font-semibold tracking-tight text-foreground hover:border-border/40 focus:border-border-strong focus:bg-bg-elevated focus:outline-none"
           />
-          <span className="hidden text-eyebrow uppercase tracking-wider text-muted sm:inline">
+          <span className="hidden text-eyebrow uppercase tracking-wider text-muted 2xl:inline">
             {t('notebook.toolbar.summary', {
               cells: notebook.cells.length,
               codeCells: codeCellsCount,
@@ -178,6 +182,19 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
               </>
             )}
           </button>
+          {staleCount > 0 ? (
+            <button
+              type="button"
+              onClick={handleRefreshStale}
+              disabled={disabled}
+              title={t('notebook.reactivity.refreshHint')}
+              data-testid="notebook-toolbar-refresh-stale"
+              className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw size={11} aria-hidden="true" />
+              {t('notebook.reactivity.refreshButton', { count: staleCount })}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={stop}

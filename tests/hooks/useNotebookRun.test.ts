@@ -364,6 +364,99 @@ describe('useNotebookRun', () => {
     ).toBe(2);
   });
 
+  it('refreshStale rebuilds the notebook session and replays the executed cross-language prefix', async () => {
+    useNotebookStore.setState({
+      notebooks: {
+        'tab-refresh': {
+          notebook: {
+            version: 1,
+            id: 'notebook-refresh',
+            title: 'Reactive notebook',
+            cells: [
+              {
+                kind: 'code',
+                id: 'cell-js',
+                language: 'javascript',
+                source: 'const answer = 42',
+                outputs: [
+                  { kind: 'text', stream: 'stdout', text: 'old js' },
+                ],
+              },
+              {
+                kind: 'code',
+                id: 'cell-python',
+                language: 'python',
+                source: 'print("ready")',
+                outputs: [
+                  { kind: 'text', stream: 'stdout', text: 'old python' },
+                ],
+              },
+              {
+                kind: 'code',
+                id: 'cell-never-run',
+                language: 'javascript',
+                source: 'console.log("later")',
+                outputs: [],
+              },
+            ],
+          },
+          cellRunStatus: {
+            'cell-js': 'stale',
+            'cell-python': 'stale',
+          },
+          cellExecutionOrder: { 'cell-js': 1, 'cell-python': 2 },
+          executionCounter: 2,
+          activeCellId: 'cell-js',
+        },
+      },
+    });
+    mockExecute.mockImplementation(async (language: string) =>
+      language === 'python'
+        ? {
+            kind: 'ok',
+            result: '',
+            stdout: [{ args: ['ready'] }],
+            stderr: [],
+          }
+        : {
+            kind: 'ok',
+            structuredResult: {
+              stdout: ['42'],
+              stderr: [],
+              sessionDelta: { answer: 42 },
+            },
+            stdout: [],
+            stderr: [],
+          }
+    );
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.refreshStale('tab-refresh');
+    });
+
+    expect(mockExecute.mock.calls.map((call) => call[0])).toEqual([
+      'javascript',
+      'python',
+    ]);
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-refresh', 'cell-js')
+    ).toBe('ok');
+    expect(
+      useNotebookStore
+        .getState()
+        .getCellRunStatus('tab-refresh', 'cell-python')
+    ).toBe('ok');
+    expect(
+      useNotebookStore
+        .getState()
+        .getCellRunStatus('tab-refresh', 'cell-never-run')
+    ).toBe('idle');
+    expect(useAnnouncerStore.getState().message).toMatch(
+      /2 executed cells replayed successfully/i
+    );
+  });
+
   it('stop signals both notebook-runnable runners (JS worker + Python)', () => {
     const { result } = renderHook(() => useNotebookRun());
     act(() => {

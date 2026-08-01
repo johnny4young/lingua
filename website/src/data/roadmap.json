@@ -1,21 +1,10 @@
 {
-  "generatedAt": "2026-08-01T16:40:56.000Z",
+  "generatedAt": "2026-08-01T17:45:45.359Z",
   "totals": {
-    "planned": 2,
-    "inProgress": 8
+    "planned": 1,
+    "inProgress": 9
   },
   "planned": [
-    {
-      "theme": "HTTP & data",
-      "items": [
-        {
-          "title": "Cross-language notebook dataflow",
-          "scope": "Let notebook cells react to values produced by another language without making execution implicit or opaque.",
-          "status": "Planned",
-          "theme": "HTTP & data"
-        }
-      ]
-    },
     {
       "theme": "Desktop workflows",
       "items": [
@@ -32,6 +21,12 @@
     {
       "theme": "HTTP & data",
       "items": [
+        {
+          "title": "Cross-language notebook reactivity",
+          "scope": "Executed JavaScript, TypeScript, Python, and SQL cells now become visibly stale in document order after upstream changes. Refresh is explicit, replays only recorded execution evidence, preserves never-run cells, and does not pretend shared DuckDB side effects can roll back.",
+          "status": "Delivered",
+          "theme": "HTTP & data"
+        },
         {
           "title": "Live API sessions and request pipelines",
           "scope": "HTTP, SSE, WebSocket sessions, and named sequential HTTP pipelines now share bounded output, cancellation, secret-aware environments, captures, assertions, and a DNS-pinned SSRF-guarded desktop transport.",
