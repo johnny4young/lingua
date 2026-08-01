@@ -866,10 +866,9 @@ describe('buildCommandPaletteModel', () => {
       expect.arrayContaining(['project', 'template', 'scaffold'])
     );
     command?.action();
-    // The opener must run before onClose so the overlay mounts in
-    // the same React tick the palette closes — otherwise the user
-    // would see the palette dismiss with nothing to land on.
-    expect(calls).toEqual(['template', 'close']);
+    // Close the palette first because both surfaces share the same
+    // overlay slot; closing after opening would clear the chooser.
+    expect(calls).toEqual(['close', 'template']);
   });
 
   it('exposes the Browse run capsules action only when the opener is wired in ', () => {

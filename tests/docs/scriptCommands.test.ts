@@ -97,6 +97,7 @@ describe('Script naming docs guard', () => {
       // implementation — CLI bundle (lingua utility, lingua capsule validate)
       'build:cli',
       'preview:web',
+      'smoke:project-templates',
       'smoke:desktop',
       'smoke:desktop:stagewright',
       // implementation — runtime-asset lock + offline desktop smoke

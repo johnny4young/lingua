@@ -95,6 +95,7 @@ reference for what each command owns.
 | `build:web`                  | Production web bundle under `dist/web`.                                                                                                                                                                                              |
 | `build:cli`                  | Rebuilds the distributable `lingua` CLI bundle.                                                                                                                                                                                      |
 | `preview:web`                | Serves the latest built web bundle locally.                                                                                                                                                                                          |
+| `smoke:project-templates`    | Materializes, installs, and executes every curated multi-file project template, then writes a diagnostic JSON artifact.                                                                                                              |
 | `smoke:desktop:stagewright`  | Lightweight Electron Stagewright MCP desktop UI launch/snapshot/console-error smoke.                                                                                                                                                 |
 | `smoke:desktop`              | Full desktop smoke flow against the dev server.                                                                                                                                                                                      |
 | `smoke:desktop:offline`      | Desktop smoke with non-loopback network requests blocked.                                                                                                                                                                            |
@@ -175,6 +176,38 @@ export PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
 ```
 
 Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still need targeted desktop validation — see the smoke section below.
+
+## Curated project template runtime smoke
+
+The structural template tests prove schema, path, license, and catalog
+invariants. Use the runtime smoke when changing a curated multi-file scaffold:
+
+```bash
+pnpm run smoke:project-templates
+```
+
+The runner creates an isolated directory for every catalog entry, writes the
+exact files users receive, installs the dependencies declared by the generated
+project, and exercises its meaningful path:
+
+- Express and FastAPI start on an ephemeral loopback port and their `/hello`
+  responses are checked.
+- The Node CLI parses a real `--name` argument.
+- The React starter type-checks, builds, and serves through Vite; the compiled
+  asset must contain the curated Counter component.
+- The Python data starter runs against pandas and checks its computed summary.
+
+Each Python project gets its own virtual environment, and each Node project
+gets its own `node_modules`; there is no dependency on Lingua's transitive
+packages. The command therefore needs package-registry access and a working
+`python3` with `venv`. Override the interpreter with
+`pnpm run smoke:project-templates -- --python /path/to/python`.
+
+The machine-readable result is written to
+`output/project-template-smoke/project-template-smoke-summary.json`. CI runs
+the same command and uploads that artifact even when a template fails, so a red
+check includes the install, command, response, duration, stdout, and stderr
+needed to reproduce it.
 
 ## Desktop dev and validation
 

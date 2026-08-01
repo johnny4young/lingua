@@ -954,8 +954,8 @@ export function buildCommandPaletteModel({
               'pandas',
             ],
             () => {
-              onNewProjectFromTemplate();
               onClose();
+              onNewProjectFromTemplate();
             }
           ),
         ]
