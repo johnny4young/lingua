@@ -394,6 +394,14 @@ export function registerFileOperationHandlers(): void {
     return readFile(absolutePath, 'utf-8');
   });
 
+  typedHandle(
+    'fs:read-bytes',
+    async (_event, rootId: RootId, relativePath: string) => {
+      const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
+      return new Uint8Array(await readFile(absolutePath));
+    }
+  );
+
   // ----------------------------------------------------------------- write
 
   typedHandle(

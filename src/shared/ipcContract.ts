@@ -251,6 +251,10 @@ export interface IpcInvokeContract {
     result: FsStatResult;
   };
   'fs:read': { args: [rootId: string, relativePath: string]; result: string };
+  'fs:read-bytes': {
+    args: [rootId: string, relativePath: string];
+    result: Uint8Array;
+  };
   'fs:write': {
     args: [rootId: string, relativePath: string, content: string];
     result: boolean;
@@ -279,7 +283,16 @@ export interface IpcInvokeContract {
     result:
       | { ok: true; fileCount: number; byteLength: number }
       | { canceled: true }
-      | { ok: false; reason: 'empty' | 'too-many-files' | 'write-failed' };
+      | {
+          ok: false;
+          reason:
+            | 'empty'
+            | 'entry-too-large'
+            | 'read-failed'
+            | 'too-large'
+            | 'too-many-files'
+            | 'write-failed';
+        };
   };
   'fs:importBundle': {
     args: [zipBytes: Uint8Array];
@@ -506,6 +519,7 @@ export const IPC_INVOKE_CHANNELS = [
   'fs:applyReplaceInFile',
   'fs:stat',
   'fs:read',
+  'fs:read-bytes',
   'fs:write',
   'fs:delete',
   'fs:rename',

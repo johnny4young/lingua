@@ -444,6 +444,7 @@ Most file operations use `invoke/handle` because they are command-like and need 
 | `readdir(rootId, relativePath)`             | `fs:readdir`          | list entries, filter hidden items, sort dirs first                                 |
 | `stat(rootId, relativePath)`                | `fs:stat`             | return metadata                                                                    |
 | `read(rootId, relativePath)`                | `fs:read`             | safe read inside the approved root                                                 |
+| `readBytes(rootId, relativePath)`           | `fs:read-bytes`       | binary-safe read inside the approved root for archive/export flows                 |
 | `write(rootId, relativePath, content)`      | `fs:write`            | safe write inside the approved root                                                |
 | `delete(rootId, relativePath, isDirectory)` | `fs:delete`           | guarded delete with confirmation dialog                                            |
 | `rename(rootId, oldRelativePath, newName)`  | `fs:rename`           | validated rename inside the same parent                                            |
@@ -477,6 +478,22 @@ malformed output, main repeats the search through the bounded JavaScript
 implementation. A newer search from the same renderer aborts the older native
 process. The web adapter keeps its File System Access API implementation behind
 the same `window.lingua.fs.searchInFiles(...)` contract.
+
+#### Project bundles
+
+Project bundle export is binary-safe on both filesystem backends. Desktop reads
+raw bytes through main; web reads `File.arrayBuffer()` through the FSA adapter.
+Both collectors use the shared archive budget and fail the whole export when a
+file is unreadable, a file or project is oversized, or the file-count cap is
+crossed. Silent omission is not allowed because it would turn a successful
+backup-looking artifact into data loss.
+
+Import validates the compressed-byte cap before decoding, rejects unsafe or
+duplicate paths, and streams input through `fflate` in bounded chunks. Honest
+ZIP headers are rejected before their entry starts; actual inflated bytes are
+also counted per entry and across the archive so a forged `originalSize` cannot
+bypass the 16 MiB per-file or 200 MiB aggregate ceilings. Main repeats the same
+validation before writing regular files into a user-chosen empty directory.
 
 ### Event-style IPC
 

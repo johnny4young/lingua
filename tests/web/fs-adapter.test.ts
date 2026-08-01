@@ -36,6 +36,11 @@ function buildFileHandle(file: SyntheticFile): FileSystemFileHandle {
           value: async () => file.content,
         });
       }
+      if (typeof f.arrayBuffer !== 'function') {
+        Object.defineProperty(f, 'arrayBuffer', {
+          value: async () => new TextEncoder().encode(file.content).buffer,
+        });
+      }
       return f;
     },
     async createWritable() {
@@ -284,6 +289,11 @@ describe('webFsAdapter — saveDialog single-file capability', async () => {
     await expect(
       webFsAdapter.read(picked.rootId, picked.fileRelativePath)
     ).resolves.toBe('ok');
+    const bytes = await webFsAdapter.readBytes(
+      picked.rootId,
+      picked.fileRelativePath
+    );
+    expect(Array.from(bytes)).toEqual([111, 107]);
   });
 });
 

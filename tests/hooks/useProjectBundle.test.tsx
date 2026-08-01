@@ -1,6 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProjectBundle } from '../../src/renderer/hooks/useProjectBundle';
+import {
+  MAX_BUNDLE_ENTRY_BYTES,
+  unpackBundle,
+} from '../../src/shared/projectBundle';
 import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useProjectStore } from '../../src/renderer/stores/projectStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
@@ -42,7 +46,8 @@ describe('useProjectBundle', () => {
 
   function installWebExport(
     listAllFiles: ReturnType<typeof vi.fn>,
-    read: ReturnType<typeof vi.fn>
+    readBytes: ReturnType<typeof vi.fn>,
+    stat: ReturnType<typeof vi.fn> = vi.fn().mockResolvedValue({ size: 1 })
   ): void {
     window.lingua = {
       ...(originalLingua ?? {}),
@@ -50,7 +55,8 @@ describe('useProjectBundle', () => {
       fs: {
         ...(originalLingua?.fs ?? {}),
         listAllFiles,
-        read,
+        readBytes,
+        stat,
       } as typeof window.lingua.fs,
     } as typeof window.lingua;
   }
@@ -59,13 +65,16 @@ describe('useProjectBundle', () => {
     const listAllFiles = vi.fn().mockResolvedValue([
       { relativePath: 'src/index.js' },
       { relativePath: 'README.md' },
+      { relativePath: 'assets/pixel.bin' },
     ]);
-    const read = vi.fn(async (_rootId: string, relativePath: string) =>
+    const readBytes = vi.fn(async (_rootId: string, relativePath: string) =>
       relativePath === 'src/index.js'
-        ? 'console.log("Lingua");'
-        : '# Demo'
+        ? new TextEncoder().encode('console.log("Lingua");')
+        : relativePath === 'README.md'
+          ? new TextEncoder().encode('# Demo')
+          : new Uint8Array([0, 1, 2, 250, 255])
     );
-    installWebExport(listAllFiles, read);
+    installWebExport(listAllFiles, readBytes);
     useProjectStore.setState({
       currentProject: {
         id: 'web-demo',
@@ -92,16 +101,88 @@ describe('useProjectBundle', () => {
     });
 
     expect(listAllFiles).toHaveBeenCalledWith('web-root');
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(readBytes).toHaveBeenCalledTimes(3);
     expect(createObjectUrl).toHaveBeenCalledTimes(1);
     const archive = createObjectUrl.mock.calls[0]?.[0];
     expect(archive).toBeInstanceOf(Blob);
     expect((archive as Blob).size).toBeGreaterThan(0);
+    const unpacked = unpackBundle(
+      new Uint8Array(await (archive as Blob).arrayBuffer())
+    );
+    expect(unpacked.ok).toBe(true);
+    if (unpacked.ok) {
+      expect(Array.from(unpacked.files.find((file) => file.path === 'assets/pixel.bin')!.bytes))
+        .toEqual([0, 1, 2, 250, 255]);
+    }
     expect(click).toHaveBeenCalledTimes(1);
     expect(revokeObjectUrl).toHaveBeenCalledWith('blob:lingua-project');
     expect(useUIStore.getState().statusNotice?.messageKey).toBe(
       'projectBundle.export.success'
     );
+  });
+
+  it('fails closed instead of silently omitting an unreadable web file', async () => {
+    const listAllFiles = vi.fn().mockResolvedValue([
+      { relativePath: 'src/index.js' },
+      { relativePath: 'private.bin' },
+    ]);
+    const readBytes = vi
+      .fn()
+      .mockResolvedValueOnce(new TextEncoder().encode('console.log(1)'))
+      .mockRejectedValueOnce(new DOMException('Permission denied'));
+    installWebExport(listAllFiles, readBytes);
+    useProjectStore.setState({
+      currentProject: {
+        id: 'web-demo',
+        name: 'demo',
+        rootId: 'web-root',
+        rootPath: '/demo',
+        openedAt: 1,
+      },
+    });
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL');
+
+    const { result } = renderHook(() => useProjectBundle());
+    await act(async () => {
+      await result.current.exportProjectBundle();
+    });
+
+    expect(createObjectUrl).not.toHaveBeenCalled();
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'error',
+      messageKey: 'projectBundle.export.read-failed',
+    });
+  });
+
+  it('rejects an oversized web file before reading its bytes', async () => {
+    const listAllFiles = vi
+      .fn()
+      .mockResolvedValue([{ relativePath: 'large.bin' }]);
+    const readBytes = vi.fn();
+    const stat = vi
+      .fn()
+      .mockResolvedValue({ size: MAX_BUNDLE_ENTRY_BYTES + 1 });
+    installWebExport(listAllFiles, readBytes, stat);
+    useProjectStore.setState({
+      currentProject: {
+        id: 'web-demo',
+        name: 'demo',
+        rootId: 'web-root',
+        rootPath: '/demo',
+        openedAt: 1,
+      },
+    });
+
+    const { result } = renderHook(() => useProjectBundle());
+    await act(async () => {
+      await result.current.exportProjectBundle();
+    });
+
+    expect(readBytes).not.toHaveBeenCalled();
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'error',
+      messageKey: 'projectBundle.export.entry-too-large',
+    });
   });
 
   it('opens the manifest entry only after the imported root is adopted', async () => {

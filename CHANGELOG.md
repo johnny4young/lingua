@@ -37,6 +37,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **Primary tasks are now discoverable by name in the Command Palette:** Run active tab, Open project folder, and Apply license token join the existing runtime-switch and session-restore actions. Applying a license lands directly on the token field, while the floating runtime control now reports Browser preview, Deno, and Bun accurately instead of abbreviating or falling back to Worker.
 
 ### Fixed
+- **Project bundles no longer corrupt or silently omit files:** web exports now read raw bytes instead of round-tripping assets through UTF-8, while web and desktop both abort when a file is unreadable or the shared archive limits are exceeded. Import now counts actual streaming inflate output as well as declared ZIP sizes, so dishonest headers cannot bypass the per-file or aggregate decompression budget.
 - **Every Run control now reflects and stops the same active execution:** the floating action, standalone toolbar, console replay, and keyboard shortcut share one manual-run lifecycle instead of each keeping disconnected local loading and stop state.
 - **Production builds no longer inherit React's development runtime from the invoking shell:** the canonical web and desktop bundle commands force their production environment before Vite transforms dependencies and reject generated renderer artifacts that still contain React development diagnostics.
 

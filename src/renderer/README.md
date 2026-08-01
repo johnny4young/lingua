@@ -193,7 +193,12 @@ their filesystem/archive choreography:
 - [`hooks/projectBundleRuntime.ts`](hooks/projectBundleRuntime.ts) owns project
   traversal, archive export/import, tab restoration, status feedback, and
   telemetry. It loads only after the user requests an export or confirms an
-  import.
+  import. Web and desktop both preserve raw file bytes; shared limits abort the
+  entire export rather than silently omitting unreadable or oversized files.
+- [`../shared/projectBundleLimits.ts`](../shared/projectBundleLimits.ts) owns
+  the cross-runtime count, entry, compressed, and inflated-byte budgets.
+  [`../shared/projectBundle.ts`](../shared/projectBundle.ts) owns archive path
+  validation, packing, and streaming decode with actual-byte accounting.
 
 Manual execution keeps persistent run controls separate from activation-only
 orchestration:

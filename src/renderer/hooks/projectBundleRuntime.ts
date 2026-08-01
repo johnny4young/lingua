@@ -8,7 +8,7 @@
  *     through a save dialog.
  *   - Web: collect the loaded project files via the FSA adapter, pack
  *     with the shared `packBundle`, and trigger a Blob download
- *     (text-only; binary asset fidelity is a desktop concern).
+ *     with the same binary fidelity and limits as desktop.
  *
  * Import (desktop only; web surfaces `projectBundle.web.unsupported`):
  *   - The overlay supplies the raw `.zip` bytes; `fs:importBundle`
@@ -23,7 +23,10 @@
  * the qualitative reject reason additionally fires `bundle_rejected`.
  */
 
-import type { ProjectBundleFile } from '../../shared/projectBundle';
+import type {
+  BundleExportRejectReason,
+  ProjectBundleFile,
+} from '../../shared/projectBundle';
 import { useProjectStore } from '../stores/projectStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { languageFromPath } from '../utils/language';
@@ -34,6 +37,29 @@ import {
   trackBundleImported,
   trackBundleRejected,
 } from './projectBundleTelemetry';
+
+type BundleExportFailureReason =
+  | BundleExportRejectReason
+  | 'read-failed'
+  | 'write-failed';
+
+function surfaceBundleExportFailure(reason: BundleExportFailureReason): void {
+  trackBundleExported('failed', 0);
+  if (
+    reason === 'entry-too-large' ||
+    reason === 'too-large' ||
+    reason === 'too-many-files'
+  ) {
+    trackBundleRejected(reason);
+    pushErrorNotice(`projectBundle.export.${reason}`);
+    return;
+  }
+  if (reason === 'read-failed') {
+    pushErrorNotice('projectBundle.export.read-failed');
+    return;
+  }
+  pushErrorNotice('projectBundle.export.failed');
+}
 
 function basenameForRelPath(relPath: string): string {
   const idx = relPath.lastIndexOf('/');
@@ -65,26 +91,75 @@ export async function exportProjectBundle(): Promise<void> {
         trackBundleExported('empty', 0);
         return;
       }
+      const {
+        packBundle,
+        projectBundleExportLimit,
+        ProjectBundleExportError,
+      } = await import('../../shared/projectBundle');
       const files: ProjectBundleFile[] = [];
-      const encoder = new TextEncoder();
+      let totalBytes = 0;
       for (const entry of indexed) {
-        const content = await window.lingua.fs.read(project.rootId, entry.relativePath);
-        files.push({ path: entry.relativePath, bytes: encoder.encode(content) });
+        let fileSize: number;
+        try {
+          fileSize = (
+            await window.lingua.fs.stat(project.rootId, entry.relativePath)
+          ).size;
+        } catch {
+          surfaceBundleExportFailure('read-failed');
+          return;
+        }
+        let reason = projectBundleExportLimit(
+          files.length,
+          totalBytes,
+          fileSize
+        );
+        if (reason) {
+          surfaceBundleExportFailure(reason);
+          return;
+        }
+        let bytes: Uint8Array;
+        try {
+          bytes = await window.lingua.fs.readBytes(
+            project.rootId,
+            entry.relativePath
+          );
+        } catch {
+          surfaceBundleExportFailure('read-failed');
+          return;
+        }
+        reason = projectBundleExportLimit(
+          files.length,
+          totalBytes,
+          bytes.byteLength
+        );
+        if (reason) {
+          surfaceBundleExportFailure(reason);
+          return;
+        }
+        files.push({ path: entry.relativePath, bytes });
+        totalBytes += bytes.byteLength;
       }
-      const { packBundle } = await import('../../shared/projectBundle');
-      const zip = packBundle(files, {
-        createdAt: new Date().toISOString(),
-        entryFile,
-        languageHint,
-      });
+      let zip: Uint8Array;
+      try {
+        zip = packBundle(files, {
+          createdAt: new Date().toISOString(),
+          entryFile,
+          languageHint,
+        });
+      } catch (error) {
+        if (error instanceof ProjectBundleExportError) {
+          surfaceBundleExportFailure(error.reason);
+          return;
+        }
+        throw error;
+      }
       triggerBlobDownload(zip, `${project.name || 'project'}.zip`);
       trackBundleExported('exported', files.length);
       pushSuccessNotice('projectBundle.export.success', {
         values: { count: files.length },
       });
     } catch {
-      pushErrorNotice('projectBundle.export.failed');
-      trackBundleExported('failed', 0);
+      surfaceBundleExportFailure('write-failed');
     }
     return;
   }
@@ -108,13 +183,12 @@ export async function exportProjectBundle(): Promise<void> {
     return;
   }
   if (!result.ok) {
-    const status = result.reason === 'empty' ? 'empty' : 'failed';
     if (result.reason === 'empty') {
       pushWarningNotice('projectBundle.export.empty');
+      trackBundleExported('empty', 0);
     } else {
-      pushErrorNotice('projectBundle.export.failed');
+      surfaceBundleExportFailure(result.reason);
     }
-    trackBundleExported(status, 0);
     return;
   }
   trackBundleExported('exported', result.fileCount);

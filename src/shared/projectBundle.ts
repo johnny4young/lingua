@@ -20,22 +20,45 @@
  *     escape the root (the high-level zip API does not surface unix mode
  *     bits, so this write-strategy neutralization is the symlink
  *     defense rather than mode-bit sniffing — implementation note).
- *   - Caps bound memory + disk: the `unpackBundle` preflight rejects
- *     entries by their DECLARED `originalSize` BEFORE fflate decompresses
- *     them (`MAX_UNCOMPRESSED_BYTES` running total — implementation note zip-bomb
- *     guard; `MAX_BUNDLE_FILES` count). That preflight trusts the zip
- *     header's size; a header that lies about `originalSize` is bounded
- *     by the `MAX_BUNDLE_BYTES` compressed-input cap (the hard memory
- *     ceiling — a 50 MiB DEFLATE stream can only inflate so far) and is
- *     caught post-decode by the `byteLength` re-check before any write.
- *     A streaming-`Unzip` rewrite (cap mid-decompression) is the deferred
- *     follow-up if that ceiling ever proves too loose.
+ *   - Caps bound memory + disk: `unpackBundle` rejects honest oversized
+ *     headers before starting an entry, then streams compressed input in
+ *     bounded chunks and counts the ACTUAL inflated bytes. A header that
+ *     lies about `originalSize` therefore trips the same per-entry or total
+ *     limit during inflation instead of allocating the entire archive first.
+ *     Pack uses the same caps so Lingua never exports a bundle its importer
+ *     would reject.
  *
  * Binary-safe: entries are carried as `Uint8Array`, so images / fixtures
  * round-trip byte-for-byte when the caller chooses to include them.
  */
 
-import { strToU8, unzipSync, zipSync, type UnzipFileInfo } from 'fflate';
+import {
+  strToU8,
+  Unzip,
+  UnzipInflate,
+  UnzipPassThrough,
+  zipSync,
+  type UnzipFile,
+} from 'fflate';
+import {
+  ProjectBundleExportError,
+  projectBundleExportLimit,
+  resolveBundleCaps,
+  type BundleCapOverrides,
+} from './projectBundleLimits';
+export {
+  BUNDLE_EXPORT_REJECT_REASONS,
+  MAX_BUNDLE_BYTES,
+  MAX_BUNDLE_ENTRY_BYTES,
+  MAX_BUNDLE_FILES,
+  MAX_UNCOMPRESSED_BYTES,
+  ProjectBundleExportError,
+  projectBundleExportLimit,
+} from './projectBundleLimits';
+export type {
+  BundleCapOverrides,
+  BundleExportRejectReason,
+} from './projectBundleLimits';
 
 /** Manifest schema version. Bumped only on a breaking manifest change. */
 export const PROJECT_BUNDLE_VERSION = 1 as const;
@@ -46,23 +69,6 @@ export const PROJECT_BUNDLE_VERSION = 1 as const;
  * from the extracted file set so it never lands on disk as project copy.
  */
 export const PROJECT_BUNDLE_MANIFEST_NAME = 'lingua-bundle.json';
-
-/** Max number of file entries a bundle may carry (export + import). */
-export const MAX_BUNDLE_FILES = 5_000;
-
-/** Max compressed bundle size accepted on import (the `.zip` bytes). */
-export const MAX_BUNDLE_BYTES = 50 * 1024 * 1024; // 50 MiB
-
-/**
- * Max TOTAL uncompressed size summed across every entry (implementation note — the
- * zip-bomb guard). Tripped during `unpackBundle` BEFORE anything is
- * handed to a writer, so a tiny highly-compressed archive can never
- * exhaust memory or disk.
- */
-export const MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024; // 200 MiB
-
-/** Max uncompressed size for a single entry. */
-export const MAX_BUNDLE_ENTRY_BYTES = 16 * 1024 * 1024; // 16 MiB
 
 /**
  * Closed enum of every reason a bundle (or a single entry) is rejected.
@@ -146,20 +152,6 @@ export interface UnpackBundleErr {
 export type UnpackBundleResult = UnpackBundleOk | UnpackBundleErr;
 
 /**
- * Cap overrides, defaulting to the module constants. Production callers
- * pass nothing; tests pass tiny caps to exercise the zip-bomb / count /
- * size guards without allocating hundreds of MiB. Overrides can only
- * make the limits SMALLER in practice — they never widen the real
- * production ceiling because production never passes them.
- */
-export interface BundleCapOverrides {
-  readonly maxBundleBytes?: number;
-  readonly maxUncompressedBytes?: number;
-  readonly maxFiles?: number;
-  readonly maxEntryBytes?: number;
-}
-
-/**
  * Validate + normalize a single archive entry path. Returns the cleaned
  * POSIX relative path, or `null` when the path is unsafe. This is the
  * sole zip-slip chokepoint — both pack and unpack route through it.
@@ -194,28 +186,47 @@ export function validateBundleEntryPath(rawPath: string): string | null {
 
 /**
  * Pack a set of files into a `.zip` byte array with a
- * `lingua-bundle.json` manifest at the root. Throws `RangeError` when
- * the file count exceeds `MAX_BUNDLE_FILES` or any entry path is unsafe
- * — callers (the export IPC) treat a throw as a hard failure, not a
- * partial bundle.
+ * `lingua-bundle.json` manifest at the root. Unsafe paths throw a plain
+ * `RangeError`; size/count failures throw `ProjectBundleExportError` with
+ * a stable reason. Export is all-or-nothing — no silent file omission.
  */
 export function packBundle(
   files: ProjectBundleFile[],
-  manifestInput: PackBundleManifestInput
+  manifestInput: PackBundleManifestInput,
+  opts: BundleCapOverrides = {}
 ): Uint8Array {
-  if (files.length > MAX_BUNDLE_FILES) {
-    throw new RangeError(
-      `Bundle exceeds ${MAX_BUNDLE_FILES} files (${files.length})`
-    );
-  }
+  const caps = resolveBundleCaps(opts);
   const zipInput: Record<string, Uint8Array> = {};
+  let fileCount = 0;
+  let totalBytes = 0;
   for (const file of files) {
     const safe = validateBundleEntryPath(file.path);
     if (safe === null) {
       throw new RangeError(`Unsafe bundle entry path: ${file.path}`);
     }
-    if (safe === PROJECT_BUNDLE_MANIFEST_NAME) continue; // never let project copy shadow the manifest
+    if (safe === PROJECT_BUNDLE_MANIFEST_NAME) {
+      throw new RangeError(
+        `Reserved bundle entry path cannot be exported: ${safe}`
+      );
+    }
+    if (Object.hasOwn(zipInput, safe)) {
+      throw new RangeError(`Duplicate bundle entry path: ${safe}`);
+    }
+    const reason = projectBundleExportLimit(
+      fileCount,
+      totalBytes,
+      file.bytes.byteLength,
+      caps
+    );
+    if (reason) {
+      throw new ProjectBundleExportError(
+        reason,
+        `Bundle export rejected ${safe}: ${reason}`
+      );
+    }
     zipInput[safe] = file.bytes;
+    fileCount += 1;
+    totalBytes += file.bytes.byteLength;
   }
   const manifest: ProjectBundleManifestV1 = {
     version: PROJECT_BUNDLE_VERSION,
@@ -224,12 +235,24 @@ export function packBundle(
     ...(manifestInput.languageHint
       ? { languageHint: manifestInput.languageHint }
       : {}),
-    fileCount: Object.keys(zipInput).length,
+    fileCount,
   };
-  zipInput[PROJECT_BUNDLE_MANIFEST_NAME] = strToU8(
-    JSON.stringify(manifest, null, 2)
-  );
-  return zipSync(zipInput, { level: 6 });
+  const manifestBytes = strToU8(JSON.stringify(manifest, null, 2));
+  if (totalBytes + manifestBytes.byteLength > caps.maxUncompressedBytes) {
+    throw new ProjectBundleExportError(
+      'too-large',
+      'Bundle manifest exceeds the uncompressed export budget'
+    );
+  }
+  zipInput[PROJECT_BUNDLE_MANIFEST_NAME] = manifestBytes;
+  const zipBytes = zipSync(zipInput, { level: 6 });
+  if (zipBytes.byteLength > caps.maxBundleBytes) {
+    throw new ProjectBundleExportError(
+      'too-large',
+      'Compressed bundle exceeds the import budget'
+    );
+  }
+  return zipBytes;
 }
 
 /**
@@ -243,93 +266,182 @@ export function unpackBundle(
   zipBytes: Uint8Array,
   opts: BundleCapOverrides = {}
 ): UnpackBundleResult {
-  const maxBundleBytes = opts.maxBundleBytes ?? MAX_BUNDLE_BYTES;
-  const maxUncompressedBytes = opts.maxUncompressedBytes ?? MAX_UNCOMPRESSED_BYTES;
-  const maxFiles = opts.maxFiles ?? MAX_BUNDLE_FILES;
-  const maxEntryBytes = opts.maxEntryBytes ?? MAX_BUNDLE_ENTRY_BYTES;
+  const caps = resolveBundleCaps(opts);
 
   if (!zipBytes || zipBytes.byteLength === 0) {
     return { ok: false, reason: 'empty' };
   }
-  if (zipBytes.byteLength > maxBundleBytes) {
+  if (zipBytes.byteLength > caps.maxBundleBytes) {
     return { ok: false, reason: 'too-large' };
   }
-
-  let decoded: Record<string, Uint8Array>;
-  let preflightReason: BundleRejectReason | null = null;
-  const preflightRejects: BundleEntryReject[] = [];
-  let preflightFileCount = 0;
-  let preflightBytes = 0;
-  try {
-    decoded = unzipSync(zipBytes, {
-      filter: (entry) => {
-        if (preflightReason) return false;
-        const decision = preflightBundleEntry(entry, {
-          maxEntryBytes,
-          maxFiles,
-          maxUncompressedBytes,
-          currentFileCount: preflightFileCount,
-          currentBytes: preflightBytes,
-        });
-        if (decision.kind === 'skip') {
-          if (decision.reject) preflightRejects.push(decision.reject);
-          return false;
-        }
-        if (decision.kind === 'fatal') {
-          preflightReason = decision.reason;
-          return false;
-        }
-        preflightBytes += entry.originalSize;
-        if (decision.countsAsFile) preflightFileCount += 1;
-        return true;
-      },
-    });
-  } catch {
+  if (!hasZipEndRecord(zipBytes)) {
     return { ok: false, reason: 'malformed-zip' };
-  }
-  if (preflightReason) {
-    return { ok: false, reason: preflightReason };
   }
 
   const files: ProjectBundleFile[] = [];
-  const rejects: BundleEntryReject[] = [...preflightRejects];
+  const rejects: BundleEntryReject[] = [];
   let manifest: ProjectBundleManifestV1 | null = null;
   let totalBytes = 0;
+  let totalInflatedBytes = 0;
+  let declaredInflatedBytes = 0;
+  let archiveFileCount = 0;
+  let activeEntries = 0;
+  let fatalReason: BundleRejectReason | null = null;
+  const seenPaths = new Set<string>();
 
-  for (const [rawPath, bytes] of Object.entries(decoded)) {
-    // Directory markers (`foo/`) decode to zero-byte entries; skip them.
-    if (rawPath.endsWith('/')) continue;
+  const rejectEntry = (
+    file: UnzipFile,
+    path: string,
+    reason: BundleRejectReason
+  ): void => {
+    rejects.push({ path, reason });
+    file.terminate();
+  };
 
-    if (rawPath === PROJECT_BUNDLE_MANIFEST_NAME) {
-      manifest = parseManifest(bytes);
-      continue;
+  const unzip = new Unzip((file) => {
+    if (fatalReason) {
+      file.terminate();
+      return;
+    }
+    if (file.name.endsWith('/')) {
+      file.terminate();
+      return;
     }
 
-    const safe = validateBundleEntryPath(rawPath);
+    const isManifest = file.name === PROJECT_BUNDLE_MANIFEST_NAME;
+    if (!isManifest) {
+      archiveFileCount += 1;
+      if (archiveFileCount > caps.maxFiles) {
+        fatalReason = 'too-many-files';
+        file.terminate();
+        return;
+      }
+    }
+
+    const safe = isManifest
+      ? PROJECT_BUNDLE_MANIFEST_NAME
+      : validateBundleEntryPath(file.name);
     if (safe === null) {
-      rejects.push({ path: rawPath, reason: 'path-traversal' });
-      continue;
+      rejectEntry(file, file.name, 'path-traversal');
+      return;
     }
-    if (bytes.byteLength > maxEntryBytes) {
-      rejects.push({ path: safe, reason: 'entry-too-large' });
-      continue;
+    if (seenPaths.has(safe)) {
+      fatalReason = 'malformed-zip';
+      file.terminate();
+      return;
     }
-    totalBytes += bytes.byteLength;
-    // implementation note — zip-bomb guard. Trip the moment the running total crosses
-    // the cap so a malicious archive can't be fully buffered first.
-    if (totalBytes > maxUncompressedBytes) {
-      return { ok: false, reason: 'zip-bomb' };
+    seenPaths.add(safe);
+
+    if (
+      typeof file.originalSize === 'number' &&
+      file.originalSize > caps.maxEntryBytes
+    ) {
+      rejectEntry(file, safe, 'entry-too-large');
+      return;
     }
-    if (files.length >= maxFiles) {
-      return { ok: false, reason: 'too-many-files' };
+    if (typeof file.originalSize === 'number') {
+      declaredInflatedBytes += file.originalSize;
+      if (declaredInflatedBytes > caps.maxUncompressedBytes) {
+        fatalReason = 'zip-bomb';
+        file.terminate();
+        return;
+      }
     }
-    files.push({ path: safe, bytes });
+
+    const chunks: Uint8Array[] = [];
+    let entryBytes = 0;
+    let rejected = false;
+    activeEntries += 1;
+    file.ondata = (error, chunk, final) => {
+      if (fatalReason || rejected) return;
+      if (error) {
+        fatalReason = 'malformed-zip';
+        return;
+      }
+
+      entryBytes += chunk.byteLength;
+      totalInflatedBytes += chunk.byteLength;
+      if (totalInflatedBytes > caps.maxUncompressedBytes) {
+        fatalReason = 'zip-bomb';
+        file.terminate();
+        return;
+      }
+      if (entryBytes > caps.maxEntryBytes) {
+        rejected = true;
+        rejects.push({ path: safe, reason: 'entry-too-large' });
+        activeEntries -= 1;
+        file.terminate();
+        return;
+      }
+
+      chunks.push(chunk);
+      if (!final) return;
+      activeEntries -= 1;
+      const bytes = concatByteChunks(chunks, entryBytes);
+      if (isManifest) {
+        manifest = parseManifest(bytes);
+      } else {
+        totalBytes += bytes.byteLength;
+        files.push({ path: safe, bytes });
+      }
+    };
+    file.start();
+  });
+  unzip.register(UnzipInflate);
+  unzip.register(UnzipPassThrough);
+
+  try {
+    // Incremental input bounds the inflater's maximum overshoot before its
+    // output callback can terminate a dishonest entry.
+    const inputChunkBytes = 4 * 1024;
+    for (let offset = 0; offset < zipBytes.byteLength && !fatalReason; ) {
+      const nextOffset = Math.min(offset + inputChunkBytes, zipBytes.byteLength);
+      unzip.push(
+        zipBytes.subarray(offset, nextOffset),
+        nextOffset === zipBytes.byteLength
+      );
+      offset = nextOffset;
+    }
+  } catch {
+    return { ok: false, reason: 'malformed-zip' };
   }
+
+  if (fatalReason) return { ok: false, reason: fatalReason };
+  if (activeEntries !== 0) return { ok: false, reason: 'malformed-zip' };
 
   if (files.length === 0) {
     return { ok: false, reason: 'no-files' };
   }
   return { ok: true, manifest, files, rejects, totalBytes };
+}
+
+function concatByteChunks(chunks: Uint8Array[], totalBytes: number): Uint8Array {
+  if (chunks.length === 1) return chunks[0]!;
+  const output = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
+}
+
+function hasZipEndRecord(bytes: Uint8Array): boolean {
+  // EOCD is at least 22 bytes and may be followed by a 65,535-byte comment.
+  // Scanning that bounded suffix distinguishes arbitrary input from an empty
+  // (but structurally valid) archive before fflate's streaming parser starts.
+  const minimumOffset = Math.max(0, bytes.byteLength - (22 + 0xffff));
+  for (let offset = bytes.byteLength - 22; offset >= minimumOffset; offset -= 1) {
+    if (
+      bytes[offset] === 0x50 &&
+      bytes[offset + 1] === 0x4b &&
+      bytes[offset + 2] === 0x05 &&
+      bytes[offset + 3] === 0x06
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -364,61 +476,6 @@ function parseManifest(bytes: Uint8Array): ProjectBundleManifestV1 | null {
       : {}),
     fileCount,
   };
-}
-
-type PreflightDecision =
-  | { readonly kind: 'include'; readonly countsAsFile: boolean }
-  | { readonly kind: 'skip'; readonly reject?: BundleEntryReject }
-  | { readonly kind: 'fatal'; readonly reason: BundleRejectReason };
-
-function preflightBundleEntry(
-  entry: UnzipFileInfo,
-  caps: {
-    readonly maxEntryBytes: number;
-    readonly maxFiles: number;
-    readonly maxUncompressedBytes: number;
-    readonly currentFileCount: number;
-    readonly currentBytes: number;
-  }
-): PreflightDecision {
-  // Directory markers do not carry project data and should never be inflated.
-  if (entry.name.endsWith('/')) return { kind: 'skip' };
-
-  const safe =
-    entry.name === PROJECT_BUNDLE_MANIFEST_NAME
-      ? PROJECT_BUNDLE_MANIFEST_NAME
-      : validateBundleEntryPath(entry.name);
-  if (safe === null) {
-    return {
-      kind: 'skip',
-      reject: { path: entry.name, reason: 'path-traversal' },
-    };
-  }
-
-  if (entry.originalSize > caps.maxEntryBytes) {
-    return {
-      kind: 'skip',
-      reject: {
-        path: safe,
-        reason: 'entry-too-large',
-      },
-    };
-  }
-
-  const projectedBytes = caps.currentBytes + entry.originalSize;
-  if (projectedBytes > caps.maxUncompressedBytes) {
-    return { kind: 'fatal', reason: 'zip-bomb' };
-  }
-
-  if (entry.name === PROJECT_BUNDLE_MANIFEST_NAME) {
-    return { kind: 'include', countsAsFile: false };
-  }
-
-  if (caps.currentFileCount >= caps.maxFiles) {
-    return { kind: 'fatal', reason: 'too-many-files' };
-  }
-
-  return { kind: 'include', countsAsFile: true };
 }
 
 /**

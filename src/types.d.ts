@@ -1037,6 +1037,11 @@ interface LinguaAPI {
     ) => Promise<FsApplyReplaceResult>;
     stat: (rootId: RootId, relativePath: RelativePath) => Promise<FsStatResult>;
     read: (rootId: RootId, relativePath: RelativePath) => Promise<string>;
+    /** Binary-safe read used by archive/export paths. */
+    readBytes: (
+      rootId: RootId,
+      relativePath: RelativePath
+    ) => Promise<Uint8Array>;
     write: (
       rootId: RootId,
       relativePath: RelativePath,
@@ -1066,9 +1071,10 @@ interface LinguaAPI {
      * root into a `.zip` bundle (with a `lingua-bundle.json` manifest)
      * and write it to a user-chosen path. Desktop-only; the web stub
      * resolves `{ ok: false, reason: 'write-failed' }` since the web
-     * export goes through a Blob download instead. `opts.entryFile` /
+     * export goes through a binary-safe Blob download instead. `opts.entryFile` /
      * `opts.languageHint` are stamped into the manifest so a re-import
-     * can restore the active tab + language.
+     * can restore the active tab + language. Limit or read failures abort the
+     * whole export; files are never silently omitted.
      */
     exportBundle: (
       rootId: RootId,
@@ -1076,7 +1082,16 @@ interface LinguaAPI {
     ) => Promise<
       | { ok: true; fileCount: number; byteLength: number }
       | { canceled: true }
-      | { ok: false; reason: 'empty' | 'too-many-files' | 'write-failed' }
+      | {
+          ok: false;
+          reason:
+            | 'empty'
+            | 'entry-too-large'
+            | 'read-failed'
+            | 'too-large'
+            | 'too-many-files'
+            | 'write-failed';
+        }
     >;
     /**
      * implementation — extract a `.zip` bundle (raw bytes from the
