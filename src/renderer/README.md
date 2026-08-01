@@ -91,6 +91,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
+| [`components/ProjectTests/`](components/ProjectTests)     | `ProjectTestsOverlay.tsx`                             | Desktop project-suite discovery, runner selection, live output, stop, and result UX |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
 | [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
 | [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Open-tab, recent-file, and project-index file navigation       |
@@ -495,6 +496,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [consoleStore.ts](stores/consoleStore.ts)   | console entries and runtime output filters                        |
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
+| [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, and active project-test run lifecycle |
 | [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, transient run state, active cell — thin assembly point (internal pattern) that composes the focused notebook\* modules below |
 | notebook split — [notebookStorePrimitives.ts](stores/notebookStorePrimitives.ts) (runtime-safe status/id leaf), [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore`; factories import runtime values from the leaf, never back from the assembled store |
 | [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) + [useDependencyDetection.ts](hooks/useDependencyDetection.ts) + [dependencyDetectionRuntime.ts](hooks/dependencyDetectionRuntime.ts) | per-tab dependency cache/install state plus a startup-safe eligibility/debounce hook; parser loading and platform classification activate only when source may reference a package (Scratchpad execution can load its shared Acorn chunk independently) |
@@ -556,6 +558,7 @@ Primary task contracts:
 | Run the active tab | `Run active tab` | floating Run action | `Mod+Enter` | 1 direct or 3 through the palette |
 | Change JS/TS runtime | `Switch runtime to …` | floating Runtime menu | `Mod+Alt+M` cycles modes | 2 direct or 3 through the palette |
 | Open a project | `Open project folder…` | Explorer empty state / footer | Command Palette | 1 direct or 3 to the folder picker |
+| Run project tests | `Run project tests` | Explorer flask action | Command Palette | 2 direct: open panel, then Run |
 | Apply a license | `Apply license token` | license badge / Settings → Account | Command Palette | 5 through the palette, including paste + Apply |
 | Restore a session | `Restore last session` when a snapshot exists | boot recovery notice | Command Palette | 1 direct or 3 through the palette |
 
@@ -740,6 +743,7 @@ Keep tests close to the behavior they validate, even though the repository uses 
 | Settings UX                             | `tests/components/SettingsModal.test.tsx` plus section-specific tests         |
 | File/project tree logic                 | `tests/stores/projectStore.test.ts`, tree-related component tests             |
 | File/project navigation                 | `tests/components/QuickOpen.test.tsx`, `tests/components/ProjectSearch.test.tsx`, `tests/hooks/useProjectIndexSync.test.tsx`, `tests/stores/projectIndexStore.test.ts`, `tests/stores/recentFilesStore.test.ts` |
+| Project test discovery and execution    | `tests/main/projectTests.test.ts`, `tests/stores/projectTestStore.test.ts`, `tests/components/ProjectTestsOverlay.test.tsx` |
 | Execution formatting and inline results | `tests/utils/executionPresentation.test.ts`, runner tests, result panel tests |
 | Notebook behavior                       | `tests/stores/notebookStore.test.ts`, `tests/renderer/runtime/notebookSession.test.ts`, `tests/hooks/useNotebookRun.test.ts`, `tests/components/Notebook/*` |
 | HTTP / SQL workspaces                   | `tests/renderer/runtime/httpClient.test.ts`, `tests/renderer/runtime/duckdbClient.test.ts`, workspace component tests |

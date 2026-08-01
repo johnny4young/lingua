@@ -1,21 +1,10 @@
 {
-  "generatedAt": "2026-07-19T17:25:00.000Z",
+  "generatedAt": "2026-08-01T15:00:00.000Z",
   "totals": {
-    "planned": 4,
-    "inProgress": 6
+    "planned": 3,
+    "inProgress": 7
   },
   "planned": [
-    {
-      "theme": "Project workflows",
-      "items": [
-        {
-          "title": "Project test runner",
-          "scope": "Detect Vitest, Jest, Pytest, Go, and Cargo tests and run them from one local panel.",
-          "status": "Planned",
-          "theme": "Project workflows"
-        }
-      ]
-    },
     {
       "theme": "HTTP & data",
       "items": [
@@ -46,6 +35,17 @@
     }
   ],
   "inProgress": [
+    {
+      "theme": "Project workflows",
+      "items": [
+        {
+          "title": "Project test runner",
+          "scope": "Desktop now detects Vitest, Jest, Pytest, Go, and Cargo behind the approved project root, streams bounded output, and owns stop and timeout without invoking a shell.",
+          "status": "Delivered",
+          "theme": "Project workflows"
+        }
+      ]
+    },
     {
       "theme": "Performance",
       "items": [

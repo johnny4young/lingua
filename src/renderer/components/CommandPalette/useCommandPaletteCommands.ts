@@ -68,6 +68,7 @@ export function useCommandPaletteCommands({
   onOpenKeyboardShortcuts,
   onRunActiveTab,
   onOpenProject,
+  onOpenProjectTests,
   onApplyLicense,
   onRerunLast,
   onNewProjectFromTemplate,
@@ -178,6 +179,7 @@ export function useCommandPaletteCommands({
           ? onRunActiveTab
           : undefined,
       onOpenProject,
+      onOpenProjectTests,
       onApplyLicense,
       onFocusLanguageTab: focusLanguageTab,
       onRerunLast: canUseExecutionHistory ? onRerunLast : undefined,
@@ -671,6 +673,7 @@ export function useCommandPaletteCommands({
     snapshotRing,
     onRunActiveTab,
     onOpenProject,
+    onOpenProjectTests,
     onApplyLicense,
     onRerunLast,
     onNewProjectFromTemplate,

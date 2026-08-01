@@ -161,6 +161,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the Playwright-only rich console gallery and its complete Console panel tree',
   },
   {
+    module: 'src/renderer/testing/ProjectTestsE2eFixture.tsx',
+    why: 'the Playwright-only project-test evidence surface and its complete overlay tree',
+  },
+  {
+    module: 'src/renderer/testing/projectTestsE2eFixtureSetup.ts',
+    why: 'the Playwright-only project-test state and desktop-bridge seed',
+  },
+  {
     module: 'src/renderer/data/developerUtilityDetectors.ts',
     why: 'utility input detectors used only after a Developer Utilities panel opens',
   },

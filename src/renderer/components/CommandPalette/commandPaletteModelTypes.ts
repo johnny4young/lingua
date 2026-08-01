@@ -40,6 +40,8 @@ export interface BuildCommandPaletteModelArgs {
   onRunActiveTab?: () => void;
   /** Open a folder as the active project. */
   onOpenProject?: () => void | Promise<void>;
+  /** Open the project test-suite detector. */
+  onOpenProjectTests?: () => void;
   /** Open Settings directly on the license-token input. */
   onApplyLicense?: () => void;
   /**

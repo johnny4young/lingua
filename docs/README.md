@@ -31,6 +31,7 @@ planning is intentionally excluded from the published repository.
 - [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) — environment-variable scopes and execution boundaries.
 - [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) — declarative language packs.
 - [`LOCAL_AI_ADR.md`](./LOCAL_AI_ADR.md) — consent-first, bring-your-own-endpoint AI.
+- [`PROJECT_TEST_RUNNER_ADR.md`](./PROJECT_TEST_RUNNER_ADR.md) — capability-scoped test discovery and fixed-command desktop execution.
 - [`PYTHON_NOTEBOOK_KERNEL_ADR.md`](./PYTHON_NOTEBOOK_KERNEL_ADR.md) — per-notebook Python state and isolation.
 - [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) — vendored runtime integrity and remote oversized assets.
 - [`RUNTIME_MODES_ADR.md`](./RUNTIME_MODES_ADR.md) — worker, desktop Node, and browser-preview execution.

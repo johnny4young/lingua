@@ -130,6 +130,20 @@ interface IpcInvokeContract {
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
 
+  // ---------------------------------------------------- project test runner
+  'project-tests:detect': {
+    args: [rootId: RootId];
+    result: ProjectTestDetectionResult;
+  };
+  'project-tests:run': {
+    args: [rootId: RootId, framework: ProjectTestFramework, runId: string];
+    result: ProjectTestRunResult;
+  };
+  'project-tests:stop': {
+    args: [rootId: RootId, runId: string];
+    result: { stopped: boolean };
+  };
+
   // -------------------------------------------------------------- lsp: rust
   'lsp:rust:start': { args: []; result: RustAnalyzerStatus };
   'lsp:rust:restart': { args: []; result: RustAnalyzerStatus };
@@ -432,6 +446,7 @@ interface IpcPushContract {
   // streamed as they arrive (keyed by runId) so the console REPL can echo
   // output before the process exits.
   'runtime:output-chunk': RuntimeOutputChunk;
+  'project-tests:output': ProjectTestOutputEvent;
   'git:on-head-changed': GitHeadChangePayload;
   'git:on-head-watcher-failed': GitHeadWatcherFailurePayload;
 }
@@ -495,6 +510,9 @@ export const IPC_INVOKE_CHANNELS = [
   'format:python',
   'consent:set',
   'env:snapshot',
+  'project-tests:detect',
+  'project-tests:run',
+  'project-tests:stop',
   'lsp:rust:start',
   'lsp:rust:restart',
   'lsp:rust:stop',

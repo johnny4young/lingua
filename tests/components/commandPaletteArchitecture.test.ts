@@ -52,6 +52,7 @@ const MODULE_BUDGETS = {
 const HISTORICAL_STATIC_ACTION_ORDER = [
   'action-run-active-tab',
   'action-open-project',
+  'action-run-project-tests',
   'action-apply-license',
   'action-rerun-last',
   'action-new-project-from-template',

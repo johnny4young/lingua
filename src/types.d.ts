@@ -134,6 +134,13 @@ interface RubyRunInvokeOptions {
 
 type RubyRunResult = import('./shared/nativeRuntimeTypes').RubyRunResult;
 
+// ------------------------------------------------------ project test runner
+
+type ProjectTestFramework = import('./shared/projectTests').ProjectTestFramework;
+type ProjectTestDetectionResult = import('./shared/projectTests').ProjectTestDetectionResult;
+type ProjectTestRunResult = import('./shared/projectTests').ProjectTestRunResult;
+type ProjectTestOutputEvent = import('./shared/projectTests').ProjectTestOutputEvent;
+
 // implementation — Deno / Bun desktop runtime IPC shapes. Both runtimes share one
 // generic backend (src/main/altJsRuntimes.ts), so they share these types.
 type AltJsRunKind = import('./shared/nativeRuntimeTypes').AltJsRunKind;
@@ -656,6 +663,18 @@ interface LinguaAPI {
 
   env: {
     snapshot: () => Promise<Record<string, string>>;
+  };
+
+  /** Desktop-only capability-scoped project test discovery and execution. */
+  projectTests?: {
+    detect: (rootId: RootId) => Promise<ProjectTestDetectionResult>;
+    run: (
+      rootId: RootId,
+      framework: ProjectTestFramework,
+      runId: string
+    ) => Promise<ProjectTestRunResult>;
+    stop: (rootId: RootId, runId: string) => Promise<{ stopped: boolean }>;
+    onOutput: (handler: (event: ProjectTestOutputEvent) => void) => () => void;
   };
 
   // implementation (Rust) + implementation (Go) — desktop LSP bridges.

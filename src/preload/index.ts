@@ -129,6 +129,16 @@ contextBridge.exposeInMainWorld('lingua', {
     snapshot: () => typedInvoke('env:snapshot'),
   },
 
+  projectTests: {
+    detect: (rootId: RootId) => typedInvoke('project-tests:detect', rootId),
+    run: (rootId: RootId, framework: ProjectTestFramework, runId: string) =>
+      typedInvoke('project-tests:run', rootId, framework, runId),
+    stop: (rootId: RootId, runId: string) =>
+      typedInvoke('project-tests:stop', rootId, runId),
+    onOutput: (handler: (event: ProjectTestOutputEvent) => void) =>
+      typedOn('project-tests:output', handler),
+  },
+
   // implementation — desktop LSP bridges. The renderer
   // never talks to rust-analyzer or gopls directly; high-level
   // commands go through these handles and notifications stream back

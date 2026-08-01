@@ -46,6 +46,14 @@ describe('NativeExecutionWarning', () => {
     ).toBeTruthy();
   });
 
+  it('explains the broader project-test trust boundary', () => {
+    useNativeExecutionGateStore.getState().request('project-tests', () => {});
+    render(<NativeExecutionWarning />);
+
+    expect(screen.getByText("Run this project's tests locally?")).toBeTruthy();
+    expect(screen.getByText(/dependencies execute as regular processes/)).toBeTruthy();
+  });
+
   it('Acknowledge flips the persisted flag and invokes the resume callback', async () => {
     const resume = vi.fn();
     useNativeExecutionGateStore.getState().request('rust', resume);

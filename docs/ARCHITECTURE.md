@@ -577,6 +577,42 @@ implementation. A newer search from the same renderer aborts the older native
 process. The web adapter keeps its File System Access API implementation behind
 the same `window.lingua.fs.searchInFiles(...)` contract.
 
+#### Project test execution
+
+Project tests are an explicit desktop action adjacent to the project
+lifecycle, not a background lifecycle phase. Opening a folder never runs code.
+The Explorer action or Command Palette opens the test surface, which asks main
+to inspect the already-approved project root for Vitest, Jest, Pytest, Go, and
+Cargo markers.
+
+The trust boundary is deliberately narrower than a generic task runner:
+
+- the renderer sends a branded `rootId`, a closed framework identifier, and an
+  opaque run id; it never sends a command, executable path, arguments, cwd, or
+  environment;
+- main resolves the root capability, re-detects the selected framework
+  immediately before every spawn, and owns a fixed argument vector for each
+  runner;
+- JavaScript runners use their project-local module entrypoint, Python prefers
+  `.venv`/`venv`, and host toolchains are accepted only from absolute `PATH`
+  entries so a relative entry cannot plant an executable in the project cwd;
+- every subprocess runs without a shell, inherits only an audited toolchain
+  environment, caps stdout and stderr independently, and receives a
+  parent-owned five-minute timeout with process-tree termination;
+- only one suite may run per approved root. Stop requests must present the same
+  root capability and run id that own the active process;
+- renderer destruction aborts its owned run even during asynchronous detection,
+  and app shutdown disposes every remaining run;
+- stdout and stderr stream over `project-tests:output`, filtered again by run id
+  in the renderer, while the final invoke result remains authoritative.
+
+The first local run reuses the persisted native-execution acknowledgement.
+That warning is essential: fixed arguments and a filtered environment prevent
+command injection and accidental secret inheritance, but a project's tests and
+dependencies are still arbitrary unsandboxed code with the user's OS
+permissions. The web build omits `window.lingua.projectTests` and shows an
+explicit desktop-only state instead of simulating execution.
+
 #### Project bundles
 
 Project bundle export is binary-safe on both filesystem backends. Desktop reads

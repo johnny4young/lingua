@@ -5,6 +5,7 @@ export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate
   const {
     onRunActiveTab,
     onOpenProject,
+    onOpenProjectTests,
     onApplyLicense,
     onRerunLast,
     onNewProjectFromTemplate,
@@ -38,6 +39,20 @@ export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate
             () => {
               onClose();
               void onOpenProject();
+            }
+          ),
+        ]
+      : []),
+    ...(onOpenProjectTests
+      ? [
+          buildActionCommand(
+            'action-run-project-tests',
+            translate('commandPalette.action.runProjectTests.label'),
+            translate('commandPalette.action.runProjectTests.description'),
+            ['test', 'tests', 'vitest', 'jest', 'pytest', 'go', 'cargo', 'pruebas', 'proyecto'],
+            () => {
+              onClose();
+              onOpenProjectTests();
             }
           ),
         ]

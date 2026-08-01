@@ -27,6 +27,8 @@ export interface CommandPaletteProps {
   onRunActiveTab?: () => void;
   /** Opens a local folder as the active project. */
   onOpenProject?: () => void | Promise<void>;
+  /** Opens the test-suite detector for the active project. */
+  onOpenProjectTests?: () => void;
   /** Opens Settings and focuses the license-token input. */
   onApplyLicense?: () => void;
   /**

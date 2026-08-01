@@ -64,6 +64,19 @@ describe('buildNativeRunnerEnv', () => {
     expect(env.LINGUA_SMOKE_SECRET).toBeUndefined();
   });
 
+  it('can derive the same allowlist from an explicit host snapshot', () => {
+    process.env.PATH = '/ambient/bin';
+
+    const env = buildNativeRunnerEnv(
+      COMMON_TOOLCHAIN_KEYS,
+      undefined,
+      {},
+      { PATH: '/snapshot/bin', OPENAI_API_KEY: 'sk-not-forwarded' }
+    );
+
+    expect(env).toEqual({ PATH: '/snapshot/bin' });
+  });
+
   it('omits missing host keys entirely (never sends `undefined`)', () => {
     // PATH is intentionally not set in the cleared environment.
     const env = buildNativeRunnerEnv(COMMON_TOOLCHAIN_KEYS, undefined);

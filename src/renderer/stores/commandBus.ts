@@ -24,6 +24,7 @@ export interface OpenFileCommand {
 interface RendererCommandPayloadMap {
   'overlay.openSnippets': undefined;
   'overlay.openRecipes': undefined;
+  'overlay.openProjectTests': undefined;
   'capsule.openImport': undefined;
   'capsule.openList': { readonly surface: CapsuleBrowseSurface };
   'file.open': OpenFileCommand;

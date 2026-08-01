@@ -93,6 +93,8 @@ async function bootstrapWeb(): Promise<void> {
   const isRichConsoleE2eFixture =
     __LINGUA_E2E_HOOKS__ &&
     searchParams.get('e2e') === 'rich-console-gallery';
+  const isProjectTestsE2eFixture =
+    __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'project-tests';
 
 // FASE 0 dev-only acceptance artifact. `?lingua-showcase` mounts the
 // recipe gallery instead of the app. The dynamic import code-splits the
@@ -124,6 +126,25 @@ async function bootstrapWeb(): Promise<void> {
     createRoot(root).render(
       <StrictMode>
         <RichConsoleE2eFixture />
+      </StrictMode>
+    );
+    markBootPhase('react-mount');
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
+  if (isProjectTestsE2eFixture) {
+    await initI18n(searchParams.get('locale') === 'es' ? 'es' : 'en');
+    const { prepareProjectTestsE2eFixture } = await import(
+      '../renderer/testing/projectTestsE2eFixtureSetup'
+    );
+    const { ProjectTestsE2eFixture } = await import(
+      '../renderer/testing/ProjectTestsE2eFixture'
+    );
+    prepareProjectTestsE2eFixture();
+    createRoot(root).render(
+      <StrictMode>
+        <ProjectTestsE2eFixture />
       </StrictMode>
     );
     markBootPhase('react-mount');

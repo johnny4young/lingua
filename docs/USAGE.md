@@ -105,6 +105,26 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Ruby's `auto` preference quietly keeps using the bundled WASM runtime when system Ruby is absent. The guidance appears when `system` Ruby was explicitly selected.
 - Installation walkthroughs live in [Getting started](https://linguacode.dev/docs/getting-started) and its [Spanish version](https://linguacode.dev/es/docs/getting-started).
 
+## Project test runner
+
+- Open a local project in the desktop app, then choose the flask action in the
+  Explorer header or run **Run project tests** from the Command Palette.
+- Lingua detects every matching root-level runner in deterministic order:
+  Vitest, Jest, Pytest, Go, then Cargo. It shows the exact fixed command and the
+  manifest or configuration evidence that triggered each match.
+- A configured runner can remain unavailable until its project-local package
+  or host toolchain is installed. Use **Detect again** after installing it; no
+  app restart is required.
+- Select a runner and choose **Run tests**. The first native run asks you to
+  acknowledge that the suite and its dependencies execute as ordinary local
+  processes. Continue only for projects you trust.
+- Output appears while the suite is running. **Stop** terminates the owned
+  process tree; Lingua also stops it after five minutes and caps each output
+  stream so a noisy suite cannot grow renderer memory without bound.
+- Lingua never invokes a shell or accepts a command from the renderer, but this
+  is not a sandbox: test code still runs with your user account's filesystem
+  permissions. The web build cannot start host processes and says so explicitly.
+
 ## Offline status
 
 - The desktop status bar is enabled by default. The web status bar remains opt-in under **Settings → Editor → Show status bar**.

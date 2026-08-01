@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-08-01T11:23:32.189Z",
+  "generatedAt": "2026-08-01T15:17:37.541Z",
   "baseRef": "v0.15.0",
   "commitCount": 12,
-  "totalSinceBase": 57,
+  "totalSinceBase": 63,
   "commits": [
+    {
+      "hash": "91c044a",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "capsule",
+      "message": "add bounded multi-file workspaces",
+      "breaking": false
+    },
     {
       "hash": "d98758d",
       "date": "2026-08-01",
@@ -101,15 +110,6 @@
       "typeLabel": "Fix",
       "scope": "renderer",
       "message": "restore visually hidden content",
-      "breaking": false
-    },
-    {
-      "hash": "eee8197",
-      "date": "2026-07-31",
-      "type": "perf",
-      "typeLabel": "Performance",
-      "scope": "renderer",
-      "message": "defer workspace collection state",
       "breaking": false
     }
   ]

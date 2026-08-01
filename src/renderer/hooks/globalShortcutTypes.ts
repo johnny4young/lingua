@@ -12,6 +12,7 @@ export type AppOverlay =
   | 'whats-new'
   | 'keyboard-shortcuts'
   | 'project-templates'
+  | 'project-tests'
   | 'recipes'
   | 'capsule-import'
   | 'capsule-list'

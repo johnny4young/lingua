@@ -6,6 +6,7 @@ import {
   FolderOpen,
   FolderPlus,
   FilePlus,
+  FlaskConical,
   RefreshCw,
   FolderOpen as OpenFolderIcon,
 } from 'lucide-react';
@@ -18,6 +19,7 @@ import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
 import { useDirtyTabPaths, dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useProjectBundle } from '../../hooks/useProjectBundle';
+import { emitCommand } from '../../stores/commandBus';
 import { IconButton } from '../ui/chrome';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
@@ -356,6 +358,14 @@ export function FileTree({ onNavigate }: FileTreeProps) {
             tooltip={t('fileTree.actions.newFolder')}
           >
             <FolderPlus size={13} />
+          </IconButton>
+          <IconButton
+            onClick={() => emitCommand('overlay.openProjectTests')}
+            tooltip={t('fileTree.actions.projectTests')}
+            aria-label={t('fileTree.actions.projectTests')}
+            data-testid="file-tree-project-tests"
+          >
+            <FlaskConical size={13} />
           </IconButton>
           <IconButton
             onClick={refreshTree}

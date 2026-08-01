@@ -32,6 +32,8 @@ import { registerProfileHandlers } from './ipc/profile';
 import { registerRecoveryHandlers } from './ipc/recovery';
 import { registerDependencyHandlers } from './ipc/dependencies';
 import { registerGitHandlers } from './ipc/git';
+import { registerProjectTestHandlers } from './ipc/projectTests';
+import { disposeProjectTestRuns } from './projectTests';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -75,6 +77,7 @@ registerProfileHandlers();
 registerRecoveryHandlers();
 registerDependencyHandlers();
 registerGitHandlers();
+registerProjectTestHandlers();
 registerUpdater();
 
 let forceQuit = false;
@@ -321,6 +324,7 @@ app.on('before-quit', () => {
   // implementation — make sure desktop LSP children do not outlive
   // Lingua's main process.
   disposeLspBridge();
+  disposeProjectTestRuns();
 });
 
 app.on('activate', () => {
