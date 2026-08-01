@@ -302,8 +302,11 @@ Options:
 }
 
 export async function main(argv = process.argv.slice(2)) {
+  // pnpm 11 preserves the separator used by `pnpm run <script> -- <args>`.
+  // Node's parseArgs treats that marker as a positional unless we remove it.
+  const args = argv[0] === '--' ? argv.slice(1) : argv;
   const { values } = parseArgs({
-    args: argv,
+    args,
     options: {
       'out-dir': { type: 'string', default: 'out-cli' },
       'package-only': { type: 'boolean', default: false },

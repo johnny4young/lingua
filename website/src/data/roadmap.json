@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-01T19:00:00.000Z",
+  "generatedAt": "2026-08-01T19:55:00.000Z",
   "totals": {
     "planned": 0,
     "inProgress": 9
@@ -83,7 +83,7 @@
       "items": [
         {
           "title": "Complete CLI distribution",
-          "scope": "Utility commands, execution, Capsule replay, completions, and stable errors ship today. The release pipeline now produces a minimal npm package plus validated Windows/Linux standalone archives and signs Windows after SEA injection when credentials exist; registry promotion and public-trust credentials remain operational gates.",
+          "scope": "Utility commands, execution, Capsule replay, completions, and stable errors ship today. A read-only distribution report now reconciles the stable release, CLI artifacts, npm, the public Homebrew tap, and current winget manifests. The next release must perform the first npm publish; tap promotion and public-trust Authenticode remain explicit operational gates.",
           "status": "Partial",
           "theme": "CLI & compatibility"
         },

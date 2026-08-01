@@ -19,6 +19,7 @@
     "build:web": "node ./scripts/build-web.mjs",
     "build:cli": "node ./scripts/build-cli.mjs",
     "package:cli": "node ./scripts/package-cli.mjs",
+    "distribution:status": "node ./scripts/distribution-readiness.mjs",
     "preview:web": "vite preview --config vite.web.config.mts",
     "smoke:project-templates": "node ./scripts/smoke-project-templates.mjs",
     "smoke:desktop": "node ./scripts/run-desktop-smoke.mjs",

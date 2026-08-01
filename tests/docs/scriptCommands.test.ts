@@ -98,6 +98,8 @@ describe('Script naming docs guard', () => {
       'build:cli',
       // npm tarball + native Windows/Linux single-executable archives.
       'package:cli',
+      // Read-only public release, registry, tap, and manifest evidence.
+      'distribution:status',
       'preview:web',
       'smoke:project-templates',
       'smoke:desktop',

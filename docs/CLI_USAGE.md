@@ -57,6 +57,17 @@ license, and its package manifest. Registry promotion remains a human release
 action until the `@linguacode` namespace and its trusted publisher are
 configured.
 
+Use `pnpm run distribution:status` for a read-only comparison of the latest
+public release, npm package, Homebrew tap, and generated winget manifests. The
+report can also emit machine-readable JSON or bilingual standalone HTML. It
+never reads credentials or changes a registry. Save JSON with `--output`, then
+use `--input` to render both languages from the exact same evidence without
+another network probe.
+
+The first npm version must be created by the next stable release. The immutable
+`v0.15.0` tag predates the CLI packaging pipeline, so publishing newer
+post-release code as `@linguacode/cli@0.15.0` would create false version parity.
+
 ## Shell completion
 
 `lingua completion` prints deterministic, network-free completion scripts. It
@@ -312,9 +323,9 @@ Adding new codes is allowed; renumbering existing ones is forbidden
 - `lingua lesson validate` — lesson validation is not exposed through the CLI.
 - macOS standalone binary — npm remains the supported macOS CLI channel until
   the raw executable has its own Developer ID notarization path.
-- npm registry promotion and a trusted Windows signature — these are release
-  operations that require namespace ownership and external signing credentials,
-  not additional CLI implementation.
+- npm registry promotion and a trusted Windows signature — the repository now
+  reports their public readiness deterministically, but the operations still
+  require namespace ownership and external signing credentials.
 - Localized CLI copy — the CLI currently ships English-only copy, consistent
   with the repository's `electron-forge` and `electron-builder` tooling.
 - Multi-file Capsule Workspace replay — the app can inspect the additive

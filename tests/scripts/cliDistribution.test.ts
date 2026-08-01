@@ -8,6 +8,7 @@ import {
   cliArchiveName,
   cliBinaryName,
   CLI_PACKAGE_NAME,
+  main,
   resolveStandaloneTarget,
   SEA_SENTINEL_FUSE,
   SUPPORTED_STANDALONE_TARGETS,
@@ -75,5 +76,9 @@ describe('CLI distribution packaging', () => {
     expect(() => assertNpmPackContents([...expected, { path: '.env.production' }])).toThrow(
       /unexpected npm package contents/iu
     );
+  });
+
+  it('accepts the pnpm argument separator used by the release workflow', async () => {
+    await expect(main(['--', '--help'])).resolves.toBe(0);
   });
 });
