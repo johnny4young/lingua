@@ -41,6 +41,16 @@ import { promisify } from 'node:util';
 import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import type {
+  AltJsDetectResult,
+  AltJsRunKind,
+  AltJsRunResult,
+} from '../shared/nativeRuntimeTypes';
+export type {
+  AltJsDetectResult,
+  AltJsRunKind,
+  AltJsRunResult,
+} from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(execFile);
 
@@ -50,29 +60,12 @@ const STDOUT_TRUNCATION_MARKER = '\n[stdout truncated]';
 const STDERR_TRUNCATION_MARKER = '\n[stderr truncated]';
 
 export type AltJsRuntimeId = 'deno' | 'bun';
-export type AltJsRunKind = 'success' | 'error' | 'timeout' | 'stopped' | 'missing-binary';
-
-export interface AltJsDetectResult {
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
 
 export interface AltJsRunOptions {
   runId?: string;
   timeoutMs?: number;
   language?: string;
   userEnv?: Record<string, string>;
-}
-
-export interface AltJsRunResult {
-  kind: AltJsRunKind;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-  timeoutMs: number;
 }
 
 interface RuntimeConfig {

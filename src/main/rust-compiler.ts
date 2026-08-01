@@ -32,6 +32,8 @@ import {
   combinedAllowlist,
 } from './runners/nativeEnv';
 import { spawnNativeRun } from './runners/spawnNativeRun';
+import type { RustDetectResult, RustRunResult } from '../shared/nativeRuntimeTypes';
+export type { RustDetectResult, RustRunResult } from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(execFile);
 
@@ -71,21 +73,6 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
       ? `\n${messages.stderrTruncated}`
       : RUNTIME_STDERR_TRUNCATION_MARKER,
   };
-}
-
-interface RustDetectResult {
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
-
-interface RustRunResult {
-  success: boolean;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
 }
 
 /**

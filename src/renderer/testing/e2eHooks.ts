@@ -1,4 +1,4 @@
-import type { ConsoleEntry } from '../types';
+import type { ConsoleEntry } from '../types/console';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useGoLanguageStore } from '../stores/goLanguageStore';
 import { useRustLanguageStore } from '../stores/rustLanguageStore';

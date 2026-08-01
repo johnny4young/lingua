@@ -82,59 +82,22 @@ declare module 'js-yaml' {
 
 // ---------------------------------------------------------------- Go types
 
-interface GoDetectResult {
-  installed: boolean;
-  version?: string;
-  goRoot?: string;
-  error?: string;
-}
+type GoDetectResult = import('./shared/nativeRuntimeTypes').GoDetectResult;
 
-interface GoCompileResult {
-  success: boolean;
-  /**
-   * Compiled WASM payload as a typed array (Electron structured clone
-   * ships it natively; the renderer forwards the underlying buffer to
-   * the Go worker as a transferable, so no number[] expansion happens
-   * anywhere on the path).
-   */
-  wasmBytes?: Uint8Array;
-  wasmExecJs?: string;
-  error?: string;
-  goVersion?: string;
-}
+type GoCompileResult = import('./shared/nativeRuntimeTypes').GoCompileResult;
 
 // -------------------------------------------------------------- Rust types
 
-interface RustDetectResult {
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
+type RustDetectResult = import('./shared/nativeRuntimeTypes').RustDetectResult;
 
-interface RustRunResult {
-  success: boolean;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-}
+type RustRunResult = import('./shared/nativeRuntimeTypes').RustRunResult;
 
 // -------------------------------------------------------------- Node types
 // implementation — desktop Node child-spawn IPC. Detection + run.
 
-interface NodeDetectResult {
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
+type NodeDetectResult = import('./shared/nativeRuntimeTypes').NodeDetectResult;
 
-type NodeRunKind =
-  | 'success'
-  | 'error'
-  | 'timeout'
-  | 'stopped'
-  | 'missing-binary';
+type NodeRunKind = import('./shared/nativeRuntimeTypes').NodeRunKind;
 
 interface NodeRunInvokeOptions {
   runId?: string;
@@ -147,38 +110,16 @@ interface NodeRunInvokeOptions {
   messages?: NativeRunnerMessages;
 }
 
-interface NodeRunResult {
-  kind: NodeRunKind;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-  timeoutMs: number;
-}
+type NodeRunResult = import('./shared/nativeRuntimeTypes').NodeRunResult;
 
 // -------------------------------------------------------------- Ruby types
 // implementation — desktop Ruby child-spawn IPC. Web build does not
 // expose `window.lingua.ruby` (the renderer falls through to the
 // `@ruby/wasm-wasi` worker instead).
 
-interface RubyDetectResult {
-  installed: boolean;
-  /** Full `ruby --version` line. */
-  version?: string;
-  /** implementation note — parsed semver (e.g. `3.3.6`). Absent when parsing fails. */
-  semver?: string;
-  /** implementation note — parsed platform tuple (e.g. `arm64-darwin23`). */
-  platform?: string;
-  error?: string;
-}
+type RubyDetectResult = import('./shared/nativeRuntimeTypes').RubyDetectResult;
 
-type RubyRunKind =
-  | 'success'
-  | 'error'
-  | 'timeout'
-  | 'stopped'
-  | 'missing-binary';
+type RubyRunKind = import('./shared/nativeRuntimeTypes').RubyRunKind;
 
 interface RubyRunInvokeOptions {
   runId?: string;
@@ -191,59 +132,25 @@ interface RubyRunInvokeOptions {
   messages?: NativeRunnerMessages;
 }
 
-interface RubyRunResult {
-  kind: RubyRunKind;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-  timeoutMs: number;
-}
+type RubyRunResult = import('./shared/nativeRuntimeTypes').RubyRunResult;
 
 // implementation — Deno / Bun desktop runtime IPC shapes. Both runtimes share one
 // generic backend (src/main/altJsRuntimes.ts), so they share these types.
-type AltJsRunKind = 'success' | 'error' | 'timeout' | 'stopped' | 'missing-binary';
-interface AltJsDetectResult {
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
+type AltJsRunKind = import('./shared/nativeRuntimeTypes').AltJsRunKind;
+type AltJsDetectResult = import('./shared/nativeRuntimeTypes').AltJsDetectResult;
 interface AltJsRunInvokeOptions {
   runId?: string;
   timeoutMs?: number;
   language?: string;
   userEnv?: Record<string, string>;
 }
-interface AltJsRunResult {
-  kind: AltJsRunKind;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-  timeoutMs: number;
-}
+type AltJsRunResult = import('./shared/nativeRuntimeTypes').AltJsRunResult;
 
-// implementation — Go / Rust / Ruby dependency install IPC shapes. Mirrors the
-// module types in src/shared/dependencies/nativeDependencies.ts and
-// src/main/nativeDependencyInstall.ts (ambient copy for the import-free
-// ipcContract, same pattern as the Node/Ruby types above).
-type NativePackageLanguage = 'go' | 'rust' | 'ruby';
-type NativeInstallStatus =
-  | 'success'
-  | 'error'
-  | 'timeout'
-  | 'missing-manifest'
-  | 'invalid-specifiers'
-  | 'missing-binary';
-interface NativeInstallResult {
-  status: NativeInstallStatus;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  error?: string;
-}
+// implementation — Go / Rust / Ruby dependency-install aliases. import()
+// keeps the bridge ambient while the shared module owns the wire contract.
+type NativePackageLanguage = import('./shared/dependencies/nativeDependencies').NativePackageLanguage;
+type NativeInstallStatus = import('./shared/dependencies/nativeDependencies').NativeInstallStatus;
+type NativeInstallResult = import('./shared/dependencies/nativeDependencies').NativeInstallResult;
 
 // implementation — a live output chunk from an interactive run (REPL streaming).
 interface RuntimeOutputChunk {
@@ -256,17 +163,10 @@ interface RuntimeOutputChunk {
 // `RustAnalyzerStatus` and `GoplsStatus` share the same discriminated
 // union so the renderer and preload can use a single contract; the
 // language-specific aliases exist for readability at the IPC handles.
-type LspLauncherStatus =
-  | { kind: 'unknown' }
-  | { kind: 'starting' }
-  | { kind: 'running'; version: string }
-  | { kind: 'missing'; reason: string }
-  | { kind: 'startup-failed'; error: string }
-  | { kind: 'degraded'; error: string }
-  | { kind: 'stopped' };
+type LspLauncherStatus = import('./shared/lspLauncherTypes').LspLauncherStatus;
 
-type RustAnalyzerStatus = LspLauncherStatus;
-type GoplsStatus = LspLauncherStatus;
+type RustAnalyzerStatus = import('./shared/lspLauncherTypes').RustAnalyzerStatus;
+type GoplsStatus = import('./shared/lspLauncherTypes').GoplsStatus;
 
 // Minimal JSON-RPC notification shape used by the LSP bridge. The
 // renderer self-filters by `method`; everything off the contract is
@@ -288,10 +188,7 @@ interface NativeRunnerMessages {
 
 // ---------------------------------------------------------- Formatter types
 
-type FormatIpcResult =
-  | { available: false; reason: 'binary-missing' | 'web-unavailable'; error: string }
-  | { available: true; success: true; formatted: string }
-  | { available: true; success: false; error: string };
+type FormatIpcResult = import('./shared/formatterTypes').FormatIpcResult;
 
 // ------------------------------------------------------- File system types
 
@@ -442,22 +339,11 @@ interface UpdateState {
 
 // -------------------------------------------------------------- App info
 
-interface AppInfo {
-  productName: string;
-  version: string;
-  buildDate: string | null;
-  licenseType: string;
-  repositoryUrl: string | null;
-  websiteUrl: string | null;
-  licenseUrl: string | null;
-}
+type AppInfo = import('./shared/appInfo').AppInfo;
 
 // ------------------------------------------------------------- Deep links
 
-type DeepLinkTarget =
-  | { kind: 'open-file'; filePath: string; rawUrl: string }
-  | { kind: 'open-snippet'; snippetId: string; rawUrl: string }
-  | { kind: 'new-file'; language: string; rawUrl: string };
+type DeepLinkTarget = import('./shared/deepLinks').DeepLinkTarget;
 
 // -------------------------------------------------------- Desktop smoke
 
@@ -516,35 +402,11 @@ type DesktopSmokeMemorySnapshot =
 
 type Result<T, E = string> = import('./shared/result').Result<T, E>;
 
-interface LicensePayloadShape {
-  productId: string;
-  // Canonical closed tier list — kept in lockstep with `LICENSE_TIERS`
-  // in `src/shared/license.ts`. Widened from the original 4-tier subset
-  // to the full 6 so main's snapshot type (built on the shared list) is
-  // assignable to this ambient shape, which lets the `license:*` IPC
-  // handlers bind to `typedHandle`. Gating is unaffected: entitlements
-  // are `free` vs non-free, so `trial` / `education` resolve to paid.
-  tier: 'free' | 'pro' | 'pro_lifetime' | 'team' | 'trial' | 'education';
-  issuedTo: string;
-  issuedAt: string;
-  supportWindowEndsAt: string;
-  entitlements: readonly string[];
-}
+type LicensePayloadShape = import('./shared/license').LicensePayload;
 
-interface LicenseVerificationOk {
-  ok: true;
-  payload: LicensePayloadShape;
-  state: 'active' | 'grace';
-  supportWindowEndsAt: number;
-  updatesIncludedUntil: number | null;
-  updatesLapsed: boolean;
-}
+type LicenseVerificationOk = Extract<import('./shared/license').LicenseVerificationResult, { ok: true }>;
 
-type LicenseStatus =
-  | { kind: 'free' }
-  | { kind: 'invalid'; reason: string; message?: string }
-  | { kind: 'active'; verification: LicenseVerificationOk }
-  | { kind: 'grace'; verification: LicenseVerificationOk };
+type LicenseStatus = import('./shared/licenseSnapshot').LicenseStatus;
 
 // implementation — server-derived fields shipped from main to
 // renderer via the IPC bridge so the desktop branch of `licenseStore`
@@ -553,37 +415,15 @@ type LicenseStatus =
 // `deviceLimit`). Persistence shape unchanged: nothing here goes to
 // disk — devices belong on the server, the boot revalidate
 // re-fetches them.
-interface LicenseServerDevice {
-  id: string;
-  deviceId: string;
-  deviceName: string;
-  os: string;
-  surface: 'desktop' | 'web';
-  activatedAt: number;
-  lastSeenAt: number;
-}
+type LicenseServerDevice = import('./shared/licenseServerTypes').LicenseServerDevice;
 
-interface LicenseServerDevicesBucket {
-  desktop: LicenseServerDevice[];
-  web: LicenseServerDevice[];
-}
+type LicenseServerDevicesBucket = import('./shared/licenseServerTypes').LicenseServerDevicesBucket;
 
-interface LicenseServerDeviceLimit {
-  desktop: number;
-  web: number;
-}
+type LicenseServerDeviceLimit = import('./shared/licenseServerTypes').LicenseServerDeviceLimit;
 
-type LicenseServerSyncState = 'synced' | 'unreachable' | 'disabled';
+type LicenseServerSyncState = import('./shared/licenseServerTypes').LicenseServerSyncState;
 
-interface LicenseSnapshot {
-  token: string | null;
-  status: LicenseStatus;
-  deviceId: string;
-  lastVerifiedAt: number | null;
-  serverSync: LicenseServerSyncState;
-  devices: LicenseServerDevicesBucket | null;
-  deviceLimit: LicenseServerDeviceLimit | null;
-}
+type LicenseSnapshot = import('./shared/licenseSnapshot').LicenseSnapshot;
 
 interface LicenseApplyData {
   status: LicenseStatus;
@@ -673,104 +513,34 @@ type RecoveryRevealFolderResult = Result<null, 'unsupported' | 'open-failed'>;
 // implementation — JS/TS dependency resolver IPC contract. Closed
 // status set; the renderer maps these to its broader
 // `DependencyStatus` enum in `src/shared/dependencies/types.ts`.
-type DependencyResolveStatus = 'installed' | 'detected' | 'invalid';
-interface DependencyResolveResult {
-  statuses: Record<string, DependencyResolveStatus>;
-  /** Absolute path of the resolved cwd, or null when no cwd was discoverable (e.g. unsaved tab on web stub). */
-  cwd: string | null;
-  /**
-   * implementation — whether the resolved cwd contains a
-   * `package.json`. Renderer-side guard for the Install button so
-   * we refuse to spawn `npm install` in a directory that would be
-   * silently turned into a project by the install.
-   */
-  hasPackageJson: boolean | null;
-}
+type DependencyResolveStatus = import('./shared/dependencies/types').DependencyResolveStatus;
+type DependencyResolveResult = import('./shared/dependencies/types').DependencyResolveResult;
 
-// implementation — install batch IPC contract. Closed-enum outcome
-// and failure reason mirrored in
-// `src/shared/dependencies/types.ts` and validated by the closed-enum
-// telemetry redactor.
-type DependencyInstallResultStatus =
-  | 'installed'
-  | 'failed'
-  | 'cancelled'
-  | 'skipped-preflight';
-type DependencyInstallOutcome =
-  | 'success'
-  | 'partial'
-  | 'failed'
-  | 'cancelled'
-  | 'timed-out';
-type DependencyInstallFailureReason =
-  | 'invalid-specifier'
-  | 'no-package-json'
-  | 'binary-missing'
-  | 'exit-nonzero'
-  | 'timeout'
-  | 'cancelled'
-  | 'unsupported-wheel'
-  | 'unknown';
-interface DependencyInstallResult {
-  statuses: Record<string, DependencyInstallResultStatus>;
-  outcome: DependencyInstallOutcome;
-  failureReason: DependencyInstallFailureReason | null;
-  cwd: string | null;
-  exitCode: number;
-}
-type DependencyInstallLogStream = 'stdout' | 'stderr';
+// implementation — install batch IPC aliases. Closed enums and result
+// shapes live in the shared dependency module and feed the telemetry redactor.
+type DependencyInstallResultStatus = import('./shared/dependencies/types').DependencyInstallResultStatus;
+type DependencyInstallOutcome = import('./shared/dependencies/types').DependencyInstallOutcome;
+type DependencyInstallFailureReason = import('./shared/dependencies/types').DependencyInstallFailureReason;
+type DependencyInstallResult = import('./shared/dependencies/types').DependencyInstallResult;
+type DependencyInstallLogStream = import('./shared/dependencies/types').DependencyInstallLogStream;
 interface DependencyInstallLogEvent {
   runId: string;
   stream: DependencyInstallLogStream;
   chunk: string;
 }
 
-// implementation — Git read-only layer IPC contracts. Three shapes
-// mirrored verbatim in `src/main/git.ts`. The renderer reads them
+// implementation — Git read-only layer IPC aliases. The renderer reads them
 // off `window.lingua.git.*` (Electron preload) or treats the bridge
 // as absent on web (graceful degradation — pill + panel are hidden).
-interface GitDetectResult {
-  installed: boolean;
-  /** `git --version` output, e.g. `git version 2.45.2`. */
-  version?: string;
-  /** Absolute path of the repo root (a parent of the opened folder). */
-  repoRoot?: string;
-  /** Current branch name, e.g. `main`. Absent on detached HEAD. */
-  branch?: string;
-  /** Diagnostic message when `installed === false`. */
-  error?: string;
-}
-type GitFileStatusKind = 'clean' | 'modified' | 'untracked' | 'unknown';
-interface GitFileStatus {
-  status: GitFileStatusKind;
-  insertions?: number;
-  deletions?: number;
-}
-interface GitFileDiff {
-  originalContent: string;
-  modifiedContent: string;
-  truncated: boolean;
-}
+type GitDetectResult = import('./shared/gitTypes').GitDetectResult;
+type GitFileStatusKind = import('./shared/gitTypes').GitFileStatusKind;
+type GitFileStatus = import('./shared/gitTypes').GitFileStatus;
+type GitFileDiff = import('./shared/gitTypes').GitFileDiff;
 
-// implementation — head-watch + reveal payload contracts. Mirrored
-// verbatim from `src/main/git.ts` so the renderer can consume them
+// implementation — head-watch + reveal payload aliases. The renderer consumes them
 // off `window.lingua.git.onHeadChanged` without an extra import.
-interface GitHeadChangePayload {
-  repoRoot: string;
-  /** `null` means detached HEAD and clears a previously-known branch. */
-  branch?: string | null;
-  commit?: string;
-  /** `false` for the initial summary emit; `true` when the branch
-   *  has changed since the last cached summary. Watcher uses this
-   *  to gate `git.head_changed` telemetry (no-op fires suppressed). */
-  branchChanged: boolean;
-}
-interface GitHeadWatcherFailurePayload {
-  repoRoot: string;
-  /** `'give-up'` after the backoff schedule exhausts;
-   *  `'resolve-error'` when the initial HEAD path resolve fails. */
-  reason: 'give-up' | 'resolve-error';
-}
+type GitHeadChangePayload = import('./shared/gitTypes').GitHeadChangePayload;
+type GitHeadWatcherFailurePayload = import('./shared/gitTypes').GitHeadWatcherFailurePayload;
 
 // --------------------------------------------------------------- Main API
 

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import { useEditorStore } from '../../stores/editorStore';
 import { languageBadgeTone } from '../../utils/languageMeta';
 

@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 
 /**
  * Built-in templates keep their UI-facing copy in translation catalogs so

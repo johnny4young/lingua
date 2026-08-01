@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Language, RuntimeTimeoutPreset } from '../types';
+import type { Language } from '../types/language';
+import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { EditorDiagnostic, ExecutionError, LineTimingEntry } from '../types/execution';
 import type { AutoRunGateReason } from '../../shared/autoRunGating';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';

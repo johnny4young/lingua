@@ -27,14 +27,10 @@
  */
 
 import { create } from 'zustand';
-
-/**
- * Mirror of the global `GitFileStatusKind` ambient declared in
- * `src/types.d.ts`. Kept as a local literal type so the store module
- * stays a real ES module (importing from `types.d.ts` makes it
- * `not a module` for tooling — the ambient .d.ts has no exports).
- */
-type GitFileStatusKind = 'clean' | 'modified' | 'untracked' | 'unknown';
+import type {
+  GitFileStatusKind,
+  GitHeadChangePayload,
+} from '../../shared/gitTypes';
 
 export interface GitRepoPosture {
   /**
@@ -116,12 +112,7 @@ interface GitStateShape {
    * can decide whether to fire telemetry; returns `false` for
    * dropped no-op deliveries.
    */
-  applyHeadChange: (payload: {
-    repoRoot: string;
-    branch?: string | null;
-    commit?: string;
-    branchChanged: boolean;
-  }) => boolean;
+  applyHeadChange: (payload: GitHeadChangePayload) => boolean;
   clear: () => void;
 }
 

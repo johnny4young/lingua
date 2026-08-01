@@ -41,7 +41,7 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`plugins/`](plugins)       | Renderer-side plugin catalog, diagnostics, and safe runtime hooks         |
 | [`onboarding/`](onboarding) | First-run scratchpad seed and guided-start helpers                        |
 | [`testing/`](testing)       | Test-only renderer harness helpers                                        |
-| [`types/`](types)           | Renderer-local type declarations that should not leak into shared code    |
+| [`types/`](types)           | Compatibility facade plus direct language, editor, console, execution, and settings type leaves; production code imports leaves, not the facade |
 | [`devShowcase/`](devShowcase) | Local visual/system showcase utilities, not product runtime code        |
 
 ### Magic-comment boundaries
@@ -578,12 +578,13 @@ Use the existing file names as the rule instead of introducing alternate pattern
 
 Prefer direct imports over renderer-wide barrel files. The historical
 [`types/index.ts`](types/index.ts) entry point remains a compatibility surface,
-while execution consumers import [`types/execution.ts`](types/execution.ts)
-directly and that contract depends on the dependency-free
-[`types/language.ts`](types/language.ts) leaf. Migrate the remaining legacy
-consumers by domain instead of creating another broad barrel. Narrow feature
-`index.ts` files may still assemble one local domain; do not add new app-wide
-aggregation layers.
+while production consumers import the owning [`types/language.ts`](types/language.ts),
+[`types/editor.ts`](types/editor.ts), [`types/console.ts`](types/console.ts),
+[`types/execution.ts`](types/execution.ts), or
+[`types/settings.ts`](types/settings.ts) leaf directly. New contracts belong in
+the narrowest existing leaf; do not turn the compatibility facade back into an
+implementation dependency. Narrow feature `index.ts` files may still assemble
+one local domain; do not add new app-wide aggregation layers.
 
 ## Extraction guide
 

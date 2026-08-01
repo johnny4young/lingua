@@ -7,7 +7,7 @@ import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import {
   extensionForLanguage,
   languageCapabilityBadgeKey,

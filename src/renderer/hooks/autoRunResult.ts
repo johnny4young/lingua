@@ -1,6 +1,6 @@
 import { useConsoleStore } from '../stores/consoleStore';
 import { useResultStore } from '../stores/resultStore';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import type { ExecutionResult } from '../types/execution';
 import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
 import { toExecutionPresentation } from '../utils/executionPresentation';

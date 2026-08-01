@@ -31,7 +31,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { languageFromPath } from '../utils/language';
 import { pushErrorNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import {
   trackBundleExported,
   trackBundleImported,

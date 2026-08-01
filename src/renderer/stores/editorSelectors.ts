@@ -1,4 +1,4 @@
-import type { EditorState, FileTab } from '../types';
+import type { EditorState, FileTab } from '../types/editor';
 
 /**
  * implementation — derived active-tab selectors, extracted verbatim from

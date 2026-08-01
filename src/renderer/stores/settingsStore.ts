@@ -27,7 +27,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 import { createMigrate } from './persistence/migrationRegistry';
 import { createInitialSettingsState } from './settingsDefaults';
 import { settingsPartialize, syncConsentMirror } from './settingsPersistence';

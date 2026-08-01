@@ -1,4 +1,4 @@
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 
 export type AppTheme = SettingsState['theme'];
 

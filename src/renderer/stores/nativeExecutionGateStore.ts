@@ -11,7 +11,7 @@
  * acknowledgement itself lives on `settingsStore.nativeExecutionAcknowledged`.
  */
 import { create } from 'zustand';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 
 interface NativeExecutionGateState {
   /** Language whose run is pending acknowledgement, or `null` if no run is gated. */

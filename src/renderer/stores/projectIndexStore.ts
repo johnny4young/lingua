@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { languageFromPath } from '../utils/language';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 

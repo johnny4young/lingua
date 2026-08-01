@@ -22,7 +22,8 @@ import {
   isRuntimeTimeoutSupportedLanguage,
   resolveTimeoutMs,
 } from '../../shared/runtimeTimeoutPresets';
-import type { FileTab, Language } from '../types';
+import type { FileTab } from '../types/editor';
+import type { Language } from '../types/language';
 import type { ConsoleOutput, ExecutionResult } from '../types/execution';
 import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
 import {

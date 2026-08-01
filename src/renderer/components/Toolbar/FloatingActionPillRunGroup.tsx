@@ -13,7 +13,8 @@ import {
 import { getInitializationMessage } from '../../hooks/runnerOutput';
 import { useTranslation } from 'react-i18next';
 import { Bug, ChevronDown, Loader2, Play, Sparkles } from 'lucide-react';
-import type { EditorState, FileTab, Language } from '../../types';
+import type { EditorState, FileTab } from '../../types/editor';
+import type { Language } from '../../types/language';
 import type { WorkflowMode } from '../../../shared/workflowMode';
 import type { RunOptions } from '../../hooks/useRunner';
 import { Kbd } from '../ui/chrome';

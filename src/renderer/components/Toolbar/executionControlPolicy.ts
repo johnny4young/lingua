@@ -4,7 +4,7 @@ import {
   supportsWorkflowMode,
   type WorkflowMode,
 } from '../../../shared/workflowMode';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import {
   executionModeForLanguage,
   languageCapabilityBadgeKey,

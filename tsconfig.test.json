@@ -24,6 +24,7 @@
     "tests/main/projectCapabilitiesBrand.test.ts",
     "tests/hooks/useTelemetry.types.test.ts",
     "tests/build/rendererTypeBoundaries.test.ts",
+    "tests/build/ambientTypeBoundaries.test.ts",
     "tests/shared/telemetryArchitecture.test.ts",
     "tests/components/commandPaletteArchitecture.test.ts",
     "tests/workers/workerArchitecture.test.ts"

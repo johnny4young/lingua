@@ -5,7 +5,7 @@ import { resolveEffectiveShellTheme } from '../../hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { changeAppLanguage } from '../../i18n';
-import type { AppLanguage } from '../../types';
+import type { AppLanguage } from '../../types/language';
 import { trackEvent } from '../../utils/telemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';

@@ -1,4 +1,4 @@
-import type { FileTab } from '../../types';
+import type { FileTab } from '../../types/editor';
 import { gitStatusSuppressedByMagicComment } from '../../utils/gitMagicCommentPolicy';
 
 const VISIBLE_TAB_CAP = 5;

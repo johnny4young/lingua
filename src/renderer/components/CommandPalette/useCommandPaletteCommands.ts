@@ -44,7 +44,7 @@ import { requestSettingsTab } from '../Settings/pendingSettingsTab';
 import { emitCommand } from '../../stores/commandBus';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import { buildCommandPaletteModel } from './commandPaletteModel';
 import { countCustomLintIssues } from '../../lint/customLintRules';
 import { requestPlainPaste } from '../../hooks/useSmartPaste';

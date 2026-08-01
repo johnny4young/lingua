@@ -29,7 +29,7 @@ import {
   type CapsuleCodeToken,
   type CapsuleHtmlLabels,
 } from '../../shared/capsuleHtmlExport';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { monacoLanguageFor } from './languageMeta';
 import { saveOrDownloadTextFile } from './saveTextFileToDisk';
 import { trackEvent } from './telemetry';

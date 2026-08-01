@@ -1,4 +1,4 @@
-import type { ConsoleEntry, ConsoleEntryType } from '../../types';
+import type { ConsoleEntry, ConsoleEntryType } from '../../types/console';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { ConsoleEntryRenderer } from './ConsoleEntryRenderer';
 import { OutputLineBadge } from './OutputLineBadge';

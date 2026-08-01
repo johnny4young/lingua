@@ -63,6 +63,16 @@ import {
   buildNativeRunnerEnv,
   combinedAllowlist,
 } from './runners/nativeEnv';
+import type {
+  RubyDetectResult,
+  RubyRunKind,
+  RubyRunResult,
+} from '../shared/nativeRuntimeTypes';
+export type {
+  RubyDetectResult,
+  RubyRunKind,
+  RubyRunResult,
+} from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(childProc.execFile);
 
@@ -92,24 +102,6 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
   };
 }
 
-export type RubyRunKind =
-  | 'success'
-  | 'error'
-  | 'timeout'
-  | 'stopped'
-  | 'missing-binary';
-
-export interface RubyDetectResult {
-  installed: boolean;
-  /** Full `ruby --version` line, e.g. `ruby 3.3.6 (...) [arm64-darwin23]`. */
-  version?: string;
-  /** implementation note — parsed semver, e.g. `3.3.6`. Absent when parsing fails. */
-  semver?: string;
-  /** implementation note — parsed platform, e.g. `arm64-darwin23`. */
-  platform?: string;
-  error?: string;
-}
-
 export interface RubyRunOptions {
   /** Renderer-minted correlation id. Lets `ruby:stop` terminate the exact child. */
   runId?: string;
@@ -137,17 +129,6 @@ export interface RubyRunOptions {
   onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   /** I18n-keyed truncation markers. */
   messages?: NativeRunnerMessages;
-}
-
-export interface RubyRunResult {
-  kind: RubyRunKind;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-  /** Echoed back so the renderer's `<RunStatusPill>` tooltip can name the budget. */
-  timeoutMs: number;
 }
 
 let cachedDetect: RubyDetectResult | null = null;

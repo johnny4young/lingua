@@ -36,7 +36,7 @@ import { setPendingCapsuleImportSource } from './pendingCapsuleImport';
 import { createDefaultTab } from '../stores/editorTabUtils';
 import { useEditorStore } from '../stores/editorStore';
 import { useUtilityWorkspaceStore } from '../stores/utilityWorkspaceStore';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import type { PasteIntent } from './pasteHandlers';
 import { emitCommand } from '../stores/commandBus';
 

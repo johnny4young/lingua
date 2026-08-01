@@ -1,4 +1,4 @@
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { executionModeForLanguage } from './languageMeta';
 
 const INLINE_RESULT_LANGUAGES = new Set<Language>(['javascript', 'typescript', 'python']);

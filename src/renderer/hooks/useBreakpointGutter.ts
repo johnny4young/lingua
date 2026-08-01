@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import { useDebuggerStore } from '../stores/debuggerStore';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 
 /**

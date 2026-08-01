@@ -13,7 +13,7 @@ import { useDebuggerStore } from '../../stores/debuggerStore';
 import { postDebuggerMessage } from '../../runtime/debuggerWorkerBridge';
 import { trackEvent } from '../../utils/telemetry';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import { Tooltip } from '../ui/chrome';
 
 const debuggerButtonBase =

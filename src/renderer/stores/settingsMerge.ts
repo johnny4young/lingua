@@ -1,4 +1,4 @@
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 import { currentEffectiveTier } from './licenseSelectors';
 import {
   DEFAULT_KEYMAP_PRESET_ID,

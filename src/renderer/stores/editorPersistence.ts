@@ -1,4 +1,4 @@
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { joinAbsolute } from '../utils/filePath';
 import {

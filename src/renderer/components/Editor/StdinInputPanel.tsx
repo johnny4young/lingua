@@ -52,7 +52,8 @@ import { useResultStore } from '../../stores/resultStore';
 import { Kbd } from '../ui/chrome';
 import { TypePill, type TypePillKind, MonoBadge, EyebrowMono } from '../ui/primitives';
 import { cn } from '../../utils/cn';
-import type { InputSet, Language } from '../../types';
+import type { InputSet } from '../../types/editor';
+import type { Language } from '../../types/language';
 import {
   MAX_INPUT_SET_NAME_LENGTH,
   MAX_INPUT_SETS_PER_TAB,

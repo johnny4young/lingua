@@ -66,6 +66,16 @@ import {
   spawnNativeRun,
   type SpawnNativeRunResult,
 } from './runners/spawnNativeRun';
+import type {
+  NodeDetectResult,
+  NodeRunKind,
+  NodeRunResult,
+} from '../shared/nativeRuntimeTypes';
+export type {
+  NodeDetectResult,
+  NodeRunKind,
+  NodeRunResult,
+} from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(childProc.execFile);
 
@@ -130,21 +140,6 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
   };
 }
 
-export type NodeRunKind =
-  | 'success'
-  | 'error'
-  | 'timeout'
-  | 'stopped'
-  | 'missing-binary';
-
-export interface NodeDetectResult {
-  installed: boolean;
-  /** Binary used for future runs; absolute when resolved via GUI fallbacks. */
-  binary?: string;
-  version?: string;
-  error?: string;
-}
-
 export interface NodeRunOptions {
   /**
    * Renderer-minted correlation id. Lets `node:stop` terminate the
@@ -177,17 +172,6 @@ export interface NodeRunOptions {
   onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   /** I18n-keyed truncation markers. */
   messages?: NativeRunnerMessages;
-}
-
-export interface NodeRunResult {
-  kind: NodeRunKind;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-  /** ms reserved by the parent timer (echoed back for `<RunStatusPill>` tooltip). */
-  timeoutMs: number;
 }
 
 let cachedDetect: NodeDetectResult | null = null;

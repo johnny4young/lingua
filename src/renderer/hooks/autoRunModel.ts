@@ -1,6 +1,7 @@
 import type { WorkflowMode } from '../../shared/workflowMode';
 import { isJavaScriptFamily } from '../../shared/languageFamilies';
-import type { FileTab, Language } from '../types';
+import type { FileTab } from '../types/editor';
+import type { Language } from '../types/language';
 import {
   resolveBrowserPreviewRefreshInterval,
   type BrowserPreviewRefreshInterval,

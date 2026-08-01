@@ -33,7 +33,7 @@ import {
   type SharePayloadV1,
   type ShareSizeBucket,
 } from '../../shared/sharePayload';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 import { trackEvent } from './telemetry';
 import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 

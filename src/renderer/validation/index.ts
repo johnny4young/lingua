@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import { load as parseYaml } from 'js-yaml';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import type { EditorDiagnostic } from '../types/execution';
 
 /**

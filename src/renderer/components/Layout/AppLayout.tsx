@@ -18,7 +18,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
 import { cn } from '../../utils/cn';
-import type { LayoutPreset } from '../../types';
+import type { LayoutPreset } from '../../types/settings';
 import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;

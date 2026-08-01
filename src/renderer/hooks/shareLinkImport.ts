@@ -6,7 +6,7 @@ import {
 import { createDefaultTab, useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import { trackShareOpened, type ShareOpenStatus } from '../utils/shareLink';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 
 function shareOpenStatusFromDecodeReason(
   reason: Exclude<ShareDecodeResult, { ok: true }>['reason']

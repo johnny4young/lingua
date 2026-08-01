@@ -9,7 +9,7 @@
  */
 
 import { create } from 'zustand';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 
 export type BootstrapLanguage = Extract<Language, 'python' | 'ruby'>;
 

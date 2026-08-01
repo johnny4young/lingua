@@ -1,4 +1,4 @@
-import type { EditorState } from '../types';
+import type { EditorState } from '../types/editor';
 import { useRecipeStore } from './recipeStore';
 import type { EditorSet } from './editorStoreContext';
 

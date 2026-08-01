@@ -1,4 +1,4 @@
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 
 export interface BrowserPreviewSiblingSources {
   css?: string;

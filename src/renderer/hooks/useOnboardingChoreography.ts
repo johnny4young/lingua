@@ -18,7 +18,7 @@ import {
   type StatusNoticeDismissMode,
 } from '../stores/uiStore';
 import { isSafeMode } from '../utils/safeBoot';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { emitCommand } from '../stores/commandBus';
 import { useTelemetry, type TelemetryTrack } from './useTelemetry';
 

@@ -26,7 +26,13 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import {
   buildInstallCommand,
+  type NativeInstallResult,
+  type NativeInstallStatus,
   type NativePackageLanguage,
+} from '../shared/dependencies/nativeDependencies';
+export type {
+  NativeInstallResult,
+  NativeInstallStatus,
 } from '../shared/dependencies/nativeDependencies';
 import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
 import {
@@ -40,22 +46,6 @@ import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
 
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000; // installs pull from the network
 const KILL_ESCALATION_DELAY_MS = 200;
-
-export type NativeInstallStatus =
-  | 'success'
-  | 'error'
-  | 'timeout'
-  | 'missing-manifest'
-  | 'invalid-specifiers'
-  | 'missing-binary';
-
-export interface NativeInstallResult {
-  status: NativeInstallStatus;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  error?: string;
-}
 
 const MANIFEST_BY_LANGUAGE: Record<NativePackageLanguage, string> = {
   go: 'go.mod',

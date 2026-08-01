@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 import {
   flattenNavigationTree,
   supportsSymbolNavigation,

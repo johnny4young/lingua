@@ -14,7 +14,7 @@ import { useActiveTab } from '../../hooks/useActiveTab';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import {
   languageCapabilityBadgeKey,
   languageLabel,

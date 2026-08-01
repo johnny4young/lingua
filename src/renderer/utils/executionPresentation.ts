@@ -1,5 +1,5 @@
 import type { LineResult } from '../stores/resultStore';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import type { ExecutionResult } from '../types/execution';
 import { isInlineResultLanguage } from './languageCapabilities';
 

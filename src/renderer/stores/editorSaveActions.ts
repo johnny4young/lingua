@@ -1,4 +1,4 @@
-import type { EditorState, FileTab } from '../types';
+import type { EditorState, FileTab } from '../types/editor';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { joinAbsolute } from '../utils/filePath';
 import { useProjectStore } from './projectStore';

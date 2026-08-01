@@ -1,4 +1,4 @@
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 import type { WorkflowMode } from '../../shared/workflowMode';
 import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpSensitiveHeaders';
 import { DEFAULT_KEYMAP_PRESET_ID } from '../data/keymapPresets';

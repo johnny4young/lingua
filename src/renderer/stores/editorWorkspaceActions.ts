@@ -1,4 +1,4 @@
-import type { EditorState, FileTab } from '../types';
+import type { EditorState, FileTab } from '../types/editor';
 import i18next from 'i18next';
 import { useNotebookStore } from './notebookStore';
 import { useSettingsStore } from './settingsStore';

@@ -1,4 +1,4 @@
-import type { LayoutPreset, SettingsState } from '../types';
+import type { LayoutPreset, SettingsState } from '../types/settings';
 
 export const THEME_PRESET_VERSION = 2;
 

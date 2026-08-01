@@ -10,7 +10,8 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { EditorState, FileTab, InputSet, Language } from '../types';
+import type { EditorState, FileTab, InputSet } from '../types/editor';
+import type { Language } from '../types/language';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   useEditorStore,

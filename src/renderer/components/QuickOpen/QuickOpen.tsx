@@ -11,7 +11,7 @@ import { useRecentFilesStore } from '../../stores/recentFilesStore';
 import { notifyBlockedPath } from '../../utils/blockedPath';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import { joinAbsolute } from '../../utils/filePath';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import { languageBadgeClass } from '../../utils/languageMeta';
 import { EmptyState } from '../ui/EmptyState';
 import { ModalShell } from '../ui/ModalShell';

@@ -35,7 +35,19 @@ import path from 'node:path';
 import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
 import type {
   DependencyInstallFailureReason,
+  DependencyInstallLogStream,
   DependencyInstallOutcome,
+  DependencyInstallResult,
+  DependencyInstallResultStatus,
+  DependencyResolveResult,
+  DependencyResolveStatus,
+} from '../shared/dependencies/types';
+export type {
+  DependencyInstallLogStream,
+  DependencyInstallResult,
+  DependencyInstallResultStatus,
+  DependencyResolveResult,
+  DependencyResolveStatus,
 } from '../shared/dependencies/types';
 import {
   NODE_TOOLCHAIN_KEYS,
@@ -58,20 +70,6 @@ import { resolveNodeCwd } from './node-runner';
 // hyphen. Shape: lowercase / digits / dot / underscore / hyphen, with
 // an optional `@scope/` prefix.
 const SAFE_PACKAGE_NAME_RE = /^(?:@[a-z0-9][a-z0-9_.-]*\/)?[a-z0-9][a-z0-9_.-]*$/iu;
-
-export type DependencyResolveStatus = 'installed' | 'detected' | 'invalid';
-
-export interface DependencyResolveResult {
-  readonly statuses: Record<string, DependencyResolveStatus>;
-  readonly cwd: string | null;
-  /**
-   * implementation — whether the resolved cwd contains a
-   * `package.json`. The renderer disables the Install button when
-   * this is false (implementation note: refuse silent project creation in a
-   * scratchpad directory). `null` when no cwd was discoverable.
-   */
-  readonly hasPackageJson: boolean | null;
-}
 
 function isSafeSpecifier(specifier: unknown): specifier is string {
   if (typeof specifier !== 'string') return false;
@@ -151,35 +149,7 @@ export async function resolveJsDependencyBatch(
 // implementation — JS / TS desktop install path.
 // ────────────────────────────────────────────────────────────────
 
-export type DependencyInstallResultStatus =
-  | 'installed'
-  | 'failed'
-  | 'cancelled'
-  | 'skipped-preflight';
-
-export interface DependencyInstallResult {
-  /** One outcome per requested specifier. */
-  readonly statuses: Record<string, DependencyInstallResultStatus>;
-  /** Whole-batch outcome (telemetry uses this). */
-  readonly outcome: DependencyInstallOutcome;
-  /**
-   * Dominant failure reason when `outcome` is `partial` or `failed`.
-   * `null` when the batch ended `success` or `cancelled` (the cancel
-   * outcome carries its own reason via the `'cancelled'` enum below).
-   */
-  readonly failureReason: DependencyInstallFailureReason | null;
-  /**
-   * Absolute path of the cwd the install ran in. `null` when we
-   * refused to spawn (unsaved tab, missing `package.json`, every
-   * specifier invalid).
-   */
-  readonly cwd: string | null;
-  /** Final `npm install` exit code. -1 when we never spawned. */
-  readonly exitCode: number;
-}
-
 /** Per-line callback for streaming subprocess output to the renderer. */
-export type DependencyInstallLogStream = 'stdout' | 'stderr';
 export type DependencyInstallLogHandler = (
   stream: DependencyInstallLogStream,
   chunk: string

@@ -27,6 +27,15 @@ export type DependencyStatus =
   | 'unsupported'
   | 'needs-desktop';
 
+export type DependencyResolveStatus = 'installed' | 'detected' | 'invalid';
+
+export interface DependencyResolveResult {
+  readonly statuses: Record<string, DependencyResolveStatus>;
+  readonly cwd: string | null;
+  /** `null` means no project cwd could be resolved. */
+  readonly hasPackageJson: boolean | null;
+}
+
 /**
  * Closed enum of language ids the registry targets in implementation. Other
  * languages are intentionally `Planned` — adding them is a separate
@@ -143,3 +152,19 @@ export const DEPENDENCY_INSTALL_FAILURE_REASONS = [
 ] as const;
 export type DependencyInstallFailureReason =
   (typeof DEPENDENCY_INSTALL_FAILURE_REASONS)[number];
+
+export type DependencyInstallResultStatus =
+  | 'installed'
+  | 'failed'
+  | 'cancelled'
+  | 'skipped-preflight';
+
+export interface DependencyInstallResult {
+  readonly statuses: Record<string, DependencyInstallResultStatus>;
+  readonly outcome: DependencyInstallOutcome;
+  readonly failureReason: DependencyInstallFailureReason | null;
+  readonly cwd: string | null;
+  readonly exitCode: number;
+}
+
+export type DependencyInstallLogStream = 'stdout' | 'stderr';

@@ -3,7 +3,7 @@
  * Single source of truth for mapping file extensions → Language.
  */
 
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { pluginRegistry } from '../plugins';
 import { languageForExtension, languageSupportsFileName } from './languageMeta';
 

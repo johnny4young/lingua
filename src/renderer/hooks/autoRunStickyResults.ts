@@ -1,4 +1,4 @@
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import type { ExecutionError } from '../types/execution';
 import {
   isStickyLineResult,

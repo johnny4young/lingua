@@ -8,7 +8,7 @@ import { useDraggable } from '../../hooks/useDraggable';
 import { cn } from '../../utils/cn';
 import { EyebrowMono, MonoBadge, TypePill } from '../ui/primitives';
 import type { ScopeSnapshot, ScopeValue } from '../../../shared/scopeSnapshot';
-import type { FileTab } from '../../types';
+import type { FileTab } from '../../types/editor';
 
 export interface FloatingVariablesCardProps {
   readonly activeTabId: FileTab['id'];

@@ -30,7 +30,7 @@ import { useEditorStore, createDefaultTab } from '../stores/editorStore';
 import { getLanguagePackById } from '../../shared/languagePacks';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
 import type { CapsuleWorkspaceFileV1 } from '../../shared/capsuleWorkspace';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 
 /**
  * Resolve the capsule's stored language token to a real editor

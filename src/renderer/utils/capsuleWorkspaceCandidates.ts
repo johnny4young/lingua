@@ -12,7 +12,7 @@ import {
   normalizeCapsuleWorkspacePath,
 } from '../../shared/capsuleWorkspace';
 import { utf8ByteLength, type RunCapsuleV1 } from '../../shared/runCapsule';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 
 export type CapsuleWorkspaceCandidateExclusion =
   | 'workspace-tab'

@@ -31,7 +31,7 @@ import { gitStatusSuppressedByMagicComment } from '../utils/gitMagicCommentPolic
 import { useEditorStore } from '../stores/editorStore';
 import { useGitStore } from '../stores/gitStore';
 import { useProjectStore } from '../stores/projectStore';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 
 const GIT_STATUS_DEBOUNCE_MS = 300;
 

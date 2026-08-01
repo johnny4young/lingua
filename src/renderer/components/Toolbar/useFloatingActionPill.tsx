@@ -35,7 +35,7 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggable } from '../../hooks/useDraggable';
 import type { RunHistoryEntry } from '../ui/primitives';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import type { WorkflowMode } from '../../../shared/workflowMode';
 import { useEffectiveTier } from '../../hooks/useEntitlement';

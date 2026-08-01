@@ -17,7 +17,7 @@
  * we drop late entries past the budget rather than throttle, which
  * keeps the implementation deterministic and easy to reason about.
  */
-import type { RuntimeTimeoutPreset } from '../types';
+import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types/execution';
 
 // internal: re-export the main-side native subprocess caps so renderer

@@ -1,4 +1,4 @@
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 
 /**
  * internal — settings persist-boundary helpers, extracted verbatim from

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { languageBadgeTone, languageShortLabel } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 import { Kbd, Tooltip } from '../ui/chrome';
-import type { FileTab, TabExecutionState } from '../../types';
+import type { FileTab, TabExecutionState } from '../../types/editor';
 import { GitStatusPill } from './GitStatusPill';
 import type { EditorTabSummary } from './editorTabModel';
 

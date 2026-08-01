@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { createMigrate } from './persistence/migrationRegistry';
 
 // Keep Quick Open useful without turning localStorage into a long-lived file

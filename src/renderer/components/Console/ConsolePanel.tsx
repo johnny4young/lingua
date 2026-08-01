@@ -1,7 +1,7 @@
 import { Clock, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types';
+import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types/console';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';

@@ -44,6 +44,21 @@ import { existsSync, promises as fsAsync, watch as fsWatch } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { shell } from 'electron';
+import type {
+  GitDetectResult,
+  GitFileDiff,
+  GitFileStatus,
+  GitHeadChangePayload,
+  GitHeadWatcherDiagnostic,
+} from '../shared/gitTypes';
+export type {
+  GitDetectResult,
+  GitFileDiff,
+  GitFileStatus,
+  GitFileStatusKind,
+  GitHeadChangePayload,
+  GitHeadWatcherDiagnostic,
+} from '../shared/gitTypes';
 
 const execFileAsync = promisify(childProc.execFile);
 
@@ -79,41 +94,6 @@ const MAC_GUI_FALLBACK_PATHS = [
   '/usr/local/bin/git',
   '/usr/bin/git',
 ];
-
-export interface GitDetectResult {
-  installed: boolean;
-  /** `git --version` output, e.g. `git version 2.45.2`. */
-  version?: string;
-  /** Absolute path of the repo root (a parent of the opened folder). */
-  repoRoot?: string;
-  /** Current branch name, e.g. `main`. Absent on detached HEAD. */
-  branch?: string;
-  /** Diagnostic message when `installed === false`. */
-  error?: string;
-}
-
-export type GitFileStatusKind =
-  | 'clean'
-  | 'modified'
-  | 'untracked'
-  | 'unknown';
-
-export interface GitFileStatus {
-  status: GitFileStatusKind;
-  /** Lines added; absent for `untracked` (no HEAD to diff against). */
-  insertions?: number;
-  /** Lines removed; absent for `untracked`. */
-  deletions?: number;
-}
-
-export interface GitFileDiff {
-  /** `git show HEAD:<relPath>` content, or empty for untracked / no HEAD. */
-  originalContent: string;
-  /** Current on-disk content, or empty when the file is deleted. */
-  modifiedContent: string;
-  /** True when either side hit `MAX_DIFF_BYTES`. */
-  truncated: boolean;
-}
 
 /**
  * Resolved binary path + version. Cached for the main-process
@@ -584,33 +564,6 @@ const HEAD_WATCH_DEBOUNCE_MS = 300;
  */
 const HEAD_WATCH_RESTART_BACKOFF_MS = [1_000, 3_000, 10_000] as const;
 const HEAD_WATCH_MAX_RETRIES = HEAD_WATCH_RESTART_BACKOFF_MS.length;
-
-/**
- * Payload broadcast over `git:on-head-changed` when a debounced
- * HEAD change resolves to fresh branch / commit data. `branchChanged`
- * lets the renderer telemetry filter out no-op fires (e.g. `git
- * commit` touches HEAD without changing the branch name).
- */
-export interface GitHeadChangePayload {
-  repoRoot: string;
-  /**
-   * Current branch name. `null` explicitly means detached HEAD so
-   * renderer caches can clear a previously-known branch.
-   */
-  branch?: string | null;
-  commit?: string;
-  branchChanged: boolean;
-}
-
-/**
- * Watcher diagnostic payload. Mirrors the shape of `fs:watcher-failed`
- * from internal so the renderer can route it through a unified notice
- * surface.
- */
-export interface GitHeadWatcherDiagnostic {
-  repoRoot: string;
-  reason: 'give-up' | 'resolve-error';
-}
 
 /**
  * Disposable handle returned by `watchRepoHead`. Calling `dispose()`

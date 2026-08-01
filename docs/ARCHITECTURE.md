@@ -70,6 +70,28 @@ runtime adapters are created once per worker so boot-global snapshots,
 notebook namespaces, installed Python packages, and Pyodide streams retain the
 same lifetime they had before the split.
 
+## Renderer type boundaries
+
+`src/renderer/types/index.ts` is a compatibility-only facade. Production
+source imports the smallest domain leaf that owns its contract:
+
+- `language.ts` — closed renderer language identifiers.
+- `editor.ts` — tabs, editor state, and editor actions.
+- `console.ts` — console entries, filters, collapse rows, and store state.
+- `execution.ts` — runner requests, results, diagnostics, and worker replies.
+- `settings.ts` — persisted settings state and settings actions.
+
+All leaf dependencies are type-only, and the facade contains exports but no
+behavior. `tests/build/rendererTypeBoundaries.test.ts` locks facade
+compatibility, module budgets, dependency direction, and the rule that
+production code never imports the facade.
+
+The legacy desktop bridge remains ambient through `src/types.d.ts`, but types
+with a cross-surface owner are import aliases rather than structural copies.
+Shared runtime, formatter, dependency, Git, LSP, and license snapshot modules
+keep main, preload, web, and renderer on one contract. The compile-time guard
+in `tests/build/ambientTypeBoundaries.test.ts` rejects copied shapes and drift.
+
 ## At a glance
 
 Lingua separates this feature into four layers:

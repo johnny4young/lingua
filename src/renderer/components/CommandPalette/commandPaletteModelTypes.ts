@@ -10,7 +10,9 @@ import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import type { Template } from '../../data/templates';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import type { Snippet } from '../../stores/snippetsStore';
-import type { FileTab, Language, LayoutPreset } from '../../types';
+import type { FileTab } from '../../types/editor';
+import type { Language } from '../../types/language';
+import type { LayoutPreset } from '../../types/settings';
 import type { RuntimeMode } from '../../../shared/runtimeModes';
 
 export type CommandCategory = 'template' | 'snippet' | 'action';

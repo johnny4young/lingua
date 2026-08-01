@@ -10,7 +10,8 @@ import {
 import { formatExecTime } from '../../hooks/runnerOutput';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import type { Snippet } from '../../stores/snippetsStore';
-import type { FileTab, Language } from '../../types';
+import type { FileTab } from '../../types/editor';
+import type { Language } from '../../types/language';
 import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import type { CommandEntry } from './commandPaletteModelTypes';
 
