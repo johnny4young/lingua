@@ -692,6 +692,22 @@ terminal-specific copy. The web adapter deliberately exposes no
 `window.lingua.projectTerminal` member, so web UI does not advertise a host
 shell it cannot provide.
 
+#### Local MCP server
+
+The local MCP endpoint is a desktop-only integration that starts only after a
+user approves read-only access for the currently opened project. Main binds an
+ephemeral port on `127.0.0.1`, requires a random session bearer token, validates
+Host and Origin before protocol dispatch, and caps request size and concurrency.
+Each tool resolves the branded root capability again and applies bounded text
+listing, reading, or literal search; secret-like paths, symlinks, binary files,
+writes, process execution, and outbound network access are excluded.
+
+Only the initiating renderer receives the token. The server is replaced on a
+new start and stops when the user requests it, its renderer disappears, the
+root capability is revoked, or the app quits. State and credentials remain
+session-only. The complete threat model and promotion rules live in
+[`LOCAL_MCP_SECURITY.md`](./LOCAL_MCP_SECURITY.md).
+
 #### Project bundles
 
 Project bundle export is binary-safe on both filesystem backends. Desktop reads

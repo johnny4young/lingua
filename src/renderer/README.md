@@ -499,6 +499,10 @@ in every other tab. Catalog entries map localized labels, descriptions, and
 cross-language aliases to a tab plus a stable focus target. Selecting a result
 switches tabs, scrolls to the target, and moves keyboard focus there.
 
+`LocalMcpSection.tsx` owns only transient consent, reveal, copy, and busy UI.
+The desktop bridge and main process own endpoint credentials and lifecycle;
+neither the token nor the running state is persisted in a renderer store.
+
 Use the closest store that already owns the product concept instead of adding cross-cutting state to `App.tsx`.
 
 | Store                                                                                               | Owns                                                              |

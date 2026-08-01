@@ -5,6 +5,7 @@ import type {
   ProjectTerminalDataEvent,
   ProjectTerminalExitEvent,
 } from '../shared/projectTerminal';
+import type { LocalMcpBridge } from '../shared/localMcp';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
 
 const desktopSmokeEnabled =
@@ -30,6 +31,14 @@ const projectTerminal: ProjectTerminalBridge = {
     typedOn('project-terminal:data', handler),
   onExit: (handler: (event: ProjectTerminalExitEvent) => void) =>
     typedOn('project-terminal:exit', handler),
+};
+
+const localMcp: LocalMcpBridge = {
+  getState: () => typedInvoke('local-mcp:get-state'),
+  start: (rootId, acknowledgement) =>
+    typedInvoke('local-mcp:start', rootId, acknowledgement),
+  stop: () => typedInvoke('local-mcp:stop'),
+  onStateChanged: handler => typedOn('local-mcp:state-changed', handler),
 };
 
 contextBridge.exposeInMainWorld('lingua', {
@@ -168,6 +177,7 @@ contextBridge.exposeInMainWorld('lingua', {
   },
 
   projectTerminal,
+  localMcp,
 
   // implementation — desktop LSP bridges. The renderer
   // never talks to rust-analyzer or gopls directly; high-level

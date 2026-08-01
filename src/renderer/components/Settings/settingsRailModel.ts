@@ -2,6 +2,7 @@
 
 import {
   FileCode2,
+  Cable,
   Key,
   Keyboard,
   Languages,
@@ -21,7 +22,7 @@ interface RailItem {
   group: 'workspace' | 'advanced';
   labelKey: string;
   icon: typeof SettingsIcon;
-  kbdToken: string;
+  kbdToken?: string;
 }
 
 export const RAIL_ITEMS: readonly RailItem[] = [
@@ -75,6 +76,12 @@ export const RAIL_ITEMS: readonly RailItem[] = [
     labelKey: 'settings.tabs.account',
     icon: Key,
     kbdToken: '5',
+  },
+  {
+    id: 'integrations',
+    group: 'advanced',
+    labelKey: 'settings.tabs.integrations',
+    icon: Cable,
   },
   {
     id: 'shortcuts',

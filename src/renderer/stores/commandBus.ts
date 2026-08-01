@@ -11,6 +11,7 @@ export type SettingsTabId =
   | 'privacy'
   | 'account'
   | 'shortcuts'
+  | 'integrations'
   | 'plugins'
   | 'recovery';
 

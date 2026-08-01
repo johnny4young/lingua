@@ -88,7 +88,9 @@ export function SettingsRail({
                   <Icon size={13} aria-hidden />
                 </span>
                 <span className="truncate text-left">{t(item.labelKey)}</span>
-                <Kbd className="ml-auto">⌘{item.kbdToken}</Kbd>
+                {item.kbdToken ? (
+                  <Kbd className="ml-auto">⌘{item.kbdToken}</Kbd>
+                ) : null}
               </button>
             );
           })}

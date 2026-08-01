@@ -97,6 +97,8 @@ async function bootstrapWeb(): Promise<void> {
     __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'project-tests';
   const isProjectTerminalE2eFixture =
     __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'project-terminal';
+  const isLocalMcpE2eFixture =
+    __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'local-mcp';
 
 // FASE 0 dev-only acceptance artifact. `?lingua-showcase` mounts the
 // recipe gallery instead of the app. The dynamic import code-splits the
@@ -166,6 +168,25 @@ async function bootstrapWeb(): Promise<void> {
     createRoot(root).render(
       <StrictMode>
         <ProjectTerminalE2eFixture />
+      </StrictMode>
+    );
+    markBootPhase('react-mount');
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
+  if (isLocalMcpE2eFixture) {
+    await initI18n(searchParams.get('locale') === 'es' ? 'es' : 'en');
+    const { prepareLocalMcpE2eFixture } = await import(
+      '../renderer/testing/localMcpE2eFixtureSetup'
+    );
+    const { LocalMcpE2eFixture } = await import(
+      '../renderer/testing/LocalMcpE2eFixture'
+    );
+    prepareLocalMcpE2eFixture();
+    createRoot(root).render(
+      <StrictMode>
+        <LocalMcpE2eFixture />
       </StrictMode>
     );
     markBootPhase('react-mount');

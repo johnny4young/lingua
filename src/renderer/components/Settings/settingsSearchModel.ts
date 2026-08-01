@@ -272,6 +272,23 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords: ['capsule', 'share', 'export', 'import', 'capsula', 'compartir', 'exportar'],
   },
   {
+    id: 'local-mcp',
+    tab: 'integrations',
+    labelKey: 'settings.localMcp.title',
+    descriptionKey: 'settings.localMcp.description',
+    targetId: 'section-local-mcp',
+    keywords: [
+      'mcp',
+      'model context protocol',
+      'local server',
+      'agent',
+      'integration',
+      'servidor local',
+      'agente',
+      'integracion',
+    ],
+  },
+  {
     id: 'shortcuts',
     tab: 'shortcuts',
     labelKey: 'settings.shortcuts.eyebrow',

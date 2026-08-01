@@ -10,7 +10,7 @@ export function ProjectTerminalE2eFixture() {
       <header className="surface-panel mb-4 flex items-start justify-between gap-6 px-5 py-4">
         <div>
           <p className="text-eyebrow font-bold uppercase tracking-[0.16em] text-primary">
-            Lingua desktop
+            {t('e2e.desktop.brand')}
           </p>
           <h1 className="mt-1 font-display text-h2 font-semibold text-foreground">
             {t('projectTerminal.title', { project: 'polyglot-checkout' })}
@@ -20,7 +20,7 @@ export function ProjectTerminalE2eFixture() {
           </p>
         </div>
         <span className="rounded-full border border-success/30 bg-success/10 px-3 py-1 text-caption font-semibold text-success">
-          Desktop · local-first
+          {t('e2e.desktop.localFirst')}
         </span>
       </header>
       <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border-strong shadow-2xl">

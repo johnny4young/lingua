@@ -3,7 +3,7 @@
 Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
 Scope: production dependencies plus explicitly packaged external runtime components.
-Packages reviewed: 19.
+Packages reviewed: 25.
 Policy result: pass.
 
 ## License Summary
@@ -12,7 +12,7 @@ Policy result: pass.
 | --- | ---: |
 | `BlueOak-1.0.0` | 1 |
 | `ISC` | 2 |
-| `MIT` | 15 |
+| `MIT` | 21 |
 | `Python-2.0` | 1 |
 
 ## License Policy
@@ -40,6 +40,10 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 
 | Package | Version | License | Install path |
 | --- | --- | --- | --- |
+| `@hono/node-server` | `1.19.17` | `MIT` | `node_modules/@hono/node-server` |
+| `@modelcontextprotocol/core` | `2.0.0` | `MIT` | `node_modules/@modelcontextprotocol/core` |
+| `@modelcontextprotocol/node` | `2.0.0` | `MIT` | `node_modules/@modelcontextprotocol/node` |
+| `@modelcontextprotocol/server` | `2.0.0` | `MIT` | `node_modules/@modelcontextprotocol/server` |
 | `@vscode/ripgrep` | `1.18.0` | `MIT` | `extraResources/ripgrep` |
 | `argparse` | `2.0.1` | `Python-2.0` | `node_modules/argparse` |
 | `builder-util-runtime` | `9.7.0` | `MIT` | `node_modules/builder-util-runtime` |
@@ -47,6 +51,7 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `electron-updater` | `6.8.9` | `MIT` | `node_modules/electron-updater` |
 | `fs-extra` | `10.1.0` | `MIT` | `node_modules/fs-extra` |
 | `graceful-fs` | `4.2.11` | `ISC` | `node_modules/graceful-fs` |
+| `hono` | `4.12.33` | `MIT` | `node_modules/hono` |
 | `js-yaml` | `4.3.0` | `MIT` | `node_modules/js-yaml` |
 | `jsonfile` | `6.2.1` | `MIT` | `node_modules/jsonfile` |
 | `lazy-val` | `1.0.5` | `MIT` | `node_modules/lazy-val` |
@@ -59,4 +64,5 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `semver` | `7.7.4` | `ISC` | `node_modules/semver` |
 | `tiny-typed-emitter` | `2.1.0` | `MIT` | `node_modules/tiny-typed-emitter` |
 | `universalify` | `2.0.1` | `MIT` | `node_modules/universalify` |
+| `zod` | `4.4.3` | `MIT` | `node_modules/zod` |
 

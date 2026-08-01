@@ -89,6 +89,7 @@
     "@electron/windows-sign": "1.2.2",
     "@eslint/js": "^10.0.1",
     "@jridgewell/trace-mapping": "^0.3.31",
+    "@modelcontextprotocol/client": "2.0.0",
     "@monaco-editor/react": "^4.7.0",
     "@playwright/test": "^1.60.0",
     "@prettier/plugin-xml": "^3.4.2",
@@ -160,8 +161,11 @@
     "zustand": "^5.0.14"
   },
   "dependencies": {
+    "@modelcontextprotocol/node": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "electron-updater": "^6.8.9",
-    "node-pty": "1.1.0"
+    "node-pty": "1.1.0",
+    "zod": "^4.4.3"
   },
   "engines": {
     "node": "24.x"

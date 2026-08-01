@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-01T18:26:46.524Z",
+  "generatedAt": "2026-08-01T19:00:00.000Z",
   "totals": {
     "planned": 0,
-    "inProgress": 10
+    "inProgress": 9
   },
   "planned": [],
   "inProgress": [
@@ -14,6 +14,17 @@
           "scope": "Desktop now provides an explicit project terminal through xterm and an owner-bound pseudoterminal. It starts in the approved root with a filtered environment, preserves a bounded session transcript, stops with project and window lifecycle, and states clearly that the shell is not sandboxed.",
           "status": "Delivered",
           "theme": "Desktop workflows"
+        }
+      ]
+    },
+    {
+      "theme": "Integrations",
+      "items": [
+        {
+          "title": "Local MCP server",
+          "scope": "Desktop now exposes an explicit-start, project-scoped Streamable HTTP endpoint with a session token and four bounded read-only tools. Host and Origin checks, secret-path denial, and renderer/project/app lifecycle revocation keep local automation narrow by default.",
+          "status": "Delivered",
+          "theme": "Integrations"
         }
       ]
     },

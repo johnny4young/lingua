@@ -34,9 +34,11 @@ import { registerDependencyHandlers } from './ipc/dependencies';
 import { registerGitHandlers } from './ipc/git';
 import { registerProjectTestHandlers } from './ipc/projectTests';
 import { registerProjectTerminalHandlers } from './ipc/projectTerminal';
+import { registerLocalMcpHandlers } from './ipc/localMcp';
 import { disposeHttpRuns, registerHttpHandlers } from './ipc/http';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
+import { disposeLocalMcpServer } from './localMcp';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -82,6 +84,7 @@ registerDependencyHandlers();
 registerGitHandlers();
 registerProjectTestHandlers();
 registerProjectTerminalHandlers();
+registerLocalMcpHandlers(() => app.getVersion());
 registerHttpHandlers();
 registerUpdater();
 
@@ -331,6 +334,7 @@ app.on('before-quit', () => {
   disposeLspBridge();
   disposeProjectTestRuns();
   disposeProjectTerminalSessions();
+  void disposeLocalMcpServer();
   disposeHttpRuns();
 });
 

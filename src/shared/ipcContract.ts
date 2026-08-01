@@ -33,6 +33,7 @@ import type {
   ProjectTerminalExitEvent,
   ProjectTerminalStartResult,
 } from './projectTerminal';
+import type { LocalMcpStartResult, LocalMcpState } from './localMcp';
 
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
@@ -170,6 +171,14 @@ interface IpcInvokeContract {
     args: [sessionId: string];
     result: { stopped: boolean };
   };
+
+  // ------------------------------------------------------ local MCP server
+  'local-mcp:get-state': { args: []; result: LocalMcpState };
+  'local-mcp:start': {
+    args: [rootId: RootId, acknowledgement: { readonly readOnlySourceAccess: true }];
+    result: LocalMcpStartResult;
+  };
+  'local-mcp:stop': { args: []; result: LocalMcpState };
 
   // -------------------------------------------------------------- lsp: rust
   'lsp:rust:start': { args: []; result: RustAnalyzerStatus };
@@ -466,6 +475,7 @@ interface IpcPushContract {
   'project-tests:output': ProjectTestOutputEvent;
   'project-terminal:data': ProjectTerminalDataEvent;
   'project-terminal:exit': ProjectTerminalExitEvent;
+  'local-mcp:state-changed': LocalMcpState;
   'http:stream-progress': import('./httpWorkspaceSchema').HttpStreamProgress;
   'git:on-head-changed': GitHeadChangePayload;
   'git:on-head-watcher-failed': GitHeadWatcherFailurePayload;
@@ -537,6 +547,9 @@ export const IPC_INVOKE_CHANNELS = [
   'project-terminal:write',
   'project-terminal:resize',
   'project-terminal:stop',
+  'local-mcp:get-state',
+  'local-mcp:start',
+  'local-mcp:stop',
   'lsp:rust:start',
   'lsp:rust:restart',
   'lsp:rust:stop',

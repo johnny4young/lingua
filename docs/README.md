@@ -23,6 +23,7 @@ planning is intentionally excluded from the published repository.
 - [`CAPSULE_TEST_MATRIX.md`](./CAPSULE_TEST_MATRIX.md) — portable run-capture fixture and compatibility matrix.
 - [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md) — bounded multi-file sharing format, privacy boundary, limits, and viewer behavior.
 - [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) — license and update service telemetry, alerts, and dashboards.
+- [`LOCAL_MCP_SECURITY.md`](./LOCAL_MCP_SECURITY.md) — local MCP threat model, consent boundary, read-only tools, and lifecycle.
 
 ## Architecture decisions
 

@@ -19,6 +19,7 @@ import { LayoutSection } from './LayoutSection';
 import { LicenseSection } from './LicenseSection';
 import { AiSection } from './AiSection';
 import { PluginsSection } from './PluginsSection';
+import { LocalMcpSection } from './LocalMcpSection';
 import { PrivacySection } from './PrivacySection';
 import { RecoverySection } from './RecoverySection';
 import { RunCapsulesSection } from './RunCapsulesSection';
@@ -75,11 +76,12 @@ import {
  *     7. account      → License + AI + RunCapsules
  *
  *   Advanced
- *     8. shortcuts    → CTA to open the existing KeyboardShortcuts
+ *     8. integrations → local MCP server controls and trust boundary
+ *     9. shortcuts    → CTA to open the existing KeyboardShortcuts
  *                       modal (keeps the heavy table out of this
  *                       surface)
- *     9. plugins      → PluginsSection (was nested under "editor")
- *    10. recovery     → RecoverySection (was nested under "account")
+ *    10. plugins      → PluginsSection (was nested under "editor")
+ *    11. recovery     → RecoverySection (was nested under "account")
  *
  * Keyboard nav: ⌘1–⌘0 jumps to the matching section while the modal
  * is focused; Esc closes. Ctrl/Cmd + , focuses the filter bar.
@@ -201,6 +203,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
   privacy: [],
   account: ['privacyTelemetryEnabled'],
   shortcuts: ['shortcutOverrides'],
+  integrations: [],
   plugins: ['enabledPlugins', 'pluginRoots'],
   recovery: [],
 };
@@ -583,6 +586,12 @@ export function SettingsModal({
         return (
           <SettingsSearchTarget id="section-plugins">
             <PluginsSection />
+          </SettingsSearchTarget>
+        );
+      case 'integrations':
+        return (
+          <SettingsSearchTarget id="section-local-mcp">
+            <LocalMcpSection />
           </SettingsSearchTarget>
         );
       case 'recovery':
