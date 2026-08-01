@@ -1,10 +1,10 @@
 # ADR — Debugger MVP
 
-| Status | Accepted — design |
+| Status | Accepted — implemented for JavaScript / TypeScript |
 | ------ | ----------------- |
 | Decision | Ship a focused debugger MVP targeting JavaScript / TypeScript first via a Monaco-integrated custom breakpoint panel, then Python via a `pdb` IPC bridge, then Go via Delve, then Rust via lldb. Every runtime after JS/TS is desktop-only. |
 | Date | 2026-04-20 |
-| Implementation start | Unblocked by this ADR. The first implementation targets the JS/TS layer (breakpoints + step + watch). Each subsequent language has its own implementation. |
+| Implementation start | JavaScript / TypeScript is shipping. Each subsequent language has its own implementation and capability gate. |
 
 ## Context
 
@@ -28,7 +28,7 @@ shape. This ADR picks a shape that:
 
 | Runtime | Strategy | Target | Status |
 |---------|----------|--------|--------|
-| JavaScript / TypeScript | Monaco-integrated breakpoint panel driven by source maps; step + watch via worker-side debugger hooks | web + Electron | initial implementation |
+| JavaScript / TypeScript | Monaco-integrated breakpoint panel driven by source maps; step, bounded watches, conditional breakpoints, and logpoints via worker-side debugger hooks | web + Electron | Shipping |
 | Python | `pdb` bridge via IPC — spawn a headless `python -u` with the `pdb` module attached; renderer sends breakpoint / step / continue commands, main streams stdout and stop events | Electron only | Second slice |
 | Go | `dlv` (Delve) bridge via IPC — start Delve in headless mode and pipe JSON-RPC commands | Electron only | Third slice |
 | Rust | `lldb` (macOS / Linux) or `lldb-mi` via IPC — same IPC shape as Go once the JSON layer exists | Electron only | Fourth slice |
@@ -49,12 +49,6 @@ The MVP ships exactly:
 Out of scope for the MVP:
 
 - Time-travel debugging.
-- Conditional breakpoints (can land as a post-MVP slice).
-- Logpoints / tracepoints — **promoted 2026-05-21 to a planned post-MVP slice**.
-  See `implementation` in the implementation notes for the full scope; the decision to keep
-  them outside the MVP was about budget, not about feature merit. implementation
-  shares the dynamic-Function security review with implementation (watch
-  expressions) so both unlock together once that review lands.
 - Remote / distributed tracing hooks.
 - Edit-and-continue.
 
@@ -91,13 +85,34 @@ existing internal editable shortcut mapper.
   dashboards can compute median session length from the attach→detach
   pair.
 
+### 5. Expression-evaluation boundary
+
+Watch expressions, conditional breakpoints, and logpoint placeholders are a
+separate input surface from the program being debugged. Lingua does not pass
+them to `eval`, `Function`, or the runtime's global scope.
+
+The worker instead:
+
+1. copies current locals into a detached, bounded snapshot containing only own
+   data properties;
+2. parses one expression with Acorn;
+3. interprets an allowlisted data-oriented syntax with step and depth budgets;
+4. returns only bounded values or a stable error.
+
+Calls, constructors, assignments, updates, accessors, inherited properties,
+prototype traversal, `await`, and `yield` are rejected. Loose equality is also
+rejected rather than approximated; use `===` or `!==`. A malformed condition
+pauses fail-safe and explains the error instead of silently skipping the line.
+Logpoints interpolate bounded `{expression}` placeholders, publish their text
+through normal debugger output, and continue without pausing.
+
 ## Implementation sketch (for the follow-up work)
 
-- **JS/TS slice (first)**: Monaco `IEditor` decorations for the
-  gutter; a `DebuggerSession` service in the renderer that hooks
-  into the existing JS worker via a new message type (`pause`,
-  `step`, `evaluate`). Single worker lifetime per attached tab;
-  session is torn down on tab close or detach.
+- **JS/TS slice (shipping)**: Monaco `IEditor` decorations for pause,
+  conditional, and logpoint markers; one renderer debugger session that hooks
+  into the existing JS worker; a bounded worker-side expression interpreter;
+  and one worker lifetime per attached tab. The session is torn down on tab
+  close or detach.
 - **Python slice (second)**: new IPC channel `debugger:python:*`.
   Main spawns `python -u -m pdb <tempfile>`, pipes stdin / stdout,
   translates commands. The existing `rust-compiler.ts` + `go-
@@ -110,9 +125,9 @@ existing internal editable shortcut mapper.
 
 ## Rollback
 
-- Feature is opt-in behind a `settings.debuggerEnabled` flag
-  (future work). Flipping off removes the Debugger tab and detaches any
-  active session.
+- Debugging is a baseline JS/TS capability rather than a Settings opt-in. The
+  user can disable individual breakpoints, disable all breakpoints, clear the
+  list, or choose normal Run, which ignores debugger state.
 - Each runtime implementation ships behind its own capability gate so a
   broken Delve install does not affect JS/TS debugging.
 - Telemetry events use the existing allowlist mechanism — no
@@ -130,9 +145,8 @@ existing internal editable shortcut mapper.
 3. A community-maintained DevTools overlay emerges with a stable
    API — reconsider whether the custom panel is still the right
    call.
-4. The feature budget above no longer matches user demand (e.g.
-   conditional breakpoints become table stakes) — graduate to
-   a post-MVP ADR rather than expanding scope implicitly.
+4. The feature budget above no longer matches user demand — graduate to a
+   post-MVP ADR rather than expanding scope implicitly.
 5. Edit-and-continue becomes possible in Monaco for free —
    revisit the "out of scope" list.
 
@@ -191,9 +205,10 @@ existing internal editable shortcut mapper.
   editor/results area. The same refinement promotes local JS/TS
   functions during Debug so Step Into can enter normal functions
   while Run remains byte-for-byte normal execution.
-- **Still deferred.** Conditional-breakpoint predicate
-  evaluation and watch-expression evaluation. Both require the
-  worker eval pattern to clear a dedicated security review — the
-  dynamic-Function constructor pattern triggered the security
-  reminder during implementation and the carve-out in the inline-fix
-  policy keeps the eval pass out of implementation.
+- **Bounded expressions shipped 2026-08-01.** Watches evaluate at every pause,
+  conditional breakpoints skip only when their safe expression is false, and
+  logpoints interpolate safe placeholders without pausing. The implementation
+  deliberately replaced the proposed dynamic-Function path with the bounded
+  data-only interpreter described in Decision 5. Breakpoint modes and their
+  inputs persist through a schema migration; watch results and errors remain
+  session-only.

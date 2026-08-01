@@ -30,22 +30,14 @@ The current implementation provides:
 - Breakpoint status lives in the **Debugger** tab, not the top
   toolbar. The tab shows the active file count; the panel header shows
   enabled/total status plus **Disable all / Enable all** and **Clear**
-  actions.
-- **Settings → Editor** keeps only the stable **Debugger** preference:
-  the master switch (`debuggerEnabled`). Breakpoint session actions
-  stay in the Debugger panel.
-
-## Enabling the debugger
-
-`debuggerEnabled` defaults to `true`. If a user has flipped it off,
-they re-enable it from Settings → Editor. The flag persists across
-sessions via `lingua-settings` localStorage.
-
-When the flag is off:
-
-- Gutter clicks are no-ops.
-- The Debugger tab never mounts.
-- The keyboard shortcut is silently ignored.
+  actions. Each breakpoint row can be enabled, removed, or changed between a
+  normal pause, conditional pause, and logpoint.
+- A **Watches** section remains available before and during a session. Add a
+  bounded expression once; its value or evaluation error refreshes at every
+  pause.
+- **Settings → Editor** does not contain a debugger master switch or
+  breakpoint-management actions. Debugging is baseline for JavaScript and
+  TypeScript, while normal **Run** ignores all breakpoint state.
 
 ## Setting a breakpoint
 
@@ -61,13 +53,44 @@ this is intentional so a misclick spam can't blow the localStorage
 budget. The cap is enforced at the store level; the UI does not
 warn.
 
+## Configuring breakpoint modes
+
+Open the bottom panel's **Debugger** tab after creating a breakpoint. Every
+active-file row has three modes:
+
+- **Pause** — stop whenever execution reaches the line.
+- **Conditional** — evaluate one bounded expression over the current locals
+  snapshot. A false result skips the breakpoint. An invalid expression pauses
+  fail-safe and shows why it could not be evaluated.
+- **Logpoint** — write a message and continue without pausing. Use
+  `{expression}` placeholders to include safe local values; use `{{` and `}}`
+  for literal braces.
+
+The gutter distinguishes these modes: pause uses a circle, conditional uses a
+diamond in the danger color, and logpoint uses an amber diamond. Disabled
+markers retain their shape at lower opacity. Mode, condition, log message, and
+enabled state persist with the breakpoint.
+
+## Watching values
+
+Enter a data expression in **Watches** and choose **Add**. Lingua evaluates the
+list at every pause and when a watch changes during an active pause. Results
+are session-only; the expression list persists across reloads.
+
+The evaluator supports literals, local identifiers, arrays and object
+literals, own-property access, optional chaining, templates, arithmetic,
+strict equality, relational and logical operators, and conditional
+expressions. It intentionally rejects calls, constructors, assignments,
+updates, accessors, inherited properties, prototype traversal, `await`,
+`yield`, and loose equality. Expressions are capped at 512 characters.
+
 ## Pausing a run
 
 1. With at least one enabled breakpoint set, open the Run dropdown and
    choose **Debug**. `Mod+Enter` / **Run** remains a normal execution
    path and does not pause on breakpoints.
-2. The runner sees the explicit debug intent, `debuggerEnabled`, and
-   the active tab's enabled breakpoint set, then switches into debug
+2. The runner sees the explicit debug intent and the active tab's enabled
+   breakpoint set, then switches into debug
    mode:
    - Loop protection is disabled for the run (the ADR §4 mandates this
      so a paused breakpoint inside a loop doesn't get killed).
@@ -77,7 +100,7 @@ warn.
    - The session is attached and the bridge is registered.
 3. When the worker hits a yield matching an enabled breakpoint, the
    `paused` message is posted; the Debugger tab flips to the paused state
-   with locals + call stack + watch placeholders, Monaco highlights
+   with locals + call stack + evaluated watches, Monaco highlights
    the entire paused line in the danger color, and any console output
    emitted before the pause is already visible in the result panel.
    The parent timeout is suspended until Continue / Step resumes the
@@ -139,13 +162,6 @@ allowlist. No source, no breakpoint coordinates, no expression content.
 
 ## Current limitations
 
-- **Conditional-breakpoint predicate evaluation** is not yet wired —
-  the store accepts a `condition` string but the worker treats it as
-  always-true. Predicate evaluation remains disabled until its dynamic-code
-  execution model has a dedicated security review and explicit user-facing
-  controls.
-- **Watch-expression evaluation** has the same gate. The UI renders
-  watches as `pending` markers until the eval pass lands.
 - **Python / Go / Rust** adapters are still `'planned'` in
   `LANGUAGE_PACKS`. The capability matrix row (this section's
   sibling entry in [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md))
@@ -186,8 +202,15 @@ inline output column.
   editor ref so the shortcut bus can read the cursor line.
 - `src/renderer/hooks/useBreakpointGutter.ts` — Monaco glyph-margin
   decorations + click-handler binding.
-- `src/renderer/components/Debugger/DebuggerDrawer.tsx` — paused-frame
-  panel with locals / call stack / watches.
-- `src/renderer/workers/js-worker.ts` — yield helper + pause loop.
+- `src/renderer/components/Debugger/DebuggerDrawer.tsx` — breakpoint,
+  watch, paused-frame, locals, and call-stack orchestration.
+- `src/renderer/components/Debugger/DebuggerBreakpointList.tsx` — active-file
+  mode, condition, logpoint, enabled-state, and removal controls.
+- `src/renderer/components/Debugger/DebuggerWatchList.tsx` — persistent watch
+  expressions and per-pause results.
+- `src/renderer/workers/debuggerExpression.ts` — detached scope snapshots,
+  allowlisted expression interpreter, and bounded logpoint templates.
+- `src/renderer/workers/js-worker.ts` — stable worker entrypoint; protocol,
+  execution, debugger state, and serialization live in focused sibling modules.
 - `src/renderer/runners/javascript.ts` + `typescript.ts` — debug-mode
   resolution + telemetry call-sites.

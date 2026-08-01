@@ -1268,6 +1268,23 @@
     box-shadow: inset 0 0 0 1.5px var(--app-danger, #e1495d);
   }
 
+  .monaco-editor .lingua-bp-glyph--conditional {
+    border-radius: 2px;
+    transform: rotate(45deg);
+  }
+
+  .monaco-editor .lingua-bp-glyph--logpoint {
+    background-color: var(--app-warning, #d99a32);
+    border-radius: 2px;
+    transform: rotate(45deg);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-warning, #d99a32) 60%, transparent);
+  }
+
+  .monaco-editor .lingua-bp-glyph--logpoint.lingua-bp-glyph--disabled {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--app-warning, #d99a32);
+  }
+
   /* implementation UX polish — make the breakpoint gutter
      discoverable on hover. Without this, the glyph-margin column
      reads as inert black space until the user happens to click in

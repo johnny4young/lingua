@@ -201,7 +201,6 @@ describe('Toolbar', () => {
     vi.clearAllMocks();
     setActiveProLicense();
     useSettingsStore.getState().resetShortcutOverrides();
-    useSettingsStore.setState({ debuggerEnabled: true }, false);
     useDebuggerStore.setState(
       {
         breakpoints: {},

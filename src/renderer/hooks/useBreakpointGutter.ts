@@ -39,8 +39,6 @@ export function useBreakpointGutter(
   monaco: typeof monacoTypes | null,
   options: BreakpointGutterOptions
 ): void {
-  // implementation — debugger is baseline; the Settings master toggle is gone.
-  const debuggerEnabled = true;
   const breakpoints = useDebuggerStore((state) => state.breakpoints);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
   const decorationsRef = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
@@ -53,7 +51,7 @@ export function useBreakpointGutter(
   // internally so we don't pay a full re-render on each toggle.
   useEffect(() => {
     if (!editor || !monaco) return;
-    if (!debuggerEnabled || !supportsDebugger || !activeTabId) {
+    if (!supportsDebugger || !activeTabId) {
       decorationsRef.current?.clear();
       decorationsRef.current = null;
       return;
@@ -74,7 +72,13 @@ export function useBreakpointGutter(
       range: new monaco.Range(bp.line, 1, bp.line, 1),
       options: {
         isWholeLine: false,
-        glyphMarginClassName: bp.enabled ? 'lingua-bp-glyph' : 'lingua-bp-glyph lingua-bp-glyph--disabled',
+        glyphMarginClassName: [
+          'lingua-bp-glyph',
+          `lingua-bp-glyph--${bp.mode}`,
+          bp.enabled ? '' : 'lingua-bp-glyph--disabled',
+        ]
+          .filter(Boolean)
+          .join(' '),
         glyphMarginHoverMessage: { value: toggleAriaLabel(bp.line) },
       },
     }));
@@ -100,7 +104,6 @@ export function useBreakpointGutter(
   }, [
     editor,
     monaco,
-    debuggerEnabled,
     supportsDebugger,
     activeTabId,
     breakpoints,
@@ -114,7 +117,7 @@ export function useBreakpointGutter(
   // the wrong tab is the failure mode we avoid).
   useEffect(() => {
     if (!editor || !monaco) return;
-    if (!debuggerEnabled || !supportsDebugger || !activeTabId) return;
+    if (!supportsDebugger || !activeTabId) return;
 
     const handler = editor.onMouseDown((event) => {
       // GLYPH_MARGIN === 2 on monaco.editor.MouseTargetType but importing
@@ -132,7 +135,7 @@ export function useBreakpointGutter(
     return () => {
       handler.dispose();
     };
-  }, [editor, monaco, debuggerEnabled, supportsDebugger, activeTabId]);
+  }, [editor, monaco, supportsDebugger, activeTabId]);
 
   // Always-on cleanup — when the gutter unmounts we clear decorations
   // so a leftover dot doesn't sit on a now-unused tab. The mouse-click

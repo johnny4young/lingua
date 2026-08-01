@@ -69,6 +69,21 @@ describe('debuggerStore ', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 5);
     useDebuggerStore.getState().setBreakpointCondition('tab-1', 5, 'x > 0');
     expect(useDebuggerStore.getState().breakpoints['tab-1:5']?.condition).toBe('x > 0');
+    expect(useDebuggerStore.getState().breakpoints['tab-1:5']?.mode).toBe('conditional');
+  });
+
+  it('configures pause, conditional, and logpoint behavior without replacing identity', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 5);
+    useDebuggerStore.getState().setBreakpointMode('tab-1', 5, 'logpoint');
+    useDebuggerStore.getState().setBreakpointLogMessage('tab-1', 5, 'count={count}');
+    expect(useDebuggerStore.getState().breakpoints['tab-1:5']).toMatchObject({
+      mode: 'logpoint',
+      logMessage: 'count={count}',
+      condition: '',
+    });
+
+    useDebuggerStore.getState().setBreakpointMode('tab-1', 5, 'pause');
+    expect(useDebuggerStore.getState().breakpoints['tab-1:5']?.mode).toBe('pause');
   });
 
   it('setBreakpointEnabled flips the active flag without removing the bp', () => {
@@ -205,6 +220,8 @@ describe('debuggerStore ', () => {
       tabId: 'tab-1',
       line: 2,
       condition: '',
+      mode: 'pause',
+      logMessage: '',
       enabled: true,
     });
     expect(state.breakpoints['tab-1:3']?.enabled).toBe(false);
@@ -213,5 +230,41 @@ describe('debuggerStore ', () => {
     expect(state.watches[0]).toEqual({ id: 'watch-0', expression: 'value0' });
     expect(state.session).toBeNull();
     expect(state.pausedFrame).toBeNull();
+  });
+
+  it('migrates legacy conditioned breakpoints to conditional mode', async () => {
+    localStorage.setItem(
+      DEBUGGER_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          breakpoints: {
+            'tab-1:4': {
+              tabId: 'tab-1',
+              line: 4,
+              condition: 'count > 2',
+              enabled: true,
+            },
+          },
+          breakpointOrder: ['tab-1:4'],
+          watches: [{ id: 'watch-1', expression: 'count' }],
+        },
+        version: 1,
+      })
+    );
+
+    await (
+      useDebuggerStore as typeof useDebuggerStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useDebuggerStore.getState().breakpoints['tab-1:4']).toMatchObject({
+      mode: 'conditional',
+      condition: 'count > 2',
+      logMessage: '',
+    });
+    expect(useDebuggerStore.getState().watches).toEqual([
+      { id: 'watch-1', expression: 'count' },
+    ]);
   });
 });

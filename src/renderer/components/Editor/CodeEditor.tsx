@@ -147,9 +147,9 @@ export function CodeEditor() {
       model.dispose();
     }
   }, [monacoInstance, expectedRustModelPaths]);
-  // implementation — glyph-margin breakpoint dots + click → toggle.
-  // The hook self-gates on `debuggerEnabled` AND `language ∈ {js, ts}`
-  // so non-debug tabs stay byte-identical in the DOM.
+  // Glyph-margin breakpoint markers + click-to-toggle. The hook self-gates on
+  // debugger-capable JavaScript and TypeScript tabs so other languages stay
+  // byte-identical in the DOM.
   useBreakpointGutter(editorInstance, monacoInstance, {
     activeTabId: activeTab?.id ?? null,
     language: activeTab?.language,

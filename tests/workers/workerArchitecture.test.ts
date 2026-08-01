@@ -24,7 +24,12 @@ type Equal<Left, Right> =
 type Assert<Value extends true> = Value;
 
 const protocolProbe: [
-  Assert<Equal<JsWorkerInboundMessage['type'], 'execute' | 'resume' | 'step' | 'set-breakpoints'>>,
+  Assert<
+    Equal<
+      JsWorkerInboundMessage['type'],
+      'execute' | 'resume' | 'step' | 'set-breakpoints' | 'set-watches'
+    >
+  >,
   Assert<
     Equal<
       PythonWorkerInboundMessage['type'],
@@ -42,10 +47,11 @@ const protocolProbe: [
 const MODULE_BUDGETS = {
   'js-worker.ts': 70,
   'js-worker-protocol.ts': 100,
-  'js-worker-execution.ts': 450,
+  'js-worker-execution.ts': 520,
   'js-worker-serialization.ts': 500,
   'js-worker-runtime.ts': 220,
-  'js-worker-debugger.ts': 80,
+  'js-worker-debugger.ts': 130,
+  'debuggerExpression.ts': 560,
   'js-worker-stdin.ts': 60,
   'python-worker.ts': 70,
   'python-worker-protocol.ts': 130,
@@ -92,6 +98,14 @@ describe('browser execution worker architecture', () => {
     expect(pythonEntry).toContain('createPythonRuntimeAdapter');
     expect(pythonEntry).toContain("ctx.addEventListener('message'");
     expect(pythonEntry).not.toMatch(/runPythonAsync|micropip\.install|__lingua_print/u);
+  });
+
+  it('keeps debugger expressions on the bounded interpreter path', () => {
+    const evaluator = workerSource('debuggerExpression.ts');
+    expect(evaluator).toContain('parseExpressionAt');
+    expect(evaluator).not.toMatch(/\beval\s*\(/u);
+    expect(evaluator).not.toContain('new Function');
+    expect(evaluator).not.toContain('new AsyncFunction');
   });
 
   it('keeps message listeners in the two stable entrypoints', () => {

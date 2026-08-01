@@ -445,7 +445,12 @@ export type WorkerResponse =
       locals: Record<string, string>;
       callStack: { functionName: string; line: number }[];
       watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
-      conditionalPending?: boolean;
+      conditionError?: string;
+    }
+  | {
+      type: 'watch-results';
+      runId: string;
+      watchResults: Record<string, { value?: string; error?: string }>;
     }
   | { type: 'resumed'; runId: string }
   | {

@@ -70,6 +70,23 @@ runtime adapters are created once per worker so boot-global snapshots,
 notebook namespaces, installed Python packages, and Pyodide streams retain the
 same lifetime they had before the split.
 
+### Debugger expression boundary
+
+JavaScript and TypeScript debugging uses two distinct execution surfaces. The
+program itself runs in the JS worker, while user-authored breakpoint
+conditions, watches, and logpoint placeholders pass through
+`workers/debuggerExpression.ts`. That module never delegates to `eval`,
+`Function`, or a runtime global. It parses one expression with Acorn and
+interprets only allowlisted data operations over a detached locals snapshot.
+
+The snapshot reads own data descriptors without invoking getters and enforces
+depth, entry, node, and string budgets. The interpreter separately caps source
+length, AST depth, evaluation steps, logpoint placeholder count, and output.
+Calls, constructors, mutations, prototype traversal, inherited access, and
+asynchronous syntax fail closed. This separation is intentional even though
+the containing worker already executes user code: debugger input must not gain
+ambient authority or side effects merely because it arrives during a pause.
+
 ## Renderer type boundaries
 
 `src/renderer/types/index.ts` is a compatibility-only facade. Production

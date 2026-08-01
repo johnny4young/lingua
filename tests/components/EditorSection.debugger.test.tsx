@@ -2,7 +2,7 @@
  * implementation — Settings → Editor → Debugger preference.
  *
  * Pins:
- *   - the master toggle flips `debuggerEnabled`,
+ *   - debugging remains a baseline capability without a master toggle,
  *   - breakpoint actions stay out of Settings and live in the Debugger panel,
  *   - Spanish copy renders without breakpoint-management wording.
  */

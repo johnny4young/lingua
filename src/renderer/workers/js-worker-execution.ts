@@ -3,8 +3,15 @@ import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import {
   applyJsWorkerExecutePayload,
   createJsWorkerDebuggerSession,
+  sanitizeJsWorkerWatches,
   type JsWorkerDebuggerSession,
 } from './js-worker-debugger';
+import {
+  evaluateDebuggerExpression,
+  renderDebuggerLogpoint,
+  snapshotDebuggerScope,
+  type DebuggerScopeSnapshot,
+} from './debuggerExpression';
 import type { JsWorkerInboundMessage } from './js-worker-protocol';
 import {
   JS_WORKER_FALLBACK_RESULT_TRUNCATION_MARKER,
@@ -18,6 +25,21 @@ import {
 } from './js-worker-serialization';
 import { buildLinguaWorkerBridge, parseJsWorkerError } from './js-worker-runtime';
 import { createJsWorkerStdinReader } from './js-worker-stdin';
+
+function evaluateWatchExpressions(
+  watches: readonly string[],
+  scope: DebuggerScopeSnapshot,
+  marker: string
+): Record<string, { value?: string; error?: string }> {
+  const results: Record<string, { value?: string; error?: string }> = {};
+  for (const expression of watches) {
+    const result = evaluateDebuggerExpression(expression, scope);
+    results[expression] = result.ok
+      ? { value: serializeJsWorkerValues([result.value], marker)[0] ?? 'undefined' }
+      : { error: result.error };
+  }
+  return results;
+}
 
 export function createJsWorkerMessageHandler(ctx: Worker) {
   let activeSession: JsWorkerDebuggerSession | null = null;
@@ -42,6 +64,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         session.stepMode = 'none';
       }
       ctx.postMessage({ type: 'resumed', runId: session.runId });
+      session.pausedScope = null;
       const resolver = session.resumeResolver;
       session.resumeResolver = null;
       resolver();
@@ -56,9 +79,32 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       if (Array.isArray(bps)) {
         for (const bp of bps) {
           if (typeof bp.line === 'number' && bp.line > 0) {
-            session.breakpoints.set(bp.line, { condition: bp.condition ?? '' });
+            session.breakpoints.set(bp.line, {
+              mode:
+                bp.mode === 'conditional' || bp.mode === 'logpoint' ? bp.mode : 'pause',
+              condition: bp.condition ?? '',
+              logMessage: bp.logMessage ?? '',
+            });
           }
         }
+      }
+      return;
+    }
+
+    if (msg.type === 'set-watches') {
+      const session = activeSession;
+      if (!session) return;
+      session.watches = sanitizeJsWorkerWatches(msg.watches);
+      if (session.pausedScope) {
+        ctx.postMessage({
+          type: 'watch-results',
+          runId: session.runId,
+          watchResults: evaluateWatchExpressions(
+            session.watches,
+            session.pausedScope,
+            session.resultMarker
+          ),
+        });
       }
       return;
     }
@@ -81,6 +127,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
 
       const session = createJsWorkerDebuggerSession(runId);
       applyJsWorkerExecutePayload(session, exec);
+      session.resultMarker = marker;
       activeSession = session;
       let lexicalScopeVariables: ScopeVariable[] | null = null;
 
@@ -156,12 +203,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               (session.stepMode === 'over' && session.frames.length <= session.stepDepth) ||
               (session.stepMode === 'out' && session.frames.length < session.stepDepth);
 
-            // implementation: predicates are stored but always treated as true
-            // (no eval until implementation's security review). The UI badge
-            // surfaces this as "predicate stored, evaluation pending".
-            const shouldPauseForBreakpoint = Boolean(breakpoint);
-
-            if (!shouldPauseForBreakpoint && !shouldPauseForStep) return;
+            if (!breakpoint && !shouldPauseForStep) return;
 
             const localsRaw = (() => {
               try {
@@ -170,21 +212,40 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
                 return {};
               }
             })();
+            const scope = snapshotDebuggerScope(localsRaw);
+
+            let shouldPauseForBreakpoint = breakpoint?.mode === 'pause';
+            let conditionError: string | undefined;
+            if (breakpoint?.mode === 'conditional') {
+              const condition = evaluateDebuggerExpression(breakpoint.condition ?? '', scope);
+              if (condition.ok) {
+                shouldPauseForBreakpoint = Boolean(condition.value);
+              } else {
+                // Fail safe: an invalid predicate must never silently skip a
+                // breakpoint. Pause and explain the configuration error.
+                shouldPauseForBreakpoint = true;
+                conditionError = condition.error;
+              }
+            }
+            if (breakpoint?.mode === 'logpoint') {
+              const logpoint = renderDebuggerLogpoint(breakpoint.logMessage ?? '', scope);
+              ctx.postMessage({
+                type: 'console',
+                runId,
+                method: logpoint.ok ? 'log' : 'warn',
+                args: [logpoint.ok ? logpoint.output : `Logpoint error: ${logpoint.error}`],
+                line,
+              });
+            }
+
+            if (!shouldPauseForBreakpoint && !shouldPauseForStep) return;
+
             const localsSerialized: Record<string, string> = {};
             for (const [name, value] of Object.entries(localsRaw)) {
               localsSerialized[name] = serializeJsWorkerValues([value], marker)[0]!;
             }
 
-            // implementation: watch expressions echo back as `pending` markers.
-            // The Variables panel covers the actual locals; users who
-            // want richer expressions will get them in implementation.
-            const watchResults: Record<
-              string,
-              { value?: string; error?: string; pending?: boolean }
-            > = {};
-            for (const expr of session.watches) {
-              watchResults[expr] = { pending: true };
-            }
+            const watchResults = evaluateWatchExpressions(session.watches, scope, marker);
 
             const reason: 'user-breakpoint' | 'step' = shouldPauseForBreakpoint
               ? 'user-breakpoint'
@@ -198,9 +259,10 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               locals: localsSerialized,
               callStack: [...session.frames].reverse(),
               watchResults,
-              conditionalPending: Boolean(breakpoint?.condition),
+              conditionError,
             });
 
+            session.pausedScope = scope;
             await new Promise<void>(resolve => {
               session.resumeResolver = resolve;
             });

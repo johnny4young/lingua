@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-08-01T15:17:37.541Z",
+  "generatedAt": "2026-08-01T16:07:08.750Z",
   "baseRef": "v0.15.0",
   "commitCount": 12,
-  "totalSinceBase": 63,
+  "totalSinceBase": 64,
   "commits": [
+    {
+      "hash": "5096d69",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "projects",
+      "message": "run autodetected test suites",
+      "breaking": false
+    },
     {
       "hash": "91c044a",
       "date": "2026-08-01",
@@ -101,15 +110,6 @@
       "typeLabel": "Performance",
       "scope": "renderer",
       "message": "defer notebook export",
-      "breaking": false
-    },
-    {
-      "hash": "c05abf7",
-      "date": "2026-07-31",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "renderer",
-      "message": "restore visually hidden content",
       "breaking": false
     }
   ]

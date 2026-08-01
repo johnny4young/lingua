@@ -20,10 +20,18 @@
  * consume the SAME union the sender posts, closing the send/receive drift
  * (the worker previously read `event.data` as `any` and cast per branch).
  */
+export interface DebuggerBreakpointPayload {
+  line: number;
+  mode: 'pause' | 'conditional' | 'logpoint';
+  condition?: string;
+  logMessage?: string;
+}
+
 export type DebuggerControlMessage =
   | { type: 'resume' }
   | { type: 'step'; mode: 'over' | 'into' | 'out' }
-  | { type: 'set-breakpoints'; breakpoints: { line: number; condition?: string }[] };
+  | { type: 'set-breakpoints'; breakpoints: DebuggerBreakpointPayload[] }
+  | { type: 'set-watches'; watches: string[] };
 
 type Poster = (msg: DebuggerControlMessage) => void;
 

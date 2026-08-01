@@ -469,7 +469,7 @@ export class JavaScriptRunner implements LanguageRunner {
               locals: Record<string, string>;
               callStack: { functionName: string; line: number }[];
               watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
-              conditionalPending?: boolean;
+              conditionError?: string;
             };
             if (context?.tabId) {
               useDebuggerStore.getState().setPausedFrame({
@@ -479,6 +479,7 @@ export class JavaScriptRunner implements LanguageRunner {
                 locals: paused.locals,
                 callStack: paused.callStack,
                 watchResults: paused.watchResults,
+                conditionError: paused.conditionError,
               });
               // implementation — `debugger.paused` carries the
               // closed-enum reason bucket. No source, no expression
@@ -492,13 +493,11 @@ export class JavaScriptRunner implements LanguageRunner {
             // user input. Keep the runaway-code deadline for active
             // execution, but suspend it while Continue/Step is pending.
             clearDeadline();
-            // implementation — `conditionalPending` is dropped here;
-            // when conditional-bp evaluation lands, thread the flag
-            // into PausedFrame so the drawer can flag "predicate
-            // stored, evaluation pending".
-            void paused.conditionalPending;
             break;
           }
+          case 'watch-results':
+            useDebuggerStore.getState().updateWatchResults(msg.watchResults);
+            break;
           case 'resumed':
             armDeadline();
             break;
@@ -591,7 +590,12 @@ export class JavaScriptRunner implements LanguageRunner {
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
         debug,
-        breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
+        breakpoints: tabBreakpoints.map((bp) => ({
+          line: bp.line,
+          mode: bp.mode,
+          condition: bp.condition,
+          logMessage: bp.logMessage,
+        })),
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
         sourceLineMap,
         sourceMappingEnabled,

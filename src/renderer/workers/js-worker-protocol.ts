@@ -1,4 +1,7 @@
-import type { DebuggerControlMessage } from '../runtime/debuggerWorkerBridge';
+import type {
+  DebuggerBreakpointPayload,
+  DebuggerControlMessage,
+} from '../runtime/debuggerWorkerBridge';
 
 export interface JsWorkerExecuteMessage {
   type: 'execute';
@@ -6,7 +9,7 @@ export interface JsWorkerExecuteMessage {
   code: string;
   resultTruncationMarker?: string;
   debug?: boolean;
-  breakpoints?: { line: number; condition?: string }[];
+  breakpoints?: DebuggerBreakpointPayload[];
   watches?: string[];
   sourceLineMap?: Record<number, number>;
   /**

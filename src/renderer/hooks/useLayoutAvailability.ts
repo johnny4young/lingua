@@ -44,8 +44,6 @@ export function useLayoutAvailability(): LayoutAvailability {
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const activeLanguage = useEditorStore((s) => getActiveTab(s)?.language);
   const activeRuntimeMode = useEditorStore((s) => getActiveTab(s)?.runtimeMode);
-  // implementation — debugger is baseline; the Settings toggle is gone.
-  const debuggerEnabled = true;
   const debuggerSession = useDebuggerStore((state) => state.session);
   const activeBreakpointCount = useDebuggerStore((state) => {
     if (!activeTabId) return 0;
@@ -59,7 +57,6 @@ export function useLayoutAvailability(): LayoutAvailability {
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showDebuggerPanel =
     layoutPreset !== 'editor-only' &&
-    debuggerEnabled &&
     languageSupportsDebugger(activeLanguage) &&
     (debuggerSession?.tabId === activeTabId || (consoleVisible && activeBreakpointCount > 0));
   const showBrowserPreviewPanel =

@@ -90,7 +90,7 @@
       "items": [
         {
           "title": "Deeper debugging controls",
-          "scope": "JavaScript and TypeScript breakpoints and stepping ship today. Watch evaluation, conditional breakpoints, logpoints, and Python UI integration require additional security review and product work.",
+          "scope": "JavaScript and TypeScript breakpoints, stepping, bounded watch evaluation, conditional breakpoints, and non-pausing logpoints ship today in web and desktop. Python UI integration remains desktop-only product work on top of the existing engine.",
           "status": "Partial",
           "theme": "Debugger"
         }

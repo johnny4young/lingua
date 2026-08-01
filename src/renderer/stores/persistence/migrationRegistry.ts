@@ -100,7 +100,11 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
   'lingua-project-store': {},
   'lingua-recent-files': {},
   'lingua-license': {},
-  'lingua-debugger-state': {},
+  // v1->v2 — breakpoint modes and logpoint messages are additive. Rehydration
+  // sanitization fills legacy records as ordinary pause/conditional entries.
+  'lingua-debugger-state': {
+    2: (state) => state,
+  },
   // v1->v2 — selection and Smart Paste hand-off moved to the lightweight
   // utility workspace store. Drop those fields from the history payload after
   // utilityWorkspaceStore has copied the legacy active selection on startup.

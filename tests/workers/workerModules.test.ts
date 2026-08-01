@@ -65,7 +65,10 @@ describe('JavaScript worker responsibility modules', () => {
       runId: 'run-1',
       code: '',
       debug: true,
-      breakpoints: [{ line: 3, condition: 'ready' }, { line: 0 }],
+      breakpoints: [
+        { line: 3, mode: 'conditional', condition: 'ready' },
+        { line: 0, mode: 'pause' },
+      ],
       watches: ['value'],
     });
 
@@ -76,7 +79,9 @@ describe('JavaScript worker responsibility modules', () => {
       stepDepth: 0,
       frames: [],
     });
-    expect([...session.breakpoints]).toEqual([[3, { condition: 'ready' }]]);
+    expect([...session.breakpoints]).toEqual([
+      [3, { mode: 'conditional', condition: 'ready', logMessage: '' }],
+    ]);
   });
 
   it('keeps text and structured serialization behavior intact', () => {
