@@ -666,6 +666,33 @@ server omits or lies about `Content-Length`. State remains preview-only until
 confirmation creates a tab. Providers without a stable public read contract
 are rejected instead of expanding the network boundary.
 
+### Guarded HTTP workspace transport
+
+The HTTP workspace has one renderer orchestration path for environment
+interpolation, capture chaining, assertion evaluation, secret masking, history,
+and Capsules. Only the network transport varies by platform:
+
+- Web uses browser `fetch` and `WebSocket`, retaining browser CORS,
+  mixed-content, forbidden-header, and private-network enforcement.
+- Desktop uses the optional `window.lingua.http` typed bridge. Main owns each
+  run by renderer id plus opaque run id, aborts it when the renderer is
+  destroyed, and emits only bounded progress events.
+- HTTP and SSE resolve and validate every redirect hop, remove authorization,
+  cookie, proxy authorization, auth-injected, and user-sensitive headers when
+  crossing origins, and pin undici's socket lookup to the addresses that passed
+  the SSRF guard.
+- WebSocket validates and pins the handshake target, disables redirects, caps
+  messages and bytes, disables compression, and closes on cancel or timeout.
+- Private, loopback, link-local, CGNAT, multicast, and reserved targets fail
+  closed unless the user enables the desktop-only private-host setting.
+
+Named request pipelines are renderer orchestration, not a second transport.
+They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
+active environment fresh for each step, and stop after transport, HTTP, or
+assertion failure unless the saved pipeline says to continue. SSE and WebSocket
+sessions are intentionally excluded because a long-lived connection has no
+deterministic next-step boundary.
+
 ### Event-style IPC
 
 The push-style filesystem channels in this architecture are:

@@ -285,6 +285,7 @@ export function settingsMerge(
     rubyRuntimePreference,
     firstWorkflowModeSwitchAcknowledged,
     sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
+    httpAllowPrivateHosts: merged.httpAllowPrivateHosts === true,
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
     sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // internal S3 OPFS: coerce to boolean on rehydrate

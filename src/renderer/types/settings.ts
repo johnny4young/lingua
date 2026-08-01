@@ -339,6 +339,11 @@ export interface SettingsState {
    */
   sensitiveHttpHeaders: string[];
   /**
+   * Desktop-only explicit opt-in for loopback, link-local, and private-network
+   * HTTP/SSE/WebSocket targets. The guarded proxy defaults this to false.
+   */
+  httpAllowPrivateHosts: boolean;
+  /**
    * implementation — SQL workspace row preview cap. Sets the upper
    * bound on rows rendered in `<SqlResultPreview>`. The runtime
    * also caps at `MAX_RESULT_ROWS` (10 000) regardless; this knob
@@ -411,6 +416,7 @@ export interface SettingsState {
   setImportPreviewClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /** implementation — flip the dependency detection master switch. */
   toggleDependencyDetectionEnabled: () => void;
+  setHttpAllowPrivateHosts: (enabled: boolean) => void;
   /**
    * implementation — three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut

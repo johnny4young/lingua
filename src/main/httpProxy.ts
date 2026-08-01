@@ -30,13 +30,10 @@
  *   - **Body cap + timeout + header redaction** — identical semantics to the
  *     renderer client.
  *
- * Residual risk (documented, not yet mitigated): DNS rebinding TOCTOU. The
- * guard resolves the hostname, then `fetch` resolves it again independently,
- * so a hostile resolver could return a public address to the guard and a
- * private one to `fetch`. Closing this requires pinning the resolved IP into
- * a custom undici dispatcher; tracked as a follow-up. The guard still blocks
- * the overwhelming majority of real-world SSRF (literal private URLs,
- * redirect-to-private, and static DNS pointing at private space).
+ * Production requests use a per-hop undici dispatcher whose lookup is pinned
+ * to the exact addresses cleared by the guard. That closes the DNS-rebinding
+ * gap between validation and socket dial; test-injected fetch implementations
+ * remain deliberately unpinned behind the explicit test seam.
  *
  * This engine never throws — it always settles to an `HttpResponseV1`, with
  * blocked / failed outcomes surfaced through the `kind` + `errorMessage`
@@ -45,6 +42,7 @@
 
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { Agent, fetch as undiciFetch } from 'undici';
 import {
   authInjectedHeaderName,
   composeRequestHeaders,
@@ -55,12 +53,14 @@ import {
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
+  MAX_STREAM_MESSAGES,
   utf8ByteLength,
   type HttpRequestV1,
   type HttpResponseHeader,
   type HttpResponseKind,
   type HttpResponseV1,
 } from '../shared/httpWorkspaceSchema';
+import { createPinnedLookup } from './pinnedLookup';
 
 /** Max redirect hops the proxy follows before giving up. */
 const MAX_REDIRECTS = 10;
@@ -108,6 +108,13 @@ export interface HttpProxyOptions {
   maxResponseBodyBytes?: number;
   /** Test seam: override the redirect cap. */
   maxRedirects?: number;
+  /** Live SSE preview. Called with bounded, already-decoded content. */
+  onProgress?: (progress: {
+    body: string;
+    sizeBytes: number;
+    messageCount: number;
+    opened: boolean;
+  }) => void;
 }
 
 /**
@@ -247,8 +254,7 @@ async function assertHostAllowed(
   rawHostname: string,
   allowPrivateHosts: boolean,
   lookupImpl: LookupImpl
-): Promise<void> {
-  if (allowPrivateHosts) return;
+): Promise<LookupAddress[]> {
 
   // WHATWG `URL` keeps the square brackets on an IPv6 host (`[::1]`), and
   // `isIP('[::1]')` is 0 — so without stripping them the literal is misread as a
@@ -261,17 +267,20 @@ async function assertHostAllowed(
 
   const literalFamily = isIP(hostname);
   if (literalFamily !== 0) {
-    if (isPrivateAddress(hostname)) {
+    if (!allowPrivateHosts && isPrivateAddress(hostname)) {
       throw new SsrfBlockedError(
         `Blocked request to private address ${hostname}`
       );
     }
-    return;
+    return [{ address: hostname, family: literalFamily }];
   }
 
   // `localhost` and friends may resolve to loopback via /etc/hosts; the DNS
   // resolution below catches those, but we also fast-path the obvious name.
-  if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
+  if (
+    !allowPrivateHosts &&
+    (hostname === 'localhost' || hostname.endsWith('.localhost'))
+  ) {
     throw new SsrfBlockedError('Blocked request to localhost');
   }
 
@@ -286,32 +295,45 @@ async function assertHostAllowed(
     throw new SsrfBlockedError(`DNS resolution returned no addresses for ${hostname}`);
   }
   for (const { address } of addresses) {
-    if (isPrivateAddress(address)) {
+    if (!allowPrivateHosts && isPrivateAddress(address)) {
       throw new SsrfBlockedError(
         `Blocked request to ${hostname} — resolves to private address ${address}`
       );
     }
   }
+  return addresses;
 }
 
-/** Validate scheme + run the SSRF guard for a single URL. */
-async function guardUrl(
+export interface GuardedNetworkTarget {
+  readonly url: URL;
+  readonly addresses: ReadonlyArray<LookupAddress>;
+}
+
+/** Validate a scheme and resolve a DNS-pinnable, SSRF-checked target. */
+export async function resolveGuardedNetworkTarget(
   rawUrl: string,
+  allowedProtocols: ReadonlySet<string>,
   allowPrivateHosts: boolean,
   lookupImpl: LookupImpl
-): Promise<URL> {
+): Promise<GuardedNetworkTarget> {
   let url: URL;
   try {
     url = new URL(rawUrl);
   } catch {
     throw new SsrfBlockedError('Invalid URL');
   }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+  if (!allowedProtocols.has(url.protocol)) {
     throw new SsrfBlockedError(`Unsupported URL scheme: ${url.protocol}`);
   }
-  await assertHostAllowed(url.hostname, allowPrivateHosts, lookupImpl);
-  return url;
+  const addresses = await assertHostAllowed(
+    url.hostname,
+    allowPrivateHosts,
+    lookupImpl
+  );
+  return { url, addresses };
 }
+
+const HTTP_PROTOCOLS = new Set(['http:', 'https:']);
 
 // ---------------------------------------------------------------------------
 // Body / header helpers (mirror src/renderer/runtime/httpClient.ts)
@@ -319,20 +341,35 @@ async function guardUrl(
 
 async function readBodyWithCap(
   response: Response,
-  cap: number
+  cap: number,
+  onProgress?: HttpProxyOptions['onProgress'],
+  maxMessages?: number
 ): Promise<{ text: string; size: number; tooLarge: boolean }> {
   const reader = response.body?.getReader();
   if (!reader) {
     const text = await response.text();
     const encoded = new TextEncoder().encode(text);
     const bytes = encoded.byteLength;
+    let boundedText = text;
+    let tooLarge = false;
     if (bytes > cap) {
-      const trimmed = new TextDecoder('utf-8', { fatal: false }).decode(
+      boundedText = new TextDecoder('utf-8', { fatal: false }).decode(
         encoded.subarray(0, cap)
       );
-      return { text: trimmed, size: bytes, tooLarge: true };
+      tooLarge = true;
     }
-    return { text, size: bytes, tooLarge: false };
+    const limited = limitSseMessages(boundedText, maxMessages);
+    onProgress?.({
+      body: limited.text,
+      sizeBytes: bytes,
+      messageCount: limited.count,
+      opened: true,
+    });
+    return {
+      text: limited.text,
+      size: bytes,
+      tooLarge: tooLarge || limited.tooLarge,
+    };
   }
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
@@ -346,6 +383,30 @@ async function readBodyWithCap(
         const overshoot = totalBytes - cap;
         chunks.push(value.subarray(0, value.byteLength - overshoot));
         tooLarge = true;
+      } else {
+        chunks.push(value);
+      }
+      const limited = limitSseMessages(
+        combineUtf8Chunks(chunks),
+        maxMessages
+      );
+      if (limited.tooLarge) {
+        chunks.splice(
+          0,
+          chunks.length,
+          new TextEncoder().encode(limited.text)
+        );
+        tooLarge = true;
+      }
+      if (onProgress) {
+        onProgress({
+          body: limited.text,
+          sizeBytes: Math.min(totalBytes, cap),
+          messageCount: limited.count,
+          opened: true,
+        });
+      }
+      if (tooLarge) {
         try {
           await reader.cancel();
         } catch {
@@ -353,7 +414,6 @@ async function readBodyWithCap(
         }
         break;
       }
-      chunks.push(value);
     }
   }
   let combinedLength = 0;
@@ -366,6 +426,48 @@ async function readBodyWithCap(
   }
   const text = new TextDecoder('utf-8', { fatal: false }).decode(combined);
   return { text, size: tooLarge ? totalBytes : combined.byteLength, tooLarge };
+}
+
+function combineUtf8Chunks(chunks: ReadonlyArray<Uint8Array>): string {
+  const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+  const combined = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder('utf-8', { fatal: false }).decode(combined);
+}
+
+function countSseEvents(body: string): number {
+  if (body.length === 0) return 0;
+  return body.split(/\r?\n\r?\n/u).filter((event) => event.trim().length > 0)
+    .length;
+}
+
+function limitSseMessages(
+  body: string,
+  maxMessages?: number
+): { text: string; count: number; tooLarge: boolean } {
+  const count = countSseEvents(body);
+  if (maxMessages === undefined || count <= maxMessages) {
+    return { text: body, count, tooLarge: false };
+  }
+  const boundary = /\r?\n\r?\n/gu;
+  let start = 0;
+  let retained = 0;
+  for (const match of body.matchAll(boundary)) {
+    if (body.slice(start, match.index).trim().length > 0) retained += 1;
+    if (retained === maxMessages) {
+      return {
+        text: body.slice(0, match.index + match[0].length),
+        count: maxMessages,
+        tooLarge: true,
+      };
+    }
+    start = match.index + match[0].length;
+  }
+  return { text: body, count, tooLarge: true };
 }
 
 function buildRedactedHeaders(
@@ -466,6 +568,7 @@ function failure(
 ): HttpResponseV1 {
   return {
     version: 1,
+    transport: request.transport ?? 'http',
     kind,
     status: 0,
     statusText: '',
@@ -481,12 +584,6 @@ function failure(
     recordedAt,
     errorMessage,
   };
-}
-
-function resolveFetchImpl(fetchImpl: typeof fetch | undefined): typeof fetch | null {
-  if (fetchImpl) return fetchImpl;
-  if (typeof globalThis.fetch !== 'function') return null;
-  return globalThis.fetch.bind(globalThis);
 }
 
 // ---------------------------------------------------------------------------
@@ -508,12 +605,12 @@ export async function executeHttpProxyRequest(
   const allowPrivateHosts = options.allowPrivateHosts ?? false;
   const bodyCap = options.maxResponseBodyBytes ?? MAX_RESPONSE_BODY_BYTES;
   const maxRedirects = options.maxRedirects ?? MAX_REDIRECTS;
-  const fetchImpl = resolveFetchImpl(options.fetchImpl);
+  const fetchImpl = options.fetchImpl;
   const lookupImpl: LookupImpl =
     options.lookupImpl ??
     ((hostname) => dnsLookup(hostname, { all: true }));
 
-  if (!fetchImpl) {
+  if (!fetchImpl && typeof globalThis.fetch !== 'function') {
     return failure(
       request,
       'network-error',
@@ -560,24 +657,62 @@ export async function executeHttpProxyRequest(
   let currentMethod: string = request.method;
   let currentBody = requestBody.body;
   let response: Response;
+  let finalDispatcher: Agent | null = null;
+  let currentDispatcher: Agent | null | undefined;
   try {
     for (let hop = 0; ; hop += 1) {
       // Re-run the SSRF guard on every hop, including redirect targets.
-      await guardUrl(currentUrl, allowPrivateHosts, lookupImpl);
+      const target = await resolveGuardedNetworkTarget(
+        currentUrl,
+        HTTP_PROTOCOLS,
+        allowPrivateHosts,
+        lookupImpl
+      );
+      let hopDispatcher: Agent | null = null;
+      if (fetchImpl) {
+        response = await fetchImpl(currentUrl, {
+          method: currentMethod,
+          headers: requestHeaders,
+          body: currentBody,
+          signal: controller.signal,
+          redirect: 'manual',
+        });
+      } else {
+        // Pin the socket lookup to the exact addresses that passed the SSRF
+        // guard. This closes the DNS-rebinding gap between validation and dial.
+        hopDispatcher = new Agent({
+          connect: { lookup: createPinnedLookup(target.addresses) },
+        });
+        const serializedHeaders: Array<[string, string]> = [];
+        requestHeaders.forEach((value, name) => {
+          serializedHeaders.push([name, value]);
+        });
+        response = (await undiciFetch(currentUrl, {
+          method: currentMethod,
+          headers: serializedHeaders,
+          body: currentBody,
+          signal: controller.signal,
+          redirect: 'manual',
+          dispatcher: hopDispatcher,
+        })) as unknown as Response;
+        currentDispatcher = hopDispatcher;
+      }
 
-      response = await fetchImpl(currentUrl, {
-        method: currentMethod,
-        headers: requestHeaders,
-        body: currentBody,
-        signal: controller.signal,
-        redirect: 'manual',
-      });
-
-      if (!isRedirectStatus(response.status)) break;
+      if (!isRedirectStatus(response.status)) {
+        finalDispatcher = hopDispatcher;
+        currentDispatcher = null;
+        break;
+      }
 
       const location = response.headers.get('location');
-      if (!location) break; // redirect status without a target — treat as final
+      if (!location) {
+        finalDispatcher = hopDispatcher;
+        currentDispatcher = null;
+        break; // redirect status without a target — treat as final
+      }
       if (hop >= maxRedirects) {
+        if (hopDispatcher) await hopDispatcher.close();
+        currentDispatcher = null;
         cleanup();
         return failure(
           request,
@@ -626,8 +761,12 @@ export async function executeHttpProxyRequest(
       } catch {
         /* already finalised */
       }
+      if (hopDispatcher) await hopDispatcher.close();
+      currentDispatcher = null;
     }
   } catch (err) {
+    if (currentDispatcher) await currentDispatcher.close();
+    if (finalDispatcher) await finalDispatcher.close();
     cleanup();
     if (err instanceof SsrfBlockedError) {
       return failure(request, 'network-error', err.message, start, recordedAt);
@@ -641,8 +780,14 @@ export async function executeHttpProxyRequest(
 
   let bodyResult: { text: string; size: number; tooLarge: boolean };
   try {
-    bodyResult = await readBodyWithCap(response, bodyCap);
+    bodyResult = await readBodyWithCap(
+      response,
+      bodyCap,
+      request.transport === 'sse' ? options.onProgress : undefined,
+      request.transport === 'sse' ? MAX_STREAM_MESSAGES : undefined
+    );
   } catch (err) {
+    if (finalDispatcher) await finalDispatcher.close();
     cleanup();
     if (controller.signal.aborted && controller.signal.reason === 'timeout') {
       return failure(request, 'timeout', 'Request timed out', start, recordedAt);
@@ -652,6 +797,7 @@ export async function executeHttpProxyRequest(
   }
 
   cleanup();
+  if (finalDispatcher) await finalDispatcher.close();
 
   const { headers, redactedHeaders } = buildRedactedHeaders(response.headers, allowlist);
   const contentType = response.headers.get('content-type') ?? '';
@@ -661,6 +807,7 @@ export async function executeHttpProxyRequest(
 
   return {
     version: 1,
+    transport: request.transport ?? 'http',
     kind,
     status: response.status,
     statusText: response.statusText,
@@ -674,5 +821,8 @@ export async function executeHttpProxyRequest(
     tooLarge: bodyResult.tooLarge,
     redactedHeaders,
     recordedAt,
+    ...(request.transport === 'sse'
+      ? { messageCount: countSseEvents(bodyResult.text) }
+      : {}),
   };
 }

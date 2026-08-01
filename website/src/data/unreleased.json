@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-08-01T16:07:08.750Z",
+  "generatedAt": "2026-08-01T16:42:50.743Z",
   "baseRef": "v0.15.0",
   "commitCount": 12,
-  "totalSinceBase": 64,
+  "totalSinceBase": 65,
   "commits": [
+    {
+      "hash": "412a95c",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "debugger",
+      "message": "add safe conditions watches and logpoints",
+      "breaking": false
+    },
     {
       "hash": "5096d69",
       "date": "2026-08-01",
@@ -101,15 +110,6 @@
       "typeLabel": "Performance",
       "scope": "http",
       "message": "defer import workspace activation",
-      "breaking": false
-    },
-    {
-      "hash": "89db464",
-      "date": "2026-07-31",
-      "type": "perf",
-      "typeLabel": "Performance",
-      "scope": "renderer",
-      "message": "defer notebook export",
       "breaking": false
     }
   ]

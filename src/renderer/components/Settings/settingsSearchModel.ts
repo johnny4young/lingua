@@ -226,6 +226,21 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords: ['ledger', 'sql', 'history', 'local', 'historial', 'registro'],
   },
   {
+    id: 'http-private-hosts',
+    tab: 'privacy',
+    labelKey: 'settings.privacy.privateHosts.title',
+    descriptionKey: 'settings.privacy.privateHosts.description',
+    targetId: 'privacy-http-private-hosts',
+    keywords: [
+      'http',
+      'localhost',
+      'private network',
+      'lan',
+      'red local',
+      'host privado',
+    ],
+  },
+  {
     id: 'privacy-trust',
     tab: 'privacy',
     labelKey: 'settings.privacy.title',

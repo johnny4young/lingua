@@ -415,6 +415,10 @@ collection state:
   dependency-safe request/response contract used by import detection and
   preview. Keep only closed enums, limits, data shapes, UTF-8 sizing, and the
   blank-request factory there.
+- [`../shared/httpPipeline.ts`](../shared/httpPipeline.ts) owns the dependency-
+  free, 20-step bounded schema for named sequential HTTP pipelines. Pipelines
+  reference saved request ids instead of copying requests, and the store prunes
+  a step when its request is deleted.
 - [`../shared/httpWorkspacePersistence.ts`](../shared/httpWorkspacePersistence.ts)
   owns strict request/response parsing at localStorage and IPC trust
   boundaries. Persistence consumers import this leaf directly so rehydration
@@ -427,6 +431,15 @@ collection state:
   composition. Browser and desktop transports, capsule export, code generation,
   and auth previews import it directly so they share one wire shape without
   activating serialization behavior.
+- [`runtime/httpClient.ts`](runtime/httpClient.ts) is the platform transport
+  dispatcher. Web runs browser `fetch` / `WebSocket`; desktop delegates through
+  the optional preload bridge to the lifecycle-owned main-process HTTP handlers.
+  SSE/WebSocket progress is bounded and scrubbed before the panel renders it.
+- [`../main/httpProxy.ts`](../main/httpProxy.ts) and
+  [`../main/httpWebSocket.ts`](../main/httpWebSocket.ts) own desktop networking:
+  scheme checks, every-hop SSRF validation, DNS-pinned sockets, redirect and
+  credential policy, timeout/cancel, and byte/message ceilings. Renderer code
+  must not add a desktop-only direct network path around this bridge.
 - [`../shared/httpWorkspaceCurl.ts`](../shared/httpWorkspaceCurl.ts) owns
   shell-safe cURL serialization and request-body fidelity. Copy surfaces import
   it directly and mask active environment secrets before calling it.

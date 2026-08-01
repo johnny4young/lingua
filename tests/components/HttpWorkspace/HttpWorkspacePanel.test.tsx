@@ -78,10 +78,133 @@ describe('HttpWorkspacePanel', () => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
     useExecutionHistoryStore.getState().clear();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [] });
+    useSettingsStore.setState({
+      sensitiveHttpHeaders: [],
+      httpAllowPrivateHosts: false,
+    });
     executeHttpRequestMock.mockReset();
     executeHttpRequestMock.mockResolvedValue(makeResponse());
     useAnnouncerStore.setState({ message: '', nonce: 0 });
+  });
+
+  it('renders live stream progress before recording the settled response', async () => {
+    const user = userEvent.setup();
+    executeHttpRequestMock.mockImplementation(async (_request, options) => {
+      options?.onProgress?.({
+        body: 'data: ready\n\n',
+        sizeBytes: 13,
+        messageCount: 1,
+        opened: true,
+      });
+      await Promise.resolve();
+      return makeResponse({
+        transport: 'sse',
+        contentType: 'text/event-stream',
+        body: 'data: ready\n\n',
+        messageCount: 1,
+      });
+    });
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-request-list-create'));
+    await user.selectOptions(
+      screen.getByTestId('http-request-editor-transport'),
+      'sse'
+    );
+    await user.type(
+      screen.getByTestId('http-request-editor-url'),
+      'https://api.example.com/events'
+    );
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    await waitFor(() =>
+      expect(screen.getByText('data: ready', { exact: false })).not.toBeNull()
+    );
+    expect(executeHttpRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({ transport: 'sse' }),
+      expect.objectContaining({ allowPrivateHosts: false })
+    );
+  });
+
+  it('redacts active environment secrets from the live stream preview', async () => {
+    const user = userEvent.setup();
+    const secret = 'stream-secret-value';
+    let settle!: (response: HttpResponseV1) => void;
+    executeHttpRequestMock.mockImplementation((_request, options) => {
+      options?.onProgress?.({
+        body: `data: ${secret}\n\n`,
+        sizeBytes: secret.length,
+        messageCount: 1,
+        opened: true,
+      });
+      return new Promise<HttpResponseV1>((resolve) => {
+        settle = resolve;
+      });
+    });
+    useWorkspaceToolStore.setState({
+      environments: [
+        {
+          version: 1,
+          id: 'env-1',
+          name: 'Dev',
+          variables: [
+            { id: 'variable-1', key: 'TOKEN', value: secret, secret: true },
+          ],
+          createdAt: '2026-08-01T00:00:00.000Z',
+          updatedAt: '2026-08-01T00:00:00.000Z',
+        },
+      ],
+      activeEnvironmentId: 'env-1',
+    });
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-request-list-create'));
+    await user.selectOptions(
+      screen.getByTestId('http-request-editor-transport'),
+      'sse'
+    );
+    await user.type(
+      screen.getByTestId('http-request-editor-url'),
+      'https://api.example.com/events'
+    );
+    await user.click(screen.getByTestId('http-request-editor-send'));
+
+    await waitFor(() => expect(screen.getByText(/<redacted>/)).not.toBeNull());
+    expect(document.body.textContent).not.toContain(secret);
+    settle(makeResponse({ transport: 'sse', body: 'done' }));
+  });
+
+  it('runs HTTP pipeline steps sequentially and skips the tail after failure', async () => {
+    const user = userEvent.setup();
+    const store = useWorkspaceToolStore.getState();
+    const requests = ['one', 'two', 'three'].map((id) => ({
+      ...createBlankHttpRequest({ id, name: id }),
+      url: `https://api.example.com/${id}`,
+    }));
+    store.createRequests(requests);
+    store.createHttpPipeline({
+      version: 1,
+      id: 'pipeline-1',
+      name: 'Failure flow',
+      steps: requests.map((request, index) => ({
+        id: `step-${index}`,
+        requestId: request.id,
+        enabled: true,
+      })),
+      stopOnFailure: true,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    });
+    executeHttpRequestMock
+      .mockResolvedValueOnce(makeResponse())
+      .mockResolvedValueOnce(
+        makeResponse({ kind: 'server-error', status: 500, statusText: 'Error' })
+      );
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-pipeline-open'));
+    await user.click(screen.getByRole('button', { name: 'Run pipeline' }));
+
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText('Skipped')).not.toBeNull());
+    expect(screen.getByText('Pipeline finished with failures.')).not.toBeNull();
   });
 
   it('lays out request list, editor, and response as columns', () => {

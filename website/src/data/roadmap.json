@@ -1,19 +1,13 @@
 {
-  "generatedAt": "2026-08-01T15:00:00.000Z",
+  "generatedAt": "2026-08-01T16:40:56.000Z",
   "totals": {
-    "planned": 3,
-    "inProgress": 7
+    "planned": 2,
+    "inProgress": 8
   },
   "planned": [
     {
       "theme": "HTTP & data",
       "items": [
-        {
-          "title": "WebSocket and server-sent event sessions",
-          "scope": "Add long-lived HTTP workspace sessions while preserving secret handling and desktop network protections.",
-          "status": "Planned",
-          "theme": "HTTP & data"
-        },
         {
           "title": "Cross-language notebook dataflow",
           "scope": "Let notebook cells react to values produced by another language without making execution implicit or opaque.",
@@ -35,6 +29,17 @@
     }
   ],
   "inProgress": [
+    {
+      "theme": "HTTP & data",
+      "items": [
+        {
+          "title": "Live API sessions and request pipelines",
+          "scope": "HTTP, SSE, WebSocket sessions, and named sequential HTTP pipelines now share bounded output, cancellation, secret-aware environments, captures, assertions, and a DNS-pinned SSRF-guarded desktop transport.",
+          "status": "Delivered",
+          "theme": "HTTP & data"
+        }
+      ]
+    },
     {
       "theme": "Project workflows",
       "items": [

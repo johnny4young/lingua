@@ -16,9 +16,16 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getBundledAppInfo } from '../../../shared/appInfo';
 import { applyCaptureRules } from '../../../shared/httpWorkspaceCaptures';
+import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
+import type {
+  HttpPipelineRunSnapshot,
+  HttpPipelineStepResult,
+  HttpPipelineV1,
+} from '../../../shared/httpPipeline';
 import {
   createBlankHttpRequest,
   type HttpRequestV1,
+  type HttpResponseV1,
 } from '../../../shared/httpWorkspaceSchema';
 import {
   collectSecretResolvedValues,
@@ -39,6 +46,7 @@ import { HttpRequestEditor } from './HttpRequestEditor';
 import { HttpResponsePreview } from './HttpResponsePreview';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
+import { HttpPipelineManager } from './HttpPipelineManager';
 
 export interface HttpWorkspacePanelProps {
   /**
@@ -75,10 +83,10 @@ function applyCapturesToActiveEnvironment(
     });
     return;
   }
-  store.updateEnvironmentVariables(envId, (variables) => {
+  store.updateEnvironmentVariables(envId, variables => {
     const next = variables.slice();
     for (const write of writes) {
-      const idx = next.findIndex((v) => v.key === write.targetVariable);
+      const idx = next.findIndex(v => v.key === write.targetVariable);
       if (idx >= 0) {
         next[idx] = { ...next[idx]!, value: write.value };
       } else {
@@ -92,7 +100,7 @@ function applyCapturesToActiveEnvironment(
     }
     return next;
   });
-  const envName = store.environments.find((e) => e.id === envId)?.name ?? '';
+  const envName = store.environments.find(e => e.id === envId)?.name ?? '';
   useUIStore.getState().pushStatusNotice({
     tone: 'success',
     messageKey: 'httpWorkspace.capture.applied',
@@ -108,35 +116,28 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // future SQL workspace  can have its own layout sibling.
   const layout = useDefaultLayout({
     id: 'lingua-http-workspace-layout',
-    panelIds: [
-      'http-request-list',
-      'http-request-editor',
-      'http-response-preview',
-    ],
+    panelIds: ['http-request-list', 'http-request-editor', 'http-response-preview'],
     storage: localStorage,
   });
-  const requests = useWorkspaceToolStore((state) => state.requests);
-  const activeRequestId = useWorkspaceToolStore((state) => state.activeRequestId);
-  const executingRequestId = useWorkspaceToolStore(
-    (state) => state.executingRequestId
-  );
+  const requests = useWorkspaceToolStore(state => state.requests);
+  const pipelineCount = useWorkspaceToolStore(state => state.httpPipelines.length);
+  const activeRequestId = useWorkspaceToolStore(state => state.activeRequestId);
+  const executingRequestId = useWorkspaceToolStore(state => state.executingRequestId);
   // The active request's Send button is busy only while THAT request is
   // the one in flight (per-request execution tracking).
-  const isExecuting =
-    executingRequestId !== null && executingRequestId === activeRequestId;
-  const responsesByRequestId = useWorkspaceToolStore(
-    (state) => state.responsesByRequestId
-  );
-  const sensitiveHttpHeaders = useSettingsStore(
-    (state) => state.sensitiveHttpHeaders
-  );
+  const isExecuting = executingRequestId !== null && executingRequestId === activeRequestId;
+  const responsesByRequestId = useWorkspaceToolStore(state => state.responsesByRequestId);
+  const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
+  const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);
   // implementation — environments + active selection drive the
   // selector, the resolution preview, and send-time interpolation.
-  const environments = useWorkspaceToolStore((state) => state.environments);
-  const activeEnvironmentId = useWorkspaceToolStore(
-    (state) => state.activeEnvironmentId
-  );
+  const environments = useWorkspaceToolStore(state => state.environments);
+  const activeEnvironmentId = useWorkspaceToolStore(state => state.activeEnvironmentId);
   const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
+  const [isPipelineManagerOpen, setIsPipelineManagerOpen] = useState(false);
+  const [pipelineRun, setPipelineRun] = useState<HttpPipelineRunSnapshot | null>(null);
+  const pipelineRunningRef = useRef(false);
+  const pipelineCancelledRef = useRef(false);
   // AbortController for the in-flight send. Held in a ref (not state) so
   // Stop / supersede can reach it without re-rendering; the `finally`
   // compares identity to avoid a stale settle clearing a newer send.
@@ -149,6 +150,10 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // as state (not a ref) so the documented "adjust state during render"
   // reset pattern fires exactly once per change.
   const [historyAnchor, setHistoryAnchor] = useState<string>('');
+  const [livePreview, setLivePreview] = useState<{
+    requestId: string;
+    response: HttpResponseV1;
+  } | null>(null);
 
   // SQL/HTTP MODEL rework — the rail is the single source of collection
   // navigation. On mount (and whenever the active id is cleared while
@@ -168,11 +173,11 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // navigation driven by the rail. The container tab owns the whole
   // collection, not one request, so there is no per-tab pin.
   const activeRequest: HttpRequestV1 | undefined = useMemo(
-    () => requests.find((r) => r.id === activeRequestId),
+    () => requests.find(r => r.id === activeRequestId),
     [requests, activeRequestId]
   );
   const activeHistory = useMemo(
-    () => (activeRequest ? responsesByRequestId[activeRequest.id] ?? [] : []),
+    () => (activeRequest ? (responsesByRequestId[activeRequest.id] ?? []) : []),
     [activeRequest, responsesByRequestId]
   );
 
@@ -191,9 +196,11 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // the shown response. The store records newest-first, so index 0 is
   // the live response; selecting an older history row shows its
   // metadata (the LRU stripped the body off non-newest entries).
-  const safeHistoryIndex =
-    historyIndex < activeHistory.length ? historyIndex : 0;
-  const activeResponse = activeHistory[safeHistoryIndex];
+  const safeHistoryIndex = historyIndex < activeHistory.length ? historyIndex : 0;
+  const activeResponse =
+    livePreview?.requestId === activeRequestId && isExecuting
+      ? livePreview.response
+      : activeHistory[safeHistoryIndex];
 
   // SQL/HTTP MODEL rework — a new request is a row in the collection,
   // NOT a new editor tab. `createRequest` appends it and selects it (the
@@ -233,9 +240,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       if (!source) return;
       const now = new Date().toISOString();
       const baseName =
-        source.name.length > 0
-          ? source.name
-          : t('httpWorkspace.requestList.rename.placeholder');
+        source.name.length > 0 ? source.name : t('httpWorkspace.requestList.rename.placeholder');
       const clone: HttpRequestV1 = {
         ...source,
         id: crypto.randomUUID(),
@@ -261,12 +266,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // closed-over `activeRequest` that may have switched during the
   // editor's debounce quiet window. `updateRequest` no-ops on an
   // unknown id, so a flush for a just-deleted request is harmless.
-  const handlePatch = useCallback(
-    (requestId: string, patch: Partial<HttpRequestV1>) => {
-      useWorkspaceToolStore.getState().updateRequest(requestId, patch);
-    },
-    []
-  );
+  const handlePatch = useCallback((requestId: string, patch: Partial<HttpRequestV1>) => {
+    useWorkspaceToolStore.getState().updateRequest(requestId, patch);
+  }, []);
 
   // implementation — send pipeline with environment interpolation +
   // secret-aware redaction. The privacy invariant (no resolved secret on
@@ -278,138 +280,281 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   //     back BEFORE the response is recorded / capsuled.
   //   - `maskSecretsForCapsule` keeps secret tokens as `{{key}}` in the
   //     capsule source so the export never carries the resolved value.
-  const handleSend = useCallback(async (requestToSend: HttpRequestV1) => {
-    // Block a duplicate send of the SAME request; a different request
-    // may still start (per-request execution model). Abort any prior
-    // in-flight send so only one request executes at a time.
-    if (
-      useWorkspaceToolStore.getState().executingRequestId === requestToSend.id
-    ) {
-      return;
-    }
-    abortRef.current?.abort('superseded');
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const env = useWorkspaceToolStore.getState().getActiveEnvironment() ?? null;
+  const handleSend = useCallback(
+    async (requestToSend: HttpRequestV1): Promise<HttpResponseV1 | null> => {
+      // Block a duplicate send of the SAME request; a different request
+      // may still start (per-request execution model). Abort any prior
+      // in-flight send so only one request executes at a time.
+      if (useWorkspaceToolStore.getState().executingRequestId === requestToSend.id) {
+        return null;
+      }
+      abortRef.current?.abort('superseded');
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setLivePreview(null);
+      const env = useWorkspaceToolStore.getState().getActiveEnvironment() ?? null;
 
-    // Block the send when a referenced `{{var}}` has no binding in the
-    // active env (or there is no env). Surfacing the names lets the user
-    // fix the environment without guessing which token is missing.
-    const unresolved = findUnresolvedVariables(requestToSend, env);
-    if (unresolved.length > 0) {
-      useUIStore.getState().pushStatusNotice({
-        tone: 'error',
-        messageKey: 'httpWorkspace.environment.unresolved.body',
-        values: {
-          count: unresolved.length,
-          names: unresolved.join(', '),
-        },
-      });
-      return;
-    }
-
-    useWorkspaceToolStore.getState().setExecutingRequestId(requestToSend.id);
-    try {
-      // Resolve EVERY var (secret + non-secret) into the outbound request.
-      const outbound = interpolateRequest(requestToSend, env);
-      const raw = await executeHttpRequest(outbound, {
-        userSensitiveHeaders: sensitiveHttpHeaders,
-        signal: controller.signal,
-      });
-      // User cancelled (Stop) or a newer send superseded this one: leave
-      // the previous response visible and skip recording entirely.
-      if (controller.signal.aborted) {
-        return;
-      }
-      // Scrub any echoed secret value out of the response BEFORE it is
-      // recorded or capsuled. No-op when there are no secrets.
-      const response = maskSecretValuesInResponse(
-        raw,
-        collectSecretResolvedValues(env)
-      );
-      useWorkspaceToolStore
-        .getState()
-        .recordResponse(requestToSend.id, response);
-      // implementation — request chaining. On a successful response, apply the
-      // request's capture rules: extract values from the RAW response
-      // (real values, before secret-masking) and upsert them into the
-      // ACTIVE environment so the next request can interpolate them via
-      // `{{VAR}}`. A brand-new captured token is not yet a known secret,
-      // so extracting from `raw` (not the masked `response`) is what
-      // yields the real value to store.
-      if (response.kind === 'success' && requestToSend.captures?.length) {
-        applyCapturesToActiveEnvironment(
-          applyCaptureRules(raw, requestToSend.captures)
-        );
-      }
-      const resolvedCount = findResolvedVariables(requestToSend, env).length;
-      trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
-      // accessibility pass — announce the response to screen readers; the status
-      // pill + response panes only convey it visually. HTTP 4xx/5xx are
-      // still real responses, so announce their status instead of flattening
-      // them into a generic failure. Some servers omit statusText, so fall
-      // back to a status-only phrasing to avoid a dangling "Response 200 .".
-      if (response.status > 0) {
-        announce(
-          response.statusText.trim()
-            ? t('httpWorkspace.run.announce', {
-                status: response.status,
-                statusText: response.statusText,
-              })
-            : t('httpWorkspace.run.announceStatus', { status: response.status })
-        );
-      } else {
-        announce(t('httpWorkspace.run.announceError'));
-      }
-      let capsule;
-      try {
-        const appInfo = getBundledAppInfo();
-        const platform: 'web' | 'desktop' =
-          typeof window !== 'undefined' && window.lingua?.platform === 'desktop'
-            ? 'desktop'
-            : 'web';
-        // Capsule-safe request: non-secret vars resolved (replay
-        // fidelity), secret vars kept as `{{key}}` placeholders.
-        const capsuleSafe = maskSecretsForCapsule(requestToSend, env);
-        capsule = await buildHttpResponseCapsule({
-          appVersion: appInfo.version,
-          requestName: requestToSend.name,
-          request: capsuleSafe,
-          response,
-          platform,
-          userSensitiveHeaders: sensitiveHttpHeaders,
+      // Block the send when a referenced `{{var}}` has no binding in the
+      // active env (or there is no env). Surfacing the names lets the user
+      // fix the environment without guessing which token is missing.
+      const unresolved = findUnresolvedVariables(requestToSend, env);
+      if (unresolved.length > 0) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'error',
+          messageKey: 'httpWorkspace.environment.unresolved.body',
+          values: {
+            count: unresolved.length,
+            names: unresolved.join(', '),
+          },
         });
-      } catch {
-        capsule = undefined;
+        return null;
       }
-      useExecutionHistoryStore.getState().record({
-        language: 'http',
-        status: response.kind === 'success' ? 'ok' : 'error',
-        durationMs: response.durationMs,
-        ...(capsule !== undefined ? { lastCapsule: capsule } : {}),
-      });
-    } catch (err) {
-      // `executeHttpRequest` always settles; this catch is defensive.
-      useUIStore.getState().pushStatusNotice({
-        tone: 'error',
-        messageKey: 'httpWorkspace.response.error.network',
-        detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
-      });
-    } finally {
-      // Only clear execution state if THIS send is still the current one
-      // (a superseding send installed its own controller + id already).
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-        useWorkspaceToolStore.getState().setExecutingRequestId(null);
+
+      useWorkspaceToolStore.getState().setExecutingRequestId(requestToSend.id);
+      try {
+        // Resolve EVERY var (secret + non-secret) into the outbound request.
+        const outbound = interpolateRequest(requestToSend, env);
+        const secretValues = collectSecretResolvedValues(env);
+        const raw = await executeHttpRequest(outbound, {
+          userSensitiveHeaders: sensitiveHttpHeaders,
+          allowPrivateHosts: httpAllowPrivateHosts,
+          signal: controller.signal,
+          runId: crypto.randomUUID(),
+          onProgress: progress => {
+            const preview: HttpResponseV1 = {
+              version: 1,
+              transport: requestToSend.transport === 'websocket' ? 'websocket' : 'sse',
+              kind: 'success',
+              status: progress.opened ? (requestToSend.transport === 'websocket' ? 101 : 200) : 0,
+              statusText: progress.opened
+                ? requestToSend.transport === 'websocket'
+                  ? 'Switching Protocols'
+                  : 'Streaming'
+                : '',
+              url: requestToSend.url,
+              finalUrl: requestToSend.url,
+              headers: [],
+              body: progress.body,
+              contentType:
+                requestToSend.transport === 'websocket'
+                  ? 'application/websocket'
+                  : 'text/event-stream',
+              sizeBytes: progress.sizeBytes,
+              durationMs: 0,
+              tooLarge: false,
+              redactedHeaders: [],
+              recordedAt: new Date().toISOString(),
+              messageCount: progress.messageCount,
+            };
+            setLivePreview({
+              requestId: requestToSend.id,
+              response: maskSecretValuesInResponse(preview, secretValues),
+            });
+          },
+        });
+        // User cancelled (Stop) or a newer send superseded this one: leave
+        // the previous response visible and skip recording entirely.
+        if (controller.signal.aborted) {
+          return null;
+        }
+        // Scrub any echoed secret value out of the response BEFORE it is
+        // recorded or capsuled. No-op when there are no secrets.
+        const response = maskSecretValuesInResponse(raw, secretValues);
+        setLivePreview(null);
+        useWorkspaceToolStore.getState().recordResponse(requestToSend.id, response);
+        // implementation — request chaining. On a successful response, apply the
+        // request's capture rules: extract values from the RAW response
+        // (real values, before secret-masking) and upsert them into the
+        // ACTIVE environment so the next request can interpolate them via
+        // `{{VAR}}`. A brand-new captured token is not yet a known secret,
+        // so extracting from `raw` (not the masked `response`) is what
+        // yields the real value to store.
+        if (response.kind === 'success' && requestToSend.captures?.length) {
+          applyCapturesToActiveEnvironment(applyCaptureRules(raw, requestToSend.captures));
+        }
+        const resolvedCount = findResolvedVariables(requestToSend, env).length;
+        trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
+        // accessibility pass — announce the response to screen readers; the status
+        // pill + response panes only convey it visually. HTTP 4xx/5xx are
+        // still real responses, so announce their status instead of flattening
+        // them into a generic failure. Some servers omit statusText, so fall
+        // back to a status-only phrasing to avoid a dangling "Response 200 .".
+        if (response.status > 0) {
+          announce(
+            response.statusText.trim()
+              ? t('httpWorkspace.run.announce', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+              : t('httpWorkspace.run.announceStatus', { status: response.status })
+          );
+        } else {
+          announce(t('httpWorkspace.run.announceError'));
+        }
+        let capsule;
+        try {
+          const appInfo = getBundledAppInfo();
+          const platform: 'web' | 'desktop' =
+            typeof window !== 'undefined' && window.lingua?.platform === 'desktop'
+              ? 'desktop'
+              : 'web';
+          // Capsule-safe request: non-secret vars resolved (replay
+          // fidelity), secret vars kept as `{{key}}` placeholders.
+          const capsuleSafe = maskSecretsForCapsule(requestToSend, env);
+          capsule = await buildHttpResponseCapsule({
+            appVersion: appInfo.version,
+            requestName: requestToSend.name,
+            request: capsuleSafe,
+            response,
+            platform,
+            userSensitiveHeaders: sensitiveHttpHeaders,
+          });
+        } catch {
+          capsule = undefined;
+        }
+        useExecutionHistoryStore.getState().record({
+          language: 'http',
+          status: response.kind === 'success' ? 'ok' : 'error',
+          durationMs: response.durationMs,
+          ...(capsule !== undefined ? { lastCapsule: capsule } : {}),
+        });
+        return response;
+      } catch (err) {
+        // `executeHttpRequest` always settles; this catch is defensive.
+        useUIStore.getState().pushStatusNotice({
+          tone: 'error',
+          messageKey: 'httpWorkspace.response.error.network',
+          detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
+        });
+        return null;
+      } finally {
+        // Only clear execution state if THIS send is still the current one
+        // (a superseding send installed its own controller + id already).
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          useWorkspaceToolStore.getState().setExecutingRequestId(null);
+        }
       }
-    }
-  }, [sensitiveHttpHeaders, t, announce]);
+    },
+    [sensitiveHttpHeaders, httpAllowPrivateHosts, t, announce]
+  );
 
   // Cancel the in-flight request (Stop button). Leaves the previous
   // response on screen; the aborted send skips recording.
   const handleStop = useCallback(() => {
+    pipelineCancelledRef.current = true;
     abortRef.current?.abort('cancelled');
+    setLivePreview(null);
   }, []);
+
+  const handleRunPipeline = useCallback(
+    async (pipeline: HttpPipelineV1): Promise<void> => {
+      // React state does not update synchronously, so the rendered phase alone
+      // cannot reject two clicks in the same event turn. Keep an imperative
+      // lock for the runner and release it from every terminal publication.
+      if (pipelineRunningRef.current) return;
+      pipelineRunningRef.current = true;
+      pipelineCancelledRef.current = false;
+      const startedAt = new Date().toISOString();
+      const enabledSteps = pipeline.steps.filter(step => step.enabled);
+      const results: HttpPipelineStepResult[] = [];
+      const publish = (phase: HttpPipelineRunSnapshot['phase'], activeStepId?: string): void => {
+        setPipelineRun({
+          pipelineId: pipeline.id,
+          startedAt,
+          ...(phase !== 'running' ? { finishedAt: new Date().toISOString() } : {}),
+          phase,
+          ...(activeStepId ? { activeStepId } : {}),
+          results: [...results],
+        });
+      };
+      try {
+        publish('running', enabledSteps[0]?.id);
+        for (const [index, step] of enabledSteps.entries()) {
+          if (pipelineCancelledRef.current) {
+            for (const remaining of enabledSteps.slice(index)) {
+              results.push({
+                stepId: remaining.id,
+                requestId: remaining.requestId,
+                status: 'skipped',
+                message: 'cancelled',
+              });
+            }
+            publish('cancelled');
+            return;
+          }
+          publish('running', step.id);
+          const request = useWorkspaceToolStore.getState().getRequest(step.requestId);
+          if (!request || (request.transport ?? 'http') !== 'http') {
+            results.push({
+              stepId: step.id,
+              requestId: step.requestId,
+              status: 'failed',
+              message: request ? 'live-transport' : 'missing-request',
+            });
+          } else {
+            const response = await handleSend(request);
+            if (!response) {
+              if (pipelineCancelledRef.current) {
+                results.push({
+                  stepId: step.id,
+                  requestId: step.requestId,
+                  status: 'skipped',
+                  message: 'cancelled',
+                });
+                for (const remaining of enabledSteps.slice(index + 1)) {
+                  results.push({
+                    stepId: remaining.id,
+                    requestId: remaining.requestId,
+                    status: 'skipped',
+                    message: 'cancelled',
+                  });
+                }
+                publish('cancelled');
+                return;
+              }
+              results.push({
+                stepId: step.id,
+                requestId: step.requestId,
+                status: 'failed',
+                message: 'no-response',
+              });
+            } else {
+              const assertionFailures = runAssertions(response, request.assertions ?? []).filter(
+                result => !result.pass
+              ).length;
+              const passed = response.kind === 'success' && assertionFailures === 0;
+              results.push({
+                stepId: step.id,
+                requestId: step.requestId,
+                status: passed ? 'passed' : 'failed',
+                responseKind: response.kind,
+                httpStatus: response.status,
+                assertionFailures,
+              });
+            }
+          }
+          const failed = results.at(-1)?.status === 'failed';
+          if (failed && pipeline.stopOnFailure) {
+            for (const remaining of enabledSteps.slice(index + 1)) {
+              results.push({
+                stepId: remaining.id,
+                requestId: remaining.requestId,
+                status: 'skipped',
+                message: 'stopped-on-failure',
+              });
+            }
+            publish('failed');
+            return;
+          }
+        }
+        publish(results.some(result => result.status === 'failed') ? 'failed' : 'completed');
+      } finally {
+        pipelineRunningRef.current = false;
+      }
+    },
+    [handleSend]
+  );
 
   const handleSelectEnvironment = useCallback((id: string | null) => {
     useWorkspaceToolStore.getState().setActiveEnvironment(id);
@@ -420,10 +565,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   }, []);
 
   return (
-    <div
-      data-testid="http-workspace-panel"
-      className="flex h-full min-w-0 flex-col"
-    >
+    <div data-testid="http-workspace-panel" className="relative flex h-full min-w-0 flex-col">
       <Group
         orientation="horizontal"
         defaultLayout={layout.defaultLayout}
@@ -440,6 +582,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             onRename={handleRename}
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}
+            onOpenPipelines={() => setIsPipelineManagerOpen(true)}
+            pipelineCount={pipelineCount}
           />
         </Panel>
         <Panel id="http-request-editor" defaultSize="50%" minSize={320}>
@@ -467,7 +611,13 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                 isExecuting={isExecuting}
                 requestSummary={
                   activeRequest
-                    ? `${activeRequest.method} ${activeRequest.url}`
+                    ? `${
+                        activeRequest.transport === 'websocket'
+                          ? 'WebSocket'
+                          : activeRequest.transport === 'sse'
+                            ? 'SSE'
+                            : activeRequest.method
+                      } ${activeRequest.url}`
                     : undefined
                 }
                 assertions={activeRequest?.assertions}
@@ -485,21 +635,13 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         <HttpEnvironmentManager
           environments={environments}
           onClose={() => setIsManagerOpen(false)}
-          onCreate={(env) =>
-            useWorkspaceToolStore.getState().createEnvironment(env)
-          }
-          onUpdate={(id, patch) =>
-            useWorkspaceToolStore.getState().updateEnvironment(id, patch)
-          }
+          onCreate={env => useWorkspaceToolStore.getState().createEnvironment(env)}
+          onUpdate={(id, patch) => useWorkspaceToolStore.getState().updateEnvironment(id, patch)}
           onUpdateVariables={(id, updater) =>
-            useWorkspaceToolStore
-              .getState()
-              .updateEnvironmentVariables(id, updater)
+            useWorkspaceToolStore.getState().updateEnvironmentVariables(id, updater)
           }
-          onDelete={(id) =>
-            useWorkspaceToolStore.getState().deleteEnvironment(id)
-          }
-          onDuplicate={(id) =>
+          onDelete={id => useWorkspaceToolStore.getState().deleteEnvironment(id)}
+          onDuplicate={id =>
             useWorkspaceToolStore
               .getState()
               .duplicateEnvironment(
@@ -508,12 +650,16 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                 t('httpWorkspace.environment.manager.copySuffix')
               )
           }
-          onExport={(id) =>
-            useWorkspaceToolStore.getState().exportEnvironmentJson(id)
-          }
-          onImport={(json) =>
-            useWorkspaceToolStore.getState().importEnvironmentJson(json)
-          }
+          onExport={id => useWorkspaceToolStore.getState().exportEnvironmentJson(id)}
+          onImport={json => useWorkspaceToolStore.getState().importEnvironmentJson(json)}
+        />
+      ) : null}
+      {isPipelineManagerOpen ? (
+        <HttpPipelineManager
+          onClose={() => setIsPipelineManagerOpen(false)}
+          run={pipelineRun}
+          onRun={pipeline => void handleRunPipeline(pipeline)}
+          onStop={handleStop}
         />
       ) : null}
     </div>

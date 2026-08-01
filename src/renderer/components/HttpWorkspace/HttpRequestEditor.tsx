@@ -45,6 +45,7 @@ import {
   type HttpRequestBodyKind,
   type HttpRequestHeader,
   type HttpRequestV1,
+  type HttpTransportKind,
 } from '../../../shared/httpWorkspaceSchema';
 import {
   HTTP_CODEGEN_TARGETS,
@@ -59,6 +60,7 @@ import { tryParseCurl } from './curlImport';
 import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
 import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
 import { HttpRequestBuilderTabs, type HttpRequestBuilderTab } from './HttpRequestBuilderTabs';
+import { HttpTransportSelect } from './HttpTransportSelect';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
 
@@ -124,6 +126,7 @@ export function HttpRequestEditor({
   // request list among other things).
   const [url, setUrl] = useState<string>(request.url);
   const [method, setMethod] = useState<HttpMethod>(request.method);
+  const [transport, setTransport] = useState<HttpTransportKind>(request.transport ?? 'http');
   const [headers, setHeaders] = useState<HttpRequestHeader[]>(request.headers);
   const [body, setBody] = useState<HttpRequestBody | undefined>(request.body);
   // Params seed from the persisted `queryParams` when present, else
@@ -149,6 +152,7 @@ export function HttpRequestEditor({
   const previewRequest = useMemo<HttpRequestV1>(
     () => ({
       ...request,
+      transport,
       method,
       url,
       headers,
@@ -156,7 +160,7 @@ export function HttpRequestEditor({
       ...(auth ? { auth } : {}),
       body: body ?? { kind: 'none' },
     }),
-    [request, method, url, headers, params, auth, body]
+    [request, transport, method, url, headers, params, auth, body]
   );
 
   // implementation note — debounced auto-save. One timer covers all fields so a
@@ -206,6 +210,7 @@ export function HttpRequestEditor({
     lastRequestIdRef.current = request.id;
     setUrl(request.url);
     setMethod(request.method);
+    setTransport(request.transport ?? 'http');
     setHeaders(request.headers);
     setBody(request.body);
     setParams(request.queryParams ?? urlToParams(request.url));
@@ -216,6 +221,7 @@ export function HttpRequestEditor({
     request.id,
     request.url,
     request.method,
+    request.transport,
     request.headers,
     request.body,
     request.queryParams,
@@ -240,6 +246,7 @@ export function HttpRequestEditor({
   const buildDraftPatch = useCallback(
     (patch: Partial<HttpRequestV1> = {}): Partial<HttpRequestV1> => ({
       method: patch.method ?? method,
+      transport: patch.transport ?? transport,
       url: patch.url ?? url,
       headers: patch.headers ?? headers,
       queryParams: patch.queryParams ?? params,
@@ -252,7 +259,7 @@ export function HttpRequestEditor({
       ...(patch.captures !== undefined ? { captures: patch.captures } : {}),
       ...(patch.assertions !== undefined ? { assertions: patch.assertions } : {}),
     }),
-    [method, url, headers, params, auth, body]
+    [transport, method, url, headers, params, auth, body]
   );
 
   const scheduleAutoSave = useCallback(
@@ -276,6 +283,7 @@ export function HttpRequestEditor({
   const buildDraftRequest = useCallback((): HttpRequestV1 => {
     return {
       ...request,
+      transport,
       method,
       url,
       headers,
@@ -285,7 +293,7 @@ export function HttpRequestEditor({
       captures,
       assertions,
     };
-  }, [request, method, url, headers, params, auth, body, captures, assertions]);
+  }, [request, transport, method, url, headers, params, auth, body, captures, assertions]);
 
   const flushDraftBeforeSend = useCallback((): HttpRequestV1 | null => {
     const draft = buildDraftRequest();
@@ -304,6 +312,7 @@ export function HttpRequestEditor({
     pendingPatchRef.current = null;
     pendingTargetIdRef.current = null;
     onPatch(request.id, {
+      transport: draft.transport,
       method: draft.method,
       url: draft.url,
       headers: draft.headers,
@@ -633,6 +642,15 @@ export function HttpRequestEditor({
 
       {/* Method + URL row */}
       <div className="flex shrink-0 items-center gap-2">
+        <HttpTransportSelect
+          value={transport}
+          onChange={next => {
+            setTransport(next);
+            const nextMethod: HttpMethod = next === 'http' ? method : 'GET';
+            if (next !== 'http') setMethod('GET');
+            scheduleAutoSave({ transport: next, method: nextMethod });
+          }}
+        />
         <label className="sr-only" htmlFor="http-request-method">
           {t('httpWorkspace.editor.method.label')}
         </label>
@@ -640,6 +658,7 @@ export function HttpRequestEditor({
           id="http-request-method"
           data-testid="http-request-editor-method"
           value={method}
+          disabled={transport !== 'http'}
           onChange={event => {
             const next = event.target.value as HttpMethod;
             setMethod(next);
@@ -656,7 +675,13 @@ export function HttpRequestEditor({
         <input
           type="text"
           data-testid="http-request-editor-url"
-          placeholder={t('httpWorkspace.editor.url.placeholder')}
+          placeholder={t(
+            transport === 'websocket'
+              ? 'httpWorkspace.editor.url.websocketPlaceholder'
+              : transport === 'sse'
+                ? 'httpWorkspace.editor.url.ssePlaceholder'
+                : 'httpWorkspace.editor.url.placeholder'
+          )}
           aria-label={t('httpWorkspace.editor.url.ariaLabel')}
           value={url}
           onChange={event => handleUrlChange(event.target.value)}
@@ -668,7 +693,7 @@ export function HttpRequestEditor({
           <button
             type="button"
             onClick={() => setCopyMenuOpen(open => !open)}
-            disabled={url.trim().length === 0}
+            disabled={url.trim().length === 0 || transport !== 'http'}
             data-testid="http-request-editor-copy-menu"
             aria-haspopup="menu"
             aria-expanded={copyMenuOpen}
@@ -744,6 +769,7 @@ export function HttpRequestEditor({
 
       <HttpRequestBuilderTabs
         method={method}
+        transport={transport}
         activeTab={builderTab}
         onSelectTab={setBuilderTab}
         params={params}

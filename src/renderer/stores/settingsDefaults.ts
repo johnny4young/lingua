@@ -235,6 +235,7 @@ export function createInitialSettingsState() {
     // redaction time). Users add via Settings → Privacy → Sensitive
     // HTTP headers.
     sensitiveHttpHeaders: [],
+    httpAllowPrivateHosts: false,
     // implementation — SQL workspace preview cap + default timeout.
     // The runtime layer enforces `MAX_RESULT_ROWS` (10 000) +
     // `MAX_QUERY_TIMEOUT_MS` (5 min) regardless; these knobs live

@@ -24,6 +24,7 @@ export function createPrivacyActions(
   | 'toggleDependencyDetectionEnabled'
   | 'addSensitiveHttpHeader'
   | 'removeSensitiveHttpHeader'
+  | 'setHttpAllowPrivateHosts'
 > {
   return {
     toggleExecutionHistorySnapshot: () =>
@@ -60,6 +61,8 @@ export function createPrivacyActions(
       set((state) => ({
         dependencyDetectionEnabled: !state.dependencyDetectionEnabled,
       })),
+    setHttpAllowPrivateHosts: (httpAllowPrivateHosts) =>
+      set({ httpAllowPrivateHosts: httpAllowPrivateHosts === true }),
     addSensitiveHttpHeader: (name) =>
       set((state) => {
         if (typeof name !== 'string') return state;

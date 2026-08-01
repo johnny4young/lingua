@@ -33,6 +33,7 @@ import { registerRecoveryHandlers } from './ipc/recovery';
 import { registerDependencyHandlers } from './ipc/dependencies';
 import { registerGitHandlers } from './ipc/git';
 import { registerProjectTestHandlers } from './ipc/projectTests';
+import { disposeHttpRuns, registerHttpHandlers } from './ipc/http';
 import { disposeProjectTestRuns } from './projectTests';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
@@ -78,6 +79,7 @@ registerRecoveryHandlers();
 registerDependencyHandlers();
 registerGitHandlers();
 registerProjectTestHandlers();
+registerHttpHandlers();
 registerUpdater();
 
 let forceQuit = false;
@@ -325,6 +327,7 @@ app.on('before-quit', () => {
   // Lingua's main process.
   disposeLspBridge();
   disposeProjectTestRuns();
+  disposeHttpRuns();
 });
 
 app.on('activate', () => {

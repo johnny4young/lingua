@@ -1,9 +1,17 @@
 import { contextBridge } from 'electron';
+import type { HttpDesktopAPI } from '../shared/httpWorkspaceSchema';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
 
 const desktopSmokeEnabled =
   process.env.LINGUA_DESKTOP_SMOKE === '1' ||
   process.argv.includes('--lingua-desktop-smoke');
+
+const http: HttpDesktopAPI = {
+  execute: (runId, request, options) =>
+    typedInvoke('http:execute', runId, request, options),
+  cancel: (runId) => typedInvoke('http:cancel', runId),
+  onProgress: (handler) => typedOn('http:stream-progress', handler),
+};
 
 contextBridge.exposeInMainWorld('lingua', {
   platform: process.platform,
@@ -11,6 +19,7 @@ contextBridge.exposeInMainWorld('lingua', {
   getSystemLanguages: () => typedInvoke('app:get-system-languages'),
   getAppInfo: () => typedInvoke('app:get-info'),
   openExternal: (url: string) => typedInvoke('app:open-external', url),
+  http,
 
   deepLinks: {
     consumePending: () => typedInvoke('app:consume-pending-deep-link'),

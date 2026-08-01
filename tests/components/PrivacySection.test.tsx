@@ -66,6 +66,14 @@ describe('PrivacySection', () => {
     expect(screen.getByTestId('run-ledger-status').textContent).toContain('this session only');
   });
 
+  it('keeps the private-host opt-in unavailable without the desktop bridge', () => {
+    render(<PrivacySection />);
+    const toggle = screen.getByTestId('http-private-hosts-toggle') as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByText(/controlled by the browser/i)).toBeTruthy();
+  });
+
   // implementation — `shareLinkConfirmEnabled` was removed; the share-link
   // confirmation modal is now the only path before clipboard writes
   // (safer default for accidental shares). The toggle no longer

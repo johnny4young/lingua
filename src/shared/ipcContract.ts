@@ -52,11 +52,7 @@ interface IpcInvokeContract {
     result: GoDetectResult;
   };
   'go:compile': {
-    args: [
-      sourceCode: string,
-      userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages,
-    ];
+    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages];
     result: GoCompileResult;
   };
 
@@ -66,11 +62,7 @@ interface IpcInvokeContract {
     result: RustDetectResult;
   };
   'rust:run': {
-    args: [
-      sourceCode: string,
-      userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages,
-    ];
+    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages];
     result: RustRunResult;
   };
 
@@ -129,6 +121,17 @@ interface IpcInvokeContract {
 
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
+
+  // ------------------------------------------------ guarded HTTP workspace
+  'http:execute': {
+    args: [
+      runId: string,
+      request: import('./httpWorkspaceSchema').HttpRequestV1,
+      options: import('./httpWorkspaceSchema').HttpDesktopRequestOptions,
+    ];
+    result: import('./httpWorkspaceSchema').HttpResponseV1;
+  };
+  'http:cancel': { args: [runId: string]; result: { cancelled: boolean } };
 
   // ---------------------------------------------------- project test runner
   'project-tests:detect': {
@@ -232,12 +235,7 @@ interface IpcInvokeContract {
     result: FsIndexedFile[];
   };
   'fs:searchInFiles': {
-    args: [
-      rootId: string,
-      relativePath: string,
-      query: string,
-      options?: FsSearchOptions,
-    ];
+    args: [rootId: string, relativePath: string, query: string, options?: FsSearchOptions];
     result: FsSearchResult[];
   };
   'fs:replaceInFiles': {
@@ -274,12 +272,7 @@ interface IpcInvokeContract {
     result: boolean;
   };
   'fs:delete': {
-    args: [
-      rootId: string,
-      relativePath: string,
-      isDirectory?: boolean,
-      language?: string,
-    ];
+    args: [rootId: string, relativePath: string, isDirectory?: boolean, language?: string];
     result: boolean;
   };
   'fs:rename': {
@@ -447,6 +440,7 @@ interface IpcPushContract {
   // output before the process exits.
   'runtime:output-chunk': RuntimeOutputChunk;
   'project-tests:output': ProjectTestOutputEvent;
+  'http:stream-progress': import('./httpWorkspaceSchema').HttpStreamProgress;
   'git:on-head-changed': GitHeadChangePayload;
   'git:on-head-watcher-failed': GitHeadWatcherFailurePayload;
 }
@@ -461,10 +455,8 @@ interface IpcSendContract {
 }
 
 export type IpcInvokeChannel = keyof IpcInvokeContract;
-export type IpcInvokeArgs<C extends IpcInvokeChannel> =
-  IpcInvokeContract[C]['args'];
-export type IpcInvokeResult<C extends IpcInvokeChannel> =
-  IpcInvokeContract[C]['result'];
+export type IpcInvokeArgs<C extends IpcInvokeChannel> = IpcInvokeContract[C]['args'];
+export type IpcInvokeResult<C extends IpcInvokeChannel> = IpcInvokeContract[C]['result'];
 
 export type IpcPushChannel = keyof IpcPushContract;
 export type IpcPushPayload<C extends IpcPushChannel> = IpcPushContract[C];
@@ -510,6 +502,8 @@ export const IPC_INVOKE_CHANNELS = [
   'format:python',
   'consent:set',
   'env:snapshot',
+  'http:execute',
+  'http:cancel',
   'project-tests:detect',
   'project-tests:run',
   'project-tests:stop',

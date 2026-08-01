@@ -104,6 +104,7 @@ export function settingsPartialize(state: SettingsState) {
     // Baseline list is never persisted (it's a build-time
     // constant); only the delta the user added.
     sensitiveHttpHeaders: state.sensitiveHttpHeaders,
+    httpAllowPrivateHosts: state.httpAllowPrivateHosts,
     // implementation — persist SQL workspace preferences.
     sqlWorkspaceRowDisplayLimit: state.sqlWorkspaceRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,

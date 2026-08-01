@@ -223,7 +223,11 @@ export function HttpResponsePreview({
 
   // Mono meta line: `245 ms · 83 B`, matching the proto's shared
   // result header (timing first, then size).
-  const meta = `${response.durationMs} ms · ${formatBytes(response.sizeBytes)}`;
+  const meta = `${response.durationMs} ms · ${formatBytes(response.sizeBytes)}${
+    response.messageCount !== undefined
+      ? ` · ${t('httpWorkspace.response.messages', { count: response.messageCount })}`
+      : ''
+  }`;
   const prettyToggleVisible =
     tab === 'body' && isJsonContentType(response.contentType);
 

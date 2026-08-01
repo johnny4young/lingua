@@ -18,15 +18,7 @@
  * Mirrored on `update-server/src/telemetry.ts` as `HTTP_METHODS`
  * with a parity test.
  */
-export const HTTP_METHODS = [
-  'GET',
-  'POST',
-  'PUT',
-  'PATCH',
-  'DELETE',
-  'HEAD',
-  'OPTIONS',
-] as const;
+export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
 export type HttpMethod = (typeof HTTP_METHODS)[number];
 
 /**
@@ -68,6 +60,9 @@ export const MAX_REQUEST_BODY_BYTES = 1_048_576;
 
 /** Hard cap on the response body size. 4 MiB. */
 export const MAX_RESPONSE_BODY_BYTES = 4 * 1_048_576;
+
+/** Live transports retain at most this many discrete messages per run. */
+export const MAX_STREAM_MESSAGES = 1_000;
 
 /** Default request timeout. User can override per request, capped at 5 min. */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
@@ -155,11 +150,7 @@ export interface HttpCaptureRule {
  * first three mirror `HttpCaptureSource` (and reuse the same extractor);
  * `response-time` checks the round-trip duration in milliseconds.
  */
-export type HttpAssertionSource =
-  | 'status'
-  | 'header'
-  | 'body-json'
-  | 'response-time';
+export type HttpAssertionSource = 'status' | 'header' | 'body-json' | 'response-time';
 
 /**
  * How an assertion compares the actual value to `expected`.
@@ -252,6 +243,12 @@ export interface HttpRequestV1 {
   id: string;
   /** User-editable label shown in the request list. */
   name: string;
+  /**
+   * Network transport. Missing means ordinary HTTP for backward compatibility.
+   * SSE is a streaming GET; WebSocket uses `ws:` / `wss:` and may send the
+   * request body once after the connection opens.
+   */
+  transport?: HttpTransportKind;
   method: HttpMethod;
   /** URL string. The runtime validates with `new URL()` before sending. */
   url: string;
@@ -305,6 +302,8 @@ export type HttpResponseKind =
   | 'cors-error'
   | 'too-large';
 
+export type HttpTransportKind = 'http' | 'sse' | 'websocket';
+
 export interface HttpResponseHeader {
   name: string;
   value: string;
@@ -314,6 +313,8 @@ export interface HttpResponseHeader {
 export interface HttpResponseV1 {
   /** Hard-coded `1`. `parseHttpResponse` rejects any other value. */
   version: 1;
+  /** Missing on responses recorded before live transports shipped. */
+  transport?: HttpTransportKind;
   /** Closed-enum outcome. */
   kind: HttpResponseKind;
   /**
@@ -351,6 +352,37 @@ export interface HttpResponseV1 {
    * server-error (where the status code carries the signal).
    */
   errorMessage?: string;
+  /** Number of SSE events or WebSocket messages retained in `body`. */
+  messageCount?: number;
+  /** WebSocket close metadata; absent for HTTP and SSE responses. */
+  closeCode?: number;
+  closeReason?: string;
+}
+
+/** Bounded live preview emitted while SSE/WebSocket requests are running. */
+export interface HttpStreamProgress {
+  readonly runId: string;
+  readonly requestId: string;
+  readonly transport: 'sse' | 'websocket';
+  readonly body: string;
+  readonly sizeBytes: number;
+  readonly messageCount: number;
+  readonly opened: boolean;
+}
+
+export interface HttpDesktopRequestOptions {
+  allowPrivateHosts: boolean;
+  userSensitiveHeaders: string[];
+}
+
+export interface HttpDesktopAPI {
+  execute: (
+    runId: string,
+    request: HttpRequestV1,
+    options: HttpDesktopRequestOptions
+  ) => Promise<HttpResponseV1>;
+  cancel: (runId: string) => Promise<{ cancelled: boolean }>;
+  onProgress: (handler: (progress: HttpStreamProgress) => void) => () => void;
 }
 
 /**
@@ -367,6 +399,7 @@ export function createBlankHttpRequest(options: {
     version: 1,
     id: options.id,
     name: options.name ?? '',
+    transport: 'http',
     method: 'GET',
     url: '',
     headers: [],

@@ -97,6 +97,7 @@ export function PrivacySection() {
             </div>
           }
         />
+        <PrivateHostsRow />
         <SensitiveHeadersRow />
       </SpecCard>
       {/* internal — the local Run Ledger card: opt-in, clear, export. */}
@@ -104,6 +105,33 @@ export function PrivacySection() {
         <RunLedgerRows />
       </SpecCard>
     </SettingsSection>
+  );
+}
+
+function PrivateHostsRow() {
+  const { t } = useTranslation();
+  const enabled = useSettingsStore((state) => state.httpAllowPrivateHosts);
+  const setEnabled = useSettingsStore((state) => state.setHttpAllowPrivateHosts);
+  const available = typeof window !== 'undefined' && Boolean(window.lingua?.http);
+  return (
+    <SpecRow
+      searchTargetId="privacy-http-private-hosts"
+      label={t('settings.privacy.privateHosts.title')}
+      description={t(
+        available
+          ? 'settings.privacy.privateHosts.description'
+          : 'settings.privacy.privateHosts.webUnavailable'
+      )}
+      control={
+        <Toggle
+          value={enabled}
+          onChange={() => setEnabled(!enabled)}
+          disabled={!available}
+          aria-label={t('settings.privacy.privateHosts.title')}
+          data-testid="http-private-hosts-toggle"
+        />
+      }
+    />
   );
 }
 

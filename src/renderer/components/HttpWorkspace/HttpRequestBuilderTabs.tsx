@@ -12,6 +12,7 @@ import type {
   HttpRequestBody,
   HttpRequestBodyKind,
   HttpRequestHeader,
+  HttpTransportKind,
 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 import { HttpAssertionsTab } from './HttpAssertionsTab';
@@ -29,6 +30,7 @@ export type HttpRequestBuilderTab =
 
 interface HttpRequestBuilderTabsProps {
   readonly method: HttpMethod;
+  readonly transport?: HttpTransportKind;
   readonly activeTab: HttpRequestBuilderTab;
   readonly onSelectTab: (tab: HttpRequestBuilderTab) => void;
   readonly params: readonly HttpQueryParam[];
@@ -56,6 +58,7 @@ interface HttpRequestBuilderTabsProps {
 
 export function HttpRequestBuilderTabs({
   method,
+  transport = 'http',
   activeTab,
   onSelectTab,
   params,
@@ -81,7 +84,9 @@ export function HttpRequestBuilderTabs({
   onRemoveAssertion,
 }: HttpRequestBuilderTabsProps) {
   const { t } = useTranslation();
-  const supportsBody = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+  const supportsBody =
+    transport === 'websocket' ||
+    (transport === 'http' && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS');
   const bodyKind: HttpRequestBodyKind = body?.kind ?? 'none';
 
   const builderTabs = useMemo(() => {

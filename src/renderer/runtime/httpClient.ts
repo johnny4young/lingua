@@ -30,6 +30,7 @@ import {
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
+  MAX_STREAM_MESSAGES,
   bucketHttpStatus,
   utf8ByteLength,
   type HttpRequestV1,
@@ -55,6 +56,17 @@ export interface ExecuteHttpRequestOptions {
   fetchImpl?: typeof fetch;
   /** Test seam: override the response body cap. Production passes undefined. */
   maxResponseBodyBytes?: number;
+  /** Desktop proxy opt-in; ignored by the browser transport. */
+  allowPrivateHosts?: boolean;
+  /** Bounded live preview for SSE/WebSocket runs. */
+  onProgress?: (progress: {
+    body: string;
+    sizeBytes: number;
+    messageCount: number;
+    opened: boolean;
+  }) => void;
+  /** Stable run id for the typed desktop IPC lifecycle. */
+  runId?: string;
 }
 
 /**
@@ -110,7 +122,9 @@ function classifyFetchError(err: unknown, signal: AbortSignal | null): {
  */
 async function readBodyWithCap(
   response: Response,
-  cap: number
+  cap: number,
+  onProgress?: ExecuteHttpRequestOptions['onProgress'],
+  maxMessages?: number
 ): Promise<{ text: string; size: number; tooLarge: boolean }> {
   const reader = response.body?.getReader();
   if (!reader) {
@@ -122,15 +136,28 @@ async function readBodyWithCap(
     const text = await response.text();
     const encoded = new TextEncoder().encode(text);
     const bytes = encoded.byteLength;
+    let boundedText = text;
+    let tooLarge = false;
     if (bytes > cap) {
       // Truncate by bytes; decode back. `fatal: false` tolerates a
       // mid-code-point cut at the boundary.
-      const trimmed = new TextDecoder('utf-8', { fatal: false }).decode(
+      boundedText = new TextDecoder('utf-8', { fatal: false }).decode(
         encoded.subarray(0, cap)
       );
-      return { text: trimmed, size: bytes, tooLarge: true };
+      tooLarge = true;
     }
-    return { text, size: bytes, tooLarge: false };
+    const limited = limitSseMessages(boundedText, maxMessages);
+    onProgress?.({
+      body: limited.text,
+      sizeBytes: bytes,
+      messageCount: limited.count,
+      opened: true,
+    });
+    return {
+      text: limited.text,
+      size: bytes,
+      tooLarge: tooLarge || limited.tooLarge,
+    };
   }
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
@@ -151,6 +178,27 @@ async function readBodyWithCap(
         const trimmed = value.subarray(0, value.byteLength - overshoot);
         chunks.push(trimmed);
         tooLarge = true;
+      } else {
+        chunks.push(value);
+      }
+      const limited = limitSseMessages(decodeChunks(chunks), maxMessages);
+      if (limited.tooLarge) {
+        chunks.splice(
+          0,
+          chunks.length,
+          new TextEncoder().encode(limited.text)
+        );
+        tooLarge = true;
+      }
+      if (onProgress) {
+        onProgress({
+          body: limited.text,
+          sizeBytes: Math.min(totalBytes, cap),
+          messageCount: limited.count,
+          opened: true,
+        });
+      }
+      if (tooLarge) {
         try {
           await reader.cancel();
         } catch {
@@ -158,7 +206,6 @@ async function readBodyWithCap(
         }
         break;
       }
-      chunks.push(value);
     }
   }
   // Concatenate the chunks into a single Uint8Array and decode.
@@ -172,6 +219,48 @@ async function readBodyWithCap(
   }
   const text = new TextDecoder('utf-8', { fatal: false }).decode(combined);
   return { text, size: tooLarge ? totalBytes : combined.byteLength, tooLarge };
+}
+
+function decodeChunks(chunks: ReadonlyArray<Uint8Array>): string {
+  const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+}
+
+function countSseEvents(body: string): number {
+  if (!body) return 0;
+  return body.split(/\r?\n\r?\n/u).filter((event) => event.trim().length > 0)
+    .length;
+}
+
+function limitSseMessages(
+  body: string,
+  maxMessages?: number
+): { text: string; count: number; tooLarge: boolean } {
+  const count = countSseEvents(body);
+  if (maxMessages === undefined || count <= maxMessages) {
+    return { text: body, count, tooLarge: false };
+  }
+  const boundary = /\r?\n\r?\n/gu;
+  let start = 0;
+  let retained = 0;
+  for (const match of body.matchAll(boundary)) {
+    if (body.slice(start, match.index).trim().length > 0) retained += 1;
+    if (retained === maxMessages) {
+      return {
+        text: body.slice(0, match.index + match[0].length),
+        count: maxMessages,
+        tooLarge: true,
+      };
+    }
+    start = match.index + match[0].length;
+  }
+  return { text: body, count, tooLarge: true };
 }
 
 /**
@@ -268,7 +357,7 @@ function buildRequestBody(
  * throws. The caller checks `response.kind` to dispatch on the
  * outcome.
  */
-export async function executeHttpRequest(
+async function executeBrowserHttpRequest(
   request: HttpRequestV1,
   options: ExecuteHttpRequestOptions = {}
 ): Promise<HttpResponseV1> {
@@ -284,6 +373,7 @@ export async function executeHttpRequest(
   } catch {
     return {
       version: 1,
+      transport: request.transport ?? 'http',
       kind: 'network-error',
       status: 0,
       statusText: '',
@@ -305,6 +395,7 @@ export async function executeHttpRequest(
   if (!requestBody.ok) {
     return {
       version: 1,
+      transport: request.transport ?? 'http',
       kind: 'network-error',
       status: 0,
       statusText: '',
@@ -358,6 +449,7 @@ export async function executeHttpRequest(
     const classified = classifyFetchError(err, controller.signal);
     return {
       version: 1,
+      transport: request.transport ?? 'http',
       kind: classified.kind,
       status: 0,
       statusText: '',
@@ -379,13 +471,19 @@ export async function executeHttpRequest(
   // are already final at this point.
   let bodyResult: { text: string; size: number; tooLarge: boolean };
   try {
-    bodyResult = await readBodyWithCap(response, bodyCap);
+    bodyResult = await readBodyWithCap(
+      response,
+      bodyCap,
+      request.transport === 'sse' ? options.onProgress : undefined,
+      request.transport === 'sse' ? MAX_STREAM_MESSAGES : undefined
+    );
   } catch (err) {
     clearTimeout(timeoutHandle);
     if (options.signal) options.signal.removeEventListener('abort', onCallerAbort);
     const classified = classifyFetchError(err, controller.signal);
     return {
       version: 1,
+      transport: request.transport ?? 'http',
       kind: classified.kind,
       status: response.status,
       statusText: response.statusText,
@@ -417,6 +515,7 @@ export async function executeHttpRequest(
 
   return {
     version: 1,
+    transport: request.transport ?? 'http',
     kind,
     status: response.status,
     statusText: response.statusText,
@@ -430,7 +529,266 @@ export async function executeHttpRequest(
     tooLarge: bodyResult.tooLarge,
     redactedHeaders,
     recordedAt,
+    ...(request.transport === 'sse'
+      ? { messageCount: countSseEvents(bodyResult.text) }
+      : {}),
   };
+}
+
+function browserWebSocketFailure(
+  request: HttpRequestV1,
+  kind: 'network-error' | 'timeout' | 'too-large',
+  message: string,
+  startedAt: number,
+  body = '',
+  sizeBytes = 0,
+  messageCount = 0
+): HttpResponseV1 {
+  return {
+    version: 1,
+    transport: 'websocket',
+    kind,
+    status: 0,
+    statusText: '',
+    url: request.url,
+    finalUrl: request.url,
+    headers: [],
+    body,
+    contentType: 'application/websocket',
+    sizeBytes,
+    durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+    tooLarge: kind === 'too-large',
+    redactedHeaders: [],
+    recordedAt: new Date().toISOString(),
+    errorMessage: message,
+    messageCount,
+  };
+}
+
+async function executeBrowserWebSocketRequest(
+  request: HttpRequestV1,
+  options: ExecuteHttpRequestOptions
+): Promise<HttpResponseV1> {
+  const startedAt = performance.now();
+  let url: URL;
+  try {
+    url = new URL(request.url);
+  } catch {
+    return browserWebSocketFailure(
+      request,
+      'network-error',
+      'Invalid URL',
+      startedAt
+    );
+  }
+  if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+    return browserWebSocketFailure(
+      request,
+      'network-error',
+      `Unsupported URL scheme: ${url.protocol}`,
+      startedAt
+    );
+  }
+  if (composeRequestHeaders(request).length > 0) {
+    return browserWebSocketFailure(
+      request,
+      'network-error',
+      'Custom WebSocket headers require Lingua Desktop',
+      startedAt
+    );
+  }
+  const cap = options.maxResponseBodyBytes ?? MAX_RESPONSE_BODY_BYTES;
+  const timeoutMs = Math.min(
+    request.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+    MAX_REQUEST_TIMEOUT_MS
+  );
+  return new Promise<HttpResponseV1>((resolve) => {
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(url);
+    } catch (error) {
+      resolve(
+        browserWebSocketFailure(
+          request,
+          'network-error',
+          error instanceof Error ? error.message : String(error),
+          startedAt
+        )
+      );
+      return;
+    }
+    let settled = false;
+    let opened = false;
+    let sizeBytes = 0;
+    let messageCount = 0;
+    const messages: string[] = [];
+    const body = (): string => messages.join('\n');
+    const finish = (response: HttpResponseV1): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', abort);
+      resolve(response);
+    };
+    const emit = (): void =>
+      options.onProgress?.({
+        body: body(),
+        sizeBytes,
+        messageCount,
+        opened,
+      });
+    const abort = (): void => {
+      socket.close(1000, 'cancelled');
+      finish(
+        browserWebSocketFailure(
+          request,
+          'network-error',
+          'Request cancelled',
+          startedAt
+        )
+      );
+    };
+    const timer = window.setTimeout(() => {
+      socket.close(1000, 'timeout');
+      finish(
+        browserWebSocketFailure(
+          request,
+          'timeout',
+          'Request timed out',
+          startedAt,
+          body(),
+          sizeBytes,
+          messageCount
+        )
+      );
+    }, timeoutMs);
+    if (options.signal?.aborted) abort();
+    else options.signal?.addEventListener('abort', abort, { once: true });
+    socket.addEventListener('open', () => {
+      opened = true;
+      emit();
+      const openingMessage = request.body?.content ?? '';
+      if (openingMessage) socket.send(openingMessage);
+    });
+    socket.addEventListener('message', (event) => {
+      const value =
+        typeof event.data === 'string'
+          ? event.data
+          : `[binary message: ${event.data instanceof Blob ? event.data.size : event.data.byteLength} bytes]`;
+      sizeBytes +=
+        typeof event.data === 'string'
+          ? utf8ByteLength(event.data)
+          : event.data instanceof Blob
+            ? event.data.size
+            : event.data.byteLength;
+      messageCount += 1;
+      if (sizeBytes > cap || messageCount > MAX_STREAM_MESSAGES) {
+        socket.close(1009, 'Lingua stream limit reached');
+        finish(
+          browserWebSocketFailure(
+            request,
+            'too-large',
+            messageCount > MAX_STREAM_MESSAGES
+              ? `Stream exceeds ${MAX_STREAM_MESSAGES} message cap`
+              : 'Stream exceeds 4 MiB cap',
+            startedAt,
+            body(),
+            sizeBytes,
+            messageCount
+          )
+        );
+        return;
+      }
+      messages.push(value);
+      emit();
+    });
+    socket.addEventListener('error', () => {
+      finish(
+        browserWebSocketFailure(
+          request,
+          'network-error',
+          'WebSocket connection failed',
+          startedAt
+        )
+      );
+    });
+    socket.addEventListener('close', (event) => {
+      if (!opened) {
+        finish(
+          browserWebSocketFailure(
+            request,
+            'network-error',
+            'WebSocket closed before opening',
+            startedAt
+          )
+        );
+        return;
+      }
+      finish({
+        version: 1,
+        transport: 'websocket',
+        kind: 'success',
+        status: 101,
+        statusText: 'Switching Protocols',
+        url: request.url,
+        finalUrl: request.url,
+        headers: [],
+        body: body(),
+        contentType: 'application/websocket',
+        sizeBytes,
+        durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+        tooLarge: false,
+        redactedHeaders: [],
+        recordedAt: new Date().toISOString(),
+        messageCount,
+        closeCode: event.code,
+        closeReason: event.reason,
+      });
+    });
+  });
+}
+
+async function executeDesktopHttpRequest(
+  request: HttpRequestV1,
+  options: ExecuteHttpRequestOptions,
+  bridge: NonNullable<LinguaAPI['http']>
+): Promise<HttpResponseV1> {
+  const runId = options.runId ?? crypto.randomUUID();
+  const unsubscribe = bridge.onProgress((progress) => {
+    if (progress.runId !== runId || progress.requestId !== request.id) return;
+    options.onProgress?.(progress);
+  });
+  const abort = (): void => {
+    void bridge.cancel(runId);
+  };
+  try {
+    const execution = bridge.execute(runId, request, {
+      allowPrivateHosts: options.allowPrivateHosts ?? false,
+      userSensitiveHeaders: [...(options.userSensitiveHeaders ?? [])],
+    });
+    if (options.signal?.aborted) abort();
+    else options.signal?.addEventListener('abort', abort, { once: true });
+    return await execution;
+  } finally {
+    unsubscribe();
+    options.signal?.removeEventListener('abort', abort);
+  }
+}
+
+/** Platform transport dispatcher used by single sends and HTTP pipelines. */
+export async function executeHttpRequest(
+  request: HttpRequestV1,
+  options: ExecuteHttpRequestOptions = {}
+): Promise<HttpResponseV1> {
+  const desktopBridge =
+    options.fetchImpl === undefined && typeof window !== 'undefined'
+      ? window.lingua?.http
+      : undefined;
+  if (desktopBridge) return executeDesktopHttpRequest(request, options, desktopBridge);
+  if (request.transport === 'websocket') {
+    return executeBrowserWebSocketRequest(request, options);
+  }
+  return executeBrowserHttpRequest(request, options);
 }
 
 /**

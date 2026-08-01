@@ -564,6 +564,7 @@ interface LinguaAPI {
   getSystemLanguages: () => Promise<string[]>;
   getAppInfo: () => Promise<AppInfo>;
   openExternal: (url: string) => Promise<boolean>;
+  http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
 
   confirmClose: (dirtyFileNames: string[], language?: string) => Promise<number>;
   confirmCloseTab: (fileName: string, language?: string) => Promise<number>;

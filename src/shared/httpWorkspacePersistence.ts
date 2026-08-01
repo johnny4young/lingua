@@ -30,6 +30,7 @@ import type {
   HttpRequestV1,
   HttpResponseHeader,
   HttpResponseV1,
+  HttpTransportKind,
 } from './httpWorkspaceSchema';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,10 @@ function isHttpMethod(value: unknown): value is HttpMethod {
   return (
     typeof value === 'string' && (HTTP_METHODS as readonly string[]).includes(value)
   );
+}
+
+function isHttpTransportKind(value: unknown): value is HttpTransportKind {
+  return value === 'http' || value === 'sse' || value === 'websocket';
 }
 
 function isHttpRequestBodyKind(value: unknown): value is HttpRequestBodyKind {
@@ -181,6 +186,9 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
   if (value.version !== 1) return null;
   if (typeof value.id !== 'string' || value.id.length === 0) return null;
   if (typeof value.name !== 'string') return null;
+  if (value.transport !== undefined && !isHttpTransportKind(value.transport)) {
+    return null;
+  }
   if (!isHttpMethod(value.method)) return null;
   // URL can be empty on a blank-template request (the runtime
   // validates with `new URL()` before sending). Only reject the
@@ -258,6 +266,7 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     version: 1,
     id: value.id,
     name: value.name,
+    ...(value.transport !== undefined ? { transport: value.transport } : {}),
     method: value.method,
     url: value.url,
     headers,
@@ -290,6 +299,9 @@ function parseResponseHeader(value: unknown): HttpResponseHeader | null {
 export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
   if (!isRecord(value)) return null;
   if (value.version !== 1) return null;
+  if (value.transport !== undefined && !isHttpTransportKind(value.transport)) {
+    return null;
+  }
   if (
     value.kind !== 'success' &&
     value.kind !== 'client-error' &&
@@ -344,8 +356,37 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     if (typeof value.errorMessage !== 'string') return null;
     errorMessage = value.errorMessage;
   }
+  let messageCount: number | undefined;
+  if (value.messageCount !== undefined) {
+    if (
+      typeof value.messageCount !== 'number' ||
+      !Number.isInteger(value.messageCount) ||
+      value.messageCount < 0
+    ) {
+      return null;
+    }
+    messageCount = value.messageCount;
+  }
+  let closeCode: number | undefined;
+  if (value.closeCode !== undefined) {
+    if (
+      typeof value.closeCode !== 'number' ||
+      !Number.isInteger(value.closeCode) ||
+      value.closeCode < 0 ||
+      value.closeCode > 65535
+    ) {
+      return null;
+    }
+    closeCode = value.closeCode;
+  }
+  let closeReason: string | undefined;
+  if (value.closeReason !== undefined) {
+    if (typeof value.closeReason !== 'string') return null;
+    closeReason = value.closeReason;
+  }
   return {
     version: 1,
+    ...(value.transport !== undefined ? { transport: value.transport } : {}),
     kind: value.kind,
     status: value.status,
     statusText: value.statusText,
@@ -360,5 +401,8 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     redactedHeaders,
     recordedAt: value.recordedAt,
     ...(errorMessage !== undefined ? { errorMessage } : {}),
+    ...(messageCount !== undefined ? { messageCount } : {}),
+    ...(closeCode !== undefined ? { closeCode } : {}),
+    ...(closeReason !== undefined ? { closeReason } : {}),
   };
 }
