@@ -96,6 +96,14 @@ describe('detectImporter', () => {
     ).toBe('bruno-collection');
   });
 
+  it('auto-picks bruno-collection for an OpenCollection YAML request', () => {
+    expect(
+      detectImporter(
+        'info:\n  name: Ping\n  type: http\nhttp:\n  method: get\n  url: https://x.dev\n'
+      )
+    ).toBe('bruno-collection');
+  });
+
   it('returns null when nothing claims the input', () => {
     expect(detectImporter('GET / HTTP/1.1')).toBeNull();
   });

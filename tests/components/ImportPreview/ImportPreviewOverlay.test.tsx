@@ -8,7 +8,7 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { ImportPreviewOverlay } from '../../../src/renderer/components/ImportPreview/ImportPreviewOverlay';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
@@ -42,6 +42,46 @@ function seedProTier() {
     lastVerifiedAt: Date.now(),
   });
 }
+
+const originalLingua = window.lingua;
+
+function installBrunoDirectoryFs(options?: { missingManifest?: boolean }) {
+  const files = options?.missingManifest
+    ? [{ name: 'request.bru', relativePath: 'request.bru' as RelativePath }]
+    : [
+        { name: 'bruno.json', relativePath: 'bruno.json' as RelativePath },
+        { name: 'list.bru', relativePath: 'users/list.bru' as RelativePath },
+      ];
+  const fs = {
+    selectDirectory: vi.fn().mockResolvedValue({
+      canceled: false,
+      rootId: 'bruno-root' as RootId,
+      rootPath: '/tmp/team-api',
+    }),
+    listAllFiles: vi.fn().mockResolvedValue(files),
+    stat: vi.fn().mockResolvedValue({
+      size: 100,
+      isDirectory: false,
+      isFile: true,
+      mtime: '',
+      ctime: '',
+    }),
+    read: vi
+      .fn()
+      .mockImplementation(async (_root: RootId, path: RelativePath) =>
+        path === 'bruno.json'
+          ? '{"name":"Team API"}'
+          : 'meta {\n name: List users\n}\nget {\n url: https://api.example.com/users\n}\n'
+      ),
+    revokeRoot: vi.fn().mockResolvedValue(true),
+  };
+  window.lingua = { platform: 'web', fs } as unknown as LinguaAPI;
+  return fs;
+}
+
+afterEach(() => {
+  window.lingua = originalLingua;
+});
 
 beforeEach(() => {
   localStorage.clear();
@@ -104,6 +144,41 @@ describe('ImportPreviewOverlay', () => {
       expect(screen.queryByTestId('import-preview-body')).toBeTruthy();
     });
     expect(screen.getByTestId('import-preview-method').textContent).toContain('GET');
+  });
+
+  it('previews a Bruno collection selected from a directory', async () => {
+    const fs = installBrunoDirectoryFs();
+    let closed = false;
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => (closed = true)} />);
+    await user.click(screen.getByTestId('import-preview-pick-bruno-directory'));
+    await waitFor(() => {
+      expect(screen.getByText('Team API')).toBeTruthy();
+      expect(screen.getByText('users / List users')).toBeTruthy();
+    });
+    expect(screen.getByTestId('import-preview-confirm').textContent).toMatch(
+      /Import 1 request/i
+    );
+    expect(fs.revokeRoot).toHaveBeenCalledWith('bruno-root');
+    await user.click(screen.getByTestId('import-preview-confirm'));
+    await waitFor(() => expect(closed).toBe(true));
+    expect(useWorkspaceToolStore.getState().requests[0]).toMatchObject({
+      name: 'users / List users',
+      method: 'GET',
+      url: 'https://api.example.com/users',
+    });
+  });
+
+  it('shows a Bruno-specific error when the selected folder lacks a manifest', async () => {
+    installBrunoDirectoryFs({ missingManifest: true });
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.click(screen.getByTestId('import-preview-pick-bruno-directory'));
+    await waitFor(() => {
+      expect(screen.getByTestId('import-preview-reject-detail').textContent).toMatch(
+        /missing bruno\.json or opencollection\.yml/i
+      );
+    });
   });
 
   it('shows the reject band when source does not match any importer', async () => {

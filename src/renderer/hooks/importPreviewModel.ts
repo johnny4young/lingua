@@ -59,6 +59,9 @@ export interface ConfirmResult {
 export interface UseImportPreviewResult {
   state: ImportPreviewState;
   previewSource: (source: string) => void;
+  previewBrunoDirectory: () => Promise<
+    'cancelled' | 'previewed' | 'rejected'
+  >;
   setVariableSource: (slot: VariableSourceSlot, raw: string) => void;
   confirm: () => Promise<ConfirmResult | null>;
   reset: () => void;

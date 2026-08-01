@@ -83,7 +83,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`                                  | JS/TS debugger drawer controls and paused-frame display         |
 | [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`                              | BYO-key "Explain this error" consent + result dialog       |
 | [`components/HttpWorkspace/`](components/HttpWorkspace)   | `HttpWorkspacePanel.tsx`                              | HTTP request workspace, response preview, capsule creation      |
-| [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`   | cURL, `.ipynb`, Postman, and Bruno preview before opening workspace tabs |
+| [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`   | cURL, notebooks, Postman, and Bruno file/folder preview before opening workspace tabs; directory reads live in `hooks/brunoDirectoryImport.ts` |
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlResultPreview.tsx`, preview parts/actions | DuckDB SQL workspace, schema browser, result orchestration and focused table/export UI |

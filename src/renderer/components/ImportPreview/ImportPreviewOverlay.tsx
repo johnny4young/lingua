@@ -40,7 +40,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, FileUp } from 'lucide-react';
+import { AlertCircle, FileUp, FolderOpen } from 'lucide-react';
 import { detectImporter } from '../../../shared/importers/registry';
 import {
   parsePostmanVariableExport,
@@ -86,6 +86,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const {
     state,
     previewSource,
+    previewBrunoDirectory,
     setVariableSource,
     confirm,
     reset,
@@ -100,6 +101,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const [pasteValue, setPasteValue] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isReadingDirectory, setIsReadingDirectory] = useState(false);
 
   // Reset hook state on unmount so a re-open starts clean.
   useEffect(() => {
@@ -199,6 +201,17 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     },
     [previewSource, pushStatusNotice]
   );
+
+  const handlePickBrunoDirectory = useCallback(async () => {
+    if (isReadingDirectory) return;
+    setIsReadingDirectory(true);
+    try {
+      const status = await previewBrunoDirectory();
+      if (status !== 'cancelled') setPasteValue('');
+    } finally {
+      setIsReadingDirectory(false);
+    }
+  }, [isReadingDirectory, previewBrunoDirectory]);
 
   const handleDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -380,9 +393,11 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         ? `importPreview.reject.ipynb.${state.rejectDetail}`
         : importerId === 'postman-collection'
           ? `importPreview.reject.postman.${state.rejectDetail}`
-          : importerId === 'linguanb-notebook'
-            ? `importPreview.reject.linguanb.${state.rejectDetail}`
-            : null
+            : importerId === 'linguanb-notebook'
+              ? `importPreview.reject.linguanb.${state.rejectDetail}`
+              : importerId === 'bruno-collection'
+                ? `importPreview.reject.bruno.${state.rejectDetail}`
+                : null
       : null;
 
   return (
@@ -495,12 +510,33 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".curl,.txt,.ipynb,.linguanb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json,application/x-linguanb+json"
+            accept=".curl,.txt,.ipynb,.linguanb,.json,.postman_collection.json,.bru,.yml,.yaml,text/plain,application/json,application/yaml,text/yaml,application/x-ipynb+json,application/x-linguanb+json"
             onChange={handleFileChange}
             className="hidden"
             data-testid="import-preview-file-input"
           />
         </div>
+
+        <button
+          type="button"
+          onClick={handlePickBrunoDirectory}
+          disabled={isReadingDirectory}
+          aria-busy={isReadingDirectory}
+          data-testid="import-preview-pick-bruno-directory"
+          className="flex min-h-11 items-center gap-3 rounded-md border border-border-default bg-bg-inset px-3 text-left transition-colors hover:border-border-strong disabled:cursor-wait disabled:opacity-70 md:col-span-2"
+        >
+          <FolderOpen size={16} className="shrink-0 text-accent" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="block text-body-sm font-medium text-fg-base">
+              {isReadingDirectory
+                ? t('importPreview.source.brunoDirectoryLoading')
+                : t('importPreview.source.brunoDirectoryCta')}
+            </span>
+            <span className="block text-caption text-fg-subtle">
+              {t('importPreview.source.brunoDirectoryHint')}
+            </span>
+          </span>
+        </button>
 
         {/* MIDDLE — preview band OR reject band (full width) */}
         <section data-testid="import-preview-band" className="md:col-span-2">

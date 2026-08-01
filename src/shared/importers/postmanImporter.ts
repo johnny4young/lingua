@@ -93,7 +93,7 @@ export interface CollectionImporterPreview {
   readonly counts: {
     /** Requests that will be imported (== `requests.length`). */
     readonly total: number;
-    /** Distinct folders walked (Postman only; 0 for Bruno). */
+    /** Distinct folders represented by the flattened request list. */
     readonly folders: number;
     /** Requests dropped because the collection exceeded the cap. */
     readonly truncated: number;

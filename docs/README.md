@@ -18,6 +18,7 @@ planning is intentionally excluded from the published repository.
 ## Product and runtime references
 
 - [`CLI_USAGE.md`](./CLI_USAGE.md) — current command-line surface and exit-code contract.
+- [`IMPORTING.md`](./IMPORTING.md) — supported import formats, limits, and trust boundaries.
 - [`DEBUGGER.md`](./DEBUGGER.md) — current debugger behavior, validation, telemetry, and limitations.
 - [`CAPSULE_TEST_MATRIX.md`](./CAPSULE_TEST_MATRIX.md) — portable run-capture fixture and compatibility matrix.
 - [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) — license and update service telemetry, alerts, and dashboards.

@@ -111,8 +111,9 @@ export const IMPORTER_LOSSY_WARNINGS = [
   // pre-request / test scripts, environment variables, and non-text
   // body modes have no Lingua HTTP-workspace equivalent, so they are
   // surfaced as warnings rather than silently dropped.
-  //   - `postman-auth-helper`: an `auth` block (basic / apikey / oauth)
-  //     we could not flatten to a single header (bearer IS mapped).
+  //   - `postman-auth-helper`: a Postman or Bruno `auth` helper (basic /
+  //     apikey / oauth) we could not flatten to a single header (bearer
+  //     IS mapped).
   //   - `postman-prerequest-script` / `postman-test-script`: the
   //     `event` scripts are dropped (Lingua has no scripting runtime).
   //   - `postman-variable`: a `{{var}}` STATIC placeholder left literal
@@ -128,7 +129,10 @@ export const IMPORTER_LOSSY_WARNINGS = [
   //   - `postman-graphql-body`: GraphQL body kept as raw text only.
   //   - `postman-formdata-file`: multipart / file-upload body parts
   //     are not importable; the text parts survive.
-  //   - `bruno-script-dropped`: a `.bru` `script:*` / `tests` block.
+  //   - `bruno-script-dropped`: classic `.bru` scripts/tests or
+  //     OpenCollection runtime scripts/assertions.
+  //   - `bruno-settings-dropped`: OpenCollection redirect, timeout, and
+  //     URL-encoding settings have no portable HTTP-workspace equivalent.
   'postman-auth-helper',
   'postman-prerequest-script',
   'postman-test-script',
@@ -137,6 +141,7 @@ export const IMPORTER_LOSSY_WARNINGS = [
   'postman-graphql-body',
   'postman-formdata-file',
   'bruno-script-dropped',
+  'bruno-settings-dropped',
 ] as const;
 export type ImporterLossyWarning = (typeof IMPORTER_LOSSY_WARNINGS)[number];
 
@@ -202,15 +207,22 @@ export const POSTMAN_REJECT_REASONS = [
 export type PostmanRejectReason = (typeof POSTMAN_REJECT_REASONS)[number];
 
 /**
- * implementation — Bruno `.bru` adapter's internal reject taxonomy.
+ * implementation — Bruno request / directory adapter's internal reject taxonomy.
  * Surfaced via `ImporterPreviewOutcome.detail`. Outward mapping:
  *   - `'malformed'` / `'invalid-shape'` → `'malformed'`.
  *   - `'empty-input'` → `'empty-input'`.
+ *   - directory limit and unreadable failures → `'unsupported-feature'`.
  */
 export const BRUNO_REJECT_REASONS = [
   'empty-input',
   'malformed',
   'invalid-shape',
+  'directory-not-collection',
+  'directory-empty',
+  'directory-too-many-files',
+  'directory-oversized',
+  'directory-unreadable',
+  'directory-invalid-request',
 ] as const;
 export type BrunoRejectReason = (typeof BRUNO_REJECT_REASONS)[number];
 

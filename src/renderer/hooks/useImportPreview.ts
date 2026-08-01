@@ -6,6 +6,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { bucketCapsuleSize } from '../../shared/runCapsule';
 import { trackImportApplied } from './importTelemetry';
+import { loadBrunoDirectoryPreview } from './brunoDirectoryImport';
 import {
   collectImportWarnings,
   INITIAL_IMPORT_PREVIEW_STATE,
@@ -46,6 +47,28 @@ export function useImportPreview(): UseImportPreviewResult {
     setState(previewImportSource(source));
   }, []);
 
+  const previewBrunoDirectory = useCallback(async () => {
+    const outcome = await loadBrunoDirectoryPreview();
+    if (outcome.status === 'cancelled') return outcome.status;
+    if (outcome.status === 'rejected') {
+      setState({
+        phase: 'rejected',
+        importerId: 'bruno-collection',
+        reason: outcome.reason,
+        rejectDetail: outcome.detail,
+        sourceBytes: outcome.sourceBytes,
+      });
+      return outcome.status;
+    }
+    setState({
+      phase: 'previewed',
+      importerId: 'bruno-collection',
+      preview: outcome.preview,
+      sourceBytes: outcome.sourceBytes,
+    });
+    return outcome.status;
+  }, []);
+
   const setVariableSource = useCallback(
     (slot: VariableSourceSlot, raw: string) => {
       setState((previous) => withImportVariableSource(previous, slot, raw));
@@ -83,6 +106,7 @@ export function useImportPreview(): UseImportPreviewResult {
   return {
     state,
     previewSource,
+    previewBrunoDirectory,
     setVariableSource,
     confirm,
     reset,

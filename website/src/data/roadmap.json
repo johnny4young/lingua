@@ -101,7 +101,7 @@
       "items": [
         {
           "title": "Multi-file import and sharing",
-          "scope": "Share links, Capsules, cURL, Postman, Bruno files, Jupyter notebooks, and native notebooks ship today. Directory import, external playground migration, and a privacy-first multi-file viewer remain.",
+          "scope": "Share links, Capsules, cURL, Postman, Bruno files and collection folders, Jupyter notebooks, and native notebooks ship today. External playground migration and a privacy-first multi-file viewer remain.",
           "status": "Partial",
           "theme": "Import & sharing"
         }
