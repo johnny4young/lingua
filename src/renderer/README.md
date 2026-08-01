@@ -414,6 +414,9 @@ collection state:
   composition. Browser and desktop transports, capsule export, code generation,
   and auth previews import it directly so they share one wire shape without
   activating serialization behavior.
+- [`../shared/httpWorkspaceCurl.ts`](../shared/httpWorkspaceCurl.ts) owns
+  shell-safe cURL serialization and request-body fidelity. Copy surfaces import
+  it directly and mask active environment secrets before calling it.
 - [`../shared/httpWorkspaceCaptures.ts`](../shared/httpWorkspaceCaptures.ts)
   owns response selectors and environment-write candidates for request
   chaining.
@@ -422,9 +425,9 @@ collection state:
   import these modules directly so neither domain depends on the complete
   behavioral facade.
 - [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) preserves the
-  historical facade and owns cURL serialization. It re-exports schema,
-  persistence, headers, query, capture, and assertion APIs for compatibility,
-  but lightweight consumers must use the dedicated leaves.
+  historical public API as a compatibility-only facade. Production code must
+  import schema, persistence, headers, query, cURL, capture, and assertion
+  leaves directly so the facade never becomes an activation boundary again.
   Import Preview loads its store-writing confirmation module only after the
   user accepts a valid preview, so merely inspecting input does not hydrate the
   HTTP collection or fetch the implementation chunk.

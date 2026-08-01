@@ -1,6 +1,6 @@
 /**
  * HTTP request → code snippet generators (fetch / axios / Python
- * requests), a sibling of `buildCurlCommand` in `httpWorkspace.ts`.
+ * requests), a sibling of `buildCurlCommand` in `httpWorkspaceCurl.ts`.
  *
  * Pure + environment-agnostic so the UI can offer "Copy as fetch / axios
  * / Python" next to "Copy as cURL". Fidelity comes from reusing

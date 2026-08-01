@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -16,6 +16,7 @@ const capturesModule = 'src/shared/httpWorkspaceCaptures.ts';
 const assertionsModule = 'src/shared/httpWorkspaceAssertions.ts';
 const queryModule = 'src/shared/httpWorkspaceQuery.ts';
 const headersModule = 'src/shared/httpWorkspaceHeaders.ts';
+const curlModule = 'src/shared/httpWorkspaceCurl.ts';
 const implementationModule = 'src/shared/httpWorkspace.ts';
 const confirmationModule = 'src/renderer/hooks/importPreviewConfirm.ts';
 const responsePreviewModule =
@@ -25,6 +26,17 @@ const requestEditorModule =
 const httpClientModule = 'src/renderer/runtime/httpClient.ts';
 const httpProxyModule = 'src/main/httpProxy.ts';
 const httpCodegenModule = 'src/shared/httpCodegen.ts';
+
+function sourceModules(directory: string): string[] {
+  const absoluteDirectory = path.join(repoRoot, directory);
+  return readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap(
+    (entry) => {
+      const relativePath = path.posix.join(directory, entry.name);
+      if (entry.isDirectory()) return sourceModules(relativePath);
+      return /\.(?:ts|tsx)$/u.test(entry.name) ? [relativePath] : [];
+    }
+  );
+}
 
 describe('HTTP workspace activation boundary', () => {
   it('keeps full HTTP behavior behind Import Preview confirmation', () => {
@@ -148,5 +160,31 @@ describe('HTTP workspace activation boundary', () => {
       expect(consumerSource).not.toContain("from '../shared/httpWorkspace'");
       expect(consumerSource).not.toContain("from './httpWorkspace'");
     }
+  });
+
+  it('keeps cURL serialization isolated and the historical facade out of production imports', () => {
+    const curlSource = readFileSync(path.join(repoRoot, curlModule), 'utf8');
+    expect(staticSpecifiers(curlSource)).toEqual(['./httpWorkspaceHeaders']);
+    expect(curlSource).toContain("from './httpWorkspaceSchema'");
+    expect(curlSource).not.toContain("from './httpWorkspace'");
+
+    const editorSource = readFileSync(
+      path.join(repoRoot, requestEditorModule),
+      'utf8'
+    );
+    expect(editorSource).toContain("from '../../../shared/httpWorkspaceCurl'");
+
+    const facadeSource = readFileSync(
+      path.join(repoRoot, implementationModule),
+      'utf8'
+    );
+    expect(facadeSource).toContain("export * from './httpWorkspaceCurl'");
+    expect(facadeSource).not.toMatch(/\bfunction\s+[A-Za-z_$]/u);
+
+    const facadeImporters = sourceModules('src').filter((sourceModule) => {
+      const source = readFileSync(path.join(repoRoot, sourceModule), 'utf8');
+      return /\bfrom\s*['"][^'"]*\/httpWorkspace['"]/u.test(source);
+    });
+    expect(facadeImporters).toEqual([]);
   });
 });

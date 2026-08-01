@@ -15,12 +15,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAuthHeader as facadeBuildAuthHeader,
-  buildCurlCommand,
+  buildCurlCommand as facadeBuildCurlCommand,
   composeRequestHeaders as facadeComposeRequestHeaders,
   createBlankHttpRequest,
   parseHttpRequest,
   type HttpRequestV1,
 } from '../../src/shared/httpWorkspace';
+import { buildCurlCommand } from '../../src/shared/httpWorkspaceCurl';
 import {
   buildAuthHeader,
   composeRequestHeaders,
@@ -64,6 +65,7 @@ describe('historical facade compatibility', () => {
   it('re-exports the canonical header helpers', () => {
     expect(facadeBuildAuthHeader).toBe(buildAuthHeader);
     expect(facadeComposeRequestHeaders).toBe(composeRequestHeaders);
+    expect(facadeBuildCurlCommand).toBe(buildCurlCommand);
   });
 });
 

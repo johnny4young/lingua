@@ -1466,9 +1466,9 @@ export const REPLACE_IN_FILES_SCOPES = new Set([
 // implementation note — closed enum for the `method` property on
 // `http.request_executed`. Mirrored on update-server with parity test.
 // The renderer-side source of truth is `HTTP_METHODS` in
-// `src/shared/httpWorkspace.ts` — this Set is duplicated here so the
+// `src/shared/httpWorkspaceSchema.ts` — this Set is duplicated here so the
 // telemetry validator can live in shared code without importing the
-// workspace module (which carries renderer-only deps in the future).
+// workspace schema.
 export const HTTP_METHODS_SET = new Set([
   'GET',
   'POST',

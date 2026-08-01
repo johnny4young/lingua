@@ -11,7 +11,7 @@
 import { Copy, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { HttpRequestV1 } from '../../../shared/httpWorkspace';
+import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 
 export interface HttpRequestListProps {

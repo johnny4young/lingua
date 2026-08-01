@@ -12,7 +12,7 @@ import type {
   HttpRequestBody,
   HttpRequestBodyKind,
   HttpRequestHeader,
-} from '../../../shared/httpWorkspace';
+} from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 import { HttpAssertionsTab } from './HttpAssertionsTab';
 import { HttpAuthTab } from './HttpAuthTab';

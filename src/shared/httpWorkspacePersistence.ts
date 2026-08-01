@@ -3,8 +3,8 @@
  *
  * This module owns the strict parsers used at localStorage and IPC trust
  * boundaries. It depends only on `httpWorkspaceSchema.ts`, so persistence
- * consumers do not activate auth composition, query synchronization,
- * captures, assertions, or cURL serialization from `httpWorkspace.ts`.
+ * consumers do not activate header composition, query synchronization,
+ * captures, assertions, or cURL serialization from their dedicated leaves.
  */
 
 import {

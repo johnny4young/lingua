@@ -18,7 +18,7 @@
 import {
   type HttpMethod,
   type HttpResponseV1,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspaceSchema';
 import { statusBucketForResponse } from '../runtime/httpClient';
 import { trackEvent } from '../utils/telemetry';
 

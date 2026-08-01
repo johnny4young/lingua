@@ -30,11 +30,14 @@
  * `crypto.randomUUID()` , so the parser is non-pure for
  * that single non-semantic field only. `parseHttpEnvironment` is the
  * defense-in-depth boundary at the localStorage rehydrate edge, mirroring
- * `parseHttpRequest` in `httpWorkspace.ts`.
+ * `parseHttpRequest` in `httpWorkspacePersistence.ts`.
  */
 
-import type { HttpRequestAuth, HttpRequestV1 } from './httpWorkspace';
-import type { HttpResponseV1 } from './httpWorkspace';
+import type {
+  HttpRequestAuth,
+  HttpRequestV1,
+  HttpResponseV1,
+} from './httpWorkspaceSchema';
 
 /**
  * One variable binding in an environment.

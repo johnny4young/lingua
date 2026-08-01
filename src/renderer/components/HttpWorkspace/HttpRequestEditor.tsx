@@ -24,7 +24,7 @@
 import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { buildCurlCommand } from '../../../shared/httpWorkspace';
+import { buildCurlCommand } from '../../../shared/httpWorkspaceCurl';
 import {
   paramsToUrl,
   reconcileParamsWithUrl,

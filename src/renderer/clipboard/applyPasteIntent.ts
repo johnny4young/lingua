@@ -29,7 +29,7 @@ import {
   type HttpRequestBody,
   type HttpRequestHeader,
   type HttpRequestV1,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspaceSchema';
 import { parseCurlCommand, type CurlCommand } from '../utils/curlToCode';
 import { openHttpWorkspaceTab, openUtilitiesWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { setPendingCapsuleImportSource } from './pendingCapsuleImport';

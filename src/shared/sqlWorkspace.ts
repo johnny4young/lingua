@@ -1,7 +1,7 @@
 /**
  * implementation — SQL workspace schema (DuckDB-WASM).
  *
- * Mirror of `httpWorkspace.ts` for the SQL companion tab. Two
+ * Mirror of the HTTP workspace schema for the SQL companion tab. Two
  * versioned shapes:
  *
  *   - `SqlQueryV1` — user-editable query: name + text. Persisted in
@@ -325,7 +325,7 @@ export function isValidTableName(name: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name.trim());
 }
 
-/** UTF-8 byte count helper. Matches `utf8ByteLength` in httpWorkspace.ts. */
+/** UTF-8 byte count helper. Matches `utf8ByteLength` in httpWorkspaceSchema.ts. */
 export function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }

@@ -36,10 +36,8 @@ import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { openHttpWorkspaceTab } from '../../runtime/openWorkspaceTab';
-import {
-  createBlankHttpRequest,
-  parseHttpRequest,
-} from '../../../shared/httpWorkspace';
+import { parseHttpRequest } from '../../../shared/httpWorkspacePersistence';
+import { createBlankHttpRequest } from '../../../shared/httpWorkspaceSchema';
 import type { CapsuleImportRejectReason } from '../../utils/importCapsule';
 import { cn } from '../../utils/cn';
 import { formatNumber } from '../../i18n/formatNumber';

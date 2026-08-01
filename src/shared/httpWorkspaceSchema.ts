@@ -2,12 +2,12 @@
  * Dependency-safe HTTP workspace schema and request factory.
  *
  * Import Preview and other lightweight request-building surfaces may use this
- * module without loading the full parser, auth, capture, assertion, and cURL
- * serialization implementation in `httpWorkspace.ts`.
+ * module without loading persistence, headers, query synchronization,
+ * captures, assertions, or cURL serialization.
  *
  * Keep this file pure and dependency-free. Runtime validation belongs in
- * `httpWorkspacePersistence.ts`; behavioral helpers belong in
- * `httpWorkspace.ts` on the activated workspace side.
+ * `httpWorkspacePersistence.ts`; behavior belongs in the dedicated workspace
+ * leaves used by the activated surface.
  */
 
 /**
