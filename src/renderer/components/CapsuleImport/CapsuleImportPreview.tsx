@@ -13,9 +13,13 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, FileJson, Globe } from 'lucide-react';
+import { AlertTriangle, ExternalLink, FileJson, Files, Globe, ShieldCheck } from 'lucide-react';
 import type { RunCapsuleV1 } from '../../../shared/runCapsule';
 import { utf8ByteLength } from '../../../shared/runCapsule';
+import type {
+  CapsuleWorkspaceFileV1,
+  CapsuleWorkspaceV1,
+} from '../../../shared/capsuleWorkspace';
 import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
 
@@ -27,9 +31,11 @@ export interface CapsuleImportPreviewProps {
    * can sanity-check the truncation hint.
    */
   byteLength: number;
+  workspace?: CapsuleWorkspaceV1;
+  onOpenWorkspaceFile?: (file: CapsuleWorkspaceFileV1) => void;
 }
 
-type PreviewTab = 'source' | 'result' | 'environment';
+type PreviewTab = 'source' | 'result' | 'environment' | 'files';
 
 const PREVIEW_TABS: ReadonlyArray<{ id: PreviewTab; labelKey: string }> = [
   { id: 'source', labelKey: 'capsuleImport.preview.tab.source' },
@@ -40,9 +46,12 @@ const PREVIEW_TABS: ReadonlyArray<{ id: PreviewTab; labelKey: string }> = [
 export function CapsuleImportPreview({
   capsule,
   byteLength,
+  workspace,
+  onOpenWorkspaceFile,
 }: CapsuleImportPreviewProps) {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<PreviewTab>('source');
+  const effectiveActiveTab = activeTab === 'files' && !workspace ? 'source' : activeTab;
   const omittedFields = capsule.privacy?.omittedFields ?? [];
   const isHttpCapsule = capsule.tab.language === 'http';
 
@@ -113,8 +122,13 @@ export function CapsuleImportPreview({
         aria-label={t('capsuleImport.preview.tablistLabel')}
         className="flex shrink-0 items-center gap-1 border-b border-border/40 bg-surface/40 px-2 py-1.5 text-caption"
       >
-        {PREVIEW_TABS.map((tab) => {
-          const isActive = activeTab === tab.id;
+        {[
+          ...PREVIEW_TABS,
+          ...(workspace
+            ? [{ id: 'files' as const, labelKey: 'capsuleImport.preview.tab.files' }]
+            : []),
+        ].map((tab) => {
+          const isActive = effectiveActiveTab === tab.id;
           return (
             <button
               key={tab.id}
@@ -137,18 +151,116 @@ export function CapsuleImportPreview({
       </div>
       <div
         role="tabpanel"
-        aria-label={t(`capsuleImport.preview.tab.${activeTab}`)}
-        data-testid={`capsule-import-preview-panel-${activeTab}`}
+        aria-label={t(`capsuleImport.preview.tab.${effectiveActiveTab}`)}
+        data-testid={`capsule-import-preview-panel-${effectiveActiveTab}`}
         className="flex-1 min-h-0 overflow-auto p-3 font-mono text-body-sm"
       >
-        {activeTab === 'source' ? (
+        {effectiveActiveTab === 'source' ? (
           <SourcePanel capsule={capsule} />
         ) : null}
-        {activeTab === 'result' ? <ResultPanel capsule={capsule} /> : null}
-        {activeTab === 'environment' ? (
+        {effectiveActiveTab === 'result' ? <ResultPanel capsule={capsule} /> : null}
+        {effectiveActiveTab === 'environment' ? (
           <EnvironmentPanel capsule={capsule} />
         ) : null}
+        {effectiveActiveTab === 'files' && workspace ? (
+          <WorkspaceFilesPanel workspace={workspace} onOpenFile={onOpenWorkspaceFile} />
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function WorkspaceFilesPanel({
+  workspace,
+  onOpenFile,
+}: {
+  workspace: CapsuleWorkspaceV1;
+  onOpenFile?: (file: CapsuleWorkspaceFileV1) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const [pickedPath, setPickedPath] = useState<string | null>(null);
+  const selected =
+    workspace.files.find(file => file.path === pickedPath) ?? workspace.files[0] ?? null;
+  return (
+    <div className="grid min-h-[260px] gap-3 font-sans md:grid-cols-[minmax(180px,0.7fr)_minmax(0,1.3fr)]">
+      <section>
+        <div className="mb-2 flex items-start gap-2 rounded border border-border-subtle bg-bg-inset/60 p-2 text-caption text-fg-subtle">
+          <ShieldCheck size={13} className="mt-0.5 shrink-0 text-accent-fg" aria-hidden="true" />
+          <p>{t('capsuleImport.preview.files.localOnly')}</p>
+        </div>
+        {workspace.privacy.obviousSecretsDetected > 0 ? (
+          <div
+            role="alert"
+            className="mb-2 flex items-start gap-2 rounded border border-warning-border bg-warning-bg p-2 text-caption text-warning-fg"
+          >
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <p>
+              {t('capsuleImport.preview.files.secretWarning', {
+                count: workspace.privacy.obviousSecretsDetected,
+              })}
+            </p>
+          </div>
+        ) : null}
+        <div className="space-y-1">
+          {workspace.files.map(file => (
+            <button
+              key={file.path}
+              type="button"
+              onClick={() => setPickedPath(file.path)}
+              aria-pressed={selected?.path === file.path}
+              data-testid="capsule-workspace-viewer-file"
+              className={cn(
+                'focus-ring block w-full rounded border px-2 py-1.5 text-left',
+                selected?.path === file.path
+                  ? 'border-border-strong bg-bg-panel-alt'
+                  : 'border-border-subtle bg-bg-inset/40 hover:bg-bg-panel-alt'
+              )}
+            >
+              <span className="block truncate font-mono text-caption text-fg-base">
+                {file.path}
+              </span>
+              <span className="mt-0.5 block text-eyebrow text-fg-subtle">
+                {file.language} · {formatNumber(utf8ByteLength(file.content), i18n.language)} B
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="min-h-0 overflow-hidden rounded border border-border-subtle bg-bg-inset/50">
+        {selected ? (
+          <>
+            <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate font-mono text-caption text-fg-base">{selected.path}</p>
+                <p className="mt-0.5 font-mono text-eyebrow text-fg-subtle">
+                  {t('capsuleImport.preview.files.hashSummary', {
+                    hash: selected.contentHash.slice(0, 12),
+                  })}
+                </p>
+              </div>
+              {onOpenFile ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenFile(selected)}
+                  data-testid="capsule-workspace-viewer-open-file"
+                  className="button-ghost shrink-0"
+                >
+                  <ExternalLink size={12} aria-hidden="true" />
+                  {t('capsuleImport.preview.files.open')}
+                </button>
+              ) : (
+                <Files size={14} className="shrink-0 text-fg-muted" aria-hidden="true" />
+              )}
+            </header>
+            <pre
+              data-testid="capsule-workspace-viewer-content"
+              className="max-h-[300px] overflow-auto whitespace-pre-wrap break-all p-3 font-mono text-body-sm text-fg-base"
+            >
+              {selected.content || '/* empty */'}
+            </pre>
+          </>
+        ) : null}
+      </section>
     </div>
   );
 }

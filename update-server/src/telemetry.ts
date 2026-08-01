@@ -675,6 +675,7 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // internal — mirror of the HTML-export triggers.
   'settings-export-html',
   'list-export-html',
+  'list-export-workspace',
 ]);
 // implementation note — mirror of `CAPSULE_BROWSE_SURFACES` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.

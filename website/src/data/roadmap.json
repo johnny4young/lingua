@@ -101,8 +101,8 @@
       "items": [
         {
           "title": "Multi-file import and sharing",
-          "scope": "Share links, Capsules, cURL, Postman, Bruno files and collection folders, Jupyter notebooks, and native notebooks ship today. External playground migration and a privacy-first multi-file viewer remain.",
-          "status": "Partial",
+          "scope": "Share links, Capsules, bounded TypeScript and Go Playground migration, cURL, Postman, Bruno files and collection folders, Jupyter notebooks, and native notebooks ship today. Capsule Workspaces add a privacy-first multi-file viewer with explicit open-tab selection and no backend.",
+          "status": "Delivered",
           "theme": "Import & sharing"
         }
       ]

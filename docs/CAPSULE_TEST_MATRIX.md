@@ -15,6 +15,12 @@ HTTP response, pipeline step, lesson assertion). Re-inventing a
 fixture catalog per integration would cause silent drift between consumer
 expectations and capsule reality.
 
+`CapsuleWorkspaceV1` is an additive sharing wrapper, not a new Run Capsule
+version. Its path, file-count, per-file, aggregate, artifact-size, secret
+finding, nested-capsule, renderer-decoder, and read-only viewer contracts are
+covered by `tests/shared/capsuleWorkspace.test.ts` and the focused renderer
+tests. See [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md).
+
 This doc pins:
 
 1. The **dimensions** the capsule contract must hold across every

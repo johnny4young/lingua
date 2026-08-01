@@ -163,6 +163,26 @@ describe('CapsuleListOverlay — Pro tier', () => {
     expect(context.locale).toBe('en');
   });
 
+  it('opens the explicit Capsule Workspace export review', () => {
+    seedTwoCapsules();
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'helper',
+          name: 'helper.ts',
+          language: 'typescript',
+          content: 'export const n = 1;',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'helper',
+    });
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByTestId('capsule-list-row-create-workspace')[0]!);
+    expect(screen.getByTestId('capsule-workspace-export-dialog')).toBeTruthy();
+    expect(screen.getByText('Exact source preview')).toBeTruthy();
+  });
+
   it('deletes a row capsule via clearCapsule (implementation note)', () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);

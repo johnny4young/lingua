@@ -62,6 +62,21 @@ stable public read API that fits this fixed-origin browser contract; use the
 provider's export flow and import the resulting files instead. Lingua does not
 route playground URLs through a generic server proxy.
 
+## Run Capsules and Capsule Workspaces
+
+The Capsule import overlay accepts both the stable single-source
+`RunCapsuleV1` JSON and the additive `CapsuleWorkspaceV1` JSON. Both stop at a
+read-only preview. The primary source opens only after confirmation; a Capsule
+Workspace's supplemental files appear in a separate Files tab and open one at
+a time without execution.
+
+Capsule Workspaces are assembled locally from open code tabs selected by the
+exporter. They contain portable relative paths only, never filesystem
+capability identifiers or absolute host paths. The shared parser enforces 24
+supplemental files, 256 KiB per file, 2 MiB total supplemental source, and a
+6 MiB artifact cap. See [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md) for
+the privacy review, integrity, and CLI boundaries.
+
 ## Browser and desktop behavior
 
 Desktop selection uses Electron's capability-scoped filesystem bridge. The web

@@ -4,13 +4,14 @@
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CapsuleImportPreview } from '../../../src/renderer/components/CapsuleImport/CapsuleImportPreview';
 import {
   FIXTURE_MINIMAL_JS,
   FIXTURE_LARGE_STDOUT,
 } from '../../shared/runCapsule.fixtures';
 import type { RunCapsuleV1 } from '../../../src/shared/runCapsule';
+import { buildCapsuleWorkspace } from '../../../src/shared/capsuleWorkspace';
 
 describe('CapsuleImportPreview', () => {
   it('renders the metadata strip with language + runner + size', () => {
@@ -60,6 +61,32 @@ describe('CapsuleImportPreview', () => {
     expect(
       screen.getByTestId('capsule-import-preview-panel-environment')
     ).toBeTruthy();
+  });
+
+  it('shows supplemental Capsule Workspace files without executing them', async () => {
+    const built = await buildCapsuleWorkspace(FIXTURE_MINIMAL_JS, [
+      { path: 'src/helper.ts', language: 'typescript', content: 'export const n = 1;' },
+      { path: 'README.md', language: 'markdown', content: '# Notes' },
+    ]);
+    if (!built.ok) throw new Error(built.reason);
+    const onOpen = vi.fn();
+    render(
+      <CapsuleImportPreview
+        capsule={built.value.capsule}
+        workspace={built.value}
+        byteLength={1000}
+        onOpenWorkspaceFile={onOpen}
+      />
+    );
+    fireEvent.click(screen.getByTestId('capsule-import-preview-tab-files'));
+    expect(screen.getAllByTestId('capsule-workspace-viewer-file')).toHaveLength(2);
+    expect(screen.getByTestId('capsule-workspace-viewer-content').textContent).toContain(
+      'export const n = 1;'
+    );
+    fireEvent.click(screen.getAllByTestId('capsule-workspace-viewer-file')[1]!);
+    expect(screen.getByTestId('capsule-workspace-viewer-content').textContent).toContain('# Notes');
+    fireEvent.click(screen.getByTestId('capsule-workspace-viewer-open-file'));
+    expect(onOpen).toHaveBeenCalledWith(built.value.files[1]);
   });
 
   it('surfaces the omitted-fields privacy banner when present (implementation note)', () => {

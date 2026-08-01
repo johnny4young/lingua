@@ -44,6 +44,8 @@ import { formatNumber } from '../../i18n/formatNumber';
 import { ModalShell } from '../ui/ModalShell';
 import { EmptyState } from '../ui/EmptyState';
 import { CapsuleImportPreview } from './CapsuleImportPreview';
+import { openCapsuleWorkspaceFileInNewTab } from '../../utils/openCapsuleTab';
+import type { CapsuleWorkspaceFileV1 } from '../../../shared/capsuleWorkspace';
 
 export interface CapsuleImportOverlayProps {
   onClose: () => void;
@@ -208,6 +210,18 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     });
     closeRef.current();
   }, [decoded, openInNewTab, pushStatusNotice]);
+
+  const handleOpenWorkspaceFile = useCallback(
+    (file: CapsuleWorkspaceFileV1) => {
+      openCapsuleWorkspaceFileInNewTab(file);
+      pushStatusNotice({
+        tone: 'success',
+        messageKey: 'capsuleImport.notice.openedWorkspaceFile',
+        values: { path: file.path },
+      });
+    },
+    [pushStatusNotice]
+  );
 
   // implementation note — copy source to clipboard secondary action.
   const handleCopySource = useCallback(async () => {
@@ -436,6 +450,8 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
             <CapsuleImportPreview
               capsule={decoded.capsule}
               byteLength={decoded.byteLength}
+              workspace={decoded.workspace}
+              onOpenWorkspaceFile={handleOpenWorkspaceFile}
             />
           ) : rejected ? (
             <RejectBanner

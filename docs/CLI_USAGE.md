@@ -180,6 +180,13 @@ project root or sibling files, so relative imports and project-only dependencies
 are outside this replay boundary. Use `lingua run <project-directory>` when the
 project itself is available on disk.
 
+The app's additive `CapsuleWorkspaceV1` format can carry explicitly selected
+supplemental text files for read-only handoff, but the CLI intentionally does
+not validate or replay that wrapper and does not resolve its imports. Extract
+the nested `capsule` only when its single source is independently replayable;
+otherwise run the actual project directory. See
+[`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md).
+
 Compatibility is exercised from an immutable `v0.15.0` artifact through the
 same shared parser, renderer importer, CLI validator/replay path, and web import
 surface. When a future schema version is introduced, that old artifact must
@@ -310,8 +317,9 @@ Adding new codes is allowed; renumbering existing ones is forbidden
   not additional CLI implementation.
 - Localized CLI copy — the CLI currently ships English-only copy, consistent
   with the repository's `electron-forge` and `electron-builder` tooling.
-- Multi-file Capsule replay — the v1 Capsule schema intentionally stores one
-  source buffer, not a project archive.
+- Multi-file Capsule Workspace replay — the app can inspect the additive
+  wrapper, but the CLI intentionally executes only stable single-source Run
+  Capsules or real project directories.
 
 ## CI integration tips
 

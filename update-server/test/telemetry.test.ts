@@ -562,6 +562,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
       'list-export',
       // internal — self-contained HTML export from the browse overlay row.
       'list-export-html',
+      'list-export-workspace',
       'palette-export',
       'pipeline-run',
       'result-panel-export',

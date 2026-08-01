@@ -1,6 +1,27 @@
 {
-  "generatedAt": "2026-07-24T04:02:51.268Z",
+  "generatedAt": "2026-08-01T11:23:32.171Z",
   "entries": [
+    {
+      "version": "0.15.0",
+      "date": "2026-07-28",
+      "sections": [
+        {
+          "heading": "Changed",
+          "items": [
+            "<strong>Run capsules now carry a real forward-compatibility contract:</strong> the parser distinguishes a capsule written by a newer Lingua (import tells you to update the app) from one whose format this build genuinely cannot read, and replays a registered migration chain for older capsules instead of rejecting them outright. The distinction has to ship before a second schema version exists, because an already-released build can never learn a new reject reason.",
+            "<strong>The browser build no longer downloads the code editor, the overlays, or the changelog before they are needed:</strong> the initial payload drops from 1.72 MB to 0.48 MB gzipped (1.77 MB raw, down from 6.76 MB). Monaco is fetched when an editor actually mounts, and Settings, the command palette, capsule browsing, the importers and the release notes each load the first time you open them. A visitor who lands on the start screen and never opens a file pays for none of it."
+          ]
+        },
+        {
+          "heading": "Fixed",
+          "items": [
+            "<strong>Go to Symbol lists real declarations in JavaScript and TypeScript files again:</strong> the Monaco integration now uses the worker API that ships in current production bundles, so functions, classes, and nested methods no longer collapse into an empty result in the web app.",
+            "<strong>Settings deep links open the section they promise again:</strong> the Pro upsell, license badge, and command-palette links used frame delays to navigate after opening Settings, which stopped being reliable when the modal moved behind a lazy boundary. They now hand the target tab to the next mount or navigate an already-open modal synchronously, without leaving a stale tab for the following open."
+          ]
+        }
+      ],
+      "raw": "### Changed\n- **Run capsules now carry a real forward-compatibility contract:** the parser distinguishes a capsule written by a newer Lingua (import tells you to update the app) from one whose format this build genuinely cannot read, and replays a registered migration chain for older capsules instead of rejecting them outright. The distinction has to ship before a second schema version exists, because an already-released build can never learn a new reject reason.\n- **The browser build no longer downloads the code editor, the overlays, or the changelog before they are needed:** the initial payload drops from 1.72 MB to 0.48 MB gzipped (1.77 MB raw, down from 6.76 MB). Monaco is fetched when an editor actually mounts, and Settings, the command palette, capsule browsing, the importers and the release notes each load the first time you open them. A visitor who lands on the start screen and never opens a file pays for none of it.\n\n### Fixed\n- **Go to Symbol lists real declarations in JavaScript and TypeScript files again:** the Monaco integration now uses the worker API that ships in current production bundles, so functions, classes, and nested methods no longer collapse into an empty result in the web app.\n- **Settings deep links open the section they promise again:** the Pro upsell, license badge, and command-palette links used frame delays to navigate after opening Settings, which stopped being reliable when the modal moved behind a lazy boundary. They now hand the target tab to the next mount or navigate an already-open modal synchronously, without leaving a stale tab for the following open."
+    },
     {
       "version": "0.14.0",
       "date": "2026-07-23",

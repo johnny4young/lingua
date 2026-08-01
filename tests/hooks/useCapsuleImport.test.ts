@@ -17,6 +17,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import * as telemetry from '@/utils/telemetry';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
+import { buildCapsuleWorkspace } from '../../src/shared/capsuleWorkspace';
 
 const STABLE_CAPSULE_PATH = path.join(
   process.cwd(),
@@ -56,6 +57,18 @@ describe('useCapsuleImport', () => {
         status: 'decoded',
       })
     );
+  });
+
+  it('retains Capsule Workspace metadata for the read-only Files preview', async () => {
+    const workspace = await buildCapsuleWorkspace(FIXTURE_MINIMAL_JS, [
+      { path: 'src/helper.ts', language: 'typescript', content: 'export const n = 1;' },
+    ]);
+    if (!workspace.ok) throw new Error(workspace.reason);
+    const { result } = renderHook(() => useCapsuleImport());
+    act(() => result.current.decodeFromText(workspace.json));
+    expect(result.current.state.kind).toBe('decoded');
+    if (result.current.state.kind !== 'decoded') return;
+    expect(result.current.state.workspace?.files[0]?.path).toBe('src/helper.ts');
   });
 
   it('reports rejected state with the closed-enum reason', () => {

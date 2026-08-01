@@ -1129,6 +1129,9 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // compare HTML-share adoption against the JSON/clipboard flows.
   'settings-export-html',
   'list-export-html',
+  // Multi-file Capsule Workspace export from the browse overlay. The event
+  // carries only this trigger and a coarse artifact-size bucket.
+  'list-export-workspace',
 ]);
 // implementation note — closed enum of surfaces that can open the
 // capsule browse overlay. Mirrored in `update-server/src/telemetry.ts`

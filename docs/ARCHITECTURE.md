@@ -171,6 +171,26 @@ opening external links keeps working. A drift-guard test asserts
 `defaultSession` is the only session the app uses — if a partitioned session is
 added later, it must install the same handlers.
 
+## Portable Capsule artifact boundary
+
+Lingua keeps execution capture and multi-file sharing as two additive layers:
+
+- `RunCapsuleV1` is the stable, single-source execution record consumed by the
+  renderer importer, CLI replay, share links, and compatibility migrations.
+- `CapsuleWorkspaceV1` wraps one sanitized Run Capsule plus explicitly selected
+  open text tabs for local handoff and read-only inspection.
+
+The wrapper deliberately does not add a project root, capability token, or
+backend identity to the Run Capsule. Its shared codec rejects absolute and
+traversing paths, duplicate portable paths, malformed nested capsules, and
+bounded-size violations. The renderer exporter is the consent layer: it never
+crawls disk, shows the exact selected content, flags possible secrets, and
+requires a review confirmation before clipboard or file egress. The importer
+opens supplemental files one at a time and never auto-executes them.
+
+See [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md) for the wire shape,
+limits, and CLI boundary.
+
 ## Project lifecycle
 
 ### What “project lifecycle” means in this codebase

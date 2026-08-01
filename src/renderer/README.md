@@ -87,8 +87,8 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlResultPreview.tsx`, preview parts/actions | DuckDB SQL workspace, schema browser, result orchestration and focused table/export UI |
-| [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`                            | Run Capsule import validation and open/focus routing            |
-| [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`                              | Capsule browsing, filters, and replay affordances              |
+| [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`, `CapsuleImportPreview.tsx` | Run Capsule and Capsule Workspace validation, read-only preview, and inert per-file open routing |
+| [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |

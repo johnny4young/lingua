@@ -21,6 +21,7 @@ planning is intentionally excluded from the published repository.
 - [`IMPORTING.md`](./IMPORTING.md) — supported import formats, limits, and trust boundaries.
 - [`DEBUGGER.md`](./DEBUGGER.md) — current debugger behavior, validation, telemetry, and limitations.
 - [`CAPSULE_TEST_MATRIX.md`](./CAPSULE_TEST_MATRIX.md) — portable run-capture fixture and compatibility matrix.
+- [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md) — bounded multi-file sharing format, privacy boundary, limits, and viewer behavior.
 - [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) — license and update service telemetry, alerts, and dashboards.
 
 ## Architecture decisions

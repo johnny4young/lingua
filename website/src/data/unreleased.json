@@ -1,43 +1,115 @@
 {
-  "generatedAt": "2026-07-24T03:45:57.454Z",
-  "baseRef": "v0.13.0",
-  "commitCount": 4,
-  "totalSinceBase": 5,
+  "generatedAt": "2026-08-01T11:23:32.189Z",
+  "baseRef": "v0.15.0",
+  "commitCount": 12,
+  "totalSinceBase": 57,
   "commits": [
     {
-      "hash": "70fda05",
-      "date": "2026-07-23",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "settings",
-      "message": "restore visually hidden controls (#89)",
-      "breaking": false
-    },
-    {
-      "hash": "6c5134b",
-      "date": "2026-07-23",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "licensing",
-      "message": "allow production web license requests (#88)",
-      "breaking": false
-    },
-    {
-      "hash": "5bd4a03",
-      "date": "2026-07-22",
+      "hash": "d98758d",
+      "date": "2026-08-01",
       "type": "feat",
       "typeLabel": "New",
-      "scope": "licensing",
-      "message": "add overlap-safe key rotation (#87)",
+      "scope": "import",
+      "message": "add bounded playground URL flow",
       "breaking": false
     },
     {
-      "hash": "71cee86",
-      "date": "2026-07-21",
+      "hash": "69c4b2f",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "import",
+      "message": "add Bruno collection directory flow",
+      "breaking": false
+    },
+    {
+      "hash": "34e6979",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "cli",
+      "message": "add release distribution pipeline",
+      "breaking": false
+    },
+    {
+      "hash": "5f44d1e",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "cli",
+      "message": "add completions color and stable errors",
+      "breaking": false
+    },
+    {
+      "hash": "f94fea7",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "cli",
+      "message": "run files projects and capsules",
+      "breaking": false
+    },
+    {
+      "hash": "dd26a74",
+      "date": "2026-07-31",
       "type": "fix",
       "typeLabel": "Fix",
-      "scope": "deps",
-      "message": "harden production dependency audits (#86)",
+      "scope": "projects",
+      "message": "preserve binary bundle integrity",
+      "breaking": false
+    },
+    {
+      "hash": "b38a9bb",
+      "date": "2026-07-31",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runtime",
+      "message": "invalidate stale inline results",
+      "breaking": false
+    },
+    {
+      "hash": "9b76f04",
+      "date": "2026-07-31",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "a11y",
+      "message": "remove duplicate file picker controls",
+      "breaking": false
+    },
+    {
+      "hash": "4952751",
+      "date": "2026-07-31",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "http",
+      "message": "defer import workspace activation",
+      "breaking": false
+    },
+    {
+      "hash": "89db464",
+      "date": "2026-07-31",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "renderer",
+      "message": "defer notebook export",
+      "breaking": false
+    },
+    {
+      "hash": "c05abf7",
+      "date": "2026-07-31",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "renderer",
+      "message": "restore visually hidden content",
+      "breaking": false
+    },
+    {
+      "hash": "eee8197",
+      "date": "2026-07-31",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "renderer",
+      "message": "defer workspace collection state",
       "breaking": false
     }
   ]
