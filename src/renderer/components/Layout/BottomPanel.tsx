@@ -6,6 +6,7 @@ import {
   GitBranch,
   GraduationCap,
   MessageSquare,
+  SquareTerminal,
   Terminal,
   X,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { cn } from '../../utils/cn';
+import { useProjectStore } from '../../stores/projectStore';
 
 // Lazy so the `DiffEditor` import inside GitDiffPanel does not drag the
 // full monaco chunk into the INITIAL bundle — the git-diff tab is
@@ -41,9 +43,14 @@ const GitDiffPanel = lazy(async () => {
   return { default: module.GitDiffPanel };
 });
 
+const ProjectTerminalPanel = lazy(async () => {
+  const module = await import('../ProjectTerminal/ProjectTerminalPanel');
+  return { default: module.ProjectTerminalPanel };
+});
+
 /**
- * internal — the bottom console/debugger/preview/stdin/variables/
- * dependencies/git-diff/recipe drawer, extracted verbatim from `AppLayout.tsx`.
+ * internal — the bottom console/project-terminal/debugger/preview/stdin/
+ * variables/dependencies/git-diff/recipe drawer, extracted from `AppLayout.tsx`.
  * `debuggerAvailable` is computed by the shell (via `useLayoutAvailability`) and
  * passed in; every other availability gate + the `effectiveTab` resolution
  * ladder are unchanged from the inline original.
@@ -102,6 +109,9 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   // discoverable; pair it with the restore strip in MainContent
   // that surfaces when the panel is hidden.
   const setConsoleVisible = useUIStore((state) => state.setConsoleVisible);
+  const currentProject = useProjectStore(state => state.currentProject);
+  const projectTerminalAvailable =
+    currentProject !== null && window.lingua?.projectTerminal !== undefined;
 
   // implementation — register the activator so the
   // BrowserPreviewRunner can switch to the preview tab before it
@@ -150,8 +160,11 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
     | 'variables'
     | 'dependencies'
     | 'git-diff'
+    | 'project-terminal'
     | 'recipe' =
-    variablesAvailable && activeBottomPanel === 'variables'
+    projectTerminalAvailable && activeBottomPanel === 'project-terminal'
+      ? 'project-terminal'
+      : variablesAvailable && activeBottomPanel === 'variables'
       ? 'variables'
       : browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
         ? 'browser-preview'
@@ -192,6 +205,9 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
     if (activeBottomPanel === 'recipe' && !recipeTabAvailable) {
       setActiveBottomPanel('console');
     }
+    if (activeBottomPanel === 'project-terminal' && !projectTerminalAvailable) {
+      setActiveBottomPanel('console');
+    }
   }, [
     activeBottomPanel,
     debuggerAvailable,
@@ -201,6 +217,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
     dependenciesAvailable,
     gitDiffAvailable,
     recipeTabAvailable,
+    projectTerminalAvailable,
     setActiveBottomPanel,
   ]);
 
@@ -213,6 +230,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
       | 'variables'
       | 'dependencies'
       | 'git-diff'
+      | 'project-terminal'
       | 'recipe'
   ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
@@ -222,6 +240,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
     if (tab === 'dependencies' && !dependenciesAvailable) return;
     if (tab === 'git-diff' && !gitDiffAvailable) return;
     if (tab === 'recipe' && !recipeTabAvailable) return;
+    if (tab === 'project-terminal' && !projectTerminalAvailable) return;
     openBottomPanel(tab);
   };
 
@@ -230,7 +249,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
       <div
         role="tablist"
         aria-label={t('bottomPanel.tabs.label')}
-        className="surface-header flex h-11 shrink-0 items-end gap-1 border-b border-border-strong/70 bg-surface-strong/70 px-2 pt-1"
+        className="surface-header flex h-11 shrink-0 items-end gap-1 overflow-x-auto overflow-y-hidden border-b border-border-strong/70 bg-surface-strong/70 px-2 pt-1"
       >
         <Tooltip content={t('bottomPanel.tabs.consoleHint')} side="bottom">
           <button
@@ -250,6 +269,26 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
             {t('bottomPanel.tabs.console')}
           </button>
         </Tooltip>
+        {projectTerminalAvailable ? (
+          <Tooltip content={t('bottomPanel.tabs.projectTerminalHint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-project-terminal-tab"
+              aria-selected={effectiveTab === 'project-terminal'}
+              onClick={() => selectTab('project-terminal')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-caption font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'project-terminal'
+                  ? 'border-border-strong border-t-success border-b-background bg-background text-success shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <SquareTerminal size={12} aria-hidden="true" />
+              {t('bottomPanel.tabs.projectTerminal')}
+            </button>
+          </Tooltip>
+        ) : null}
         {debuggerAvailable ? (
           <Tooltip
             content={t('bottomPanel.tabs.debuggerHint', {
@@ -443,6 +482,24 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
         ) : effectiveTab === 'git-diff' ? (
           <Suspense fallback={null}>
             <GitDiffPanel />
+          </Suspense>
+        ) : effectiveTab === 'project-terminal' && currentProject ? (
+          <Suspense
+            fallback={
+              <div
+                role="status"
+                className="flex h-full items-center justify-center text-caption text-muted"
+              >
+                {t('projectTerminal.loading')}
+              </div>
+            }
+          >
+            <ProjectTerminalPanel
+              binding={{
+                rootId: currentProject.rootId,
+                projectName: currentProject.name,
+              }}
+            />
           </Suspense>
         ) : effectiveTab === 'recipe' ? (
           <RecipeRunPanel />

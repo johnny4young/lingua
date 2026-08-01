@@ -166,6 +166,11 @@ export function AppOverlays({
           onRunActiveTab={() => void run()}
           onOpenProject={() => useProjectStore.getState().openProject()}
           onOpenProjectTests={() => openOverlay('project-tests')}
+          onOpenProjectTerminal={
+            useProjectStore.getState().currentProject && window.lingua?.projectTerminal
+              ? () => useUIStore.getState().openBottomPanel('project-terminal')
+              : undefined
+          }
           onApplyLicense={() =>
             requestSettingsTarget('account', 'license-token-input', () => openOverlay('settings'))
           }

@@ -28,6 +28,12 @@
  * payload type.
  */
 
+import type {
+  ProjectTerminalDataEvent,
+  ProjectTerminalExitEvent,
+  ProjectTerminalStartResult,
+} from './projectTerminal';
+
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
   'app:get-system-languages': { args: []; result: string[] };
@@ -144,6 +150,24 @@ interface IpcInvokeContract {
   };
   'project-tests:stop': {
     args: [rootId: RootId, runId: string];
+    result: { stopped: boolean };
+  };
+
+  // --------------------------------------------------- project terminal
+  'project-terminal:start': {
+    args: [rootId: RootId, columns: number, rows: number];
+    result: ProjectTerminalStartResult;
+  };
+  'project-terminal:write': {
+    args: [sessionId: string, data: string];
+    result: { written: boolean };
+  };
+  'project-terminal:resize': {
+    args: [sessionId: string, columns: number, rows: number];
+    result: { resized: boolean };
+  };
+  'project-terminal:stop': {
+    args: [sessionId: string];
     result: { stopped: boolean };
   };
 
@@ -440,6 +464,8 @@ interface IpcPushContract {
   // output before the process exits.
   'runtime:output-chunk': RuntimeOutputChunk;
   'project-tests:output': ProjectTestOutputEvent;
+  'project-terminal:data': ProjectTerminalDataEvent;
+  'project-terminal:exit': ProjectTerminalExitEvent;
   'http:stream-progress': import('./httpWorkspaceSchema').HttpStreamProgress;
   'git:on-head-changed': GitHeadChangePayload;
   'git:on-head-watcher-failed': GitHeadWatcherFailurePayload;
@@ -507,6 +533,10 @@ export const IPC_INVOKE_CHANNELS = [
   'project-tests:detect',
   'project-tests:run',
   'project-tests:stop',
+  'project-terminal:start',
+  'project-terminal:write',
+  'project-terminal:resize',
+  'project-terminal:stop',
   'lsp:rust:start',
   'lsp:rust:restart',
   'lsp:rust:stop',

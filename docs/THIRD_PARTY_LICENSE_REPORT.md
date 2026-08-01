@@ -3,7 +3,7 @@
 Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
 Scope: production dependencies plus explicitly packaged external runtime components.
-Packages reviewed: 17.
+Packages reviewed: 19.
 Policy result: pass.
 
 ## License Summary
@@ -12,7 +12,7 @@ Policy result: pass.
 | --- | ---: |
 | `BlueOak-1.0.0` | 1 |
 | `ISC` | 2 |
-| `MIT` | 13 |
+| `MIT` | 15 |
 | `Python-2.0` | 1 |
 
 ## License Policy
@@ -53,6 +53,8 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `lodash.escaperegexp` | `4.1.2` | `MIT` | `node_modules/lodash.escaperegexp` |
 | `lodash.isequal` | `4.5.0` | `MIT` | `node_modules/lodash.isequal` |
 | `ms` | `2.1.3` | `MIT` | `node_modules/ms` |
+| `node-addon-api` | `7.1.1` | `MIT` | `node_modules/node-addon-api` |
+| `node-pty` | `1.1.0` | `MIT` | `node_modules/node-pty` |
 | `sax` | `1.6.0` | `BlueOak-1.0.0` | `node_modules/sax` |
 | `semver` | `7.7.4` | `ISC` | `node_modules/semver` |
 | `tiny-typed-emitter` | `2.1.0` | `MIT` | `node_modules/tiny-typed-emitter` |

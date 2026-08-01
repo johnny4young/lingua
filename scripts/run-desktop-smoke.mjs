@@ -11,6 +11,7 @@ import {
   assertMacBinarySupportsArch,
   selectPackagedMacArtifact,
 } from './lib/packagedMacArtifact.mjs';
+import { assertPackagedMacProjectTerminalRuntime } from './lib/packagedProjectTerminal.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -270,6 +271,7 @@ async function main() {
     }
     try {
       assertMacBinarySupportsArch(inspection.stdout, process.arch, binary);
+      await assertPackagedMacProjectTerminalRuntime(resolvedAppPath);
     } catch (error) {
       console.error(`[desktop-smoke] ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);

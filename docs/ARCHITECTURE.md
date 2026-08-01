@@ -659,6 +659,39 @@ dependencies are still arbitrary unsandboxed code with the user's OS
 permissions. The web build omits `window.lingua.projectTests` and shows an
 explicit desktop-only state instead of simulating execution.
 
+#### Project terminal
+
+The integrated terminal is another explicit desktop action, but it is not an
+extension of the fixed project-test runner. Selecting the Explorer terminal
+action, the Command Palette entry, or the contextual bottom-panel tab starts
+the user's real system shell through `node-pty`; xterm renders the byte stream
+in the renderer. Opening a project or merely revealing the panel never starts
+a process.
+
+The capability and lifecycle contract is:
+
+- the renderer sends only a branded `rootId` plus bounded terminal dimensions;
+  it cannot choose an executable, cwd, arguments, or environment;
+- main resolves the approved root as the **starting** cwd and selects only an
+  absolute host-configured or OS fallback shell, never a project-relative
+  executable;
+- the shell receives an allow-listed environment with terminal metadata, not
+  inherited API tokens or Node injection flags;
+- each session belongs to the initiating `WebContents`; input, resize, and stop
+  requests must present that session id from the same owner;
+- main caps sessions per owner and request sizes, then stops sessions when the
+  root capability is revoked, the renderer is destroyed, or the app quits;
+- the renderer retains a bounded transcript so output survives panel hiding and
+  a natural shell exit without making terminal history persistent on disk.
+
+This boundary controls ownership and accidental secret inheritance; it does
+not sandbox shell commands. A shell that starts under the approved project can
+`cd` elsewhere and access anything available to the user's OS account. The
+first start therefore reuses the native-execution acknowledgement with
+terminal-specific copy. The web adapter deliberately exposes no
+`window.lingua.projectTerminal` member, so web UI does not advertise a host
+shell it cannot provide.
+
 #### Project bundles
 
 Project bundle export is binary-safe on both filesystem backends. Desktop reads

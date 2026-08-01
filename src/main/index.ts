@@ -33,8 +33,10 @@ import { registerRecoveryHandlers } from './ipc/recovery';
 import { registerDependencyHandlers } from './ipc/dependencies';
 import { registerGitHandlers } from './ipc/git';
 import { registerProjectTestHandlers } from './ipc/projectTests';
+import { registerProjectTerminalHandlers } from './ipc/projectTerminal';
 import { disposeHttpRuns, registerHttpHandlers } from './ipc/http';
 import { disposeProjectTestRuns } from './projectTests';
+import { disposeProjectTerminalSessions } from './projectTerminal';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -79,6 +81,7 @@ registerRecoveryHandlers();
 registerDependencyHandlers();
 registerGitHandlers();
 registerProjectTestHandlers();
+registerProjectTerminalHandlers();
 registerHttpHandlers();
 registerUpdater();
 
@@ -327,6 +330,7 @@ app.on('before-quit', () => {
   // Lingua's main process.
   disposeLspBridge();
   disposeProjectTestRuns();
+  disposeProjectTerminalSessions();
   disposeHttpRuns();
 });
 

@@ -39,8 +39,9 @@ extraResources:
 # that slips past non-recursive upload globs in CI).
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 asar: true
-# .node addons cannot be dlopen'd from inside app.asar. Lingua has no native
-# addons today; kept defensively so a future one is unpacked automatically.
+# node-pty ships a platform-specific .node addon that cannot be dlopen'd from
+# inside app.asar. Keep every native addon unpacked and prove node-pty's binary
+# exists in the packaged application during the desktop packaging smoke.
 asarUnpack:
   - '**/*.node'
 # Deep-link scheme (lingua://) — replaces the Forge packagerConfig.protocols.
@@ -75,8 +76,9 @@ mac:
   # artifacts (not a `universal` build) because Lingua bundles ~96 MB of WASM
   # runtimes: a universal binary would double the download for every user to
   # serve one arch. electron-updater picks the right artifact from the arch
-  # list in latest-mac.yml. Safe to cross-package from an arm64 runner —
-  # Lingua has no native .node addons (see asarUnpack above).
+  # list in latest-mac.yml. Release CI builds each architecture with
+  # node-pty's matching prebuild; never reuse one architecture's unpacked
+  # .node artifact for the other.
   target:
     - target: dmg
       arch:

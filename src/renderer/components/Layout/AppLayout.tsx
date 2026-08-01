@@ -354,6 +354,8 @@ interface MainContentProps {
    * even when the console drawer was previously collapsed.
    */
   showRecipeTabBody: boolean;
+  /** Keep the drawer mounted when the project terminal is selected. */
+  showProjectTerminalTabBody: boolean;
   layoutPreset: LayoutPreset;
 }
 
@@ -364,6 +366,7 @@ function MainContent({
   showStdinTabBody,
   showVariablesTabBody,
   showRecipeTabBody,
+  showProjectTerminalTabBody,
   layoutPreset,
 }: MainContentProps) {
   const verticalLayout = useDefaultLayout({
@@ -383,7 +386,8 @@ function MainContent({
     showBrowserPreviewPanel ||
     showStdinTabBody ||
     showVariablesTabBody ||
-    showRecipeTabBody;
+    showRecipeTabBody ||
+    showProjectTerminalTabBody;
 
   if (!showBottomPanel) return <EditorAreaWithConsoleRestoreStrip />;
 
@@ -527,6 +531,7 @@ export function AppLayout({
     showStdinTabBody,
     showVariablesTabBody,
     showRecipeTabBody,
+    showProjectTerminalTabBody,
   } = useLayoutAvailability();
   // internal — presenter mode hides the persistent chrome at render
   // time; the underlying sidebar preference is untouched, so leaving
@@ -710,6 +715,7 @@ export function AppLayout({
                   showStdinTabBody={showStdinTabBody}
                   showVariablesTabBody={showVariablesTabBody}
                   showRecipeTabBody={showRecipeTabBody}
+                  showProjectTerminalTabBody={showProjectTerminalTabBody}
                   layoutPreset={layoutPreset}
                 />
               </div>
@@ -725,6 +731,7 @@ export function AppLayout({
                 showStdinTabBody={showStdinTabBody}
                 showVariablesTabBody={showVariablesTabBody}
                 showRecipeTabBody={showRecipeTabBody}
+                showProjectTerminalTabBody={showProjectTerminalTabBody}
                 layoutPreset={layoutPreset}
               />
             </div>

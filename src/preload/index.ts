@@ -1,5 +1,10 @@
 import { contextBridge } from 'electron';
 import type { HttpDesktopAPI } from '../shared/httpWorkspaceSchema';
+import type {
+  ProjectTerminalBridge,
+  ProjectTerminalDataEvent,
+  ProjectTerminalExitEvent,
+} from '../shared/projectTerminal';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
 
 const desktopSmokeEnabled =
@@ -11,6 +16,20 @@ const http: HttpDesktopAPI = {
     typedInvoke('http:execute', runId, request, options),
   cancel: (runId) => typedInvoke('http:cancel', runId),
   onProgress: (handler) => typedOn('http:stream-progress', handler),
+};
+
+const projectTerminal: ProjectTerminalBridge = {
+  start: (rootId, columns, rows) =>
+    typedInvoke('project-terminal:start', rootId, columns, rows),
+  write: (sessionId, data) =>
+    typedInvoke('project-terminal:write', sessionId, data),
+  resize: (sessionId, columns, rows) =>
+    typedInvoke('project-terminal:resize', sessionId, columns, rows),
+  stop: sessionId => typedInvoke('project-terminal:stop', sessionId),
+  onData: (handler: (event: ProjectTerminalDataEvent) => void) =>
+    typedOn('project-terminal:data', handler),
+  onExit: (handler: (event: ProjectTerminalExitEvent) => void) =>
+    typedOn('project-terminal:exit', handler),
 };
 
 contextBridge.exposeInMainWorld('lingua', {
@@ -147,6 +166,8 @@ contextBridge.exposeInMainWorld('lingua', {
     onOutput: (handler: (event: ProjectTestOutputEvent) => void) =>
       typedOn('project-tests:output', handler),
   },
+
+  projectTerminal,
 
   // implementation — desktop LSP bridges. The renderer
   // never talks to rust-analyzer or gopls directly; high-level

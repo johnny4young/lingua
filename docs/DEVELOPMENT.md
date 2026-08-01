@@ -128,6 +128,7 @@ reference for what each command owns.
 | `check:i18n`                 | Validates locale shape and key parity.                                                                                                                                                                                               |
 | `check:i18n:copy`            | Flags obvious hardcoded renderer copy in touched files.                                                                                                                                                                              |
 | `format`                     | Runs Prettier over source, JSON, Markdown, and CSS files.                                                                                                                                                                            |
+| `prepare:node-pty`           | Restores executable permissions on node-pty's Unix `spawn-helper`; desktop builds run it automatically before packaging.                                                                                                           |
 | `build:desktop-bundles`      | Builds the main/preload/renderer Vite output into `.vite/` for electron-builder to package.                                                                                                                                          |
 | `package:desktop`            | Builds an unpacked desktop app (`electron-builder --dir`, ad-hoc signed).                                                                                                                                                            |
 | `make:desktop`               | Builds installers for the host platform with electron-builder.                                                                                                                                                                       |
@@ -135,7 +136,7 @@ reference for what each command owns.
 | `make:desktop:linux`         | Builds Linux installers/artifacts (AppImage).                                                                                                                                                                                        |
 | `make:desktop:win`           | Builds Windows installers/artifacts (NSIS).                                                                                                                                                                                          |
 | `publish:desktop`            | Builds and publishes installers + the auto-update feed to GitHub Releases.                                                                                                                                                           |
-| `prepare`                    | Rebuilds the CLI bundle after install/pull.                                                                                                                                                                                          |
+| `prepare`                    | Verifies node-pty's Unix helper permissions and rebuilds the CLI bundle after install/pull.                                                                                                                                         |
 
 ## i18n contributor workflow
 

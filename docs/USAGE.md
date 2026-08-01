@@ -125,6 +125,24 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
   is not a sandbox: test code still runs with your user account's filesystem
   permissions. The web build cannot start host processes and says so explicitly.
 
+## Project terminal
+
+- Open a local project in the desktop app, then choose the terminal action in
+  the Explorer header, search for **Open project terminal** in the Command
+  Palette, or select **Terminal** in the bottom panel.
+- The panel first explains the trust boundary. Choose **Start terminal** to
+  launch your default system shell in the approved project root. Opening a
+  folder or revealing the panel does not start a shell automatically.
+- The session continues while the bottom panel is hidden. **Clear** removes the
+  renderer's current transcript; **Stop** terminates the owned PTY; after exit,
+  **New session** starts a fresh shell.
+- Lingua chooses an absolute system shell, filters inherited environment
+  variables, bounds input and retained output, and stops the session when the
+  project closes, the window is destroyed, or the app quits.
+- The project root is only the starting directory, not a sandbox. Commands can
+  `cd` outside it and access files available to your user account. Run only
+  commands and projects you trust. The web build does not expose a local shell.
+
 ## Offline status
 
 - The desktop status bar is enabled by default. The web status bar remains opt-in under **Settings → Editor → Show status bar**.

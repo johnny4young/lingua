@@ -1,23 +1,22 @@
 {
-  "generatedAt": "2026-08-01T17:45:45.359Z",
+  "generatedAt": "2026-08-01T18:26:46.524Z",
   "totals": {
-    "planned": 1,
-    "inProgress": 9
+    "planned": 0,
+    "inProgress": 10
   },
-  "planned": [
+  "planned": [],
+  "inProgress": [
     {
       "theme": "Desktop workflows",
       "items": [
         {
           "title": "Integrated terminal",
-          "scope": "A project-scoped desktop terminal designed for the same local-first security model as native runners.",
-          "status": "Planned",
+          "scope": "Desktop now provides an explicit project terminal through xterm and an owner-bound pseudoterminal. It starts in the approved root with a filtered environment, preserves a bounded session transcript, stops with project and window lifecycle, and states clearly that the shell is not sandboxed.",
+          "status": "Delivered",
           "theme": "Desktop workflows"
         }
       ]
-    }
-  ],
-  "inProgress": [
+    },
     {
       "theme": "HTTP & data",
       "items": [

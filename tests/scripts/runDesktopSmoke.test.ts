@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -8,6 +10,7 @@ import {
   parseMacBinaryArchitectures,
   selectPackagedMacArtifact,
 } from '../../scripts/lib/packagedMacArtifact.mjs';
+import { assertPackagedMacProjectTerminalRuntime } from '../../scripts/lib/packagedProjectTerminal.mjs';
 
 const REPO_ROOT = resolve(__dirname, '../..');
 const SCRIPT_PATH = resolve(REPO_ROOT, 'scripts/run-desktop-smoke.mjs');
@@ -44,6 +47,28 @@ describe('scripts/run-desktop-smoke.mjs', () => {
         '/tmp/Lingua.app/Contents/MacOS/Lingua'
       )
     ).toThrow(/does not support host architecture arm64; detected x64/u);
+  });
+
+  it('requires the packaged node-pty addon and an executable spawn helper', async () => {
+    const appPath = mkdtempSync(resolve(tmpdir(), 'lingua-packaged-terminal-'));
+    const nativeRoot = resolve(
+      appPath,
+      'Contents/Resources/app.asar.unpacked/node_modules/node-pty/build/Release'
+    );
+    mkdirSync(nativeRoot, { recursive: true });
+    writeFileSync(resolve(nativeRoot, 'pty.node'), 'native-addon');
+    writeFileSync(resolve(nativeRoot, 'spawn-helper'), '#!/bin/sh\n');
+    chmodSync(resolve(nativeRoot, 'spawn-helper'), 0o755);
+
+    await expect(assertPackagedMacProjectTerminalRuntime(appPath)).resolves.toEqual({
+      addonPath: resolve(nativeRoot, 'pty.node'),
+      helperPath: resolve(nativeRoot, 'spawn-helper'),
+    });
+
+    chmodSync(resolve(nativeRoot, 'spawn-helper'), 0o644);
+    await expect(assertPackagedMacProjectTerminalRuntime(appPath)).rejects.toThrow(
+      /spawn-helper is not executable/u
+    );
   });
 
   it('fails fast when --against-packaged is missing its path', () => {

@@ -15,6 +15,7 @@ import path from 'node:path';
 import { OPEN_FILE_FILTERS } from '../../../shared/filePickerTypes';
 import { asRelativePath } from '../../../shared/fs/brandedIds';
 import { translateCommon } from '../../../shared/i18n/runtime';
+import { disposeProjectTerminalSessionsForRoot } from '../../projectTerminal';
 import { blockedPathFamily, isPathBlocked, isSafeEntryName } from '../permissions';
 import {
   mintFileCapability,
@@ -230,6 +231,7 @@ export function registerFileOperationHandlers(): void {
   });
 
   typedHandle('fs:revoke-root', (_event, rootId: RootId) => {
+    disposeProjectTerminalSessionsForRoot(rootId);
     return revokeRoot(rootId);
   });
 

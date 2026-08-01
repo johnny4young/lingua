@@ -6,6 +6,8 @@ import { AppLayout } from '../../src/renderer/components/Layout/AppLayout';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
+import { useProjectStore } from '../../src/renderer/stores/projectStore';
+import { asRootId } from '../../src/shared/fs/brandedIds';
 
 let compactShell = false;
 let editorTabs: unknown[] = [];
@@ -144,6 +146,12 @@ vi.mock('../../src/renderer/components/BrowserPreview', () => ({
   BrowserPreviewPanel: () => <div data-testid="browser-preview-panel">Browser preview</div>,
 }));
 
+vi.mock('../../src/renderer/components/ProjectTerminal/ProjectTerminalPanel', () => ({
+  ProjectTerminalPanel: ({ binding }: { binding: { projectName: string } }) => (
+    <div data-testid="project-terminal-panel">Terminal for {binding.projectName}</div>
+  ),
+}));
+
 // implementation — mock the Recipe Run panel to avoid pulling
 // `runnerManager` (and its esbuild-wasm transitive dep, which jsdom
 // rejects with the `TextEncoder().encode("") instanceof Uint8Array`
@@ -243,6 +251,7 @@ describe('AppLayout responsive shell', () => {
     setTabVariableInspectorEnabledMock.mockReset();
     matchMediaListeners.clear();
     useResultStore.setState({ scopeSnapshot: null, snapshotRing: [] });
+    useProjectStore.setState({ currentProject: null, nodes: [] });
 
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       get matches() {
@@ -389,6 +398,34 @@ describe('AppLayout responsive shell', () => {
 
     expect(await screen.findByTestId('bottom-panel-recipe-tab')).toBeTruthy();
     expect(await screen.findByTestId('recipe-run-panel')).toBeTruthy();
+  });
+
+  it('shows the desktop project terminal as a contextual bottom panel', async () => {
+    window.lingua = {
+      ...(window.lingua ?? ({ platform: 'darwin' } as LinguaAPI)),
+      projectTerminal: {} as NonNullable<LinguaAPI['projectTerminal']>,
+    } as LinguaAPI;
+    useProjectStore.setState({
+      currentProject: {
+        id: 'project-alpha',
+        name: 'Alpha',
+        rootPath: '/tmp/alpha',
+        rootId: asRootId('root-alpha'),
+        openedAt: 1,
+      },
+    });
+    useUIStore.setState({
+      sidebarVisible: false,
+      consoleVisible: true,
+      activeBottomPanel: 'project-terminal',
+    });
+
+    await renderLayout();
+
+    expect(screen.getByTestId('bottom-panel-project-terminal-tab')).toBeTruthy();
+    expect((await screen.findByTestId('project-terminal-panel')).textContent).toContain(
+      'Terminal for Alpha'
+    );
   });
 
   it('opens bottom Variables instead of disabling an already-enabled inspector chip', async () => {

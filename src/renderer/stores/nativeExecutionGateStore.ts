@@ -13,7 +13,7 @@
 import { create } from 'zustand';
 import type { Language } from '../types/language';
 
-type NativeExecutionTarget = Language | 'project-tests';
+type NativeExecutionTarget = Language | 'project-tests' | 'project-terminal';
 
 interface NativeExecutionGateState {
   /** Language whose run is pending acknowledgement, or `null` if no run is gated. */

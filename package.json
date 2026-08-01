@@ -52,14 +52,15 @@
     "check:i18n": "node ./scripts/check-i18n.mjs",
     "check:i18n:copy": "node ./scripts/check-renderer-copy.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
-    "build:desktop-bundles": "node ./scripts/build-desktop-bundles.mjs",
+    "prepare:node-pty": "node ./scripts/ensure-node-pty-helper-mode.mjs",
+    "build:desktop-bundles": "pnpm run prepare:node-pty && node ./scripts/build-desktop-bundles.mjs",
     "package:desktop": "pnpm run build:desktop-bundles && electron-builder --dir -c.mac.identity=-",
     "make:desktop": "pnpm run build:desktop-bundles && electron-builder --publish never",
     "make:desktop:mac": "pnpm run build:desktop-bundles && electron-builder --mac --publish never",
     "make:desktop:linux": "pnpm run build:desktop-bundles && electron-builder --linux --publish never",
     "make:desktop:win": "pnpm run build:desktop-bundles && electron-builder --win --publish never",
     "publish:desktop": "pnpm run build:desktop-bundles && electron-builder --publish always",
-    "prepare": "node ./scripts/build-cli.mjs"
+    "prepare": "node ./scripts/ensure-node-pty-helper-mode.mjs && node ./scripts/build-cli.mjs"
   },
   "repository": {
     "type": "git",
@@ -105,6 +106,8 @@
     "@types/ws": "8.18.1",
     "@vitejs/plugin-react": "^6.0.2",
     "@vscode/ripgrep": "1.18.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
     "acorn": "^8.16.0",
     "autoprefixer": "^10.5.0",
     "cron-parser": "^5.5.0",
@@ -157,7 +160,8 @@
     "zustand": "^5.0.14"
   },
   "dependencies": {
-    "electron-updater": "^6.8.9"
+    "electron-updater": "^6.8.9",
+    "node-pty": "1.1.0"
   },
   "engines": {
     "node": "24.x"

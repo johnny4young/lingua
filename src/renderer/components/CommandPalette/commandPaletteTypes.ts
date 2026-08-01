@@ -29,6 +29,8 @@ export interface CommandPaletteProps {
   onOpenProject?: () => void | Promise<void>;
   /** Opens the test-suite detector for the active project. */
   onOpenProjectTests?: () => void;
+  /** Opens the desktop terminal for the active project. */
+  onOpenProjectTerminal?: () => void;
   /** Opens Settings and focuses the license-token input. */
   onApplyLicense?: () => void;
   /**

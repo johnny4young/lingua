@@ -22,8 +22,9 @@ supportedArchitectures:
 
 # pnpm 11 blocks dependency build scripts by default (supply-chain
 # hardening). allowBuilds re-enables only the ones Lingua needs:
-# electron's postinstall downloads the platform binary, and esbuild
-# fetches its native binary. Everything else stays blocked.
+# electron's postinstall downloads the platform binary, esbuild fetches its
+# native binary, and node-pty compiles the reviewed PTY addon used only by the
+# desktop project terminal. Everything else stays blocked.
 allowBuilds:
   electron: true
   esbuild: true
@@ -38,6 +39,7 @@ allowBuilds:
   # Wrangler's install graph needs workerd and sharp build scripts.
   sharp: true
   workerd: true
+  node-pty: true
 
 # implementation  — supply-chain hardening re-enabled. electron-forge 7.x pulls
 # @electron/rebuild@3.7.2 → @electron/node-gyp, which was declared as a

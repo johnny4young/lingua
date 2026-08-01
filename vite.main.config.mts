@@ -65,7 +65,10 @@ export default defineConfig(({ mode }) => {
       sourcemap: !isProductionBuild,
       minify: isProductionBuild ? 'esbuild' : false,
       rollupOptions: {
-        external: ['electron', 'electron-updater'],
+        // node-pty owns a native .node addon. Keep it as a production
+        // dependency for electron-builder to rebuild/package instead of
+        // asking Vite to inline an architecture-specific binary.
+        external: ['electron', 'electron-updater', 'node-pty'],
         output: {
           format: 'cjs',
           entryFileNames: 'main.js',

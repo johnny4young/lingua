@@ -53,6 +53,7 @@ const HISTORICAL_STATIC_ACTION_ORDER = [
   'action-run-active-tab',
   'action-open-project',
   'action-run-project-tests',
+  'action-open-project-terminal',
   'action-apply-license',
   'action-rerun-last',
   'action-new-project-from-template',

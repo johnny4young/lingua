@@ -152,6 +152,9 @@ describe('Script naming docs guard', () => {
       'check:i18n',
       'check:i18n:copy',
       'format',
+      // Restores execute bits on node-pty's Unix companion helper before
+      // desktop bundling; pnpm package extraction can strip them.
+      'prepare:node-pty',
       // Desktop bundle build (main + preload + renderer via Vite) that
       // electron-builder then packages — the Forge-free build step.
       'build:desktop-bundles',

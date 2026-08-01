@@ -42,6 +42,8 @@ export interface BuildCommandPaletteModelArgs {
   onOpenProject?: () => void | Promise<void>;
   /** Open the project test-suite detector. */
   onOpenProjectTests?: () => void;
+  /** Open the desktop terminal for the active project. */
+  onOpenProjectTerminal?: () => void;
   /** Open Settings directly on the license-token input. */
   onApplyLicense?: () => void;
   /**

@@ -678,6 +678,8 @@ interface LinguaAPI {
     onOutput: (handler: (event: ProjectTestOutputEvent) => void) => () => void;
   };
 
+  projectTerminal?: import('./shared/projectTerminal').ProjectTerminalBridge;
+
   // implementation (Rust) + implementation (Go) — desktop LSP bridges.
   lsp: {
     rust: {

@@ -106,11 +106,11 @@ export function registerDesktopSmokeHandlers(): void {
 
   typedHandle('desktop-smoke:get-memory-snapshot', async () => {
     if (!isDesktopSmokeEnabled()) {
-      return { ok: false, reason: 'smoke-disabled' };
+      return { ok: false as const, reason: 'smoke-disabled' as const };
     }
 
     if (typeof process.memoryUsage !== 'function') {
-      return { ok: false, reason: 'unsupported' };
+      return { ok: false as const, reason: 'unsupported' as const };
     }
 
     const processMemory = process.memoryUsage();
@@ -118,7 +118,7 @@ export function registerDesktopSmokeHandlers(): void {
       typeof app.getAppMetrics === 'function' ? app.getAppMetrics() : [];
 
     return {
-      ok: true,
+      ok: true as const,
       capturedAt: new Date().toISOString(),
       process: {
         rssBytes: processMemory.rss,
