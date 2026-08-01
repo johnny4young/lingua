@@ -40,6 +40,36 @@ line budgets. Worker parity remains independent: the server intentionally
 mirrors the accepted schema instead of importing renderer code into its
 deployment bundle.
 
+## Browser execution-worker boundaries
+
+JavaScript/TypeScript and Python keep their Vite worker filenames stable while
+their implementations are divided by reason to change:
+
+```mermaid
+flowchart LR
+    JR["JS and TS runners"] --> JE["js-worker.ts<br/>stable entrypoint"]
+    PR["Python runner and installer"] --> PE["python-worker.ts<br/>stable entrypoint"]
+    JE --> JP["protocol"]
+    JE --> JX["execution"]
+    JX --> JS["serialization"]
+    JX --> JA["runtime bridges"]
+    PE --> PP["protocol"]
+    PE --> PX["execution"]
+    PE --> PD["dependency adapter"]
+    PX --> PS["serialization and Python sources"]
+    PX --> PA["persistent Pyodide adapter"]
+    PD --> PA
+```
+
+Only `js-worker.ts` and `python-worker.ts` register message listeners. Runners
+continue constructing those exact URLs; responsibility modules are internal to
+the worker bundle. Protocol unions close every inbound discriminator, while
+`tests/workers/workerArchitecture.test.ts` guards listener ownership,
+production-consumer boundaries, and per-module review budgets. Stateful
+runtime adapters are created once per worker so boot-global snapshots,
+notebook namespaces, installed Python packages, and Pyodide streams retain the
+same lifetime they had before the split.
+
 ## At a glance
 
 Lingua separates this feature into four layers:

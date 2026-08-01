@@ -16,7 +16,7 @@
 
 /**
  * internal — the single source of truth for debugger-control messages.
- * Exported so the worker's inbound message handler (`js-worker.ts`) can
+ * Exported so the worker's protocol (`js-worker-protocol.ts`) can
  * consume the SAME union the sender posts, closing the send/receive drift
  * (the worker previously read `event.data` as `any` and cast per branch).
  */

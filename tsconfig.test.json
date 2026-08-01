@@ -25,7 +25,8 @@
     "tests/hooks/useTelemetry.types.test.ts",
     "tests/build/rendererTypeBoundaries.test.ts",
     "tests/shared/telemetryArchitecture.test.ts",
-    "tests/components/commandPaletteArchitecture.test.ts"
+    "tests/components/commandPaletteArchitecture.test.ts",
+    "tests/workers/workerArchitecture.test.ts"
   ],
   "exclude": ["node_modules", "out", ".vite", "dist"]
 }

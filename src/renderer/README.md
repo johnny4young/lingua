@@ -33,7 +33,7 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`lint/`](lint)             | Inline-lint rules + quick-fix provider Monaco's TS worker does not cover |
 | [`clipboard/`](clipboard)   | Smart-paste detectors + intent router that delegate pasted artifacts to existing importers |
 | [`validation/`](validation) | Validate-only document checks for non-runnable development files          |
-| [`workers/`](workers)       | Web Worker entry points for JS/TS/Python/Go browser execution plus large diff and Utility Pipeline compute |
+| [`workers/`](workers)       | Stable Web Worker entrypoints with protocol, execution, serialization, and runtime-adapter modules for JS/TS/Python, plus Go/Ruby and background compute workers |
 | [`utils/`](utils)           | Framework-agnostic helpers and renderer-specific utilities                |
 | [`data/`](data)             | Static templates and catalog data                                         |
 | [`i18n/`](i18n)             | Async translation bootstrap: English is initial; Spanish loads on demand before mount/language change |

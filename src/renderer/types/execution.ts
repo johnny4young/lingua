@@ -324,7 +324,7 @@ export interface LanguageRunner {
 // actually posts (no `stop` message exists — runners `terminate()`), and
 // it silently omitted the debugger-control variants. The REAL inbound
 // contract lives at the receiving end: `WorkerInboundMessage` in
-// `workers/js-worker.ts` (= `ExecuteMessage` + the shared
+// `workers/js-worker-protocol.ts` (= `JsWorkerExecuteMessage` + the shared
 // `DebuggerControlMessage` from `runtime/debuggerWorkerBridge`), enforced
 // there by an exhaustiveness `never` guard.
 
