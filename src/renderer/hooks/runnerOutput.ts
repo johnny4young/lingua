@@ -1,4 +1,5 @@
-import type { ConsoleEntry, ExecutionResult, Language } from '../types';
+import type { ConsoleEntry, Language } from '../types';
+import type { ExecutionResult } from '../types/execution';
 
 type ConsoleEntryInput = Omit<ConsoleEntry, 'id' | 'timestamp'>;
 

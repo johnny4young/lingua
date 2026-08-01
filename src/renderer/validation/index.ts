@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import { load as parseYaml } from 'js-yaml';
-import type { EditorDiagnostic, Language } from '../types';
+import type { Language } from '../types';
+import type { EditorDiagnostic } from '../types/execution';
 
 /**
  * Editor-time validators for structured text formats. These checks are

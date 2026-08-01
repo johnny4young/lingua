@@ -1,4 +1,4 @@
-import type { EditorDiagnostic, ExecutionError } from '../types';
+import type { EditorDiagnostic, ExecutionError } from '../types/execution';
 
 export interface ExecutionMarkerEntry {
   startLineNumber: number;

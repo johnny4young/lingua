@@ -8,7 +8,7 @@ import type {
   LineTimingEntry,
   MagicCommentResult,
   WorkerResponse,
-} from '../types';
+} from '../types/execution';
 import {
   transformJSMagicComments,
   detectJSMagicComments,

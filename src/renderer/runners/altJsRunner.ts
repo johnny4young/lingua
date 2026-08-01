@@ -23,7 +23,7 @@ import type {
   ExecutionContext,
   ExecutionResult,
   LanguageRunner,
-} from '../types';
+} from '../types/execution';
 import {
   resolveTimeoutMs,
   type RuntimeTimeoutPreset,

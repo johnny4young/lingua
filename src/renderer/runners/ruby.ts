@@ -7,7 +7,7 @@ import type {
   ConsoleOutput,
   ExecutionError,
   WorkerResponse,
-} from '../types';
+} from '../types/execution';
 import { useSettingsStore } from '../stores/settingsStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import {

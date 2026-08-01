@@ -552,7 +552,14 @@ Use the existing file names as the rule instead of introducing alternate pattern
 | Renderer utilities               | domain-oriented lowercase file       | `executionPresentation.ts`, `languageMeta.ts`, `magicComments.ts` |
 | Shared presentational primitives | short semantic names                 | `chrome.tsx`, `keyboard.ts`                                       |
 
-Prefer direct imports over renderer-wide barrel files. The only current barrel-style files are narrow local entry points such as feature `index.ts` files, not app-wide aggregation layers.
+Prefer direct imports over renderer-wide barrel files. The historical
+[`types/index.ts`](types/index.ts) entry point remains a compatibility surface,
+while execution consumers import [`types/execution.ts`](types/execution.ts)
+directly and that contract depends on the dependency-free
+[`types/language.ts`](types/language.ts) leaf. Migrate the remaining legacy
+consumers by domain instead of creating another broad barrel. Narrow feature
+`index.ts` files may still assemble one local domain; do not add new app-wide
+aggregation layers.
 
 ## Extraction guide
 

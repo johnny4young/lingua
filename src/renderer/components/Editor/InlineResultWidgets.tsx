@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import type { LineResult } from '../../stores/resultStore';
-import type { LineTimingEntry } from '../../types';
+import type { LineTimingEntry } from '../../types/execution';
 import { renderInlineResultNode } from './inlineResultWidgetDom';
 
 const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';

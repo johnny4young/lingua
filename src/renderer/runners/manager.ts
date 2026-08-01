@@ -1,4 +1,4 @@
-import type { LanguageRunner, ExecutionContext, ExecutionResult } from '../types';
+import type { LanguageRunner, ExecutionContext, ExecutionResult } from '../types/execution';
 import { JavaScriptRunner } from './javascript';
 import { TypeScriptRunner } from './typescript';
 import { GoRunner } from './go';

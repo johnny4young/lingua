@@ -44,7 +44,7 @@ import type {
   ExecutionError,
   ExecutionResult,
   LanguageRunner,
-} from '../types';
+} from '../types/execution';
 import {
   BRIDGE_DISCRIMINATOR,
   buildPreviewDocument,

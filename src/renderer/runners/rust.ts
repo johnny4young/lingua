@@ -3,7 +3,7 @@ import type {
   ExecutionContext,
   ExecutionResult,
   ConsoleOutput,
-} from '../types';
+} from '../types/execution';
 import { parseRustExecutionError } from '../utils/executionDiagnostics';
 import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './env';
 import { enrichConsoleOutputLine } from './originSplitter';

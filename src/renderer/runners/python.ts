@@ -8,7 +8,7 @@ import type {
   ExecutionError,
   MagicCommentResult,
   WorkerResponse,
-} from '../types';
+} from '../types/execution';
 import {
   transformPythonMagicComments,
   detectPythonMagicComments,

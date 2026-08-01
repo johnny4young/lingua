@@ -4,7 +4,7 @@ import type {
   ExecutionResult,
   ConsoleOutput,
   ExecutionError,
-} from '../types';
+} from '../types/execution';
 import i18next from 'i18next';
 import { parseGoExecutionError } from '../utils/executionDiagnostics';
 import { enrichConsoleOutputLine } from './originSplitter';

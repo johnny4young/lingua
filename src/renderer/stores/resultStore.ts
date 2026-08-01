@@ -1,11 +1,6 @@
 import { create } from 'zustand';
-import type {
-  EditorDiagnostic,
-  ExecutionError,
-  Language,
-  LineTimingEntry,
-  RuntimeTimeoutPreset,
-} from '../types';
+import type { Language, RuntimeTimeoutPreset } from '../types';
+import type { EditorDiagnostic, ExecutionError, LineTimingEntry } from '../types/execution';
 import type { AutoRunGateReason } from '../../shared/autoRunGating';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';

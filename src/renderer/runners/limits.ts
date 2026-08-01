@@ -17,12 +17,8 @@
  * we drop late entries past the budget rather than throttle, which
  * keeps the implementation deterministic and easy to reason about.
  */
-import type {
-  ConsoleOutput,
-  ExecutionError,
-  ExecutionResult,
-  RuntimeTimeoutPreset,
-} from '../types';
+import type { RuntimeTimeoutPreset } from '../types';
+import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types/execution';
 
 // internal: re-export the main-side native subprocess caps so renderer
 // surfaces stay co-located and a future bump can update both worker

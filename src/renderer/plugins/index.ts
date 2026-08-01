@@ -41,7 +41,7 @@
  * directly from the app entry point.
  */
 
-import type { ExecutionContext, ExecutionResult } from '../types';
+import type { ExecutionContext, ExecutionResult } from '../types/execution';
 
 // ---------------------------------------------------------------- Plugin types
 
