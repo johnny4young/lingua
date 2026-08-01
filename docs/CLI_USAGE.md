@@ -117,7 +117,10 @@ Closed-enum reject reasons:
 - `file-not-found` — `<file>` does not exist (ENOENT).
 - `read-failed` — read error (e.g. EACCES).
 - `invalid-json` — not parseable JSON.
-- `unsupported-version` — `version !== 1`.
+- `unsupported-version` — the schema version is malformed, too old, or has no
+  complete registered migration path.
+- `capsule-from-newer-app` — the capsule is valid but was written by a newer
+  Lingua; update the app instead of treating the file as corrupt.
 - `oversized` — capsule > 4 MiB.
 - `missing-required-field` — schema-required key missing.
 - `invalid-field-type` — schema-typed key carries the wrong shape.
@@ -153,6 +156,11 @@ RunCapsuleV1 stores one source buffer, stdin, and argv. It does not carry a
 project root or sibling files, so relative imports and project-only dependencies
 are outside this replay boundary. Use `lingua run <project-directory>` when the
 project itself is available on disk.
+
+Compatibility is exercised from an immutable `v0.15.0` artifact through the
+same shared parser, renderer importer, CLI validator/replay path, and web import
+surface. When a future schema version is introduced, that old artifact must
+continue to reach the current shape through the registered migration chain.
 
 The content hash is an internal consistency check, not an authenticity
 signature: anyone who can edit a Capsule can also replace its source and

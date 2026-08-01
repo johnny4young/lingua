@@ -79,8 +79,8 @@
         },
         {
           "title": "Version-to-version migration coverage",
-          "scope": "Add explicit Capsule migrations and automated upgrade journeys from an older stable release.",
-          "status": "Partial",
+          "scope": "Capsules have an explicit migration registry, distinct newer-app guidance, and an automated journey that carries an immutable v0.15.0 artifact through the current shared parser, renderer importer, CLI replay, and web UI.",
+          "status": "Delivered",
           "theme": "CLI & compatibility"
         }
       ]
