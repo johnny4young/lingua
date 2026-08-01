@@ -7,8 +7,8 @@
  * message to the registered worker.
  *
  * This indirection keeps the runner classes from leaking out of the
- * runtime/ folder into UI code, and keeps the door open for the
- * implementation Python / Go / Rust adapters to plug in (each language's
+ * runtime/ folder into UI code, and keeps the door open for the native Python
+ * adapter and future Go / Rust adapters to plug in (each language's
  * adapter implements this same `(type, payload) => void` shape).
  *
  * Reference: implementation and docs/DEBUGGER_ADR.md.

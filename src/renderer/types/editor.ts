@@ -91,7 +91,7 @@ export interface FileTab {
    *     supported after a language change.
    *   - `debug` — auto-run is OFF; the user intends to step
    *     through breakpoints. Only valid for languages with a
-   *     debugger adapter (JS / TS today).
+   *     debugger adapter (JS / TS everywhere, Python on desktop).
    *
    * Optional so legacy persisted tabs load cleanly — the
    * resolved selector falls through to

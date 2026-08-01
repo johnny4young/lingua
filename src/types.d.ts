@@ -565,7 +565,7 @@ interface LinguaAPI {
   getAppInfo: () => Promise<AppInfo>;
   openExternal: (url: string) => Promise<boolean>;
   http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
-
+  pythonDebugger?: import('./shared/pythonDebugger').PythonDebuggerBridge;
   confirmClose: (dirtyFileNames: string[], language?: string) => Promise<number>;
   confirmCloseTab: (fileName: string, language?: string) => Promise<number>;
   onBeforeClose: (callback: () => void) => () => void;

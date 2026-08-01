@@ -837,13 +837,17 @@ describe('settingsStore', () => {
     });
 
     it('setWorkflowModeDefault refuses an unsupported mode', () => {
-      useSettingsStore
-        .getState()
-        .setWorkflowModeDefault('python', 'debug' as never);
-      // Python does not support debug — the seed `scratchpad` stands.
-      expect(
-        useSettingsStore.getState().workflowModeDefaultsByLanguage.python
-      ).toBe('scratchpad');
+      const originalLingua = window.lingua;
+      try {
+        window.lingua = { platform: 'web' } as unknown as LinguaAPI;
+        useSettingsStore.getState().setWorkflowModeDefault('python', 'debug');
+        // Python debugging is desktop-only — the web seed remains Scratchpad.
+        expect(
+          useSettingsStore.getState().workflowModeDefaultsByLanguage.python
+        ).toBe('scratchpad');
+      } finally {
+        window.lingua = originalLingua;
+      }
     });
 
     it('setWorkflowModeDefault refuses languages outside the Settings surface', () => {
@@ -893,6 +897,8 @@ describe('settingsStore', () => {
     });
 
     it('sanitizes tampered persisted values on rehydrate', async () => {
+      const originalLingua = window.lingua;
+      window.lingua = { platform: 'web' } as unknown as LinguaAPI;
       localStorage.setItem(
         'lingua-settings',
         JSON.stringify({
@@ -908,24 +914,28 @@ describe('settingsStore', () => {
         })
       );
 
-      await (
-        useSettingsStore as typeof useSettingsStore & {
-          persist: { rehydrate: () => Promise<void> };
-        }
-      ).persist.rehydrate();
+      try {
+        await (
+          useSettingsStore as typeof useSettingsStore & {
+            persist: { rehydrate: () => Promise<void> };
+          }
+        ).persist.rehydrate();
 
       // `rust:run` and `ruby:run` are outside the Settings surface — drop.
-      // `python:debug` invalid (Python doesn't support debug) — drop.
+      // `python:debug` is invalid in the web shell — drop.
       // `javascript:banana` invalid (not a WorkflowMode) — drop.
       // After sanitize the map is empty; the seed re-fills the
       // three Scratchpad languages with their canonical defaults.
-      expect(
-        useSettingsStore.getState().workflowModeDefaultsByLanguage
-      ).toEqual({
-        javascript: 'scratchpad',
-        typescript: 'scratchpad',
-        python: 'scratchpad',
-      });
+        expect(
+          useSettingsStore.getState().workflowModeDefaultsByLanguage
+        ).toEqual({
+          javascript: 'scratchpad',
+          typescript: 'scratchpad',
+          python: 'scratchpad',
+        });
+      } finally {
+        window.lingua = originalLingua;
+      }
     });
 
     it('firstWorkflowModeSwitchAcknowledged defaults to false and flips via the setter (implementation note)', () => {

@@ -1,10 +1,10 @@
 # ADR — Debugger MVP
 
-| Status | Accepted — implemented for JavaScript / TypeScript |
+| Status | Accepted — implemented for JavaScript / TypeScript and desktop Python |
 | ------ | ----------------- |
 | Decision | Ship a focused debugger MVP targeting JavaScript / TypeScript first via a Monaco-integrated custom breakpoint panel, then Python via a `pdb` IPC bridge, then Go via Delve, then Rust via lldb. Every runtime after JS/TS is desktop-only. |
 | Date | 2026-04-20 |
-| Implementation start | JavaScript / TypeScript is shipping. Each subsequent language has its own implementation and capability gate. |
+| Implementation start | JavaScript / TypeScript and desktop Python are shipping. Go and Rust retain independent future capability gates. |
 
 ## Context
 
@@ -29,7 +29,7 @@ shape. This ADR picks a shape that:
 | Runtime | Strategy | Target | Status |
 |---------|----------|--------|--------|
 | JavaScript / TypeScript | Monaco-integrated breakpoint panel driven by source maps; step, bounded watches, conditional breakpoints, and logpoints via worker-side debugger hooks | web + Electron | Shipping |
-| Python | `pdb` bridge via IPC — spawn a headless `python -u` with the `pdb` module attached; renderer sends breakpoint / step / continue commands, main streams stdout and stop events | Electron only | Second slice |
+| Python | `pdb` bridge via IPC — spawn a headless `python -u` with the `pdb` module attached; renderer sends breakpoint / step / continue commands, main streams stdout and stop events | Electron only | Shipping |
 | Go | `dlv` (Delve) bridge via IPC — start Delve in headless mode and pipe JSON-RPC commands | Electron only | Third slice |
 | Rust | `lldb` (macOS / Linux) or `lldb-mi` via IPC — same IPC shape as Go once the JSON layer exists | Electron only | Fourth slice |
 
@@ -106,6 +106,12 @@ pauses fail-safe and explains the error instead of silently skipping the line.
 Logpoints interpolate bounded `{expression}` placeholders, publish their text
 through normal debugger output, and continue without pausing.
 
+This bounded interpreter applies to JavaScript and TypeScript. Python watches
+are evaluated by `pdb` inside the native debugged process, so they can invoke
+Python behavior and have side effects. The Python UI says so explicitly and
+ships only standard pause breakpoints; conditional breakpoints and logpoints
+remain JS/TS-only until a separate native-expression policy is accepted.
+
 ## Implementation sketch (for the follow-up work)
 
 - **JS/TS slice (shipping)**: Monaco `IEditor` decorations for pause,
@@ -113,10 +119,11 @@ through normal debugger output, and continue without pausing.
   into the existing JS worker; a bounded worker-side expression interpreter;
   and one worker lifetime per attached tab. The session is torn down on tab
   close or detach.
-- **Python slice (second)**: new IPC channel `debugger:python:*`.
-  Main spawns `python -u -m pdb <tempfile>`, pipes stdin / stdout,
-  translates commands. The existing `rust-compiler.ts` + `go-
-  compiler.ts` subprocess plumbing is the reference.
+- **Python slice (shipping)**: typed `debugger:python:*` IPC and preload bridge,
+  an owner-bound main session that drives `python -u -m pdb <tempfile>`, and a
+  lazy renderer adapter that reuses the breakpoint gutter, Debugger panel,
+  shared run lifecycle, and shortcuts. Main prefers project `.venv`/`venv`,
+  filters the environment, caps output, and cleans up on every owner lifecycle.
 - **Go slice (third)**: `dlv --headless --listen=:0` subprocess;
   renderer speaks Delve's JSON-RPC protocol directly (small
   adapter module in `src/main/debug/delve.ts`).
@@ -157,8 +164,8 @@ through normal debugger output, and continue without pausing.
 - `LANGUAGE_PACK_ADR.md` — future LanguagePacks that declare
   `capabilities.debugger: 'available' | 'planned'` gate the
   Debugger tab per language.
-- `CAPABILITY_MATRIX.md` — codifies "Go/Rust/Python debugger is
-  desktop only" as a matrix row.
+- `CAPABILITY_MATRIX.md` — codifies Python debugging as shipping desktop-only
+  and Go/Rust debugging as planned native work.
 - `ENV_VARS_ADR.md` — implementation env merger is the plumbing the
   debugger subprocess slices inherit for free.
 
@@ -212,3 +219,9 @@ through normal debugger output, and continue without pausing.
   data-only interpreter described in Decision 5. Breakpoint modes and their
   inputs persist through a schema migration; watch results and errors remain
   session-only.
+- **Desktop Python debugger shipped 2026-08-01.** Python tabs can select Debug,
+  pause on enabled gutter breakpoints, continue or step over/into/out, inspect
+  locals and the source-local call stack, and refresh watches through host
+  CPython/pdb. The bridge is capability-aware, owner-bound, output-bounded, and
+  lazy in the renderer. Normal Python Run remains Pyodide; web disables Python
+  Debug, and the native watch/advanced-breakpoint limitations remain explicit.

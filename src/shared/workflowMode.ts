@@ -64,14 +64,15 @@ const SCRATCHPAD_CAPABLE_LANGUAGES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Languages that have a debugger adapter today .
- * Stays in sync with `languageSupportsDebugger` for the JS / TS pair.
- * Future debugger adapters (Python, Go, Rust) extend this set when
+ * Languages that have a debugger adapter today.
+ * Python is desktop-only; platform policy is applied by renderer controls.
+ * Future debugger adapters (Go, Rust) extend this set when
  * their language-pack capability flips to `available`.
  */
 const DEBUG_CAPABLE_LANGUAGES: ReadonlySet<string> = new Set([
   'javascript',
   'typescript',
+  'python',
 ]);
 
 /**

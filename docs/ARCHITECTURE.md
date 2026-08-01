@@ -87,6 +87,36 @@ asynchronous syntax fail closed. This separation is intentional even though
 the containing worker already executes user code: debugger input must not gain
 ambient authority or side effects merely because it arrives during a pause.
 
+### Native Python debugger boundary
+
+Python **Run** still uses the Pyodide worker in both shells. Python **Debug** is
+a separate desktop-only path because source stepping needs host CPython and
+`pdb`. The renderer loads `runtime/pythonDebuggerBridge.ts` only after an
+explicit Debug action, then sends a bounded source snapshot, enabled line
+breakpoints, watches, argv, and the optional project capability pair through
+the typed preload bridge.
+
+Main owns every authority-bearing decision:
+
+- `ipc/pythonDebugger.ts` resolves the capability only to derive an approved
+  project working directory; raw display paths never authorize access;
+- the source snapshot is written to a mode-`0600` temporary file, and the
+  interpreter is selected from project `.venv`/`venv` before audited `PATH`
+  fallbacks;
+- subprocesses receive the native runner's filtered environment, run without a
+  shell, cap per-command output, and belong to the initiating `WebContents`;
+- commands are serialized by `PythonDebugSession`; stop, replacement, renderer
+  destruction, synchronization failure, and app quit terminate the whole
+  process tree and remove temporary files.
+
+The shared debugger store owns only transient presentation state. Standard
+Python breakpoints, locals, source-local call stack, and watches reuse the same
+panel and shortcuts as JS/TS. Unlike the detached JS/TS expression interpreter,
+Python watches run inside the real debugged process and may have side effects;
+the UI discloses that boundary and does not offer conditional breakpoints or
+logpoints for Python. The first Python Debug also reuses the native-execution
+acknowledgement. The web adapter omits the bridge and disables Debug honestly.
+
 ## Notebook lazy-reactivity boundary
 
 Notebook languages do not share one typed value graph. JavaScript and

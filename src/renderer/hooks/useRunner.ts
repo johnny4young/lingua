@@ -37,6 +37,15 @@ export function useRunner() {
     const resultState = useResultStore.getState();
     const target = resultState.manualExecutionTarget;
     if (target) {
+      if (target.language === 'python' && resultState.manualRunMode === 'debug') {
+        void import('../runtime/pythonDebuggerBridge')
+          .then(({ stopActivePythonDebugger }) => {
+            stopActivePythonDebugger();
+          })
+          .catch(() => {
+            // The pending start path observes the lifecycle state below.
+          });
+      }
       void import('../runners')
         .then(({ runnerManager }) => {
           runnerManager.stop(target.language, target.runtimeMode);

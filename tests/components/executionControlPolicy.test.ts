@@ -40,10 +40,16 @@ describe('executionControlPolicy', () => {
 
   it('uses the workflow capability matrix for Debug and Scratchpad', () => {
     const python = resolve({ language: 'python' });
+    const pythonDesktop = resolve({
+      language: 'python',
+      isWebBuild: false,
+      enabledBreakpointCount: 1,
+    });
     const ruby = resolve({ language: 'ruby' });
 
-    expect(python.actions.debug.reason).toBe('unsupported-workflow');
+    expect(python.actions.debug.reason).toBe('desktop-only');
     expect(python.actions.scratchpad.disabled).toBe(false);
+    expect(pythonDesktop.actions.debug).toEqual({ disabled: false, reason: null });
     expect(ruby.actions.debug.reason).toBe('unsupported-workflow');
     expect(ruby.actions.scratchpad.reason).toBe('unsupported-workflow');
     expect(

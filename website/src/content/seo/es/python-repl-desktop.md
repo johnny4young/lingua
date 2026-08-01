@@ -26,6 +26,9 @@ es suficiente.
   `.ipynb` y `.linguanb`.
 - En desktop, format-on-save prefiere `ruff format` y usa `black` como
   alternativa cuando alguno está disponible en `PATH`.
+- Debug en desktop usa CPython/pdb del host con breakpoints en el gutter,
+  ejecución paso a paso, variables locales, call stack del archivo y watches.
+  Usa primero `.venv` o `venv` del proyecto cuando está disponible.
 - Los límites de tiempo y salida evitan que un programa descontrolado
   bloquee el shell de la aplicación.
 
@@ -35,8 +38,9 @@ es suficiente.
   nativas incompatibles.
 - Lingua no crea ni conserva un entorno virtual Python local. Desktop
   sigue ejecutando Pyodide en lugar del CPython del host.
-- Python todavía no tiene un depurador paso a paso visible para el
-  usuario.
+- La depuración de Python solo está disponible en desktop. Los watches se
+  ejecutan dentro del proceso local y pueden tener efectos secundarios; los
+  breakpoints condicionales y logpoints siguen siendo exclusivos de JS/TS.
 
 ## Tier
 

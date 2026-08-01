@@ -1,7 +1,6 @@
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import type { LicenseTier } from '../../../shared/license';
 import {
-  supportsWorkflowMode,
   type WorkflowMode,
 } from '../../../shared/workflowMode';
 import type { Language } from '../../types/language';
@@ -9,6 +8,7 @@ import {
   executionModeForLanguage,
   languageCapabilityBadgeKey,
 } from '../../utils/languageMeta';
+import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 
 export type ExecutionControlDisabledReason =
   | 'desktop-only'
@@ -77,17 +77,19 @@ export function resolveExecutionControlPolicy({
         : executionMode === 'view'
           ? 'view-only'
           : null;
-  const supportsDebug = supportsWorkflowMode(language, 'debug');
+  const supportsDebug = supportsWorkflowModeInShell(language, 'debug', isWebBuild);
   const debugReason =
     sharedReason ??
-    (!supportsDebug
+    (language === 'python' && isWebBuild
+      ? 'desktop-only'
+      : !supportsDebug
       ? 'unsupported-workflow'
       : enabledBreakpointCount === 0
         ? 'no-enabled-breakpoint'
         : null);
   const scratchpadReason =
     sharedReason ??
-    (supportsWorkflowMode(language, 'scratchpad')
+    (supportsWorkflowModeInShell(language, 'scratchpad', isWebBuild)
       ? null
       : 'unsupported-workflow');
 

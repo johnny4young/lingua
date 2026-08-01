@@ -197,7 +197,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages: 'partial',
       stdin: 'available',
       richOutput: 'available',
-      debugger: 'planned',
+      debugger: 'desktop-only',
     },
     notes: {
       lsp: 'Pyright-in-a-worker is planned.',
@@ -208,7 +208,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       richOutput:
         'Chart, image, and HTML helpers ship via __lingua.*.',
       debugger:
-        'No Pyodide debugger integration yet. Tracked under internal follow-ups.',
+        'Desktop drives host CPython through pdb with breakpoints, stepping, locals, call stack, and watches. Pyodide has no pdb bridge.',
     },
   },
   {

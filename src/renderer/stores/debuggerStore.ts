@@ -11,8 +11,8 @@ import { createMigrate } from './persistence/migrationRegistry';
  * (per file), watch expressions (global), and the last call-stack frame
  * snapshot. The store is intentionally **runtime-agnostic** — implementation
  * implements only the JS adapter, but the shape carries a discriminated
- * `runtime` field so implementation (Python `pdb`), implementation (Go Delve), and
- * implementation (Rust lldb) can plug in without re-architecting.
+ * `runtime` field so the shipping Python `pdb` adapter and future Go Delve /
+ * Rust lldb adapters plug in without re-architecting.
  *
  * # Persistence
  *
@@ -46,7 +46,7 @@ export const MAX_WATCH_EXPRESSION_LENGTH = 512;
 export const MAX_BREAKPOINT_CONDITION_LENGTH = 512;
 export const MAX_LOGPOINT_MESSAGE_LENGTH = 1_024;
 
-type DebuggerRuntime = 'js' | 'python' | 'go' | 'rust';
+export type DebuggerRuntime = 'js' | 'python' | 'go' | 'rust';
 type PauseReason = 'user-breakpoint' | 'step' | 'exception';
 
 export type BreakpointMode = 'pause' | 'conditional' | 'logpoint';
@@ -82,7 +82,7 @@ interface CallStackFrame {
   line: number;
 }
 
-interface PausedFrame {
+export interface PausedFrame {
   /** Tab the user paused in (selects the file gutter to highlight). */
   tabId: string;
   /** 1-indexed source line that triggered the pause. */
@@ -110,7 +110,7 @@ interface PausedFrame {
 }
 
 interface DebuggerSession {
-  /** Which language adapter is attached. implementation only emits `'js'`. */
+  /** Which language adapter is attached. Shipping adapters emit JS or Python. */
   runtime: DebuggerRuntime;
   /** Tab the session is bound to. */
   tabId: string;

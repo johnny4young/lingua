@@ -78,10 +78,10 @@ describe('supportsWorkflowMode', () => {
     // language → only `run` mode is true. Confirm the contract.
     expect(supportsWorkflowMode(undefined, 'run')).toBe(true);
   });
-  it('supports debug only for JS / TS', () => {
+  it('supports debug for JS / TS and desktop Python', () => {
     expect(supportsWorkflowMode('javascript', 'debug')).toBe(true);
     expect(supportsWorkflowMode('typescript', 'debug')).toBe(true);
-    expect(supportsWorkflowMode('python', 'debug')).toBe(false);
+    expect(supportsWorkflowMode('python', 'debug')).toBe(true);
     expect(supportsWorkflowMode('go', 'debug')).toBe(false);
     expect(supportsWorkflowMode('rust', 'debug')).toBe(false);
     expect(supportsWorkflowMode(undefined, 'debug')).toBe(false);
@@ -102,11 +102,10 @@ describe('coerceWorkflowMode', () => {
   it('returns the input when the language supports it', () => {
     expect(coerceWorkflowMode('debug', 'javascript')).toBe('debug');
     expect(coerceWorkflowMode('scratchpad', 'python')).toBe('scratchpad');
+    expect(coerceWorkflowMode('debug', 'python')).toBe('debug');
     expect(coerceWorkflowMode('run', 'rust')).toBe('run');
   });
   it('falls back to the language default when the input is invalid', () => {
-    // Python doesn't support debug — snap to its default (scratchpad).
-    expect(coerceWorkflowMode('debug', 'python')).toBe('scratchpad');
     // Rust doesn't support debug — snap to its default (scratchpad,
     // since Rust auto-runs on desktop).
     expect(coerceWorkflowMode('debug', 'rust')).toBe('scratchpad');
@@ -127,8 +126,9 @@ describe('cycleWorkflowMode', () => {
     expect(cycleWorkflowMode('debug', 'javascript')).toBe('scratchpad');
     expect(cycleWorkflowMode('scratchpad', 'javascript')).toBe('run');
   });
-  it('cycles run → scratchpad → run on Python (skips debug)', () => {
-    expect(cycleWorkflowMode('run', 'python')).toBe('scratchpad');
+  it('cycles run → debug → scratchpad → run on Python', () => {
+    expect(cycleWorkflowMode('run', 'python')).toBe('debug');
+    expect(cycleWorkflowMode('debug', 'python')).toBe('scratchpad');
     expect(cycleWorkflowMode('scratchpad', 'python')).toBe('run');
   });
   it('cycles run → scratchpad → run on Rust (skips debug)', () => {
@@ -144,8 +144,5 @@ describe('cycleWorkflowMode', () => {
     // Edge: a stale `debug` mode on a Rust tab (legacy
     // regression) should snap back to a supported segment.
     expect(cycleWorkflowMode('debug', 'rust')).toBe('run');
-    // Same on a Python tab — debug isn't supported, so the cycle
-    // resets to the first supported segment.
-    expect(cycleWorkflowMode('debug', 'python')).toBe('run');
   });
 });

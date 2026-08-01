@@ -96,12 +96,17 @@ describe('editorStore — workflowMode ', () => {
       expect(createDefaultTab('javascript').workflowMode).toBe('run');
     });
     it('falls back to the shared helper when the Settings override is invalid', () => {
-      useSettingsStore.setState({
-        // `debug` on Python is not supported; the coerce step should
-        // ignore the bad override and use the shared default.
-        workflowModeDefaultsByLanguage: { python: 'debug' as never },
-      });
-      expect(createDefaultTab('python').workflowMode).toBe('scratchpad');
+      const originalLingua = window.lingua;
+      try {
+        window.lingua = { platform: 'web' } as unknown as LinguaAPI;
+        useSettingsStore.setState({
+          // Python Debug is desktop-only; web creation uses the shared default.
+          workflowModeDefaultsByLanguage: { python: 'debug' },
+        });
+        expect(createDefaultTab('python').workflowMode).toBe('scratchpad');
+      } finally {
+        window.lingua = originalLingua;
+      }
     });
   });
 

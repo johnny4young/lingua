@@ -29,7 +29,8 @@ Shared workflows include:
 - Monaco editing, fuzzy Quick Open, project search, replace-in-files,
   symbol navigation, and Git status or diffs on desktop.
 - Inline results, standard input where supported, rich console output,
-  execution history, and JS/TS debugging.
+  execution history, JS/TS debugging in both shells, and standard Python
+  debugging on desktop.
 - TypeScript, Python, and SQL notebook cells with Jupyter import/export.
 - HTTP request and DuckDB-powered SQL workspaces.
 - Prettier, gofmt, rustfmt, ruff or black format-on-save paths.
@@ -42,8 +43,8 @@ Shared workflows include:
   those runners as unavailable.
 - Python and web Ruby use WASM runtimes, so unsupported native packages
   remain outside their package model.
-- Step debugging is available for JavaScript and TypeScript, not for
-  Python, Ruby, Go, or Rust.
+- Step debugging is available for JavaScript and TypeScript in both shells and
+  for Python on desktop. Ruby, Go, and Rust do not have a step debugger.
 - gopls and rust-analyzer intelligence is desktop-only and requires the
   corresponding local binary.
 - Lua remains behind a local plugin-discovery path rather than the

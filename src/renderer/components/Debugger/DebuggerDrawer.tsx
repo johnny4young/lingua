@@ -11,7 +11,10 @@ import {
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebuggerStore } from '../../stores/debuggerStore';
-import { postDebuggerMessage } from '../../runtime/debuggerWorkerBridge';
+import {
+  dispatchDebuggerControl,
+  dispatchDebuggerRunToEnd,
+} from '../../runtime/debuggerControlBridge';
 import { trackEvent } from '../../utils/telemetry';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
 import type { Language } from '../../types/language';
@@ -85,7 +88,7 @@ export function DebuggerDrawer({
 
   useEffect(() => {
     if (!session) return;
-    postDebuggerMessage({
+    dispatchDebuggerControl({
       type: 'set-breakpoints',
       breakpoints: Object.values(allBreakpoints)
         .filter(breakpoint => breakpoint.tabId === session.tabId && breakpoint.enabled)
@@ -100,7 +103,7 @@ export function DebuggerDrawer({
 
   useEffect(() => {
     if (!session) return;
-    postDebuggerMessage({
+    dispatchDebuggerControl({
       type: 'set-watches',
       watches: watches.map(watch => watch.expression),
     });
@@ -121,7 +124,13 @@ export function DebuggerDrawer({
       : 'debugger.empty.ready';
   // Some runtimes can pause without stack metadata; do not expose a
   // step-out action that the worker cannot satisfy.
-  const canStepOut = isPaused && (pausedFrame?.callStack.length ?? 0) > 0;
+  const canStepOut =
+    isPaused &&
+    (pausedFrame?.callStack.length ?? 0) > 0 &&
+    !(
+      session?.runtime === 'python' &&
+      pausedFrame?.callStack[0]?.functionName === '<module>'
+    );
   const breakpointSummary =
     breakpointCount > 0
       ? t('debugger.breakpoints.summary', {
@@ -152,13 +161,13 @@ export function DebuggerDrawer({
       : t('debugger.breakpoints.clearAll.hint');
 
   const sendResume = () => {
-    postDebuggerMessage({ type: 'resume' });
+    dispatchDebuggerControl({ type: 'resume' });
     // Optimistically clear the pause state so stale variables/callstack
     // are not shown while the worker resumes execution.
     useDebuggerStore.getState().setPausedFrame(null);
   };
   const sendStep = (mode: 'over' | 'into' | 'out') => {
-    postDebuggerMessage({ type: 'step', mode });
+    dispatchDebuggerControl({ type: 'step', mode });
     // A step command immediately invalidates the current frame; the
     // worker will publish a fresh pause frame if execution stops again.
     useDebuggerStore.getState().setPausedFrame(null);
@@ -169,9 +178,10 @@ export function DebuggerDrawer({
     // `run-complete` / `crash` / `stop` reasons; this branch covers the
     // explicit user-initiated detach via the drawer button.
     const language = session?.runtime ?? 'js';
-    void trackEvent('debugger.detached', { language, reasonBucket: 'user-detach' });
-    postDebuggerMessage({ type: 'set-breakpoints', breakpoints: [] });
-    postDebuggerMessage({ type: 'resume' });
+    if (language !== 'python') {
+      void trackEvent('debugger.detached', { language, reasonBucket: 'user-detach' });
+    }
+    dispatchDebuggerRunToEnd();
     useDebuggerStore.getState().setPausedFrame(null);
     detachSession();
   };
@@ -377,10 +387,13 @@ export function DebuggerDrawer({
               title={t('debugger.breakpoints.panel.title')}
               testid="debugger-breakpoints"
             >
-              <DebuggerBreakpointList activeTabId={activeTabId} />
+              <DebuggerBreakpointList
+                activeTabId={activeTabId}
+                activeLanguage={activeLanguage}
+              />
             </DrawerSection>
             <DrawerSection title={t('debugger.paused.watches')} testid="debugger-watches">
-              <DebuggerWatchList />
+              <DebuggerWatchList runtime={session?.runtime ?? null} />
             </DrawerSection>
             {isPaused ? (
               // The branch is guarded by `isPaused`, so the non-null frame reads

@@ -6,6 +6,7 @@ import {
   useDebuggerStore,
   type BreakpointMode,
 } from '../../stores/debuggerStore';
+import type { Language } from '../../types/language';
 
 const modeIcon = {
   pause: CircleDot,
@@ -13,7 +14,13 @@ const modeIcon = {
   logpoint: MessageSquareText,
 } satisfies Record<BreakpointMode, typeof Circle>;
 
-export function DebuggerBreakpointList({ activeTabId }: { activeTabId: string | null }) {
+export function DebuggerBreakpointList({
+  activeTabId,
+  activeLanguage = 'javascript',
+}: {
+  activeTabId: string | null;
+  activeLanguage?: Language | null;
+}) {
   const { t } = useTranslation();
   const allBreakpoints = useDebuggerStore(state => state.breakpoints);
   const breakpoints = activeTabId
@@ -26,6 +33,8 @@ export function DebuggerBreakpointList({ activeTabId }: { activeTabId: string | 
   const setBreakpointCondition = useDebuggerStore(state => state.setBreakpointCondition);
   const setBreakpointLogMessage = useDebuggerStore(state => state.setBreakpointLogMessage);
   const toggleBreakpoint = useDebuggerStore(state => state.toggleBreakpoint);
+  const supportsAdvancedBreakpoints =
+    activeLanguage === 'javascript' || activeLanguage === 'typescript';
 
   if (!activeTabId || breakpoints.length === 0) {
     return <p className="text-caption text-muted">{t('debugger.breakpoints.panel.empty')}</p>;
@@ -35,8 +44,9 @@ export function DebuggerBreakpointList({ activeTabId }: { activeTabId: string | 
     <div className="grid gap-2">
       <ul className="grid max-h-52 gap-2 overflow-auto pr-1">
         {breakpoints.map(breakpoint => {
-          const ModeIcon = modeIcon[breakpoint.mode];
-          const modeLabel = t(`debugger.breakpoints.mode.${breakpoint.mode}`);
+          const effectiveMode = supportsAdvancedBreakpoints ? breakpoint.mode : 'pause';
+          const ModeIcon = modeIcon[effectiveMode];
+          const modeLabel = t(`debugger.breakpoints.mode.${effectiveMode}`);
           return (
             <li
               key={`${breakpoint.tabId}:${breakpoint.line}`}
@@ -72,31 +82,37 @@ export function DebuggerBreakpointList({ activeTabId }: { activeTabId: string | 
                   <Trash2 size={11} aria-hidden="true" />
                 </button>
               </div>
-              <label className="grid gap-1 text-eyebrow font-medium uppercase tracking-[0.12em] text-muted">
-                {t('debugger.breakpoints.behavior')}
-                <select
-                  data-testid={`debugger-breakpoint-mode-${breakpoint.line}`}
-                  value={breakpoint.mode}
-                  onChange={event =>
-                    setBreakpointMode(
-                      breakpoint.tabId,
-                      breakpoint.line,
-                      event.currentTarget.value as BreakpointMode
-                    )
-                  }
-                  aria-label={t('debugger.breakpoints.behaviorForLine', {
-                    line: breakpoint.line,
-                  })}
-                  className="field h-8 min-w-0 py-1 text-caption normal-case tracking-normal"
-                >
-                  {(['pause', 'conditional', 'logpoint'] as const).map(mode => (
-                    <option key={mode} value={mode}>
-                      {t(`debugger.breakpoints.mode.${mode}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {breakpoint.mode === 'conditional' ? (
+              {supportsAdvancedBreakpoints ? (
+                <label className="grid gap-1 text-eyebrow font-medium uppercase tracking-[0.12em] text-muted">
+                  {t('debugger.breakpoints.behavior')}
+                  <select
+                    data-testid={`debugger-breakpoint-mode-${breakpoint.line}`}
+                    value={breakpoint.mode}
+                    onChange={event =>
+                      setBreakpointMode(
+                        breakpoint.tabId,
+                        breakpoint.line,
+                        event.currentTarget.value as BreakpointMode
+                      )
+                    }
+                    aria-label={t('debugger.breakpoints.behaviorForLine', {
+                      line: breakpoint.line,
+                    })}
+                    className="field h-8 min-w-0 py-1 text-caption normal-case tracking-normal"
+                  >
+                    {(['pause', 'conditional', 'logpoint'] as const).map(mode => (
+                      <option key={mode} value={mode}>
+                        {t(`debugger.breakpoints.mode.${mode}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <p className="text-eyebrow leading-relaxed text-muted">
+                  {t('debugger.breakpoints.pythonPauseOnly')}
+                </p>
+              )}
+              {supportsAdvancedBreakpoints && breakpoint.mode === 'conditional' ? (
                 <label className="grid gap-1 text-eyebrow font-medium uppercase tracking-[0.12em] text-muted">
                   {t('debugger.breakpoints.condition')}
                   <input
@@ -118,7 +134,7 @@ export function DebuggerBreakpointList({ activeTabId }: { activeTabId: string | 
                   />
                 </label>
               ) : null}
-              {breakpoint.mode === 'logpoint' ? (
+              {supportsAdvancedBreakpoints && breakpoint.mode === 'logpoint' ? (
                 <label className="grid gap-1 text-eyebrow font-medium uppercase tracking-[0.12em] text-muted">
                   {t('debugger.breakpoints.logMessage')}
                   <input
@@ -146,7 +162,11 @@ export function DebuggerBreakpointList({ activeTabId }: { activeTabId: string | 
         })}
       </ul>
       <p className="text-eyebrow leading-relaxed text-muted">
-        {t('debugger.breakpoints.safeExpressionHint')}
+        {t(
+          supportsAdvancedBreakpoints
+            ? 'debugger.breakpoints.safeExpressionHint'
+            : 'debugger.breakpoints.pythonHint'
+        )}
       </p>
     </div>
   );

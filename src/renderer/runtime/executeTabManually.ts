@@ -300,6 +300,8 @@ export interface ManualExecutionLifecycle {
    * breakpoints remain passive editor marks until the user presses Debug.
    */
   debug?: boolean;
+  /** Telemetry entry point supplied by the React control that owns the run. */
+  track?: import('../hooks/useTelemetry').TelemetryTrack;
 }
 
 export interface ManualExecutionSummary {
@@ -355,6 +357,7 @@ export async function executeTabManually(
   const executionMode = executionModeForLanguage(language);
   const shouldRecordHistory = lifecycle.recordHistory !== false;
   const debugRequested = lifecycle.debug === true;
+  const usesNativePythonDebugger = debugRequested && language === 'python';
 
   lifecycle.setCurrentLanguage?.(language);
 
@@ -450,7 +453,8 @@ export async function executeTabManually(
   });
   lifecycle.setIsRunning?.(true);
 
-  const shouldShowInitialization = runnerManager.needsInitialization(language, runtimeMode);
+  const shouldShowInitialization =
+    !usesNativePythonDebugger && runnerManager.needsInitialization(language, runtimeMode);
   // internal — while the runtime bootstraps, compose the live download
   // progress the worker streams into the static loading message
   // ("Loading Python runtime (Pyodide)... 34 MB / 60 MB"). The
@@ -504,7 +508,20 @@ export async function executeTabManually(
       }
     }
 
-    const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
+    const prepared = usesNativePythonDebugger
+      ? {
+          runner: {
+            execute: async (
+              _source: string,
+              context?: { onConsole?: (output: ConsoleOutput) => void }
+            ) => {
+              const { executePythonDebugSession } = await import('./pythonDebuggerBridge');
+              return executePythonDebugSession(activeTab, context?.onConsole, lifecycle.track);
+            },
+          },
+        }
+      : await runnerManager.prepareRunner(language, runtimeMode);
+    const { runner } = prepared;
     if (!runner) {
       // Closed-enum failure signal; the console entry below carries the
       // honest local message.
@@ -637,7 +654,8 @@ export async function executeTabManually(
         : {}),
     };
 
-    const settingsTimeoutMs = isRuntimeTimeoutSupportedLanguage(language)
+    const settingsTimeoutMs =
+      !usesNativePythonDebugger && isRuntimeTimeoutSupportedLanguage(language)
       ? resolveTimeoutMs(
           language,
           useSettingsStore.getState().runtimeTimeoutPresetByLanguage?.[language]

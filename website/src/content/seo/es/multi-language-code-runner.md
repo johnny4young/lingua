@@ -29,7 +29,8 @@ Flujos compartidos:
 - Edición Monaco, Quick Open, búsqueda y reemplazo de proyecto,
   navegación de símbolos y estado o diff de Git en desktop.
 - Resultados inline, entrada estándar donde se soporta, consola
-  enriquecida, historial de ejecución y depurador JS/TS.
+  enriquecida, historial de ejecución, depurador JS/TS en ambas versiones y
+  depuración estándar de Python en desktop.
 - Celdas TypeScript, Python y SQL en notebooks con importación y
   exportación Jupyter.
 - Workspaces HTTP y SQL con DuckDB.
@@ -43,8 +44,9 @@ Flujos compartidos:
   runners como no disponibles.
 - Python y Ruby web usan runtimes WASM; los paquetes nativos
   incompatibles quedan fuera de ese modelo.
-- La depuración paso a paso está disponible para JavaScript y
-  TypeScript, no para Python, Ruby, Go o Rust.
+- La depuración paso a paso está disponible para JavaScript y TypeScript en
+  ambas versiones y para Python en desktop. Ruby, Go y Rust no tienen
+  depurador paso a paso.
 - gopls y rust-analyzer funcionan solo en desktop y requieren sus
   binarios locales.
 - Lua sigue detrás de la ruta de descubrimiento de plugins locales, no

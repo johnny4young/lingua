@@ -50,9 +50,9 @@ Honest limitations today:
 
 - Go and Rust need their toolchains installed locally — web build
   surfaces that as "desktop only"
-- The debugger is JS/TS only (preview); rich language intelligence for
-  Python, Rust, and Go relies on the local LSP (rust-analyzer / gopls),
-  and the web build keeps those languages validate-only
+- The full conditional/logpoint debugger is JS/TS; desktop Python also ships
+  standard breakpoints, stepping, locals, call stack, and native-process
+  watches through host CPython/pdb. Go and Rust have no debugger yet
 - Opt-in telemetry is off by default; crash reporting is opt-in too
 
 Happy to answer anything about the runner architecture, the

@@ -2,12 +2,17 @@ import { useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
+  type DebuggerRuntime,
   MAX_WATCHES,
   MAX_WATCH_EXPRESSION_LENGTH,
   useDebuggerStore,
 } from '../../stores/debuggerStore';
 
-export function DebuggerWatchList() {
+export function DebuggerWatchList({
+  runtime = null,
+}: {
+  runtime?: DebuggerRuntime | null;
+}) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState('');
   const watches = useDebuggerStore(state => state.watches);
@@ -86,7 +91,11 @@ export function DebuggerWatchList() {
       <p className="text-eyebrow leading-relaxed text-muted">
         {atLimit
           ? t('debugger.watches.limit', { count: MAX_WATCHES })
-          : t('debugger.watches.safeExpressionHint')}
+          : t(
+              runtime === 'python'
+                ? 'debugger.watches.pythonExpressionHint'
+                : 'debugger.watches.safeExpressionHint'
+            )}
       </p>
     </div>
   );

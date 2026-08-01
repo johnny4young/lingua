@@ -14,6 +14,7 @@ const NATIVE_EXECUTION_LANGUAGES = new Set<Language>(['go', 'rust']);
 interface NativeExecutionOptions {
   rubyRuntimePreference?: string;
   rubyBridgeAvailable?: boolean;
+  pythonDebuggerRequested?: boolean;
 }
 
 /**
@@ -34,6 +35,10 @@ export function requiresNativeExecutionAcknowledgement(
       options.rubyBridgeAvailable === true &&
       options.rubyRuntimePreference !== 'wasm'
     );
+  }
+
+  if (language === 'python') {
+    return options.pythonDebuggerRequested === true;
   }
 
   return NATIVE_EXECUTION_LANGUAGES.has(language);

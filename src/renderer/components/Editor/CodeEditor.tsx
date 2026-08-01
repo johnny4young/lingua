@@ -148,7 +148,7 @@ export function CodeEditor() {
     }
   }, [monacoInstance, expectedRustModelPaths]);
   // Glyph-margin breakpoint markers + click-to-toggle. The hook self-gates on
-  // debugger-capable JavaScript and TypeScript tabs so other languages stay
+  // debugger-capable JS/TS tabs and desktop Python so other languages stay
   // byte-identical in the DOM.
   useBreakpointGutter(editorInstance, monacoInstance, {
     activeTabId: activeTab?.id ?? null,

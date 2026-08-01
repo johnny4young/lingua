@@ -36,6 +36,10 @@ import { registerProjectTestHandlers } from './ipc/projectTests';
 import { registerProjectTerminalHandlers } from './ipc/projectTerminal';
 import { registerLocalMcpHandlers } from './ipc/localMcp';
 import { disposeHttpRuns, registerHttpHandlers } from './ipc/http';
+import {
+  disposePythonDebuggerSessions,
+  registerPythonDebuggerHandlers,
+} from './ipc/pythonDebugger';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
 import { disposeLocalMcpServer } from './localMcp';
@@ -86,6 +90,7 @@ registerProjectTestHandlers();
 registerProjectTerminalHandlers();
 registerLocalMcpHandlers(() => app.getVersion());
 registerHttpHandlers();
+registerPythonDebuggerHandlers();
 registerUpdater();
 
 let forceQuit = false;
@@ -336,6 +341,7 @@ app.on('before-quit', () => {
   disposeProjectTerminalSessions();
   void disposeLocalMcpServer();
   disposeHttpRuns();
+  disposePythonDebuggerSessions();
 });
 
 app.on('activate', () => {

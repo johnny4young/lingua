@@ -1,7 +1,11 @@
 import { claimCapsuleListSurface } from '../components/CapsuleList/capsuleListSurface';
 import { usePresenterModeStore } from '../stores/presenterModeStore';
 import { getActiveEditorCursorLine } from '../runtime/editorAccess';
-import { isDebugWorkerActive, postDebuggerMessage } from '../runtime/debuggerWorkerBridge';
+import {
+  dispatchDebuggerControl,
+  isDebuggerControlActive,
+  type DebuggerControlMessage,
+} from '../runtime/debuggerControlBridge';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { languageSupportsDebugger } from '../utils/languageMeta';
@@ -73,10 +77,8 @@ export function buildGlobalShortcutActions(
   };
 }
 
-type DebuggerMessage = Parameters<typeof postDebuggerMessage>[0];
-
-function resumeDebugger(message: DebuggerMessage): void {
-  if (postDebuggerMessage(message)) {
+function resumeDebugger(message: DebuggerControlMessage): void {
+  if (dispatchDebuggerControl(message)) {
     useDebuggerStore.getState().setPausedFrame(null);
   }
 }
@@ -85,10 +87,18 @@ export function canDispatchDebuggerShortcut(id: string): boolean {
   if (id === 'debugger-toggle-breakpoint') {
     return getActiveDebuggerTab() !== null && getActiveEditorCursorLine() !== null;
   }
-  if (!isDebugWorkerActive()) return false;
-  const pausedFrame = useDebuggerStore.getState().pausedFrame;
+  if (!isDebuggerControlActive()) return false;
+  const debuggerState = useDebuggerStore.getState();
+  const pausedFrame = debuggerState.pausedFrame;
   if (!pausedFrame) return false;
-  return id !== 'debugger-step-out' || pausedFrame.callStack.length > 0;
+  return (
+    id !== 'debugger-step-out' ||
+    (pausedFrame.callStack.length > 0 &&
+      !(
+        debuggerState.session?.runtime === 'python' &&
+        pausedFrame.callStack[0]?.functionName === '<module>'
+      ))
+  );
 }
 
 function getActiveDebuggerTab(): { id: string; language: string } | null {

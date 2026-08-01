@@ -8,9 +8,9 @@ import {
 import { type ThemePackAppearance } from '../data/themePacks';
 import {
   isWorkflowMode,
-  supportsWorkflowMode,
   type WorkflowMode,
 } from '../../shared/workflowMode';
+import { supportsWorkflowModeInShell } from '../utils/workflowModeSupport';
 import {
   isRuntimeTimeoutPreset,
   isRuntimeTimeoutSupportedLanguage,
@@ -114,7 +114,7 @@ export function sanitizeWorkflowModeDefaults(
   )) {
     if (!SETTINGS_WORKFLOW_MODE_LANGUAGE_SET.has(language)) continue;
     if (!isWorkflowMode(rawMode)) continue;
-    if (!supportsWorkflowMode(language, rawMode)) continue;
+    if (!supportsWorkflowModeInShell(language, rawMode)) continue;
     out[language] = rawMode;
   }
   return out;

@@ -69,7 +69,7 @@ describe('DebuggerDrawer', () => {
     fireEvent.click(screen.getByTestId('debugger-toggle-all-breakpoints'));
 
     expect(
-      Object.values(useDebuggerStore.getState().breakpoints).every((bp) => bp.enabled === false)
+      Object.values(useDebuggerStore.getState().breakpoints).every(bp => bp.enabled === false)
     ).toBe(true);
     expect(screen.getByTestId('debugger-toggle-all-breakpoints').textContent).toContain(
       'Enable all'
@@ -143,7 +143,7 @@ describe('DebuggerDrawer', () => {
   it('stays hidden for languages whose debugger adapter is not available', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
 
-    const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="python" />);
+    const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="go" />);
 
     expect(container.firstChild).toBeNull();
   });
@@ -173,6 +173,29 @@ describe('DebuggerDrawer', () => {
 
     expect(postDebuggerMessage).toHaveBeenCalledWith({ type: 'step', mode: 'over' });
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+  });
+
+  it('keeps Python breakpoints pause-only and discloses native watch evaluation', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+    useDebuggerStore.getState().addWatch('value + 1');
+    useDebuggerStore.setState({
+      session: { runtime: 'python', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-1',
+        line: 2,
+        reason: 'user-breakpoint',
+        locals: { value: '41' },
+        callStack: [{ functionName: '<module>', line: 2 }],
+        watchResults: { 'value + 1': { value: '42' } },
+      },
+    });
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="python" />);
+
+    expect(screen.queryByLabelText('Breakpoint behavior at line 2')).toBeNull();
+    expect(screen.getByText(/standard pause breakpoints/i)).toBeTruthy();
+    expect(screen.getByText(/may have side effects/i)).toBeTruthy();
+    expect(screen.getByTestId('debugger-step-out').hasAttribute('disabled')).toBe(true);
   });
 
   it('only enables step out while paused inside a function frame', () => {
@@ -224,10 +247,7 @@ describe('DebuggerDrawer', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
 
-    await user.selectOptions(
-      screen.getByLabelText('Breakpoint behavior at line 2'),
-      'conditional'
-    );
+    await user.selectOptions(screen.getByLabelText('Breakpoint behavior at line 2'), 'conditional');
     await user.type(screen.getByLabelText('Condition for breakpoint at line 2'), 'value > 3');
     expect(useDebuggerStore.getState().breakpoints['tab-1:2']).toMatchObject({
       mode: 'conditional',

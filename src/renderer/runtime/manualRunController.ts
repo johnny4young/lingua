@@ -50,6 +50,7 @@ export async function runActiveTab(track: TelemetryTrack, options: RunOptions = 
   const needsAcknowledgement = requiresNativeExecutionAcknowledgement(activeTab.language, {
     rubyRuntimePreference: settings.rubyRuntimePreference,
     rubyBridgeAvailable: typeof window !== 'undefined' && window.lingua?.ruby !== undefined,
+    pythonDebuggerRequested: options.debug === true,
   });
   if (needsAcknowledgement && !settings.nativeExecutionAcknowledged) {
     useNativeExecutionGateStore.getState().request(activeTab.language, () => {
@@ -140,6 +141,7 @@ async function executeTabById(
       },
       recordHistory: options.recordHistory,
       debug: options.debug,
+      track,
     });
     if (summary.cancelled) {
       editor.setTabExecutionState(activeTab.id, 'idle');

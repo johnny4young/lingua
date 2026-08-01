@@ -283,7 +283,14 @@ export function executionModeForLanguage(language: Language): 'run' | 'validate'
 
 export function languageSupportsDebugger(language: Language | null | undefined): boolean {
   if (!language) return false;
-  return getLanguagePackById(language)?.capabilities.debugger === 'available';
+  const supported = getLanguagePackById(language)?.capabilities.debugger === 'available';
+  if (!supported) return false;
+  // Python's adapter uses host CPython/pdb and is therefore absent from web.
+  return !(
+    language === 'python' &&
+    typeof window !== 'undefined' &&
+    window.lingua?.platform === 'web'
+  );
 }
 
 /**

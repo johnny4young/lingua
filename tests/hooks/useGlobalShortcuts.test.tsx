@@ -324,14 +324,14 @@ describe('useGlobalShortcuts', () => {
     useEditorStore.setState({
       tabs: [
         {
-          id: 'tab-py',
-          name: 'untitled.py',
-          language: 'python',
-          content: 'print(1)',
+          id: 'tab-go',
+          name: 'untitled.go',
+          language: 'go',
+          content: 'package main',
           isDirty: false,
         },
       ],
-      activeTabId: 'tab-py',
+      activeTabId: 'tab-go',
     });
     setActiveEditor({
       getPosition: () => ({ lineNumber: 2, column: 1 }),

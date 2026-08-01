@@ -197,7 +197,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     execution: 'run',
     runnerId: 'python',
     formatter: 'ipc:python',
-    capabilities: { lsp: 'adapter', debugger: 'planned' },
+    capabilities: { lsp: 'adapter', debugger: 'available' },
     docsUrl: 'https://docs.python.org/3/',
     templateIds: ['py-hello', 'py-list', 'py-sort', 'py-class'],
   },

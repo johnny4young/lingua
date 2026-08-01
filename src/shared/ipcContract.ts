@@ -34,6 +34,11 @@ import type {
   ProjectTerminalStartResult,
 } from './projectTerminal';
 import type { LocalMcpStartResult, LocalMcpState } from './localMcp';
+import type {
+  PythonDebuggerResponse,
+  PythonDebuggerStartRequest,
+  PythonDebuggerStepCommand,
+} from './pythonDebugger';
 
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
@@ -119,6 +124,28 @@ interface IpcInvokeContract {
   'format:gofmt': { args: [source: string]; result: FormatIpcResult };
   'format:rustfmt': { args: [source: string]; result: FormatIpcResult };
   'format:python': { args: [source: string]; result: FormatIpcResult };
+
+  // ------------------------------------------------------ Python debugger
+  'debugger:python:start': {
+    args: [request: PythonDebuggerStartRequest];
+    result: PythonDebuggerResponse;
+  };
+  'debugger:python:command': {
+    args: [sessionId: string, command: PythonDebuggerStepCommand];
+    result: PythonDebuggerResponse;
+  };
+  'debugger:python:sync-breakpoints': {
+    args: [sessionId: string, breakpoints: readonly number[]];
+    result: PythonDebuggerResponse;
+  };
+  'debugger:python:sync-watches': {
+    args: [sessionId: string, watches: readonly string[]];
+    result: PythonDebuggerResponse;
+  };
+  'debugger:python:stop': {
+    args: [sessionId: string];
+    result: PythonDebuggerResponse;
+  };
 
   // ---------------------------------------------------------------- consent
   'consent:set': {
@@ -536,6 +563,11 @@ export const IPC_INVOKE_CHANNELS = [
   'format:gofmt',
   'format:rustfmt',
   'format:python',
+  'debugger:python:start',
+  'debugger:python:command',
+  'debugger:python:sync-breakpoints',
+  'debugger:python:sync-watches',
+  'debugger:python:stop',
   'consent:set',
   'env:snapshot',
   'http:execute',

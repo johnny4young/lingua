@@ -26,6 +26,9 @@ not enough.
   `.ipynb` and native `.linguanb` files.
 - On desktop, format-on-save prefers `ruff format` and falls back to
   `black` when either tool is available on `PATH`.
+- Desktop Debug uses host CPython/pdb with gutter breakpoints, stepping,
+  locals, a source-local call stack, and watches. Project `.venv` or `venv`
+  takes precedence when available.
 - Execution deadlines and output caps keep runaway code from taking
   over the application shell.
 
@@ -35,7 +38,9 @@ not enough.
   installed through `micropip`.
 - Lingua does not create or persist a local Python virtual environment.
   Desktop execution still uses Pyodide rather than host CPython.
-- Python has no user-facing step debugger yet.
+- Python debugging is desktop-only. Watches run inside the local debug process
+  and may have side effects; conditional breakpoints and logpoints remain
+  JavaScript/TypeScript-only.
 
 ## Pricing
 

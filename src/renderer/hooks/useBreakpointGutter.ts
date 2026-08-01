@@ -13,10 +13,9 @@ import { languageSupportsDebugger } from '../utils/languageMeta';
  * as a hollow ring so users still see them but they no longer pause
  * execution.
  *
- * Per the Debugger ADR (`docs/DEBUGGER_ADR.md` §1) the JS/TS adapter is
- * the first runtime to ship; this gutter only mounts dots for those
- * languages. Other tabs see no gutter affordance — the ADR's per-runtime
- * capability gate keeps the surface honest until later work land.
+ * Per the Debugger ADR (`docs/DEBUGGER_ADR.md` §1), the gutter mounts for
+ * JavaScript/TypeScript in both shells and Python on desktop. Other tabs see
+ * no gutter affordance; the per-runtime capability gate stays authoritative.
  *
  * Two callsites would otherwise hammer Monaco unnecessarily:
  *   - tab switches change `activeTabId` mid-flight.
@@ -28,7 +27,7 @@ import { languageSupportsDebugger } from '../utils/languageMeta';
 export interface BreakpointGutterOptions {
   /** Active tab id — null when no tab is open. */
   activeTabId: string | null;
-  /** Tab language — gates the gutter to JS / TS per ADR §1. */
+  /** Tab language — gates the gutter to shipping debugger adapters. */
   language: Language | undefined;
   /** Localized aria label for the breakpoint toggle row. */
   toggleAriaLabel: (line: number) => string;

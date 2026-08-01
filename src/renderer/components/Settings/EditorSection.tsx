@@ -23,9 +23,9 @@ import {
 import {
   WORKFLOW_MODES,
   defaultWorkflowMode,
-  supportsWorkflowMode,
   type WorkflowMode,
 } from '../../../shared/workflowMode';
+import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 import {
   RUNTIME_TIMEOUT_PRESETS,
   RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES,
@@ -643,7 +643,7 @@ export function EditorSection() {
                       }
                     >
                       {WORKFLOW_MODES.filter((mode) =>
-                        supportsWorkflowMode(lang, mode)
+                        supportsWorkflowModeInShell(lang, mode)
                       ).map((mode) => (
                         <option key={mode} value={mode}>
                           {t(`workflowMode.${mode}.label`)}

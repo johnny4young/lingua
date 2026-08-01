@@ -1,6 +1,7 @@
 # Debugger operator guide
 
-> Operator-oriented walkthrough of the JavaScript and TypeScript debugger.
+> Operator-oriented walkthrough of the JavaScript, TypeScript, and desktop
+> Python debugger.
 > Read alongside [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) for its design
 > rationale and [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) for the
 > current language and platform boundaries.
@@ -22,7 +23,8 @@ The current implementation provides:
   Into (F11), Step Out (Shift+F11), and Run to end buttons. The
   chevron at the top-left collapses/expands the debugger body; the
   choice persists across reloads.
-- A Run/Debug split dropdown for JavaScript and TypeScript tabs. The
+- A Run/Debug split dropdown for JavaScript, TypeScript, and desktop Python
+  tabs. The
   primary side executes the selected mode and the chevron opens the
   alternate actions. **Run** always executes normally and ignores
   breakpoints; **Debug** attaches the pause protocol and runs until
@@ -37,11 +39,12 @@ The current implementation provides:
   pause.
 - **Settings → Editor** does not contain a debugger master switch or
   breakpoint-management actions. Debugging is baseline for JavaScript and
-  TypeScript, while normal **Run** ignores all breakpoint state.
+  TypeScript in both shells and Python on desktop, while normal **Run** ignores
+  all breakpoint state.
 
 ## Setting a breakpoint
 
-1. Open or create a JavaScript or TypeScript tab.
+1. Open or create a JavaScript, TypeScript, or (on desktop) Python tab.
 2. Click the gutter to the LEFT of the line number, OR move the
    cursor to the line and press `Mod+Shift+B`.
 3. The red dot appears in the gutter. Opening the bottom panel exposes
@@ -71,6 +74,10 @@ diamond in the danger color, and logpoint uses an amber diamond. Disabled
 markers retain their shape at lower opacity. Mode, condition, log message, and
 enabled state persist with the breakpoint.
 
+Python supports standard **Pause** breakpoints only. Existing conditional or
+logpoint metadata remains persisted if a tab changes language, but Python
+treats every enabled breakpoint as a pause and hides the advanced editors.
+
 ## Watching values
 
 Enter a data expression in **Watches** and choose **Add**. Lingua evaluates the
@@ -83,6 +90,12 @@ strict equality, relational and logical operators, and conditional
 expressions. It intentionally rejects calls, constructors, assignments,
 updates, accessors, inherited properties, prototype traversal, `await`,
 `yield`, and loose equality. Expressions are capped at 512 characters.
+
+That bounded, side-effect-free evaluator is the JavaScript/TypeScript path.
+Python sends each watch to `pdb` in the current native frame, so an expression
+can call Python code or otherwise have side effects. The panel warns about this
+and caps the list and expression length, but users must evaluate only
+expressions they trust.
 
 ## Pausing a run
 
@@ -106,6 +119,28 @@ updates, accessors, inherited properties, prototype traversal, `await`,
    The parent timeout is suspended until Continue / Step resumes the
    worker, so an intentional pause does not surface as a 30 s timeout.
 
+### Python desktop path
+
+Python **Debug** never changes normal Python **Run**. Run continues to use
+Pyodide in the browser worker. On desktop, Debug instead:
+
+1. shows the native-execution acknowledgement the first time because the code
+   runs as a normal local process, not in a sandbox;
+2. sends the current in-memory buffer, enabled line breakpoints, watches, argv,
+   user environment, and optional project capability to the typed preload
+   bridge;
+3. writes a private temporary `.py` source, derives only the approved project
+   cwd, and selects `.venv`/`venv` Python before `python3`/`python` on `PATH`;
+4. drives `python -u -m pdb` with serialized commands and returns locals,
+   source-local stack frames, watches, program output, and pause reasons to the
+   shared Debugger panel.
+
+Each command retains at most 1 MB of combined debugger/program output and
+surfaces a truncation warning. One owner can have one active Python debugger;
+starting a replacement, Stop, Run to end completion, command failure, renderer
+destruction, or app quit terminates the process tree and removes the temporary
+source. Web omits this bridge and disables Python Debug with desktop guidance.
+
 ## Stepping
 
 - **Continue (F5)** — resumes until the next breakpoint or the run
@@ -126,7 +161,8 @@ The shortcut gate (`canDispatchDebuggerShortcut` in
 `useGlobalShortcuts`) requires the worker to be paused before F5 /
 F10 / F11 / Shift+F11 fire, so they never compete with normal-mode
 keystrokes. `Mod+Shift+B` is exempt from the paused-worker gate, but
-still requires a debugger-capable JS / TS tab plus an editor cursor.
+still requires a debugger-capable JS / TS tab or desktop Python tab plus an
+editor cursor.
 
 ## TypeScript source-map composition
 
@@ -152,9 +188,9 @@ Three events join the allowlist per [ADR §4](./DEBUGGER_ADR.md):
 
 | Event | When it fires | Payload |
 |-------|---------------|---------|
-| `debugger.attached` | Runner attaches a session before posting `execute` | `{ language: 'js', reasonBucket: 'attach' }` |
-| `debugger.paused` | Worker yields and the renderer posts a paused frame | `{ language: 'js', reasonBucket: 'user-breakpoint' \| 'step' \| 'exception' }` |
-| `debugger.detached` | Session ends (run complete / crash / stop / user detach) | `{ language: 'js', reasonBucket: 'run-complete' \| 'crash' \| 'stop' \| 'user-detach' }` |
+| `debugger.attached` | Runtime attaches a session before execution continues | `{ language: 'js' \| 'python', reasonBucket: 'attach' }` |
+| `debugger.paused` | Worker or native adapter publishes a paused frame | `{ language: 'js' \| 'python', reasonBucket: 'user-breakpoint' \| 'step' \| 'exception' }` |
+| `debugger.detached` | Session ends (run complete / crash / stop / user detach) | `{ language: 'js' \| 'python', reasonBucket: 'run-complete' \| 'crash' \| 'stop' \| 'user-detach' }` |
 
 Every payload is closed-enum. The redactor in
 `src/shared/telemetry/redaction.ts` drops any key that isn't on the per-event
@@ -162,10 +198,13 @@ allowlist. No source, no breakpoint coordinates, no expression content.
 
 ## Current limitations
 
-- **Python / Go / Rust** adapters are still `'planned'` in
-  `LANGUAGE_PACKS`. The capability matrix row (this section's
-  sibling entry in [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md))
-  marks them desktop-only per the ADR.
+- **Go / Rust** adapters are still planned in `LANGUAGE_PACKS`.
+- **Python Debug is desktop-only** and requires a working host interpreter.
+  It supports standard pause breakpoints, not conditional breakpoints or
+  logpoints, and its watches run inside the native process.
+- Python call-stack display intentionally includes frames from the temporary
+  current-buffer script; imported-library frames are not presented as editable
+  Lingua source.
 
 ## Recovering a wedged session
 
@@ -198,6 +237,15 @@ inline output column.
   AST instrumentation with trace-mapping composition for TS.
 - `src/renderer/runtime/debuggerWorkerBridge.ts` — postMessage shim
   between the UI and the worker.
+- `src/renderer/runtime/debuggerControlBridge.ts` — shared control router for
+  the JS worker and Python adapter.
+- `src/renderer/runtime/pythonDebuggerBridge.ts` — lazy desktop renderer
+  adapter that joins native responses to the shared execution lifecycle.
+- `src/shared/pythonDebugger.ts` — bounded typed preload/IPC contract.
+- `src/main/ipc/pythonDebugger.ts` — capability-aware owner lifecycle,
+  interpreter selection, inspection, and cleanup.
+- `src/main/pythonDebugger.ts` — serialized, output-bounded `pdb` protocol
+  engine.
 - `src/renderer/runtime/editorAccess.ts` — module-level Monaco
   editor ref so the shortcut bus can read the cursor line.
 - `src/renderer/hooks/useBreakpointGutter.ts` — Monaco glyph-margin

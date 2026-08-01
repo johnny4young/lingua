@@ -123,6 +123,9 @@ const sections = [
             <strong>{isEs ? 'Depurador JS/TS' : 'JS/TS debugger'}</strong> — {isEs ? 'puntos de pausa, condiciones, logpoints y watches con step over/into/out. Las expresiones se evalúan sobre una copia acotada de las variables locales, sin eval ni Function.' : 'pause points, conditions, logpoints, and watches with step over/into/out. Expressions evaluate over a bounded copy of locals, without eval or Function.'}
           </li>
           <li>
+            <strong>{isEs ? 'Depurador Python en desktop' : 'Desktop Python debugger'}</strong> — {isEs ? 'breakpoints estándar, step over/into/out, variables locales, call stack y watches mediante CPython/pdb del host.' : 'standard breakpoints, step over/into/out, locals, call stack, and watches through host CPython/pdb.'}
+          </li>
+          <li>
             <strong>Format on save</strong> {isEs ? 'por lenguaje: prettier / ruff / gofmt / rustfmt donde esté disponible.' : 'per language: prettier / ruff / gofmt / rustfmt where available.'}
           </li>
         </ul>
