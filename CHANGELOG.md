@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Added
+- **The headless CLI now runs files, project roots, and Run Capsules:** `lingua run` executes JavaScript, TypeScript, Python, Go, Rust, Ruby, and Lua sources through installed toolchains, resolves standard Node/Go/Cargo projects plus conventional entries, forwards stdin/argv, and owns bounded output, timeout, and process-tree cleanup. `lingua capsule replay` verifies the shared schema and source hash before execution, preserves recorded stdin/argv, and reports status/stdout/stderr drift in plain or stable JSON output without importing Electron or renderer code.
+
 ### Changed
 - **Shortcut reference copy now loads with Settings instead of every workspace:** global dispatch, saved overrides, presets, and compact key hints keep a small structural catalog ready at startup, while localized labels, descriptions, groups, and search keywords arrive with the lazy Settings or shortcut-editor surfaces. The shared reference chunk is fetched once and reused across both surfaces. This removes about 1.5 KiB gzip from the initial web graph.
 - **Run Capsule export now loads only after it becomes usable:** fresh workspaces keep capture and the keyboard shortcut available without downloading the result-header control, sanitizer, clipboard writer, telemetry, or trust capture. The first captured capsule loads the button, while the shortcut loads the export pipeline only after confirming a capsule exists; failed chunks surface localized reload guidance. This removes about 2.2 KiB gzip and one chunk from the initial web graph.

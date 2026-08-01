@@ -9,6 +9,9 @@
  *   lingua utility <id> [--input <file>] [--json] [--quiet]
  *                       [--option key=value ...]
  *   lingua capsule validate <file> [--json] [--quiet]
+ *   lingua capsule replay <file> [--timeout <ms>] [--json] [--quiet]
+ *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
+ *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
  *   lingua list utilities [--json] [--quiet]            (implementation note)
  *   lingua --version                                    (implementation note)
  *   lingua --help | <cmd> --help
@@ -25,7 +28,8 @@
  * portable across install locations.
  */
 
-import { runValidateCapsuleCommand } from './commands/capsule';
+import { runReplayCapsuleCommand, runValidateCapsuleCommand } from './commands/capsule';
+import { runTargetCommand } from './commands/run';
 import { runListUtilitiesCommand, runUtilityCommand } from './commands/utility';
 import { CLI_EXIT_CODES, type CliExitCode } from './exit-codes';
 import { createDefaultIo, type CliIo } from './io';
@@ -52,6 +56,9 @@ const HELP_TEXT = `lingua — local code runner CLI
 Usage:
   lingua utility <utility-id> [--input <file>] [--json] [--quiet] [--option key=value ...]
   lingua capsule validate <file> [--json] [--quiet]
+  lingua capsule replay <file> [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet]
+  lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>] [--env NAME=value ...]
+             [--json] [--quiet] [-- args...]
   lingua list utilities [--json] [--quiet]
   lingua --version
   lingua --help
@@ -59,21 +66,26 @@ Usage:
 Commands:
   utility            Run a single utility adapter against stdin or --input.
   capsule validate   Validate a RunCapsuleV1 JSON blob; exits 0 on success.
+  capsule replay     Verify and execute the source/input recorded in a Capsule.
+  run                Execute a supported source file or conventional project root.
   list utilities     Print the available utility ids + their input/output kinds.
 
 Flags:
   --input <file>     Read input from <file> instead of stdin. (utility only)
+  --stdin <file>     Forward a file as program stdin. (run only)
+  --timeout <ms>     Stop execution after 100–300000 ms. (run/replay)
+  --env NAME=value   Repeated. Add an explicit child-process environment value.
   --option key=value Repeated. Pass adapter options. (utility only)
   --json             Emit a structured JSON body instead of plain text.
-  --quiet            Suppress non-error output. Useful in CI pipelines.
+  --quiet            Suppress Lingua diagnostics; preserve command output.
   --help, -h         Show this help.
   --version, -v      Print the CLI version.
 
 Exit codes:
   0  ok
   1  user input error (bad args, unknown id, missing file, bad shape)
-  2  runtime error (adapter returned { ok: false })
-  3  unsupported capability (e.g. binary output kind)
+  2  runtime error (adapter failure, non-zero exit, timeout, or stopped run)
+  3  unsupported capability (source/runtime mode, binary output, missing toolchain)
   4  internal (caught exception we didn't classify)
 
 Examples:
@@ -82,6 +94,9 @@ Examples:
   lingua utility regex-replace --input src.ts \\
     --option pattern=foo --option flags=g --option replacement=bar
   lingua capsule validate ./run.capsule.json
+  lingua capsule replay ./run.capsule.json --json
+  lingua run ./script.py --stdin input.txt -- --verbose
+  lingua run ./my-project --timeout 60000
   lingua list utilities --json
 `;
 
@@ -89,10 +104,7 @@ Examples:
  * Top-level dispatcher. Always settles to a `CliExitCode`. The
  * caller is responsible for `process.exit(code)`.
  */
-export async function dispatch(
-  argv: ReadonlyArray<string>,
-  io: CliIo
-): Promise<CliExitCode> {
+export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<CliExitCode> {
   let parsed: ParsedArgs;
   try {
     parsed = parseArgs(argv);
@@ -117,10 +129,7 @@ export async function dispatch(
   }
 
   if (parsed.command === 'list-utilities') {
-    return runListUtilitiesCommand(
-      { json: parsed.flags.json, quiet: parsed.flags.quiet },
-      io
-    );
+    return runListUtilitiesCommand({ json: parsed.flags.json, quiet: parsed.flags.quiet }, io);
   }
 
   if (parsed.command === 'utility') {
@@ -141,6 +150,26 @@ export async function dispatch(
     );
   }
 
+  if (parsed.command === 'run') {
+    const target = parsed.positionals[0];
+    if (target === undefined) {
+      io.writeStderr('lingua: run command missing <file-or-directory>\n');
+      return CLI_EXIT_CODES.userInputError;
+    }
+    return runTargetCommand(
+      {
+        target,
+        ...(parsed.flags.stdin !== undefined ? { stdinPath: parsed.flags.stdin } : {}),
+        ...(parsed.flags.timeoutMs !== undefined ? { timeoutMs: parsed.flags.timeoutMs } : {}),
+        env: parsed.flags.env,
+        programArgs: parsed.flags.programArgs,
+        json: parsed.flags.json,
+        quiet: parsed.flags.quiet,
+      },
+      io
+    );
+  }
+
   if (parsed.command === 'capsule-validate') {
     const filePath = parsed.positionals[0];
     if (filePath === undefined) {
@@ -149,6 +178,24 @@ export async function dispatch(
     }
     return runValidateCapsuleCommand(
       { filePath, json: parsed.flags.json, quiet: parsed.flags.quiet },
+      io
+    );
+  }
+
+  if (parsed.command === 'capsule-replay') {
+    const filePath = parsed.positionals[0];
+    if (filePath === undefined) {
+      io.writeStderr('lingua: capsule replay missing <file>\n');
+      return CLI_EXIT_CODES.userInputError;
+    }
+    return runReplayCapsuleCommand(
+      {
+        filePath,
+        ...(parsed.flags.timeoutMs !== undefined ? { timeoutMs: parsed.flags.timeoutMs } : {}),
+        env: parsed.flags.env,
+        json: parsed.flags.json,
+        quiet: parsed.flags.quiet,
+      },
       io
     );
   }

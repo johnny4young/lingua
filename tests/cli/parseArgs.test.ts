@@ -28,7 +28,14 @@ describe('parseArgs', () => {
     expect(parseArgs([])).toEqual({
       command: 'help',
       positionals: [],
-      flags: { json: false, quiet: false, options: [], help: false },
+      flags: {
+        json: false,
+        quiet: false,
+        options: [],
+        env: [],
+        programArgs: [],
+        help: false,
+      },
     });
   });
 
@@ -98,31 +105,24 @@ describe('parseArgs', () => {
     });
 
     it('preserves "=" inside the value', () => {
-      const parsed = parseArgs([
-        'utility',
-        'regex-replace',
-        '--option',
-        'replacement=a=b=c',
-      ]);
+      const parsed = parseArgs(['utility', 'regex-replace', '--option', 'replacement=a=b=c']);
       expect(parsed.flags.options[0]).toEqual({ key: 'replacement', value: 'a=b=c' });
     });
 
     it('rejects --option without a key', () => {
-      expect(() =>
-        parseArgs(['utility', 'json-format', '--option', '=value'])
-      ).toThrow(CliUsageError);
+      expect(() => parseArgs(['utility', 'json-format', '--option', '=value'])).toThrow(
+        CliUsageError
+      );
     });
 
     it('rejects --option without an =', () => {
-      expect(() =>
-        parseArgs(['utility', 'json-format', '--option', 'noequals'])
-      ).toThrow(CliUsageError);
+      expect(() => parseArgs(['utility', 'json-format', '--option', 'noequals'])).toThrow(
+        CliUsageError
+      );
     });
 
     it('rejects unknown flags', () => {
-      expect(() =>
-        parseArgs(['utility', 'json-format', '--magic'])
-      ).toThrow(CliUsageError);
+      expect(() => parseArgs(['utility', 'json-format', '--magic'])).toThrow(CliUsageError);
     });
 
     it('parses --json and --quiet together', () => {
@@ -148,15 +148,76 @@ describe('parseArgs', () => {
     });
 
     it('rejects unknown flags', () => {
-      expect(() =>
-        parseArgs(['capsule', 'validate', '/tmp/x', '--input', '/tmp/y'])
-      ).toThrow(CliUsageError);
+      expect(() => parseArgs(['capsule', 'validate', '/tmp/x', '--input', '/tmp/y'])).toThrow(
+        CliUsageError
+      );
     });
 
     it('parses --json + --quiet', () => {
       const parsed = parseArgs(['capsule', 'validate', '/tmp/x', '--json', '--quiet']);
       expect(parsed.flags.json).toBe(true);
       expect(parsed.flags.quiet).toBe(true);
+    });
+  });
+
+  describe('run', () => {
+    it('parses execution controls and forwards args only after the separator', () => {
+      const parsed = parseArgs([
+        'run',
+        './script.js',
+        '--stdin',
+        'input.txt',
+        '--timeout=1500',
+        '--env',
+        'MODE=test',
+        '--json',
+        '--',
+        '--name',
+        'Lingua',
+      ]);
+      expect(parsed.command).toBe('run');
+      expect(parsed.positionals).toEqual(['./script.js']);
+      expect(parsed.flags.stdin).toBe('input.txt');
+      expect(parsed.flags.timeoutMs).toBe(1500);
+      expect(parsed.flags.env).toEqual([{ key: 'MODE', value: 'test' }]);
+      expect(parsed.flags.programArgs).toEqual(['--name', 'Lingua']);
+      expect(parsed.flags.json).toBe(true);
+    });
+
+    it('rejects missing or multiple targets', () => {
+      expect(() => parseArgs(['run'])).toThrow(CliUsageError);
+      expect(() => parseArgs(['run', 'one.js', 'two.js'])).toThrow(CliUsageError);
+    });
+
+    it('rejects unsafe timeout and malformed environment syntax', () => {
+      expect(() => parseArgs(['run', 'one.js', '--timeout', '99'])).toThrow(CliUsageError);
+      expect(() => parseArgs(['run', 'one.js', '--timeout', 'forever'])).toThrow(CliUsageError);
+      expect(() => parseArgs(['run', 'one.js', '--env', '1BAD=value'])).toThrow(CliUsageError);
+    });
+  });
+
+  describe('capsule replay', () => {
+    it('parses a replay target with timeout and explicit environment', () => {
+      const parsed = parseArgs([
+        'capsule',
+        'replay',
+        './run.capsule.json',
+        '--timeout',
+        '2000',
+        '--env=MODE=replay',
+        '--quiet',
+      ]);
+      expect(parsed.command).toBe('capsule-replay');
+      expect(parsed.positionals).toEqual(['./run.capsule.json']);
+      expect(parsed.flags.timeoutMs).toBe(2000);
+      expect(parsed.flags.env).toEqual([{ key: 'MODE', value: 'replay' }]);
+      expect(parsed.flags.quiet).toBe(true);
+    });
+
+    it('rejects passthrough arguments because replay preserves recorded args', () => {
+      expect(() => parseArgs(['capsule', 'replay', './run.json', '--', '--override'])).toThrow(
+        CliUsageError
+      );
     });
   });
 
@@ -179,9 +240,7 @@ describe('parseArgs', () => {
     });
 
     it('rejects unknown flags', () => {
-      expect(() =>
-        parseArgs(['list', 'utilities', '--input', 'foo'])
-      ).toThrow(CliUsageError);
+      expect(() => parseArgs(['list', 'utilities', '--input', 'foo'])).toThrow(CliUsageError);
     });
   });
 

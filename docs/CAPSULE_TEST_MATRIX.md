@@ -94,7 +94,7 @@ import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
 - HTTP step emits a capsule shaped like `FIXTURE_FULL_TS` with
   `environment.runner = 'http'`. Use the fixture as a baseline.
 
-### internal CLI companion (slot 23)
+### CLI companion
 
 ```ts
 import {
@@ -105,9 +105,16 @@ import {
 } from '../shared/runCapsule.fixtures';
 ```
 
-- `lingua capsule validate` runs each fixture through stdin and
-  asserts exit codes (0 for happy, 0 for chart, 0 for timeout / stopped
-  — they're valid capsules even if the run wasn't successful).
+- `lingua capsule validate` loads fixtures through the same shared parser and
+  asserts exit code 0 for every valid shape, including recorded timeout and
+  stopped results.
+- `lingua capsule replay` executes `FIXTURE_MINIMAL_JS` and proves exact
+  status/stdout/stderr comparison. `FIXTURE_TIMEOUT` runs against a bounded
+  parent-owned timeout and proves the fresh runtime result is still classified
+  and compared as `timeout`.
+- Tampered content hashes and browser-preview Capsules are rejected before any
+  child process starts. Replay tests keep using this shared fixture catalog
+  rather than creating a second CLI-only Capsule shape.
 
 ### internal utility pipelines (slot 21)
 

@@ -12,9 +12,11 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 
 const BUNDLE_PATH = path.resolve(process.cwd(), 'dist/cli/lingua.cjs');
 const BUNDLE_AVAILABLE = existsSync(BUNDLE_PATH);
@@ -76,6 +78,52 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     const out = runCli(['capsule', 'validate', '/definitely/not/here.json']);
     expect(out.code).toBe(1);
     expect(out.stderr).toContain('file-not-found');
+  });
+
+  it('executes a JavaScript file and forwards arguments in the bundled CLI', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'lingua-cli-integration-'));
+    try {
+      const entry = path.join(root, 'hello.js');
+      writeFileSync(entry, 'console.log(`hello ${process.argv[2]}`)\n', 'utf8');
+      const out = runCli(['run', entry, '--json', '--', 'Lingua']);
+      expect(out.code).toBe(0);
+      expect(JSON.parse(out.stdout)).toMatchObject({
+        ok: true,
+        run: { runtime: 'node', stdout: 'hello Lingua\n' },
+      });
+      expect(out.stderr).toBe('');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('executes a conventional project root in the bundled CLI', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'lingua-cli-project-'));
+    try {
+      writeFileSync(path.join(root, 'index.js'), 'console.log("project-root")\n', 'utf8');
+      const out = runCli(['run', root]);
+      expect(out.code).toBe(0);
+      expect(out.stdout).toBe('project-root\n');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('replays a validated Capsule and reports comparison metadata', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'lingua-cli-capsule-'));
+    try {
+      const capsule = path.join(root, 'run.json');
+      writeFileSync(capsule, JSON.stringify(FIXTURE_MINIMAL_JS), 'utf8');
+      const out = runCli(['capsule', 'replay', capsule, '--json']);
+      expect(out.code).toBe(0);
+      expect(JSON.parse(out.stdout)).toMatchObject({
+        ok: true,
+        comparison: { matches: true },
+        run: { stdout: '3\n' },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

@@ -7,6 +7,9 @@
  *   lingua utility <utility-id> [--input <file>] [--json] [--quiet]
  *                               [--option key=value ...]
  *   lingua capsule validate <file> [--json] [--quiet]
+ *   lingua capsule replay <file> [--timeout <ms>] [--json] [--quiet]
+ *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
+ *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
  *   lingua list utilities [--json]            (implementation note)
  *   lingua --version                          (implementation note)
  *   lingua --help | lingua <cmd> --help
@@ -29,6 +32,8 @@ export class CliUsageError extends Error {
 export type CliCommandName =
   | 'utility'
   | 'capsule-validate'
+  | 'capsule-replay'
+  | 'run'
   | 'list-utilities'
   | 'help'
   | 'version';
@@ -46,6 +51,14 @@ export interface ParsedArgs {
     quiet: boolean;
     /** `--input <path>`. Only used by the `utility` command. */
     input?: string;
+    /** `--stdin <path>`. Only used by `run`. */
+    stdin?: string;
+    /** Parent-owned execution timeout in milliseconds. */
+    timeoutMs?: number;
+    /** Explicit environment entries passed to an executed program. */
+    env: ReadonlyArray<{ key: string; value: string }>;
+    /** Arguments after `--`, forwarded byte-for-byte to `run` targets. */
+    programArgs: ReadonlyArray<string>;
     /** `--option key=value` repeated. Only used by the `utility` command. */
     options: ReadonlyArray<{ key: string; value: string }>;
     /** `--help` requested anywhere in the argv. */
@@ -57,6 +70,10 @@ interface InProgressFlags {
   json: boolean;
   quiet: boolean;
   input?: string;
+  stdin?: string;
+  timeoutMs?: number;
+  env: Array<{ key: string; value: string }>;
+  programArgs: string[];
   options: Array<{ key: string; value: string }>;
   help: boolean;
 }
@@ -92,6 +109,9 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
   if (first === 'utility') {
     return parseUtility(args.slice(1));
   }
+  if (first === 'run') {
+    return parseRun(args.slice(1));
+  }
   if (first === 'capsule') {
     return parseCapsule(args.slice(1));
   }
@@ -99,13 +119,18 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
     return parseList(args.slice(1));
   }
 
-  throw new CliUsageError(
-    `Unknown command "${first}". Run "lingua --help" for usage.`
-  );
+  throw new CliUsageError(`Unknown command "${first}". Run "lingua --help" for usage.`);
 }
 
 function freshFlags(): InProgressFlags {
-  return { json: false, quiet: false, options: [], help: false };
+  return {
+    json: false,
+    quiet: false,
+    options: [],
+    env: [],
+    programArgs: [],
+    help: false,
+  };
 }
 
 function finalize(
@@ -120,10 +145,63 @@ function finalize(
       json: flags.json,
       quiet: flags.quiet,
       ...(flags.input !== undefined ? { input: flags.input } : {}),
+      ...(flags.stdin !== undefined ? { stdin: flags.stdin } : {}),
+      ...(flags.timeoutMs !== undefined ? { timeoutMs: flags.timeoutMs } : {}),
       options: flags.options,
+      env: flags.env,
+      programArgs: flags.programArgs,
       help: flags.help,
     },
   };
+}
+
+function parseRun(rest: ReadonlyArray<string>): ParsedArgs {
+  const separator = rest.indexOf('--');
+  const commandArgs = separator >= 0 ? rest.slice(0, separator) : rest;
+  const flags = freshFlags();
+  if (separator >= 0) flags.programArgs = rest.slice(separator + 1);
+  const positionals: string[] = [];
+
+  for (let index = 0; index < commandArgs.length; index += 1) {
+    const arg = commandArgs[index]!;
+    if (parseGlobalFlag(arg, flags)) continue;
+    if (arg === '--stdin') {
+      flags.stdin = requireFlagValue(commandArgs, index, '--stdin');
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--stdin=')) {
+      flags.stdin = nonEmptyInlineValue(arg, '--stdin');
+      continue;
+    }
+    if (arg === '--timeout') {
+      flags.timeoutMs = parseTimeout(requireFlagValue(commandArgs, index, '--timeout'));
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--timeout=')) {
+      flags.timeoutMs = parseTimeout(nonEmptyInlineValue(arg, '--timeout'));
+      continue;
+    }
+    if (arg === '--env') {
+      flags.env.push(parseEnvironmentKv(requireFlagValue(commandArgs, index, '--env')));
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--env=')) {
+      flags.env.push(parseEnvironmentKv(nonEmptyInlineValue(arg, '--env')));
+      continue;
+    }
+    if (arg.startsWith('-')) {
+      throw new CliUsageError(
+        `Unknown flag "${arg}" for "lingua run". Allowed: --stdin, --timeout, --env, --json, --quiet, --help, --`
+      );
+    }
+    positionals.push(arg);
+  }
+
+  assertSingleTarget('lingua run', positionals, flags.help, '<file-or-directory>');
+  return finalize('run', positionals, flags);
 }
 
 function parseUtility(rest: ReadonlyArray<string>): ParsedArgs {
@@ -175,7 +253,7 @@ function parseUtility(rest: ReadonlyArray<string>): ParsedArgs {
           ...GLOBAL_FLAGS,
           ...UTILITY_ONLY_FLAGS,
         ]
-          .filter((flag) => flag !== '-h')
+          .filter(flag => flag !== '-h')
           .sort()
           .join(', ')}`
       );
@@ -198,16 +276,19 @@ function parseUtility(rest: ReadonlyArray<string>): ParsedArgs {
 function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
   if (rest.length === 0) {
     throw new CliUsageError(
-      'lingua capsule requires a subcommand. implementation ships: validate <file>'
+      'lingua capsule requires a subcommand. Available: validate <file>, replay <file>'
     );
   }
   const sub = rest[0]!;
   if (sub === '--help' || sub === '-h') {
     return finalize('capsule-validate', [], { ...freshFlags(), help: true });
   }
+  if (sub === 'replay') {
+    return parseCapsuleReplay(rest.slice(1));
+  }
   if (sub !== 'validate') {
     throw new CliUsageError(
-      `Unknown capsule subcommand "${sub}". implementation ships: validate <file>`
+      `Unknown capsule subcommand "${sub}". Available: validate <file>, replay <file>`
     );
   }
   const flags = freshFlags();
@@ -234,9 +315,7 @@ function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
     positionals.push(arg);
   }
   if (!flags.help && positionals.length === 0) {
-    throw new CliUsageError(
-      'lingua capsule validate requires a <file> positional.'
-    );
+    throw new CliUsageError('lingua capsule validate requires a <file> positional.');
   }
   if (positionals.length > 1) {
     throw new CliUsageError(
@@ -246,20 +325,51 @@ function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
   return finalize('capsule-validate', positionals, flags);
 }
 
+function parseCapsuleReplay(rest: ReadonlyArray<string>): ParsedArgs {
+  const flags = freshFlags();
+  const positionals: string[] = [];
+  for (let index = 0; index < rest.length; index += 1) {
+    const arg = rest[index]!;
+    if (parseGlobalFlag(arg, flags)) continue;
+    if (arg === '--timeout') {
+      flags.timeoutMs = parseTimeout(requireFlagValue(rest, index, '--timeout'));
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--timeout=')) {
+      flags.timeoutMs = parseTimeout(nonEmptyInlineValue(arg, '--timeout'));
+      continue;
+    }
+    if (arg === '--env') {
+      flags.env.push(parseEnvironmentKv(requireFlagValue(rest, index, '--env')));
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--env=')) {
+      flags.env.push(parseEnvironmentKv(nonEmptyInlineValue(arg, '--env')));
+      continue;
+    }
+    if (arg.startsWith('-')) {
+      throw new CliUsageError(
+        `Unknown flag "${arg}" for "lingua capsule replay". Allowed: --timeout, --env, --json, --quiet, --help`
+      );
+    }
+    positionals.push(arg);
+  }
+  assertSingleTarget('lingua capsule replay', positionals, flags.help, '<file>');
+  return finalize('capsule-replay', positionals, flags);
+}
+
 function parseList(rest: ReadonlyArray<string>): ParsedArgs {
   if (rest.length === 0) {
-    throw new CliUsageError(
-      'lingua list requires a subcommand. implementation ships: utilities'
-    );
+    throw new CliUsageError('lingua list requires a subcommand. implementation ships: utilities');
   }
   const sub = rest[0]!;
   if (sub === '--help' || sub === '-h') {
     return finalize('list-utilities', [], { ...freshFlags(), help: true });
   }
   if (sub !== 'utilities') {
-    throw new CliUsageError(
-      `Unknown list subcommand "${sub}". implementation ships: utilities`
-    );
+    throw new CliUsageError(`Unknown list subcommand "${sub}". implementation ships: utilities`);
   }
   const flags = freshFlags();
   for (let i = 1; i < rest.length; i += 1) {
@@ -292,4 +402,69 @@ function parseOptionKv(raw: string): { key: string; value: string } {
     );
   }
   return { key: raw.slice(0, eq), value: raw.slice(eq + 1) };
+}
+
+function parseGlobalFlag(arg: string, flags: InProgressFlags): boolean {
+  if (arg === '--help' || arg === '-h') {
+    flags.help = true;
+    return true;
+  }
+  if (arg === '--json') {
+    flags.json = true;
+    return true;
+  }
+  if (arg === '--quiet') {
+    flags.quiet = true;
+    return true;
+  }
+  return false;
+}
+
+function requireFlagValue(args: ReadonlyArray<string>, index: number, flag: string): string {
+  const value = args[index + 1];
+  if (value === undefined || value.startsWith('--')) {
+    throw new CliUsageError(`${flag} requires a value`);
+  }
+  return value;
+}
+
+function nonEmptyInlineValue(arg: string, flag: string): string {
+  const value = arg.slice(`${flag}=`.length);
+  if (!value) throw new CliUsageError(`${flag} requires a value`);
+  return value;
+}
+
+function parseTimeout(raw: string): number {
+  if (!/^\d+$/u.test(raw)) {
+    throw new CliUsageError(`--timeout expects integer milliseconds; got "${raw}"`);
+  }
+  const timeoutMs = Number(raw);
+  if (timeoutMs < 100 || timeoutMs > 300_000) {
+    throw new CliUsageError('--timeout must be between 100 and 300000 milliseconds');
+  }
+  return timeoutMs;
+}
+
+function parseEnvironmentKv(raw: string): { key: string; value: string } {
+  const parsed = parseOptionKv(raw);
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(parsed.key)) {
+    throw new CliUsageError(`--env has an invalid variable name "${parsed.key}"`);
+  }
+  return parsed;
+}
+
+function assertSingleTarget(
+  command: string,
+  positionals: ReadonlyArray<string>,
+  help: boolean,
+  label: string
+): void {
+  if (!help && positionals.length === 0) {
+    throw new CliUsageError(`${command} requires a ${label} positional.`);
+  }
+  if (positionals.length > 1) {
+    throw new CliUsageError(
+      `${command} accepts one ${label}; got ${positionals.length}: ${positionals.join(', ')}`
+    );
+  }
 }

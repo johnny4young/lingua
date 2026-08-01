@@ -62,8 +62,8 @@
       "items": [
         {
           "title": "Reliable multi-file projects",
-          "scope": "Project tree, search, replace, templates, and bundle import/export ship today. Remaining work focuses on faster desktop search, binary fidelity, and template runtime smoke.",
-          "status": "Partial",
+          "scope": "Project tree, native search, replace, curated templates, binary-safe bundle import/export, and isolated template runtime smoke ship today.",
+          "status": "Delivered",
           "theme": "Projects"
         }
       ]
@@ -73,7 +73,7 @@
       "items": [
         {
           "title": "Complete CLI distribution",
-          "scope": "Utility commands and Capsule validation ship today. File execution, Capsule replay, completions, signed binaries, and package publication remain.",
+          "scope": "Utility commands, file/project execution, and Capsule validation/replay ship today. Completions, automatic color, stable error presentation, signed binaries, and package publication remain.",
           "status": "Partial",
           "theme": "CLI & compatibility"
         },
