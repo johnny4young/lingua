@@ -47,19 +47,20 @@ import {
   type PostmanVariableSlotStatus,
   type PostmanVariableSourceStatus,
 } from '../../../shared/importers/postmanImporter';
-import type { ImporterId } from '../../../shared/importers/types';
+import type { ImportFlowId } from '../../../shared/importers/types';
 import { useImportPreview } from '../../hooks/useImportPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/cn';
 import { ModalShell } from '../ui/ModalShell';
 import { ImportPreviewBody } from './ImportPreviewBody';
+import { PlaygroundUrlImportForm } from './PlaygroundUrlImportForm';
 
 export interface ImportPreviewOverlayProps {
   onClose: () => void;
 }
 
-function formatLabelKeyForImporter(importerId: ImporterId): string {
+function formatLabelKeyForImporter(importerId: ImportFlowId): string {
   switch (importerId) {
     case 'curl-http':
       return 'importPreview.format.curl';
@@ -71,6 +72,8 @@ function formatLabelKeyForImporter(importerId: ImporterId): string {
       return 'importPreview.format.postman';
     case 'bruno-collection':
       return 'importPreview.format.bruno';
+    case 'playground-url':
+      return 'importPreview.format.playground';
   }
 }
 
@@ -87,6 +90,8 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     state,
     previewSource,
     previewBrunoDirectory,
+    previewPlaygroundUrl,
+    cancelPlaygroundUrl,
     setVariableSource,
     confirm,
     reset,
@@ -99,6 +104,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   );
 
   const [pasteValue, setPasteValue] = useState('');
+  const [playgroundUrl, setPlaygroundUrl] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isReadingDirectory, setIsReadingDirectory] = useState(false);
@@ -166,6 +172,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = event.target.value;
       setPasteValue(value);
+      setPlaygroundUrl('');
       if (value.trim().length === 0) {
         reset();
       } else {
@@ -186,6 +193,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
       try {
         const text = await file.text();
         setPasteValue(text);
+        setPlaygroundUrl('');
         previewSource(text);
       } catch (err) {
         const detail = err instanceof Error ? err.message : 'unreadable file';
@@ -207,11 +215,28 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     setIsReadingDirectory(true);
     try {
       const status = await previewBrunoDirectory();
-      if (status !== 'cancelled') setPasteValue('');
+      if (status !== 'cancelled') {
+        setPasteValue('');
+        setPlaygroundUrl('');
+      }
     } finally {
       setIsReadingDirectory(false);
     }
   }, [isReadingDirectory, previewBrunoDirectory]);
+
+  const handlePlaygroundUrlChange = useCallback(
+    (value: string) => {
+      setPlaygroundUrl(value);
+      if (state.phase !== 'idle') reset();
+    },
+    [reset, state.phase]
+  );
+
+  const handlePreviewPlaygroundUrl = useCallback(async () => {
+    if (!playgroundUrl.trim() || state.phase === 'loading') return;
+    setPasteValue('');
+    await previewPlaygroundUrl(playgroundUrl);
+  }, [playgroundUrl, previewPlaygroundUrl, state.phase]);
 
   const handleDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -234,6 +259,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           // Text drops intentionally share the paste path so detection,
           // warning telemetry, and reject handling stay centralized.
           setPasteValue(text);
+          setPlaygroundUrl('');
           previewSource(text);
         }
         return;
@@ -261,6 +287,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           variableExports.length > 0
         ) {
           setPasteValue(primary.text);
+          setPlaygroundUrl('');
           previewSource(primary.text);
           let envFilled = false;
           let globalsFilled = false;
@@ -296,6 +323,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
       try {
         const text = await file.text();
         setPasteValue(text);
+        setPlaygroundUrl('');
         previewSource(text);
       } catch (err) {
         const detail = err instanceof Error ? err.message : 'unreadable file';
@@ -344,6 +372,11 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           messageKey: 'importPreview.success.collectionImported',
           values: { count: created.requestCount ?? 0 },
         });
+      } else if (created.kind === 'playground-url') {
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'importPreview.success.playgroundOpened',
+        });
       }
       closeRef.current();
     } catch {
@@ -370,11 +403,13 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const confirmLabel =
     importerId === 'ipynb-notebook' || importerId === 'linguanb-notebook'
       ? t('importPreview.action.confirm.notebook')
-      : importerId === 'curl-http'
-        ? t('importPreview.action.confirm.curl')
-        : isCollection
-          ? t('importPreview.action.confirm.collection', { count: collectionCount })
-          : t('importPreview.action.confirm');
+      : importerId === 'playground-url'
+        ? t('importPreview.action.confirm.playground')
+        : importerId === 'curl-http'
+          ? t('importPreview.action.confirm.curl')
+          : isCollection
+            ? t('importPreview.action.confirm.collection', { count: collectionCount })
+            : t('importPreview.action.confirm');
   // Footer-left hint — the detected source format, mirroring the
   // MOV.01 prototype's "Detected: …" legend. Only shown once a preview
   // resolves (so `importerId` is known); reuses the existing
@@ -397,7 +432,9 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
               ? `importPreview.reject.linguanb.${state.rejectDetail}`
               : importerId === 'bruno-collection'
                 ? `importPreview.reject.bruno.${state.rejectDetail}`
-                : null
+                : importerId === 'playground-url'
+                  ? `importPreview.reject.playground.${state.rejectDetail}`
+                  : null
       : null;
 
   return (
@@ -517,6 +554,14 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           />
         </div>
 
+        <PlaygroundUrlImportForm
+          value={playgroundUrl}
+          isLoading={state.phase === 'loading'}
+          onChange={handlePlaygroundUrlChange}
+          onPreview={() => void handlePreviewPlaygroundUrl()}
+          onCancel={cancelPlaygroundUrl}
+        />
+
         <button
           type="button"
           onClick={handlePickBrunoDirectory}
@@ -540,7 +585,15 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
 
         {/* MIDDLE — preview band OR reject band (full width) */}
         <section data-testid="import-preview-band" className="md:col-span-2">
-          {previewed ? (
+          {state.phase === 'loading' ? (
+            <div
+              role="status"
+              data-testid="import-preview-playground-loading"
+              className="rounded-md border border-info-border/60 bg-info-bg p-3 text-body-sm text-info-fg"
+            >
+              {t('importPreview.playground.loading')}
+            </div>
+          ) : previewed ? (
             <div className="grid gap-2">
               <ImportPreviewBody preview={previewed} />
               {importerId === 'postman-collection' &&

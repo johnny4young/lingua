@@ -1204,6 +1204,7 @@ export const IMPORTER_IDS_SET = new Set([
   'postman-collection',
   'bruno-collection',
   'linguanb-notebook',
+  'playground-url',
 ]);
 // implementation note — closed enum of import outcomes.
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);

@@ -79,7 +79,7 @@ import {
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
 import {
-  IMPORTER_IDS as RENDERER_IMPORTER_IDS,
+  IMPORT_FLOW_IDS as RENDERER_IMPORTER_IDS,
   NOTEBOOK_WARNING_KINDS as RENDERER_NOTEBOOK_WARNING_KINDS,
 } from '../../src/shared/importers/types';
 // implementation (SQL OPFS) implementation note — cross-import the canonical
@@ -1331,7 +1331,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
   it('importer ids + import statuses stay in sync (implementation note)', () => {
     // Closed-enum parity for `import.applied.importerId` +
     // `import.applied.status`. The canonical source of truth is
-    // `IMPORTER_IDS` in `src/shared/importers/types.ts` (renderer)
+    // `IMPORT_FLOW_IDS` in `src/shared/importers/types.ts` (renderer)
     // and `IMPORTER_IDS_SET` / `IMPORT_STATUSES_SET` in
     // `src/shared/telemetry.ts`. Worker mirrors live in
     // `update-server/src/telemetry.ts`. Adding an importer requires
@@ -1350,6 +1350,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
       'curl-http',
       'ipynb-notebook',
       'linguanb-notebook',
+      'playground-url',
       'postman-collection',
     ]);
     expect([...WORKER_IMPORT_STATUSES_SET].sort()).toEqual(

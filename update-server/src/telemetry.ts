@@ -724,6 +724,7 @@ export const IMPORTER_IDS_SET = new Set([
   'postman-collection',
   'bruno-collection',
   'linguanb-notebook',
+  'playground-url',
 ]);
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
 // implementation note — mirrors `NOTEBOOK_WARNING_KINDS_SET` in

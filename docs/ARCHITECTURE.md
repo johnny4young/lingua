@@ -495,6 +495,26 @@ also counted per entry and across the archive so a forged `originalSize` cannot
 bypass the 16 MiB per-file or 200 MiB aggregate ceilings. Main repeats the same
 validation before writing regular files into a user-chosen empty directory.
 
+#### Playground URL imports
+
+Playground links use a renderer-owned allowlist rather than the desktop HTTP
+proxy or a generic backend fetcher. TypeScript Playground embeds compressed
+source in the fragment, so the renderer decodes it without a request. A Go
+Playground share URL contributes only its validated opaque id; the loader
+constructs the fixed `https://play.golang.org/p/{id}.go` destination.
+
+The TypeScript decoder enforces its output ceiling inside the LZ loop, before
+joining the decoded string, and then checks the exact UTF-8 byte length. A
+compact compression bomb therefore cannot allocate an unbounded source before
+the normal 512 KiB rejection runs.
+
+The remote path sends no credentials or referrer, rejects redirects and
+non-plain-text responses, combines caller cancellation with a seven-second
+timeout, and counts streamed bytes against a 512 KiB ceiling even when the
+server omits or lies about `Content-Length`. State remains preview-only until
+confirmation creates a tab. Providers without a stable public read contract
+are rejected instead of expanding the network boundary.
+
 ### Event-style IPC
 
 The push-style filesystem channels in this architecture are:

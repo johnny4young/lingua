@@ -4,6 +4,10 @@ import type {
 } from '../../shared/importers/curlImporter';
 import type { IpynbImporterPreview } from '../../shared/importers/ipynbImporter';
 import type { LinguanbImporterPreview } from '../../shared/importers/linguanbImporter';
+import type {
+  PlaygroundSourcePreview,
+  PlaygroundUrlRejectReason,
+} from '../../shared/importers/playgroundUrlImport';
 import {
   previewPostmanWithVariables,
   type CollectionImporterPreview,
@@ -11,7 +15,7 @@ import {
 } from '../../shared/importers/postmanImporter';
 import { detectImporter, getImporter } from '../../shared/importers/registry';
 import type {
-  ImporterId,
+  ImportFlowId,
   ImporterLossyWarning,
   ImporterRejectReason,
 } from '../../shared/importers/types';
@@ -23,19 +27,20 @@ import {
   type NotebookV1,
 } from '../../shared/notebook';
 
-export type ImportPreviewPhase = 'idle' | 'previewed' | 'rejected';
+export type ImportPreviewPhase = 'idle' | 'loading' | 'previewed' | 'rejected';
 
 export type AnyImporterPreview =
   | (CurlImporterPreview & { readonly kind: 'curl-http' })
   | IpynbImporterPreview
   | LinguanbImporterPreview
-  | CollectionImporterPreview;
+  | CollectionImporterPreview
+  | PlaygroundSourcePreview;
 
 export interface ImportPreviewState {
   phase: ImportPreviewPhase;
-  importerId?: ImporterId;
+  importerId?: ImportFlowId;
   preview?: AnyImporterPreview;
-  reason?: ImporterRejectReason;
+  reason?: ImporterRejectReason | PlaygroundUrlRejectReason;
   rejectDetail?: string;
   sourceBytes: number;
   source?: string;
@@ -49,11 +54,13 @@ export interface ConfirmResult {
     | 'ipynb-notebook'
     | 'linguanb-notebook'
     | 'postman-collection'
-    | 'bruno-collection';
+    | 'bruno-collection'
+    | 'playground-url';
   readonly request?: HttpRequestV1;
   readonly notebookTabId?: string;
   readonly dominantLanguage?: NotebookCellLanguage | null;
   readonly requestCount?: number;
+  readonly editorTabId?: string;
 }
 
 export interface UseImportPreviewResult {
@@ -62,6 +69,10 @@ export interface UseImportPreviewResult {
   previewBrunoDirectory: () => Promise<
     'cancelled' | 'previewed' | 'rejected'
   >;
+  previewPlaygroundUrl: (
+    sourceUrl: string
+  ) => Promise<'cancelled' | 'previewed' | 'rejected'>;
+  cancelPlaygroundUrl: () => void;
   setVariableSource: (slot: VariableSourceSlot, raw: string) => void;
   confirm: () => Promise<ConfirmResult | null>;
   reset: () => void;

@@ -83,7 +83,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`                                  | JS/TS debugger drawer controls and paused-frame display         |
 | [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`                              | BYO-key "Explain this error" consent + result dialog       |
 | [`components/HttpWorkspace/`](components/HttpWorkspace)   | `HttpWorkspacePanel.tsx`                              | HTTP request workspace, response preview, capsule creation      |
-| [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`   | cURL, notebooks, Postman, and Bruno file/folder preview before opening workspace tabs; directory reads live in `hooks/brunoDirectoryImport.ts` |
+| [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`, `PlaygroundUrlImportForm.tsx`   | cURL, notebooks, Postman, Bruno file/folder, and bounded playground URL previews before opening workspace tabs; directory reads live in `hooks/brunoDirectoryImport.ts` and URL policy lives in `shared/importers/playgroundUrlImport.ts` |
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlResultPreview.tsx`, preview parts/actions | DuckDB SQL workspace, schema browser, result orchestration and focused table/export UI |
@@ -440,6 +440,9 @@ collection state:
   Import Preview loads its store-writing confirmation module only after the
   user accepts a valid preview, so merely inspecting input does not hydrate the
   HTTP collection or fetch the implementation chunk.
+  Playground URL preview follows the same boundary: TypeScript source decodes
+  locally, while Go source can reach only the fixed official raw endpoint with
+  cancellation, redirect denial, content-type checks, and streamed byte caps.
 - [`runtime/openWorkspaceTab.ts`](runtime/openWorkspaceTab.ts) only opens or
   focuses the stable editor tab, so keyboard shortcuts and Command Palette
   discovery do not hydrate either workspace collection during startup.

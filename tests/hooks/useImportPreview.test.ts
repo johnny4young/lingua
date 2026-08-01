@@ -7,6 +7,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { compressToEncodedURIComponent } from 'lz-string';
 import {
   bucketImportVariableCount,
   bucketWarningKindCount,
@@ -176,6 +177,90 @@ describe('useImportPreview', () => {
       result.current.reset();
     });
     expect(result.current.state.phase).toBe('idle');
+  });
+});
+
+describe('useImportPreview — playground URL flow', () => {
+  it('previews locally, confirms once, and opens the exact TypeScript source', async () => {
+    const source = 'const greeting: string = "hello";\nconsole.log(greeting);';
+    const encoded = compressToEncodedURIComponent(source);
+    const { result } = renderHook(() => useImportPreview());
+
+    await act(async () => {
+      await result.current.previewPlaygroundUrl(
+        `https://www.typescriptlang.org/play/#code/${encoded}`
+      );
+    });
+    expect(result.current.state).toMatchObject({
+      phase: 'previewed',
+      importerId: 'playground-url',
+      preview: { kind: 'playground-source', source },
+    });
+
+    let confirmed: Awaited<ReturnType<typeof result.current.confirm>> = null;
+    await act(async () => {
+      confirmed = await result.current.confirm();
+    });
+    expect(confirmed).toMatchObject({ kind: 'playground-url' });
+    expect(useEditorStore.getState().tabs).toHaveLength(1);
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({
+      name: 'typescript-playground.ts',
+      language: 'typescript',
+      content: source,
+    });
+    expect(result.current.state.phase).toBe('idle');
+    expect(trackEventMock).toHaveBeenCalledWith('import.applied', {
+      importerId: 'playground-url',
+      status: 'ok',
+      sizeBucket: expect.any(String),
+    });
+  });
+
+  it('surfaces a precise reject for providers without a stable read API', async () => {
+    const { result } = renderHook(() => useImportPreview());
+    await act(async () => {
+      await result.current.previewPlaygroundUrl(
+        'https://codepen.io/example/pen/abc123'
+      );
+    });
+    expect(result.current.state).toMatchObject({
+      phase: 'rejected',
+      importerId: 'playground-url',
+      reason: 'provider-not-readable',
+    });
+  });
+
+  it('cancels an active Go fetch without letting its late result replace state', async () => {
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new Error('aborted'))
+        );
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const { result } = renderHook(() => useImportPreview());
+      let pending!: Promise<'cancelled' | 'previewed' | 'rejected'>;
+      act(() => {
+        pending = result.current.previewPlaygroundUrl(
+          'https://go.dev/play/p/a_B-c123'
+        );
+      });
+      expect(result.current.state.phase).toBe('loading');
+      act(() => result.current.cancelPlaygroundUrl());
+      await act(async () => {
+        await pending;
+      });
+      expect(result.current.state.phase).toBe('idle');
+      expect(trackEventMock).toHaveBeenCalledWith('import.applied', {
+        importerId: 'playground-url',
+        status: 'cancelled',
+        sizeBucket: expect.any(String),
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

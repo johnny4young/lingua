@@ -125,6 +125,7 @@
     "jsqr": "^1.4.0",
     "knip": "^6.16.1",
     "lucide-react": "^1.17.0",
+    "lz-string": "1.5.0",
     "magic-string": "^0.30.21",
     "marked": "^18.0.5",
     "monaco-editor": "^0.55.1",

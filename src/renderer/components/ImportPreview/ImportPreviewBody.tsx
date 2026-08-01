@@ -26,6 +26,7 @@ import type {
   IpynbImporterPreview,
 } from '../../../shared/importers/ipynbImporter';
 import type { LinguanbImporterPreview } from '../../../shared/importers/linguanbImporter';
+import type { PlaygroundSourcePreview } from '../../../shared/importers/playgroundUrlImport';
 import type {
   CollectionImporterPreview,
   ParsedCollectionRequest,
@@ -37,7 +38,8 @@ export type ImportPreviewBodyShape =
   | (CurlImporterPreview & { readonly kind: 'curl-http' })
   | IpynbImporterPreview
   | LinguanbImporterPreview
-  | CollectionImporterPreview;
+  | CollectionImporterPreview
+  | PlaygroundSourcePreview;
 
 export interface ImportPreviewBodyProps {
   preview: ImportPreviewBodyShape;
@@ -66,6 +68,7 @@ const LANGUAGE_LABEL: Record<string, string> = {
   javascript: 'JS',
   typescript: 'TS',
   python: 'PY',
+  go: 'GO',
 };
 
 export function ImportPreviewBody({ preview }: ImportPreviewBodyProps) {
@@ -75,7 +78,67 @@ export function ImportPreviewBody({ preview }: ImportPreviewBodyProps) {
   if (preview.kind === 'http-collection') {
     return <CollectionPreviewBand preview={preview} />;
   }
+  if (preview.kind === 'playground-source') {
+    return <PlaygroundSourcePreviewBand preview={preview} />;
+  }
   return <CurlPreviewBand preview={preview} />;
+}
+
+function PlaygroundSourcePreviewBand({
+  preview,
+}: {
+  preview: PlaygroundSourcePreview;
+}) {
+  const { t } = useTranslation();
+  const snippet = preview.source
+    .split(/\r\n|\r|\n/u)
+    .slice(0, 24)
+    .join('\n');
+  return (
+    <div
+      data-testid="import-preview-body"
+      data-preview-kind="playground-source"
+      className="grid gap-3 rounded-md border border-border-subtle bg-bg-inset p-3"
+    >
+      <header className="flex flex-wrap items-center gap-2">
+        <StatusBadge tone="info">
+          {t(`importPreview.playground.provider.${preview.provider}`)}
+        </StatusBadge>
+        <StatusBadge tone="neutral">
+          {LANGUAGE_LABEL[preview.language] ?? preview.language}
+        </StatusBadge>
+        <span
+          data-testid="import-preview-playground-title"
+          className="min-w-0 flex-1 truncate font-mono text-body-sm text-fg-base"
+          title={preview.title}
+        >
+          {preview.title}
+        </span>
+      </header>
+      <div className="flex flex-wrap gap-2 text-caption text-fg-subtle">
+        <span data-testid="import-preview-playground-lines">
+          {t('importPreview.playground.summary', {
+            count: preview.lineCount,
+            lines: preview.lineCount,
+            bytes: preview.sourceBytes,
+          })}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>
+          {preview.fetchedRemotely
+            ? t('importPreview.playground.sourceRemote')
+            : t('importPreview.playground.sourceLocal')}
+        </span>
+      </div>
+      <pre
+        data-testid="import-preview-playground-source"
+        className="max-h-[240px] overflow-auto whitespace-pre-wrap break-words rounded border border-border-subtle bg-bg-panel p-3 font-mono text-eyebrow text-fg-base"
+      >
+        {snippet}
+        {preview.lineCount > 24 ? '\n…' : ''}
+      </pre>
+    </div>
+  );
 }
 
 /** Count of headers whose name is a baseline-sensitive header (their

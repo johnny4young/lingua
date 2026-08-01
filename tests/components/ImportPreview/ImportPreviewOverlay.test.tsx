@@ -9,6 +9,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { compressToEncodedURIComponent } from 'lz-string';
 import i18next from 'i18next';
 import { ImportPreviewOverlay } from '../../../src/renderer/components/ImportPreview/ImportPreviewOverlay';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
@@ -270,6 +271,81 @@ describe('ImportPreviewOverlay', () => {
     expect(screen.queryByText(/Importá datos/i)).toBeNull();
     // Cancel button copy.
     expect(screen.getByText(/^Cancelar$/i)).toBeTruthy();
+  });
+});
+
+describe('ImportPreviewOverlay — playground URL flow', () => {
+  it('clears an existing file preview as soon as the playground URL changes', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+
+    await user.type(
+      screen.getByTestId('import-preview-paste'),
+      'curl https://api.example.com/ready'
+    );
+    expect(
+      (screen.getByTestId('import-preview-confirm') as HTMLButtonElement).disabled
+    ).toBe(false);
+
+    await user.type(
+      screen.getByTestId('import-preview-playground-url'),
+      'https://www.typescriptlang.org/play/#code/example'
+    );
+
+    expect(
+      (screen.getByTestId('import-preview-confirm') as HTMLButtonElement).disabled
+    ).toBe(true);
+    expect(screen.queryByTestId('import-preview-body')).toBeNull();
+  });
+
+  it('previews a TypeScript link before opening one code tab', async () => {
+    const user = userEvent.setup();
+    const source = 'const imported: number = 42;\nconsole.log(imported);';
+    const encoded = compressToEncodedURIComponent(source);
+    let closed = false;
+    render(<ImportPreviewOverlay onClose={() => (closed = true)} />);
+
+    await user.type(
+      screen.getByTestId('import-preview-playground-url'),
+      `https://www.typescriptlang.org/play/#code/${encoded}`
+    );
+    await user.click(screen.getByTestId('import-preview-playground-preview'));
+
+    expect(
+      (await screen.findByTestId('import-preview-playground-source')).textContent
+    ).toContain('const imported: number = 42;');
+    expect(screen.getByTestId('import-preview-detected').textContent).toContain(
+      'Playground URL'
+    );
+    expect(screen.getByTestId('import-preview-confirm').textContent).toContain(
+      'Open source in a tab'
+    );
+
+    await user.click(screen.getByTestId('import-preview-confirm'));
+    await waitFor(() => expect(closed).toBe(true));
+    expect(useEditorStore.getState().tabs).toHaveLength(1);
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({
+      language: 'typescript',
+      content: source,
+    });
+  });
+
+  it('explains the unsupported CodePen contract in neutral Spanish', async () => {
+    await i18next.changeLanguage('es');
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.type(
+      screen.getByTestId('import-preview-playground-url'),
+      'https://codepen.io/example/pen/abc123'
+    );
+    await user.click(screen.getByTestId('import-preview-playground-preview'));
+
+    expect(
+      (await screen.findByTestId('import-preview-reject-detail')).textContent
+    ).toMatch(/no exponen una API pública de lectura estable/i);
+    expect(
+      (screen.getByTestId('import-preview-confirm') as HTMLButtonElement).disabled
+    ).toBe(true);
   });
 });
 

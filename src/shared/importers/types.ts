@@ -3,9 +3,9 @@
  *
  * Importers turn an external payload (cURL command, `.ipynb` JSON,
  * Postman collection, etc.) into a Lingua domain object the user can
- * confirm into a workspace. implementation ships the registry shape + the
- * cURL → HTTP request adapter only; later work add `.ipynb`,
- * Bruno/Postman, and CodePen/JSFiddle URL flows.
+ * confirm into a workspace. URL-backed flows are modeled separately because
+ * their async cancellation and network policy do not fit this synchronous
+ * adapter contract.
  *
  * Three-phase contract — every adapter implements all three:
  *
@@ -45,8 +45,8 @@
  * implementation (2026-05-27) added `'ipynb-notebook'`; implementation (2026-05-28)
  * adds `'postman-collection'` + `'bruno-collection'`. implementation
  * (2026-06-21) adds `'linguanb-notebook'` — the lossless native
- * notebook document (counterpart to the lossy `.ipynb` import). The
- * enum stays open for `'codepen-url'` .
+ * notebook document (counterpart to the lossy `.ipynb` import). Async URL
+ * imports belong to `IMPORT_FLOW_IDS`, not this adapter registry enum.
  *
  * Mirrored on `update-server/src/telemetry.ts` as
  * `IMPORTER_IDS_SET` — see the parity test there.
@@ -59,6 +59,14 @@ export const IMPORTER_IDS = [
   'linguanb-notebook',
 ] as const;
 export type ImporterId = (typeof IMPORTER_IDS)[number];
+
+/**
+ * User-visible import flows include every synchronous registry adapter plus
+ * renderer-coordinated async sources. Keep telemetry keyed to this wider set
+ * without pretending a network loader is a synchronous importer adapter.
+ */
+export const IMPORT_FLOW_IDS = [...IMPORTER_IDS, 'playground-url'] as const;
+export type ImportFlowId = (typeof IMPORT_FLOW_IDS)[number];
 
 /**
  * Closed enum of reject reasons. Adding new reasons is allowed
