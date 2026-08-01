@@ -56,13 +56,13 @@ export const es = {
     title: 'Lingua — runner multi-lenguaje para tu escritorio',
     hero: {
       eyebrow: 'Runner multi-lenguaje · Desktop y web',
-      headline: ['Ejecuta JS, TS,', 'Python, Go y Rust', 'en'],
+      headline: ['Ejecuta JS, TS, Python,', 'Ruby, Go y Rust', 'en'],
       headlineSuffix: 'una sola',
       headlineEnd: 'ventana Monaco.',
-      lede: 'Lingua es el playground que usan developers senior cuando quieren probar un script de 10 líneas en cinco lenguajes sin crear un proyecto. Desktop-first, source-available y claro sobre qué corre en cada entorno.',
+      lede: 'Lingua es el playground que usan developers senior cuando quieren probar un script de 10 líneas en seis lenguajes sin crear un proyecto. Desktop-first, source-available y claro sobre qué corre en cada entorno.',
       proofLabel: 'Datos del producto Lingua',
       proof: [
-        { value: '5', label: 'lenguajes ejecutables' },
+        { value: '6', label: 'lenguajes ejecutables' },
         { value: '31', label: 'utilidades developer' },
         { value: '0', label: 'telemetría antes del consentimiento' },
       ],
@@ -88,8 +88,8 @@ export const es = {
       cards: [
         {
           icon: 'package',
-          title: 'Cinco lenguajes, un binario',
-          body: 'JavaScript, TypeScript, Python, Go y Rust viven en la misma ventana con Monaco. Sin crear un proyecto solo para validar una idea.',
+          title: 'Seis lenguajes, un binario',
+          body: 'JavaScript, TypeScript, Python, Ruby, Go y Rust viven en la misma ventana con Monaco. Sin crear un proyecto solo para validar una idea.',
         },
         {
           icon: 'wifi-off',
@@ -252,7 +252,7 @@ export const es = {
     languageMatrix: {
       eyebrow: 'Matriz de lenguajes',
       title: 'Soporte honesto para 12 lenguajes.',
-      lede: 'Cinco lenguajes se ejecutan hoy. Siete más sirven para abrir, leer y flujos cercanos al lint, pero todavía no son ejecutables.',
+      lede: 'Seis lenguajes se ejecutan hoy. Seis más sirven para abrir, leer y flujos cercanos al lint, pero todavía no son ejecutables.',
       columns: {
         language: 'Lenguaje',
         status: 'Estado',
@@ -274,6 +274,7 @@ export const es = {
         js: 'Runtime en Worker',
         ts: 'esbuild-wasm → Worker',
         py: 'Pyodide v0.29.4 incluido',
+        ruby: 'Ruby WASM o Ruby del sistema',
         go: 'Toolchain local de Go',
         rust: 'Toolchain local de Rust',
         monaco: 'Vista de sintaxis Monaco',
@@ -295,13 +296,13 @@ export const es = {
           name: 'Free',
           price: '$0',
           tag: 'Por defecto',
-          desc: 'Una pestaña, cinco snippets, JS / TS / Python / Ruby, utilidades de una sola acción. Sin licencia.',
+          desc: 'Tres pestañas, cinco snippets, JS / TS / Python / Ruby, utilidades de una sola acción. Sin licencia.',
         },
         {
           name: 'Mensual',
           price: '$5 / mes',
           tag: 'Suscripción',
-          desc: 'Pestañas y snippets ilimitados, Go y Rust, más workflows de utilidades.',
+          desc: 'Pestañas y snippets ilimitados, Go y Rust, notebooks, IA local y workflows/historial guardados.',
         },
         {
           name: 'Pro',
@@ -326,7 +327,7 @@ export const es = {
     },
     finalCta: {
       title: 'Lánzale tu próximo script de 10 líneas.',
-      body: 'Una instalación. Cinco lenguajes. Ningún proyecto que crear.',
+      body: 'Una instalación. Seis lenguajes. Ningún proyecto que crear.',
     },
   },
   pricing: {
@@ -379,8 +380,9 @@ export const es = {
             'Todo lo de Free',
             'Pestañas y snippets ilimitados',
             'Runners de Go y Rust',
-            'Workflows de utilidades: pipelines, historial guardado, automatización del portapapeles',
-            'Format-on-save en cada lenguaje',
+            'Notebooks de TypeScript, Python y SQL',
+            'IA local-first con tu propio endpoint y clave',
+            'Historial de ejecución persistente y workflows de utilidades',
             'Cada actualización mientras estés suscrito',
           ],
           cta: 'Comprar Mensual',
@@ -414,7 +416,7 @@ export const es = {
     faq: [
       {
         q: '¿Cuál es la política de reembolso?',
-        a: 'Todos los tiers pagos tienen reembolso durante los primeros 14 días desde la compra inicial, sin preguntas. Escribe a <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a> con tu número de orden. Pro y Team también pueden cancelarse en cualquier momento para detener la próxima renovación.',
+        a: 'Todos los tiers pagos tienen reembolso durante los primeros 14 días desde la compra inicial, sin preguntas. Escribe a <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a> con tu número de orden. Mensual y Team también pueden cancelarse en cualquier momento para detener la próxima renovación.',
       },
       {
         q: '¿Lingua funciona offline?',
@@ -570,15 +572,15 @@ export const es = {
     sections: [
       {
         title: 'Sobre Lingua — 25 palabras',
-        body: 'Lingua es un runner desktop multi-lenguaje: JavaScript, TypeScript, Python, Go y Rust en una app offline-first con Monaco.',
+        body: 'Lingua es un runner desktop multi-lenguaje: JavaScript, TypeScript, Python, Ruby, Go y Rust en una app offline-first con Monaco.',
       },
       {
         title: 'Sobre Lingua — 50 palabras',
-        body: 'Lingua es un runner desktop comercial para developers que trabajan con varios lenguajes en un mismo día. JavaScript, TypeScript, Python, Go y Rust corren en una app offline-first con Monaco Editor, utilidades developer integradas, snippets y templates. Es source-available y los tiers pagos se desbloquean con licencias verificadas offline.',
+        body: 'Lingua es un runner desktop comercial para developers que trabajan con varios lenguajes en un mismo día. JavaScript, TypeScript, Python, Ruby, Go y Rust corren en una app offline-first con Monaco Editor, utilidades developer integradas, snippets y templates. Es source-available y los tiers pagos se desbloquean con licencias verificadas offline.',
       },
       {
         title: 'Sobre Lingua — 150 palabras',
-        body: 'Lingua es un runner desktop comercial y multi-lenguaje. JavaScript, TypeScript, Python, Go y Rust son ciudadanos de primera clase, cada uno con su runner, templates y panel de resultados inline, dentro de la misma app offline-first con Monaco. Las utilidades developer (formateador JSON, tester regex, Base64, UUID, hash, conversor de timestamps, decodificador JWT, conversor de color y diff viewer) vienen integradas, así que reemplaza varias pestañas de navegador alrededor del runner. Snippets, indexación de proyecto, quick-open, búsqueda de proyecto y atajos personalizables mantienen el flujo rápido. Los tiers pagos (Mensual, Pro de pago único y Team por asiento) se desbloquean con una licencia firmada y verificada offline, sin phone-home. El acceso educativo es gratis para estudiantes y docentes verificados. El repositorio es source-available para evaluación y revisión bajo la Licencia Comercial de Lingua.',
+        body: 'Lingua es un runner desktop comercial y multi-lenguaje. JavaScript, TypeScript, Python, Ruby, Go y Rust son ciudadanos de primera clase, cada uno con su runner, templates y panel de resultados inline, dentro de la misma app offline-first con Monaco. Las utilidades developer (formateador JSON, tester regex, Base64, UUID, hash, conversor de timestamps, decodificador JWT, conversor de color y diff viewer) vienen integradas, así que reemplaza varias pestañas de navegador alrededor del runner. Snippets, indexación de proyecto, quick-open, búsqueda de proyecto y atajos personalizables mantienen el flujo rápido. Los tiers pagos (Mensual, Pro de pago único y Team por asiento) se desbloquean con una licencia firmada y verificada offline, sin phone-home. El acceso educativo es gratis para estudiantes y docentes verificados. El repositorio es source-available para evaluación y revisión bajo la Licencia Comercial de Lingua.',
       },
       {
         title: 'Bio del fundador — 40 palabras',
@@ -602,7 +604,7 @@ export const es = {
       items: [
         'Lingua es source-available, no open source. No lo describas como MIT, Apache o GPL.',
         'Las licencias se verifican offline: no hay phone-home ni chequeo de cuenta al iniciar.',
-        'Cinco lenguajes se ejecutan hoy. Siete más están registrados pero todavía no se publican como ejecutables.',
+        'Seis lenguajes se ejecutan hoy. Seis más están registrados pero todavía no se publican como ejecutables.',
         'La app desktop funciona completamente offline. La versión web necesita red para la primera carga.',
       ],
     },

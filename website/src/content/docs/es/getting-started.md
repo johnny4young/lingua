@@ -1,11 +1,11 @@
 ---
 title: Primeros pasos
-description: Instala Lingua, ejecuta tu primer snippet en cinco lenguajes y encuentra los atajos que hacen rápido el flujo.
+description: Instala Lingua, ejecuta tu primer snippet en seis lenguajes y encuentra los atajos que hacen rápido el flujo.
 order: 1
 section: guide
 ---
 
-Lingua es un runner de código multi-lenguaje pensado primero para desktop. Lo instalas una vez y tienes JavaScript, TypeScript, Python, Go y Rust listos en una sola ventana con Monaco.
+Lingua es un runner de código multi-lenguaje pensado primero para desktop. Lo instalas una vez y tienes JavaScript, TypeScript, Python, Ruby, Go y Rust listos en una sola ventana con Monaco.
 
 ## Descargar
 
@@ -37,13 +37,13 @@ Presiona `Cmd/Ctrl+Enter`. El panel de resultados se actualiza inline.
 
 ## Cambiar lenguaje
 
-Abre el menú de lenguaje en la tab strip (o `Cmd/Ctrl+L`) y elige otro lenguaje. La pestaña se reemplaza con un starter snippet real y ejecutable para ese lenguaje. JavaScript, TypeScript y Python funcionan en cada instalación: sus runtimes vienen dentro de Lingua.
+Abre el menú de lenguaje en la tab strip (o `Cmd/Ctrl+L`) y elige otro lenguaje. La pestaña se reemplaza con un starter snippet real y ejecutable para ese lenguaje. JavaScript, TypeScript, Python y Ruby funcionan en cada instalación: sus runtimes vienen dentro de Lingua.
 
 Go y Rust delegan en las toolchains que ya tienes en tu máquina. Si `go version` o `rustc --version` funciona en tu terminal, Lingua las detectará automáticamente.
 
 ## Toolchains nativas
 
-JavaScript, TypeScript y Python vienen incluidos con Lingua. Los modos nativos
+JavaScript, TypeScript, Python y Ruby vienen incluidos con Lingua. Los modos nativos
 de desktop usan la toolchain instalada en tu máquina:
 
 - **Go:** instala la versión estable actual desde [go.dev/dl](https://go.dev/dl/) y confirma que `go version` funciona.
@@ -68,7 +68,7 @@ Vim mode es opt-in: actívalo en Settings → Editor.
 
 ## Offline por defecto
 
-Lingua no necesita conexión para ejecutar código en el build desktop. Pyodide viene dentro del binario, y Go/Rust usan tu toolchain local. La telemetría está desactivada por defecto; actívala desde Settings si quieres ayudar a mejorar la app.
+Lingua no necesita conexión para ejecutar código en el build desktop. Pyodide y Ruby WASM vienen dentro del binario, y Go/Rust usan tu toolchain local. La telemetría está desactivada por defecto; actívala desde Settings si quieres ayudar a mejorar la app.
 
 ## Siguientes pasos
 

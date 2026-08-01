@@ -56,13 +56,13 @@ export const en = {
     title: 'Lingua — multi-language code runner for your desktop',
     hero: {
       eyebrow: 'Multi-language code runner · Desktop & web',
-      headline: ['Run JS, TS,', 'Python, Go, and Rust', 'in'],
+      headline: ['Run JS, TS, Python,', 'Ruby, Go, and Rust', 'in'],
       headlineSuffix: 'one',
       headlineEnd: 'Monaco window.',
-      lede: 'Lingua is the playground senior developers reach for when they want to throw a 10-line script at five languages without spinning up a project. Desktop-first, source-available, and plain about what runs where.',
+      lede: 'Lingua is the playground senior developers reach for when they want to throw a 10-line script at six languages without spinning up a project. Desktop-first, source-available, and plain about what runs where.',
       proofLabel: 'Lingua product facts',
       proof: [
-        { value: '5', label: 'runnable languages' },
+        { value: '6', label: 'runnable languages' },
         { value: '31', label: 'developer utilities' },
         { value: '0', label: 'telemetry before consent' },
       ],
@@ -88,8 +88,8 @@ export const en = {
       cards: [
         {
           icon: 'package',
-          title: 'Five languages, one binary',
-          body: 'JavaScript, TypeScript, Python, Go, and Rust live inside the same Monaco-powered window. No project scaffold to test an idea.',
+          title: 'Six languages, one binary',
+          body: 'JavaScript, TypeScript, Python, Ruby, Go, and Rust live inside the same Monaco-powered window. No project scaffold to test an idea.',
         },
         {
           icon: 'wifi-off',
@@ -252,7 +252,7 @@ export const en = {
     languageMatrix: {
       eyebrow: 'Language matrix',
       title: 'Honest support across 12 languages.',
-      lede: 'Five languages execute today. Seven more are useful for opening, reading, and lint-adjacent workflows, but they are not runnable yet.',
+      lede: 'Six languages execute today. Six more are useful for opening, reading, and lint-adjacent workflows, but they are not runnable yet.',
       columns: {
         language: 'Language',
         status: 'Status',
@@ -274,6 +274,7 @@ export const en = {
         js: 'Worker runtime',
         ts: 'esbuild-wasm → Worker',
         py: 'Pyodide v0.29.4 vendored',
+        ruby: 'Ruby WASM or system Ruby',
         go: 'Local Go toolchain',
         rust: 'Local Rust toolchain',
         monaco: 'Monaco syntax view',
@@ -295,13 +296,13 @@ export const en = {
           name: 'Free',
           price: '$0',
           tag: 'Default',
-          desc: 'One tab, five snippets, JS / TS / Python / Ruby, single-shot utilities. No license needed.',
+          desc: 'Three tabs, five snippets, JS / TS / Python / Ruby, single-shot utilities. No license needed.',
         },
         {
           name: 'Monthly',
           price: '$5 / mo',
           tag: 'Subscription',
-          desc: 'Unlimited tabs and snippets, Go and Rust, plus utility workflows.',
+          desc: 'Unlimited tabs and snippets, Go and Rust, notebooks, local AI, and saved workflows/history.',
         },
         {
           name: 'Pro',
@@ -326,7 +327,7 @@ export const en = {
     },
     finalCta: {
       title: 'Throw your next 10-line script at it.',
-      body: 'One install. Five languages. No project to spin up.',
+      body: 'One install. Six languages. No project to spin up.',
     },
   },
   pricing: {
@@ -379,8 +380,9 @@ export const en = {
             'Everything in Free',
             'Unlimited tabs and snippets',
             'Go and Rust runners',
-            'Utility workflows: pipelines, saved history, clipboard automation',
-            'Format-on-save in every language',
+            'TypeScript, Python, and SQL notebooks',
+            'Local-first AI with your own endpoint and key',
+            'Persistent execution history and utility workflows',
             'Every update while subscribed',
           ],
           cta: 'Buy Monthly',
@@ -414,7 +416,7 @@ export const en = {
     faq: [
       {
         q: "What's your refund policy?",
-        a: 'All paid tiers are refundable within 14 days of the initial purchase, no questions asked. Email <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a> with your order number. Pro and Team can also be cancelled anytime to stop the next renewal.',
+        a: 'All paid tiers are refundable within 14 days of the initial purchase, no questions asked. Email <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a> with your order number. Monthly and Team can also be cancelled anytime to stop the next renewal.',
       },
       {
         q: 'Does Lingua work offline?',
@@ -568,15 +570,15 @@ export const en = {
     sections: [
       {
         title: 'About Lingua — 25 words',
-        body: 'Lingua is a multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app.',
+        body: 'Lingua is a multi-language desktop code runner — JavaScript, TypeScript, Python, Ruby, Go, and Rust in one offline-first Monaco-powered app.',
       },
       {
         title: 'About Lingua — 50 words',
-        body: 'Lingua is a commercial desktop code runner built for developers who juggle multiple languages in one day. JavaScript, TypeScript, Python, Go, and Rust run inside one offline-first app with Monaco Editor, built-in developer utilities, snippets, and templates. Source-available, paid tiers unlock via offline-verified license keys.',
+        body: 'Lingua is a commercial desktop code runner built for developers who juggle multiple languages in one day. JavaScript, TypeScript, Python, Ruby, Go, and Rust run inside one offline-first app with Monaco Editor, built-in developer utilities, snippets, and templates. Source-available, paid tiers unlock via offline-verified license keys.',
       },
       {
         title: 'About Lingua — 150 words',
-        body: 'Lingua is a commercial multi-language desktop code runner. JavaScript, TypeScript, Python, Go, and Rust are first-class citizens — each with its own runner, templates, and inline result panel — and they live inside the same offline-first Monaco-powered app. Developer utilities (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter, JWT decoder, color converter, diff viewer) are built in, so the app replaces the half-dozen browser tabs that usually sit alongside a code runner. Snippets, project indexing, quick-open, project search, and customizable shortcuts keep the workflow fast. Paid tiers (Monthly, one-time Pro, Team per seat) unlock via a signed license key verified offline — no phone-home required. Education access is free for verified students and teachers. The repository is source-available for evaluation and contributor review under the Lingua Commercial License.',
+        body: 'Lingua is a commercial multi-language desktop code runner. JavaScript, TypeScript, Python, Ruby, Go, and Rust are first-class citizens — each with its own runner, templates, and inline result panel — and they live inside the same offline-first Monaco-powered app. Developer utilities (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter, JWT decoder, color converter, diff viewer) are built in, so the app replaces the half-dozen browser tabs that usually sit alongside a code runner. Snippets, project indexing, quick-open, project search, and customizable shortcuts keep the workflow fast. Paid tiers (Monthly, one-time Pro, Team per seat) unlock via a signed license key verified offline — no phone-home required. Education access is free for verified students and teachers. The repository is source-available for evaluation and contributor review under the Lingua Commercial License.',
       },
       {
         title: 'Founder bio — 40 words',
@@ -600,7 +602,7 @@ export const en = {
       items: [
         "Lingua is source-available, not open source. Please don't describe it as MIT, Apache, or GPL.",
         'License keys are offline-verifiable — there is no phone-home or account check at launch time.',
-        'Five languages run today. Seven more are tracked but not yet shipped.',
+        'Six languages run today. Six more are tracked but not yet shipped.',
         'The desktop app runs fully offline. The web build needs network for the first page load.',
       ],
     },

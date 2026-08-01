@@ -9,7 +9,7 @@ interface Props {
 const { items } = Astro.props;
 ---
 
-<dl class="faq">
+<div class="faq">
   {
     items.map((item) => (
       <details class="faq-item">
@@ -21,7 +21,7 @@ const { items } = Astro.props;
       </details>
     ))
   }
-</dl>
+</div>
 
 <style>
   .faq {

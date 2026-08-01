@@ -29,7 +29,7 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 
 ## Who it is for
 
-- Developers juggling JavaScript, TypeScript, Python, Go, and Rust snippets across Slack, Stack Overflow answers, and interview prep.
+- Developers juggling JavaScript, TypeScript, Python, Ruby, Go, and Rust snippets across Slack, Stack Overflow answers, and interview prep.
 - Teachers and students who want a single offline-capable multi-language sandbox that runs on laptops without per-language CLI setup.
 - Teams who need a lightweight, reviewable, commercial-licensed alternative to web-hosted playgrounds for proprietary code.
 

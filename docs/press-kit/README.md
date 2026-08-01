@@ -7,7 +7,7 @@ directly from this directory.
 
 - `boilerplate.md` — company + product descriptions at three lengths
   (25, 50, 150 words). Copy paste into articles and outreach.
-- `pricing-one-pager.md` — Free / Monthly / Pro / Education matrix
+- `pricing-one-pager.md` — Free / Monthly / Pro / Team / Education matrix
   for press and partners.
 - `founder-bio.md` — short + medium founder bio.
 - `launch-copy.md` — drafts for Show HN, Product Hunt, r/golang,
@@ -24,7 +24,7 @@ directly from this directory.
    anchor every claim to features that have actually shipped.
 2. **Match the posture in `LICENSE`.** Source-available commercial —
    never claim "open source" or "MIT".
-3. **Pricing matches the published tiers** (Free, Monthly, Pro,
+3. **Pricing matches the published tiers** (Free, Monthly, Pro, Team,
    Education). If any of these change, update this kit
    in the same commit.
 4. **Spanish mirror**: every customer-facing string file ships `en`

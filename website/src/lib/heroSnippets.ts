@@ -25,6 +25,12 @@ console.log(active.toUpperCase());`,
 path = PurePosixPath("src/runner/python.py")
 print(path.suffix)`,
   },
+  ruby: {
+    label: 'Ruby',
+    code: `records = [{ name: "Ada", score: 98 }, { name: "Linus", score: 95 }]
+leaders = records.select { |record| record[:score] >= 96 }
+puts leaders.map { |record| record[:name] }`,
+  },
   go: {
     label: 'Go',
     code: `package main

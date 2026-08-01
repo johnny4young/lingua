@@ -89,7 +89,7 @@ async function validateLocale(locale, directory, filenames, errors) {
     }
 
     if (/\binternal\b/iu.test(body)) {
-      errors.push(`${locale}/${filename}: public copy leaks an internal planning reference`);
+      errors.push(`${locale}/${filename}: public copy leaks a private roadmap reference`);
     }
     if (/\b(?:ENG|SEO|P|T)-\d+\b/u.test(body)) {
       errors.push(`${locale}/${filename}: public copy leaks a private planning identifier`);
