@@ -1,50 +1,37 @@
 # SEO landing pages
 
-Content scaffolds for the language-intent landing pages that
-`linguacode.dev` will host:
+Canonical English content for the bilingual language-intent landing
+pages hosted by `linguacode.dev`:
 
+- `/javascript-code-runner-desktop/`
+- `/typescript-playground-offline/`
+- `/python-repl-desktop/`
 - `/go-playground-desktop/`
 - `/rust-code-runner-desktop/`
-- `/python-repl-desktop/`
-- `/typescript-playground-offline/`
 - `/multi-language-code-runner/`
 - `/lua-offline-playground/`
 
-The scaffolds live in this directory as Markdown + front-matter so the
-website build can pick them up directly. Shape is static-site friendly
-(Astro, Next static export, Eleventy — anything that reads Markdown
-plus YAML front-matter).
+The website sync copies these Markdown files into
+`website/src/content/seo/en/`. Spanish translations live beside the
+vendored copy in `website/src/content/seo/es/`.
 
-## Shared rules — read before editing any page here
+## Shared rules
 
-1. **Every claim has to match shipped reality**. The internal acceptance
-   line is explicit: "every page must say something true about
-   Lingua's real support for that language, or we do not ship the
-   page." Cross-check against features that have actually shipped
-   before adding a feature claim.
-2. **Front-matter is strict**. Required keys: `title`, `description`
-   (<=160 chars for the meta tag), `canonical`, `ogImage`,
-   `language` (the intent this page targets). Missing keys should
-   fail the website build.
-3. **Every page links back to the canonical download** on
-   `https://linguacode.dev` and renders the same "download" CTA string
-   so SEO doesn't see near-duplicate CTAs diverge per page.
-4. **Honest limitations section is required**. No marketing without a
-   matching "what doesn't work today" paragraph — this is the
-   difference between SEO that ranks and SEO that gets flagged as
-   content-farming.
-5. **Schema.org `SoftwareApplication` JSON-LD** is appended by the
-   website build; these scaffolds only own the prose.
+1. **Every claim must match shipped reality.** Cross-check
+   `docs/CAPABILITY_MATRIX.md`, the shared language-support profiles,
+   and entitlement policy before adding a feature claim.
+2. **Front matter is strict.** Required keys are `title`, `description`
+   (160 characters or fewer), `canonical`, `ogImage`, and `language`.
+3. **English and Spanish slugs stay in parity.** Every canonical is
+   slashless, matching Astro's `trailingSlash: 'never'` route exactly.
+4. **Every page links to the canonical Lingua download surface.**
+5. **An honest limitations section is required.** Public copy must not
+   leak planning identifiers or use an unshipped capability as a
+   promise.
+6. **Schema.org `SoftwareApplication` JSON-LD** is appended by the
+   website layout.
 
-## Files
-
-- `go-playground-desktop.md`
-- `rust-code-runner-desktop.md`
-- `python-repl-desktop.md`
-- `typescript-playground-offline.md`
-- `multi-language-code-runner.md`
-- `lua-offline-playground.md`
-
-Each file is its own page. The website build inherits a shared header,
-nav, and footer — pages own only `<main>`-level content and the
-front-matter.
+Run `npm run check` from `website/` after syncing. The SEO content gate
+checks locale parity, front matter, canonical URLs, required sections,
+vendored-source drift, and known stale claims before Astro validates the
+site.

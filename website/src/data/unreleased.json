@@ -1,9 +1,54 @@
 {
-  "generatedAt": "2026-08-01T16:42:50.743Z",
+  "generatedAt": "2026-08-01T21:08:16.746Z",
   "baseRef": "v0.15.0",
   "commitCount": 12,
-  "totalSinceBase": 65,
+  "totalSinceBase": 71,
   "commits": [
+    {
+      "hash": "ba8b3fd",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "distribution",
+      "message": "add public readiness report",
+      "breaking": false
+    },
+    {
+      "hash": "e330e31",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "integrations",
+      "message": "add secure local MCP server",
+      "breaking": false
+    },
+    {
+      "hash": "e410b08",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "terminal",
+      "message": "add project-scoped interactive shell",
+      "breaking": false
+    },
+    {
+      "hash": "e385054",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "notebooks",
+      "message": "add lazy cross-language reactivity",
+      "breaking": false
+    },
+    {
+      "hash": "6e85203",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "http",
+      "message": "add guarded live sessions and request pipelines",
+      "breaking": false
+    },
     {
       "hash": "412a95c",
       "date": "2026-08-01",
@@ -65,51 +110,6 @@
       "typeLabel": "New",
       "scope": "cli",
       "message": "add completions color and stable errors",
-      "breaking": false
-    },
-    {
-      "hash": "f94fea7",
-      "date": "2026-08-01",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "cli",
-      "message": "run files projects and capsules",
-      "breaking": false
-    },
-    {
-      "hash": "dd26a74",
-      "date": "2026-07-31",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "projects",
-      "message": "preserve binary bundle integrity",
-      "breaking": false
-    },
-    {
-      "hash": "b38a9bb",
-      "date": "2026-07-31",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runtime",
-      "message": "invalidate stale inline results",
-      "breaking": false
-    },
-    {
-      "hash": "9b76f04",
-      "date": "2026-07-31",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "a11y",
-      "message": "remove duplicate file picker controls",
-      "breaking": false
-    },
-    {
-      "hash": "4952751",
-      "date": "2026-07-31",
-      "type": "perf",
-      "typeLabel": "Performance",
-      "scope": "http",
-      "message": "defer import workspace activation",
       "breaking": false
     }
   ]

@@ -6,7 +6,7 @@ const seo = defineCollection({
   loader: glob({ pattern: '**/*.md', base: 'src/content/seo' }),
   schema: z.object({
     title: z.string(),
-    description: z.string().max(180),
+    description: z.string().max(160),
     canonical: z.url(),
     ogImage: z.string().optional(),
     language: z.enum(['go', 'rust', 'python', 'typescript', 'javascript', 'multi', 'lua']),

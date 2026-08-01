@@ -1,48 +1,49 @@
 ---
-title: "Go Playground for Desktop — Lingua"
-description: "A desktop Go playground that runs go build locally. Inline results, gofmt on save, Monaco editor. Offline. Source-available."
-canonical: "https://linguacode.dev/go-playground-desktop/"
-ogImage: "/assets/og/go-playground-desktop.png"
+title: 'Go Playground for Desktop — Lingua'
+description: 'Run Go locally with go build, gopls intelligence, gofmt, inline errors, dependency assistance, and project tests in an offline-first desktop app.'
+canonical: 'https://linguacode.dev/go-playground-desktop'
+ogImage: '/assets/og/go-playground-desktop.png'
 language: go
 ---
 
-# Go Playground — on your desktop, using your toolchain
+# Go playground — use the toolchain already on your desktop
 
-Most "Go playgrounds" are remote sandboxes. You can't import a local
-module, you can't hit a network, and you wait your turn with everyone
-else. Lingua runs Go on your machine, through your installed Go
-toolchain, inside a Monaco editor.
+Lingua runs Go locally instead of uploading source to a shared
+playground. The current file compiles through your Go installation,
+while desktop project tools add gopls intelligence, dependency
+assistance, tests, search, and a terminal around an approved folder.
 
 ## What actually runs
 
-- `go build` compiles to WebAssembly (`GOOS=js GOARCH=wasm`) and the
-  WASM binary executes in a worker inside the app.
-- The Go WASM runtime (`wasm_exec.js`) is resolved from your
-  installation, not bundled — so the app stays compatible with any
-  Go version that ships the WASM runtime.
-- Compile errors map to Monaco markers with line and column. No
-  stderr blob dumps.
-- `gofmt` is the default format-on-save handler for `.go` files.
-- Inline `//=>` magic comments surface values next to the line that
-  produced them.
+- `go build` compiles the current file to WebAssembly with
+  `GOOS=js GOARCH=wasm`; the result executes in a Worker inside the app.
+- Compile errors become Monaco markers with source locations.
+- `gopls` provides diagnostics, completions, hover, and signature help
+  on desktop when the binary is available.
+- `gofmt` handles format-on-save for `.go` files.
+- Inline `//=>` comments surface values beside the line that produced
+  them.
+- In a saved project with `go.mod`, the dependency panel can run a
+  confirmed `go get`, and the project test runner can execute
+  `go test ./...`.
 
 ## What doesn't work today
 
-- You need a local Go toolchain installed. Web builds honestly
-  surface this as "desktop only" rather than silently failing.
-- No Go LSP integration yet — only Monaco's keyword completion. A
-  real LSP path is tracked as internal
-- No debugger integration — internal is the design record.
-- Module caching is yours: Lingua does not manage your `GOPATH` or
-  module proxy.
+- Go execution requires a local Go installation. The web build reports
+  the desktop-only boundary instead of pretending to run it.
+- gopls intelligence requires a local `gopls` binary. Settings provides
+  detection, installation guidance, and restart controls when it is
+  missing or stops.
+- There is no Go step debugger.
+- The scratchpad runner compiles the current file; it does not replace
+  a full `go run` workflow or manage your module proxy and cache.
 
 ## Why this is in the paid tier
 
-Go execution is a Pro-tier unlock (see pricing on the download page).
-The Free tier ships JavaScript, TypeScript, and Python only.
+Go execution is a paid-tier feature. Education access provides the same
+entitlements free for verified students and educators.
 
 ## Download
 
-Get Lingua at **[https://linguacode.dev](https://linguacode.dev)**. Source-
-available under the Lingua Commercial License. Education access
-(free Pro) is available for verified students and teachers.
+Get Lingua at **[https://linguacode.dev](https://linguacode.dev)**.
+Source-available under the Lingua Commercial License.

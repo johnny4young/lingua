@@ -45,6 +45,7 @@ const MANIFEST = [
   { from: 'docs/seo-pages/rust-code-runner-desktop.md',   to: 'seo/en/rust-code-runner-desktop.md' },
   { from: 'docs/seo-pages/python-repl-desktop.md',        to: 'seo/en/python-repl-desktop.md' },
   { from: 'docs/seo-pages/typescript-playground-offline.md', to: 'seo/en/typescript-playground-offline.md' },
+  { from: 'docs/seo-pages/javascript-code-runner-desktop.md', to: 'seo/en/javascript-code-runner-desktop.md' },
   { from: 'docs/seo-pages/multi-language-code-runner.md', to: 'seo/en/multi-language-code-runner.md' },
   { from: 'docs/seo-pages/lua-offline-playground.md',     to: 'seo/en/lua-offline-playground.md' },
 ];

@@ -1,46 +1,49 @@
 ---
-title: "Python REPL for Desktop — Lingua"
-description: "A desktop Python REPL built on Pyodide. Zero Python install required. Works offline. Format-on-save via ruff with a black fallback."
-canonical: "https://linguacode.dev/python-repl-desktop/"
-ogImage: "/assets/og/python-repl-desktop.png"
+title: 'Python REPL for Desktop — Lingua'
+description: 'Run Python offline with Pyodide, inline results, notebooks, rich output, micropip packages, and desktop formatting through ruff or black.'
+canonical: 'https://linguacode.dev/python-repl-desktop'
+ogImage: '/assets/og/python-repl-desktop.png'
 language: python
 ---
 
-# Python REPL — no install, no phone-home
+# Python REPL — no local Python installation required
 
-Lingua ships a Python runtime that doesn't need a local Python install.
-Pyodide runs in a Web Worker inside the app, so your snippet executes
-offline, in-process, with the same behavior whether you open the
-desktop app or the web build.
+Lingua runs Python through Pyodide in a dedicated Worker. Your snippet
+stays local and behaves consistently in the desktop and web builds,
+while notebooks provide a persistent scope when one-off execution is
+not enough.
 
 ## What actually runs
 
-- **Pyodide** in a dedicated worker — Python 3.x with the standard
-  library plus what Pyodide bundles.
-- `micropip.install(...)` works for pure-Python packages that Pyodide
-  supports.
-- Format-on-save prefers `ruff format` (falls back to `black --quiet`)
-  when either is on PATH in the desktop build.
-- Inline `#=>` magic comments surface values next to the line that
-  produced them.
-- Loop protection guards against runaway loops before they lock the
-  renderer — see `languageCapabilities` for the safety model.
-- Cell-based notebooks run Python cells, share variables across cells,
-  and import/export Jupyter `.ipynb` (plus the native `.linguanb`).
+- **Pyodide** provides Python 3 and its bundled standard library without
+  requiring a host Python installation.
+- `micropip` installs compatible pure-Python and Pyodide-supported
+  wheels into the active browser session.
+- Inline `#=>` comments, standard input, rich tables, charts, images,
+  and HTML output use the same result surface as the other runners.
+- Python notebook cells share variables inside one notebook, remain
+  isolated from other notebooks, and import or export Jupyter
+  `.ipynb` and native `.linguanb` files.
+- On desktop, format-on-save prefers `ruff format` and falls back to
+  `black` when either tool is available on `PATH`.
+- Execution deadlines and output caps keep runaway code from taking
+  over the application shell.
 
 ## What doesn't work today
 
-- Arbitrary `pip install` of packages that need native extensions —
-  same limitation Pyodide has today.
-- No step debugger for Python yet — the debugger preview covers
-  JavaScript and TypeScript only.
+- Packages that require unsupported native extensions cannot be
+  installed through `micropip`.
+- Lingua does not create or persist a local Python virtual environment.
+  Desktop execution still uses Pyodide rather than host CPython.
+- Python has no user-facing step debugger yet.
 
 ## Pricing
 
-Python is available in the **Free** tier. You do not need a paid
-license to run Python in Lingua.
+Python execution is available in the **Free** tier. Paid plans add
+unlimited tabs and snippets, notebook access, and the broader Pro
+toolset.
 
 ## Download
 
-Get Lingua at **[https://linguacode.dev](https://linguacode.dev)**. Source-
-available under the Lingua Commercial License.
+Get Lingua at **[https://linguacode.dev](https://linguacode.dev)**.
+Source-available under the Lingua Commercial License.

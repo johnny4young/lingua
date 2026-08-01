@@ -1,58 +1,43 @@
 ---
-title: "Lua Offline Playground — Lingua"
-description: "Lingua carries a bundled Lua runtime, but today Lua execution is still exposed through the local-plugin path rather than the default app shell."
-canonical: "https://linguacode.dev/lua-offline-playground/"
-ogImage: "/assets/og/lua-offline-playground.png"
+title: 'Lua Offline Playground — Lingua'
+description: 'Lingua bundles a Lua 5.3-compatible Fengari runtime, but execution remains behind the desktop local-plugin path instead of the built-in language flow.'
+canonical: 'https://linguacode.dev/lua-offline-playground'
+ogImage: '/assets/og/lua-offline-playground.png'
 language: lua
 ---
 
-# Lua playground — bundled runtime, still a local-plugin path
+# Lua playground — a bundled runtime behind the local-plugin path
 
-Lingua carries a bundled Lua 5.3-compatible runtime based on
-Fengari, but **today Lua is still surfaced through the local-plugin
-path**, not as a default language in every shell. That means the
-runtime itself is bundled, yet the current product flow still
-depends on plugin discovery before you can execute a `.lua` file.
+Lingua includes a Lua 5.3-compatible Fengari runtime, but Lua is not a
+default built-in language today. Desktop execution becomes available
+only after the local plugin-discovery path registers the bundled runner.
 
 ## What actually runs
 
-- **Fengari** (Lua 5.3 in pure JavaScript) is the bundled runtime
-  behind Lingua's Lua plugin. No `lua` / `luajit` binary is required
-  on the host once that plugin path is active.
-- Monaco ships Lua syntax highlighting out of the box — `.lua`
-  files open with the correct language id automatically.
-- Keyword completions for the standard Lua vocabulary.
-- `print(...)` is captured and surfaced through the inline result
-  panel so the output shows next to the line that produced it.
-- The Lua pack is first-class inside the internal LanguagePack
-  descriptor, which means file-extension detection, language badge,
-  and runner dispatch now flow through the same single source of
-  truth as JavaScript and TypeScript once the plugin is registered.
+- **Fengari** executes Lua in pure JavaScript, so the registered runner
+  does not require a host `lua` or `luajit` binary.
+- Monaco provides Lua syntax highlighting and keyword completion.
+- `print(...)` output is captured and capped by the runner.
+- Execution deadlines stop unbounded Lua loops from freezing the app.
+- Once registered, extension detection, language badges, and runner
+  dispatch use the same language-pack descriptor shape as built-in
+  runners.
 
 ## What doesn't work today
 
-- Lua is **not** a default built-in language in the New File menu
-  yet. The current app still requires the local-plugin discovery
-  path before execution becomes available.
-- The web build does **not** expose the Lua plugin path today.
-  `window.lingua.plugins.list()` is stubbed on web, so this is not a
-  browser playground in the current product even though Fengari is a
-  browser-capable runtime in theory.
-- No Lua format-on-save. Lingua's formatter IPC ships gofmt,
-  rustfmt, ruff, and Prettier — no Lua formatter yet. This is a
-  future internal extension, not something the current build claims.
-- No Lua debugger. Debugger work is tracked as internal and targets
-  JavaScript first.
-- No LSP-grade intelligence. Completions today are the keyword
-  vocabulary; richer IntelliSense is tied to the generic
-  LSP work in internal
-- No `luarocks` / native-dependency flow. Fengari is the runtime —
-  modules that need compiled C cannot load here.
+- Lua is not a default option in the New File menu. The desktop plugin
+  discovery path must register it first.
+- The web build does not expose local plugin discovery, so this is not
+  a web Lua playground today.
+- There is no Lua format-on-save, debugger, LSP-grade intelligence,
+  standard-input bridge, or rich-output bridge.
+- There is no `luarocks` installation flow, and native C modules cannot
+  load through Fengari.
 
 ## Pricing
 
-When the local Lua plugin path is enabled, Lua runs in every tier.
-There is no Pro-only paywall on Lua snippets themselves.
+When the local Lua plugin path is active, Lua execution is not gated to
+a paid tier.
 
 ## Download
 
