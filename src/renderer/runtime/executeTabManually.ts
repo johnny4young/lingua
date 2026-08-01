@@ -742,7 +742,9 @@ export async function executeTabManually(
     // setFullOutput so the snapshot reflects what the user just
     // saw.
     if (!result.error && !result.cancelled) {
-      useResultStore.getState().captureSuccessfulSnapshot(language);
+      useResultStore
+        .getState()
+        .captureSuccessfulSnapshot(language, content);
       // implementation — surface the variable inspector snapshot if
       // the worker emitted one. `null` clears any stale snapshot
       // from the previous run so the toggle reflects the latest

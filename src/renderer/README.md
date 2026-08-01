@@ -177,6 +177,10 @@ presentation:
   owns overlay DOM, positioning, timing chips, and rich-output summaries.
   Failed chunk delivery reports localized reload guidance instead of silently
   dropping execution output.
+- [`hooks/autoRunStickyResults.ts`](hooks/autoRunStickyResults.ts) preserves a
+  sticky watch or auto-log value after failure only when its exact source line
+  is unchanged and the error belongs elsewhere. Editing, removing, or disabling
+  that expression invalidates the old inline value.
 
 Project bundle commands keep their always-available entry points separate from
 their filesystem/archive choreography:

@@ -49,18 +49,40 @@ export interface LineResult {
   payload?: RichOutputPayload;
 }
 
+export type StickyLineResult = LineResult & {
+  type: 'watch' | 'autoLog';
+};
+
+export function isStickyLineResult(
+  result: LineResult
+): result is StickyLineResult {
+  return result.type === 'watch' || result.type === 'autoLog';
+}
+
+export function stickyLineResultKey(
+  result: Pick<StickyLineResult, 'line' | 'type'>
+): string {
+  return `${result.type}:${result.line}`;
+}
+
 /**
  * implementation — snapshot of the last clean auto-run so the gate
- * can restore it after a transient incomplete edit. Only carries the
- * panel-render fields; `executionSource` / `error` / `diagnostics`
- * intentionally NOT included — those are run-cycle state, not
- * preserved across the gate's short-circuit.
+ * can restore it after a transient incomplete edit. Carries the panel-render
+ * fields plus source identity for sticky rows; `executionSource` / `error` /
+ * `diagnostics` are intentionally NOT included because those are run-cycle
+ * state, not preserved across the gate's short-circuit.
  */
 export interface ResultSnapshot {
   lineResults: LineResult[];
   fullOutput: string;
   stdinConsumed: { count: number; total: number } | null;
   executionTime: number | null;
+  /**
+   * Exact source text for each sticky inline row at capture time. This stays
+   * in the tab-scoped in-memory snapshot only; failed auto-runs use it to
+   * avoid restoring a watch or auto-log value after its expression changes.
+   */
+  stickySourceLines?: Record<string, string>;
   /**
    * implementation — language id the snapshot belongs to. The Compare
    * toggle in the result-panel header reads this to refuse rendering
@@ -240,9 +262,11 @@ interface ResultState {
    * drift (a Save-As that flips JS → Python invalidates the
    * comparator). Optional for legacy callers; missing language
    * defaults to `'unknown'` and the Compare toggle treats those
-   * snapshots as gated-out.
+   * snapshots as gated-out. Runtime callers also pass `code` so sticky
+   * rows receive source identity; omitting it conservatively disables
+   * failed-run restoration for those rows.
    */
-  captureSuccessfulSnapshot: (language?: string) => void;
+  captureSuccessfulSnapshot: (language?: string, code?: string) => void;
   /** implementation — restore the last successful snapshot if any. */
   restoreLastSuccessfulSnapshot: () => boolean;
   /**
@@ -403,8 +427,19 @@ export const useResultStore = create<ResultState>((set, get) => ({
   setRunTermination: (runTermination) => set({ runTermination }),
   setRunDeadlineAt: (runDeadlineAt) => set({ runDeadlineAt }),
   setScopeSnapshot: (scopeSnapshot) => set({ scopeSnapshot }),
-  captureSuccessfulSnapshot: (language) => {
+  captureSuccessfulSnapshot: (language, code) => {
     const { lineResults, fullOutput, stdinConsumed, executionTime, snapshotRing } = get();
+    const sourceLines = typeof code === 'string' ? code.split('\n') : null;
+    const stickySourceLines = sourceLines
+      ? Object.fromEntries(
+          lineResults
+            .filter(isStickyLineResult)
+            .map((entry) => [
+              stickyLineResultKey(entry),
+              sourceLines[entry.line - 1] ?? '',
+            ])
+        )
+      : undefined;
     const fresh: ResultSnapshot = {
       // Defensive copy of lineResults so a later mutation of the
       // live array does not retroactively edit the snapshot.
@@ -412,6 +447,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
       fullOutput,
       stdinConsumed,
       executionTime,
+      ...(stickySourceLines ? { stickySourceLines } : {}),
       // implementation — `'unknown'` keeps the field present but treats the
       // snapshot as language-gated for legacy callers that don't
       // pass the language. The Compare toggle rejects unknown

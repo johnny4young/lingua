@@ -223,7 +223,12 @@ export async function executeAutoRun({
       finish();
       return;
     }
-    applyAutoRunResult({ code, language, result });
+    applyAutoRunResult({
+      autoLogEnabled,
+      code,
+      language,
+      result,
+    });
   } catch (error) {
     if (!shouldDiscard()) {
       setError({
