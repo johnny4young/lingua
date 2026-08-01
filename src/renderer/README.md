@@ -72,7 +72,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/FileTree/`](components/FileTree)             | `FileTreeHost.tsx`, `FileTree.tsx`, `FileTreeNode.tsx` | Owns the activation boundary, project explorer rendering, and inline tree interactions |
 | [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | AppLayout mounts the floating execution chrome only; the standalone Toolbar supports focused fallback/smoke coverage and shares the same pure eligibility policy |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
-| [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `useCommandPaletteCommands.ts`, `commandPaletteModel.ts` | Thin combobox UI plus store-backed catalog orchestration and pure model logic |
+| [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `useCommandPaletteCommands.ts`, stable model facade plus domain registries | Thin combobox UI plus store-backed catalog orchestration and ordered pure model assembly |
 | [`components/ContextualHints/`](components/ContextualHints) | `ContextualHint.tsx` | Platform-aware guidance and persisted opt-out for empty product surfaces |
 | [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
 | [`components/GuidedTour/`](components/GuidedTour)         | `GuidedTourProvider.tsx`, step helpers                | First-run tour orchestration and target selectors              |
@@ -538,6 +538,15 @@ The Command Palette is the canonical text entry point for global actions. A
 toolbar button, shortcut, empty state, status notice, or Settings CTA may expose
 the same action contextually, but it must delegate to the same store/action
 owner rather than maintain parallel state.
+
+`components/CommandPalette/commandPaletteModel.ts` is the stable public model
+facade. Its assembler visits six registries in a fixed order: `library`,
+`workspace`, `artifacts`, `editor`, `application`, then `utilities`. Keep new
+commands in the narrowest owning registry; do not import registry modules from
+outside the Command Palette folder or reorder domains to group search results.
+`tests/components/commandPaletteArchitecture.test.ts` locks the facade types,
+domain exhaustiveness, static action ranking, unique IDs, dependency boundary,
+and per-module line budgets.
 
 Primary task contracts:
 
