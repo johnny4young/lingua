@@ -85,6 +85,7 @@ only data on the wire; the path never leaves the device.
 2. Add a positive + negative case to the family matrix in
    `tests/ipc/permissions.test.ts`.
 3. If you add a family token, mirror it in `FS_BLOCKED_FAMILIES`
-   (`src/shared/telemetry.ts` + `update-server/src/telemetry.ts`) and add a
+   (`src/shared/telemetry/valueCatalog.ts` +
+   `update-server/src/telemetry.ts`) and add a
    `fs.error.blockedPath.<family>` notice key (en + es). The parity tests fail
    closed if any copy drifts.

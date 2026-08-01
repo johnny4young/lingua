@@ -94,11 +94,11 @@ describe('coerceRuntimeMode (rehydrate defensive)', () => {
 
 describe('parity with telemetry RUNTIME_MODE_VALUES', () => {
   it('RUNTIME_MODES stays in sync with telemetry value-validator enum', async () => {
-    // The redactor in `src/shared/telemetry.ts` uses a private
-    // `RUNTIME_MODE_VALUES` Set to validate the `mode` property of
-    // `runtime.mode_changed` events. The two arrays must equal each
-    // other byte-for-byte so a new mode added to one side cannot be
-    // silently rejected by the other.
+    // The redactor uses the private `RUNTIME_MODE_VALUES` registry in
+    // `src/shared/telemetry/valueCatalog.ts` to validate the `mode` property
+    // of `runtime.mode_changed` events. That registry and the runtime-mode
+    // source of truth must match byte-for-byte so a new mode added to one side
+    // cannot be silently rejected by the other.
     //
     // We grep the source for the RUNTIME_MODE_VALUES literal
     // because the Set is module-private. `process.cwd()` is the
@@ -106,12 +106,15 @@ describe('parity with telemetry RUNTIME_MODE_VALUES', () => {
     // via an export, replace this with a structural import.
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
-    const filePath = path.resolve(process.cwd(), 'src/shared/telemetry.ts');
+    const filePath = path.resolve(process.cwd(), 'src/shared/telemetry/valueCatalog.ts');
     const telemetrySource = await fs.readFile(filePath, 'utf-8');
     const setLine = telemetrySource.match(
       /const\s+RUNTIME_MODE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u
     );
-    expect(setLine, 'RUNTIME_MODE_VALUES literal not found in shared/telemetry.ts').not.toBeNull();
+    expect(
+      setLine,
+      'RUNTIME_MODE_VALUES literal not found in shared/telemetry/valueCatalog.ts'
+    ).not.toBeNull();
     const literalValues = [...(setLine![1] ?? '').matchAll(/'([^']+)'/gu)]
       .map((match) => match[1]!)
       .sort();

@@ -5,7 +5,7 @@
  * The exported tuple is ordered: the renderer renders cards in this
  * exact order so dashboards stay readable and screenshots are
  * deterministic. The `PROJECT_TEMPLATE_IDS` constant mirrors the
- * order and is also re-used by `src/shared/telemetry.ts` as the
+ * order and is also mirrored by `src/shared/telemetry/valueCatalog.ts` as the
  * closed-enum allowlist for the `template_project_applied` event so
  * the parity test on update-server can validate without a second
  * source of truth.

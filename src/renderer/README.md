@@ -260,8 +260,11 @@ Telemetry also has an explicit loading boundary:
   remain dynamically reachable only after the policy allows an event.
 - [`../shared/bootTelemetry.ts`](../shared/bootTelemetry.ts) contains the small
   boot phase and duration-bucket vocabulary needed before first paint. The
-  complete event catalog and redactor remain in
-  [`../shared/telemetry.ts`](../shared/telemetry.ts) behind the emitter boundary.
+  stable [`../shared/telemetry.ts`](../shared/telemetry.ts) facade keeps the
+  complete catalog, closed value registries, redactor, and wire helpers behind
+  the emitter boundary. Its responsibility modules live under
+  [`../shared/telemetry/`](../shared/telemetry/) and are not application import
+  targets.
 
 Sharing separates its always-available triggers from both implementations:
 

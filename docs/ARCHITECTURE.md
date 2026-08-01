@@ -14,6 +14,32 @@ Related reference:
 - [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) records which execution class (browser WASM, browser interpreter, desktop native, or hybrid) owns each capability and the promotion rules for moving between classes.
 - [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) records the historical desktop build-system decision and its later migration to electron-builder.
 
+## Telemetry responsibility boundaries
+
+`src/shared/telemetry.ts` is a compatibility facade. Product code imports that
+path; the implementation behind it is split by reason to change:
+
+```mermaid
+flowchart LR
+    A["Application call sites"] --> B["telemetry.ts<br/>stable facade"]
+    B --> C["catalog.ts<br/>events + property schema"]
+    B --> D["valueCatalog.ts<br/>closed value registries"]
+    B --> E["redaction.ts<br/>validation + privacy filter"]
+    B --> F["transport.ts<br/>wire types + coarse metadata"]
+    C --> E
+    D --> E
+    F --> E
+    E -. "mirrored contract" .-> G["update-server/src/telemetry.ts<br/>defense-in-depth validator"]
+```
+
+The facade preserves existing imports while the responsibility modules remain
+internal. Compile and runtime guards in
+`tests/shared/telemetryArchitecture.test.ts` enforce the facade type contract,
+exhaustive event/property registration, dependency direction, and per-module
+line budgets. Worker parity remains independent: the server intentionally
+mirrors the accepted schema instead of importing renderer code into its
+deployment bundle.
+
 ## At a glance
 
 Lingua separates this feature into four layers:

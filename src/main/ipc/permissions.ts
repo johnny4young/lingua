@@ -22,8 +22,9 @@ const isWindows = process.platform === 'win32';
  * never the path. Tokens are `isSafeToken`-shaped (lowercase, `[a-z0-9._-]`) so
  * the telemetry redactor accepts them as closed-enum values.
  *
- * The tuple is the SINGLE SOURCE OF TRUTH; `src/shared/telemetry.ts` mirrors it
- * as `FS_BLOCKED_FAMILIES` and a parity test cross-imports this export.
+ * The tuple is the SINGLE SOURCE OF TRUTH;
+ * `src/shared/telemetry/valueCatalog.ts` mirrors it as
+ * `FS_BLOCKED_FAMILIES` and a parity test cross-imports this export.
  */
 export const BLOCKED_PATH_FAMILIES = [
   'system',

@@ -153,7 +153,7 @@ export function utf8ByteLength(value: string): number {
 
 /**
  * Telemetry size buckets. Closed enum mirrored in
- * `src/shared/telemetry.ts` + `update-server/src/telemetry.ts`. Drives
+ * `src/shared/telemetry/valueCatalog.ts` + `update-server/src/telemetry.ts`. Drives
  * the `capsule.exported.sizeBucket` allowlist.
  */
 export function bucketCapsuleSize(bytes: number): CapsuleSizeBucket {

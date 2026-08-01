@@ -133,9 +133,9 @@ Three events join the allowlist per [ADR §4](./DEBUGGER_ADR.md):
 | `debugger.paused` | Worker yields and the renderer posts a paused frame | `{ language: 'js', reasonBucket: 'user-breakpoint' \| 'step' \| 'exception' }` |
 | `debugger.detached` | Session ends (run complete / crash / stop / user detach) | `{ language: 'js', reasonBucket: 'run-complete' \| 'crash' \| 'stop' \| 'user-detach' }` |
 
-Every payload is closed-enum. The redactor in `src/shared/telemetry.ts`
-drops any key that isn't on the per-event allowlist. No source, no
-breakpoint coordinates, no expression content.
+Every payload is closed-enum. The redactor in
+`src/shared/telemetry/redaction.ts` drops any key that isn't on the per-event
+allowlist. No source, no breakpoint coordinates, no expression content.
 
 ## Current limitations
 
