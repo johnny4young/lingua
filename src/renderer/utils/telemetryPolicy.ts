@@ -1,4 +1,4 @@
-import { useSettingsStore } from '../stores/settingsStore';
+import { currentTelemetryConsent } from './telemetryConsentSource';
 
 const UNRESOLVED = Symbol('unresolved');
 let cachedEndpoint: string | null | typeof UNRESOLVED = UNRESOLVED;
@@ -66,12 +66,13 @@ function resolveKillSwitch(): boolean {
 /**
  * Privacy-first preflight shared by the lightweight client and lazy emitter.
  *
- * Store access is optional because persistence migrations can emit while the
- * settings module is still initializing. An unavailable store means no
- * consent, so telemetry stays disabled and initialization cannot fail.
+ * The settings store registers a live consent reader after it is assembled.
+ * Before registration (including during persistence migration), the bridge
+ * returns no consent so telemetry stays disabled and initialization cannot
+ * fail.
  */
 export function isTelemetryEnabled(): boolean {
   if (resolveKillSwitch()) return false;
   if (!resolveTelemetryEndpoint()) return false;
-  return useSettingsStore?.getState?.().telemetryConsent === 'granted';
+  return currentTelemetryConsent() === 'granted';
 }

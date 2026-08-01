@@ -31,7 +31,6 @@ import {
   combinedAllowlist,
 } from './runners/nativeEnv';
 import type { GoCompileResult, GoDetectResult } from '../shared/nativeRuntimeTypes';
-export type { GoCompileResult, GoDetectResult } from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(execFile);
 const WASM_EXEC_RELATIVE_PATHS = [
@@ -80,7 +79,7 @@ export async function readWasmExecJs(
   );
 }
 
-export function resolveGoToolchainEnv(
+function resolveGoToolchainEnv(
   userEnv?: Record<string, string>
 ): NodeJS.ProcessEnv {
   return buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS), userEnv);
@@ -129,11 +128,6 @@ async function detectGo(userEnv?: Record<string, string>): Promise<GoDetectResul
       error: 'Go is not installed. Install it from https://go.dev/dl/',
     };
   }
-}
-
-/** Test seam — drop the session detect cache between cases. */
-export function resetGoDetectCacheForTests(): void {
-  cachedGoDetect = null;
 }
 
 /**

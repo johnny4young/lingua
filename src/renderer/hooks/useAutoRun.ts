@@ -15,7 +15,6 @@ import {
 export {
   AUTO_RUN_DEBOUNCE_MS,
   bucketAutoLogCount,
-  type AutoLogCountBucket,
 } from './autoRunModel';
 
 /** Auto-run the active Scratchpad after its runtime-specific typing pause. */

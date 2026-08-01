@@ -22,5 +22,4 @@
 
 export {
   tryParseCurl,
-  type ParsedCurl,
 } from '../../../shared/importers/curlImporter';

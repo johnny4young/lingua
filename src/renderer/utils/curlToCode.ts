@@ -33,7 +33,7 @@ export const CURL_TARGETS: readonly CurlTarget[] = ['fetch', 'undici', 'requests
 export const CURL_TO_CODE_MAX_BYTES = 50 * 1024; // 50 KB
 export const CURL_TO_CODE_MAX_KB = Math.round(CURL_TO_CODE_MAX_BYTES / 1024);
 
-export interface CurlBasicAuth {
+interface CurlBasicAuth {
   readonly user: string;
   readonly password: string;
 }

@@ -14,7 +14,7 @@ import {
   type ShortcutId,
 } from './keyboardShortcuts';
 
-export interface ShortcutReferenceMetadata {
+interface ShortcutReferenceMetadata {
   readonly labelKey: string;
   readonly descriptionKey?: string;
   readonly keywords: readonly string[];

@@ -90,10 +90,6 @@ export function exportNotebookAsScript(
   };
 }
 
-export function exportNotebookAsJs(notebook: NotebookV1): NotebookExportResult {
-  return exportNotebookAsScript(notebook);
-}
-
 function toKebabCase(input: string): string {
   return (
     input

@@ -33,10 +33,6 @@ function loadImportPreviewConfirm(): Promise<ImportPreviewConfirmModule> {
 }
 
 export type {
-  AnyImporterPreview,
-  ConfirmResult,
-  ImportPreviewPhase,
-  ImportPreviewState,
   UseImportPreviewResult,
 } from './importPreviewModel';
 

@@ -73,7 +73,8 @@ export type ImportFlowId = (typeof IMPORT_FLOW_IDS)[number];
  * (additive); renaming/removing breaks i18n keys + downstream
  * branching, so don't.
  */
-export const IMPORTER_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const IMPORTER_REJECT_REASONS = [
   'empty-input',
   'unrecognized-format',
   'malformed',
@@ -89,7 +90,8 @@ export type ImporterRejectReason = (typeof IMPORTER_REJECT_REASONS)[number];
  * implementation codes are cURL-specific; future adapters add their own
  * (e.g. `'notebook-cell-output-stripped'` for `.ipynb`).
  */
-export const IMPORTER_LOSSY_WARNINGS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const IMPORTER_LOSSY_WARNINGS = [
   'curl-data-binary-file',
   'curl-multipart-form',
   'curl-basic-auth',
@@ -167,7 +169,8 @@ export type ImporterLossyWarning = (typeof IMPORTER_LOSSY_WARNINGS)[number];
  * `IMPORTER_REJECT_REASONS = 'malformed'`. `'wrong-version'`,
  * `'oversized'`, and `'too-many-cells'` map to `'unsupported-feature'`.
  */
-export const IPYNB_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const IPYNB_REJECT_REASONS = [
   'malformed-json',
   'wrong-version',
   'invalid-shape',
@@ -205,7 +208,8 @@ export type NotebookWarningKind = (typeof NOTEBOOK_WARNING_KINDS)[number];
  *   - `'wrong-version'` / `'empty-collection'` / `'oversized'` →
  *     `'unsupported-feature'`.
  */
-export const POSTMAN_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const POSTMAN_REJECT_REASONS = [
   'malformed-json',
   'wrong-version',
   'invalid-shape',
@@ -221,7 +225,8 @@ export type PostmanRejectReason = (typeof POSTMAN_REJECT_REASONS)[number];
  *   - `'empty-input'` → `'empty-input'`.
  *   - directory limit and unreadable failures → `'unsupported-feature'`.
  */
-export const BRUNO_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const BRUNO_REJECT_REASONS = [
   'empty-input',
   'malformed',
   'invalid-shape',

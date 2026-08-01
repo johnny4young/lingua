@@ -1,12 +1,12 @@
 import { utf8ByteLength } from '../httpWorkspaceSchema';
 import { decompressUriComponentBounded } from './boundedLzString';
 
-export const PLAYGROUND_URL_FLOW_ID = 'playground-url' as const;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the internal literal union
+const PLAYGROUND_PROVIDER_IDS = ['typescript-playground', 'go-playground'] as const;
+type PlaygroundProviderId = (typeof PLAYGROUND_PROVIDER_IDS)[number];
 
-export const PLAYGROUND_PROVIDER_IDS = ['typescript-playground', 'go-playground'] as const;
-export type PlaygroundProviderId = (typeof PLAYGROUND_PROVIDER_IDS)[number];
-
-export const PLAYGROUND_URL_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const PLAYGROUND_URL_REJECT_REASONS = [
   'empty-input',
   'url-too-large',
   'invalid-url',
@@ -26,7 +26,7 @@ export type PlaygroundUrlRejectReason = (typeof PLAYGROUND_URL_REJECT_REASONS)[n
 
 export const MAX_PLAYGROUND_URL_CHARS = 64 * 1024;
 export const MAX_PLAYGROUND_SOURCE_BYTES = 512 * 1024;
-export const PLAYGROUND_FETCH_TIMEOUT_MS = 7_000;
+const PLAYGROUND_FETCH_TIMEOUT_MS = 7_000;
 
 export interface PlaygroundSourcePreview {
   readonly kind: 'playground-source';

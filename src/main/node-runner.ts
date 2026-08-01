@@ -73,8 +73,6 @@ import type {
 } from '../shared/nativeRuntimeTypes';
 export type {
   NodeDetectResult,
-  NodeRunKind,
-  NodeRunResult,
 } from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(childProc.execFile);
@@ -140,7 +138,7 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
   };
 }
 
-export interface NodeRunOptions {
+interface NodeRunOptions {
   /**
    * Renderer-minted correlation id. Lets `node:stop` terminate the
    * exact child process backing the active UI run.
@@ -484,7 +482,7 @@ export async function detectNode(
   return result;
 }
 
-export function resolveNodeRunEnv(
+function resolveNodeRunEnv(
   userEnv?: Record<string, string>
 ): NodeJS.ProcessEnv {
   return buildNativeRunnerEnv(combinedAllowlist(NODE_TOOLCHAIN_KEYS), userEnv);
@@ -814,7 +812,7 @@ async function runNodeCode(
   return spawnNode(source, options, detect.binary ?? 'node');
 }
 
-export function stopNodeRun(runId: unknown): { stopped: boolean } {
+function stopNodeRun(runId: unknown): { stopped: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { stopped: false };
   const stop = activeNodeRuns.get(normalizedRunId);
@@ -859,11 +857,6 @@ export function closeNodeStdin(runId: unknown): { closed: boolean } {
   }
   activeNodeStdins.delete(normalizedRunId);
   return { closed: true };
-}
-
-/** Test seam — clear interactive stdin registry between cases. */
-export function _resetNodeStdinsForTests(): void {
-  activeNodeStdins.clear();
 }
 
 /** Register all Node-related IPC handlers. */
@@ -912,13 +905,4 @@ export function registerNodeJSHandlers(): void {
     async (_event, runId: string) =>
       closeNodeStdin(runId)
   );
-}
-
-/**
- * Test-only: reset the detection cache. Imported by
- * `tests/main/node-runner.test.ts`.
- */
-export function __resetNodeDetectCache(): void {
-  cachedDetect = null;
-  activeNodeRuns.clear();
 }

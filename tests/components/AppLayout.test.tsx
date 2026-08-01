@@ -74,14 +74,6 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
-vi.mock('../../src/renderer/components/Toolbar', () => ({
-  Toolbar: () => (
-    <button type="button" data-testid="toolbar-toggle" title="Toggle sidebar (Cmd+B)">
-      Toolbar
-    </button>
-  ),
-}));
-
 // internal — FloatingActionPill is mounted by AppLayout and transitively
 // imports `useRunner` → `nodeRunner` → `esbuild-wasm`, which fails to
 // initialise under jsdom. Stub it out — its behaviour is covered by

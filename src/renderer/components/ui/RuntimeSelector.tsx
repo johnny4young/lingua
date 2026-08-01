@@ -2,7 +2,7 @@ import { ChevronDown, Play, Square } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 
-export interface RuntimeLanguageGlyph {
+interface RuntimeLanguageGlyph {
   /** Short uppercase tag, e.g. "JS". */
   label: ReactNode;
   /** Token background utility, e.g. "bg-slate-500". Defaults to slate. */

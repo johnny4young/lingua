@@ -62,7 +62,7 @@ export const LESSON_REJECT_REASONS = [
   'unknown-language',
   'oversized',
 ] as const;
-export type LessonRejectReason = (typeof LESSON_REJECT_REASONS)[number];
+type LessonRejectReason = (typeof LESSON_REJECT_REASONS)[number];
 
 /**
  * Closed-enum assertion exit-kind discriminants. The implementation runner
@@ -85,7 +85,7 @@ export const ASSERTION_EXIT_KINDS = [
   'throw',
   'console-contains',
 ] as const;
-export type AssertionExitKind = (typeof ASSERTION_EXIT_KINDS)[number];
+type AssertionExitKind = (typeof ASSERTION_EXIT_KINDS)[number];
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -143,13 +143,13 @@ export interface LessonPackV1 {
  * overlay.
  */
 export const MAX_LESSON_PACK_BYTES = 32 * 1024;
-export const MAX_ASSERTIONS_PER_PACK = 10;
+const MAX_ASSERTIONS_PER_PACK = 10;
 /** Max characters per assertion `code` snippet — guards against pathological inputs. */
 export const MAX_ASSERTION_CODE_LENGTH = 2_000;
 /** Max characters per `starterCode` block. */
-export const MAX_STARTER_CODE_LENGTH = 8_000;
+const MAX_STARTER_CODE_LENGTH = 8_000;
 /** Max chars of prompt body across both locales combined. */
-export const MAX_PROMPT_LENGTH = 6_000;
+const MAX_PROMPT_LENGTH = 6_000;
 
 // ---------------------------------------------------------------------------
 // Parser

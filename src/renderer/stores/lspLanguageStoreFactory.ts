@@ -31,7 +31,7 @@ export type LspLanguageStatus =
       detail?: string;
     };
 
-export interface LspLanguageState {
+interface LspLanguageState {
   status: LspLanguageStatus;
   /** True once a tab in the matching language has triggered boot. */
   bootRequested: boolean;

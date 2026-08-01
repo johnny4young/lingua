@@ -21,7 +21,7 @@ import type { Result } from '../../shared/result';
 import { typedHandle } from './typedHandle';
 import { translateCommon } from '../../shared/i18n/runtime';
 
-export type ResetScope =
+type ResetScope =
   | 'settings'
   | 'snippets'
   | 'envVars'

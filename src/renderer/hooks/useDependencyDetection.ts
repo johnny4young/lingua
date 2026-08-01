@@ -120,17 +120,6 @@ function fireSummaryTelemetry(
   });
 }
 
-/**
- * Test-only reset helper. Wipes the session-scoped dedup sets so
- * specs can re-assert the once-per-(tabId, language) gates without
- * leaking through a previous test's state.
- */
-export function __resetDependencyDetectionTelemetryDedup(): void {
-  bannerShownKeys.clear();
-  summaryFiredKeys.clear();
-  lastPasteAt = 0;
-}
-
 export function useDependencyDetection(): void {
   const { track } = useTelemetry();
   const enabled = useSettingsStore((s) => s.dependencyDetectionEnabled);

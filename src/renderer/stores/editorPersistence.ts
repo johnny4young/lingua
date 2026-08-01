@@ -65,7 +65,7 @@ async function resolveFormattedContent(
   return tab.content;
 }
 
-export function basename(filePath: string): string {
+function basename(filePath: string): string {
   return filePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? filePath;
 }
 

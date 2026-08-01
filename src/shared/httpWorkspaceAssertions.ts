@@ -21,7 +21,7 @@ export function createBlankAssertion(): HttpAssertion {
 }
 
 /** Read the value checked by an assertion. */
-export function extractAssertionValue(
+function extractAssertionValue(
   response: HttpResponseV1,
   assertion: HttpAssertion
 ): string | null {

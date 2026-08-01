@@ -37,7 +37,7 @@ function toHex(byte: number): string {
 }
 
 /** Generate a random RFC 4122 UUID v4 via Web Crypto. */
-export function generateUuidV4(): string {
+function generateUuidV4(): string {
   return crypto.randomUUID();
 }
 
@@ -178,11 +178,11 @@ export function inspectIdentifier(raw: string): DecodedIdentifier | null {
 // ---------------------------------------------------------------------------
 
 /** Output formats surfaced as the `format` option. */
-export const UUID_ADAPTER_FORMATS = ['v4', 'v7', 'ulid'] as const;
-export type UuidAdapterFormat = (typeof UUID_ADAPTER_FORMATS)[number];
+const UUID_ADAPTER_FORMATS = ['v4', 'v7', 'ulid'] as const;
+type UuidAdapterFormat = (typeof UUID_ADAPTER_FORMATS)[number];
 
 /** Default + ceiling for how many identifiers a single run emits. */
-export const UUID_ADAPTER_DEFAULT_COUNT = 3;
+const UUID_ADAPTER_DEFAULT_COUNT = 3;
 export const UUID_ADAPTER_MAX_COUNT = 100;
 
 /**

@@ -7,7 +7,7 @@ import { create } from 'zustand';
  * context-menu action AND the command palette without threading state
  * through the component tree. Not persisted; cleared on close.
  */
-export interface ExplainCodeOpenRequest {
+interface ExplainCodeOpenRequest {
   readonly code: string;
   readonly language: string;
   readonly filename?: string;

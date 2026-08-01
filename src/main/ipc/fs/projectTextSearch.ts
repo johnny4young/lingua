@@ -85,7 +85,7 @@ function platformPackageName(): string | null {
  * additionally accepts the installed package binary and PATH so contributor
  * launches can exercise the fast path before a full desktop bundle exists.
  */
-export function resolveRipgrepCandidates(): string[] {
+function resolveRipgrepCandidates(): string[] {
   const binaryName = executableName();
   const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
 

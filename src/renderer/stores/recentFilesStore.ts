@@ -7,7 +7,7 @@ import { createMigrate } from './persistence/migrationRegistry';
 // history ledger. The newest entry is always first.
 const MAX_RECENT_FILES = 20;
 
-export interface RecentFile {
+interface RecentFile {
   filePath: string;
   name: string;
   language: Language;

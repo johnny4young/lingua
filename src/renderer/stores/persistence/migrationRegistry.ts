@@ -21,20 +21,13 @@
  * register a step under key `N` here that upgrades the `N-1` shape to `N`.
  */
 
-// Static import is safe despite the apparent cycle (telemetry -> settings/
-// license stores -> this registry): telemetry only dereferences the stores
-// inside functions (call-time), never at module evaluation, and this module
-// only calls `trackEvent` inside the `createMigrate` closure (call-time). All
-// cross-references resolve after every module has finished evaluating.
-import { trackEvent } from '../../utils/telemetry';
-
 /**
  * A single forward migration step: upgrades a persisted (already partialized)
  * state from the previous schema version to the next. Must be pure and total —
  * never throw on unexpected input; {@link createMigrate} resets the store to its
  * defaults if a step throws, so a bad payload never crashes boot.
  */
-export type StoreMigration = (state: Record<string, unknown>) => Record<string, unknown>;
+type StoreMigration = (state: Record<string, unknown>) => Record<string, unknown>;
 
 /**
  * Ordered forward migrations for one store, keyed by the TARGET schema version a
@@ -138,7 +131,12 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
  * rehydration.
  */
 function reportMigration(store: PersistedStoreName): void {
-  void trackEvent('persistence.migrated', { store });
+  // This registry is imported by every persisted store. Load telemetry only
+  // after migration so the registry does not statically loop back through the
+  // settings and license stores used by telemetry policy and enrichment.
+  void import('../../utils/telemetry')
+    .then(({ trackEvent }) => trackEvent('persistence.migrated', { store }))
+    .catch(() => {});
 }
 
 /** Outcome of {@link migrateState}: the resolved state plus whether any real

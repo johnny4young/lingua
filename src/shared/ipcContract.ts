@@ -28,7 +28,7 @@
  * payload type.
  */
 
-export interface IpcInvokeContract {
+interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
   'app:get-system-languages': { args: []; result: string[] };
   'app:get-info': { args: []; result: AppInfo };
@@ -416,7 +416,7 @@ export interface IpcInvokeContract {
  * Fire-and-forget event streams — each entry is just the payload type the
  * renderer receives.
  */
-export interface IpcPushContract {
+interface IpcPushContract {
   'app:deep-link': DeepLinkTarget;
   'app:before-close': void;
   'lsp:rust:notification': LspNotification;
@@ -437,7 +437,7 @@ export interface IpcPushContract {
 }
 
 /** Renderer → main fire-and-forget sends (`ipcRenderer.send`). */
-export interface IpcSendContract {
+interface IpcSendContract {
   'app:deep-link-renderer-ready': [];
   'app:force-close': [];
   'lsp:rust:notify': [method: string, params: unknown];

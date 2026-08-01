@@ -197,7 +197,7 @@ function dataUriByteLength(dataUri: string): number {
  * it as an injectable param so the orchestration stays unit-testable.
  * Never throws; returns `null` when it cannot fit the cap or decode fails.
  */
-export async function resizeImageToFit(
+async function resizeImageToFit(
   file: File,
   maxBytes: number
 ): Promise<ResizedImage | null> {

@@ -45,7 +45,7 @@ const FORMAT_LABEL: Readonly<Record<SqlImportFormat, string>> = {
  * flight. Carries everything the modal renders + everything
  * `confirmImport` needs to finish the import without re-reading the file.
  */
-export interface SqlImportModalState {
+interface SqlImportModalState {
   /** Detected format of the file being imported. */
   format: SqlImportFormat;
   /** Original file name (shown in the modal title context, not the table name). */

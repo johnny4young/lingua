@@ -16,8 +16,8 @@ import {
 } from '../../../src/renderer/stores/persistence/migrationRegistry';
 import { trackEvent } from '../../../src/renderer/utils/telemetry';
 
-// Mock the telemetry emitter so `createMigrate`'s static `trackEvent` reference
-// is the spy (the registry calls it directly — no dynamic import).
+// Mock the lazy telemetry module so migration reporting can be observed without
+// reconnecting the persistence registry to the eager store graph.
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
 }));
@@ -107,7 +107,7 @@ describe('createMigrate (per-store wrapper)', () => {
     expect(migrate([], 0)).toBeUndefined();
   });
 
-  it('advances lingua-session v1 payloads through the v2 identity boundary', () => {
+  it('advances lingua-session v1 payloads through the v2 identity boundary', async () => {
     vi.mocked(trackEvent).mockClear();
     const migrate = createMigrate('lingua-session');
     const payload = { tabs: [{ id: 'tab-1', stdinBuffer: 'Ada' }] };
@@ -115,8 +115,10 @@ describe('createMigrate (per-store wrapper)', () => {
     const migrated = migrate(payload, 1);
 
     expect(migrated).toBe(payload);
-    expect(trackEvent).toHaveBeenCalledWith('persistence.migrated', {
-      store: 'lingua-session',
+    await vi.waitFor(() => {
+      expect(trackEvent).toHaveBeenCalledWith('persistence.migrated', {
+        store: 'lingua-session',
+      });
     });
   });
 });

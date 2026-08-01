@@ -10,7 +10,7 @@ export interface ProjectIndexEntry {
   language?: Language;
 }
 
-export type ProjectIndexStatus = 'idle' | 'loading' | 'ready' | 'error';
+type ProjectIndexStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface ProjectIndexState {
   /** Capability id of the project the current index belongs to, if any. */

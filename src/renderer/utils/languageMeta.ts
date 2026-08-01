@@ -214,7 +214,7 @@ function normalizeExtension(extension: string): string {
   return extension.trim().replace(/^\./u, '').toLowerCase();
 }
 
-export function getLanguageMeta(language: Language): LanguageMeta {
+function getLanguageMeta(language: Language): LanguageMeta {
   const pack = getLanguagePackById(language);
   if (pack) return packToMeta(pack);
 
@@ -263,10 +263,6 @@ export function languageBadgeTone(language: Language): LanguageBadgeTone {
 
 export function languageBadgeClass(language: Language): string {
   return getLanguageMeta(language).badgeClass;
-}
-
-export function languageTextColorClass(language: Language): string {
-  return getLanguageMeta(language).textColorClass;
 }
 
 export function extensionForLanguage(language: Language): string {

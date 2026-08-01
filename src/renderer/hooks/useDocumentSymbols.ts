@@ -6,7 +6,7 @@ import {
   type SymbolEntry,
 } from '../utils/symbolNavigation';
 
-export type SymbolLoadStatus = 'idle' | 'loading' | 'ready' | 'unsupported' | 'empty';
+type SymbolLoadStatus = 'idle' | 'loading' | 'ready' | 'unsupported' | 'empty';
 
 export interface SymbolLoadResult {
   status: SymbolLoadStatus;

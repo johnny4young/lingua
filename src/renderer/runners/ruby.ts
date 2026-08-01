@@ -82,7 +82,7 @@ function bucketRubySpawnMs(ms: number): '<100ms' | '<300ms' | '<1s' | '<3s' | '>
 // WASM runtime (was the entire `RubyRunner` in implementation)
 // ----------------------------------------------------------------------
 
-export class WasmRubyRunner implements LanguageRunner {
+class WasmRubyRunner implements LanguageRunner {
   id = 'ruby';
   name = 'Ruby (ruby.wasm)';
   language = 'ruby' as const;
@@ -414,7 +414,7 @@ function getDesktopBridge(): DesktopBridge | null {
   return (window as Window & { lingua?: { ruby?: DesktopBridge } }).lingua?.ruby ?? null;
 }
 
-export class DesktopRubySubprocessRunner implements LanguageRunner {
+class DesktopRubySubprocessRunner implements LanguageRunner {
   id = 'ruby';
   name = 'Ruby (system)';
   language = 'ruby' as const;
@@ -565,13 +565,7 @@ function resolveActiveFilePath(): string | undefined {
     return undefined;
   }
 }
-
-// ----------------------------------------------------------------------
-// Hybrid dispatcher — public RubyRunner
-// ----------------------------------------------------------------------
-
-export type RubyRuntimePreference = 'auto' | 'system' | 'wasm';
-export type RubyDispatchedMode = 'system' | 'wasm' | 'missing';
+type RubyDispatchedMode = 'system' | 'wasm' | 'missing';
 
 interface DetectionState {
   inFlight: Promise<RubyDetectResult> | null;

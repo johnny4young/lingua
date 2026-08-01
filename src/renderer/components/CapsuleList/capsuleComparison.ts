@@ -60,7 +60,7 @@ export const MAX_DIFF_LINES = 400;
  * web builds, detached HEAD, or when the gitStore posture was
  * unavailable at capture time — see `RunCapsuleEnvironment.git`).
  */
-export interface CapsuleComparisonSide {
+interface CapsuleComparisonSide {
   language: string;
   runtimeMode: string;
   workflowMode: string;

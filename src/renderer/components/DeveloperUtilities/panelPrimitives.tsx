@@ -101,18 +101,14 @@ export function EncodeDecodeToggle({
   );
 }
 
-export const UTILITY_BALANCED_PANE_GRID =
+const UTILITY_BALANCED_PANE_GRID =
   'grid gap-4 xl:grid-cols-[minmax(18rem,1fr)_minmax(18rem,1fr)]';
 
-export const UTILITY_OUTPUT_WIDE_PANE_GRID =
+const UTILITY_OUTPUT_WIDE_PANE_GRID =
   'grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]';
 
-export const UTILITY_OUTPUT_MAX_PANE_GRID =
+const UTILITY_OUTPUT_MAX_PANE_GRID =
   'grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.45fr)] 2xl:grid-cols-[minmax(20rem,0.65fr)_minmax(42rem,1.7fr)]';
-
-export const UTILITY_TALL_TEXTAREA_CLASS = 'min-h-[16rem] font-mono';
-
-export const UTILITY_EXTRA_TALL_TEXTAREA_CLASS = 'min-h-[20rem] font-mono';
 
 export function TimestampHoverValue({
   value,

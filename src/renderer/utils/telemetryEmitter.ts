@@ -31,7 +31,7 @@ var cachedSessionId: string | null = null;
  * One record per minute is enough for the Privacy dashboard's "last call"
  * read while keeping the cap-200 trust log from filling with telemetry rows.
  */
-export const TELEMETRY_TRUST_THROTTLE_MS = 60_000;
+const TELEMETRY_TRUST_THROTTLE_MS = 60_000;
 let lastTelemetryTrustRecordMs = Number.NEGATIVE_INFINITY;
 
 /**
@@ -56,7 +56,7 @@ export function _resetTelemetryTrustThrottleForTesting(): void {
   lastTelemetryTrustRecordMs = Number.NEGATIVE_INFINITY;
 }
 
-export async function emitTelemetryEvent(
+async function emitTelemetryEvent(
   event: TelemetryEventName,
   properties: Record<string, string | number | boolean> = {},
   base: Partial<

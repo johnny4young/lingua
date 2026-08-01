@@ -62,7 +62,7 @@ export function extractOriginFromRustStdout(text: string): SplittedOrigin | unde
   return extractOrigin(text, RUST_LINE_RE);
 }
 
-export function extractOrigin(
+function extractOrigin(
   text: unknown,
   pattern: RegExp
 ): SplittedOrigin | undefined {

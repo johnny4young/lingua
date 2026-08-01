@@ -14,7 +14,7 @@ import {
 import { utf8ByteLength, type RunCapsuleV1 } from '../../shared/runCapsule';
 import type { FileTab } from '../types/editor';
 
-export type CapsuleWorkspaceCandidateExclusion =
+type CapsuleWorkspaceCandidateExclusion =
   | 'workspace-tab'
   | 'invalid-path'
   | 'duplicate-path'

@@ -74,7 +74,7 @@ const WhatsNewOverlay = lazy(async () => ({
  * notebook state and owns serialization, disk/download handling, and
  * telemetry, so it is requested only when the active tab can use it.
  */
-export async function exportActiveNotebookFromPalette(): Promise<void> {
+async function exportActiveNotebookFromPalette(): Promise<void> {
   const tab = getActiveTab(useEditorStore.getState());
   if (!tab || tab.kind !== 'notebook') {
     useUIStore.getState().pushStatusNotice({

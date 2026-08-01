@@ -18,7 +18,7 @@ export type ExecutionControlDisabledReason =
   | 'unsupported-workflow'
   | 'view-only';
 
-export interface ExecutionActionAvailability {
+interface ExecutionActionAvailability {
   disabled: boolean;
   reason: ExecutionControlDisabledReason | null;
 }

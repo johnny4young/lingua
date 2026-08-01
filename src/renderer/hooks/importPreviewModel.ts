@@ -27,9 +27,9 @@ import {
   type NotebookV1,
 } from '../../shared/notebook';
 
-export type ImportPreviewPhase = 'idle' | 'loading' | 'previewed' | 'rejected';
+type ImportPreviewPhase = 'idle' | 'loading' | 'previewed' | 'rejected';
 
-export type AnyImporterPreview =
+type AnyImporterPreview =
   | (CurlImporterPreview & { readonly kind: 'curl-http' })
   | IpynbImporterPreview
   | LinguanbImporterPreview

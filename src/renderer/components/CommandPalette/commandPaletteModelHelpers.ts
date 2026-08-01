@@ -15,7 +15,7 @@ import type { Language } from '../../types/language';
 import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import type { CommandEntry } from './commandPaletteModelTypes';
 
-export function normalizeKeywords(values: Array<string | undefined>) {
+function normalizeKeywords(values: Array<string | undefined>) {
   return values.map(value => value?.toLowerCase() ?? '');
 }
 

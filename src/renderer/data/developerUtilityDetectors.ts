@@ -33,7 +33,7 @@ import type { DeveloperUtilityId } from './developerUtilities';
  * Most panels only consume `primary`. Diff and Regex also require
  * `secondary`; pure generators map to `null` in the registry.
  */
-export interface UtilityDetectInputs {
+interface UtilityDetectInputs {
   primary: string;
   secondary?: string;
 }

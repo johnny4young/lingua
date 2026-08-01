@@ -70,7 +70,8 @@ export interface DetectedDependency {
  * Mirrored in `update-server/src/telemetry.ts`; a parity test asserts
  * both sides stay aligned.
  */
-export const DEPENDENCY_COUNT_BUCKETS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for type and cross-service parity
+const DEPENDENCY_COUNT_BUCKETS = [
   '0',
   '1',
   '2-5',
@@ -118,7 +119,8 @@ export interface DependencyAdapter {
  * implementation note B coalescing). Mirrored on `update-server/src/telemetry.ts`;
  * the parity test enforces lockstep.
  */
-export const DEPENDENCY_INSTALL_OUTCOMES = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for type and cross-service parity
+const DEPENDENCY_INSTALL_OUTCOMES = [
   'success',
   'partial',
   'failed',
@@ -140,7 +142,8 @@ export type DependencyInstallOutcome =
 // rather than bucketing it under `unknown`. Comment is intentionally
 // outside the array literal so the regex-driven parity test in
 // update-server stays single-quote clean.
-export const DEPENDENCY_INSTALL_FAILURE_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for type and cross-service parity
+const DEPENDENCY_INSTALL_FAILURE_REASONS = [
   'invalid-specifier',
   'no-package-json',
   'binary-missing',

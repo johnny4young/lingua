@@ -16,7 +16,7 @@ import type { TrustEvent, TrustFeature } from '../../stores/trustEventStore';
  * (e.g. monaco's editor state) are intentionally hidden because
  * they are out of our control.
  */
-export const LINGUA_LOCAL_STORE_KEYS = [
+const LINGUA_LOCAL_STORE_KEYS = [
   'lingua-settings',
   'lingua-license',
   'lingua-snippets',
@@ -38,7 +38,7 @@ export interface LocalStoreRow {
  * when the key is absent or localStorage throws (private mode, quota
  * exceeded, etc.).
  */
-export function estimateLocalStorageSize(key: string): number {
+function estimateLocalStorageSize(key: string): number {
   if (typeof window === 'undefined') return 0;
   try {
     const raw = window.localStorage.getItem(key);
@@ -320,26 +320,4 @@ export function formatRelativeTimestamp(
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return formatRelativeUnit('hours', hours, translate);
   return new Date(at).toLocaleDateString();
-}
-
-/**
- * Compute median + P95 of an array of numbers. Used by the
- * run-history timeline section. Returns `null` for both when the
- * input is empty so the caller can render an empty-state.
- */
-export function medianAndP95(
-  values: ReadonlyArray<number>
-): { readonly median: number | null; readonly p95: number | null } {
-  if (values.length === 0) return { median: null, p95: null };
-  const sorted = [...values].sort((a, b) => a - b);
-  const midIndex = Math.floor(sorted.length / 2);
-  const median =
-    sorted.length % 2 === 0
-      ? (sorted[midIndex - 1]! + sorted[midIndex]!) / 2
-      : sorted[midIndex]!;
-  const p95Index = Math.min(
-    sorted.length - 1,
-    Math.floor(sorted.length * 0.95)
-  );
-  return { median, p95: sorted[p95Index]! };
 }

@@ -11,7 +11,7 @@ export const UTILITY_WORKSPACE_STORAGE_KEY = 'lingua-utility-workspace';
 const LEGACY_UTILITY_STATE_STORAGE_KEY = 'lingua-utility-state';
 
 /** Internal one-shot input delivered from Smart Paste to a utility panel. */
-export interface PendingUtilityInput {
+interface PendingUtilityInput {
   utilityId: DeveloperUtilityId;
   input: string;
 }

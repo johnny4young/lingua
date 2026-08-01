@@ -18,12 +18,8 @@ import { COMMON_NAMESPACE } from './languages';
 
 export {
   COMMON_NAMESPACE,
-  SUPPORTED_LANGUAGES,
   coerceSupportedLanguage,
-  isSupportedLanguage,
-  resolveSystemLanguage,
 } from './languages';
-export type { SupportedLanguage } from './languages';
 
 export const COMMON_RESOURCES = {
   en: { [COMMON_NAMESPACE]: en },

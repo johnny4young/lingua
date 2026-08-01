@@ -4,7 +4,7 @@ import { computeDiff } from '../utils/diff';
 import type { DiffGranularity, DiffSegment } from '../utils/diff';
 
 /** Small diffs are cheaper than worker startup; heavy diffs leave the UI thread. */
-export const OFF_THREAD_DIFF_THRESHOLD_CHARS = 4_000;
+const OFF_THREAD_DIFF_THRESHOLD_CHARS = 4_000;
 
 interface WorkerDiffResult {
   readonly left: string;

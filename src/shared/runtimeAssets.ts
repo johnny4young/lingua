@@ -101,11 +101,3 @@ export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry
     criticalFiles: ['ruby+stdlib.wasm'],
   },
 } as const;
-
-/**
- * @deprecated Use `RUNTIME_ASSETS.pyodide.copyFiles` instead. Kept as
- * a re-export for any external script that still imports the symbol;
- * the plugin reads from the asset entry directly.
- */
-export const PYODIDE_COPY_FILES: readonly string[] =
-  RUNTIME_ASSETS.pyodide.copyFiles ?? RUNTIME_ASSETS.pyodide.criticalFiles;

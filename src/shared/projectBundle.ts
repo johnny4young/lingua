@@ -48,10 +48,8 @@ import {
 } from './projectBundleLimits';
 export {
   BUNDLE_EXPORT_REJECT_REASONS,
-  MAX_BUNDLE_BYTES,
   MAX_BUNDLE_ENTRY_BYTES,
   MAX_BUNDLE_FILES,
-  MAX_UNCOMPRESSED_BYTES,
   ProjectBundleExportError,
   projectBundleExportLimit,
 } from './projectBundleLimits';
@@ -97,7 +95,7 @@ export type BundleRejectReason = (typeof BUNDLE_REJECT_REASONS)[number];
  * instead of dropping loose files (the "re-imported without manual
  * repair" acceptance criterion).
  */
-export interface ProjectBundleManifestV1 {
+interface ProjectBundleManifestV1 {
   readonly version: typeof PROJECT_BUNDLE_VERSION;
   /** ISO-8601 timestamp, caller-stamped. */
   readonly createdAt: string;
@@ -117,7 +115,7 @@ export interface ProjectBundleFile {
 }
 
 /** One rejected entry, surfaced in the import preview so the user sees what was skipped. */
-export interface BundleEntryReject {
+interface BundleEntryReject {
   readonly path: string;
   readonly reason: BundleRejectReason;
 }
@@ -135,7 +133,7 @@ export interface PackBundleManifestInput {
  * imports as loose files), the entries we skipped, and the total
  * uncompressed bytes (for telemetry bucketing).
  */
-export interface UnpackBundleOk {
+interface UnpackBundleOk {
   readonly ok: true;
   readonly manifest: ProjectBundleManifestV1 | null;
   readonly files: ProjectBundleFile[];
@@ -144,7 +142,7 @@ export interface UnpackBundleOk {
 }
 
 /** Whole-bundle rejection — nothing is safe to extract. */
-export interface UnpackBundleErr {
+interface UnpackBundleErr {
   readonly ok: false;
   readonly reason: BundleRejectReason;
 }

@@ -7,7 +7,7 @@ import {
 const BOOT_MARK_PREFIX = 'lingua:boot';
 type BootMark = 'start' | BootPhase;
 
-export interface BootPhaseTiming {
+interface BootPhaseTiming {
   phase: BootPhase;
   durationMs: number;
 }

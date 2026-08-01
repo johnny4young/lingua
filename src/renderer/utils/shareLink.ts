@@ -26,7 +26,6 @@
  */
 
 import {
-  SHARE_FRAGMENT_PREFIX,
   bucketShareSize,
   buildSharePayload,
   encodeShareFragment,
@@ -240,4 +239,4 @@ export function shareCreateStatusFromPrepareReason(
  * raw fragment length they observed (before decode) without
  * importing the shared module directly.
  */
-export { bucketShareSize, SHARE_FRAGMENT_PREFIX };
+export { bucketShareSize };

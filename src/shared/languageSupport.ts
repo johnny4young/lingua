@@ -113,7 +113,7 @@ export const LANGUAGE_CAPABILITY_STATUSES: readonly LanguageCapabilityStatus[] =
  * via system gem). When `perPlatform[capability]` is absent, the
  * default `capabilities[capability]` applies to both platforms.
  */
-export interface LanguagePlatformStatus {
+interface LanguagePlatformStatus {
   web?: LanguageCapabilityStatus;
   desktop?: LanguageCapabilityStatus;
 }

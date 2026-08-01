@@ -41,7 +41,3 @@ export const PROJECT_TEMPLATES: readonly ProjectTemplateV1[] = [
 export const PROJECT_TEMPLATE_IDS: readonly string[] = PROJECT_TEMPLATES.map(
   (template) => template.id
 );
-
-export function findProjectTemplate(id: string): ProjectTemplateV1 | undefined {
-  return PROJECT_TEMPLATES.find((template) => template.id === id);
-}

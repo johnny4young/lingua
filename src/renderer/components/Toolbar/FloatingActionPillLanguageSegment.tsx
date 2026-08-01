@@ -22,7 +22,7 @@ const LANGUAGE_LIST: Language[] = LANGUAGE_PACKS.filter(
     pack.templateIds.length > 0
 ).map((pack) => pack.id as Language);
 
-export function LanguageChip({
+function LanguageChip({
   language,
   size = 'pill',
 }: {

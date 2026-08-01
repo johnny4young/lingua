@@ -13,7 +13,7 @@
  * refinement) — enough for the inputs this panel realistically handles.
  */
 
-export type DiffKind = 'equal' | 'add' | 'remove';
+type DiffKind = 'equal' | 'add' | 'remove';
 
 export interface DiffSegment {
   kind: DiffKind;

@@ -32,13 +32,13 @@ import { createMigrate } from './persistence/migrationRegistry';
 
 export const LESSON_PROGRESS_CAP = 200;
 
-export const LESSON_PROGRESS_STATUSES = [
+const LESSON_PROGRESS_STATUSES = [
   'opened',
   'attempted',
   'passed',
   'skipped',
 ] as const;
-export type LessonProgressStatus = (typeof LESSON_PROGRESS_STATUSES)[number];
+type LessonProgressStatus = (typeof LESSON_PROGRESS_STATUSES)[number];
 
 export interface LessonProgressEntryV1 {
   readonly recipeId: string;

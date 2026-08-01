@@ -44,7 +44,7 @@ const PDB_PROMPT = '(Pdb) ';
 const PROGRAM_FINISHED_MARKER = 'The program finished and will be restarted';
 
 /** Default per-command timeout — a command that never returns a prompt. */
-export const DEFAULT_PDB_COMMAND_TIMEOUT_MS = 15_000;
+const DEFAULT_PDB_COMMAND_TIMEOUT_MS = 15_000;
 
 /** Grace window after SIGTERM before escalating terminate() to SIGKILL. */
 const KILL_ESCALATION_DELAY_MS = 1_500;
@@ -76,7 +76,7 @@ export type PdbSessionEvent =
   | { readonly kind: 'exited'; readonly code: number | null };
 
 /** `spawn`-compatible seam so tests can inject a fake process. */
-export type SpawnPdb = (
+type SpawnPdb = (
   command: string,
   args: readonly string[],
   options: { cwd?: string; env?: NodeJS.ProcessEnv }

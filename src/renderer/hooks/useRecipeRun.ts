@@ -50,7 +50,7 @@ import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { trackRecipeTestRun } from './recipeTelemetry';
 
-export interface RecipeRunOutcome {
+interface RecipeRunOutcome {
   readonly status: RecipeRunStatus;
   readonly results: ReadonlyArray<AssertionRunResult>;
 }

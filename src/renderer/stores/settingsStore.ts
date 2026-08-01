@@ -36,6 +36,7 @@ import { createAppearanceActions } from './settingsAppearanceActions';
 import { createRuntimeActions } from './settingsRuntimeActions';
 import { createPrivacyActions } from './settingsPrivacyActions';
 import { createSessionActions } from './settingsSessionActions';
+import { registerTelemetryConsentReader } from '../utils/telemetryConsentSource';
 
 /**
  * Single renderer source of truth for user preferences. The persist wrapper is
@@ -74,6 +75,11 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 );
+
+// Register only after the persisted store is fully assembled. Telemetry policy
+// reads through this leaf bridge instead of importing the store back into the
+// settings action graph, and it fails closed before registration.
+registerTelemetryConsentReader(() => useSettingsStore.getState().telemetryConsent);
 
 // Public API re-export — unchanged import path for the profile-import consumer.
 export { sanitizeShortcutOverrides } from './settingsSanitizers';

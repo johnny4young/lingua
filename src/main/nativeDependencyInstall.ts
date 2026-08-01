@@ -32,7 +32,6 @@ import {
 } from '../shared/dependencies/nativeDependencies';
 export type {
   NativeInstallResult,
-  NativeInstallStatus,
 } from '../shared/dependencies/nativeDependencies';
 import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
 import {

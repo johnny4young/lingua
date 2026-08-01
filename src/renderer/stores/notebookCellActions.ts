@@ -4,8 +4,9 @@ import {
   NOTEBOOK_CELL_LANGUAGES,
   type NotebookCellV1,
 } from '../../shared/notebook';
-import { createCellId, type NotebookState } from './notebookStore';
+import type { NotebookState } from './notebookStore';
 import type { NotebookGet, NotebookSet } from './notebookStoreContext';
+import { createNotebookCellId } from './notebookStorePrimitives';
 
 /**
  * implementation — notebook cell-editing action factory.
@@ -34,7 +35,7 @@ export function createCellActions(
       const entry = state.notebooks[tabId];
       if (!entry) return null;
       if (entry.notebook.cells.length >= MAX_CELLS_PER_NOTEBOOK) return null;
-      const id = createCellId('cell');
+      const id = createNotebookCellId();
       const cell: NotebookCellV1 =
         spec.kind === 'code'
           ? {

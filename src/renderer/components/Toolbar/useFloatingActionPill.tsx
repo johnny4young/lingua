@@ -61,7 +61,7 @@ const RIGHT_EDITOR_HEADER_RESERVE = 420;
 // The pill exposes them as two separate chips so the user never sees
 // a misleading "two Actual rows" state. The Runtime chip is only
 // rendered when the language has runtime modes (JS/TS today).
-export function workflowChipLabel(
+function workflowChipLabel(
   t: (k: string) => string,
   workflowMode: WorkflowMode | undefined,
 ): { icon: ReactNode; label: string } {
@@ -74,7 +74,7 @@ export function workflowChipLabel(
   return { icon: <Play size={11} />, label: t('actionPill.run') };
 }
 
-export function runtimeChipLabel(
+function runtimeChipLabel(
   runtimeMode: string | undefined,
 ): { icon: ReactNode; label: string } {
   if (runtimeMode === 'node') return { icon: <Terminal size={11} />, label: 'Node' };

@@ -21,7 +21,7 @@ import { trackEvent } from '../utils/telemetry';
  * the redactor accepts (`'0' | '1' | '2-5' | '6-10' | '>10'`), reused
  * here so we never add a parallel count enum.
  */
-export function bundleFileCountBucket(count: number): string {
+function bundleFileCountBucket(count: number): string {
   if (!Number.isFinite(count) || count <= 0) return '0';
   if (count === 1) return '1';
   if (count <= 5) return '2-5';

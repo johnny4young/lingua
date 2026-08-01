@@ -23,10 +23,10 @@
 import { runnerManager } from '../runners';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 
-export const BENCHMARK_MIN_ITERATIONS = 1;
+const BENCHMARK_MIN_ITERATIONS = 1;
 export const BENCHMARK_MAX_ITERATIONS = 500;
 export const BENCHMARK_DEFAULT_ITERATIONS = 20;
-export const BENCHMARK_DEFAULT_WARMUP = 3;
+const BENCHMARK_DEFAULT_WARMUP = 3;
 
 export interface BenchmarkStats {
   /** Number of timed samples (excludes warmup). */

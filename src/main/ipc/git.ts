@@ -342,8 +342,3 @@ export function _resetGitHeadWatchersForTests(): void {
   watchersBySender.clear();
   destroyedListenerInstalled.clear();
 }
-
-// Re-export the broadcast channel names so the renderer-side
-// constants do not drift from the main-side wire format.
-export const GIT_HEAD_CHANGED_CHANNEL = 'git:on-head-changed';
-export const GIT_HEAD_WATCHER_FAILED_CHANNEL = 'git:on-head-watcher-failed';

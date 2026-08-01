@@ -40,7 +40,7 @@ import type {
 } from '../../shared/dependencies/types';
 import { runnerManager } from '../runners';
 
-export type PythonInstallStream = 'stdout' | 'stderr';
+type PythonInstallStream = 'stdout' | 'stderr';
 
 export interface PythonInstallLogChunk {
   readonly runId: string;
@@ -57,7 +57,7 @@ export interface PythonInstallLogChunk {
  * `dependencyDetectionStore.ts` continues to receive the type it
  * was designed for.
  */
-export type PythonInstallResultStatus = DependencyInstallResultStatus;
+type PythonInstallResultStatus = DependencyInstallResultStatus;
 
 export interface PythonInstallResult {
   readonly statuses: Record<string, PythonInstallResultStatus>;

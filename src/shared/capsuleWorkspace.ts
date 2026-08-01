@@ -17,15 +17,15 @@ import {
   type RunCapsuleV1,
 } from './runCapsule';
 
-export const CAPSULE_WORKSPACE_KIND = 'lingua-capsule-workspace' as const;
-export const CAPSULE_WORKSPACE_VERSION = 1 as const;
+const CAPSULE_WORKSPACE_KIND = 'lingua-capsule-workspace' as const;
+const CAPSULE_WORKSPACE_VERSION = 1 as const;
 
 /** Supplemental files only; the capsule's primary source is separate. */
 export const MAX_CAPSULE_WORKSPACE_FILES = 24;
 export const MAX_CAPSULE_WORKSPACE_FILE_BYTES = 256 * 1024;
 export const MAX_CAPSULE_WORKSPACE_TOTAL_FILE_BYTES = 2 * 1024 * 1024;
 export const MAX_CAPSULE_WORKSPACE_BYTES = 6 * 1024 * 1024;
-export const MAX_CAPSULE_WORKSPACE_PATH_BYTES = 240;
+const MAX_CAPSULE_WORKSPACE_PATH_BYTES = 240;
 
 const HASH_RE = /^[a-f0-9]{64}$/u;
 const LANGUAGE_RE = /^[a-z][a-z0-9-]{0,31}$/u;
@@ -40,7 +40,7 @@ export interface CapsuleWorkspaceFileV1 extends CapsuleWorkspaceFileInput {
   readonly contentHash: string;
 }
 
-export interface CapsuleWorkspacePrivacyV1 {
+interface CapsuleWorkspacePrivacyV1 {
   /** Source files are never silently attached; the exporter requires review. */
   readonly sourceReview: 'explicit';
   /** Absolute host paths are structurally forbidden from the artifact. */
@@ -58,7 +58,8 @@ export interface CapsuleWorkspaceV1 {
   readonly privacy: CapsuleWorkspacePrivacyV1;
 }
 
-export const CAPSULE_WORKSPACE_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const CAPSULE_WORKSPACE_REJECT_REASONS = [
   'invalid-json',
   'unsupported-version',
   'invalid-shape',

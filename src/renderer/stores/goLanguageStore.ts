@@ -1,16 +1,4 @@
-import {
-  createLspLanguageStore,
-  type LspLanguageState,
-  type LspLanguageStatus,
-} from './lspLanguageStoreFactory';
+import { createLspLanguageStore } from './lspLanguageStoreFactory';
 
-/**
- * implementation — live gopls capability state. Identical shape to
- * `useRustLanguageStore`; the two stores are isolated so a Rust crash
- * does not propagate into the Go UI and vice versa.
- */
-
-export type GoLanguageStatus = LspLanguageStatus;
-export type GoLanguageState = LspLanguageState;
-
+/** Live gopls capability state, isolated from the Rust LSP lifecycle. */
 export const useGoLanguageStore = createLspLanguageStore();

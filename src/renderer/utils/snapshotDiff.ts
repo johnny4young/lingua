@@ -19,9 +19,9 @@
 import type { LineResult, ResultSnapshot } from '../stores/resultStore';
 import { computeDiff, type DiffGranularity, type DiffSegment } from './diff';
 
-export type CompareRowKind = 'unchanged' | 'added' | 'removed' | 'changed';
+type CompareRowKind = 'unchanged' | 'added' | 'removed' | 'changed';
 
-export interface CompareRow {
+interface CompareRow {
   line: number;
   /**
    * The value the previous snapshot recorded on this line. `null`
@@ -45,13 +45,13 @@ export interface CompareRow {
   type: LineResult['type'];
 }
 
-export interface DynamicCompareResult {
+interface DynamicCompareResult {
   mode: 'dynamic';
   rows: CompareRow[];
   identical: boolean;
 }
 
-export interface CompiledCompareResult {
+interface CompiledCompareResult {
   mode: 'compiled';
   segments: DiffSegment[];
   identical: boolean;

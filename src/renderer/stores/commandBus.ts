@@ -1,4 +1,3 @@
-import { create } from 'zustand';
 import type { ShareCreateTrigger } from '../utils/shareLink';
 
 export type CapsuleBrowseSurface = 'palette' | 'shortcut' | 'settings' | 'action-pill';
@@ -22,7 +21,7 @@ export interface OpenFileCommand {
   readonly fnName?: unknown;
 }
 
-export interface RendererCommandPayloadMap {
+interface RendererCommandPayloadMap {
   'overlay.openSnippets': undefined;
   'overlay.openRecipes': undefined;
   'capsule.openImport': undefined;
@@ -49,7 +48,7 @@ export interface RendererCommandPayloadMap {
 
 export type RendererCommandName = keyof RendererCommandPayloadMap;
 
-export interface RendererCommandContext {
+interface RendererCommandContext {
   /** Whether a higher-priority consumer has claimed the command. */
   readonly handled: boolean;
   /** Claim the command so listeners registered as fallbacks are skipped. */
@@ -68,7 +67,7 @@ export interface CommandListenerOptions {
   readonly delivery?: 'always' | 'fallback';
 }
 
-export interface RendererCommandDispatchResult {
+interface RendererCommandDispatchResult {
   readonly handled: boolean;
   readonly delivered: number;
 }
@@ -84,11 +83,6 @@ type SubscribeCommand = <K extends RendererCommandName>(
   listener: RendererCommandListener<K>,
   options?: CommandListenerOptions
 ) => () => void;
-
-interface CommandBusState {
-  emit: EmitCommand;
-  subscribe: SubscribeCommand;
-}
 
 interface RegisteredListener {
   readonly id: number;
@@ -152,12 +146,8 @@ const subscribe: SubscribeCommand = (name, listener, options) => {
  * Typed, synchronous renderer command bus.
  *
  * Commands are delivered only to listeners that exist at emit time: there is
- * no stored command value, replay, coalescing, or Zustand state update. This
- * keeps repeated and high-frequency editor commands synchronous without
- * triggering unrelated React renders.
+ * no stored command value, replay, coalescing, or Zustand state update.
  */
-export const useCommandBus = create<CommandBusState>(() => ({ emit, subscribe }));
-
 export const emitCommand: EmitCommand = emit;
 
 export const subscribeCommand: SubscribeCommand = subscribe;

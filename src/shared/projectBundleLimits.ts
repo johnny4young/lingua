@@ -4,10 +4,10 @@
 export const MAX_BUNDLE_FILES = 5_000;
 
 /** Max compressed bundle size accepted on import and produced on export. */
-export const MAX_BUNDLE_BYTES = 50 * 1024 * 1024; // 50 MiB
+const MAX_BUNDLE_BYTES = 50 * 1024 * 1024; // 50 MiB
 
 /** Max total bytes after inflation, including the internal manifest. */
-export const MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024; // 200 MiB
+const MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024; // 200 MiB
 
 /** Max uncompressed size for a single archive entry. */
 export const MAX_BUNDLE_ENTRY_BYTES = 16 * 1024 * 1024; // 16 MiB

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { TelemetryEventName } from '../../shared/telemetry';
 import { trackEvent } from '../utils/telemetry';
 
-export type TelemetryProperties = Record<string, string | number | boolean>;
+type TelemetryProperties = Record<string, string | number | boolean>;
 
 export type TelemetryTrack = (
   eventName: TelemetryEventName,

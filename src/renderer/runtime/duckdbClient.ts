@@ -394,7 +394,7 @@ export async function getDuckDbEngine(): Promise<DuckDbEngineHandle> {
  * hammers the origin. Exported for tests; `sleep` is injectable so specs
  * don't wait real time.
  */
-export const DUCKDB_WASM_FETCH_MAX_RETRIES = 3;
+const DUCKDB_WASM_FETCH_MAX_RETRIES = 3;
 const DUCKDB_WASM_FETCH_BASE_DELAY_MS = 500;
 
 export async function fetchRuntimeAssetWithRetry(
@@ -899,7 +899,7 @@ export async function executeQuery(
 // ---------------------------------------------------------------------------
 
 /** Number of rows shown in the import preview modal's sample table. */
-export const IMPORT_PREVIEW_SAMPLE_ROWS = 10;
+const IMPORT_PREVIEW_SAMPLE_ROWS = 10;
 
 /**
  * Map an import format to its DuckDB reader call against a registered

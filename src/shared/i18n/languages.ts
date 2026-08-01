@@ -5,11 +5,11 @@
  */
 
 export const COMMON_NAMESPACE = 'common';
-export const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
+const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
-export function isSupportedLanguage(
+function isSupportedLanguage(
   language: string
 ): language is SupportedLanguage {
   return (SUPPORTED_LANGUAGES as readonly string[]).includes(language);

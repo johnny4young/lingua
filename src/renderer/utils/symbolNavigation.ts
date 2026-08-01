@@ -4,7 +4,7 @@
  * rules can be unit-tested without spinning up Monaco.
  */
 
-export interface NavigationTreeSpan {
+interface NavigationTreeSpan {
   start: number;
   length: number;
 }
@@ -36,7 +36,7 @@ export interface SymbolEntry {
 /**
  * Monaco's language IDs that expose symbols through `getNavigationTree`.
  */
-export const SYMBOL_NAVIGATION_LANGUAGES = new Set(['javascript', 'typescript']);
+const SYMBOL_NAVIGATION_LANGUAGES = new Set(['javascript', 'typescript']);
 
 export function supportsSymbolNavigation(languageId: string | null | undefined): boolean {
   if (!languageId) return false;

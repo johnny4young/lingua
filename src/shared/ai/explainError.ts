@@ -22,7 +22,7 @@ import { looksSecret } from '../httpEnvironment';
 /** Max characters of code context included in the prompt. */
 export const MAX_EXPLAIN_CODE_CHARS = 4000;
 /** Max characters of the error message included in the prompt. */
-export const MAX_EXPLAIN_ERROR_CHARS = 2000;
+const MAX_EXPLAIN_ERROR_CHARS = 2000;
 
 const REDACTED = '<redacted>';
 

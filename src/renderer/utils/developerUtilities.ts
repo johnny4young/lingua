@@ -24,7 +24,6 @@ export interface TransformResult {
 // `JwtAnalysis` and `decodeJwt` moved to `./jwt` alongside the new
 // verify/sign surfaces for internal Re-exported here so existing import
 // sites (developerUtilities.ts was the historical home) keep compiling.
-export type { JwtAnalysis } from './jwt';
 
 export interface TimestampAnalysis {
   unixSeconds: number | null;
@@ -43,12 +42,12 @@ export interface TimestampHoverInfo {
   utc: string;
 }
 
-export interface RegexMatchGroup {
+interface RegexMatchGroup {
   name: string | null;
   value: string;
 }
 
-export interface RegexMatch {
+interface RegexMatch {
   match: string;
   index: number;
   groups: RegexMatchGroup[];
@@ -60,7 +59,6 @@ export interface RegexAnalysis {
   errorKey: string | null;
 }
 
-export type { HslColor, RgbColor } from './developerUtilityDetection';
 
 export interface ColorAnalysis {
   hex: string | null;
@@ -69,9 +67,9 @@ export interface ColorAnalysis {
   errorKey: string | null;
 }
 
-export type DiffLineKind = 'same' | 'add' | 'remove';
+type DiffLineKind = 'same' | 'add' | 'remove';
 
-export interface DiffLine {
+interface DiffLine {
   kind: DiffLineKind;
   value: string;
 }
@@ -784,18 +782,14 @@ export {
   detectsAsAbsoluteUrl,
   detectsAsBackslashEscaped,
   detectsAsBase64,
-  detectsAsBeautifiable,
-  detectsAsCaseConvertible,
   detectsAsColor,
   detectsAsCron,
-  detectsAsCsv,
   detectsAsCurl,
   detectsAsDataUri,
   detectsAsEncodedHtmlEntity,
   detectsAsHashable,
   detectsAsHtml,
   detectsAsHtmlEntity,
-  detectsAsInspectableText,
   detectsAsJson,
   detectsAsJwt,
   detectsAsMarkdown,

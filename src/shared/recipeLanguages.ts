@@ -16,7 +16,7 @@ export const RECIPE_RUNNABLE_LANGUAGE_IDS = [
 
 export type RecipeRunnableLanguage = (typeof RECIPE_RUNNABLE_LANGUAGE_IDS)[number];
 
-export const RECIPE_RUNNABLE_LANGUAGES: ReadonlySet<string> = new Set(RECIPE_RUNNABLE_LANGUAGE_IDS);
+const RECIPE_RUNNABLE_LANGUAGES: ReadonlySet<string> = new Set(RECIPE_RUNNABLE_LANGUAGE_IDS);
 
 export function isRecipeRunnableLanguage(language: string): language is RecipeRunnableLanguage {
   return RECIPE_RUNNABLE_LANGUAGES.has(language);

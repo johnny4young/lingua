@@ -12,7 +12,7 @@
 import type { UtilityAdapter, UtilityOptionField } from './types';
 
 /** Target case conventions surfaced as the `target` option. */
-export const STRING_CASE_TARGETS = [
+const STRING_CASE_TARGETS = [
   'lower',
   'upper',
   'title',
@@ -20,7 +20,7 @@ export const STRING_CASE_TARGETS = [
   'snake',
   'kebab',
 ] as const;
-export type StringCaseTarget = (typeof STRING_CASE_TARGETS)[number];
+type StringCaseTarget = (typeof STRING_CASE_TARGETS)[number];
 
 /** Structured options for the `string-case` adapter. */
 export interface StringCaseOptions {

@@ -15,8 +15,8 @@
 import type { UtilityAdapter, UtilityOptionField } from './types';
 
 /** Separator choices surfaced as the `separator` option. */
-export const SLUGIFY_SEPARATORS = ['hyphen', 'underscore'] as const;
-export type SlugifySeparator = (typeof SLUGIFY_SEPARATORS)[number];
+const SLUGIFY_SEPARATORS = ['hyphen', 'underscore'] as const;
+type SlugifySeparator = (typeof SLUGIFY_SEPARATORS)[number];
 
 /** Structured options for the `slugify` adapter. */
 export interface SlugifyOptions {

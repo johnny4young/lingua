@@ -26,15 +26,15 @@ import type { LicenseStatus } from './licenseTypes';
  * means the renderer bundle embeds the key once instead of re-reading it on
  * every verification.
  */
-export const PUBLIC_KEYRING = readEmbeddedPublicKeyring();
+const PUBLIC_KEYRING = readEmbeddedPublicKeyring();
 /** Primary key shown in Settings; overlap keys remain verification-only. */
 export const PUBLIC_KEY_JWK: JsonWebKey | null = PUBLIC_KEYRING[0] ?? null;
 
-export function readEmbeddedPublicKeyring() {
+function readEmbeddedPublicKeyring() {
   return parseLicensePublicKeyring(import.meta.env?.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK);
 }
 
-export function resultToStatus(result: LicenseVerificationResult): LicenseStatus {
+function resultToStatus(result: LicenseVerificationResult): LicenseStatus {
   if (!result.ok) {
     return { kind: 'invalid', reason: result.reason, message: result.message };
   }

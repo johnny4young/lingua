@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import i18next from 'i18next';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
-export type ProjectSearchStatus = 'idle' | 'loading' | 'ready' | 'error';
+type ProjectSearchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface ProjectSearchMatch {
   line: number;

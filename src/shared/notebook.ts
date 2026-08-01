@@ -46,7 +46,7 @@ export const NOTEBOOK_REJECT_REASONS = [
   'oversized',
   'too-many-cells',
 ] as const;
-export type NotebookRejectReason = (typeof NOTEBOOK_REJECT_REASONS)[number];
+type NotebookRejectReason = (typeof NOTEBOOK_REJECT_REASONS)[number];
 
 /**
  * Closed enum of code-cell languages. Markdown cells are NOT in this

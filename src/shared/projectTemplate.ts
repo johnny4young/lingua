@@ -44,7 +44,7 @@ const VALID_LANGUAGE_IDS: ReadonlySet<string> = new Set(
   LANGUAGE_PACKS.map((pack) => pack.id as string)
 );
 
-export interface ProjectTemplateFile {
+interface ProjectTemplateFile {
   /**
    * POSIX-style path relative to the destination root. Forward
    * slashes only; no leading `/`; no `.` or `..` segments after
@@ -58,7 +58,7 @@ export interface ProjectTemplateFile {
   readonly content: string;
 }
 
-export interface ProjectTemplateDependencies {
+interface ProjectTemplateDependencies {
   readonly npm?: readonly string[];
   readonly pip?: readonly string[];
 }
@@ -97,7 +97,7 @@ export type ProjectTemplateParseResult =
   | { ok: true; template: ProjectTemplateV1 }
   | { ok: false; reason: ProjectTemplateParseError };
 
-export type ProjectTemplateParseError =
+type ProjectTemplateParseError =
   | 'missing-id'
   | 'missing-label-key'
   | 'missing-description-key'

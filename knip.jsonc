@@ -1,13 +1,12 @@
 {
   // Dead-code / unused-dependency gate (see `check:deadcode` script).
   //
-  // Scope note: the script runs `--include files,dependencies,unlisted`
-  // (high-signal categories that should stay at zero). The full report
-  // (`pnpm exec knip`) additionally lists unused *exports* — useful as a
-  // periodic review, but noisy as a gate: many exports exist for test
-  // seams or API symmetry, and rollup tree-shaking already drops them
-  // from shipped bundles.
-  "$schema": "https://unpkg.com/knip@5/schema.json",
+  // The gate runs Knip's complete report: files, dependencies, unresolved
+  // imports, exports, exported types, duplicates, and binaries must all stay at
+  // zero after the narrow host-command allowlist below. Entry-point exports
+  // remain outside the unused-export report, preserving intentionally public
+  // CLI and runtime surfaces.
+  "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     // Electron process entries (forge.config.ts build section). The
     // renderer/web entries and the vite configs themselves are picked
@@ -42,6 +41,17 @@
   // and test suite (update-server too, but the project globs above never
   // reach it, so listing it here would be a no-op knip hints about).
   "ignore": ["license-server/**"],
+  "ignoreBinaries": [
+    // Operating-system tools intentionally spawned by packaging, process-tree,
+    // completion, and benchmark checks. They are host capabilities, not npm
+    // dependencies that belong in package.json.
+    "taskkill",
+    "ditto",
+    "file",
+    "zsh",
+    "fish",
+    "ruby"
+  ],
   "ignoreDependencies": [
     // Loaded from node_modules by the Vite build plugins as static
     // runtime assets (copied into <outDir>/pyodide and served for the

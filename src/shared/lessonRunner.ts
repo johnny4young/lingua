@@ -39,7 +39,6 @@
  */
 
 import {
-  type AssertionExitKind,
   type AssertionV1,
 } from './lessonPack';
 import type { RecipeRunnableLanguage } from './recipeLanguages';
@@ -94,7 +93,7 @@ export interface AssertionRunResult {
 }
 
 /** Hard cap for the `details` field so a runaway error message doesn't bloat the row. */
-export const MAX_ASSERTION_DETAIL_LENGTH = 200;
+const MAX_ASSERTION_DETAIL_LENGTH = 200;
 
 // ---------------------------------------------------------------------------
 // Source composition
@@ -474,4 +473,3 @@ export function isAllPassed(results: ReadonlyArray<AssertionRunResult>): boolean
  * named export so a future implementation can widen the kinds without rebroad-
  * casting the import surface.
  */
-export type { AssertionExitKind };

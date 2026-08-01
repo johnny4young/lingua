@@ -94,7 +94,7 @@ function stopWatchersForSender(senderId: number): void {
  * internal — purge every active watcher. Called from `before-quit` so
  * Node's fs.watch handles never outlive the process.
  */
-export function stopAllWatchers(): void {
+function stopAllWatchers(): void {
   for (const entry of watchers.values()) {
     try {
       entry.stop();

@@ -33,7 +33,6 @@ import {
 } from './runners/nativeEnv';
 import { spawnNativeRun } from './runners/spawnNativeRun';
 import type { RustDetectResult, RustRunResult } from '../shared/nativeRuntimeTypes';
-export type { RustDetectResult, RustRunResult } from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(execFile);
 
@@ -119,11 +118,6 @@ async function detectRust(userEnv?: Record<string, string>): Promise<RustDetectR
       error: 'Rust is not installed. Install it from https://rustup.rs',
     };
   }
-}
-
-/** Test seam — drop the session detect cache between cases. */
-export function resetRustDetectCacheForTests(): void {
-  cachedRustDetect = null;
 }
 
 /** Compile and run Rust source code natively */

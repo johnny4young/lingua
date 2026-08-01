@@ -34,10 +34,10 @@ export type LicenseTier = (typeof LICENSE_TIERS)[number];
  * rejecting a foreign `productId`. Exact-match is intentionally avoided
  * so new Lingua surfaces don't need a verifier change.
  */
-export const LINGUA_PRODUCT_ID_PREFIX = 'lingua';
+const LINGUA_PRODUCT_ID_PREFIX = 'lingua';
 
 /** True when a productId belongs to the Lingua product family. */
-export function isLinguaProductId(productId: string): boolean {
+function isLinguaProductId(productId: string): boolean {
   return (
     productId === LINGUA_PRODUCT_ID_PREFIX ||
     productId.startsWith(`${LINGUA_PRODUCT_ID_PREFIX}-`) ||
@@ -77,7 +77,7 @@ export interface LicenseVerificationOptions {
   buildDate?: string | number | null;
 }
 
-export type LicenseFailureReason =
+type LicenseFailureReason =
   | 'malformed'
   | 'invalid-signature'
   | 'expired'

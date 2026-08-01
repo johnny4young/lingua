@@ -466,9 +466,9 @@ export interface BuildCommandPaletteModelArgs {
   t?: TFunction;
 }
 
-export type CommandPaletteTranslate = (key: string, options?: Record<string, unknown>) => string;
+type CommandPaletteTranslate = (key: string, options?: Record<string, unknown>) => string;
 
-export interface CommandPaletteRegistryContext {
+interface CommandPaletteRegistryContext {
   args: BuildCommandPaletteModelArgs;
   translate: CommandPaletteTranslate;
 }

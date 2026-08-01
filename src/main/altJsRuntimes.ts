@@ -46,11 +46,6 @@ import type {
   AltJsRunKind,
   AltJsRunResult,
 } from '../shared/nativeRuntimeTypes';
-export type {
-  AltJsDetectResult,
-  AltJsRunKind,
-  AltJsRunResult,
-} from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(execFile);
 
@@ -59,9 +54,9 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const STDOUT_TRUNCATION_MARKER = '\n[stdout truncated]';
 const STDERR_TRUNCATION_MARKER = '\n[stderr truncated]';
 
-export type AltJsRuntimeId = 'deno' | 'bun';
+type AltJsRuntimeId = 'deno' | 'bun';
 
-export interface AltJsRunOptions {
+interface AltJsRunOptions {
   runId?: string;
   timeoutMs?: number;
   language?: string;
@@ -111,7 +106,7 @@ function resolveEnv(id: AltJsRuntimeId, userEnv?: Record<string, string>): NodeJ
   return buildNativeRunnerEnv(combinedAllowlist(CONFIGS[id].toolchainKeys), userEnv);
 }
 
-export async function detectAltRuntime(
+async function detectAltRuntime(
   id: AltJsRuntimeId,
   userEnv?: Record<string, string>,
   force = false
@@ -284,7 +279,7 @@ async function spawnAltRuntime(
   });
 }
 
-export async function runAltRuntime(
+async function runAltRuntime(
   id: AltJsRuntimeId,
   source: string,
   options: AltJsRunOptions
@@ -325,7 +320,7 @@ function normalizeStringMap(value: unknown): Record<string, string> | undefined 
   return out;
 }
 
-export function normalizeAltRunOptions(value: unknown): AltJsRunOptions {
+function normalizeAltRunOptions(value: unknown): AltJsRunOptions {
   if (!isRecord(value)) return {};
   return {
     runId: typeof value.runId === 'string' ? value.runId : undefined,

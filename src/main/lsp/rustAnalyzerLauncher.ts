@@ -98,7 +98,7 @@ export async function resolveRustAnalyzerBinary(): Promise<{
   return null;
 }
 
-export async function detectRustAnalyzerVersion(
+async function detectRustAnalyzerVersion(
   command: string
 ): Promise<string | null> {
   try {

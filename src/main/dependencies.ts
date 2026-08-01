@@ -45,9 +45,7 @@ import type {
 export type {
   DependencyInstallLogStream,
   DependencyInstallResult,
-  DependencyInstallResultStatus,
   DependencyResolveResult,
-  DependencyResolveStatus,
 } from '../shared/dependencies/types';
 import {
   NODE_TOOLCHAIN_KEYS,
@@ -150,12 +148,12 @@ export async function resolveJsDependencyBatch(
 // ────────────────────────────────────────────────────────────────
 
 /** Per-line callback for streaming subprocess output to the renderer. */
-export type DependencyInstallLogHandler = (
+type DependencyInstallLogHandler = (
   stream: DependencyInstallLogStream,
   chunk: string
 ) => void;
 
-export interface DependencyInstallBatchOptions {
+interface DependencyInstallBatchOptions {
   readonly runId: string;
   readonly filePath: string;
   readonly specifiers: readonly string[];

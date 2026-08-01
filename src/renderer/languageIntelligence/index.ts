@@ -1,13 +1,7 @@
 import { getLanguageSupportDescriptor } from '../languageSupport/registry';
-import type { LanguageIntelligenceAdapter, LanguageIntelligenceResult } from './types';
+import type { LanguageIntelligenceAdapter } from './types';
 
-export type {
-  LanguageIntelligenceAdapter,
-  LanguageIntelligenceCompletion,
-  LanguageIntelligenceDiagnostic,
-  LanguageIntelligenceResult,
-  LanguageIntelligenceSeverity,
-} from './types';
+export type { LanguageIntelligenceAdapter } from './types';
 
 const adapterLoads = new Map<string, Promise<LanguageIntelligenceAdapter | null>>();
 
@@ -40,12 +34,4 @@ export function loadLanguageIntelligenceAdapter(
     });
   adapterLoads.set(language, load);
   return load;
-}
-
-export async function analyzeLanguageIntelligence(
-  language: string,
-  content: string
-): Promise<LanguageIntelligenceResult | null> {
-  const adapter = await loadLanguageIntelligenceAdapter(language);
-  return adapter?.analyze(content) ?? null;
 }

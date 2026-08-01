@@ -44,6 +44,8 @@ import { createCellActions } from './notebookCellActions';
 import { createRunActions } from './notebookRunActions';
 import { createUiActions } from './notebookUiActions';
 import { createNotebookSelectors } from './notebookSelectors';
+import type { NotebookCellRunStatus } from './notebookStorePrimitives';
+export type { NotebookCellRunStatus } from './notebookStorePrimitives';
 // NOTE: `notebookSession` is lazy-loaded inside `restartNotebookSession`
 // (see the run-action factory), NOT imported statically here. The module
 // statically pulls `runnerManager` → `esbuild-wasm`, whose module body trips
@@ -58,16 +60,6 @@ import { createNotebookSelectors } from './notebookSelectors';
  * `runNotebookCell` call is in flight; `ok` / `error` / `stopped`
  * are terminal.
  */
-export const NOTEBOOK_CELL_RUN_STATUSES = [
-  'idle',
-  'running',
-  'ok',
-  'error',
-  'stopped',
-] as const;
-export type NotebookCellRunStatus =
-  (typeof NOTEBOOK_CELL_RUN_STATUSES)[number];
-
 /**
  * FASE 4 — per-cell inter-cell variable flow surfaced in the cell
  * header. `uses` is the identifiers the cell referenced that already
@@ -87,7 +79,7 @@ export interface NotebookCellVarFlow {
  * on reload like the other in-flight maps, and capped at the single
  * most-recent delete per tab.
  */
-export interface NotebookLastDeletedCell {
+interface NotebookLastDeletedCell {
   readonly cell: NotebookCellV1;
   readonly index: number;
 }
@@ -252,32 +244,6 @@ function createInitialState(): Pick<
   'notebooks' | 'notebookScrollTop'
 > {
   return { notebooks: {}, notebookScrollTop: {} };
-}
-
-/**
- * implementation — exported so the extracted run-action factory (`notebookRunActions`)
- * can guard `setCellRunStatus` against an out-of-enum value exactly as the
- * inline body did.
- */
-export function isNotebookCellRunStatus(
-  value: unknown
-): value is NotebookCellRunStatus {
-  return (
-    typeof value === 'string' &&
-    (NOTEBOOK_CELL_RUN_STATUSES as readonly string[]).includes(value)
-  );
-}
-
-/**
- * implementation — exported so the extracted cell-action factory (`notebookCellActions`)
- * can mint new cell ids exactly as the inline `addCell` body did.
- */
-export function createCellId(prefix: 'cell'): string {
-  const randomUUID = globalThis.crypto?.randomUUID;
-  if (typeof randomUUID === 'function') {
-    return `${prefix}-${randomUUID.call(globalThis.crypto).slice(0, 8)}`;
-  }
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export const useNotebookStore = create<NotebookState>()(

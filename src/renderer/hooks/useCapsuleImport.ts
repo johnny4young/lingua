@@ -53,9 +53,9 @@ import type { CapsuleWorkspaceV1 } from '../../shared/capsuleWorkspace';
 import { useSettingsStore } from '../stores/settingsStore';
 import { openCapsuleSourceInNewTab } from '../utils/openCapsuleTab';
 
-export type CapsuleImportSourceSurface = 'paste' | 'file-picker' | 'drag-drop';
+type CapsuleImportSourceSurface = 'paste' | 'file-picker' | 'drag-drop';
 
-export interface CapsuleImportDecodedState {
+interface CapsuleImportDecodedState {
   kind: 'decoded';
   capsule: RunCapsuleV1;
   workspace?: CapsuleWorkspaceV1;
@@ -66,7 +66,7 @@ export interface CapsuleImportDecodedState {
   rawJson: string;
 }
 
-export interface CapsuleImportRejectedState {
+interface CapsuleImportRejectedState {
   kind: 'rejected';
   reason: CapsuleImportRejectReason;
   sizeBucket: CapsuleImportDecodedState['sizeBucket'];
@@ -75,7 +75,7 @@ export interface CapsuleImportRejectedState {
   detail?: string;
 }
 
-export type CapsuleImportState =
+type CapsuleImportState =
   | { kind: 'empty' }
   | CapsuleImportDecodedState
   | CapsuleImportRejectedState;

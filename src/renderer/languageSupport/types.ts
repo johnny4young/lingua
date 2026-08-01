@@ -1,18 +1,18 @@
 import type { Monaco } from '@monaco-editor/react';
 import type { LanguageIntelligenceAdapter } from '../languageIntelligence/types';
 
-export type MonacoCompletionProvider = Parameters<
+type MonacoCompletionProvider = Parameters<
   Monaco['languages']['registerCompletionItemProvider']
 >[1];
-export type MonacoHoverProvider = Parameters<Monaco['languages']['registerHoverProvider']>[1];
-export type MonacoSignatureHelpProvider = Parameters<
+type MonacoHoverProvider = Parameters<Monaco['languages']['registerHoverProvider']>[1];
+type MonacoSignatureHelpProvider = Parameters<
   Monaco['languages']['registerSignatureHelpProvider']
 >[1];
 
-export type MonacoLanguageConfiguration = Parameters<
+type MonacoLanguageConfiguration = Parameters<
   Monaco['languages']['setLanguageConfiguration']
 >[1];
-export type MonacoTokensProvider = Parameters<Monaco['languages']['setMonarchTokensProvider']>[1];
+type MonacoTokensProvider = Parameters<Monaco['languages']['setMonarchTokensProvider']>[1];
 
 export interface MonacoBasicLanguageModule {
   conf: MonacoLanguageConfiguration;
@@ -43,7 +43,7 @@ interface BaseMonacoLanguageContribution {
   aliases: readonly string[];
 }
 
-export type MonacoLanguageContribution =
+type MonacoLanguageContribution =
   | (BaseMonacoLanguageContribution & {
       /**
        * internal — the id of a bundled Monaco basic language. The actual
@@ -73,7 +73,7 @@ export type MonacoLanguageContribution =
  * demand so provider modules stay out of the initial bundle until a tab
  * activates the language.
  */
-export interface MonacoEditorProviders {
+interface MonacoEditorProviders {
   createCompletionProvider?: (monaco: Monaco) => MonacoCompletionProvider;
   createCompletionProviders?: readonly ((monaco: Monaco) => MonacoCompletionProvider)[];
   createHoverProvider?: () => MonacoHoverProvider;

@@ -28,7 +28,6 @@ import {
   verifyLicenseToken,
 } from '../shared/license';
 import type { LicenseSnapshot, LicenseStatus } from '../shared/licenseSnapshot';
-export type { LicenseSnapshot, LicenseStatus } from '../shared/licenseSnapshot';
 import { bundledBuildDate } from '../shared/appInfo';
 import {
   activate as serverActivate,
@@ -42,7 +41,7 @@ import {
   type RemoveDeviceResult,
 } from './licenseServer';
 
-export const FREE_STATUS: LicenseStatus = { kind: 'free' };
+const FREE_STATUS: LicenseStatus = { kind: 'free' };
 
 export function resolveLicensePath(userDataDir: string): string {
   return path.join(userDataDir, 'license.json');

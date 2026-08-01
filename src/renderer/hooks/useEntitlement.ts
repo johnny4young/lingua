@@ -3,11 +3,6 @@ import { tierFromStatus } from '../stores/licenseSelectors';
 import {
   type Entitlement,
   isEntitled,
-  isLanguageAllowed,
-  tabCeilingForTier,
-  snippetCeilingForTier,
-  withinTabBudget,
-  withinSnippetBudget,
 } from '../../shared/entitlements';
 import type { LicenseTier } from '../../shared/license';
 
@@ -37,25 +32,4 @@ export { currentEffectiveTier } from '../stores/licenseSelectors';
 export function useEntitlement(entitlement: Entitlement): boolean {
   const tier = useEffectiveTier();
   return isEntitled(tier, entitlement);
-}
-
-export function useTabBudget() {
-  const tier = useEffectiveTier();
-  return {
-    ceiling: tabCeilingForTier(tier),
-    within: (proposedCount: number) => withinTabBudget(tier, proposedCount),
-  };
-}
-
-export function useSnippetBudget() {
-  const tier = useEffectiveTier();
-  return {
-    ceiling: snippetCeilingForTier(tier),
-    within: (proposedCount: number) => withinSnippetBudget(tier, proposedCount),
-  };
-}
-
-export function useLanguageAllowed(language: string): boolean {
-  const tier = useEffectiveTier();
-  return isLanguageAllowed(tier, language);
 }

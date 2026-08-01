@@ -1,6 +1,6 @@
 import type { TabId } from './settingsRailModel';
 
-export interface SettingsSearchEntry {
+interface SettingsSearchEntry {
   id: string;
   tab: TabId;
   labelKey: string;

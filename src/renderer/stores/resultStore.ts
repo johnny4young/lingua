@@ -13,13 +13,13 @@ import type { RuntimeMode } from '../../shared/runtimeModes';
  * self-gates on a single object instead of re-deriving the kind
  * from `error.message` string matching.
  */
-export interface RunTerminationSummary {
+interface RunTerminationSummary {
   kind: 'success' | 'error' | 'timeout' | 'stopped';
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
   timeoutMs?: number;
 }
 
-export interface ManualExecutionTarget {
+interface ManualExecutionTarget {
   language: Language;
   runtimeMode?: RuntimeMode;
 }

@@ -1,6 +1,7 @@
 import { MAX_OUTPUTS_PER_CELL } from '../../shared/notebook';
-import { isNotebookCellRunStatus, type NotebookState } from './notebookStore';
+import type { NotebookState } from './notebookStore';
 import type { NotebookSet } from './notebookStoreContext';
+import { isNotebookCellRunStatus } from './notebookStorePrimitives';
 
 /**
  * implementation — notebook run-state action factory.

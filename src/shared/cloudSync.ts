@@ -19,7 +19,7 @@
  * (injected clock) so the merge stays pure and deterministic in tests.
  */
 
-export interface SyncEntry<T = unknown> {
+interface SyncEntry<T = unknown> {
   /** The artifact payload (snippet body, setting value, theme JSON, …). */
   value: T;
   /** Last-modified time in ms since epoch. Drives last-write-wins. */
@@ -31,7 +31,7 @@ export interface SyncEntry<T = unknown> {
 /** A full snapshot of one artifact collection, keyed by stable item id. */
 export type SyncSnapshot<T = unknown> = Record<string, SyncEntry<T>>;
 
-export interface SyncConflict {
+interface SyncConflict {
   key: string;
   /** Which side's entry won the merge. */
   winner: 'local' | 'remote';

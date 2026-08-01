@@ -34,7 +34,7 @@ import type {
 import { languageBadgeClass } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 
-export type ImportPreviewBodyShape =
+type ImportPreviewBodyShape =
   | (CurlImporterPreview & { readonly kind: 'curl-http' })
   | IpynbImporterPreview
   | LinguanbImporterPreview

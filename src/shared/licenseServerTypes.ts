@@ -13,12 +13,6 @@
  * here.
  */
 
-import type { LicenseServerProtocolEnvelope } from './licenseServerProtocol';
-
-/** Machine-readable wire response before Electron IPC strips the envelope. */
-export type LicenseServerWireResponse<T extends Record<string, unknown>> =
-  T & LicenseServerProtocolEnvelope;
-
 export type LicenseServerSurface = 'desktop' | 'web';
 
 export interface LicenseServerDevice {
@@ -182,7 +176,7 @@ export type LicenseServerSyncState = 'synced' | 'unreachable' | 'disabled';
 
 /** Trial / Education / Recovery shared per-flow failure that the
  *  renderer should surface as a "Recover token" CTA hint. */
-export interface RecoverableFailureFlag {
+interface RecoverableFailureFlag {
   /** Renderer turns this into an inline "Recover token" button. */
   canRecover?: boolean;
 }

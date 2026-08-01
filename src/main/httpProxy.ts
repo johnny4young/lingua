@@ -63,7 +63,7 @@ import {
 } from '../shared/httpWorkspaceSchema';
 
 /** Max redirect hops the proxy follows before giving up. */
-export const MAX_REDIRECTS = 10;
+const MAX_REDIRECTS = 10;
 
 /**
  * Credential-bearing request headers browsers either own or treat specially

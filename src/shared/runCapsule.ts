@@ -43,7 +43,7 @@ import { REDACTION_VERSION, redactFlatRecord } from './redaction';
  */
 export type RunCapsuleStatus = 'success' | 'error' | 'timeout' | 'stopped';
 
-export interface RunCapsuleTab {
+interface RunCapsuleTab {
   /** Tab display name. Pre-sanitised; never an absolute path. */
   name: string;
   /** Language pack id (`'javascript'`, `'python'`, …). */
@@ -54,14 +54,14 @@ export interface RunCapsuleTab {
   workflowMode: string;
 }
 
-export interface RunCapsuleSource {
+interface RunCapsuleSource {
   /** The code the runner actually executed. May be empty. */
   content: string;
   /** Hex SHA-256 of `content`. Hash on the entire string. */
   contentHash: string;
 }
 
-export interface RunCapsuleResult {
+interface RunCapsuleResult {
   status: RunCapsuleStatus;
   durationMs: number;
   /** Truncated to `MAX_STREAM_BYTES` if oversized; omittedFields flag set. */
@@ -77,7 +77,7 @@ export interface RunCapsuleResult {
   errorMessage?: string;
 }
 
-export interface RunCapsuleEnvironment {
+interface RunCapsuleEnvironment {
   platform: 'web' | 'desktop';
   /** Runner id (e.g. `'python'`, `'node:22.4.0'`). */
   runner: string;
@@ -98,14 +98,14 @@ export interface RunCapsuleEnvironment {
   };
 }
 
-export interface RunCapsulePrivacy {
+interface RunCapsulePrivacy {
   /** Stamp from `REDACTION_VERSION` so the consumer knows the rule set. */
   redactionVersion: string;
   /** Field paths that were dropped or truncated. May be empty. */
   omittedFields: string[];
 }
 
-export interface RunCapsuleInput {
+interface RunCapsuleInput {
   /** Optional pre-set stdin buffer . May be empty. */
   stdin?: string;
   /** internal — optional name of the saved input set used for this run. */
@@ -416,7 +416,7 @@ export function applyCapsuleMigrations(
   return { ok: true, value: current };
 }
 
-export type ParseRunCapsuleReason =
+type ParseRunCapsuleReason =
   | 'invalid-json'
   /** Older schema with no registered upgrade path to the current version. */
   | 'unsupported-version'

@@ -43,10 +43,10 @@ export const DEBUGGER_STORAGE_KEY = 'lingua-debugger-state';
 export const MAX_BREAKPOINTS_GLOBAL = 100;
 export const MAX_WATCHES = 20;
 
-export type DebuggerRuntime = 'js' | 'python' | 'go' | 'rust';
-export type PauseReason = 'user-breakpoint' | 'step' | 'exception';
+type DebuggerRuntime = 'js' | 'python' | 'go' | 'rust';
+type PauseReason = 'user-breakpoint' | 'step' | 'exception';
 
-export interface Breakpoint {
+interface Breakpoint {
   /** Tab id (matches `tabsStore.activeTabId`) — uniquely identifies the file. */
   tabId: string;
   /** 1-indexed line number in the user's source (NOT the instrumented JS). */
@@ -62,7 +62,7 @@ export interface Breakpoint {
   enabled: boolean;
 }
 
-export interface CallStackFrame {
+interface CallStackFrame {
   /**
    * Display name of the function, or `<anonymous>` for nameless
    * function expressions. The worker computes this from
@@ -73,7 +73,7 @@ export interface CallStackFrame {
   line: number;
 }
 
-export interface PausedFrame {
+interface PausedFrame {
   /** Tab the user paused in (selects the file gutter to highlight). */
   tabId: string;
   /** 1-indexed source line that triggered the pause. */
@@ -98,7 +98,7 @@ export interface PausedFrame {
   watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
 }
 
-export interface DebuggerSession {
+interface DebuggerSession {
   /** Which language adapter is attached. implementation only emits `'js'`. */
   runtime: DebuggerRuntime;
   /** Tab the session is bound to. */

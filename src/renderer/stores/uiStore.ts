@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 
 export type StatusNoticeTone = 'info' | 'success' | 'warning' | 'error';
-export type BottomPanelTab =
+type BottomPanelTab =
   | 'console'
   | 'debugger'
   | 'browser-preview'

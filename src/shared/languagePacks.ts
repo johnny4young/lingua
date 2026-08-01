@@ -53,11 +53,11 @@ export type LanguagePackFormatter =
   | 'ipc:python'
   | 'none';
 
-export type LanguagePackLspSupport = 'builtin' | 'adapter' | 'desktop' | 'none';
+type LanguagePackLspSupport = 'builtin' | 'adapter' | 'desktop' | 'none';
 
-export type LanguagePackDebuggerSupport = 'available' | 'planned' | 'none';
+type LanguagePackDebuggerSupport = 'available' | 'planned' | 'none';
 
-export interface LanguagePackCapabilities {
+interface LanguagePackCapabilities {
   /**
    * Where richer-than-Monaco language services come from. `builtin` =
    * Monaco's bundled service (TS / JS), `adapter` = a local renderer

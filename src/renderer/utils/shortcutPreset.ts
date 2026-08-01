@@ -9,7 +9,7 @@ import {
 export const SHORTCUT_PRESET_VERSION = 1;
 const SUPPORTED_PRESET_VERSIONS: readonly number[] = [1];
 
-export type ShortcutPresetParseFailure =
+type ShortcutPresetParseFailure =
   | 'invalid-json'
   | 'invalid-shape'
   | 'unsupported-version';

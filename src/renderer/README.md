@@ -496,7 +496,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
 | [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, transient run state, active cell — thin assembly point (internal pattern) that composes the focused notebook\* modules below |
-| notebook split — [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore` |
+| notebook split — [notebookStorePrimitives.ts](stores/notebookStorePrimitives.ts) (runtime-safe status/id leaf), [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore`; factories import runtime values from the leaf, never back from the assembled store |
 | [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) + [useDependencyDetection.ts](hooks/useDependencyDetection.ts) + [dependencyDetectionRuntime.ts](hooks/dependencyDetectionRuntime.ts) | per-tab dependency cache/install state plus a startup-safe eligibility/debounce hook; parser loading and platform classification activate only when source may reference a package (Scratchpad execution can load its shared Acorn chunk independently) |
 | [gitStore.ts](stores/gitStore.ts)           | git posture, per-file status cache, HEAD-change updates           |
 | [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
@@ -519,6 +519,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [settingsStore.ts](stores/settingsStore.ts) | sanitized persisted preferences, theme/keymap packs, consent and onboarding flags — thin `create(persist(...))` assembly point that composes the focused settings\* modules below |
 | settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |
 | settings split — action factories: [settingsAppearanceActions.ts](stores/settingsAppearanceActions.ts) (theme/font/layout/keymap/shortcuts), [settingsRuntimeActions.ts](stores/settingsRuntimeActions.ts) (execution/runtime-mode/workflow/auto-log/timeout/ruby), [settingsPrivacyActions.ts](stores/settingsPrivacyActions.ts) (telemetry/clipboard consents + sensitive headers), [settingsSessionActions.ts](stores/settingsSessionActions.ts) (onboarding/tour/language/SQL workspace) | `(set[, get]) => Pick<SettingsState, …>` slices spread into `useSettingsStore` |
+| [telemetryConsentSource.ts](utils/telemetryConsentSource.ts) + [telemetryPolicy.ts](utils/telemetryPolicy.ts) | dependency-neutral consent reader registered after settings-store construction; fails closed during bootstrap and keeps telemetry out of the eager settings graph |
 | [uiStore.ts](stores/uiStore.ts)             | transient shell visibility, status notices, bottom panel, floating positions |
 | status notice API — [useStatusNotice.ts](hooks/useStatusNotice.ts) for React consumers and [statusNotice.ts](utils/statusNotice.ts) for imperative paths | tone-safe `info`/`success`/`warning`/`error` actions that preserve notice options while keeping direct store access out of producers |
 | [commandBus.ts](stores/commandBus.ts) + [useCommandListener.ts](hooks/useCommandListener.ts) | closed-map, synchronous renderer commands with no replay/state updates; priority + handled fallback semantics keep app coordination off the global DOM event target |
@@ -745,11 +746,17 @@ Keep tests close to the behavior they validate, even though the repository uses 
 | Language intelligence                   | `tests/languageIntelligence/*.test.ts`, `tests/languageSupportRegistry.test.ts` |
 | Licensing / server services             | `tests/services/*.test.ts`, license section/device component tests            |
 | i18n copy plumbing                      | `pnpm run check:i18n` and `pnpm run check:i18n:copy`                          |
+| Static runtime module boundaries        | `tests/build/staticImportCycles.test.ts`, `pnpm run check:deadcode`            |
 
 ## Anti-patterns to avoid
 
 - Putting feature state into `App.tsx` when a store already owns that concept.
 - Adding generic `shared`, `helpers`, or app-wide barrel layers that hide ownership.
+- Importing an assembled store from one of its own action factories; move the
+  shared runtime value to a dependency-neutral leaf or inject the dependency.
+- Replacing a deliberate dynamic-import activation boundary with an eager
+  import. The static graph guard excludes dynamic imports because they break
+  initialization cycles by design.
 - Storing translated labels in store state instead of resolving them at render time.
 - Mixing React orchestration, pure formatting, and side-effectful runtime work in one file.
 - Adding global CSS for a pattern that only exists in one component.

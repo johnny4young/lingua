@@ -40,12 +40,12 @@ function isMode(value: unknown): value is DiffTextOptions['mode'] {
   return value === 'unified' || value === 'json';
 }
 
-export interface DiffEntry {
+interface DiffEntry {
   kind: 'add' | 'remove' | 'same';
   text: string;
 }
 
-export type DiffComputeResult =
+type DiffComputeResult =
   | { ok: true; entries: ReadonlyArray<DiffEntry> }
   | { ok: false; reason: 'too-many-lines'; detail: string };
 

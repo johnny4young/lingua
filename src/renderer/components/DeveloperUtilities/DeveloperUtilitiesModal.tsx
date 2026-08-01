@@ -91,7 +91,7 @@ interface DeveloperUtilitiesWorkspaceBodyProps {
   active?: boolean;
 }
 
-export function DeveloperUtilitiesWorkspaceBody({
+function DeveloperUtilitiesWorkspaceBody({
   selectedUtilityId,
   onSelectUtility,
   autoFocusSearch = true,

@@ -103,7 +103,7 @@ export interface BuildSharePayloadInput {
   readonly stdinBuffer?: string;
 }
 
-export type ShareEncodeError =
+type ShareEncodeError =
   | 'unknown-language'
   | 'source-too-large'
   | 'fragment-too-large';
@@ -112,7 +112,7 @@ export type ShareEncodeResult =
   | { ok: true; fragment: string; sizeBytes: number }
   | { ok: false; reason: ShareEncodeError; sizeBytes: number };
 
-export type ShareDecodeError =
+type ShareDecodeError =
   | 'invalid-prefix'
   | 'invalid-base64'
   | 'gzip-corrupt'

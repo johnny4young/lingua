@@ -5,9 +5,6 @@ import type { LayoutPreset } from '../../types/settings';
 // call sites keep their import path.
 export {
   EDITOR_THEMES,
-  EDITOR_THEME_IDS,
-  isDarkEditorTheme,
-  type EditorThemeOption,
 } from '../../utils/editorThemeCatalog';
 
 export interface FontFamilyOption {

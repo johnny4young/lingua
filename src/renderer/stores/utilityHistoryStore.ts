@@ -48,7 +48,7 @@ import { pushUpsellNotice } from '../utils/upsellNotice';
 export const UTILITY_HISTORY_STORAGE_KEY = 'lingua-utility-state';
 export const MAX_ENTRIES_PER_TOOL = 10;
 export const MAX_BYTES_PER_ENTRY = 16_384;
-export const MAX_BYTES_PERSISTED = 256_000;
+const MAX_BYTES_PERSISTED = 256_000;
 
 const TEXT_ENCODER = new TextEncoder();
 const TRUNCATION_SUFFIX = '…';

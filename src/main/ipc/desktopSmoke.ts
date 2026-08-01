@@ -188,5 +188,3 @@ export function registerDesktopSmokeHandlers(): void {
     });
   });
 }
-
-export { sanitizeArtifactName };

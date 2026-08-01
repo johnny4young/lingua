@@ -55,7 +55,6 @@ export type {
   GitDetectResult,
   GitFileDiff,
   GitFileStatus,
-  GitFileStatusKind,
   GitHeadChangePayload,
   GitHeadWatcherDiagnostic,
 } from '../shared/gitTypes';

@@ -70,8 +70,6 @@ import type {
 } from '../shared/nativeRuntimeTypes';
 export type {
   RubyDetectResult,
-  RubyRunKind,
-  RubyRunResult,
 } from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(childProc.execFile);
@@ -102,7 +100,7 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
   };
 }
 
-export interface RubyRunOptions {
+interface RubyRunOptions {
   /** Renderer-minted correlation id. Lets `ruby:stop` terminate the exact child. */
   runId?: string;
   /** Per-call timeout (ms). Defaults to 30 s when omitted. */
@@ -195,7 +193,7 @@ export async function detectRuby(
   return result;
 }
 
-export function resolveRubyRunEnv(
+function resolveRubyRunEnv(
   userEnv?: Record<string, string>,
   overrides: Record<string, string> = {}
 ): NodeJS.ProcessEnv {
@@ -303,7 +301,7 @@ export async function findRubyVersionFile(
  * file's directory so relative `require_relative` paths resolve;
  * Scratchpad falls back to the OS temp directory.
  */
-export function resolveRubyCwd(filePath?: string): string {
+function resolveRubyCwd(filePath?: string): string {
   if (filePath) return path.dirname(filePath);
   return app.getPath('temp');
 }
@@ -489,7 +487,7 @@ async function runRubyCode(
   return spawnRuby(source, options);
 }
 
-export function stopRubyRun(runId: unknown): { stopped: boolean } {
+function stopRubyRun(runId: unknown): { stopped: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { stopped: false };
   const stop = activeRubyRuns.get(normalizedRunId);
@@ -499,7 +497,7 @@ export function stopRubyRun(runId: unknown): { stopped: boolean } {
 }
 
 /** implementation — write a chunk to an interactive Ruby run's stdin. */
-export function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
+function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId || typeof data !== 'string') return { written: false };
   // Bound a single write so a renderer bug cannot balloon the child's stdin
@@ -516,7 +514,7 @@ export function writeRubyStdin(runId: unknown, data: unknown): { written: boolea
 }
 
 /** implementation — close an interactive Ruby run's stdin (EOF). */
-export function closeRubyStdin(runId: unknown): { closed: boolean } {
+function closeRubyStdin(runId: unknown): { closed: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { closed: false };
   const stream = activeRubyStdins.get(normalizedRunId);
@@ -528,11 +526,6 @@ export function closeRubyStdin(runId: unknown): { closed: boolean } {
   }
   activeRubyStdins.delete(normalizedRunId);
   return { closed: true };
-}
-
-/** Test seam — clear interactive Ruby stdin registry. */
-export function _resetRubyStdinsForTests(): void {
-  activeRubyStdins.clear();
 }
 
 /** Register all Ruby-related IPC handlers. */

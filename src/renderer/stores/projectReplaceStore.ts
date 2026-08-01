@@ -22,7 +22,7 @@ import { create } from 'zustand';
 import i18next from 'i18next';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
-export type ProjectReplaceStatus = 'idle' | 'loading' | 'ready' | 'error';
+type ProjectReplaceStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface ProjectReplaceMatch {
   readonly line: number;
@@ -53,7 +53,7 @@ export interface ProjectReplaceResult {
  * `done / total files`. The strip persists for a brief moment after
  * completion so the user sees the final count.
  */
-export interface ProjectReplaceProgress {
+interface ProjectReplaceProgress {
   readonly done: number;
   readonly total: number;
 }

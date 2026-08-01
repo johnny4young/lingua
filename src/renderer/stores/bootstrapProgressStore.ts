@@ -11,7 +11,7 @@
 import { create } from 'zustand';
 import type { Language } from '../types/language';
 
-export type BootstrapLanguage = Extract<Language, 'python' | 'ruby'>;
+type BootstrapLanguage = Extract<Language, 'python' | 'ruby'>;
 
 export interface BootstrapProgress {
   /** Language whose runtime is booting (`python` / `ruby`). */
