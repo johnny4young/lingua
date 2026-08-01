@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Added
+- **The CLI is now comfortable in an interactive shell:** `lingua completion bash|zsh|fish` generates deterministic scripts from the shipped command and utility vocabulary, while `--color=auto|always|never` follows terminal capabilities and `NO_COLOR` without ever contaminating JSON or completion output. Every command now shares the same human `error[reason]` diagnostic shape, and malformed argv can return the established `{ ok, reason, detail }` JSON contract instead of mixing plain stderr into automation.
 - **The headless CLI now runs files, project roots, and Run Capsules:** `lingua run` executes JavaScript, TypeScript, Python, Go, Rust, Ruby, and Lua sources through installed toolchains, resolves standard Node/Go/Cargo projects plus conventional entries, forwards stdin/argv, and owns bounded output, timeout, and process-tree cleanup. `lingua capsule replay` verifies the shared schema and source hash before execution, preserves recorded stdin/argv, and reports status/stdout/stderr drift in plain or stable JSON output without importing Electron or renderer code.
 
 ### Changed

@@ -73,7 +73,7 @@
       "items": [
         {
           "title": "Complete CLI distribution",
-          "scope": "Utility commands, file/project execution, and Capsule validation/replay ship today. Completions, automatic color, stable error presentation, signed binaries, and package publication remain.",
+          "scope": "Utility commands, file/project execution, Capsule validation/replay, Bash/Zsh/Fish completions, automatic color, and stable errors ship today. Signed binaries and package publication remain.",
           "status": "Partial",
           "theme": "CLI & compatibility"
         },

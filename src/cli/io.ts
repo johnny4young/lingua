@@ -27,10 +27,25 @@ export interface CliIo {
    * empty.
    */
   readStdin(): Promise<string | null>;
+  /** Whether stdout can render ANSI colors safely. */
+  stdoutSupportsColor: boolean;
+  /** Whether stderr can render ANSI colors safely. */
+  stderrSupportsColor: boolean;
+  /** Read one process environment value without exposing a mutable env object. */
+  getEnvironmentValue(name: string): string | undefined;
 }
 
 export function createDefaultIo(): CliIo {
   return {
+    stdoutSupportsColor:
+      process.stdout.isTTY === true &&
+      (typeof process.stdout.hasColors !== 'function' || process.stdout.hasColors()),
+    stderrSupportsColor:
+      process.stderr.isTTY === true &&
+      (typeof process.stderr.hasColors !== 'function' || process.stderr.hasColors()),
+    getEnvironmentValue(name) {
+      return process.env[name];
+    },
     writeStdout(text) {
       process.stdout.write(text);
     },

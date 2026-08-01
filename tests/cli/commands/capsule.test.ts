@@ -277,6 +277,8 @@ describe('runReplayCapsuleCommand', () => {
     expect(code).toBe(CLI_EXIT_CODES.runtimeError);
     expect(JSON.parse(state.stdout)).toMatchObject({
       ok: false,
+      reason: 'timeout',
+      detail: expect.any(String),
       comparison: { matches: true, status: true, stdout: true, stderr: true },
       run: { status: 'timeout', reason: 'timeout' },
     });

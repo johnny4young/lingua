@@ -70,6 +70,29 @@ describe('lingua run command', () => {
     expect(state.stderr).toBe('');
   });
 
+  it('promotes runtime failure reason and detail into the stable JSON envelope', async () => {
+    const script = await writeScript('process.stderr.write("boom\\n"); process.exit(7)');
+    const { io, state } = createFakeIo();
+    const code = await runTargetCommand(
+      {
+        target: script,
+        env: [],
+        programArgs: [],
+        json: true,
+        quiet: false,
+      },
+      io
+    );
+    expect(code).toBe(CLI_EXIT_CODES.runtimeError);
+    expect(JSON.parse(state.stdout)).toMatchObject({
+      ok: false,
+      reason: 'non-zero-exit',
+      detail: expect.any(String),
+      run: { status: 'error', reason: 'non-zero-exit', exitCode: 7, stderr: 'boom\n' },
+    });
+    expect(state.stderr).toBe('');
+  });
+
   it('maps missing and unsupported targets to stable preflight exits', async () => {
     const missing = createFakeIo();
     expect(

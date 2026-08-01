@@ -22,6 +22,8 @@ import {
   type RunCapsuleV1,
 } from '../../shared/runCapsule';
 import type { CliIo } from '../io';
+import type { CliColorMode } from '../commandModel';
+import { emitCliFailure, renderCliNotice, renderCliSuccess } from '../presentation';
 import { CliEnvironmentError, buildCliRuntimeEnvironment } from '../runtime/environment';
 import { executeCliPlan } from '../runtime/execution';
 import { ExecutionTargetError, resolveCapsuleSource } from '../runtime/targets';
@@ -31,6 +33,7 @@ export interface ValidateCapsuleArgs {
   filePath: string;
   json: boolean;
   quiet: boolean;
+  color?: CliColorMode;
 }
 
 export interface ReplayCapsuleArgs extends ValidateCapsuleArgs {
@@ -54,7 +57,7 @@ export async function runValidateCapsuleCommand(
     return CLI_EXIT_CODES.ok;
   }
   if (!args.quiet) {
-    io.writeStdout(`${summary}\n`);
+    io.writeStdout(`${renderCliSuccess(io, args.color, summary)}\n`);
   }
   return CLI_EXIT_CODES.ok;
 }
@@ -162,9 +165,11 @@ export async function runReplayCapsuleCommand(
     !args.json
   );
   if (!args.json && !args.quiet) {
-    io.writeStderr(
+    const comparisonNotice =
       `${label}: ${comparison.matches ? 'recorded output matches' : 'recorded output differs'} ` +
-        `(status=${comparison.status}, stdout=${comparison.stdout}, stderr=${comparison.stderr})\n`
+      `(status=${comparison.status}, stdout=${comparison.stdout}, stderr=${comparison.stderr})`;
+    io.writeStderr(
+      `${renderCliNotice(io, args.color, comparisonNotice, comparison.matches ? 'success' : 'warning')}\n`
     );
   }
 
@@ -222,10 +227,13 @@ function emit(
   }
   if (args.quiet) return;
   if (ok) {
-    io.writeStdout(`${reasonOrSummary}\n`);
+    io.writeStdout(`${renderCliSuccess(io, args.color, reasonOrSummary)}\n`);
   } else {
-    const suffix = detail ? `: ${detail}` : '';
-    io.writeStderr(`lingua capsule validate: ${reasonOrSummary}${suffix}\n`);
+    emitCliFailure(io, args, {
+      label: 'lingua capsule validate',
+      reason: reasonOrSummary,
+      detail: detail ?? 'Capsule validation failed.',
+    });
   }
 }
 

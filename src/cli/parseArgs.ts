@@ -11,6 +11,7 @@
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
  *   lingua list utilities [--json]            (implementation note)
+ *   lingua completion bash|zsh|fish
  *   lingua --version                          (implementation note)
  *   lingua --help | lingua <cmd> --help
  *
@@ -19,6 +20,15 @@
  * whitelist per command keeps drift detectable — adding a new flag
  * is a code change in this file, not a silent acceptance.
  */
+
+import {
+  CLI_COLOR_MODES,
+  CLI_COMPLETION_SHELLS,
+  isCliColorMode,
+  isCliCompletionShell,
+  type CliColorMode,
+  type CliCompletionShell,
+} from './commandModel';
 
 export class CliUsageError extends Error {
   /** Marker so the dispatcher can branch without `instanceof` brittleness. */
@@ -35,6 +45,7 @@ export type CliCommandName =
   | 'capsule-replay'
   | 'run'
   | 'list-utilities'
+  | 'completion'
   | 'help'
   | 'version';
 
@@ -49,6 +60,8 @@ export interface ParsedArgs {
   flags: {
     json: boolean;
     quiet: boolean;
+    /** ANSI styling policy for human-facing diagnostics/help. */
+    color: CliColorMode;
     /** `--input <path>`. Only used by the `utility` command. */
     input?: string;
     /** `--stdin <path>`. Only used by `run`. */
@@ -69,6 +82,7 @@ export interface ParsedArgs {
 interface InProgressFlags {
   json: boolean;
   quiet: boolean;
+  color: CliColorMode;
   input?: string;
   stdin?: string;
   timeoutMs?: number;
@@ -79,17 +93,18 @@ interface InProgressFlags {
 }
 
 /** Flags every command accepts. */
-const GLOBAL_FLAGS = new Set(['--json', '--quiet', '--help', '-h']);
+const GLOBAL_FLAGS = new Set(['--json', '--quiet', '--color', '--help', '-h']);
 /** Flags ONLY the `utility` subcommand accepts. */
 const UTILITY_ONLY_FLAGS = new Set(['--input', '--option']);
 
 /** Parse the argv tail (after the node bin + script path). */
 export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
-  const args = [...argv];
+  const extracted = extractColorFlag(argv);
+  const args = extracted.argv;
 
   // No args at all → top-level help.
   if (args.length === 0) {
-    return finalize('help', [], freshFlags());
+    return finalize('help', [], freshFlags(extracted.color));
   }
 
   const first = args[0]!;
@@ -99,33 +114,37 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
         `--version does not accept additional arguments (got: ${args.slice(1).join(' ')})`
       );
     }
-    return finalize('version', [], freshFlags());
+    return finalize('version', [], freshFlags(extracted.color));
   }
   if (first === '--help' || first === '-h') {
-    return finalize('help', [], { ...freshFlags(), help: true });
+    return finalize('help', [], { ...freshFlags(extracted.color), help: true });
   }
 
   // Subcommand dispatch.
   if (first === 'utility') {
-    return parseUtility(args.slice(1));
+    return parseUtility(args.slice(1), extracted.color);
   }
   if (first === 'run') {
-    return parseRun(args.slice(1));
+    return parseRun(args.slice(1), extracted.color);
   }
   if (first === 'capsule') {
-    return parseCapsule(args.slice(1));
+    return parseCapsule(args.slice(1), extracted.color);
   }
   if (first === 'list') {
-    return parseList(args.slice(1));
+    return parseList(args.slice(1), extracted.color);
+  }
+  if (first === 'completion') {
+    return parseCompletion(args.slice(1), extracted.color);
   }
 
   throw new CliUsageError(`Unknown command "${first}". Run "lingua --help" for usage.`);
 }
 
-function freshFlags(): InProgressFlags {
+function freshFlags(color: CliColorMode = 'auto'): InProgressFlags {
   return {
     json: false,
     quiet: false,
+    color,
     options: [],
     env: [],
     programArgs: [],
@@ -144,6 +163,7 @@ function finalize(
     flags: {
       json: flags.json,
       quiet: flags.quiet,
+      color: flags.color,
       ...(flags.input !== undefined ? { input: flags.input } : {}),
       ...(flags.stdin !== undefined ? { stdin: flags.stdin } : {}),
       ...(flags.timeoutMs !== undefined ? { timeoutMs: flags.timeoutMs } : {}),
@@ -155,10 +175,10 @@ function finalize(
   };
 }
 
-function parseRun(rest: ReadonlyArray<string>): ParsedArgs {
+function parseRun(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
   const separator = rest.indexOf('--');
   const commandArgs = separator >= 0 ? rest.slice(0, separator) : rest;
-  const flags = freshFlags();
+  const flags = freshFlags(color);
   if (separator >= 0) flags.programArgs = rest.slice(separator + 1);
   const positionals: string[] = [];
 
@@ -194,7 +214,7 @@ function parseRun(rest: ReadonlyArray<string>): ParsedArgs {
     }
     if (arg.startsWith('-')) {
       throw new CliUsageError(
-        `Unknown flag "${arg}" for "lingua run". Allowed: --stdin, --timeout, --env, --json, --quiet, --help, --`
+        `Unknown flag "${arg}" for "lingua run". Allowed: --stdin, --timeout, --env, --json, --quiet, --color, --help, --`
       );
     }
     positionals.push(arg);
@@ -204,8 +224,8 @@ function parseRun(rest: ReadonlyArray<string>): ParsedArgs {
   return finalize('run', positionals, flags);
 }
 
-function parseUtility(rest: ReadonlyArray<string>): ParsedArgs {
-  const flags = freshFlags();
+function parseUtility(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
+  const flags = freshFlags(color);
   const positionals: string[] = [];
   for (let i = 0; i < rest.length; i += 1) {
     const arg = rest[i]!;
@@ -273,7 +293,7 @@ function parseUtility(rest: ReadonlyArray<string>): ParsedArgs {
   return finalize('utility', positionals, flags);
 }
 
-function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
+function parseCapsule(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
   if (rest.length === 0) {
     throw new CliUsageError(
       'lingua capsule requires a subcommand. Available: validate <file>, replay <file>'
@@ -281,17 +301,17 @@ function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
   }
   const sub = rest[0]!;
   if (sub === '--help' || sub === '-h') {
-    return finalize('capsule-validate', [], { ...freshFlags(), help: true });
+    return finalize('capsule-validate', [], { ...freshFlags(color), help: true });
   }
   if (sub === 'replay') {
-    return parseCapsuleReplay(rest.slice(1));
+    return parseCapsuleReplay(rest.slice(1), color);
   }
   if (sub !== 'validate') {
     throw new CliUsageError(
       `Unknown capsule subcommand "${sub}". Available: validate <file>, replay <file>`
     );
   }
-  const flags = freshFlags();
+  const flags = freshFlags(color);
   const positionals: string[] = [];
   for (let i = 1; i < rest.length; i += 1) {
     const arg = rest[i]!;
@@ -309,7 +329,7 @@ function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
     }
     if (arg.startsWith('--')) {
       throw new CliUsageError(
-        `Unknown flag "${arg}" for "lingua capsule validate". Allowed: --json, --quiet, --help`
+        `Unknown flag "${arg}" for "lingua capsule validate". Allowed: --json, --quiet, --color, --help`
       );
     }
     positionals.push(arg);
@@ -325,8 +345,8 @@ function parseCapsule(rest: ReadonlyArray<string>): ParsedArgs {
   return finalize('capsule-validate', positionals, flags);
 }
 
-function parseCapsuleReplay(rest: ReadonlyArray<string>): ParsedArgs {
-  const flags = freshFlags();
+function parseCapsuleReplay(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
+  const flags = freshFlags(color);
   const positionals: string[] = [];
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index]!;
@@ -351,7 +371,7 @@ function parseCapsuleReplay(rest: ReadonlyArray<string>): ParsedArgs {
     }
     if (arg.startsWith('-')) {
       throw new CliUsageError(
-        `Unknown flag "${arg}" for "lingua capsule replay". Allowed: --timeout, --env, --json, --quiet, --help`
+        `Unknown flag "${arg}" for "lingua capsule replay". Allowed: --timeout, --env, --json, --quiet, --color, --help`
       );
     }
     positionals.push(arg);
@@ -360,18 +380,18 @@ function parseCapsuleReplay(rest: ReadonlyArray<string>): ParsedArgs {
   return finalize('capsule-replay', positionals, flags);
 }
 
-function parseList(rest: ReadonlyArray<string>): ParsedArgs {
+function parseList(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
   if (rest.length === 0) {
     throw new CliUsageError('lingua list requires a subcommand. implementation ships: utilities');
   }
   const sub = rest[0]!;
   if (sub === '--help' || sub === '-h') {
-    return finalize('list-utilities', [], { ...freshFlags(), help: true });
+    return finalize('list-utilities', [], { ...freshFlags(color), help: true });
   }
   if (sub !== 'utilities') {
     throw new CliUsageError(`Unknown list subcommand "${sub}". implementation ships: utilities`);
   }
-  const flags = freshFlags();
+  const flags = freshFlags(color);
   for (let i = 1; i < rest.length; i += 1) {
     const arg = rest[i]!;
     if (arg === '--help' || arg === '-h') {
@@ -387,10 +407,98 @@ function parseList(rest: ReadonlyArray<string>): ParsedArgs {
       continue;
     }
     throw new CliUsageError(
-      `Unknown argument "${arg}" for "lingua list utilities". Allowed: --json, --quiet, --help`
+      `Unknown argument "${arg}" for "lingua list utilities". Allowed: --json, --quiet, --color, --help`
     );
   }
   return finalize('list-utilities', [], flags);
+}
+
+function parseCompletion(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
+  const flags = freshFlags(color);
+  const positionals: string[] = [];
+  for (const arg of rest) {
+    if (arg === '--help' || arg === '-h') {
+      flags.help = true;
+      continue;
+    }
+    if (arg.startsWith('-')) {
+      throw new CliUsageError(
+        `Unknown flag "${arg}" for "lingua completion". Allowed: --color, --help`
+      );
+    }
+    positionals.push(arg);
+  }
+  if (!flags.help && positionals.length === 0) {
+    throw new CliUsageError(
+      `lingua completion requires a <shell> positional. Available: ${CLI_COMPLETION_SHELLS.join(', ')}`
+    );
+  }
+  if (positionals.length > 1) {
+    throw new CliUsageError(
+      `lingua completion accepts one <shell>; got ${positionals.length}: ${positionals.join(', ')}`
+    );
+  }
+  const shell = positionals[0];
+  if (!flags.help && shell !== undefined && !isCliCompletionShell(shell)) {
+    throw new CliUsageError(
+      `Unknown completion shell "${shell}". Available: ${CLI_COMPLETION_SHELLS.join(', ')}`
+    );
+  }
+  return finalize('completion', positionals, flags);
+}
+
+interface ExtractedColorFlag {
+  argv: string[];
+  color: CliColorMode;
+}
+
+/** Remove one global --color flag without touching program args after `--`. */
+function extractColorFlag(argv: ReadonlyArray<string>): ExtractedColorFlag {
+  const separator = argv.indexOf('--');
+  const scanLimit = separator >= 0 ? separator : argv.length;
+  const retained: string[] = [];
+  let color: CliColorMode = 'auto';
+  let seen = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index]!;
+    if (index >= scanLimit) {
+      retained.push(arg);
+      continue;
+    }
+
+    let raw: string | undefined;
+    if (arg === '--color') {
+      const next = argv[index + 1];
+      if (next === undefined || index + 1 >= scanLimit) {
+        throw new CliUsageError('--color requires a value: auto, always, or never');
+      }
+      raw = next;
+      index += 1;
+    } else if (arg.startsWith('--color=')) {
+      raw = arg.slice('--color='.length);
+    }
+
+    if (raw === undefined) {
+      retained.push(arg);
+      continue;
+    }
+    if (seen) throw new CliUsageError('--color may be specified only once');
+    if (!isCliColorMode(raw)) {
+      throw new CliUsageError(
+        `--color expects ${CLI_COLOR_MODES.join('|')}; got "${raw || '(empty)'}"`
+      );
+    }
+    seen = true;
+    color = raw;
+  }
+  return { argv: retained, color };
+}
+
+export function getCompletionShell(parsed: ParsedArgs): CliCompletionShell | undefined {
+  if (parsed.command !== 'completion') return undefined;
+  const shell = parsed.positionals[0];
+  return shell !== undefined && isCliCompletionShell(shell) ? shell : undefined;
 }
 
 /** Parse a `key=value` token. Rejects empty keys but allows `=` inside the value. */

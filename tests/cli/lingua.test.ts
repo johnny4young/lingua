@@ -45,7 +45,30 @@ describe('dispatch', () => {
     const code = await dispatch(['bogus-command'], io);
     expect(code).toBe(CLI_EXIT_CODES.userInputError);
     expect(state.stderr).toContain('lingua:');
+    expect(state.stderr).toContain('error[invalid-arguments]');
     expect(state.stderr).toContain('Unknown command');
+  });
+
+  it('keeps parse failures machine-readable when --json is present', async () => {
+    const { io, state } = createFakeIo();
+    const code = await dispatch(['bogus-command', '--json'], io);
+    expect(code).toBe(CLI_EXIT_CODES.userInputError);
+    expect(state.stderr).toBe('');
+    expect(JSON.parse(state.stdout)).toEqual({
+      ok: false,
+      reason: 'invalid-arguments',
+      detail: 'Unknown command "bogus-command". Run "lingua --help" for usage.',
+    });
+  });
+
+  it('colors help only when explicitly requested', async () => {
+    const forced = createFakeIo();
+    await dispatch(['--color=always', '--help'], forced.io);
+    expect(forced.state.stdout).toContain('\u001b[');
+
+    const disabled = createFakeIo({ stdoutSupportsColor: true });
+    await dispatch(['--color=never', '--help'], disabled.io);
+    expect(disabled.state.stdout).not.toContain('\u001b[');
   });
 
   it('routes utility command through to the handler', async () => {
@@ -71,6 +94,14 @@ describe('dispatch', () => {
     // implementation — 23 adapters after the generator-style holdouts
     // (uuid / lorem-ipsum / string-inspect) landed.
     expect(parsed.utilities).toHaveLength(23);
+  });
+
+  it.each(['bash', 'zsh', 'fish'] as const)('renders %s completion without ANSI', async shell => {
+    const { io, state } = createFakeIo({ stdoutSupportsColor: true });
+    const code = await dispatch(['completion', shell, '--color=always'], io);
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    expect(state.stdout).toContain('lingua');
+    expect(state.stdout).not.toContain('\u001b[');
   });
 
   it('routes run through the headless executor', async () => {

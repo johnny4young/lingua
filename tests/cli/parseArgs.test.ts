@@ -31,6 +31,7 @@ describe('parseArgs', () => {
       flags: {
         json: false,
         quiet: false,
+        color: 'auto',
         options: [],
         env: [],
         programArgs: [],
@@ -56,6 +57,16 @@ describe('parseArgs', () => {
     const parsed = parseArgs(['--help']);
     expect(parsed.command).toBe('help');
     expect(parsed.flags.help).toBe(true);
+  });
+
+  it('parses one global color policy before or after the command', () => {
+    expect(parseArgs(['--color=always', 'run', './index.js']).flags.color).toBe('always');
+    expect(parseArgs(['run', './index.js', '--color', 'never']).flags.color).toBe('never');
+  });
+
+  it('rejects invalid or repeated color policies', () => {
+    expect(() => parseArgs(['--color=sometimes', '--help'])).toThrow(CliUsageError);
+    expect(() => parseArgs(['--color=always', '--color=never', '--help'])).toThrow(CliUsageError);
   });
 
   describe('utility', () => {
@@ -184,6 +195,12 @@ describe('parseArgs', () => {
       expect(parsed.flags.json).toBe(true);
     });
 
+    it('preserves --color after the program-argument separator', () => {
+      const parsed = parseArgs(['run', './script.js', '--', '--color=always']);
+      expect(parsed.flags.color).toBe('auto');
+      expect(parsed.flags.programArgs).toEqual(['--color=always']);
+    });
+
     it('rejects missing or multiple targets', () => {
       expect(() => parseArgs(['run'])).toThrow(CliUsageError);
       expect(() => parseArgs(['run', 'one.js', 'two.js'])).toThrow(CliUsageError);
@@ -241,6 +258,19 @@ describe('parseArgs', () => {
 
     it('rejects unknown flags', () => {
       expect(() => parseArgs(['list', 'utilities', '--input', 'foo'])).toThrow(CliUsageError);
+    });
+  });
+
+  describe('completion', () => {
+    it.each(['bash', 'zsh', 'fish'] as const)('accepts the %s shell', shell => {
+      const parsed = parseArgs(['completion', shell]);
+      expect(parsed.command).toBe('completion');
+      expect(parsed.positionals).toEqual([shell]);
+    });
+
+    it('rejects a missing or unknown shell', () => {
+      expect(() => parseArgs(['completion'])).toThrow(CliUsageError);
+      expect(() => parseArgs(['completion', 'powershell'])).toThrow(CliUsageError);
     });
   });
 

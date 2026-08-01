@@ -34,6 +34,42 @@ To uninstall:
 pnpm uninstall --global lingua
 ```
 
+## Shell completion
+
+`lingua completion` prints deterministic, network-free completion scripts. It
+never emits ANSI styling, so the output can be sourced for the current session
+or written to the shell's normal completion directory.
+
+### Bash
+
+```bash
+source <(lingua completion bash) # current session
+
+# Persistent with bash-completion (create the directory if needed)
+lingua completion bash > ~/.local/share/bash-completion/completions/lingua
+```
+
+### Zsh
+
+```zsh
+mkdir -p ~/.zfunc
+lingua completion zsh > ~/.zfunc/_lingua
+fpath=(~/.zfunc $fpath)
+autoload -Uz compinit && compinit
+```
+
+Keep the `fpath` and `compinit` lines in `.zshrc` for future sessions.
+
+### Fish
+
+```fish
+mkdir -p ~/.config/fish/completions
+lingua completion fish > ~/.config/fish/completions/lingua.fish
+```
+
+All three scripts complete commands, command-specific flags, color modes,
+Capsule actions, shells, files, and the shared utility registry.
+
 ## Commands
 
 ### `lingua utility <utility-id>`
@@ -61,6 +97,8 @@ Flags:
   instead of plain text. Stable across releases; snapshot tests pin the shape.
 - `--quiet` — suppress error stderr. Success stdout is preserved so
   pipelines stay byte-stable.
+- `--color <auto|always|never>` — control human-facing diagnostic styling.
+  The default `auto` colors only a capable TTY and honors `NO_COLOR`.
 
 ### `lingua capsule validate <file>`
 
@@ -188,6 +226,35 @@ lingua list utilities --json   # structured for tooling
 `--version` (or `-v`) prints the CLI version (bound at bundle time
 from `package.json`). `--help` (or `-h`) prints the help text.
 
+## Output and error contract
+
+`--color=auto` is the default. It uses the color capability of the destination
+stream and disables styling whenever `NO_COLOR` is present. An explicit
+`--color=always` or `--color=never` takes precedence over the environment.
+Structured JSON and generated completion scripts never contain ANSI bytes,
+even with `--color=always`.
+
+Every human-facing Lingua failure now uses one grep-friendly shape:
+
+```text
+lingua run: error[missing-runtime]: Required runtime "lua" is not available on PATH.
+```
+
+The value inside `error[...]` is the same stable `reason` emitted in JSON:
+
+```json
+{
+  "ok": false,
+  "reason": "missing-runtime",
+  "detail": "Required runtime \"lua\" is not available on PATH."
+}
+```
+
+This contract also applies to malformed argv. For example,
+`lingua unknown --json` returns a parseable `invalid-arguments` document rather
+than mixing a plain error into stderr. Command-specific success envelopes and
+the documented exit codes remain unchanged.
+
 ## Exit codes
 
 CI scripts can depend on these numbers being stable across releases.
@@ -207,10 +274,8 @@ Adding new codes is allowed; renumbering existing ones is forbidden
 - `lingua lesson validate` — lesson validation is not exposed through the CLI.
 - Standalone binaries (`pkg`, `nexe`) and Windows code-signing —
   planned follow-up work.
-- Shell completions (`lingua completion bash|zsh|fish`) — planned follow-up.
 - Localized CLI copy — the CLI currently ships English-only copy, consistent
   with the repository's `electron-forge` and `electron-builder` tooling.
-- TTY color codes / `--color=auto` — planned follow-up.
 - Multi-file Capsule replay — the v1 Capsule schema intentionally stores one
   source buffer, not a project archive.
 

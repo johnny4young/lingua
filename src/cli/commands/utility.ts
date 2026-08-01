@@ -31,6 +31,8 @@ import {
 } from '../../shared/utilities/types';
 import { getAdapter, listAdapters } from '../../shared/utilities/registry';
 import type { CliIo } from '../io';
+import type { CliColorMode } from '../commandModel';
+import { emitCliFailure } from '../presentation';
 
 export interface RunUtilityArgs {
   utilityId: string;
@@ -38,18 +40,15 @@ export interface RunUtilityArgs {
   options: ReadonlyArray<{ key: string; value: string }>;
   json: boolean;
   quiet: boolean;
+  color?: CliColorMode;
 }
 
-export async function runUtilityCommand(
-  args: RunUtilityArgs,
-  io: CliIo
-): Promise<CliExitCode> {
+export async function runUtilityCommand(args: RunUtilityArgs, io: CliIo): Promise<CliExitCode> {
   // 1. Resolve the adapter.
   const adapter = getAdapter(args.utilityId);
   if (!adapter) {
     const known = (UTILITY_ADAPTER_IDS as readonly string[]).slice().sort();
-    const truncated =
-      known.length <= 6 ? known.join(', ') : `${known.slice(0, 5).join(', ')}, ...`;
+    const truncated = known.length <= 6 ? known.join(', ') : `${known.slice(0, 5).join(', ')}, ...`;
     emitError(
       io,
       args,
@@ -173,7 +172,7 @@ function buildOptionsBlob(
   const blob: Record<string, unknown> = {
     ...(adapter.defaultOptions() as Record<string, unknown>),
   };
-  const allowedKeys = new Set(adapter.optionsSchema.map((field) => field.key));
+  const allowedKeys = new Set(adapter.optionsSchema.map(field => field.key));
   for (const { key, value } of cliOptions) {
     if (!allowedKeys.has(key)) {
       throw new Error(
@@ -186,12 +185,8 @@ function buildOptionsBlob(
 }
 
 /** Cast a string CLI value into the adapter's declared field type. */
-function coerceOptionValue(
-  adapter: UtilityAdapter<unknown>,
-  key: string,
-  raw: string
-): unknown {
-  const field = adapter.optionsSchema.find((entry) => entry.key === key);
+function coerceOptionValue(adapter: UtilityAdapter<unknown>, key: string, raw: string): unknown {
+  const field = adapter.optionsSchema.find(entry => entry.key === key);
   if (!field) return raw;
   switch (field.type) {
     case 'text':
@@ -201,25 +196,13 @@ function coerceOptionValue(
     case 'boolean': {
       if (raw === 'true' || raw === '1' || raw === 'yes') return true;
       if (raw === 'false' || raw === '0' || raw === 'no') return false;
-      throw new Error(
-        `Option "${key}" expects a boolean (true|false|1|0|yes|no); got "${raw}"`
-      );
+      throw new Error(`Option "${key}" expects a boolean (true|false|1|0|yes|no); got "${raw}"`);
     }
   }
 }
 
-function emitError(
-  io: CliIo,
-  args: RunUtilityArgs,
-  reason: string,
-  detail: string
-): void {
-  if (args.json) {
-    io.writeStdout(`${JSON.stringify({ ok: false, reason, detail })}\n`);
-    return;
-  }
-  if (args.quiet) return;
-  io.writeStderr(`lingua utility: ${detail}\n`);
+function emitError(io: CliIo, args: RunUtilityArgs, reason: string, detail: string): void {
+  emitCliFailure(io, args, { label: 'lingua utility', reason, detail });
 }
 
 /**
@@ -228,16 +211,16 @@ function emitError(
  * `titleKey` is declared but not resolvable in CLI land).
  */
 export function runListUtilitiesCommand(
-  args: { json: boolean; quiet: boolean },
+  args: { json: boolean; quiet: boolean; color?: CliColorMode },
   io: CliIo
 ): CliExitCode {
-  const entries = listAdapters().map((adapter) => ({
+  const entries = listAdapters().map(adapter => ({
     id: adapter.id satisfies UtilityAdapterId,
     inputKind: adapter.inputKind,
     outputKind: adapter.outputKind,
     titleKey: adapter.titleKey,
     descriptionKey: adapter.descriptionKey,
-    optionKeys: adapter.optionsSchema.map((field) => field.key),
+    optionKeys: adapter.optionsSchema.map(field => field.key),
   }));
   if (args.json) {
     io.writeStdout(`${JSON.stringify({ utilities: entries }, null, 2)}\n`);
@@ -247,9 +230,7 @@ export function runListUtilitiesCommand(
   for (const entry of entries) {
     io.writeStdout(
       `${entry.id}\t${entry.inputKind} → ${entry.outputKind}` +
-        (entry.optionKeys.length > 0
-          ? `\toptions: ${entry.optionKeys.join(', ')}`
-          : '') +
+        (entry.optionKeys.length > 0 ? `\toptions: ${entry.optionKeys.join(', ')}` : '') +
         '\n'
     );
   }

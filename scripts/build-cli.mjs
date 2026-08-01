@@ -75,7 +75,7 @@ const sizeKb = (stats.size / 1024).toFixed(1);
 console.log(`[build-cli] wrote ${path.relative(repoRoot, outFile)} (${sizeKb} KiB)`);
 
 // Defensive bundle-size budget: warn loudly if the artifact grows
-// past 500 KiB. The current command/runtime surface is about 310 KiB.
+// past 500 KiB. The current command/runtime surface is about 325 KiB.
 const SOFT_CAP_BYTES = 500 * 1024;
 if (stats.size > SOFT_CAP_BYTES) {
   console.warn(

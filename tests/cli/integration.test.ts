@@ -21,11 +21,16 @@ import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 const BUNDLE_PATH = path.resolve(process.cwd(), 'dist/cli/lingua.cjs');
 const BUNDLE_AVAILABLE = existsSync(BUNDLE_PATH);
 
-function runCli(args: ReadonlyArray<string>, stdin?: string) {
+function runCli(
+  args: ReadonlyArray<string>,
+  stdin?: string,
+  environment: Readonly<Record<string, string | undefined>> = {}
+) {
   const result = spawnSync(process.execPath, [BUNDLE_PATH, ...args], {
     input: stdin,
     encoding: 'utf8',
     timeout: 10_000,
+    env: { ...process.env, ...environment },
   });
   return {
     code: result.status,
@@ -64,6 +69,30 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     expect(out.stderr).toContain('Unknown utility id');
   });
 
+  it('emits stable colored and JSON-safe parse failures', () => {
+    const colored = runCli(['unknown', '--color=always']);
+    expect(colored.code).toBe(1);
+    expect(colored.stderr).toContain('\u001b[');
+    expect(colored.stderr).toContain('error[invalid-arguments]');
+
+    const structured = runCli(['unknown', '--color=always', '--json']);
+    expect(structured.code).toBe(1);
+    expect(structured.stderr).toBe('');
+    expect(structured.stdout).not.toContain('\u001b[');
+    expect(JSON.parse(structured.stdout)).toMatchObject({
+      ok: false,
+      reason: 'invalid-arguments',
+    });
+  });
+
+  it('honors NO_COLOR in auto mode and explicit always overrides it', () => {
+    const automatic = runCli(['unknown'], undefined, { NO_COLOR: '1' });
+    expect(automatic.stderr).not.toContain('\u001b[');
+
+    const forced = runCli(['unknown', '--color=always'], undefined, { NO_COLOR: '1' });
+    expect(forced.stderr).toContain('\u001b[');
+  });
+
   it('lists utilities as JSON', () => {
     const out = runCli(['list', 'utilities', '--json']);
     expect(out.code).toBe(0);
@@ -72,6 +101,14 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     // (uuid / lorem-ipsum / string-inspect) landed. Runs against the
     // on-disk dist/cli bundle, so build:cli must run before this spec.
     expect(parsed.utilities).toHaveLength(23);
+  });
+
+  it.each(['bash', 'zsh', 'fish'] as const)('generates %s completion from the bundle', shell => {
+    const out = runCli(['completion', shell, '--color=always']);
+    expect(out.code).toBe(0);
+    expect(out.stderr).toBe('');
+    expect(out.stdout).toContain('lingua');
+    expect(out.stdout).not.toContain('\u001b[');
   });
 
   it('exits 1 with file-not-found when validating a missing capsule', () => {

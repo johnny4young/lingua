@@ -13,6 +13,7 @@
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
  *   lingua list utilities [--json] [--quiet]            (implementation note)
+ *   lingua completion bash|zsh|fish
  *   lingua --version                                    (implementation note)
  *   lingua --help | <cmd> --help
  *
@@ -31,9 +32,12 @@
 import { runReplayCapsuleCommand, runValidateCapsuleCommand } from './commands/capsule';
 import { runTargetCommand } from './commands/run';
 import { runListUtilitiesCommand, runUtilityCommand } from './commands/utility';
+import { isCliColorMode, type CliColorMode } from './commandModel';
+import { renderCompletion } from './completion';
 import { CLI_EXIT_CODES, type CliExitCode } from './exit-codes';
 import { createDefaultIo, type CliIo } from './io';
-import { CliUsageError, parseArgs, type ParsedArgs } from './parseArgs';
+import { CliUsageError, getCompletionShell, parseArgs, type ParsedArgs } from './parseArgs';
+import { emitCliFailure, renderCliHelp, type CliOutputOptions } from './presentation';
 
 declare const __LINGUA_CLI_VERSION__: string | undefined;
 
@@ -60,6 +64,7 @@ Usage:
   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>] [--env NAME=value ...]
              [--json] [--quiet] [-- args...]
   lingua list utilities [--json] [--quiet]
+  lingua completion bash|zsh|fish
   lingua --version
   lingua --help
 
@@ -69,6 +74,7 @@ Commands:
   capsule replay     Verify and execute the source/input recorded in a Capsule.
   run                Execute a supported source file or conventional project root.
   list utilities     Print the available utility ids + their input/output kinds.
+  completion         Generate a deterministic Bash, Zsh, or Fish completion script.
 
 Flags:
   --input <file>     Read input from <file> instead of stdin. (utility only)
@@ -78,6 +84,7 @@ Flags:
   --option key=value Repeated. Pass adapter options. (utility only)
   --json             Emit a structured JSON body instead of plain text.
   --quiet            Suppress Lingua diagnostics; preserve command output.
+  --color <mode>     Diagnostic color: auto, always, or never. Default: auto.
   --help, -h         Show this help.
   --version, -v      Print the CLI version.
 
@@ -98,6 +105,7 @@ Examples:
   lingua run ./script.py --stdin input.txt -- --verbose
   lingua run ./my-project --timeout 60000
   lingua list utilities --json
+  lingua completion zsh > ~/.zfunc/_lingua
 `;
 
 /**
@@ -105,21 +113,30 @@ Examples:
  * caller is responsible for `process.exit(code)`.
  */
 export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<CliExitCode> {
+  const fallbackOutput = sniffOutputOptions(argv);
   let parsed: ParsedArgs;
   try {
     parsed = parseArgs(argv);
   } catch (err) {
     if (err instanceof CliUsageError) {
-      io.writeStderr(`lingua: ${err.message}\n`);
+      emitCliFailure(io, fallbackOutput, {
+        label: 'lingua',
+        reason: 'invalid-arguments',
+        detail: err.message,
+      });
       return CLI_EXIT_CODES.userInputError;
     }
     const detail = err instanceof Error ? err.message : String(err);
-    io.writeStderr(`lingua: internal error during argv parsing: ${detail}\n`);
+    emitCliFailure(io, fallbackOutput, {
+      label: 'lingua',
+      reason: 'internal-argument-parser-error',
+      detail: `Internal error during argv parsing: ${detail}`,
+    });
     return CLI_EXIT_CODES.internal;
   }
 
   if (parsed.flags.help || parsed.command === 'help') {
-    io.writeStdout(HELP_TEXT);
+    io.writeStdout(renderCliHelp(io, parsed.flags.color, HELP_TEXT));
     return CLI_EXIT_CODES.ok;
   }
 
@@ -129,13 +146,34 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
   }
 
   if (parsed.command === 'list-utilities') {
-    return runListUtilitiesCommand({ json: parsed.flags.json, quiet: parsed.flags.quiet }, io);
+    return runListUtilitiesCommand(
+      { json: parsed.flags.json, quiet: parsed.flags.quiet, color: parsed.flags.color },
+      io
+    );
+  }
+
+  if (parsed.command === 'completion') {
+    const shell = getCompletionShell(parsed);
+    if (shell === undefined) {
+      emitCliFailure(io, parsed.flags, {
+        label: 'lingua completion',
+        reason: 'missing-shell',
+        detail: 'Expected one of: bash, zsh, fish.',
+      });
+      return CLI_EXIT_CODES.userInputError;
+    }
+    io.writeStdout(renderCompletion(shell));
+    return CLI_EXIT_CODES.ok;
   }
 
   if (parsed.command === 'utility') {
     const utilityId = parsed.positionals[0];
     if (utilityId === undefined) {
-      io.writeStderr('lingua: utility command missing <utility-id>\n');
+      emitCliFailure(io, parsed.flags, {
+        label: 'lingua utility',
+        reason: 'missing-utility-id',
+        detail: 'Expected a <utility-id> positional.',
+      });
       return CLI_EXIT_CODES.userInputError;
     }
     return runUtilityCommand(
@@ -145,6 +183,7 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
         options: parsed.flags.options,
         json: parsed.flags.json,
         quiet: parsed.flags.quiet,
+        color: parsed.flags.color,
       },
       io
     );
@@ -153,7 +192,11 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
   if (parsed.command === 'run') {
     const target = parsed.positionals[0];
     if (target === undefined) {
-      io.writeStderr('lingua: run command missing <file-or-directory>\n');
+      emitCliFailure(io, parsed.flags, {
+        label: 'lingua run',
+        reason: 'missing-target',
+        detail: 'Expected a <file-or-directory> positional.',
+      });
       return CLI_EXIT_CODES.userInputError;
     }
     return runTargetCommand(
@@ -165,6 +208,7 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
         programArgs: parsed.flags.programArgs,
         json: parsed.flags.json,
         quiet: parsed.flags.quiet,
+        color: parsed.flags.color,
       },
       io
     );
@@ -173,11 +217,20 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
   if (parsed.command === 'capsule-validate') {
     const filePath = parsed.positionals[0];
     if (filePath === undefined) {
-      io.writeStderr('lingua: capsule validate missing <file>\n');
+      emitCliFailure(io, parsed.flags, {
+        label: 'lingua capsule validate',
+        reason: 'missing-file',
+        detail: 'Expected a <file> positional.',
+      });
       return CLI_EXIT_CODES.userInputError;
     }
     return runValidateCapsuleCommand(
-      { filePath, json: parsed.flags.json, quiet: parsed.flags.quiet },
+      {
+        filePath,
+        json: parsed.flags.json,
+        quiet: parsed.flags.quiet,
+        color: parsed.flags.color,
+      },
       io
     );
   }
@@ -185,7 +238,11 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
   if (parsed.command === 'capsule-replay') {
     const filePath = parsed.positionals[0];
     if (filePath === undefined) {
-      io.writeStderr('lingua: capsule replay missing <file>\n');
+      emitCliFailure(io, parsed.flags, {
+        label: 'lingua capsule replay',
+        reason: 'missing-file',
+        detail: 'Expected a <file> positional.',
+      });
       return CLI_EXIT_CODES.userInputError;
     }
     return runReplayCapsuleCommand(
@@ -195,6 +252,7 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
         env: parsed.flags.env,
         json: parsed.flags.json,
         quiet: parsed.flags.quiet,
+        color: parsed.flags.color,
       },
       io
     );
@@ -203,8 +261,35 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
   // Exhaustiveness check — TypeScript catches unhandled command names
   // at compile time; this branch is unreachable.
   const exhaustive: never = parsed.command;
-  io.writeStderr(`lingua: unreachable command ${String(exhaustive)}\n`);
+  emitCliFailure(io, parsed.flags, {
+    label: 'lingua',
+    reason: 'internal-unreachable-command',
+    detail: `Unreachable command ${String(exhaustive)}.`,
+  });
   return CLI_EXIT_CODES.internal;
+}
+
+/** Best-effort output intent used even when the strict parser rejects argv. */
+function sniffOutputOptions(argv: ReadonlyArray<string>): CliOutputOptions {
+  const separator = argv.indexOf('--');
+  const scan = separator >= 0 ? argv.slice(0, separator) : argv;
+  let color: CliColorMode = 'auto';
+  for (let index = 0; index < scan.length; index += 1) {
+    const arg = scan[index]!;
+    const raw =
+      arg === '--color'
+        ? scan[index + 1]
+        : arg.startsWith('--color=')
+          ? arg.slice('--color='.length)
+          : undefined;
+    if (raw !== undefined && isCliColorMode(raw)) color = raw;
+    if (arg === '--color') index += 1;
+  }
+  return {
+    json: scan.includes('--json'),
+    quiet: scan.includes('--quiet'),
+    color,
+  };
 }
 
 async function main(): Promise<void> {

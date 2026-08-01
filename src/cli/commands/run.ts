@@ -3,6 +3,8 @@
 
 import { CLI_EXIT_CODES, type CliExitCode } from '../exit-codes';
 import type { CliIo } from '../io';
+import { emitCliFailure } from '../presentation';
+import type { CliColorMode } from '../commandModel';
 import { CliEnvironmentError, buildCliRuntimeEnvironment } from '../runtime/environment';
 import { executeCliPlan, type CliExecutionResult } from '../runtime/execution';
 import { ExecutionTargetError, resolveExecutionTarget } from '../runtime/targets';
@@ -15,6 +17,7 @@ export interface RunTargetArgs {
   programArgs: ReadonlyArray<string>;
   json: boolean;
   quiet: boolean;
+  color?: CliColorMode;
 }
 
 export async function runTargetCommand(args: RunTargetArgs, io: CliIo): Promise<CliExitCode> {
@@ -94,7 +97,7 @@ export async function runTargetCommand(args: RunTargetArgs, io: CliIo): Promise<
 }
 
 export function emitExecution(
-  args: Pick<RunTargetArgs, 'json' | 'quiet'>,
+  args: Pick<RunTargetArgs, 'json' | 'quiet' | 'color'>,
   io: CliIo,
   result: CliExecutionResult,
   extra: Record<string, unknown> = {},
@@ -102,8 +105,15 @@ export function emitExecution(
   streamsAlreadyEmitted = false
 ): void {
   if (args.json) {
+    const failure =
+      result.status === 'success'
+        ? {}
+        : {
+            reason: result.reason ?? result.status,
+            detail: result.detail ?? `Run failed with status ${result.status}.`,
+          };
     io.writeStdout(
-      `${JSON.stringify({ ok: result.status === 'success', ...extra, run: result })}\n`
+      `${JSON.stringify({ ok: result.status === 'success', ...extra, ...failure, run: result })}\n`
     );
     return;
   }
@@ -111,12 +121,16 @@ export function emitExecution(
   if (!streamsAlreadyEmitted && result.stderr) io.writeStderr(result.stderr);
   if (result.status !== 'success' && !args.quiet) {
     const detail = result.detail ?? `Run failed with status ${result.status}.`;
-    io.writeStderr(`${label}: ${result.reason ?? result.status}: ${detail}\n`);
+    emitCliFailure(io, args, {
+      label,
+      reason: result.reason ?? result.status,
+      detail,
+    });
   }
 }
 
 export function emitPreflightError(
-  args: Pick<RunTargetArgs, 'json' | 'quiet'>,
+  args: Pick<RunTargetArgs, 'json' | 'quiet' | 'color'>,
   io: CliIo,
   reason: string,
   detail: string,
@@ -124,11 +138,7 @@ export function emitPreflightError(
   extra: Record<string, unknown> = {},
   label = 'lingua run'
 ): CliExitCode {
-  if (args.json) {
-    io.writeStdout(`${JSON.stringify({ ok: false, ...extra, reason, detail })}\n`);
-  } else if (!args.quiet) {
-    io.writeStderr(`${label}: ${reason}: ${detail}\n`);
-  }
+  emitCliFailure(io, args, { label, reason, detail, extra });
   return exitCode;
 }
 
