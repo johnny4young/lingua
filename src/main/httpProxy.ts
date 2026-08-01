@@ -46,19 +46,21 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import {
+  authInjectedHeaderName,
+  composeRequestHeaders,
+  isHeaderSensitive,
+} from '../shared/httpWorkspaceHeaders';
+import {
   DEFAULT_REQUEST_TIMEOUT_MS,
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
-  authInjectedHeaderName,
-  composeRequestHeaders,
-  isHeaderSensitive,
   utf8ByteLength,
   type HttpRequestV1,
   type HttpResponseHeader,
   type HttpResponseKind,
   type HttpResponseV1,
-} from '../shared/httpWorkspace';
+} from '../shared/httpWorkspaceSchema';
 
 /** Max redirect hops the proxy follows before giving up. */
 export const MAX_REDIRECTS = 10;

@@ -14,14 +14,18 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  buildAuthHeader,
+  buildAuthHeader as facadeBuildAuthHeader,
   buildCurlCommand,
-  composeRequestHeaders,
+  composeRequestHeaders as facadeComposeRequestHeaders,
   createBlankHttpRequest,
-  DEFAULT_API_KEY_HEADER,
   parseHttpRequest,
   type HttpRequestV1,
 } from '../../src/shared/httpWorkspace';
+import {
+  buildAuthHeader,
+  composeRequestHeaders,
+  DEFAULT_API_KEY_HEADER,
+} from '../../src/shared/httpWorkspaceHeaders';
 import {
   paramsToUrl,
   reconcileParamsWithUrl,
@@ -55,6 +59,13 @@ function env(
     updatedAt: '2026-06-16T00:00:00.000Z',
   };
 }
+
+describe('historical facade compatibility', () => {
+  it('re-exports the canonical header helpers', () => {
+    expect(facadeBuildAuthHeader).toBe(buildAuthHeader);
+    expect(facadeComposeRequestHeaders).toBe(composeRequestHeaders);
+  });
+});
 
 describe('urlToParams / paramsToUrl — two-way sync', () => {
   it('derives enabled rows from a URL query string', () => {

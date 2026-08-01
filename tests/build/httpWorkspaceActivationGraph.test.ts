@@ -15,12 +15,16 @@ const persistenceModule = 'src/shared/httpWorkspacePersistence.ts';
 const capturesModule = 'src/shared/httpWorkspaceCaptures.ts';
 const assertionsModule = 'src/shared/httpWorkspaceAssertions.ts';
 const queryModule = 'src/shared/httpWorkspaceQuery.ts';
+const headersModule = 'src/shared/httpWorkspaceHeaders.ts';
 const implementationModule = 'src/shared/httpWorkspace.ts';
 const confirmationModule = 'src/renderer/hooks/importPreviewConfirm.ts';
 const responsePreviewModule =
   'src/renderer/components/HttpWorkspace/HttpResponsePreview.tsx';
 const requestEditorModule =
   'src/renderer/components/HttpWorkspace/HttpRequestEditor.tsx';
+const httpClientModule = 'src/renderer/runtime/httpClient.ts';
+const httpProxyModule = 'src/main/httpProxy.ts';
+const httpCodegenModule = 'src/shared/httpCodegen.ts';
 
 describe('HTTP workspace activation boundary', () => {
   it('keeps full HTTP behavior behind Import Preview confirmation', () => {
@@ -122,5 +126,27 @@ describe('HTTP workspace activation boundary', () => {
       'utf8'
     );
     expect(editorSource).toContain("from '../../../shared/httpWorkspaceQuery'");
+  });
+
+  it('keeps header resolution independent and directly owned by wire consumers', () => {
+    const headersSource = readFileSync(path.join(repoRoot, headersModule), 'utf8');
+    expect(staticSpecifiers(headersSource)).toEqual(['./httpSensitiveHeaders']);
+    expect(headersSource).toContain("from './httpWorkspaceSchema'");
+    expect(headersSource).not.toContain("from './httpWorkspace'");
+
+    for (const consumerModule of [
+      httpClientModule,
+      httpProxyModule,
+      httpCodegenModule,
+    ]) {
+      const consumerSource = readFileSync(
+        path.join(repoRoot, consumerModule),
+        'utf8'
+      );
+      expect(consumerSource).toContain('httpWorkspaceHeaders');
+      expect(consumerSource).not.toContain("from '../../shared/httpWorkspace'");
+      expect(consumerSource).not.toContain("from '../shared/httpWorkspace'");
+      expect(consumerSource).not.toContain("from './httpWorkspace'");
+    }
   });
 });

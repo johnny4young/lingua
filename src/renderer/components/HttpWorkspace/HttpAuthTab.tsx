@@ -13,11 +13,11 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import {
-  DEFAULT_API_KEY_HEADER,
-  type HttpAuthKind,
-  type HttpRequestAuth,
-} from '../../../shared/httpWorkspace';
+import { DEFAULT_API_KEY_HEADER } from '../../../shared/httpWorkspaceHeaders';
+import type {
+  HttpAuthKind,
+  HttpRequestAuth,
+} from '../../../shared/httpWorkspaceSchema';
 
 const FIELD_CLASS =
   'h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none';

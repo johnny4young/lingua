@@ -22,20 +22,22 @@
  */
 
 import {
+  composeRequestHeaders,
+  isHeaderSensitive,
+} from '../../shared/httpWorkspaceHeaders';
+import {
   DEFAULT_REQUEST_TIMEOUT_MS,
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
   bucketHttpStatus,
-  composeRequestHeaders,
-  isHeaderSensitive,
   utf8ByteLength,
   type HttpRequestV1,
   type HttpResponseHeader,
   type HttpResponseKind,
   type HttpResponseV1,
   type HttpStatusBucket,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspaceSchema';
 import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpSensitiveHeaders';
 
 /**

@@ -15,10 +15,8 @@
  * placeholders instead of resolving into the clipboard.
  */
 
-import {
-  composeRequestHeaders,
-  type HttpRequestV1,
-} from './httpWorkspace';
+import { composeRequestHeaders } from './httpWorkspaceHeaders';
+import type { HttpRequestV1 } from './httpWorkspaceSchema';
 
 /** Closed enum of the languages the generator targets. */
 export const HTTP_CODEGEN_TARGETS = [
