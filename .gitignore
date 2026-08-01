@@ -11,6 +11,7 @@ yarn.lock
 # Build output
 out/
 out-builder/
+out-cli/
 dist/
 .vite/
 .playwright-cli/

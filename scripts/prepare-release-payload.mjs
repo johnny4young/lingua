@@ -26,6 +26,11 @@ const INSTALLER_OR_UPDATE_ARCHIVE_EXTENSIONS = new Set([
 ]);
 
 const RELEASE_ASSET_EXTENSIONS = new Set([...INSTALLER_OR_UPDATE_ARCHIVE_EXTENSIONS, '.blockmap']);
+const CLI_NPM_PACKAGE_PATTERN =
+  /^linguacode-cli-(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\.tgz$/u;
+const CLI_STANDALONE_ARCHIVE_PATTERN =
+  /^lingua-cli-v(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)-(?<target>(?:linux|windows)-x64)\.tar\.gz$/u;
+const REQUIRED_CLI_TARGETS = ['linux-x64', 'windows-x64'];
 const REQUIRED_COMPLIANCE_ASSET_NAMES = new Set([
   'THIRD_PARTY_LICENSE_REPORT.md',
   'lingua-sbom.cyclonedx.json',
@@ -84,11 +89,16 @@ function isReleaseAssetName(name, { includeChecksums = false } = {}) {
   return (
     RELEASE_ASSET_NAMES.has(name) ||
     UPDATE_MANIFEST_NAMES.has(name) ||
+    CLI_NPM_PACKAGE_PATTERN.test(name) ||
+    CLI_STANDALONE_ARCHIVE_PATTERN.test(name) ||
     RELEASE_ASSET_EXTENSIONS.has(path.extname(name))
   );
 }
 
-function assertRequiredReleaseAssets(assets, { requiredManifestNames = [] } = {}) {
+function assertRequiredReleaseAssets(
+  assets,
+  { requiredManifestNames = [], requireCliArtifacts = false, requireDesktopArtifacts = true } = {}
+) {
   const names = new Set(assets.map(asset => asset.name));
   for (const requiredName of REQUIRED_COMPLIANCE_ASSET_NAMES) {
     if (!names.has(requiredName)) {
@@ -110,17 +120,56 @@ function assertRequiredReleaseAssets(assets, { requiredManifestNames = [] } = {}
     }
   }
 
-  if (
-    uniqueRequiredManifestNames.length === 0 &&
-    !assets.some(asset => UPDATE_MANIFEST_NAMES.has(asset.name))
-  ) {
-    throw new Error(
-      `Release payload is missing an electron-updater latest*.yml manifest. Accepted public manifests: ${UPDATE_MANIFEST_NAMES_TEXT}`
-    );
+  if (requireDesktopArtifacts) {
+    if (
+      uniqueRequiredManifestNames.length === 0 &&
+      !assets.some(asset => UPDATE_MANIFEST_NAMES.has(asset.name))
+    ) {
+      throw new Error(
+        `Release payload is missing an electron-updater latest*.yml manifest. Accepted public manifests: ${UPDATE_MANIFEST_NAMES_TEXT}`
+      );
+    }
+
+    if (
+      !assets.some(asset => INSTALLER_OR_UPDATE_ARCHIVE_EXTENSIONS.has(path.extname(asset.name)))
+    ) {
+      throw new Error('Release payload is missing a desktop installer or update archive');
+    }
   }
 
-  if (!assets.some(asset => INSTALLER_OR_UPDATE_ARCHIVE_EXTENSIONS.has(path.extname(asset.name)))) {
-    throw new Error('Release payload is missing a desktop installer or update archive');
+  if (requireCliArtifacts) {
+    const npmPackages = assets.flatMap(asset => {
+      const match = asset.name.match(CLI_NPM_PACKAGE_PATTERN);
+      return match?.groups ? [{ ...asset, version: match.groups.version }] : [];
+    });
+    if (npmPackages.length !== 1) {
+      throw new Error(
+        `Release payload requires exactly one Lingua CLI npm package; found ${npmPackages.length}`
+      );
+    }
+
+    const standaloneArchives = assets.flatMap(asset => {
+      const match = asset.name.match(CLI_STANDALONE_ARCHIVE_PATTERN);
+      return match?.groups
+        ? [{ ...asset, target: match.groups.target, version: match.groups.version }]
+        : [];
+    });
+    for (const target of REQUIRED_CLI_TARGETS) {
+      const matches = standaloneArchives.filter(archive => archive.target === target);
+      if (matches.length === 0) {
+        throw new Error(`Release payload is missing the standalone Lingua CLI target: ${target}`);
+      }
+      if (matches.length !== 1) {
+        throw new Error(
+          `Release payload requires exactly one standalone Lingua CLI target ${target}; found ${matches.length}`
+        );
+      }
+      if (matches[0].version !== npmPackages[0].version) {
+        throw new Error(
+          `Lingua CLI artifact version mismatch: npm is ${npmPackages[0].version}, ${target} is ${matches[0].version}`
+        );
+      }
+    }
   }
 }
 
@@ -288,6 +337,8 @@ function parseArgs(argv) {
     githubOutput: null,
     summary: null,
     requiredManifestNames: [],
+    requireCliArtifacts: false,
+    requireDesktopArtifacts: true,
     help: false,
   };
 
@@ -314,6 +365,10 @@ function parseArgs(argv) {
     } else if (flag === '--require-manifest' && next) {
       args.requiredManifestNames.push(next);
       index += 1;
+    } else if (flag === '--require-cli') {
+      args.requireCliArtifacts = true;
+    } else if (flag === '--allow-no-desktop') {
+      args.requireDesktopArtifacts = false;
     } else if (flag === '--help' || flag === '-h') {
       args.help = true;
     } else {
@@ -335,6 +390,8 @@ Options:
   --github-output <p>   Write a multiline "assets" output for GitHub Actions
   --summary <p>         Append a release asset summary to a markdown file
   --require-manifest <n>  Require an enabled platform's public updater manifest
+  --require-cli          Require npm + Windows/Linux standalone CLI artifacts
+  --allow-no-desktop     Permit a CLI-only release payload
   --json                Print release payload metadata as JSON
 `);
 }
@@ -356,7 +413,11 @@ async function main() {
   }
 
   const quiet = args.printAssets || args.json;
-  const requirements = { requiredManifestNames: args.requiredManifestNames };
+  const requirements = {
+    requiredManifestNames: args.requiredManifestNames,
+    requireCliArtifacts: args.requireCliArtifacts,
+    requireDesktopArtifacts: args.requireDesktopArtifacts,
+  };
   if (args.writeChecksums) {
     const result = await writeReleaseChecksums(args.root, requirements);
     if (!quiet) {

@@ -91,12 +91,12 @@ produce a package that errors for users even if the PR merged.
 
 Configure Authenticode signing, then re-generate and submit:
 
-1. Obtain a code-signing certificate (a standard OV cert, or Azure Trusted
-   Signing, which is the cheaper route for individuals).
+1. Obtain a public-trust code-signing certificate. An exportable CA-issued PFX
+   works with the current workflow. Azure Artifact Signing can be considered
+   only after confirming its current regional and identity eligibility.
 2. Add repo secrets `WIN_CERT_FILE` (base64 `.pfx`) and `WIN_CERT_PASSWORD`.
-   The release workflow already branches on both being present and will sign
-   automatically; with neither set it deliberately builds an unsigned
-   installer instead of failing.
+   The release workflow signs both the installer and standalone CLI after SEA
+   injection; with neither set it deliberately labels both as unsigned previews.
 3. Cut a release, confirm the workflow reports Authenticode as verified.
 4. Regenerate the manifests and submit them with
    [`wingetcreate`](https://github.com/microsoft/winget-create):

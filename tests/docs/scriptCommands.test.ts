@@ -96,6 +96,8 @@ describe('Script naming docs guard', () => {
       'build:web',
       // implementation — CLI bundle (lingua utility, lingua capsule validate)
       'build:cli',
+      // npm tarball + native Windows/Linux single-executable archives.
+      'package:cli',
       'preview:web',
       'smoke:project-templates',
       'smoke:desktop',

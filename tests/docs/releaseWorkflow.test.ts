@@ -59,6 +59,19 @@ describe('release workflow', () => {
     expect(publishJob).toContain('payload_args+=(--require-manifest latest-mac.yml)');
     expect(publishJob).toContain('payload_args+=(--require-manifest latest.yml)');
     expect(publishJob).toContain('payload_args+=(--require-manifest latest-linux.yml)');
+    expect(publishJob).toContain('payload_args+=(--require-cli)');
+    expect(publishJob).toContain('payload_args+=(--allow-no-desktop)');
+  });
+
+  it('builds and validates the CLI package plus native Windows/Linux archives', () => {
+    expect(workflow).toContain('build-cli-package:');
+    expect(workflow).toContain('build-cli-binaries:');
+    expect(workflow).toContain('pnpm run package:cli -- --package-only');
+    expect(workflow).toContain('target: linux-x64');
+    expect(workflow).toContain('target: windows-x64');
+    expect(workflow).toContain('Smoke installed CLI package');
+    expect(workflow).toContain('linguacode-cli-*.tgz');
+    expect(workflow).toContain('out-cli/*.tar.gz');
   });
 
   it('generates SHA256SUMS.txt before the draft release is created', () => {
@@ -104,6 +117,9 @@ describe('release workflow', () => {
     expect(workflow).toContain("$signature.Status -ne 'Valid'");
     expect(workflow).toContain('Configure both WIN_CERT_FILE and WIN_CERT_PASSWORD, or neither.');
     expect(workflow).toContain('unsigned preview build');
+    expect(workflow).toContain('Verify standalone Windows Authenticode state');
+    expect(workflow).toContain('Windows CLI: Authenticode signature valid');
+    expect(workflow).toContain('args+=(--sign-windows)');
     expect(workflow).toContain('Verify Linux artifacts');
   });
 
@@ -120,11 +136,17 @@ describe('release workflow', () => {
       "!inputs.release_windows || needs['build-windows'].result == 'success'"
     );
     expect(workflow).toContain("!inputs.release_linux || needs['build-linux'].result == 'success'");
+    expect(workflow).toContain(
+      "!inputs.release_cli || needs['build-cli-package'].result == 'success'"
+    );
+    expect(workflow).toContain(
+      "!inputs.release_cli || needs['build-cli-binaries'].result == 'success'"
+    );
   });
 
   it('allows web-only releases without publishing partial desktop failures', () => {
     expect(workflow).toContain(
-      '!inputs.release_macos && !inputs.release_windows && !inputs.release_linux'
+      '!inputs.release_macos && !inputs.release_windows && !inputs.release_linux && !inputs.release_cli'
     );
     expect(workflow).toContain("needs.publish.result == 'success'");
   });

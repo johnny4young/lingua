@@ -73,7 +73,7 @@
       "items": [
         {
           "title": "Complete CLI distribution",
-          "scope": "Utility commands, file/project execution, Capsule validation/replay, Bash/Zsh/Fish completions, automatic color, and stable errors ship today. Signed binaries and package publication remain.",
+          "scope": "Utility commands, execution, Capsule replay, completions, and stable errors ship today. The release pipeline now produces a minimal npm package plus validated Windows/Linux standalone archives and signs Windows after SEA injection when credentials exist; registry promotion and public-trust credentials remain operational gates.",
           "status": "Partial",
           "theme": "CLI & compatibility"
         },

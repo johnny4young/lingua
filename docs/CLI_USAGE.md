@@ -15,6 +15,7 @@ git clone https://github.com/johnny4young/lingua
 cd lingua
 pnpm install                    # runs `prepare` → builds dist/cli/lingua.cjs
 pnpm run build:cli              # explicit rebuild
+pnpm run package:cli            # validated npm tarball; native archive on Linux/Windows x64
 ```
 
 The binary is `dist/cli/lingua.cjs`. The `prepare` script rebuilds
@@ -33,6 +34,28 @@ To uninstall:
 ```bash
 pnpm uninstall --global lingua
 ```
+
+## Distribution artifacts
+
+When `release_cli` is enabled, the release workflow builds all three CLI
+delivery artifacts from the same bundled command surface:
+
+- `linguacode-cli-<version>.tgz` — dependency-free `@linguacode/cli` package
+  for Node.js 24.x on every Node-supported platform;
+- `lingua-cli-v<version>-linux-x64.tar.gz` — standalone Linux executable;
+- `lingua-cli-v<version>-windows-x64.tar.gz` — standalone Windows executable.
+
+The standalone archives use Node's single-executable application format, so
+users do not install Node separately. Every build runs `--version` and a real
+utility smoke before archiving. The release payload includes these artifacts
+in `SHA256SUMS.txt`, while the Windows executable is signed after its embedded
+blob is injected whenever the Authenticode secrets are configured.
+
+The npm tarball is intentionally separate from the private desktop
+`package.json`: it contains only `bin/lingua.cjs`, its README, the commercial
+license, and its package manifest. Registry promotion remains a human release
+action until the `@linguacode` namespace and its trusted publisher are
+configured.
 
 ## Shell completion
 
@@ -280,8 +303,11 @@ Adding new codes is allowed; renumbering existing ones is forbidden
 ## Out of scope
 
 - `lingua lesson validate` — lesson validation is not exposed through the CLI.
-- Standalone binaries (`pkg`, `nexe`) and Windows code-signing —
-  planned follow-up work.
+- macOS standalone binary — npm remains the supported macOS CLI channel until
+  the raw executable has its own Developer ID notarization path.
+- npm registry promotion and a trusted Windows signature — these are release
+  operations that require namespace ownership and external signing credentials,
+  not additional CLI implementation.
 - Localized CLI copy — the CLI currently ships English-only copy, consistent
   with the repository's `electron-forge` and `electron-builder` tooling.
 - Multi-file Capsule replay — the v1 Capsule schema intentionally stores one
