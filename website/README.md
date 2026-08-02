@@ -9,6 +9,23 @@ This is a **standalone package inside the main [`lingua`](../) repo** — it has
 
 The desktop/web app lives at [app.linguacode.dev](https://app.linguacode.dev) and is built from the repo root, not from here.
 
+## Release metadata
+
+The downloads page prefers the public GitHub Releases API. A validated copy of
+the latest stable metadata lives in `src/data/latest-release.json` so a DNS,
+rate-limit, or GitHub server incident does not block an otherwise valid static
+build. It is not a permissive cache: the build rejects version drift, draft or
+prerelease tags, foreign download hosts, unsafe or duplicate asset names, and a
+release without macOS arm64/x64, Windows x64, Linux x64, and `SHA256SUMS.txt`.
+
+```bash
+npm run sync:release              # refresh after publishing a stable release
+npm run check:release-snapshot    # validate without network access
+```
+
+The Cloudflare Pages workflow tries the refresh first, then uses the committed
+snapshot only if the offline validation still matches the repository version.
+
 ## Audience and constraints
 
 This site targets senior developers. Three rules govern every change:

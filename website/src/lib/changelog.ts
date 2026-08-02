@@ -6,7 +6,7 @@
  * To refresh: run `npm run sync:content` (reads from ../lingua sibling).
  */
 
-import data from '../data/changelog.json';
+import data from '../data/changelog.json' with { type: 'json' };
 
 export type ChangelogSection = {
   heading: string;

@@ -1,7 +1,7 @@
 /**
  * Build-time release fetcher backed by the public GitHub Releases API for
- * `johnny4young/lingua`. Throws on persistent failure so the build fails loudly
- * rather than shipping a stale or empty downloads page.
+ * `johnny4young/lingua`. Recoverable transport failures use a committed,
+ * version-locked snapshot; invalid or untrusted metadata still fails loudly.
  *
  * The lingua repo is public, so the latest release + its assets come straight
  * from `api.github.com/.../releases/latest`, and download links point at
@@ -16,7 +16,14 @@
  * (`*.blockmap`, `latest-*.yml`) is filtered out.
  */
 
-import { loadChangelog } from './changelog';
+import { loadChangelog } from './changelog.ts';
+import packageJson from '../../../package.json' with { type: 'json' };
+import releaseSnapshot from '../data/latest-release.json' with { type: 'json' };
+import {
+  parseGithubRelease,
+  parseReleaseSnapshot,
+  type TrustedReleaseMetadata,
+} from './releaseSnapshot.ts';
 
 export type Platform = 'macos' | 'windows' | 'linux' | 'unknown';
 export type Arch = 'arm64' | 'x64' | 'universal' | 'unknown';
@@ -63,6 +70,7 @@ export interface OlderReleaseSummary {
 }
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
+const REQUEST_TIMEOUT_MS = 5000;
 
 function isOfflineMode(): boolean {
   return process.env.LINGUA_SOURCE === 'local';
@@ -145,13 +153,10 @@ export function inferPlatformAndArch(name: string): {
 
 const GITHUB_REPO = 'johnny4young/lingua';
 
-interface GithubRelease {
-  tag_name: string;
-  published_at: string | null;
-  html_url: string;
-  draft: boolean;
-  prerelease: boolean;
-  assets: { name: string; browser_download_url: string; size: number }[];
+export interface ReleaseFetchOptions {
+  fetchImpl?: typeof fetch;
+  retryDelaysMs?: readonly number[];
+  warn?: (message: string) => void;
 }
 
 /** electron-updater / build metadata that should not surface as a user download. */
@@ -160,23 +165,82 @@ function isMetadataAsset(name: string): boolean {
   return lower.endsWith('.blockmap') || lower.endsWith('.yml') || lower.endsWith('.yaml');
 }
 
-async function fetchWithRetry(url: string, init?: RequestInit): Promise<Response> {
-  let lastErr: unknown;
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
-    try {
-      const res = await fetch(url, init);
-      if (res.ok) return res;
-      throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    } catch (err) {
-      lastErr = err;
-      const delay = RETRY_DELAYS_MS[attempt];
-      if (delay == null) break;
-      await new Promise(r => setTimeout(r, delay));
-    }
-  }
-  throw new Error(
-    `fetch failed after ${RETRY_DELAYS_MS.length + 1} attempts: ${url} — ${(lastErr as Error)?.message ?? lastErr}`
+class ReleaseTransportError extends Error {}
+class ReleaseResponseError extends Error {}
+
+function isRetryableResponse(response: Response): boolean {
+  return (
+    response.status === 408 ||
+    response.status === 425 ||
+    response.status === 429 ||
+    response.status >= 500 ||
+    (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0')
   );
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  options: Required<Pick<ReleaseFetchOptions, 'fetchImpl' | 'retryDelaysMs'>>
+): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= options.retryDelaysMs.length; attempt += 1) {
+    try {
+      const res = await options.fetchImpl(url, {
+        ...init,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (res.ok) return res;
+      if (!isRetryableResponse(res)) {
+        throw new ReleaseResponseError(
+          `GitHub release request failed with HTTP ${res.status} ${res.statusText}`
+        );
+      }
+      lastErr = new Error(`HTTP ${res.status} ${res.statusText}`);
+    } catch (err) {
+      if (err instanceof ReleaseResponseError) throw err;
+      lastErr = err;
+    }
+    const delay = options.retryDelaysMs[attempt];
+    if (delay == null) break;
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+  throw new ReleaseTransportError(
+    `fetch failed after ${options.retryDelaysMs.length + 1} attempts: ${url} — ${(lastErr as Error)?.message ?? lastErr}`
+  );
+}
+
+function toRelease(metadata: TrustedReleaseMetadata): Release {
+  const assets: ReleaseAsset[] = metadata.assets
+    .filter(asset => !isMetadataAsset(asset.name))
+    .map(asset => ({
+      name: asset.name,
+      downloadUrl: asset.downloadUrl,
+      sizeBytes: asset.sizeBytes,
+      ...inferPlatformAndArch(asset.name),
+    }));
+  return {
+    tag: metadata.tag,
+    version: metadata.version,
+    publishedAt: metadata.publishedAt,
+    htmlUrl: changelogAnchor(metadata.version),
+    assets,
+    channel: 'stable',
+  };
+}
+
+async function snapshotLatest(): Promise<Release> {
+  const entries = await loadChangelog();
+  const changelogVersion = entries[0]?.version;
+  if (!changelogVersion) {
+    throw new Error('Cannot validate the release snapshot because the changelog is empty');
+  }
+  if (changelogVersion !== packageJson.version) {
+    throw new Error(
+      `Repository version ${packageJson.version} does not match changelog version ${changelogVersion}`
+    );
+  }
+  return toRelease(parseReleaseSnapshot(releaseSnapshot, packageJson.version));
 }
 
 function normalizeVersion(tag: string): string {
@@ -188,42 +252,20 @@ function changelogAnchor(version: string): string {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Offline fixture (LINGUA_SOURCE=local)
+// Validated repository snapshot (LINGUA_SOURCE=local or recoverable API failure)
 // ────────────────────────────────────────────────────────────────────────────
 
-async function offlineLatest(): Promise<Release | null> {
-  const entries = await loadChangelog();
-  const entry = entries[0];
-  if (!entry) return null;
-  const base = `https://github.com/${GITHUB_REPO}/releases/download/v${entry.version}`;
-  const fixtureNames = [
-    `Lingua-${entry.version}-mac-arm64.dmg`,
-    `Lingua-${entry.version}-mac-x64.dmg`,
-    `Lingua-${entry.version}-win-x64.exe`,
-    `Lingua-${entry.version}-linux-x86_64.AppImage`,
-    'SHA256SUMS.txt',
-  ];
-  const assets: ReleaseAsset[] = fixtureNames.map(name => ({
-    name,
-    downloadUrl: `${base}/${name}`,
-    sizeBytes: null,
-    ...inferPlatformAndArch(name),
-  }));
-  return {
-    tag: `v${entry.version}`,
-    version: entry.version,
-    publishedAt: new Date(`${entry.date}T00:00:00Z`).toISOString(),
-    htmlUrl: changelogAnchor(entry.version),
-    assets,
-    channel: 'stable',
-  };
+async function offlineLatest(): Promise<Release> {
+  return snapshotLatest();
 }
 
 // ────────────────────────────────────────────────────────────────────────────
 // Public API
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function fetchLatestRelease(): Promise<Release | null> {
+export async function fetchLatestRelease(
+  options: ReleaseFetchOptions = {}
+): Promise<Release | null> {
   if (isOfflineMode()) return offlineLatest();
 
   const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
@@ -236,38 +278,34 @@ export async function fetchLatestRelease(): Promise<Release | null> {
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  let gh: GithubRelease;
+  const fetchOptions = {
+    fetchImpl: options.fetchImpl ?? fetch,
+    retryDelaysMs: options.retryDelaysMs ?? RETRY_DELAYS_MS,
+  };
+  let response: Response;
   try {
-    const res = await fetchWithRetry(apiUrl, { headers });
-    gh = (await res.json()) as GithubRelease;
+    response = await fetchWithRetry(apiUrl, { headers }, fetchOptions);
   } catch (err) {
+    if (err instanceof ReleaseTransportError) {
+      const warning =
+        `GitHub release metadata is temporarily unavailable; using the validated ` +
+        `repository snapshot for v${packageJson.version}. ${(err as Error).message}`;
+      (options.warn ?? console.warn)(warning);
+      return snapshotLatest();
+    }
     throw new Error(
       `Could not load the latest GitHub release from ${apiUrl}: ${(err as Error).message}`
     );
   }
-
-  if (!gh.tag_name) {
-    throw new Error(`GitHub release response from ${apiUrl} has no tag_name`);
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (err) {
+    throw new Error(
+      `GitHub release response from ${apiUrl} is not valid JSON: ${(err as Error).message}`
+    );
   }
-
-  const version = normalizeVersion(gh.tag_name);
-  const assets: ReleaseAsset[] = (gh.assets ?? [])
-    .filter(a => !isMetadataAsset(a.name))
-    .map(a => ({
-      name: a.name,
-      downloadUrl: a.browser_download_url,
-      sizeBytes: typeof a.size === 'number' ? a.size : null,
-      ...inferPlatformAndArch(a.name),
-    }));
-
-  return {
-    tag: gh.tag_name,
-    version,
-    publishedAt: gh.published_at ?? new Date().toISOString(),
-    htmlUrl: changelogAnchor(version),
-    assets,
-    channel: 'stable',
-  };
+  return toRelease(parseGithubRelease(payload));
 }
 
 /**

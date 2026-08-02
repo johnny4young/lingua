@@ -58,15 +58,26 @@ jobs:
       - name: Sync content from the repo root
         run: npm run sync:content
 
+      - name: Refresh trusted release snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if npm run sync:release; then
+            echo "Latest public release metadata refreshed from GitHub."
+          else
+            echo "::warning::GitHub release metadata refresh failed; validating the committed snapshot before continuing."
+            npm run check:release-snapshot
+          fi
+
       - name: Type-check Astro
         run: npm run check
 
       - name: Build
         env:
-          # Astro prerenders /releases from the GitHub Releases API. Authenticate
-          # that server-side build request so shared runner IPs do not consume
-          # the 60 requests/hour anonymous limit.
-          GITHUB_TOKEN: ${{ github.token }}
+          # The refresh step owns the only authenticated API request. Build
+          # from its validated file so every localized route sees one immutable
+          # metadata view and does not repeat retries during an API incident.
+          LINGUA_SOURCE: local
         run: npm run build
 
       - name: Deploy to Cloudflare Pages

@@ -9,8 +9,9 @@
  * The public roadmap is curated directly in src/data/roadmap.json. It is not
  * generated from private planning documents.
  *
- * All outputs are committed. The Astro build never reads from GitHub — it just
- * imports the JSON. CF Pages and CI work without any env vars or auth tokens.
+ * All content outputs are committed. Release downloads use a separate trusted
+ * snapshot: the deploy refreshes it from GitHub when available and the Astro
+ * build accepts the committed copy only while it matches this repo's version.
  *
  * website/ lives INSIDE the lingua repo, so the source defaults to the repo
  * root (`..`) — no cross-repo clone, no token. LINGUA_LOCAL_PATH still
