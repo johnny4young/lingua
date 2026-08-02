@@ -233,7 +233,7 @@ reduced the initial catalog's rendered contribution from 17,632 to 8,906 bytes
 and the complete initial graph from 1,002,999 to 996,059 raw profile bytes and
 from 289,184 to 287,609 gzip-9 bytes, while retaining 17 initial chunks.
 
-## Activation baseline and runner-loading decision
+## Activation baseline and startup-loading decision
 
 Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,
 36 GiB RAM, Node 24.18.0; three samples per case):
@@ -250,18 +250,44 @@ Reference sample captured on 2026-07-28 (Apple M4 Max, 14 logical CPUs,
 | Desktop | First TypeScript Run     |   159 ms |  7 ms |   157-170 ms |
 | Desktop | First Python Run         |   752 ms |  7 ms |   747-761 ms |
 
-Decision: **keep the runner manager eager for now**.
+That earlier decision has since been superseded by narrower, measured
+boundaries. `useRunner` and the auto-run debounce keep their small controls
+ready, while manual execution, accepted auto-run execution, debugger
+instrumentation, dependency parsers, and YAML validation load only when their
+workflow starts. The activation report now proves that `acorn`, `js-yaml`, and
+`magic-string` have no static path from `App`; do not reintroduce them through a
+convenience barrel.
 
-- The measured editor and web first-Run path is already short; moving the
-  whole dispatcher behind `import()` would move parsing/loading cost onto the
-  primary Run interaction.
-- `acorn` has an independent eager owner through
-  `App -> useDependencyDetection -> javascriptDetector`. Lazy-loading only
-  `useRunner` therefore cannot remove it from the initial graph.
-- The narrower follow-ups are debugger instrumentation
-  (`acorn` + `magic-string`) and YAML validation (`js-yaml`). They should be
-  benchmarked as independent boundaries rather than hidden inside a broad
-  runner-manager rewrite.
+A 2026-08-01 verification after the final startup boundary (three JavaScript
+and three TypeScript samples on the same host) recorded 120 ms median cold
+landing, 594 ms first editor interaction, 84 ms first JavaScript Run, and 458
+ms first TypeScript Run. These wall-clock values remain diagnostic rather than
+budgets; the stable outcome is the empty eager-package evidence and the
+blocking raw/gzip ceiling.
+
+## Progressive onboarding and dependency detection
+
+Completed onboarding and background package classification are not first-paint
+requirements:
+
+- `useOnboardingChoreography` keeps a small persisted-stage predicate in the
+  startup graph. It imports `onboardingChoreographyRuntime` only when a welcome,
+  first-run, or first-snippet stage is incomplete. The runtime replays the
+  latest run, console, and snippet state before subscribing, so async loading
+  cannot lose a fast user action.
+- `DependencyDetectionHost` waits for the first browser idle opportunity (with
+  a one-second bound) before mounting the keystroke observer. Sessions that
+  start with detection disabled do not fetch it; activated sessions keep it
+  mounted so opting out still aborts work and clears in-memory package names.
+- `dependencyDetectionPaste` is a tiny leaf shared with lazy Monaco, preserving
+  the 60 ms post-paste debounce without coupling the editor to the classifier.
+
+The source-graph guard now locks both implementation modules behind dynamic
+imports. In the production web profile, this reduced the static startup graph
+from 287 to 284 modules and the initial payload from 1,190,952 to 1,186,287 raw
+bytes and from 312,765 to 311,453 gzip-9 bytes, while retaining 22 initial
+files. Completed onboarding requests no runtime chunk; enabled dependency
+detection begins after first paint rather than competing with it.
 
 Desktop's larger runtime asset bucket is also intentional, not removable
 duplication. `CAPABILITY_MATRIX.md` and `RUNTIME_ASSETS_ADR.md` keep Pyodide as

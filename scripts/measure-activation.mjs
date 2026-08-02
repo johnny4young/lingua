@@ -207,14 +207,28 @@ async function launchChromium() {
     try {
       return await chromium.launch({ headless: true });
     } catch (bundledError) {
-      throw new Error(
-        `Unable to launch Chromium for activation measurement. Channel error: ${
-          channelError instanceof Error ? channelError.message : String(channelError)
-        }. Bundled error: ${
-          bundledError instanceof Error ? bundledError.message : String(bundledError)
-        }.`,
-        { cause: bundledError }
-      );
+      try {
+        // Some locked-down macOS runners cannot create Chromium's normal
+        // rendezvous process tree. Keep the representative launch paths first,
+        // then fall back to a single unsandboxed process for local evidence.
+        return await chromium.launch({
+          headless: true,
+          args: ['--single-process', '--no-zygote', '--disable-gpu', '--no-sandbox'],
+        });
+      } catch (compatibilityError) {
+        throw new Error(
+          `Unable to launch Chromium for activation measurement. Channel error: ${
+            channelError instanceof Error ? channelError.message : String(channelError)
+          }. Bundled error: ${
+            bundledError instanceof Error ? bundledError.message : String(bundledError)
+          }. Compatibility fallback error: ${
+            compatibilityError instanceof Error
+              ? compatibilityError.message
+              : String(compatibilityError)
+          }.`,
+          { cause: compatibilityError }
+        );
+      }
     }
   }
 }

@@ -145,6 +145,54 @@ describe('useOnboardingChoreography', () => {
     expect(useEditorStore.getState().tabs.length).toBe(0);
   });
 
+  it('arms the deferred runtime when a completed stage is reset', async () => {
+    act(() => {
+      useSettingsStore.setState({
+        hasCompletedOnboardingWelcome: true,
+        hasCompletedOnboardingFirstRun: true,
+        hasCompletedOnboardingFirstSnippet: true,
+        onboardingWelcomeSeedVersion: SEEDED_SCRATCHPAD_VERSION,
+      });
+    });
+    renderHook(() => useOnboardingChoreography({ enabled: true }));
+    expect(useEditorStore.getState().tabs).toHaveLength(0);
+
+    act(() => {
+      useSettingsStore.setState({
+        hasCompletedOnboardingWelcome: false,
+        onboardingWelcomeSeedVersion: 0,
+      });
+    });
+
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs[0]?.name).toBe(
+        SEEDED_SCRATCHPAD_NAME
+      );
+    });
+  });
+
+  it('replays a snippet saved before the deferred runtime arrives', async () => {
+    act(() => {
+      useSnippetsStore.getState().addSnippet({
+        label: 'fast save',
+        description: '',
+        language: 'javascript',
+        code: 'console.log(1)',
+      });
+    });
+
+    renderHook(() => useOnboardingChoreography({ enabled: true }));
+
+    await waitFor(() => {
+      expect(
+        useSettingsStore.getState().hasCompletedOnboardingFirstSnippet
+      ).toBe(true);
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'onboarding.firstSnippet.message'
+      );
+    });
+  });
+
   it('fires the first-run toast with a CTA action when a success history entry arrives', async () => {
     renderHook(() => useOnboardingChoreography({ enabled: true }));
     await waitFor(() => {

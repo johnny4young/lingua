@@ -30,7 +30,7 @@ import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
 import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
-import { notifyDependencyDetectionPaste } from '../../hooks/useDependencyDetection';
+import { notifyDependencyDetectionPaste } from '../../hooks/dependencyDetectionPaste';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
 import { EditorEmptyState } from './EditorEmptyState';

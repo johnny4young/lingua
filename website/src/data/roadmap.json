@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-01T19:55:00.000Z",
+  "generatedAt": "2026-08-02T01:55:00.000Z",
   "totals": {
     "planned": 0,
     "inProgress": 9
@@ -61,8 +61,8 @@
       "items": [
         {
           "title": "Faster cold browser startup",
-          "scope": "Language tokenizers already load on demand; remaining editor integrations are being isolated so Monaco core can leave the initial bundle.",
-          "status": "Partial",
+          "scope": "Monaco core, language tokenizers, execution paths, completed onboarding, and background package classification now stay outside the critical browser startup path. Source-graph guards and bundle budgets prevent those integrations from returning to first paint.",
+          "status": "Delivered",
           "theme": "Performance"
         }
       ]

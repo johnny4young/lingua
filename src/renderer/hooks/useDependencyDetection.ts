@@ -39,21 +39,7 @@ import {
 import { useTelemetry, type TelemetryTrack } from './useTelemetry';
 import { useUIStore } from '../stores/uiStore';
 import { loadDependencyDetectionRuntime } from './dependencyDetectionRuntimeLoader';
-
-const KEYSTROKE_DEBOUNCE_MS = 300;
-const PASTE_DEBOUNCE_MS = 60;
-const PASTE_RECENCY_MS = 250;
-
-let lastPasteAt = 0;
-
-/**
- * Editor surfaces (CodeEditor's `onDidPaste`) call this so the next
- * detection cycle picks the short debounce. implementation note - paste UX feels
- * instant; keystroke UX stays calm.
- */
-export function notifyDependencyDetectionPaste(): void {
-  lastPasteAt = Date.now();
-}
+import { dependencyDetectionDebounceMs } from './dependencyDetectionPaste';
 
 // Per-session de-dup for the once-per-tab+language telemetry events.
 const bannerShownKeys = new Set<string>();
@@ -227,11 +213,7 @@ export function useDependencyDetection(): void {
       }
     };
 
-    const sincePasteMs = Date.now() - lastPasteAt;
-    const debounceMs =
-      sincePasteMs >= 0 && sincePasteMs < PASTE_RECENCY_MS
-        ? PASTE_DEBOUNCE_MS
-        : KEYSTROKE_DEBOUNCE_MS;
+    const debounceMs = dependencyDetectionDebounceMs();
     const timer = window.setTimeout(() => {
       void runDetection();
     }, debounceMs);

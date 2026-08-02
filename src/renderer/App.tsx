@@ -36,7 +36,7 @@ import { useShareLinkBoot } from './hooks/useShareLinkBoot';
 import { ShareLinkController } from './components/Share/ShareLinkController';
 import { useOnboardingChoreography } from './hooks/useOnboardingChoreography';
 import { useRunLedgerTap } from './hooks/useRunLedgerTap';
-import { useDependencyDetection } from './hooks/useDependencyDetection';
+import { DependencyDetectionHost } from './hooks/DependencyDetectionHost';
 import { useGitDetectOnProjectChange } from './hooks/useGitDetectOnProjectChange';
 import { useGitStatus } from './hooks/useGitStatus';
 import { useAutoRun } from './hooks/useAutoRun';
@@ -362,6 +362,7 @@ function AppChrome({
   return (
     <>
       <KeystrokeReactiveHooks />
+      <DependencyDetectionHost />
       {showWebUpdateBanner ? <WebUpdateBanner /> : null}
       <AppLayout
         onOpenSettings={() => openOverlay('settings')}
@@ -394,17 +395,14 @@ function AppChrome({
 }
 
 /**
- * Hosts the hooks that must react to every keystroke: the auto-run
- * debounce and per-tab dependency detection .
- * Both subscribe to the active tab's content, so their host re-renders
- * on every keypress BY DESIGN — isolating them in a null-rendering leaf
+ * Hosts the eager hook that must react to every keystroke: auto-run.
+ * Isolating it in a null-rendering leaf
  * keeps that churn out of AppChrome, whose re-render would otherwise
  * reconcile the entire shell (AppLayout, toolbar, file tree, status bar)
  * per keystroke.
  */
 function KeystrokeReactiveHooks() {
   useAutoRun();
-  useDependencyDetection();
   return null;
 }
 

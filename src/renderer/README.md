@@ -58,6 +58,21 @@ Keep the always-mounted Git surfaces separate from the transformation engine:
   reached from the web entry through a conditional `import()` only. A static
   import would put the complete Console tree back into normal web startup.
 
+### Progressive startup boundaries
+
+- [`hooks/useOnboardingChoreography.ts`](hooks/useOnboardingChoreography.ts)
+  is a persisted-state gate. Keep welcome source, execution/snippet observers,
+  and toast actions in
+  [`hooks/onboardingChoreographyRuntime.ts`](hooks/onboardingChoreographyRuntime.ts)
+  so completed onboarding has no runtime startup cost.
+- [`hooks/DependencyDetectionHost.tsx`](hooks/DependencyDetectionHost.tsx)
+  activates classification after the first browser idle opportunity. The host
+  stays independent of the classifier implementation and catches optional
+  chunk failures outside React rendering so they cannot replace the shell.
+- [`hooks/dependencyDetectionPaste.ts`](hooks/dependencyDetectionPaste.ts) is
+  the only dependency-detection module Monaco imports directly. It carries the
+  paste timestamp and debounce choice, not adapter or store implementation.
+
 ## Component surfaces
 
 The renderer is intentionally split by feature instead of by component type.

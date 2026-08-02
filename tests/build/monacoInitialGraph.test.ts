@@ -101,6 +101,22 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'dependency parser loading and platform classification used only after source may reference a package',
   },
   {
+    module: 'src/renderer/hooks/useDependencyDetection.ts',
+    why: 'per-keystroke dependency classification activated after the first idle opportunity',
+  },
+  {
+    module: 'src/shared/dependencies/registry.ts',
+    why: 'dependency adapter eligibility and loader registry used only by deferred classification',
+  },
+  {
+    module: 'src/renderer/hooks/onboardingChoreographyRuntime.ts',
+    why: 'welcome seeding and one-shot observers needed only while onboarding remains incomplete',
+  },
+  {
+    module: 'src/renderer/onboarding/seedScratchpad.ts',
+    why: 'welcome source loaded only when a persisted onboarding stage remains actionable',
+  },
+  {
     module: 'src/renderer/stores/workspaceToolStore.ts',
     why: 'persisted HTTP collection state used only by HTTP workspace and importer surfaces',
   },
