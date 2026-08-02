@@ -34,6 +34,7 @@ import { runTargetCommand } from './commands/run';
 import { runListUtilitiesCommand, runUtilityCommand } from './commands/utility';
 import { isCliColorMode, type CliColorMode } from './commandModel';
 import { renderCompletion } from './completion';
+import { renderCliHelpText } from './helpCatalog';
 import { CLI_EXIT_CODES, type CliExitCode } from './exit-codes';
 import { createDefaultIo, type CliIo } from './io';
 import { CliUsageError, getCompletionShell, parseArgs, type ParsedArgs } from './parseArgs';
@@ -55,58 +56,7 @@ function resolveCliVersion(): string {
   return '0.0.0-dev';
 }
 
-const HELP_TEXT = `lingua — local code runner CLI
-
-Usage:
-  lingua utility <utility-id> [--input <file>] [--json] [--quiet] [--option key=value ...]
-  lingua capsule validate <file> [--json] [--quiet]
-  lingua capsule replay <file> [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet]
-  lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>] [--env NAME=value ...]
-             [--json] [--quiet] [-- args...]
-  lingua list utilities [--json] [--quiet]
-  lingua completion bash|zsh|fish
-  lingua --version
-  lingua --help
-
-Commands:
-  utility            Run a single utility adapter against stdin or --input.
-  capsule validate   Validate a RunCapsuleV1 JSON blob; exits 0 on success.
-  capsule replay     Verify and execute the source/input recorded in a Capsule.
-  run                Execute a supported source file or conventional project root.
-  list utilities     Print the available utility ids + their input/output kinds.
-  completion         Generate a deterministic Bash, Zsh, or Fish completion script.
-
-Flags:
-  --input <file>     Read input from <file> instead of stdin. (utility only)
-  --stdin <file>     Forward a file as program stdin. (run only)
-  --timeout <ms>     Stop execution after 100–300000 ms. (run/replay)
-  --env NAME=value   Repeated. Add an explicit child-process environment value.
-  --option key=value Repeated. Pass adapter options. (utility only)
-  --json             Emit a structured JSON body instead of plain text.
-  --quiet            Suppress Lingua diagnostics; preserve command output.
-  --color <mode>     Diagnostic color: auto, always, or never. Default: auto.
-  --help, -h         Show this help.
-  --version, -v      Print the CLI version.
-
-Exit codes:
-  0  ok
-  1  user input error (bad args, unknown id, missing file, bad shape)
-  2  runtime error (adapter failure, non-zero exit, timeout, or stopped run)
-  3  unsupported capability (source/runtime mode, binary output, missing toolchain)
-  4  internal (caught exception we didn't classify)
-
-Examples:
-  echo '{"a":1}' | lingua utility json-format
-  lingua utility base64-encode --input README.md
-  lingua utility regex-replace --input src.ts \\
-    --option pattern=foo --option flags=g --option replacement=bar
-  lingua capsule validate ./run.capsule.json
-  lingua capsule replay ./run.capsule.json --json
-  lingua run ./script.py --stdin input.txt -- --verbose
-  lingua run ./my-project --timeout 60000
-  lingua list utilities --json
-  lingua completion zsh > ~/.zfunc/_lingua
-`;
+const HELP_TEXT = renderCliHelpText();
 
 /**
  * Top-level dispatcher. Always settles to a `CliExitCode`. The

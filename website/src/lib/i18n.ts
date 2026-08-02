@@ -19,6 +19,7 @@ export function isLocale(value: string | undefined): value is Locale {
 
 const PAGE_MODULES = import.meta.glob('../pages/**/*.astro');
 const DOC_MODULES = import.meta.glob('../content/docs/*/**/*.md');
+const CLI_MODULES = import.meta.glob('../content/cli/*/**/*.md');
 const SEO_MODULES = import.meta.glob('../content/seo/*/**/*.md');
 const ROUTES_BY_LOCALE = buildRoutesByLocale();
 
@@ -108,6 +109,11 @@ function buildRoutesByLocale(): Record<Locale, Set<string>> {
     if (route) routes[route.locale].add(route.path);
   }
 
+  for (const key of Object.keys(CLI_MODULES)) {
+    const route = routeFromContentModule(key, 'cli');
+    if (route) routes[route.locale].add(route.path);
+  }
+
   for (const key of Object.keys(SEO_MODULES)) {
     const route = routeFromContentModule(key, 'seo');
     if (route) routes[route.locale].add(route.path);
@@ -134,7 +140,7 @@ function routeFromPageModule(key: string): { locale: Locale; path: string } | nu
 
 function routeFromContentModule(
   key: string,
-  collection: 'docs' | 'seo',
+  collection: 'docs' | 'cli' | 'seo',
 ): { locale: Locale; path: string } | null {
   const match = key.match(new RegExp(`\\.\\./content/${collection}/([^/]+)/(.+)\\.md$`));
   if (!match) return null;
@@ -143,6 +149,6 @@ function routeFromContentModule(
   if (!isLocale(localeValue) || !slugValue) return null;
 
   const slug = slugValue.replace(/\/index$/, '');
-  const path = collection === 'docs' ? `/docs/${slug}` : `/${slug}`;
+  const path = collection === 'docs' ? `/docs/${slug}` : collection === 'cli' ? `/cli/${slug}` : `/${slug}`;
   return { locale: localeValue, path };
 }

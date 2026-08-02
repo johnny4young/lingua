@@ -1,14 +1,20 @@
 # Lingua CLI Usage
 
-The CLI is a thin, headless surface over the same
-shared utility adapters and capsule schema the desktop app uses. It
-runs offline. It does not load Electron, React, or any renderer-only
-code.
+The CLI is the part of Lingua you use when an interactive experiment needs to
+become a repeatable terminal command. It is a thin, headless surface over the
+same shared utility adapters and Capsule schema the desktop app uses. It runs
+offline and does not load Electron, React, or renderer-only code.
+
+Start with the task-based, searchable guide at
+[`linguacode.dev/cli`](https://linguacode.dev/cli) if you are learning the CLI.
+This file is the precise in-repository reference for maintainers, automation,
+and compatibility checks.
 
 ## Install / build
 
-The CLI is not yet published to npm. For now, build it locally from
-the repo:
+The first public `@linguacode/cli` package will ship with Lingua v1.0.0. Do not
+interpret release-candidate documentation as registry availability. Until the
+stable release and npm promotion are complete, build locally from the repo:
 
 ```bash
 git clone https://github.com/johnny4young/lingua

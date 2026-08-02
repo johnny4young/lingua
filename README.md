@@ -73,6 +73,41 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 
 For deeper architecture detail and the per-capability execution-class decision, see [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and [`docs/CAPABILITY_MATRIX.md`](./docs/CAPABILITY_MATRIX.md).
 
+## Use Lingua from the terminal
+
+The desktop app is the fastest place to explore. The `lingua` CLI is the part
+you reach for after an experiment becomes repeatable: format JSON in a pipe,
+run a trusted script, validate a Run Capsule in CI, or replay a captured run
+without starting Electron.
+
+```bash
+# Transform stdin with the same utility adapter used by the app
+echo '{"name":"Lingua","ready":true}' | lingua utility json-format
+
+# Run a local file; everything after -- belongs to your program
+lingua run ./scripts/check.ts --timeout 60000 -- --verbose
+
+# Validate a Run Capsule without executing its source
+lingua capsule validate ./run.capsule.json --json
+```
+
+The first public `@linguacode/cli` package will ship with v1.0.0. Until then,
+build and link it from this repository:
+
+```bash
+pnpm install
+pnpm run build:cli
+pnpm link --global
+lingua --help
+```
+
+The CLI runs locally and does not load the desktop UI. Code launched through
+`lingua run` still has your operating-system permissions, so run only source
+you trust or place the CLI inside your own sandbox. See the
+[human CLI guide](https://linguacode.dev/cli) for task-based walkthroughs,
+search, examples, and troubleshooting, or [`docs/CLI_USAGE.md`](./docs/CLI_USAGE.md)
+for the exact command and exit-code contract.
+
 ## Requirements
 
 | Dependency     | Version | Notes                                                          |
@@ -122,6 +157,7 @@ Contributor and operator entry points:
 
 - [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) — clone/install, dev/test/smoke/build commands, Pro testing, automation/delivery.
 - [`docs/USAGE.md`](./docs/USAGE.md) — keyboard shortcuts, deep links, plugin manifest format, browser-only limitations, update behavior.
+- [`docs/CLI_USAGE.md`](./docs/CLI_USAGE.md) — headless commands, flags, JSON output, exit codes, and CI patterns.
 - [`AGENTS.md`](./AGENTS.md) — canonical guidance for any agent (Claude Code, Cursor, Codex, Aider) working in this repo. `CLAUDE.md` is a symlink pointing to it.
 - [`RELEASE.md`](./RELEASE.md) — release operator checklist (preconditions, release steps, validation gate, rollback plan).
 

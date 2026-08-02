@@ -1,0 +1,14 @@
+---
+import { getCollection, render } from 'astro:content';
+import CliDoc from '~/layouts/CliDoc.astro';
+
+const locale = 'en';
+const entries = await getCollection('cli', ({ id }) => id.startsWith(`${locale}/`));
+const entry = entries.find(item => item.id === `${locale}/getting-started`);
+if (!entry) throw new Error('Missing English CLI getting-started page');
+const { Content, headings } = await render(entry);
+---
+
+<CliDoc entry={entry} allDocs={entries} locale={locale} headings={headings}>
+  <Content />
+</CliDoc>

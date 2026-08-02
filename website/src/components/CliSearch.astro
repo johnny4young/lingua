@@ -1,0 +1,119 @@
+---
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  locale: Locale;
+  instance: 'desktop' | 'mobile';
+}
+
+const { locale, instance } = Astro.props;
+const copy = t(locale).cli.search;
+---
+
+<div
+  class="cli-search"
+  data-cli-search
+  data-no-results={copy.noResults}
+  data-results-label={copy.results}
+>
+  <label for={`cli-search-${instance}`}>{copy.label}</label>
+  <div class="search-field">
+    <span aria-hidden="true">⌕</span>
+    <input
+      id={`cli-search-${instance}`}
+      type="search"
+      inputmode="search"
+      autocomplete="off"
+      placeholder={copy.placeholder}
+      aria-describedby={`cli-search-hint-${instance}`}
+    />
+    <button type="button" data-cli-search-clear hidden>{copy.clear}</button>
+  </div>
+  <p id={`cli-search-hint-${instance}`} class="search-hint">{copy.hint}</p>
+  <div class="search-results" data-cli-search-results hidden aria-live="polite"></div>
+</div>
+
+<style>
+  .cli-search label {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: var(--color-text);
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+  .search-field {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.65rem;
+    background: color-mix(in srgb, var(--color-bg-elevated) 86%, transparent);
+  }
+  .search-field:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+  .search-field span {
+    color: var(--color-text-subtle);
+    font-family: var(--font-mono);
+  }
+  .search-field input {
+    min-width: 0;
+    width: 100%;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    color: var(--color-text);
+    background: transparent;
+    font: inherit;
+    font-size: var(--text-small);
+  }
+  .search-field button {
+    border: 0;
+    padding: 0.2rem;
+    color: var(--color-accent);
+    background: transparent;
+    font-size: var(--text-xs);
+  }
+  .search-hint {
+    margin: 0.35rem 0 0;
+    color: var(--color-text-subtle);
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
+  }
+  .search-results {
+    margin-top: 0.65rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg-sunken);
+    overflow: hidden;
+  }
+  .search-results :global(a) {
+    display: block;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .search-results :global(a:last-child) {
+    border-bottom: 0;
+  }
+  .search-results :global(strong) {
+    display: block;
+    color: var(--color-text);
+    font-size: var(--text-small);
+  }
+  .search-results :global(span) {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--color-text-subtle);
+    font-size: var(--text-xs);
+    line-height: 1.4;
+  }
+  .search-results :global(p) {
+    margin: 0;
+    padding: 0.75rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+  }
+</style>
