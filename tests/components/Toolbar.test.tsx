@@ -337,7 +337,7 @@ describe('Toolbar', () => {
     expect(screen.queryByTestId('toolbar-breakpoint-pill')).toBeNull();
   });
 
-  it('hides persisted breakpoint affordances for planned debugger languages', () => {
+  it('hides desktop-only debugger affordances in the web shell', () => {
     editorStoreState.tabs = [
       {
         id: 'tab-1',
@@ -572,14 +572,29 @@ describe('Toolbar', () => {
     ];
     editorStoreState.activeTabId = 'tab-rust';
 
-    render(<Toolbar />);
+    const originalLingua = (window as unknown as { lingua?: unknown }).lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'web' },
+    });
 
-    const debugSegment = screen.getByTestId('workflow-mode-segment-debug');
-    expect(debugSegment.getAttribute('aria-disabled')).toBe('true');
-    expect(debugSegment).not.toHaveProperty('disabled', true);
-    expect(debugSegment.getAttribute('title')).toContain(
-      'Debug works for JavaScript and TypeScript everywhere, and for Python and Go in Lingua Desktop.'
-    );
+    try {
+      render(<Toolbar />);
+
+      const debugSegment = screen.getByTestId('workflow-mode-segment-debug');
+      expect(debugSegment.getAttribute('aria-disabled')).toBe('true');
+      expect(debugSegment).not.toHaveProperty('disabled', true);
+      expect(debugSegment.getAttribute('title')).toContain(
+        'Debug works for JavaScript and TypeScript everywhere, and for Python, Go, and Rust in Lingua Desktop.'
+      );
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        writable: true,
+        value: originalLingua,
+      });
+    }
   });
 
   it('localizes the capability badge when i18next is Spanish', async () => {

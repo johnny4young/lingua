@@ -247,12 +247,14 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages: 'desktop-only',
       stdin: 'desktop-only',
       richOutput: 'unsupported',
-      debugger: 'planned',
+      debugger: 'desktop-only',
     },
     notes: {
       lsp: 'rust-analyzer bridged via src/main/lsp/lspProcess.ts.',
       packages:
         'Cargo workflows expected on the host; Lingua does not vendor cargo.',
+      debugger:
+        'Desktop compiles the current file with debug symbols and drives LLDB through lldb-dap for pause breakpoints, stepping, locals, source-local call stack, and watches.',
     },
   },
   {

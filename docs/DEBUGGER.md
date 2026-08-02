@@ -1,7 +1,7 @@
 # Debugger operator guide
 
 > Operator-oriented walkthrough of the JavaScript, TypeScript, and desktop
-> Python debugger.
+> Python, Go, and Rust debuggers.
 > Read alongside [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) for its design
 > rationale and [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) for the
 > current language and platform boundaries.
@@ -23,8 +23,8 @@ The current implementation provides:
   Into (F11), Step Out (Shift+F11), and Run to end buttons. The
   chevron at the top-left collapses/expands the debugger body; the
   choice persists across reloads.
-- A Run/Debug split dropdown for JavaScript, TypeScript, and desktop Python
-  tabs. The
+- A Run/Debug split dropdown for JavaScript, TypeScript, and desktop Python,
+  Go, and Rust tabs. The
   primary side executes the selected mode and the chevron opens the
   alternate actions. **Run** always executes normally and ignores
   breakpoints; **Debug** attaches the pause protocol and runs until
@@ -39,12 +39,12 @@ The current implementation provides:
   pause.
 - **Settings → Editor** does not contain a debugger master switch or
   breakpoint-management actions. Debugging is baseline for JavaScript and
-  TypeScript in both shells and Python on desktop, while normal **Run** ignores
+  TypeScript in both shells and Python, Go, and Rust on desktop, while normal **Run** ignores
   all breakpoint state.
 
 ## Setting a breakpoint
 
-1. Open or create a JavaScript, TypeScript, or (on desktop) Python tab.
+1. Open or create a JavaScript, TypeScript, or (on desktop) Python, Go, or Rust tab.
 2. Click the gutter to the LEFT of the line number, OR move the
    cursor to the line and press `Mod+Shift+B`.
 3. The red dot appears in the gutter. Opening the bottom panel exposes
@@ -74,9 +74,10 @@ diamond in the danger color, and logpoint uses an amber diamond. Disabled
 markers retain their shape at lower opacity. Mode, condition, log message, and
 enabled state persist with the breakpoint.
 
-Python supports standard **Pause** breakpoints only. Existing conditional or
-logpoint metadata remains persisted if a tab changes language, but Python
-treats every enabled breakpoint as a pause and hides the advanced editors.
+Native Python, Go, and Rust adapters support standard **Pause** breakpoints
+only. Existing conditional or logpoint metadata remains persisted if a tab
+changes language, but native adapters treat every enabled breakpoint as a
+pause and hide the advanced editors.
 
 ## Watching values
 
@@ -92,10 +93,10 @@ updates, accessors, inherited properties, prototype traversal, `await`,
 `yield`, and loose equality. Expressions are capped at 512 characters.
 
 That bounded, side-effect-free evaluator is the JavaScript/TypeScript path.
-Python sends each watch to `pdb` in the current native frame, so an expression
-can call Python code or otherwise have side effects. The panel warns about this
-and caps the list and expression length, but users must evaluate only
-expressions they trust.
+Python sends each watch to `pdb`, while Go and Rust send it to their DAP
+adapter in the current native frame. An expression can invoke runtime behavior
+or otherwise have side effects. The panel warns about this and caps the list
+and expression length, but users must evaluate only expressions they trust.
 
 ## Pausing a run
 
@@ -162,6 +163,27 @@ The current-buffer temporary module intentionally does not become a full
 project debugger: local multi-file/module debug remains outside this slice.
 Web omits the bridge and disables Go Debug with desktop guidance.
 
+### Rust desktop path
+
+Rust **Debug** leaves normal Rust **Run** unchanged. On desktop, Debug instead:
+
+1. reuses the native-execution acknowledgement because the compiled buffer has
+   the user's local process permissions;
+2. writes the current source into a private temporary directory and compiles it
+   as Rust 2021 with debug symbols and a safe fixed crate name;
+3. resolves `rustc`, then resolves `lldb-dap` from an explicit `LLDB_DAP`
+   user environment value, `PATH`, or Xcode through `xcrun --find lldb-dap`;
+4. drives bounded stdio DAP for verified breakpoints, stepping, locals,
+   source-local stack frames, watches, and program output.
+
+On macOS, install Xcode Command Line Tools or Xcode and confirm
+`xcrun --find lldb-dap` succeeds. On other desktop platforms, install an LLVM
+package that provides `lldb-dap` on `PATH`. Lingua reports missing `rustc`,
+missing `lldb-dap`, compiler diagnostics, and macOS debugserver permission
+denial separately. The current-buffer binary is not a Cargo workspace debug
+session; use project tests or the integrated terminal for multi-crate flows.
+Web omits the bridge and disables Rust Debug with desktop guidance.
+
 ## Stepping
 
 - **Continue (F5)** — resumes until the next breakpoint or the run
@@ -182,7 +204,7 @@ The shortcut gate (`canDispatchDebuggerShortcut` in
 `useGlobalShortcuts`) requires the worker to be paused before F5 /
 F10 / F11 / Shift+F11 fire, so they never compete with normal-mode
 keystrokes. `Mod+Shift+B` is exempt from the paused-worker gate, but
-still requires a debugger-capable JS / TS tab or desktop Python/Go tab plus an
+still requires a debugger-capable JS / TS tab or desktop Python/Go/Rust tab plus an
 editor cursor.
 
 ## TypeScript source-map composition
@@ -209,9 +231,9 @@ Three events join the allowlist per [ADR §4](./DEBUGGER_ADR.md):
 
 | Event | When it fires | Payload |
 |-------|---------------|---------|
-| `debugger.attached` | Runtime attaches a session before execution continues | `{ language: 'js' \| 'python' \| 'go', reasonBucket: 'attach' }` |
-| `debugger.paused` | Worker or native adapter publishes a paused frame | `{ language: 'js' \| 'python' \| 'go', reasonBucket: 'user-breakpoint' \| 'step' \| 'exception' }` |
-| `debugger.detached` | Session ends (run complete / crash / stop / user detach) | `{ language: 'js' \| 'python' \| 'go', reasonBucket: 'run-complete' \| 'crash' \| 'stop' \| 'user-detach' }` |
+| `debugger.attached` | Runtime attaches a session before execution continues | `{ language: 'js' \| 'python' \| 'go' \| 'rust', reasonBucket: 'attach' }` |
+| `debugger.paused` | Worker or native adapter publishes a paused frame | `{ language: 'js' \| 'python' \| 'go' \| 'rust', reasonBucket: 'user-breakpoint' \| 'step' \| 'exception' }` |
+| `debugger.detached` | Session ends (run complete / crash / stop / user detach) | `{ language: 'js' \| 'python' \| 'go' \| 'rust', reasonBucket: 'run-complete' \| 'crash' \| 'stop' \| 'user-detach' }` |
 
 Every payload is closed-enum. The redactor in
 `src/shared/telemetry/redaction.ts` drops any key that isn't on the per-event
@@ -219,7 +241,10 @@ allowlist. No source, no breakpoint coordinates, no expression content.
 
 ## Current limitations
 
-- **Rust** debugging remains planned in `LANGUAGE_PACKS`.
+- **Rust Debug is desktop-only** and requires local Rust plus `lldb-dap`. It
+  debugs the current buffer as one temporary crate, not a complete Cargo
+  workspace. Native watches may have side effects and only pause breakpoints
+  are available.
 - **Go Debug is desktop-only** and requires local Go plus Delve. It debugs the
   current buffer in a temporary single-file module, not an entire saved module.
   Watches run inside the native process and standard pause breakpoints are the
@@ -265,7 +290,7 @@ inline output column.
 - `src/renderer/runtime/debuggerControlBridge.ts` — shared control router for
   the JS worker and native adapters.
 - `src/renderer/runtime/nativeDebuggerBridge.ts` — runtime-neutral renderer
-  execution/session lifecycle used by Python and Go.
+  execution/session lifecycle used by Python, Go, and Rust.
 - `src/renderer/runtime/pythonDebuggerBridge.ts` — lazy desktop renderer
   adapter that joins native responses to the shared execution lifecycle.
 - `src/shared/pythonDebugger.ts` — bounded typed preload/IPC contract.
@@ -278,6 +303,15 @@ inline output column.
 - `src/shared/goDebugger.ts` — bounded typed Go preload/IPC contract.
 - `src/main/ipc/goDebugger.ts` — capability-aware owner lifecycle, temporary
   module preparation, Delve resolution, and cleanup.
+- `src/renderer/runtime/rustDebuggerBridge.ts` — lazy Rust wrapper for the
+  shared native lifecycle.
+- `src/shared/rustDebugger.ts` — bounded typed Rust preload/IPC contract.
+- `src/main/ipc/rustDebugger.ts` — capability-aware owner lifecycle, private
+  debug compilation, LLDB DAP resolution, and cleanup.
+- `src/main/rustDebugger.ts` — Rust-specific `lldb-dap` stdio transport and
+  launch configuration.
+- `src/main/debugger/nativeDapSession.ts` — shared Go/Rust DAP stepping,
+  inspection, output, and teardown state machine.
 - `src/main/goDebugger.ts` + `src/main/debugger/dapClient.ts` — Delve process,
   bounded DAP transport, inspection, and transition engine.
 - `src/renderer/runtime/editorAccess.ts` — module-level Monaco

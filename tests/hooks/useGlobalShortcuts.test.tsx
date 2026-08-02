@@ -320,18 +320,18 @@ describe('useGlobalShortcuts', () => {
     });
   });
 
-  it('does not steal Mod+Shift+B or create breakpoints on planned debugger languages', () => {
+  it('does not steal Mod+Shift+B or create breakpoints on unsupported languages', () => {
     useEditorStore.setState({
       tabs: [
         {
-          id: 'tab-rust',
-          name: 'untitled.rs',
-          language: 'rust',
-          content: 'fn main() {}',
+          id: 'tab-ruby',
+          name: 'untitled.rb',
+          language: 'ruby',
+          content: 'puts 1',
           isDirty: false,
         },
       ],
-      activeTabId: 'tab-rust',
+      activeTabId: 'tab-ruby',
     });
     setActiveEditor({
       getPosition: () => ({ lineNumber: 2, column: 1 }),

@@ -44,8 +44,8 @@ Shared workflows include:
 - Python and web Ruby use WASM runtimes, so unsupported native packages
   remain outside their package model.
 - Step debugging is available for JavaScript and TypeScript in both shells and
-  for Python and Go on desktop. Ruby and Rust do not have a step debugger; Go
-  debugging requires local Delve.
+  for Python, Go, and Rust on desktop. Ruby does not have a step debugger; Go
+  requires local Delve and Rust requires local `lldb-dap`.
 - gopls and rust-analyzer intelligence is desktop-only and requires the
   corresponding local binary.
 - Lua remains behind a local plugin-discovery path rather than the

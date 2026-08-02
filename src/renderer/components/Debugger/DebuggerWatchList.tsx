@@ -92,7 +92,7 @@ export function DebuggerWatchList({
         {atLimit
           ? t('debugger.watches.limit', { count: MAX_WATCHES })
           : t(
-              runtime === 'python' || runtime === 'go'
+              runtime === 'python' || runtime === 'go' || runtime === 'rust'
                 ? 'debugger.watches.nativeExpressionHint'
                 : 'debugger.watches.safeExpressionHint'
             )}

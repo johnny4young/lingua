@@ -1,6 +1,6 @@
 ---
 title: 'Rust Code Runner for Desktop — Lingua'
-description: 'Run Rust locally with rustc, rust-analyzer intelligence, rustfmt, compile markers, dependency assistance, and Cargo project tests.'
+description: 'Run and debug Rust locally with rustc, lldb-dap, rust-analyzer intelligence, rustfmt, compile markers, dependency assistance, and Cargo project tests.'
 canonical: 'https://linguacode.dev/rust-code-runner-desktop'
 ogImage: '/assets/og/rust-code-runner-desktop.png'
 language: rust
@@ -22,6 +22,8 @@ Cargo workspace.
 - `rust-analyzer` provides desktop diagnostics, completions, hover, and
   signature help when the binary is available.
 - `rustfmt` handles format-on-save for `.rs` files.
+- Debug mode compiles the current buffer with debug symbols and drives local
+  `lldb-dap` for pause breakpoints, stepping, locals, call stack, and watches.
 - Inline `//=>` comments work like the JavaScript and TypeScript
   scratchpad markers.
 - In a saved project with `Cargo.toml`, the dependency panel can run a
@@ -35,7 +37,9 @@ Cargo workspace.
 - Language intelligence requires a local `rust-analyzer` binary.
   Settings provides detection, installation guidance, and restart
   controls.
-- There is no Rust step debugger.
+- Rust debugging is desktop-only and requires `lldb-dap`. Lingua discovers the
+  Xcode adapter through `xcrun` on macOS or uses the binary on `PATH` elsewhere.
+  It debugs the current buffer, not a complete Cargo workspace.
 - The scratchpad runner compiles one file with `rustc`; it does not run
   a complete Cargo application. Use project tests or the integrated
   terminal for workspace-level commands.

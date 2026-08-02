@@ -143,7 +143,7 @@ describe('DebuggerDrawer', () => {
   it('stays hidden for languages whose debugger adapter is not available', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
 
-    const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="rust" />);
+    const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="html" />);
 
     expect(container.firstChild).toBeNull();
   });

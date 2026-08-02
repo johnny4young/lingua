@@ -55,6 +55,15 @@ export function useRunner() {
             // The pending start path observes the lifecycle state below.
           });
       }
+      if (target.language === 'rust' && resultState.manualRunMode === 'debug') {
+        void import('../runtime/rustDebuggerBridge')
+          .then(({ stopActiveRustDebugger }) => {
+            stopActiveRustDebugger();
+          })
+          .catch(() => {
+            // The pending start path observes the lifecycle state below.
+          });
+      }
       void import('../runners')
         .then(({ runnerManager }) => {
           runnerManager.stop(target.language, target.runtimeMode);

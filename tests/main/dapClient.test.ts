@@ -1,4 +1,5 @@
 import net, { type Server, type Socket } from 'node:net';
+import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DapClient } from '../../src/main/debugger/dapClient';
 
@@ -84,6 +85,37 @@ describe('DapClient', () => {
     resources.push({ server, client });
 
     await expect(client.request('launch')).rejects.toThrow(/could not launch process/i);
+  });
+
+  it('supports adapters that communicate over separate stdio streams', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const client = DapClient.fromStreams(input, output, { label: 'LLDB DAP' });
+    let request = Buffer.alloc(0);
+    input.on('data', chunk => {
+      request = Buffer.concat([request, chunk]);
+      const headerEnd = request.indexOf('\r\n\r\n');
+      if (headerEnd < 0) return;
+      const body = JSON.parse(request.subarray(headerEnd + 4).toString('utf8')) as {
+        seq: number;
+      };
+      output.write(
+        frame({
+          seq: 2,
+          type: 'response',
+          request_seq: body.seq,
+          command: 'initialize',
+          success: true,
+          body: { supportsConfigurationDoneRequest: true },
+        })
+      );
+    });
+
+    await expect(client.request('initialize')).resolves.toEqual({
+      supportsConfigurationDoneRequest: true,
+    });
+    client.close();
+    output.destroy();
   });
 
   it('closes fail-closed on an oversized frame declaration', async () => {

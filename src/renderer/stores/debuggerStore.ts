@@ -10,9 +10,8 @@ import { createMigrate } from './persistence/migrationRegistry';
  * Source of truth for the active debug session, registered breakpoints
  * (per file), watch expressions (global), and the last call-stack frame
  * snapshot. The store is intentionally **runtime-agnostic** — implementation
- * implements only the JS adapter, but the shape carries a discriminated
- * `runtime` field so the shipping Python `pdb` adapter and future Go Delve /
- * Rust lldb adapters plug in without re-architecting.
+ * the JS worker adapter plus desktop Python, Go, and Rust adapters while the
+ * discriminated `runtime` field keeps presentation state protocol-neutral.
  *
  * # Persistence
  *
@@ -110,7 +109,7 @@ export interface PausedFrame {
 }
 
 interface DebuggerSession {
-  /** Which language adapter is attached. Shipping adapters emit JS or Python. */
+  /** Which language adapter is attached. */
   runtime: DebuggerRuntime;
   /** Tab the session is bound to. */
   tabId: string;

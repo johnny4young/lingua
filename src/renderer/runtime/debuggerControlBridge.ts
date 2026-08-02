@@ -7,11 +7,15 @@ import {
 /** Route shared debugger controls to the attached runtime adapter. */
 export function dispatchDebuggerControl(message: DebuggerControlMessage): boolean {
   const runtime = useDebuggerStore.getState().session?.runtime;
-  if (runtime !== 'python' && runtime !== 'go') {
+  if (runtime !== 'python' && runtime !== 'go' && runtime !== 'rust') {
     return postDebuggerMessage(message);
   }
   const loadAdapter =
-    runtime === 'python' ? import('./pythonDebuggerBridge') : import('./goDebuggerBridge');
+    runtime === 'python'
+      ? import('./pythonDebuggerBridge')
+      : runtime === 'go'
+        ? import('./goDebuggerBridge')
+        : import('./rustDebuggerBridge');
   void loadAdapter
     .then(adapter => {
       if (message.type === 'resume') {
@@ -41,9 +45,13 @@ export function dispatchDebuggerControl(message: DebuggerControlMessage): boolea
 
 export function dispatchDebuggerRunToEnd(): boolean {
   const runtime = useDebuggerStore.getState().session?.runtime;
-  if (runtime === 'python' || runtime === 'go') {
+  if (runtime === 'python' || runtime === 'go' || runtime === 'rust') {
     const loadAdapter =
-      runtime === 'python' ? import('./pythonDebuggerBridge') : import('./goDebuggerBridge');
+      runtime === 'python'
+        ? import('./pythonDebuggerBridge')
+        : runtime === 'go'
+          ? import('./goDebuggerBridge')
+          : import('./rustDebuggerBridge');
     void loadAdapter
       .then(adapter => {
         adapter.nativeDebuggerAdapter.runToEnd();
@@ -58,7 +66,7 @@ export function dispatchDebuggerRunToEnd(): boolean {
 
 export function isDebuggerControlActive(): boolean {
   const runtime = useDebuggerStore.getState().session?.runtime;
-  return isDebugWorkerActive() || runtime === 'python' || runtime === 'go';
+  return isDebugWorkerActive() || runtime === 'python' || runtime === 'go' || runtime === 'rust';
 }
 
 export type { DebuggerControlMessage };

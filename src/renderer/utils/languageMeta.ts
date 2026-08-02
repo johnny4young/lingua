@@ -287,7 +287,7 @@ export function languageSupportsDebugger(language: Language | null | undefined):
   if (!supported) return false;
   // Native adapters use host toolchains and are therefore absent from web.
   return !(
-    (language === 'python' || language === 'go') &&
+    (language === 'python' || language === 'go' || language === 'rust') &&
     typeof window !== 'undefined' &&
     window.lingua?.platform === 'web'
   );

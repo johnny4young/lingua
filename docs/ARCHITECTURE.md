@@ -128,11 +128,25 @@ temporary module on every owner lifecycle. Missing Delve and macOS Developer
 Tools permission are explicit recoverable failures. Normal Go Run is unchanged,
 and web never receives the preload bridge.
 
+Rust **Debug** compiles the bounded current buffer with Rust 2021 debug symbols
+inside a private temporary directory, then starts an owner-bound `lldb-dap`
+process over stdio. Main resolves `rustc` from the filtered Rust toolchain
+environment and resolves `lldb-dap` from an explicit user environment value,
+`PATH`, or Xcode through `xcrun --find lldb-dap` on macOS. Compiler output and
+DAP frames are bounded independently. Breakpoints reference the preserved
+source basename while an explicit safe crate name prevents valid filenames
+with hyphens from breaking compilation. Compile failures, missing tools, and
+macOS debugserver permission denial remain distinct recoverable responses.
+Normal Rust Run is unchanged, and web never receives the preload bridge.
+
 `runtime/nativeDebuggerBridge.ts` owns the shared renderer session lifecycle
-for Python and Go; runtime wrappers provide only their typed preload bridge,
-start request, localization namespace, and telemetry language. Native watches
-run in the real process and can have side effects, so both adapters expose only
-standard pause breakpoints and retain the UI warning.
+for Python, Go, and Rust; runtime wrappers provide only their typed preload
+bridge, start request, localization namespace, and telemetry language. Go and
+Rust additionally share `debugger/nativeDapSession.ts`, while
+`debugger/dapClient.ts` abstracts Delve's TCP transport and LLDB's stdio
+transport behind the same bounded framing and request correlation. Native
+watches run in the real process and can have side effects, so all three
+adapters expose only standard pause breakpoints and retain the UI warning.
 
 ## Notebook lazy-reactivity boundary
 

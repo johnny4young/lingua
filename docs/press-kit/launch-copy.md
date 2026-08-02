@@ -53,7 +53,8 @@ Honest limitations today:
 - The full conditional/logpoint debugger is JS/TS; desktop Python also ships
   standard breakpoints, stepping, locals, call stack, and native-process
   watches through host CPython/pdb. Desktop Go offers the same pause/step/inspect
-  workflow through host Delve/DAP; Rust has no debugger yet
+  workflow through host Delve/DAP, and desktop Rust uses `rustc` plus host
+  `lldb-dap` for the same current-buffer workflow
 - Opt-in telemetry is off by default; crash reporting is opt-in too
 
 Happy to answer anything about the runner architecture, the

@@ -44,6 +44,10 @@ import {
   disposeGoDebuggerSessions,
   registerGoDebuggerHandlers,
 } from './ipc/goDebugger';
+import {
+  disposeRustDebuggerSessions,
+  registerRustDebuggerHandlers,
+} from './ipc/rustDebugger';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
 import { disposeLocalMcpServer } from './localMcp';
@@ -96,6 +100,7 @@ registerLocalMcpHandlers(() => app.getVersion());
 registerHttpHandlers();
 registerPythonDebuggerHandlers();
 registerGoDebuggerHandlers();
+registerRustDebuggerHandlers();
 registerUpdater();
 
 let forceQuit = false;
@@ -348,6 +353,7 @@ app.on('before-quit', () => {
   disposeHttpRuns();
   disposePythonDebuggerSessions();
   disposeGoDebuggerSessions();
+  disposeRustDebuggerSessions();
 });
 
 app.on('activate', () => {

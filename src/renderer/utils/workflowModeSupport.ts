@@ -18,7 +18,11 @@ export function supportsWorkflowModeInShell(
   const normalizedLanguage = language ?? undefined;
   return (
     supportsWorkflowMode(normalizedLanguage, mode) &&
-    !(webShell && (language === 'python' || language === 'go') && mode === 'debug')
+    !(
+      webShell &&
+      (language === 'python' || language === 'go' || language === 'rust') &&
+      mode === 'debug'
+    )
   );
 }
 

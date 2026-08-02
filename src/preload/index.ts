@@ -8,6 +8,7 @@ import type {
 import type { LocalMcpBridge } from '../shared/localMcp';
 import type { PythonDebuggerBridge } from '../shared/pythonDebugger';
 import type { GoDebuggerBridge } from '../shared/goDebugger';
+import type { RustDebuggerBridge } from '../shared/rustDebugger';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
 
 const desktopSmokeEnabled =
@@ -64,6 +65,16 @@ const goDebugger: GoDebuggerBridge = {
   stop: sessionId => typedInvoke('debugger:go:stop', sessionId),
 };
 
+const rustDebugger: RustDebuggerBridge = {
+  start: request => typedInvoke('debugger:rust:start', request),
+  command: (sessionId, command) => typedInvoke('debugger:rust:command', sessionId, command),
+  syncBreakpoints: (sessionId, breakpoints) =>
+    typedInvoke('debugger:rust:sync-breakpoints', sessionId, breakpoints),
+  syncWatches: (sessionId, watches) =>
+    typedInvoke('debugger:rust:sync-watches', sessionId, watches),
+  stop: sessionId => typedInvoke('debugger:rust:stop', sessionId),
+};
+
 contextBridge.exposeInMainWorld('lingua', {
   platform: process.platform,
 
@@ -73,6 +84,7 @@ contextBridge.exposeInMainWorld('lingua', {
   http,
   pythonDebugger,
   goDebugger,
+  rustDebugger,
 
   deepLinks: {
     consumePending: () => typedInvoke('app:consume-pending-deep-link'),

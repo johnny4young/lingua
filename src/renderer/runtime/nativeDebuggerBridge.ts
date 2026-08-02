@@ -29,8 +29,8 @@ interface ActiveNativeDebugRun {
 }
 
 interface NativeDebuggerAdapterOptions<StartRequest, FailureReason extends string> {
-  readonly runtime: Extract<DebuggerRuntime, 'python' | 'go'>;
-  readonly i18nPrefix: 'pythonDebugger' | 'goDebugger';
+  readonly runtime: Extract<DebuggerRuntime, 'python' | 'go' | 'rust'>;
+  readonly i18nPrefix: 'pythonDebugger' | 'goDebugger' | 'rustDebugger';
   readonly commandFailedReason: FailureReason;
   readonly getBridge: () => NativeDebuggerBridge<StartRequest, FailureReason> | null;
   readonly buildStartRequest: (

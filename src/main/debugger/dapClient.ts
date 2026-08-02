@@ -1,4 +1,5 @@
 import net, { type Socket } from 'node:net';
+import type { Readable, Writable } from 'node:stream';
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const MAX_DAP_MESSAGE_BYTES = 1_000_000;
@@ -30,6 +31,12 @@ interface EventWaiter {
   readonly timer: NodeJS.Timeout;
 }
 
+interface DapTransport {
+  readonly label: string;
+  readonly write: (frame: string, callback: (error?: Error | null) => void) => void;
+  readonly close: () => void;
+}
+
 export class DapClient {
   private sequence = 1;
   private buffer = Buffer.alloc(0);
@@ -39,11 +46,7 @@ export class DapClient {
   private readonly listeners = new Set<(message: DapMessage) => void>();
   private closed = false;
 
-  constructor(private readonly socket: Socket) {
-    socket.on('data', chunk => this.onData(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    socket.on('error', error => this.failAll(error));
-    socket.on('close', () => this.failAll(new Error('Delve DAP connection closed')));
-  }
+  private constructor(private readonly transport: DapTransport) {}
 
   static async connect(host: string, port: number, timeoutMs = 5_000): Promise<DapClient> {
     const socket = net.createConnection({ host, port });
@@ -65,7 +68,41 @@ export class DapClient {
       socket.once('connect', onConnect);
       socket.once('error', onError);
     });
-    return new DapClient(socket);
+    return DapClient.fromSocket(socket, 'Delve DAP');
+  }
+
+  /**
+   * Build a DAP client over an adapter's stdin/stdout pair. LLDB's official
+   * `lldb-dap` binary uses this transport, unlike Delve's loopback TCP server.
+   */
+  static fromStreams(
+    input: Writable,
+    output: Readable,
+    options: { readonly label?: string; readonly close?: () => void } = {}
+  ): DapClient {
+    const label = options.label ?? 'DAP adapter';
+    const client = new DapClient({
+      label,
+      write: (frame, callback) => input.write(frame, callback),
+      close: options.close ?? (() => input.destroy()),
+    });
+    output.on('data', chunk => client.onData(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    output.on('error', error => client.failAll(error));
+    output.on('close', () => client.failAll(new Error(`${label} connection closed`)));
+    input.on('error', error => client.failAll(error));
+    return client;
+  }
+
+  private static fromSocket(socket: Socket, label: string): DapClient {
+    const client = new DapClient({
+      label,
+      write: (frame, callback) => socket.write(frame, callback),
+      close: () => socket.destroy(),
+    });
+    socket.on('data', chunk => client.onData(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    socket.on('error', error => client.failAll(error));
+    socket.on('close', () => client.failAll(new Error(`${label} connection closed`)));
+    return client;
   }
 
   onEvent(listener: (message: DapMessage) => void): () => void {
@@ -78,7 +115,7 @@ export class DapClient {
     args: Record<string, unknown> = {},
     timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS
   ): Promise<TBody> {
-    if (this.closed) return Promise.reject(new Error('Delve DAP connection is closed'));
+    if (this.closed) return Promise.reject(new Error(`${this.transport.label} connection is closed`));
     const requestSeq = this.sequence++;
     const payload = JSON.stringify({
       seq: requestSeq,
@@ -88,13 +125,13 @@ export class DapClient {
     });
     const payloadBytes = Buffer.byteLength(payload, 'utf8');
     if (payloadBytes > MAX_DAP_MESSAGE_BYTES) {
-      return Promise.reject(new Error('Delve DAP request exceeded the message limit'));
+      return Promise.reject(new Error(`${this.transport.label} request exceeded the message limit`));
     }
 
     return new Promise<TBody>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(requestSeq);
-        reject(new Error(`Delve ${command} timed out after ${timeoutMs}ms`));
+        reject(new Error(`${this.transport.label} ${command} timed out after ${timeoutMs}ms`));
       }, timeoutMs);
       this.pending.set(requestSeq, {
         command,
@@ -102,7 +139,7 @@ export class DapClient {
         resolve: response => resolve(response.body as TBody),
         reject,
       });
-      this.socket.write(`Content-Length: ${payloadBytes}\r\n\r\n${payload}`, error => {
+      this.transport.write(`Content-Length: ${payloadBytes}\r\n\r\n${payload}`, error => {
         if (!error) return;
         const pending = this.pending.get(requestSeq);
         if (!pending) return;
@@ -122,7 +159,7 @@ export class DapClient {
       message => message.event === event && (!predicate || predicate(message))
     );
     if (index >= 0) return Promise.resolve(this.bufferedEvents.splice(index, 1)[0]!);
-    if (this.closed) return Promise.reject(new Error('Delve DAP connection is closed'));
+    if (this.closed) return Promise.reject(new Error(`${this.transport.label} connection is closed`));
     return new Promise((resolve, reject) => {
       const waiter: EventWaiter = {
         event,
@@ -131,7 +168,7 @@ export class DapClient {
         reject,
         timer: setTimeout(() => {
           this.eventWaiters.delete(waiter);
-          reject(new Error(`Delve ${event} event timed out after ${timeoutMs}ms`));
+          reject(new Error(`${this.transport.label} ${event} event timed out after ${timeoutMs}ms`));
         }, timeoutMs),
       };
       this.eventWaiters.add(waiter);
@@ -141,15 +178,15 @@ export class DapClient {
   close(): void {
     if (this.closed) return;
     this.closed = true;
-    this.socket.destroy();
-    this.failAll(new Error('Delve DAP connection closed'));
+    this.transport.close();
+    this.failAll(new Error(`${this.transport.label} connection closed`));
   }
 
   private onData(chunk: Buffer): void {
     this.buffer = Buffer.concat([this.buffer, chunk]);
     if (this.buffer.length > MAX_DAP_MESSAGE_BYTES * 2) {
-      this.failAll(new Error('Delve DAP input exceeded the buffer limit'));
-      this.socket.destroy();
+      this.failAll(new Error(`${this.transport.label} input exceeded the buffer limit`));
+      this.transport.close();
       return;
     }
 
@@ -159,14 +196,14 @@ export class DapClient {
       const header = this.buffer.subarray(0, headerEnd).toString('ascii');
       const lengthMatch = /^Content-Length:\s*(\d+)\s*$/imu.exec(header);
       if (!lengthMatch) {
-        this.failAll(new Error('Delve DAP sent an invalid frame header'));
-        this.socket.destroy();
+        this.failAll(new Error(`${this.transport.label} sent an invalid frame header`));
+        this.transport.close();
         return;
       }
       const length = Number(lengthMatch[1]);
       if (!Number.isSafeInteger(length) || length < 0 || length > MAX_DAP_MESSAGE_BYTES) {
-        this.failAll(new Error('Delve DAP sent an oversized frame'));
-        this.socket.destroy();
+        this.failAll(new Error(`${this.transport.label} sent an oversized frame`));
+        this.transport.close();
         return;
       }
       const bodyStart = headerEnd + 4;
@@ -181,8 +218,8 @@ export class DapClient {
         }
         message = parsed as DapMessage;
       } catch {
-        this.failAll(new Error('Delve DAP sent invalid JSON'));
-        this.socket.destroy();
+        this.failAll(new Error(`${this.transport.label} sent invalid JSON`));
+        this.transport.close();
         return;
       }
       this.dispatch(message);
@@ -196,7 +233,7 @@ export class DapClient {
       clearTimeout(pending.timer);
       this.pending.delete(message.request_seq);
       if (message.success === false) {
-        pending.reject(new Error(message.message || `Delve ${pending.command} failed`));
+        pending.reject(new Error(message.message || `${this.transport.label} ${pending.command} failed`));
       } else {
         pending.resolve(message);
       }

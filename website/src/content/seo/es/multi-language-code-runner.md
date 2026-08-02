@@ -45,8 +45,8 @@ Flujos compartidos:
 - Python y Ruby web usan runtimes WASM; los paquetes nativos
   incompatibles quedan fuera de ese modelo.
 - La depuración paso a paso está disponible para JavaScript y TypeScript en
-  ambas versiones y para Python y Go en desktop. Ruby y Rust no tienen
-  depurador paso a paso; Go requiere Delve local.
+  ambas versiones y para Python, Go y Rust en desktop. Ruby no tiene depurador
+  paso a paso; Go requiere Delve local y Rust requiere `lldb-dap` local.
 - gopls y rust-analyzer funcionan solo en desktop y requieren sus
   binarios locales.
 - Lua sigue detrás de la ruta de descubrimiento de plugins locales, no

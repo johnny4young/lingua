@@ -12,6 +12,9 @@ describe('workflowModeSupport', () => {
     expect(supportsWorkflowModeInShell('go', 'debug', false)).toBe(true);
     expect(supportsWorkflowModeInShell('go', 'debug', true)).toBe(false);
     expect(coerceWorkflowModeInShell('debug', 'go', true)).toBe('scratchpad');
+    expect(supportsWorkflowModeInShell('rust', 'debug', false)).toBe(true);
+    expect(supportsWorkflowModeInShell('rust', 'debug', true)).toBe(false);
+    expect(coerceWorkflowModeInShell('debug', 'rust', true)).toBe('scratchpad');
   });
 
   it('preserves shell-independent modes', () => {

@@ -1,10 +1,10 @@
 # ADR — Debugger MVP
 
-| Status | Accepted — implemented for JavaScript / TypeScript and desktop Python |
+| Status | Accepted — implemented for JavaScript / TypeScript and desktop Python, Go, and Rust |
 | ------ | ----------------- |
 | Decision | Ship a focused debugger MVP targeting JavaScript / TypeScript first via a Monaco-integrated custom breakpoint panel, then Python via a `pdb` IPC bridge, then Go via Delve, then Rust via lldb. Every runtime after JS/TS is desktop-only. |
 | Date | 2026-04-20 |
-| Implementation start | JavaScript / TypeScript plus desktop Python and Go are shipping. Rust retains an independent future capability gate. |
+| Implementation start | JavaScript / TypeScript plus desktop Python, Go, and Rust are shipping. |
 
 ## Context
 
@@ -30,8 +30,8 @@ shape. This ADR picks a shape that:
 |---------|----------|--------|--------|
 | JavaScript / TypeScript | Monaco-integrated breakpoint panel driven by source maps; step, bounded watches, conditional breakpoints, and logpoints via worker-side debugger hooks | web + Electron | Shipping |
 | Python | `pdb` bridge via IPC — spawn a headless `python -u` with the `pdb` module attached; renderer sends breakpoint / step / continue commands, main streams stdout and stop events | Electron only | Shipping |
-| Go | `dlv` (Delve) bridge via IPC — start Delve in headless mode and pipe JSON-RPC commands | Electron only | Third slice |
-| Rust | `lldb` (macOS / Linux) or `lldb-mi` via IPC — same IPC shape as Go once the JSON layer exists | Electron only | Fourth slice |
+| Go | `dlv` (Delve) bridge via IPC — start Delve in headless DAP mode and drive it over loopback TCP | Electron only | Shipping |
+| Rust | compile the current buffer with debug symbols, then drive host `lldb-dap` over stdio DAP | Electron only | Shipping |
 
 ### 2. Feature budget
 
@@ -106,7 +106,7 @@ pauses fail-safe and explains the error instead of silently skipping the line.
 Logpoints interpolate bounded `{expression}` placeholders, publish their text
 through normal debugger output, and continue without pausing.
 
-This bounded interpreter applies to JavaScript and TypeScript. Python and Go
+This bounded interpreter applies to JavaScript and TypeScript. Python, Go, and Rust
 watches are evaluated inside their native debugged processes, so they can
 invoke runtime behavior and have side effects. The native UI says so explicitly
 and ships only standard pause breakpoints; conditional breakpoints and logpoints
@@ -130,8 +130,12 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   breakpoint gutter, Debugger panel, and shortcuts. Main resolves Delve from
   the filtered Go environment and cleans up the process tree plus private
   temporary module on every owner lifecycle.
-- **Rust slice (fourth)**: `lldb -b -s <script>` or `lldb-mi` as
-  the adapter, same JSON translation layer pattern.
+- **Rust slice (shipping)**: typed `debugger:rust:*` IPC and preload bridge,
+  private Rust 2021 compilation with debug symbols, and owner-bound
+  `lldb-dap` over stdio. Rust and Go share bounded DAP framing, request/event
+  correlation, stepping, inspection, output, and teardown through
+  `debugger/nativeDapSession.ts`; their transport, launch, tool discovery, and
+  failure taxonomy remain runtime-specific.
 
 ## Rollback
 
@@ -139,7 +143,7 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   user can disable individual breakpoints, disable all breakpoints, clear the
   list, or choose normal Run, which ignores debugger state.
 - Each runtime implementation ships behind its own capability gate so a
-  broken Delve install does not affect JS/TS debugging.
+  broken Delve or LLDB install does not affect another debugger.
 - Telemetry events use the existing allowlist mechanism — no
   payload can leak code without the redactor deliberately ignoring
   the deny list, which the guard tests pin.
@@ -149,7 +153,7 @@ remain JS/TS-only until a separate native-expression policy is accepted.
 1. Chrome DevTools Protocol or monaco APIs change enough that
    our breakpoint integration regresses — re-evaluate the
    JS/TS strategy.
-2. Delve or lldb become hostile to embedded JSON-RPC usage
+2. Delve or lldb-dap become hostile to DAP embedding
    (license, protocol break) — move that runtime to `pdb`-style
    stdout-parsing if cheaper.
 3. A community-maintained DevTools overlay emerges with a stable
@@ -167,8 +171,8 @@ remain JS/TS-only until a separate native-expression policy is accepted.
 - `LANGUAGE_PACK_ADR.md` — future LanguagePacks that declare
   `capabilities.debugger: 'available' | 'planned'` gate the
   Debugger tab per language.
-- `CAPABILITY_MATRIX.md` — codifies Python and Go debugging as shipping
-  desktop-only and Rust debugging as planned native work.
+- `CAPABILITY_MATRIX.md` — codifies Python, Go, and Rust debugging as shipping
+  desktop-only capabilities.
 - `ENV_VARS_ADR.md` — implementation env merger is the plumbing the
   debugger subprocess slices inherit for free.
 
@@ -228,6 +232,15 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   CPython/pdb. The bridge is capability-aware, owner-bound, output-bounded, and
   lazy in the renderer. Normal Python Run remains Pyodide; web disables Python
   Debug, and the native watch/advanced-breakpoint limitations remain explicit.
+- **Desktop Go debugger shipped 2026-08-01.** Go tabs use owner-bound Delve
+  DAP sessions with filtered toolchain environment data, private temporary
+  modules, bounded traffic/output, source-local inspection, and actionable
+  missing-binary or Developer Tools guidance.
+- **Desktop Rust debugger shipped 2026-08-01.** Rust tabs compile the current
+  buffer with Rust 2021 debug symbols and drive host `lldb-dap` over stdio.
+  The bridge distinguishes compiler, adapter, compilation, protocol, and
+  macOS permission failures; reuses the native renderer lifecycle; and removes
+  every temporary source, binary, adapter, and debuggee process on teardown.
 - **Desktop Go debugger shipped 2026-08-01.** Go tabs can select Debug and
   drive Delve through the standard DAP transport for breakpoints, stepping,
   locals, source-local call stack, watches, output, and stop. The bridge is

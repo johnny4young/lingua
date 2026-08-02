@@ -358,7 +358,7 @@ export async function executeTabManually(
   const shouldRecordHistory = lifecycle.recordHistory !== false;
   const debugRequested = lifecycle.debug === true;
   const usesNativeDebugger =
-    debugRequested && (language === 'python' || language === 'go');
+    debugRequested && (language === 'python' || language === 'go' || language === 'rust');
 
   lifecycle.setCurrentLanguage?.(language);
 
@@ -520,8 +520,12 @@ export async function executeTabManually(
                 const { executePythonDebugSession } = await import('./pythonDebuggerBridge');
                 return executePythonDebugSession(activeTab, context?.onConsole, lifecycle.track);
               }
-              const { executeGoDebugSession } = await import('./goDebuggerBridge');
-              return executeGoDebugSession(activeTab, context?.onConsole, lifecycle.track);
+              if (language === 'go') {
+                const { executeGoDebugSession } = await import('./goDebuggerBridge');
+                return executeGoDebugSession(activeTab, context?.onConsole, lifecycle.track);
+              }
+              const { executeRustDebugSession } = await import('./rustDebuggerBridge');
+              return executeRustDebugSession(activeTab, context?.onConsole, lifecycle.track);
             },
           },
         }

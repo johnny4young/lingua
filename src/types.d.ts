@@ -560,13 +560,13 @@ type FsBlockedPathFamily =
 
 interface LinguaAPI {
   platform: string;
-
   getSystemLanguages: () => Promise<string[]>;
   getAppInfo: () => Promise<AppInfo>;
   openExternal: (url: string) => Promise<boolean>;
   http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
   pythonDebugger?: import('./shared/pythonDebugger').PythonDebuggerBridge;
   goDebugger?: import('./shared/goDebugger').GoDebuggerBridge;
+  rustDebugger?: import('./shared/rustDebugger').RustDebuggerBridge;
   confirmClose: (dirtyFileNames: string[], language?: string) => Promise<number>;
   confirmCloseTab: (fileName: string, language?: string) => Promise<number>;
   onBeforeClose: (callback: () => void) => () => void;

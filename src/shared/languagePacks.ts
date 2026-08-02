@@ -214,7 +214,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     execution: 'compile',
     runnerId: 'rust',
     formatter: 'ipc:rustfmt',
-    capabilities: { lsp: 'desktop', debugger: 'planned', runtimeDependencies: ['rustc'] },
+    capabilities: { lsp: 'desktop', debugger: 'available', runtimeDependencies: ['rustc'] },
     docsUrl: 'https://doc.rust-lang.org/book/',
     templateIds: ['rs-hello', 'rs-ownership', 'rs-sort', 'rs-struct'],
   },

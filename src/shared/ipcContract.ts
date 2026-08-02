@@ -44,6 +44,11 @@ import type {
   GoDebuggerStartRequest,
   GoDebuggerStepCommand,
 } from './goDebugger';
+import type {
+  RustDebuggerResponse,
+  RustDebuggerStartRequest,
+  RustDebuggerStepCommand,
+} from './rustDebugger';
 
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
@@ -172,6 +177,28 @@ interface IpcInvokeContract {
   'debugger:go:stop': {
     args: [sessionId: string];
     result: GoDebuggerResponse;
+  };
+
+  // -------------------------------------------------------- Rust debugger
+  'debugger:rust:start': {
+    args: [request: RustDebuggerStartRequest];
+    result: RustDebuggerResponse;
+  };
+  'debugger:rust:command': {
+    args: [sessionId: string, command: RustDebuggerStepCommand];
+    result: RustDebuggerResponse;
+  };
+  'debugger:rust:sync-breakpoints': {
+    args: [sessionId: string, breakpoints: readonly number[]];
+    result: RustDebuggerResponse;
+  };
+  'debugger:rust:sync-watches': {
+    args: [sessionId: string, watches: readonly string[]];
+    result: RustDebuggerResponse;
+  };
+  'debugger:rust:stop': {
+    args: [sessionId: string];
+    result: RustDebuggerResponse;
   };
 
   // ---------------------------------------------------------------- consent
@@ -600,6 +627,11 @@ export const IPC_INVOKE_CHANNELS = [
   'debugger:go:sync-breakpoints',
   'debugger:go:sync-watches',
   'debugger:go:stop',
+  'debugger:rust:start',
+  'debugger:rust:command',
+  'debugger:rust:sync-breakpoints',
+  'debugger:rust:sync-watches',
+  'debugger:rust:stop',
   'consent:set',
   'env:snapshot',
   'http:execute',

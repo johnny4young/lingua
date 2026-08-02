@@ -126,16 +126,15 @@ describe('editorStore — workflowMode ', () => {
       const { addTab } = useEditorStore.getState();
       addTab({
         id: 'manual-bad',
-        name: 'manual.rs',
-        language: 'rust',
+        name: 'manual.html',
+        language: 'html',
         content: '',
-        // Rust does not support debug — coerce snaps to the Rust
-        // default (scratchpad, since Rust has an auto-run runner
-        // on desktop).
+        // HTML does not support debug — coerce snaps to its Run
+        // default instead of retaining an impossible workflow mode.
         workflowMode: 'debug' as never,
       });
       const tab = useEditorStore.getState().tabs[0];
-      expect(tab?.workflowMode).toBe('scratchpad');
+      expect(tab?.workflowMode).toBe('run');
     });
   });
 
@@ -201,15 +200,15 @@ describe('editorStore — workflowMode ', () => {
       const { addTab, setTabWorkflowMode } = useEditorStore.getState();
       addTab({
         id: 't1',
-        name: 'main.rs',
-        language: 'rust',
+        name: 'index.html',
+        language: 'html',
         content: '',
       });
-      // Rust doesn't support debug — the setter must reject silently.
-      // The seeded scratchpad mode stays in place.
+      // HTML doesn't support debug — the setter must reject silently.
+      // The seeded Run mode stays in place.
       setTabWorkflowMode('t1', 'debug');
       const tab = useEditorStore.getState().tabs.find((t) => t.id === 't1');
-      expect(tab?.workflowMode).toBe('scratchpad');
+      expect(tab?.workflowMode).toBe('run');
       expect(mockTrackEvent).not.toHaveBeenCalled();
     });
 

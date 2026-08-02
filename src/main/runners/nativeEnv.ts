@@ -78,6 +78,14 @@ export const RUST_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
+ * Rust debugger-only discovery keys. LLDB_DAP selects an explicit adapter,
+ * while DEVELOPER_DIR lets xcrun honor the user's selected Xcode installation.
+ * Neither changes loaded code or grants authority; both only select an audited
+ * toolchain executable.
+ */
+export const RUST_DEBUGGER_TOOLCHAIN_KEYS = ['LLDB_DAP', 'DEVELOPER_DIR'] as const;
+
+/**
  * implementation — Node-specific host-env keys. Node's binary
  * lookup honors `NODE_PATH` for global module resolution; the
  * other allowlisted entries (`NPM_CONFIG_CACHE`, `NPM_CONFIG_PREFIX`)

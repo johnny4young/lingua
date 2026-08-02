@@ -100,8 +100,8 @@
       "items": [
         {
           "title": "Deeper debugging controls",
-          "scope": "JavaScript and TypeScript breakpoints, stepping, bounded watch evaluation, conditional breakpoints, and non-pausing logpoints ship in web and desktop. Python and Go now ship standard breakpoints, stepping, locals, call stack, and native-process watches on desktop. Rust remains future native work.",
-          "status": "Partial",
+          "scope": "JavaScript and TypeScript breakpoints, stepping, bounded watch evaluation, conditional breakpoints, and non-pausing logpoints ship in web and desktop. Python, Go, and Rust ship standard breakpoints, stepping, locals, call stack, and native-process watches on desktop through their host debuggers.",
+          "status": "Delivered",
           "theme": "Debugger"
         }
       ]

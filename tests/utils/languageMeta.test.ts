@@ -144,10 +144,11 @@ describe('languageMeta', () => {
       window.lingua = { platform: 'web' } as unknown as LinguaAPI;
       expect(languageSupportsDebugger('python')).toBe(false);
       expect(languageSupportsDebugger('go')).toBe(false);
+      expect(languageSupportsDebugger('rust')).toBe(false);
       window.lingua = { platform: 'darwin' } as unknown as LinguaAPI;
       expect(languageSupportsDebugger('python')).toBe(true);
       expect(languageSupportsDebugger('go')).toBe(true);
-      expect(languageSupportsDebugger('rust')).toBe(false);
+      expect(languageSupportsDebugger('rust')).toBe(true);
       expect(languageSupportsDebugger(null)).toBe(false);
     } finally {
       window.lingua = originalLingua;
