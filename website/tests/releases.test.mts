@@ -3,10 +3,7 @@ import { describe, it } from 'node:test';
 
 import packageJson from '../../package.json' with { type: 'json' };
 import releaseSnapshot from '../src/data/latest-release.json' with { type: 'json' };
-import {
-  filterChangelogThroughVersion,
-  type ChangelogEntry,
-} from '../src/lib/changelog.ts';
+import { filterChangelogThroughVersion, type ChangelogEntry } from '../src/lib/changelog.ts';
 import {
   downloadableAssets,
   fetchLatestRelease,
@@ -21,7 +18,8 @@ import {
   parseReleaseSnapshot,
 } from '../src/lib/releaseSnapshot.ts';
 
-const TAG = `v${packageJson.version}`;
+const CANDIDATE_TAG = `v${packageJson.version}`;
+const PUBLIC_TAG = releaseSnapshot.release.tag;
 
 function asset(name: string, version = packageJson.version, size = 1024) {
   const tag = `v${version}`;
@@ -121,7 +119,7 @@ describe('release metadata trust boundary', () => {
   it('validates the committed snapshot against the repository version', () => {
     const release = parseReleaseSnapshot(releaseSnapshot, packageJson.version);
 
-    assert.equal(release.tag, TAG);
+    assert.equal(release.tag, PUBLIC_TAG);
     assert.ok(release.assets.length >= 5);
     assert.ok(release.assets.some(candidate => candidate.name === 'SHA256SUMS.txt'));
   });
@@ -131,15 +129,12 @@ describe('release metadata trust boundary', () => {
 
     assert.equal(snapshot.schemaVersion, 1);
     assert.equal(snapshot.capturedAt, '2026-08-01T20:00:00.000Z');
-    assert.equal(snapshot.release.tag, TAG);
+    assert.equal(snapshot.release.tag, CANDIDATE_TAG);
     assert.equal(parseReleaseSnapshot(snapshot, packageJson.version).version, packageJson.version);
   });
 
   it('allows the last public release behind a source candidate but requires an exact release on promotion', () => {
-    const snapshot = createReleaseSnapshot(
-      githubRelease('0.15.0'),
-      '2026-08-01T20:00:00.000Z'
-    );
+    const snapshot = createReleaseSnapshot(githubRelease('0.15.0'), '2026-08-01T20:00:00.000Z');
 
     assert.equal(parseReleaseSnapshot(snapshot, '1.0.0').version, '0.15.0');
     assert.throws(
@@ -149,10 +144,7 @@ describe('release metadata trust boundary', () => {
   });
 
   it('rejects a public release newer than the checked-out source', () => {
-    const snapshot = createReleaseSnapshot(
-      githubRelease('1.0.0'),
-      '2026-08-01T20:00:00.000Z'
-    );
+    const snapshot = createReleaseSnapshot(githubRelease('1.0.0'), '2026-08-01T20:00:00.000Z');
 
     assert.throws(() => parseReleaseSnapshot(snapshot, '0.15.0'), /is newer than/u);
     assert.throws(
@@ -192,11 +184,15 @@ describe('release metadata trust boundary', () => {
     assert.throws(() => parseGithubRelease(duplicate), /duplicate asset/u);
 
     const noChecksums = structuredClone(githubRelease());
-    noChecksums.assets = noChecksums.assets.filter(candidate => candidate.name !== 'SHA256SUMS.txt');
+    noChecksums.assets = noChecksums.assets.filter(
+      candidate => candidate.name !== 'SHA256SUMS.txt'
+    );
     assert.throws(() => parseGithubRelease(noChecksums), /SHA256SUMS/u);
 
     const noWindows = structuredClone(githubRelease());
-    noWindows.assets = noWindows.assets.filter(candidate => !candidate.name.endsWith('-win-x64.exe'));
+    noWindows.assets = noWindows.assets.filter(
+      candidate => !candidate.name.endsWith('-win-x64.exe')
+    );
     assert.throws(() => parseGithubRelease(noWindows), /missing supported desktop asset/u);
   });
 
@@ -206,7 +202,7 @@ describe('release metadata trust boundary', () => {
       retryDelaysMs: [],
     });
 
-    assert.equal(release?.tag, TAG);
+    assert.equal(release?.tag, CANDIDATE_TAG);
     assert.deepEqual(
       release?.assets.map(candidate => candidate.name),
       [
@@ -240,9 +236,12 @@ describe('release metadata trust boundary', () => {
         warn: message => warnings.push(message),
       });
 
-      assert.equal(release?.tag, TAG);
+      assert.equal(release?.tag, PUBLIC_TAG);
       assert.ok(release?.assets.some(candidate => candidate.name === 'SHA256SUMS.txt'));
-      assert.match(warnings[0] ?? '', new RegExp(`snapshot for ${TAG.replaceAll('.', '\\.')}\\b`, 'u'));
+      assert.match(
+        warnings[0] ?? '',
+        new RegExp(`snapshot for ${PUBLIC_TAG.replaceAll('.', '\\.')}\\b`, 'u')
+      );
     });
   }
 
@@ -278,7 +277,7 @@ describe('release metadata trust boundary', () => {
 
     await assert.rejects(
       fetchLatestRelease({
-        fetchImpl: fetchReturning(Response.json(githubRelease('1.0.0'))),
+        fetchImpl: fetchReturning(Response.json(githubRelease('2.0.0'))),
         retryDelaysMs: [],
       }),
       /is newer than repository version/u

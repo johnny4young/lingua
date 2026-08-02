@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-08-02T19:25:50.611Z",
+  "generatedAt": "2026-08-02T20:05:38.236Z",
   "baseRef": "v0.15.0",
   "commitCount": 12,
-  "totalSinceBase": 83,
+  "totalSinceBase": 84,
   "commits": [
+    {
+      "hash": "cdd4d2d",
+      "date": "2026-08-02",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "website",
+      "message": "tell the Lingua 1.0 story",
+      "breaking": false
+    },
     {
       "hash": "859b190",
       "date": "2026-08-02",
@@ -101,15 +110,6 @@
       "typeLabel": "New",
       "scope": "debugger",
       "message": "ship desktop Python debugging",
-      "breaking": false
-    },
-    {
-      "hash": "ba8b3fd",
-      "date": "2026-08-01",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "distribution",
-      "message": "add public readiness report",
       "breaking": false
     }
   ]

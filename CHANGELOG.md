@@ -6,6 +6,8 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-08-02
+
 ### Highlights
 - **One workspace now spans experiment, inspection, and project work:** write and run six languages, pause JavaScript/TypeScript or native Python/Go/Rust code, model multi-step ideas in reactive notebooks, and move into HTTP, SQL, or focused developer utilities without rebuilding context in another app.
 - **Desktop project tools are explicit about trust:** the integrated terminal, detected test runner, dependency actions, filesystem bridge, and local MCP server all start from an approved project capability, use bounded or filtered process boundaries, and explain where host permissions begin instead of pretending local code is sandboxed.
