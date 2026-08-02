@@ -4,6 +4,10 @@ import { describe, it } from 'node:test';
 import packageJson from '../../package.json' with { type: 'json' };
 import releaseSnapshot from '../src/data/latest-release.json' with { type: 'json' };
 import {
+  filterChangelogThroughVersion,
+  type ChangelogEntry,
+} from '../src/lib/changelog.ts';
+import {
   downloadableAssets,
   fetchLatestRelease,
   groupAssetsByPlatform,
@@ -11,35 +15,37 @@ import {
   type Release,
 } from '../src/lib/releases.ts';
 import {
+  compareStableVersions,
   createReleaseSnapshot,
   parseGithubRelease,
   parseReleaseSnapshot,
 } from '../src/lib/releaseSnapshot.ts';
 
 const TAG = `v${packageJson.version}`;
-const RELEASE_URL = `https://github.com/johnny4young/lingua/releases/tag/${TAG}`;
 
-function asset(name: string, size = 1024) {
+function asset(name: string, version = packageJson.version, size = 1024) {
+  const tag = `v${version}`;
   return {
     name,
-    browser_download_url: `https://github.com/johnny4young/lingua/releases/download/${TAG}/${encodeURIComponent(name)}`,
+    browser_download_url: `https://github.com/johnny4young/lingua/releases/download/${tag}/${encodeURIComponent(name)}`,
     size,
   };
 }
 
-function githubRelease() {
+function githubRelease(version = packageJson.version) {
+  const tag = `v${version}`;
   return {
-    tag_name: TAG,
+    tag_name: tag,
     published_at: '2026-07-28T21:26:52Z',
-    html_url: RELEASE_URL,
+    html_url: `https://github.com/johnny4young/lingua/releases/tag/${tag}`,
     draft: false,
     prerelease: false,
     assets: [
-      asset(`Lingua-${packageJson.version}-mac-arm64.dmg`),
-      asset(`Lingua-${packageJson.version}-mac-x64.dmg`),
-      asset(`Lingua-${packageJson.version}-win-x64.exe`),
-      asset(`Lingua-${packageJson.version}-linux-x86_64.AppImage`),
-      asset('SHA256SUMS.txt'),
+      asset(`Lingua-${version}-mac-arm64.dmg`, version),
+      asset(`Lingua-${version}-mac-x64.dmg`, version),
+      asset(`Lingua-${version}-win-x64.exe`, version),
+      asset(`Lingua-${version}-linux-x86_64.AppImage`, version),
+      asset('SHA256SUMS.txt', version),
     ],
   };
 }
@@ -129,10 +135,54 @@ describe('release metadata trust boundary', () => {
     assert.equal(parseReleaseSnapshot(snapshot, packageJson.version).version, packageJson.version);
   });
 
-  it('rejects stale snapshots, foreign downloads, duplicate assets, and incomplete releases', () => {
-    const snapshot = createReleaseSnapshot(githubRelease(), '2026-08-01T20:00:00.000Z');
-    assert.throws(() => parseReleaseSnapshot(snapshot, '99.0.0'), /does not match/u);
+  it('allows the last public release behind a source candidate but requires an exact release on promotion', () => {
+    const snapshot = createReleaseSnapshot(
+      githubRelease('0.15.0'),
+      '2026-08-01T20:00:00.000Z'
+    );
 
+    assert.equal(parseReleaseSnapshot(snapshot, '1.0.0').version, '0.15.0');
+    assert.throws(
+      () => parseReleaseSnapshot(snapshot, '1.0.0', { requireCurrentVersion: true }),
+      /does not match repository version/u
+    );
+  });
+
+  it('rejects a public release newer than the checked-out source', () => {
+    const snapshot = createReleaseSnapshot(
+      githubRelease('1.0.0'),
+      '2026-08-01T20:00:00.000Z'
+    );
+
+    assert.throws(() => parseReleaseSnapshot(snapshot, '0.15.0'), /is newer than/u);
+    assert.throws(
+      () => parseGithubRelease(githubRelease('1.0.0'), { repositoryVersion: '0.15.0' }),
+      /is newer than/u
+    );
+  });
+
+  it('orders stable versions numerically and hides candidate changelog entries', () => {
+    assert.equal(compareStableVersions('0.15.0', '1.0.0'), -1);
+    assert.equal(compareStableVersions('1.0.0', '1.0.0'), 0);
+    assert.equal(compareStableVersions('10.0.0', '2.99.99'), 1);
+    assert.throws(() => compareStableVersions('1.0', '1.0.0'), /stable X\.Y\.Z/u);
+
+    const entries = ['1.0.0', '0.15.0', '0.14.0'].map(
+      version =>
+        ({
+          version,
+          date: '2026-08-02',
+          sections: [],
+          raw: '',
+        }) satisfies ChangelogEntry
+    );
+    assert.deepEqual(
+      filterChangelogThroughVersion(entries, '0.15.0').map(entry => entry.version),
+      ['0.15.0', '0.14.0']
+    );
+  });
+
+  it('rejects foreign downloads, duplicate assets, and incomplete releases', () => {
     const foreign = structuredClone(githubRelease());
     foreign.assets[0]!.browser_download_url = 'https://example.com/Lingua.dmg';
     assert.throws(() => parseGithubRelease(foreign), /canonical GitHub download URL/u);
@@ -224,6 +274,14 @@ describe('release metadata trust boundary', () => {
         retryDelaysMs: [],
       }),
       /prerelease/u
+    );
+
+    await assert.rejects(
+      fetchLatestRelease({
+        fetchImpl: fetchReturning(Response.json(githubRelease('1.0.0'))),
+        retryDelaysMs: [],
+      }),
+      /is newer than repository version/u
     );
   });
 });

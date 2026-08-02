@@ -11,7 +11,8 @@
  *
  * All content outputs are committed. Release downloads use a separate trusted
  * snapshot: the deploy refreshes it from GitHub when available and the Astro
- * build accepts the committed copy only while it matches this repo's version.
+ * build accepts the committed public version while it is not newer than this
+ * repo's candidate. Release publication switches that check to exact matching.
  *
  * website/ lives INSIDE the lingua repo, so the source defaults to the repo
  * root (`..`) — no cross-repo clone, no token. LINGUA_LOCAL_PATH still

@@ -15,10 +15,13 @@ version banner may be unavailable; installed Lingua runtimes continue working.
   public GitHub Releases.
 - The marketing site prefers the latest public release from the GitHub API and
   has a committed, schema-validated snapshot for static builds. The snapshot is
-  accepted only when its stable tag matches both `package.json` and the latest
-  committed changelog entry, every download uses the canonical repository URL,
-  asset names are unique, and checksums plus the complete supported desktop
-  installer matrix are present.
+  accepted only when its stable tag is not newer than the source candidate in
+  `package.json` and the latest committed changelog entry. This permits a
+  release-preparation merge to keep advertising the previous public version.
+  Every download must still use the canonical repository URL, asset names must
+  be unique, and checksums plus the complete supported desktop installer matrix
+  must be present. A `release: published` build requires the snapshot tag to
+  match the source candidate exactly.
 - `update-server` uses GitHub for `/web/version`; its old platform-specific
   update routes remain only for compatibility and are not the desktop release
   feed.
@@ -39,8 +42,10 @@ artifacts or updater manifests.
 Cloudflare Pages also refreshes the trusted release snapshot before a website
 build. If that request fails, the deploy continues only when the committed
 snapshot passes `npm --prefix website run check:release-snapshot`. This keeps an
-API-only incident from blocking unrelated site changes without inventing or
-silently retaining a previous release.
+API-only incident from blocking unrelated site changes without inventing a
+release. During a `release: published` build, the same fallback runs with
+`--require-current`; it fails closed rather than silently retaining the previous
+release.
 
 ## Mitigation
 

@@ -7,6 +7,9 @@
  */
 
 import data from '../data/changelog.json' with { type: 'json' };
+import packageJson from '../../../package.json' with { type: 'json' };
+import releaseSnapshot from '../data/latest-release.json' with { type: 'json' };
+import { compareStableVersions, parseReleaseSnapshot } from './releaseSnapshot.ts';
 
 export type ChangelogSection = {
   heading: string;
@@ -22,13 +25,27 @@ export type ChangelogEntry = {
 
 const ENTRIES: ChangelogEntry[] = (data as { entries: ChangelogEntry[] }).entries;
 
-export async function loadChangelog(): Promise<ChangelogEntry[]> {
+/** Repository candidate history, including a version prepared but not published yet. */
+export async function loadCandidateChangelog(): Promise<ChangelogEntry[]> {
   return ENTRIES;
+}
+
+export function filterChangelogThroughVersion(
+  entries: readonly ChangelogEntry[],
+  publishedVersion: string
+): ChangelogEntry[] {
+  return entries.filter(entry => compareStableVersions(entry.version, publishedVersion) <= 0);
+}
+
+export async function loadPublishedChangelog(): Promise<ChangelogEntry[]> {
+  const publishedVersion = parseReleaseSnapshot(releaseSnapshot, packageJson.version).version;
+  return filterChangelogThroughVersion(ENTRIES, publishedVersion);
 }
 
 export async function findEntryForVersion(version: string): Promise<ChangelogEntry | null> {
   const stripped = version.replace(/^v/, '');
-  return ENTRIES.find((e) => e.version === stripped) ?? null;
+  const publishedEntries = await loadPublishedChangelog();
+  return publishedEntries.find(entry => entry.version === stripped) ?? null;
 }
 
 export function excerpt(entry: ChangelogEntry, maxItems = 4): string[] {

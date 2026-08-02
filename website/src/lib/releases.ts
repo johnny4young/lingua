@@ -1,7 +1,7 @@
 /**
  * Build-time release fetcher backed by the public GitHub Releases API for
  * `johnny4young/lingua`. Recoverable transport failures use a committed,
- * version-locked snapshot; invalid or untrusted metadata still fails loudly.
+ * source-bounded snapshot; invalid or untrusted metadata still fails loudly.
  *
  * The lingua repo is public, so the latest release + its assets come straight
  * from `api.github.com/.../releases/latest`, and download links point at
@@ -16,7 +16,7 @@
  * (`*.blockmap`, `latest-*.yml`) is filtered out.
  */
 
-import { loadChangelog } from './changelog.ts';
+import { loadCandidateChangelog, loadPublishedChangelog } from './changelog.ts';
 import packageJson from '../../../package.json' with { type: 'json' };
 import releaseSnapshot from '../data/latest-release.json' with { type: 'json' };
 import {
@@ -230,7 +230,7 @@ function toRelease(metadata: TrustedReleaseMetadata): Release {
 }
 
 async function snapshotLatest(): Promise<Release> {
-  const entries = await loadChangelog();
+  const entries = await loadCandidateChangelog();
   const changelogVersion = entries[0]?.version;
   if (!changelogVersion) {
     throw new Error('Cannot validate the release snapshot because the changelog is empty');
@@ -287,11 +287,12 @@ export async function fetchLatestRelease(
     response = await fetchWithRetry(apiUrl, { headers }, fetchOptions);
   } catch (err) {
     if (err instanceof ReleaseTransportError) {
+      const snapshot = await snapshotLatest();
       const warning =
         `GitHub release metadata is temporarily unavailable; using the validated ` +
-        `repository snapshot for v${packageJson.version}. ${(err as Error).message}`;
+        `repository snapshot for ${snapshot.tag}. ${(err as Error).message}`;
       (options.warn ?? console.warn)(warning);
-      return snapshotLatest();
+      return snapshot;
     }
     throw new Error(
       `Could not load the latest GitHub release from ${apiUrl}: ${(err as Error).message}`
@@ -305,7 +306,11 @@ export async function fetchLatestRelease(
       `GitHub release response from ${apiUrl} is not valid JSON: ${(err as Error).message}`
     );
   }
-  return toRelease(parseGithubRelease(payload));
+  return toRelease(
+    parseGithubRelease(payload, {
+      repositoryVersion: packageJson.version,
+    })
+  );
 }
 
 /**
@@ -316,7 +321,7 @@ export async function fetchOlderReleaseSummaries(
   maxCount: number,
   options: { excludeVersion?: string } = {}
 ): Promise<OlderReleaseSummary[]> {
-  const entries = await loadChangelog();
+  const entries = await loadPublishedChangelog();
   const exclude = options.excludeVersion ? normalizeVersion(options.excludeVersion) : null;
   return entries
     .filter(e => e.version !== exclude)

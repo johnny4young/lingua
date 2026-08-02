@@ -1,5 +1,11 @@
 const GITHUB_REPO = 'johnny4young/lingua';
 const STABLE_TAG_PATTERN = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+const STABLE_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+
+export interface ReleaseVersionPolicy {
+  repositoryVersion: string;
+  requireCurrentVersion?: boolean;
+}
 
 export interface TrustedReleaseAsset {
   name: string;
@@ -66,6 +72,44 @@ function versionFromTag(tag: string): string {
   return tag.slice(1);
 }
 
+function stableVersionParts(version: string, label: string): readonly bigint[] {
+  const match = version.match(STABLE_VERSION_PATTERN);
+  if (!match) {
+    throw new Error(`${label} must be a stable X.Y.Z version: ${version}`);
+  }
+  return match.slice(1).map(part => BigInt(part));
+}
+
+export function compareStableVersions(left: string, right: string): number {
+  const leftParts = stableVersionParts(left, 'Left version');
+  const rightParts = stableVersionParts(right, 'Right version');
+  for (let index = 0; index < leftParts.length; index += 1) {
+    const leftPart = leftParts[index]!;
+    const rightPart = rightParts[index]!;
+    if (leftPart < rightPart) return -1;
+    if (leftPart > rightPart) return 1;
+  }
+  return 0;
+}
+
+function assertReleaseVersion(
+  releaseVersion: string,
+  policy: ReleaseVersionPolicy,
+  label: string
+): void {
+  const comparison = compareStableVersions(releaseVersion, policy.repositoryVersion);
+  if (policy.requireCurrentVersion && comparison !== 0) {
+    throw new Error(
+      `${label} version ${releaseVersion} does not match repository version ${policy.repositoryVersion}`
+    );
+  }
+  if (comparison > 0) {
+    throw new Error(
+      `${label} version ${releaseVersion} is newer than repository version ${policy.repositoryVersion}`
+    );
+  }
+}
+
 function expectedReleaseUrl(tag: string): string {
   return `https://github.com/${GITHUB_REPO}/releases/tag/${tag}`;
 }
@@ -126,16 +170,14 @@ function assertUsableAssetSet(assets: TrustedReleaseAsset[], version: string): v
 
 function parseTrustedRelease(
   value: unknown,
-  options: { expectedVersion?: string } = {}
+  options: { versionPolicy?: ReleaseVersionPolicy; versionLabel?: string } = {}
 ): TrustedReleaseMetadata {
   if (!isRecord(value)) throw new Error('Release metadata must be an object');
 
   const tag = requiredString(value, 'tag');
   const version = versionFromTag(tag);
-  if (options.expectedVersion && version !== options.expectedVersion) {
-    throw new Error(
-      `Release snapshot version ${version} does not match repository version ${options.expectedVersion}`
-    );
+  if (options.versionPolicy) {
+    assertReleaseVersion(version, options.versionPolicy, options.versionLabel ?? 'Release');
   }
   const publishedAt = requiredString(value, 'publishedAt');
   assertIsoTimestamp(publishedAt, 'Release publishedAt');
@@ -157,27 +199,33 @@ function parseTrustedRelease(
   return { tag, version, publishedAt, htmlUrl, assets };
 }
 
-export function parseGithubRelease(value: unknown): TrustedReleaseMetadata {
+export function parseGithubRelease(
+  value: unknown,
+  versionPolicy?: ReleaseVersionPolicy
+): TrustedReleaseMetadata {
   if (!isRecord(value)) throw new Error('GitHub release response must be an object');
   const rawAssets = value.assets;
   if (!Array.isArray(rawAssets)) {
     throw new Error('GitHub release response assets must be an array');
   }
-  return parseTrustedRelease({
-    tag: value.tag_name,
-    publishedAt: value.published_at,
-    htmlUrl: value.html_url,
-    draft: value.draft,
-    prerelease: value.prerelease,
-    assets: rawAssets.map(asset => {
-      if (!isRecord(asset)) return asset;
-      return {
-        name: asset.name,
-        downloadUrl: asset.browser_download_url,
-        sizeBytes: asset.size,
-      };
-    }),
-  });
+  return parseTrustedRelease(
+    {
+      tag: value.tag_name,
+      publishedAt: value.published_at,
+      htmlUrl: value.html_url,
+      draft: value.draft,
+      prerelease: value.prerelease,
+      assets: rawAssets.map(asset => {
+        if (!isRecord(asset)) return asset;
+        return {
+          name: asset.name,
+          downloadUrl: asset.browser_download_url,
+          sizeBytes: asset.size,
+        };
+      }),
+    },
+    { versionPolicy, versionLabel: 'Public release' }
+  );
 }
 
 export function createReleaseSnapshot(
@@ -202,14 +250,21 @@ export function createReleaseSnapshot(
 
 export function parseReleaseSnapshot(
   value: unknown,
-  expectedVersion: string
+  repositoryVersion: string,
+  options: { requireCurrentVersion?: boolean } = {}
 ): TrustedReleaseMetadata {
   if (!isRecord(value) || value.schemaVersion !== 1) {
     throw new Error('Release snapshot schemaVersion must be 1');
   }
   const capturedAt = requiredString(value, 'capturedAt');
   assertIsoTimestamp(capturedAt, 'Release snapshot capturedAt');
-  const release = parseTrustedRelease(value.release, { expectedVersion });
+  const release = parseTrustedRelease(value.release, {
+    versionPolicy: {
+      repositoryVersion,
+      requireCurrentVersion: options.requireCurrentVersion,
+    },
+    versionLabel: 'Release snapshot',
+  });
   if (Date.parse(capturedAt) < Date.parse(release.publishedAt)) {
     throw new Error('Release snapshot cannot predate the published release');
   }

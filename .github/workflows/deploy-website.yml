@@ -62,11 +62,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          if npm run sync:release; then
+          release_args=()
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            release_args+=(--require-current)
+          fi
+          if npm run sync:release -- "${release_args[@]}"; then
             echo "Latest public release metadata refreshed from GitHub."
           else
             echo "::warning::GitHub release metadata refresh failed; validating the committed snapshot before continuing."
-            npm run check:release-snapshot
+            npm run check:release-snapshot -- "${release_args[@]}"
           fi
 
       - name: Type-check Astro

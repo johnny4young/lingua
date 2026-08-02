@@ -1,5 +1,5 @@
 ---
-import { loadChangelog } from '~/lib/changelog';
+import { loadPublishedChangelog } from '~/lib/changelog';
 import { type Locale, localizePath, t } from '~/lib/i18n';
 
 interface Props {
@@ -12,8 +12,9 @@ const block = copy.home.whatsNew;
 
 // The current release stays fully visible; everything older collapses
 // into the history timeline below. Data comes from the preprocessed
-// changelog.json (synced at build time — zero network dependency).
-const entries = await loadChangelog();
+// changelog.json (synced at build time — zero network dependency). A prepared
+// candidate stays hidden until the trusted release snapshot is promoted.
+const entries = await loadPublishedChangelog();
 const previous = entries.slice(1);
 
 const LEAD_RE = /<strong>(.+?)<\/strong>\s*[:—-]?\s*([\s\S]*)/;

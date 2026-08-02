@@ -42,7 +42,10 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
 3. Dispatch the `Release` workflow with the target `release_tag`.
 4. For a stable desktop release, leave macOS, Windows, and Linux enabled. A
    partial platform selection is for draft diagnostics only.
-5. Wait for every selected build and the web deploy to complete.
+5. Wait for every selected build and the web deploy to complete. Ordinary
+   release-preparation pushes may keep the website pinned to the previous
+   public release, but the `release: published` deployment requires the trusted
+   snapshot to match the candidate version exactly.
 6. Inspect the workflow summary and artifacts:
    - production dependency audit, license-key policy, and compliance artifacts;
    - macOS arm64 + x64 dmg/zip outputs and the architecture-correct packaged smoke;

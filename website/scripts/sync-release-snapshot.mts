@@ -23,6 +23,7 @@ function parseOptions() {
     options: {
       check: { type: 'boolean', default: false },
       input: { type: 'string' },
+      'require-current': { type: 'boolean', default: false },
     },
     strict: true,
     allowPositionals: false,
@@ -104,12 +105,13 @@ async function main(): Promise<void> {
   const options = parseOptions();
   const version = await expectedVersion();
   const existing = await readExistingSnapshot();
+  const versionPolicy = { requireCurrentVersion: options['require-current'] };
 
   if (options.check) {
     if (!existing) throw new Error(`Release snapshot is missing: ${snapshotPath}`);
-    const release = parseReleaseSnapshot(existing, version);
+    const release = parseReleaseSnapshot(existing, version, versionPolicy);
     console.log(
-      `[release-snapshot] valid ${release.tag}: ${release.assets.length} trusted assets, repository version ${version}`
+      `[release-snapshot] valid public ${release.tag}: ${release.assets.length} trusted assets, repository candidate v${version}`
     );
     return;
   }
@@ -117,16 +119,11 @@ async function main(): Promise<void> {
   const inputPath = options.input;
   const apiPayload = inputPath ? await readJson(resolve(inputPath)) : await fetchLatestRelease();
   const candidate = createReleaseSnapshot(apiPayload);
-  if (candidate.release.tag !== `v${version}`) {
-    throw new Error(
-      `Latest public release ${candidate.release.tag} does not match repository version ${version}`
-    );
-  }
 
   if (existing && JSON.stringify(existing.release) === JSON.stringify(candidate.release)) {
     candidate.capturedAt = existing.capturedAt;
   }
-  parseReleaseSnapshot(candidate, version);
+  parseReleaseSnapshot(candidate, version, versionPolicy);
   const serialized = `${JSON.stringify(candidate, null, 2)}\n`;
   if (existing && serialized === `${JSON.stringify(existing, null, 2)}\n`) {
     console.log(`[release-snapshot] unchanged ${candidate.release.tag}`);
