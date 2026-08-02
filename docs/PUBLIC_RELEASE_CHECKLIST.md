@@ -96,6 +96,11 @@ change commit ids and require force-pushing private branches/tags.
   `@linguacode` scope and Bypass 2FA enabled for that bootstrap only. Revoke it
   after stage-only trusted publishing is configured; subsequent staged versions
   require 2FA approval and a clean public-install rerun after approval.
+- Preserve `check:cli-publish-prereqs` JSON evidence from before the candidate:
+  immutable releases enabled, `npm-production` present with required reviewers,
+  and bootstrap-secret presence matching whether the package exists. The report
+  is read-only and verifies secret names only; review the npm trusted-publisher
+  policy separately after bootstrap.
 - For macOS/Windows releases, complete
   `docs/runbooks/desktop-update-draft-validation.md` and preserve the workflow
   structure/signing evidence.

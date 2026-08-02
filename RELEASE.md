@@ -24,6 +24,9 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
   [`docs/runbooks/distribution-channels.md`](./docs/runbooks/distribution-channels.md).
   GitHub release immutability must be enabled before cutting the candidate;
   the npm workflow refuses a release without its signed release attestation.
+  Run `pnpm run check:cli-publish-prereqs` before the candidate; it must report
+  the automated bootstrap checks as ready, without treating the later npm
+  trusted-publisher policy as machine-verified.
 - [`docs/RELEASE_SECURITY.md`](./docs/RELEASE_SECURITY.md) has been reviewed for
   the candidate's Electron, IPC, runtime, update, licensing, telemetry, and
   dependency surfaces.

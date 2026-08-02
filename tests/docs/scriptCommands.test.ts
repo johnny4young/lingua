@@ -100,6 +100,8 @@ describe('Script naming docs guard', () => {
       'package:cli',
       // Read-only verifier for the exact release-owned npm tarball.
       'check:cli-publication',
+      // Authenticated read-only audit of GitHub/npm promotion prerequisites.
+      'check:cli-publish-prereqs',
       // Read-only public release, registry, tap, and manifest evidence.
       'distribution:status',
       'preview:web',

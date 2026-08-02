@@ -59,6 +59,29 @@ Reviewers can inspect the preflight summary and evidence before granting access
 to the one-time secret or OIDC token; approval is not wasted on malformed or
 unattested candidates.
 
+### Authenticated read-only prerequisite check
+
+Before cutting the release, run:
+
+```bash
+pnpm run check:cli-publish-prereqs
+pnpm run check:cli-publish-prereqs -- --format json --output output/cli-publish-prereqs.json
+```
+
+The command requires an authenticated `gh` session and reads the repository's
+immutable-release setting, `npm-production` environment protection metadata,
+environment secret **names**, and the public npm package. It never requests a
+secret value and never changes GitHub or npm. A missing package requires the
+bootstrap secret to exist; after the package is public, leaving that secret in
+the environment becomes a blocking failure. npm does not expose the trusted
+publisher policy through this probe, so the post-bootstrap report keeps its
+stage-only workflow/action restriction as an explicit manual review instead of
+claiming readiness from indirect evidence.
+
+The probe uses GitHub's read endpoints for
+[repository release immutability](https://docs.github.com/en/rest/repos/repos#check-if-immutable-releases-are-enabled-for-a-repository)
+and [deployment environments](https://docs.github.com/en/rest/deployments/environments#get-an-environment).
+
 ### One-time bootstrap
 
 npm requires a package to exist before trusted publishing or staged publishing
@@ -72,10 +95,12 @@ can be configured. For the first valid version from the next stable release:
 4. Create a short-lived granular npm token with read/write access to the
    `@linguacode` scope and Bypass 2FA enabled for this one bootstrap only, then
    store it only as the environment secret `NPM_PUBLISH_TOKEN`.
-5. Dispatch `publish-cli.yml` with the stable tag plus the exact confirmation
+5. Rerun `pnpm run check:cli-publish-prereqs`; the automated status must be
+   `Ready` before dispatching the workflow.
+6. Dispatch `publish-cli.yml` with the stable tag plus the exact confirmation
    `@linguacode/cli@X.Y.Z`. Inspect the completed preflight summary and its
    immutable candidate artifact, then approve the waiting `npm-production` job.
-6. Confirm the promotion job repeated verification, used the `bootstrap` path,
+7. Confirm the promotion job repeated verification, used the `bootstrap` path,
    emitted provenance, and passed the clean public-install smoke.
 
 The workflow refuses bootstrap without the one-time secret. It also refuses a
