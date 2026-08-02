@@ -223,8 +223,14 @@ Configure Authenticode signing, then re-generate and submit:
 2. Add repo secrets `WIN_CERT_FILE` (base64 `.pfx`) and `WIN_CERT_PASSWORD`.
    The release workflow signs both the installer and standalone CLI after SEA
    injection; with neither set it deliberately labels both as unsigned previews.
-3. Cut a release, confirm the workflow reports Authenticode as verified.
-4. Regenerate the manifests and submit them with
+3. Run `pnpm run check:windows-signing-prereqs` and preserve its JSON evidence.
+   It reads secret names only and blocks a missing or orphaned pair; certificate
+   trust remains a human review until a real draft proves both signatures.
+4. Cut a draft release and confirm both the installer and standalone CLI
+   summaries report a valid Authenticode signature on the same candidate.
+5. Validate install, launch, update, uninstall, publisher identity, and
+   SmartScreen behavior on a clean Windows 11 system.
+6. Regenerate the manifests and submit them with
    [`wingetcreate`](https://github.com/microsoft/winget-create):
    `wingetcreate submit packaging/winget`.
 

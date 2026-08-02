@@ -102,6 +102,8 @@ describe('Script naming docs guard', () => {
       'check:cli-publication',
       // Authenticated read-only audit of GitHub/npm promotion prerequisites.
       'check:cli-publish-prereqs',
+      // Authenticated name-only audit of Windows signing prerequisites.
+      'check:windows-signing-prereqs',
       // Read-only public release, registry, tap, and manifest evidence.
       'distribution:status',
       'preview:web',

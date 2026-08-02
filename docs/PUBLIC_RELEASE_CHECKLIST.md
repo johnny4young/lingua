@@ -22,6 +22,9 @@ planning metadata. It is separate from `RELEASE.md`, which gates binaries.
   `THIRD_PARTY_NOTICES.md`, and `docs/RELEASE_SECURITY.md`.
 - Desktop signing setup is documented in `docs/MACOS_SIGNING.md` and
   `docs/WINDOWS_SIGNING.md`.
+- Preserve `check:windows-signing-prereqs` JSON evidence for any candidate that
+  claims Authenticode trust. Secret-name readiness does not replace the two
+  `Valid` workflow summaries or the clean Windows 11 behavior pass.
 - `.env.example` exists and contains placeholders only.
 - Machine-local absolute Markdown links are blocked by
   `tests/docs/publicDocs.test.ts`.

@@ -52,6 +52,19 @@ The workflow recognizes:
 | `WIN_CERT_FILE`     | Base64-encoded PFX certificate. |
 | `WIN_CERT_PASSWORD` | PFX password.                   |
 
+Before adding or rotating either secret, run the authenticated read-only
+preflight:
+
+```bash
+pnpm run check:windows-signing-prereqs
+pnpm run check:windows-signing-prereqs -- --format json --output output/windows-signing-prereqs.json
+```
+
+It asks GitHub only for repository secret **names**, never values. Neither a
+name nor a successfully decoded PFX proves public trust: review the certificate
+identity, expiry, and Windows chain separately, then require the installer and
+standalone CLI verification lines from a draft release.
+
 When both exist, electron-builder signs the installer and the workflow requires:
 
 ```powershell

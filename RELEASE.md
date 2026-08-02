@@ -30,6 +30,9 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
 - [`docs/RELEASE_SECURITY.md`](./docs/RELEASE_SECURITY.md) has been reviewed for
   the candidate's Electron, IPC, runtime, update, licensing, telemetry, and
   dependency surfaces.
+- Run `pnpm run check:windows-signing-prereqs` before selecting Windows for a
+  public-trust release. A ready secret-name pair still requires both workflow
+  signature summaries and a clean Windows 11 validation before publication.
 
 ## Release steps
 

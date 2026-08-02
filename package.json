@@ -21,6 +21,7 @@
     "package:cli": "node ./scripts/package-cli.mjs",
     "check:cli-publication": "node ./scripts/verify-cli-publication.mjs",
     "check:cli-publish-prereqs": "node ./scripts/cli-publish-prerequisites.mjs",
+    "check:windows-signing-prereqs": "node ./scripts/windows-signing-prerequisites.mjs",
     "distribution:status": "node ./scripts/distribution-readiness.mjs",
     "preview:web": "vite preview --config vite.web.config.mts",
     "smoke:project-templates": "node ./scripts/smoke-project-templates.mjs",
