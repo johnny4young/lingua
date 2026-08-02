@@ -46,7 +46,7 @@ Go y Rust delegan en las toolchains que ya tienes en tu máquina. Si `go version
 JavaScript, TypeScript, Python y Ruby vienen incluidos con Lingua. Los modos nativos
 de desktop usan la toolchain instalada en tu máquina:
 
-- **Go:** instala la versión estable actual desde [go.dev/dl](https://go.dev/dl/) y confirma que `go version` funciona.
+- **Go:** instala la versión estable actual desde [go.dev/dl](https://go.dev/dl/) y confirma que `go version` funciona. Para el modo Debug, ejecuta también `go install github.com/go-delve/delve/cmd/dlv@latest` y confirma que `dlv version` funciona.
 - **Rust:** instala Rust desde [rustup.rs](https://rustup.rs/) y confirma que `rustc --version` funciona.
 - **Node.js:** instala una versión LTS activa desde [nodejs.org](https://nodejs.org/en/download) y confirma que `node --version` funciona.
 - **Ruby:** instala una versión compatible desde [ruby-lang.org](https://www.ruby-lang.org/es/documentation/installation/) y confirma que `ruby --version` funciona. El modo automático de Ruby puede seguir usando el runtime WASM incluido cuando Ruby no está disponible en el sistema.

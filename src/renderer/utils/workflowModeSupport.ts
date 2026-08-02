@@ -18,7 +18,7 @@ export function supportsWorkflowModeInShell(
   const normalizedLanguage = language ?? undefined;
   return (
     supportsWorkflowMode(normalizedLanguage, mode) &&
-    !(webShell && language === 'python' && mode === 'debug')
+    !(webShell && (language === 'python' || language === 'go') && mode === 'debug')
   );
 }
 

@@ -141,6 +141,27 @@ starting a replacement, Stop, Run to end completion, command failure, renderer
 destruction, or app quit terminates the process tree and removes the temporary
 source. Web omits this bridge and disables Python Debug with desktop guidance.
 
+### Go desktop path
+
+Go **Debug** leaves normal Go **Run** unchanged. On desktop, Debug instead:
+
+1. reuses the native-execution acknowledgement because the buffer becomes a
+   host process with the user's local permissions;
+2. writes the current buffer and a minimal `go.mod` into a private temporary
+   module, while an optional approved project capability supplies only the cwd;
+3. resolves `dlv` from `PATH`, `GOPATH/bin`, or the conventional `~/go/bin`,
+   then starts `dlv dap` on an ephemeral loopback port without a shell;
+4. drives standard DAP requests for verified breakpoints, stepping, locals,
+   source-local stack frames, watches, and bounded program output.
+
+Install Delve with `go install github.com/go-delve/delve/cmd/dlv@latest` and
+ensure the resulting binary is on `PATH` (or under `GOPATH/bin`). On macOS,
+Delve also needs Developer Tools access; if the OS blocks launch, Lingua stops
+the session and surfaces permission guidance rather than leaving a spinner.
+The current-buffer temporary module intentionally does not become a full
+project debugger: local multi-file/module debug remains outside this slice.
+Web omits the bridge and disables Go Debug with desktop guidance.
+
 ## Stepping
 
 - **Continue (F5)** — resumes until the next breakpoint or the run
@@ -161,7 +182,7 @@ The shortcut gate (`canDispatchDebuggerShortcut` in
 `useGlobalShortcuts`) requires the worker to be paused before F5 /
 F10 / F11 / Shift+F11 fire, so they never compete with normal-mode
 keystrokes. `Mod+Shift+B` is exempt from the paused-worker gate, but
-still requires a debugger-capable JS / TS tab or desktop Python tab plus an
+still requires a debugger-capable JS / TS tab or desktop Python/Go tab plus an
 editor cursor.
 
 ## TypeScript source-map composition
@@ -188,9 +209,9 @@ Three events join the allowlist per [ADR §4](./DEBUGGER_ADR.md):
 
 | Event | When it fires | Payload |
 |-------|---------------|---------|
-| `debugger.attached` | Runtime attaches a session before execution continues | `{ language: 'js' \| 'python', reasonBucket: 'attach' }` |
-| `debugger.paused` | Worker or native adapter publishes a paused frame | `{ language: 'js' \| 'python', reasonBucket: 'user-breakpoint' \| 'step' \| 'exception' }` |
-| `debugger.detached` | Session ends (run complete / crash / stop / user detach) | `{ language: 'js' \| 'python', reasonBucket: 'run-complete' \| 'crash' \| 'stop' \| 'user-detach' }` |
+| `debugger.attached` | Runtime attaches a session before execution continues | `{ language: 'js' \| 'python' \| 'go', reasonBucket: 'attach' }` |
+| `debugger.paused` | Worker or native adapter publishes a paused frame | `{ language: 'js' \| 'python' \| 'go', reasonBucket: 'user-breakpoint' \| 'step' \| 'exception' }` |
+| `debugger.detached` | Session ends (run complete / crash / stop / user detach) | `{ language: 'js' \| 'python' \| 'go', reasonBucket: 'run-complete' \| 'crash' \| 'stop' \| 'user-detach' }` |
 
 Every payload is closed-enum. The redactor in
 `src/shared/telemetry/redaction.ts` drops any key that isn't on the per-event
@@ -198,7 +219,11 @@ allowlist. No source, no breakpoint coordinates, no expression content.
 
 ## Current limitations
 
-- **Go / Rust** adapters are still planned in `LANGUAGE_PACKS`.
+- **Rust** debugging remains planned in `LANGUAGE_PACKS`.
+- **Go Debug is desktop-only** and requires local Go plus Delve. It debugs the
+  current buffer in a temporary single-file module, not an entire saved module.
+  Watches run inside the native process and standard pause breakpoints are the
+  only supported breakpoint mode.
 - **Python Debug is desktop-only** and requires a working host interpreter.
   It supports standard pause breakpoints, not conditional breakpoints or
   logpoints, and its watches run inside the native process.
@@ -238,7 +263,9 @@ inline output column.
 - `src/renderer/runtime/debuggerWorkerBridge.ts` — postMessage shim
   between the UI and the worker.
 - `src/renderer/runtime/debuggerControlBridge.ts` — shared control router for
-  the JS worker and Python adapter.
+  the JS worker and native adapters.
+- `src/renderer/runtime/nativeDebuggerBridge.ts` — runtime-neutral renderer
+  execution/session lifecycle used by Python and Go.
 - `src/renderer/runtime/pythonDebuggerBridge.ts` — lazy desktop renderer
   adapter that joins native responses to the shared execution lifecycle.
 - `src/shared/pythonDebugger.ts` — bounded typed preload/IPC contract.
@@ -246,6 +273,13 @@ inline output column.
   interpreter selection, inspection, and cleanup.
 - `src/main/pythonDebugger.ts` — serialized, output-bounded `pdb` protocol
   engine.
+- `src/renderer/runtime/goDebuggerBridge.ts` — lazy Go wrapper for the shared
+  native lifecycle.
+- `src/shared/goDebugger.ts` — bounded typed Go preload/IPC contract.
+- `src/main/ipc/goDebugger.ts` — capability-aware owner lifecycle, temporary
+  module preparation, Delve resolution, and cleanup.
+- `src/main/goDebugger.ts` + `src/main/debugger/dapClient.ts` — Delve process,
+  bounded DAP transport, inspection, and transition engine.
 - `src/renderer/runtime/editorAccess.ts` — module-level Monaco
   editor ref so the shortcut bus can read the cursor line.
 - `src/renderer/hooks/useBreakpointGutter.ts` — Monaco glyph-margin

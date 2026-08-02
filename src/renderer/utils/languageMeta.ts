@@ -285,9 +285,9 @@ export function languageSupportsDebugger(language: Language | null | undefined):
   if (!language) return false;
   const supported = getLanguagePackById(language)?.capabilities.debugger === 'available';
   if (!supported) return false;
-  // Python's adapter uses host CPython/pdb and is therefore absent from web.
+  // Native adapters use host toolchains and are therefore absent from web.
   return !(
-    language === 'python' &&
+    (language === 'python' || language === 'go') &&
     typeof window !== 'undefined' &&
     window.lingua?.platform === 'web'
   );

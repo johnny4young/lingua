@@ -5,10 +5,13 @@ import {
 } from '@/utils/workflowModeSupport';
 
 describe('workflowModeSupport', () => {
-  it('keeps Python Debug desktop-only', () => {
+  it('keeps native Debug adapters desktop-only', () => {
     expect(supportsWorkflowModeInShell('python', 'debug', false)).toBe(true);
     expect(supportsWorkflowModeInShell('python', 'debug', true)).toBe(false);
     expect(coerceWorkflowModeInShell('debug', 'python', true)).toBe('scratchpad');
+    expect(supportsWorkflowModeInShell('go', 'debug', false)).toBe(true);
+    expect(supportsWorkflowModeInShell('go', 'debug', true)).toBe(false);
+    expect(coerceWorkflowModeInShell('debug', 'go', true)).toBe('scratchpad');
   });
 
   it('preserves shell-independent modes', () => {

@@ -223,7 +223,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages: 'desktop-only',
       stdin: 'desktop-only',
       richOutput: 'unsupported',
-      debugger: 'planned',
+      debugger: 'desktop-only',
     },
     notes: {
       lsp: 'gopls bridged via src/main/lsp/lspProcess.ts.',
@@ -231,6 +231,8 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
         'Browser Go would need TinyGo + a WASM toolchain shipped in the bundle. Not on the roadmap.',
       richOutput:
         'lingua.chart / image / html bridge ships only in JS / TS / Python today.',
+      debugger:
+        'Desktop drives Delve through DAP with pause breakpoints, stepping, locals, source-local call stack, and watches. Delve must be installed on the host.',
     },
   },
   {

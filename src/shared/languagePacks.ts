@@ -178,7 +178,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     execution: 'compile',
     runnerId: 'go',
     formatter: 'ipc:gofmt',
-    capabilities: { lsp: 'desktop', debugger: 'planned', runtimeDependencies: ['go'] },
+    capabilities: { lsp: 'desktop', debugger: 'available', runtimeDependencies: ['go'] },
     docsUrl: 'https://go.dev/doc/',
     templateIds: ['go-hello', 'go-goroutine', 'go-sort'],
   },

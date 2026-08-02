@@ -4,7 +4,7 @@
 | ------ | ----------------- |
 | Decision | Ship a focused debugger MVP targeting JavaScript / TypeScript first via a Monaco-integrated custom breakpoint panel, then Python via a `pdb` IPC bridge, then Go via Delve, then Rust via lldb. Every runtime after JS/TS is desktop-only. |
 | Date | 2026-04-20 |
-| Implementation start | JavaScript / TypeScript and desktop Python are shipping. Go and Rust retain independent future capability gates. |
+| Implementation start | JavaScript / TypeScript plus desktop Python and Go are shipping. Rust retains an independent future capability gate. |
 
 ## Context
 
@@ -106,10 +106,10 @@ pauses fail-safe and explains the error instead of silently skipping the line.
 Logpoints interpolate bounded `{expression}` placeholders, publish their text
 through normal debugger output, and continue without pausing.
 
-This bounded interpreter applies to JavaScript and TypeScript. Python watches
-are evaluated by `pdb` inside the native debugged process, so they can invoke
-Python behavior and have side effects. The Python UI says so explicitly and
-ships only standard pause breakpoints; conditional breakpoints and logpoints
+This bounded interpreter applies to JavaScript and TypeScript. Python and Go
+watches are evaluated inside their native debugged processes, so they can
+invoke runtime behavior and have side effects. The native UI says so explicitly
+and ships only standard pause breakpoints; conditional breakpoints and logpoints
 remain JS/TS-only until a separate native-expression policy is accepted.
 
 ## Implementation sketch (for the follow-up work)
@@ -124,9 +124,12 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   lazy renderer adapter that reuses the breakpoint gutter, Debugger panel,
   shared run lifecycle, and shortcuts. Main prefers project `.venv`/`venv`,
   filters the environment, caps output, and cleans up on every owner lifecycle.
-- **Go slice (third)**: `dlv --headless --listen=:0` subprocess;
-  renderer speaks Delve's JSON-RPC protocol directly (small
-  adapter module in `src/main/debug/delve.ts`).
+- **Go slice (shipping)**: typed `debugger:go:*` IPC and preload bridge,
+  owner-bound `dlv dap --listen=127.0.0.1:0` process, bounded DAP framing in
+  main, and a lazy renderer adapter that reuses the shared native lifecycle,
+  breakpoint gutter, Debugger panel, and shortcuts. Main resolves Delve from
+  the filtered Go environment and cleans up the process tree plus private
+  temporary module on every owner lifecycle.
 - **Rust slice (fourth)**: `lldb -b -s <script>` or `lldb-mi` as
   the adapter, same JSON translation layer pattern.
 
@@ -164,8 +167,8 @@ remain JS/TS-only until a separate native-expression policy is accepted.
 - `LANGUAGE_PACK_ADR.md` — future LanguagePacks that declare
   `capabilities.debugger: 'available' | 'planned'` gate the
   Debugger tab per language.
-- `CAPABILITY_MATRIX.md` — codifies Python debugging as shipping desktop-only
-  and Go/Rust debugging as planned native work.
+- `CAPABILITY_MATRIX.md` — codifies Python and Go debugging as shipping
+  desktop-only and Rust debugging as planned native work.
 - `ENV_VARS_ADR.md` — implementation env merger is the plumbing the
   debugger subprocess slices inherit for free.
 
@@ -225,3 +228,10 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   CPython/pdb. The bridge is capability-aware, owner-bound, output-bounded, and
   lazy in the renderer. Normal Python Run remains Pyodide; web disables Python
   Debug, and the native watch/advanced-breakpoint limitations remain explicit.
+- **Desktop Go debugger shipped 2026-08-01.** Go tabs can select Debug and
+  drive Delve through the standard DAP transport for breakpoints, stepping,
+  locals, source-local call stack, watches, output, and stop. The bridge is
+  loopback-only, owner-bound, message/output-bounded, and lazy in the renderer.
+  Normal Go Run remains unchanged; web disables Go Debug, missing Delve and
+  macOS Developer Tools permission are actionable failures, and native watch
+  side effects plus pause-only breakpoint limits remain explicit.

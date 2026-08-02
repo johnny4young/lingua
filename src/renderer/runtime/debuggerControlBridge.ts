@@ -6,38 +6,47 @@ import {
 } from './debuggerWorkerBridge';
 /** Route shared debugger controls to the attached runtime adapter. */
 export function dispatchDebuggerControl(message: DebuggerControlMessage): boolean {
-  if (useDebuggerStore.getState().session?.runtime !== 'python') {
+  const runtime = useDebuggerStore.getState().session?.runtime;
+  if (runtime !== 'python' && runtime !== 'go') {
     return postDebuggerMessage(message);
   }
-  void import('./pythonDebuggerBridge')
+  const loadAdapter =
+    runtime === 'python' ? import('./pythonDebuggerBridge') : import('./goDebuggerBridge');
+  void loadAdapter
     .then(adapter => {
       if (message.type === 'resume') {
-        adapter.dispatchPythonDebuggerCommand('continue');
+        adapter.nativeDebuggerAdapter.dispatchCommand('continue');
         return;
       }
       if (message.type === 'step') {
-        adapter.dispatchPythonDebuggerCommand(
-          message.mode === 'over' ? 'step-over' : message.mode === 'into' ? 'step-into' : 'step-out'
-        );
+        const command =
+          message.mode === 'over'
+            ? 'step-over'
+            : message.mode === 'into'
+              ? 'step-into'
+              : 'step-out';
+        adapter.nativeDebuggerAdapter.dispatchCommand(command);
         return;
       }
       if (message.type === 'set-breakpoints') {
-        adapter.syncPythonDebuggerBreakpoints(
-          message.breakpoints.map(breakpoint => breakpoint.line)
-        );
+        const lines = message.breakpoints.map(breakpoint => breakpoint.line);
+        adapter.nativeDebuggerAdapter.syncBreakpoints(lines);
         return;
       }
-      adapter.syncPythonDebuggerWatches(message.watches);
+      adapter.nativeDebuggerAdapter.syncWatches(message.watches);
     })
     .catch(() => undefined);
   return true;
 }
 
 export function dispatchDebuggerRunToEnd(): boolean {
-  if (useDebuggerStore.getState().session?.runtime === 'python') {
-    void import('./pythonDebuggerBridge')
+  const runtime = useDebuggerStore.getState().session?.runtime;
+  if (runtime === 'python' || runtime === 'go') {
+    const loadAdapter =
+      runtime === 'python' ? import('./pythonDebuggerBridge') : import('./goDebuggerBridge');
+    void loadAdapter
       .then(adapter => {
-        adapter.runPythonDebuggerToEnd();
+        adapter.nativeDebuggerAdapter.runToEnd();
       })
       .catch(() => undefined);
     return true;
@@ -48,7 +57,8 @@ export function dispatchDebuggerRunToEnd(): boolean {
 }
 
 export function isDebuggerControlActive(): boolean {
-  return isDebugWorkerActive() || useDebuggerStore.getState().session?.runtime === 'python';
+  const runtime = useDebuggerStore.getState().session?.runtime;
+  return isDebugWorkerActive() || runtime === 'python' || runtime === 'go';
 }
 
 export type { DebuggerControlMessage };

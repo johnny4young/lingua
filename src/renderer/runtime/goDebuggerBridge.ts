@@ -1,14 +1,13 @@
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
-import type { PythonDebuggerStepCommand } from '../../shared/pythonDebugger';
+import type { GoDebuggerStepCommand } from '../../shared/goDebugger';
 import { resolveUserEnvForRunner } from '../runners/env';
 import { createNativeDebuggerAdapter } from './nativeDebuggerBridge';
 
 const adapter = createNativeDebuggerAdapter({
-  runtime: 'python',
-  i18nPrefix: 'pythonDebugger',
+  runtime: 'go',
+  i18nPrefix: 'goDebugger',
   commandFailedReason: 'command-failed' as const,
-  getBridge: () =>
-    typeof window !== 'undefined' ? (window.lingua?.pythonDebugger ?? null) : null,
+  getBridge: () => (typeof window !== 'undefined' ? (window.lingua?.goDebugger ?? null) : null),
   buildStartRequest: (tab, breakpoints, watches) => ({
     tabId: tab.id,
     source: tab.content,
@@ -24,11 +23,11 @@ const adapter = createNativeDebuggerAdapter({
 });
 export const nativeDebuggerAdapter = adapter;
 
-export const executePythonDebugSession = adapter.execute;
-export const isPythonDebuggerActive = adapter.isActive;
-export const dispatchPythonDebuggerCommand = (command: PythonDebuggerStepCommand): boolean =>
+export const executeGoDebugSession = adapter.execute;
+export const isGoDebuggerActive = adapter.isActive;
+export const dispatchGoDebuggerCommand = (command: GoDebuggerStepCommand): boolean =>
   adapter.dispatchCommand(command);
-export const syncPythonDebuggerBreakpoints = adapter.syncBreakpoints;
-export const syncPythonDebuggerWatches = adapter.syncWatches;
-export const runPythonDebuggerToEnd = adapter.runToEnd;
-export const stopActivePythonDebugger = adapter.stop;
+export const syncGoDebuggerBreakpoints = adapter.syncBreakpoints;
+export const syncGoDebuggerWatches = adapter.syncWatches;
+export const runGoDebuggerToEnd = adapter.runToEnd;
+export const stopActiveGoDebugger = adapter.stop;

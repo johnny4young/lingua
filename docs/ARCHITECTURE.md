@@ -87,7 +87,7 @@ asynchronous syntax fail closed. This separation is intentional even though
 the containing worker already executes user code: debugger input must not gain
 ambient authority or side effects merely because it arrives during a pause.
 
-### Native Python debugger boundary
+### Native debugger boundary
 
 Python **Run** still uses the Pyodide worker in both shells. Python **Debug** is
 a separate desktop-only path because source stepping needs host CPython and
@@ -116,6 +116,23 @@ Python watches run inside the real debugged process and may have side effects;
 the UI discloses that boundary and does not offer conditional breakpoints or
 logpoints for Python. The first Python Debug also reuses the native-execution
 acknowledgement. The web adapter omits the bridge and disables Debug honestly.
+
+Go **Debug** follows the same renderer contract but uses an owner-bound Delve
+DAP adapter in main. `ipc/goDebugger.ts` writes the current buffer and a
+minimal `go.mod` into a private temporary directory, resolves `dlv` only from
+the filtered Go toolchain environment, starts `dlv dap` on an ephemeral
+loopback port, and speaks bounded `Content-Length` framed DAP through
+`debugger/dapClient.ts`. The adapter exposes only frames from that temporary
+source and tears down Delve, its debuggee process tree, the socket, and the
+temporary module on every owner lifecycle. Missing Delve and macOS Developer
+Tools permission are explicit recoverable failures. Normal Go Run is unchanged,
+and web never receives the preload bridge.
+
+`runtime/nativeDebuggerBridge.ts` owns the shared renderer session lifecycle
+for Python and Go; runtime wrappers provide only their typed preload bridge,
+start request, localization namespace, and telemetry language. Native watches
+run in the real process and can have side effects, so both adapters expose only
+standard pause breakpoints and retain the UI warning.
 
 ## Notebook lazy-reactivity boundary
 

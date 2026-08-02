@@ -566,6 +566,7 @@ interface LinguaAPI {
   openExternal: (url: string) => Promise<boolean>;
   http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
   pythonDebugger?: import('./shared/pythonDebugger').PythonDebuggerBridge;
+  goDebugger?: import('./shared/goDebugger').GoDebuggerBridge;
   confirmClose: (dirtyFileNames: string[], language?: string) => Promise<number>;
   confirmCloseTab: (fileName: string, language?: string) => Promise<number>;
   onBeforeClose: (callback: () => void) => () => void;
@@ -1067,7 +1068,6 @@ interface LinguaAPI {
     ) => () => void;
   };
 }
-
 // Augment Window with Lingua API
 interface Window {
   lingua: LinguaAPI;

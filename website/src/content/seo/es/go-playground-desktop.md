@@ -1,6 +1,6 @@
 ---
 title: 'Go Playground para escritorio — Lingua'
-description: 'Ejecuta Go localmente con go build, inteligencia gopls, gofmt, errores inline, ayuda de dependencias y pruebas de proyecto en desktop.'
+description: 'Ejecuta y depura Go localmente con go build, Delve, inteligencia gopls, gofmt, errores inline, ayuda de dependencias y pruebas de proyecto en desktop.'
 canonical: 'https://linguacode.dev/es/go-playground-desktop'
 ogImage: '/assets/og/go-playground-desktop.png'
 language: go
@@ -27,6 +27,8 @@ búsqueda y terminal alrededor de una carpeta aprobada.
 - En un proyecto guardado con `go.mod`, el panel de dependencias puede
   ejecutar un `go get` confirmado y el runner de pruebas puede correr
   `go test ./...`.
+- El modo Debug usa Delve mediante DAP para puntos de pausa, step
+  over/into/out, variables locales, call stack del archivo y watches.
 
 ## Lo que no funciona hoy
 
@@ -34,7 +36,11 @@ búsqueda y terminal alrededor de una carpeta aprobada.
   desktop-only en vez de simular que puede ejecutar el archivo.
 - La inteligencia gopls requiere el binario local `gopls`. Settings
   ofrece detección, guía de instalación y controles de reinicio.
-- No hay depurador Go paso a paso.
+- La depuración Go requiere un binario local `dlv`. Instálalo con
+  `go install github.com/go-delve/delve/cmd/dlv@latest`; macOS también
+  requiere acceso a las herramientas de desarrollo para la cuenta actual.
+- Debug ejecuta el buffer actual en un módulo temporal de un solo archivo;
+  todavía no depura un módulo guardado completo ni archivos locales importados.
 - El scratchpad compila el archivo actual; no reemplaza un flujo
   completo de `go run` ni administra tu module proxy o caché.
 

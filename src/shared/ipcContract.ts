@@ -39,6 +39,11 @@ import type {
   PythonDebuggerStartRequest,
   PythonDebuggerStepCommand,
 } from './pythonDebugger';
+import type {
+  GoDebuggerResponse,
+  GoDebuggerStartRequest,
+  GoDebuggerStepCommand,
+} from './goDebugger';
 
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
@@ -145,6 +150,28 @@ interface IpcInvokeContract {
   'debugger:python:stop': {
     args: [sessionId: string];
     result: PythonDebuggerResponse;
+  };
+
+  // ---------------------------------------------------------- Go debugger
+  'debugger:go:start': {
+    args: [request: GoDebuggerStartRequest];
+    result: GoDebuggerResponse;
+  };
+  'debugger:go:command': {
+    args: [sessionId: string, command: GoDebuggerStepCommand];
+    result: GoDebuggerResponse;
+  };
+  'debugger:go:sync-breakpoints': {
+    args: [sessionId: string, breakpoints: readonly number[]];
+    result: GoDebuggerResponse;
+  };
+  'debugger:go:sync-watches': {
+    args: [sessionId: string, watches: readonly string[]];
+    result: GoDebuggerResponse;
+  };
+  'debugger:go:stop': {
+    args: [sessionId: string];
+    result: GoDebuggerResponse;
   };
 
   // ---------------------------------------------------------------- consent
@@ -568,6 +595,11 @@ export const IPC_INVOKE_CHANNELS = [
   'debugger:python:sync-breakpoints',
   'debugger:python:sync-watches',
   'debugger:python:stop',
+  'debugger:go:start',
+  'debugger:go:command',
+  'debugger:go:sync-breakpoints',
+  'debugger:go:sync-watches',
+  'debugger:go:stop',
   'consent:set',
   'env:snapshot',
   'http:execute',

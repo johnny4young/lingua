@@ -46,6 +46,15 @@ export function useRunner() {
             // The pending start path observes the lifecycle state below.
           });
       }
+      if (target.language === 'go' && resultState.manualRunMode === 'debug') {
+        void import('../runtime/goDebuggerBridge')
+          .then(({ stopActiveGoDebugger }) => {
+            stopActiveGoDebugger();
+          })
+          .catch(() => {
+            // The pending start path observes the lifecycle state below.
+          });
+      }
       void import('../runners')
         .then(({ runnerManager }) => {
           runnerManager.stop(target.language, target.runtimeMode);

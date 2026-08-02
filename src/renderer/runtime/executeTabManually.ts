@@ -357,7 +357,8 @@ export async function executeTabManually(
   const executionMode = executionModeForLanguage(language);
   const shouldRecordHistory = lifecycle.recordHistory !== false;
   const debugRequested = lifecycle.debug === true;
-  const usesNativePythonDebugger = debugRequested && language === 'python';
+  const usesNativeDebugger =
+    debugRequested && (language === 'python' || language === 'go');
 
   lifecycle.setCurrentLanguage?.(language);
 
@@ -454,7 +455,7 @@ export async function executeTabManually(
   lifecycle.setIsRunning?.(true);
 
   const shouldShowInitialization =
-    !usesNativePythonDebugger && runnerManager.needsInitialization(language, runtimeMode);
+    !usesNativeDebugger && runnerManager.needsInitialization(language, runtimeMode);
   // internal — while the runtime bootstraps, compose the live download
   // progress the worker streams into the static loading message
   // ("Loading Python runtime (Pyodide)... 34 MB / 60 MB"). The
@@ -508,15 +509,19 @@ export async function executeTabManually(
       }
     }
 
-    const prepared = usesNativePythonDebugger
+    const prepared = usesNativeDebugger
       ? {
           runner: {
             execute: async (
               _source: string,
               context?: { onConsole?: (output: ConsoleOutput) => void }
             ) => {
-              const { executePythonDebugSession } = await import('./pythonDebuggerBridge');
-              return executePythonDebugSession(activeTab, context?.onConsole, lifecycle.track);
+              if (language === 'python') {
+                const { executePythonDebugSession } = await import('./pythonDebuggerBridge');
+                return executePythonDebugSession(activeTab, context?.onConsole, lifecycle.track);
+              }
+              const { executeGoDebugSession } = await import('./goDebuggerBridge');
+              return executeGoDebugSession(activeTab, context?.onConsole, lifecycle.track);
             },
           },
         }
@@ -655,7 +660,7 @@ export async function executeTabManually(
     };
 
     const settingsTimeoutMs =
-      !usesNativePythonDebugger && isRuntimeTimeoutSupportedLanguage(language)
+      !usesNativeDebugger && isRuntimeTimeoutSupportedLanguage(language)
       ? resolveTimeoutMs(
           language,
           useSettingsStore.getState().runtimeTimeoutPresetByLanguage?.[language]

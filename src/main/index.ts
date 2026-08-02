@@ -40,6 +40,10 @@ import {
   disposePythonDebuggerSessions,
   registerPythonDebuggerHandlers,
 } from './ipc/pythonDebugger';
+import {
+  disposeGoDebuggerSessions,
+  registerGoDebuggerHandlers,
+} from './ipc/goDebugger';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
 import { disposeLocalMcpServer } from './localMcp';
@@ -91,6 +95,7 @@ registerProjectTerminalHandlers();
 registerLocalMcpHandlers(() => app.getVersion());
 registerHttpHandlers();
 registerPythonDebuggerHandlers();
+registerGoDebuggerHandlers();
 registerUpdater();
 
 let forceQuit = false;
@@ -342,6 +347,7 @@ app.on('before-quit', () => {
   void disposeLocalMcpServer();
   disposeHttpRuns();
   disposePythonDebuggerSessions();
+  disposeGoDebuggerSessions();
 });
 
 app.on('activate', () => {

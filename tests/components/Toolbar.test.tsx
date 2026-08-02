@@ -562,15 +562,15 @@ describe('Toolbar', () => {
   it('keeps unsupported workflow segments hoverable for their help text', () => {
     editorStoreState.tabs = [
       {
-        id: 'tab-go',
-        name: 'main.go',
-        language: 'go',
+        id: 'tab-rust',
+        name: 'main.rs',
+        language: 'rust',
         content: '',
         isDirty: false,
         workflowMode: 'scratchpad',
       },
     ];
-    editorStoreState.activeTabId = 'tab-go';
+    editorStoreState.activeTabId = 'tab-rust';
 
     render(<Toolbar />);
 
@@ -578,7 +578,7 @@ describe('Toolbar', () => {
     expect(debugSegment.getAttribute('aria-disabled')).toBe('true');
     expect(debugSegment).not.toHaveProperty('disabled', true);
     expect(debugSegment.getAttribute('title')).toContain(
-      'Debug works for JavaScript and TypeScript everywhere, and for Python in Lingua Desktop.'
+      'Debug works for JavaScript and TypeScript everywhere, and for Python and Go in Lingua Desktop.'
     );
   });
 

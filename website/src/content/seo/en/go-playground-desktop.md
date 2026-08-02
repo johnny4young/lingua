@@ -1,6 +1,6 @@
 ---
 title: 'Go Playground for Desktop — Lingua'
-description: 'Run Go locally with go build, gopls intelligence, gofmt, inline errors, dependency assistance, and project tests in an offline-first desktop app.'
+description: 'Run and debug Go locally with go build, Delve, gopls, gofmt, inline errors, dependency help, and project tests in an offline-first desktop app.'
 canonical: 'https://linguacode.dev/go-playground-desktop'
 ogImage: '/assets/og/go-playground-desktop.png'
 language: go
@@ -26,6 +26,8 @@ assistance, tests, search, and a terminal around an approved folder.
 - In a saved project with `go.mod`, the dependency panel can run a
   confirmed `go get`, and the project test runner can execute
   `go test ./...`.
+- Debug mode drives local Delve through DAP for pause breakpoints,
+  step over/into/out, locals, source-local call stack, and watches.
 
 ## What doesn't work today
 
@@ -34,7 +36,11 @@ assistance, tests, search, and a terminal around an approved folder.
 - gopls intelligence requires a local `gopls` binary. Settings provides
   detection, installation guidance, and restart controls when it is
   missing or stops.
-- There is no Go step debugger.
+- Go debugging requires a local `dlv` binary. Install it with
+  `go install github.com/go-delve/delve/cmd/dlv@latest`; macOS also
+  requires Developer Tools access for the current account.
+- Debug mode runs the current buffer in a temporary single-file module;
+  it does not yet debug an entire saved module or imported local files.
 - The scratchpad runner compiles the current file; it does not replace
   a full `go run` workflow or manage your module proxy and cache.
 

@@ -109,7 +109,7 @@ export function DebuggerBreakpointList({
                 </label>
               ) : (
                 <p className="text-eyebrow leading-relaxed text-muted">
-                  {t('debugger.breakpoints.pythonPauseOnly')}
+                  {t('debugger.breakpoints.nativePauseOnly')}
                 </p>
               )}
               {supportsAdvancedBreakpoints && breakpoint.mode === 'conditional' ? (
@@ -165,7 +165,7 @@ export function DebuggerBreakpointList({
         {t(
           supportsAdvancedBreakpoints
             ? 'debugger.breakpoints.safeExpressionHint'
-            : 'debugger.breakpoints.pythonHint'
+            : 'debugger.breakpoints.nativeHint'
         )}
       </p>
     </div>

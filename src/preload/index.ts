@@ -7,6 +7,7 @@ import type {
 } from '../shared/projectTerminal';
 import type { LocalMcpBridge } from '../shared/localMcp';
 import type { PythonDebuggerBridge } from '../shared/pythonDebugger';
+import type { GoDebuggerBridge } from '../shared/goDebugger';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
 
 const desktopSmokeEnabled =
@@ -53,6 +54,16 @@ const pythonDebugger: PythonDebuggerBridge = {
   stop: sessionId => typedInvoke('debugger:python:stop', sessionId),
 };
 
+const goDebugger: GoDebuggerBridge = {
+  start: request => typedInvoke('debugger:go:start', request),
+  command: (sessionId, command) => typedInvoke('debugger:go:command', sessionId, command),
+  syncBreakpoints: (sessionId, breakpoints) =>
+    typedInvoke('debugger:go:sync-breakpoints', sessionId, breakpoints),
+  syncWatches: (sessionId, watches) =>
+    typedInvoke('debugger:go:sync-watches', sessionId, watches),
+  stop: sessionId => typedInvoke('debugger:go:stop', sessionId),
+};
+
 contextBridge.exposeInMainWorld('lingua', {
   platform: process.platform,
 
@@ -61,6 +72,7 @@ contextBridge.exposeInMainWorld('lingua', {
   openExternal: (url: string) => typedInvoke('app:open-external', url),
   http,
   pythonDebugger,
+  goDebugger,
 
   deepLinks: {
     consumePending: () => typedInvoke('app:consume-pending-deep-link'),

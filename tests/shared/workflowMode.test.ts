@@ -78,11 +78,11 @@ describe('supportsWorkflowMode', () => {
     // language → only `run` mode is true. Confirm the contract.
     expect(supportsWorkflowMode(undefined, 'run')).toBe(true);
   });
-  it('supports debug for JS / TS and desktop Python', () => {
+  it('supports debug for JS / TS and desktop native adapters', () => {
     expect(supportsWorkflowMode('javascript', 'debug')).toBe(true);
     expect(supportsWorkflowMode('typescript', 'debug')).toBe(true);
     expect(supportsWorkflowMode('python', 'debug')).toBe(true);
-    expect(supportsWorkflowMode('go', 'debug')).toBe(false);
+    expect(supportsWorkflowMode('go', 'debug')).toBe(true);
     expect(supportsWorkflowMode('rust', 'debug')).toBe(false);
     expect(supportsWorkflowMode(undefined, 'debug')).toBe(false);
   });
