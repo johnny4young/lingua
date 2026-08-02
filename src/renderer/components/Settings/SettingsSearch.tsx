@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react';
-import { ArrowRight, Search, X } from 'lucide-react';
+import { ArrowRight, Search, SearchX, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
 import { Kbd } from '../ui/chrome';
@@ -27,6 +27,11 @@ export function SettingsSearch({
       ? 0
       : Math.min(activeIndex, results.length - 1);
   const expanded = query.trim().length > 0;
+  const statusMessage = !expanded
+    ? ''
+    : results.length === 0
+      ? t('settings.filter.noMatchesFor', { query: query.trim() })
+      : t('settings.filter.matches', { count: results.length });
 
   useEffect(() => {
     const activeResult = results[safeActiveIndex];
@@ -94,8 +99,10 @@ export function SettingsSearch({
           )}
           data-testid="settings-filter-input"
           aria-label={t('settings.filter.placeholder')}
+          aria-autocomplete="list"
           aria-expanded={expanded}
           aria-controls={expanded ? 'settings-search-results' : undefined}
+          aria-describedby="settings-search-keyboard-help"
           aria-activedescendant={
             results[safeActiveIndex]
               ? `settings-search-result-${results[safeActiveIndex].id}`
@@ -130,20 +137,30 @@ export function SettingsSearch({
         )}
       </div>
 
+      <span id="settings-search-keyboard-help" className="sr-only">
+        {t('settings.filter.keyboardHelp')}
+      </span>
+      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {statusMessage}
+      </span>
+
       {expanded ? (
         <div
-          id="settings-search-results"
-          role="listbox"
-          aria-label={t('settings.filter.resultsLabel')}
-          className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-50 max-h-[22rem] overflow-y-auto rounded-lg border border-border bg-bg-panel p-1.5 shadow-2xl"
-          data-testid="settings-search-results"
+          className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-50 overflow-hidden rounded-lg border border-border bg-bg-panel shadow-2xl"
+          data-testid="settings-search-popover"
         >
-          {results.length === 0 ? (
-            <p className="px-3 py-4 text-center text-body-sm text-fg-subtle">
-              {t('settings.filter.noMatches')}
-            </p>
-          ) : (
-            results.map((result, index) => {
+          <div
+            id="settings-search-results"
+            role="listbox"
+            aria-label={t('settings.filter.resultsLabel')}
+            className={cn(
+              results.length === 0
+                ? 'sr-only'
+                : 'max-h-[19rem] overflow-y-auto p-1.5'
+            )}
+            data-testid="settings-search-results"
+          >
+            {results.map((result, index) => {
               const selected = index === safeActiveIndex;
               return (
                 <button
@@ -152,6 +169,8 @@ export function SettingsSearch({
                   type="button"
                   role="option"
                   aria-selected={selected}
+                  aria-posinset={index + 1}
+                  aria-setsize={results.length}
                   tabIndex={-1}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left',
@@ -179,7 +198,50 @@ export function SettingsSearch({
                   <ArrowRight size={12} className="shrink-0 text-accent" aria-hidden />
                 </button>
               );
-            })
+            })}
+          </div>
+
+          {results.length === 0 ? (
+            <div className="flex flex-col items-center px-6 py-6 text-center">
+              <span className="mb-3 rounded-full border border-border-subtle bg-bg-inset p-2 text-fg-subtle">
+                <SearchX size={16} aria-hidden />
+              </span>
+              <p className="text-body-sm font-medium text-fg-base">
+                {t('settings.filter.emptyTitle')}
+              </p>
+              <p className="mt-1 max-w-sm text-caption leading-relaxed text-fg-subtle">
+                {t('settings.filter.emptyHint')}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  changeQuery('');
+                  inputRef.current?.focus();
+                }}
+                className="focus-ring mt-4 rounded-md border border-border bg-bg-base px-3 py-1.5 text-caption font-medium text-fg-muted hover:border-border-strong hover:text-fg-base"
+              >
+                {t('settings.filter.clearAndRetry')}
+              </button>
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-4 border-t border-border-subtle bg-bg-inset px-3 py-2 font-mono text-eyebrow text-fg-subtle"
+              aria-hidden="true"
+            >
+              <span className="flex items-center gap-1.5">
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd>
+                {t('settings.filter.navigate')}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Kbd>↵</Kbd>
+                {t('settings.filter.open')}
+              </span>
+              <span className="ml-auto flex items-center gap-1.5">
+                <Kbd>Esc</Kbd>
+                {t('settings.filter.clearShortcut')}
+              </span>
+            </div>
           )}
         </div>
       ) : null}

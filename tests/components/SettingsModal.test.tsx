@@ -230,6 +230,8 @@ describe('SettingsModal', () => {
     expect(screen.getByTestId('settings-search-results').getAttribute('role')).toBe(
       'listbox'
     );
+    expect(screen.getByRole('option').getAttribute('aria-posinset')).toBe('1');
+    expect(screen.getByRole('option').getAttribute('aria-setsize')).toBe('1');
 
     fireEvent.change(screen.getByTestId('settings-filter-input'), {
       target: { value: 'a' },
@@ -244,6 +246,45 @@ describe('SettingsModal', () => {
 
     fireEvent.keyDown(appearance, { key: 'End' });
     expect(document.activeElement).toBe(screen.getByTestId('settings-tab-recovery'));
+  });
+
+  it('explains keyboard controls and offers a focused recovery from an empty search', () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    const filter = screen.getByTestId('settings-filter-input');
+    expect(filter.getAttribute('aria-autocomplete')).toBe('list');
+    expect(filter.getAttribute('aria-describedby')).toBe(
+      'settings-search-keyboard-help'
+    );
+    expect(
+      document.getElementById('settings-search-keyboard-help')?.textContent
+    ).toContain('Usa las flechas arriba y abajo');
+
+    fireEvent.change(filter, { target: { value: 'ajuste-inexistente' } });
+
+    expect(screen.getByRole('listbox').children).toHaveLength(0);
+    expect(screen.getByText('No se encontraron ajustes')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Prueba un término más amplio o busca una sección como Editor, Privacidad o Cuenta.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain(
+      'No se encontraron ajustes para ajuste-inexistente'
+    );
+
+    const clear = screen.getByRole('button', { name: 'Limpiar búsqueda' });
+    fireEvent.click(clear);
+
+    expect((filter as HTMLInputElement).value).toBe('');
+    expect(document.activeElement).toBe(filter);
+    expect(screen.queryByTestId('settings-search-popover')).toBeNull();
   });
 
   it('jumps across tabs and focuses a localized control result', async () => {

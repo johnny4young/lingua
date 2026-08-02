@@ -64,7 +64,7 @@ import {
  * JSON tile renders at the bottom of each tab — the same view a runtime
  * would see.
  *
- * Tab inventory (10 rail items):
+ * Tab inventory (11 rail items):
  *
  *   Workspace
  *     1. general      → About + Updates
