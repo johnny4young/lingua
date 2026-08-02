@@ -33,6 +33,25 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 - Teachers and students who want a single offline-capable multi-language sandbox that runs on laptops without per-language CLI setup.
 - Teams who need a lightweight, reviewable, commercial-licensed alternative to web-hosted playgrounds for proprietary code.
 
+## Lingua 1.0 at a glance
+
+These are deterministic captures from the current product build, not design mockups. The website presents the same journeys in English and Spanish and labels each one by platform and tier.
+
+<table>
+  <tr>
+    <td width="50%"><img src="website/public/screenshots/v1.0/debugger-en.png" alt="JavaScript debugger paused with a conditional breakpoint, logpoint, watch, and locals" /><br /><strong>Debugger</strong> — breakpoints, stepping, watches, locals, and call stacks.</td>
+    <td width="50%"><img src="website/public/screenshots/v1.0/notebook-en.png" alt="Reactive notebook with refreshed dependent JavaScript cells" /><br /><strong>Reactive notebooks</strong> — explicit stale-state tracking and replay across languages.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="website/public/screenshots/v1.0/http-pipeline-en.png" alt="Named HTTP pipeline with a request step and stop-on-failure control" /><br /><strong>HTTP pipelines</strong> — requests, live transports, captures, assertions, and repeatable flows.</td>
+    <td width="50%"><img src="website/public/screenshots/v1.0/project-terminal-en.png" alt="Project terminal active inside a synthetic polyglot checkout" /><br /><strong>Project terminal</strong> — an explicit local-shell boundary rooted in the approved project.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="website/public/screenshots/v1.0/project-tests-en.png" alt="Project test runner showing detected JavaScript, Python, Go, and Rust suites" /><br /><strong>Project tests</strong> — detected commands, live bounded output, and stop control.</td>
+    <td width="50%"><img src="website/public/screenshots/v1.0/local-mcp-en.png" alt="Active loopback-only local MCP server with a masked session token and read-only trust guarantees" /><br /><strong>Local MCP</strong> — a project-scoped, read-only doorway for trusted AI clients.</td>
+  </tr>
+</table>
+
 ## Current capabilities
 
 - Desktop app (Electron + Vite + React 19 + TypeScript, packaged with electron-builder and auto-updating from GitHub Releases) and a parallel web build for browser-based usage.
@@ -50,6 +69,7 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 - **Desktop Node runtime**: switch any JavaScript or TypeScript tab to the local Node runtime for the full standard library (`fs`, `path`, `http`) and `require()` of every package already installed in the project's `node_modules` — the runner walks up from a saved tab's directory to find it. Node is spawned directly (never through a shell) with an allow-listed environment, a parent-owned timeout, and capped output; both ESM and CJS are detected from the file extension, the source syntax, and the nearest `package.json#type`.
 - **Project test runner (desktop)**: open the Explorer's flask action to autodetect Vitest, Jest, Pytest, Go, and Cargo suites, compare the exact command and configuration evidence, then run one suite with live stdout/stderr and Stop. Main revalidates the approved project root immediately before a fixed no-shell spawn, filters inherited environment variables, caps output, and enforces a five-minute timeout; the first run makes the unsandboxed local-code boundary explicit.
 - **Integrated project terminal (desktop)**: open a real interactive system shell from the Explorer, Command Palette, or contextual bottom panel. It starts only after explicit confirmation in the approved project root, uses a filtered environment, retains a bounded in-session transcript, and stops with the project, renderer, or app. The root is a starting directory rather than a sandbox, so the UI makes the user's full OS permissions explicit; web does not advertise the unavailable bridge.
+- **Local MCP server (desktop)**: connect a trusted AI client to only the project you explicitly opened. The loopback-only endpoint uses an ephemeral session token and exposes four bounded, read-only tools for project metadata, visible-file listing, UTF-8 reads, and literal search; secret-like and binary paths stay blocked, and closing the project or app revokes the server.
 - Validate-only modes for JSON, YAML, `.env`, CSV, Dockerfile, `.editorconfig`, `.gitignore`, `Makefile`; view-only handling for TOML and INI/config files.
 - 31 focused developer-utility panels (JSON, regex, Base64/URL/UUID/hash/timestamp/JWT, color, diff, beautify/minify, case/encoding, QR, Lorem, mock data, SVG→CSS, HTML→JSX, cURL→code, YAML↔JSON, JSON↔CSV, Markdown preview, SQL formatter, utility pipelines) reachable from the toolbar wrench and the Command Palette.
 - Format-on-save via Prettier (JS/TS/JSON/CSS) plus desktop-only gofmt, rustfmt, and Python formatters (ruff preferred, black fallback).

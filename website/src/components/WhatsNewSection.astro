@@ -1,6 +1,7 @@
 ---
 import { loadPublishedChangelog } from '~/lib/changelog';
 import { type Locale, localizePath, t } from '~/lib/i18n';
+import showcase from '~/data/v1-showcase.json';
 
 interface Props {
   locale: Locale;
@@ -10,12 +11,24 @@ const { locale } = Astro.props;
 const copy = t(locale);
 const block = copy.home.whatsNew;
 
+const cards = block.items.map((item) => {
+  const visual = showcase.items.find((candidate) => candidate.id === item.id);
+  if (!visual) throw new Error(`Missing v1 showcase visual for ${item.id}`);
+  return {
+    ...item,
+    image: visual.images[locale],
+    width: visual.width,
+    height: visual.height,
+  };
+});
+
 // The current release stays fully visible; everything older collapses
 // into the history timeline below. Data comes from the preprocessed
 // changelog.json (synced at build time — zero network dependency). A prepared
 // candidate stays hidden until the trusted release snapshot is promoted.
 const entries = await loadPublishedChangelog();
 const previous = entries.slice(1);
+const headline = entries[0]?.version === '1.0.0' ? block.releaseTitle : block.title;
 
 const LEAD_RE = /<strong>(.+?)<\/strong>\s*[:—-]?\s*([\s\S]*)/;
 
@@ -81,17 +94,25 @@ const history = previous.map((entry) => ({
 <section class="whats-new">
   <header class="whats-new-head">
     <p class="eyebrow">{block.eyebrow}</p>
-    <h2>{block.title}</h2>
+    <h2>{headline}</h2>
     <p class="lede">{block.lede}</p>
   </header>
 
   <div class="whats-new-grid">
     {
-      block.items.map((item, index) => (
+      cards.map((item, index) => (
         <article class:list={['card', 'whats-new-card', { featured: index === 0 }]}>
           <div class="shot-frame">
-            <img src={item.image} alt={item.alt} loading="lazy" decoding="async" />
+            <img
+              src={item.image}
+              alt={item.alt}
+              width={item.width}
+              height={item.height}
+              loading="lazy"
+              decoding="async"
+            />
           </div>
+          <p class="availability">{item.availability}</p>
           <h3>{item.title}</h3>
           <p>{item.body}</p>
         </article>
@@ -179,7 +200,21 @@ const history = previous.map((entry) => ({
   .whats-new-card h3 {
     font-size: 1.15rem;
     font-weight: 700;
-    margin: 1rem 0 0.5rem;
+    margin: 0.65rem 0 0.5rem;
+  }
+  .whats-new-card .availability {
+    display: inline-flex;
+    margin-top: 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+    border-radius: 999px;
+    padding: 0.25rem 0.55rem;
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    text-transform: uppercase;
   }
   .whats-new-card p {
     color: var(--color-text-muted);
@@ -397,7 +432,7 @@ const history = previous.map((entry) => ({
         var(--color-bg-elevated);
     }
     .whats-new-card.featured .shot-frame {
-      grid-row: span 2;
+      grid-row: span 3;
       align-self: stretch;
       display: grid;
     }
@@ -408,7 +443,11 @@ const history = previous.map((entry) => ({
     .whats-new-card.featured h3 {
       font-size: 1.4rem;
       margin-top: 0;
+    }
+    .whats-new-card.featured .availability {
       align-self: end;
+      justify-self: start;
+      margin-top: 0;
     }
     .whats-new-card.featured p {
       align-self: start;

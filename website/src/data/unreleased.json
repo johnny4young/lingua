@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-08-02T18:35:30.904Z",
+  "generatedAt": "2026-08-02T19:25:50.611Z",
   "baseRef": "v0.15.0",
   "commitCount": 12,
-  "totalSinceBase": 82,
+  "totalSinceBase": 83,
   "commits": [
+    {
+      "hash": "859b190",
+      "date": "2026-08-02",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "cli",
+      "message": "add searchable bilingual documentation",
+      "breaking": false
+    },
     {
       "hash": "4d51ab4",
       "date": "2026-08-02",
@@ -101,15 +110,6 @@
       "typeLabel": "New",
       "scope": "distribution",
       "message": "add public readiness report",
-      "breaking": false
-    },
-    {
-      "hash": "e330e31",
-      "date": "2026-08-01",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "integrations",
-      "message": "add secure local MCP server",
       "breaking": false
     }
   ]

@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "debugger",
+      "spec": "tests/e2e/debuggerExpressionsVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/debugger-expressions/debugger-expressions-en.png",
+        "es": "output/playwright/debugger-expressions/debugger-expressions-es.png"
+      },
+      "images": {
+        "en": "/screenshots/v1.0/debugger-en.png",
+        "es": "/screenshots/v1.0/debugger-es.png"
+      },
+      "width": 1440,
+      "height": 1100
+    },
+    {
+      "id": "notebook",
+      "spec": "tests/e2e/notebookReactivity.spec.ts",
+      "sources": {
+        "en": "output/playwright/notebook-reactivity/notebook-reactivity-refreshed-en.png",
+        "es": "output/playwright/notebook-reactivity/notebook-reactivity-refreshed-es.png"
+      },
+      "images": {
+        "en": "/screenshots/v1.0/notebook-en.png",
+        "es": "/screenshots/v1.0/notebook-es.png"
+      },
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "id": "http-pipeline",
+      "spec": "tests/e2e/httpLivePipelines.spec.ts",
+      "sources": {
+        "en": "output/playwright/http-live-pipelines/http-pipeline-en.png",
+        "es": "output/playwright/http-live-pipelines/http-pipeline-es.png"
+      },
+      "images": {
+        "en": "/screenshots/v1.0/http-pipeline-en.png",
+        "es": "/screenshots/v1.0/http-pipeline-es.png"
+      },
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "id": "project-terminal",
+      "spec": "tests/e2e/projectTerminalVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/project-terminal/project-terminal-en.png",
+        "es": "output/playwright/project-terminal/project-terminal-es.png"
+      },
+      "images": {
+        "en": "/screenshots/v1.0/project-terminal-en.png",
+        "es": "/screenshots/v1.0/project-terminal-es.png"
+      },
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "id": "project-tests",
+      "spec": "tests/e2e/projectTestsVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/project-tests/project-tests-en.png",
+        "es": "output/playwright/project-tests/project-tests-es.png"
+      },
+      "images": {
+        "en": "/screenshots/v1.0/project-tests-en.png",
+        "es": "/screenshots/v1.0/project-tests-es.png"
+      },
+      "width": 1440,
+      "height": 1100
+    },
+    {
+      "id": "local-mcp",
+      "spec": "tests/e2e/localMcpVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/local-mcp/local-mcp-en.png",
+        "es": "output/playwright/local-mcp/local-mcp-es.png"
+      },
+      "images": {
+        "en": "/screenshots/v1.0/local-mcp-en.png",
+        "es": "/screenshots/v1.0/local-mcp-es.png"
+      },
+      "width": 1440,
+      "height": 1000
+    }
+  ]
+}
