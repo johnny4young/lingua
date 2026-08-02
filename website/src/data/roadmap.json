@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-02T01:55:00.000Z",
+  "generatedAt": "2026-08-02T02:30:00.000Z",
   "totals": {
     "planned": 0,
     "inProgress": 9
@@ -83,7 +83,7 @@
       "items": [
         {
           "title": "Complete CLI distribution",
-          "scope": "Utility commands, execution, Capsule replay, completions, and stable errors ship today. A read-only distribution report now reconciles the stable release, CLI artifacts, npm, the public Homebrew tap, and current winget manifests. The next release must perform the first npm publish; tap promotion and public-trust Authenticode remain explicit operational gates.",
+          "scope": "Utility commands, execution, Capsule replay, completions, and stable errors ship today. A guarded manual workflow now verifies signed immutable-release evidence before promoting npm artifacts, bootstraps once with provenance, and stages later versions through OIDC plus 2FA approval. The next stable release must perform the first publish; tap promotion and public-trust Authenticode remain explicit operational gates.",
           "status": "Partial",
           "theme": "CLI & compatibility"
         },

@@ -36,21 +36,82 @@ the public `v0.15.0` tag predates the CLI artifact pipeline, while the current
 post-release branch contains newer product behavior under the same root
 version. Reusing `0.15.0` would make npm and the immutable GitHub tag disagree.
 
-The first valid registry version must therefore come from the next stable
-release with `release_cli` enabled. Before that release:
+The manual `Publish CLI to npm` workflow (`.github/workflows/publish-cli.yml`)
+is the sole registry mutation owner. It never rebuilds the CLI. Instead, it:
 
-1. Create or confirm the `@linguacode` npm organization and require 2FA.
-2. Publish the first public scoped package with `--access public` from the
-   reviewed release artifact.
-3. Configure npm trusted publishing for `johnny4young/lingua` and the release
-   workflow, allowing only `npm publish`; future GitHub-hosted publishes then
-   receive automatic provenance without storing a long-lived npm token.
-4. Install the exact public version into a clean prefix and repeat `--version`
-   plus one utility smoke before calling the channel complete.
+1. accepts only a published, non-prerelease `vX.Y.Z` GitHub Release whose
+   GitHub release attestation proves that release immutability is enabled;
+2. downloads that release's `linguacode-cli-X.Y.Z.tgz` and `SHA256SUMS.txt`,
+   then verifies both assets against the signed release attestation;
+3. verifies the checksum, exact four-file package allowlist, public manifest,
+   repository identity, release version, and exact operator confirmation in an
+   unprivileged preflight job, then preserves that evidence for review;
+4. waits for approval on a separate `npm-production` promotion job, downloads
+   the verified candidate, and repeats the checksum/content/manifest checks
+   before any registry request can mutate state;
+5. bootstraps a missing package, stages a new version through OIDC, or skips
+   mutation when the exact version is already public; and
+6. installs the exact public version into a clean prefix and runs `--version`
+   plus a real utility smoke whenever the version is public.
+
+The environment approval is deliberately attached only to the promotion job.
+Reviewers can inspect the preflight summary and evidence before granting access
+to the one-time secret or OIDC token; approval is not wasted on malformed or
+unattested candidates.
+
+### One-time bootstrap
+
+npm requires a package to exist before trusted publishing or staged publishing
+can be configured. For the first valid version from the next stable release:
+
+1. Create the `@linguacode` npm organization, require 2FA, and confirm the
+   maintainer can publish public packages in that scope.
+2. Enable GitHub release immutability for `johnny4young/lingua`. It applies only
+   to future releases, so do this before cutting the first CLI-bearing release.
+3. Create the GitHub environment `npm-production` with required reviewers.
+4. Create a short-lived granular npm token with read/write access to the
+   `@linguacode` scope and Bypass 2FA enabled for this one bootstrap only, then
+   store it only as the environment secret `NPM_PUBLISH_TOKEN`.
+5. Dispatch `publish-cli.yml` with the stable tag plus the exact confirmation
+   `@linguacode/cli@X.Y.Z`. Inspect the completed preflight summary and its
+   immutable candidate artifact, then approve the waiting `npm-production` job.
+6. Confirm the promotion job repeated verification, used the `bootstrap` path,
+   emitted provenance, and passed the clean public-install smoke.
+
+The workflow refuses bootstrap without the one-time secret. It also refuses a
+draft, prerelease, mutable/unattested release, asset-attestation failure,
+checksum mismatch, unexpected tarball file, manifest drift, or confirmation
+mismatch before npm receives any mutation request.
+
+### Tokenless subsequent releases
+
+Immediately after bootstrap:
+
+1. Configure npm trusted publishing for `johnny4young/lingua`, workflow file
+   `publish-cli.yml`, GitHub environment `npm-production`, and **only** the
+   `npm stage publish` action.
+2. Set package publishing access to require 2FA and disallow traditional
+   tokens, remove `NPM_PUBLISH_TOKEN` from GitHub, and revoke the granular token.
+3. For each later stable release, dispatch the same workflow. It stages the
+   immutable release tarball with short-lived OIDC credentials and automatic
+   provenance instead of making it public immediately.
+4. Inspect/download the staged tarball and approve it with 2FA in npm. Do not
+   rerun while that version is still staged: the public registry cannot expose
+   staged state to the OIDC job, so a duplicate stage attempt deliberately
+   fails instead of replacing the pending candidate.
+5. After approval, rerun the workflow. The idempotent `published` path performs
+   the clean public install and utility smoke without republishing.
+
+`npm whoami` does not prove OIDC configuration: trusted authentication is
+exchanged only during `npm publish` or `npm stage publish`. Treat the workflow
+result, npm's staged/public state, provenance, and clean-install smoke as the
+evidence chain.
 
 See the current npm guidance for
 [scoped public packages](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)
-and [trusted publishers](https://docs.npmjs.com/trusted-publishers/).
+and [trusted publishers](https://docs.npmjs.com/trusted-publishers/), plus the
+[publishing 2FA requirements](https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/)
+and [granular-token controls](https://docs.npmjs.com/about-access-tokens/).
 
 ## Homebrew
 
@@ -155,7 +216,7 @@ shape, identifier, digest casing, and installer semantics.
 
 | Channel          | State                                                           | Gate                                                     |
 | ---------------- | --------------------------------------------------------------- | -------------------------------------------------------- |
-| npm CLI          | Package pipeline ready; `v0.15.0` correctly remains unpublished | npm organization, first next-release publish, then OIDC  |
+| npm CLI          | Guarded workflow ready; `v0.15.0` correctly remains unpublished | npm organization/environment, next-release bootstrap, then stage-only OIDC |
 | Homebrew tap     | Public tap exists; generated `v0.15.0` cask is ready locally    | Promote `Casks/lingua.rb` and repeat clean install smoke |
 | Homebrew central | Blocked                                                         | 225 stars (self-submission floor)                        |
 | winget           | Generated `v0.15.0` manifests are current and schema-tested     | Public-trust Authenticode signing and Windows validation |

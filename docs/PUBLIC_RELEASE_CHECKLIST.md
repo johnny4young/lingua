@@ -88,6 +88,14 @@ change commit ids and require force-pushing private branches/tags.
   update-endpoint bypass check, and `updates.linguacode.dev/web/version`
   response.
 - For Linux releases, confirm the AppImage and `latest-linux.yml` are attached.
+- For CLI releases, confirm `publish-cli.yml` consumed the immutable GitHub
+  Release tarball and checksum manifest, and verified their signed release
+  attestations before requesting environment approval. Confirm the protected
+  job repeated payload verification after artifact transfer. The first publish
+  requires one short-lived granular token with read/write access to the
+  `@linguacode` scope and Bypass 2FA enabled for that bootstrap only. Revoke it
+  after stage-only trusted publishing is configured; subsequent staged versions
+  require 2FA approval and a clean public-install rerun after approval.
 - For macOS/Windows releases, complete
   `docs/runbooks/desktop-update-draft-validation.md` and preserve the workflow
   structure/signing evidence.

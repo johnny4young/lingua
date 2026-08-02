@@ -53,9 +53,16 @@ blob is injected whenever the Authenticode secrets are configured.
 
 The npm tarball is intentionally separate from the private desktop
 `package.json`: it contains only `bin/lingua.cjs`, its README, the commercial
-license, and its package manifest. Registry promotion remains a human release
-action until the `@linguacode` namespace and its trusted publisher are
-configured.
+license, and its package manifest. The manual `publish-cli.yml` workflow
+promotes only the checksum-verified tarball attached to an already-published
+stable GitHub Release; it never rebuilds from a moving branch. The first
+version uses one short-lived granular environment token with read/write access
+to the `@linguacode` scope and Bypass 2FA enabled because npm cannot configure
+trusted publishing before the package exists. That token is revoked after the
+bootstrap. Later versions use stage-only OIDC and require a maintainer's 2FA
+approval before becoming public. Verification runs before the protected
+environment asks for approval, and the promotion job rechecks the transferred
+tarball before either credential path can reach npm.
 
 Use `pnpm run distribution:status` for a read-only comparison of the latest
 public release, npm package, Homebrew tap, and generated winget manifests. The
@@ -67,6 +74,9 @@ another network probe.
 The first npm version must be created by the next stable release. The immutable
 `v0.15.0` tag predates the CLI packaging pipeline, so publishing newer
 post-release code as `@linguacode/cli@0.15.0` would create false version parity.
+The complete bootstrap, trusted-publisher, staged approval, clean-install, and
+rollback sequence lives in
+[`runbooks/distribution-channels.md`](./runbooks/distribution-channels.md).
 
 ## Shell completion
 

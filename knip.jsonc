@@ -29,13 +29,13 @@
     "vite.renderer.config.mts",
     "playwright.license-web.config.mts",
     "eslint.config.*",
-    "tests/**/*.{ts,tsx}"
+    "tests/**/*.{ts,tsx}",
   ],
   "project": ["src/**/*.{ts,tsx,d.ts}", "scripts/**/*.mjs"],
   // Mirror the aliases from vitest.config.mts / vite.renderer.config.mts.
   "paths": {
     "@/*": ["src/renderer/*"],
-    "#src/*": ["src/*"]
+    "#src/*": ["src/*"],
   },
   // license-server is an independent pnpm project with its own lockfile
   // and test suite (update-server too, but the project globs above never
@@ -48,9 +48,10 @@
     "taskkill",
     "ditto",
     "file",
+    "tar",
     "zsh",
     "fish",
-    "ruby"
+    "ruby",
   ],
   "ignoreDependencies": [
     // Loaded from node_modules by the Vite build plugins as static
@@ -60,6 +61,6 @@
     "@ruby/3.4-wasm-wasi",
     // Consumed via `@import 'tailwindcss'` in src/renderer/index.css
     // through @tailwindcss/postcss; CSS imports are outside knip's model.
-    "tailwindcss"
-  ]
+    "tailwindcss",
+  ],
 }

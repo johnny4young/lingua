@@ -86,6 +86,13 @@ describe('distribution readiness', () => {
     ]);
     expect(report.release.cliAssets.missingChecksums).toEqual(report.release.cliAssets.missing);
     expect(report.npm.status).toBe('not-published');
+    expect(report.npm.publication).toEqual({
+      status: 'guarded',
+      workflow: 'publish-cli.yml',
+      mode: 'bootstrap-token',
+    });
+    expect(report.actions[0]).toContain('read/write access to the @linguacode scope');
+    expect(report.actions[0]).toContain('Bypass 2FA enabled');
     expect(report.homebrew).toMatchObject({
       repositoryPublic: true,
       status: 'ready-to-promote',
@@ -138,9 +145,7 @@ describe('distribution readiness', () => {
       })
     );
 
-    expect(report.actions[0]).toContain(
-      'publish @linguacode/cli@0.15.0 from the reviewed release artifact'
-    );
+    expect(report.actions[0]).toContain('dispatch publish-cli.yml for @linguacode/cli@0.15.0');
     expect(
       report.actions.some(action =>
         action.startsWith('Cut the next release with release_cli enabled')
@@ -173,11 +178,15 @@ describe('distribution readiness', () => {
 
     expect(english).toContain('# Lingua distribution readiness');
     expect(english).toContain('| Homebrew | Ready to promote | 0.15.0 local |');
+    expect(english).toContain('| npm workflow | Guarded | publish-cli.yml · bootstrap-token |');
     expect(spanish).toContain('# Estado de distribución de Lingua');
     expect(spanish).toContain('Requiere firma');
+    expect(spanish).toContain('| Flujo npm | Protegido | publish-cli.yml · bootstrap-token |');
     expect(html).toContain('<html lang="es">');
     expect(html).toContain('Evidencia pública y local');
     expect(html).toContain('Crea o confirma la organización @linguacode');
+    expect(html).toContain('Bypass 2FA activado');
+    expect(html).toContain('publish-cli.yml · bootstrap-token');
     expect(html).not.toContain('NPM_TOKEN');
   });
 
@@ -191,8 +200,19 @@ describe('distribution readiness', () => {
 
   it('accepts only reusable schema-v1 report snapshots', () => {
     const report = assessDistributionReadiness(fixture());
+    const legacyReport = structuredClone(report);
+    delete (legacyReport.npm as typeof report.npm & { publication?: unknown }).publication;
 
     expect(parseReportSnapshot(JSON.stringify(report))).toEqual(report);
+    expect(parseReportSnapshot(JSON.stringify(legacyReport))).toEqual(report);
+    expect(() =>
+      parseReportSnapshot(
+        JSON.stringify({
+          ...report,
+          npm: { ...report.npm, publication: { ...report.npm.publication, mode: 'unsafe' } },
+        })
+      )
+    ).toThrow('not a Lingua distribution readiness schema v1 report');
     expect(() => parseReportSnapshot('{"schemaVersion":2}')).toThrow(
       'not a Lingua distribution readiness schema v1 report'
     );

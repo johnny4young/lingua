@@ -1,0 +1,346 @@
+name: Publish CLI to npm
+
+run-name: Publish CLI ${{ inputs.release_tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published stable GitHub Release tag (vX.Y.Z)
+        required: true
+        type: string
+      confirm:
+        description: Type @linguacode/cli@X.Y.Z exactly
+        required: true
+        type: string
+
+# A package version has one registry mutation owner. Never cancel a publish or
+# stage operation halfway through; a public-version rerun becomes a smoke-only
+# pass, while a duplicate staged version fails closed until it is approved or
+# rejected in npm.
+concurrency:
+  group: npm-cli-publication
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify-cli:
+    name: Verify immutable CLI artifact
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      PUBLICATION_DIR: /tmp/lingua-cli-publication
+    outputs:
+      package: ${{ steps.artifact.outputs.package }}
+      version: ${{ steps.artifact.outputs.version }}
+      artifact: ${{ steps.artifact.outputs.artifact }}
+      sha256: ${{ steps.artifact.outputs.sha256 }}
+    steps:
+      - name: Validate stable release input
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            echo "::error::release_tag must be a stable vX.Y.Z tag"
+            exit 1
+          }
+
+      - name: Check out immutable release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.release_tag }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Require exact release tag checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_commit="$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          [[ "$head_commit" == "$tag_commit" ]] || {
+            echo "::error::Checkout does not match refs/tags/$RELEASE_TAG"
+            exit 1
+          }
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          package-manager-cache: false
+
+      - name: Require a published immutable stable GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release verify --help >/dev/null || {
+            echo "::error::The runner GitHub CLI lacks immutable release verification support"
+            exit 1
+          }
+          actual_tag="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          is_prerelease="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)"
+          [[ "$actual_tag" == "$RELEASE_TAG" && "$is_draft" == "false" && "$is_prerelease" == "false" ]] || {
+            echo "::error::$RELEASE_TAG must be an already-published stable GitHub Release"
+            exit 1
+          }
+          rm -rf "$PUBLICATION_DIR"
+          mkdir -p "$PUBLICATION_DIR"
+          gh release verify "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --format json \
+            > "$PUBLICATION_DIR/release-attestation.json"
+
+      - name: Download release-owned npm artifact and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          artifact="linguacode-cli-${version}.tgz"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$artifact" --dir "$PUBLICATION_DIR"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt --dir "$PUBLICATION_DIR"
+          gh release verify-asset "$RELEASE_TAG" "$PUBLICATION_DIR/$artifact" \
+            --repo "$GITHUB_REPOSITORY" --format json \
+            > "$PUBLICATION_DIR/artifact-attestation.json"
+          gh release verify-asset "$RELEASE_TAG" "$PUBLICATION_DIR/SHA256SUMS.txt" \
+            --repo "$GITHUB_REPOSITORY" --format json \
+            > "$PUBLICATION_DIR/checksum-attestation.json"
+
+      - name: Verify immutable publication payload
+        id: artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact="$PUBLICATION_DIR/linguacode-cli-${RELEASE_TAG#v}.tgz"
+          node scripts/verify-cli-publication.mjs \
+            --release-tag "$RELEASE_TAG" \
+            --artifact "$artifact" \
+            --checksums "$PUBLICATION_DIR/SHA256SUMS.txt" \
+            --github-output "$GITHUB_OUTPUT" \
+            | tee "$PUBLICATION_DIR/verification.json"
+
+      - name: Require exact operator confirmation
+        shell: bash
+        env:
+          EXPECTED_CONFIRM: ${{ steps.artifact.outputs.package }}@${{ steps.artifact.outputs.version }}
+          PROVIDED_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [[ "$PROVIDED_CONFIRM" == "$EXPECTED_CONFIRM" ]] || {
+            echo "::error::Confirmation mismatch. Expected $EXPECTED_CONFIRM"
+            exit 1
+          }
+
+      - name: Write protected-promotion preflight
+        shell: bash
+        run: |
+          {
+            echo "## CLI npm preflight"
+            echo
+            echo "- Package: \`${{ steps.artifact.outputs.package }}@${{ steps.artifact.outputs.version }}\`"
+            echo "- Release artifact SHA-256: \`${{ steps.artifact.outputs.sha256 }}\`"
+            echo "- Result: immutable release, asset attestations, checksum, contents, manifest, and operator confirmation passed."
+            echo "- Next: review this evidence, then approve the protected npm-production promotion job."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve verified promotion candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-npm-preflight-${{ steps.artifact.outputs.version }}
+          path: |
+            ${{ env.PUBLICATION_DIR }}/${{ steps.artifact.outputs.artifact }}
+            ${{ env.PUBLICATION_DIR }}/SHA256SUMS.txt
+            ${{ env.PUBLICATION_DIR }}/verification.json
+            ${{ env.PUBLICATION_DIR }}/release-attestation.json
+            ${{ env.PUBLICATION_DIR }}/artifact-attestation.json
+            ${{ env.PUBLICATION_DIR }}/checksum-attestation.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-cli:
+    name: Promote verified CLI artifact
+    needs: verify-cli
+    runs-on: ubuntu-latest
+    environment:
+      name: npm-production
+      url: https://www.npmjs.com/package/@linguacode/cli
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      PUBLICATION_DIR: /tmp/lingua-cli-publication
+    steps:
+      - name: Check out immutable release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.release_tag }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Require exact release tag checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_commit="$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          [[ "$head_commit" == "$tag_commit" ]] || {
+            echo "::error::Checkout does not match refs/tags/$RELEASE_TAG"
+            exit 1
+          }
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Pin npm client with trusted and staged publishing support
+        run: npm install --global npm@11.16.0 --ignore-scripts
+
+      - name: Download verified promotion candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cli-npm-preflight-${{ needs.verify-cli.outputs.version }}
+          path: ${{ env.PUBLICATION_DIR }}
+
+      - name: Reverify candidate after protected handoff
+        shell: bash
+        env:
+          EXPECTED_PACKAGE: ${{ needs.verify-cli.outputs.package }}
+          EXPECTED_VERSION: ${{ needs.verify-cli.outputs.version }}
+          EXPECTED_ARTIFACT: ${{ needs.verify-cli.outputs.artifact }}
+          EXPECTED_SHA256: ${{ needs.verify-cli.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          node scripts/verify-cli-publication.mjs \
+            --release-tag "$RELEASE_TAG" \
+            --artifact "$PUBLICATION_DIR/$EXPECTED_ARTIFACT" \
+            --checksums "$PUBLICATION_DIR/SHA256SUMS.txt" \
+            | tee "$PUBLICATION_DIR/promotion-verification.json"
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(
+            readFileSync(`${process.env.PUBLICATION_DIR}/promotion-verification.json`, 'utf8')
+          );
+          const expected = {
+            package: process.env.EXPECTED_PACKAGE,
+            version: process.env.EXPECTED_VERSION,
+            artifact: process.env.EXPECTED_ARTIFACT,
+            sha256: process.env.EXPECTED_SHA256,
+          };
+          for (const [field, value] of Object.entries(expected)) {
+            if (report[field] !== value) {
+              throw new Error(
+                `Protected handoff drift at ${field}: expected ${JSON.stringify(value)}, found ${JSON.stringify(report[field])}.`
+              );
+            }
+          }
+          NODE
+
+      - name: Classify registry mutation
+        id: registry
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ needs.verify-cli.outputs.version }}
+        run: |
+          set -euo pipefail
+          package_url="https://registry.npmjs.org/%40linguacode%2Fcli"
+          package_status="$(curl --silent --show-error --output "$RUNNER_TEMP/npm-package.json" --write-out '%{http_code}' "$package_url")"
+          if [[ "$package_status" == "404" ]]; then
+            state=bootstrap
+          elif [[ "$package_status" == "200" ]]; then
+            version_status="$(curl --silent --show-error --output "$RUNNER_TEMP/npm-version.json" --write-out '%{http_code}' "$package_url/$PACKAGE_VERSION")"
+            if [[ "$version_status" == "200" ]]; then
+              state=published
+            elif [[ "$version_status" == "404" ]]; then
+              state=stage
+            else
+              echo "::error::Unexpected npm version probe status: $version_status"
+              exit 1
+            fi
+          else
+            echo "::error::Unexpected npm package probe status: $package_status"
+            exit 1
+          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$state" > "$PUBLICATION_DIR/registry-state.txt"
+
+      - name: Bootstrap first public package with one-time token
+        if: ${{ steps.registry.outputs.state == 'bootstrap' }}
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "${NODE_AUTH_TOKEN:-}" ]] || {
+            echo "::error::The first publish requires NPM_PUBLISH_TOKEN: a short-lived granular token with read/write access to the @linguacode scope and Bypass 2FA enabled for this bootstrap only"
+            exit 1
+          }
+          npm publish "$PUBLICATION_DIR/${{ needs.verify-cli.outputs.artifact }}" --access public --provenance
+
+      - name: Stage subsequent package through trusted publishing
+        if: ${{ steps.registry.outputs.state == 'stage' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm stage publish "$PUBLICATION_DIR/${{ needs.verify-cli.outputs.artifact }}" --access public --tag latest
+
+      - name: Note idempotent already-published version
+        if: ${{ steps.registry.outputs.state == 'published' }}
+        run: echo '${{ needs.verify-cli.outputs.package }}@${{ needs.verify-cli.outputs.version }} is already public; skipping mutation.'
+
+      - name: Smoke exact public package
+        if: ${{ steps.registry.outputs.state != 'stage' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="$RUNNER_TEMP/lingua-cli-public-smoke"
+          package="${{ needs.verify-cli.outputs.package }}@${{ needs.verify-cli.outputs.version }}"
+          for attempt in 1 2 3 4 5; do
+            rm -rf "$prefix"
+            if npm install --global --prefix "$prefix" --ignore-scripts "$package"; then
+              break
+            fi
+            [[ "$attempt" -lt 5 ]] || exit 1
+            sleep 6
+          done
+          [[ "$("$prefix/bin/lingua" --version)" == "${{ needs.verify-cli.outputs.version }}" ]]
+          printf hello | "$prefix/bin/lingua" utility base64-encode | grep -Fx aGVsbG8=
+
+      - name: Write operator handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="${{ steps.registry.outputs.state }}"
+          {
+            echo "## CLI npm publication"
+            echo
+            echo "- Package: \`${{ needs.verify-cli.outputs.package }}@${{ needs.verify-cli.outputs.version }}\`"
+            echo "- Release artifact SHA-256: \`${{ needs.verify-cli.outputs.sha256 }}\`"
+            echo "- Registry path: \`$state\`"
+            if [[ "$state" == "bootstrap" ]]; then
+              echo "- Next: configure trusted publishing for \`publish-cli.yml\` with only \`npm stage publish\`, disallow package tokens, and remove \`NPM_PUBLISH_TOKEN\`."
+            elif [[ "$state" == "stage" ]]; then
+              echo "- Next: inspect the staged tarball, approve it with 2FA, then rerun this workflow for the public-install smoke. A rerun before approval safely fails instead of replacing the staged version."
+            else
+              echo "- Result: the exact public version passed clean installation and utility smoke."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve non-secret publication evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-npm-publication-${{ needs.verify-cli.outputs.version }}
+          path: |
+            ${{ env.PUBLICATION_DIR }}/verification.json
+            ${{ env.PUBLICATION_DIR }}/promotion-verification.json
+            ${{ env.PUBLICATION_DIR }}/registry-state.txt
+            ${{ env.PUBLICATION_DIR }}/release-attestation.json
+            ${{ env.PUBLICATION_DIR }}/artifact-attestation.json
+            ${{ env.PUBLICATION_DIR }}/checksum-attestation.json
+          if-no-files-found: warn
+          retention-days: 30

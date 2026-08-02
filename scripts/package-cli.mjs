@@ -32,12 +32,22 @@ import { pipeline } from 'node:stream/promises';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { inject } from 'postject';
+import {
+  assertNpmPackContents,
+  buildCliPackageManifest,
+  CLI_PACKAGE_NAME,
+} from './cli-package-contract.mjs';
+
+export {
+  assertNpmPackContents,
+  buildCliPackageManifest,
+  CLI_PACKAGE_NAME,
+} from './cli-package-contract.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 
-export const CLI_PACKAGE_NAME = '@linguacode/cli';
 export const SEA_SENTINEL_FUSE = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 export const SUPPORTED_STANDALONE_TARGETS = Object.freeze(['linux-x64', 'windows-x64']);
 
@@ -71,34 +81,6 @@ export function cliArchiveName(version, target) {
   return `lingua-cli-v${version}-${target}.tar.gz`;
 }
 
-export function buildCliPackageManifest(rootPackage) {
-  return {
-    name: CLI_PACKAGE_NAME,
-    version: rootPackage.version,
-    description: 'Headless offline CLI for Lingua utilities, local runners, and Run Capsules',
-    license: 'SEE LICENSE IN LICENSE',
-    homepage: 'https://linguacode.dev',
-    repository: {
-      type: 'git',
-      url: 'https://github.com/johnny4young/lingua.git',
-    },
-    bugs: {
-      url: 'https://github.com/johnny4young/lingua/issues',
-    },
-    keywords: ['lingua', 'cli', 'code-runner', 'developer-tools', 'offline'],
-    bin: {
-      lingua: 'bin/lingua.cjs',
-    },
-    files: ['bin', 'README.md', 'LICENSE'],
-    engines: {
-      node: '24.x',
-    },
-    publishConfig: {
-      access: 'public',
-    },
-  };
-}
-
 export function buildSeaConfig(main, output) {
   return {
     main,
@@ -110,16 +92,6 @@ export function buildSeaConfig(main, output) {
     // NODE_OPTIONS silently alter the runtime contract.
     execArgvExtension: 'none',
   };
-}
-
-export function assertNpmPackContents(files) {
-  const names = files.map(file => file.path).sort();
-  const expected = ['LICENSE', 'README.md', 'bin/lingua.cjs', 'package.json'];
-  if (JSON.stringify(names) !== JSON.stringify(expected)) {
-    throw new Error(
-      `Unexpected npm package contents. Expected ${expected.join(', ')}; found ${names.join(', ')}`
-    );
-  }
 }
 
 function run(command, args, options = {}) {

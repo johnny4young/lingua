@@ -134,12 +134,12 @@ export function assessDistributionReadiness({
   if (!packageExists) {
     actions.push(
       cliReleaseReady
-        ? `Create or confirm the @linguacode npm organization, publish ${DISTRIBUTION_PACKAGE}@${releaseVersion} from the reviewed release artifact, then configure trusted publishing.`
-        : `Create or confirm the @linguacode npm organization, publish ${DISTRIBUTION_PACKAGE} for the first time from the next release, then configure trusted publishing.`
+        ? `Create or confirm the @linguacode npm organization, enable GitHub release immutability, and protect the npm-production environment. Add one short-lived granular NPM_PUBLISH_TOKEN with read/write access to the @linguacode scope and Bypass 2FA enabled for this bootstrap only, then dispatch publish-cli.yml for ${DISTRIBUTION_PACKAGE}@${releaseVersion}. After bootstrap, configure stage-only trusted publishing and revoke the token.`
+        : `Create or confirm the @linguacode npm organization, enable GitHub release immutability, and protect the npm-production environment. The next release must attach CLI artifacts before publish-cli.yml can bootstrap the package. That one run needs a short-lived granular token with read/write access to the @linguacode scope and Bypass 2FA enabled.`
     );
   } else if (npmVersion !== releaseVersion) {
     actions.push(
-      `Promote ${DISTRIBUTION_PACKAGE}@${releaseVersion}; npm currently serves ${npmVersion}.`
+      `Dispatch publish-cli.yml for ${DISTRIBUTION_PACKAGE}@${releaseVersion}; npm currently serves ${npmVersion}, so the workflow will stage the immutable artifact through OIDC for 2FA approval.`
     );
   }
   if (missingCliAssets.length > 0) {
@@ -190,6 +190,11 @@ export function assessDistributionReadiness({
         : 'not-published',
       latestVersion: npmVersion,
       url: `https://www.npmjs.com/package/${DISTRIBUTION_PACKAGE}`,
+      publication: {
+        status: 'guarded',
+        workflow: 'publish-cli.yml',
+        mode: packageExists ? 'trusted-stage' : 'bootstrap-token',
+      },
     },
     homebrew: {
       repository: TAP_REPOSITORY,
@@ -234,6 +239,7 @@ function statusLabel(status, locale) {
       'not-published': 'Not published',
       'version-drift': 'Version drift',
       'signing-required': 'Signing required',
+      guarded: 'Guarded',
     },
     es: {
       ready: 'Listo',
@@ -243,6 +249,7 @@ function statusLabel(status, locale) {
       'not-published': 'No publicado',
       'version-drift': 'Versión desactualizada',
       'signing-required': 'Requiere firma',
+      guarded: 'Protegido',
     },
   };
   return labels[locale]?.[status] ?? status;
@@ -251,12 +258,12 @@ function statusLabel(status, locale) {
 function localizedAction(action, report, locale) {
   if (locale !== 'es') return action;
   if (action.startsWith('Create or confirm the @linguacode npm organization')) {
-    return action.includes('from the reviewed release artifact')
-      ? `Crea o confirma la organización @linguacode en npm, publica ${DISTRIBUTION_PACKAGE}@${report.release.version} desde el artefacto revisado de la versión y luego configura la publicación confiable.`
-      : `Crea o confirma la organización @linguacode en npm, publica ${DISTRIBUTION_PACKAGE} por primera vez desde la próxima versión y luego configura la publicación confiable.`;
+    return action.includes('Add one short-lived')
+      ? `Crea o confirma la organización @linguacode en npm, activa releases inmutables en GitHub y protege el entorno npm-production. Agrega un NPM_PUBLISH_TOKEN granular y de corta duración, con lectura y escritura sobre el scope @linguacode y Bypass 2FA activado solo para este bootstrap. Luego ejecuta publish-cli.yml para ${DISTRIBUTION_PACKAGE}@${report.release.version}; al terminar, configura la publicación confiable solo para staging y revoca el token.`
+      : 'Crea o confirma la organización @linguacode en npm, activa releases inmutables en GitHub y protege el entorno npm-production. La próxima versión debe adjuntar los artefactos del CLI antes del bootstrap. Esa única ejecución necesita un token granular y de corta duración, con lectura y escritura sobre el scope @linguacode y Bypass 2FA activado.';
   }
-  if (action.startsWith('Promote @linguacode/cli@')) {
-    return `Promueve ${DISTRIBUTION_PACKAGE}@${report.release.version}; npm todavía sirve ${report.npm.latestVersion}.`;
+  if (action.startsWith('Dispatch publish-cli.yml for @linguacode/cli@')) {
+    return `Ejecuta publish-cli.yml para ${DISTRIBUTION_PACKAGE}@${report.release.version}; npm todavía sirve ${report.npm.latestVersion}, así que el workflow preparará el artefacto inmutable mediante OIDC para aprobación con 2FA.`;
   }
   if (action.startsWith('Cut the next release')) {
     return `Publica la próxima versión con release_cli habilitado; ${report.release.tag} es anterior al pipeline de artefactos del CLI.`;
@@ -289,6 +296,11 @@ export function renderMarkdownReport(report, locale = 'en') {
       report.release.tag,
     ],
     ['npm', statusLabel(report.npm.status, locale), report.npm.latestVersion ?? report.npm.package],
+    [
+      es ? 'Flujo npm' : 'npm workflow',
+      statusLabel(report.npm.publication.status, locale),
+      `${report.npm.publication.workflow} · ${report.npm.publication.mode}`,
+    ],
     [
       'Homebrew',
       statusLabel(report.homebrew.status, locale),
@@ -335,6 +347,11 @@ export function renderHtmlReport(report, locale = 'en') {
     ['Desktop', report.release.desktopAssets.status, report.release.tag],
     ['npm', report.npm.status, report.npm.latestVersion ?? report.npm.package],
     [
+      es ? 'Flujo npm' : 'npm workflow',
+      report.npm.publication.status,
+      `${report.npm.publication.workflow} · ${report.npm.publication.mode}`,
+    ],
+    [
       'Homebrew',
       report.homebrew.status,
       report.homebrew.remoteVersion ?? `${report.homebrew.localVersion} local`,
@@ -363,12 +380,17 @@ export function renderHtmlReport(report, locale = 'en') {
     .join('');
   return `<!doctype html><html lang="${locale}"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Lingua distribution</title>
   <style>
-    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui;background:#050908;color:#eef7f5}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 85% 10%,#0b3b3e 0,transparent 34%),#050908;padding:64px}.shell{max-width:1180px;margin:auto;border:1px solid #27423f;border-radius:24px;background:#08100fdd;box-shadow:0 28px 100px #0008;overflow:hidden}.header{padding:36px 42px;border-bottom:1px solid #1b302e;display:flex;justify-content:space-between;gap:32px}.brand{font:700 12px ui-monospace;letter-spacing:.18em;color:#23d3db;text-transform:uppercase}.header h1{font-size:32px;margin:10px 0 8px}.header p{color:#8ba19d;margin:0;max-width:680px;line-height:1.6}.date{font:12px ui-monospace;color:#6f8581;white-space:nowrap}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:28px 42px}.card{min-height:150px;border:1px solid #253b38;border-radius:14px;padding:18px;background:#0b1413;display:flex;flex-direction:column;gap:15px}.card strong{font-size:18px}.card code{margin-top:auto;color:#8fa6a2;font-size:12px;overflow-wrap:anywhere}.eyebrow{font:700 11px ui-monospace;letter-spacing:.12em;color:#7f9692;text-transform:uppercase}.ready strong{color:#3ee690}.ready-to-promote strong{color:#29d5df}.next-release strong,.not-published strong,.signing-required strong,.version-drift strong{color:#f4be55}.blocked strong{color:#ff7575}.actions{padding:0 42px 40px}.actions h2{font-size:16px;margin:4px 0 14px}.actions ol{list-style:none;padding:0;margin:0;display:grid;gap:10px}.actions li{display:flex;align-items:flex-start;gap:12px;border-top:1px solid #192b29;padding-top:12px;color:#a9bbb8;line-height:1.45}.actions li span{display:grid;place-items:center;min-width:24px;height:24px;border:1px solid #28504d;border-radius:50%;font:11px ui-monospace;color:#29d5df}@media(max-width:900px){body{padding:20px}.grid{grid-template-columns:1fr 1fr}.header{display:block}.date{display:block;margin-top:18px}}
+    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui;background:#050908;color:#eef7f5}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 85% 10%,#0b3b3e 0,transparent 34%),#050908;padding:64px}.shell{max-width:1180px;margin:auto;border:1px solid #27423f;border-radius:24px;background:#08100fdd;box-shadow:0 28px 100px #0008;overflow:hidden}.header{padding:36px 42px;border-bottom:1px solid #1b302e;display:flex;justify-content:space-between;gap:32px}.brand{font:700 12px ui-monospace;letter-spacing:.18em;color:#23d3db;text-transform:uppercase}.header h1{font-size:32px;margin:10px 0 8px}.header p{color:#8ba19d;margin:0;max-width:680px;line-height:1.6}.date{font:12px ui-monospace;color:#6f8581;white-space:nowrap}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:28px 42px}.card{min-height:150px;border:1px solid #253b38;border-radius:14px;padding:18px;background:#0b1413;display:flex;flex-direction:column;gap:15px}.card strong{font-size:18px}.card code{margin-top:auto;color:#8fa6a2;font-size:12px;overflow-wrap:anywhere}.eyebrow{font:700 11px ui-monospace;letter-spacing:.12em;color:#7f9692;text-transform:uppercase}.ready strong{color:#3ee690}.ready-to-promote strong,.guarded strong{color:#29d5df}.next-release strong,.not-published strong,.signing-required strong,.version-drift strong{color:#f4be55}.blocked strong{color:#ff7575}.actions{padding:0 42px 40px}.actions h2{font-size:16px;margin:4px 0 14px}.actions ol{list-style:none;padding:0;margin:0;display:grid;gap:10px}.actions li{display:flex;align-items:flex-start;gap:12px;border-top:1px solid #192b29;padding-top:12px;color:#a9bbb8;line-height:1.45}.actions li span{display:grid;place-items:center;min-width:24px;height:24px;border:1px solid #28504d;border-radius:50%;font:11px ui-monospace;color:#29d5df}@media(max-width:900px){body{padding:20px}.grid{grid-template-columns:1fr 1fr}.header{display:block}.date{display:block;margin-top:18px}}
   </style><body><main class="shell"><header class="header"><div><div class="brand">Lingua · ${es ? 'distribución' : 'distribution'}</div><h1>${es ? 'Estado operativo' : 'Operational readiness'}</h1><p>${es ? 'Evidencia pública y local, sin publicar ni modificar registros.' : 'Public and local evidence without publishing or mutating registries.'}</p></div><span class="date">${escapeHtml(report.generatedAt)}</span></header><section class="grid">${cardHtml}</section><section class="actions"><h2>${es ? 'Próximas acciones' : 'Next actions'}</h2><ol>${actions}</ol></section></main></body></html>`;
 }
 
 export function parseReportSnapshot(source) {
   const report = JSON.parse(source);
+  const publication = report?.npm?.publication ?? {
+    status: 'guarded',
+    workflow: 'publish-cli.yml',
+    mode: report?.npm?.status === 'not-published' ? 'bootstrap-token' : 'trusted-stage',
+  };
   if (
     report?.schemaVersion !== 1 ||
     typeof report?.release?.tag !== 'string' ||
@@ -378,6 +400,9 @@ export function parseReportSnapshot(source) {
     !Array.isArray(report?.release?.cliAssets?.missing) ||
     !Array.isArray(report?.release?.cliAssets?.missingChecksums) ||
     typeof report?.npm?.status !== 'string' ||
+    publication.status !== 'guarded' ||
+    publication.workflow !== 'publish-cli.yml' ||
+    !['bootstrap-token', 'trusted-stage'].includes(publication.mode) ||
     typeof report?.homebrew?.status !== 'string' ||
     typeof report?.winget?.status !== 'string' ||
     !Array.isArray(report?.actions) ||
@@ -385,7 +410,13 @@ export function parseReportSnapshot(source) {
   ) {
     throw new Error('The input file is not a Lingua distribution readiness schema v1 report.');
   }
-  return report;
+  return {
+    ...report,
+    npm: {
+      ...report.npm,
+      publication,
+    },
+  };
 }
 
 async function fetchPublic(url, { text = false } = {}) {
