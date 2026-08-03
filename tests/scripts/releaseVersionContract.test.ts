@@ -8,7 +8,6 @@ import {
   buildCliPackageManifest,
   cliNpmArtifactName,
 } from '../../scripts/cli-package-contract.mjs';
-import { compareStableVersions } from '../../website/src/lib/releaseSnapshot.ts';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -35,6 +34,21 @@ function firstReleaseVersion(): string | null {
 
 function publicVersion(): string {
   return releaseSnapshot.release.tag.replace(/^v/u, '');
+}
+
+function compareStableVersions(left: string, right: string): number {
+  const parse = (version: string): readonly bigint[] => {
+    const match = version.match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u);
+    if (!match) throw new Error(`Expected a stable X.Y.Z version: ${version}`);
+    return match.slice(1).map(part => BigInt(part));
+  };
+  const leftParts = parse(left);
+  const rightParts = parse(right);
+  for (let index = 0; index < leftParts.length; index += 1) {
+    const comparison = leftParts[index]! < rightParts[index]! ? -1 : 1;
+    if (leftParts[index] !== rightParts[index]) return comparison;
+  }
+  return 0;
 }
 
 describe('release candidate version contract', () => {
