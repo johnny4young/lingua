@@ -10,6 +10,7 @@ import {
 const DESKTOP_SMOKE_FLAG = '--lingua-desktop-smoke';
 const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
 const SMOKE_LAUNCHED_AT_ENV = 'LINGUA_SMOKE_LAUNCHED_AT_MS';
+const SMOKE_LICENSE_TOKEN_ENV = 'LINGUA_DESKTOP_SMOKE_LICENSE_TOKEN';
 
 /**
  * Desktop smoke IPC is opt-in only. The handlers are registered in every
@@ -90,6 +91,9 @@ export function registerDesktopSmokeHandlers(): void {
       artifactDir: getArtifactDir(),
       offline: isOfflineSmokeRequested(),
       packagedSubset: isPackagedSubsetRequested(),
+      ...(isDesktopSmokeEnabled() && process.env[SMOKE_LICENSE_TOKEN_ENV]
+        ? { licenseToken: process.env[SMOKE_LICENSE_TOKEN_ENV] }
+        : {}),
       ...(launchedAtMs === null ? {} : { launchedAtMs }),
     };
   });

@@ -12,6 +12,8 @@ import {
   selectPackagedMacArtifact,
 } from './lib/packagedMacArtifact.mjs';
 import { assertPackagedMacProjectTerminalRuntime } from './lib/packagedProjectTerminal.mjs';
+import { inspectDesktopSmokeResult } from './lib/desktopSmokeSummary.mjs';
+import { mintDevLicense } from './dev-license-shared.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -298,6 +300,16 @@ async function main() {
       }
     );
   } else {
+    // The full dev-server matrix includes paid Go/Rust language paths. Mint a
+    // throwaway signed token instead of adding a test-only entitlement bypass;
+    // main verifies it through the same Ed25519 path as a real desktop token.
+    // The private key stays in this launcher process and the token is persisted
+    // only under the disposable smoke user-data directory.
+    const smokeLicense = await mintDevLicense({
+      tier: 'pro',
+      days: 1,
+      issuedTo: 'desktop-smoke@local',
+    });
     const launchedAtMs = Date.now();
     child = spawn(
       process.execPath,
@@ -321,6 +333,8 @@ async function main() {
           LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
           LINGUA_SMOKE_USER_DATA_DIR: smokeUserDataDir,
           LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
+          VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK: smokeLicense.publicKeyJwk,
+          LINGUA_DESKTOP_SMOKE_LICENSE_TOKEN: smokeLicense.token,
           // Sentinel secret seeded into Electron's process.env.
           // The go-env-isolation / rust-env-isolation smoke cases run a
           // user-toolchain subprocess that prints the value of this
@@ -350,18 +364,24 @@ async function main() {
   });
   clearTimeout(timeoutId);
 
+  let summaryOk = false;
   try {
     const summary = JSON.parse(await readFile(summaryPath, 'utf8'));
-    const failedCases = summary.cases.filter(item => !item.ok);
+    const progress = await readJsonIfPresent(progressPath);
+    const result = inspectDesktopSmokeResult(summary, progress);
 
     console.log(`[desktop-smoke] Artifacts: ${artifactDir}`);
-    console.log(`[desktop-smoke] Cases: ${summary.cases.length}, failures: ${failedCases.length}`);
+    console.log(`[desktop-smoke] Cases: ${result.cases.length}, failures: ${result.failedCases.length}`);
 
-    if (failedCases.length > 0) {
-      for (const failedCase of failedCases) {
+    if (result.failedCases.length > 0) {
+      for (const failedCase of result.failedCases) {
         console.error(`[desktop-smoke] ${failedCase.language} failed: ${failedCase.message}`);
       }
     }
+    for (const problem of result.problems) {
+      console.error(`[desktop-smoke] ${problem}`);
+    }
+    summaryOk = result.ok;
   } catch (error) {
     const progress = await readJsonIfPresent(progressPath);
     console.error(
@@ -375,7 +395,7 @@ async function main() {
     process.exit(1);
   }
 
-  process.exit(exitCode);
+  process.exit(exitCode === 0 && summaryOk ? 0 : 1);
 }
 
 await main();

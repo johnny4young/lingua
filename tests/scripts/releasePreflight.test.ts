@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PREFLIGHT_GATE_SCRIPTS,
   CI_ONLY_GATE_SCRIPTS,
+  PREFLIGHT_GATES,
 } from '../../scripts/lib/releasePreflightGates.mjs';
 import { resolveTag } from '../../scripts/release-preflight.mjs';
 
@@ -55,6 +56,17 @@ describe('release preflight ↔ workflow parity', () => {
     // catchable locally — that is the entire reason this preflight exists.
     expect(PREFLIGHT_GATE_SCRIPTS).toContain('check:license-rotation');
     expect(PREFLIGHT_GATE_SCRIPTS).toContain('check:release-infra');
+  });
+
+  it('builds the production web surface before measuring its performance budget', () => {
+    const buildIndex = PREFLIGHT_GATES.findIndex((gate) => gate.id === 'build:web');
+    const performanceIndex = PREFLIGHT_GATES.findIndex(
+      (gate) => gate.id === 'check:performance'
+    );
+
+    expect(buildIndex).toBeGreaterThanOrEqual(0);
+    expect(performanceIndex).toBeGreaterThan(buildIndex);
+    expect(PREFLIGHT_GATES[performanceIndex]?.heavy).toBe(true);
   });
 
   it('does not classify the same script as both preflight and CI-only', () => {

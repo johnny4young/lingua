@@ -9,6 +9,7 @@ import { extensionForLanguage } from '../utils/languageMeta';
 import { desktopSmokeApi, waitForDesktopSmokeEditorReady } from '../utils/desktopSmoke';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 import { SEEDED_SCRATCHPAD_VERSION } from '../onboarding/seedScratchpadMetadata';
+import { useLicenseStore } from '../stores/licenseStore';
 
 /**
  * internal timeout-shaped smoke cases set `expectFailure` so the
@@ -355,6 +356,17 @@ export async function runDesktopSmoke(): Promise<void> {
       status: 'started',
       completedLanguages: [],
     } satisfies SmokeProgressArtifact);
+
+    if (!config.packagedSubset) {
+      if (!config.licenseToken) {
+        throw new Error('Desktop smoke is missing its throwaway signed license token.');
+      }
+      const status = await useLicenseStore.getState().setLicenseToken(config.licenseToken);
+      if (status.kind !== 'active' && status.kind !== 'grace') {
+        const detail = 'reason' in status ? status.reason : status.kind;
+        throw new Error(`Desktop smoke license activation failed: ${detail}.`);
+      }
+    }
 
     // `loopProtection` was removed; the runtime always applies the guard.
     // Parent-timeout smoke cases can still override `maxLoopIterations` below.
