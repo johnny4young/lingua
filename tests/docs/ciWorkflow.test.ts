@@ -28,6 +28,9 @@ describe('CI workflow', () => {
     expect(workflow).toMatch(
       /windows-path-hardening:[\s\S]*?tests\/main\/dependencies\.install\.windows\.test\.ts/u
     );
+    expect(workflow).toMatch(
+      /windows-path-hardening:[\s\S]*?Windows standalone CLI packaging smoke[\s\S]*?pnpm run package:cli -- --binary-only --expect-target windows-x64/u
+    );
   });
 
   it('runs the performance budget check after the web build report', () => {
