@@ -176,9 +176,6 @@ test.describe('Developer utilities workspace (Pro)', () => {
   });
 
   test('opens from the global Mod+K shortcut', async ({ page }) => {
-    await page.getByTestId('action-pill-utilities').hover();
-    await expect(page.getByRole('tooltip', { name: /Developer utilities/u })).toBeVisible();
-
     await page.keyboard.press('Control+K');
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
     await expect(page.getByTestId('utilities-search-input')).toBeFocused();

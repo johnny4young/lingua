@@ -25,9 +25,28 @@ describe('pushUpsellNotice', () => {
     expect(useUIStore.getState().statusNotice).toMatchObject({
       tone: 'info',
       messageKey: 'upsell.freeCeilingReached',
+      priority: 'high',
       values: { feature: 'additional open tabs' },
       detail: 'Visit linguacode.dev for pricing and downloads.',
       actions: [expect.objectContaining({ labelKey: 'upsell.viewPro' })],
+    });
+  });
+
+  it('replaces an onboarding toast after a user hits a paid boundary', () => {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'success',
+      messageKey: 'onboarding.firstRun.message',
+      priority: 'high',
+    });
+
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: 'additional open tabs',
+    });
+
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      messageKey: 'upsell.freeCeilingReached',
+      priority: 'high',
     });
   });
 

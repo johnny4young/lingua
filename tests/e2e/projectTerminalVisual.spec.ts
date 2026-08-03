@@ -25,7 +25,7 @@ test.describe('project terminal bilingual evidence', () => {
       page.on('pageerror', error => consoleErrors.push(error.message));
 
       await page.goto(`/?e2e=project-terminal&locale=${locale}`);
-      await expect(page.getByRole('heading', { name: title })).toBeVisible();
+      await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
       await expect(page.getByText(/not a sandbox|no es una caja de arena/i)).toBeVisible();
 
       const trustPath = path.join(screenshotDir, `project-terminal-trust-${locale}.png`);
