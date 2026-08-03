@@ -10,6 +10,7 @@ import { CapsuleWorkspaceExportDialog } from '../../../src/renderer/components/C
 import { useEditorStore, createDefaultTab } from '../../../src/renderer/stores/editorStore';
 import { parseCapsuleWorkspace } from '../../../src/shared/capsuleWorkspace';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
+import { FAKE_GITHUB_PAT_SOURCE } from '../../shared/secret.fixtures';
 
 const writeText = vi.fn<(_: string) => Promise<void>>();
 
@@ -91,7 +92,7 @@ describe('CapsuleWorkspaceExportDialog', () => {
   });
 
   it('surfaces possible secrets while preserving the exact preview', () => {
-    const secret = 'const token = "ghp_123456789012345678901234567890123456";';
+    const secret = FAKE_GITHUB_PAT_SOURCE;
     useEditorStore.setState(state => ({
       tabs: state.tabs.map(tab => (tab.id === 'helper' ? { ...tab, content: secret } : tab)),
     }));

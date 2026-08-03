@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { collectCapsuleWorkspaceCandidates } from '../../../src/renderer/utils/capsuleWorkspaceCandidates';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
+import { FAKE_GITHUB_PAT_SOURCE } from '../../shared/secret.fixtures';
 import type { FileTab } from '../../../src/renderer/types';
 
 function tab(overrides: Partial<FileTab> = {}): FileTab {
@@ -48,7 +49,7 @@ describe('collectCapsuleWorkspaceCandidates', () => {
   });
 
   it('flags obvious secrets without changing source content', () => {
-    const content = 'const token = "ghp_123456789012345678901234567890123456";';
+    const content = FAKE_GITHUB_PAT_SOURCE;
     const [candidate] = collectCapsuleWorkspaceCandidates([tab({ content })], FIXTURE_MINIMAL_JS);
     expect(candidate?.obviousSecretsDetected).toBeGreaterThan(0);
     expect(candidate?.content).toBe(content);

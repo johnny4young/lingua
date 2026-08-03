@@ -8,6 +8,7 @@ import {
   parseCapsuleWorkspace,
 } from '../../src/shared/capsuleWorkspace';
 import { FIXTURE_FULL_TS } from './runCapsule.fixtures';
+import { FAKE_GITHUB_PAT_SOURCE } from './secret.fixtures';
 
 describe('Capsule Workspace artifact', () => {
   it('builds and parses a deterministic bounded multi-file companion', async () => {
@@ -136,7 +137,7 @@ describe('Capsule Workspace artifact', () => {
       {
         path: 'config.ts',
         language: 'typescript',
-        content: 'const token = "ghp_123456789012345678901234567890123456";',
+        content: FAKE_GITHUB_PAT_SOURCE,
       },
     ]);
     expect(built.ok).toBe(true);

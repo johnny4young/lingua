@@ -12,6 +12,7 @@ import {
   redactSecretsFromCode,
   MAX_EXPLAIN_CODE_CHARS,
 } from '../../src/shared/ai/explainError';
+import { FAKE_GITHUB_PAT } from './secret.fixtures';
 
 describe('redactSecretsFromCode', () => {
   it('masks a string assigned to a secret-looking identifier', () => {
@@ -34,10 +35,10 @@ describe('redactSecretsFromCode', () => {
 
   it('masks token-shaped values anywhere, regardless of name', () => {
     const { code, redactedCount } = redactSecretsFromCode(
-      'client.use("sk-ant-abcdefghijklmnop1234")\n// ghp_ABCDEFGHIJKLMNOPQRSTUVWX'
+      `client.use("sk-ant-abcdefghijklmnop1234")\n// ${FAKE_GITHUB_PAT}`
     );
     expect(code).not.toContain('sk-ant-abcdefghijklmnop1234');
-    expect(code).not.toContain('ghp_ABCDEFGHIJKLMNOPQRSTUVWX');
+    expect(code).not.toContain(FAKE_GITHUB_PAT);
     expect(redactedCount).toBeGreaterThanOrEqual(2);
   });
 
