@@ -260,7 +260,11 @@ The Electron-only desktop smoke harness is activation-scoped as well:
   bridge-enabled effect in the workspace startup graph.
 - [`hooks/desktopSmokeRunner.ts`](hooks/desktopSmokeRunner.ts) owns the smoke
   cases, artifact generation, memory snapshots, and execution loop. It loads
-  only after Electron injects the desktop-smoke bridge.
+  only after Electron injects the desktop-smoke bridge. Before capturing
+  evidence it normalizes the throwaway smoke profile to the privacy-preserving
+  declined telemetry state, marks onboarding stages complete, clears transient
+  notices, and restores the viewport origin so screenshots expose the runtime
+  output rather than first-run chrome.
 - A runner chunk or startup failure reports `finish(false)` to the smoke
   controller instead of leaving CI waiting for its outer timeout.
 

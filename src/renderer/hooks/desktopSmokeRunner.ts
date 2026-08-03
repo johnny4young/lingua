@@ -8,6 +8,7 @@ import type { FileTab } from '../types/editor';
 import { extensionForLanguage } from '../utils/languageMeta';
 import { desktopSmokeApi, waitForDesktopSmokeEditorReady } from '../utils/desktopSmoke';
 import type { RuntimeMode } from '../../shared/runtimeModes';
+import { SEEDED_SCRATCHPAD_VERSION } from '../onboarding/seedScratchpadMetadata';
 
 /**
  * internal timeout-shaped smoke cases set `expectFailure` so the
@@ -184,6 +185,42 @@ function waitForUi(ms = 220): Promise<void> {
   });
 }
 
+/**
+ * Normalize the throwaway smoke profile so release evidence shows the runtime
+ * result rather than first-run chrome. Declining telemetry is deliberately the
+ * privacy-preserving choice; the harness must never grant consent on a user's
+ * behalf, even though its user-data directory is isolated and deleted per run.
+ */
+export function prepareDesktopSmokeWorkspace(): void {
+  useSettingsStore.getState().setTelemetryConsent('declined');
+  useSettingsStore.setState({
+    layoutPreset: 'horizontal',
+    nativeExecutionAcknowledged: true,
+    hasCompletedOnboardingWelcome: true,
+    hasCompletedOnboardingFirstRun: true,
+    hasCompletedOnboardingFirstSnippet: true,
+    onboardingWelcomeSeedVersion: SEEDED_SCRATCHPAD_VERSION,
+  });
+  useUIStore.getState().dismissStatusNotice('auto');
+  useUIStore.setState({
+    sidebarVisible: false,
+    consoleVisible: true,
+  });
+}
+
+async function prepareDesktopSmokeCapture(): Promise<void> {
+  useUIStore.getState().dismissStatusNotice('auto');
+  window.scrollTo(0, 0);
+  await waitForUi();
+
+  const obstruction = document.querySelector(
+    '[data-testid="first-run-consent-modal"], [data-testid="status-notice-banner"]'
+  );
+  if (obstruction) {
+    throw new Error('Desktop smoke evidence is obstructed by transient application chrome.');
+  }
+}
+
 function createSmokeTab(
   language: BuiltInLanguage,
   fileName: string,
@@ -319,18 +356,9 @@ export async function runDesktopSmoke(): Promise<void> {
       completedLanguages: [],
     } satisfies SmokeProgressArtifact);
 
-    useSettingsStore.setState({
-      layoutPreset: 'horizontal',
-      // implementation — `loopProtection` was removed; the runtime always
-      // applies the guard. Parent-timeout smoke cases can override
-      // `maxLoopIterations` per case so they still exercise the
-      // runner deadline instead of the loop guard.
-      nativeExecutionAcknowledged: true,
-    });
-    useUIStore.setState({
-      sidebarVisible: false,
-      consoleVisible: true,
-    });
+    // `loopProtection` was removed; the runtime always applies the guard.
+    // Parent-timeout smoke cases can still override `maxLoopIterations` below.
+    prepareDesktopSmokeWorkspace();
 
     memorySnapshots.push(await captureMemorySnapshot('before-cases'));
 
@@ -380,7 +408,7 @@ export async function runDesktopSmoke(): Promise<void> {
         `${smokeCase.caseId} smoke execution`
       );
       const executionWallTimeMs = Math.round(performance.now() - executionStartedAt);
-      await waitForUi();
+      await prepareDesktopSmokeCapture();
 
       const screenshotPath = await withTimeout(
         api.capture(`desktop-smoke-${smokeCase.caseId}`),
