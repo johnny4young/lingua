@@ -319,6 +319,7 @@ async function main() {
         '--',
         '--lingua-desktop-smoke',
         `--lingua-smoke-artifact-dir=${artifactDir}`,
+        `--lingua-smoke-license-token=${smokeLicense.token}`,
       ],
       {
         cwd: repoRoot,
@@ -334,7 +335,6 @@ async function main() {
           LINGUA_SMOKE_USER_DATA_DIR: smokeUserDataDir,
           LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
           VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK: smokeLicense.publicKeyJwk,
-          LINGUA_DESKTOP_SMOKE_LICENSE_TOKEN: smokeLicense.token,
           // Sentinel secret seeded into Electron's process.env.
           // The go-env-isolation / rust-env-isolation smoke cases run a
           // user-toolchain subprocess that prints the value of this

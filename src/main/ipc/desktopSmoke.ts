@@ -9,6 +9,7 @@ import {
 
 const DESKTOP_SMOKE_FLAG = '--lingua-desktop-smoke';
 const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
+const SMOKE_LICENSE_TOKEN_PREFIX = '--lingua-smoke-license-token=';
 const SMOKE_LAUNCHED_AT_ENV = 'LINGUA_SMOKE_LAUNCHED_AT_MS';
 const SMOKE_LICENSE_TOKEN_ENV = 'LINGUA_DESKTOP_SMOKE_LICENSE_TOKEN';
 
@@ -56,6 +57,16 @@ function getLaunchedAtMs(): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function getSmokeLicenseToken(): string | null {
+  if (!isDesktopSmokeEnabled()) return null;
+
+  const argvToken = process.argv
+    .find((arg) => arg.startsWith(SMOKE_LICENSE_TOKEN_PREFIX))
+    ?.slice(SMOKE_LICENSE_TOKEN_PREFIX.length);
+
+  return argvToken ?? process.env[SMOKE_LICENSE_TOKEN_ENV] ?? null;
+}
+
 /**
  * Artifact names originate in renderer-side smoke case labels. Keep filenames
  * deterministic and path-free before joining them with the harness-provided
@@ -85,15 +96,14 @@ export function registerDesktopSmokeHandlers(): void {
   // use `enabled` to decide whether to continue the scripted run.
   typedHandle('desktop-smoke:get-config', async () => {
     const launchedAtMs = getLaunchedAtMs();
+    const licenseToken = getSmokeLicenseToken();
 
     return {
       enabled: isDesktopSmokeEnabled(),
       artifactDir: getArtifactDir(),
       offline: isOfflineSmokeRequested(),
       packagedSubset: isPackagedSubsetRequested(),
-      ...(isDesktopSmokeEnabled() && process.env[SMOKE_LICENSE_TOKEN_ENV]
-        ? { licenseToken: process.env[SMOKE_LICENSE_TOKEN_ENV] }
-        : {}),
+      ...(licenseToken ? { licenseToken } : {}),
       ...(launchedAtMs === null ? {} : { launchedAtMs }),
     };
   });

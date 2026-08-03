@@ -203,6 +203,24 @@ describe('desktop smoke IPC handlers', () => {
     expect(await getConfig?.()).not.toHaveProperty('licenseToken');
   });
 
+  it('accepts the throwaway license token through argv when LaunchServices drops env', async () => {
+    process.env.LINGUA_DESKTOP_SMOKE_LICENSE_TOKEN = 'stale-env-token';
+    process.argv = [
+      ...originalArgv,
+      '--lingua-desktop-smoke',
+      '--lingua-smoke-license-token=signed-smoke-token-from-argv',
+    ];
+
+    const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+    registerDesktopSmokeHandlers();
+
+    const getConfig = handlers.get('desktop-smoke:get-config');
+    expect(await getConfig?.()).toMatchObject({
+      enabled: true,
+      licenseToken: 'signed-smoke-token-from-argv',
+    });
+  });
+
   it('returns memory metrics when smoke mode is enabled', async () => {
     const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
     registerDesktopSmokeHandlers();
